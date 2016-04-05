@@ -18,9 +18,11 @@ import com.google.common.util.concurrent.AbstractFuture;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.concurrent.ThreadPoolExecutorMBean;
 import io.airlift.log.Logger;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.prestosql.ExceededCpuLimitException;
 import io.prestosql.Session;
+import io.prestosql.SystemSessionProperties;
 import io.prestosql.event.QueryMonitor;
 import io.prestosql.execution.QueryExecution.QueryExecutionFactory;
 import io.prestosql.execution.QueryExecution.QueryOutputInfo;
@@ -75,6 +77,7 @@ import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.prestosql.SystemSessionProperties.getQueryMaxCpuTime;
 import static io.prestosql.execution.QueryState.RUNNING;
 import static io.prestosql.execution.QueryStateMachine.QUERY_STATE_LOG;
+import static io.prestosql.spi.StandardErrorCode.EXCEEDED_DATA_SIZE_LIMIT;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.StandardErrorCode.QUERY_TEXT_TOO_LARGE;
 import static io.prestosql.util.Failures.toFailure;
@@ -199,6 +202,13 @@ public class SqlQueryManager
             }
             catch (Throwable e) {
                 log.error(e, "Error enforcing query CPU time limits");
+            }
+
+            try {
+                enforceQueryMaxDataSizeLimits();
+            }
+            catch (Throwable e) {
+                log.warn(e, "Error enforcing query raw data size limits");
             }
         }, 1, 1, TimeUnit.SECONDS);
     }
@@ -515,6 +525,23 @@ public class SqlQueryManager
             Duration limit = Ordering.natural().min(maxQueryCpuTime, sessionLimit);
             if (cpuTime.compareTo(limit) > 0) {
                 query.fail(new ExceededCpuLimitException(limit));
+            }
+        }
+    }
+
+    /**
+     * Enforce max raw data size at the query level
+     */
+    public void enforceQueryMaxDataSizeLimits()
+    {
+        for (QueryExecution query : queryTracker.getAllQueries()) {
+            if (query.getState().isDone()) {
+                continue;
+            }
+            DataSize queryMaxDataSize = SystemSessionProperties.getQueryMaxDataSize(query.getSession());
+            DataSize rawInputDataSize = query.getQueryInfo().getQueryStats().getRawInputDataSize();
+            if (queryMaxDataSize.compareTo(rawInputDataSize) < 0) {
+                query.fail(new PrestoException(EXCEEDED_DATA_SIZE_LIMIT, "Query exceeded maximum data size limit of " + queryMaxDataSize));
             }
         }
     }
