@@ -67,6 +67,7 @@ public final class SystemSessionProperties
     public static final String QUERY_MAX_RUN_TIME = "query_max_run_time";
     public static final String RESOURCE_OVERCOMMIT = "resource_overcommit";
     public static final String QUERY_MAX_CPU_TIME = "query_max_cpu_time";
+    public static final String QUERY_MAX_INPUT_DATA_SIZE = "query_max_input_data_size";
     public static final String QUERY_MAX_STAGE_COUNT = "query_max_stage_count";
     public static final String REDISTRIBUTE_WRITES = "redistribute_writes";
     public static final String USE_PREFERRED_WRITE_PARTITIONING = "use_preferred_write_partitioning";
@@ -255,6 +256,11 @@ public final class SystemSessionProperties
                         "Maximum CPU time of a query",
                         queryManagerConfig.getQueryMaxCpuTime(),
                         false),
+                dataSizeProperty(
+                        QUERY_MAX_INPUT_DATA_SIZE,
+                        "Maximum raw data size of a query",
+                        queryManagerConfig.getQueryMaxInputDataSize(),
+                        true),
                 dataSizeProperty(
                         QUERY_MAX_MEMORY,
                         "Maximum amount of distributed memory a query can use",
@@ -675,6 +681,11 @@ public final class SystemSessionProperties
     public static DataSize getQueryMaxTotalMemory(Session session)
     {
         return session.getSystemProperty(QUERY_MAX_TOTAL_MEMORY, DataSize.class);
+    }
+
+    public static Optional<DataSize> getQueryMaxDataSize(Session session)
+    {
+        return Optional.ofNullable(session.getSystemProperty(QUERY_MAX_INPUT_DATA_SIZE, DataSize.class));
     }
 
     public static Duration getQueryMaxRunTime(Session session)
