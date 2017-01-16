@@ -83,8 +83,15 @@ The configuration files must exist on all Presto nodes. If you are
 referencing existing Hadoop config files, make sure to copy them to
 any Presto nodes that are not running Hadoop.
 
-HDFS Username
-^^^^^^^^^^^^^
+HDFS Username and Permissions
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Before running any ``CREATE TABLE`` or ``CREATE TABLE AS`` statements
+for Hive tables in Presto, you need to check that the user Presto is
+using to access HDFS has access to the Hive warehouse directory. The Hive
+warehouse directory is specified by the configuration variable
+``hive.metastore.warehouse.dir`` in ``hive-site.xml``, and the default
+value is ``/user/hive/warehouse``.
 
 When not using Kerberos with HDFS, Presto will access HDFS using the
 OS user of the Presto process. For example, if Presto is running as
@@ -96,6 +103,13 @@ appropriate username:
 .. code-block:: none
 
     -DHADOOP_USER_NAME=hdfs_user
+
+The ``hive`` user generally works, since Hive is often started with
+the ``hive`` user and this user has access to the Hive warehouse.
+
+Whenever you change the user Presto is using to access HDFS, remove
+``/tmp/presto-*`` on HDFS, as the new user may not have access to
+the existing temporary directories.
 
 Accessing Hadoop clusters protected with Kerberos authentication
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
