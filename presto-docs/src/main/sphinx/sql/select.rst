@@ -751,6 +751,30 @@ so a cross join between the two tables produces 125 rows::
     ...
     (125 rows)
 
+LATERAL
+^^^^^^^
+
+Subqueries appearing in the ``FROM`` clause can be preceded by the keyword ``LATERAL``.
+This allows them to reference columns provided by preceding ``FROM`` items.
+
+A ``LATERAL`` join can appear at the top level in the ``FROM`` list, or anywhere
+within a parenthesized join tree. In the latter case, it can also refer to any items
+that are on the left-hand side of a ``JOIN`` for which it is on the right-hand side.
+
+When a ``FROM`` item contains ``LATERAL`` cross-references, evaluation proceeds as follows:
+for each row of the ``FROM`` item providing the cross-referenced columns,
+the ``LATERAL`` item is evaluated using that row set's values of the columns.
+The resulting rows are joined as usual with the rows they were computed from.
+This is repeated for set of rows from the column source tables.
+
+``LATERAL`` is primarily useful when the cross-referenced column is necessary for
+computing the rows to be joined::
+
+    SELECT name, x, y
+    FROM nation,
+    CROSS JOIN LATERAL (SELECT name || ' :-' AS x),
+    CROSS JOIN LATERAL (SELECT x || ')' AS y)
+
 Qualifying Column Names
 ^^^^^^^^^^^^^^^^^^^^^^^
 
