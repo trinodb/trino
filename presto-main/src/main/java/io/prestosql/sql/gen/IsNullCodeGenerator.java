@@ -22,6 +22,7 @@ import io.prestosql.spi.type.Type;
 import io.prestosql.sql.relational.RowExpression;
 
 import java.util.List;
+import java.util.Optional;
 
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantFalse;
 import static io.airlift.bytecode.instruction.Constant.loadBoolean;
@@ -40,7 +41,7 @@ public class IsNullCodeGenerator
             return loadBoolean(true);
         }
 
-        BytecodeNode value = generatorContext.generate(argument);
+        BytecodeNode value = generatorContext.generate(argument, Optional.empty());
 
         // evaluate the expression, pop the produced value, and load the null flag
         Variable wasNull = generatorContext.wasNull();

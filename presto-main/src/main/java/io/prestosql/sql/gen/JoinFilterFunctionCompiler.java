@@ -50,6 +50,7 @@ import java.lang.reflect.Constructor;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -198,7 +199,7 @@ public class JoinFilterFunctionCompiler
                 metadata.getFunctionRegistry(),
                 compiledLambdaMap);
 
-        BytecodeNode visitorBody = compiler.compile(filter, scope);
+        BytecodeNode visitorBody = compiler.compile(filter, scope, Optional.empty());
 
         Variable result = scope.declareVariable(boolean.class, "result");
         body.append(visitorBody)
