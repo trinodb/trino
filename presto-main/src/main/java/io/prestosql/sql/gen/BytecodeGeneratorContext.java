@@ -19,6 +19,7 @@ import io.airlift.bytecode.Scope;
 import io.airlift.bytecode.Variable;
 import io.prestosql.metadata.FunctionRegistry;
 import io.prestosql.operator.scalar.ScalarFunctionImplementation;
+import io.prestosql.sql.gen.BytecodeUtils.OutputBlockVariableAndType;
 import io.prestosql.sql.relational.RowExpression;
 
 import java.util.List;
@@ -82,17 +83,26 @@ public class BytecodeGeneratorContext
         return registry;
     }
 
+    public BytecodeNode generateCall(String name, ScalarFunctionImplementation function, List<BytecodeNode> arguments)
+    {
+        return generateCall(name, function, arguments, Optional.empty());
+    }
+
     /**
      * Generates a function call with null handling, automatic binding of session parameter, etc.
      */
-    public BytecodeNode generateCall(String name, ScalarFunctionImplementation function, List<BytecodeNode> arguments)
+    public BytecodeNode generateCall(
+            String name,
+            ScalarFunctionImplementation function,
+            List<BytecodeNode> arguments,
+            Optional<OutputBlockVariableAndType> outputBlockVariableAndType)
     {
         Optional<BytecodeNode> instance = Optional.empty();
         if (function.getInstanceFactory().isPresent()) {
             FieldDefinition field = cachedInstanceBinder.getCachedInstance(function.getInstanceFactory().get());
             instance = Optional.of(scope.getThis().getField(field));
         }
-        return generateInvocation(scope, name, function, instance, arguments, callSiteBinder);
+        return generateInvocation(scope, name, function, instance, arguments, callSiteBinder, outputBlockVariableAndType);
     }
 
     public Variable wasNull()

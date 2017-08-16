@@ -57,7 +57,6 @@ import static io.airlift.bytecode.expression.BytecodeExpressions.constantTrue;
 import static io.airlift.bytecode.expression.BytecodeExpressions.newInstance;
 import static io.airlift.bytecode.expression.BytecodeExpressions.or;
 import static io.airlift.bytecode.instruction.JumpInstruction.jump;
-import static io.prestosql.sql.gen.BytecodeUtils.generateWrite;
 import static io.prestosql.sql.gen.LambdaExpressionExtractor.extractLambdaExpressions;
 import static java.lang.String.format;
 
@@ -286,10 +285,8 @@ public class CursorProcessorCompiler
         method.getBody()
                 .comment("boolean wasNull = false;")
                 .putVariable(wasNullVariable, false)
-                .getVariable(output)
                 .comment("evaluate projection: " + projection.toString())
-                .append(compiler.compile(projection, scope, Optional.empty()))
-                .append(generateWrite(callSiteBinder, scope, wasNullVariable, projection.getType()))
+                .append(compiler.compile(projection, scope, Optional.of(output)))
                 .ret();
     }
 

@@ -34,12 +34,13 @@ import java.util.Optional;
 
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantFalse;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantTrue;
+import static io.prestosql.sql.gen.BytecodeGenerator.generateWrite;
 
 public class SwitchCodeGenerator
         implements BytecodeGenerator
 {
     @Override
-    public BytecodeNode generateExpression(Signature signature, BytecodeGeneratorContext generatorContext, Type returnType, List<RowExpression> arguments)
+    public BytecodeNode generateExpression(Signature signature, BytecodeGeneratorContext generatorContext, Type returnType, List<RowExpression> arguments, Optional<Variable> outputBlockVariable)
     {
         // TODO: compile as
         /*
@@ -136,6 +137,8 @@ public class SwitchCodeGenerator
                     .ifFalse(elseValue);
         }
 
-        return block.append(elseValue);
+        block.append(elseValue);
+        outputBlockVariable.ifPresent(output -> block.append(generateWrite(generatorContext, returnType, output)));
+        return block;
     }
 }

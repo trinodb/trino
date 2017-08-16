@@ -14,13 +14,25 @@
 package io.prestosql.sql.gen;
 
 import io.airlift.bytecode.BytecodeNode;
+import io.airlift.bytecode.Variable;
 import io.prestosql.metadata.Signature;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.relational.RowExpression;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface BytecodeGenerator
 {
-    BytecodeNode generateExpression(Signature signature, BytecodeGeneratorContext context, Type returnType, List<RowExpression> arguments);
+    BytecodeNode generateExpression(Signature signature, BytecodeGeneratorContext context, Type returnType, List<RowExpression> arguments, Optional<Variable> outputBlockVariable);
+
+    static BytecodeNode generateWrite(BytecodeGeneratorContext context, Type returnType, Variable outputBlock)
+    {
+        return BytecodeUtils.generateWrite(
+                context.getCallSiteBinder(),
+                context.getScope(),
+                context.getScope().getVariable("wasNull"),
+                returnType,
+                outputBlock);
+    }
 }

@@ -31,13 +31,14 @@ import java.util.List;
 import java.util.Optional;
 
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantTrue;
+import static io.prestosql.sql.gen.BytecodeGenerator.generateWrite;
 import static io.prestosql.sql.gen.BytecodeUtils.ifWasNullPopAndGoto;
 
 public class NullIfCodeGenerator
         implements BytecodeGenerator
 {
     @Override
-    public BytecodeNode generateExpression(Signature signature, BytecodeGeneratorContext generatorContext, Type returnType, List<RowExpression> arguments)
+    public BytecodeNode generateExpression(Signature signature, BytecodeGeneratorContext generatorContext, Type returnType, List<RowExpression> arguments, Optional<Variable> outputBlockVariable)
     {
         Scope scope = generatorContext.getScope();
 
@@ -84,6 +85,7 @@ public class NullIfCodeGenerator
                 .ifTrue(trueBlock)
                 .ifFalse(notMatch));
 
+        outputBlockVariable.ifPresent(output -> block.append(generateWrite(generatorContext, returnType, output)));
         return block;
     }
 

@@ -27,12 +27,13 @@ import java.util.List;
 import java.util.Optional;
 
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantFalse;
+import static io.prestosql.sql.gen.BytecodeGenerator.generateWrite;
 
 public class AndCodeGenerator
         implements BytecodeGenerator
 {
     @Override
-    public BytecodeNode generateExpression(Signature signature, BytecodeGeneratorContext generator, Type returnType, List<RowExpression> arguments)
+    public BytecodeNode generateExpression(Signature signature, BytecodeGeneratorContext generator, Type returnType, List<RowExpression> arguments, Optional<Variable> outputBlockVariable)
     {
         Preconditions.checkArgument(arguments.size() == 2);
 
@@ -98,6 +99,7 @@ public class AndCodeGenerator
         block.append(ifRightIsNull)
                 .visitLabel(end);
 
+        outputBlockVariable.ifPresent(output -> block.append(generateWrite(generator, returnType, output)));
         return block;
     }
 }

@@ -15,6 +15,7 @@
 package io.prestosql.sql.gen;
 
 import io.airlift.bytecode.BytecodeNode;
+import io.airlift.bytecode.Variable;
 import io.prestosql.metadata.Signature;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.gen.LambdaBytecodeGenerator.CompiledLambda;
@@ -23,7 +24,9 @@ import io.prestosql.sql.relational.RowExpression;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 
 public class BindCodeGenerator
@@ -39,12 +42,18 @@ public class BindCodeGenerator
     }
 
     @Override
-    public BytecodeNode generateExpression(Signature signature, BytecodeGeneratorContext context, Type returnType, List<RowExpression> arguments)
+    public BytecodeNode generateExpression(Signature signature, BytecodeGeneratorContext context, Type returnType, List<RowExpression> arguments, Optional<Variable> outputBlockVariable)
     {
         // Bind expression is used to generate captured lambda.
         // It takes the captured values and the uncaptured lambda, and produces captured lambda as the output.
         // The uncaptured lambda is just a method, and does not have a stack representation during execution.
         // As a result, the bind expression generates the captured lambda in one step.
+
+        // outputBlockVariable cannot present because
+        // 1. bind cannot be in the top level of an expression
+        // 2. lambda cannot be put into blocks.
+        checkArgument(!outputBlockVariable.isPresent());
+
         int numCaptures = arguments.size() - 1;
         LambdaDefinitionExpression lambda = (LambdaDefinitionExpression) arguments.get(numCaptures);
         checkState(compiledLambdaMap.containsKey(lambda), "lambda expressions map does not contain this lambda definition");

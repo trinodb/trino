@@ -31,13 +31,14 @@ import java.util.Optional;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantFalse;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantInt;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantNull;
+import static io.prestosql.sql.gen.BytecodeGenerator.generateWrite;
 import static io.prestosql.sql.gen.SqlTypeBytecodeExpression.constantType;
 
 public class RowConstructorCodeGenerator
         implements BytecodeGenerator
 {
     @Override
-    public BytecodeNode generateExpression(Signature signature, BytecodeGeneratorContext context, Type rowType, List<RowExpression> arguments)
+    public BytecodeNode generateExpression(Signature signature, BytecodeGeneratorContext context, Type rowType, List<RowExpression> arguments, Optional<Variable> outputBlockVariable)
     {
         BytecodeBlock block = new BytecodeBlock().setDescription("Constructor for " + rowType.toString());
         CallSiteBinder binder = context.getCallSiteBinder();
@@ -72,6 +73,7 @@ public class RowConstructorCodeGenerator
         block.append(constantType(binder, rowType).invoke("getObject", Object.class, blockBuilder.cast(Block.class), constantInt(0))
                 .cast(Block.class));
         block.append(context.wasNull().set(constantFalse()));
+        outputBlockVariable.ifPresent(output -> block.append(generateWrite(context, rowType, output)));
         return block;
     }
 }

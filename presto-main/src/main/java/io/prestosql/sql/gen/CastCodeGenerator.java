@@ -14,7 +14,9 @@
 package io.prestosql.sql.gen;
 
 import com.google.common.collect.ImmutableList;
+import io.airlift.bytecode.BytecodeBlock;
 import io.airlift.bytecode.BytecodeNode;
+import io.airlift.bytecode.Variable;
 import io.prestosql.metadata.Signature;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.relational.RowExpression;
@@ -22,11 +24,13 @@ import io.prestosql.sql.relational.RowExpression;
 import java.util.List;
 import java.util.Optional;
 
+import static io.prestosql.sql.gen.BytecodeGenerator.generateWrite;
+
 public class CastCodeGenerator
         implements BytecodeGenerator
 {
     @Override
-    public BytecodeNode generateExpression(Signature signature, BytecodeGeneratorContext generatorContext, Type returnType, List<RowExpression> arguments)
+    public BytecodeNode generateExpression(Signature signature, BytecodeGeneratorContext generatorContext, Type returnType, List<RowExpression> arguments, Optional<Variable> outputBlockVariable)
     {
         RowExpression argument = arguments.get(0);
 
@@ -34,6 +38,12 @@ public class CastCodeGenerator
                 .getRegistry()
                 .getCoercion(argument.getType(), returnType);
 
-        return generatorContext.generateCall(function.getName(), generatorContext.getRegistry().getScalarFunctionImplementation(function), ImmutableList.of(generatorContext.generate(argument, Optional.empty())));
+        BytecodeBlock block = new BytecodeBlock()
+                .append(generatorContext.generateCall(
+                        function.getName(),
+                        generatorContext.getRegistry().getScalarFunctionImplementation(function),
+                        ImmutableList.of(generatorContext.generate(argument, Optional.empty()))));
+        outputBlockVariable.ifPresent(output -> block.append(generateWrite(generatorContext, returnType, output)));
+        return block;
     }
 }

@@ -14,10 +14,12 @@
 package io.prestosql.sql.gen;
 
 import io.airlift.bytecode.BytecodeNode;
+import io.airlift.bytecode.Variable;
 import io.prestosql.metadata.FunctionRegistry;
 import io.prestosql.metadata.Signature;
 import io.prestosql.operator.scalar.ScalarFunctionImplementation;
 import io.prestosql.spi.type.Type;
+import io.prestosql.sql.gen.BytecodeUtils.OutputBlockVariableAndType;
 import io.prestosql.sql.relational.RowExpression;
 
 import java.util.ArrayList;
@@ -30,7 +32,7 @@ public class FunctionCallCodeGenerator
         implements BytecodeGenerator
 {
     @Override
-    public BytecodeNode generateExpression(Signature signature, BytecodeGeneratorContext context, Type returnType, List<RowExpression> arguments)
+    public BytecodeNode generateExpression(Signature signature, BytecodeGeneratorContext context, Type returnType, List<RowExpression> arguments, Optional<Variable> outputBlockVariable)
     {
         FunctionRegistry registry = context.getRegistry();
 
@@ -48,6 +50,10 @@ public class FunctionCallCodeGenerator
             }
         }
 
-        return context.generateCall(signature.getName(), function, argumentsBytecode);
+        return context.generateCall(
+                signature.getName(),
+                function,
+                argumentsBytecode,
+                outputBlockVariable.map(variable -> new OutputBlockVariableAndType(variable, returnType)));
     }
 }

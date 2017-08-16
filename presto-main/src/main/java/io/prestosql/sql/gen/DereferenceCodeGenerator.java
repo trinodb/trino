@@ -30,13 +30,14 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantInt;
+import static io.prestosql.sql.gen.BytecodeGenerator.generateWrite;
 import static io.prestosql.sql.gen.SqlTypeBytecodeExpression.constantType;
 
 public class DereferenceCodeGenerator
         implements BytecodeGenerator
 {
     @Override
-    public BytecodeNode generateExpression(Signature signature, BytecodeGeneratorContext generator, Type returnType, List<RowExpression> arguments)
+    public BytecodeNode generateExpression(Signature signature, BytecodeGeneratorContext generator, Type returnType, List<RowExpression> arguments, Optional<Variable> outputBlockVariable)
     {
         checkArgument(arguments.size() == 2);
         CallSiteBinder callSiteBinder = generator.getCallSiteBinder();
@@ -85,6 +86,7 @@ public class DereferenceCodeGenerator
         block.append(ifFieldIsNull)
                 .visitLabel(end);
 
+        outputBlockVariable.ifPresent(output -> block.append(generateWrite(generator, returnType, output)));
         return block;
     }
 }
