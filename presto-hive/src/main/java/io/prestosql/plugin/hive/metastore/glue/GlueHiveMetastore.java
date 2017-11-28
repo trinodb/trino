@@ -81,6 +81,8 @@ import io.prestosql.spi.connector.SchemaNotFoundException;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.TableNotFoundException;
 import io.prestosql.spi.security.Identity;
+import io.prestosql.spi.security.PrestoPrincipal;
+import io.prestosql.spi.security.RoleGrant;
 import io.prestosql.spi.statistics.ColumnStatisticType;
 import io.prestosql.spi.type.Type;
 import org.apache.hadoop.fs.Path;
@@ -108,6 +110,7 @@ import static io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil.getH
 import static io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil.updateStatisticsParameters;
 import static io.prestosql.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.prestosql.spi.security.PrincipalType.USER;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.UnaryOperator.identity;
 import static java.util.stream.Collectors.toList;
@@ -799,6 +802,27 @@ public class GlueHiveMetastore
     public Set<String> listRoles()
     {
         return ImmutableSet.of(PUBLIC_ROLE_NAME);
+    }
+
+    @Override
+    public void grantRoles(Set<String> roles, Set<PrestoPrincipal> grantees, boolean withAdminOption, PrestoPrincipal grantor)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "grantRoles is not supported by Glue");
+    }
+
+    @Override
+    public void revokeRoles(Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOptionFor, PrestoPrincipal grantor)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "revokeRoles is not supported by Glue");
+    }
+
+    @Override
+    public Set<RoleGrant> listRoleGrants(PrestoPrincipal principal)
+    {
+        if (principal.getType() == USER) {
+            return ImmutableSet.of(new RoleGrant(principal, PUBLIC_ROLE_NAME, false));
+        }
+        return ImmutableSet.of();
     }
 
     @Override

@@ -34,6 +34,8 @@ import io.prestosql.spi.StandardErrorCode;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.TableNotFoundException;
+import io.prestosql.spi.security.PrestoPrincipal;
+import io.prestosql.spi.security.RoleGrant;
 import io.prestosql.spi.statistics.ColumnStatisticType;
 import io.prestosql.spi.type.Type;
 import org.apache.hadoop.fs.FileStatus;
@@ -48,9 +50,11 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
@@ -79,6 +83,7 @@ import static io.prestosql.plugin.hive.util.Statistics.reduce;
 import static io.prestosql.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.StandardErrorCode.TRANSACTION_CONFLICT;
+import static io.prestosql.spi.security.PrincipalType.ROLE;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.apache.hadoop.hive.common.FileUtils.makePartName;
@@ -747,6 +752,41 @@ public class SemiTransactionalHiveMetastore
     {
         checkReadable();
         return delegate.listRoles();
+    }
+
+    public synchronized void grantRoles(Set<String> roles, Set<PrestoPrincipal> grantees, boolean withAdminOption, PrestoPrincipal grantor)
+    {
+        setExclusive((delegate, hdfsEnvironment) -> delegate.grantRoles(roles, grantees, withAdminOption, grantor));
+    }
+
+    public synchronized void revokeRoles(Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOptionFor, PrestoPrincipal grantor)
+    {
+        setExclusive((delegate, hdfsEnvironment) -> delegate.revokeRoles(roles, grantees, adminOptionFor, grantor));
+    }
+
+    public synchronized Set<RoleGrant> listApplicableRoles(PrestoPrincipal principal)
+    {
+        checkReadable();
+        Set<RoleGrant> result = new HashSet<>();
+        Queue<PrestoPrincipal> queue = new LinkedList<>();
+        queue.add(principal);
+        while (!queue.isEmpty()) {
+            PrestoPrincipal current = queue.poll();
+            Set<RoleGrant> grants = listRoleGrants(current);
+            for (RoleGrant grant : grants) {
+                if (!result.contains(grant)) {
+                    result.add(grant);
+                    queue.add(new PrestoPrincipal(ROLE, grant.getRoleName()));
+                }
+            }
+        }
+        return ImmutableSet.copyOf(result);
+    }
+
+    public synchronized Set<RoleGrant> listRoleGrants(PrestoPrincipal principal)
+    {
+        checkReadable();
+        return delegate.listRoleGrants(principal);
     }
 
     public synchronized Set<String> getRoles(String user)

@@ -24,7 +24,8 @@ import io.prestosql.plugin.hive.HiveType;
 import io.prestosql.plugin.hive.PartitionStatistics;
 import io.prestosql.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege;
 import io.prestosql.plugin.hive.metastore.SortingColumn.Order;
-import io.prestosql.spi.security.PrincipalType;
+import io.prestosql.spi.security.PrestoPrincipal;
+import io.prestosql.spi.security.RoleGrant;
 import io.prestosql.spi.statistics.ColumnStatisticType;
 import io.prestosql.spi.type.Type;
 import org.testng.annotations.Test;
@@ -39,6 +40,7 @@ import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 import static io.prestosql.plugin.hive.HiveBasicStatistics.createEmptyStatistics;
+import static io.prestosql.spi.security.PrincipalType.USER;
 import static io.prestosql.spi.statistics.ColumnStatisticType.MAX_VALUE;
 import static io.prestosql.spi.statistics.ColumnStatisticType.MIN_VALUE;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
@@ -50,7 +52,7 @@ public class TestRecordingHiveMetastore
             "database",
             Optional.of("location"),
             "owner",
-            PrincipalType.USER,
+            USER,
             Optional.of("comment"),
             ImmutableMap.of("param", "value"));
     private static final Column TABLE_COLUMN = new Column(
@@ -96,6 +98,7 @@ public class TestRecordingHiveMetastore
                     OptionalLong.of(1),
                     OptionalLong.of(8))));
     private static final HivePrivilegeInfo PRIVILEGE_INFO = new HivePrivilegeInfo(HivePrivilege.SELECT, true);
+    private static final RoleGrant ROLE_GRANT = new RoleGrant(new PrestoPrincipal(USER, "grantee"), "role", true);
 
     @Test
     public void testRecordingHiveMetastore()
@@ -136,6 +139,7 @@ public class TestRecordingHiveMetastore
         assertEquals(hiveMetastore.getDatabasePrivileges("user", "database"), ImmutableSet.of(PRIVILEGE_INFO));
         assertEquals(hiveMetastore.getTablePrivileges("user", "database", "table"), ImmutableSet.of(PRIVILEGE_INFO));
         assertEquals(hiveMetastore.listRoles(), ImmutableSet.of("role"));
+        assertEquals(hiveMetastore.listRoleGrants(new PrestoPrincipal(USER, "user")), ImmutableSet.of(ROLE_GRANT));
     }
 
     private static class TestingHiveMetastore
@@ -289,6 +293,12 @@ public class TestRecordingHiveMetastore
         public Set<String> listRoles()
         {
             return ImmutableSet.of("role");
+        }
+
+        @Override
+        public Set<RoleGrant> listRoleGrants(PrestoPrincipal principal)
+        {
+            return ImmutableSet.of(ROLE_GRANT);
         }
     }
 }

@@ -19,6 +19,8 @@ import io.prestosql.plugin.hive.metastore.PartitionWithStatistics;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.TableNotFoundException;
+import io.prestosql.spi.security.PrestoPrincipal;
+import io.prestosql.spi.security.RoleGrant;
 import io.prestosql.spi.statistics.ColumnStatisticType;
 import io.prestosql.spi.type.Type;
 import org.apache.hadoop.hive.metastore.api.Database;
@@ -91,6 +93,12 @@ public interface HiveMetastore
     void dropRole(String role);
 
     Set<String> listRoles();
+
+    void grantRoles(Set<String> roles, Set<PrestoPrincipal> grantees, boolean withAdminOption, PrestoPrincipal grantor);
+
+    void revokeRoles(Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOptionFor, PrestoPrincipal grantor);
+
+    Set<RoleGrant> listRoleGrants(PrestoPrincipal principal);
 
     Set<String> getRoles(String user);
 
