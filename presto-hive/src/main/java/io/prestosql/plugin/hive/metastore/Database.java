@@ -16,6 +16,7 @@ package io.prestosql.plugin.hive.metastore;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.spi.security.PrincipalType;
 
 import javax.annotation.concurrent.Immutable;
 

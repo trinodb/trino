@@ -22,13 +22,13 @@ import io.prestosql.plugin.hive.HiveType;
 import io.prestosql.plugin.hive.metastore.Column;
 import io.prestosql.plugin.hive.metastore.Database;
 import io.prestosql.plugin.hive.metastore.Partition;
-import io.prestosql.plugin.hive.metastore.PrincipalType;
 import io.prestosql.plugin.hive.metastore.SortingColumn;
 import io.prestosql.plugin.hive.metastore.SortingColumn.Order;
 import io.prestosql.plugin.hive.metastore.Storage;
 import io.prestosql.plugin.hive.metastore.StorageFormat;
 import io.prestosql.plugin.hive.metastore.Table;
 import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.security.PrincipalType;
 
 import java.util.ArrayList;
 import java.util.List;
