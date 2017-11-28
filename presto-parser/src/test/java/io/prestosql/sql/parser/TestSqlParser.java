@@ -115,6 +115,7 @@ import io.prestosql.sql.tree.SetSession;
 import io.prestosql.sql.tree.ShowCatalogs;
 import io.prestosql.sql.tree.ShowColumns;
 import io.prestosql.sql.tree.ShowGrants;
+import io.prestosql.sql.tree.ShowRoleGrants;
 import io.prestosql.sql.tree.ShowRoles;
 import io.prestosql.sql.tree.ShowSchemas;
 import io.prestosql.sql.tree.ShowSession;
@@ -1460,6 +1461,15 @@ public class TestSqlParser
                 new ShowRoles(Optional.of(new Identifier("foo")), true));
         assertStatement("SHOW CURRENT ROLES IN foo",
                 new ShowRoles(Optional.of(new Identifier("foo")), true));
+    }
+
+    @Test
+    public void testShowRoleGrants()
+    {
+        assertStatement("SHOW ROLE GRANTS",
+                new ShowRoleGrants(Optional.empty(), Optional.empty()));
+        assertStatement("SHOW ROLE GRANTS FROM catalog",
+                new ShowRoleGrants(Optional.of(new Identifier("catalog"))));
     }
 
     @Test
