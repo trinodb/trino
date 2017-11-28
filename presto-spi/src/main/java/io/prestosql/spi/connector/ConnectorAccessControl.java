@@ -258,7 +258,7 @@ public interface ConnectorAccessControl
      *
      * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
-    default void checkCanGrantTablePrivilege(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, Privilege privilege, SchemaTableName tableName, String grantee, boolean withGrantOption)
+    default void checkCanGrantTablePrivilege(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, Privilege privilege, SchemaTableName tableName, PrestoPrincipal grantee, boolean withGrantOption)
     {
         denyGrantTablePrivilege(privilege.toString(), tableName.toString());
     }
@@ -268,7 +268,7 @@ public interface ConnectorAccessControl
      *
      * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
-    default void checkCanRevokeTablePrivilege(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, Privilege privilege, SchemaTableName tableName, String revokee, boolean grantOptionFor)
+    default void checkCanRevokeTablePrivilege(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, Privilege privilege, SchemaTableName tableName, PrestoPrincipal revokee, boolean grantOptionFor)
     {
         denyRevokeTablePrivilege(privilege.toString(), tableName.toString());
     }

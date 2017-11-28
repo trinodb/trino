@@ -35,6 +35,7 @@ import io.prestosql.spi.security.AccessDeniedException;
 import io.prestosql.spi.security.BasicPrincipal;
 import io.prestosql.spi.security.ConnectorIdentity;
 import io.prestosql.spi.security.Identity;
+import io.prestosql.spi.security.PrestoPrincipal;
 import io.prestosql.spi.security.Privilege;
 import io.prestosql.spi.security.SystemAccessControl;
 import io.prestosql.spi.security.SystemAccessControlFactory;
@@ -385,13 +386,13 @@ public class TestAccessControlManager
         }
 
         @Override
-        public void checkCanGrantTablePrivilege(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, Privilege privilege, SchemaTableName tableName, String grantee, boolean withGrantOption)
+        public void checkCanGrantTablePrivilege(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, Privilege privilege, SchemaTableName tableName, PrestoPrincipal grantee, boolean withGrantOption)
         {
             throw new UnsupportedOperationException();
         }
 
         @Override
-        public void checkCanRevokeTablePrivilege(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, Privilege privilege, SchemaTableName tableName, String revokee, boolean grantOptionFor)
+        public void checkCanRevokeTablePrivilege(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, Privilege privilege, SchemaTableName tableName, PrestoPrincipal revokee, boolean grantOptionFor)
         {
             throw new UnsupportedOperationException();
         }
