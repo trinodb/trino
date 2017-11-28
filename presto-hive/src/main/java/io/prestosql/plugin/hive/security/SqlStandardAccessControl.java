@@ -16,6 +16,7 @@ package io.prestosql.plugin.hive.security;
 import com.google.common.collect.ImmutableSet;
 import io.prestosql.plugin.hive.HiveConnectorId;
 import io.prestosql.plugin.hive.HiveTransactionHandle;
+import io.prestosql.plugin.hive.metastore.Database;
 import io.prestosql.plugin.hive.metastore.HivePrivilegeInfo;
 import io.prestosql.plugin.hive.metastore.SemiTransactionalHiveMetastore;
 import io.prestosql.spi.connector.ConnectorAccessControl;
@@ -28,17 +29,20 @@ import io.prestosql.spi.security.Privilege;
 
 import javax.inject.Inject;
 
+import java.util.HashSet;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 
+import static io.prestosql.plugin.hive.metastore.Database.DEFAULT_DATABASE_NAME;
 import static io.prestosql.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege;
 import static io.prestosql.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege.DELETE;
 import static io.prestosql.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege.INSERT;
 import static io.prestosql.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege.OWNERSHIP;
 import static io.prestosql.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege.SELECT;
 import static io.prestosql.plugin.hive.metastore.HivePrivilegeInfo.toHivePrivilege;
+import static io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil.listApplicableRoles;
+import static io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil.listApplicableTablePrivileges;
 import static io.prestosql.spi.security.AccessDeniedException.denyAddColumn;
 import static io.prestosql.spi.security.AccessDeniedException.denyCreateRole;
 import static io.prestosql.spi.security.AccessDeniedException.denyCreateSchema;
@@ -59,7 +63,10 @@ import static io.prestosql.spi.security.AccessDeniedException.denyRenameTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyRevokeTablePrivilege;
 import static io.prestosql.spi.security.AccessDeniedException.denySelectTable;
 import static io.prestosql.spi.security.AccessDeniedException.denySetCatalogSessionProperty;
+import static io.prestosql.spi.security.PrincipalType.ROLE;
+import static io.prestosql.spi.security.PrincipalType.USER;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toSet;
 
 public class SqlStandardAccessControl
         implements ConnectorAccessControl
@@ -296,9 +303,9 @@ public class SqlStandardAccessControl
     private boolean checkDatabasePermission(ConnectorTransactionHandle transaction, Identity identity, String schemaName, HivePrivilege... requiredPrivileges)
     {
         SemiTransactionalHiveMetastore metastore = metastoreProvider.apply(((HiveTransactionHandle) transaction));
-        Set<HivePrivilege> privilegeSet = metastore.getDatabasePrivileges(identity.getUser(), schemaName).stream()
+        Set<HivePrivilege> privilegeSet = getDatabasePrivileges(metastore, identity.getUser(), schemaName).stream()
                 .map(HivePrivilegeInfo::getHivePrivilege)
-                .collect(Collectors.toSet());
+                .collect(toSet());
 
         return privilegeSet.containsAll(ImmutableSet.copyOf(requiredPrivileges));
     }
@@ -311,7 +318,11 @@ public class SqlStandardAccessControl
     private boolean getGrantOptionForPrivilege(ConnectorTransactionHandle transaction, Identity identity, Privilege privilege, SchemaTableName tableName)
     {
         SemiTransactionalHiveMetastore metastore = metastoreProvider.apply(((HiveTransactionHandle) transaction));
-        return metastore.getTablePrivileges(identity.getUser(), tableName.getSchemaName(), tableName.getTableName())
+        return listApplicableTablePrivileges(
+                metastore,
+                tableName.getSchemaName(),
+                tableName.getTableName(),
+                new PrestoPrincipal(USER, identity.getUser()))
                 .contains(new HivePrivilegeInfo(toHivePrivilege(privilege), true));
     }
 
@@ -326,15 +337,53 @@ public class SqlStandardAccessControl
         }
 
         SemiTransactionalHiveMetastore metastore = metastoreProvider.apply(((HiveTransactionHandle) transaction));
-        Set<HivePrivilege> privilegeSet = metastore.getTablePrivileges(identity.getUser(), tableName.getSchemaName(), tableName.getTableName()).stream()
+        Set<HivePrivilege> privilegeSet = listApplicableTablePrivileges(
+                metastore,
+                tableName.getSchemaName(),
+                tableName.getTableName(),
+                new PrestoPrincipal(USER, identity.getUser()))
+                .stream()
                 .map(HivePrivilegeInfo::getHivePrivilege)
-                .collect(Collectors.toSet());
+                .collect(toSet());
         return privilegeSet.containsAll(ImmutableSet.copyOf(requiredPrivileges));
     }
 
     private boolean isAdmin(ConnectorTransactionHandle transaction, Identity identity)
     {
         SemiTransactionalHiveMetastore metastore = metastoreProvider.apply(((HiveTransactionHandle) transaction));
-        return metastore.getRoles(identity.getUser()).contains(ADMIN_ROLE_NAME);
+        return listApplicableRoles(metastore, new PrestoPrincipal(USER, identity.getUser())).contains(ADMIN_ROLE_NAME);
+    }
+
+    private static Set<HivePrivilegeInfo> getDatabasePrivileges(SemiTransactionalHiveMetastore metastore, String user, String databaseName)
+    {
+        Set<HivePrivilegeInfo> privileges = new HashSet<>();
+        if (isDatabaseOwner(metastore, user, databaseName)) {
+            privileges.add(new HivePrivilegeInfo(OWNERSHIP, true));
+        }
+        return privileges;
+    }
+
+    private static boolean isDatabaseOwner(SemiTransactionalHiveMetastore metastore, String user, String databaseName)
+    {
+        // all users are "owners" of the default database
+        if (DEFAULT_DATABASE_NAME.equalsIgnoreCase(databaseName)) {
+            return true;
+        }
+
+        Optional<Database> databaseMetadata = metastore.getDatabase(databaseName);
+        if (!databaseMetadata.isPresent()) {
+            return false;
+        }
+
+        Database database = databaseMetadata.get();
+
+        // a database can be owned by a user or role
+        if (database.getOwnerType() == USER && user.equals(database.getOwnerName())) {
+            return true;
+        }
+        if (database.getOwnerType() == ROLE && listApplicableRoles(metastore, new PrestoPrincipal(USER, user)).contains(database.getOwnerName())) {
+            return true;
+        }
+        return false;
     }
 }

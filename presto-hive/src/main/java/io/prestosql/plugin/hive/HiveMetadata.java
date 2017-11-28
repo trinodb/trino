@@ -40,6 +40,7 @@ import io.prestosql.plugin.hive.metastore.SemiTransactionalHiveMetastore;
 import io.prestosql.plugin.hive.metastore.SortingColumn;
 import io.prestosql.plugin.hive.metastore.StorageFormat;
 import io.prestosql.plugin.hive.metastore.Table;
+import io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil;
 import io.prestosql.plugin.hive.statistics.HiveStatisticsProvider;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.StandardErrorCode;
@@ -182,6 +183,7 @@ import static io.prestosql.plugin.hive.metastore.MetastoreUtil.getProtectMode;
 import static io.prestosql.plugin.hive.metastore.MetastoreUtil.verifyOnline;
 import static io.prestosql.plugin.hive.metastore.StorageFormat.VIEW_STORAGE_FORMAT;
 import static io.prestosql.plugin.hive.metastore.StorageFormat.fromHiveStorageFormat;
+import static io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil.listApplicableTablePrivileges;
 import static io.prestosql.plugin.hive.util.ConfigurationUtils.toJobConf;
 import static io.prestosql.plugin.hive.util.Statistics.ReduceOperator.ADD;
 import static io.prestosql.plugin.hive.util.Statistics.createComputedStatisticsToPartitionMap;
@@ -1796,7 +1798,7 @@ public class HiveMetadata
     @Override
     public Set<RoleGrant> listApplicableRoles(ConnectorSession session, PrestoPrincipal principal)
     {
-        return metastore.listApplicableRoles(principal);
+        return ThriftMetastoreUtil.listApplicableRoles(principal, metastore::listRoleGrants);
     }
 
     @Override
@@ -1830,10 +1832,11 @@ public class HiveMetadata
     {
         ImmutableList.Builder<GrantInfo> grantInfos = ImmutableList.builder();
         for (SchemaTableName tableName : listTables(session, schemaTablePrefix)) {
-            Set<PrivilegeInfo> privileges = metastore.getTablePrivileges(session.getUser(), tableName.getSchemaName(), tableName.getTableName()).stream()
-                    .map(HivePrivilegeInfo::toPrivilegeInfo)
-                    .flatMap(Set::stream)
-                    .collect(toImmutableSet());
+            Set<PrivilegeInfo> privileges =
+                    listApplicableTablePrivileges(metastore, tableName.getSchemaName(), tableName.getTableName(), new PrestoPrincipal(USER, session.getUser())).stream()
+                            .map(HivePrivilegeInfo::toPrivilegeInfo)
+                            .flatMap(Set::stream)
+                            .collect(toImmutableSet());
 
             grantInfos.add(
                     new GrantInfo(
