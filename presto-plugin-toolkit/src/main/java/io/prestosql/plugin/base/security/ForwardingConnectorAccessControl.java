@@ -17,8 +17,10 @@ import io.prestosql.spi.connector.ConnectorAccessControl;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.security.Identity;
+import io.prestosql.spi.security.PrestoPrincipal;
 import io.prestosql.spi.security.Privilege;
 
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Supplier;
 
@@ -172,5 +174,29 @@ public abstract class ForwardingConnectorAccessControl
     public void checkCanRevokeTablePrivilege(ConnectorTransactionHandle transactionHandle, Identity identity, Privilege privilege, SchemaTableName tableName, String revokee, boolean grantOptionFor)
     {
         delegate().checkCanGrantTablePrivilege(transactionHandle, identity, privilege, tableName, revokee, grantOptionFor);
+    }
+
+    @Override
+    public void checkCanCreateRole(ConnectorTransactionHandle transactionHandle, Identity identity, String role, Optional<PrestoPrincipal> grantor)
+    {
+        delegate().checkCanCreateRole(transactionHandle, identity, role, grantor);
+    }
+
+    @Override
+    public void checkCanDropRole(ConnectorTransactionHandle transactionHandle, Identity identity, String role)
+    {
+        delegate().checkCanDropRole(transactionHandle, identity, role);
+    }
+
+    @Override
+    public void checkCanGrantRoles(ConnectorTransactionHandle transactionHandle, Identity identity, Set<String> roles, Set<PrestoPrincipal> grantees, boolean withAdminOption, Optional<PrestoPrincipal> grantor, String catalogName)
+    {
+        delegate().checkCanGrantRoles(transactionHandle, identity, roles, grantees, withAdminOption, grantor, catalogName);
+    }
+
+    @Override
+    public void checkCanRevokeRoles(ConnectorTransactionHandle transactionHandle, Identity identity, Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOptionFor, Optional<PrestoPrincipal> grantor, String catalogName)
+    {
+        delegate().checkCanRevokeRoles(transactionHandle, identity, roles, grantees, adminOptionFor, grantor, catalogName);
     }
 }
