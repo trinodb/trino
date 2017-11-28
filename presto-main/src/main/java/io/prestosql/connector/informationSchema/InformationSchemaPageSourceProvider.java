@@ -36,7 +36,6 @@ import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.security.AccessDeniedException;
 import io.prestosql.spi.security.GrantInfo;
 import io.prestosql.spi.security.PrestoPrincipal;
-import io.prestosql.spi.security.PrivilegeInfo;
 import io.prestosql.spi.security.RoleGrant;
 
 import java.util.ArrayList;
@@ -196,17 +195,17 @@ public class InformationSchemaPageSourceProvider
         for (QualifiedTablePrefix prefix : prefixes) {
             List<GrantInfo> grants = ImmutableList.copyOf(listTablePrivileges(session, metadata, accessControl, prefix));
             for (GrantInfo grant : grants) {
-                for (PrivilegeInfo privilegeInfo : grant.getPrivilegeInfo()) {
-                    table.add(
-                            grant.getGrantor().orElse(null),
-                            grant.getIdentity().getUser(),
-                            prefix.getCatalogName(),
-                            grant.getSchemaTableName().getSchemaName(),
-                            grant.getSchemaTableName().getTableName(),
-                            privilegeInfo.getPrivilege().name(),
-                            privilegeInfo.isGrantOption(),
-                            grant.getWithHierarchy().orElse(null));
-                }
+                table.add(
+                        grant.getGrantor().map(PrestoPrincipal::getName).orElse(null),
+                        grant.getGrantor().map(principal -> principal.getType().toString()).orElse(null),
+                        grant.getGrantee().getName(),
+                        grant.getGrantee().getType().toString(),
+                        prefix.getCatalogName(),
+                        grant.getSchemaTableName().getSchemaName(),
+                        grant.getSchemaTableName().getTableName(),
+                        grant.getPrivilegeInfo().getPrivilege().name(),
+                        grant.getPrivilegeInfo().isGrantOption() ? "YES" : "NO",
+                        grant.getWithHierarchy().map(withHierarchy -> withHierarchy ? "YES" : "NO").orElse(null));
             }
         }
         return table.build();
