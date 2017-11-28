@@ -86,6 +86,7 @@ import io.prestosql.sql.tree.ShowColumns;
 import io.prestosql.sql.tree.ShowCreate;
 import io.prestosql.sql.tree.ShowFunctions;
 import io.prestosql.sql.tree.ShowGrants;
+import io.prestosql.sql.tree.ShowRoleGrants;
 import io.prestosql.sql.tree.ShowRoles;
 import io.prestosql.sql.tree.ShowSchemas;
 import io.prestosql.sql.tree.ShowSession;
@@ -1268,6 +1269,19 @@ public final class SqlFormatter
                 builder.append("CURRENT ");
             }
             builder.append("ROLES");
+
+            if (node.getCatalog().isPresent()) {
+                builder.append(" FROM ")
+                        .append(node.getCatalog().get());
+            }
+
+            return null;
+        }
+
+        @Override
+        protected Void visitShowRoleGrants(ShowRoleGrants node, Integer context)
+        {
+            builder.append("SHOW ROLE GRANTS");
 
             if (node.getCatalog().isPresent()) {
                 builder.append(" FROM ")
