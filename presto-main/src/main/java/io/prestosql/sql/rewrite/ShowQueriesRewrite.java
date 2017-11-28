@@ -63,6 +63,7 @@ import io.prestosql.sql.tree.ShowColumns;
 import io.prestosql.sql.tree.ShowCreate;
 import io.prestosql.sql.tree.ShowFunctions;
 import io.prestosql.sql.tree.ShowGrants;
+import io.prestosql.sql.tree.ShowRoles;
 import io.prestosql.sql.tree.ShowSchemas;
 import io.prestosql.sql.tree.ShowSession;
 import io.prestosql.sql.tree.ShowTables;
@@ -82,6 +83,7 @@ import java.util.SortedMap;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.connector.informationSchema.InformationSchemaMetadata.TABLE_COLUMNS;
+import static io.prestosql.connector.informationSchema.InformationSchemaMetadata.TABLE_ROLES;
 import static io.prestosql.connector.informationSchema.InformationSchemaMetadata.TABLE_SCHEMATA;
 import static io.prestosql.connector.informationSchema.InformationSchemaMetadata.TABLE_TABLES;
 import static io.prestosql.connector.informationSchema.InformationSchemaMetadata.TABLE_TABLE_PRIVILEGES;
@@ -120,6 +122,7 @@ import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.prestosql.sql.tree.ShowCreate.Type.TABLE;
 import static io.prestosql.sql.tree.ShowCreate.Type.VIEW;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
@@ -252,6 +255,19 @@ final class ShowQueriesRewrite
                     from(catalogName, TABLE_TABLE_PRIVILEGES),
                     predicate,
                     Optional.of(ordering(ascending("grantee"), ascending("table_name"))));
+        }
+
+        @Override
+        protected Node visitShowRoles(ShowRoles node, Void context)
+        {
+            if (!node.getCatalog().isPresent() && !session.getCatalog().isPresent()) {
+                throw new SemanticException(CATALOG_NOT_SPECIFIED, node, "Catalog must be specified when session catalog is not set");
+            }
+
+            String catalog = node.getCatalog().map(c -> c.getValue().toLowerCase(ENGLISH)).orElseGet(() -> session.getCatalog().get());
+            return simpleQuery(
+                    selectList(aliasedName("role_name", "Role")),
+                    from(catalog, TABLE_ROLES));
         }
 
         @Override
