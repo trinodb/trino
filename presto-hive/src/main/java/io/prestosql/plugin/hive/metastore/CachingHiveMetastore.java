@@ -62,7 +62,6 @@ import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_PARTITION_DROPPED_DURI
 import static io.prestosql.plugin.hive.metastore.HivePartitionName.hivePartitionName;
 import static io.prestosql.plugin.hive.metastore.HiveTableName.hiveTableName;
 import static io.prestosql.plugin.hive.metastore.PartitionFilter.partitionFilter;
-import static io.prestosql.spi.security.PrincipalType.USER;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -702,24 +701,24 @@ public class CachingHiveMetastore
     }
 
     @Override
-    public void grantTablePrivileges(String databaseName, String tableName, String grantee, Set<HivePrivilegeInfo> privileges)
+    public void grantTablePrivileges(String databaseName, String tableName, PrestoPrincipal grantee, Set<HivePrivilegeInfo> privileges)
     {
         try {
             delegate.grantTablePrivileges(databaseName, tableName, grantee, privileges);
         }
         finally {
-            tablePrivilegesCache.invalidate(new UserTableKey(new PrestoPrincipal(USER, grantee), databaseName, tableName));
+            tablePrivilegesCache.invalidate(new UserTableKey(grantee, databaseName, tableName));
         }
     }
 
     @Override
-    public void revokeTablePrivileges(String databaseName, String tableName, String grantee, Set<HivePrivilegeInfo> privileges)
+    public void revokeTablePrivileges(String databaseName, String tableName, PrestoPrincipal grantee, Set<HivePrivilegeInfo> privileges)
     {
         try {
             delegate.revokeTablePrivileges(databaseName, tableName, grantee, privileges);
         }
         finally {
-            tablePrivilegesCache.invalidate(new UserTableKey(new PrestoPrincipal(USER, grantee), databaseName, tableName));
+            tablePrivilegesCache.invalidate(new UserTableKey(grantee, databaseName, tableName));
         }
     }
 
