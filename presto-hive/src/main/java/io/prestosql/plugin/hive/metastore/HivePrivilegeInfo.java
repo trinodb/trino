@@ -16,6 +16,7 @@ package io.prestosql.plugin.hive.metastore;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableSet;
+import io.prestosql.spi.security.PrestoPrincipal;
 import io.prestosql.spi.security.Privilege;
 import io.prestosql.spi.security.PrivilegeInfo;
 
@@ -43,14 +44,17 @@ public class HivePrivilegeInfo
 
     private final HivePrivilege hivePrivilege;
     private final boolean grantOption;
+    private final PrestoPrincipal grantor;
 
     @JsonCreator
     public HivePrivilegeInfo(
             @JsonProperty("hivePrivilege") HivePrivilege hivePrivilege,
-            @JsonProperty("grantOption") boolean grantOption)
+            @JsonProperty("grantOption") boolean grantOption,
+            @JsonProperty("grantor") PrestoPrincipal grantor)
     {
         this.hivePrivilege = requireNonNull(hivePrivilege, "hivePrivilege is null");
         this.grantOption = grantOption;
+        this.grantor = requireNonNull(grantor, "grantor is null");
     }
 
     @JsonProperty
@@ -63,6 +67,12 @@ public class HivePrivilegeInfo
     public boolean isGrantOption()
     {
         return grantOption;
+    }
+
+    @JsonProperty
+    public PrestoPrincipal getGrantor()
+    {
+        return grantor;
     }
 
     public static HivePrivilege toHivePrivilege(Privilege privilege)
