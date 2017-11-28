@@ -137,6 +137,7 @@ import io.prestosql.sql.tree.ShowColumns;
 import io.prestosql.sql.tree.ShowCreate;
 import io.prestosql.sql.tree.ShowFunctions;
 import io.prestosql.sql.tree.ShowGrants;
+import io.prestosql.sql.tree.ShowRoles;
 import io.prestosql.sql.tree.ShowSchemas;
 import io.prestosql.sql.tree.ShowSession;
 import io.prestosql.sql.tree.ShowStats;
@@ -934,6 +935,14 @@ class AstBuilder
                 getLocation(context),
                 context.TABLE() != null,
                 tableName);
+    }
+
+    @Override
+    public Node visitShowRoles(SqlBaseParser.ShowRolesContext context)
+    {
+        return new ShowRoles(
+                getLocation(context),
+                getIdentifierIfPresent(context.identifier()));
     }
 
     @Override
