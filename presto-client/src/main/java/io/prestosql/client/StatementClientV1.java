@@ -65,6 +65,7 @@ import static io.prestosql.client.PrestoHeaders.PRESTO_SCHEMA;
 import static io.prestosql.client.PrestoHeaders.PRESTO_SESSION;
 import static io.prestosql.client.PrestoHeaders.PRESTO_SET_CATALOG;
 import static io.prestosql.client.PrestoHeaders.PRESTO_SET_PATH;
+import static io.prestosql.client.PrestoHeaders.PRESTO_SET_ROLE;
 import static io.prestosql.client.PrestoHeaders.PRESTO_SET_SCHEMA;
 import static io.prestosql.client.PrestoHeaders.PRESTO_SET_SESSION;
 import static io.prestosql.client.PrestoHeaders.PRESTO_SOURCE;
@@ -100,6 +101,7 @@ class StatementClientV1
     private final AtomicReference<String> setPath = new AtomicReference<>();
     private final Map<String, String> setSessionProperties = new ConcurrentHashMap<>();
     private final Set<String> resetSessionProperties = Sets.newConcurrentHashSet();
+    private final Map<String, ClientSelectedRole> setRoles = new ConcurrentHashMap<>();
     private final Map<String, String> addedPreparedStatements = new ConcurrentHashMap<>();
     private final Set<String> deallocatedPreparedStatements = Sets.newConcurrentHashSet();
     private final AtomicReference<String> startedTransactionId = new AtomicReference<>();
@@ -180,6 +182,11 @@ class StatementClientV1
         Map<String, String> resourceEstimates = session.getResourceEstimates();
         for (Entry<String, String> entry : resourceEstimates.entrySet()) {
             builder.addHeader(PRESTO_RESOURCE_ESTIMATE, entry.getKey() + "=" + entry.getValue());
+        }
+
+        Map<String, ClientSelectedRole> roles = session.getRoles();
+        for (Entry<String, ClientSelectedRole> entry : roles.entrySet()) {
+            builder.addHeader(PrestoHeaders.PRESTO_ROLE, entry.getKey() + '=' + urlEncode(entry.getValue().toString()));
         }
 
         Map<String, String> statements = session.getPreparedStatements();
@@ -281,6 +288,12 @@ class StatementClientV1
     public Set<String> getResetSessionProperties()
     {
         return ImmutableSet.copyOf(resetSessionProperties);
+    }
+
+    @Override
+    public Map<String, ClientSelectedRole> getSetRoles()
+    {
+        return ImmutableMap.copyOf(setRoles);
     }
 
     @Override
@@ -399,6 +412,14 @@ class StatementClientV1
             setSessionProperties.put(keyValue.get(0), keyValue.get(1));
         }
         resetSessionProperties.addAll(headers.values(PRESTO_CLEAR_SESSION));
+
+        for (String setRole : headers.values(PRESTO_SET_ROLE)) {
+            List<String> keyValue = SESSION_HEADER_SPLITTER.splitToList(setRole);
+            if (keyValue.size() != 2) {
+                continue;
+            }
+            setRoles.put(keyValue.get(0), ClientSelectedRole.valueOf(urlDecode(keyValue.get(1))));
+        }
 
         for (String entry : headers.values(PRESTO_ADDED_PREPARE)) {
             List<String> keyValue = SESSION_HEADER_SPLITTER.splitToList(entry);

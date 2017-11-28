@@ -32,7 +32,9 @@ import java.util.List;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static io.prestodb.tempto.fulfillment.table.hive.tpch.TpchTableDefinitions.NATION;
 import static io.prestodb.tempto.process.CliProcess.trimLines;
+import static io.prestosql.tests.TestGroups.AUTHORIZATION;
 import static io.prestosql.tests.TestGroups.CLI;
+import static io.prestosql.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -275,6 +277,30 @@ public class PrestoCliTests
         // verify tables were created
         presto.getProcessInput().println("show tables;");
         assertThat(trimLines(presto.readLinesUntilPrompt())).contains("txn_test1", "txn_test2");
+    }
+
+    @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
+    public void testSetRole()
+            throws IOException
+    {
+        launchPrestoCliWithServerArgument();
+        presto.waitForPrompt();
+
+        presto.getProcessInput().println("use hive.default;");
+        assertThat(presto.readLinesUntilPrompt()).contains("USE");
+
+        presto.getProcessInput().println("show current roles;");
+        assertThat(trimLines(presto.readLinesUntilPrompt())).contains("public");
+
+        presto.getProcessInput().println("set role admin;");
+        assertThat(trimLines(presto.readLinesUntilPrompt())).contains("SET ROLE");
+        presto.getProcessInput().println("show current roles;");
+        assertThat(trimLines(presto.readLinesUntilPrompt())).contains("public", "admin");
+
+        presto.getProcessInput().println("set role none;");
+        assertThat(trimLines(presto.readLinesUntilPrompt())).contains("SET ROLE");
+        presto.getProcessInput().println("show current roles;");
+        assertThat(trimLines(presto.readLinesUntilPrompt())).doesNotContain("admin");
     }
 
     private void launchPrestoCliWithServerArgument(String... arguments)

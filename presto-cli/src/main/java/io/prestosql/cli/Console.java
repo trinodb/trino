@@ -23,6 +23,7 @@ import io.airlift.log.Logging;
 import io.airlift.log.LoggingConfiguration;
 import io.airlift.units.Duration;
 import io.prestosql.cli.ClientOptions.OutputFormat;
+import io.prestosql.client.ClientSelectedRole;
 import io.prestosql.client.ClientSession;
 import io.prestosql.sql.parser.StatementSplitter;
 import jline.console.history.FileHistory;
@@ -344,6 +345,13 @@ public class Console
                 sessionProperties.putAll(query.getSetSessionProperties());
                 sessionProperties.keySet().removeAll(query.getResetSessionProperties());
                 builder = builder.withProperties(sessionProperties);
+            }
+
+            // update session roles
+            if (!query.getSetRoles().isEmpty()) {
+                Map<String, ClientSelectedRole> roles = new HashMap<>(session.getRoles());
+                roles.putAll(query.getSetRoles());
+                builder = builder.withRoles(roles);
             }
 
             // update prepared statements if present

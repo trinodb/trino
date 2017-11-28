@@ -18,6 +18,7 @@ import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import io.prestosql.cli.ClientOptions.OutputFormat;
+import io.prestosql.client.ClientSelectedRole;
 import io.prestosql.client.Column;
 import io.prestosql.client.ErrorLocation;
 import io.prestosql.client.QueryError;
@@ -87,6 +88,11 @@ public class Query
     public Set<String> getResetSessionProperties()
     {
         return client.getResetSessionProperties();
+    }
+
+    public Map<String, ClientSelectedRole> getSetRoles()
+    {
+        return client.getSetRoles();
     }
 
     public Map<String, String> getAddedPreparedStatements()
