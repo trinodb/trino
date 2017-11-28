@@ -68,6 +68,13 @@ public class HivePrivilegeInfo
         return grantOption;
     }
 
+    @JsonProperty
+    public PrestoPrincipal getGrantee()
+    {
+        return grantee;
+    }
+
+
     public static Set<HivePrivilegeInfo> parsePrivilege(PrivilegeGrantInfo userGrant)
     {
         boolean withGrantOption = userGrant.isGrantOption();
