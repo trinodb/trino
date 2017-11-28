@@ -183,7 +183,7 @@ import static io.prestosql.plugin.hive.metastore.MetastoreUtil.getProtectMode;
 import static io.prestosql.plugin.hive.metastore.MetastoreUtil.verifyOnline;
 import static io.prestosql.plugin.hive.metastore.StorageFormat.VIEW_STORAGE_FORMAT;
 import static io.prestosql.plugin.hive.metastore.StorageFormat.fromHiveStorageFormat;
-import static io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil.listApplicableTablePrivileges;
+import static io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil.listEnabledTablePrivileges;
 import static io.prestosql.plugin.hive.util.ConfigurationUtils.toJobConf;
 import static io.prestosql.plugin.hive.util.Statistics.ReduceOperator.ADD;
 import static io.prestosql.plugin.hive.util.Statistics.createComputedStatisticsToPartitionMap;
@@ -1845,7 +1845,7 @@ public class HiveMetadata
         ImmutableList.Builder<GrantInfo> grantInfos = ImmutableList.builder();
         for (SchemaTableName tableName : listTables(session, schemaTablePrefix)) {
             Set<PrivilegeInfo> privileges =
-                    listApplicableTablePrivileges(metastore, tableName.getSchemaName(), tableName.getTableName(), new PrestoPrincipal(USER, session.getUser())).stream()
+                    listEnabledTablePrivileges(metastore, tableName.getSchemaName(), tableName.getTableName(), session.getIdentity()).stream()
                             .map(HivePrivilegeInfo::toPrivilegeInfo)
                             .flatMap(Set::stream)
                             .collect(toImmutableSet());
