@@ -249,4 +249,16 @@ public interface AccessControl
      * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
     void checkCanShowRoles(TransactionId transactionId, Identity identity, String catalogName);
+
+    /**
+     * Check if identity is allowed to show current roles on the specified catalog.
+     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
+     */
+    void checkCanShowCurrentRoles(TransactionId transactionId, Identity identity, String catalogName);
+
+    /**
+     * Check if identity is allowed to show its own role grants on the specified catalog.
+     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
+     */
+    void checkCanShowRoleGrants(TransactionId transactionId, Identity identity, String catalogName);
 }
