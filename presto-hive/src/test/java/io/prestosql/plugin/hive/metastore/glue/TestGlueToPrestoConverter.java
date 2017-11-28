@@ -20,9 +20,9 @@ import com.amazonaws.services.glue.model.Table;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.plugin.hive.HiveBucketProperty;
 import io.prestosql.plugin.hive.metastore.Column;
-import io.prestosql.plugin.hive.metastore.PrincipalType;
 import io.prestosql.plugin.hive.metastore.Storage;
 import io.prestosql.plugin.hive.metastore.glue.converter.GlueToPrestoConverter;
+import io.prestosql.spi.security.PrincipalType;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 

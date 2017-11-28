@@ -19,8 +19,8 @@ import io.prestosql.Session;
 import io.prestosql.benchmark.BenchmarkSuite;
 import io.prestosql.plugin.hive.metastore.Database;
 import io.prestosql.plugin.hive.metastore.ExtendedHiveMetastore;
-import io.prestosql.plugin.hive.metastore.PrincipalType;
 import io.prestosql.plugin.tpch.TpchConnectorFactory;
+import io.prestosql.spi.security.PrincipalType;
 import io.prestosql.testing.LocalQueryRunner;
 
 import java.io.File;
