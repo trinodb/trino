@@ -491,7 +491,7 @@ public class TestRoles
                         row("admin"));
     }
 
-    @Test(groups = {HIVE_CONNECTOR, ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testShowRoles()
     {
         QueryAssert.assertThat(onPresto().executeQuery("SHOW ROLES"))
@@ -512,6 +512,28 @@ public class TestRoles
                         row("public"),
                         row("admin"),
                         row("role1"));
+    }
+
+    @Test(groups = {ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
+    public void testShowCurrentRoles()
+    {
+        QueryAssert.assertThat(onPresto().executeQuery("SHOW CURRENT ROLES"))
+                .containsOnly(
+                        row("public"));
+        onPresto().executeQuery("CREATE ROLE role1");
+        onPresto().executeQuery("CREATE ROLE role2");
+        onPresto().executeQuery("GRANT role1 TO alice");
+        onPresto().executeQuery("GRANT role2 TO alice");
+        QueryAssert.assertThat(onPrestoAlice().executeQuery("SHOW CURRENT ROLES"))
+                .containsOnly(
+                        row("public"),
+                        row("role1"),
+                        row("role2"));
+        onPrestoAlice().executeQuery("SET ROLE role2");
+        QueryAssert.assertThat(onPrestoAlice().executeQuery("SHOW CURRENT ROLES"))
+                .containsOnly(
+                        row("public"),
+                        row("role2"));
     }
 
     private static QueryExecutor onPrestoAlice()
