@@ -13,11 +13,11 @@
  */
 package io.prestosql.tests.hive;
 
-import com.facebook.presto.tests.utils.JdbcDriverUtils;
 import com.google.common.collect.ImmutableMap;
 import io.prestodb.tempto.ProductTest;
 import io.prestodb.tempto.assertions.QueryAssert.Row;
 import io.prestodb.tempto.query.QueryResult;
+import io.prestosql.tests.utils.JdbcDriverUtils;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
