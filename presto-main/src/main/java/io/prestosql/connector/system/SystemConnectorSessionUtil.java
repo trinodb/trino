@@ -19,6 +19,8 @@ import io.prestosql.metadata.SessionPropertyManager;
 import io.prestosql.spi.QueryId;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
+import io.prestosql.spi.security.ConnectorIdentity;
+import io.prestosql.spi.security.Identity;
 import io.prestosql.sql.SqlPath;
 import io.prestosql.transaction.TransactionId;
 
@@ -34,13 +36,15 @@ public final class SystemConnectorSessionUtil
     public static Session toSession(ConnectorTransactionHandle transactionHandle, ConnectorSession session)
     {
         TransactionId transactionId = ((GlobalSystemTransactionHandle) transactionHandle).getTransactionId();
+        ConnectorIdentity connectorIdentity = session.getIdentity();
+        Identity identity = new Identity(connectorIdentity.getUser(), connectorIdentity.getPrincipal());
         return Session.builder(new SessionPropertyManager(SYSTEM_SESSION_PROPERTIES))
                 .setQueryId(new QueryId(session.getQueryId()))
                 .setTransactionId(transactionId)
                 .setCatalog("catalog")
                 .setSchema("schema")
                 .setPath(new SqlPath(Optional.of("path")))
-                .setIdentity(session.getIdentity())
+                .setIdentity(identity)
                 .setTimeZoneKey(session.getTimeZoneKey())
                 .setLocale(session.getLocale())
                 .setStartTime(session.getStartTime())
