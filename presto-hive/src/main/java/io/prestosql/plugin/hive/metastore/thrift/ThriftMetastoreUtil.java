@@ -31,9 +31,11 @@ import io.prestosql.plugin.hive.metastore.Storage;
 import io.prestosql.plugin.hive.metastore.StorageFormat;
 import io.prestosql.plugin.hive.metastore.Table;
 import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.security.ConnectorIdentity;
 import io.prestosql.spi.security.PrestoPrincipal;
 import io.prestosql.spi.security.PrincipalType;
 import io.prestosql.spi.security.RoleGrant;
+import io.prestosql.spi.security.SelectedRole;
 import io.prestosql.spi.statistics.ColumnStatisticType;
 import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.DecimalType;
@@ -243,6 +245,39 @@ public final class ThriftMetastoreUtil
             result.addAll(metastore.listTablePrivileges(databaseName, tableName, current));
         }
         return result.build();
+    }
+
+    public static Set<String> listEnabledRoles(ConnectorIdentity identity, Function<PrestoPrincipal, Set<RoleGrant>> listRoleGrants)
+    {
+        Optional<SelectedRole> role = identity.getRole();
+
+        if (role.isPresent() && role.get().getType() == SelectedRole.Type.NONE) {
+            return ImmutableSet.of("public");
+        }
+
+        PrestoPrincipal principal;
+        if (!role.isPresent() || role.get().getType() == SelectedRole.Type.ALL) {
+            principal = new PrestoPrincipal(USER, identity.getUser());
+        }
+        else {
+            principal = new PrestoPrincipal(ROLE, identity.getRole().get().getRole().get());
+        }
+
+        Set<String> roles = listApplicableRoles(principal, listRoleGrants)
+                .stream()
+                .map(RoleGrant::getRoleName)
+                .collect(toSet());
+
+        // The admin role must be enabled explicitly. If it is, will be re-added below.
+        roles.remove("admin");
+
+        roles.add("public");
+
+        if (principal.getType() == ROLE) {
+            roles.add(principal.getName());
+        }
+
+        return ImmutableSet.copyOf(roles);
     }
 
     public static org.apache.hadoop.hive.metastore.api.Partition toMetastoreApiPartition(PartitionWithStatistics partitionWithStatistics)
