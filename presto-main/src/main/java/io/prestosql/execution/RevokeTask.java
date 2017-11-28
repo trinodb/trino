@@ -32,6 +32,7 @@ import java.util.Set;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static io.prestosql.metadata.MetadataUtil.createPrincipal;
 import static io.prestosql.metadata.MetadataUtil.createQualifiedObjectName;
 import static io.prestosql.sql.analyzer.SemanticErrorCode.INVALID_PRIVILEGE;
 import static io.prestosql.sql.analyzer.SemanticErrorCode.MISSING_TABLE;
@@ -68,10 +69,10 @@ public class RevokeTask
 
         // verify current identity has permissions to revoke permissions
         for (Privilege privilege : privileges) {
-            accessControl.checkCanRevokeTablePrivilege(session.getRequiredTransactionId(), session.getIdentity(), privilege, tableName, statement.getGrantee().getValue(), statement.isGrantOptionFor());
+            accessControl.checkCanRevokeTablePrivilege(session.getRequiredTransactionId(), session.getIdentity(), privilege, tableName, createPrincipal(statement.getGrantee()), statement.isGrantOptionFor());
         }
 
-        metadata.revokeTablePrivileges(session, tableName, privileges, statement.getGrantee().getValue(), statement.isGrantOptionFor());
+        metadata.revokeTablePrivileges(session, tableName, privileges, createPrincipal(statement.getGrantee()), statement.isGrantOptionFor());
         return immediateFuture(null);
     }
 
