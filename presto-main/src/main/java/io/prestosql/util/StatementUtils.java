@@ -46,6 +46,7 @@ import io.prestosql.sql.tree.Revoke;
 import io.prestosql.sql.tree.RevokeRoles;
 import io.prestosql.sql.tree.Rollback;
 import io.prestosql.sql.tree.SetPath;
+import io.prestosql.sql.tree.SetRole;
 import io.prestosql.sql.tree.SetSession;
 import io.prestosql.sql.tree.ShowCatalogs;
 import io.prestosql.sql.tree.ShowColumns;
@@ -114,6 +115,7 @@ public final class StatementUtils
         builder.put(DropRole.class, QueryType.DATA_DEFINITION);
         builder.put(GrantRoles.class, QueryType.DATA_DEFINITION);
         builder.put(RevokeRoles.class, QueryType.DATA_DEFINITION);
+        builder.put(SetRole.class, QueryType.DATA_DEFINITION);
         builder.put(Grant.class, QueryType.DATA_DEFINITION);
         builder.put(Revoke.class, QueryType.DATA_DEFINITION);
         builder.put(Prepare.class, QueryType.DATA_DEFINITION);

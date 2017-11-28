@@ -54,6 +54,8 @@ public interface StatementClient
 
     Set<String> getResetSessionProperties();
 
+    Map<String, ClientSelectedRole> getSetRoles();
+
     Map<String, String> getAddedPreparedStatements();
 
     Set<String> getDeallocatedPreparedStatements();

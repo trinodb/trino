@@ -56,6 +56,7 @@ import io.prestosql.spi.PrestoWarning;
 import io.prestosql.spi.QueryId;
 import io.prestosql.spi.WarningCode;
 import io.prestosql.spi.block.BlockEncodingSerde;
+import io.prestosql.spi.security.SelectedRole;
 import io.prestosql.spi.type.BooleanType;
 import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.Type;
@@ -149,6 +150,9 @@ class Query
 
     @GuardedBy("this")
     private Set<String> resetSessionProperties = ImmutableSet.of();
+
+    @GuardedBy("this")
+    private Map<String, SelectedRole> setRoles = ImmutableMap.of();
 
     @GuardedBy("this")
     private Map<String, String> addedPreparedStatements = ImmutableMap.of();
@@ -272,6 +276,11 @@ class Query
     public synchronized Set<String> getResetSessionProperties()
     {
         return resetSessionProperties;
+    }
+
+    public synchronized Map<String, SelectedRole> getSetRoles()
+    {
+        return setRoles;
     }
 
     public synchronized Map<String, String> getAddedPreparedStatements()
@@ -484,6 +493,9 @@ class Query
         // update setSessionProperties
         setSessionProperties = queryInfo.getSetSessionProperties();
         resetSessionProperties = queryInfo.getResetSessionProperties();
+
+        // update setRoles
+        setRoles = queryInfo.getSetRoles();
 
         // update preparedStatements
         addedPreparedStatements = queryInfo.getAddedPreparedStatements();

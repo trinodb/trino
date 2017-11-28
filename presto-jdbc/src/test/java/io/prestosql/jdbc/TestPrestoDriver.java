@@ -14,6 +14,7 @@
 package io.prestosql.jdbc;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logging;
 import io.airlift.units.Duration;
@@ -22,6 +23,7 @@ import io.prestosql.plugin.blackhole.BlackHolePlugin;
 import io.prestosql.plugin.tpch.TpchMetadata;
 import io.prestosql.plugin.tpch.TpchPlugin;
 import io.prestosql.server.testing.TestingPrestoServer;
+import io.prestosql.spi.security.SelectedRole;
 import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.BigintType;
 import io.prestosql.spi.type.BooleanType;
@@ -1400,6 +1402,26 @@ public class TestPrestoDriver
     {
         try (Connection ignored = DriverManager.getConnection(format("jdbc:presto://%s", server.getAddress()))) {
             fail("expected exception");
+        }
+    }
+
+    @Test
+    public void testSetRole()
+            throws Exception
+    {
+        try (PrestoConnection connection = createConnection(TEST_CATALOG, "tiny").unwrap(PrestoConnection.class)) {
+            try (Statement statement = connection.createStatement()) {
+                statement.executeUpdate("SET ROLE ALL");
+            }
+            assertEquals(connection.getRoles(), ImmutableMap.of(TEST_CATALOG, new SelectedRole(SelectedRole.Type.ALL, Optional.empty())));
+            try (Statement statement = connection.createStatement()) {
+                statement.executeUpdate("SET ROLE NONE");
+            }
+            assertEquals(connection.getRoles(), ImmutableMap.of(TEST_CATALOG, new SelectedRole(SelectedRole.Type.NONE, Optional.empty())));
+            try (Statement statement = connection.createStatement()) {
+                statement.executeUpdate("SET ROLE bar");
+            }
+            assertEquals(connection.getRoles(), ImmutableMap.of(TEST_CATALOG, new SelectedRole(SelectedRole.Type.ROLE, Optional.of("bar"))));
         }
     }
 
