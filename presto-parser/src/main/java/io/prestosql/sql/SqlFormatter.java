@@ -79,6 +79,7 @@ import io.prestosql.sql.tree.SampledRelation;
 import io.prestosql.sql.tree.Select;
 import io.prestosql.sql.tree.SelectItem;
 import io.prestosql.sql.tree.SetPath;
+import io.prestosql.sql.tree.SetRole;
 import io.prestosql.sql.tree.SetSession;
 import io.prestosql.sql.tree.ShowCatalogs;
 import io.prestosql.sql.tree.ShowColumns;
@@ -1157,6 +1158,28 @@ public final class SqlFormatter
                     .collect(joining(", ")));
             if (node.getGrantor().isPresent()) {
                 builder.append(" GRANTED BY ").append(formatGrantor(node.getGrantor().get()));
+            }
+            if (node.getCatalog().isPresent()) {
+                builder.append(" IN ").append(node.getCatalog().get());
+            }
+            return null;
+        }
+
+        @Override
+        protected Void visitSetRole(SetRole node, Integer context)
+        {
+            builder.append("SET ROLE ");
+            SetRole.Type type = node.getType();
+            switch (type) {
+                case ALL:
+                case NONE:
+                    builder.append(type.toString());
+                    break;
+                case ROLE:
+                    builder.append(node.getRole().get());
+                    break;
+                default:
+                    throw new IllegalArgumentException("Unsupported type: " + type);
             }
             if (node.getCatalog().isPresent()) {
                 builder.append(" IN ").append(node.getCatalog().get());

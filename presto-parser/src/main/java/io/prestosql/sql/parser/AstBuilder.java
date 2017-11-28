@@ -11,6 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package io.prestosql.sql.parser;
 
 import com.google.common.collect.ImmutableList;
@@ -129,6 +130,7 @@ import io.prestosql.sql.tree.SearchedCaseExpression;
 import io.prestosql.sql.tree.Select;
 import io.prestosql.sql.tree.SelectItem;
 import io.prestosql.sql.tree.SetPath;
+import io.prestosql.sql.tree.SetRole;
 import io.prestosql.sql.tree.SetSession;
 import io.prestosql.sql.tree.ShowCatalogs;
 import io.prestosql.sql.tree.ShowColumns;
@@ -862,6 +864,19 @@ class AstBuilder
                 context.OPTION() != null,
                 getGrantorSpecificationIfPresent(context.grantor()),
                 getIdentifierIfPresent(context.catalog));
+    }
+
+    @Override
+    public Node visitSetRole(SqlBaseParser.SetRoleContext context)
+    {
+        SetRole.Type type = SetRole.Type.ROLE;
+        if (context.ALL() != null) {
+            type = SetRole.Type.ALL;
+        }
+        else if (context.NONE() != null) {
+            type = SetRole.Type.NONE;
+        }
+        return new SetRole(getLocation(context), type, getIdentifierIfPresent(context.role), getIdentifierIfPresent(context.catalog));
     }
 
     @Override
