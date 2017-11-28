@@ -19,6 +19,7 @@ import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.security.GrantInfo;
 import io.prestosql.spi.security.PrestoPrincipal;
 import io.prestosql.spi.security.Privilege;
+import io.prestosql.spi.security.RoleGrant;
 import io.prestosql.spi.statistics.ComputedStatistics;
 import io.prestosql.spi.statistics.TableStatistics;
 import io.prestosql.spi.statistics.TableStatisticsMetadata;
@@ -451,6 +452,34 @@ public interface ConnectorMetadata
      * List available roles.
      */
     default Set<String> listRoles(ConnectorSession session)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support roles");
+    }
+
+    /**
+     * Grants the specified roles to the specified grantees
+     *
+     * @param grantor represents the principal specified by GRANTED BY statement
+     */
+    default void grantRoles(ConnectorSession connectorSession, Set<String> roles, Set<PrestoPrincipal> grantees, boolean withAdminOption, Optional<PrestoPrincipal> grantor)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support roles");
+    }
+
+    /**
+     * Revokes the specified roles from the specified grantees
+     *
+     * @param grantor represents the principal specified by GRANTED BY statement
+     */
+    default void revokeRoles(ConnectorSession connectorSession, Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOptionFor, Optional<PrestoPrincipal> grantor)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support roles");
+    }
+
+    /**
+     * List applicable roles, including the transitive grants, for the specified principal
+     */
+    default Set<RoleGrant> listApplicableRoles(ConnectorSession session, PrestoPrincipal principal)
     {
         throw new PrestoException(NOT_SUPPORTED, "This connector does not support roles");
     }

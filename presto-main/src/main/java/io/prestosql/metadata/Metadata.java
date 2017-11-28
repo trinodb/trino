@@ -29,6 +29,7 @@ import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.security.GrantInfo;
 import io.prestosql.spi.security.PrestoPrincipal;
 import io.prestosql.spi.security.Privilege;
+import io.prestosql.spi.security.RoleGrant;
 import io.prestosql.spi.statistics.ComputedStatistics;
 import io.prestosql.spi.statistics.TableStatistics;
 import io.prestosql.spi.statistics.TableStatisticsMetadata;
@@ -300,6 +301,25 @@ public interface Metadata
      * List available roles in specified catalog.
      */
     Set<String> listRoles(Session session, String catalog);
+
+    /**
+     * Grants the specified roles to the specified grantees in the specified catalog
+     *
+     * @param grantor represents the principal specified by GRANTED BY statement
+     */
+    void grantRoles(Session session, Set<String> roles, Set<PrestoPrincipal> grantees, boolean withAdminOption, Optional<PrestoPrincipal> grantor, String catalog);
+
+    /**
+     * Revokes the specified roles from the specified grantees in the specified catalog
+     *
+     * @param grantor represents the principal specified by GRANTED BY statement
+     */
+    void revokeRoles(Session session, Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOptionFor, Optional<PrestoPrincipal> grantor, String catalog);
+
+    /**
+     * List applicable roles, including the transitive grants, for the specified principal
+     */
+    Set<RoleGrant> listApplicableRoles(Session session, PrestoPrincipal principal, String catalog);
 
     /**
      * Grants the specified privilege to the specified user on the specified table
