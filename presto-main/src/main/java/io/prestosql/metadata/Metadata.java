@@ -27,6 +27,7 @@ import io.prestosql.spi.connector.Constraint;
 import io.prestosql.spi.connector.SystemTable;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.security.GrantInfo;
+import io.prestosql.spi.security.PrestoPrincipal;
 import io.prestosql.spi.security.Privilege;
 import io.prestosql.spi.statistics.ComputedStatistics;
 import io.prestosql.spi.statistics.TableStatistics;
@@ -282,6 +283,23 @@ public interface Metadata
      * Try to locate a table index that can lookup results by indexableColumns and provide the requested outputColumns.
      */
     Optional<ResolvedIndex> resolveIndex(Session session, TableHandle tableHandle, Set<ColumnHandle> indexableColumns, Set<ColumnHandle> outputColumns, TupleDomain<ColumnHandle> tupleDomain);
+
+    /**
+     * Creates the specified role in the specified catalog.
+     *
+     * @param grantor represents the principal specified by WITH ADMIN statement
+     */
+    void createRole(Session session, String role, Optional<PrestoPrincipal> grantor, String catalog);
+
+    /**
+     * Drops the specified role in the specified catalog.
+     */
+    void dropRole(Session session, String role, String catalog);
+
+    /**
+     * List available roles in specified catalog.
+     */
+    Set<String> listRoles(Session session, String catalog);
 
     /**
      * Grants the specified privilege to the specified user on the specified table

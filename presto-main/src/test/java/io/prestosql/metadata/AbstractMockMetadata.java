@@ -26,6 +26,7 @@ import io.prestosql.spi.connector.Constraint;
 import io.prestosql.spi.connector.SystemTable;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.security.GrantInfo;
+import io.prestosql.spi.security.PrestoPrincipal;
 import io.prestosql.spi.security.Privilege;
 import io.prestosql.spi.statistics.ComputedStatistics;
 import io.prestosql.spi.statistics.TableStatistics;
@@ -347,6 +348,24 @@ public abstract class AbstractMockMetadata
 
     @Override
     public Optional<ResolvedIndex> resolveIndex(Session session, TableHandle tableHandle, Set<ColumnHandle> indexableColumns, Set<ColumnHandle> outputColumns, TupleDomain<ColumnHandle> tupleDomain)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void createRole(Session session, String role, Optional<PrestoPrincipal> grantor, String catalog)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void dropRole(Session session, String role, String catalog)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Set<String> listRoles(Session session, String catalog)
     {
         throw new UnsupportedOperationException();
     }
