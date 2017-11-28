@@ -30,7 +30,9 @@ import io.prestosql.plugin.hive.metastore.Storage;
 import io.prestosql.plugin.hive.metastore.StorageFormat;
 import io.prestosql.plugin.hive.metastore.Table;
 import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.security.PrestoPrincipal;
 import io.prestosql.spi.security.PrincipalType;
+import io.prestosql.spi.security.RoleGrant;
 import io.prestosql.spi.statistics.ColumnStatisticType;
 import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.DecimalType;
@@ -50,6 +52,7 @@ import org.apache.hadoop.hive.metastore.api.LongColumnStatsData;
 import org.apache.hadoop.hive.metastore.api.Order;
 import org.apache.hadoop.hive.metastore.api.PrincipalPrivilegeSet;
 import org.apache.hadoop.hive.metastore.api.PrivilegeGrantInfo;
+import org.apache.hadoop.hive.metastore.api.RolePrincipalGrant;
 import org.apache.hadoop.hive.metastore.api.SerDeInfo;
 import org.apache.hadoop.hive.metastore.api.StorageDescriptor;
 import org.apache.hadoop.hive.metastore.api.StringColumnStatsData;
@@ -462,6 +465,31 @@ public final class ThriftMetastoreUtil
             return nonNullsCount;
         }
         return distinctValuesCount;
+    }
+
+    public static Set<RoleGrant> fromRolePrincipalGrants(Collection<RolePrincipalGrant> grants)
+    {
+        return ImmutableSet.copyOf(grants.stream().map(ThriftMetastoreUtil::fromRolePrincipalGrant).collect(toList()));
+    }
+
+    public static RoleGrant fromRolePrincipalGrant(RolePrincipalGrant grant)
+    {
+        return new RoleGrant(
+                new PrestoPrincipal(fromMetastoreApiPrincipalType(grant.getPrincipalType()), grant.getPrincipalName()),
+                grant.getRoleName(),
+                grant.isGrantOption());
+    }
+
+    public static org.apache.hadoop.hive.metastore.api.PrincipalType fromPrestoPrincipalType(PrincipalType principalType)
+    {
+        switch (principalType) {
+            case USER:
+                return org.apache.hadoop.hive.metastore.api.PrincipalType.USER;
+            case ROLE:
+                return org.apache.hadoop.hive.metastore.api.PrincipalType.ROLE;
+            default:
+                throw new IllegalArgumentException("Unsupported principal type: " + principalType);
+        }
     }
 
     public static PrincipalType fromMetastoreApiPrincipalType(org.apache.hadoop.hive.metastore.api.PrincipalType principalType)

@@ -15,6 +15,8 @@ package io.prestosql.plugin.hive.metastore;
 
 import io.prestosql.plugin.hive.HiveType;
 import io.prestosql.plugin.hive.PartitionStatistics;
+import io.prestosql.spi.security.PrestoPrincipal;
+import io.prestosql.spi.security.RoleGrant;
 import io.prestosql.spi.statistics.ColumnStatisticType;
 import io.prestosql.spi.type.Type;
 
@@ -90,6 +92,12 @@ public interface ExtendedHiveMetastore
     void dropRole(String role);
 
     Set<String> listRoles();
+
+    void grantRoles(Set<String> roles, Set<PrestoPrincipal> grantees, boolean withAdminOption, PrestoPrincipal grantor);
+
+    void revokeRoles(Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOptionFor, PrestoPrincipal grantor);
+
+    Set<RoleGrant> listRoleGrants(PrestoPrincipal principal);
 
     Set<String> getRoles(String user);
 
