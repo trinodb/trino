@@ -34,6 +34,8 @@ import io.prestosql.spi.StandardErrorCode;
 import io.prestosql.spi.connector.CatalogSchemaName;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
 import io.prestosql.spi.connector.SchemaTableName;
+import io.prestosql.spi.security.PrestoPrincipal;
+import io.prestosql.spi.security.PrincipalType;
 import io.prestosql.spi.session.PropertyMetadata;
 import io.prestosql.sql.analyzer.QueryExplainer;
 import io.prestosql.sql.analyzer.SemanticException;
@@ -63,6 +65,7 @@ import io.prestosql.sql.tree.ShowColumns;
 import io.prestosql.sql.tree.ShowCreate;
 import io.prestosql.sql.tree.ShowFunctions;
 import io.prestosql.sql.tree.ShowGrants;
+import io.prestosql.sql.tree.ShowRoleGrants;
 import io.prestosql.sql.tree.ShowRoles;
 import io.prestosql.sql.tree.ShowSchemas;
 import io.prestosql.sql.tree.ShowSession;
@@ -278,6 +281,26 @@ final class ShowQueriesRewrite
                         selectList(aliasedName("role_name", "Role")),
                         from(catalog, TABLE_ROLES));
             }
+        }
+
+        @Override
+        protected Node visitShowRoleGrants(ShowRoleGrants node, Void context)
+        {
+            if (!node.getCatalog().isPresent() && !session.getCatalog().isPresent()) {
+                throw new SemanticException(CATALOG_NOT_SPECIFIED, node, "Catalog must be specified when session catalog is not set");
+            }
+
+            String catalog = node.getCatalog().map(c -> c.getValue().toLowerCase(ENGLISH)).orElseGet(() -> session.getCatalog().get());
+            PrestoPrincipal principal = new PrestoPrincipal(PrincipalType.USER, session.getUser());
+
+            List<Expression> rows = metadata.listRoleGrants(session, catalog, principal).stream()
+                    .map(roleGrant -> row(new StringLiteral(roleGrant.getRoleName())))
+                    .collect(toList());
+
+            return simpleQuery(
+                    selectList(new AllColumns()),
+                    aliased(new Values(rows), "role_grants", ImmutableList.of("Role Grants")),
+                    ordering(ascending("Role Grants")));
         }
 
         @Override
