@@ -17,6 +17,7 @@ import io.airlift.slice.Slice;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.security.GrantInfo;
+import io.prestosql.spi.security.PrestoPrincipal;
 import io.prestosql.spi.security.Privilege;
 import io.prestosql.spi.statistics.ComputedStatistics;
 import io.prestosql.spi.statistics.TableStatistics;
@@ -426,6 +427,32 @@ public interface ConnectorMetadata
     default Optional<ConnectorResolvedIndex> resolveIndex(ConnectorSession session, ConnectorTableHandle tableHandle, Set<ColumnHandle> indexableColumns, Set<ColumnHandle> outputColumns, TupleDomain<ColumnHandle> tupleDomain)
     {
         return Optional.empty();
+    }
+
+    /**
+     * Creates the specified role.
+     *
+     * @param grantor represents the principal specified by WITH ADMIN statement
+     */
+    default void createRole(ConnectorSession session, String role, Optional<PrestoPrincipal> grantor)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support create role");
+    }
+
+    /**
+     * Drops the specified role.
+     */
+    default void dropRole(ConnectorSession session, String role)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support drop role");
+    }
+
+    /**
+     * List available roles.
+     */
+    default Set<String> listRoles(ConnectorSession session)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support roles");
     }
 
     /**

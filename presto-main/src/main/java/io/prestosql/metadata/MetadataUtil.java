@@ -22,9 +22,12 @@ import io.prestosql.spi.connector.CatalogSchemaName;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
 import io.prestosql.spi.connector.SchemaTableName;
+import io.prestosql.spi.security.PrestoPrincipal;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.analyzer.SemanticException;
+import io.prestosql.sql.tree.GrantorSpecification;
 import io.prestosql.sql.tree.Node;
+import io.prestosql.sql.tree.PrincipalSpecification;
 import io.prestosql.sql.tree.QualifiedName;
 
 import java.util.List;
@@ -32,6 +35,8 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.spi.StandardErrorCode.SYNTAX_ERROR;
+import static io.prestosql.spi.security.PrincipalType.ROLE;
+import static io.prestosql.spi.security.PrincipalType.USER;
 import static io.prestosql.sql.analyzer.SemanticErrorCode.CATALOG_NOT_SPECIFIED;
 import static io.prestosql.sql.analyzer.SemanticErrorCode.INVALID_SCHEMA_NAME;
 import static io.prestosql.sql.analyzer.SemanticErrorCode.SCHEMA_NOT_SPECIFIED;
@@ -93,6 +98,21 @@ public final class MetadataUtil
         return null;
     }
 
+    public static String createCatalogName(Session session, Node node, Optional<String> catalog)
+    {
+        if (catalog.isPresent()) {
+            return catalog.get();
+        }
+
+        Optional<String> sessionCatalog = session.getCatalog();
+
+        if (!sessionCatalog.isPresent()) {
+            throw new SemanticException(CATALOG_NOT_SPECIFIED, node, "Catalog must be specified when session catalog is not set");
+        }
+
+        return sessionCatalog.get();
+    }
+
     public static CatalogSchemaName createCatalogSchemaName(Session session, Node node, Optional<QualifiedName> schema)
     {
         String catalogName = session.getCatalog().orElse(null);
@@ -140,6 +160,36 @@ public final class MetadataUtil
     public static QualifiedName createQualifiedName(QualifiedObjectName name)
     {
         return QualifiedName.of(name.getCatalogName(), name.getSchemaName(), name.getObjectName());
+    }
+
+    public static PrestoPrincipal createPrincipal(Session session, GrantorSpecification specification)
+    {
+        GrantorSpecification.Type type = specification.getType();
+        switch (type) {
+            case PRINCIPAL:
+                return createPrincipal(specification.getPrincipal().get());
+            case CURRENT_USER:
+                return new PrestoPrincipal(USER, session.getIdentity().getUser());
+            case CURRENT_ROLE:
+                // TODO: will be implemented once the "SET ROLE" statement is introduced
+                throw new UnsupportedOperationException("CURRENT_ROLE is not yet supported");
+            default:
+                throw new IllegalArgumentException("Unsupported type: " + type);
+        }
+    }
+
+    public static PrestoPrincipal createPrincipal(PrincipalSpecification specification)
+    {
+        PrincipalSpecification.Type type = specification.getType();
+        switch (type) {
+            case UNSPECIFIED:
+            case USER:
+                return new PrestoPrincipal(USER, specification.getName().getValue());
+            case ROLE:
+                return new PrestoPrincipal(ROLE, specification.getName().getValue());
+            default:
+                throw new IllegalArgumentException("Unsupported type: " + type);
+        }
     }
 
     public static boolean tableExists(Metadata metadata, Session session, String table)

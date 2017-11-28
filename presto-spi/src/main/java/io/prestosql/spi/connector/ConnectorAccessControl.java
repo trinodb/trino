@@ -14,17 +14,21 @@
 package io.prestosql.spi.connector;
 
 import io.prestosql.spi.security.Identity;
+import io.prestosql.spi.security.PrestoPrincipal;
 import io.prestosql.spi.security.Privilege;
 
+import java.util.Optional;
 import java.util.Set;
 
 import static io.prestosql.spi.security.AccessDeniedException.denyAddColumn;
+import static io.prestosql.spi.security.AccessDeniedException.denyCreateRole;
 import static io.prestosql.spi.security.AccessDeniedException.denyCreateSchema;
 import static io.prestosql.spi.security.AccessDeniedException.denyCreateTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyCreateView;
 import static io.prestosql.spi.security.AccessDeniedException.denyCreateViewWithSelect;
 import static io.prestosql.spi.security.AccessDeniedException.denyDeleteTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyDropColumn;
+import static io.prestosql.spi.security.AccessDeniedException.denyDropRole;
 import static io.prestosql.spi.security.AccessDeniedException.denyDropSchema;
 import static io.prestosql.spi.security.AccessDeniedException.denyDropTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyDropView;
@@ -264,5 +268,15 @@ public interface ConnectorAccessControl
     default void checkCanRevokeTablePrivilege(ConnectorTransactionHandle transactionHandle, Identity identity, Privilege privilege, SchemaTableName tableName, String revokee, boolean grantOptionFor)
     {
         denyRevokeTablePrivilege(privilege.toString(), tableName.toString());
+    }
+
+    default void checkCanCreateRole(ConnectorTransactionHandle transactionHandle, Identity identity, String role, Optional<PrestoPrincipal> grantor)
+    {
+        denyCreateRole(role);
+    }
+
+    default void checkCanDropRole(ConnectorTransactionHandle transactionHandle, Identity identity, String role)
+    {
+        denyDropRole(role);
     }
 }

@@ -26,6 +26,7 @@ import io.prestosql.spi.connector.ConnectorAccessControl;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.security.Identity;
+import io.prestosql.spi.security.PrestoPrincipal;
 import io.prestosql.spi.security.Privilege;
 import io.prestosql.spi.security.SystemAccessControl;
 import io.prestosql.spi.security.SystemAccessControlFactory;
@@ -538,6 +539,33 @@ public class AccessControlManager
         CatalogAccessControlEntry entry = getConnectorAccessControl(transactionId, tableName.getCatalogName());
         if (entry != null) {
             authorizationCheck(() -> entry.getAccessControl().checkCanSelectFromColumns(entry.getTransactionHandle(transactionId), identity, tableName.asSchemaTableName(), columnNames));
+        }
+    }
+
+    @Override
+    public void checkCanCreateRole(TransactionId transactionId, Identity identity, String role, Optional<PrestoPrincipal> grantor, String catalogName)
+    {
+        requireNonNull(identity, "identity is null");
+        requireNonNull(role, "role is null");
+        requireNonNull(grantor, "grantor is null");
+        requireNonNull(catalogName, "catalogName is null");
+
+        CatalogAccessControlEntry entry = getConnectorAccessControl(transactionId, catalogName);
+        if (entry != null) {
+            authorizationCheck(() -> entry.getAccessControl().checkCanCreateRole(entry.getTransactionHandle(transactionId), identity, role, grantor));
+        }
+    }
+
+    @Override
+    public void checkCanDropRole(TransactionId transactionId, Identity identity, String role, String catalogName)
+    {
+        requireNonNull(identity, "identity is null");
+        requireNonNull(role, "role is null");
+        requireNonNull(catalogName, "catalogName is null");
+
+        CatalogAccessControlEntry entry = getConnectorAccessControl(transactionId, catalogName);
+        if (entry != null) {
+            authorizationCheck(() -> entry.getAccessControl().checkCanDropRole(entry.getTransactionHandle(transactionId), identity, role));
         }
     }
 
