@@ -67,6 +67,7 @@ import static io.prestosql.spi.security.AccessDeniedException.denyRevokeTablePri
 import static io.prestosql.spi.security.AccessDeniedException.denySelectTable;
 import static io.prestosql.spi.security.AccessDeniedException.denySetCatalogSessionProperty;
 import static io.prestosql.spi.security.AccessDeniedException.denySetRole;
+import static io.prestosql.spi.security.AccessDeniedException.denyShowRoles;
 import static io.prestosql.spi.security.PrincipalType.ROLE;
 import static io.prestosql.spi.security.PrincipalType.USER;
 import static java.util.Objects.requireNonNull;
@@ -337,6 +338,14 @@ public class SqlStandardAccessControl
                 .map(RoleGrant::getRoleName)
                 .collect(toSet());
         return rolesWithGrantOption.containsAll(roles);
+    }
+
+    @Override
+    public void checkCanShowRoles(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, String catalogName)
+    {
+        if (!isAdmin(transactionHandle, identity)) {
+            denyShowRoles(catalogName);
+        }
     }
 
     private boolean checkDatabasePermission(ConnectorTransactionHandle transaction, ConnectorIdentity identity, String schemaName, HivePrivilege... requiredPrivileges)

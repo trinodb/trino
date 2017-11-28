@@ -312,4 +312,9 @@ public class FileBasedSystemAccessControl
     public void checkCanRevokeTablePrivilege(Identity identity, Privilege privilege, CatalogSchemaTableName table, PrestoPrincipal revokee, boolean grantOptionFor)
     {
     }
+
+    @Override
+    public void checkCanShowRoles(Identity identity, String catalogName)
+    {
+    }
 }
