@@ -110,4 +110,9 @@ public class ReadOnlySystemAccessControl
     public void checkCanShowTablesMetadata(Identity identity, CatalogSchemaName schema)
     {
     }
+
+    @Override
+    public void checkCanShowRoles(Identity identity, String catalogName)
+    {
+    }
 }

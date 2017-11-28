@@ -201,4 +201,10 @@ public abstract class ForwardingSystemAccessControl
     {
         delegate().checkCanRevokeTablePrivilege(identity, privilege, table, revokee, grantOptionFor);
     }
+
+    @Override
+    public void checkCanShowRoles(Identity identity, String catalogName)
+    {
+        delegate().checkCanShowRoles(identity, catalogName);
+    }
 }

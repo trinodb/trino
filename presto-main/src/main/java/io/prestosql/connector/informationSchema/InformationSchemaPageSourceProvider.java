@@ -33,6 +33,7 @@ import io.prestosql.spi.connector.ConnectorSplit;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 import io.prestosql.spi.connector.FixedPageSource;
 import io.prestosql.spi.connector.SchemaTableName;
+import io.prestosql.spi.security.AccessDeniedException;
 import io.prestosql.spi.security.GrantInfo;
 import io.prestosql.spi.security.PrestoPrincipal;
 import io.prestosql.spi.security.PrivilegeInfo;
@@ -238,6 +239,14 @@ public class InformationSchemaPageSourceProvider
     private InternalTable buildRoles(Session session, String catalog)
     {
         InternalTable.Builder table = InternalTable.builder(informationSchemaTableColumns(TABLE_ROLES));
+
+        try {
+            accessControl.checkCanShowRoles(session.getRequiredTransactionId(), session.getIdentity(), catalog);
+        }
+        catch (AccessDeniedException exception) {
+            return table.build();
+        }
+
         for (String role : metadata.listRoles(session, catalog)) {
             table.add(role);
         }
