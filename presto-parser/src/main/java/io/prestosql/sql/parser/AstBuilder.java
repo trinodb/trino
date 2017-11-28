@@ -14,6 +14,7 @@
 package io.prestosql.sql.parser;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import io.prestosql.sql.tree.AddColumn;
 import io.prestosql.sql.tree.AliasedRelation;
@@ -68,6 +69,7 @@ import io.prestosql.sql.tree.FrameBound;
 import io.prestosql.sql.tree.FunctionCall;
 import io.prestosql.sql.tree.GenericLiteral;
 import io.prestosql.sql.tree.Grant;
+import io.prestosql.sql.tree.GrantRoles;
 import io.prestosql.sql.tree.GrantorSpecification;
 import io.prestosql.sql.tree.GroupBy;
 import io.prestosql.sql.tree.GroupingElement;
@@ -118,6 +120,7 @@ import io.prestosql.sql.tree.RenameSchema;
 import io.prestosql.sql.tree.RenameTable;
 import io.prestosql.sql.tree.ResetSession;
 import io.prestosql.sql.tree.Revoke;
+import io.prestosql.sql.tree.RevokeRoles;
 import io.prestosql.sql.tree.Rollback;
 import io.prestosql.sql.tree.Rollup;
 import io.prestosql.sql.tree.Row;
@@ -834,6 +837,30 @@ class AstBuilder
         return new DropRole(
                 getLocation(context),
                 (Identifier) visit(context.name),
+                getIdentifierIfPresent(context.catalog));
+    }
+
+    @Override
+    public Node visitGrantRoles(SqlBaseParser.GrantRolesContext context)
+    {
+        return new GrantRoles(
+                getLocation(context),
+                ImmutableSet.copyOf(getIdentifiers(context.roles().identifier())),
+                ImmutableSet.copyOf(getPrincipalSpecifications(context.principal())),
+                context.OPTION() != null,
+                getGrantorSpecificationIfPresent(context.grantor()),
+                getIdentifierIfPresent(context.catalog));
+    }
+
+    @Override
+    public Node visitRevokeRoles(SqlBaseParser.RevokeRolesContext context)
+    {
+        return new RevokeRoles(
+                getLocation(context),
+                ImmutableSet.copyOf(getIdentifiers(context.roles().identifier())),
+                ImmutableSet.copyOf(getPrincipalSpecifications(context.principal())),
+                context.OPTION() != null,
+                getGrantorSpecificationIfPresent(context.grantor()),
                 getIdentifierIfPresent(context.catalog));
     }
 
@@ -2147,6 +2174,16 @@ class AstBuilder
             return getType(typeParameter.type());
         }
         throw new IllegalArgumentException("Unsupported typeParameter: " + typeParameter.getText());
+    }
+
+    private List<Identifier> getIdentifiers(List<SqlBaseParser.IdentifierContext> identifiers)
+    {
+        return identifiers.stream().map(context -> (Identifier) visit(context)).collect(toList());
+    }
+
+    private List<PrincipalSpecification> getPrincipalSpecifications(List<SqlBaseParser.PrincipalContext> principals)
+    {
+        return principals.stream().map(this::getPrincipalSpecification).collect(toList());
     }
 
     private Optional<GrantorSpecification> getGrantorSpecificationIfPresent(SqlBaseParser.GrantorContext context)

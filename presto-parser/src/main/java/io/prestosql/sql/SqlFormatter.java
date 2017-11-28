@@ -45,6 +45,7 @@ import io.prestosql.sql.tree.ExplainOption;
 import io.prestosql.sql.tree.ExplainType;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.Grant;
+import io.prestosql.sql.tree.GrantRoles;
 import io.prestosql.sql.tree.GrantorSpecification;
 import io.prestosql.sql.tree.Identifier;
 import io.prestosql.sql.tree.Insert;
@@ -71,6 +72,7 @@ import io.prestosql.sql.tree.RenameSchema;
 import io.prestosql.sql.tree.RenameTable;
 import io.prestosql.sql.tree.ResetSession;
 import io.prestosql.sql.tree.Revoke;
+import io.prestosql.sql.tree.RevokeRoles;
 import io.prestosql.sql.tree.Rollback;
 import io.prestosql.sql.tree.Row;
 import io.prestosql.sql.tree.SampledRelation;
@@ -1110,6 +1112,52 @@ public final class SqlFormatter
         protected Void visitDropRole(DropRole node, Integer context)
         {
             builder.append("DROP ROLE ").append(node.getName());
+            if (node.getCatalog().isPresent()) {
+                builder.append(" IN ").append(node.getCatalog().get());
+            }
+            return null;
+        }
+
+        @Override
+        protected Void visitGrantRoles(GrantRoles node, Integer context)
+        {
+            builder.append("GRANT ");
+            builder.append(node.getRoles().stream()
+                    .map(Identifier::toString)
+                    .collect(joining(", ")));
+            builder.append(" TO ");
+            builder.append(node.getGrantees().stream()
+                    .map(Formatter::formatPrincipal)
+                    .collect(joining(", ")));
+            if (node.isWithAdminOption()) {
+                builder.append(" WITH ADMIN OPTION");
+            }
+            if (node.getGrantor().isPresent()) {
+                builder.append(" GRANTED BY ").append(formatGrantor(node.getGrantor().get()));
+            }
+            if (node.getCatalog().isPresent()) {
+                builder.append(" IN ").append(node.getCatalog().get());
+            }
+            return null;
+        }
+
+        @Override
+        protected Void visitRevokeRoles(RevokeRoles node, Integer context)
+        {
+            builder.append("REVOKE ");
+            if (node.isAdminOptionFor()) {
+                builder.append("ADMIN OPTION FOR ");
+            }
+            builder.append(node.getRoles().stream()
+                    .map(Identifier::toString)
+                    .collect(joining(", ")));
+            builder.append(" FROM ");
+            builder.append(node.getGrantees().stream()
+                    .map(Formatter::formatPrincipal)
+                    .collect(joining(", ")));
+            if (node.getGrantor().isPresent()) {
+                builder.append(" GRANTED BY ").append(formatGrantor(node.getGrantor().get()));
+            }
             if (node.getCatalog().isPresent()) {
                 builder.append(" IN ").append(node.getCatalog().get());
             }
