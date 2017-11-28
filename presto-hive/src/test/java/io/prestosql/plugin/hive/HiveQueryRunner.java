@@ -24,6 +24,7 @@ import io.prestosql.plugin.hive.authentication.NoHdfsAuthentication;
 import io.prestosql.plugin.hive.metastore.Database;
 import io.prestosql.plugin.hive.metastore.file.FileHiveMetastore;
 import io.prestosql.plugin.tpch.TpchPlugin;
+import io.prestosql.spi.security.Identity;
 import io.prestosql.spi.security.PrincipalType;
 import io.prestosql.testing.QueryRunner;
 import io.prestosql.tests.DistributedQueryRunner;
@@ -138,6 +139,7 @@ public final class HiveQueryRunner
     public static Session createSession()
     {
         return testSessionBuilder()
+                .setIdentity(new Identity("hive", Optional.empty()))
                 .setCatalog(HIVE_CATALOG)
                 .setSchema(TPCH_SCHEMA)
                 .build();
@@ -146,6 +148,7 @@ public final class HiveQueryRunner
     public static Session createBucketedSession()
     {
         return testSessionBuilder()
+                .setIdentity(new Identity("hive", Optional.empty()))
                 .setCatalog(HIVE_BUCKETED_CATALOG)
                 .setSchema(TPCH_BUCKETED_SCHEMA)
                 .build();
