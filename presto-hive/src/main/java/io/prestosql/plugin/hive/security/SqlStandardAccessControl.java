@@ -16,7 +16,6 @@ package io.prestosql.plugin.hive.security;
 import io.prestosql.plugin.hive.HiveConnectorId;
 import io.prestosql.plugin.hive.HiveTransactionHandle;
 import io.prestosql.plugin.hive.metastore.Database;
-import io.prestosql.plugin.hive.metastore.HivePrivilegeInfo;
 import io.prestosql.plugin.hive.metastore.SemiTransactionalHiveMetastore;
 import io.prestosql.spi.connector.ConnectorAccessControl;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
@@ -419,7 +418,8 @@ public class SqlStandardAccessControl
                 tableName.getSchemaName(),
                 tableName.getTableName(),
                 identity.getUser())
-                .contains(new HivePrivilegeInfo(toHivePrivilege(privilege), true));
+                .stream()
+                .anyMatch(privilegeInfo -> privilegeInfo.getHivePrivilege().equals(toHivePrivilege(privilege)) && privilegeInfo.isGrantOption());
     }
 
     private boolean hasAdminOptionForRoles(ConnectorTransactionHandle transaction, ConnectorIdentity identity, Set<String> roles)

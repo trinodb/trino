@@ -82,6 +82,7 @@ import static io.prestosql.plugin.hive.util.Statistics.reduce;
 import static io.prestosql.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.StandardErrorCode.TRANSACTION_CONFLICT;
+import static io.prestosql.spi.security.PrincipalType.USER;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.apache.hadoop.hive.common.FileUtils.makePartName;
@@ -788,7 +789,7 @@ public class SemiTransactionalHiveMetastore
                 Collection<HivePrivilegeInfo> privileges = tableAction.getData().getPrincipalPrivileges().getUserPrivileges().get(principal.getName());
                 return ImmutableSet.<HivePrivilegeInfo>builder()
                         .addAll(privileges)
-                        .add(new HivePrivilegeInfo(OWNERSHIP, true))
+                        .add(new HivePrivilegeInfo(OWNERSHIP, true, new PrestoPrincipal(USER, principal.getName())))
                         .build();
             }
             case INSERT_EXISTING:
