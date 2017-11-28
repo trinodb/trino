@@ -13,7 +13,7 @@
  */
 package io.prestosql.spi.connector;
 
-import io.prestosql.spi.security.Identity;
+import io.prestosql.spi.security.ConnectorIdentity;
 import io.prestosql.spi.type.TimeZoneKey;
 
 import java.util.Locale;
@@ -30,7 +30,7 @@ public interface ConnectorSession
         return getIdentity().getUser();
     }
 
-    Identity getIdentity();
+    ConnectorIdentity getIdentity();
 
     TimeZoneKey getTimeZoneKey();
 

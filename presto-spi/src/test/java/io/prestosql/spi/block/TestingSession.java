@@ -15,7 +15,7 @@ package io.prestosql.spi.block;
 
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.security.Identity;
+import io.prestosql.spi.security.ConnectorIdentity;
 import io.prestosql.spi.type.TimeZoneKey;
 
 import java.util.Locale;
@@ -42,9 +42,9 @@ public final class TestingSession
         }
 
         @Override
-        public Identity getIdentity()
+        public ConnectorIdentity getIdentity()
         {
-            return new Identity("user", Optional.empty());
+            return new ConnectorIdentity("user", Optional.empty());
         }
 
         @Override

@@ -18,7 +18,7 @@ import io.prestosql.spi.connector.ConnectorAccessControl;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.security.AccessDeniedException;
-import io.prestosql.spi.security.Identity;
+import io.prestosql.spi.security.ConnectorIdentity;
 import org.testng.Assert.ThrowingRunnable;
 import org.testng.annotations.Test;
 
@@ -93,9 +93,9 @@ public class TestFileBasedAccessControl
         assertAllMethodsOverridden(ConnectorAccessControl.class, FileBasedAccessControl.class);
     }
 
-    private static Identity user(String name)
+    private static ConnectorIdentity user(String name)
     {
-        return new Identity(name, Optional.empty());
+        return new ConnectorIdentity(name, Optional.empty());
     }
 
     private ConnectorAccessControl createAccessControl(String fileName)

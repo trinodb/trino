@@ -18,7 +18,7 @@ import io.prestosql.connector.ConnectorId;
 import io.prestosql.metadata.SessionPropertyManager;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.security.Identity;
+import io.prestosql.spi.security.ConnectorIdentity;
 import io.prestosql.spi.type.TimeZoneKey;
 
 import java.util.Locale;
@@ -34,15 +34,17 @@ public class FullConnectorSession
         implements ConnectorSession
 {
     private final Session session;
+    private final ConnectorIdentity identity;
     private final Map<String, String> properties;
     private final ConnectorId connectorId;
     private final String catalog;
     private final SessionPropertyManager sessionPropertyManager;
     private final boolean isLegacyTimestamp;
 
-    public FullConnectorSession(Session session)
+    public FullConnectorSession(Session session, ConnectorIdentity identity)
     {
         this.session = requireNonNull(session, "session is null");
+        this.identity = requireNonNull(identity, "identity is null");
         this.properties = null;
         this.connectorId = null;
         this.catalog = null;
@@ -52,12 +54,14 @@ public class FullConnectorSession
 
     public FullConnectorSession(
             Session session,
+            ConnectorIdentity identity,
             Map<String, String> properties,
             ConnectorId connectorId,
             String catalog,
             SessionPropertyManager sessionPropertyManager)
     {
         this.session = requireNonNull(session, "session is null");
+        this.identity = requireNonNull(identity, "identity is null");
         this.properties = ImmutableMap.copyOf(requireNonNull(properties, "properties is null"));
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.catalog = requireNonNull(catalog, "catalog is null");
@@ -83,9 +87,9 @@ public class FullConnectorSession
     }
 
     @Override
-    public Identity getIdentity()
+    public ConnectorIdentity getIdentity()
     {
-        return session.getIdentity();
+        return identity;
     }
 
     @Override
