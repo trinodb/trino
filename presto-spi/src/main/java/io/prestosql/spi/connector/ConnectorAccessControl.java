@@ -43,6 +43,8 @@ import static io.prestosql.spi.security.AccessDeniedException.denyRevokeTablePri
 import static io.prestosql.spi.security.AccessDeniedException.denySelectColumns;
 import static io.prestosql.spi.security.AccessDeniedException.denySetCatalogSessionProperty;
 import static io.prestosql.spi.security.AccessDeniedException.denySetRole;
+import static io.prestosql.spi.security.AccessDeniedException.denyShowCurrentRoles;
+import static io.prestosql.spi.security.AccessDeniedException.denyShowRoleGrants;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowRoles;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowSchemas;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowTablesMetadata;
@@ -307,5 +309,25 @@ public interface ConnectorAccessControl
     default void checkCanShowRoles(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, String catalogName)
     {
         denyShowRoles(catalogName);
+    }
+
+    /**
+     * Check if identity is allowed to show current roles on the specified catalog.
+     *
+     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
+     */
+    default void checkCanShowCurrentRoles(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, String catalogName)
+    {
+        denyShowCurrentRoles(catalogName);
+    }
+
+    /**
+     * Check if identity is allowed to show its own role grants on the specified catalog.
+     *
+     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
+     */
+    default void checkCanShowRoleGrants(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, String catalogName)
+    {
+        denyShowRoleGrants(catalogName);
     }
 }
