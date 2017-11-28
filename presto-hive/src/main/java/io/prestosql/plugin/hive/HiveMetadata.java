@@ -195,6 +195,7 @@ import static io.prestosql.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
 import static io.prestosql.spi.predicate.TupleDomain.withColumnDomains;
+import static io.prestosql.spi.security.PrincipalType.ROLE;
 import static io.prestosql.spi.security.PrincipalType.USER;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
@@ -1811,7 +1812,7 @@ public class HiveMetadata
                 .map(privilege -> new HivePrivilegeInfo(toHivePrivilege(privilege), grantOption))
                 .collect(toSet());
 
-        metastore.grantTablePrivileges(schemaName, tableName, grantee, hivePrivilegeInfos);
+        metastore.grantTablePrivileges(schemaName, tableName, getPrestoPrincipal(grantee), hivePrivilegeInfos);
     }
 
     @Override
@@ -1824,7 +1825,18 @@ public class HiveMetadata
                 .map(privilege -> new HivePrivilegeInfo(toHivePrivilege(privilege), grantOption))
                 .collect(toSet());
 
-        metastore.revokeTablePrivileges(schemaName, tableName, grantee, hivePrivilegeInfos);
+        metastore.revokeTablePrivileges(schemaName, tableName, getPrestoPrincipal(grantee), hivePrivilegeInfos);
+    }
+
+    private PrestoPrincipal getPrestoPrincipal(String grantee)
+    {
+        // TODO this hack will be removed after grant for roles is introduced
+        if (grantee.equalsIgnoreCase("public")) {
+            return new PrestoPrincipal(ROLE, "public");
+        }
+        else {
+            return new PrestoPrincipal(USER, grantee);
+        }
     }
 
     @Override
