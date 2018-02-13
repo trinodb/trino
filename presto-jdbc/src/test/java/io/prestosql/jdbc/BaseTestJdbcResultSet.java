@@ -28,6 +28,7 @@ import java.sql.Statement;
 import java.sql.Time;
 import java.sql.Timestamp;
 import java.sql.Types;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -493,10 +494,27 @@ public abstract class BaseTestJdbcResultSet
             throws Exception
     {
         try (ConnectedStatement connectedStatement = newStatement()) {
+            // zero
+            checkRepresentation(connectedStatement.getStatement(), "TIMESTAMP '1970-01-01 00:00:00.000 +00:00'", Types.TIMESTAMP_WITH_TIMEZONE, (rs, column) -> {
+                Timestamp timestampForPointInTime = Timestamp.from(Instant.EPOCH);
+                assertEquals(rs.getObject(column), timestampForPointInTime);
+                assertEquals(rs.getObject(column, ZonedDateTime.class), ZonedDateTime.ofInstant(Instant.EPOCH, ZoneId.of("UTC")));
+                assertThatThrownBy(() -> rs.getDate(column))
+                        .isInstanceOf(SQLException.class)
+                        .hasMessage("Expected value to be a date but is: 1970-01-01 00:00:00.000 UTC");
+                assertThatThrownBy(() -> rs.getTime(column))
+                        .isInstanceOf(IllegalArgumentException.class) // TODO (https://github.com/prestosql/presto/issues/5315) SQLException
+                        .hasMessage(serverSupportsVariablePrecisionTimestampWithTimeZone()
+                                ? "Expected column to be a time type but is timestamp with time zone(3)" // TODO (https://github.com/prestosql/presto/issues/5317) placement of precision parameter
+                                : "Expected column to be a time type but is timestamp with time zone");
+                assertEquals(rs.getTimestamp(column), timestampForPointInTime);
+            });
+
             checkRepresentation(connectedStatement.getStatement(), "TIMESTAMP '2018-02-13 13:14:15.227 Europe/Warsaw'", Types.TIMESTAMP_WITH_TIMEZONE, (rs, column) -> {
                 ZonedDateTime zonedDateTime = ZonedDateTime.of(2018, 2, 13, 13, 14, 15, 227_000_000, ZoneId.of("Europe/Warsaw"));
                 Timestamp timestampForPointInTime = Timestamp.from(zonedDateTime.toInstant());
                 assertEquals(rs.getObject(column), timestampForPointInTime); // TODO this should represent TIMESTAMP '2018-02-13 13:14:15.227 Europe/Warsaw'
+                assertEquals(rs.getObject(column, ZonedDateTime.class), zonedDateTime);
                 assertThatThrownBy(() -> rs.getDate(column))
                         .isInstanceOf(SQLException.class)
                         .hasMessage("Expected value to be a date but is: 2018-02-13 13:14:15.227 Europe/Warsaw");
@@ -514,6 +532,7 @@ public abstract class BaseTestJdbcResultSet
                     ZonedDateTime zonedDateTime = ZonedDateTime.of(2020, 1, 1, 0, 0, 0, 0, ZoneId.of("Europe/Warsaw"));
                     Timestamp timestampForPointInTime = Timestamp.from(zonedDateTime.toInstant());
                     assertEquals(rs.getObject(column), timestampForPointInTime);  // TODO this should represent TIMESTAMP '2019-12-31 23:59:59.999999999999 Europe/Warsaw'
+                    assertEquals(rs.getObject(column, ZonedDateTime.class), zonedDateTime);
                     assertThatThrownBy(() -> rs.getDate(column))
                             .isInstanceOf(SQLException.class)
                             .hasMessage("Expected value to be a date but is: 2019-12-31 23:59:59.999999999999 Europe/Warsaw");
@@ -532,6 +551,7 @@ public abstract class BaseTestJdbcResultSet
                             ZonedDateTime zonedDateTime = ZonedDateTime.of(2020, 1, 1, 0, 0, 0, 0, jvmZone);
                             Timestamp timestampForPointInTime = Timestamp.from(zonedDateTime.toInstant());
                             assertEquals(rs.getObject(column), timestampForPointInTime);  // TODO this should represent TIMESTAMP '2019-12-31 23:59:59.999999999999 JVM ZONE'
+                            assertEquals(rs.getObject(column, ZonedDateTime.class), zonedDateTime);
                             assertThatThrownBy(() -> rs.getDate(column))
                                     .isInstanceOf(SQLException.class)
                                     .hasMessage("Expected value to be a date but is: 2019-12-31 23:59:59.999999999999 America/Bahia_Banderas");
@@ -560,6 +580,7 @@ public abstract class BaseTestJdbcResultSet
                 ZonedDateTime zonedDateTime = ZonedDateTime.of(1970, 1, 1, 9, 14, 15, 227_000_000, ZoneId.of("Europe/Warsaw"));
                 Timestamp timestampForPointInTime = Timestamp.from(zonedDateTime.toInstant());
                 assertEquals(rs.getObject(column), timestampForPointInTime); // TODO this should represent TIMESTAMP '1970-01-01 09:14:15.227 Europe/Warsaw'
+                assertEquals(rs.getObject(column, ZonedDateTime.class), zonedDateTime);
                 assertThatThrownBy(() -> rs.getDate(column))
                         .isInstanceOf(SQLException.class)
                         .hasMessage("Expected value to be a date but is: 1970-01-01 09:14:15.227 Europe/Warsaw");
@@ -575,6 +596,7 @@ public abstract class BaseTestJdbcResultSet
                 ZonedDateTime zonedDateTime = ZonedDateTime.of(1970, 1, 1, 0, 14, 15, 227_000_000, ZoneId.of("Europe/Warsaw"));
                 Timestamp timestampForPointInTime = Timestamp.from(zonedDateTime.toInstant());
                 assertEquals(rs.getObject(column), timestampForPointInTime); // TODO this should represent TIMESTAMP '1970-01-01 00:14:15.227 Europe/Warsaw'
+                assertEquals(rs.getObject(column, ZonedDateTime.class), zonedDateTime);
                 assertThatThrownBy(() -> rs.getDate(column))
                         .isInstanceOf(SQLException.class)
                         .hasMessage("Expected value to be a date but is: 1970-01-01 00:14:15.227 Europe/Warsaw");
@@ -596,6 +618,7 @@ public abstract class BaseTestJdbcResultSet
                     ZonedDateTime zonedDateTime = ZonedDateTime.of(12345, 1, 23, 1, 23, 45, 123_456_789, ZoneId.of("Europe/Warsaw"));
                     Timestamp timestampForPointInTime = Timestamp.from(zonedDateTime.toInstant());
                     assertEquals(rs.getObject(column), timestampForPointInTime); // TODO this should contain the zone
+                    assertEquals(rs.getObject(column, ZonedDateTime.class), zonedDateTime);
                     assertThatThrownBy(() -> rs.getDate(column))
                             .isInstanceOf(SQLException.class)
                             .hasMessage("Expected value to be a date but is: +12345-01-23 01:23:45.123456789 Europe/Warsaw");
