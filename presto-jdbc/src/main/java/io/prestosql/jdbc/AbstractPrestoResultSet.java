@@ -149,6 +149,7 @@ abstract class AbstractPrestoResultSet
                     .add("time with time zone", String.class, Time.class, AbstractPrestoResultSet::parseTimeWithTimeZone)
                     .add("timestamp", String.class, Timestamp.class, string -> parseTimestampAsSqlTimestamp(string, ZoneId.systemDefault()))
                     .add("timestamp with time zone", String.class, Timestamp.class, AbstractPrestoResultSet::parseTimestampWithTimeZoneAsSqlTimestamp)
+                    .add("timestamp with time zone", String.class, ZonedDateTime.class, AbstractPrestoResultSet::parseTimestampWithTimeZone)
                     .add("interval year to month", String.class, PrestoIntervalYearMonth.class, AbstractPrestoResultSet::parseIntervalYearMonth)
                     .add("interval day to second", String.class, PrestoIntervalDayTime.class, AbstractPrestoResultSet::parseIntervalDayTime)
                     .add("array", List.class, List.class, (type, list) -> (List<?>) convertFromClientRepresentation(type, list))
@@ -415,6 +416,12 @@ abstract class AbstractPrestoResultSet
         }
 
         throw new IllegalArgumentException("Expected column to be a timestamp type but is " + columnInfo.getColumnTypeName());
+    }
+
+    private static ZonedDateTime parseTimestampWithTimeZone(String value)
+    {
+        ParsedTimestamp parsed = parseTimestamp(value);
+        return toZonedDateTime(parsed, timezone -> ZoneId.of(timezone.orElseThrow(() -> new IllegalArgumentException("Time zone missing: " + value))));
     }
 
     @Override
@@ -1997,6 +2004,25 @@ abstract class AbstractPrestoResultSet
         Timestamp timestamp = new Timestamp(epochSecond * MILLISECONDS_PER_SECOND);
         timestamp.setNanos(nanoOfSecond);
         return timestamp;
+    }
+
+    private static ZonedDateTime toZonedDateTime(ParsedTimestamp parsed, Function<Optional<String>, ZoneId> timeZoneParser)
+    {
+        int year = parsed.year;
+        int month = parsed.month;
+        int day = parsed.day;
+        int hour = parsed.hour;
+        int minute = parsed.minute;
+        int second = parsed.second;
+        long picosOfSecond = parsed.picosOfSecond;
+        ZoneId zoneId = timeZoneParser.apply(parsed.timezone);
+
+        ZonedDateTime zonedDateTime = LocalDateTime.of(year, month, day, hour, minute, second, 0)
+                .atZone(zoneId);
+
+        int nanoOfSecond = (int) rescale(picosOfSecond, 12, 9);
+        zonedDateTime = zonedDateTime.plusNanos(nanoOfSecond);
+        return zonedDateTime;
     }
 
     private static Time parseTime(String value, ZoneId localTimeZone)
