@@ -17,6 +17,7 @@ import com.google.common.collect.AbstractIterator;
 import io.airlift.stats.TimeStat;
 import io.prestosql.plugin.hive.DirectoryLister;
 import io.prestosql.plugin.hive.NamenodeStats;
+import io.prestosql.plugin.hive.metastore.Table;
 import io.prestosql.spi.PrestoException;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.LocatedFileStatus;
@@ -45,6 +46,7 @@ public class HiveFileIterator
     }
 
     private final Deque<Path> paths = new ArrayDeque<>();
+    private final Table table;
     private final FileSystem fileSystem;
     private final DirectoryLister directoryLister;
     private final NamenodeStats namenodeStats;
@@ -53,6 +55,7 @@ public class HiveFileIterator
     private Iterator<LocatedFileStatus> remoteIterator = Collections.emptyIterator();
 
     public HiveFileIterator(
+            Table table,
             Path path,
             FileSystem fileSystem,
             DirectoryLister directoryLister,
@@ -60,6 +63,7 @@ public class HiveFileIterator
             NestedDirectoryPolicy nestedDirectoryPolicy)
     {
         paths.addLast(requireNonNull(path, "path is null"));
+        this.table = requireNonNull(table, "table is null");
         this.fileSystem = requireNonNull(fileSystem, "fileSystem is null");
         this.directoryLister = requireNonNull(directoryLister, "directoryLister is null");
         this.namenodeStats = requireNonNull(namenodeStats, "namenodeStats is null");
@@ -104,7 +108,7 @@ public class HiveFileIterator
     private Iterator<LocatedFileStatus> getLocatedFileStatusRemoteIterator(Path path)
     {
         try (TimeStat.BlockTimer ignored = namenodeStats.getListLocatedStatus().time()) {
-            return new FileStatusIterator(path, fileSystem, directoryLister, namenodeStats);
+            return new FileStatusIterator(table, path, fileSystem, directoryLister, namenodeStats);
         }
     }
 
@@ -122,12 +126,12 @@ public class HiveFileIterator
         private final NamenodeStats namenodeStats;
         private final RemoteIterator<LocatedFileStatus> fileStatusIterator;
 
-        private FileStatusIterator(Path path, FileSystem fileSystem, DirectoryLister directoryLister, NamenodeStats namenodeStats)
+        private FileStatusIterator(Table table, Path path, FileSystem fileSystem, DirectoryLister directoryLister, NamenodeStats namenodeStats)
         {
             this.path = path;
             this.namenodeStats = namenodeStats;
             try {
-                this.fileStatusIterator = directoryLister.list(fileSystem, path);
+                this.fileStatusIterator = directoryLister.list(fileSystem, table, path);
             }
             catch (IOException e) {
                 throw processException(e);

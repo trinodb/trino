@@ -117,7 +117,10 @@ public class TestHiveConfig
                 .setS3SelectPushdownEnabled(false)
                 .setS3SelectPushdownMaxConnections(500)
                 .setTemporaryStagingDirectoryEnabled(true)
-                .setTemporaryStagingDirectoryPath("/tmp/presto-${USER}"));
+                .setTemporaryStagingDirectoryPath("/tmp/presto-${USER}")
+                .setFileStatusCacheExpireAfterWrite(new Duration(1, TimeUnit.MINUTES))
+                .setFileStatusCacheMaxSize(1000 * 1000)
+                .setFileStatusCacheTables(""));
     }
 
     @Test
@@ -204,6 +207,9 @@ public class TestHiveConfig
                 .put("hive.s3select-pushdown.max-connections", "1234")
                 .put("hive.temporary-staging-directory-enabled", "false")
                 .put("hive.temporary-staging-directory-path", "updated")
+                .put("hive.file-status-cache-tables", "foo.bar1, foo.bar2")
+                .put("hive.file-status-cache-size", "1000")
+                .put("hive.file-status-cache-expire-time", "30m")
                 .build();
 
         HiveConfig expected = new HiveConfig()
@@ -286,7 +292,10 @@ public class TestHiveConfig
                 .setS3SelectPushdownEnabled(true)
                 .setS3SelectPushdownMaxConnections(1234)
                 .setTemporaryStagingDirectoryEnabled(false)
-                .setTemporaryStagingDirectoryPath("updated");
+                .setTemporaryStagingDirectoryPath("updated")
+                .setFileStatusCacheTables("foo.bar1,foo.bar2")
+                .setFileStatusCacheMaxSize(1000)
+                .setFileStatusCacheExpireAfterWrite(new Duration(30, TimeUnit.MINUTES));
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }
