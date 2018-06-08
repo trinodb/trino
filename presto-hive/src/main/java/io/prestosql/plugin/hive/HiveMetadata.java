@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
@@ -88,6 +89,7 @@ import io.prestosql.spi.statistics.TableStatistics;
 import io.prestosql.spi.statistics.TableStatisticsMetadata;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeManager;
+import io.prestosql.spi.type.VarcharType;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.metastore.TableType;
 import org.apache.hadoop.hive.ql.exec.FileSinkOperator;
@@ -114,6 +116,7 @@ import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -209,6 +212,7 @@ import static io.prestosql.spi.statistics.TableStatisticType.ROW_COUNT;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
@@ -228,7 +232,6 @@ public class HiveMetadata
     private static final String ORC_BLOOM_FILTER_COLUMNS_KEY = "orc.bloom.filter.columns";
     private static final String ORC_BLOOM_FILTER_FPP_KEY = "orc.bloom.filter.fpp";
 
-    private static final String PARTITIONS_TABLE_SUFFIX = "$partitions";
     public static final String AVRO_SCHEMA_URL_KEY = "avro.schema.url";
 
     private final boolean allowCorruptWritesForTesting;
@@ -300,8 +303,8 @@ public class HiveMetadata
             return null;
         }
 
-        if (isPartitionsSystemTable(tableName)) {
-            // We must not allow $partitions table due to how permissions are checked in PartitionsAwareAccessControl.checkCanSelectFromTable()
+        if (getSourceTableNameFromSystemTable(tableName).isPresent()) {
+            // We must not allow system table due to how permissions are checked in SystemTableAwareAccessControl.checkCanSelectFromTable()
             throw new PrestoException(StandardErrorCode.NOT_SUPPORTED, format("Unexpected table %s present in Hive metastore", tableName));
         }
 
@@ -331,15 +334,35 @@ public class HiveMetadata
     @Override
     public Optional<SystemTable> getSystemTable(ConnectorSession session, SchemaTableName tableName)
     {
-        if (isPartitionsSystemTable(tableName)) {
-            return getPartitionsSystemTable(session, tableName);
+        if (SystemTableHandler.PARTITIONS.matches(tableName)) {
+            return getPartitionsSystemTable(session, tableName, SystemTableHandler.PARTITIONS.getSourceTableName(tableName));
+        }
+        if (SystemTableHandler.PROPERTIES.matches(tableName)) {
+            return getPropertiesSystemTable(tableName, SystemTableHandler.PROPERTIES.getSourceTableName(tableName));
         }
         return Optional.empty();
     }
 
-    private Optional<SystemTable> getPartitionsSystemTable(ConnectorSession session, SchemaTableName tableName)
+    private Optional<SystemTable> getPropertiesSystemTable(SchemaTableName tableName, SchemaTableName sourceTableName)
     {
-        SchemaTableName sourceTableName = getSourceTableNameForPartitionsTable(tableName);
+        Optional<Table> table = metastore.getTable(sourceTableName.getSchemaName(), sourceTableName.getTableName());
+        if (!table.isPresent() || table.get().getTableType().equals(TableType.VIRTUAL_VIEW.name())) {
+            throw new TableNotFoundException(tableName);
+        }
+        Map<String, String> sortedTableParameters = ImmutableSortedMap.copyOf(table.get().getParameters());
+        List<ColumnMetadata> columns = sortedTableParameters.keySet().stream()
+                .map(key -> new ColumnMetadata(key, VarcharType.VARCHAR))
+                .collect(toImmutableList());
+        List<Type> types = columns.stream()
+                .map(ColumnMetadata::getType)
+                .collect(toImmutableList());
+        Iterable<List<Object>> propertyValues = ImmutableList.of(ImmutableList.copyOf(sortedTableParameters.values()));
+
+        return Optional.of(createSystemTable(new ConnectorTableMetadata(sourceTableName, columns), constraint -> new InMemoryRecordSet(types, propertyValues).cursor()));
+    }
+
+    private Optional<SystemTable> getPartitionsSystemTable(ConnectorSession session, SchemaTableName tableName, SchemaTableName sourceTableName)
+    {
         HiveTableHandle sourceTableHandle = getTableHandle(session, sourceTableName);
 
         if (sourceTableHandle == null) {
@@ -369,39 +392,23 @@ public class HiveMetadata
                         .boxed()
                         .collect(toImmutableMap(identity(), partitionColumns::get));
 
-        SystemTable partitionsSystemTable = new SystemTable()
-        {
-            @Override
-            public Distribution getDistribution()
-            {
-                return Distribution.SINGLE_COORDINATOR;
-            }
+        return Optional.of(createSystemTable(
+                new ConnectorTableMetadata(tableName, partitionSystemTableColumns),
+                constraint -> {
+                    TupleDomain<ColumnHandle> targetTupleDomain = constraint.transform(fieldIdToColumnHandle::get);
+                    Predicate<Map<ColumnHandle, NullableValue>> targetPredicate = convertToPredicate(targetTupleDomain);
+                    Constraint targetConstraint = new Constraint(targetTupleDomain, targetPredicate);
+                    Iterable<List<Object>> records = () ->
+                            stream(partitionManager.getPartitions(metastore, sourceTableHandle, targetConstraint).getPartitions())
+                                    .map(hivePartition ->
+                                            IntStream.range(0, partitionColumns.size())
+                                                    .mapToObj(fieldIdToColumnHandle::get)
+                                                    .map(columnHandle -> hivePartition.getKeys().get(columnHandle).getValue())
+                                                    .collect(toList()))
+                                    .iterator();
 
-            @Override
-            public ConnectorTableMetadata getTableMetadata()
-            {
-                return new ConnectorTableMetadata(tableName, partitionSystemTableColumns);
-            }
-
-            @Override
-            public RecordCursor cursor(ConnectorTransactionHandle transactionHandle, ConnectorSession session, TupleDomain<Integer> constraint)
-            {
-                TupleDomain<ColumnHandle> targetTupleDomain = constraint.transform(fieldIdToColumnHandle::get);
-                Predicate<Map<ColumnHandle, NullableValue>> targetPredicate = convertToPredicate(targetTupleDomain);
-                Constraint targetConstraint = new Constraint(targetTupleDomain, targetPredicate);
-                Iterable<List<Object>> records = () ->
-                        stream(partitionManager.getPartitions(metastore, sourceTableHandle, targetConstraint).getPartitions())
-                                .map(hivePartition ->
-                                        IntStream.range(0, partitionColumns.size())
-                                                .mapToObj(fieldIdToColumnHandle::get)
-                                                .map(columnHandle -> hivePartition.getKeys().get(columnHandle).getValue())
-                                                .collect(toList()))
-                                .iterator();
-
-                return new InMemoryRecordSet(partitionColumnTypes, records).cursor();
-            }
-        };
-        return Optional.of(partitionsSystemTable);
+                    return new InMemoryRecordSet(partitionColumnTypes, records).cursor();
+                }));
     }
 
     private List<HiveColumnHandle> getPartitionColumns(SchemaTableName tableName)
@@ -2197,16 +2204,60 @@ public class HiveMetadata
         metastore.commit();
     }
 
-    public static boolean isPartitionsSystemTable(SchemaTableName tableName)
+    public static Optional<SchemaTableName> getSourceTableNameFromSystemTable(SchemaTableName tableName)
     {
-        return tableName.getTableName().endsWith(PARTITIONS_TABLE_SUFFIX) && tableName.getTableName().length() > PARTITIONS_TABLE_SUFFIX.length();
+        return Stream.of(SystemTableHandler.values())
+                .filter(handler -> handler.matches(tableName))
+                .map(handler -> handler.getSourceTableName(tableName))
+                .findAny();
     }
 
-    public static SchemaTableName getSourceTableNameForPartitionsTable(SchemaTableName tableName)
+    private static SystemTable createSystemTable(ConnectorTableMetadata metadata, Function<TupleDomain<Integer>, RecordCursor> cursor)
     {
-        checkArgument(isPartitionsSystemTable(tableName), "not a partitions table name");
-        return new SchemaTableName(
-                tableName.getSchemaName(),
-                tableName.getTableName().substring(0, tableName.getTableName().length() - PARTITIONS_TABLE_SUFFIX.length()));
+        return new SystemTable()
+        {
+            @Override
+            public Distribution getDistribution()
+            {
+                return Distribution.SINGLE_COORDINATOR;
+            }
+
+            @Override
+            public ConnectorTableMetadata getTableMetadata()
+            {
+                return metadata;
+            }
+
+            @Override
+            public RecordCursor cursor(ConnectorTransactionHandle transactionHandle, ConnectorSession session, TupleDomain<Integer> constraint)
+            {
+                return cursor.apply(constraint);
+            }
+        };
+    }
+
+    private enum SystemTableHandler
+    {
+        PARTITIONS, PROPERTIES;
+
+        private final String suffix;
+
+        SystemTableHandler()
+        {
+            this.suffix = "$" + name().toLowerCase(ENGLISH);
+        }
+
+        boolean matches(SchemaTableName table)
+        {
+            return table.getTableName().endsWith(suffix) &&
+                    (table.getTableName().length() > suffix.length());
+        }
+
+        SchemaTableName getSourceTableName(SchemaTableName table)
+        {
+            return new SchemaTableName(
+                    table.getSchemaName(),
+                    table.getTableName().substring(0, table.getTableName().length() - suffix.length()));
+        }
     }
 }
