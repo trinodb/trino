@@ -23,20 +23,20 @@ import io.prestosql.spi.security.AccessDeniedException;
 import io.prestosql.spi.security.ConnectorIdentity;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
-import static io.prestosql.plugin.hive.HiveMetadata.getSourceTableNameForPartitionsTable;
-import static io.prestosql.plugin.hive.HiveMetadata.isPartitionsSystemTable;
+import static io.prestosql.plugin.hive.HiveMetadata.getSourceTableNameFromSystemTable;
 import static io.prestosql.spi.security.AccessDeniedException.denySelectTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowColumnsMetadata;
 import static java.util.Objects.requireNonNull;
 
-public class PartitionsAwareAccessControl
+public class SystemTableAwareAccessControl
         extends ForwardingConnectorAccessControl
 {
     private final ConnectorAccessControl delegate;
 
-    public PartitionsAwareAccessControl(ConnectorAccessControl delegate)
+    public SystemTableAwareAccessControl(ConnectorAccessControl delegate)
     {
         this.delegate = requireNonNull(delegate, "delegate is null");
     }
@@ -50,9 +50,10 @@ public class PartitionsAwareAccessControl
     @Override
     public void checkCanShowColumnsMetadata(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, SchemaTableName tableName)
     {
-        if (isPartitionsSystemTable(tableName)) {
+        Optional<SchemaTableName> sourceTableName = getSourceTableNameFromSystemTable(tableName);
+        if (sourceTableName.isPresent()) {
             try {
-                checkCanShowColumnsMetadata(transactionHandle, identity, getSourceTableNameForPartitionsTable(tableName));
+                checkCanShowColumnsMetadata(transactionHandle, identity, sourceTableName.get());
                 return;
             }
             catch (AccessDeniedException e) {
@@ -66,8 +67,9 @@ public class PartitionsAwareAccessControl
     @Override
     public List<ColumnMetadata> filterColumns(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, SchemaTableName tableName, List<ColumnMetadata> columns)
     {
-        if (isPartitionsSystemTable(tableName)) {
-            return filterColumns(transactionHandle, identity, getSourceTableNameForPartitionsTable(tableName), columns);
+        Optional<SchemaTableName> sourceTableName = getSourceTableNameFromSystemTable(tableName);
+        if (sourceTableName.isPresent()) {
+            return filterColumns(transactionHandle, identity, sourceTableName.get(), columns);
         }
         return delegate.filterColumns(transactionHandle, identity, tableName, columns);
     }
@@ -75,9 +77,10 @@ public class PartitionsAwareAccessControl
     @Override
     public void checkCanSelectFromColumns(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, SchemaTableName tableName, Set<String> columnNames)
     {
-        if (isPartitionsSystemTable(tableName)) {
+        Optional<SchemaTableName> sourceTableName = getSourceTableNameFromSystemTable(tableName);
+        if (sourceTableName.isPresent()) {
             try {
-                checkCanSelectFromColumns(transactionHandle, identity, getSourceTableNameForPartitionsTable(tableName), columnNames);
+                checkCanSelectFromColumns(transactionHandle, identity, sourceTableName.get(), columnNames);
                 return;
             }
             catch (AccessDeniedException e) {
