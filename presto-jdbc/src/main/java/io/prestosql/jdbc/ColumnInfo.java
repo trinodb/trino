@@ -24,7 +24,6 @@ import static java.util.Objects.requireNonNull;
 
 class ColumnInfo
 {
-    private static final int VARCHAR_MAX = 1024 * 1024 * 1024;
     private static final int VARBINARY_MAX = 1024 * 1024 * 1024;
     private static final int TIME_ZONE_MAX = 40; // current longest time zone is 32
     private static final int TIME_MAX = "HH:mm:ss.SSS".length();
@@ -93,7 +92,7 @@ class ColumnInfo
             parameterTypes.add(getType(parameter));
         }
         builder.setColumnParameterTypes(parameterTypes.build());
-        switch (type.toString()) {
+        switch (type.getRawType()) {
             case "boolean":
                 builder.setColumnDisplaySize(5);
                 break;
@@ -133,16 +132,22 @@ class ColumnInfo
                 builder.setScale(0);
                 builder.setColumnDisplaySize(24);
                 break;
-            case "varchar":
-                builder.setSigned(true);
-                builder.setPrecision(VARCHAR_MAX);
+            case "char":
+                builder.setSigned(false);
                 builder.setScale(0);
-                builder.setColumnDisplaySize(VARCHAR_MAX);
+                builder.setPrecision(type.getArguments().get(0).getLongLiteral().intValue());
+                builder.setColumnDisplaySize(type.getArguments().get(0).getLongLiteral().intValue());
+                break;
+            case "varchar":
+                builder.setSigned(false);
+                builder.setScale(0);
+                builder.setPrecision(type.getArguments().get(0).getLongLiteral().intValue());
+                builder.setColumnDisplaySize(type.getArguments().get(0).getLongLiteral().intValue());
                 break;
             case "varbinary":
-                builder.setSigned(true);
-                builder.setPrecision(VARBINARY_MAX);
+                builder.setSigned(false);
                 builder.setScale(0);
+                builder.setPrecision(VARBINARY_MAX);
                 builder.setColumnDisplaySize(VARBINARY_MAX);
                 break;
             case "time":
