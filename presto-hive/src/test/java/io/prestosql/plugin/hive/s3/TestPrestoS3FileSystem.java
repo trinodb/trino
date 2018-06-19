@@ -19,6 +19,7 @@ import com.amazonaws.auth.AWSCredentials;
 import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.auth.AWSStaticCredentialsProvider;
 import com.amazonaws.auth.InstanceProfileCredentialsProvider;
+import com.amazonaws.auth.STSAssumeRoleSessionCredentialsProvider;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.AmazonS3EncryptionClient;
 import com.amazonaws.services.s3.S3ClientOptions;
@@ -57,6 +58,7 @@ import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_CREDENTIALS_PROV
 import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_DIRECTORY_OBJECT_CONTENT_TYPE;
 import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_ENCRYPTION_MATERIALS_PROVIDER;
 import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_ENDPOINT;
+import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_IAM_ROLE;
 import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_KMS_KEY_ID;
 import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_MAX_BACKOFF_TIME;
 import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_MAX_CLIENT_RETRIES;
@@ -136,6 +138,20 @@ public class TestPrestoS3FileSystem
         try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
             fs.initialize(new URI("s3n://test-bucket/"), config);
             assertInstanceOf(getAwsCredentialsProvider(fs), InstanceProfileCredentialsProvider.class);
+        }
+    }
+
+    @Test
+    public void testAssumeRoleCredentials()
+            throws Exception
+    {
+        Configuration config = new Configuration();
+        config.set(S3_IAM_ROLE, "role");
+        config.setBoolean(S3_USE_INSTANCE_CREDENTIALS, false);
+
+        try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
+            fs.initialize(new URI("s3n://test-bucket/"), config);
+            assertInstanceOf(getAwsCredentialsProvider(fs), STSAssumeRoleSessionCredentialsProvider.class);
         }
     }
 
