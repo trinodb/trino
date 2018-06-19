@@ -19,6 +19,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Pattern;
 
+import static com.google.common.base.CharMatcher.whitespace;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public final class PrestoCliProcess
@@ -35,7 +36,7 @@ public final class PrestoCliProcess
     {
         List<String> lines = new ArrayList<>();
         while (!hasNextOutput(PRESTO_PROMPT_PATTERN)) {
-            lines.add(nextOutputLine());
+            lines.add(whitespace().trimFrom(nextOutputLine()));
         }
         waitForPrompt();
         return lines;

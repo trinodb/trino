@@ -15,6 +15,7 @@ package io.prestosql.cli;
 
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
+import org.jline.terminal.Terminal;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -34,6 +35,7 @@ import static io.prestosql.cli.TestQueryRunner.createClientSession;
 import static io.prestosql.cli.TestQueryRunner.createQueryRunner;
 import static io.prestosql.cli.TestQueryRunner.createResults;
 import static io.prestosql.cli.TestQueryRunner.nullPrintStream;
+import static org.jline.terminal.TerminalBuilder.terminal;
 import static org.testng.Assert.assertEquals;
 
 @Test(singleThreaded = true)
@@ -60,6 +62,7 @@ public class TestInsecureQueryRunner
 
     @Test
     public void testInsecureConnection()
+            throws Exception
     {
         server.enqueue(new MockResponse()
                 .addHeader(CONTENT_TYPE, "application/json")
@@ -69,16 +72,14 @@ public class TestInsecureQueryRunner
                 .setBody(createResults(server)));
 
         QueryRunner queryRunner = createQueryRunner(createClientSession(server), true);
-        try (Query query = queryRunner.startQuery("query with insecure mode")) {
-            query.renderOutput(nullPrintStream(), nullPrintStream(), CSV, false, false);
+
+        try (Terminal terminal = terminal()) {
+            try (Query query = queryRunner.startQuery("query with insecure mode")) {
+                query.renderOutput(terminal, nullPrintStream(), nullPrintStream(), CSV, false, false);
+            }
         }
-        try {
-            assertEquals(server.takeRequest().getPath(), "/v1/statement");
-        }
-        catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new RuntimeException(e);
-        }
+
+        assertEquals(server.takeRequest().getPath(), "/v1/statement");
     }
 
     private SSLContext buildTestSslContext()
