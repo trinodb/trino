@@ -13,8 +13,6 @@
  */
 package io.prestosql.cli;
 
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.airline.Command;
 import io.airlift.airline.HelpOption;
@@ -25,11 +23,12 @@ import io.prestosql.cli.ClientOptions.OutputFormat;
 import io.prestosql.client.ClientSelectedRole;
 import io.prestosql.client.ClientSession;
 import io.prestosql.sql.parser.StatementSplitter;
-import jline.console.ConsoleReader;
-import jline.console.history.FileHistory;
-import jline.console.history.History;
-import jline.console.history.MemoryHistory;
-import org.fusesource.jansi.AnsiConsole;
+import org.jline.reader.EndOfFileException;
+import org.jline.reader.History;
+import org.jline.reader.LineReader;
+import org.jline.reader.LineReaderBuilder;
+import org.jline.reader.UserInterruptException;
+import org.jline.terminal.Terminal;
 
 import javax.inject.Inject;
 
@@ -37,38 +36,43 @@ import java.io.File;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.io.UncheckedIOException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Pattern;
 
+import static com.google.common.base.CharMatcher.whitespace;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.StandardSystemProperty.USER_HOME;
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.io.ByteStreams.nullOutputStream;
 import static com.google.common.io.Files.asCharSource;
-import static com.google.common.io.Files.createParentDirs;
 import static com.google.common.util.concurrent.Uninterruptibles.awaitUninterruptibly;
 import static io.prestosql.cli.Completion.commandCompleter;
-import static io.prestosql.cli.Completion.lowerCaseCommandCompleter;
 import static io.prestosql.cli.Help.getHelpText;
 import static io.prestosql.cli.QueryPreprocessor.preprocessQuery;
 import static io.prestosql.client.ClientSession.stripTransactionId;
 import static io.prestosql.sql.parser.StatementSplitter.Statement;
 import static io.prestosql.sql.parser.StatementSplitter.isEmptyStatement;
-import static io.prestosql.sql.parser.StatementSplitter.squeezeStatement;
 import static java.lang.Integer.parseInt;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static jline.internal.Configuration.getUserHome;
+import static org.jline.terminal.TerminalBuilder.terminal;
 
 @Command(name = "presto", description = "Presto interactive console")
 public class Console
 {
+    public static final Set<String> STATEMENT_DELIMITERS = ImmutableSet.of(";", "\\G");
+
     private static final String PROMPT_NAME = "presto";
     private static final Duration EXIT_DELAY = new Duration(3, SECONDS);
 
@@ -88,10 +92,6 @@ public class Console
         ClientSession session = clientOptions.toClientSession();
         boolean hasQuery = clientOptions.execute != null;
         boolean isFromFile = !isNullOrEmpty(clientOptions.file);
-
-        if (!hasQuery && !isFromFile) {
-            AnsiConsole.systemInstall();
-        }
 
         initializeLogging(clientOptions.logLevelsFile);
 
@@ -178,111 +178,101 @@ public class Console
             }
             return "";
         }
-        try {
-            ConsoleReader consoleReader = new ConsoleReader(System.in, System.err);
-            return consoleReader.readLine("Password: ", (char) 0);
+
+        try (Terminal terminal = terminal()) {
+            LineReader reader = LineReaderBuilder.builder().terminal(terminal).build();
+            return reader.readLine("Password: ", (char) 0);
         }
-        catch (IOException exception) {
-            throw new UncheckedIOException("Failed to read password from console", exception);
+        catch (EndOfFileException e) {
+            return "";
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException("Failed to read password from terminal", e);
         }
     }
 
     private static void runConsole(QueryRunner queryRunner, AtomicBoolean exiting)
     {
         try (TableNameCompleter tableNameCompleter = new TableNameCompleter(queryRunner);
-                LineReader reader = new LineReader(getHistory(), commandCompleter(), lowerCaseCommandCompleter(), tableNameCompleter)) {
+                InputReader reader = new InputReader(getHistoryFile(), commandCompleter(), tableNameCompleter)) {
             tableNameCompleter.populateCache();
-            StringBuilder buffer = new StringBuilder();
+            String remaining = "";
             while (!exiting.get()) {
-                // read a line of input from user
+                // setup prompt
                 String prompt = PROMPT_NAME;
                 String schema = queryRunner.getSession().getSchema();
                 if (schema != null) {
-                    prompt += ":" + schema;
-                }
-                if (buffer.length() > 0) {
-                    prompt = Strings.repeat(" ", prompt.length() - 1) + "-";
+                    prompt += ":" + schema.replace("%", "%%");
                 }
                 String commandPrompt = prompt + "> ";
-                String line = reader.readLine(commandPrompt);
 
-                // add buffer to history and clear on user interrupt
-                if (reader.interrupted()) {
-                    String partial = squeezeStatement(buffer.toString());
-                    if (!partial.isEmpty()) {
-                        reader.getHistory().add(partial);
+                // read a line of input from user
+                String line;
+                try {
+                    line = reader.readLine(commandPrompt, remaining);
+                }
+                catch (UserInterruptException e) {
+                    if (!e.getPartialLine().isEmpty()) {
+                        reader.getHistory().add(e.getPartialLine());
                     }
-                    buffer = new StringBuilder();
+                    remaining = "";
                     continue;
                 }
-
-                // exit on EOF
-                if (line == null) {
+                catch (EndOfFileException e) {
                     System.out.println();
                     return;
                 }
 
-                // check for special commands if this is the first line
-                if (buffer.length() == 0) {
-                    String command = line.trim();
+                // check for special commands
+                String command = whitespace().removeFrom(line);
 
-                    if (HISTORY_INDEX_PATTERN.matcher(command).matches()) {
-                        int historyIndex = parseInt(command.substring(1));
-                        History history = reader.getHistory();
-                        if ((historyIndex <= 0) || (historyIndex > history.index())) {
-                            System.err.println("Command does not exist");
-                            continue;
-                        }
-                        line = history.get(historyIndex - 1).toString();
-                        System.out.println(commandPrompt + line);
+                if (HISTORY_INDEX_PATTERN.matcher(command).matches()) {
+                    int historyIndex = parseInt(command.substring(1));
+                    History history = reader.getHistory();
+                    if ((historyIndex <= 0) || (historyIndex > history.index())) {
+                        System.err.println("Command does not exist");
+                        continue;
                     }
-
-                    if (command.endsWith(";")) {
-                        command = command.substring(0, command.length() - 1).trim();
-                    }
-
-                    switch (command.toLowerCase(ENGLISH)) {
-                        case "exit":
-                        case "quit":
-                            return;
-                        case "history":
-                            for (History.Entry entry : reader.getHistory()) {
-                                System.out.printf("%5d  %s%n", entry.index() + 1, entry.value());
-                            }
-                            continue;
-                        case "help":
-                            System.out.println();
-                            System.out.println(getHelpText());
-                            continue;
-                    }
+                    line = history.get(historyIndex - 1);
+                    System.out.println(commandPrompt + line);
                 }
 
-                // not a command, add line to buffer
-                buffer.append(line).append("\n");
+                if (command.endsWith(";")) {
+                    command = command.substring(0, command.length() - 1).trim();
+                }
+
+                switch (command.toLowerCase(ENGLISH)) {
+                    case "exit":
+                    case "quit":
+                        return;
+                    case "history":
+                        for (History.Entry entry : reader.getHistory()) {
+                            System.out.printf("%5d  %s%n", entry.index() + 1, entry.line());
+                        }
+                        continue;
+                    case "help":
+                        System.out.println();
+                        System.out.println(getHelpText());
+                        continue;
+                }
 
                 // execute any complete statements
-                String sql = buffer.toString();
-                StatementSplitter splitter = new StatementSplitter(sql, ImmutableSet.of(";", "\\G"));
+                StatementSplitter splitter = new StatementSplitter(line, STATEMENT_DELIMITERS);
                 for (Statement split : splitter.getCompleteStatements()) {
                     OutputFormat outputFormat = OutputFormat.ALIGNED;
                     if (split.terminator().equals("\\G")) {
                         outputFormat = OutputFormat.VERTICAL;
                     }
 
-                    process(queryRunner, split.statement(), outputFormat, tableNameCompleter::populateCache, true, true, System.out, System.out);
-                    reader.getHistory().add(squeezeStatement(split.statement()) + split.terminator());
+                    process(queryRunner, split.statement(), outputFormat, tableNameCompleter::populateCache, true, true, reader.getTerminal(), System.out, System.out);
                 }
 
-                // replace buffer with trailing partial statement
-                buffer = new StringBuilder();
-                String partial = splitter.getPartialStatement();
-                if (!partial.isEmpty()) {
-                    buffer.append(partial).append('\n');
-                }
+                // replace remaining with trailing partial statement
+                remaining = whitespace().trimTrailingFrom(splitter.getPartialStatement());
             }
         }
         catch (IOException e) {
-            System.err.println("Readline error: " + e.getMessage());
+            e.printStackTrace(System.err);
         }
     }
 
@@ -298,11 +288,16 @@ public class Console
         StatementSplitter splitter = new StatementSplitter(query);
         for (Statement split : splitter.getCompleteStatements()) {
             if (!isEmptyStatement(split.statement())) {
-                if (!process(queryRunner, split.statement(), outputFormat, () -> {}, false, showProgress, System.out, System.err)) {
-                    if (!ignoreErrors) {
-                        return false;
+                try (Terminal terminal = terminal()) {
+                    if (!process(queryRunner, split.statement(), outputFormat, () -> {}, false, showProgress, terminal, System.out, System.err)) {
+                        if (!ignoreErrors) {
+                            return false;
+                        }
+                        success = false;
                     }
-                    success = false;
+                }
+                catch (IOException e) {
+                    throw new UncheckedIOException(e);
                 }
             }
             if (exiting.get()) {
@@ -323,6 +318,7 @@ public class Console
             Runnable schemaChanged,
             boolean usePager,
             boolean showProgress,
+            Terminal terminal,
             PrintStream out,
             PrintStream errorChannel)
     {
@@ -342,7 +338,7 @@ public class Console
         }
 
         try (Query query = queryRunner.startQuery(finalSql)) {
-            boolean success = query.renderOutput(out, errorChannel, outputFormat, usePager, showProgress);
+            boolean success = query.renderOutput(terminal, out, errorChannel, outputFormat, usePager, showProgress);
 
             ClientSession session = queryRunner.getSession();
 
@@ -411,39 +407,13 @@ public class Console
         }
     }
 
-    private static MemoryHistory getHistory()
+    private static Path getHistoryFile()
     {
-        String historyFilePath = System.getenv("PRESTO_HISTORY_FILE");
-        File historyFile;
-        if (isNullOrEmpty(historyFilePath)) {
-            historyFile = new File(getUserHome(), ".presto_history");
+        String path = System.getenv("PRESTO_HISTORY_FILE");
+        if (!isNullOrEmpty(path)) {
+            return Paths.get(path);
         }
-        else {
-            historyFile = new File(historyFilePath);
-        }
-        return getHistory(historyFile);
-    }
-
-    @VisibleForTesting
-    static MemoryHistory getHistory(File historyFile)
-    {
-        MemoryHistory history;
-        try {
-            //  try creating the history file and its parents to check
-            // whether the directory tree is readable/writeable
-            createParentDirs(historyFile.getParentFile());
-            historyFile.createNewFile();
-            history = new FileHistory(historyFile);
-            history.setMaxSize(10000);
-        }
-        catch (IOException e) {
-            System.err.printf("WARNING: Failed to load history file (%s): %s. " +
-                            "History will not be available during this session.%n",
-                    historyFile, e.getMessage());
-            history = new MemoryHistory();
-        }
-        history.setAutoTrim(true);
-        return history;
+        return Paths.get(nullToEmpty(USER_HOME.value()), ".presto_history");
     }
 
     private static void initializeLogging(String logLevelsFile)
