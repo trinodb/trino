@@ -18,7 +18,6 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.prestosql.client.Column;
-import org.fusesource.jansi.AnsiString;
 
 import java.io.IOException;
 import java.io.Writer;
@@ -42,7 +41,8 @@ import static io.prestosql.client.ClientStandardTypes.TINYINT;
 import static java.lang.Math.max;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
-import static jline.console.WCWidth.wcwidth;
+import static org.jline.utils.AttributedString.stripAnsi;
+import static org.jline.utils.WCWidth.wcwidth;
 
 public class AlignedTablePrinter
         implements OutputPrinter
@@ -224,12 +224,7 @@ public class AlignedTablePrinter
 
     static int consoleWidth(String s)
     {
-        return consoleWidth(new AnsiString(s));
-    }
-
-    private static int consoleWidth(AnsiString s)
-    {
-        CharSequence plain = s.getPlain();
+        CharSequence plain = stripAnsi(s);
         int n = 0;
         for (int i = 0; i < plain.length(); i++) {
             n += max(wcwidth(plain.charAt(i)), 0);
