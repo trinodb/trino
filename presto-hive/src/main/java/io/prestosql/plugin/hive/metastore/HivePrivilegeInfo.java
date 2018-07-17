@@ -22,10 +22,8 @@ import io.prestosql.spi.security.PrivilegeInfo;
 
 import javax.annotation.concurrent.Immutable;
 
-import java.util.Arrays;
 import java.util.Objects;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.prestosql.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege.DELETE;
@@ -45,16 +43,19 @@ public class HivePrivilegeInfo
     private final HivePrivilege hivePrivilege;
     private final boolean grantOption;
     private final PrestoPrincipal grantor;
+    private final PrestoPrincipal grantee;
 
     @JsonCreator
     public HivePrivilegeInfo(
             @JsonProperty("hivePrivilege") HivePrivilege hivePrivilege,
             @JsonProperty("grantOption") boolean grantOption,
-            @JsonProperty("grantor") PrestoPrincipal grantor)
+            @JsonProperty("grantor") PrestoPrincipal grantor,
+            @JsonProperty("grantee") PrestoPrincipal grantee)
     {
         this.hivePrivilege = requireNonNull(hivePrivilege, "hivePrivilege is null");
         this.grantOption = grantOption;
         this.grantor = requireNonNull(grantor, "grantor is null");
+        this.grantee = requireNonNull(grantee, "grantee is null");
     }
 
     @JsonProperty
@@ -73,6 +74,12 @@ public class HivePrivilegeInfo
     public PrestoPrincipal getGrantor()
     {
         return grantor;
+    }
+
+    @JsonProperty
+    public PrestoPrincipal getGrantee()
+    {
+        return grantee;
     }
 
     public static HivePrivilege toHivePrivilege(Privilege privilege)
@@ -119,7 +126,7 @@ public class HivePrivilegeInfo
     @Override
     public int hashCode()
     {
-        return Objects.hash(hivePrivilege, grantOption);
+        return Objects.hash(hivePrivilege, grantOption, grantor, grantee);
     }
 
     @Override
@@ -133,7 +140,9 @@ public class HivePrivilegeInfo
         }
         HivePrivilegeInfo hivePrivilegeInfo = (HivePrivilegeInfo) o;
         return Objects.equals(hivePrivilege, hivePrivilegeInfo.hivePrivilege) &&
-                Objects.equals(grantOption, hivePrivilegeInfo.grantOption);
+                Objects.equals(grantOption, hivePrivilegeInfo.grantOption) &&
+                Objects.equals(grantor, hivePrivilegeInfo.grantor) &&
+                Objects.equals(grantee, hivePrivilegeInfo.grantee);
     }
 
     @Override
@@ -142,6 +151,8 @@ public class HivePrivilegeInfo
         return toStringHelper(this)
                 .add("privilege", hivePrivilege)
                 .add("grantOption", grantOption)
+                .add("grantor", grantor)
+                .add("grantee", grantee)
                 .toString();
     }
 }
