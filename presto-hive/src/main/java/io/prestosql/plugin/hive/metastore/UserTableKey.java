@@ -34,7 +34,8 @@ public class UserTableKey
     @JsonCreator
     public UserTableKey(@JsonProperty("principal") PrestoPrincipal principal, @JsonProperty("database") String database, @JsonProperty("table") String table)
     {
-        this.principal = requireNonNull(principal, "user is null");
+        // principal can be null when we want to list all privileges for admins
+        this.principal = principal;
         this.database = requireNonNull(database, "database is null");
         this.table = requireNonNull(table, "table is null");
     }
