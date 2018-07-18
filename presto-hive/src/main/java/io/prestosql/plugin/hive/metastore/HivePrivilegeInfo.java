@@ -110,9 +110,7 @@ public class HivePrivilegeInfo
             case UPDATE:
                 return ImmutableSet.of(new PrivilegeInfo(Privilege.UPDATE, isGrantOption()));
             case OWNERSHIP:
-                return ImmutableSet.copyOf(Arrays.stream(Privilege.values())
-                        .map(privilege -> new PrivilegeInfo(privilege, Boolean.TRUE))
-                        .collect(Collectors.toSet()));
+                return ImmutableSet.of();
             default:
                 throw new IllegalArgumentException("Unsupported hivePrivilege: " + hivePrivilege);
         }
