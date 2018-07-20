@@ -189,7 +189,7 @@ public class CassandraMetadata
         if (prefix.getTableName() == null) {
             return listTables(session, prefix.getSchemaName());
         }
-        return ImmutableList.of(new SchemaTableName(prefix.getSchemaName(), prefix.getTableName()));
+        return ImmutableList.of(prefix.toSchemaTableName());
     }
 
     @Override
