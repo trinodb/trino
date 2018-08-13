@@ -21,6 +21,7 @@ import io.prestosql.Session;
 import io.prestosql.plugin.tpch.TpchConnectorFactory;
 import io.prestosql.sql.analyzer.FeaturesConfig;
 import io.prestosql.sql.analyzer.FeaturesConfig.JoinDistributionType;
+import io.prestosql.sql.analyzer.FeaturesConfig.JoinReorderingStrategy;
 import io.prestosql.sql.planner.assertions.BasePlanTest;
 import io.prestosql.sql.planner.plan.ExchangeNode;
 import io.prestosql.sql.planner.plan.JoinNode.DistributionType;
@@ -33,10 +34,11 @@ import java.util.Optional;
 
 import static io.prestosql.SystemSessionProperties.IGNORE_DOWNSTREAM_PREFERENCES;
 import static io.prestosql.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
+import static io.prestosql.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static io.prestosql.SystemSessionProperties.SPILL_ENABLED;
 import static io.prestosql.SystemSessionProperties.TASK_CONCURRENCY;
-import static io.prestosql.sql.analyzer.FeaturesConfig.JoinDistributionType.BROADCAST;
 import static io.prestosql.sql.analyzer.FeaturesConfig.JoinDistributionType.PARTITIONED;
+import static io.prestosql.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.ELIMINATE_CROSS_JOINS;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.anyNot;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.anyTree;
@@ -111,7 +113,13 @@ public class TestAddExchangesPlans
     @Test
     public void testRepartitionForUnionAllBeforeHashJoin()
     {
+        Session session = Session.builder(getQueryRunner().getDefaultSession())
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, DistributionType.PARTITIONED.name())
+                .setSystemProperty(JOIN_REORDERING_STRATEGY, ELIMINATE_CROSS_JOINS.name())
+                .build();
+
         assertDistributedPlan("SELECT * FROM (SELECT nationkey FROM nation UNION ALL select nationkey from nation) n join region r on n.nationkey = r.regionkey",
+                session,
                 anyTree(
                         join(INNER, ImmutableList.of(equiJoinClause("nationkey", "regionkey")),
                                 anyTree(
@@ -127,6 +135,7 @@ public class TestAddExchangesPlans
                                                         tableScan("region", ImmutableMap.of("regionkey", "regionkey"))))))));
 
         assertDistributedPlan("SELECT * FROM (SELECT nationkey FROM nation UNION ALL select 1) n join region r on n.nationkey = r.regionkey",
+                session,
                 anyTree(
                         join(INNER, ImmutableList.of(equiJoinClause("nationkey", "regionkey")),
                                 anyTree(
@@ -147,7 +156,7 @@ public class TestAddExchangesPlans
     {
         assertDistributedPlan(
                 "SELECT * FROM nation n join region r on n.nationkey = r.regionkey",
-                spillEnabledWithJoinDistributionType(BROADCAST),
+                noJoinReordering(),
                 anyTree(
                         join(INNER, ImmutableList.of(equiJoinClause("nationkey", "regionkey")), Optional.empty(), Optional.of(REPLICATED), Optional.of(false),
                                 anyNot(ExchangeNode.class,
@@ -214,6 +223,16 @@ public class TestAddExchangesPlans
     {
         return Session.builder(getQueryRunner().getDefaultSession())
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, joinDistributionType.toString())
+                .setSystemProperty(SPILL_ENABLED, "true")
+                .setSystemProperty(TASK_CONCURRENCY, "16")
+                .build();
+    }
+
+    private Session noJoinReordering()
+    {
+        return Session.builder(getQueryRunner().getDefaultSession())
+                .setSystemProperty(JOIN_REORDERING_STRATEGY, JoinReorderingStrategy.NONE.name())
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.BROADCAST.name())
                 .setSystemProperty(SPILL_ENABLED, "true")
                 .setSystemProperty(TASK_CONCURRENCY, "16")
                 .build();

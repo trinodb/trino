@@ -3207,7 +3207,7 @@ public class TestHiveIntegrationSmokeTest
                     "  test_mismatch_bucketingN\n" +
                     "ON key16=keyN";
 
-            assertUpdate(withoutMismatchOptimization, writeToTableWithMoreBuckets, 15000, assertRemoteExchangesCount(4));
+            assertUpdate(withoutMismatchOptimization, writeToTableWithMoreBuckets, 15000, assertRemoteExchangesCount(3));
             assertQuery("SELECT * FROM test_mismatch_bucketing_out32", "SELECT orderkey, comment, orderkey, comment, orderkey, comment FROM orders");
             assertUpdate("DROP TABLE IF EXISTS test_mismatch_bucketing_out32");
 
