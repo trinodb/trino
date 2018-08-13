@@ -808,6 +808,7 @@ public class LocalQueryRunner
                 metadata,
                 sqlParser,
                 featuresConfig,
+                taskManagerConfig,
                 forceSingleNode,
                 new MBeanExporter(new TestingMBeanServer()),
                 splitManager,
