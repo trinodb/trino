@@ -15,7 +15,10 @@ package io.prestosql.sql.planner;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.Session;
 import io.prestosql.metadata.Metadata;
+import io.prestosql.sql.analyzer.FeaturesConfig.JoinDistributionType;
+import io.prestosql.sql.analyzer.FeaturesConfig.JoinReorderingStrategy;
 import io.prestosql.sql.planner.assertions.BasePlanTest;
 import io.prestosql.sql.planner.plan.EnforceSingleRowNode;
 import io.prestosql.sql.planner.plan.FilterNode;
@@ -25,6 +28,8 @@ import org.testng.annotations.Test;
 import java.util.Optional;
 
 import static io.prestosql.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
+import static io.prestosql.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
+import static io.prestosql.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.anyNot;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.anyTree;
@@ -44,10 +49,11 @@ public class TestDynamicFilter
 {
     private final Metadata metadata = createTestMetadataManager();
 
-    TestDynamicFilter()
+    public TestDynamicFilter()
     {
         // in order to test testUncorrelatedSubqueries with Dynamic Filtering, enable it
-        super(ImmutableMap.of(ENABLE_DYNAMIC_FILTERING, "true"));
+        super(ImmutableMap.of(
+                ENABLE_DYNAMIC_FILTERING, "true"));
     }
 
     @Test
@@ -187,7 +193,9 @@ public class TestDynamicFilter
     @Test
     public void testSubTreeJoinDFOnProbeSide()
     {
-        assertPlan("SELECT part.partkey from part JOIN (lineitem JOIN orders ON lineitem.orderkey = orders.orderkey) ON part.partkey = lineitem.orderkey",
+        assertPlan(
+                "SELECT part.partkey from part JOIN (lineitem JOIN orders ON lineitem.orderkey = orders.orderkey) ON part.partkey = lineitem.orderkey",
+                noJoinReordering(),
                 anyTree(
                         join(INNER, ImmutableList.of(equiJoinClause("PART_PK", "LINEITEM_OK")),
                                 ImmutableMap.of("PART_PK", "LINEITEM_OK"),
@@ -205,7 +213,9 @@ public class TestDynamicFilter
     @Test
     public void testSubTreeJoinDFOnBuildSide()
     {
-        assertPlan("SELECT part.partkey from (lineitem JOIN orders ON lineitem.orderkey = orders.orderkey) JOIN part ON lineitem.orderkey = part.partkey",
+        assertPlan(
+                "SELECT part.partkey from (lineitem JOIN orders ON lineitem.orderkey = orders.orderkey) JOIN part ON lineitem.orderkey = part.partkey",
+                noJoinReordering(),
                 anyTree(
                         join(INNER, ImmutableList.of(equiJoinClause("LINEITEM_OK", "PART_PK")),
                                 join(INNER, ImmutableList.of(equiJoinClause("LINEITEM_OK", "ORDERS_OK")),
@@ -247,5 +257,13 @@ public class TestDynamicFilter
                                                                                 tableScan("orders", ImmutableMap.of("ORDERS_CK16", "clerk")))))),
                                                 anyTree(
                                                         tableScan("orders", ImmutableMap.of("ORDERS_CK27", "clerk"))))), metadata)));
+    }
+
+    private Session noJoinReordering()
+    {
+        return Session.builder(getQueryRunner().getDefaultSession())
+                .setSystemProperty(JOIN_REORDERING_STRATEGY, JoinReorderingStrategy.NONE.name())
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.PARTITIONED.name())
+                .build();
     }
 }

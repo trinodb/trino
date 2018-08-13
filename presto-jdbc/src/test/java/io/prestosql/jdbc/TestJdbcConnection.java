@@ -202,7 +202,7 @@ public class TestJdbcConnection
     {
         try (Connection connection = createConnection()) {
             assertThat(listSession(connection))
-                    .contains("join_distribution_type|PARTITIONED|PARTITIONED")
+                    .contains("join_distribution_type|AUTOMATIC|AUTOMATIC")
                     .contains("exchange_compression|false|false");
 
             try (Statement statement = connection.createStatement()) {
@@ -210,7 +210,7 @@ public class TestJdbcConnection
             }
 
             assertThat(listSession(connection))
-                    .contains("join_distribution_type|BROADCAST|PARTITIONED")
+                    .contains("join_distribution_type|BROADCAST|AUTOMATIC")
                     .contains("exchange_compression|false|false");
 
             try (Statement statement = connection.createStatement()) {
@@ -218,7 +218,7 @@ public class TestJdbcConnection
             }
 
             assertThat(listSession(connection))
-                    .contains("join_distribution_type|BROADCAST|PARTITIONED")
+                    .contains("join_distribution_type|BROADCAST|AUTOMATIC")
                     .contains("exchange_compression|true|false");
 
             try (Statement statement = connection.createStatement()) {
@@ -234,7 +234,7 @@ public class TestJdbcConnection
                     }
 
                     assertThat(listSession(connection))
-                            .contains("join_distribution_type|BROADCAST|PARTITIONED")
+                            .contains("join_distribution_type|BROADCAST|AUTOMATIC")
                             .contains("exchange_compression|true|false")
                             .contains(format("hive.temporary_staging_directory_path|%s|/tmp/presto-${USER}", value));
                 }
