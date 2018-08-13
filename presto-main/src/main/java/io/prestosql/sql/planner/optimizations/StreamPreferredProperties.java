@@ -37,7 +37,7 @@ import static io.prestosql.sql.planner.optimizations.StreamPropertyDerivations.S
 import static io.prestosql.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties.StreamDistribution.SINGLE;
 import static java.util.Objects.requireNonNull;
 
-class StreamPreferredProperties
+public class StreamPreferredProperties
 {
     private final Optional<StreamDistribution> distribution;
 

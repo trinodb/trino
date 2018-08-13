@@ -108,6 +108,7 @@ public class FeaturesConfig
     private boolean enableStatsCalculator = true;
     private boolean ignoreStatsCalculatorFailures = true;
     private boolean defaultFilterFactorEnabled;
+    private boolean enableForcedExchangeBelowGroupId = true;
     private boolean pushAggregationThroughJoin = true;
     private double memoryRevokingTarget = 0.5;
     private double memoryRevokingThreshold = 0.9;
@@ -617,6 +618,18 @@ public class FeaturesConfig
     public boolean isDefaultFilterFactorEnabled()
     {
         return defaultFilterFactorEnabled;
+    }
+
+    public boolean isEnableForcedExchangeBelowGroupId()
+    {
+        return enableForcedExchangeBelowGroupId;
+    }
+
+    @Config("enable-forced-exchange-below-group-id")
+    public FeaturesConfig setEnableForcedExchangeBelowGroupId(boolean enableForcedExchangeBelowGroupId)
+    {
+        this.enableForcedExchangeBelowGroupId = enableForcedExchangeBelowGroupId;
+        return this;
     }
 
     public DataSize getAggregationOperatorUnspillMemoryLimit()

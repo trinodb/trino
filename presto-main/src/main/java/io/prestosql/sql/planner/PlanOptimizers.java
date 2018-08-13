@@ -20,6 +20,9 @@ import io.prestosql.cost.CostCalculator.EstimatedExchanges;
 import io.prestosql.cost.CostComparator;
 import io.prestosql.cost.StatsCalculator;
 import io.prestosql.cost.TaskCountEstimator;
+import io.prestosql.execution.TaskManagerConfig;
+import io.prestosql.execution.scheduler.NodeSchedulerConfig;
+import io.prestosql.metadata.InternalNodeManager;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.split.PageSourceManager;
 import io.prestosql.split.SplitManager;
@@ -27,6 +30,7 @@ import io.prestosql.sql.analyzer.FeaturesConfig;
 import io.prestosql.sql.parser.SqlParser;
 import io.prestosql.sql.planner.iterative.IterativeOptimizer;
 import io.prestosql.sql.planner.iterative.Rule;
+import io.prestosql.sql.planner.iterative.rule.AddExchangesBelowPartialAggregationOverGroupIdRuleSet;
 import io.prestosql.sql.planner.iterative.rule.AddIntermediateAggregations;
 import io.prestosql.sql.planner.iterative.rule.CanonicalizeExpressions;
 import io.prestosql.sql.planner.iterative.rule.CreatePartialTopN;
@@ -141,6 +145,9 @@ public class PlanOptimizers
             Metadata metadata,
             SqlParser sqlParser,
             FeaturesConfig featuresConfig,
+            NodeSchedulerConfig nodeSchedulerConfig,
+            InternalNodeManager nodeManager,
+            TaskManagerConfig taskManagerConfig,
             MBeanExporter exporter,
             SplitManager splitManager,
             PageSourceManager pageSourceManager,
@@ -153,6 +160,7 @@ public class PlanOptimizers
         this(metadata,
                 sqlParser,
                 featuresConfig,
+                taskManagerConfig,
                 false,
                 exporter,
                 splitManager,
@@ -182,6 +190,7 @@ public class PlanOptimizers
             Metadata metadata,
             SqlParser sqlParser,
             FeaturesConfig featuresConfig,
+            TaskManagerConfig taskManagerConfig,
             boolean forceSingleNode,
             MBeanExporter exporter,
             SplitManager splitManager,
@@ -487,6 +496,11 @@ public class PlanOptimizers
                         new PushPartialAggregationThroughJoin(),
                         new PushPartialAggregationThroughExchange(metadata.getFunctionRegistry()),
                         new PruneJoinColumns())));
+        builder.add(new IterativeOptimizer(
+                ruleStats,
+                statsCalculator,
+                costCalculator,
+                new AddExchangesBelowPartialAggregationOverGroupIdRuleSet(metadata, sqlParser, taskCountEstimator, taskManagerConfig).rules()));
         builder.add(new IterativeOptimizer(
                 ruleStats,
                 statsCalculator,
