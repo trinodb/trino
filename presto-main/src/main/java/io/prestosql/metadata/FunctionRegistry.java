@@ -259,6 +259,7 @@ import static io.prestosql.operator.scalar.CastFromUnknownOperator.CAST_FROM_UNK
 import static io.prestosql.operator.scalar.ConcatFunction.VARBINARY_CONCAT;
 import static io.prestosql.operator.scalar.ConcatFunction.VARCHAR_CONCAT;
 import static io.prestosql.operator.scalar.ElementToArrayConcatFunction.ELEMENT_TO_ARRAY_CONCAT_FUNCTION;
+import static io.prestosql.operator.scalar.FormatFunction.FORMAT_FUNCTION;
 import static io.prestosql.operator.scalar.Greatest.GREATEST;
 import static io.prestosql.operator.scalar.IdentityCast.IDENTITY_CAST;
 import static io.prestosql.operator.scalar.JsonStringToArrayCast.JSON_STRING_TO_ARRAY;
@@ -644,6 +645,7 @@ public class FunctionRegistry
                 .function(DECIMAL_MOD_FUNCTION)
                 .functions(ARRAY_TRANSFORM_FUNCTION, ARRAY_REDUCE_FUNCTION)
                 .functions(MAP_FILTER_FUNCTION, MAP_TRANSFORM_KEY_FUNCTION, MAP_TRANSFORM_VALUE_FUNCTION)
+                .function(FORMAT_FUNCTION)
                 .function(TRY_CAST)
                 .aggregate(MergeSetDigestAggregation.class)
                 .aggregate(BuildSetDigestAggregation.class)
