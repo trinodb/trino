@@ -26,6 +26,7 @@ import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.OperatorNotFoundException;
 import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.metadata.Signature;
+import io.prestosql.operator.scalar.FormatFunction;
 import io.prestosql.security.AccessControl;
 import io.prestosql.security.DenyAllAccessControl;
 import io.prestosql.spi.PrestoException;
@@ -64,6 +65,7 @@ import io.prestosql.sql.tree.ExistsPredicate;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.Extract;
 import io.prestosql.sql.tree.FieldReference;
+import io.prestosql.sql.tree.Format;
 import io.prestosql.sql.tree.FunctionCall;
 import io.prestosql.sql.tree.GenericLiteral;
 import io.prestosql.sql.tree.GroupingOperation;
@@ -134,6 +136,7 @@ import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.prestosql.spi.type.Varchars.isVarcharType;
 import static io.prestosql.sql.NodeUtils.getSortItemsFromOrderBy;
 import static io.prestosql.sql.analyzer.Analyzer.verifyNoAggregateWindowOrGroupingFunctions;
 import static io.prestosql.sql.analyzer.SemanticErrorCode.EXPRESSION_NOT_CONSTANT;
@@ -949,6 +952,32 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitCurrentPath(CurrentPath node, StackableAstVisitorContext<Context> context)
         {
+            return setExpressionType(node, VARCHAR);
+        }
+
+        @Override
+        protected Type visitFormat(Format node, StackableAstVisitorContext<Context> context)
+        {
+            List<Type> arguments = node.getArguments().stream()
+                    .map(expression -> process(expression, context))
+                    .collect(toImmutableList());
+
+            if (!isVarcharType(arguments.get(0))) {
+                throw new SemanticException(TYPE_MISMATCH, node.getArguments().get(0), "Type of first argument to format() must be VARCHAR (actual: %s)", arguments.get(0));
+            }
+
+            for (int i = 1; i < arguments.size(); i++) {
+                try {
+                    FormatFunction.validateType(functionRegistry, arguments.get(i));
+                }
+                catch (PrestoException e) {
+                    if (e.getErrorCode().equals(StandardErrorCode.NOT_SUPPORTED.toErrorCode())) {
+                        throw new SemanticException(NOT_SUPPORTED, node.getArguments().get(i), "%s", e.getMessage());
+                    }
+                    throw e;
+                }
+            }
+
             return setExpressionType(node, VARCHAR);
         }
 

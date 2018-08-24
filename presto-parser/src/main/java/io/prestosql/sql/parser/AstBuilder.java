@@ -69,6 +69,7 @@ import io.prestosql.sql.tree.ExplainType;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.Extract;
 import io.prestosql.sql.tree.FetchFirst;
+import io.prestosql.sql.tree.Format;
 import io.prestosql.sql.tree.FrameBound;
 import io.prestosql.sql.tree.FunctionCall;
 import io.prestosql.sql.tree.GenericLiteral;
@@ -1521,6 +1522,15 @@ class AstBuilder
             check(!filter.isPresent(), "FILTER not valid for 'try' function", context);
 
             return new TryExpression(getLocation(context), (Expression) visit(getOnlyElement(context.expression())));
+        }
+
+        if (name.toString().equalsIgnoreCase("format")) {
+            check(context.expression().size() >= 2, "The 'format' function must have at least two arguments", context);
+            check(!window.isPresent(), "OVER clause not valid for 'format' function", context);
+            check(!distinct, "DISTINCT not valid for 'format' function", context);
+            check(!filter.isPresent(), "FILTER not valid for 'format' function", context);
+
+            return new Format(getLocation(context), visit(context.expression(), Expression.class));
         }
 
         if (name.toString().equalsIgnoreCase("$internal$bind")) {

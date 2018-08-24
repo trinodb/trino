@@ -14,6 +14,7 @@
 package io.prestosql.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
+import io.prestosql.operator.scalar.FormatFunction;
 import io.prestosql.sql.tree.ArithmeticBinaryExpression;
 import io.prestosql.sql.tree.Cast;
 import io.prestosql.sql.tree.ComparisonExpression;
@@ -22,6 +23,7 @@ import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.ExpressionRewriter;
 import io.prestosql.sql.tree.ExpressionTreeRewriter;
 import io.prestosql.sql.tree.Extract;
+import io.prestosql.sql.tree.Format;
 import io.prestosql.sql.tree.FunctionCall;
 import io.prestosql.sql.tree.IfExpression;
 import io.prestosql.sql.tree.IsNotNullPredicate;
@@ -29,11 +31,14 @@ import io.prestosql.sql.tree.IsNullPredicate;
 import io.prestosql.sql.tree.Literal;
 import io.prestosql.sql.tree.NotExpression;
 import io.prestosql.sql.tree.QualifiedName;
+import io.prestosql.sql.tree.Row;
 import io.prestosql.sql.tree.SearchedCaseExpression;
 import io.prestosql.sql.tree.WhenClause;
 
+import java.util.List;
 import java.util.Optional;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.sql.tree.ArithmeticBinaryExpression.Operator.ADD;
 import static io.prestosql.sql.tree.ArithmeticBinaryExpression.Operator.MULTIPLY;
 
@@ -155,6 +160,18 @@ public class CanonicalizeExpressionRewriter
             }
 
             throw new UnsupportedOperationException("not yet implemented: " + node.getField());
+        }
+
+        @Override
+        public Expression rewriteFormat(Format node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+        {
+            List<Expression> arguments = node.getArguments().stream()
+                    .map(value -> treeRewriter.rewrite(value, context))
+                    .collect(toImmutableList());
+
+            return new FunctionCall(QualifiedName.of(FormatFunction.NAME), ImmutableList.of(
+                    arguments.get(0),
+                    new Row(arguments.subList(1, arguments.size()))));
         }
     }
 

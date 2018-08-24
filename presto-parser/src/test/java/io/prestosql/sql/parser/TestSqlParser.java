@@ -61,6 +61,7 @@ import io.prestosql.sql.tree.ExplainFormat;
 import io.prestosql.sql.tree.ExplainType;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.FetchFirst;
+import io.prestosql.sql.tree.Format;
 import io.prestosql.sql.tree.FunctionCall;
 import io.prestosql.sql.tree.GenericLiteral;
 import io.prestosql.sql.tree.Grant;
@@ -740,6 +741,16 @@ public class TestSqlParser
     public void testCurrentTimestamp()
     {
         assertExpression("CURRENT_TIMESTAMP", new CurrentTime(CurrentTime.Function.TIMESTAMP));
+    }
+
+    @Test
+    public void testFormat()
+    {
+        assertExpression("format('%s', 'abc')", new Format(ImmutableList.of(new StringLiteral("%s"), new StringLiteral("abc"))));
+        assertExpression("format('%d %s', 123, 'x')", new Format(ImmutableList.of(new StringLiteral("%d %s"), new LongLiteral("123"), new StringLiteral("x"))));
+
+        assertInvalidExpression("format()", "The 'format' function must have at least two arguments");
+        assertInvalidExpression("format('%s')", "The 'format' function must have at least two arguments");
     }
 
     @Test
