@@ -80,6 +80,7 @@ import static io.prestosql.plugin.hive.HiveUtil.getHeaderCount;
 import static io.prestosql.plugin.hive.HiveUtil.getInputFormat;
 import static io.prestosql.plugin.hive.S3SelectPushdown.shouldEnablePushdownForTable;
 import static io.prestosql.plugin.hive.metastore.MetastoreUtil.getHiveSchema;
+import static io.prestosql.plugin.hive.metastore.MetastoreUtil.getPartitionLocation;
 import static io.prestosql.plugin.hive.util.ConfigurationUtils.toJobConf;
 import static io.prestosql.plugin.hive.util.HiveFileIterator.NestedDirectoryPolicy.FAIL;
 import static io.prestosql.plugin.hive.util.HiveFileIterator.NestedDirectoryPolicy.IGNORED;
@@ -529,14 +530,6 @@ public class BackgroundHiveSplitLoader
             return getHiveSchema(table);
         }
         return getHiveSchema(partition.get(), table);
-    }
-
-    private static String getPartitionLocation(Table table, Optional<Partition> partition)
-    {
-        if (!partition.isPresent()) {
-            return table.getStorage().getLocation();
-        }
-        return partition.get().getStorage().getLocation();
     }
 
     public static class BucketSplitInfo
