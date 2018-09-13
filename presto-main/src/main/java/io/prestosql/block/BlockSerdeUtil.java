@@ -18,6 +18,7 @@ import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockEncodingSerde;
+import io.prestosql.spi.type.Type;
 
 import java.lang.invoke.MethodHandle;
 
@@ -26,6 +27,7 @@ import static io.prestosql.util.Reflection.methodHandle;
 public final class BlockSerdeUtil
 {
     public static final MethodHandle READ_BLOCK = methodHandle(BlockSerdeUtil.class, "readBlock", BlockEncodingSerde.class, Slice.class);
+    public static final MethodHandle READ_BLOCK_VALUE = methodHandle(BlockSerdeUtil.class, "readBlockValue", BlockEncodingSerde.class, Type.class, Slice.class);
 
     private BlockSerdeUtil()
     {
@@ -39,6 +41,12 @@ public final class BlockSerdeUtil
     public static Block readBlock(BlockEncodingSerde blockEncodingSerde, SliceInput input)
     {
         return blockEncodingSerde.readBlock(input);
+    }
+
+    public static Object readBlockValue(BlockEncodingSerde blockEncodingSerde, Type type, Slice slice)
+    {
+        Block block = readBlock(blockEncodingSerde, slice.getInput());
+        return type.getObject(block, 0);
     }
 
     public static void writeBlock(BlockEncodingSerde blockEncodingSerde, SliceOutput output, Block block)
