@@ -13,16 +13,14 @@
  */
 package io.prestosql.operator.aggregation.minmaxby;
 
-import io.prestosql.spi.block.Block;
-
-public interface BlockLongState
+public interface ObjectDoubleState
         extends TwoNullableValueState
 {
-    Block getFirst();
+    Object getFirst();
 
-    void setFirst(Block first);
+    void setFirst(Object first);
 
-    long getSecond();
+    double getSecond();
 
-    void setSecond(long second);
+    void setSecond(double second);
 }

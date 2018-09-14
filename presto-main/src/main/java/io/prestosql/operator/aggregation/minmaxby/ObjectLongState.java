@@ -13,16 +13,14 @@
  */
 package io.prestosql.operator.aggregation.minmaxby;
 
-import io.airlift.slice.Slice;
-
-public interface SliceDoubleState
+public interface ObjectLongState
         extends TwoNullableValueState
 {
-    Slice getFirst();
+    Object getFirst();
 
-    void setFirst(Slice first);
+    void setFirst(Object first);
 
-    double getSecond();
+    long getSecond();
 
-    void setSecond(double second);
+    void setSecond(long second);
 }
