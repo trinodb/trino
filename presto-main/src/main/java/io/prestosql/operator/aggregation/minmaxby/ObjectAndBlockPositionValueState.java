@@ -13,16 +13,10 @@
  */
 package io.prestosql.operator.aggregation.minmaxby;
 
-import io.prestosql.spi.block.Block;
-
-public interface BlockDoubleState
-        extends TwoNullableValueState
+public interface ObjectAndBlockPositionValueState
+        extends KeyAndBlockPositionValueState
 {
-    Block getFirst();
+    Object getFirst();
 
-    void setFirst(Block first);
-
-    double getSecond();
-
-    void setSecond(double second);
+    void setFirst(Object first);
 }

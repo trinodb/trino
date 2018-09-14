@@ -16,7 +16,6 @@ package io.prestosql.operator.aggregation.minmaxby;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.operator.aggregation.InternalAggregationFunction;
-import io.prestosql.operator.aggregation.state.StateCompiler;
 import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.SqlDecimal;
@@ -62,10 +61,8 @@ public class TestMinMaxByAggregation
 
         for (Type keyType : orderableTypes) {
             for (Type valueType : getTypes()) {
-                if (StateCompiler.getSupportedFieldTypes().contains(valueType.getJavaType())) {
-                    assertNotNull(METADATA.getAggregateFunctionImplementation(METADATA.resolveFunction(QualifiedName.of("min_by"), fromTypes(valueType, keyType))));
-                    assertNotNull(METADATA.getAggregateFunctionImplementation(METADATA.resolveFunction(QualifiedName.of("max_by"), fromTypes(valueType, keyType))));
-                }
+                assertNotNull(METADATA.getAggregateFunctionImplementation(METADATA.resolveFunction(QualifiedName.of("min_by"), fromTypes(valueType, keyType))));
+                assertNotNull(METADATA.getAggregateFunctionImplementation(METADATA.resolveFunction(QualifiedName.of("max_by"), fromTypes(valueType, keyType))));
             }
         }
     }
