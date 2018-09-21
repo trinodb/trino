@@ -22,6 +22,7 @@ import io.prestosql.security.AccessControl;
 import io.prestosql.spi.Plugin;
 import io.prestosql.split.PageSourceManager;
 import io.prestosql.split.SplitManager;
+import io.prestosql.sql.parser.SqlParser;
 import io.prestosql.sql.planner.iterative.Rule;
 import io.prestosql.testing.LocalQueryRunner;
 import io.prestosql.transaction.TransactionManager;
@@ -47,6 +48,7 @@ public class RuleTester
     private final SplitManager splitManager;
     private final PageSourceManager pageSourceManager;
     private final AccessControl accessControl;
+    private final SqlParser sqlParser;
 
     public RuleTester()
     {
@@ -89,6 +91,7 @@ public class RuleTester
         this.splitManager = queryRunner.getSplitManager();
         this.pageSourceManager = queryRunner.getPageSourceManager();
         this.accessControl = queryRunner.getAccessControl();
+        this.sqlParser = queryRunner.getSqlParser();
     }
 
     public RuleAssert assertThat(Rule rule)
@@ -115,6 +118,14 @@ public class RuleTester
     public PageSourceManager getPageSourceManager()
     {
         return pageSourceManager;
+    }
+
+    // TODO: this is only being used by rules that need to get the type of an expression
+    // In the short term, it should be encapsulated into something that knows how to provide types
+    // Rules should *not* need to use the parser otherwise.
+    public SqlParser getSqlParser()
+    {
+        return sqlParser;
     }
 
     public ConnectorId getCurrentConnectorId()

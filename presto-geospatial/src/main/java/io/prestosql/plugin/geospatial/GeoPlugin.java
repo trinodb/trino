@@ -26,6 +26,7 @@ import java.util.Set;
 import static io.prestosql.plugin.geospatial.BingTileType.BING_TILE;
 import static io.prestosql.plugin.geospatial.GeometryType.GEOMETRY;
 import static io.prestosql.plugin.geospatial.KdbTreeType.KDB_TREE;
+import static io.prestosql.plugin.geospatial.SphericalGeographyType.SPHERICAL_GEOGRAPHY;
 
 public class GeoPlugin
         implements Plugin
@@ -33,7 +34,7 @@ public class GeoPlugin
     @Override
     public Iterable<Type> getTypes()
     {
-        return ImmutableList.of(GEOMETRY, BING_TILE, KDB_TREE);
+        return ImmutableList.of(GEOMETRY, BING_TILE, KDB_TREE, SPHERICAL_GEOGRAPHY);
     }
 
     @Override
