@@ -18,9 +18,11 @@ import io.prestosql.sql.planner.assertions.PlanMatchPattern;
 import io.prestosql.sql.planner.iterative.rule.ExtractSpatialJoins.ExtractSpatialLeftJoin;
 import io.prestosql.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.prestosql.sql.planner.iterative.rule.test.RuleAssert;
+import io.prestosql.sql.planner.iterative.rule.test.RuleTester;
 import org.testng.annotations.Test;
 
 import static io.prestosql.plugin.geospatial.GeometryType.GEOMETRY;
+import static io.prestosql.plugin.geospatial.SphericalGeographyType.SPHERICAL_GEOGRAPHY;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.project;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.spatialLeftJoin;
@@ -73,6 +75,40 @@ public class TestExtractSpatialLeftJoin
                                 p.values(p.symbol("a", GEOMETRY)),
                                 p.values(p.symbol("b", GEOMETRY)),
                                 expression("ST_Distance(a, b) > 5")))
+                .doesNotFire();
+
+        // SphericalGeography operand
+        assertRuleApplication()
+                .on(p ->
+                        p.join(LEFT,
+                                p.values(p.symbol("a", SPHERICAL_GEOGRAPHY)),
+                                p.values(p.symbol("b", SPHERICAL_GEOGRAPHY)),
+                                expression("ST_Distance(a, b) < 5")))
+                .doesNotFire();
+
+        assertRuleApplication()
+                .on(p ->
+                        p.join(LEFT,
+                                p.values(p.symbol("polygon", SPHERICAL_GEOGRAPHY)),
+                                p.values(p.symbol("point", SPHERICAL_GEOGRAPHY)),
+                                expression("ST_Contains(polygon, point)")))
+                .doesNotFire();
+
+        // to_spherical_geography() operand
+        assertRuleApplication()
+                .on(p ->
+                        p.join(LEFT,
+                                p.values(p.symbol("wkt", VARCHAR)),
+                                p.values(p.symbol("point", SPHERICAL_GEOGRAPHY)),
+                                expression("ST_Distance(to_spherical_geography(ST_GeometryFromText(wkt)), point) < 5")))
+                .doesNotFire();
+
+        assertRuleApplication()
+                .on(p ->
+                        p.join(LEFT,
+                                p.values(p.symbol("wkt", VARCHAR)),
+                                p.values(p.symbol("point", SPHERICAL_GEOGRAPHY)),
+                                expression("ST_Contains(to_spherical_geography(ST_GeometryFromText(wkt)), point)")))
                 .doesNotFire();
     }
 
@@ -221,6 +257,7 @@ public class TestExtractSpatialLeftJoin
 
     private RuleAssert assertRuleApplication()
     {
-        return tester().assertThat(new ExtractSpatialLeftJoin(tester().getMetadata(), tester().getSplitManager(), tester().getPageSourceManager()));
+        RuleTester tester = tester();
+        return tester().assertThat(new ExtractSpatialLeftJoin(tester.getMetadata(), tester.getSplitManager(), tester.getPageSourceManager(), tester.getSqlParser()));
     }
 }
