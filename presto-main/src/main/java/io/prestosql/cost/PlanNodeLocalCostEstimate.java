@@ -83,7 +83,8 @@ public class PlanNodeLocalCostEstimate
     {
         return new PlanCostEstimate(
                 costEstimate.getCpuCost() + this.cpuCost,
-                costEstimate.getMemoryCost() + this.maxMemory,
+                costEstimate.getMaxMemory() + this.maxMemory,
+                costEstimate.getMaxMemoryWhenOutputting() + this.maxMemory,
                 costEstimate.getNetworkCost() + this.networkCost);
     }
 
@@ -93,7 +94,7 @@ public class PlanNodeLocalCostEstimate
     @Deprecated
     public PlanCostEstimate toPlanCost()
     {
-        return new PlanCostEstimate(cpuCost, maxMemory, networkCost);
+        return new PlanCostEstimate(cpuCost, maxMemory, maxMemory, networkCost);
     }
 
     @Override

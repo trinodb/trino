@@ -573,7 +573,7 @@ public class TestCostCalculator
 
         CostAssertionBuilder memory(double value)
         {
-            assertEquals(actual.getMemoryCost(), value, 0.000001);
+            assertEquals(actual.getMaxMemory(), value, 0.000001);
             return this;
         }
 
@@ -708,6 +708,6 @@ public class TestCostCalculator
 
     private static PlanCostEstimate cpuCost(double cpuCost)
     {
-        return new PlanCostEstimate(cpuCost, 0, 0);
+        return new PlanCostEstimate(cpuCost, 0, 0, 0);
     }
 }
