@@ -22,8 +22,10 @@ import io.prestosql.sql.tree.Node;
 import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
+import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -63,6 +65,7 @@ public class LateralJoinNode
      */
     private final List<Symbol> correlation;
     private final Type type;
+    private final List<Symbol> outputSymbols;
 
     /**
      * HACK!
@@ -92,6 +95,11 @@ public class LateralJoinNode
         this.correlation = ImmutableList.copyOf(correlation);
         this.type = type;
         this.originSubquery = originSubquery;
+
+        this.outputSymbols = Stream.of(input, subquery)
+                .flatMap(planNode -> planNode.getOutputSymbols().stream())
+                .distinct()
+                .collect(toImmutableList());
     }
 
     @JsonProperty("input")
@@ -134,10 +142,7 @@ public class LateralJoinNode
     @JsonProperty("outputSymbols")
     public List<Symbol> getOutputSymbols()
     {
-        return ImmutableList.<Symbol>builder()
-                .addAll(input.getOutputSymbols())
-                .addAll(subquery.getOutputSymbols())
-                .build();
+        return outputSymbols;
     }
 
     @Override
