@@ -70,6 +70,7 @@ public class HiveClientModule
 
         binder.bind(HiveSessionProperties.class).in(Scopes.SINGLETON);
         binder.bind(HiveTableProperties.class).in(Scopes.SINGLETON);
+        binder.bind(HiveAnalyzeProperties.class).in(Scopes.SINGLETON);
 
         binder.bind(NamenodeStats.class).in(Scopes.SINGLETON);
         newExporter(binder).export(NamenodeStats.class).withGeneratedName();
