@@ -13,6 +13,7 @@
  */
 package io.prestosql.plugin.jdbc;
 
+import com.google.common.base.CharMatcher;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -52,6 +53,7 @@ import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.prestosql.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.bigintWriteFunction;
@@ -146,11 +148,8 @@ public class BaseJdbcClient
     public List<SchemaTableName> getTableNames(JdbcIdentity identity, Optional<String> schema)
     {
         try (Connection connection = connectionFactory.openConnection(identity)) {
-            DatabaseMetaData metadata = connection.getMetaData();
-            if (metadata.storesUpperCaseIdentifiers()) {
-                schema = schema.map(schemaName -> schemaName.toUpperCase(ENGLISH));
-            }
-            try (ResultSet resultSet = getTables(connection, schema, Optional.empty())) {
+            Optional<String> remoteSchema = schema.map(schemaName -> toRemoteSchemaName(connection, schemaName));
+            try (ResultSet resultSet = getTables(connection, remoteSchema, Optional.empty())) {
                 ImmutableList.Builder<SchemaTableName> list = ImmutableList.builder();
                 while (resultSet.next()) {
                     list.add(getSchemaTableName(resultSet));
@@ -167,14 +166,9 @@ public class BaseJdbcClient
     public Optional<JdbcTableHandle> getTableHandle(JdbcIdentity identity, SchemaTableName schemaTableName)
     {
         try (Connection connection = connectionFactory.openConnection(identity)) {
-            DatabaseMetaData metadata = connection.getMetaData();
-            String jdbcSchemaName = schemaTableName.getSchemaName();
-            String jdbcTableName = schemaTableName.getTableName();
-            if (metadata.storesUpperCaseIdentifiers()) {
-                jdbcSchemaName = jdbcSchemaName.toUpperCase(ENGLISH);
-                jdbcTableName = jdbcTableName.toUpperCase(ENGLISH);
-            }
-            try (ResultSet resultSet = getTables(connection, Optional.of(jdbcSchemaName), Optional.of(jdbcTableName))) {
+            String remoteSchema = toRemoteSchemaName(connection, schemaTableName.getSchemaName());
+            String remoteTable = toRemoteTableName(connection, remoteSchema, schemaTableName.getTableName());
+            try (ResultSet resultSet = getTables(connection, Optional.of(remoteSchema), Optional.of(remoteTable))) {
                 List<JdbcTableHandle> tableHandles = new ArrayList<>();
                 while (resultSet.next()) {
                     tableHandles.add(new JdbcTableHandle(
@@ -310,19 +304,17 @@ public class BaseJdbcClient
             throws SQLException
     {
         SchemaTableName schemaTableName = tableMetadata.getTable();
-        String schema = schemaTableName.getSchemaName();
-        String table = schemaTableName.getTableName();
 
         JdbcIdentity identity = JdbcIdentity.from(session);
-        if (!getSchemaNames(identity).contains(schema)) {
-            throw new PrestoException(NOT_FOUND, "Schema not found: " + schema);
+        if (!getSchemaNames(identity).contains(schemaTableName.getSchemaName())) {
+            throw new PrestoException(NOT_FOUND, "Schema not found: " + schemaTableName.getSchemaName());
         }
 
         try (Connection connection = connectionFactory.openConnection(identity)) {
             boolean uppercase = connection.getMetaData().storesUpperCaseIdentifiers();
+            String remoteSchema = toRemoteSchemaName(connection, schemaTableName.getSchemaName());
+            String remoteTable = toRemoteTableName(connection, remoteSchema, schemaTableName.getTableName());
             if (uppercase) {
-                schema = schema.toUpperCase(ENGLISH);
-                table = table.toUpperCase(ENGLISH);
                 tableName = tableName.toUpperCase(ENGLISH);
             }
             String catalog = connection.getCatalog();
@@ -343,14 +335,14 @@ public class BaseJdbcClient
 
             String sql = format(
                     "CREATE TABLE %s (%s)",
-                    quoted(catalog, schema, tableName),
+                    quoted(catalog, remoteSchema, tableName),
                     join(", ", columnList.build()));
             execute(connection, sql);
 
             return new JdbcOutputTableHandle(
                     catalog,
-                    schema,
-                    table,
+                    remoteSchema,
+                    remoteTable,
                     columnNames.build(),
                     columnTypes.build(),
                     tableName);
@@ -551,6 +543,41 @@ public class BaseJdbcClient
         return new SchemaTableName(
                 resultSet.getString("TABLE_SCHEM").toLowerCase(ENGLISH),
                 resultSet.getString("TABLE_NAME").toLowerCase(ENGLISH));
+    }
+
+    protected String toRemoteSchemaName(Connection connection, String schemaName)
+    {
+        requireNonNull(schemaName, "schemaName is null");
+        verify(CharMatcher.forPredicate(Character::isUpperCase).matchesNoneOf(schemaName), "Expected schema name from internal metadata to be lowercase: %s", schemaName);
+
+        try {
+            DatabaseMetaData metadata = connection.getMetaData();
+            if (metadata.storesUpperCaseIdentifiers()) {
+                return schemaName.toUpperCase(ENGLISH);
+            }
+            return schemaName;
+        }
+        catch (SQLException e) {
+            throw new PrestoException(JDBC_ERROR, e);
+        }
+    }
+
+    protected String toRemoteTableName(Connection connection, String remoteSchema, String tableName)
+    {
+        requireNonNull(remoteSchema, "remoteSchema is null");
+        requireNonNull(tableName, "tableName is null");
+        verify(CharMatcher.forPredicate(Character::isUpperCase).matchesNoneOf(tableName), "Expected table name from internal metadata to be lowercase: %s", tableName);
+
+        try {
+            DatabaseMetaData metadata = connection.getMetaData();
+            if (metadata.storesUpperCaseIdentifiers()) {
+                return tableName.toUpperCase(ENGLISH);
+            }
+            return tableName;
+        }
+        catch (SQLException e) {
+            throw new PrestoException(JDBC_ERROR, e);
+        }
     }
 
     @Override

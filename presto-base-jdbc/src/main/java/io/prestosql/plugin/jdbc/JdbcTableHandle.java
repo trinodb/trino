@@ -32,6 +32,8 @@ public final class JdbcTableHandle
         implements ConnectorTableHandle
 {
     private final SchemaTableName schemaTableName;
+
+    // catalog, schema and table names are reported by the remote database
     private final String catalogName;
     private final String schemaName;
     private final String tableName;
