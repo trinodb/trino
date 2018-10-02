@@ -14,6 +14,7 @@
 package io.prestosql.sql.planner;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.prestosql.Session;
 import io.prestosql.connector.ConnectorId;
@@ -28,6 +29,7 @@ import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.NewTableLayout;
 import io.prestosql.metadata.QualifiedObjectName;
+import io.prestosql.metadata.TableHandle;
 import io.prestosql.metadata.TableMetadata;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ColumnHandle;
@@ -43,6 +45,7 @@ import io.prestosql.sql.analyzer.Scope;
 import io.prestosql.sql.parser.SqlParser;
 import io.prestosql.sql.planner.StatisticsAggregationPlanner.TableStatisticAggregation;
 import io.prestosql.sql.planner.optimizations.PlanOptimizer;
+import io.prestosql.sql.planner.plan.AggregationNode;
 import io.prestosql.sql.planner.plan.Assignments;
 import io.prestosql.sql.planner.plan.DeleteNode;
 import io.prestosql.sql.planner.plan.ExplainAnalyzeNode;
@@ -51,10 +54,13 @@ import io.prestosql.sql.planner.plan.OutputNode;
 import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.ProjectNode;
 import io.prestosql.sql.planner.plan.StatisticAggregations;
+import io.prestosql.sql.planner.plan.StatisticsWriterNode;
 import io.prestosql.sql.planner.plan.TableFinishNode;
+import io.prestosql.sql.planner.plan.TableScanNode;
 import io.prestosql.sql.planner.plan.TableWriterNode;
 import io.prestosql.sql.planner.plan.ValuesNode;
 import io.prestosql.sql.planner.sanity.PlanSanityChecker;
+import io.prestosql.sql.tree.Analyze;
 import io.prestosql.sql.tree.Cast;
 import io.prestosql.sql.tree.CreateTableAsSelect;
 import io.prestosql.sql.tree.Delete;
@@ -84,8 +90,10 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Streams.zip;
 import static io.prestosql.spi.StandardErrorCode.NOT_FOUND;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.prestosql.spi.statistics.TableStatisticType.ROW_COUNT;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
+import static io.prestosql.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static io.prestosql.sql.planner.plan.TableWriterNode.CreateName;
 import static io.prestosql.sql.planner.plan.TableWriterNode.InsertReference;
 import static io.prestosql.sql.planner.plan.TableWriterNode.WriterTarget;
@@ -195,6 +203,9 @@ public class LogicalPlanner
             }
             return createTableCreationPlan(analysis, ((CreateTableAsSelect) statement).getQuery());
         }
+        else if (statement instanceof Analyze) {
+            return createAnalyzePlan(analysis, (Analyze) statement);
+        }
         else if (statement instanceof Insert) {
             checkState(analysis.getInsert().isPresent(), "Insert handle is missing");
             return createInsertPlan(analysis, (Insert) statement);
@@ -223,6 +234,50 @@ public class LogicalPlanner
         return new RelationPlan(root, scope, ImmutableList.of(outputSymbol));
     }
 
+    private RelationPlan createAnalyzePlan(Analysis analysis, Analyze analyzeStatement)
+    {
+        TableHandle targetTable = analysis.getAnalyzeTarget().get();
+
+        // Plan table scan
+        Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, targetTable);
+        ImmutableList.Builder<Symbol> tableScanOutputs = ImmutableList.builder();
+        ImmutableMap.Builder<Symbol, ColumnHandle> symbolToColumnHandle = ImmutableMap.builder();
+        ImmutableMap.Builder<String, Symbol> columnNameToSymbol = ImmutableMap.builder();
+        TableMetadata tableMetadata = metadata.getTableMetadata(session, targetTable);
+        for (ColumnMetadata column : tableMetadata.getColumns()) {
+            Symbol symbol = symbolAllocator.newSymbol(column.getName(), column.getType());
+            tableScanOutputs.add(symbol);
+            symbolToColumnHandle.put(symbol, columnHandles.get(column.getName()));
+            columnNameToSymbol.put(column.getName(), symbol);
+        }
+
+        TableStatisticsMetadata tableStatisticsMetadata = metadata.getStatisticsCollectionMetadata(
+                session,
+                targetTable.getConnectorId().getCatalogName(),
+                tableMetadata.getMetadata());
+
+        TableStatisticAggregation tableStatisticAggregation = statisticsAggregationPlanner.createStatisticsAggregation(tableStatisticsMetadata, columnNameToSymbol.build());
+        StatisticAggregations statisticAggregations = tableStatisticAggregation.getAggregations();
+        List<Symbol> groupingSymbols = statisticAggregations.getGroupingSymbols();
+
+        PlanNode planNode = new StatisticsWriterNode(
+                idAllocator.getNextId(),
+                new AggregationNode(
+                        idAllocator.getNextId(),
+                        new TableScanNode(idAllocator.getNextId(), targetTable, tableScanOutputs.build(), symbolToColumnHandle.build()),
+                        statisticAggregations.getAggregations(),
+                        singleGroupingSet(groupingSymbols),
+                        ImmutableList.of(),
+                        AggregationNode.Step.SINGLE,
+                        Optional.empty(),
+                        Optional.empty()),
+                new StatisticsWriterNode.WriteStatisticsReference(targetTable),
+                symbolAllocator.newSymbol("rows", BIGINT),
+                tableStatisticsMetadata.getTableStatistics().contains(ROW_COUNT),
+                tableStatisticAggregation.getDescriptor());
+        return new RelationPlan(planNode, analysis.getScope(analyzeStatement), planNode.getOutputSymbols());
+    }
+
     private RelationPlan createTableCreationPlan(Analysis analysis, Query query)
     {
         QualifiedObjectName destination = analysis.getCreateTableDestination().get();
@@ -242,7 +297,7 @@ public class LogicalPlanner
                 .map(ColumnMetadata::getName)
                 .collect(toImmutableList());
 
-        TableStatisticsMetadata statisticsMetadata = metadata.getStatisticsCollectionMetadata(session, destination.getCatalogName(), tableMetadata);
+        TableStatisticsMetadata statisticsMetadata = metadata.getStatisticsCollectionMetadataForWrite(session, destination.getCatalogName(), tableMetadata);
 
         return createTableWriterPlan(
                 analysis,
@@ -305,7 +360,7 @@ public class LogicalPlanner
 
         Optional<NewTableLayout> newTableLayout = metadata.getInsertLayout(session, insert.getTarget());
         String catalogName = insert.getTarget().getConnectorId().getCatalogName();
-        TableStatisticsMetadata statisticsMetadata = metadata.getStatisticsCollectionMetadata(session, catalogName, tableMetadata.getMetadata());
+        TableStatisticsMetadata statisticsMetadata = metadata.getStatisticsCollectionMetadataForWrite(session, catalogName, tableMetadata.getMetadata());
 
         return createTableWriterPlan(
                 analysis,

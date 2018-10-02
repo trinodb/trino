@@ -71,6 +71,8 @@ public interface Metadata
 
     Optional<SystemTable> getSystemTable(Session session, QualifiedObjectName tableName);
 
+    Optional<TableHandle> getTableHandleForStatisticsCollection(Session session, QualifiedObjectName tableName, Map<String, Object> analyzeProperties);
+
     List<TableLayoutResult> getLayouts(Session session, TableHandle tableHandle, Constraint<ColumnHandle> constraint, Optional<Set<ColumnHandle>> desiredColumns);
 
     TableLayout getLayout(Session session, TableLayoutHandle handle);
@@ -193,7 +195,22 @@ public interface Metadata
     /**
      * Describes statistics that must be collected during a write.
      */
+    TableStatisticsMetadata getStatisticsCollectionMetadataForWrite(Session session, String catalogName, ConnectorTableMetadata tableMetadata);
+
+    /**
+     * Describe statistics that must be collected during a statistics collection
+     */
     TableStatisticsMetadata getStatisticsCollectionMetadata(Session session, String catalogName, ConnectorTableMetadata tableMetadata);
+
+    /**
+     * Begin statistics collection
+     */
+    AnalyzeTableHandle beginStatisticsCollection(Session session, TableHandle tableHandle);
+
+    /**
+     * Finish statistics collection
+     */
+    void finishStatisticsCollection(Session session, AnalyzeTableHandle tableHandle, Collection<ComputedStatistics> computedStatistics);
 
     /**
      * Start a SELECT/UPDATE/INSERT/DELETE query
@@ -361,4 +378,6 @@ public interface Metadata
     TablePropertyManager getTablePropertyManager();
 
     ColumnPropertyManager getColumnPropertyManager();
+
+    AnalyzePropertyManager getAnalyzePropertyManager();
 }

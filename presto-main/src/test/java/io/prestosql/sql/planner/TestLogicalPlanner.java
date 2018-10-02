@@ -33,6 +33,7 @@ import io.prestosql.sql.planner.plan.JoinNode;
 import io.prestosql.sql.planner.plan.LateralJoinNode;
 import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.SemiJoinNode;
+import io.prestosql.sql.planner.plan.StatisticsWriterNode;
 import io.prestosql.sql.planner.plan.TableScanNode;
 import io.prestosql.sql.planner.plan.ValuesNode;
 import io.prestosql.sql.tree.LongLiteral;
@@ -101,6 +102,21 @@ import static org.testng.Assert.assertFalse;
 public class TestLogicalPlanner
         extends BasePlanTest
 {
+    @Test
+    public void testAnalyze()
+    {
+        assertDistributedPlan("ANALYZE orders",
+                anyTree(
+                        node(StatisticsWriterNode.class,
+                                anyTree(
+                                        exchange(REMOTE, GATHER,
+                                                node(AggregationNode.class,
+                                                        anyTree(
+                                                                exchange(REMOTE, GATHER,
+                                                                        node(AggregationNode.class,
+                                                                                tableScan("orders", ImmutableMap.of()))))))))));
+    }
+
     @Test
     public void testAggregation()
     {

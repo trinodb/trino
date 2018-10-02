@@ -15,6 +15,10 @@ package io.prestosql.tests;
 
 import org.testng.annotations.Test;
 
+import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.INSERT_TABLE;
+import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.SELECT_COLUMN;
+import static io.prestosql.testing.TestingAccessControlManager.privilege;
+
 public class TestLocalQueryRunner
         extends AbstractTestQueryFramework
 {
@@ -27,5 +31,14 @@ public class TestLocalQueryRunner
     public void testSimpleQuery()
     {
         assertQuery("SELECT * FROM nation");
+    }
+
+    @Test
+    public void testAnalyzeAccessControl()
+    {
+        assertAccessAllowed("ANALYZE nation");
+        assertAccessDenied("ANALYZE nation", "Cannot ANALYZE \\(missing insert privilege\\) table .*.nation.*", privilege("nation", INSERT_TABLE));
+        assertAccessDenied("ANALYZE nation", "Cannot select from columns \\[.*] in table or view .*.nation", privilege("nation", SELECT_COLUMN));
+        assertAccessDenied("ANALYZE nation", "Cannot select from columns \\[.*nationkey.*] in table or view .*.nation", privilege("nationkey", SELECT_COLUMN));
     }
 }

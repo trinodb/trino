@@ -90,6 +90,7 @@ import io.prestosql.sql.planner.plan.SortNode;
 import io.prestosql.sql.planner.plan.SpatialJoinNode;
 import io.prestosql.sql.planner.plan.StatisticAggregations;
 import io.prestosql.sql.planner.plan.StatisticAggregationsDescriptor;
+import io.prestosql.sql.planner.plan.StatisticsWriterNode;
 import io.prestosql.sql.planner.plan.TableFinishNode;
 import io.prestosql.sql.planner.plan.TableScanNode;
 import io.prestosql.sql.planner.plan.TableWriterNode;
@@ -1118,6 +1119,15 @@ public class PlanPrinter
                 printStatisticAggregations(node.getStatisticsAggregation().get(), node.getStatisticsAggregationDescriptor().get(), indent + 2);
             }
 
+            return processChildren(node, indent + 1);
+        }
+
+        @Override
+        public Void visitStatisticsWriterNode(StatisticsWriterNode node, Integer indent)
+        {
+            print(indent, "- StatisticsWriterNode[%s] => [%s]", node.getTarget(), formatOutputs(node.getOutputSymbols()));
+            printPlanNodesStatsAndCost(indent + 2, node);
+            printStats(indent + 2, node.getId());
             return processChildren(node, indent + 1);
         }
 
