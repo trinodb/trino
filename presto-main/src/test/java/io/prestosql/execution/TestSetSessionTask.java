@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.block.BlockEncodingManager;
 import io.prestosql.execution.warnings.WarningCollector;
+import io.prestosql.metadata.AnalyzePropertyManager;
 import io.prestosql.metadata.Catalog;
 import io.prestosql.metadata.CatalogManager;
 import io.prestosql.metadata.ColumnPropertyManager;
@@ -84,6 +85,7 @@ public class TestSetSessionTask
                 new SchemaPropertyManager(),
                 new TablePropertyManager(),
                 new ColumnPropertyManager(),
+                new AnalyzePropertyManager(),
                 transactionManager);
 
         metadata.getSessionPropertyManager().addSystemSessionProperty(stringProperty(

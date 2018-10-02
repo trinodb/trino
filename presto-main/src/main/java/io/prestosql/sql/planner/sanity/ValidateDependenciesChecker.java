@@ -53,6 +53,8 @@ import io.prestosql.sql.planner.plan.SemiJoinNode;
 import io.prestosql.sql.planner.plan.SetOperationNode;
 import io.prestosql.sql.planner.plan.SortNode;
 import io.prestosql.sql.planner.plan.SpatialJoinNode;
+import io.prestosql.sql.planner.plan.StatisticAggregationsDescriptor;
+import io.prestosql.sql.planner.plan.StatisticsWriterNode;
 import io.prestosql.sql.planner.plan.TableFinishNode;
 import io.prestosql.sql.planner.plan.TableScanNode;
 import io.prestosql.sql.planner.plan.TableWriterNode;
@@ -525,6 +527,22 @@ public final class ValidateDependenciesChecker
         @Override
         public Void visitMetadataDelete(MetadataDeleteNode node, Set<Symbol> boundSymbols)
         {
+            return null;
+        }
+
+        @Override
+        public Void visitStatisticsWriterNode(StatisticsWriterNode node, Set<Symbol> boundSymbols)
+        {
+            node.getSource().accept(this, boundSymbols); // visit child
+
+            StatisticAggregationsDescriptor<Symbol> descriptor = node.getDescriptor();
+            Set<Symbol> dependencies = ImmutableSet.<Symbol>builder()
+                    .addAll(descriptor.getGrouping().values())
+                    .addAll(descriptor.getColumnStatistics().values())
+                    .addAll(descriptor.getTableStatistics().values())
+                    .build();
+            List<Symbol> outputSymbols = node.getSource().getOutputSymbols();
+            checkDependencies(dependencies, dependencies, "Invalid node. Dependencies (%s) not in source plan output (%s)", dependencies, outputSymbols);
             return null;
         }
 

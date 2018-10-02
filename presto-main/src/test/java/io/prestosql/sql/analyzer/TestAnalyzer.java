@@ -25,6 +25,7 @@ import io.prestosql.execution.QueryManagerConfig;
 import io.prestosql.execution.TaskManagerConfig;
 import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.memory.MemoryManagerConfig;
+import io.prestosql.metadata.AnalyzePropertyManager;
 import io.prestosql.metadata.Catalog;
 import io.prestosql.metadata.CatalogManager;
 import io.prestosql.metadata.ColumnPropertyManager;
@@ -47,6 +48,7 @@ import io.prestosql.spi.connector.ConnectorSplitManager;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 import io.prestosql.spi.connector.SchemaTableName;
+import io.prestosql.spi.session.PropertyMetadata;
 import io.prestosql.spi.transaction.IsolationLevel;
 import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.TypeManager;
@@ -60,6 +62,7 @@ import org.intellij.lang.annotations.Language;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.function.Consumer;
 
@@ -67,6 +70,8 @@ import static io.prestosql.connector.ConnectorId.createInformationSchemaConnecto
 import static io.prestosql.connector.ConnectorId.createSystemTablesConnectorId;
 import static io.prestosql.metadata.ViewDefinition.ViewColumn;
 import static io.prestosql.operator.scalar.ApplyFunction.APPLY_FUNCTION;
+import static io.prestosql.spi.session.PropertyMetadata.integerProperty;
+import static io.prestosql.spi.session.PropertyMetadata.stringProperty;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
@@ -1097,6 +1102,16 @@ public class TestAnalyzer
     }
 
     @Test
+    public void testAnalyze()
+    {
+        analyze("ANALYZE t1");
+        analyze("ANALYZE t1 WITH (p1 = 'p1')");
+
+        assertFails(DUPLICATE_PROPERTY, ".* Duplicate property: p1", "ANALYZE t1 WITH (p1 = 'p1', p2 = 2, p1 = 'p3')");
+        assertFails(DUPLICATE_PROPERTY, ".* Duplicate property: p1", "ANALYZE t1 WITH (p1 = 'p1', \"p1\" = 'p2')");
+    }
+
+    @Test
     public void testCreateSchema()
     {
         analyze("CREATE SCHEMA test");
@@ -1500,11 +1515,15 @@ public class TestAnalyzer
                 new SchemaPropertyManager(),
                 new TablePropertyManager(),
                 new ColumnPropertyManager(),
+                new AnalyzePropertyManager(),
                 transactionManager);
 
         metadata.getFunctionRegistry().addFunctions(ImmutableList.of(APPLY_FUNCTION));
 
-        catalogManager.registerCatalog(createTestingCatalog(TPCH_CATALOG, TPCH_CONNECTOR_ID));
+        Catalog tpchTestCatalog = createTestingCatalog(TPCH_CATALOG, TPCH_CONNECTOR_ID);
+        catalogManager.registerCatalog(tpchTestCatalog);
+        metadata.getAnalyzePropertyManager().addProperties(TPCH_CONNECTOR_ID, tpchTestCatalog.getConnector(TPCH_CONNECTOR_ID).getAnalyzeProperties());
+
         catalogManager.registerCatalog(createTestingCatalog(SECOND_CATALOG, SECOND_CONNECTOR_ID));
         catalogManager.registerCatalog(createTestingCatalog(THIRD_CATALOG, THIRD_CONNECTOR_ID));
 
@@ -1767,6 +1786,14 @@ public class TestAnalyzer
             public ConnectorSplitManager getSplitManager()
             {
                 throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public List<PropertyMetadata<?>> getAnalyzeProperties()
+            {
+                return ImmutableList.of(
+                        stringProperty("p1", "test string property", "", false),
+                        integerProperty("p2", "test integer property", 0, false));
             }
         };
     }

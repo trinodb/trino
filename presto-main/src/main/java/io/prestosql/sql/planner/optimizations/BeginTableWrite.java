@@ -35,6 +35,7 @@ import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.ProjectNode;
 import io.prestosql.sql.planner.plan.SemiJoinNode;
 import io.prestosql.sql.planner.plan.SimplePlanRewriter;
+import io.prestosql.sql.planner.plan.StatisticsWriterNode;
 import io.prestosql.sql.planner.plan.TableFinishNode;
 import io.prestosql.sql.planner.plan.TableScanNode;
 import io.prestosql.sql.planner.plan.TableWriterNode;
@@ -114,6 +115,24 @@ public class BeginTableWrite
                     deleteHandle,
                     node.getRowId(),
                     node.getOutputSymbols());
+        }
+
+        @Override
+        public PlanNode visitStatisticsWriterNode(StatisticsWriterNode node, RewriteContext<Context> context)
+        {
+            PlanNode child = node.getSource();
+            child = child.accept(this, context);
+
+            StatisticsWriterNode.WriteStatisticsHandle analyzeHandle =
+                    new StatisticsWriterNode.WriteStatisticsHandle(metadata.beginStatisticsCollection(session, ((StatisticsWriterNode.WriteStatisticsReference) node.getTarget()).getHandle()));
+
+            return new StatisticsWriterNode(
+                    node.getId(),
+                    child,
+                    analyzeHandle,
+                    node.getRowCountSymbol(),
+                    node.isRowCountEnabled(),
+                    node.getDescriptor());
         }
 
         @Override

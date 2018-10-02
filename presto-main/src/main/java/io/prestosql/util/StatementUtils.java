@@ -16,6 +16,7 @@ package io.prestosql.util;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.spi.resourcegroups.QueryType;
 import io.prestosql.sql.tree.AddColumn;
+import io.prestosql.sql.tree.Analyze;
 import io.prestosql.sql.tree.Call;
 import io.prestosql.sql.tree.Commit;
 import io.prestosql.sql.tree.CreateRole;
@@ -77,6 +78,7 @@ public final class StatementUtils
         builder.put(Query.class, QueryType.SELECT);
 
         builder.put(Explain.class, QueryType.EXPLAIN);
+        builder.put(Analyze.class, QueryType.ANALYZE);
 
         builder.put(CreateTableAsSelect.class, QueryType.INSERT);
         builder.put(Insert.class, QueryType.INSERT);

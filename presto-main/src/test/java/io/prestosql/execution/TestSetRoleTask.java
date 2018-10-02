@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.block.BlockEncodingManager;
 import io.prestosql.execution.warnings.WarningCollector;
+import io.prestosql.metadata.AnalyzePropertyManager;
 import io.prestosql.metadata.CatalogManager;
 import io.prestosql.metadata.ColumnPropertyManager;
 import io.prestosql.metadata.MetadataManager;
@@ -78,6 +79,7 @@ public class TestSetRoleTask
                 new SchemaPropertyManager(),
                 new TablePropertyManager(),
                 new ColumnPropertyManager(),
+                new AnalyzePropertyManager(),
                 transactionManager);
 
         catalogManager.registerCatalog(createBogusTestingCatalog(CATALOG_NAME));

@@ -26,6 +26,7 @@ import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 import io.prestosql.sql.planner.plan.StatisticAggregations;
 import io.prestosql.sql.planner.plan.StatisticAggregationsDescriptor;
+import io.prestosql.sql.planner.plan.StatisticsWriterNode;
 import io.prestosql.sql.planner.plan.TableFinishNode;
 import io.prestosql.sql.planner.plan.TableWriterNode;
 import io.prestosql.sql.planner.plan.TopNNode;
@@ -161,6 +162,17 @@ public class SymbolMapper
                 node.getPartitioningScheme().map(partitioningScheme -> canonicalize(partitioningScheme, source)),
                 node.getStatisticsAggregation().map(this::map),
                 node.getStatisticsAggregationDescriptor().map(this::map));
+    }
+
+    public StatisticsWriterNode map(StatisticsWriterNode node, PlanNode source)
+    {
+        return new StatisticsWriterNode(
+                node.getId(),
+                source,
+                node.getTarget(),
+                node.getRowCountSymbol(),
+                node.isRowCountEnabled(),
+                node.getDescriptor().map(this::map));
     }
 
     public TableFinishNode map(TableFinishNode node, PlanNode source)

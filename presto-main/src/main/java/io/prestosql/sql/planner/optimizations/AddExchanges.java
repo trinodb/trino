@@ -64,6 +64,7 @@ import io.prestosql.sql.planner.plan.RowNumberNode;
 import io.prestosql.sql.planner.plan.SemiJoinNode;
 import io.prestosql.sql.planner.plan.SortNode;
 import io.prestosql.sql.planner.plan.SpatialJoinNode;
+import io.prestosql.sql.planner.plan.StatisticsWriterNode;
 import io.prestosql.sql.planner.plan.TableFinishNode;
 import io.prestosql.sql.planner.plan.TableScanNode;
 import io.prestosql.sql.planner.plan.TableWriterNode;
@@ -582,6 +583,25 @@ public class AddExchanges
             child = withDerivedProperties(
                     gatheringExchange(idAllocator.getNextId(), REMOTE, child.getNode()),
                     child.getProperties());
+
+            return rebaseAndDeriveProperties(node, child);
+        }
+
+        @Override
+        public PlanWithProperties visitStatisticsWriterNode(StatisticsWriterNode node, PreferredProperties context)
+        {
+            PlanWithProperties child = planChild(node, PreferredProperties.any());
+
+            // if the child is already a gathering exchange, don't add another
+            if ((child.getNode() instanceof ExchangeNode) && ((ExchangeNode) child.getNode()).getType().equals(GATHER)) {
+                return rebaseAndDeriveProperties(node, child);
+            }
+
+            if (!child.getProperties().isCoordinatorOnly()) {
+                child = withDerivedProperties(
+                        gatheringExchange(idAllocator.getNextId(), REMOTE, child.getNode()),
+                        child.getProperties());
+            }
 
             return rebaseAndDeriveProperties(node, child);
         }

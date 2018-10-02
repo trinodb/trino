@@ -54,13 +54,16 @@ import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.NullableValue;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.statistics.ColumnStatistics;
+import io.prestosql.spi.statistics.ComputedStatistics;
 import io.prestosql.spi.statistics.DoubleRange;
 import io.prestosql.spi.statistics.Estimate;
 import io.prestosql.spi.statistics.TableStatistics;
+import io.prestosql.spi.statistics.TableStatisticsMetadata;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.VarcharType;
 
 import java.time.LocalDate;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -72,6 +75,7 @@ import static com.google.common.collect.Maps.asMap;
 import static io.airlift.tpch.OrderColumn.ORDER_STATUS;
 import static io.prestosql.plugin.tpch.util.PredicateUtils.convertToPredicate;
 import static io.prestosql.plugin.tpch.util.PredicateUtils.filterOutColumnFromPredicate;
+import static io.prestosql.spi.statistics.TableStatisticType.ROW_COUNT;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
@@ -170,6 +174,12 @@ public class TpchMetadata
         }
 
         return new TpchTableHandle(tableName.getTableName(), scaleFactor);
+    }
+
+    @Override
+    public ConnectorTableHandle getTableHandleForStatisticsCollection(ConnectorSession session, SchemaTableName tableName, Map<String, Object> analyzeProperties)
+    {
+        return getTableHandle(session, tableName);
     }
 
     @Override
@@ -410,6 +420,24 @@ public class TpchMetadata
             return ((Number) value).doubleValue();
         }
         throw new IllegalArgumentException("unsupported column type " + columnType);
+    }
+
+    @Override
+    public TableStatisticsMetadata getStatisticsCollectionMetadata(ConnectorSession session, ConnectorTableMetadata tableMetadata)
+    {
+        return new TableStatisticsMetadata(ImmutableSet.of(), ImmutableSet.of(ROW_COUNT), ImmutableList.of());
+    }
+
+    @Override
+    public ConnectorTableHandle beginStatisticsCollection(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        return (TpchTableHandle) tableHandle;
+    }
+
+    @Override
+    public void finishStatisticsCollection(ConnectorSession session, ConnectorTableHandle tableHandle, Collection<ComputedStatistics> computedStatistics)
+    {
+        // do nothing
     }
 
     @VisibleForTesting

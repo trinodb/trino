@@ -84,6 +84,7 @@ import io.prestosql.operator.SpatialIndexBuilderOperator.SpatialIndexBuilderOper
 import io.prestosql.operator.SpatialIndexBuilderOperator.SpatialPredicate;
 import io.prestosql.operator.SpatialJoinOperator.SpatialJoinOperatorFactory;
 import io.prestosql.operator.StageExecutionStrategy;
+import io.prestosql.operator.StatisticsWriterOperator.StatisticsWriterOperatorFactory;
 import io.prestosql.operator.StreamingAggregationOperator.StreamingAggregationOperatorFactory;
 import io.prestosql.operator.TableScanOperator.TableScanOperatorFactory;
 import io.prestosql.operator.TaskContext;
@@ -167,6 +168,7 @@ import io.prestosql.sql.planner.plan.SemiJoinNode;
 import io.prestosql.sql.planner.plan.SortNode;
 import io.prestosql.sql.planner.plan.SpatialJoinNode;
 import io.prestosql.sql.planner.plan.StatisticAggregationsDescriptor;
+import io.prestosql.sql.planner.plan.StatisticsWriterNode;
 import io.prestosql.sql.planner.plan.TableFinishNode;
 import io.prestosql.sql.planner.plan.TableScanNode;
 import io.prestosql.sql.planner.plan.TableWriterNode;
@@ -2242,6 +2244,22 @@ public class LocalExecutionPlanner
                     getSymbolTypes(node.getOutputSymbols(), context.getTypes()));
 
             return new PhysicalOperation(operatorFactory, outputMapping.build(), context, source);
+        }
+
+        @Override
+        public PhysicalOperation visitStatisticsWriterNode(StatisticsWriterNode node, LocalExecutionPlanContext context)
+        {
+            PhysicalOperation source = node.getSource().accept(this, context);
+
+            StatisticAggregationsDescriptor<Integer> descriptor = node.getDescriptor().map(symbol -> source.getLayout().get(symbol));
+
+            OperatorFactory operatorFactory = new StatisticsWriterOperatorFactory(
+                    context.getNextOperatorId(),
+                    node.getId(),
+                    computedStatistics -> metadata.finishStatisticsCollection(session, ((StatisticsWriterNode.WriteStatisticsHandle) node.getTarget()).getHandle(), computedStatistics),
+                    node.isRowCountEnabled(),
+                    descriptor);
+            return new PhysicalOperation(operatorFactory, makeLayout(node), context, source);
         }
 
         @Override

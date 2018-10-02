@@ -23,6 +23,7 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
 import io.prestosql.Session;
 import io.prestosql.SystemSessionProperties;
+import io.prestosql.connector.ConnectorId;
 import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.metadata.FunctionKind;
 import io.prestosql.metadata.Metadata;
@@ -39,6 +40,7 @@ import io.prestosql.spi.connector.CatalogSchemaName;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.function.OperatorType;
+import io.prestosql.spi.security.AccessDeniedException;
 import io.prestosql.spi.security.Identity;
 import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.MapType;
@@ -53,6 +55,7 @@ import io.prestosql.sql.planner.TypeProvider;
 import io.prestosql.sql.tree.AddColumn;
 import io.prestosql.sql.tree.AliasedRelation;
 import io.prestosql.sql.tree.AllColumns;
+import io.prestosql.sql.tree.Analyze;
 import io.prestosql.sql.tree.Call;
 import io.prestosql.sql.tree.Commit;
 import io.prestosql.sql.tree.CreateSchema;
@@ -153,6 +156,7 @@ import static io.prestosql.metadata.FunctionKind.AGGREGATE;
 import static io.prestosql.metadata.FunctionKind.WINDOW;
 import static io.prestosql.metadata.MetadataUtil.createQualifiedObjectName;
 import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.prestosql.spi.StandardErrorCode.NOT_FOUND;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
@@ -209,6 +213,7 @@ import static io.prestosql.sql.tree.FrameBound.Type.UNBOUNDED_PRECEDING;
 import static io.prestosql.sql.tree.WindowFrame.Type.RANGE;
 import static io.prestosql.type.UnknownType.UNKNOWN;
 import static java.lang.Math.toIntExact;
+import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -399,6 +404,49 @@ class StatementAnalyzer
 
             accessControl.checkCanDeleteFromTable(session.getRequiredTransactionId(), session.getIdentity(), tableName);
 
+            return createAndAssignScope(node, scope, Field.newUnqualified("rows", BIGINT));
+        }
+
+        @Override
+        protected Scope visitAnalyze(Analyze node, Optional<Scope> scope)
+        {
+            analysis.setUpdateType("ANALYZE");
+            QualifiedObjectName tableName = createQualifiedObjectName(session, node, node.getTableName());
+
+            // verify the target table exists and it's not a view
+            if (metadata.getView(session, tableName).isPresent()) {
+                throw new SemanticException(NOT_SUPPORTED, node, "Analyzing views is not supported");
+            }
+
+            validateProperties(node.getProperties(), scope);
+            ConnectorId connectorId = metadata.getCatalogHandle(session, tableName.getCatalogName())
+                    .orElseThrow(() -> new PrestoException(NOT_FOUND, "Catalog not found: " + tableName.getCatalogName()));
+
+            Map<String, Object> analyzeProperties = metadata.getAnalyzePropertyManager().getProperties(
+                    connectorId,
+                    connectorId.getCatalogName(),
+                    mapFromProperties(node.getProperties()),
+                    session,
+                    metadata,
+                    analysis.getParameters());
+            TableHandle tableHandle = metadata.getTableHandleForStatisticsCollection(session, tableName, analyzeProperties)
+                    .orElseThrow(() -> (new SemanticException(MISSING_TABLE, node, "Table '%s' does not exist", tableName)));
+
+            // user must have read and insert permission in order to analyze stats of a table
+            analysis.addTableColumnReferences(
+                    accessControl,
+                    session.getIdentity(),
+                    ImmutableMultimap.<QualifiedObjectName, String>builder()
+                            .putAll(tableName, metadata.getColumnHandles(session, tableHandle).keySet())
+                            .build());
+            try {
+                accessControl.checkCanInsertIntoTable(session.getRequiredTransactionId(), session.getIdentity(), tableName);
+            }
+            catch (AccessDeniedException exception) {
+                throw new AccessDeniedException(format("Cannot ANALYZE (missing insert privilege) table %s", tableName));
+            }
+
+            analysis.setAnalyzeTarget(tableHandle);
             return createAndAssignScope(node, scope, Field.newUnqualified("rows", BIGINT));
         }
 
