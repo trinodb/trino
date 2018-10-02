@@ -20,6 +20,7 @@ import com.google.common.collect.Lists;
 import io.prestosql.sql.tree.AddColumn;
 import io.prestosql.sql.tree.AliasedRelation;
 import io.prestosql.sql.tree.AllColumns;
+import io.prestosql.sql.tree.Analyze;
 import io.prestosql.sql.tree.ArithmeticBinaryExpression;
 import io.prestosql.sql.tree.ArithmeticUnaryExpression;
 import io.prestosql.sql.tree.ArrayConstructor;
@@ -363,6 +364,19 @@ class AstBuilder
                 getQualifiedName(context.tableName),
                 (Identifier) visit(context.from),
                 (Identifier) visit(context.to));
+    }
+
+    @Override
+    public Node visitAnalyze(SqlBaseParser.AnalyzeContext context)
+    {
+        List<Property> properties = ImmutableList.of();
+        if (context.properties() != null) {
+            properties = visit(context.properties().property(), Property.class);
+        }
+        return new Analyze(
+                getLocation(context),
+                getQualifiedName(context.qualifiedName()),
+                properties);
     }
 
     @Override

@@ -19,6 +19,7 @@ import com.google.common.collect.Lists;
 import io.prestosql.sql.tree.AddColumn;
 import io.prestosql.sql.tree.AliasedRelation;
 import io.prestosql.sql.tree.AllColumns;
+import io.prestosql.sql.tree.Analyze;
 import io.prestosql.sql.tree.ArithmeticBinaryExpression;
 import io.prestosql.sql.tree.ArrayConstructor;
 import io.prestosql.sql.tree.AtTimeZone;
@@ -1336,6 +1337,25 @@ public class TestSqlParser
     public void testRenameColumn()
     {
         assertStatement("ALTER TABLE foo.t RENAME COLUMN a TO b", new RenameColumn(QualifiedName.of("foo", "t"), identifier("a"), identifier("b")));
+    }
+
+    @Test
+    public void testAnalyze()
+    {
+        QualifiedName table = QualifiedName.of("foo");
+        assertStatement("ANALYZE foo", new Analyze(table, ImmutableList.of()));
+
+        assertStatement("ANALYZE foo WITH ( \"string\" = 'bar', \"long\" = 42, computed = concat('ban', 'ana'), a = ARRAY[ 'v1', 'v2' ] )",
+                new Analyze(table, ImmutableList.of(
+                        new Property(new Identifier("string"), new StringLiteral("bar")),
+                        new Property(new Identifier("long"), new LongLiteral("42")),
+                        new Property(
+                                new Identifier("computed"),
+                                new FunctionCall(QualifiedName.of("concat"), ImmutableList.of(new StringLiteral("ban"), new StringLiteral("ana")))),
+                        new Property(new Identifier("a"), new ArrayConstructor(ImmutableList.of(new StringLiteral("v1"), new StringLiteral("v2")))))));
+
+        assertStatement("EXPLAIN ANALYZE foo", new Explain(new Analyze(table, ImmutableList.of()), false, false, ImmutableList.of()));
+        assertStatement("EXPLAIN ANALYZE ANALYZE foo", new Explain(new Analyze(table, ImmutableList.of()), true, false, ImmutableList.of()));
     }
 
     @Test

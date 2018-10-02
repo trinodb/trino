@@ -18,6 +18,7 @@ import com.google.common.base.Strings;
 import io.prestosql.sql.tree.AddColumn;
 import io.prestosql.sql.tree.AliasedRelation;
 import io.prestosql.sql.tree.AllColumns;
+import io.prestosql.sql.tree.Analyze;
 import io.prestosql.sql.tree.AstVisitor;
 import io.prestosql.sql.tree.Call;
 import io.prestosql.sql.tree.CallArgument;
@@ -953,6 +954,15 @@ public final class SqlFormatter
                     .append(" DROP COLUMN ")
                     .append(formatExpression(node.getColumn(), parameters));
 
+            return null;
+        }
+
+        @Override
+        protected Void visitAnalyze(Analyze node, Integer context)
+        {
+            builder.append("ANALYZE ")
+                    .append(formatName(node.getTableName()));
+            builder.append(formatPropertiesMultiLine(node.getProperties()));
             return null;
         }
 
