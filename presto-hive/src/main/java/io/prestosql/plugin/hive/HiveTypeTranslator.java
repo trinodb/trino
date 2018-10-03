@@ -49,6 +49,7 @@ import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static java.lang.String.format;
@@ -112,6 +113,11 @@ public class HiveTypeTranslator
             return HIVE_DATE.getTypeInfo();
         }
         if (TIMESTAMP.equals(type)) {
+            return HIVE_TIMESTAMP.getTypeInfo();
+        }
+        if (TIMESTAMP_WITH_TIME_ZONE.equals(type)) {
+            // Hive does not have TIMESTAMP_WITH_TIME_ZONE, this is just a work around for iceberg, that upstream would not approve
+            // so we probably will need to handle it in iceberg connector but for now this should unblock netflix users.
             return HIVE_TIMESTAMP.getTypeInfo();
         }
         if (type instanceof DecimalType) {

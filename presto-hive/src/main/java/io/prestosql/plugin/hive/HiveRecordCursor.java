@@ -52,6 +52,7 @@ import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.Varchars.isVarcharType;
 import static java.lang.String.format;
@@ -142,7 +143,10 @@ public class HiveRecordCursor
                     longs[columnIndex] = datePartitionKey(columnValue, name);
                 }
                 else if (TIMESTAMP.equals(type)) {
-                    longs[columnIndex] = timestampPartitionKey(columnValue, hiveStorageTimeZone, name);
+                    longs[columnIndex] = timestampPartitionKey(columnValue, hiveStorageTimeZone, name, false);
+                }
+                else if (TIMESTAMP_WITH_TIME_ZONE.equals(type)) {
+                    longs[columnIndex] = timestampPartitionKey(columnValue, hiveStorageTimeZone, name, true);
                 }
                 else if (isShortDecimal(type)) {
                     longs[columnIndex] = shortDecimalPartitionKey(columnValue, (DecimalType) type, name);
