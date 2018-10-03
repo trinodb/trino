@@ -33,6 +33,7 @@ import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.MapType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeManager;
+import io.prestosql.spi.type.VarbinaryType;
 import io.prestosql.spi.type.VarcharType;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import org.apache.hadoop.hive.serde2.typeinfo.ListTypeInfo;
@@ -92,6 +93,7 @@ import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.Varchars.isVarcharType;
 import static java.lang.Float.intBitsToFloat;
@@ -181,14 +183,17 @@ public class HivePageSource
                 else if (type.equals(DATE)) {
                     prefilledValue = datePartitionKey(columnValue, name);
                 }
-                else if (type.equals(TIMESTAMP)) {
-                    prefilledValue = timestampPartitionKey(columnValue, hiveStorageTimeZone, name);
+                else if (type.equals(TIMESTAMP) || type.equals(TIMESTAMP_WITH_TIME_ZONE)) {
+                    prefilledValue = timestampPartitionKey(columnValue, hiveStorageTimeZone, name, type.equals(TIMESTAMP_WITH_TIME_ZONE));
                 }
                 else if (isShortDecimal(type)) {
                     prefilledValue = shortDecimalPartitionKey(columnValue, (DecimalType) type, name);
                 }
                 else if (isLongDecimal(type)) {
                     prefilledValue = longDecimalPartitionKey(columnValue, (DecimalType) type, name);
+                }
+                else if (type.equals(VarbinaryType.VARBINARY)) {
+                    prefilledValue = utf8Slice(columnValue);
                 }
                 else {
                     throw new PrestoException(NOT_SUPPORTED, format("Unsupported column type %s for prefilled column: %s", type.getDisplayName(), name));

@@ -34,10 +34,12 @@ import io.prestosql.spi.connector.RecordCursor;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.predicate.NullableValue;
 import io.prestosql.spi.type.CharType;
+import io.prestosql.spi.type.DateTimeEncoding;
 import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.Decimals;
 import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.VarbinaryType;
 import io.prestosql.spi.type.VarcharType;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
@@ -124,6 +126,7 @@ import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.Varchars.isVarcharType;
 import static java.lang.Byte.parseByte;
@@ -549,7 +552,14 @@ public final class HiveUtil
             if (isNull) {
                 return NullableValue.asNull(TIMESTAMP);
             }
-            return NullableValue.of(TIMESTAMP, timestampPartitionKey(value, timeZone, partitionName));
+            return NullableValue.of(TIMESTAMP, timestampPartitionKey(value, timeZone, partitionName, false));
+        }
+
+        if (TIMESTAMP_WITH_TIME_ZONE.equals(type)) {
+            if (isNull) {
+                return NullableValue.asNull(TIMESTAMP_WITH_TIME_ZONE);
+            }
+            return NullableValue.of(TIMESTAMP_WITH_TIME_ZONE, timestampPartitionKey(value, timeZone, partitionName, true));
         }
 
         if (REAL.equals(type)) {
@@ -584,6 +594,13 @@ public final class HiveUtil
                 return NullableValue.asNull(type);
             }
             return NullableValue.of(type, charPartitionKey(value, partitionName, type));
+        }
+
+        if (type instanceof VarbinaryType) {
+            if (isNull) {
+                return NullableValue.asNull(type);
+            }
+            return NullableValue.of(type, Slices.utf8Slice(value));
         }
 
         throw new VerifyException(format("Unhandled type [%s] for partition: %s", type, partitionName));
@@ -733,10 +750,11 @@ public final class HiveUtil
         }
     }
 
-    public static long timestampPartitionKey(String value, DateTimeZone zone, String name)
+    public static long timestampPartitionKey(String value, DateTimeZone zone, String name, boolean shouldPackWithTimeZone)
     {
         try {
-            return parseHiveTimestamp(value, zone);
+            final long millis = parseHiveTimestamp(value, zone);
+            return shouldPackWithTimeZone ? DateTimeEncoding.packDateTimeWithZone(millis, zone.getID()) : millis;
         }
         catch (IllegalArgumentException e) {
             throw new PrestoException(HIVE_INVALID_PARTITION_VALUE, format("Invalid partition value '%s' for TIMESTAMP partition key: %s", value, name));
