@@ -118,6 +118,8 @@ public class FileHiveMetastore
     private static final String PRESTO_PERMISSIONS_DIRECTORY_NAME = ".prestoPermissions";
     // todo there should be a way to manage the admins list
     private static final Set<String> ADMIN_USERS = ImmutableSet.of("admin", "hive", "hdfs");
+    private static final String ICEBERG_TABLE_TYPE_NAME = "table_type";
+    private static final String ICEBERG_TABLE_TYPE_VALUE = "iceberg";
 
     private final HdfsEnvironment hdfsEnvironment;
     private final Path catalogDirectory;
@@ -260,7 +262,7 @@ public class FileHiveMetastore
                 if (!externalFileSystem.isDirectory(externalLocation)) {
                     throw new PrestoException(HIVE_METASTORE_ERROR, "External table location does not exist");
                 }
-                if (isChildDirectory(catalogDirectory, externalLocation)) {
+                if (isChildDirectory(catalogDirectory, externalLocation) && !isIcebergTable(table.getParameters())) {
                     throw new PrestoException(HIVE_METASTORE_ERROR, "External table location can not be inside the system metadata directory");
                 }
             }
@@ -436,9 +438,6 @@ public class FileHiveMetastore
     public synchronized void replaceTable(String databaseName, String tableName, Table newTable, PrincipalPrivileges principalPrivileges)
     {
         Table table = getRequiredTable(databaseName, tableName);
-        if (!table.getTableType().equals(VIRTUAL_VIEW.name()) || !newTable.getTableType().equals(VIRTUAL_VIEW.name())) {
-            throw new PrestoException(HIVE_METASTORE_ERROR, "Only views can be updated with replaceTable");
-        }
         if (!table.getDatabaseName().equals(databaseName) || !table.getTableName().equals(tableName)) {
             throw new PrestoException(HIVE_METASTORE_ERROR, "Replacement table must have same name");
         }
@@ -465,14 +464,21 @@ public class FileHiveMetastore
         requireNonNull(newDatabaseName, "newDatabaseName is null");
         requireNonNull(newTableName, "newTableName is null");
 
-        getRequiredTable(databaseName, tableName);
+        Table table = getRequiredTable(databaseName, tableName);
         getRequiredDatabase(newDatabaseName);
+
+        if (isIcebergTable(table.getParameters())) {
+            throw new PrestoException(NOT_SUPPORTED, "Rename not supported for Iceberg tables");
+        }
 
         // verify new table does not exist
         verifyTableNotExists(newDatabaseName, newTableName);
 
+        Path oldPath = getTableMetadataDirectory(databaseName, tableName);
+        Path newPath = getTableMetadataDirectory(newDatabaseName, newTableName);
+
         try {
-            if (!metadataFileSystem.rename(getTableMetadataDirectory(databaseName, tableName), getTableMetadataDirectory(newDatabaseName, newTableName))) {
+            if (!metadataFileSystem.rename(oldPath, newPath)) {
                 throw new PrestoException(HIVE_METASTORE_ERROR, "Could not rename table directory");
             }
         }
@@ -1215,6 +1221,11 @@ public class FileHiveMetastore
             return false;
         }
         return isChildDirectory(parentDirectory, childDirectory.getParent());
+    }
+
+    private static boolean isIcebergTable(Map<String, String> parameters)
+    {
+        return ICEBERG_TABLE_TYPE_VALUE.equalsIgnoreCase(parameters.get(ICEBERG_TABLE_TYPE_NAME));
     }
 
     private static class RoleGranteeTuple
