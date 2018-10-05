@@ -15,9 +15,13 @@ package io.prestosql.plugin.jdbc;
 
 import com.google.common.collect.ImmutableMap;
 import io.airlift.configuration.testing.ConfigAssertions;
+import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
 import java.util.Map;
+
+import static java.util.concurrent.TimeUnit.MINUTES;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class TestBaseJdbcConfig
 {
@@ -29,7 +33,9 @@ public class TestBaseJdbcConfig
                 .setConnectionUser(null)
                 .setConnectionPassword(null)
                 .setUserCredentialName(null)
-                .setPasswordCredentialName(null));
+                .setPasswordCredentialName(null)
+                .setCaseInsensitiveNameMatching(false)
+                .setCaseInsensitiveNameMatchingCacheTtl(new Duration(1, MINUTES)));
     }
 
     @Test
@@ -41,6 +47,8 @@ public class TestBaseJdbcConfig
                 .put("connection-password", "password")
                 .put("user-credential-name", "foo")
                 .put("password-credential-name", "bar")
+                .put("case-insensitive-name-matching", "true")
+                .put("case-insensitive-name-matching.cache-ttl", "1s")
                 .build();
 
         BaseJdbcConfig expected = new BaseJdbcConfig()
@@ -48,7 +56,9 @@ public class TestBaseJdbcConfig
                 .setConnectionUser("user")
                 .setConnectionPassword("password")
                 .setUserCredentialName("foo")
-                .setPasswordCredentialName("bar");
+                .setPasswordCredentialName("bar")
+                .setCaseInsensitiveNameMatching(true)
+                .setCaseInsensitiveNameMatchingCacheTtl(new Duration(1, SECONDS));
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

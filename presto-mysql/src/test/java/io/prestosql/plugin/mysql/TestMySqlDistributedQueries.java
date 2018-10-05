@@ -13,6 +13,7 @@
  */
 package io.prestosql.plugin.mysql;
 
+import com.google.common.collect.ImmutableMap;
 import io.airlift.testing.mysql.TestingMySqlServer;
 import io.airlift.tpch.TpchTable;
 import io.prestosql.testing.MaterializedResult;
@@ -39,7 +40,7 @@ public class TestMySqlDistributedQueries
 
     public TestMySqlDistributedQueries(TestingMySqlServer mysqlServer)
     {
-        super(() -> createMySqlQueryRunner(mysqlServer, TpchTable.getTables()));
+        super(() -> createMySqlQueryRunner(mysqlServer, ImmutableMap.of(), TpchTable.getTables()));
         this.mysqlServer = mysqlServer;
     }
 

@@ -13,6 +13,7 @@
  */
 package io.prestosql.plugin.postgresql;
 
+import com.google.common.collect.ImmutableMap;
 import io.airlift.testing.postgresql.TestingPostgreSqlServer;
 import io.airlift.tpch.TpchTable;
 import io.prestosql.tests.AbstractTestDistributedQueries;
@@ -37,7 +38,7 @@ public class TestPostgreSqlDistributedQueries
 
     public TestPostgreSqlDistributedQueries(TestingPostgreSqlServer postgreSqlServer)
     {
-        super(() -> createPostgreSqlQueryRunner(postgreSqlServer, TpchTable.getTables()));
+        super(() -> createPostgreSqlQueryRunner(postgreSqlServer, ImmutableMap.of(), TpchTable.getTables()));
         this.postgreSqlServer = postgreSqlServer;
     }
 

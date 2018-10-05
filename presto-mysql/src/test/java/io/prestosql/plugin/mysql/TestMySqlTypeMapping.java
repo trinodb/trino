@@ -14,6 +14,7 @@
 package io.prestosql.plugin.mysql;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.testing.mysql.TestingMySqlServer;
 import io.prestosql.Session;
 import io.prestosql.spi.type.TimeZoneKey;
@@ -51,7 +52,6 @@ import static io.prestosql.tests.datatype.DataType.stringDataType;
 import static io.prestosql.tests.datatype.DataType.tinyintDataType;
 import static io.prestosql.tests.datatype.DataType.varcharDataType;
 import static java.lang.String.format;
-import static java.util.Collections.emptyList;
 
 @Test
 public class TestMySqlTypeMapping
@@ -69,7 +69,7 @@ public class TestMySqlTypeMapping
 
     private TestMySqlTypeMapping(TestingMySqlServer mysqlServer)
     {
-        super(() -> createMySqlQueryRunner(mysqlServer, emptyList()));
+        super(() -> createMySqlQueryRunner(mysqlServer, ImmutableMap.of(), ImmutableList.of()));
         this.mysqlServer = mysqlServer;
     }
 
