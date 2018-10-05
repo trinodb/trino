@@ -1165,6 +1165,12 @@
                                 <expectedVersion>2.8.9</expectedVersion>
                                 <resolvedVersion>${dep.jackson.version}</resolvedVersion>
                             </exception>
+                            <exception>
+                                <groupId>org.hamcrest</groupId>
+                                <artifactId>hamcrest-core</artifactId>
+                                <expectedVersion>1.3-redhat-1</expectedVersion>
+                                <resolvedVersion>1.3</resolvedVersion>
+                            </exception>
                         </exceptions>
                     </configuration>
                 </plugin>
