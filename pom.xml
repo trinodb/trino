@@ -1140,6 +1140,7 @@
                     <groupId>com.ning.maven.plugins</groupId>
                     <artifactId>maven-dependency-versions-check-plugin</artifactId>
                     <configuration>
+                        <failBuildInCaseOfConflict>false</failBuildInCaseOfConflict>
                         <exceptions>
                             <exception>
                                 <groupId>org.javassist</groupId>
