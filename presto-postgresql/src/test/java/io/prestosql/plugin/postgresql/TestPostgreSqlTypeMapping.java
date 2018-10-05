@@ -14,6 +14,7 @@
 package io.prestosql.plugin.postgresql;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.testing.postgresql.TestingPostgreSqlServer;
 import io.prestosql.Session;
 import io.prestosql.spi.type.TimeZoneKey;
@@ -62,7 +63,6 @@ import static io.prestosql.type.JsonType.JSON;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_16LE;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static java.util.Collections.emptyList;
 import static java.util.function.Function.identity;
 
 @Test
@@ -79,7 +79,7 @@ public class TestPostgreSqlTypeMapping
 
     private TestPostgreSqlTypeMapping(TestingPostgreSqlServer postgreSqlServer)
     {
-        super(() -> createPostgreSqlQueryRunner(postgreSqlServer, emptyList()));
+        super(() -> createPostgreSqlQueryRunner(postgreSqlServer, ImmutableMap.of(), ImmutableList.of()));
         this.postgreSqlServer = postgreSqlServer;
     }
 
