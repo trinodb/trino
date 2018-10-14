@@ -16,10 +16,10 @@ package io.prestosql.tests;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.connector.MockConnectorFactory;
-import io.prestosql.execution.QueryInfo;
-import io.prestosql.execution.QueryManager;
+import io.prestosql.dispatcher.DispatchManager;
 import io.prestosql.execution.TestingSessionContext;
 import io.prestosql.metadata.MetadataManager;
+import io.prestosql.server.BasicQueryInfo;
 import io.prestosql.spi.Plugin;
 import io.prestosql.spi.QueryId;
 import io.prestosql.spi.connector.ConnectorFactory;
@@ -113,20 +113,21 @@ public class TestMetadataManager
     public void testMetadataIsClearedAfterQueryCanceled()
             throws Exception
     {
-        QueryManager queryManager = queryRunner.getCoordinator().getQueryManager();
-        QueryId queryId = queryManager.createQueryId();
-        queryManager.createQuery(
+        DispatchManager dispatchManager = queryRunner.getCoordinator().getDispatchManager();
+        QueryId queryId = dispatchManager.createQueryId();
+        dispatchManager.createQuery(
                 queryId,
+                "slug",
                 new TestingSessionContext(TEST_SESSION),
                 "SELECT * FROM lineitem")
                 .get();
 
         // wait until query starts running
         while (true) {
-            QueryInfo queryInfo = queryManager.getFullQueryInfo(queryId);
+            BasicQueryInfo queryInfo = dispatchManager.getQueryInfo(queryId);
             if (queryInfo.getState().isDone()) {
                 assertEquals(queryInfo.getState(), FAILED);
-                throw queryInfo.getFailureInfo().toException();
+                throw dispatchManager.getDispatchInfo(queryId).get().getFailureInfo().get().toException();
             }
             if (queryInfo.getState() == RUNNING) {
                 break;
@@ -135,7 +136,7 @@ public class TestMetadataManager
         }
 
         // cancel query
-        queryManager.cancelQuery(queryId);
+        dispatchManager.cancelQuery(queryId);
         assertEquals(metadataManager.getCatalogsByQueryId().size(), 0);
     }
 

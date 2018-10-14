@@ -24,7 +24,6 @@ import io.prestosql.Session;
 import io.prestosql.Session.SessionBuilder;
 import io.prestosql.connector.ConnectorId;
 import io.prestosql.cost.StatsCalculator;
-import io.prestosql.execution.QueryInfo;
 import io.prestosql.execution.QueryManager;
 import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.metadata.AllNodes;
@@ -412,11 +411,6 @@ public class DistributedQueryRunner
         Plan queryPlan = getQueryPlan(queryId);
         coordinator.getQueryManager().cancelQuery(queryId);
         return queryPlan;
-    }
-
-    public QueryInfo getQueryInfo(QueryId queryId)
-    {
-        return coordinator.getQueryManager().getFullQueryInfo(queryId);
     }
 
     public Plan getQueryPlan(QueryId queryId)

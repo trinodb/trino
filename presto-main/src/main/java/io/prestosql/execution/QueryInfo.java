@@ -18,7 +18,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.Session;
 import io.prestosql.SessionRepresentation;
 import io.prestosql.spi.ErrorCode;
 import io.prestosql.spi.ErrorType;
@@ -39,11 +38,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static io.prestosql.execution.QueryState.FAILED;
-import static io.prestosql.execution.QueryStats.immediateFailureQueryStats;
 import static io.prestosql.execution.StageInfo.getAllStages;
-import static io.prestosql.memory.LocalMemoryManager.GENERAL_POOL;
-import static io.prestosql.util.Failures.toFailure;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -160,42 +155,6 @@ public class QueryInfo
         this.output = output;
         this.completeInfo = completeInfo;
         this.resourceGroupId = resourceGroupId;
-    }
-
-    public static QueryInfo immediateFailureQueryInfo(Session session, String query, URI self, Optional<ResourceGroupId> resourceGroupId, Throwable throwable)
-    {
-        ExecutionFailureInfo failureCause = toFailure(throwable);
-        QueryInfo queryInfo = new QueryInfo(
-                session.getQueryId(),
-                session.toSessionRepresentation(),
-                FAILED,
-                GENERAL_POOL,
-                false,
-                self,
-                ImmutableList.of(),
-                query,
-                immediateFailureQueryStats(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                ImmutableMap.of(),
-                ImmutableSet.of(),
-                ImmutableMap.of(),
-                ImmutableMap.of(),
-                ImmutableSet.of(),
-                Optional.empty(),
-                false,
-                null,
-                Optional.empty(),
-                failureCause,
-                failureCause.getErrorCode(),
-                ImmutableList.of(),
-                ImmutableSet.of(),
-                Optional.empty(),
-                true,
-                resourceGroupId);
-
-        return queryInfo;
     }
 
     @JsonProperty
