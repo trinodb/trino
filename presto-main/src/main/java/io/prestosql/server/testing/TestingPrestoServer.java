@@ -40,6 +40,7 @@ import io.airlift.tracetoken.TraceTokenModule;
 import io.prestosql.connector.CatalogName;
 import io.prestosql.connector.ConnectorManager;
 import io.prestosql.cost.StatsCalculator;
+import io.prestosql.dispatcher.DispatchManager;
 import io.prestosql.eventlistener.EventListenerManager;
 import io.prestosql.execution.QueryInfo;
 import io.prestosql.execution.QueryManager;
@@ -128,6 +129,7 @@ public class TestingPrestoServer
     private final InternalNodeManager nodeManager;
     private final ServiceSelectorManager serviceSelectorManager;
     private final Announcer announcer;
+    private final DispatchManager dispatchManager;
     private final SqlQueryManager queryManager;
     private final TaskManager taskManager;
     private final GracefulShutdownHandler gracefulShutdownHandler;
@@ -266,13 +268,6 @@ public class TestingPrestoServer
 
         lifeCycleManager = injector.getInstance(LifeCycleManager.class);
 
-        if (coordinator) {
-            queryManager = (SqlQueryManager) injector.getInstance(QueryManager.class);
-        }
-        else {
-            queryManager = null;
-        }
-
         pluginManager = injector.getInstance(PluginManager.class);
 
         connectorManager = injector.getInstance(ConnectorManager.class);
@@ -286,12 +281,16 @@ public class TestingPrestoServer
         splitManager = injector.getInstance(SplitManager.class);
         pageSourceManager = injector.getInstance(PageSourceManager.class);
         if (coordinator) {
+            dispatchManager = injector.getInstance(DispatchManager.class);
+            queryManager = (SqlQueryManager) injector.getInstance(QueryManager.class);
             resourceGroupManager = Optional.of(injector.getInstance(InternalResourceGroupManager.class));
             nodePartitioningManager = injector.getInstance(NodePartitioningManager.class);
             clusterMemoryManager = injector.getInstance(ClusterMemoryManager.class);
             statsCalculator = injector.getInstance(StatsCalculator.class);
         }
         else {
+            dispatchManager = null;
+            queryManager = null;
             resourceGroupManager = Optional.empty();
             nodePartitioningManager = null;
             clusterMemoryManager = null;
@@ -333,6 +332,11 @@ public class TestingPrestoServer
     public void installPlugin(Plugin plugin)
     {
         pluginManager.installPlugin(plugin);
+    }
+
+    public DispatchManager getDispatchManager()
+    {
+        return dispatchManager;
     }
 
     public QueryManager getQueryManager()

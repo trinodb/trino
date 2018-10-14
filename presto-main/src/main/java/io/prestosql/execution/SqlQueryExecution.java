@@ -40,10 +40,8 @@ import io.prestosql.metadata.TableHandle;
 import io.prestosql.operator.ForScheduler;
 import io.prestosql.security.AccessControl;
 import io.prestosql.server.BasicQueryInfo;
-import io.prestosql.spi.ErrorCode;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.QueryId;
-import io.prestosql.spi.resourcegroups.ResourceGroupId;
 import io.prestosql.split.SplitManager;
 import io.prestosql.split.SplitSource;
 import io.prestosql.sql.analyzer.Analysis;
@@ -65,14 +63,11 @@ import io.prestosql.sql.planner.SubPlan;
 import io.prestosql.sql.planner.TypeAnalyzer;
 import io.prestosql.sql.planner.optimizations.PlanOptimizer;
 import io.prestosql.sql.tree.Explain;
-import io.prestosql.transaction.TransactionManager;
-import io.prestosql.version.EmbedVersion;
 import org.joda.time.DateTime;
 
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
 
-import java.net.URI;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -84,8 +79,6 @@ import java.util.function.Consumer;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
-import static io.airlift.concurrent.MoreFutures.addExceptionCallback;
-import static io.airlift.concurrent.MoreFutures.addSuccessCallback;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.prestosql.execution.buffer.OutputBuffers.BROADCAST_PARTITION_ID;
@@ -104,8 +97,7 @@ public class SqlQueryExecution
     private static final OutputBufferId OUTPUT_BUFFER_ID = new OutputBufferId(0);
 
     private final QueryStateMachine stateMachine;
-
-    private final ClusterSizeMonitor clusterSizeMonitor;
+    private final String slug;
     private final Metadata metadata;
     private final SqlParser sqlParser;
     private final SplitManager splitManager;
@@ -116,7 +108,6 @@ public class SqlQueryExecution
     private final RemoteTaskFactory remoteTaskFactory;
     private final LocationFactory locationFactory;
     private final int scheduleSplitBatchSize;
-    private final EmbedVersion embedVersion;
     private final ExecutorService queryExecutor;
     private final ScheduledExecutorService schedulerExecutor;
     private final FailureDetector failureDetector;
@@ -131,13 +122,9 @@ public class SqlQueryExecution
     private final CostCalculator costCalculator;
 
     private SqlQueryExecution(
-            String query,
-            Session session,
-            URI self,
-            ResourceGroupId resourceGroup,
             PreparedQuery preparedQuery,
-            ClusterSizeMonitor clusterSizeMonitor,
-            TransactionManager transactionManager,
+            QueryStateMachine stateMachine,
+            String slug,
             Metadata metadata,
             AccessControl accessControl,
             SqlParser sqlParser,
@@ -149,7 +136,6 @@ public class SqlQueryExecution
             RemoteTaskFactory remoteTaskFactory,
             LocationFactory locationFactory,
             int scheduleSplitBatchSize,
-            EmbedVersion embedVersion,
             ExecutorService queryExecutor,
             ScheduledExecutorService schedulerExecutor,
             FailureDetector failureDetector,
@@ -161,8 +147,8 @@ public class SqlQueryExecution
             CostCalculator costCalculator,
             WarningCollector warningCollector)
     {
-        try (SetThreadName ignored = new SetThreadName("Query-%s", session.getQueryId())) {
-            this.clusterSizeMonitor = requireNonNull(clusterSizeMonitor, "clusterSizeMonitor is null");
+        try (SetThreadName ignored = new SetThreadName("Query-%s", stateMachine.getQueryId())) {
+            this.slug = requireNonNull(slug, "slug is null");
             this.metadata = requireNonNull(metadata, "metadata is null");
             this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
             this.splitManager = requireNonNull(splitManager, "splitManager is null");
@@ -171,7 +157,6 @@ public class SqlQueryExecution
             this.planOptimizers = requireNonNull(planOptimizers, "planOptimizers is null");
             this.planFragmenter = requireNonNull(planFragmenter, "planFragmenter is null");
             this.locationFactory = requireNonNull(locationFactory, "locationFactory is null");
-            this.embedVersion = requireNonNull(embedVersion, "embedVersion is null");
             this.queryExecutor = requireNonNull(queryExecutor, "queryExecutor is null");
             this.schedulerExecutor = requireNonNull(schedulerExecutor, "schedulerExecutor is null");
             this.failureDetector = requireNonNull(failureDetector, "failureDetector is null");
@@ -184,20 +169,7 @@ public class SqlQueryExecution
             checkArgument(scheduleSplitBatchSize > 0, "scheduleSplitBatchSize must be greater than 0");
             this.scheduleSplitBatchSize = scheduleSplitBatchSize;
 
-            requireNonNull(query, "query is null");
-            requireNonNull(session, "session is null");
-            requireNonNull(self, "self is null");
-            this.stateMachine = QueryStateMachine.begin(
-                    query,
-                    session,
-                    self,
-                    resourceGroup,
-                    false,
-                    transactionManager,
-                    accessControl,
-                    queryExecutor,
-                    metadata,
-                    warningCollector);
+            this.stateMachine = requireNonNull(stateMachine, "stateMachine is null");
 
             // analyze query
             requireNonNull(preparedQuery, "preparedQuery is null");
@@ -229,6 +201,12 @@ public class SqlQueryExecution
 
             this.remoteTaskFactory = new MemoryTrackingRemoteTaskFactory(requireNonNull(remoteTaskFactory, "remoteTaskFactory is null"), stateMachine);
         }
+    }
+
+    @Override
+    public String getSlug()
+    {
+        return slug;
     }
 
     @Override
@@ -326,20 +304,6 @@ public class SqlQueryExecution
     @Override
     public void start()
     {
-        if (stateMachine.transitionToWaitingForResources()) {
-            waitForMinimumWorkers();
-        }
-    }
-
-    private void waitForMinimumWorkers()
-    {
-        ListenableFuture<?> minimumWorkerFuture = clusterSizeMonitor.waitForMinimumWorkers();
-        addSuccessCallback(minimumWorkerFuture, () -> queryExecutor.submit(embedVersion.embedVersion(this::startExecution)));
-        addExceptionCallback(minimumWorkerFuture, throwable -> queryExecutor.submit(() -> stateMachine.transitionToFailed(throwable)));
-    }
-
-    private void startExecution()
-    {
         try (SetThreadName ignored = new SetThreadName("Query-%s", stateMachine.getQueryId())) {
             try {
                 // transition to planning
@@ -388,12 +352,6 @@ public class SqlQueryExecution
     public Session getSession()
     {
         return stateMachine.getSession();
-    }
-
-    @Override
-    public Optional<ErrorCode> getErrorCode()
-    {
-        return stateMachine.getFailureInfo().map(ExecutionFailureInfo::getErrorCode);
     }
 
     @Override
@@ -679,16 +637,13 @@ public class SqlQueryExecution
         private final List<PlanOptimizer> planOptimizers;
         private final PlanFragmenter planFragmenter;
         private final RemoteTaskFactory remoteTaskFactory;
-        private final TransactionManager transactionManager;
         private final QueryExplainer queryExplainer;
         private final LocationFactory locationFactory;
-        private final EmbedVersion embedVersion;
         private final ExecutorService queryExecutor;
         private final ScheduledExecutorService schedulerExecutor;
         private final FailureDetector failureDetector;
         private final NodeTaskMap nodeTaskMap;
         private final Map<String, ExecutionPolicy> executionPolicies;
-        private final ClusterSizeMonitor clusterSizeMonitor;
         private final StatsCalculator statsCalculator;
         private final CostCalculator costCalculator;
 
@@ -704,8 +659,6 @@ public class SqlQueryExecution
                 PlanOptimizers planOptimizers,
                 PlanFragmenter planFragmenter,
                 RemoteTaskFactory remoteTaskFactory,
-                TransactionManager transactionManager,
-                EmbedVersion embedVersion,
                 @ForQueryExecution ExecutorService queryExecutor,
                 @ForScheduler ScheduledExecutorService schedulerExecutor,
                 FailureDetector failureDetector,
@@ -713,7 +666,6 @@ public class SqlQueryExecution
                 QueryExplainer queryExplainer,
                 Map<String, ExecutionPolicy> executionPolicies,
                 SplitSchedulerStats schedulerStats,
-                ClusterSizeMonitor clusterSizeMonitor,
                 StatsCalculator statsCalculator,
                 CostCalculator costCalculator)
         {
@@ -729,15 +681,12 @@ public class SqlQueryExecution
             this.nodeScheduler = requireNonNull(nodeScheduler, "nodeScheduler is null");
             this.planFragmenter = requireNonNull(planFragmenter, "planFragmenter is null");
             this.remoteTaskFactory = requireNonNull(remoteTaskFactory, "remoteTaskFactory is null");
-            this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
-            this.embedVersion = requireNonNull(embedVersion, "embedVersion is null");
             this.queryExecutor = requireNonNull(queryExecutor, "queryExecutor is null");
             this.schedulerExecutor = requireNonNull(schedulerExecutor, "schedulerExecutor is null");
             this.failureDetector = requireNonNull(failureDetector, "failureDetector is null");
             this.nodeTaskMap = requireNonNull(nodeTaskMap, "nodeTaskMap is null");
             this.queryExplainer = requireNonNull(queryExplainer, "queryExplainer is null");
             this.executionPolicies = requireNonNull(executionPolicies, "schedulerPolicies is null");
-            this.clusterSizeMonitor = requireNonNull(clusterSizeMonitor, "clusterSizeMonitor is null");
             this.planOptimizers = requireNonNull(planOptimizers, "planOptimizers is null").get();
             this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
             this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
@@ -745,24 +694,19 @@ public class SqlQueryExecution
 
         @Override
         public QueryExecution createQueryExecution(
-                String query,
-                Session session,
                 PreparedQuery preparedQuery,
-                ResourceGroupId resourceGroup,
+                QueryStateMachine stateMachine,
+                String slug,
                 WarningCollector warningCollector)
         {
-            String executionPolicyName = SystemSessionProperties.getExecutionPolicy(session);
+            String executionPolicyName = SystemSessionProperties.getExecutionPolicy(stateMachine.getSession());
             ExecutionPolicy executionPolicy = executionPolicies.get(executionPolicyName);
             checkArgument(executionPolicy != null, "No execution policy %s", executionPolicy);
 
             return new SqlQueryExecution(
-                    query,
-                    session,
-                    locationFactory.createQueryLocation(session.getQueryId()),
-                    resourceGroup,
                     preparedQuery,
-                    clusterSizeMonitor,
-                    transactionManager,
+                    stateMachine,
+                    slug,
                     metadata,
                     accessControl,
                     sqlParser,
@@ -774,7 +718,6 @@ public class SqlQueryExecution
                     remoteTaskFactory,
                     locationFactory,
                     scheduleSplitBatchSize,
-                    embedVersion,
                     queryExecutor,
                     schedulerExecutor,
                     failureDetector,
