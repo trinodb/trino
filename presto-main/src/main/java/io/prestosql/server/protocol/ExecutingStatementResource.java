@@ -19,26 +19,20 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.prestosql.Session;
 import io.prestosql.client.QueryResults;
 import io.prestosql.execution.QueryManager;
 import io.prestosql.memory.context.SimpleLocalMemoryContext;
-import io.prestosql.metadata.SessionPropertyManager;
 import io.prestosql.operator.ExchangeClient;
 import io.prestosql.operator.ExchangeClientSupplier;
 import io.prestosql.server.ForStatementResource;
-import io.prestosql.server.HttpRequestSessionContext;
-import io.prestosql.server.SessionContext;
 import io.prestosql.spi.QueryId;
 import io.prestosql.spi.block.BlockEncodingSerde;
 
-import javax.annotation.Nullable;
-import javax.annotation.PreDestroy;
 import javax.inject.Inject;
-import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.DELETE;
 import javax.ws.rs.GET;
 import javax.ws.rs.HeaderParam;
-import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
@@ -56,7 +50,7 @@ import javax.ws.rs.core.UriInfo;
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
 import java.util.Map.Entry;
-import java.util.OptionalLong;
+import java.util.NoSuchElementException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ScheduledExecutorService;
@@ -64,7 +58,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.net.HttpHeaders.X_FORWARDED_PROTO;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
-import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.airlift.http.server.AsyncResponseHandler.bindAsyncResponse;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.prestosql.client.PrestoHeaders.PRESTO_ADDED_PREPARE;
@@ -79,12 +72,12 @@ import static io.prestosql.client.PrestoHeaders.PRESTO_SET_SESSION;
 import static io.prestosql.client.PrestoHeaders.PRESTO_STARTED_TRANSACTION_ID;
 import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static javax.ws.rs.core.MediaType.TEXT_PLAIN_TYPE;
+import static javax.ws.rs.core.Response.Status.NOT_FOUND;
 
-@Path("/v1/statement")
-public class StatementResource
+@Path("/")
+public class ExecutingStatementResource
 {
     private static final Duration MAX_WAIT_TIME = new Duration(1, SECONDS);
     private static final Ordering<Comparable<Duration>> WAIT_ORDERING = Ordering.natural().nullsLast();
@@ -93,79 +86,30 @@ public class StatementResource
     private static final DataSize MAX_TARGET_RESULT_SIZE = new DataSize(128, MEGABYTE);
 
     private final QueryManager queryManager;
-    private final SessionPropertyManager sessionPropertyManager;
     private final ExchangeClientSupplier exchangeClientSupplier;
     private final BlockEncodingSerde blockEncodingSerde;
     private final BoundedExecutor responseExecutor;
     private final ScheduledExecutorService timeoutExecutor;
 
     private final ConcurrentMap<QueryId, Query> queries = new ConcurrentHashMap<>();
-    private final ScheduledExecutorService queryPurger = newSingleThreadScheduledExecutor(threadsNamed("query-purger"));
 
     @Inject
-    public StatementResource(
+    public ExecutingStatementResource(
             QueryManager queryManager,
-            SessionPropertyManager sessionPropertyManager,
             ExchangeClientSupplier exchangeClientSupplier,
             BlockEncodingSerde blockEncodingSerde,
             @ForStatementResource BoundedExecutor responseExecutor,
             @ForStatementResource ScheduledExecutorService timeoutExecutor)
     {
         this.queryManager = requireNonNull(queryManager, "queryManager is null");
-        this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
         this.exchangeClientSupplier = requireNonNull(exchangeClientSupplier, "exchangeClientSupplier is null");
         this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
         this.responseExecutor = requireNonNull(responseExecutor, "responseExecutor is null");
         this.timeoutExecutor = requireNonNull(timeoutExecutor, "timeoutExecutor is null");
-
-        queryPurger.scheduleWithFixedDelay(new PurgeQueriesRunnable(queries, queryManager), 200, 200, MILLISECONDS);
-    }
-
-    @PreDestroy
-    public void stop()
-    {
-        queryPurger.shutdownNow();
-    }
-
-    @POST
-    @Produces(MediaType.APPLICATION_JSON)
-    public Response createQuery(
-            String statement,
-            @HeaderParam(X_FORWARDED_PROTO) String proto,
-            @Context HttpServletRequest servletRequest,
-            @Context UriInfo uriInfo)
-    {
-        if (isNullOrEmpty(statement)) {
-            throw new WebApplicationException(Response
-                    .status(Status.BAD_REQUEST)
-                    .type(MediaType.TEXT_PLAIN)
-                    .entity("SQL statement is empty")
-                    .build());
-        }
-        if (isNullOrEmpty(proto)) {
-            proto = uriInfo.getRequestUri().getScheme();
-        }
-
-        SessionContext sessionContext = new HttpRequestSessionContext(servletRequest);
-
-        ExchangeClient exchangeClient = exchangeClientSupplier.get(new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), StatementResource.class.getSimpleName()));
-        Query query = Query.create(
-                sessionContext,
-                statement,
-                queryManager,
-                sessionPropertyManager,
-                exchangeClient,
-                responseExecutor,
-                timeoutExecutor,
-                blockEncodingSerde);
-        queries.put(query.getQueryId(), query);
-
-        QueryResults queryResults = query.getNextResult(OptionalLong.empty(), uriInfo, proto, DEFAULT_TARGET_RESULT_SIZE);
-        return toResponse(query, queryResults);
     }
 
     @GET
-    @Path("{queryId}/{slug}/{token}")
+    @Path("/v1/statement/executing/{queryId}/{slug}/{token}")
     @Produces(MediaType.APPLICATION_JSON)
     public void getQueryResults(
             @PathParam("queryId") QueryId queryId,
@@ -178,30 +122,52 @@ public class StatementResource
             @Suspended AsyncResponse asyncResponse)
     {
         Query query = getQuery(queryId, slug);
-        if (query == null) {
-            asyncResponse.resume(Response.status(Status.NOT_FOUND).build());
-            return;
-        }
         if (isNullOrEmpty(proto)) {
             proto = uriInfo.getRequestUri().getScheme();
         }
 
-        asyncQueryResults(query, OptionalLong.of(token), maxWait, targetResultSize, uriInfo, proto, asyncResponse);
+        asyncQueryResults(query, token, maxWait, targetResultSize, uriInfo, proto, asyncResponse);
     }
 
-    @Nullable
-    private Query getQuery(QueryId queryId, String slug)
+    protected Query getQuery(QueryId queryId, String slug)
     {
         Query query = queries.get(queryId);
-        if (query != null && query.isSlugValid(slug)) {
+        if (query != null) {
+            if (!query.isSlugValid(slug)) {
+                throw badRequest(NOT_FOUND, "Query not found");
+            }
             return query;
         }
-        return null;
+
+        // this is the first time the query has been accessed on this coordinator
+        Session session;
+        try {
+            if (!queryManager.isQuerySlugValid(queryId, slug)) {
+                throw badRequest(NOT_FOUND, "Query not found");
+            }
+            session = queryManager.getQuerySession(queryId);
+        }
+        catch (NoSuchElementException e) {
+            throw badRequest(NOT_FOUND, "Query not found");
+        }
+
+        query = queries.computeIfAbsent(queryId, id -> {
+            ExchangeClient exchangeClient = exchangeClientSupplier.get(new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), ExecutingStatementResource.class.getSimpleName()));
+            return Query.create(
+                    session,
+                    slug,
+                    queryManager,
+                    exchangeClient,
+                    responseExecutor,
+                    timeoutExecutor,
+                    blockEncodingSerde);
+        });
+        return query;
     }
 
     private void asyncQueryResults(
             Query query,
-            OptionalLong token,
+            long token,
             Duration maxWait,
             DataSize targetResultSize,
             UriInfo uriInfo,
@@ -231,16 +197,16 @@ public class StatementResource
         query.getSetPath().ifPresent(path -> response.header(PRESTO_SET_PATH, path));
 
         // add set session properties
-        query.getSetSessionProperties().entrySet()
-                .forEach(entry -> response.header(PRESTO_SET_SESSION, entry.getKey() + '=' + urlEncode(entry.getValue())));
+        query.getSetSessionProperties()
+                .forEach((key, value) -> response.header(PRESTO_SET_SESSION, key + '=' + urlEncode(value)));
 
         // add clear session properties
         query.getResetSessionProperties()
                 .forEach(name -> response.header(PRESTO_CLEAR_SESSION, name));
 
         // add set roles
-        query.getSetRoles().entrySet()
-                .forEach(entry -> response.header(PRESTO_SET_ROLE, entry.getKey() + '=' + urlEncode(entry.getValue().toString())));
+        query.getSetRoles()
+                .forEach((key, value) -> response.header(PRESTO_SET_ROLE, key + '=' + urlEncode(value.toString())));
 
         // add added prepare statements
         for (Entry<String, String> entry : query.getAddedPreparedStatements().entrySet()) {
@@ -267,19 +233,42 @@ public class StatementResource
     }
 
     @DELETE
-    @Path("{queryId}/{slug}/{token}")
+    @Path("/v1/statement/executing/{queryId}/{slug}/{token}")
     @Produces(MediaType.APPLICATION_JSON)
     public Response cancelQuery(
             @PathParam("queryId") QueryId queryId,
             @PathParam("slug") String slug,
             @PathParam("token") long token)
     {
-        Query query = getQuery(queryId, slug);
-        if (query == null) {
-            return Response.status(Status.NOT_FOUND).build();
+        Query query = queries.get(queryId);
+        if (query != null) {
+            if (!query.isSlugValid(slug)) {
+                throw badRequest(NOT_FOUND, "Query not found");
+            }
+            query.cancel();
+            return Response.noContent().build();
         }
-        query.cancel();
-        return Response.noContent().build();
+
+        // cancel the query execution directly instead of creating the statement client
+        try {
+            if (!queryManager.isQuerySlugValid(queryId, slug)) {
+                throw badRequest(NOT_FOUND, "Query not found");
+            }
+            queryManager.cancelQuery(queryId);
+            return Response.noContent().build();
+        }
+        catch (NoSuchElementException e) {
+            throw badRequest(NOT_FOUND, "Query not found");
+        }
+    }
+
+    private static WebApplicationException badRequest(Status status, String message)
+    {
+        throw new WebApplicationException(
+                Response.status(status)
+                        .type(TEXT_PLAIN_TYPE)
+                        .entity(message)
+                        .build());
     }
 
     private static String urlEncode(String value)

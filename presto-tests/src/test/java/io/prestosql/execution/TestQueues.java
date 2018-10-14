@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.prestosql.Session;
+import io.prestosql.dispatcher.DispatchManager;
 import io.prestosql.plugin.resourcegroups.ResourceGroupManagerPlugin;
 import io.prestosql.spi.QueryId;
 import io.prestosql.spi.resourcegroups.ResourceGroupId;
@@ -304,8 +305,8 @@ public class TestQueues
 
             QueryId queryId = createQuery(queryRunner, newRejectionSession(), LONG_LASTING_QUERY);
             waitForQueryState(queryRunner, queryId, FAILED);
-            QueryManager queryManager = queryRunner.getCoordinator().getQueryManager();
-            assertEquals(queryManager.getQueryInfo(queryId).getErrorCode(), QUERY_REJECTED.toErrorCode());
+            DispatchManager dispatchManager = queryRunner.getCoordinator().getDispatchManager();
+            assertEquals(dispatchManager.getQueryInfo(queryId).getErrorCode(), QUERY_REJECTED.toErrorCode());
         }
     }
 

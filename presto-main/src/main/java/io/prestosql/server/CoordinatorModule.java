@@ -32,6 +32,10 @@ import io.prestosql.cost.CostComparator;
 import io.prestosql.cost.StatsAndCosts;
 import io.prestosql.cost.StatsCalculatorModule;
 import io.prestosql.cost.TaskCountEstimator;
+import io.prestosql.dispatcher.DispatchManager;
+import io.prestosql.dispatcher.DispatchQueryFactory;
+import io.prestosql.dispatcher.FailedDispatchQueryFactory;
+import io.prestosql.dispatcher.LocalDispatchQueryFactory;
 import io.prestosql.event.QueryMonitor;
 import io.prestosql.event.QueryMonitorConfig;
 import io.prestosql.execution.AddColumnTask;
@@ -96,7 +100,6 @@ import io.prestosql.memory.TotalReservationLowMemoryKiller;
 import io.prestosql.memory.TotalReservationOnBlockedNodesLowMemoryKiller;
 import io.prestosql.metadata.CatalogManager;
 import io.prestosql.operator.ForScheduler;
-import io.prestosql.server.protocol.StatementResource;
 import io.prestosql.server.remotetask.RemoteTaskStats;
 import io.prestosql.spi.memory.ClusterMemoryPoolManager;
 import io.prestosql.spi.resourcegroups.QueryType;
@@ -188,7 +191,8 @@ public class CoordinatorModule
         jsonCodecBinder(binder).bindJsonCodec(TaskInfo.class);
         jsonCodecBinder(binder).bindJsonCodec(QueryResults.class);
         jsonCodecBinder(binder).bindJsonCodec(SelectedRole.class);
-        jaxrsBinder(binder).bind(StatementResource.class);
+        jaxrsBinder(binder).bind(io.prestosql.dispatcher.QueuedStatementResource.class);
+        jaxrsBinder(binder).bind(io.prestosql.server.protocol.ExecutingStatementResource.class);
         binder.bind(StatementHttpExecutionMBean.class).in(Scopes.SINGLETON);
         newExporter(binder).export(StatementHttpExecutionMBean.class).withGeneratedName();
 
@@ -218,6 +222,9 @@ public class CoordinatorModule
         binder.bind(InternalResourceGroupManager.class).in(Scopes.SINGLETON);
         newExporter(binder).export(InternalResourceGroupManager.class).withGeneratedName();
         binder.bind(ResourceGroupManager.class).to(InternalResourceGroupManager.class);
+        binder.bind(DispatchManager.class).in(Scopes.SINGLETON);
+        binder.bind(FailedDispatchQueryFactory.class).in(Scopes.SINGLETON);
+        binder.bind(DispatchQueryFactory.class).to(LocalDispatchQueryFactory.class);
         binder.bind(LegacyResourceGroupConfigurationManager.class).in(Scopes.SINGLETON);
         newExporter(binder).export(QueryManager.class).withGeneratedName();
 

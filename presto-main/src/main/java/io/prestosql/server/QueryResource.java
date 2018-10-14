@@ -14,6 +14,7 @@
 package io.prestosql.server;
 
 import com.google.common.collect.ImmutableList;
+import io.prestosql.dispatcher.DispatchManager;
 import io.prestosql.execution.QueryInfo;
 import io.prestosql.execution.QueryManager;
 import io.prestosql.execution.QueryState;
@@ -45,11 +46,14 @@ import static java.util.Objects.requireNonNull;
 @Path("/v1/query")
 public class QueryResource
 {
+    // TODO There should be a combined interface for this
+    private final DispatchManager dispatchManager;
     private final QueryManager queryManager;
 
     @Inject
-    public QueryResource(QueryManager queryManager)
+    public QueryResource(DispatchManager dispatchManager, QueryManager queryManager)
     {
+        this.dispatchManager = requireNonNull(dispatchManager, "dispatchManager is null");
         this.queryManager = requireNonNull(queryManager, "queryManager is null");
     }
 
@@ -58,7 +62,7 @@ public class QueryResource
     {
         QueryState expectedState = stateFilter == null ? null : QueryState.valueOf(stateFilter.toUpperCase(Locale.ENGLISH));
         ImmutableList.Builder<BasicQueryInfo> builder = new ImmutableList.Builder<>();
-        for (BasicQueryInfo queryInfo : queryManager.getQueries()) {
+        for (BasicQueryInfo queryInfo : dispatchManager.getQueries()) {
             if (stateFilter == null || queryInfo.getState() == expectedState) {
                 builder.add(queryInfo);
             }
