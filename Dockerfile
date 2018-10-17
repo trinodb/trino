@@ -42,6 +42,13 @@ COPY --from=build /build/jmx_prometheus_javaagent.jar $PROMETHEUS_JMX_EXPORTER
 RUN ln $PRESTO_CLI /usr/local/bin/presto-cli \
         && chmod 755 /usr/local/bin/presto-cli
 
+RUN \
+    chown -R 1003:0 /opt/presto /etc/passwd && \
+    chmod -R 774 /etc/passwd && \
+    chmod -R 775 /opt/presto
+
+USER 1003
 EXPOSE 8080
 WORKDIR $PRESTO_HOME
+
 CMD ["bin/launcher", "run"]
