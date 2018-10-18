@@ -66,3 +66,8 @@ EXPOSE 8080
 WORKDIR $PRESTO_HOME
 
 CMD ["bin/launcher", "run"]
+
+LABEL io.k8s.display-name="OpenShift Presto" \
+      io.k8s.description="This is an image used by operator-metering to to install and run Presto." \
+      io.openshift.tags="openshift" \
+      maintainer="Chance Zibolski <czibolsk@redhat.com>"
