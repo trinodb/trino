@@ -36,7 +36,7 @@ RUN mkdir -p $PRESTO_HOME
 RUN useradd presto -m -u 1003 -d /opt/presto
 
 COPY --from=build /build/presto-server/target/presto-server-$PRESTO_VERSION $PRESTO_HOME
-COPY --from=build /build/presto-cli/target/presto-cli-$PRESTO_VERSION.jar $PRESTO_CLI
+COPY --from=build /build/presto-cli/target/presto-cli-$PRESTO_VERSION-executable.jar $PRESTO_CLI
 COPY --from=build /build/jmx_prometheus_javaagent.jar $PROMETHEUS_JMX_EXPORTER
 
 RUN ln $PRESTO_CLI /usr/local/bin/presto-cli \

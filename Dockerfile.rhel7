@@ -5,10 +5,10 @@ ENV RH_PROMETHEUS_JMX_EXPORTER_PATCH_VERSION 00006
 ENV PRESTO_VERSION 0.212
 
 ENV PRESTO_SERVER_OUT /build/presto-server/target/presto-server-$PRESTO_VERSION
-ENV PRESTO_CLI_OUT /build/presto-cli/target/presto-cli-$PRESTO_VERSION.jar
+ENV PRESTO_CLI_OUT /build/presto-cli/target/presto-cli-$PRESTO_VERSION-executable.jar
 ENV PROMETHEUS_JMX_EXPORTER_OUT /build/jmx_prometheus_javaagent.jar
 
-ARG PRESTO_CLI_JAR_URL=http://download.eng.bos.redhat.com/brewroot/packages/com.facebook.presto-presto-root/0.212.0.redhat_${RH_PRESTO_PATCH_VERSION}/1/maven/com/facebook/presto/presto-cli/0.212.0.redhat-${RH_PRESTO_PATCH_VERSION}/presto-cli-0.212.0.redhat-${RH_PRESTO_PATCH_VERSION}.jar
+ARG PRESTO_CLI_JAR_URL=http://download.eng.bos.redhat.com/brewroot/packages/com.facebook.presto-presto-root/0.212.0.redhat_${RH_PRESTO_PATCH_VERSION}/1/maven/com/facebook/presto/presto-cli/0.212.0.redhat-${RH_PRESTO_PATCH_VERSION}/presto-cli-0.212.0.redhat-${RH_PRESTO_PATCH_VERSION}-executable.jar
 ARG PRESTO_SERVER_URL=http://download.eng.bos.redhat.com/brewroot/packages/com.facebook.presto-presto-root/0.212.0.redhat_${RH_PRESTO_PATCH_VERSION}/1/maven/com/facebook/presto/presto-server/0.212.0.redhat-${RH_PRESTO_PATCH_VERSION}/presto-server-0.212.0.redhat-${RH_PRESTO_PATCH_VERSION}.tar.gz
 ARG PROMETHEUS_JMX_EXPORTER_URL=http://download.eng.bos.redhat.com/brewroot/packages/io.prometheus.jmx-parent/0.3.1.redhat_${RH_PROMETHEUS_JMX_EXPORTER_PATCH_VERSION}/1/maven/io/prometheus/jmx/jmx_prometheus_javaagent/0.3.1.redhat-${RH_PROMETHEUS_JMX_EXPORTER_PATCH_VERSION}/jmx_prometheus_javaagent-0.3.1.redhat-${RH_PROMETHEUS_JMX_EXPORTER_PATCH_VERSION}.jar
 
@@ -50,7 +50,7 @@ RUN mkdir -p $PRESTO_HOME
 RUN useradd presto -m -u 1003 -d /opt/presto
 
 COPY --from=build /build/presto-server/target/presto-server-$PRESTO_VERSION $PRESTO_HOME
-COPY --from=build /build/presto-cli/target/presto-cli-$PRESTO_VERSION.jar $PRESTO_CLI
+COPY --from=build /build/presto-cli/target/presto-cli-$PRESTO_VERSION-executable.jar $PRESTO_CLI
 COPY --from=build /build/jmx_prometheus_javaagent.jar $PROMETHEUS_JMX_EXPORTER
 
 RUN ln $PRESTO_CLI /usr/local/bin/presto-cli \
