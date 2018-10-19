@@ -101,6 +101,7 @@ public class FeaturesConfig
     private MultimapAggGroupImplementation multimapAggGroupImplementation = MultimapAggGroupImplementation.NEW;
     private boolean spillEnabled;
     private boolean spillOrderBy = true;
+    private boolean spillWindowOperator = true;
     private DataSize aggregationOperatorUnspillMemoryLimit = new DataSize(4, DataSize.Unit.MEGABYTE);
     private List<Path> spillerSpillPaths = ImmutableList.of();
     private int spillerThreads = 4;
@@ -569,6 +570,18 @@ public class FeaturesConfig
     public FeaturesConfig setSpillOrderBy(boolean spillOrderBy)
     {
         this.spillOrderBy = spillOrderBy;
+        return this;
+    }
+
+    public boolean isSpillWindowOperator()
+    {
+        return spillWindowOperator;
+    }
+
+    @Config("experimental.spill-window-operator")
+    public FeaturesConfig setSpillWindowOperator(boolean spillWindowOperator)
+    {
+        this.spillWindowOperator = spillWindowOperator;
         return this;
     }
 
