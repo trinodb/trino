@@ -230,6 +230,7 @@ import static io.prestosql.SystemSessionProperties.getTaskConcurrency;
 import static io.prestosql.SystemSessionProperties.getTaskWriterCount;
 import static io.prestosql.SystemSessionProperties.isExchangeCompressionEnabled;
 import static io.prestosql.SystemSessionProperties.isSpillEnabled;
+import static io.prestosql.SystemSessionProperties.isSpillOrderBy;
 import static io.prestosql.execution.warnings.WarningCollector.NOOP;
 import static io.prestosql.metadata.FunctionKind.SCALAR;
 import static io.prestosql.operator.DistinctLimitOperator.DistinctLimitOperatorFactory;
@@ -989,6 +990,8 @@ public class LocalExecutionPlanner
                 outputChannels.add(i);
             }
 
+            boolean spillEnabled = isSpillEnabled(context.getSession()) && isSpillOrderBy(context.getSession());
+
             OperatorFactory operator = new OrderByOperatorFactory(
                     context.getNextOperatorId(),
                     node.getId(),
@@ -997,7 +1000,9 @@ public class LocalExecutionPlanner
                     10_000,
                     orderByChannels,
                     sortOrder.build(),
-                    pagesIndexFactory);
+                    pagesIndexFactory,
+                    spillEnabled,
+                    Optional.of(spillerFactory));
 
             return new PhysicalOperation(operator, source.getLayout(), context, source);
         }

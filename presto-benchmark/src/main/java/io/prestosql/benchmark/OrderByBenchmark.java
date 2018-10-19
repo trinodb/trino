@@ -23,6 +23,7 @@ import io.prestosql.sql.planner.plan.PlanNodeId;
 import io.prestosql.testing.LocalQueryRunner;
 
 import java.util.List;
+import java.util.Optional;
 
 import static io.prestosql.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
 import static io.prestosql.spi.block.SortOrder.ASC_NULLS_LAST;
@@ -53,7 +54,9 @@ public class OrderByBenchmark
                 ROWS,
                 ImmutableList.of(0),
                 ImmutableList.of(ASC_NULLS_LAST),
-                new PagesIndex.TestingFactory(false));
+                new PagesIndex.TestingFactory(false),
+                false,
+                Optional.empty());
 
         return ImmutableList.of(tableScanOperator, limitOperator, orderByOperator);
     }
