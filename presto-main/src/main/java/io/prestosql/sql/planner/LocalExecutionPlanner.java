@@ -231,6 +231,7 @@ import static io.prestosql.SystemSessionProperties.getTaskWriterCount;
 import static io.prestosql.SystemSessionProperties.isExchangeCompressionEnabled;
 import static io.prestosql.SystemSessionProperties.isSpillEnabled;
 import static io.prestosql.SystemSessionProperties.isSpillOrderBy;
+import static io.prestosql.SystemSessionProperties.isSpillWindowOperator;
 import static io.prestosql.execution.warnings.WarningCollector.NOOP;
 import static io.prestosql.metadata.FunctionKind.SCALAR;
 import static io.prestosql.operator.DistinctLimitOperator.DistinctLimitOperatorFactory;
@@ -941,7 +942,9 @@ public class LocalExecutionPlanner
                     sortOrder,
                     node.getPreSortedOrderPrefix(),
                     10_000,
-                    pagesIndexFactory);
+                    pagesIndexFactory,
+                    isSpillEnabled(session) && isSpillWindowOperator(session),
+                    spillerFactory);
 
             return new PhysicalOperation(operatorFactory, outputMappings.build(), context, source);
         }
