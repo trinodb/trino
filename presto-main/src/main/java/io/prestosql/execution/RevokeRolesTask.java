@@ -36,7 +36,6 @@ import static io.prestosql.metadata.MetadataUtil.createCatalogName;
 import static io.prestosql.metadata.MetadataUtil.createPrincipal;
 import static io.prestosql.spi.security.PrincipalType.ROLE;
 import static io.prestosql.sql.analyzer.SemanticErrorCode.MISSING_ROLE;
-import static java.util.Locale.ENGLISH;
 
 public class RevokeRolesTask
         implements DataDefinitionTask<RevokeRoles>
@@ -58,7 +57,7 @@ public class RevokeRolesTask
                 .collect(toImmutableSet());
         boolean adminOptionFor = statement.isAdminOptionFor();
         Optional<PrestoPrincipal> grantor = statement.getGrantor().map(specification -> createPrincipal(session, specification));
-        String catalog = createCatalogName(session, statement, statement.getCatalog().map(c -> c.getValue().toLowerCase(ENGLISH)));
+        String catalog = createCatalogName(session, statement);
 
         Set<String> availableRoles = metadata.listRoles(session, catalog);
         Set<String> specifiedRoles = new LinkedHashSet<>();
