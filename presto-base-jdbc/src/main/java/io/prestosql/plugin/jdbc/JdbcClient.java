@@ -14,6 +14,7 @@
 package io.prestosql.plugin.jdbc;
 
 import io.prestosql.spi.connector.ColumnHandle;
+import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorSplitSource;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
@@ -61,6 +62,16 @@ public interface JdbcClient
 
     PreparedStatement buildSql(ConnectorSession session, Connection connection, JdbcSplit split, List<JdbcColumnHandle> columnHandles)
             throws SQLException;
+
+    void addColumn(ConnectorSession session, JdbcTableHandle handle, ColumnMetadata column);
+
+    void dropColumn(JdbcIdentity identity, JdbcTableHandle handle, JdbcColumnHandle column);
+
+    void renameColumn(JdbcIdentity identity, JdbcTableHandle handle, JdbcColumnHandle jdbcColumn, String newColumnName);
+
+    void renameTable(JdbcIdentity identity, JdbcTableHandle handle, SchemaTableName newTableName);
+
+    void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata);
 
     JdbcOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata);
 

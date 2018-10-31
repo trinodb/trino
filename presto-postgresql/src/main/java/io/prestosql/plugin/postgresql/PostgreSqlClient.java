@@ -25,12 +25,13 @@ import io.prestosql.plugin.jdbc.BaseJdbcConfig;
 import io.prestosql.plugin.jdbc.ColumnMapping;
 import io.prestosql.plugin.jdbc.DriverConnectionFactory;
 import io.prestosql.plugin.jdbc.JdbcIdentity;
-import io.prestosql.plugin.jdbc.JdbcOutputTableHandle;
 import io.prestosql.plugin.jdbc.JdbcTypeHandle;
 import io.prestosql.plugin.jdbc.SliceWriteFunction;
 import io.prestosql.plugin.jdbc.WriteMapping;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.connector.ConnectorTableMetadata;
+import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeManager;
@@ -54,8 +55,11 @@ import static com.fasterxml.jackson.core.JsonFactory.Feature.CANONICALIZE_FIELD_
 import static com.fasterxml.jackson.databind.SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.plugin.jdbc.ColumnMapping.DISABLE_PUSHDOWN;
+import static io.prestosql.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.varbinaryWriteFunction;
+import static io.prestosql.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -63,6 +67,8 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 public class PostgreSqlClient
         extends BaseJdbcClient
 {
+    private static final String DUPLICATE_TABLE_SQLSTATE = "42P07";
+
     protected final Type jsonType;
 
     @Inject
@@ -73,19 +79,34 @@ public class PostgreSqlClient
     }
 
     @Override
-    public void commitCreateTable(JdbcIdentity identity, JdbcOutputTableHandle handle)
+    public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
-        // PostgreSQL does not allow qualifying the target of a rename
+        try {
+            createTable(session, tableMetadata, tableMetadata.getTable().getTableName());
+        }
+        catch (SQLException e) {
+            boolean exists = DUPLICATE_TABLE_SQLSTATE.equals(e.getSQLState());
+            throw new PrestoException(exists ? ALREADY_EXISTS : JDBC_ERROR, e);
+        }
+    }
+
+    @Override
+    protected void renameTable(JdbcIdentity identity, String catalogName, String schemaName, String tableName, SchemaTableName newTable)
+    {
+        if (!schemaName.equals(newTable.getSchemaName())) {
+            throw new PrestoException(NOT_SUPPORTED, "Table rename across schemas is not supported in PostgreSQL");
+        }
+
         String sql = format(
                 "ALTER TABLE %s RENAME TO %s",
-                quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTemporaryTableName()),
-                quoted(handle.getTableName()));
+                quoted(catalogName, schemaName, tableName),
+                quoted(newTable.getTableName()));
 
-        try (Connection connection = getConnection(identity, handle)) {
+        try (Connection connection = connectionFactory.openConnection(identity)) {
             execute(connection, sql);
         }
         catch (SQLException e) {
-            throw new RuntimeException(e);
+            throw new PrestoException(JDBC_ERROR, e);
         }
     }
 
