@@ -13,13 +13,16 @@
  */
 package io.prestosql.plugin.sqlserver;
 
+import com.google.common.base.Joiner;
 import com.microsoft.sqlserver.jdbc.SQLServerDriver;
 import io.prestosql.plugin.jdbc.BaseJdbcClient;
 import io.prestosql.plugin.jdbc.BaseJdbcConfig;
 import io.prestosql.plugin.jdbc.DriverConnectionFactory;
+import io.prestosql.plugin.jdbc.JdbcColumnHandle;
 import io.prestosql.plugin.jdbc.JdbcIdentity;
-import io.prestosql.plugin.jdbc.JdbcOutputTableHandle;
+import io.prestosql.plugin.jdbc.JdbcTableHandle;
 import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.connector.SchemaTableName;
 
 import javax.inject.Inject;
 
@@ -32,6 +35,8 @@ import static java.lang.String.format;
 public class SqlServerClient
         extends BaseJdbcClient
 {
+    private static final Joiner DOT_JOINER = Joiner.on(".");
+
     @Inject
     public SqlServerClient(BaseJdbcConfig config)
     {
@@ -39,14 +44,13 @@ public class SqlServerClient
     }
 
     @Override
-    public void commitCreateTable(JdbcIdentity identity, JdbcOutputTableHandle handle)
+    protected void renameTable(JdbcIdentity identity, String catalogName, String schemaName, String tableName, SchemaTableName newTable)
     {
         String sql = format(
                 "sp_rename %s, %s",
-                singleQuote(handle.getCatalogName(), handle.getSchemaName(), handle.getTemporaryTableName()),
-                singleQuote(handle.getTableName()));
-
-        try (Connection connection = getConnection(identity, handle)) {
+                singleQuote(catalogName, schemaName, tableName),
+                singleQuote(newTable.getTableName()));
+        try (Connection connection = connectionFactory.openConnection(identity)) {
             execute(connection, sql);
         }
         catch (SQLException e) {
@@ -54,9 +58,24 @@ public class SqlServerClient
         }
     }
 
-    private static String singleQuote(String catalog, String schema, String table)
+    @Override
+    public void renameColumn(JdbcIdentity identity, JdbcTableHandle handle, JdbcColumnHandle jdbcColumn, String newColumnName)
     {
-        return singleQuote(catalog + "." + schema + "." + table);
+        try (Connection connection = connectionFactory.openConnection(identity)) {
+            String sql = format(
+                    "sp_rename %s, %s, 'COLUMN'",
+                    singleQuote(handle.getCatalogName(), handle.getSchemaName(), handle.getTableName(), jdbcColumn.getColumnName()),
+                    singleQuote(newColumnName));
+            execute(connection, sql);
+        }
+        catch (SQLException e) {
+            throw new PrestoException(JDBC_ERROR, e);
+        }
+    }
+
+    private static String singleQuote(String... objects)
+    {
+        return singleQuote(DOT_JOINER.join(objects));
     }
 
     private static String singleQuote(String literal)

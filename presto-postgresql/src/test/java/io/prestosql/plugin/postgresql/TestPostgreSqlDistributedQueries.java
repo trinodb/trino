@@ -15,7 +15,7 @@ package io.prestosql.plugin.postgresql;
 
 import io.airlift.testing.postgresql.TestingPostgreSqlServer;
 import io.airlift.tpch.TpchTable;
-import io.prestosql.tests.AbstractTestQueries;
+import io.prestosql.tests.AbstractTestDistributedQueries;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
@@ -25,7 +25,7 @@ import static io.prestosql.plugin.postgresql.PostgreSqlQueryRunner.createPostgre
 
 @Test
 public class TestPostgreSqlDistributedQueries
-        extends AbstractTestQueries
+        extends AbstractTestDistributedQueries
 {
     private final TestingPostgreSqlServer postgreSqlServer;
 
@@ -46,6 +46,25 @@ public class TestPostgreSqlDistributedQueries
             throws IOException
     {
         postgreSqlServer.close();
+    }
+
+    @Override
+    protected boolean supportsViews()
+    {
+        return false;
+    }
+
+    @Override
+    public void testInsert()
+    {
+        // Test not supported due to lack of support for array types.
+        // See TestPostgreSqlIntegrationSmokeTest for insertion tests.
+    }
+
+    @Override
+    public void testDelete()
+    {
+        // delete is not supported
     }
 
     // PostgreSQL specific tests should normally go in TestPostgreSqlIntegrationSmokeTest

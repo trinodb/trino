@@ -16,7 +16,7 @@ package io.prestosql.plugin.mysql;
 import io.airlift.testing.mysql.TestingMySqlServer;
 import io.airlift.tpch.TpchTable;
 import io.prestosql.testing.MaterializedResult;
-import io.prestosql.tests.AbstractTestQueries;
+import io.prestosql.tests.AbstractTestDistributedQueries;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
@@ -27,7 +27,7 @@ import static io.prestosql.testing.assertions.Assert.assertEquals;
 
 @Test
 public class TestMySqlDistributedQueries
-        extends AbstractTestQueries
+        extends AbstractTestDistributedQueries
 {
     private final TestingMySqlServer mysqlServer;
 
@@ -47,6 +47,12 @@ public class TestMySqlDistributedQueries
     public final void destroy()
     {
         mysqlServer.close();
+    }
+
+    @Override
+    protected boolean supportsViews()
+    {
+        return false;
     }
 
     @Override
@@ -79,6 +85,19 @@ public class TestMySqlDistributedQueries
     public void testDescribeOutputNamedAndUnnamed()
     {
         // this connector uses a non-canonical type for varchar columns in tpch
+    }
+
+    @Override
+    public void testInsert()
+    {
+        // Test not supported due to lack of support for array types.
+        // See TestMySqlIntegrationSmokeTest for insertion tests.
+    }
+
+    @Override
+    public void testDelete()
+    {
+        // delete is not supported
     }
 
     // MySQL specific tests should normally go in TestMySqlIntegrationSmokeTest

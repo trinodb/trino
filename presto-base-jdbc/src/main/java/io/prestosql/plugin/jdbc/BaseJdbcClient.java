@@ -275,6 +275,17 @@ public class BaseJdbcClient
     }
 
     @Override
+    public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
+    {
+        try {
+            createTable(session, tableMetadata, tableMetadata.getTable().getTableName());
+        }
+        catch (SQLException e) {
+            throw new PrestoException(JDBC_ERROR, e);
+        }
+    }
+
+    @Override
     public JdbcOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
         return beginWriteTable(session, tableMetadata);
@@ -287,6 +298,17 @@ public class BaseJdbcClient
     }
 
     private JdbcOutputTableHandle beginWriteTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
+    {
+        try {
+            return createTable(session, tableMetadata, generateTemporaryTableName());
+        }
+        catch (SQLException e) {
+            throw new PrestoException(JDBC_ERROR, e);
+        }
+    }
+
+    protected JdbcOutputTableHandle createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, String tableName)
+            throws SQLException
     {
         SchemaTableName schemaTableName = tableMetadata.getTable();
         String schema = schemaTableName.getSchemaName();
@@ -302,10 +324,9 @@ public class BaseJdbcClient
             if (uppercase) {
                 schema = schema.toUpperCase(ENGLISH);
                 table = table.toUpperCase(ENGLISH);
+                tableName = tableName.toUpperCase(ENGLISH);
             }
             String catalog = connection.getCatalog();
-
-            String temporaryName = generateTemporaryTableName();
 
             ImmutableList.Builder<String> columnNames = ImmutableList.builder();
             ImmutableList.Builder<Type> columnTypes = ImmutableList.builder();
@@ -318,12 +339,12 @@ public class BaseJdbcClient
                 columnNames.add(columnName);
                 columnTypes.add(column.getType());
                 // TODO in INSERT case, we should reuse original column type and, ideally, constraints (then JdbcPageSink must get writer from toPrestoType())
-                columnList.add(format("%s %s", quoted(columnName), toWriteMapping(session, column.getType()).getDataType()));
+                columnList.add(getColumnSql(session, column, columnName));
             }
 
             String sql = format(
                     "CREATE TABLE %s (%s)",
-                    quoted(catalog, schema, temporaryName),
+                    quoted(catalog, schema, tableName),
                     join(", ", columnList.build()));
             execute(connection, sql);
 
@@ -333,11 +354,17 @@ public class BaseJdbcClient
                     table,
                     columnNames.build(),
                     columnTypes.build(),
-                    temporaryName);
+                    tableName);
         }
-        catch (SQLException e) {
-            throw new PrestoException(JDBC_ERROR, e);
-        }
+    }
+
+    private String getColumnSql(ConnectorSession session, ColumnMetadata column, String columnName)
+    {
+        StringBuilder sb = new StringBuilder()
+                .append(quoted(columnName))
+                .append(" ")
+                .append(toWriteMapping(session, column.getType()).getDataType());
+        return sb.toString();
     }
 
     protected String generateTemporaryTableName()
@@ -348,12 +375,33 @@ public class BaseJdbcClient
     @Override
     public void commitCreateTable(JdbcIdentity identity, JdbcOutputTableHandle handle)
     {
-        String sql = format(
-                "ALTER TABLE %s RENAME TO %s",
-                quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTemporaryTableName()),
-                quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTableName()));
+        renameTable(
+                identity,
+                handle.getCatalogName(),
+                handle.getSchemaName(),
+                handle.getTemporaryTableName(),
+                new SchemaTableName(handle.getSchemaName(), handle.getTableName()));
+    }
 
-        try (Connection connection = getConnection(identity, handle)) {
+    @Override
+    public void renameTable(JdbcIdentity identity, JdbcTableHandle handle, SchemaTableName newTableName)
+    {
+        renameTable(identity, handle.getCatalogName(), handle.getSchemaName(), handle.getTableName(), newTableName);
+    }
+
+    protected void renameTable(JdbcIdentity identity, String catalogName, String schemaName, String tableName, SchemaTableName newTable)
+    {
+        try (Connection connection = connectionFactory.openConnection(identity)) {
+            String newSchemaName = newTable.getSchemaName();
+            String newTableName = newTable.getTableName();
+            if (connection.getMetaData().storesUpperCaseIdentifiers()) {
+                newSchemaName = newSchemaName.toUpperCase(ENGLISH);
+                newTableName = newTableName.toUpperCase(ENGLISH);
+            }
+            String sql = format(
+                    "ALTER TABLE %s RENAME TO %s",
+                    quoted(catalogName, schemaName, tableName),
+                    quoted(catalogName, newSchemaName, newTableName));
             execute(connection, sql);
         }
         catch (SQLException e) {
@@ -381,6 +429,59 @@ public class BaseJdbcClient
         }
         catch (SQLException e) {
             log.warn(e, "Failed to cleanup temporary table: %s", temporaryTable);
+        }
+    }
+
+    @Override
+    public void addColumn(ConnectorSession session, JdbcTableHandle handle, ColumnMetadata column)
+    {
+        try (Connection connection = connectionFactory.openConnection(JdbcIdentity.from(session))) {
+            String columnName = column.getName();
+            if (connection.getMetaData().storesUpperCaseIdentifiers()) {
+                columnName = columnName.toUpperCase(ENGLISH);
+            }
+            String sql = format(
+                    "ALTER TABLE %s ADD %s",
+                    quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTableName()),
+                    getColumnSql(session, column, columnName));
+            execute(connection, sql);
+        }
+        catch (SQLException e) {
+            throw new PrestoException(JDBC_ERROR, e);
+        }
+    }
+
+    @Override
+    public void renameColumn(JdbcIdentity identity, JdbcTableHandle handle, JdbcColumnHandle jdbcColumn, String newColumnName)
+    {
+        try (Connection connection = connectionFactory.openConnection(identity)) {
+            if (connection.getMetaData().storesUpperCaseIdentifiers()) {
+                newColumnName = newColumnName.toUpperCase(ENGLISH);
+            }
+            String sql = format(
+                    "ALTER TABLE %s RENAME COLUMN %s TO %s",
+                    quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTableName()),
+                    jdbcColumn.getColumnName(),
+                    newColumnName);
+            execute(connection, sql);
+        }
+        catch (SQLException e) {
+            throw new PrestoException(JDBC_ERROR, e);
+        }
+    }
+
+    @Override
+    public void dropColumn(JdbcIdentity identity, JdbcTableHandle handle, JdbcColumnHandle column)
+    {
+        try (Connection connection = connectionFactory.openConnection(identity)) {
+            String sql = format(
+                    "ALTER TABLE %s DROP COLUMN %s",
+                    quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTableName()),
+                    column.getColumnName());
+            execute(connection, sql);
+        }
+        catch (SQLException e) {
+            throw new PrestoException(JDBC_ERROR, e);
         }
     }
 
