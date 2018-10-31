@@ -37,10 +37,12 @@ import java.util.Optional;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.prestosql.metadata.MetadataUtil.createQualifiedObjectName;
 import static io.prestosql.spi.StandardErrorCode.NOT_FOUND;
+import static io.prestosql.spi.connector.ConnectorCapabilities.NOT_NULL_COLUMN_CONSTRAINT;
 import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static io.prestosql.sql.NodeUtils.mapFromProperties;
 import static io.prestosql.sql.analyzer.SemanticErrorCode.COLUMN_ALREADY_EXISTS;
 import static io.prestosql.sql.analyzer.SemanticErrorCode.MISSING_TABLE;
+import static io.prestosql.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
 import static io.prestosql.sql.analyzer.SemanticErrorCode.TYPE_MISMATCH;
 import static io.prestosql.type.UnknownType.UNKNOWN;
 import static java.util.Locale.ENGLISH;
@@ -85,6 +87,9 @@ public class AddColumnTask
         if (columnHandles.containsKey(element.getName().getValue().toLowerCase(ENGLISH))) {
             throw new SemanticException(COLUMN_ALREADY_EXISTS, statement, "Column '%s' already exists", element.getName());
         }
+        if (!element.isNullable() && !metadata.getConnectorCapabilities(session, connectorId).contains(NOT_NULL_COLUMN_CONSTRAINT)) {
+            throw new SemanticException(NOT_SUPPORTED, element, "Catalog '%s' does not support NOT NULL for column '%s'", connectorId.getCatalogName(), element.getName());
+        }
 
         Map<String, Expression> sqlProperties = mapFromProperties(element.getProperties());
         Map<String, Object> columnProperties = metadata.getColumnPropertyManager().getProperties(
@@ -95,7 +100,13 @@ public class AddColumnTask
                 metadata,
                 parameters);
 
-        ColumnMetadata column = new ColumnMetadata(element.getName().getValue(), type, element.getComment().orElse(null), null, false, columnProperties);
+        ColumnMetadata column = new ColumnMetadata(
+                element.getName().getValue(),
+                type,
+                element.isNullable(), element.getComment().orElse(null),
+                null,
+                false,
+                columnProperties);
 
         metadata.addColumn(session, tableHandle.get(), column);
 

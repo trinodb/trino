@@ -172,4 +172,9 @@ public interface Connector
      * have been returned from the connector.
      */
     default void shutdown() {}
+
+    default Set<ConnectorCapabilities> getCapabilities()
+    {
+        return emptySet();
+    }
 }
