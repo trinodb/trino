@@ -104,4 +104,22 @@ Aggregation functions perform an operation on a group of values and return one
 value. If the number of groups you're aggregating over is large, a significant
 amount of memory may be needed. When spill-to-disk is enabled, if there is not
 enough memory, intermediate cumulated aggregation results are written to disk.
-They are loaded back and merged when memory is available.
+They are loaded back and merged with a lower memory footprint.
+
+Order By
+^^^^^^^^
+
+If your trying to sort a larger amount of data, a significant amount of memory 
+may be needed. When spill to disk for order by is enabled, if there is not enough
+memory, intemediate sorted results are written to disk. They are loaded back and
+merged with a lower memory footprint.
+
+Window functions
+^^^^^^^^^^^^^^^^
+
+Window Functions perform an operators over a window of rows and return one value
+for each row. If this window of rows is large, a significant amount of memory may
+be needed. When spill to disk for window functions is enabled, if there is not enough
+memory, intemediate sorted results are written to disk. They are loaded back and
+merged when memory is available. There is a current limitation that spill will not work
+in all cases such as when a single window is very large.
