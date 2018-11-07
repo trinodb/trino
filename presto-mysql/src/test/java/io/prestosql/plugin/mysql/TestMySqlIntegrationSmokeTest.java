@@ -18,6 +18,7 @@ import io.prestosql.Session;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.MaterializedRow;
 import io.prestosql.tests.AbstractTestIntegrationSmokeTest;
+import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
@@ -32,6 +33,7 @@ import static io.prestosql.plugin.mysql.MySqlQueryRunner.createMySqlQueryRunner;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
+import static java.lang.String.format;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
@@ -165,6 +167,44 @@ public class TestMySqlIntegrationSmokeTest
         assertEquals(getQueryRunner().execute("SELECT * FROM char_trailing_space WHERE x = char ' test'").getRowCount(), 0);
 
         assertUpdate("DROP TABLE char_trailing_space");
+    }
+
+    @Test
+    public void testInsertIntoNotNullColumn()
+    {
+        @Language("SQL") String createTableSql = format("" +
+                        "CREATE TABLE %s.tpch.test_insert_not_null (\n" +
+                        "   column_a date,\n" +
+                        "   column_b date NOT NULL\n" +
+                        ")",
+                getSession().getCatalog().get());
+        assertUpdate(createTableSql);
+        assertEquals(computeScalar("SHOW CREATE TABLE test_insert_not_null"), createTableSql);
+
+        assertQueryFails("INSERT INTO test_insert_not_null (column_a) VALUES (date '2012-12-31')", "Column 'column_b' cannot be null");
+        assertQueryFails("INSERT INTO test_insert_not_null (column_a, column_b) VALUES (date '2012-12-31', null)", "Column 'column_b' cannot be null");
+
+        assertUpdate("ALTER TABLE test_insert_not_null ADD COLUMN column_c BIGINT NOT NULL");
+
+        createTableSql = format("" +
+                        "CREATE TABLE %s.tpch.test_insert_not_null (\n" +
+                        "   column_a date,\n" +
+                        "   column_b date NOT NULL,\n" +
+                        "   column_c bigint NOT NULL\n" +
+                        ")",
+                getSession().getCatalog().get());
+        assertEquals(computeScalar("SHOW CREATE TABLE test_insert_not_null"), createTableSql);
+
+        assertQueryFails("INSERT INTO test_insert_not_null (column_b) VALUES (date '2012-12-31')", "Column 'column_c' cannot be null");
+        assertQueryFails("INSERT INTO test_insert_not_null (column_b, column_c) VALUES (date '2012-12-31', null)", "Column 'column_c' cannot be null");
+
+        assertUpdate("INSERT INTO test_insert_not_null (column_b, column_c) VALUES (date '2012-12-31', 1)", 1);
+        assertUpdate("INSERT INTO test_insert_not_null (column_a, column_b, column_c) VALUES (date '2013-01-01', date '2013-01-02', 2)", 1);
+        assertQuery(
+                "SELECT * FROM test_insert_not_null",
+                "VALUES (NULL, CAST('2012-12-31' AS DATE), 1), (CAST('2013-01-01' AS DATE), CAST('2013-01-02' AS DATE), 2)");
+
+        assertUpdate("DROP TABLE test_insert_not_null");
     }
 
     private void execute(String sql)

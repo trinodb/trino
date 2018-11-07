@@ -80,6 +80,7 @@ import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.Varchars.isVarcharType;
 import static java.lang.String.format;
 import static java.lang.String.join;
+import static java.sql.DatabaseMetaData.columnNoNulls;
 import static java.util.Collections.nCopies;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -209,7 +210,8 @@ public class BaseJdbcClient
                     // skip unsupported column types
                     if (columnMapping.isPresent()) {
                         String columnName = resultSet.getString("COLUMN_NAME");
-                        columns.add(new JdbcColumnHandle(columnName, typeHandle, columnMapping.get().getType()));
+                        boolean nullable = (resultSet.getInt("NULLABLE") != columnNoNulls);
+                        columns.add(new JdbcColumnHandle(columnName, typeHandle, columnMapping.get().getType(), nullable));
                     }
                 }
                 if (columns.isEmpty()) {
@@ -364,6 +366,9 @@ public class BaseJdbcClient
                 .append(quoted(columnName))
                 .append(" ")
                 .append(toWriteMapping(session, column.getType()).getDataType());
+        if (!column.isNullable()) {
+            sb.append(" NOT NULL");
+        }
         return sb.toString();
     }
 

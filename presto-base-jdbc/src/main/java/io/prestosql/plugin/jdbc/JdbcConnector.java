@@ -18,6 +18,7 @@ import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.log.Logger;
 import io.prestosql.spi.connector.Connector;
 import io.prestosql.spi.connector.ConnectorAccessControl;
+import io.prestosql.spi.connector.ConnectorCapabilities;
 import io.prestosql.spi.connector.ConnectorMetadata;
 import io.prestosql.spi.connector.ConnectorPageSinkProvider;
 import io.prestosql.spi.connector.ConnectorRecordSetProvider;
@@ -34,6 +35,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.Sets.immutableEnumSet;
+import static io.prestosql.spi.connector.ConnectorCapabilities.NOT_NULL_COLUMN_CONSTRAINT;
 import static io.prestosql.spi.transaction.IsolationLevel.READ_COMMITTED;
 import static io.prestosql.spi.transaction.IsolationLevel.checkConnectorSupports;
 import static java.util.Objects.requireNonNull;
@@ -148,5 +151,11 @@ public class JdbcConnector
         catch (Exception e) {
             log.error(e, "Error shutting down connector");
         }
+    }
+
+    @Override
+    public Set<ConnectorCapabilities> getCapabilities()
+    {
+        return immutableEnumSet(NOT_NULL_COLUMN_CONSTRAINT);
     }
 }
