@@ -28,7 +28,7 @@ public class TestJdbcColumnHandle
     @Test
     public void testJsonRoundTrip()
     {
-        assertJsonRoundTrip(COLUMN_CODEC, new JdbcColumnHandle("columnName", JDBC_VARCHAR, VARCHAR));
+        assertJsonRoundTrip(COLUMN_CODEC, new JdbcColumnHandle("columnName", JDBC_VARCHAR, VARCHAR, true));
     }
 
     @Test
@@ -36,15 +36,15 @@ public class TestJdbcColumnHandle
     {
         EquivalenceTester.equivalenceTester()
                 .addEquivalentGroup(
-                        new JdbcColumnHandle("columnName", JDBC_VARCHAR, VARCHAR),
-                        new JdbcColumnHandle("columnName", JDBC_VARCHAR, VARCHAR),
-                        new JdbcColumnHandle("columnName", JDBC_BIGINT, BIGINT),
-                        new JdbcColumnHandle("columnName", JDBC_VARCHAR, VARCHAR))
+                        new JdbcColumnHandle("columnName", JDBC_VARCHAR, VARCHAR, true),
+                        new JdbcColumnHandle("columnName", JDBC_VARCHAR, VARCHAR, true),
+                        new JdbcColumnHandle("columnName", JDBC_BIGINT, BIGINT, true),
+                        new JdbcColumnHandle("columnName", JDBC_VARCHAR, VARCHAR, true))
                 .addEquivalentGroup(
-                        new JdbcColumnHandle("columnNameX", JDBC_VARCHAR, VARCHAR),
-                        new JdbcColumnHandle("columnNameX", JDBC_VARCHAR, VARCHAR),
-                        new JdbcColumnHandle("columnNameX", JDBC_BIGINT, BIGINT),
-                        new JdbcColumnHandle("columnNameX", JDBC_VARCHAR, VARCHAR))
+                        new JdbcColumnHandle("columnNameX", JDBC_VARCHAR, VARCHAR, true),
+                        new JdbcColumnHandle("columnNameX", JDBC_VARCHAR, VARCHAR, true),
+                        new JdbcColumnHandle("columnNameX", JDBC_BIGINT, BIGINT, true),
+                        new JdbcColumnHandle("columnNameX", JDBC_VARCHAR, VARCHAR, true))
                 .check();
     }
 }

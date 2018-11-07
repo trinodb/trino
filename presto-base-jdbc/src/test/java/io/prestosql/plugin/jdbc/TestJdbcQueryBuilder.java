@@ -87,18 +87,18 @@ public class TestJdbcQueryBuilder
         CharType charType = CharType.createCharType(0);
 
         columns = ImmutableList.of(
-                new JdbcColumnHandle("col_0", JDBC_BIGINT, BIGINT),
-                new JdbcColumnHandle("col_1", JDBC_DOUBLE, DOUBLE),
-                new JdbcColumnHandle("col_2", JDBC_BOOLEAN, BOOLEAN),
-                new JdbcColumnHandle("col_3", JDBC_VARCHAR, VARCHAR),
-                new JdbcColumnHandle("col_4", JDBC_DATE, DATE),
-                new JdbcColumnHandle("col_5", JDBC_TIME, TIME),
-                new JdbcColumnHandle("col_6", JDBC_TIMESTAMP, TIMESTAMP),
-                new JdbcColumnHandle("col_7", JDBC_TINYINT, TINYINT),
-                new JdbcColumnHandle("col_8", JDBC_SMALLINT, SMALLINT),
-                new JdbcColumnHandle("col_9", JDBC_INTEGER, INTEGER),
-                new JdbcColumnHandle("col_10", JDBC_REAL, REAL),
-                new JdbcColumnHandle("col_11", JDBC_CHAR, charType));
+                new JdbcColumnHandle("col_0", JDBC_BIGINT, BIGINT, true),
+                new JdbcColumnHandle("col_1", JDBC_DOUBLE, DOUBLE, true),
+                new JdbcColumnHandle("col_2", JDBC_BOOLEAN, BOOLEAN, true),
+                new JdbcColumnHandle("col_3", JDBC_VARCHAR, VARCHAR, true),
+                new JdbcColumnHandle("col_4", JDBC_DATE, DATE, true),
+                new JdbcColumnHandle("col_5", JDBC_TIME, TIME, true),
+                new JdbcColumnHandle("col_6", JDBC_TIMESTAMP, TIMESTAMP, true),
+                new JdbcColumnHandle("col_7", JDBC_TINYINT, TINYINT, true),
+                new JdbcColumnHandle("col_8", JDBC_SMALLINT, SMALLINT, true),
+                new JdbcColumnHandle("col_9", JDBC_INTEGER, INTEGER, true),
+                new JdbcColumnHandle("col_10", JDBC_REAL, REAL, true),
+                new JdbcColumnHandle("col_11", JDBC_CHAR, charType, true));
 
         Connection connection = database.getConnection();
         try (PreparedStatement preparedStatement = connection.prepareStatement("create table \"test_table\" (" + "" +
