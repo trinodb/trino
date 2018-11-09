@@ -18,7 +18,7 @@ import io.airlift.slice.Slice;
 import io.prestosql.RowPageBuilder;
 import io.prestosql.block.BlockEncodingManager;
 import io.prestosql.metadata.BoundVariables;
-import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.metadata.FunctionManager;
 import io.prestosql.operator.aggregation.Accumulator;
 import io.prestosql.operator.aggregation.AggregationFromAnnotationsParser;
 import io.prestosql.operator.aggregation.InternalAggregationFunction;
@@ -60,7 +60,7 @@ public class TestLearnAggregations
         typeRegistry.addType(RegressorType.REGRESSOR);
 
         // associate typeRegistry with a function registry
-        new FunctionRegistry(typeRegistry, new BlockEncodingManager(typeRegistry), new FeaturesConfig());
+        new FunctionManager(typeRegistry, new BlockEncodingManager(typeRegistry), new FeaturesConfig());
 
         typeManager = typeRegistry;
     }

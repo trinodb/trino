@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.Session;
 import io.prestosql.execution.warnings.WarningCollector;
-import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.metadata.FunctionManager;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.spi.type.BigintType;
 import io.prestosql.spi.type.BooleanType;
@@ -138,7 +138,7 @@ public class TransformQuantifiedComparisonApplyToLateralJoin
             Symbol countAllValue = symbolAllocator.newSymbol("count_all", BigintType.BIGINT);
             Symbol countNonNullValue = symbolAllocator.newSymbol("count_non_null", BigintType.BIGINT);
 
-            FunctionRegistry functionRegistry = metadata.getFunctionRegistry();
+            FunctionManager functionManager = metadata.getFunctionManager();
             List<Expression> outputColumnReferences = ImmutableList.of(outputColumn.toSymbolReference());
             List<TypeSignature> outputColumnTypeSignature = ImmutableList.of(outputColumnType.getTypeSignature());
 
@@ -148,19 +148,19 @@ public class TransformQuantifiedComparisonApplyToLateralJoin
                     ImmutableMap.of(
                             minValue, new Aggregation(
                                     new FunctionCall(MIN, outputColumnReferences),
-                                    functionRegistry.resolveFunction(MIN, fromTypeSignatures(outputColumnTypeSignature)),
+                                    functionManager.resolveFunction(MIN, fromTypeSignatures(outputColumnTypeSignature)),
                                     Optional.empty()),
                             maxValue, new Aggregation(
                                     new FunctionCall(MAX, outputColumnReferences),
-                                    functionRegistry.resolveFunction(MAX, fromTypeSignatures(outputColumnTypeSignature)),
+                                    functionManager.resolveFunction(MAX, fromTypeSignatures(outputColumnTypeSignature)),
                                     Optional.empty()),
                             countAllValue, new Aggregation(
                                     new FunctionCall(COUNT, emptyList()),
-                                    functionRegistry.resolveFunction(COUNT, emptyList()),
+                                    functionManager.resolveFunction(COUNT, emptyList()),
                                     Optional.empty()),
                             countNonNullValue, new Aggregation(
                                     new FunctionCall(COUNT, outputColumnReferences),
-                                    functionRegistry.resolveFunction(COUNT, fromTypeSignatures(outputColumnTypeSignature)),
+                                    functionManager.resolveFunction(COUNT, fromTypeSignatures(outputColumnTypeSignature)),
                                     Optional.empty())),
                     globalAggregation(),
                     ImmutableList.of(),

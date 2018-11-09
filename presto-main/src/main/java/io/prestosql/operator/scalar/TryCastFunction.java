@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Primitives;
 import io.prestosql.metadata.BoundVariables;
 import io.prestosql.metadata.FunctionKind;
-import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.metadata.FunctionManager;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlScalarFunction;
 import io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty;
@@ -70,7 +70,7 @@ public class TryCastFunction
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionManager functionManager)
     {
         Type fromType = boundVariables.getTypeVariable("F");
         Type toType = boundVariables.getTypeVariable("T");
@@ -80,8 +80,8 @@ public class TryCastFunction
         MethodHandle tryCastHandle;
 
         // the resulting method needs to return a boxed type
-        Signature signature = functionRegistry.getCoercion(fromType, toType);
-        ScalarFunctionImplementation implementation = functionRegistry.getScalarFunctionImplementation(signature);
+        Signature signature = functionManager.getCoercion(fromType, toType);
+        ScalarFunctionImplementation implementation = functionManager.getScalarFunctionImplementation(signature);
         argumentProperties = ImmutableList.of(implementation.getArgumentProperty(0));
         MethodHandle coercion = implementation.getMethodHandle();
         coercion = coercion.asType(methodType(returnType, coercion.type()));

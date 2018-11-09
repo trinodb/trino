@@ -20,7 +20,7 @@ import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.UncheckedExecutionException;
-import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.metadata.FunctionManager;
 import io.prestosql.spi.function.OperatorType;
 import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.CharType;
@@ -101,7 +101,7 @@ public final class TypeRegistry
     private final ConcurrentMap<String, ParametricType> parametricTypes = new ConcurrentHashMap<>();
     private final FeaturesConfig featuresConfig;
 
-    private FunctionRegistry functionRegistry;
+    private FunctionManager functionManager;
 
     private final LoadingCache<TypeSignature, Type> parametricTypeCache;
 
@@ -164,10 +164,10 @@ public final class TypeRegistry
                 .build(CacheLoader.from(this::instantiateParametricType));
     }
 
-    public void setFunctionRegistry(FunctionRegistry functionRegistry)
+    public void setFunctionManager(FunctionManager functionManager)
     {
-        checkState(this.functionRegistry == null, "TypeRegistry can only be associated with a single FunctionRegistry");
-        this.functionRegistry = requireNonNull(functionRegistry, "functionRegistry is null");
+        checkState(this.functionManager == null, "TypeRegistry can only be associated with a single FunctionManager");
+        this.functionManager = requireNonNull(functionManager, "functionManager is null");
     }
 
     @Override
@@ -661,8 +661,8 @@ public final class TypeRegistry
     @Override
     public MethodHandle resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)
     {
-        requireNonNull(functionRegistry, "functionRegistry is null");
-        return functionRegistry.getScalarFunctionImplementation(functionRegistry.resolveOperator(operatorType, argumentTypes)).getMethodHandle();
+        requireNonNull(functionManager, "functionManager is null");
+        return functionManager.getScalarFunctionImplementation(functionManager.resolveOperator(operatorType, argumentTypes)).getMethodHandle();
     }
 
     public static class TypeCompatibility

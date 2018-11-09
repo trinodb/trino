@@ -15,7 +15,7 @@ package io.prestosql.block;
 
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
-import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.metadata.FunctionManager;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockEncodingSerde;
 import io.prestosql.spi.block.DictionaryBlock;
@@ -38,7 +38,7 @@ final class ColumnarTestUtils
 
     static {
         // associate TYPE_MANAGER with a function registry
-        new FunctionRegistry(TYPE_MANAGER, new BlockEncodingManager(TYPE_MANAGER), new FeaturesConfig());
+        new FunctionManager(TYPE_MANAGER, new BlockEncodingManager(TYPE_MANAGER), new FeaturesConfig());
     }
 
     private ColumnarTestUtils() {}

@@ -16,7 +16,7 @@ package io.prestosql.tests;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.metadata.BoundVariables;
 import io.prestosql.metadata.FunctionKind;
-import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.metadata.FunctionManager;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlScalarFunction;
 import io.prestosql.operator.scalar.ScalarFunctionImplementation;
@@ -71,7 +71,7 @@ public class StatefulSleepingSum
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionManager functionManager)
     {
         int args = 4;
         return new ScalarFunctionImplementation(

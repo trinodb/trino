@@ -16,7 +16,7 @@ package io.prestosql.operator.scalar;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.metadata.BoundVariables;
 import io.prestosql.metadata.FunctionInvoker;
-import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.metadata.FunctionManager;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlOperator;
 import io.prestosql.operator.scalar.ScalarFunctionImplementation.ScalarImplementationChoice;
@@ -59,13 +59,13 @@ public class RowDistinctFromOperator
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionManager functionManager)
     {
         ImmutableList.Builder<MethodHandle> argumentMethods = ImmutableList.builder();
         Type type = boundVariables.getTypeVariable("T");
         for (Type parameterType : type.getTypeParameters()) {
-            Signature signature = functionRegistry.resolveOperator(IS_DISTINCT_FROM, ImmutableList.of(parameterType, parameterType));
-            FunctionInvoker functionInvoker = functionRegistry.getFunctionInvokerProvider().createFunctionInvoker(
+            Signature signature = functionManager.resolveOperator(IS_DISTINCT_FROM, ImmutableList.of(parameterType, parameterType));
+            FunctionInvoker functionInvoker = functionManager.getFunctionInvokerProvider().createFunctionInvoker(
                     signature,
                     Optional.of(new InvocationConvention(
                             ImmutableList.of(NULL_FLAG, NULL_FLAG),

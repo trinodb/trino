@@ -24,7 +24,7 @@ import io.airlift.bytecode.control.IfStatement;
 import io.airlift.bytecode.expression.BytecodeExpression;
 import io.airlift.bytecode.instruction.LabelNode;
 import io.prestosql.metadata.BoundVariables;
-import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.metadata.FunctionManager;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlOperator;
 import io.prestosql.spi.type.Type;
@@ -69,11 +69,11 @@ public class RowIndeterminateOperator
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionManager functionManager)
     {
         checkArgument(arity == 1, "Expected arity to be 1");
         Type type = boundVariables.getTypeVariable("T");
-        Class<?> indeterminateOperatorClass = generateIndeterminate(type, functionRegistry);
+        Class<?> indeterminateOperatorClass = generateIndeterminate(type, functionManager);
         MethodHandle indeterminateMethod = methodHandle(indeterminateOperatorClass, "indeterminate", type.getJavaType(), boolean.class);
         return new ScalarFunctionImplementation(
                 false,
@@ -82,7 +82,7 @@ public class RowIndeterminateOperator
                 isDeterministic());
     }
 
-    private static Class<?> generateIndeterminate(Type type, FunctionRegistry functionRegistry)
+    private static Class<?> generateIndeterminate(Type type, FunctionManager functionManager)
     {
         CallSiteBinder binder = new CallSiteBinder();
 
@@ -136,7 +136,7 @@ public class RowIndeterminateOperator
                         INDETERMINATE.name(),
                         BOOLEAN.getTypeSignature(),
                         ImmutableList.of(fieldTypes.get(i).getTypeSignature()));
-                ScalarFunctionImplementation function = functionRegistry.getScalarFunctionImplementation(signature);
+                ScalarFunctionImplementation function = functionManager.getScalarFunctionImplementation(signature);
                 BytecodeExpression element = constantType(binder, fieldTypes.get(i)).getValue(value, constantInt(i));
 
                 ifNullField.ifFalse(new IfStatement("if the field is not null but indeterminate...")

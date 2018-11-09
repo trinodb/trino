@@ -16,7 +16,7 @@ package io.prestosql.operator.index;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
-import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.metadata.FunctionManager;
 import io.prestosql.spi.connector.RecordCursor;
 import io.prestosql.spi.connector.RecordSet;
 import io.prestosql.spi.function.OperatorType;
@@ -43,9 +43,9 @@ public class FieldSetFilteringRecordSet
     private final RecordSet delegate;
     private final List<Set<Field>> fieldSets;
 
-    public FieldSetFilteringRecordSet(FunctionRegistry functionRegistry, RecordSet delegate, List<Set<Integer>> fieldSets)
+    public FieldSetFilteringRecordSet(FunctionManager functionManager, RecordSet delegate, List<Set<Integer>> fieldSets)
     {
-        requireNonNull(functionRegistry, "functionRegistry is null");
+        requireNonNull(functionManager, "functionManager is null");
         this.delegate = requireNonNull(delegate, "delegate is null");
 
         ImmutableList.Builder<Set<Field>> fieldSetsBuilder = ImmutableList.builder();
@@ -55,7 +55,7 @@ public class FieldSetFilteringRecordSet
             for (int field : fieldSet) {
                 fieldSetBuilder.add(new Field(
                         field,
-                        functionRegistry.getScalarFunctionImplementation(internalOperator(OperatorType.EQUAL, BooleanType.BOOLEAN, ImmutableList.of(columnTypes.get(field), columnTypes.get(field)))).getMethodHandle()));
+                        functionManager.getScalarFunctionImplementation(internalOperator(OperatorType.EQUAL, BooleanType.BOOLEAN, ImmutableList.of(columnTypes.get(field), columnTypes.get(field)))).getMethodHandle()));
             }
             fieldSetsBuilder.add(fieldSetBuilder.build());
         }

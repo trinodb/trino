@@ -15,7 +15,7 @@ package io.prestosql.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.metadata.FunctionManager;
 import io.prestosql.metadata.MetadataManager;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.iterative.rule.test.BaseRuleTest;
@@ -38,12 +38,12 @@ import static io.prestosql.sql.planner.plan.AggregationNode.Step.SINGLE;
 public class TestPruneOrderByInAggregation
         extends BaseRuleTest
 {
-    private static final FunctionRegistry functionRegistry = MetadataManager.createTestMetadataManager().getFunctionRegistry();
+    private static final FunctionManager FUNCTION_MANAGER = MetadataManager.createTestMetadataManager().getFunctionManager();
 
     @Test
     public void testBasics()
     {
-        tester().assertThat(new PruneOrderByInAggregation(functionRegistry))
+        tester().assertThat(new PruneOrderByInAggregation(FUNCTION_MANAGER))
                 .on(this::buildAggregation)
                 .matches(
                         aggregation(

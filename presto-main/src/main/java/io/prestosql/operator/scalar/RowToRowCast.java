@@ -26,7 +26,7 @@ import io.airlift.bytecode.Variable;
 import io.airlift.bytecode.control.IfStatement;
 import io.airlift.bytecode.expression.BytecodeExpression;
 import io.prestosql.metadata.BoundVariables;
-import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.metadata.FunctionManager;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlOperator;
 import io.prestosql.spi.PrestoException;
@@ -77,7 +77,7 @@ public class RowToRowCast
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionManager functionManager)
     {
         checkArgument(arity == 1, "Expected arity to be 1");
         Type fromType = boundVariables.getTypeVariable("F");
@@ -85,7 +85,7 @@ public class RowToRowCast
         if (fromType.getTypeParameters().size() != toType.getTypeParameters().size()) {
             throw new PrestoException(StandardErrorCode.INVALID_FUNCTION_ARGUMENT, "the size of fromType and toType must match");
         }
-        Class<?> castOperatorClass = generateRowCast(fromType, toType, functionRegistry);
+        Class<?> castOperatorClass = generateRowCast(fromType, toType, functionManager);
         MethodHandle methodHandle = methodHandle(castOperatorClass, "castRow", ConnectorSession.class, Block.class);
         return new ScalarFunctionImplementation(
                 false,
@@ -94,7 +94,7 @@ public class RowToRowCast
                 isDeterministic());
     }
 
-    private static Class<?> generateRowCast(Type fromType, Type toType, FunctionRegistry functionRegistry)
+    private static Class<?> generateRowCast(Type fromType, Type toType, FunctionManager functionManager)
     {
         List<Type> toTypes = toType.getTypeParameters();
         List<Type> fromTypes = fromType.getTypeParameters();
@@ -146,7 +146,7 @@ public class RowToRowCast
                     CAST.name(),
                     toTypes.get(i).getTypeSignature(),
                     ImmutableList.of(fromTypes.get(i).getTypeSignature()));
-            ScalarFunctionImplementation function = functionRegistry.getScalarFunctionImplementation(signature);
+            ScalarFunctionImplementation function = functionManager.getScalarFunctionImplementation(signature);
             Type currentFromType = fromTypes.get(i);
             if (currentFromType.equals(UNKNOWN)) {
                 body.append(singleRowBlockWriter.invoke("appendNull", BlockBuilder.class).pop());

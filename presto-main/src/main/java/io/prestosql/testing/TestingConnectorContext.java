@@ -18,7 +18,7 @@ import io.prestosql.PagesIndexPageSorter;
 import io.prestosql.block.BlockEncodingManager;
 import io.prestosql.connector.ConnectorAwareNodeManager;
 import io.prestosql.connector.ConnectorId;
-import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.metadata.FunctionManager;
 import io.prestosql.metadata.InMemoryNodeManager;
 import io.prestosql.metadata.MetadataManager;
 import io.prestosql.operator.PagesIndex;
@@ -42,7 +42,7 @@ public class TestingConnectorContext
     public TestingConnectorContext()
     {
         // associate typeManager with a function registry
-        new FunctionRegistry(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
+        new FunctionManager(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
     }
 
     @Override

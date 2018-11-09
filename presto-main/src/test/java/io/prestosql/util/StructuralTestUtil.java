@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.prestosql.block.BlockEncodingManager;
-import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.metadata.FunctionManager;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.type.Decimals;
@@ -41,7 +41,7 @@ public final class StructuralTestUtil
 
     static {
         // associate TYPE_MANAGER with a function registry
-        new FunctionRegistry(TYPE_MANAGER, new BlockEncodingManager(TYPE_MANAGER), new FeaturesConfig());
+        new FunctionManager(TYPE_MANAGER, new BlockEncodingManager(TYPE_MANAGER), new FeaturesConfig());
     }
 
     private StructuralTestUtil() {}

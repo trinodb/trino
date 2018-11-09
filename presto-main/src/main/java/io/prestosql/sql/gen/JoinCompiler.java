@@ -33,7 +33,7 @@ import io.airlift.bytecode.expression.BytecodeExpression;
 import io.airlift.bytecode.instruction.LabelNode;
 import io.airlift.slice.Slice;
 import io.prestosql.Session;
-import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.metadata.FunctionManager;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.operator.JoinHash;
 import io.prestosql.operator.JoinHashSupplier;
@@ -90,7 +90,7 @@ import static java.util.Objects.requireNonNull;
 
 public class JoinCompiler
 {
-    private final FunctionRegistry registry;
+    private final FunctionManager registry;
     private final boolean groupByUsesEqualTo;
 
     private final LoadingCache<CacheKey, LookupSourceSupplierFactory> lookupSourceFactories = CacheBuilder.newBuilder()
@@ -113,7 +113,7 @@ public class JoinCompiler
     @Inject
     public JoinCompiler(Metadata metadata, FeaturesConfig config)
     {
-        this.registry = requireNonNull(metadata, "metadata is null").getFunctionRegistry();
+        this.registry = requireNonNull(metadata, "metadata is null").getFunctionManager();
         this.groupByUsesEqualTo = requireNonNull(config, "config is null").isGroupByUsesEqualTo();
     }
 

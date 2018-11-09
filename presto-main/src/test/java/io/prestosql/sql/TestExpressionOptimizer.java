@@ -15,7 +15,7 @@ package io.prestosql.sql;
 
 import com.google.common.collect.ImmutableList;
 import io.prestosql.block.BlockEncodingManager;
-import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.metadata.FunctionManager;
 import io.prestosql.metadata.Signature;
 import io.prestosql.spi.block.IntArrayBlock;
 import io.prestosql.spi.function.OperatorType;
@@ -64,7 +64,7 @@ public class TestExpressionOptimizer
     public void setUp()
     {
         typeManager = new TypeRegistry();
-        optimizer = new ExpressionOptimizer(new FunctionRegistry(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig()), typeManager, TEST_SESSION);
+        optimizer = new ExpressionOptimizer(new FunctionManager(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig()), typeManager, TEST_SESSION);
     }
 
     @AfterClass(alwaysRun = true)

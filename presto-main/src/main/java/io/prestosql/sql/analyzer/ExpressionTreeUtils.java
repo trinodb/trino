@@ -14,7 +14,7 @@
 package io.prestosql.sql.analyzer;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.metadata.FunctionManager;
 import io.prestosql.sql.tree.DefaultExpressionTraversalVisitor;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.FunctionCall;
@@ -31,9 +31,9 @@ public final class ExpressionTreeUtils
 {
     private ExpressionTreeUtils() {}
 
-    static List<FunctionCall> extractAggregateFunctions(Iterable<? extends Node> nodes, FunctionRegistry functionRegistry)
+    static List<FunctionCall> extractAggregateFunctions(Iterable<? extends Node> nodes, FunctionManager functionManager)
     {
-        return extractExpressions(nodes, FunctionCall.class, isAggregationPredicate(functionRegistry));
+        return extractExpressions(nodes, FunctionCall.class, isAggregationPredicate(functionManager));
     }
 
     static List<FunctionCall> extractWindowFunctions(Iterable<? extends Node> nodes)
@@ -48,9 +48,9 @@ public final class ExpressionTreeUtils
         return extractExpressions(nodes, clazz, alwaysTrue());
     }
 
-    private static Predicate<FunctionCall> isAggregationPredicate(FunctionRegistry functionRegistry)
+    private static Predicate<FunctionCall> isAggregationPredicate(FunctionManager functionManager)
     {
-        return ((functionCall) -> (functionRegistry.isAggregationFunction(functionCall.getName())
+        return ((functionCall) -> (functionManager.isAggregationFunction(functionCall.getName())
                 || functionCall.getFilter().isPresent()) && !functionCall.getWindow().isPresent()
                 || functionCall.getOrderBy().isPresent());
     }

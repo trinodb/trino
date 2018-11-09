@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import io.prestosql.Session;
 import io.prestosql.execution.warnings.WarningCollector;
-import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.metadata.FunctionManager;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.security.AccessControl;
 import io.prestosql.sql.parser.SqlParser;
@@ -86,9 +86,9 @@ public class Analyzer
         return analysis;
     }
 
-    static void verifyNoAggregateWindowOrGroupingFunctions(FunctionRegistry functionRegistry, Expression predicate, String clause)
+    static void verifyNoAggregateWindowOrGroupingFunctions(FunctionManager functionManager, Expression predicate, String clause)
     {
-        List<FunctionCall> aggregates = extractAggregateFunctions(ImmutableList.of(predicate), functionRegistry);
+        List<FunctionCall> aggregates = extractAggregateFunctions(ImmutableList.of(predicate), functionManager);
 
         List<FunctionCall> windowExpressions = extractWindowFunctions(ImmutableList.of(predicate));
 

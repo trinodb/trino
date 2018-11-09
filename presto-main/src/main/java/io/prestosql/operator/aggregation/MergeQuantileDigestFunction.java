@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.DynamicClassLoader;
 import io.airlift.stats.QuantileDigest;
 import io.prestosql.metadata.BoundVariables;
-import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.metadata.FunctionManager;
 import io.prestosql.metadata.SqlAggregationFunction;
 import io.prestosql.operator.aggregation.state.QuantileDigestState;
 import io.prestosql.operator.aggregation.state.QuantileDigestStateFactory;
@@ -75,7 +75,7 @@ public final class MergeQuantileDigestFunction
     }
 
     @Override
-    public InternalAggregationFunction specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public InternalAggregationFunction specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionManager functionManager)
     {
         Type valueType = boundVariables.getTypeVariable("T");
         QuantileDigestType outputType = (QuantileDigestType) typeManager.getParameterizedType(StandardTypes.QDIGEST,

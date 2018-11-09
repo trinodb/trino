@@ -14,7 +14,7 @@
 package io.prestosql.sql.gen;
 
 import io.airlift.bytecode.BytecodeNode;
-import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.metadata.FunctionManager;
 import io.prestosql.metadata.Signature;
 import io.prestosql.operator.scalar.ScalarFunctionImplementation;
 import io.prestosql.spi.type.Type;
@@ -32,7 +32,7 @@ public class FunctionCallCodeGenerator
     @Override
     public BytecodeNode generateExpression(Signature signature, BytecodeGeneratorContext context, Type returnType, List<RowExpression> arguments)
     {
-        FunctionRegistry registry = context.getRegistry();
+        FunctionManager registry = context.getRegistry();
 
         ScalarFunctionImplementation function = registry.getScalarFunctionImplementation(signature);
 

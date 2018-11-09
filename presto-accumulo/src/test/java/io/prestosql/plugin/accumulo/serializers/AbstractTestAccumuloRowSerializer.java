@@ -16,7 +16,7 @@ package io.prestosql.plugin.accumulo.serializers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.block.BlockEncodingManager;
-import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.metadata.FunctionManager;
 import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.Type;
@@ -190,7 +190,7 @@ public abstract class AbstractTestAccumuloRowSerializer
     {
         TypeManager typeManager = new TypeRegistry();
         // associate typeManager with a function registry
-        new FunctionRegistry(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
+        new FunctionManager(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
 
         AccumuloRowSerializer serializer = serializerClass.getConstructor().newInstance();
         Type type = typeManager.getParameterizedType(StandardTypes.MAP, ImmutableList.of(

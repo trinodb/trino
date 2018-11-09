@@ -14,7 +14,7 @@
 package io.prestosql.operator.annotations;
 
 import io.prestosql.metadata.BoundVariables;
-import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.metadata.FunctionManager;
 import io.prestosql.spi.function.Convention;
 import io.prestosql.spi.function.FunctionDependency;
 import io.prestosql.spi.function.InvocationConvention;
@@ -42,7 +42,7 @@ import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 
 public interface ImplementationDependency
 {
-    Object resolve(BoundVariables boundVariables, TypeManager typeManager, FunctionRegistry functionRegistry);
+    Object resolve(BoundVariables boundVariables, TypeManager typeManager, FunctionManager functionManager);
 
     static boolean isImplementationDependencyAnnotation(Annotation annotation)
     {

@@ -18,7 +18,7 @@ import io.airlift.slice.Slice;
 import io.prestosql.annotation.UsedByGeneratedCode;
 import io.prestosql.metadata.BoundVariables;
 import io.prestosql.metadata.FunctionKind;
-import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.metadata.FunctionManager;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlScalarFunction;
 import io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty;
@@ -122,9 +122,9 @@ public final class ArrayJoin
         }
 
         @Override
-        public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+        public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionManager functionManager)
         {
-            return specializeArrayJoin(boundVariables.getTypeVariables(), functionRegistry, ImmutableList.of(false, false, false), METHOD_HANDLE);
+            return specializeArrayJoin(boundVariables.getTypeVariables(), functionManager, ImmutableList.of(false, false, false), METHOD_HANDLE);
         }
     }
 
@@ -164,12 +164,12 @@ public final class ArrayJoin
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionManager functionManager)
     {
-        return specializeArrayJoin(boundVariables.getTypeVariables(), functionRegistry, ImmutableList.of(false, false), METHOD_HANDLE);
+        return specializeArrayJoin(boundVariables.getTypeVariables(), functionManager, ImmutableList.of(false, false), METHOD_HANDLE);
     }
 
-    private static ScalarFunctionImplementation specializeArrayJoin(Map<String, Type> types, FunctionRegistry functionRegistry, List<Boolean> nullableArguments, MethodHandle methodHandle)
+    private static ScalarFunctionImplementation specializeArrayJoin(Map<String, Type> types, FunctionManager functionManager, List<Boolean> nullableArguments, MethodHandle methodHandle)
     {
         Type type = types.get("T");
         List<ArgumentProperty> argumentProperties = nullableArguments.stream()
@@ -188,7 +188,7 @@ public final class ArrayJoin
         }
         else {
             try {
-                ScalarFunctionImplementation castFunction = functionRegistry.getScalarFunctionImplementation(internalOperator(CAST.name(), VARCHAR_TYPE_SIGNATURE, ImmutableList.of(type.getTypeSignature())));
+                ScalarFunctionImplementation castFunction = functionManager.getScalarFunctionImplementation(internalOperator(CAST.name(), VARCHAR_TYPE_SIGNATURE, ImmutableList.of(type.getTypeSignature())));
 
                 MethodHandle getter;
                 Class<?> elementType = type.getJavaType();

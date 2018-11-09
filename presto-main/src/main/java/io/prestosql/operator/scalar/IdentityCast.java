@@ -15,7 +15,7 @@ package io.prestosql.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
 import io.prestosql.metadata.BoundVariables;
-import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.metadata.FunctionManager;
 import io.prestosql.metadata.SqlOperator;
 import io.prestosql.spi.function.OperatorType;
 import io.prestosql.spi.type.Type;
@@ -45,7 +45,7 @@ public class IdentityCast
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionManager functionManager)
     {
         checkArgument(boundVariables.getTypeVariables().size() == 1, "Expected only one type");
         Type type = boundVariables.getTypeVariable("T");

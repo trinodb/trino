@@ -114,7 +114,7 @@ import static java.util.Objects.requireNonNull;
 public class MetadataManager
         implements Metadata
 {
-    private final FunctionRegistry functions;
+    private final FunctionManager functions;
     private final ProcedureRegistry procedures;
     private final TypeManager typeManager;
     private final JsonCodec<ViewDefinition> viewCodec;
@@ -162,7 +162,7 @@ public class MetadataManager
             AnalyzePropertyManager analyzePropertyManager,
             TransactionManager transactionManager)
     {
-        functions = new FunctionRegistry(typeManager, blockEncodingSerde, featuresConfig);
+        functions = new FunctionManager(typeManager, blockEncodingSerde, featuresConfig);
         procedures = new ProcedureRegistry(typeManager);
         this.typeManager = requireNonNull(typeManager, "types is null");
         this.viewCodec = requireNonNull(viewCodec, "viewCodec is null");
@@ -262,17 +262,16 @@ public class MetadataManager
         return functions.isAggregationFunction(name);
     }
 
-    @Override
     public List<SqlFunction> listFunctions()
     {
-        // TODO: transactional when FunctionRegistry is made transactional
-        return functions.list();
+        // TODO: transactional when FunctionManager is made transactional
+        return functions.listFunctions();
     }
 
     @Override
     public void addFunctions(List<? extends SqlFunction> functionInfos)
     {
-        // TODO: transactional when FunctionRegistry is made transactional
+        // TODO: transactional when FunctionManager is made transactional
         functions.addFunctions(functionInfos);
     }
 
@@ -1069,9 +1068,9 @@ public class MetadataManager
     }
 
     @Override
-    public FunctionRegistry getFunctionRegistry()
+    public FunctionManager getFunctionManager()
     {
-        // TODO: transactional when FunctionRegistry is made transactional
+        // TODO: transactional when FunctionManager is made transactional
         return functions;
     }
 

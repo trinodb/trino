@@ -35,7 +35,7 @@ import io.prestosql.execution.QueryStats;
 import io.prestosql.execution.StageInfo;
 import io.prestosql.execution.TaskInfo;
 import io.prestosql.execution.TaskState;
-import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.metadata.FunctionManager;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.SessionPropertyManager;
 import io.prestosql.operator.OperatorStats;
@@ -88,7 +88,7 @@ public class QueryMonitor
     private final String serverAddress;
     private final String environment;
     private final SessionPropertyManager sessionPropertyManager;
-    private final FunctionRegistry functionRegistry;
+    private final FunctionManager functionManager;
     private final int maxJsonLimit;
 
     @Inject
@@ -113,7 +113,7 @@ public class QueryMonitor
         this.serverAddress = requireNonNull(nodeInfo, "nodeInfo is null").getExternalAddress();
         this.environment = requireNonNull(nodeInfo, "nodeInfo is null").getEnvironment();
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
-        this.functionRegistry = requireNonNull(metadata, "metadata is null").getFunctionRegistry();
+        this.functionManager = requireNonNull(metadata, "metadata is null").getFunctionManager();
         this.maxJsonLimit = toIntExact(requireNonNull(config, "config is null").getMaxOutputStageJsonSize().toBytes());
     }
 
@@ -303,7 +303,7 @@ public class QueryMonitor
             if (queryInfo.getOutputStage().isPresent()) {
                 return Optional.of(textDistributedPlan(
                         queryInfo.getOutputStage().get(),
-                        functionRegistry,
+                        functionManager,
                         queryInfo.getSession().toSession(sessionPropertyManager),
                         false));
             }

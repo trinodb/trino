@@ -16,7 +16,7 @@ package io.prestosql.operator.scalar;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.annotation.UsedByGeneratedCode;
 import io.prestosql.metadata.BoundVariables;
-import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.metadata.FunctionManager;
 import io.prestosql.metadata.SqlOperator;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.type.StandardTypes;
@@ -51,13 +51,13 @@ public class MapHashCodeOperator
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionManager functionManager)
     {
         Type keyType = boundVariables.getTypeVariable("K");
         Type valueType = boundVariables.getTypeVariable("V");
 
-        MethodHandle keyHashCodeFunction = functionRegistry.getScalarFunctionImplementation(internalOperator(HASH_CODE, BIGINT, ImmutableList.of(keyType))).getMethodHandle();
-        MethodHandle valueHashCodeFunction = functionRegistry.getScalarFunctionImplementation(internalOperator(HASH_CODE, BIGINT, ImmutableList.of(valueType))).getMethodHandle();
+        MethodHandle keyHashCodeFunction = functionManager.getScalarFunctionImplementation(internalOperator(HASH_CODE, BIGINT, ImmutableList.of(keyType))).getMethodHandle();
+        MethodHandle valueHashCodeFunction = functionManager.getScalarFunctionImplementation(internalOperator(HASH_CODE, BIGINT, ImmutableList.of(valueType))).getMethodHandle();
 
         MethodHandle method = METHOD_HANDLE.bindTo(keyHashCodeFunction).bindTo(valueHashCodeFunction).bindTo(keyType).bindTo(valueType);
         return new ScalarFunctionImplementation(

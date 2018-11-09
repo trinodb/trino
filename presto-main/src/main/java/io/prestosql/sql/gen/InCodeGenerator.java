@@ -24,7 +24,7 @@ import io.airlift.bytecode.Variable;
 import io.airlift.bytecode.control.IfStatement;
 import io.airlift.bytecode.control.SwitchStatement.SwitchBuilder;
 import io.airlift.bytecode.instruction.LabelNode;
-import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.metadata.FunctionManager;
 import io.prestosql.metadata.Signature;
 import io.prestosql.operator.scalar.ScalarFunctionImplementation;
 import io.prestosql.spi.function.OperatorType;
@@ -60,9 +60,9 @@ import static java.util.Objects.requireNonNull;
 public class InCodeGenerator
         implements BytecodeGenerator
 {
-    private final FunctionRegistry registry;
+    private final FunctionManager registry;
 
-    public InCodeGenerator(FunctionRegistry registry)
+    public InCodeGenerator(FunctionManager registry)
     {
         this.registry = requireNonNull(registry, "registry is null");
     }

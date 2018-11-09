@@ -19,7 +19,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Primitives;
 import io.prestosql.metadata.BoundVariables;
-import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.metadata.FunctionManager;
 import io.prestosql.metadata.LongVariableConstraint;
 import io.prestosql.metadata.Signature;
 import io.prestosql.operator.ParametricImplementation;
@@ -117,7 +117,7 @@ public class ParametricScalarImplementation
         }
     }
 
-    public Optional<ScalarFunctionImplementation> specialize(Signature boundSignature, BoundVariables boundVariables, TypeManager typeManager, FunctionRegistry functionRegistry, boolean isDeterministic)
+    public Optional<ScalarFunctionImplementation> specialize(Signature boundSignature, BoundVariables boundVariables, TypeManager typeManager, FunctionManager functionManager, boolean isDeterministic)
     {
         List<ScalarImplementationChoice> implementationChoices = new ArrayList<>();
         for (Map.Entry<String, Class<?>> entry : specializedTypeParameters.entrySet()) {
@@ -150,9 +150,9 @@ public class ParametricScalarImplementation
         }
 
         for (ParametricScalarImplementationChoice choice : choices) {
-            MethodHandle boundMethodHandle = bindDependencies(choice.getMethodHandle(), choice.getDependencies(), boundVariables, typeManager, functionRegistry);
+            MethodHandle boundMethodHandle = bindDependencies(choice.getMethodHandle(), choice.getDependencies(), boundVariables, typeManager, functionManager);
             Optional<MethodHandle> boundConstructor = choice.getConstructor().map(constructor -> {
-                MethodHandle result = bindDependencies(constructor, choice.getConstructorDependencies(), boundVariables, typeManager, functionRegistry);
+                MethodHandle result = bindDependencies(constructor, choice.getConstructorDependencies(), boundVariables, typeManager, functionManager);
                 checkCondition(
                         result.type().parameterList().isEmpty(),
                         FUNCTION_IMPLEMENTATION_ERROR,

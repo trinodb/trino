@@ -17,7 +17,7 @@ import io.airlift.bytecode.BytecodeNode;
 import io.airlift.bytecode.FieldDefinition;
 import io.airlift.bytecode.Scope;
 import io.airlift.bytecode.Variable;
-import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.metadata.FunctionManager;
 import io.prestosql.operator.scalar.ScalarFunctionImplementation;
 import io.prestosql.sql.relational.RowExpression;
 
@@ -33,7 +33,7 @@ public class BytecodeGeneratorContext
     private final Scope scope;
     private final CallSiteBinder callSiteBinder;
     private final CachedInstanceBinder cachedInstanceBinder;
-    private final FunctionRegistry registry;
+    private final FunctionManager registry;
     private final Variable wasNull;
 
     public BytecodeGeneratorContext(
@@ -41,7 +41,7 @@ public class BytecodeGeneratorContext
             Scope scope,
             CallSiteBinder callSiteBinder,
             CachedInstanceBinder cachedInstanceBinder,
-            FunctionRegistry registry)
+            FunctionManager registry)
     {
         requireNonNull(rowExpressionCompiler, "bytecodeGenerator is null");
         requireNonNull(cachedInstanceBinder, "cachedInstanceBinder is null");
@@ -77,7 +77,7 @@ public class BytecodeGeneratorContext
         return rowExpressionCompiler.compile(expression, scope, lambdaInterface);
     }
 
-    public FunctionRegistry getRegistry()
+    public FunctionManager getRegistry()
     {
         return registry;
     }

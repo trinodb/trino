@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableList;
 import io.prestosql.metadata.BoundVariables;
 import io.prestosql.metadata.FunctionKind;
 import io.prestosql.metadata.FunctionListBuilder;
-import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.metadata.FunctionManager;
 import io.prestosql.metadata.MetadataManager;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlScalarFunction;
@@ -225,7 +225,7 @@ public class BenchmarkArrayFilter
         }
 
         @Override
-        public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+        public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionManager functionManager)
         {
             Type type = boundVariables.getTypeVariable("T");
             return new ScalarFunctionImplementation(

@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import io.prestosql.PagesIndexPageSorter;
-import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.metadata.FunctionManager;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
 import io.prestosql.operator.PagesIndex;
@@ -64,7 +64,7 @@ public final class HiveTestUtils
             new HiveSessionProperties(new HiveClientConfig(), new OrcFileWriterConfig(), new ParquetFileWriterConfig()).getSessionProperties());
 
     private static final Metadata METADATA = createTestMetadataManager();
-    private static final FunctionRegistry FUNCTION_REGISTRY = METADATA.getFunctionRegistry();
+    private static final FunctionManager FUNCTION_REGISTRY = METADATA.getFunctionManager();
     public static final TypeManager TYPE_MANAGER = METADATA.getTypeManager();
 
     public static final HdfsEnvironment HDFS_ENVIRONMENT = createTestHdfsEnvironment(new HiveClientConfig());

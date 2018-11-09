@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.matching.Captures;
 import io.prestosql.matching.Pattern;
-import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.metadata.FunctionManager;
 import io.prestosql.metadata.Signature;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.iterative.Rule;
@@ -83,10 +83,10 @@ public class TransformExistsApplyToLateralNode
     private static final FunctionCall COUNT_CALL = new FunctionCall(COUNT, ImmutableList.of());
     private final Signature countSignature;
 
-    public TransformExistsApplyToLateralNode(FunctionRegistry functionRegistry)
+    public TransformExistsApplyToLateralNode(FunctionManager functionManager)
     {
-        requireNonNull(functionRegistry, "functionRegistry is null");
-        countSignature = functionRegistry.resolveFunction(COUNT, ImmutableList.of());
+        requireNonNull(functionManager, "functionManager is null");
+        countSignature = functionManager.resolveFunction(COUNT, ImmutableList.of());
     }
 
     @Override

@@ -16,7 +16,7 @@ package io.prestosql.operator.index;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.prestosql.block.BlockEncodingManager;
-import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.metadata.FunctionManager;
 import io.prestosql.spi.connector.InMemoryRecordSet;
 import io.prestosql.spi.connector.RecordCursor;
 import io.prestosql.spi.type.ArrayType;
@@ -38,11 +38,11 @@ public class TestFieldSetFilteringRecordSet
     public void test()
     {
         TypeManager typeManager = new TypeRegistry();
-        FunctionRegistry functionRegistry = new FunctionRegistry(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
+        FunctionManager functionManager = new FunctionManager(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
 
         ArrayType arrayOfBigintType = new ArrayType(BIGINT);
         FieldSetFilteringRecordSet fieldSetFilteringRecordSet = new FieldSetFilteringRecordSet(
-                functionRegistry,
+                functionManager,
                 new InMemoryRecordSet(
                         ImmutableList.of(BIGINT, BIGINT, TIMESTAMP_WITH_TIME_ZONE, TIMESTAMP_WITH_TIME_ZONE, arrayOfBigintType, arrayOfBigintType),
                         ImmutableList.of(

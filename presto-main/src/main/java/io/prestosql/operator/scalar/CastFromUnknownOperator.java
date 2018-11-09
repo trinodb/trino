@@ -16,7 +16,7 @@ package io.prestosql.operator.scalar;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.annotation.UsedByGeneratedCode;
 import io.prestosql.metadata.BoundVariables;
-import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.metadata.FunctionManager;
 import io.prestosql.metadata.SqlOperator;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeManager;
@@ -48,7 +48,7 @@ public final class CastFromUnknownOperator
     @Override
     public ScalarFunctionImplementation specialize(
             BoundVariables boundVariables, int arity, TypeManager typeManager,
-            FunctionRegistry functionRegistry)
+            FunctionManager functionManager)
     {
         Type toType = boundVariables.getTypeVariable("E");
         MethodHandle methodHandle = METHOD_HANDLE_NON_NULL.asType(METHOD_HANDLE_NON_NULL.type().changeReturnType(toType.getJavaType()));

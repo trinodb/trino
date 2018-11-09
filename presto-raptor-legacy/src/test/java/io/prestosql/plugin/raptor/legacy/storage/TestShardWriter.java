@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
 import io.prestosql.RowPagesBuilder;
 import io.prestosql.block.BlockEncodingManager;
-import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.metadata.FunctionManager;
 import io.prestosql.orc.OrcDataSource;
 import io.prestosql.orc.OrcRecordReader;
 import io.prestosql.spi.block.Block;
@@ -85,7 +85,7 @@ public class TestShardWriter
     {
         TypeManager typeManager = new TypeRegistry();
         // associate typeManager with a function registry
-        new FunctionRegistry(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
+        new FunctionManager(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
 
         List<Long> columnIds = ImmutableList.of(1L, 2L, 4L, 6L, 7L, 8L, 9L, 10L);
         ArrayType arrayType = new ArrayType(BIGINT);

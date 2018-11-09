@@ -15,7 +15,7 @@ package io.prestosql.operator.aggregation;
 
 import com.google.common.collect.Lists;
 import io.prestosql.block.BlockEncodingManager;
-import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.metadata.FunctionManager;
 import io.prestosql.metadata.Signature;
 import io.prestosql.spi.Plugin;
 import io.prestosql.spi.block.Block;
@@ -40,19 +40,19 @@ import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypeSignatures
 public abstract class AbstractTestAggregationFunction
 {
     protected TypeRegistry typeRegistry;
-    protected FunctionRegistry functionRegistry;
+    protected FunctionManager functionManager;
 
     @BeforeClass
     public final void initTestAggregationFunction()
     {
         typeRegistry = new TypeRegistry();
-        functionRegistry = new FunctionRegistry(typeRegistry, new BlockEncodingManager(typeRegistry), new FeaturesConfig());
+        functionManager = new FunctionManager(typeRegistry, new BlockEncodingManager(typeRegistry), new FeaturesConfig());
     }
 
     @AfterClass(alwaysRun = true)
     public final void destroyTestAggregationFunction()
     {
-        functionRegistry = null;
+        functionManager = null;
         typeRegistry = null;
     }
 
@@ -60,7 +60,7 @@ public abstract class AbstractTestAggregationFunction
 
     protected void registerFunctions(Plugin plugin)
     {
-        functionRegistry.addFunctions(extractFunctions(plugin.getFunctions()));
+        functionManager.addFunctions(extractFunctions(plugin.getFunctions()));
     }
 
     protected void registerTypes(Plugin plugin)
@@ -73,8 +73,8 @@ public abstract class AbstractTestAggregationFunction
     protected final InternalAggregationFunction getFunction()
     {
         List<TypeSignatureProvider> parameterTypes = fromTypeSignatures(Lists.transform(getFunctionParameterTypes(), TypeSignature::parseTypeSignature));
-        Signature signature = functionRegistry.resolveFunction(QualifiedName.of(getFunctionName()), parameterTypes);
-        return functionRegistry.getAggregateFunctionImplementation(signature);
+        Signature signature = functionManager.resolveFunction(QualifiedName.of(getFunctionName()), parameterTypes);
+        return functionManager.getAggregateFunctionImplementation(signature);
     }
 
     protected abstract String getFunctionName();

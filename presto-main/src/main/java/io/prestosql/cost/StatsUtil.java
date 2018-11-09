@@ -14,7 +14,7 @@
 package io.prestosql.cost;
 
 import io.prestosql.Session;
-import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.metadata.FunctionManager;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
 import io.prestosql.spi.connector.ConnectorSession;
@@ -40,14 +40,15 @@ final class StatsUtil
 
     static OptionalDouble toStatsRepresentation(Metadata metadata, Session session, Type type, Object value)
     {
-        return toStatsRepresentation(metadata.getFunctionRegistry(), session.toConnectorSession(), type, value);
+        return toStatsRepresentation(metadata.getFunctionManager(), session.toConnectorSession(), type, value);
     }
 
-    static OptionalDouble toStatsRepresentation(FunctionRegistry functionRegistry, ConnectorSession session, Type type, Object value)
+    static OptionalDouble toStatsRepresentation(FunctionManager functionManager, ConnectorSession session, Type type, Object value)
     {
         if (convertibleToDoubleWithCast(type)) {
-            InterpretedFunctionInvoker functionInvoker = new InterpretedFunctionInvoker(functionRegistry);
-            Signature castSignature = functionRegistry.getCoercion(type, DoubleType.DOUBLE);
+            InterpretedFunctionInvoker functionInvoker = new InterpretedFunctionInvoker(functionManager);
+            Signature castSignature = functionManager.getCoercion(type, DoubleType.DOUBLE);
+
             return OptionalDouble.of((double) functionInvoker.invoke(castSignature, session, singletonList(value)));
         }
 

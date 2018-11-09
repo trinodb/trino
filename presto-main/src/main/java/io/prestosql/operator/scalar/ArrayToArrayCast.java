@@ -22,7 +22,7 @@ import io.airlift.bytecode.Parameter;
 import io.airlift.bytecode.Scope;
 import io.airlift.bytecode.Variable;
 import io.prestosql.metadata.BoundVariables;
-import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.metadata.FunctionManager;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlOperator;
 import io.prestosql.spi.block.Block;
@@ -69,14 +69,14 @@ public class ArrayToArrayCast
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionManager functionManager)
     {
         checkArgument(arity == 1, "Expected arity to be 1");
         Type fromType = boundVariables.getTypeVariable("F");
         Type toType = boundVariables.getTypeVariable("T");
 
         Signature signature = internalOperator(CAST.name(), toType.getTypeSignature(), ImmutableList.of(fromType.getTypeSignature()));
-        ScalarFunctionImplementation function = functionRegistry.getScalarFunctionImplementation(signature);
+        ScalarFunctionImplementation function = functionManager.getScalarFunctionImplementation(signature);
         Class<?> castOperatorClass = generateArrayCast(typeManager, signature, function);
         MethodHandle methodHandle = methodHandle(castOperatorClass, "castArray", ConnectorSession.class, Block.class);
         return new ScalarFunctionImplementation(

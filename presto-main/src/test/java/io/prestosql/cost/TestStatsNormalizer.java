@@ -16,7 +16,7 @@ package io.prestosql.cost;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.block.BlockEncodingManager;
-import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.metadata.FunctionManager;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeManager;
@@ -46,7 +46,7 @@ import static java.util.function.Function.identity;
 public class TestStatsNormalizer
 {
     private final TypeManager typeManager = new TypeRegistry();
-    private final FunctionRegistry functionRegistry = new FunctionRegistry(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
+    private final FunctionManager functionManager = new FunctionManager(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
     private final ConnectorSession session = new TestingConnectorSession(emptyList());
 
     private final StatsNormalizer normalizer = new StatsNormalizer();
@@ -163,6 +163,6 @@ public class TestStatsNormalizer
 
     private double asStatsValue(Object value, Type type)
     {
-        return toStatsRepresentation(functionRegistry, session, type, value).orElse(NaN);
+        return toStatsRepresentation(functionManager, session, type, value).orElse(NaN);
     }
 }

@@ -18,7 +18,7 @@ import com.google.common.primitives.Primitives;
 import io.airlift.slice.Slice;
 import io.prestosql.annotation.UsedByGeneratedCode;
 import io.prestosql.metadata.BoundVariables;
-import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.metadata.FunctionManager;
 import io.prestosql.metadata.SqlOperator;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
@@ -65,7 +65,7 @@ public class MapSubscriptOperator
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionManager functionManager)
     {
         Type keyType = boundVariables.getTypeVariable("K");
         Type valueType = boundVariables.getTypeVariable("V");
@@ -87,7 +87,7 @@ public class MapSubscriptOperator
             methodHandle = METHOD_HANDLE_OBJECT;
         }
         methodHandle = MethodHandles.insertArguments(methodHandle, 0, legacyMissingKey);
-        InterpretedFunctionInvoker functionInvoker = new InterpretedFunctionInvoker(functionRegistry);
+        InterpretedFunctionInvoker functionInvoker = new InterpretedFunctionInvoker(functionManager);
         methodHandle = methodHandle.bindTo(functionInvoker).bindTo(keyType).bindTo(valueType);
         methodHandle = methodHandle.asType(methodHandle.type().changeReturnType(Primitives.wrap(valueType.getJavaType())));
 

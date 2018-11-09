@@ -15,7 +15,7 @@ package io.prestosql.sql.planner.iterative.rule;
 
 import io.prestosql.matching.Captures;
 import io.prestosql.matching.Pattern;
-import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.metadata.FunctionManager;
 import io.prestosql.sql.planner.iterative.Lookup;
 import io.prestosql.sql.planner.iterative.Rule;
 import io.prestosql.sql.planner.optimizations.ScalarAggregationToJoinRewriter;
@@ -75,11 +75,11 @@ public class TransformCorrelatedScalarAggregationToJoin
         return PATTERN;
     }
 
-    private final FunctionRegistry functionRegistry;
+    private final FunctionManager functionManager;
 
-    public TransformCorrelatedScalarAggregationToJoin(FunctionRegistry functionRegistry)
+    public TransformCorrelatedScalarAggregationToJoin(FunctionManager functionManager)
     {
-        this.functionRegistry = requireNonNull(functionRegistry, "functionRegistry is null");
+        this.functionManager = requireNonNull(functionManager, "functionManager is null");
     }
 
     @Override
@@ -96,7 +96,7 @@ public class TransformCorrelatedScalarAggregationToJoin
             return Result.empty();
         }
 
-        ScalarAggregationToJoinRewriter rewriter = new ScalarAggregationToJoinRewriter(functionRegistry, context.getSymbolAllocator(), context.getIdAllocator(), context.getLookup());
+        ScalarAggregationToJoinRewriter rewriter = new ScalarAggregationToJoinRewriter(functionManager, context.getSymbolAllocator(), context.getIdAllocator(), context.getLookup());
 
         PlanNode rewrittenNode = rewriter.rewriteScalarAggregation(lateralJoinNode, aggregation.get());
 

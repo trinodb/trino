@@ -16,7 +16,7 @@ package io.prestosql.sql.relational.optimizer;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import io.prestosql.Session;
-import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.metadata.FunctionManager;
 import io.prestosql.metadata.Signature;
 import io.prestosql.operator.scalar.ScalarFunctionImplementation;
 import io.prestosql.spi.connector.ConnectorSession;
@@ -67,11 +67,11 @@ import static io.prestosql.type.JsonType.JSON;
 
 public class ExpressionOptimizer
 {
-    private final FunctionRegistry registry;
+    private final FunctionManager registry;
     private final TypeManager typeManager;
     private final ConnectorSession session;
 
-    public ExpressionOptimizer(FunctionRegistry registry, TypeManager typeManager, Session session)
+    public ExpressionOptimizer(FunctionManager registry, TypeManager typeManager, Session session)
     {
         this.registry = registry;
         this.typeManager = typeManager;

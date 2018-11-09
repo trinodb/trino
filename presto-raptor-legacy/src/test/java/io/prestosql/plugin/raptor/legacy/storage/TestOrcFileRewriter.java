@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
 import io.prestosql.block.BlockEncodingManager;
-import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.metadata.FunctionManager;
 import io.prestosql.orc.OrcDataSource;
 import io.prestosql.orc.OrcRecordReader;
 import io.prestosql.plugin.raptor.legacy.storage.OrcFileRewriter.OrcFileInfo;
@@ -90,7 +90,7 @@ public class TestOrcFileRewriter
     {
         TypeManager typeManager = new TypeRegistry();
         // associate typeManager with a function registry
-        new FunctionRegistry(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
+        new FunctionManager(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
 
         ArrayType arrayType = new ArrayType(BIGINT);
         ArrayType arrayOfArrayType = new ArrayType(arrayType);

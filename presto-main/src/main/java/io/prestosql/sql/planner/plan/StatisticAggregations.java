@@ -17,7 +17,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.metadata.FunctionManager;
 import io.prestosql.metadata.Signature;
 import io.prestosql.operator.aggregation.InternalAggregationFunction;
 import io.prestosql.sql.planner.Symbol;
@@ -58,7 +58,7 @@ public class StatisticAggregations
         return groupingSymbols;
     }
 
-    public Parts createPartialAggregations(SymbolAllocator symbolAllocator, FunctionRegistry functionRegistry)
+    public Parts createPartialAggregations(SymbolAllocator symbolAllocator, FunctionManager functionManager)
     {
         ImmutableMap.Builder<Symbol, Aggregation> partialAggregation = ImmutableMap.builder();
         ImmutableMap.Builder<Symbol, Aggregation> finalAggregation = ImmutableMap.builder();
@@ -66,7 +66,7 @@ public class StatisticAggregations
         for (Map.Entry<Symbol, Aggregation> entry : aggregations.entrySet()) {
             Aggregation originalAggregation = entry.getValue();
             Signature signature = originalAggregation.getSignature();
-            InternalAggregationFunction function = functionRegistry.getAggregateFunctionImplementation(signature);
+            InternalAggregationFunction function = functionManager.getAggregateFunctionImplementation(signature);
             Symbol partialSymbol = symbolAllocator.newSymbol(signature.getName(), function.getIntermediateType());
             mappings.put(entry.getKey(), partialSymbol);
             partialAggregation.put(partialSymbol, new Aggregation(originalAggregation.getCall(), signature, originalAggregation.getMask()));

@@ -15,7 +15,7 @@ package io.prestosql.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
 import io.prestosql.metadata.BoundVariables;
-import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.metadata.FunctionManager;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlScalarFunction;
 import io.prestosql.spi.type.StandardTypes;
@@ -65,8 +65,8 @@ public final class JsonStringToMapCast
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionManager functionManager)
     {
-        return JSON_TO_MAP.specialize(boundVariables, arity, typeManager, functionRegistry);
+        return JSON_TO_MAP.specialize(boundVariables, arity, typeManager, functionManager);
     }
 }

@@ -14,7 +14,7 @@
 package io.prestosql.operator.annotations;
 
 import io.prestosql.metadata.BoundVariables;
-import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.metadata.FunctionManager;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeManager;
 import io.prestosql.spi.type.TypeSignature;
@@ -36,7 +36,7 @@ public final class TypeImplementationDependency
     }
 
     @Override
-    public Type resolve(BoundVariables boundVariables, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public Type resolve(BoundVariables boundVariables, TypeManager typeManager, FunctionManager functionManager)
     {
         return typeManager.getType(applyBoundVariables(signature, boundVariables));
     }

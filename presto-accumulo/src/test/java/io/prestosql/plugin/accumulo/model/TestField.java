@@ -16,7 +16,7 @@ package io.prestosql.plugin.accumulo.model;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.block.BlockEncodingManager;
-import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.metadata.FunctionManager;
 import io.prestosql.plugin.accumulo.serializers.AccumuloRowSerializer;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.type.ArrayType;
@@ -171,7 +171,7 @@ public class TestField
     {
         TypeManager typeManager = new TypeRegistry();
         // associate typeManager with a function registry
-        new FunctionRegistry(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
+        new FunctionManager(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
 
         Type type = typeManager.getParameterizedType(StandardTypes.MAP, ImmutableList.of(
                 TypeSignatureParameter.of(VARCHAR.getTypeSignature()),

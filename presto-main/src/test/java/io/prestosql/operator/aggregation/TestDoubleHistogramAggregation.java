@@ -16,7 +16,7 @@ package io.prestosql.operator.aggregation;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
 import io.prestosql.block.BlockEncodingManager;
-import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.metadata.FunctionManager;
 import io.prestosql.metadata.Signature;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.PageBuilder;
@@ -49,8 +49,8 @@ public class TestDoubleHistogramAggregation
     public TestDoubleHistogramAggregation()
     {
         TypeRegistry typeRegistry = new TypeRegistry();
-        FunctionRegistry functionRegistry = new FunctionRegistry(typeRegistry, new BlockEncodingManager(typeRegistry), new FeaturesConfig());
-        InternalAggregationFunction function = functionRegistry.getAggregateFunctionImplementation(
+        FunctionManager functionManager = new FunctionManager(typeRegistry, new BlockEncodingManager(typeRegistry), new FeaturesConfig());
+        InternalAggregationFunction function = functionManager.getAggregateFunctionImplementation(
                 new Signature("numeric_histogram",
                         AGGREGATE,
                         parseTypeSignature("map(double,double)"),

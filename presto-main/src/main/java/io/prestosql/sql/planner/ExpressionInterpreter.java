@@ -235,7 +235,7 @@ public class ExpressionInterpreter
         this.expressionTypes = ImmutableMap.copyOf(requireNonNull(expressionTypes, "expressionTypes is null"));
         verify((expressionTypes.containsKey(NodeRef.of(expression))));
         this.optimize = optimize;
-        this.functionInvoker = new InterpretedFunctionInvoker(metadata.getFunctionRegistry());
+        this.functionInvoker = new InterpretedFunctionInvoker(metadata.getFunctionManager());
         this.legacyRowFieldOrdinalAccess = isLegacyRowFieldOrdinalAccessEnabled(session);
 
         this.visitor = new Visitor();
@@ -611,7 +611,7 @@ public class ExpressionInterpreter
                 if (valueList.getValues().stream().allMatch(Literal.class::isInstance) &&
                         valueList.getValues().stream().noneMatch(NullLiteral.class::isInstance)) {
                     Set objectSet = valueList.getValues().stream().map(expression -> process(expression, context)).collect(Collectors.toSet());
-                    set = FastutilSetHelper.toFastutilHashSet(objectSet, type(node.getValue()), metadata.getFunctionRegistry());
+                    set = FastutilSetHelper.toFastutilHashSet(objectSet, type(node.getValue()), metadata.getFunctionManager());
                 }
                 inListCache.put(valueList, set);
             }
@@ -707,8 +707,8 @@ public class ExpressionInterpreter
                 case PLUS:
                     return value;
                 case MINUS:
-                    Signature operatorSignature = metadata.getFunctionRegistry().resolveOperator(OperatorType.NEGATION, types(node.getValue()));
-                    MethodHandle handle = metadata.getFunctionRegistry().getScalarFunctionImplementation(operatorSignature).getMethodHandle();
+                    Signature operatorSignature = metadata.getFunctionManager().resolveOperator(OperatorType.NEGATION, types(node.getValue()));
+                    MethodHandle handle = metadata.getFunctionManager().getScalarFunctionImplementation(operatorSignature).getMethodHandle();
 
                     if (handle.type().parameterCount() > 0 && handle.type().parameterType(0) == ConnectorSession.class) {
                         handle = handle.bindTo(session);
@@ -822,8 +822,8 @@ public class ExpressionInterpreter
 
             Type commonType = metadata.getTypeManager().getCommonSuperType(firstType, secondType).get();
 
-            Signature firstCast = metadata.getFunctionRegistry().getCoercion(firstType, commonType);
-            Signature secondCast = metadata.getFunctionRegistry().getCoercion(secondType, commonType);
+            Signature firstCast = metadata.getFunctionManager().getCoercion(firstType, commonType);
+            Signature secondCast = metadata.getFunctionManager().getCoercion(secondType, commonType);
 
             // cast(first as <common type>) == cast(second as <common type>)
             boolean equal = Boolean.TRUE.equals(invokeOperator(
@@ -925,8 +925,8 @@ public class ExpressionInterpreter
                 argumentValues.add(value);
                 argumentTypes.add(type);
             }
-            Signature functionSignature = metadata.getFunctionRegistry().resolveFunction(node.getName(), fromTypes(argumentTypes));
-            ScalarFunctionImplementation function = metadata.getFunctionRegistry().getScalarFunctionImplementation(functionSignature);
+            Signature functionSignature = metadata.getFunctionManager().resolveFunction(node.getName(), fromTypes(argumentTypes));
+            ScalarFunctionImplementation function = metadata.getFunctionManager().getScalarFunctionImplementation(functionSignature);
             for (int i = 0; i < argumentValues.size(); i++) {
                 Object value = argumentValues.get(i);
                 if (value == null && function.getArgumentProperty(i).getNullConvention() == RETURN_NULL_ON_NULL) {
@@ -1130,7 +1130,7 @@ public class ExpressionInterpreter
                 return null;
             }
 
-            Signature operator = metadata.getFunctionRegistry().getCoercion(sourceType, targetType);
+            Signature operator = metadata.getFunctionManager().getCoercion(sourceType, targetType);
 
             try {
                 return functionInvoker.invoke(operator, session, ImmutableList.of(value));
@@ -1261,7 +1261,7 @@ public class ExpressionInterpreter
 
         private Object invokeOperator(OperatorType operatorType, List<? extends Type> argumentTypes, List<Object> argumentValues)
         {
-            Signature operatorSignature = metadata.getFunctionRegistry().resolveOperator(operatorType, argumentTypes);
+            Signature operatorSignature = metadata.getFunctionManager().resolveOperator(operatorType, argumentTypes);
             return functionInvoker.invoke(operatorSignature, session, argumentValues);
         }
 

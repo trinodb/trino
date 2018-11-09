@@ -24,7 +24,7 @@ import io.airlift.bytecode.Parameter;
 import io.airlift.bytecode.control.IfStatement;
 import io.airlift.bytecode.expression.BytecodeExpression;
 import io.prestosql.metadata.BoundVariables;
-import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.metadata.FunctionManager;
 import io.prestosql.metadata.SqlAggregationFunction;
 import io.prestosql.operator.aggregation.AccumulatorCompiler;
 import io.prestosql.operator.aggregation.AggregationMetadata;
@@ -94,14 +94,14 @@ public abstract class AbstractMinMaxBy
     }
 
     @Override
-    public InternalAggregationFunction specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public InternalAggregationFunction specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionManager functionManager)
     {
         Type keyType = boundVariables.getTypeVariable("K");
         Type valueType = boundVariables.getTypeVariable("V");
-        return generateAggregation(valueType, keyType, functionRegistry);
+        return generateAggregation(valueType, keyType, functionManager);
     }
 
-    private InternalAggregationFunction generateAggregation(Type valueType, Type keyType, FunctionRegistry functionRegistry)
+    private InternalAggregationFunction generateAggregation(Type valueType, Type keyType, FunctionManager functionManager)
     {
         Class<?> stateClazz = getStateClass(keyType.getJavaType(), valueType.getJavaType());
         DynamicClassLoader classLoader = new DynamicClassLoader(getClass().getClassLoader());
@@ -135,7 +135,7 @@ public abstract class AbstractMinMaxBy
 
         CallSiteBinder binder = new CallSiteBinder();
         OperatorType operator = min ? LESS_THAN : GREATER_THAN;
-        MethodHandle compareMethod = functionRegistry.getScalarFunctionImplementation(functionRegistry.resolveOperator(operator, ImmutableList.of(keyType, keyType))).getMethodHandle();
+        MethodHandle compareMethod = functionManager.getScalarFunctionImplementation(functionManager.resolveOperator(operator, ImmutableList.of(keyType, keyType))).getMethodHandle();
 
         ClassDefinition definition = new ClassDefinition(
                 a(PUBLIC, FINAL),

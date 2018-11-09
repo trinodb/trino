@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.BytecodeBlock;
 import io.airlift.bytecode.BytecodeNode;
 import io.airlift.bytecode.Scope;
-import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.metadata.FunctionManager;
 import io.prestosql.sql.gen.LambdaBytecodeGenerator.CompiledLambda;
 import io.prestosql.sql.relational.CallExpression;
 import io.prestosql.sql.relational.ConstantExpression;
@@ -57,20 +57,20 @@ public class RowExpressionCompiler
     private final CallSiteBinder callSiteBinder;
     private final CachedInstanceBinder cachedInstanceBinder;
     private final RowExpressionVisitor<BytecodeNode, Scope> fieldReferenceCompiler;
-    private final FunctionRegistry registry;
+    private final FunctionManager functionManager;
     private final Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap;
 
     RowExpressionCompiler(
             CallSiteBinder callSiteBinder,
             CachedInstanceBinder cachedInstanceBinder,
             RowExpressionVisitor<BytecodeNode, Scope> fieldReferenceCompiler,
-            FunctionRegistry registry,
+            FunctionManager functionManager,
             Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap)
     {
         this.callSiteBinder = callSiteBinder;
         this.cachedInstanceBinder = cachedInstanceBinder;
         this.fieldReferenceCompiler = fieldReferenceCompiler;
-        this.registry = registry;
+        this.functionManager = functionManager;
         this.compiledLambdaMap = compiledLambdaMap;
     }
 
@@ -117,7 +117,7 @@ public class RowExpressionCompiler
                         break;
                     // functions that require varargs and/or complex types (e.g., lists)
                     case IN:
-                        generator = new InCodeGenerator(registry);
+                        generator = new InCodeGenerator(functionManager);
                         break;
                     // optimized implementations (shortcircuiting behavior)
                     case "AND":
@@ -145,7 +145,7 @@ public class RowExpressionCompiler
                     context.getScope(),
                     callSiteBinder,
                     cachedInstanceBinder,
-                    registry);
+                    functionManager);
 
             return generator.generateExpression(call.getSignature(), generatorContext, call.getType(), call.getArguments());
         }
@@ -213,7 +213,7 @@ public class RowExpressionCompiler
                     context.getScope(),
                     callSiteBinder,
                     cachedInstanceBinder,
-                    registry);
+                    functionManager);
 
             return generateLambda(
                     generatorContext,

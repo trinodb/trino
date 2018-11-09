@@ -14,7 +14,7 @@
 package io.prestosql.operator;
 
 import io.prestosql.metadata.BoundVariables;
-import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.metadata.FunctionManager;
 import io.prestosql.operator.annotations.ImplementationDependency;
 import io.prestosql.spi.type.TypeManager;
 
@@ -26,10 +26,10 @@ public class ParametricFunctionHelpers
 {
     private ParametricFunctionHelpers() {}
 
-    public static MethodHandle bindDependencies(MethodHandle handle, List<ImplementationDependency> dependencies, BoundVariables variables, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public static MethodHandle bindDependencies(MethodHandle handle, List<ImplementationDependency> dependencies, BoundVariables variables, TypeManager typeManager, FunctionManager functionManager)
     {
         for (ImplementationDependency dependency : dependencies) {
-            handle = MethodHandles.insertArguments(handle, 0, dependency.resolve(variables, typeManager, functionRegistry));
+            handle = MethodHandles.insertArguments(handle, 0, dependency.resolve(variables, typeManager, functionManager));
         }
         return handle;
     }

@@ -16,7 +16,6 @@ package io.prestosql.operator.aggregation;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.metadata.BoundVariables;
 import io.prestosql.metadata.FunctionKind;
-import io.prestosql.metadata.FunctionRegistry;
 import io.prestosql.metadata.LongVariableConstraint;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.TypeVariableConstraint;
@@ -200,7 +199,7 @@ public class AggregationImplementation
         return inputParameterMetadataTypes;
     }
 
-    public boolean areTypesAssignable(Signature boundSignature, BoundVariables variables, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public boolean areTypesAssignable(Signature boundSignature, BoundVariables variables, TypeManager typeManager)
     {
         checkState(argumentNativeContainerTypes.size() == boundSignature.getArgumentTypes().size(), "Number of argument assigned to AggregationImplementation is different than number parsed from annotations.");
 
