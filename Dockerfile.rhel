@@ -1,4 +1,4 @@
-FROM centos:7 as build
+FROM rhel7:7-released AS build
 
 ENV RH_PRESTO_PATCH_VERSION 00005
 ENV RH_PROMETHEUS_JMX_EXPORTER_PATCH_VERSION 00006
@@ -30,7 +30,7 @@ RUN curl -fSLs \
     $PROMETHEUS_JMX_EXPORTER_URL \
     -o $PROMETHEUS_JMX_EXPORTER_OUT
 
-FROM centos:7
+FROM rhel7:7-released
 
 RUN yum -y install java-1.8.0-openjdk less \
     && yum clean all \
