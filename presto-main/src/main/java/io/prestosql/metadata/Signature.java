@@ -27,7 +27,7 @@ import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.metadata.FunctionKind.SCALAR;
-import static io.prestosql.metadata.FunctionRegistry.mangleOperatorName;
+import static io.prestosql.metadata.OperatorSignatureUtils.mangleOperatorName;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Stream.concat;
 
