@@ -18,7 +18,10 @@ RUN mvn dependency:get -Dartifact=io.prometheus.jmx:jmx_prometheus_javaagent:0.3
 
 FROM centos:7
 
-RUN yum -y install java-1.8.0-openjdk less \
+RUN yum -y install \
+        java-1.8.0-openjdk \
+        java-1.8.0-openjdk-devel \
+        less \
     && yum clean all \
     && rm -rf /var/cache/yum
 
