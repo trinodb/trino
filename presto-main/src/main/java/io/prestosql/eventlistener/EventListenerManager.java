@@ -16,6 +16,7 @@ package io.prestosql.eventlistener;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
+import io.prestosql.spi.classloader.ThreadContextClassLoader;
 import io.prestosql.spi.eventlistener.EventListener;
 import io.prestosql.spi.eventlistener.EventListenerFactory;
 import io.prestosql.spi.eventlistener.QueryCompletedEvent;
@@ -79,8 +80,10 @@ public class EventListenerManager
         EventListenerFactory eventListenerFactory = eventListenerFactories.get(name);
         checkState(eventListenerFactory != null, "Event listener %s is not registered", name);
 
-        EventListener eventListener = eventListenerFactory.create(ImmutableMap.copyOf(properties));
-        this.configuredEventListener.set(Optional.of(eventListener));
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(eventListenerFactory.getClass().getClassLoader())) {
+            EventListener eventListener = eventListenerFactory.create(ImmutableMap.copyOf(properties));
+            this.configuredEventListener.set(Optional.of(eventListener));
+        }
 
         log.info("-- Loaded event listener %s --", name);
     }
