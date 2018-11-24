@@ -213,6 +213,14 @@ public class Patterns
         }
     }
 
+    public static class Join
+    {
+        public static Property<JoinNode, Lookup, JoinNode.Type> type()
+        {
+            return property("type", JoinNode::getType);
+        }
+    }
+
     public static class LateralJoin
     {
         public static Property<LateralJoinNode, Lookup, List<Symbol>> correlation()
