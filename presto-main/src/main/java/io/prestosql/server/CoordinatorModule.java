@@ -14,6 +14,7 @@
 package io.prestosql.server;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.io.Closer;
 import com.google.inject.Binder;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
@@ -32,11 +33,23 @@ import io.prestosql.cost.CostComparator;
 import io.prestosql.cost.StatsAndCosts;
 import io.prestosql.cost.StatsCalculatorModule;
 import io.prestosql.cost.TaskCountEstimator;
+import io.prestosql.dispatcher.CoordinatorStatus;
+import io.prestosql.dispatcher.DiscoveryRemoteCoordinatorMonitor;
 import io.prestosql.dispatcher.DispatchExecutor;
 import io.prestosql.dispatcher.DispatchManager;
+import io.prestosql.dispatcher.DispatchQuery;
 import io.prestosql.dispatcher.DispatchQueryFactory;
 import io.prestosql.dispatcher.FailedDispatchQueryFactory;
+import io.prestosql.dispatcher.ForDispatcher;
 import io.prestosql.dispatcher.LocalDispatchQueryFactory;
+import io.prestosql.dispatcher.QueryAnalysis;
+import io.prestosql.dispatcher.QueryAnalysisResponse;
+import io.prestosql.dispatcher.QueryDispatcher;
+import io.prestosql.dispatcher.QuerySubmission;
+import io.prestosql.dispatcher.QuerySubmissionResponse;
+import io.prestosql.dispatcher.RemoteCoordinatorMonitor;
+import io.prestosql.dispatcher.RemoteDispatchQueryFactory;
+import io.prestosql.dispatcher.SubmissionResource;
 import io.prestosql.event.QueryMonitor;
 import io.prestosql.event.QueryMonitorConfig;
 import io.prestosql.execution.AddColumnTask;
@@ -64,8 +77,10 @@ import io.prestosql.execution.QueryExecutionMBean;
 import io.prestosql.execution.QueryIdGenerator;
 import io.prestosql.execution.QueryInfo;
 import io.prestosql.execution.QueryManager;
+import io.prestosql.execution.QueryManagerConfig;
 import io.prestosql.execution.QueryPerformanceFetcher;
 import io.prestosql.execution.QueryPreparer;
+import io.prestosql.execution.QueryTracker;
 import io.prestosql.execution.RemoteTaskFactory;
 import io.prestosql.execution.RenameColumnTask;
 import io.prestosql.execution.RenameSchemaTask;
@@ -230,9 +245,30 @@ public class CoordinatorModule
         binder.bind(DispatchManager.class).in(Scopes.SINGLETON);
         binder.bind(FailedDispatchQueryFactory.class).in(Scopes.SINGLETON);
         binder.bind(DispatchExecutor.class).in(Scopes.SINGLETON);
+        binder.bind(DispatcherCleanup.class).in(Scopes.SINGLETON);
 
-        // local dispatcher
-        binder.bind(DispatchQueryFactory.class).to(LocalDispatchQueryFactory.class);
+        if (false) {
+            // local dispatcher
+            binder.bind(DispatchQueryFactory.class).to(LocalDispatchQueryFactory.class);
+        }
+        else {
+            // remote dispatcher
+            binder.bind(DispatchQueryFactory.class).to(RemoteDispatchQueryFactory.class);
+            binder.bind(QueryDispatcher.class).in(Scopes.SINGLETON);
+            binder.bind(RemoteCoordinatorMonitor.class).to(DiscoveryRemoteCoordinatorMonitor.class).in(Scopes.SINGLETON);
+            jaxrsBinder(binder).bind(SubmissionResource.class);
+            jsonCodecBinder(binder).bindJsonCodec(QuerySubmission.class);
+            jsonCodecBinder(binder).bindJsonCodec(QuerySubmissionResponse.class);
+            jsonCodecBinder(binder).bindJsonCodec(QueryAnalysis.class);
+            jsonCodecBinder(binder).bindJsonCodec(QueryAnalysisResponse.class);
+            jsonCodecBinder(binder).bindJsonCodec(CoordinatorStatus.class);
+            httpClientBinder(binder).bindHttpClient("queryDispatch", ForDispatcher.class)
+                    .withTracing()
+                    .withConfigDefaults(config -> {
+                        config.setIdleTimeout(new Duration(30, SECONDS));
+                        config.setRequestTimeout(new Duration(10, SECONDS));
+                    });
+        }
 
         // cluster memory manager
         binder.bind(ClusterMemoryManager.class).in(Scopes.SINGLETON);
@@ -349,6 +385,13 @@ public class CoordinatorModule
 
     @Provides
     @Singleton
+    public static QueryTracker<DispatchQuery> createDispatchQueryTracker(QueryManagerConfig queryManagerConfig, DispatchExecutor dispatchExecutor)
+    {
+        return new QueryTracker<>(queryManagerConfig, dispatchExecutor.getScheduledExecutor());
+    }
+
+    @Provides
+    @Singleton
     public static ResourceGroupManager<?> getResourceGroupManager(@SuppressWarnings("rawtypes") ResourceGroupManager manager)
     {
         return manager;
@@ -461,6 +504,24 @@ public class CoordinatorModule
         public void shutdown()
         {
             executors.forEach(ExecutorService::shutdownNow);
+        }
+    }
+
+    public static class DispatcherCleanup
+    {
+        private final Closer closer = Closer.create();
+
+        @Inject
+        public DispatcherCleanup(QueryTracker<DispatchQuery> dispatchQueryTracker)
+        {
+            closer.register(dispatchQueryTracker::stop);
+        }
+
+        @PreDestroy
+        public void shutdown()
+                throws Exception
+        {
+            closer.close();
         }
     }
 }

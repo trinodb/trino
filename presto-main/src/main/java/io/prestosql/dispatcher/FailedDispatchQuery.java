@@ -71,6 +71,12 @@ public class FailedDispatchQuery
     }
 
     @Override
+    public void updateRemoteQueryInfo(BasicQueryInfo remoteQueryInfo)
+    {
+        // ignore updates to finished queries
+    }
+
+    @Override
     public BasicQueryInfo getBasicQueryInfo()
     {
         return queryInfo;

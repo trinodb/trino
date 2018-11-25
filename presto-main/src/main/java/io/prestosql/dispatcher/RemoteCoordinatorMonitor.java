@@ -13,21 +13,14 @@
  */
 package io.prestosql.dispatcher;
 
-import com.google.common.util.concurrent.ListenableFuture;
-import io.prestosql.execution.ManagedQueryExecution;
-import io.prestosql.execution.QueryTracker.TrackedQuery;
-import io.prestosql.server.BasicQueryInfo;
+import io.prestosql.spi.Node;
 
-public interface DispatchQuery
-        extends TrackedQuery, ManagedQueryExecution
+import java.util.Set;
+import java.util.function.Consumer;
+
+public interface RemoteCoordinatorMonitor
 {
-    void updateRemoteQueryInfo(BasicQueryInfo remoteQueryInfo);
+    void addCoordinatorsChangeListener(Consumer<Set<Node>> listener);
 
-    void recordHeartbeat();
-
-    ListenableFuture<?> getDispatchedFuture();
-
-    DispatchInfo getDispatchInfo();
-
-    void cancel();
+    void removeCoordinatorsChangeListener(Consumer<Set<Node>> listener);
 }

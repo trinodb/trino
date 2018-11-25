@@ -13,21 +13,19 @@
  */
 package io.prestosql.dispatcher;
 
-import com.google.common.util.concurrent.ListenableFuture;
-import io.prestosql.execution.ManagedQueryExecution;
-import io.prestosql.execution.QueryTracker.TrackedQuery;
-import io.prestosql.server.BasicQueryInfo;
+import javax.inject.Qualifier;
 
-public interface DispatchQuery
-        extends TrackedQuery, ManagedQueryExecution
+import java.lang.annotation.Retention;
+import java.lang.annotation.Target;
+
+import static java.lang.annotation.ElementType.FIELD;
+import static java.lang.annotation.ElementType.METHOD;
+import static java.lang.annotation.ElementType.PARAMETER;
+import static java.lang.annotation.RetentionPolicy.RUNTIME;
+
+@Retention(RUNTIME)
+@Target({FIELD, PARAMETER, METHOD})
+@Qualifier
+public @interface ForDispatcher
 {
-    void updateRemoteQueryInfo(BasicQueryInfo remoteQueryInfo);
-
-    void recordHeartbeat();
-
-    ListenableFuture<?> getDispatchedFuture();
-
-    DispatchInfo getDispatchInfo();
-
-    void cancel();
 }

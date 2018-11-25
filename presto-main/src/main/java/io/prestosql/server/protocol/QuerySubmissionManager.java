@@ -14,15 +14,21 @@
 package io.prestosql.server.protocol;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.ListeningExecutorService;
 import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
+import io.prestosql.Session;
 import io.prestosql.event.QueryMonitor;
+import io.prestosql.execution.FailedQueryExecution;
 import io.prestosql.execution.ForQueryExecution;
 import io.prestosql.execution.LocationFactory;
 import io.prestosql.execution.QueryExecution;
 import io.prestosql.execution.QueryExecution.QueryExecutionFactory;
 import io.prestosql.execution.QueryManager;
+import io.prestosql.execution.QueryPreparer.PreparedQuery;
+import io.prestosql.execution.QueryStateMachine;
+import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.execution.warnings.WarningCollectorFactory;
 import io.prestosql.memory.context.SimpleLocalMemoryContext;
 import io.prestosql.metadata.Metadata;
@@ -30,9 +36,15 @@ import io.prestosql.operator.ExchangeClient;
 import io.prestosql.operator.ExchangeClientSupplier;
 import io.prestosql.security.AccessControl;
 import io.prestosql.server.ForStatementResource;
+import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.QueryId;
 import io.prestosql.spi.block.BlockEncodingSerde;
+import io.prestosql.spi.resourcegroups.ResourceGroupId;
+import io.prestosql.sql.analyzer.Analyzer;
+import io.prestosql.sql.analyzer.QueryExplainer;
+import io.prestosql.sql.parser.SqlParser;
 import io.prestosql.sql.tree.Statement;
+import io.prestosql.transaction.TransactionId;
 import io.prestosql.transaction.TransactionManager;
 
 import javax.annotation.PostConstruct;
@@ -40,6 +52,7 @@ import javax.annotation.PreDestroy;
 import javax.annotation.concurrent.GuardedBy;
 import javax.inject.Inject;
 
+import java.net.URI;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
@@ -51,9 +64,12 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.prestosql.server.protocol.Query.createQuery;
+import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.prestosql.util.StatementUtils.isTransactionControlStatement;
 import static java.util.Objects.requireNonNull;
 
 public class QuerySubmissionManager
@@ -64,10 +80,19 @@ public class QuerySubmissionManager
 
     private final QueryManager queryManager;
 
+    private final TransactionManager transactionManager;
+    private final AccessControl accessControl;
+    private final Metadata metadata;
+    private final LocationFactory locationFactory;
+    private final SqlParser sqlParser;
+    private final QueryExplainer queryExplainer;
+    private final Map<Class<? extends Statement>, QueryExecutionFactory<?>> executionFactories;
+    private final WarningCollectorFactory warningCollectorFactory;
+
     private final ExchangeClientSupplier exchangeClientSupplier;
     private final BlockEncodingSerde blockEncodingSerde;
 
-    private final ExecutorService queryCreationExecutor;
+    private final ListeningExecutorService queryCreationExecutor;
     private final BoundedExecutor resultsProcessorExecutor;
     private final ScheduledExecutorService timeoutExecutor;
 
@@ -84,6 +109,8 @@ public class QuerySubmissionManager
             Metadata metadata,
             QueryMonitor queryMonitor,
             LocationFactory locationFactory,
+            SqlParser sqlParser,
+            QueryExplainer queryExplainer,
             Map<Class<? extends Statement>, QueryExecutionFactory<?>> executionFactories,
             WarningCollectorFactory warningCollectorFactory,
             ExchangeClientSupplier exchangeClientSupplier,
@@ -93,9 +120,17 @@ public class QuerySubmissionManager
             @ForStatementResource ScheduledExecutorService timeoutExecutor)
     {
         this.queryManager = requireNonNull(queryManager, "queryManager is null");
+        this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
+        this.accessControl = requireNonNull(accessControl, "accessControl is null");
+        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.locationFactory = requireNonNull(locationFactory, "locationFactory is null");
+        this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
+        this.queryExplainer = requireNonNull(queryExplainer, "queryExplainer is null");
+        this.executionFactories = requireNonNull(executionFactories, "executionFactories is null");
+        this.warningCollectorFactory = requireNonNull(warningCollectorFactory, "warningCollectorFactory is null");
         this.exchangeClientSupplier = requireNonNull(exchangeClientSupplier, "exchangeClientSupplier is null");
         this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
-        this.queryCreationExecutor = requireNonNull(queryCreationExecutor, "queryCreationExecutor is null");
+        this.queryCreationExecutor = listeningDecorator(requireNonNull(queryCreationExecutor, "queryCreationExecutor is null"));
         this.resultsProcessorExecutor = requireNonNull(resultsProcessorExecutor, "resultsProcessorExecutor is null");
         this.timeoutExecutor = requireNonNull(timeoutExecutor, "timeoutExecutor is null");
 
@@ -136,6 +171,129 @@ public class QuerySubmissionManager
     {
         queryManager.createQuery(queryExecution);
         return queryExecution;
+    }
+
+    public void submitQuery(
+            Session session,
+            String sql,
+            String slug,
+            Duration queryElapsedTime,
+            Duration queryQueueDuration,
+            PreparedQuery preparedQuery,
+            ResourceGroupId resourceGroup)
+    {
+        queries.computeIfAbsent(session.getQueryId(), id -> {
+            ExchangeClient exchangeClient = exchangeClientSupplier.get(new SimpleLocalMemoryContext(
+                    newSimpleAggregatedMemoryContext(),
+                    ExecutingStatementResource.class.getSimpleName()));
+            return createQuery(
+                    session.getQueryId(),
+                    slug,
+                    queryElapsedTime,
+                    queryQueueDuration,
+                    queryManager,
+                    () -> createAndSubmitQueryExecution(session, sql, preparedQuery, resourceGroup),
+                    throwable -> {
+                        QueryExecution queryExecution = createFailedQueryExecution(session, sql, resourceGroup, throwable);
+                        queryManager.createQuery(queryExecution);
+                        return queryExecution;
+                    },
+                    exchangeClient,
+                    queryCreationExecutor,
+                    resultsProcessorExecutor,
+                    timeoutExecutor,
+                    blockEncodingSerde);
+        });
+    }
+
+    private QueryExecution createAndSubmitQueryExecution(
+            Session session,
+            String query,
+            PreparedQuery preparedQuery,
+            ResourceGroupId resourceGroup)
+    {
+        try {
+            WarningCollector warningCollector = warningCollectorFactory.create();
+            QueryStateMachine stateMachine = QueryStateMachine.begin(
+                    query,
+                    session,
+                    locationFactory.createQueryLocation(session.getQueryId()),
+                    resourceGroup,
+                    isTransactionControlStatement(preparedQuery.getStatement()),
+                    transactionManager,
+                    accessControl,
+                    queryCreationExecutor,
+                    metadata,
+                    warningCollector);
+
+            QueryExecutionFactory<?> queryExecutionFactory = executionFactories.get(preparedQuery.getStatement().getClass());
+            if (queryExecutionFactory == null) {
+                throw new PrestoException(NOT_SUPPORTED, "Unsupported statement type: " + preparedQuery.getStatement().getClass().getSimpleName());
+            }
+
+            QueryExecution queryExecution = queryExecutionFactory.createQueryExecution(preparedQuery, stateMachine, warningCollector);
+            return submitQueryExecution(queryExecution);
+        }
+        catch (Throwable e) {
+            QueryExecution failedQueryExecution = createFailedQueryExecution(session, query, resourceGroup, e);
+            return submitQueryExecution(failedQueryExecution);
+        }
+    }
+
+    private QueryExecution createFailedQueryExecution(Session session, String query, ResourceGroupId resourceGroup, Throwable throwable)
+    {
+        // this must never fail
+        URI self;
+        try {
+            self = locationFactory.createQueryLocation(session.getQueryId());
+        }
+        catch (Throwable ignored) {
+            self = URI.create("failed://" + session.getQueryId());
+        }
+        return new FailedQueryExecution(session, query, self, Optional.of(resourceGroup), queryCreationExecutor, throwable);
+    }
+
+    public void analyzeQuery(Session session, PreparedQuery preparedQuery)
+    {
+        // skip transaction control statements
+        boolean transactionControl = isTransactionControlStatement(preparedQuery.getStatement());
+        if (transactionControl) {
+            return;
+        }
+
+        // If there is an existing transaction, activate it, otherwise, begin an auto commit transaction
+        boolean autoCommit;
+        TransactionId transactionId;
+        if (session.getTransactionId().isPresent()) {
+            transactionId = session.getTransactionId().get();
+            transactionManager.activateTransaction(session, false, accessControl);
+            autoCommit = false;
+        }
+        else {
+            transactionId = transactionManager.beginTransaction(true);
+            session = session.beginTransactionId(transactionId, transactionManager, accessControl);
+            autoCommit = true;
+        }
+
+        try {
+            Analyzer analyzer = new Analyzer(
+                    session,
+                    metadata,
+                    sqlParser,
+                    accessControl,
+                    Optional.of(queryExplainer),
+                    preparedQuery.getParameters(),
+                    WarningCollector.NOOP);
+            analyzer.analyze(preparedQuery.getStatement());
+        }
+        finally {
+            if (autoCommit) {
+                transactionManager.asyncAbort(transactionId);
+            }
+            else {
+                transactionManager.trySetInactive(transactionId);
+            }
+        }
     }
 
     public Optional<Query> getQuery(QueryId queryId)

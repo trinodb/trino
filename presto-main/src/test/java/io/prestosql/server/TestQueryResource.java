@@ -52,10 +52,16 @@ public class TestQueryResource
 
     @BeforeClass
     public void setup()
+            throws InterruptedException
     {
         runToCompletion("SELECT 1");
         runToCompletion("SELECT 2");
         runToCompletion("SELECT x FROM y");
+        // it can take a while for finished state to propagate back to the dispatcher
+        while (server.getDispatchManager().getQueries().stream()
+                .anyMatch(basicQueryInfo -> !basicQueryInfo.getState().isDone())) {
+            Thread.sleep(10);
+        }
     }
 
     private void runToCompletion(String sql)

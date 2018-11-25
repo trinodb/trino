@@ -279,7 +279,7 @@ public class QueuedStatementResource
                         .build());
     }
 
-    private static final class Query
+    public static final class Query
     {
         private final String query;
         private final SessionContext sessionContext;

@@ -78,6 +78,7 @@ public class DispatchManager
             QueryIdGenerator queryIdGenerator,
             QueryPreparer queryPreparer,
             @SuppressWarnings("rawtypes") ResourceGroupManager resourceGroupManager,
+            QueryTracker<DispatchQuery> dispatchQueryTracker,
             DispatchQueryFactory dispatchQueryFactory,
             FailedDispatchQueryFactory failedDispatchQueryFactory,
             TransactionManager transactionManager,
@@ -90,6 +91,7 @@ public class DispatchManager
         this.queryIdGenerator = requireNonNull(queryIdGenerator, "queryIdGenerator is null");
         this.queryPreparer = requireNonNull(queryPreparer, "queryPreparer is null");
         this.resourceGroupManager = requireNonNull(resourceGroupManager, "resourceGroupManager is null");
+        this.queryTracker = requireNonNull(dispatchQueryTracker, "dispatchQueryTracker is null");
         this.dispatchQueryFactory = requireNonNull(dispatchQueryFactory, "dispatchQueryFactory is null");
         this.failedDispatchQueryFactory = requireNonNull(failedDispatchQueryFactory, "failedDispatchQueryFactory is null");
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
@@ -100,8 +102,6 @@ public class DispatchManager
         this.maxQueryLength = queryManagerConfig.getMaxQueryLength();
 
         this.queryExecutor = requireNonNull(dispatchExecutor, "dispatchExecutor is null").getExecutor();
-
-        this.queryTracker = new QueryTracker<>(queryManagerConfig, dispatchExecutor.getScheduledExecutor());
     }
 
     @Managed

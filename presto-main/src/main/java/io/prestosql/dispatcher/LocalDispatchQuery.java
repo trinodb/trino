@@ -86,6 +86,12 @@ public class LocalDispatchQuery
     }
 
     @Override
+    public void updateRemoteQueryInfo(BasicQueryInfo remoteQueryInfo)
+    {
+        // this should never happen, but if it did, it would be out of date
+    }
+
+    @Override
     public void startWaitingForResources()
     {
         if (stateMachine.transitionToWaitingForResources()) {
