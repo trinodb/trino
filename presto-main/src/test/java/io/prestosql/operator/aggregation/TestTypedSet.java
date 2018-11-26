@@ -22,6 +22,7 @@ import org.testng.annotations.Test;
 
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 import static io.airlift.slice.Slices.utf8Slice;
@@ -129,7 +130,7 @@ public class TestTypedSet
         int initialTypedSetEntryCount = 10;
 
         BlockBuilder emptyBlockBuilder = BIGINT.createFixedSizeBlockBuilder(elementCount);
-        TypedSet typedSet = new TypedSet(BIGINT, emptyBlockBuilder, initialTypedSetEntryCount, FUNCTION_NAME);
+        TypedSet typedSet = new TypedSet(BIGINT, Optional.empty(), emptyBlockBuilder, initialTypedSetEntryCount, FUNCTION_NAME);
         BlockBuilder externalBlockBuilder = BIGINT.createFixedSizeBlockBuilder(elementCount);
         for (int i = 0; i < elementCount; i++) {
             if (i % 10 == 0) {
@@ -167,7 +168,7 @@ public class TestTypedSet
         // The secondBlockBuilder should already have elementCount rows.
         BlockBuilder secondBlockBuilder = pageBuilder.getBlockBuilder(0);
 
-        TypedSet typedSet = new TypedSet(BIGINT, secondBlockBuilder, initialTypedSetEntryCount, FUNCTION_NAME);
+        TypedSet typedSet = new TypedSet(BIGINT, Optional.empty(), secondBlockBuilder, initialTypedSetEntryCount, FUNCTION_NAME);
         BlockBuilder externalBlockBuilder = BIGINT.createFixedSizeBlockBuilder(elementCount);
         for (int i = 0; i < elementCount; i++) {
             if (i % 10 == 0) {
@@ -195,7 +196,7 @@ public class TestTypedSet
         testGetElementPositionRandomFor(set);
 
         BlockBuilder emptyBlockBuilder = VARCHAR.createBlockBuilder(null, 3);
-        TypedSet setWithPassedInBuilder = new TypedSet(VARCHAR, emptyBlockBuilder, 1, FUNCTION_NAME);
+        TypedSet setWithPassedInBuilder = new TypedSet(VARCHAR, Optional.empty(), emptyBlockBuilder, 1, FUNCTION_NAME);
         testGetElementPositionRandomFor(setWithPassedInBuilder);
     }
 
@@ -275,7 +276,7 @@ public class TestTypedSet
         testBigintFor(typedSet, longBlock);
 
         BlockBuilder emptyBlockBuilder = BIGINT.createBlockBuilder(null, expectedSetSize);
-        TypedSet typedSetWithPassedInBuilder = new TypedSet(BIGINT, emptyBlockBuilder, expectedSetSize, FUNCTION_NAME);
+        TypedSet typedSetWithPassedInBuilder = new TypedSet(BIGINT, Optional.empty(), emptyBlockBuilder, expectedSetSize, FUNCTION_NAME);
         testBigintFor(typedSetWithPassedInBuilder, longBlock);
     }
 

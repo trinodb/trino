@@ -997,6 +997,16 @@ public class TestArrayOperators
         assertFunction("ARRAY_DISTINCT(ARRAY [NULL, NULL])", new ArrayType(UNKNOWN), asList((Object) null));
         assertFunction("ARRAY_DISTINCT(ARRAY [NULL, NULL, NULL])", new ArrayType(UNKNOWN), asList((Object) null));
 
+        // Indeterminate values
+        assertFunction(
+                "ARRAY_DISTINCT(ARRAY[(123, 'abc'), (123, NULL)])",
+                new ArrayType(RowType.anonymous(ImmutableList.of(INTEGER, createVarcharType(3)))),
+                ImmutableList.of(asList(123, "abc"), asList(123, null)));
+        assertFunction(
+                "ARRAY_DISTINCT(ARRAY[(NULL, NULL), (42, 'def'), (NULL, 'abc'), (123, NULL), (42, 'def'), (NULL, NULL), (NULL, 'abc'), (123, NULL)])",
+                new ArrayType(RowType.anonymous(ImmutableList.of(INTEGER, createVarcharType(3)))),
+                ImmutableList.of(asList(null, null), asList(42, "def"), asList(null, "abc"), asList(123, null)));
+
         // Test for BIGINT-optimized implementation
         assertFunction("ARRAY_DISTINCT(ARRAY [CAST(5 AS BIGINT), NULL, CAST(12 AS BIGINT), NULL])", new ArrayType(BIGINT), asList(5L, null, 12L));
         assertFunction("ARRAY_DISTINCT(ARRAY [CAST(100 AS BIGINT), NULL, CAST(100 AS BIGINT), NULL, 0, -2, 0])", new ArrayType(BIGINT), asList(100L, null, 0L, -2L));
@@ -1192,13 +1202,25 @@ public class TestArrayOperators
                 new ArrayType(RowType.anonymous(ImmutableList.of(INTEGER, createVarcharType(3)))),
                 ImmutableList.of());
 
-        // test unsupported
-        assertNotSupported(
+        // Indeterminate values
+        assertFunction(
                 "ARRAY_INTERSECT(ARRAY[(123, 'abc'), (123, NULL)], ARRAY[(123, 'abc'), (123, NULL)])",
-                "ROW comparison not supported for fields with null elements");
-        assertNotSupported(
+                new ArrayType(RowType.anonymous(ImmutableList.of(INTEGER, createVarcharType(3)))),
+                ImmutableList.of(asList(123, "abc"), asList(123, null)));
+        assertFunction(
                 "ARRAY_INTERSECT(ARRAY[(NULL, 'abc'), (123, 'abc')], ARRAY[(123, 'abc'),(NULL, 'abc')])",
-                "ROW comparison not supported for fields with null elements");
+                new ArrayType(RowType.anonymous(ImmutableList.of(INTEGER, createVarcharType(3)))),
+                ImmutableList.of(asList(null, "abc"), asList(123, "abc")));
+        assertFunction(
+                "ARRAY_INTERSECT(" +
+                        "ARRAY[(NULL, 'abc'), (123, 'abc'), (NULL, 'def'), (NULL, 'abc')], " +
+                        "ARRAY[(123, 'abc'), (NULL, 'abc'), (123, 'def'), (123, 'abc'), (123, 'abc'), (123, 'abc'), (123, 'abc'), (NULL, 'abc'), (NULL, 'abc'), (NULL, 'abc')])",
+                new ArrayType(RowType.anonymous(ImmutableList.of(INTEGER, createVarcharType(3)))),
+                ImmutableList.of(asList(123, "abc"), asList(null, "abc")));
+        assertFunction(
+                "ARRAY_INTERSECT(ARRAY[(123, 456), (123, NULL), (42, 43)], ARRAY[(123, NULL), (123, 456), (42, NULL), (NULL, 43)])",
+                new ArrayType(RowType.anonymous(ImmutableList.of(INTEGER, INTEGER))),
+                ImmutableList.of(asList(123, null), asList(123, 456)));
 
         assertCachedInstanceHasBoundedRetainedSize("ARRAY_INTERSECT(ARRAY ['foo', 'bar', 'baz'], ARRAY ['foo', 'test', 'bar'])");
     }
