@@ -45,8 +45,8 @@ COPY --from=build /build/jmx_prometheus_javaagent.jar $PROMETHEUS_JMX_EXPORTER
 
 # https://docs.oracle.com/javase/7/docs/technotes/guides/net/properties.html
 # Java caches dns results forever, don't cache dns results forever:
-RUN echo 'networkaddress.cache.ttl = 0' >> $JAVA_HOME/lib/security/java.security
-RUN echo 'networkaddress.cache.negative.ttl = 0' >> $JAVA_HOME/lib/security/java.security
+RUN echo 'networkaddress.cache.ttl=0' >> $JAVA_HOME/lib/security/java.security
+RUN echo 'networkaddress.cache.negative.ttl=0' >> $JAVA_HOME/lib/security/java.security
 
 RUN ln $PRESTO_CLI /usr/local/bin/presto-cli \
         && chmod 755 /usr/local/bin/presto-cli
