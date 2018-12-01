@@ -107,6 +107,7 @@ public class TestSetRoleTask
         SetRole setRole = (SetRole) parser.createStatement(statement);
         QueryStateMachine stateMachine = QueryStateMachine.begin(
                 statement,
+                Optional.empty(),
                 testSessionBuilder()
                         .setCatalog(CATALOG_NAME)
                         .build(),
