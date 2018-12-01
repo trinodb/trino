@@ -38,6 +38,7 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import java.net.URI;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 
@@ -107,6 +108,7 @@ public class TestResetSessionTask
 
         QueryStateMachine stateMachine = QueryStateMachine.begin(
                 "reset foo",
+                Optional.empty(),
                 session,
                 URI.create("fake://uri"),
                 new ResourceGroupId("test"),

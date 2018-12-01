@@ -230,6 +230,7 @@ public class QueryResource
                 info.getSelf(),
                 ImmutableList.of(),
                 info.getQuery(),
+                info.getPreparedQuery(),
                 queryStats,
                 Optional.empty(),
                 Optional.empty(),

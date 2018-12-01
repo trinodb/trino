@@ -107,6 +107,7 @@ public class TestSetPathTask
     {
         return QueryStateMachine.begin(
                 query,
+                Optional.empty(),
                 TEST_SESSION,
                 URI.create("fake://uri"),
                 new ResourceGroupId("test"),
