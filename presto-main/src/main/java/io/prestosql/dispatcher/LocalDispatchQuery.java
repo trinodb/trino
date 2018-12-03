@@ -13,8 +13,8 @@
  */
 package io.prestosql.dispatcher;
 
-import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.prestosql.Session;
@@ -32,16 +32,14 @@ import org.joda.time.DateTime;
 
 import java.util.Optional;
 import java.util.concurrent.Executor;
-import java.util.function.Function;
+import java.util.function.Consumer;
 
-import static com.google.common.util.concurrent.Futures.immediateFuture;
-import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static com.google.common.util.concurrent.Futures.nonCancellationPropagating;
 import static io.airlift.concurrent.MoreFutures.addExceptionCallback;
 import static io.airlift.concurrent.MoreFutures.addSuccessCallback;
 import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.prestosql.execution.QueryState.FAILED;
-import static io.prestosql.execution.QueryState.PLANNING;
 import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.prestosql.util.Failures.toFailure;
 import static java.util.Objects.requireNonNull;
@@ -59,7 +57,8 @@ public class LocalDispatchQuery
 
     private final Executor queryExecutor;
 
-    private final Function<QueryExecution, ListenableFuture<?>> querySubmitter;
+    private final Consumer<QueryExecution> querySubmitter;
+    private final SettableFuture<?> submitted = SettableFuture.create();
 
     public LocalDispatchQuery(
             QueryStateMachine stateMachine,
@@ -67,7 +66,7 @@ public class LocalDispatchQuery
             CoordinatorLocation coordinatorLocation,
             ClusterSizeMonitor clusterSizeMonitor,
             Executor queryExecutor,
-            Function<QueryExecution, ListenableFuture<?>> querySubmitter)
+            Consumer<QueryExecution> querySubmitter)
     {
         this.stateMachine = requireNonNull(stateMachine, "stateMachine is null");
         this.queryExecutionFuture = requireNonNull(queryExecutionFuture, "queryExecutionFuture is null");
@@ -77,6 +76,11 @@ public class LocalDispatchQuery
         this.querySubmitter = requireNonNull(querySubmitter, "querySubmitter is null");
 
         addExceptionCallback(queryExecutionFuture, stateMachine::transitionToFailed);
+        stateMachine.addStateChangeListener(state -> {
+            if (state.isDone()) {
+                submitted.set(null);
+            }
+        });
     }
 
     @Override
@@ -99,7 +103,12 @@ public class LocalDispatchQuery
     {
         queryExecutor.execute(() -> {
             if (stateMachine.transitionToDispatching()) {
-                querySubmitter.apply(queryExecution);
+                try {
+                    querySubmitter.accept(queryExecution);
+                }
+                finally {
+                    submitted.set(null);
+                }
             }
         });
     }
@@ -119,15 +128,7 @@ public class LocalDispatchQuery
     @Override
     public ListenableFuture<?> getDispatchedFuture()
     {
-        return queryDispatchFuture(stateMachine.getQueryState());
-    }
-
-    private ListenableFuture<?> queryDispatchFuture(QueryState currentState)
-    {
-        if (currentState.ordinal() >= PLANNING.ordinal()) {
-            return immediateFuture(null);
-        }
-        return Futures.transformAsync(stateMachine.getStateChange(currentState), this::queryDispatchFuture, directExecutor());
+        return nonCancellationPropagating(submitted);
     }
 
     @Override
@@ -139,7 +140,7 @@ public class LocalDispatchQuery
                     .orElseGet(() -> toFailure(new PrestoException(GENERIC_INTERNAL_ERROR, "Query failed for an unknown reason")));
             return DispatchInfo.failed(failureInfo, queryInfo.getQueryStats().getElapsedTime(), queryInfo.getQueryStats().getQueuedTime());
         }
-        if (queryInfo.getState().ordinal() >= PLANNING.ordinal()) {
+        if (submitted.isDone()) {
             return DispatchInfo.dispatched(coordinatorLocation, queryInfo.getQueryStats().getElapsedTime(), queryInfo.getQueryStats().getQueuedTime());
         }
         return DispatchInfo.queued(queryInfo.getQueryStats().getElapsedTime(), queryInfo.getQueryStats().getQueuedTime());
