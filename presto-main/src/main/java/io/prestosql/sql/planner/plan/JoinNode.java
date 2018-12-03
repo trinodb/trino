@@ -288,7 +288,7 @@ public class JoinNode
     }
 
     @Override
-    public PlanNode replaceChildren(List<PlanNode> newChildren)
+    public JoinNode replaceChildren(List<PlanNode> newChildren)
     {
         checkArgument(newChildren.size() == 2, "expected newChildren to contain 2 nodes");
         return new JoinNode(getId(), type, newChildren.get(0), newChildren.get(1), criteria, outputSymbols, filter, leftHashSymbol, rightHashSymbol, distributionType);

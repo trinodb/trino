@@ -86,6 +86,7 @@ import io.prestosql.sql.planner.iterative.rule.PushProjectionThroughExchange;
 import io.prestosql.sql.planner.iterative.rule.PushProjectionThroughUnion;
 import io.prestosql.sql.planner.iterative.rule.PushRemoteExchangeThroughAssignUniqueId;
 import io.prestosql.sql.planner.iterative.rule.PushTableWriteThroughUnion;
+import io.prestosql.sql.planner.iterative.rule.PushTopNThroughOuterJoinRuleSet;
 import io.prestosql.sql.planner.iterative.rule.PushTopNThroughUnion;
 import io.prestosql.sql.planner.iterative.rule.RemoveEmptyDelete;
 import io.prestosql.sql.planner.iterative.rule.RemoveFullSample;
@@ -289,7 +290,9 @@ public class PlanOptimizers
                                         new MergeLimitWithTopN(),
                                         new PushLimitThroughMarkDistinct(),
                                         new PushLimitThroughOuterJoin(),
-                                        new PushLimitThroughSemiJoin(),
+                                        new PushLimitThroughSemiJoin()))
+                                .addAll(PushTopNThroughOuterJoinRuleSet.rules())
+                                .addAll(ImmutableSet.of(
                                         new RemoveTrivialFilters(),
                                         new ImplementFilteredAggregations(),
                                         new SingleDistinctAggregationToGroupBy(),

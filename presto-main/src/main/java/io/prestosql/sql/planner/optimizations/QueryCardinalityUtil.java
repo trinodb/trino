@@ -24,6 +24,7 @@ import io.prestosql.sql.planner.plan.LimitNode;
 import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.PlanVisitor;
 import io.prestosql.sql.planner.plan.ProjectNode;
+import io.prestosql.sql.planner.plan.TopNNode;
 import io.prestosql.sql.planner.plan.ValuesNode;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -142,6 +143,18 @@ public final class QueryCardinalityUtil
 
         @Override
         public Range<Long> visitLimit(LimitNode node, Void context)
+        {
+            Range<Long> sourceCardinalityRange = node.getSource().accept(this, null);
+            long upper = node.getCount();
+            if (sourceCardinalityRange.hasUpperBound()) {
+                upper = min(sourceCardinalityRange.upperEndpoint(), node.getCount());
+            }
+            long lower = min(upper, sourceCardinalityRange.lowerEndpoint());
+            return Range.closed(lower, upper);
+        }
+
+        @Override
+        public Range<Long> visitTopN(TopNNode node, Void context)
         {
             Range<Long> sourceCardinalityRange = node.getSource().accept(this, null);
             long upper = node.getCount();

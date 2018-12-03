@@ -112,4 +112,9 @@ public class TopNNode
     {
         return new TopNNode(getId(), Iterables.getOnlyElement(newChildren), count, orderingScheme, step);
     }
+
+    public TopNNode withStep(Step step)
+    {
+        return new TopNNode(getId(), source, count, orderingScheme, step);
+    }
 }
