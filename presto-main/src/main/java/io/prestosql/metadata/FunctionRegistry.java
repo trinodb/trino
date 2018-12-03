@@ -1125,6 +1125,21 @@ public class FunctionRegistry
         return signature;
     }
 
+    public Signature resolveConstructor(Type type)
+    {
+        Signature signature = internalOperator(OperatorType.CONSTRUCT, type, ImmutableList.of(VARCHAR));
+        try {
+            getScalarFunctionImplementation(signature);
+        }
+        catch (PrestoException e) {
+            if (e.getErrorCode().getCode() == FUNCTION_IMPLEMENTATION_MISSING.toErrorCode().getCode()) {
+                return getCoercion(VARCHAR, type);
+            }
+            throw e;
+        }
+        return signature;
+    }
+
     public static Type typeForMagicLiteral(Type type)
     {
         Class<?> clazz = type.getJavaType();

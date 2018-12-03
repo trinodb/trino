@@ -721,13 +721,11 @@ public class ExpressionAnalyzer
                 throw new SemanticException(TYPE_MISMATCH, node, "Unknown type: " + node.getType());
             }
 
-            if (!JSON.equals(type)) {
-                try {
-                    functionRegistry.getCoercion(VARCHAR, type);
-                }
-                catch (IllegalArgumentException e) {
-                    throw new SemanticException(TYPE_MISMATCH, node, "No literal form for type %s", type);
-                }
+            try {
+                functionRegistry.resolveConstructor(type);
+            }
+            catch (IllegalArgumentException e) {
+                throw new SemanticException(TYPE_MISMATCH, node, "No literal form for type %s", type);
             }
 
             return setExpressionType(node, type);

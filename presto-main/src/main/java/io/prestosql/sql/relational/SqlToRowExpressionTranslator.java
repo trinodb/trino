@@ -149,6 +149,7 @@ public final class SqlToRowExpressionTranslator
         Visitor visitor = new Visitor(
                 functionKind,
                 types,
+                functionRegistry,
                 typeManager,
                 session.getTimeZoneKey(),
                 isLegacyRowFieldOrdinalAccessEnabled(session),
@@ -170,6 +171,7 @@ public final class SqlToRowExpressionTranslator
     {
         private final FunctionKind functionKind;
         private final Map<NodeRef<Expression>, Type> types;
+        private final FunctionRegistry functionRegistry;
         private final TypeManager typeManager;
         private final TimeZoneKey timeZoneKey;
         private final boolean legacyRowFieldOrdinalAccess;
@@ -179,6 +181,7 @@ public final class SqlToRowExpressionTranslator
         private Visitor(
                 FunctionKind functionKind,
                 Map<NodeRef<Expression>, Type> types,
+                FunctionRegistry functionRegistry,
                 TypeManager typeManager,
                 TimeZoneKey timeZoneKey,
                 boolean legacyRowFieldOrdinalAccess,
@@ -186,6 +189,7 @@ public final class SqlToRowExpressionTranslator
         {
             this.functionKind = functionKind;
             this.types = ImmutableMap.copyOf(requireNonNull(types, "types is null"));
+            this.functionRegistry = functionRegistry;
             this.typeManager = typeManager;
             this.timeZoneKey = timeZoneKey;
             this.legacyRowFieldOrdinalAccess = legacyRowFieldOrdinalAccess;
@@ -272,15 +276,8 @@ public final class SqlToRowExpressionTranslator
                 throw new IllegalArgumentException("Unsupported type: " + node.getType());
             }
 
-            if (JSON.equals(type)) {
-                return call(
-                        new Signature("json_parse", SCALAR, getType(node).getTypeSignature(), VARCHAR.getTypeSignature()),
-                        getType(node),
-                        constant(utf8Slice(node.getValue()), VARCHAR));
-            }
-
             return call(
-                    castSignature(getType(node), VARCHAR),
+                    functionRegistry.resolveConstructor(type),
                     getType(node),
                     constant(utf8Slice(node.getValue()), VARCHAR));
         }

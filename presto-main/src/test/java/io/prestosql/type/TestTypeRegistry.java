@@ -60,6 +60,7 @@ import static io.prestosql.type.Re2JRegexpType.RE2J_REGEXP;
 import static io.prestosql.type.UnknownType.UNKNOWN;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -84,6 +85,29 @@ public class TestTypeRegistry
         catch (Throwable t) {
             fail("Expect to throw IllegalArgumentException, got " + t.getClass());
         }
+    }
+
+    @Test
+    public void testResolveConstructor()
+            throws Throwable
+    {
+        assertEquals(
+                typeRegistry.resolveConstructor(BIGINT)
+                        .invoke(utf8Slice("123")),
+                123L);
+
+        assertEquals(
+                typeRegistry.resolveConstructor(IPADDRESS)
+                        .invoke(utf8Slice("1.2.3.4")),
+                wrappedBuffer(base16().decode("00000000000000000000FFFF01020304")));
+
+        assertEquals(
+                typeRegistry.resolveConstructor(JSON)
+                        .invoke(utf8Slice("{ \"abc\": 123 }")),
+                utf8Slice("{\"abc\":123}"));
+
+        assertThatThrownBy(() -> typeRegistry.resolveConstructor(COLOR))
+                .hasMessageMatching("CAST to color cannot be applied to varchar");
     }
 
     @Test

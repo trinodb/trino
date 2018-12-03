@@ -134,6 +134,7 @@ public final class JsonFunctions
         return slice;
     }
 
+    @ScalarOperator(CONSTRUCT)
     @ScalarFunction
     @LiteralParameters("x")
     @SqlType(StandardTypes.JSON)
