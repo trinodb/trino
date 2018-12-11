@@ -16,7 +16,7 @@ package io.prestosql.parquet;
 import com.google.common.primitives.Ints;
 import com.google.common.primitives.Longs;
 import io.prestosql.spi.PrestoException;
-import parquet.io.api.Binary;
+import org.apache.parquet.io.api.Binary;
 
 import java.util.concurrent.TimeUnit;
 

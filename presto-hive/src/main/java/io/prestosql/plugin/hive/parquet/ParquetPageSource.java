@@ -28,8 +28,8 @@ import io.prestosql.spi.connector.ConnectorPageSource;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeManager;
-import parquet.io.MessageColumnIO;
-import parquet.schema.MessageType;
+import org.apache.parquet.io.MessageColumnIO;
+import org.apache.parquet.schema.MessageType;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -43,9 +43,9 @@ import static io.prestosql.parquet.ParquetTypeUtils.lookupColumnByName;
 import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
+import static io.prestosql.plugin.hive.parquet.ParquetColumnIOConverter.constructField;
 import static io.prestosql.plugin.hive.parquet.ParquetPageSourceFactory.getParquetType;
 import static java.util.Objects.requireNonNull;
-import static parquet.io.ColumnIOConverter.constructField;
 
 public class ParquetPageSource
         implements ConnectorPageSource

@@ -29,11 +29,11 @@ import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.Type;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
-import parquet.bytes.BytesUtils;
-import parquet.column.ColumnDescriptor;
-import parquet.column.values.ValuesReader;
-import parquet.column.values.rle.RunLengthBitPackingHybridDecoder;
-import parquet.io.ParquetDecodingException;
+import org.apache.parquet.bytes.BytesUtils;
+import org.apache.parquet.column.ColumnDescriptor;
+import org.apache.parquet.column.values.ValuesReader;
+import org.apache.parquet.column.values.rle.RunLengthBitPackingHybridDecoder;
+import org.apache.parquet.io.ParquetDecodingException;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;

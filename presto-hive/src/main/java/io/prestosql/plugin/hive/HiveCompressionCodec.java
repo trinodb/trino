@@ -17,7 +17,7 @@ import io.prestosql.orc.metadata.CompressionKind;
 import org.apache.hadoop.io.compress.CompressionCodec;
 import org.apache.hadoop.io.compress.GzipCodec;
 import org.apache.hadoop.io.compress.SnappyCodec;
-import parquet.hadoop.metadata.CompressionCodecName;
+import org.apache.parquet.hadoop.metadata.CompressionCodecName;
 
 import java.util.Optional;
 

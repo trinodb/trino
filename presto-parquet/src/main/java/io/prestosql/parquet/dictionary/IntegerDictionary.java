@@ -14,7 +14,7 @@
 package io.prestosql.parquet.dictionary;
 
 import io.prestosql.parquet.DictionaryPage;
-import parquet.column.values.plain.PlainValuesReader.IntegerPlainValuesReader;
+import org.apache.parquet.column.values.plain.PlainValuesReader.IntegerPlainValuesReader;
 
 import java.io.IOException;
 

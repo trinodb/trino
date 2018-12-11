@@ -18,8 +18,8 @@ import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.type.Type;
 
 import static io.prestosql.parquet.ParquetTypeUtils.getShortDecimalValue;
-import static parquet.schema.PrimitiveType.PrimitiveTypeName.INT32;
-import static parquet.schema.PrimitiveType.PrimitiveTypeName.INT64;
+import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT32;
+import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT64;
 
 public class ShortDecimalColumnReader
         extends PrimitiveColumnReader

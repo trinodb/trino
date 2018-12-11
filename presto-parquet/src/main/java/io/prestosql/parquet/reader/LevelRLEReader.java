@@ -13,8 +13,8 @@
  */
 package io.prestosql.parquet.reader;
 
-import parquet.column.values.rle.RunLengthBitPackingHybridDecoder;
-import parquet.io.ParquetDecodingException;
+import org.apache.parquet.column.values.rle.RunLengthBitPackingHybridDecoder;
+import org.apache.parquet.io.ParquetDecodingException;
 
 import java.io.IOException;
 

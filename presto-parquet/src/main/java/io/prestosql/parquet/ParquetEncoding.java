@@ -20,32 +20,32 @@ import io.prestosql.parquet.dictionary.DoubleDictionary;
 import io.prestosql.parquet.dictionary.FloatDictionary;
 import io.prestosql.parquet.dictionary.IntegerDictionary;
 import io.prestosql.parquet.dictionary.LongDictionary;
-import parquet.bytes.BytesUtils;
-import parquet.column.ColumnDescriptor;
-import parquet.column.values.ValuesReader;
-import parquet.column.values.bitpacking.ByteBitPackingValuesReader;
-import parquet.column.values.boundedint.ZeroIntegerValuesReader;
-import parquet.column.values.delta.DeltaBinaryPackingValuesReader;
-import parquet.column.values.deltalengthbytearray.DeltaLengthByteArrayValuesReader;
-import parquet.column.values.deltastrings.DeltaByteArrayReader;
-import parquet.column.values.plain.BinaryPlainValuesReader;
-import parquet.column.values.plain.BooleanPlainValuesReader;
-import parquet.column.values.plain.FixedLenByteArrayPlainValuesReader;
-import parquet.column.values.plain.PlainValuesReader.DoublePlainValuesReader;
-import parquet.column.values.plain.PlainValuesReader.FloatPlainValuesReader;
-import parquet.column.values.plain.PlainValuesReader.IntegerPlainValuesReader;
-import parquet.column.values.plain.PlainValuesReader.LongPlainValuesReader;
-import parquet.column.values.rle.RunLengthBitPackingHybridValuesReader;
-import parquet.io.ParquetDecodingException;
+import org.apache.parquet.bytes.BytesUtils;
+import org.apache.parquet.column.ColumnDescriptor;
+import org.apache.parquet.column.values.ValuesReader;
+import org.apache.parquet.column.values.bitpacking.ByteBitPackingValuesReader;
+import org.apache.parquet.column.values.boundedint.ZeroIntegerValuesReader;
+import org.apache.parquet.column.values.delta.DeltaBinaryPackingValuesReader;
+import org.apache.parquet.column.values.deltalengthbytearray.DeltaLengthByteArrayValuesReader;
+import org.apache.parquet.column.values.deltastrings.DeltaByteArrayReader;
+import org.apache.parquet.column.values.plain.BinaryPlainValuesReader;
+import org.apache.parquet.column.values.plain.BooleanPlainValuesReader;
+import org.apache.parquet.column.values.plain.FixedLenByteArrayPlainValuesReader;
+import org.apache.parquet.column.values.plain.PlainValuesReader.DoublePlainValuesReader;
+import org.apache.parquet.column.values.plain.PlainValuesReader.FloatPlainValuesReader;
+import org.apache.parquet.column.values.plain.PlainValuesReader.IntegerPlainValuesReader;
+import org.apache.parquet.column.values.plain.PlainValuesReader.LongPlainValuesReader;
+import org.apache.parquet.column.values.rle.RunLengthBitPackingHybridValuesReader;
+import org.apache.parquet.io.ParquetDecodingException;
 
 import java.io.IOException;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static parquet.column.values.bitpacking.Packer.BIG_ENDIAN;
-import static parquet.schema.PrimitiveType.PrimitiveTypeName.BINARY;
-import static parquet.schema.PrimitiveType.PrimitiveTypeName.BOOLEAN;
-import static parquet.schema.PrimitiveType.PrimitiveTypeName.FIXED_LEN_BYTE_ARRAY;
-import static parquet.schema.PrimitiveType.PrimitiveTypeName.INT32;
+import static org.apache.parquet.column.values.bitpacking.Packer.BIG_ENDIAN;
+import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.BINARY;
+import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.BOOLEAN;
+import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.FIXED_LEN_BYTE_ARRAY;
+import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT32;
 
 public enum ParquetEncoding
 {

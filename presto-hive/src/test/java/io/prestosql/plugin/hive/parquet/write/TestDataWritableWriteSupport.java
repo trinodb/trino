@@ -16,9 +16,9 @@ package io.prestosql.plugin.hive.parquet.write;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hive.ql.io.parquet.write.DataWritableWriteSupport;
 import org.apache.hadoop.hive.serde2.io.ParquetHiveRecord;
-import parquet.hadoop.api.WriteSupport;
-import parquet.io.api.RecordConsumer;
-import parquet.schema.MessageType;
+import org.apache.parquet.hadoop.api.WriteSupport;
+import org.apache.parquet.io.api.RecordConsumer;
+import org.apache.parquet.schema.MessageType;
 
 import java.util.HashMap;
 

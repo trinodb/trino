@@ -15,8 +15,8 @@ package io.prestosql.parquet.predicate;
 
 import io.prestosql.parquet.ParquetCorruptionException;
 import io.prestosql.parquet.ParquetDataSourceId;
-import parquet.column.ColumnDescriptor;
-import parquet.column.statistics.Statistics;
+import org.apache.parquet.column.ColumnDescriptor;
+import org.apache.parquet.column.statistics.Statistics;
 
 import java.util.Map;
 

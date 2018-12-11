@@ -14,7 +14,7 @@
 package io.prestosql.parquet.predicate;
 
 import io.prestosql.parquet.DictionaryPage;
-import parquet.column.ColumnDescriptor;
+import org.apache.parquet.column.ColumnDescriptor;
 
 import java.util.Optional;
 

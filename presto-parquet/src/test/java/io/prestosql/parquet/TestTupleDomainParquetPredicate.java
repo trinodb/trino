@@ -21,17 +21,17 @@ import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.predicate.ValueSet;
 import io.prestosql.spi.type.VarcharType;
+import org.apache.parquet.column.ColumnDescriptor;
+import org.apache.parquet.column.statistics.BinaryStatistics;
+import org.apache.parquet.column.statistics.BooleanStatistics;
+import org.apache.parquet.column.statistics.DoubleStatistics;
+import org.apache.parquet.column.statistics.FloatStatistics;
+import org.apache.parquet.column.statistics.IntStatistics;
+import org.apache.parquet.column.statistics.LongStatistics;
+import org.apache.parquet.column.statistics.Statistics;
+import org.apache.parquet.io.api.Binary;
+import org.apache.parquet.schema.PrimitiveType;
 import org.testng.annotations.Test;
-import parquet.column.ColumnDescriptor;
-import parquet.column.statistics.BinaryStatistics;
-import parquet.column.statistics.BooleanStatistics;
-import parquet.column.statistics.DoubleStatistics;
-import parquet.column.statistics.FloatStatistics;
-import parquet.column.statistics.IntStatistics;
-import parquet.column.statistics.LongStatistics;
-import parquet.column.statistics.Statistics;
-import parquet.io.api.Binary;
-import parquet.schema.PrimitiveType;
 
 import java.util.Map;
 import java.util.Optional;
@@ -59,12 +59,12 @@ import static io.prestosql.spi.type.VarcharType.createVarcharType;
 import static java.lang.Float.floatToRawIntBits;
 import static java.util.Collections.singletonList;
 import static java.util.Collections.singletonMap;
+import static org.apache.parquet.column.statistics.Statistics.getStatsBasedOnType;
+import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.BINARY;
+import static org.apache.parquet.schema.Type.Repetition.OPTIONAL;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
-import static parquet.column.statistics.Statistics.getStatsBasedOnType;
-import static parquet.schema.PrimitiveType.PrimitiveTypeName.BINARY;
-import static parquet.schema.Type.Repetition.OPTIONAL;
 
 public class TestTupleDomainParquetPredicate
 {

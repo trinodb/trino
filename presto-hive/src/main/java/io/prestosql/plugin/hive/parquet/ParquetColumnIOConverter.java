@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package parquet.io;
+package io.prestosql.plugin.hive.parquet;
 
 import com.google.common.collect.ImmutableList;
 import io.prestosql.parquet.Field;
@@ -22,6 +22,9 @@ import io.prestosql.spi.type.MapType;
 import io.prestosql.spi.type.NamedTypeSignature;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignatureParameter;
+import org.apache.parquet.io.ColumnIO;
+import org.apache.parquet.io.GroupColumnIO;
+import org.apache.parquet.io.PrimitiveColumnIO;
 
 import java.util.List;
 import java.util.Locale;
@@ -33,16 +36,13 @@ import static io.prestosql.parquet.ParquetTypeUtils.lookupColumnByName;
 import static io.prestosql.spi.type.StandardTypes.ARRAY;
 import static io.prestosql.spi.type.StandardTypes.MAP;
 import static io.prestosql.spi.type.StandardTypes.ROW;
-import static parquet.schema.Type.Repetition.OPTIONAL;
+import static org.apache.parquet.io.ColumnIOUtil.columnDefinitionLevel;
+import static org.apache.parquet.io.ColumnIOUtil.columnRepetitionLevel;
+import static org.apache.parquet.schema.Type.Repetition.OPTIONAL;
 
-/**
- * Placed in parquet.io package to have access to ColumnIO getRepetitionLevel() and getDefinitionLevel() methods.
- */
-public class ColumnIOConverter
+final class ParquetColumnIOConverter
 {
-    private ColumnIOConverter()
-    {
-    }
+    private ParquetColumnIOConverter() {}
 
     public static Optional<Field> constructField(Type type, ColumnIO columnIO)
     {
@@ -50,8 +50,8 @@ public class ColumnIOConverter
             return Optional.empty();
         }
         boolean required = columnIO.getType().getRepetition() != OPTIONAL;
-        int repetitionLevel = columnIO.getRepetitionLevel();
-        int definitionLevel = columnIO.getDefinitionLevel();
+        int repetitionLevel = columnRepetitionLevel(columnIO);
+        int definitionLevel = columnDefinitionLevel(columnIO);
         if (ROW.equals(type.getTypeSignature().getBase())) {
             GroupColumnIO groupColumnIO = (GroupColumnIO) columnIO;
             List<Type> parameters = type.getTypeParameters();

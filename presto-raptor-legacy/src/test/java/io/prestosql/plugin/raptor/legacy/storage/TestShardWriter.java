@@ -45,7 +45,6 @@ import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.prestosql.plugin.raptor.legacy.storage.OrcTestingUtil.createReader;
-import static io.prestosql.plugin.raptor.legacy.storage.OrcTestingUtil.createReaderNoRows;
 import static io.prestosql.plugin.raptor.legacy.storage.OrcTestingUtil.fileOrcDataSource;
 import static io.prestosql.plugin.raptor.legacy.storage.OrcTestingUtil.octets;
 import static io.prestosql.spi.type.BigintType.BIGINT;
@@ -195,29 +194,6 @@ public class TestShardWriter
 
         File crcFile = new File(file.getParentFile(), "." + file.getName() + ".crc");
         assertFalse(crcFile.exists());
-    }
-
-    @SuppressWarnings("EmptyTryBlock")
-    @Test
-    public void testWriterZeroRows()
-            throws Exception
-    {
-        List<Long> columnIds = ImmutableList.of(1L);
-        List<Type> columnTypes = ImmutableList.of(BIGINT);
-
-        File file = new File(directory, System.nanoTime() + ".orc");
-
-        try (OrcFileWriter ignored = new OrcFileWriter(columnIds, columnTypes, file)) {
-            // no rows
-        }
-
-        try (OrcDataSource dataSource = fileOrcDataSource(file)) {
-            OrcRecordReader reader = createReaderNoRows(dataSource);
-            assertEquals(reader.getReaderRowCount(), 0);
-            assertEquals(reader.getReaderPosition(), 0);
-
-            assertEquals(reader.nextBatch(), -1);
-        }
     }
 
     @SuppressWarnings("EmptyClass")

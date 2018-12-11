@@ -20,12 +20,12 @@ import io.airlift.units.Duration;
 import io.prestosql.plugin.hive.s3.S3ConfigurationUpdater;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hive.ql.io.orc.OrcFile.OrcTableProperties;
 import org.apache.hadoop.mapreduce.lib.input.LineRecordReader;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.apache.hadoop.net.DNSToSwitchMapping;
 import org.apache.hadoop.net.SocksSocketFactory;
-import parquet.hadoop.ParquetOutputFormat;
+import org.apache.orc.OrcConf;
+import org.apache.parquet.hadoop.ParquetOutputFormat;
 
 import javax.inject.Inject;
 import javax.net.SocketFactory;
@@ -48,7 +48,6 @@ import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_CLIENT_READ_SHORTCIRCUIT_
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_CLIENT_SOCKET_TIMEOUT_KEY;
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DOMAIN_SOCKET_PATH_KEY;
 import static org.apache.hadoop.hive.conf.HiveConf.ConfVars.COMPRESSRESULT;
-import static org.apache.hadoop.hive.conf.HiveConf.ConfVars.HIVE_ORC_DEFAULT_COMPRESS;
 import static org.apache.hadoop.io.SequenceFile.CompressionType.BLOCK;
 
 public class HdfsConfigurationUpdater
@@ -154,10 +153,9 @@ public class HdfsConfigurationUpdater
         config.setBoolean("mapred.output.compress", compression);
         config.setBoolean(FileOutputFormat.COMPRESS, compression);
         // For DWRF
-        config.set(HIVE_ORC_DEFAULT_COMPRESS.varname, compressionCodec.getOrcCompressionKind().name());
-        config.set(HIVE_ORC_COMPRESSION.varname, compressionCodec.getOrcCompressionKind().name());
+        com.facebook.hive.orc.OrcConf.setVar(config, HIVE_ORC_COMPRESSION, compressionCodec.getOrcCompressionKind().name());
         // For ORC
-        config.set(OrcTableProperties.COMPRESSION.getPropName(), compressionCodec.getOrcCompressionKind().name());
+        OrcConf.COMPRESS.setString(config, compressionCodec.getOrcCompressionKind().name());
         // For RCFile and Text
         if (compressionCodec.getCodec().isPresent()) {
             config.set("mapred.output.compression.codec", compressionCodec.getCodec().get().getName());

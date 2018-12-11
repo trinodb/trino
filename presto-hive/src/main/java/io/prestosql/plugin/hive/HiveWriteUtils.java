@@ -233,7 +233,6 @@ public final class HiveWriteUtils
         };
     }
 
-    @SuppressWarnings("deprecation")
     public static Serializer initializeSerializer(Configuration conf, Properties properties, String serializerName)
     {
         try {

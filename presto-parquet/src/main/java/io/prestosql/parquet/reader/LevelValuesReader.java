@@ -13,7 +13,7 @@
  */
 package io.prestosql.parquet.reader;
 
-import parquet.column.values.ValuesReader;
+import org.apache.parquet.column.values.ValuesReader;
 
 public class LevelValuesReader
         implements LevelReader

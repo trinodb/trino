@@ -16,14 +16,12 @@ package io.prestosql.plugin.raptor.legacy.storage;
 import io.airlift.log.Logger;
 import io.prestosql.plugin.raptor.legacy.util.Closer;
 import io.prestosql.plugin.raptor.legacy.util.SyncingFileSystem;
-import io.prestosql.spi.classloader.ThreadContextClassLoader;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hive.ql.io.orc.NullMemoryManager;
+import org.apache.hadoop.hive.ql.io.orc.OrcFile;
 import org.apache.hadoop.hive.ql.io.orc.OrcFile.WriterOptions;
 import org.apache.hadoop.hive.ql.io.orc.OrcStruct;
-import org.apache.hadoop.hive.ql.io.orc.OrcWriterOptions;
 import org.apache.hadoop.hive.ql.io.orc.Reader;
 import org.apache.hadoop.hive.ql.io.orc.RecordReader;
 import org.apache.hadoop.hive.ql.io.orc.Writer;
@@ -33,6 +31,7 @@ import org.apache.hadoop.io.BooleanWritable;
 import org.apache.hadoop.io.BytesWritable;
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
+import org.apache.orc.NullMemoryManager;
 
 import java.io.File;
 import java.io.IOException;
@@ -62,8 +61,7 @@ public final class OrcFileRewriter
     public static OrcFileInfo rewrite(File input, File output, BitSet rowsToDelete)
             throws IOException
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(FileSystem.class.getClassLoader());
-                FileSystem fileSystem = new SyncingFileSystem(CONFIGURATION)) {
+        try (FileSystem fileSystem = new SyncingFileSystem(CONFIGURATION)) {
             Reader reader = createReader(fileSystem, path(input));
 
             if (reader.getNumberOfRows() < rowsToDelete.length()) {
@@ -78,8 +76,8 @@ public final class OrcFileRewriter
             }
             int inputRowCount = toIntExact(reader.getNumberOfRows());
 
-            WriterOptions writerOptions = new OrcWriterOptions(CONFIGURATION)
-                    .memory(new NullMemoryManager(CONFIGURATION))
+            WriterOptions writerOptions = OrcFile.writerOptions(CONFIGURATION)
+                    .memory(new NullMemoryManager())
                     .fileSystem(fileSystem)
                     .compress(reader.getCompression())
                     .inspector(reader.getObjectInspector());

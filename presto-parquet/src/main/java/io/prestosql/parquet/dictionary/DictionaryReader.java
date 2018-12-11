@@ -13,11 +13,11 @@
  */
 package io.prestosql.parquet.dictionary;
 
-import parquet.bytes.BytesUtils;
-import parquet.column.values.ValuesReader;
-import parquet.column.values.rle.RunLengthBitPackingHybridDecoder;
-import parquet.io.ParquetDecodingException;
-import parquet.io.api.Binary;
+import org.apache.parquet.bytes.BytesUtils;
+import org.apache.parquet.column.values.ValuesReader;
+import org.apache.parquet.column.values.rle.RunLengthBitPackingHybridDecoder;
+import org.apache.parquet.io.ParquetDecodingException;
+import org.apache.parquet.io.api.Binary;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;

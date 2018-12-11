@@ -13,7 +13,6 @@
  */
 package io.prestosql.orc;
 
-import com.facebook.hive.orc.OrcConf;
 import com.facebook.hive.orc.lazy.OrcLazyObject;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
@@ -82,6 +81,7 @@ import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.mapred.JobConf;
+import org.apache.orc.OrcConf;
 import org.joda.time.DateTimeZone;
 
 import java.io.File;
@@ -107,6 +107,10 @@ import java.util.Optional;
 import java.util.Properties;
 import java.util.Set;
 
+import static com.facebook.hive.orc.OrcConf.ConfVars.HIVE_ORC_BUILD_STRIDE_DICTIONARY;
+import static com.facebook.hive.orc.OrcConf.ConfVars.HIVE_ORC_COMPRESSION;
+import static com.facebook.hive.orc.OrcConf.ConfVars.HIVE_ORC_DICTIONARY_ENCODING_INTERVAL;
+import static com.facebook.hive.orc.OrcConf.ConfVars.HIVE_ORC_ENTROPY_STRING_THRESHOLD;
 import static com.google.common.collect.Iterators.advance;
 import static com.google.common.collect.Lists.newArrayList;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -183,7 +187,6 @@ public class OrcTester
     {
         ORC_12(OrcEncoding.ORC) {
             @Override
-            @SuppressWarnings("deprecation")
             public Serializer createSerializer()
             {
                 return new OrcSerde();
@@ -191,7 +194,6 @@ public class OrcTester
         },
         ORC_11(OrcEncoding.ORC) {
             @Override
-            @SuppressWarnings("deprecation")
             public Serializer createSerializer()
             {
                 return new OrcSerde();
@@ -205,7 +207,6 @@ public class OrcTester
             }
 
             @Override
-            @SuppressWarnings("deprecation")
             public Serializer createSerializer()
             {
                 return new com.facebook.hive.orc.OrcSerde();
@@ -229,7 +230,6 @@ public class OrcTester
             return true;
         }
 
-        @SuppressWarnings("deprecation")
         public abstract Serializer createSerializer();
     }
 
@@ -976,7 +976,7 @@ public class OrcTester
         Object row = objectInspector.create();
 
         List<StructField> fields = ImmutableList.copyOf(objectInspector.getAllStructFieldRefs());
-        @SuppressWarnings("deprecation") Serializer serializer = format.createSerializer();
+        Serializer serializer = format.createSerializer();
 
         int i = 0;
         while (values.hasNext()) {
@@ -1183,8 +1183,8 @@ public class OrcTester
             throws IOException
     {
         JobConf jobConf = new JobConf();
-        jobConf.set("hive.exec.orc.write.format", format == ORC_12 ? "0.12" : "0.11");
-        jobConf.set("hive.exec.orc.default.compress", compression.name());
+        OrcConf.WRITE_FORMAT.setString(jobConf, format == ORC_12 ? "0.12" : "0.11");
+        OrcConf.COMPRESS.setString(jobConf, compression.name());
 
         return new OrcOutputFormat().getHiveRecordWriter(
                 jobConf,
@@ -1199,11 +1199,10 @@ public class OrcTester
             throws IOException
     {
         JobConf jobConf = new JobConf();
-        jobConf.set("hive.exec.orc.default.compress", compressionCodec.name());
-        jobConf.set("hive.exec.orc.compress", compressionCodec.name());
-        OrcConf.setIntVar(jobConf, OrcConf.ConfVars.HIVE_ORC_ENTROPY_STRING_THRESHOLD, 1);
-        OrcConf.setIntVar(jobConf, OrcConf.ConfVars.HIVE_ORC_DICTIONARY_ENCODING_INTERVAL, 2);
-        OrcConf.setBoolVar(jobConf, OrcConf.ConfVars.HIVE_ORC_BUILD_STRIDE_DICTIONARY, true);
+        com.facebook.hive.orc.OrcConf.setVar(jobConf, HIVE_ORC_COMPRESSION, compressionCodec.name());
+        com.facebook.hive.orc.OrcConf.setIntVar(jobConf, HIVE_ORC_ENTROPY_STRING_THRESHOLD, 1);
+        com.facebook.hive.orc.OrcConf.setIntVar(jobConf, HIVE_ORC_DICTIONARY_ENCODING_INTERVAL, 2);
+        com.facebook.hive.orc.OrcConf.setBoolVar(jobConf, HIVE_ORC_BUILD_STRIDE_DICTIONARY, true);
 
         return new com.facebook.hive.orc.OrcOutputFormat().getHiveRecordWriter(
                 jobConf,

@@ -19,12 +19,12 @@ import io.prestosql.parquet.DataPageV1;
 import io.prestosql.parquet.DataPageV2;
 import io.prestosql.parquet.DictionaryPage;
 import io.prestosql.parquet.ParquetCorruptionException;
-import parquet.column.Encoding;
-import parquet.format.DataPageHeader;
-import parquet.format.DataPageHeaderV2;
-import parquet.format.DictionaryPageHeader;
-import parquet.format.PageHeader;
-import parquet.format.Util;
+import org.apache.parquet.column.Encoding;
+import org.apache.parquet.format.DataPageHeader;
+import org.apache.parquet.format.DataPageHeaderV2;
+import org.apache.parquet.format.DictionaryPageHeader;
+import org.apache.parquet.format.PageHeader;
+import org.apache.parquet.format.Util;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;

@@ -17,7 +17,7 @@ import io.airlift.slice.Slice;
 import io.prestosql.parquet.RichColumnDescriptor;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.type.Type;
-import parquet.io.api.Binary;
+import org.apache.parquet.io.api.Binary;
 
 import static io.airlift.slice.Slices.EMPTY_SLICE;
 import static io.airlift.slice.Slices.wrappedBuffer;

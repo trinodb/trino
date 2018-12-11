@@ -15,8 +15,8 @@ package io.prestosql.parquet;
 
 import io.prestosql.spi.PrestoException;
 import org.apache.hadoop.hive.ql.io.parquet.timestamp.NanoTimeUtils;
+import org.apache.parquet.io.api.Binary;
 import org.testng.annotations.Test;
-import parquet.io.api.Binary;
 
 import java.sql.Timestamp;
 

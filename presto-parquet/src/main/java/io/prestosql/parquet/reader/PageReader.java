@@ -17,7 +17,7 @@ import io.prestosql.parquet.DataPage;
 import io.prestosql.parquet.DataPageV1;
 import io.prestosql.parquet.DataPageV2;
 import io.prestosql.parquet.DictionaryPage;
-import parquet.hadoop.metadata.CompressionCodecName;
+import org.apache.parquet.hadoop.metadata.CompressionCodecName;
 
 import java.io.IOException;
 import java.util.LinkedList;

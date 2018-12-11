@@ -14,17 +14,17 @@
 package io.prestosql.parquet;
 
 import io.prestosql.spi.predicate.TupleDomain;
+import org.apache.parquet.column.ColumnDescriptor;
+import org.apache.parquet.schema.OriginalType;
+import org.apache.parquet.schema.PrimitiveType;
+import org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName;
 import org.testng.annotations.Test;
-import parquet.column.ColumnDescriptor;
-import parquet.schema.OriginalType;
-import parquet.schema.PrimitiveType;
-import parquet.schema.PrimitiveType.PrimitiveTypeName;
 
 import static io.prestosql.parquet.ParquetTypeUtils.getPrestoType;
 import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
+import static org.apache.parquet.schema.Type.Repetition.OPTIONAL;
 import static org.testng.Assert.assertEquals;
-import static parquet.schema.Type.Repetition.OPTIONAL;
 
 public class TestParquetTypeUtils
 {
