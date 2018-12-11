@@ -25,6 +25,7 @@ import io.prestosql.operator.annotations.LiteralImplementationDependency;
 import io.prestosql.operator.annotations.TypeImplementationDependency;
 import io.prestosql.operator.scalar.ParametricScalar;
 import io.prestosql.operator.scalar.ScalarFunctionImplementation;
+import io.prestosql.operator.scalar.annotations.ParametricScalarImplementation.ParametricScalarImplementationChoice;
 import io.prestosql.operator.scalar.annotations.ScalarFromAnnotationsParser;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.function.Description;
@@ -424,7 +425,9 @@ public class TestAnnotationEngineForScalars
         assertEquals(functions.size(), 1);
         ParametricScalar scalar = (ParametricScalar) functions.get(0);
         assertImplementationCount(scalar, 0, 0, 1);
-        List<ImplementationDependency> dependencies = scalar.getImplementations().getGenericImplementations().get(0).getDependencies();
+        List<ParametricScalarImplementationChoice> parametricScalarImplementationChoices = scalar.getImplementations().getGenericImplementations().get(0).getChoices();
+        assertEquals(parametricScalarImplementationChoices.size(), 1);
+        List<ImplementationDependency> dependencies = parametricScalarImplementationChoices.get(0).getDependencies();
         assertEquals(dependencies.size(), 1);
         assertTrue(dependencies.get(0) instanceof LiteralImplementationDependency);
 
@@ -482,9 +485,11 @@ public class TestAnnotationEngineForScalars
         assertEquals(functions.size(), 1);
         ParametricScalar scalar = (ParametricScalar) functions.get(0);
         assertImplementationCount(scalar, 2, 0, 1);
-        List<ImplementationDependency> dependencies = scalar.getImplementations().getGenericImplementations().get(0).getDependencies();
+        List<ParametricScalarImplementationChoice> parametricScalarImplementationChoices = scalar.getImplementations().getGenericImplementations().get(0).getChoices();
+        assertEquals(parametricScalarImplementationChoices.size(), 1);
+        List<ImplementationDependency> dependencies = parametricScalarImplementationChoices.get(0).getDependencies();
         assertEquals(dependencies.size(), 0);
-        List<ImplementationDependency> constructorDependencies = scalar.getImplementations().getGenericImplementations().get(0).getConstructorDependencies();
+        List<ImplementationDependency> constructorDependencies = parametricScalarImplementationChoices.get(0).getConstructorDependencies();
         assertEquals(constructorDependencies.size(), 1);
         assertTrue(constructorDependencies.get(0) instanceof TypeImplementationDependency);
 
@@ -561,7 +566,9 @@ public class TestAnnotationEngineForScalars
         assertEquals(functions.size(), 1);
         ParametricScalar scalar = (ParametricScalar) functions.get(0);
         assertImplementationCount(scalar, 0, 0, 1);
-        List<ImplementationDependency> dependencies = scalar.getImplementations().getGenericImplementations().get(0).getDependencies();
+        List<ParametricScalarImplementationChoice> parametricScalarImplementationChoices = scalar.getImplementations().getGenericImplementations().get(0).getChoices();
+        assertEquals(parametricScalarImplementationChoices.size(), 1);
+        List<ImplementationDependency> dependencies = parametricScalarImplementationChoices.get(0).getDependencies();
         assertEquals(dependencies.size(), 1);
 
         assertEquals(scalar.getSignature(), expectedSignature);
