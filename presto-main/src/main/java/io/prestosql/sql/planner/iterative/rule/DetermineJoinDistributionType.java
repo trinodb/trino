@@ -35,8 +35,7 @@ import java.util.Optional;
 
 import static io.prestosql.SystemSessionProperties.getJoinDistributionType;
 import static io.prestosql.SystemSessionProperties.getJoinMaxBroadcastTableSize;
-import static io.prestosql.cost.CostCalculatorWithEstimatedExchanges.calculateJoinExchangeCost;
-import static io.prestosql.cost.CostCalculatorWithEstimatedExchanges.calculateJoinInputCost;
+import static io.prestosql.cost.CostCalculatorWithEstimatedExchanges.calculateJoinCostWithoutOutput;
 import static io.prestosql.sql.analyzer.FeaturesConfig.JoinDistributionType.AUTOMATIC;
 import static io.prestosql.sql.planner.optimizations.QueryCardinalityUtil.isAtMostScalar;
 import static io.prestosql.sql.planner.plan.JoinNode.DistributionType.PARTITIONED;
@@ -180,20 +179,13 @@ public class DetermineJoinDistributionType
          *   the hash table scales with the number of nodes where the build side is replicated.
          */
         int estimatedSourceDistributedTaskCount = taskCountEstimator.estimateSourceDistributedTaskCount();
-        PlanNodeCostEstimate exchangesCost = calculateJoinExchangeCost(
+        PlanNodeCostEstimate cost = calculateJoinCostWithoutOutput(
                 possibleJoinNode.getLeft(),
                 possibleJoinNode.getRight(),
                 stats,
                 types,
                 replicated,
                 estimatedSourceDistributedTaskCount);
-        PlanNodeCostEstimate inputCost = calculateJoinInputCost(
-                possibleJoinNode.getLeft(),
-                possibleJoinNode.getRight(),
-                stats,
-                types,
-                replicated,
-                estimatedSourceDistributedTaskCount);
-        return new PlanNodeWithCost(exchangesCost.add(inputCost), possibleJoinNode);
+        return new PlanNodeWithCost(cost, possibleJoinNode);
     }
 }
