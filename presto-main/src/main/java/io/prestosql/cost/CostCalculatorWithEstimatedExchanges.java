@@ -184,7 +184,32 @@ public class CostCalculatorWithEstimatedExchanges
         return networkCost(inputSizeInBytes * destinationTaskCount);
     }
 
-    public static PlanNodeCostEstimate calculateJoinExchangeCost(
+    public static PlanNodeCostEstimate calculateJoinCostWithoutOutput(
+            PlanNode probe,
+            PlanNode build,
+            StatsProvider stats,
+            TypeProvider types,
+            boolean replicated,
+            int estimatedSourceDistributedTaskCount)
+    {
+        PlanNodeCostEstimate exchangesCost = calculateJoinExchangeCost(
+                probe,
+                build,
+                stats,
+                types,
+                replicated,
+                estimatedSourceDistributedTaskCount);
+        PlanNodeCostEstimate inputCost = calculateJoinInputCost(
+                probe,
+                build,
+                stats,
+                types,
+                replicated,
+                estimatedSourceDistributedTaskCount);
+        return exchangesCost.add(inputCost);
+    }
+
+    private static PlanNodeCostEstimate calculateJoinExchangeCost(
             PlanNode probe,
             PlanNode build,
             StatsProvider stats,
