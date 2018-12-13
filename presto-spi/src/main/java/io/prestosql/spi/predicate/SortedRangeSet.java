@@ -376,6 +376,12 @@ public final class SortedRangeSet
     }
 
     @Override
+    public String toString()
+    {
+        return lowIndexedRanges.values().toString();
+    }
+
+    @Override
     public String toString(ConnectorSession session)
     {
         return "[" + lowIndexedRanges.values().stream()

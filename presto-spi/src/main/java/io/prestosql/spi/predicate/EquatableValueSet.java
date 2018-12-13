@@ -269,6 +269,15 @@ public class EquatableValueSet
     }
 
     @Override
+    public String toString()
+    {
+        return format(
+                "%s[... (%d elements) ...]",
+                whiteList ? "" : "EXCLUDES",
+                entries.size());
+    }
+
+    @Override
     public String toString(ConnectorSession session)
     {
         return (whiteList ? "[ " : "EXCLUDES[ ") + entries.stream()

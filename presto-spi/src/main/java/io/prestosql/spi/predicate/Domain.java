@@ -299,6 +299,12 @@ public final class Domain
         return Domain.create(simplifiedValueSet, nullAllowed);
     }
 
+    @Override
+    public String toString()
+    {
+        return "[ " + (nullAllowed ? "NULL, " : "") + values.toString() + " ]";
+    }
+
     public String toString(ConnectorSession session)
     {
         return "[ " + (nullAllowed ? "NULL, " : "") + values.toString(session) + " ]";
