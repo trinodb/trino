@@ -23,6 +23,7 @@ import io.prestosql.spi.type.Type;
 
 import java.util.Objects;
 import java.util.Optional;
+import java.util.StringJoiner;
 
 import static io.prestosql.spi.predicate.Utils.blockToNativeValue;
 import static io.prestosql.spi.predicate.Utils.nativeValueToBlock;
@@ -292,6 +293,21 @@ public final class Marker
                 && this.bound == other.bound
                 && ((this.valueBlock.isPresent()) == (other.valueBlock.isPresent()))
                 && (!this.valueBlock.isPresent() || type.equalTo(this.valueBlock.get(), 0, other.valueBlock.get(), 0));
+    }
+
+    @Override
+    public String toString()
+    {
+        StringJoiner stringJoiner = new StringJoiner(", ", Marker.class.getSimpleName() + "[", "]");
+        if (isLowerUnbounded()) {
+            stringJoiner.add("lower unbounded");
+        }
+        else if (isUpperUnbounded()) {
+            stringJoiner.add("upper unbounded");
+        }
+        stringJoiner.add("bound=" + bound);
+        valueBlock.ifPresent(valueBlock -> stringJoiner.add("valueBlock=..."));
+        return stringJoiner.toString();
     }
 
     public String toString(ConnectorSession session)
