@@ -836,7 +836,7 @@ public class MetadataManager
             ConnectorViewDefinition view = views.get(viewName.asSchemaTableName());
             if (view != null) {
                 ViewDefinition definition = deserializeView(view.getViewData());
-                if (view.getOwner().isPresent()) {
+                if (view.getOwner().isPresent() && !definition.isRunAsInvoker()) {
                     definition = definition.withOwner(view.getOwner().get());
                 }
                 return Optional.of(definition);
@@ -1007,7 +1007,8 @@ public class MetadataManager
         return getCatalogMetadataForWrite(session, connectorId).getMetadata();
     }
 
-    private static JsonCodec<ViewDefinition> createTestingViewCodec()
+    @VisibleForTesting
+    static JsonCodec<ViewDefinition> createTestingViewCodec()
     {
         ObjectMapperProvider provider = new ObjectMapperProvider();
         provider.setJsonDeserializers(ImmutableMap.of(Type.class, new TypeDeserializer(new TypeRegistry())));

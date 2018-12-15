@@ -7,7 +7,9 @@ Synopsis
 
 .. code-block:: none
 
-    CREATE [ OR REPLACE ] VIEW view_name AS query
+    CREATE [ OR REPLACE ] VIEW view_name
+    [ SECURITY { DEFINER | INVOKER } ]
+    AS query
 
 Description
 -----------
@@ -19,6 +21,23 @@ referenced by another query.
 
 The optional ``OR REPLACE`` clause causes the view to be replaced if it
 already exists rather than raising an error.
+
+Security
+--------
+
+In the default ``DEFINER`` security mode, tables referenced in the view
+are accessed using the permissions of the view owner (the *creator* or
+*definer* of the view) rather than the user executing the query. This
+allows providing restricted access to the underlying tables, for which
+the user may not be allowed to access directly.
+
+In the ``INVOKER`` security mode, tables referenced in the view are accessed
+using the permissions of the user executing the query (the *invoker* of the view).
+A view created in this mode is simply a stored query.
+
+Regardless of the security mode, the ``current_user`` function will
+always return the user executing the query and thus may be used
+within views to filter out rows or otherwise restrict access.
 
 Examples
 --------
