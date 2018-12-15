@@ -40,6 +40,7 @@ import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.prestosql.metadata.MetadataUtil.createQualifiedObjectName;
 import static io.prestosql.metadata.ViewDefinition.ViewColumn;
 import static io.prestosql.sql.SqlFormatterUtil.getFormattedSql;
+import static io.prestosql.sql.tree.CreateView.Security.INVOKER;
 import static java.util.Objects.requireNonNull;
 
 public class CreateViewTask
@@ -88,7 +89,13 @@ public class CreateViewTask
                 .map(field -> new ViewColumn(field.getName().get(), field.getType()))
                 .collect(toImmutableList());
 
-        String data = codec.toJson(new ViewDefinition(sql, session.getCatalog(), session.getSchema(), columns, Optional.of(session.getUser())));
+        // use DEFINER security by default
+        Optional<String> owner = Optional.of(session.getUser());
+        if (statement.getSecurity().orElse(null) == INVOKER) {
+            owner = Optional.empty();
+        }
+
+        String data = codec.toJson(new ViewDefinition(sql, session.getCatalog(), session.getSchema(), columns, owner, !owner.isPresent()));
 
         metadata.createView(session, name, data, statement.isReplace());
 
