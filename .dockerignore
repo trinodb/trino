@@ -1,1 +1,13 @@
+# Ignore everything so we can just have a whitelist of things to copy
+**/*
+# Copy directories starting with presto-
+!presto-*
+# Copy the root pom.xml
+!pom.xml
+# copy the src directory
+!src
+# copy the .git directory as a few maven plugins use it
+!.git
+# ignore anything inside a target directory, as that is the output of a maven
+# build and we want a fresh environment
 **/target/*
