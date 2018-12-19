@@ -54,8 +54,7 @@ RUN echo 'networkaddress.cache.negative.ttl=0' >> $JAVA_HOME/lib/security/java.s
 RUN ln $PRESTO_CLI /usr/local/bin/presto-cli \
         && chmod 755 /usr/local/bin/presto-cli
 
-RUN \
-    chown -R 1003:0 /opt/presto /etc/passwd && \
+RUN chown -R 1003:0 /opt/presto /etc/passwd && \
     chmod -R 774 /etc/passwd && \
     chmod -R 775 /opt/presto
 
