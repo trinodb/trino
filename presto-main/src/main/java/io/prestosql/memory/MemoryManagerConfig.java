@@ -28,7 +28,8 @@ import static java.util.concurrent.TimeUnit.MINUTES;
 
 @DefunctConfig({
         "experimental.cluster-memory-manager-enabled",
-        "query.low-memory-killer.enabled"})
+        "query.low-memory-killer.enabled",
+        "resources.reserved-system-memory"})
 public class MemoryManagerConfig
 {
     // enforced against user memory allocations

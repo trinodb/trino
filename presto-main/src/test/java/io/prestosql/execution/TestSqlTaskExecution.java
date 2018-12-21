@@ -34,8 +34,8 @@ import io.prestosql.execution.buffer.PagesSerdeFactory;
 import io.prestosql.execution.buffer.PartitionedOutputBuffer;
 import io.prestosql.execution.buffer.SerializedPage;
 import io.prestosql.execution.executor.TaskExecutor;
-import io.prestosql.memory.DefaultQueryContext;
 import io.prestosql.memory.MemoryPool;
+import io.prestosql.memory.QueryContext;
 import io.prestosql.memory.context.SimpleLocalMemoryContext;
 import io.prestosql.metadata.Split;
 import io.prestosql.operator.DriverContext;
@@ -596,7 +596,7 @@ public class TestSqlTaskExecution
 
     private TaskContext newTestingTaskContext(ScheduledExecutorService taskNotificationExecutor, ScheduledExecutorService driverYieldExecutor, TaskStateMachine taskStateMachine)
     {
-        DefaultQueryContext queryContext = new DefaultQueryContext(
+        QueryContext queryContext = new QueryContext(
                 new QueryId("queryid"),
                 new DataSize(1, MEGABYTE),
                 new DataSize(2, MEGABYTE),

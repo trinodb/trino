@@ -17,8 +17,8 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.stats.TestingGcMonitor;
 import io.airlift.units.DataSize;
 import io.prestosql.RowPagesBuilder;
-import io.prestosql.memory.DefaultQueryContext;
 import io.prestosql.memory.MemoryPool;
+import io.prestosql.memory.QueryContext;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.QueryId;
 import io.prestosql.spi.memory.MemoryPoolId;
@@ -79,7 +79,7 @@ public final class GroupByHashYieldAssertion
         // mock an adjustable memory pool
         QueryId queryId = new QueryId("test_query");
         MemoryPool memoryPool = new MemoryPool(new MemoryPoolId("test"), new DataSize(1, GIGABYTE));
-        DefaultQueryContext queryContext = new DefaultQueryContext(
+        QueryContext queryContext = new QueryContext(
                 queryId,
                 new DataSize(512, MEGABYTE),
                 new DataSize(1024, MEGABYTE),
