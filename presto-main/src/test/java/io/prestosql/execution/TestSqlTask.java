@@ -26,8 +26,8 @@ import io.prestosql.execution.buffer.BufferState;
 import io.prestosql.execution.buffer.OutputBuffers;
 import io.prestosql.execution.buffer.OutputBuffers.OutputBufferId;
 import io.prestosql.execution.executor.TaskExecutor;
-import io.prestosql.memory.DefaultQueryContext;
 import io.prestosql.memory.MemoryPool;
+import io.prestosql.memory.QueryContext;
 import io.prestosql.spi.QueryId;
 import io.prestosql.spi.memory.MemoryPoolId;
 import io.prestosql.spiller.SpillSpaceTracker;
@@ -301,7 +301,7 @@ public class TestSqlTask
         TaskId taskId = new TaskId("query", 0, nextTaskId.incrementAndGet());
         URI location = URI.create("fake://task/" + taskId);
 
-        DefaultQueryContext queryContext = new DefaultQueryContext(new QueryId("query"),
+        QueryContext queryContext = new QueryContext(new QueryId("query"),
                 new DataSize(1, MEGABYTE),
                 new DataSize(2, MEGABYTE),
                 new MemoryPool(new MemoryPoolId("test"), new DataSize(1, GIGABYTE)),

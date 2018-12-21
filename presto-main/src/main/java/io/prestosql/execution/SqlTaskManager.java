@@ -33,8 +33,6 @@ import io.prestosql.execution.buffer.BufferResult;
 import io.prestosql.execution.buffer.OutputBuffers;
 import io.prestosql.execution.buffer.OutputBuffers.OutputBufferId;
 import io.prestosql.execution.executor.TaskExecutor;
-import io.prestosql.memory.DefaultQueryContext;
-import io.prestosql.memory.LegacyQueryContext;
 import io.prestosql.memory.LocalMemoryManager;
 import io.prestosql.memory.MemoryPool;
 import io.prestosql.memory.MemoryPoolAssignment;
@@ -68,7 +66,6 @@ import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Predicates.notNull;
-import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.filter;
 import static com.google.common.collect.Iterables.transform;
 import static io.airlift.concurrent.Threads.threadsNamed;
@@ -175,22 +172,7 @@ public class SqlTaskManager
             DataSize maxQueryTotalMemoryPerNode,
             DataSize maxQuerySpillPerNode)
     {
-        if (nodeMemoryConfig.isLegacySystemPoolEnabled()) {
-            Optional<MemoryPool> systemPool = localMemoryManager.getSystemPool();
-            verify(systemPool.isPresent(), "systemPool must be present");
-            return new LegacyQueryContext(
-                    queryId,
-                    maxQueryUserMemoryPerNode,
-                    localMemoryManager.getGeneralPool(),
-                    systemPool.get(),
-                    gcMonitor,
-                    taskNotificationExecutor,
-                    driverYieldExecutor,
-                    maxQuerySpillPerNode,
-                    localSpillManager.getSpillSpaceTracker());
-        }
-
-        return new DefaultQueryContext(
+        return new QueryContext(
                 queryId,
                 maxQueryUserMemoryPerNode,
                 maxQueryTotalMemoryPerNode,

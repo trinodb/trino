@@ -20,8 +20,8 @@ import io.airlift.units.DataSize;
 import io.prestosql.Session;
 import io.prestosql.execution.TaskId;
 import io.prestosql.execution.TaskStateMachine;
-import io.prestosql.memory.DefaultQueryContext;
 import io.prestosql.memory.MemoryPool;
+import io.prestosql.memory.QueryContext;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.metadata.TableHandle;
@@ -76,7 +76,7 @@ public class MemoryLocalQueryRunner
     {
         MemoryPool memoryPool = new MemoryPool(new MemoryPoolId("test"), new DataSize(2, GIGABYTE));
         SpillSpaceTracker spillSpaceTracker = new SpillSpaceTracker(new DataSize(1, GIGABYTE));
-        DefaultQueryContext queryContext = new DefaultQueryContext(
+        QueryContext queryContext = new QueryContext(
                 new QueryId("test"),
                 new DataSize(1, GIGABYTE),
                 new DataSize(2, GIGABYTE),
