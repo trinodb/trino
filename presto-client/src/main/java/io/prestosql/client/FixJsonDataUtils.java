@@ -16,8 +16,6 @@ package io.prestosql.client;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.spi.type.NamedTypeSignature;
 import io.prestosql.spi.type.ParameterKind;
-import io.prestosql.spi.type.TypeSignature;
-import io.prestosql.spi.type.TypeSignatureParameter;
 
 import java.util.ArrayList;
 import java.util.Base64;
@@ -52,7 +50,6 @@ import static io.prestosql.spi.type.StandardTypes.TIMESTAMP_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.StandardTypes.TIME_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.StandardTypes.TINYINT;
 import static io.prestosql.spi.type.StandardTypes.VARCHAR;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -67,8 +64,8 @@ final class FixJsonDataUtils
             return null;
         }
         requireNonNull(columns, "columns is null");
-        List<TypeSignature> signatures = columns.stream()
-                .map(column -> parseTypeSignature(column.getType()))
+        List<ClientTypeSignature> signatures = columns.stream()
+                .map(Column::getTypeSignature)
                 .collect(toList());
         ImmutableList.Builder<List<Object>> rows = ImmutableList.builder();
         for (List<Object> row : data) {
@@ -85,45 +82,45 @@ final class FixJsonDataUtils
     /**
      * Force values coming from Jackson to have the expected object type.
      */
-    private static Object fixValue(TypeSignature signature, Object value)
+    private static Object fixValue(ClientTypeSignature signature, Object value)
     {
         if (value == null) {
             return null;
         }
 
-        if (signature.getBase().equals(ARRAY)) {
+        if (signature.getRawType().equals(ARRAY)) {
             List<Object> fixedValue = new ArrayList<>();
             for (Object object : List.class.cast(value)) {
-                fixedValue.add(fixValue(signature.getTypeParametersAsTypeSignatures().get(0), object));
+                fixedValue.add(fixValue(signature.getArgumentsAsTypeSignatures().get(0), object));
             }
             return fixedValue;
         }
-        if (signature.getBase().equals(MAP)) {
-            TypeSignature keySignature = signature.getTypeParametersAsTypeSignatures().get(0);
-            TypeSignature valueSignature = signature.getTypeParametersAsTypeSignatures().get(1);
+        if (signature.getRawType().equals(MAP)) {
+            ClientTypeSignature keySignature = signature.getArgumentsAsTypeSignatures().get(0);
+            ClientTypeSignature valueSignature = signature.getArgumentsAsTypeSignatures().get(1);
             Map<Object, Object> fixedValue = new HashMap<>();
             for (Map.Entry<?, ?> entry : (Set<Map.Entry<?, ?>>) Map.class.cast(value).entrySet()) {
                 fixedValue.put(fixValue(keySignature, entry.getKey()), fixValue(valueSignature, entry.getValue()));
             }
             return fixedValue;
         }
-        if (signature.getBase().equals(ROW)) {
+        if (signature.getRawType().equals(ROW)) {
             Map<String, Object> fixedValue = new LinkedHashMap<>();
             List<Object> listValue = List.class.cast(value);
-            checkArgument(listValue.size() == signature.getParameters().size(), "Mismatched data values and row type");
+            checkArgument(listValue.size() == signature.getArguments().size(), "Mismatched data values and row type");
             for (int i = 0; i < listValue.size(); i++) {
-                TypeSignatureParameter parameter = signature.getParameters().get(i);
+                ClientTypeSignatureParameter parameter = signature.getArguments().get(i);
                 checkArgument(
                         parameter.getKind() == ParameterKind.NAMED_TYPE,
                         "Unexpected parameter [%s] for row type",
                         parameter);
                 NamedTypeSignature namedTypeSignature = parameter.getNamedTypeSignature();
                 String key = namedTypeSignature.getName().orElse("field" + i);
-                fixedValue.put(key, fixValue(namedTypeSignature.getTypeSignature(), listValue.get(i)));
+                fixedValue.put(key, fixValue(new ClientTypeSignature(namedTypeSignature.getTypeSignature()), listValue.get(i)));
             }
             return fixedValue;
         }
-        switch (signature.getBase()) {
+        switch (signature.getRawType()) {
             case BIGINT:
                 if (value instanceof String) {
                     return Long.parseLong((String) value);

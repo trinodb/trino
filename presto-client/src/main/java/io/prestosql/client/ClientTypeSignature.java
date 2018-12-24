@@ -35,6 +35,8 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
@@ -130,6 +132,15 @@ public class ClientTypeSignature
     public List<ClientTypeSignatureParameter> getArguments()
     {
         return arguments;
+    }
+
+    public List<ClientTypeSignature> getArgumentsAsTypeSignatures()
+    {
+        return arguments.stream()
+                .peek(parameter -> checkState(parameter.getKind() == ParameterKind.TYPE,
+                        "Expected all parameters to be TypeSignatures but [%s] was found", parameter))
+                .map(ClientTypeSignatureParameter::getTypeSignature)
+                .collect(toImmutableList());
     }
 
     /**
