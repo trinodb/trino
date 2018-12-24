@@ -13,11 +13,11 @@
  */
 package io.prestosql.cli;
 
-import io.prestosql.spi.PrestoWarning;
+import io.prestosql.client.Warning;
 
 import java.util.List;
 
 public interface WarningsPrinter
 {
-    void print(List<PrestoWarning> warnings, boolean withInitialSeparator, boolean withTrailingSeparator);
+    void print(List<Warning> warnings, boolean withInitialSeparator, boolean withTrailingSeparator);
 }

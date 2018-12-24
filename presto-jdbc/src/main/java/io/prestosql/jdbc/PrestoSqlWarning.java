@@ -13,19 +13,14 @@
  */
 package io.prestosql.jdbc;
 
-import io.prestosql.spi.PrestoWarning;
+import io.prestosql.client.Warning;
 
 import java.sql.SQLWarning;
 
 public class PrestoSqlWarning
         extends SQLWarning
 {
-    public PrestoSqlWarning()
-    {
-        super();
-    }
-
-    public PrestoSqlWarning(PrestoWarning warning)
+    public PrestoSqlWarning(Warning warning)
     {
         //TODO: enforce that sqlState is 01[5,6,7,8,9,I-Z][0-9A-Z]{3}
         // From the SQL Standard ISO_IEC_9075-2E_2016 24.1 SQLState: warning codes have class 01

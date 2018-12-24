@@ -13,8 +13,7 @@
  */
 package io.prestosql.jdbc;
 
-import io.prestosql.spi.PrestoWarning;
-import io.prestosql.spi.WarningCode;
+import io.prestosql.client.Warning;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
@@ -30,7 +29,7 @@ import static java.util.Objects.requireNonNull;
 public class WarningsManager
 {
     @GuardedBy("this")
-    private Set<WarningCode> warningsSeen = new HashSet<>();
+    private final Set<Warning.Code> warningsSeen = new HashSet<>();
 
     @GuardedBy("this")
     private SQLWarning firstWarning;
@@ -39,7 +38,7 @@ public class WarningsManager
     @GuardedBy("this")
     private SQLWarning lastWarning;
 
-    private synchronized void addWarning(PrestoWarning warning)
+    private synchronized void addWarning(Warning warning)
     {
         requireNonNull(warning, "warning is null");
         if (lastWarning == null) {
@@ -56,9 +55,9 @@ public class WarningsManager
         }
     }
 
-    public synchronized void addWarnings(List<PrestoWarning> warnings)
+    public synchronized void addWarnings(List<Warning> warnings)
     {
-        for (PrestoWarning warning : warnings) {
+        for (Warning warning : warnings) {
             if (warningsSeen.add(warning.getWarningCode())) {
                 addWarning(warning);
             }

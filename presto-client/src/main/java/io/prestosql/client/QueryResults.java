@@ -16,7 +16,6 @@ package io.prestosql.client;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
-import io.prestosql.spi.PrestoWarning;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
@@ -43,7 +42,7 @@ public class QueryResults
     private final Iterable<List<Object>> data;
     private final StatementStats stats;
     private final QueryError error;
-    private final List<PrestoWarning> warnings;
+    private final List<Warning> warnings;
     private final String updateType;
     private final Long updateCount;
 
@@ -57,7 +56,7 @@ public class QueryResults
             @JsonProperty("data") List<List<Object>> data,
             @JsonProperty("stats") StatementStats stats,
             @JsonProperty("error") QueryError error,
-            @JsonProperty("warnings") List<PrestoWarning> warnings,
+            @JsonProperty("warnings") List<Warning> warnings,
             @JsonProperty("updateType") String updateType,
             @JsonProperty("updateCount") Long updateCount)
     {
@@ -84,7 +83,7 @@ public class QueryResults
             Iterable<List<Object>> data,
             StatementStats stats,
             QueryError error,
-            List<PrestoWarning> warnings,
+            List<Warning> warnings,
             String updateType,
             Long updateCount)
     {
@@ -165,7 +164,7 @@ public class QueryResults
 
     @JsonProperty
     @Override
-    public List<PrestoWarning> getWarnings()
+    public List<Warning> getWarnings()
     {
         return warnings;
     }
