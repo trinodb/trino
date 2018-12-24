@@ -32,6 +32,7 @@ import org.testng.annotations.Test;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.sql.SQLException;
+import java.time.ZoneId;
 import java.util.Locale;
 import java.util.Optional;
 
@@ -92,7 +93,7 @@ public class TestQueryRunner
                         "catalog",
                         "schema",
                         "path",
-                        "America/Los_Angeles",
+                        ZoneId.of("America/Los_Angeles"),
                         Locale.ENGLISH,
                         ImmutableMap.of(),
                         ImmutableMap.of(),

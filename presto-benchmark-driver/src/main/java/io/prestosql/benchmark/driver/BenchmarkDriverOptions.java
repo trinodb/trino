@@ -24,13 +24,13 @@ import io.prestosql.client.ClientSession;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.charset.CharsetEncoder;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.TimeZone;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.nio.charset.StandardCharsets.US_ASCII;
@@ -97,7 +97,7 @@ public class BenchmarkDriverOptions
                 catalog,
                 schema,
                 null,
-                TimeZone.getDefault().getID(),
+                ZoneId.systemDefault(),
                 Locale.getDefault(),
                 ImmutableMap.of(),
                 toProperties(this.sessionProperties),
