@@ -23,7 +23,7 @@ import io.prestosql.client.ErrorLocation;
 import io.prestosql.client.QueryError;
 import io.prestosql.client.QueryStatusInfo;
 import io.prestosql.client.StatementClient;
-import io.prestosql.spi.PrestoWarning;
+import io.prestosql.client.Warning;
 import org.fusesource.jansi.Ansi;
 import sun.misc.Signal;
 import sun.misc.SignalHandler;
@@ -194,7 +194,7 @@ public class Query
             warningsPrinter.print(client.currentStatusInfo().getWarnings(), true, false);
             client.advance();
         }
-        List<PrestoWarning> warnings;
+        List<Warning> warnings;
         if (client.isRunning()) {
             warnings = client.currentStatusInfo().getWarnings();
         }

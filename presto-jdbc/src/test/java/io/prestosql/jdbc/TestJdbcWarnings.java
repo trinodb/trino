@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterators;
 import com.google.common.util.concurrent.AbstractFuture;
+import io.prestosql.client.Warning;
 import io.prestosql.execution.QueryInfo;
 import io.prestosql.execution.warnings.WarningCollectorConfig;
 import io.prestosql.plugin.blackhole.BlackHolePlugin;
@@ -211,7 +212,7 @@ public class TestJdbcWarnings
             TestingWarningCollector warningCollector = new TestingWarningCollector(new WarningCollectorConfig(), warningCollectorConfig);
             List<PrestoWarning> expectedWarnings = warningCollector.getWarnings();
             for (PrestoWarning prestoWarning : expectedWarnings) {
-                assertTrue(currentWarnings.contains(new WarningEntry(new PrestoSqlWarning(prestoWarning))));
+                assertTrue(currentWarnings.contains(new WarningEntry(toPrestoSqlWarning(prestoWarning))));
             }
         }
     }
@@ -226,9 +227,9 @@ public class TestJdbcWarnings
         List<PrestoWarning> warnings = builder.build();
         SQLWarning warning = fromPrestoWarnings(warnings);
         assertEquals(Iterators.size(warning.iterator()), warnings.size());
-        assertWarningsEqual(warning, new PrestoSqlWarning(warnings.get(0)));
-        assertWarningsEqual(warning.getNextWarning(), new PrestoSqlWarning(warnings.get(1)));
-        assertWarningsEqual(warning.getNextWarning().getNextWarning(), new PrestoSqlWarning(warnings.get(2)));
+        assertWarningsEqual(warning, toPrestoSqlWarning(warnings.get(0)));
+        assertWarningsEqual(warning.getNextWarning(), toPrestoSqlWarning(warnings.get(1)));
+        assertWarningsEqual(warning.getNextWarning().getNextWarning(), toPrestoSqlWarning(warnings.get(2)));
     }
 
     private static SQLWarning fromPrestoWarnings(List<PrestoWarning> warnings)
@@ -236,13 +237,24 @@ public class TestJdbcWarnings
         requireNonNull(warnings, "warnings is null");
         assertFalse(warnings.isEmpty());
         Iterator<PrestoWarning> iterator = warnings.iterator();
-        PrestoSqlWarning first = new PrestoSqlWarning(iterator.next());
+        PrestoSqlWarning first = toPrestoSqlWarning(iterator.next());
         SQLWarning current = first;
         while (iterator.hasNext()) {
-            current.setNextWarning(new PrestoSqlWarning(iterator.next()));
+            current.setNextWarning(toPrestoSqlWarning(iterator.next()));
             current = current.getNextWarning();
         }
         return first;
+    }
+
+    private static PrestoSqlWarning toPrestoSqlWarning(PrestoWarning warning)
+    {
+        return new PrestoSqlWarning(toClientWarning(warning));
+    }
+
+    private static Warning toClientWarning(PrestoWarning warning)
+    {
+        WarningCode code = warning.getWarningCode();
+        return new Warning(new Warning.Code(code.getCode(), code.getName()), warning.getMessage());
     }
 
     private static void assertWarningsEqual(SQLWarning actual, SQLWarning expected)

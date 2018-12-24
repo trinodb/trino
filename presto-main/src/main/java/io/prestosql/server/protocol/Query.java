@@ -32,6 +32,7 @@ import io.prestosql.client.QueryError;
 import io.prestosql.client.QueryResults;
 import io.prestosql.client.StageStats;
 import io.prestosql.client.StatementStats;
+import io.prestosql.client.Warning;
 import io.prestosql.execution.QueryExecution;
 import io.prestosql.execution.QueryInfo;
 import io.prestosql.execution.QueryManager;
@@ -47,7 +48,9 @@ import io.prestosql.operator.ExchangeClient;
 import io.prestosql.server.SessionContext;
 import io.prestosql.spi.ErrorCode;
 import io.prestosql.spi.Page;
+import io.prestosql.spi.PrestoWarning;
 import io.prestosql.spi.QueryId;
+import io.prestosql.spi.WarningCode;
 import io.prestosql.spi.block.BlockEncodingSerde;
 import io.prestosql.spi.type.BooleanType;
 import io.prestosql.spi.type.StandardTypes;
@@ -83,6 +86,7 @@ import static io.prestosql.SystemSessionProperties.isExchangeCompressionEnabled;
 import static io.prestosql.execution.QueryState.FAILED;
 import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.prestosql.util.Failures.toFailure;
+import static io.prestosql.util.MoreLists.mappedCopy;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -492,7 +496,7 @@ class Query
                 data,
                 toStatementStats(queryInfo),
                 toQueryError(queryInfo),
-                queryInfo.getWarnings(),
+                mappedCopy(queryInfo.getWarnings(), Query::toClientWarning),
                 queryInfo.getUpdateType(),
                 updateCount);
 
@@ -704,6 +708,12 @@ class Query
                 errorCode.getType().toString(),
                 failure.getErrorLocation(),
                 failure);
+    }
+
+    private static Warning toClientWarning(PrestoWarning warning)
+    {
+        WarningCode code = warning.getWarningCode();
+        return new Warning(new Warning.Code(code.getCode(), code.getName()), warning.getMessage());
     }
 
     private static class QuerySubmissionFuture

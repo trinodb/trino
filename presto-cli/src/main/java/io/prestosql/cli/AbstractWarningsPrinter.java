@@ -13,7 +13,7 @@
  */
 package io.prestosql.cli;
 
-import io.prestosql.spi.PrestoWarning;
+import io.prestosql.client.Warning;
 
 import java.util.List;
 import java.util.OptionalInt;
@@ -38,7 +38,7 @@ abstract class AbstractWarningsPrinter
         this.maxWarnings = requireNonNull(maxWarnings, "maxWarnings is null");
     }
 
-    private String getWarningMessage(PrestoWarning warning)
+    private String getWarningMessage(Warning warning)
     {
         // If this is a real terminal color the warnings yellow
         if (REAL_TERMINAL) {
@@ -47,7 +47,7 @@ abstract class AbstractWarningsPrinter
         return format("WARNING: %s", warning.getMessage());
     }
 
-    private List<String> getNewWarnings(List<PrestoWarning> warnings)
+    private List<String> getNewWarnings(List<Warning> warnings)
     {
         int end = warnings.size();
         if (maxWarnings.isPresent()) {
@@ -94,7 +94,7 @@ abstract class AbstractWarningsPrinter
     }
 
     @Override
-    public void print(List<PrestoWarning> warnings, boolean withInitialSeparator, boolean withTrailingSeparator)
+    public void print(List<Warning> warnings, boolean withInitialSeparator, boolean withTrailingSeparator)
     {
         requireNonNull(warnings, "warnings is null");
         List<String> newWarnings = getNewWarnings(warnings);

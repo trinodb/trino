@@ -13,8 +13,6 @@
  */
 package io.prestosql.client;
 
-import io.prestosql.spi.PrestoWarning;
-
 import java.net.URI;
 import java.util.List;
 
@@ -34,7 +32,7 @@ public interface QueryStatusInfo
 
     QueryError getError();
 
-    List<PrestoWarning> getWarnings();
+    List<Warning> getWarnings();
 
     String getUpdateType();
 
