@@ -26,6 +26,7 @@ import io.prestosql.tests.DistributedQueryRunner;
 import okhttp3.OkHttpClient;
 import org.testng.annotations.Test;
 
+import java.time.ZoneId;
 import java.util.Locale;
 import java.util.Optional;
 
@@ -72,7 +73,7 @@ public class TestFinalQueryInfo
                     null,
                     null,
                     null,
-                    "America/Los_Angeles",
+                    ZoneId.of("America/Los_Angeles"),
                     Locale.ENGLISH,
                     ImmutableMap.of(),
                     ImmutableMap.of(),

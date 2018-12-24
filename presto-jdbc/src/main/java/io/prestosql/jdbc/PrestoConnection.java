@@ -41,12 +41,12 @@ import java.sql.SQLXML;
 import java.sql.Savepoint;
 import java.sql.Statement;
 import java.sql.Struct;
+import java.time.ZoneId;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
-import java.util.TimeZone;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -74,7 +74,7 @@ public class PrestoConnection
     private final AtomicReference<String> catalog = new AtomicReference<>();
     private final AtomicReference<String> schema = new AtomicReference<>();
     private final AtomicReference<String> path = new AtomicReference<>();
-    private final AtomicReference<String> timeZoneId = new AtomicReference<>();
+    private final AtomicReference<ZoneId> timeZoneId = new AtomicReference<>();
     private final AtomicReference<Locale> locale = new AtomicReference<>();
     private final AtomicReference<Integer> networkTimeoutMillis = new AtomicReference<>(Ints.saturatedCast(MINUTES.toMillis(2)));
     private final AtomicReference<ServerInfo> serverInfo = new AtomicReference<>();
@@ -104,7 +104,7 @@ public class PrestoConnection
 
         this.queryExecutor = requireNonNull(queryExecutor, "queryExecutor is null");
 
-        timeZoneId.set(TimeZone.getDefault().getID());
+        timeZoneId.set(ZoneId.systemDefault());
         locale.set(Locale.getDefault());
     }
 
@@ -519,13 +519,12 @@ public class PrestoConnection
 
     public String getTimeZoneId()
     {
-        return timeZoneId.get();
+        return timeZoneId.get().getId();
     }
 
     public void setTimeZoneId(String timeZoneId)
     {
-        requireNonNull(timeZoneId, "timeZoneId is null");
-        this.timeZoneId.set(timeZoneId);
+        this.timeZoneId.set(ZoneId.of(timeZoneId));
     }
 
     public Locale getLocale()

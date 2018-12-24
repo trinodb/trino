@@ -35,6 +35,7 @@ import org.intellij.lang.annotations.Language;
 
 import java.io.Closeable;
 import java.net.URI;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -146,7 +147,7 @@ public abstract class AbstractTestingPrestoClient<T>
                 session.getCatalog().orElse(null),
                 session.getSchema().orElse(null),
                 session.getPath().toString(),
-                session.getTimeZoneKey().getId(),
+                ZoneId.of(session.getTimeZoneKey().getId()),
                 session.getLocale(),
                 resourceEstimates.build(),
                 properties.build(),

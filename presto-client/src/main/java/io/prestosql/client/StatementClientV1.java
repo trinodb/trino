@@ -21,7 +21,6 @@ import com.google.common.collect.Sets;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.Duration;
 import io.prestosql.client.OkHttpUtil.NullCallback;
-import io.prestosql.spi.type.TimeZoneKey;
 import okhttp3.Headers;
 import okhttp3.HttpUrl;
 import okhttp3.MediaType;
@@ -36,6 +35,7 @@ import java.io.UnsupportedEncodingException;
 import java.net.URI;
 import java.net.URLDecoder;
 import java.net.URLEncoder;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -104,7 +104,7 @@ class StatementClientV1
     private final Set<String> deallocatedPreparedStatements = Sets.newConcurrentHashSet();
     private final AtomicReference<String> startedTransactionId = new AtomicReference<>();
     private final AtomicBoolean clearTransactionId = new AtomicBoolean();
-    private final TimeZoneKey timeZone;
+    private final ZoneId timeZone;
     private final Duration requestTimeoutNanos;
     private final String user;
     private final String clientCapabilities;
@@ -201,7 +201,7 @@ class StatementClientV1
     }
 
     @Override
-    public TimeZoneKey getTimeZone()
+    public ZoneId getTimeZone()
     {
         return timeZone;
     }

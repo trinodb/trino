@@ -25,6 +25,7 @@ import io.prestosql.client.ClientSession;
 
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -32,7 +33,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.TimeZone;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.nullToEmpty;
@@ -160,7 +160,7 @@ public class ClientOptions
                 catalog,
                 schema,
                 null,
-                TimeZone.getDefault().getID(),
+                ZoneId.systemDefault(),
                 Locale.getDefault(),
                 toResourceEstimates(resourceEstimates),
                 toProperties(sessionProperties),

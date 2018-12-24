@@ -13,11 +13,10 @@
  */
 package io.prestosql.client;
 
-import io.prestosql.spi.type.TimeZoneKey;
-
 import javax.annotation.Nullable;
 
 import java.io.Closeable;
+import java.time.ZoneId;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -27,7 +26,7 @@ public interface StatementClient
 {
     String getQuery();
 
-    TimeZoneKey getTimeZone();
+    ZoneId getTimeZone();
 
     boolean isRunning();
 

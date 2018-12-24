@@ -16,10 +16,10 @@ package io.prestosql.client;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.Duration;
-import io.prestosql.spi.type.TimeZoneKey;
 
 import java.net.URI;
 import java.nio.charset.CharsetEncoder;
+import java.time.ZoneId;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -42,7 +42,7 @@ public class ClientSession
     private final String catalog;
     private final String schema;
     private final String path;
-    private final TimeZoneKey timeZone;
+    private final ZoneId timeZone;
     private final Locale locale;
     private final Map<String, String> resourceEstimates;
     private final Map<String, String> properties;
@@ -72,7 +72,7 @@ public class ClientSession
             String catalog,
             String schema,
             String path,
-            String timeZoneId,
+            ZoneId timeZone,
             Locale locale,
             Map<String, String> resourceEstimates,
             Map<String, String> properties,
@@ -90,7 +90,7 @@ public class ClientSession
         this.schema = schema;
         this.path = path;
         this.locale = locale;
-        this.timeZone = TimeZoneKey.getTimeZoneKey(timeZoneId);
+        this.timeZone = requireNonNull(timeZone, "timeZone is null");
         this.transactionId = transactionId;
         this.resourceEstimates = ImmutableMap.copyOf(requireNonNull(resourceEstimates, "resourceEstimates is null"));
         this.properties = ImmutableMap.copyOf(requireNonNull(properties, "properties is null"));
@@ -163,7 +163,7 @@ public class ClientSession
         return path;
     }
 
-    public TimeZoneKey getTimeZone()
+    public ZoneId getTimeZone()
     {
         return timeZone;
     }
@@ -234,7 +234,7 @@ public class ClientSession
         private String catalog;
         private String schema;
         private String path;
-        private TimeZoneKey timeZone;
+        private ZoneId timeZone;
         private Locale locale;
         private Map<String, String> resourceEstimates;
         private Map<String, String> properties;
@@ -317,7 +317,7 @@ public class ClientSession
                     catalog,
                     schema,
                     path,
-                    timeZone.getId(),
+                    timeZone,
                     locale,
                     resourceEstimates,
                     properties,
