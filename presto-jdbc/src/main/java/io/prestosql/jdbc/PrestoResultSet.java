@@ -65,7 +65,6 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Iterators.concat;
 import static com.google.common.collect.Iterators.transform;
 import static io.prestosql.jdbc.ColumnInfo.setTypeInfo;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static java.lang.String.format;
 import static java.math.BigDecimal.ROUND_HALF_UP;
 import static java.util.Locale.ENGLISH;
@@ -1125,7 +1124,7 @@ public class PrestoResultSet
         }
 
         ColumnInfo columnInfo = columnInfo(columnIndex);
-        String elementTypeName = getOnlyElement(columnInfo.getColumnTypeSignature().getParameters()).toString();
+        String elementTypeName = getOnlyElement(columnInfo.getColumnTypeSignature().getArguments()).toString();
         int elementType = getOnlyElement(columnInfo.getColumnParameterTypes());
         return new PrestoArray(elementTypeName, elementType, (List<?>) value);
     }
@@ -1862,10 +1861,10 @@ public class PrestoResultSet
                     .setTableName("") // TODO
                     .setColumnLabel(column.getName())
                     .setColumnName(column.getName()) // TODO
-                    .setColumnTypeSignature(parseTypeSignature(column.getType().toUpperCase(ENGLISH)))
+                    .setColumnTypeSignature(column.getTypeSignature())
                     .setNullable(Nullable.UNKNOWN)
                     .setCurrency(false);
-            setTypeInfo(builder, parseTypeSignature(column.getType()));
+            setTypeInfo(builder, column.getTypeSignature());
             list.add(builder.build());
         }
         return list.build();

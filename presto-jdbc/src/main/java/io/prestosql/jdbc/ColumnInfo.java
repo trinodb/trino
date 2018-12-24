@@ -14,8 +14,8 @@
 package io.prestosql.jdbc;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.spi.type.TypeSignature;
-import io.prestosql.spi.type.TypeSignatureParameter;
+import io.prestosql.client.ClientTypeSignature;
+import io.prestosql.client.ClientTypeSignatureParameter;
 
 import java.sql.Types;
 import java.util.List;
@@ -35,7 +35,7 @@ class ColumnInfo
 
     private final int columnType;
     private final List<Integer> columnParameterTypes;
-    private final TypeSignature columnTypeSignature;
+    private final ClientTypeSignature columnTypeSignature;
     private final Nullable nullable;
     private final boolean currency;
     private final boolean signed;
@@ -56,7 +56,7 @@ class ColumnInfo
     public ColumnInfo(
             int columnType,
             List<Integer> columnParameterTypes,
-            TypeSignature columnTypeSignature,
+            ClientTypeSignature columnTypeSignature,
             Nullable nullable,
             boolean currency,
             boolean signed,
@@ -85,11 +85,11 @@ class ColumnInfo
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
     }
 
-    public static void setTypeInfo(Builder builder, TypeSignature type)
+    public static void setTypeInfo(Builder builder, ClientTypeSignature type)
     {
         builder.setColumnType(getType(type));
         ImmutableList.Builder<Integer> parameterTypes = ImmutableList.builder();
-        for (TypeSignatureParameter parameter : type.getParameters()) {
+        for (ClientTypeSignatureParameter parameter : type.getArguments()) {
             parameterTypes.add(getType(parameter));
         }
         builder.setColumnParameterTypes(parameterTypes.build());
@@ -182,14 +182,14 @@ class ColumnInfo
                 break;
             case "decimal":
                 builder.setSigned(true);
-                builder.setColumnDisplaySize(type.getParameters().get(0).getLongLiteral().intValue() + 2); // dot and sign
-                builder.setPrecision(type.getParameters().get(0).getLongLiteral().intValue());
-                builder.setScale(type.getParameters().get(1).getLongLiteral().intValue());
+                builder.setColumnDisplaySize(type.getArguments().get(0).getLongLiteral().intValue() + 2); // dot and sign
+                builder.setPrecision(type.getArguments().get(0).getLongLiteral().intValue());
+                builder.setScale(type.getArguments().get(1).getLongLiteral().intValue());
                 break;
         }
     }
 
-    private static int getType(TypeSignatureParameter typeParameter)
+    private static int getType(ClientTypeSignatureParameter typeParameter)
     {
         switch (typeParameter.getKind()) {
             case TYPE:
@@ -199,9 +199,9 @@ class ColumnInfo
         }
     }
 
-    private static int getType(TypeSignature type)
+    private static int getType(ClientTypeSignature type)
     {
-        switch (type.getBase()) {
+        switch (type.getRawType()) {
             case "array":
                 return Types.ARRAY;
             case "boolean":
@@ -258,7 +258,7 @@ class ColumnInfo
         return columnTypeSignature.toString();
     }
 
-    public TypeSignature getColumnTypeSignature()
+    public ClientTypeSignature getColumnTypeSignature()
     {
         return columnTypeSignature;
     }
@@ -322,7 +322,7 @@ class ColumnInfo
     {
         private int columnType;
         private List<Integer> columnParameterTypes;
-        private TypeSignature columnTypeSignature;
+        private ClientTypeSignature columnTypeSignature;
         private Nullable nullable;
         private boolean currency;
         private boolean signed;
@@ -346,7 +346,7 @@ class ColumnInfo
             this.columnParameterTypes = ImmutableList.copyOf(requireNonNull(columnParameterTypes, "columnParameterTypes is null"));
         }
 
-        public Builder setColumnTypeSignature(TypeSignature columnTypeSignature)
+        public Builder setColumnTypeSignature(ClientTypeSignature columnTypeSignature)
         {
             this.columnTypeSignature = columnTypeSignature;
             return this;
