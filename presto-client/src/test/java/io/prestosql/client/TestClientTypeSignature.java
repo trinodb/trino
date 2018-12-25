@@ -17,16 +17,11 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.ObjectMapperProvider;
-import io.prestosql.spi.type.NamedTypeSignature;
-import io.prestosql.spi.type.RowFieldName;
 import io.prestosql.spi.type.StandardTypes;
-import io.prestosql.spi.type.TypeSignature;
-import io.prestosql.spi.type.TypeSignatureParameter;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 
-import static io.prestosql.spi.type.BigintType.BIGINT;
 import static org.testng.Assert.assertEquals;
 
 public class TestClientTypeSignature
@@ -42,25 +37,25 @@ public class TestClientTypeSignature
     @Test
     public void testJsonRoundTrip()
     {
-        TypeSignature bigint = BIGINT.getTypeSignature();
-        assertJsonRoundTrip(new ClientTypeSignature(bigint));
+        ClientTypeSignature bigint = new ClientTypeSignature(StandardTypes.BIGINT);
+        assertJsonRoundTrip(bigint);
         assertJsonRoundTrip(new ClientTypeSignature(
                 "array",
-                ImmutableList.of(new ClientTypeSignatureParameter(TypeSignatureParameter.of(bigint)))));
+                ImmutableList.of(ClientTypeSignatureParameter.ofType(bigint))));
         assertJsonRoundTrip(new ClientTypeSignature(
                 "foo",
-                ImmutableList.of(new ClientTypeSignatureParameter(TypeSignatureParameter.of(42)))));
+                ImmutableList.of(ClientTypeSignatureParameter.ofLong(42))));
         assertJsonRoundTrip(new ClientTypeSignature(
                 "row",
                 ImmutableList.of(
-                        new ClientTypeSignatureParameter(TypeSignatureParameter.of(new NamedTypeSignature(Optional.of(new RowFieldName("foo", false)), bigint))),
-                        new ClientTypeSignatureParameter(TypeSignatureParameter.of(new NamedTypeSignature(Optional.of(new RowFieldName("bar", false)), bigint))))));
+                        ClientTypeSignatureParameter.ofNamedType(new NamedClientTypeSignature(Optional.of(new RowFieldName("foo", false)), bigint)),
+                        ClientTypeSignatureParameter.ofNamedType(new NamedClientTypeSignature(Optional.of(new RowFieldName("bar", false)), bigint)))));
     }
 
     @Test
     public void testBackwardsCompatible()
     {
-        ClientTypeSignature signature = new ClientTypeSignature(StandardTypes.ARRAY, ImmutableList.of(new ClientTypeSignatureParameter(TypeSignatureParameter.of(BIGINT.getTypeSignature()))));
+        ClientTypeSignature signature = new ClientTypeSignature(StandardTypes.ARRAY, ImmutableList.of(ClientTypeSignatureParameter.ofType(new ClientTypeSignature(StandardTypes.BIGINT))));
         ClientTypeSignature legacy = CLIENT_TYPE_SIGNATURE_CODEC.fromJson("{\"rawType\":\"array\",\"literalArguments\":[],\"typeArguments\":[{\"rawType\":\"bigint\",\"literalArguments\":[],\"typeArguments\":[]}]}");
         assertEquals(legacy, signature);
     }

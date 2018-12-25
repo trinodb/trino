@@ -16,13 +16,7 @@ package io.prestosql.client;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Lists;
-import io.prestosql.spi.type.NamedTypeSignature;
-import io.prestosql.spi.type.ParameterKind;
-import io.prestosql.spi.type.RowFieldName;
 import io.prestosql.spi.type.StandardTypes;
-import io.prestosql.spi.type.TypeSignature;
-import io.prestosql.spi.type.TypeSignatureParameter;
 
 import javax.annotation.concurrent.Immutable;
 
@@ -40,7 +34,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.toList;
 
 @Immutable
 public class ClientTypeSignature
@@ -49,11 +42,9 @@ public class ClientTypeSignature
     private final String rawType;
     private final List<ClientTypeSignatureParameter> arguments;
 
-    public ClientTypeSignature(TypeSignature typeSignature)
+    public ClientTypeSignature(String rawType)
     {
-        this(
-                typeSignature.getBase(),
-                Lists.transform(typeSignature.getParameters(), ClientTypeSignatureParameter::new));
+        this(rawType, ImmutableList.of());
     }
 
     public ClientTypeSignature(String rawType, List<ClientTypeSignatureParameter> arguments)
@@ -85,9 +76,9 @@ public class ClientTypeSignature
                 for (int i = 0; i < typeArguments.size(); i++) {
                     Object value = literalArguments.get(i);
                     checkArgument(value instanceof String, "Expected literalArgument %d in %s to be a string", i, literalArguments);
-                    convertedArguments.add(new ClientTypeSignatureParameter(TypeSignatureParameter.of(new NamedTypeSignature(
+                    convertedArguments.add(ClientTypeSignatureParameter.ofNamedType(new NamedClientTypeSignature(
                             Optional.of(new RowFieldName((String) value, false)),
-                            toTypeSignature(typeArguments.get(i))))));
+                            typeArguments.get(i))));
                 }
             }
             else {
@@ -97,28 +88,6 @@ public class ClientTypeSignature
                 }
             }
             this.arguments = convertedArguments.build();
-        }
-    }
-
-    private static TypeSignature toTypeSignature(ClientTypeSignature signature)
-    {
-        List<TypeSignatureParameter> parameters = signature.getArguments().stream()
-                .map(ClientTypeSignature::legacyClientTypeSignatureParameterToTypeSignatureParameter)
-                .collect(toList());
-        return new TypeSignature(signature.getRawType(), parameters);
-    }
-
-    private static TypeSignatureParameter legacyClientTypeSignatureParameterToTypeSignatureParameter(ClientTypeSignatureParameter parameter)
-    {
-        switch (parameter.getKind()) {
-            case LONG:
-                throw new UnsupportedOperationException("Unexpected long type literal returned by legacy server");
-            case TYPE:
-                return TypeSignatureParameter.of(toTypeSignature(parameter.getTypeSignature()));
-            case NAMED_TYPE:
-                return TypeSignatureParameter.of(parameter.getNamedTypeSignature());
-            default:
-                throw new UnsupportedOperationException("Unknown parameter kind " + parameter.getKind());
         }
     }
 
@@ -157,7 +126,7 @@ public class ClientTypeSignature
                     result.add(argument.getTypeSignature());
                     break;
                 case NAMED_TYPE:
-                    result.add(new ClientTypeSignature(argument.getNamedTypeSignature().getTypeSignature()));
+                    result.add(argument.getNamedTypeSignature().getTypeSignature());
                     break;
                 default:
                     return new ArrayList<>();

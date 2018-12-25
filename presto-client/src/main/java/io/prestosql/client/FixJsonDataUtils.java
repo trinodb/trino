@@ -14,8 +14,6 @@
 package io.prestosql.client;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.spi.type.NamedTypeSignature;
-import io.prestosql.spi.type.ParameterKind;
 
 import java.util.ArrayList;
 import java.util.Base64;
@@ -114,9 +112,9 @@ final class FixJsonDataUtils
                         parameter.getKind() == ParameterKind.NAMED_TYPE,
                         "Unexpected parameter [%s] for row type",
                         parameter);
-                NamedTypeSignature namedTypeSignature = parameter.getNamedTypeSignature();
+                NamedClientTypeSignature namedTypeSignature = parameter.getNamedTypeSignature();
                 String key = namedTypeSignature.getName().orElse("field" + i);
-                fixedValue.put(key, fixValue(new ClientTypeSignature(namedTypeSignature.getTypeSignature()), listValue.get(i)));
+                fixedValue.put(key, fixValue(namedTypeSignature.getTypeSignature(), listValue.get(i)));
             }
             return fixedValue;
         }
