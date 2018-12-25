@@ -11,7 +11,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.spi.type;
+package io.prestosql.client;
+
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.Objects;
 import java.util.Optional;
@@ -19,23 +22,28 @@ import java.util.Optional;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
-public class NamedTypeSignature
+public class NamedClientTypeSignature
 {
     private final Optional<RowFieldName> fieldName;
-    private final TypeSignature typeSignature;
+    private final ClientTypeSignature typeSignature;
 
-    public NamedTypeSignature(Optional<RowFieldName> fieldName, TypeSignature typeSignature)
+    @JsonCreator
+    public NamedClientTypeSignature(
+            @JsonProperty("fieldName") Optional<RowFieldName> fieldName,
+            @JsonProperty("typeSignature") ClientTypeSignature typeSignature)
     {
         this.fieldName = requireNonNull(fieldName, "fieldName is null");
         this.typeSignature = requireNonNull(typeSignature, "typeSignature is null");
     }
 
+    @JsonProperty
     public Optional<RowFieldName> getFieldName()
     {
         return fieldName;
     }
 
-    public TypeSignature getTypeSignature()
+    @JsonProperty
+    public ClientTypeSignature getTypeSignature()
     {
         return typeSignature;
     }
@@ -55,7 +63,7 @@ public class NamedTypeSignature
             return false;
         }
 
-        NamedTypeSignature other = (NamedTypeSignature) o;
+        NamedClientTypeSignature other = (NamedClientTypeSignature) o;
 
         return Objects.equals(this.fieldName, other.fieldName) &&
                 Objects.equals(this.typeSignature, other.typeSignature);

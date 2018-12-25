@@ -13,45 +13,7 @@
  */
 package io.prestosql.spi.type;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonValue;
-
-import java.util.Optional;
-
 public enum ParameterKind
 {
-    TYPE(Optional.of("TYPE_SIGNATURE")),
-    NAMED_TYPE(Optional.of("NAMED_TYPE_SIGNATURE")),
-    LONG(Optional.of("LONG_LITERAL")),
-    VARIABLE(Optional.empty());
-
-    // TODO: drop special serialization code as soon as all clients
-    //       migrate to version which can deserialize new format.
-
-    private final Optional<String> oldName;
-
-    ParameterKind(Optional<String> oldName)
-    {
-        this.oldName = oldName;
-    }
-
-    @JsonValue
-    public String jsonName()
-    {
-        return oldName.orElse(name());
-    }
-
-    @JsonCreator
-    public static ParameterKind fromJsonValue(String value)
-    {
-        for (ParameterKind kind : values()) {
-            if (kind.oldName.isPresent() && kind.oldName.get().equals(value)) {
-                return kind;
-            }
-            if (kind.name().equals(value)) {
-                return kind;
-            }
-        }
-        throw new IllegalArgumentException("Invalid serialized ParameterKind value: " + value);
-    }
+    TYPE, NAMED_TYPE, LONG, VARIABLE
 }

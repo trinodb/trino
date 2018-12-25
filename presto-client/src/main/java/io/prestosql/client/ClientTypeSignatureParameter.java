@@ -22,9 +22,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import io.airlift.json.ObjectMapperProvider;
-import io.prestosql.spi.type.NamedTypeSignature;
-import io.prestosql.spi.type.ParameterKind;
-import io.prestosql.spi.type.TypeSignatureParameter;
 
 import javax.annotation.concurrent.Immutable;
 
@@ -40,22 +37,19 @@ public class ClientTypeSignatureParameter
     private final ParameterKind kind;
     private final Object value;
 
-    public ClientTypeSignatureParameter(TypeSignatureParameter typeParameterSignature)
+    public static ClientTypeSignatureParameter ofType(ClientTypeSignature typeSignature)
     {
-        this.kind = typeParameterSignature.getKind();
-        switch (kind) {
-            case TYPE:
-                value = new ClientTypeSignature(typeParameterSignature.getTypeSignature());
-                break;
-            case LONG:
-                value = typeParameterSignature.getLongLiteral();
-                break;
-            case NAMED_TYPE:
-                value = typeParameterSignature.getNamedTypeSignature();
-                break;
-            default:
-                throw new UnsupportedOperationException(format("Unknown kind [%s]", kind));
-        }
+        return new ClientTypeSignatureParameter(ParameterKind.TYPE, typeSignature);
+    }
+
+    public static ClientTypeSignatureParameter ofNamedType(NamedClientTypeSignature namedTypeSignature)
+    {
+        return new ClientTypeSignatureParameter(ParameterKind.NAMED_TYPE, namedTypeSignature);
+    }
+
+    public static ClientTypeSignatureParameter ofLong(long longLiteral)
+    {
+        return new ClientTypeSignatureParameter(ParameterKind.LONG, longLiteral);
     }
 
     @JsonCreator
@@ -97,9 +91,9 @@ public class ClientTypeSignatureParameter
         return getValue(ParameterKind.LONG, Long.class);
     }
 
-    public NamedTypeSignature getNamedTypeSignature()
+    public NamedClientTypeSignature getNamedTypeSignature()
     {
-        return getValue(ParameterKind.NAMED_TYPE, NamedTypeSignature.class);
+        return getValue(ParameterKind.NAMED_TYPE, NamedClientTypeSignature.class);
     }
 
     @Override
@@ -148,7 +142,7 @@ public class ClientTypeSignatureParameter
                     value = MAPPER.readValue(jsonValue, ClientTypeSignature.class);
                     break;
                 case NAMED_TYPE:
-                    value = MAPPER.readValue(jsonValue, NamedTypeSignature.class);
+                    value = MAPPER.readValue(jsonValue, NamedClientTypeSignature.class);
                     break;
                 case LONG:
                     value = MAPPER.readValue(jsonValue, Long.class);

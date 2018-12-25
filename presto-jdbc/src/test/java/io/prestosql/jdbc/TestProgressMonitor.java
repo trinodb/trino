@@ -15,10 +15,11 @@ package io.prestosql.jdbc;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonCodec;
+import io.prestosql.client.ClientTypeSignature;
 import io.prestosql.client.Column;
 import io.prestosql.client.QueryResults;
 import io.prestosql.client.StatementStats;
-import io.prestosql.spi.type.BigintType;
+import io.prestosql.spi.type.StandardTypes;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
 import org.testng.annotations.AfterMethod;
@@ -68,7 +69,7 @@ public class TestProgressMonitor
 
     private List<String> createResults()
     {
-        List<Column> columns = ImmutableList.of(new Column("_col0", BigintType.BIGINT));
+        List<Column> columns = ImmutableList.of(new Column("_col0", StandardTypes.BIGINT, new ClientTypeSignature(StandardTypes.BIGINT)));
         return ImmutableList.<String>builder()
                 .add(newQueryResults(null, 1, null, null, "QUEUED"))
                 .add(newQueryResults(1, 2, columns, null, "RUNNING"))

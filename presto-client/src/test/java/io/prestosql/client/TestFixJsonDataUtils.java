@@ -15,11 +15,14 @@ package io.prestosql.client;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.spi.type.TypeSignature;
+import io.prestosql.spi.type.TypeSignatureParameter;
 import org.testng.annotations.Test;
 
 import java.util.Base64;
 import java.util.List;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Lists.newArrayList;
 import static io.prestosql.client.FixJsonDataUtils.fixData;
 import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
@@ -59,11 +62,35 @@ public class TestFixJsonDataUtils
 
     private void assertQueryResult(String type, Object data, Object expected)
     {
+        TypeSignature signature = parseTypeSignature(type);
         List<List<Object>> rows = newArrayList(fixData(
-                ImmutableList.of(new Column("test", parseTypeSignature(type))),
+                ImmutableList.of(new Column("test", signature.toString(), toClientTypeSignature(signature))),
                 ImmutableList.of(ImmutableList.of(data))));
         assertEquals(rows.size(), 1);
         assertEquals(rows.get(0).size(), 1);
         assertEquals(rows.get(0).get(0), expected);
+    }
+
+    private static ClientTypeSignature toClientTypeSignature(TypeSignature signature)
+    {
+        return new ClientTypeSignature(signature.getBase(), signature.getParameters().stream()
+                .map(TestFixJsonDataUtils::toClientTypeSignatureParameter)
+                .collect(toImmutableList()));
+    }
+
+    private static ClientTypeSignatureParameter toClientTypeSignatureParameter(TypeSignatureParameter parameter)
+    {
+        switch (parameter.getKind()) {
+            case TYPE:
+                return ClientTypeSignatureParameter.ofType(toClientTypeSignature(parameter.getTypeSignature()));
+            case NAMED_TYPE:
+                return ClientTypeSignatureParameter.ofNamedType(new NamedClientTypeSignature(
+                        parameter.getNamedTypeSignature().getFieldName().map(value ->
+                                new RowFieldName(value.getName(), value.isDelimited())),
+                        toClientTypeSignature(parameter.getNamedTypeSignature().getTypeSignature())));
+            case LONG:
+                return ClientTypeSignatureParameter.ofLong(parameter.getLongLiteral());
+        }
+        throw new IllegalArgumentException("Unsupported kind: " + parameter.getKind());
     }
 }

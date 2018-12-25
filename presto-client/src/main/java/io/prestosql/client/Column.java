@@ -15,8 +15,6 @@ package io.prestosql.client;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeSignature;
 
 import javax.annotation.concurrent.Immutable;
 
@@ -28,16 +26,6 @@ public class Column
     private final String name;
     private final String type;
     private final ClientTypeSignature typeSignature;
-
-    public Column(String name, Type type)
-    {
-        this(name, type.getTypeSignature());
-    }
-
-    public Column(String name, TypeSignature signature)
-    {
-        this(name, signature.toString(), new ClientTypeSignature(signature));
-    }
 
     @JsonCreator
     public Column(

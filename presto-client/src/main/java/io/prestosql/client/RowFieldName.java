@@ -11,7 +11,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.spi.type;
+package io.prestosql.client;
+
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.Objects;
 
@@ -22,17 +25,22 @@ public class RowFieldName
     private final String name;
     private final boolean delimited;
 
-    public RowFieldName(String name, boolean delimited)
+    @JsonCreator
+    public RowFieldName(
+            @JsonProperty("name") String name,
+            @JsonProperty("delimited") boolean delimited)
     {
         this.name = requireNonNull(name, "name is null");
         this.delimited = delimited;
     }
 
+    @JsonProperty
     public String getName()
     {
         return name;
     }
 
+    @JsonProperty
     public boolean isDelimited()
     {
         return delimited;
