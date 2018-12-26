@@ -19,6 +19,7 @@ import io.prestosql.metadata.FunctionInvoker;
 import io.prestosql.metadata.FunctionRegistry;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlOperator;
+import io.prestosql.operator.scalar.ScalarFunctionImplementation.ReturnPlaceConvention;
 import io.prestosql.operator.scalar.ScalarFunctionImplementation.ScalarImplementationChoice;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.function.InvocationConvention;
@@ -78,11 +79,13 @@ public class RowDistinctFromOperator
                         new ScalarImplementationChoice(
                                 false,
                                 ImmutableList.of(valueTypeArgumentProperty(USE_NULL_FLAG), valueTypeArgumentProperty(USE_NULL_FLAG)),
+                                ReturnPlaceConvention.STACK,
                                 METHOD_HANDLE_NULL_FLAG.bindTo(type).bindTo(argumentMethods.build()),
                                 Optional.empty()),
                         new ScalarImplementationChoice(
                                 false,
                                 ImmutableList.of(valueTypeArgumentProperty(BLOCK_AND_POSITION), valueTypeArgumentProperty(BLOCK_AND_POSITION)),
+                                ReturnPlaceConvention.STACK,
                                 METHOD_HANDLE_BLOCK_POSITION.bindTo(type).bindTo(argumentMethods.build()),
                                 Optional.empty())),
                 isDeterministic());

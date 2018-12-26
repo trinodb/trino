@@ -21,6 +21,7 @@ import io.prestosql.metadata.PolymorphicScalarFunctionBuilder.SpecializeContext;
 import io.prestosql.operator.scalar.ScalarFunctionImplementation;
 import io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty;
 import io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention;
+import io.prestosql.operator.scalar.ScalarFunctionImplementation.ReturnPlaceConvention;
 import io.prestosql.operator.scalar.ScalarFunctionImplementation.ScalarImplementationChoice;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeManager;
@@ -124,7 +125,7 @@ class PolymorphicScalarFunction
 
         List<Object> extraParameters = computeExtraParameters(matchingMethodsGroup.get(), context);
         MethodHandle methodHandle = applyExtraParameters(matchingMethod.get().getMethod(), extraParameters, choice.getArgumentProperties());
-        return new ScalarImplementationChoice(choice.isNullableResult(), choice.getArgumentProperties(), methodHandle, Optional.empty());
+        return new ScalarImplementationChoice(choice.isNullableResult(), choice.getArgumentProperties(), choice.getReturnPlaceConvention(), methodHandle, Optional.empty());
     }
 
     private static boolean matchesParameterAndReturnTypes(
@@ -218,15 +219,18 @@ class PolymorphicScalarFunction
     {
         private final boolean nullableResult;
         private final List<ArgumentProperty> argumentProperties;
+        private final ReturnPlaceConvention returnPlaceConvention;
         private final List<MethodsGroup> methodsGroups;
 
         PolymorphicScalarFunctionChoice(
                 boolean nullableResult,
                 List<ArgumentProperty> argumentProperties,
+                ReturnPlaceConvention returnPlaceConvention,
                 List<MethodsGroup> methodsGroups)
         {
             this.nullableResult = nullableResult;
             this.argumentProperties = ImmutableList.copyOf(requireNonNull(argumentProperties, "argumentProperties is null"));
+            this.returnPlaceConvention = requireNonNull(returnPlaceConvention, "returnPlaceConvention is null");
             this.methodsGroups = ImmutableList.copyOf(requireNonNull(methodsGroups, "methodsWithExtraParametersFunctions is null"));
         }
 
@@ -243,6 +247,11 @@ class PolymorphicScalarFunction
         List<ArgumentProperty> getArgumentProperties()
         {
             return argumentProperties;
+        }
+
+        ReturnPlaceConvention getReturnPlaceConvention()
+        {
+            return returnPlaceConvention;
         }
     }
 }

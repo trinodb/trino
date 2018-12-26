@@ -16,6 +16,7 @@ package io.prestosql.metadata;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.metadata.PolymorphicScalarFunction.PolymorphicScalarFunctionChoice;
 import io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty;
+import io.prestosql.operator.scalar.ScalarFunctionImplementation.ReturnPlaceConvention;
 import io.prestosql.spi.function.OperatorType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeManager;
@@ -250,6 +251,7 @@ public final class PolymorphicScalarFunctionBuilder
         private final Signature signature;
         private boolean nullableResult;
         private List<ArgumentProperty> argumentProperties;
+        private ReturnPlaceConvention returnPlaceConvention;
         private final ImmutableList.Builder<MethodsGroup> methodsGroups = ImmutableList.builder();
 
         private ChoiceBuilder(Class<?> clazz, Signature signature)
@@ -263,6 +265,10 @@ public final class PolymorphicScalarFunctionBuilder
             // if the argumentProperties is not set yet. We assume it is set to the default value.
             if (argumentProperties == null) {
                 argumentProperties = nCopies(signature.getArgumentTypes().size(), valueTypeArgumentProperty(RETURN_NULL_ON_NULL));
+            }
+            // if the returnPlaceConvention is not set yet. We assume it is set to the default value.
+            if (returnPlaceConvention == null) {
+                returnPlaceConvention = ReturnPlaceConvention.STACK;
             }
             MethodsGroupBuilder methodsGroupBuilder = new MethodsGroupBuilder(clazz, signature, argumentProperties);
             methodsGroupSpecification.apply(methodsGroupBuilder);
@@ -285,9 +291,18 @@ public final class PolymorphicScalarFunctionBuilder
             return this;
         }
 
+        public ChoiceBuilder returnPlaceConvention(ReturnPlaceConvention returnPlaceConvention)
+        {
+            requireNonNull(returnPlaceConvention, "returnPlaceConvention is null");
+            checkState(this.returnPlaceConvention == null,
+                    "The `returnPlaceConvention` method must be invoked only once, and must be invoked before the `implementation` method");
+            this.returnPlaceConvention = returnPlaceConvention;
+            return this;
+        }
+
         public PolymorphicScalarFunctionChoice build()
         {
-            return new PolymorphicScalarFunctionChoice(nullableResult, argumentProperties, methodsGroups.build());
+            return new PolymorphicScalarFunctionChoice(nullableResult, argumentProperties, returnPlaceConvention, methodsGroups.build());
         }
     }
 

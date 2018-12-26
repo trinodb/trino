@@ -29,6 +29,7 @@ import io.prestosql.metadata.Signature;
 import io.prestosql.operator.scalar.ScalarFunctionImplementation;
 import io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty;
 import io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention;
+import io.prestosql.operator.scalar.ScalarFunctionImplementation.ReturnPlaceConvention;
 import io.prestosql.operator.scalar.ScalarFunctionImplementation.ScalarImplementationChoice;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.connector.ConnectorSession;
@@ -181,6 +182,11 @@ public final class BytecodeUtils
         List<ScalarImplementationChoice> choices = function.getAllChoices();
         ScalarImplementationChoice bestChoice = null;
         for (ScalarImplementationChoice currentChoice : choices) {
+            if (currentChoice.getReturnPlaceConvention() != ReturnPlaceConvention.STACK) {
+                // TODO: support other return place convention
+                continue;
+            }
+
             boolean isValid = true;
             for (int i = 0; i < arguments.size(); i++) {
                 if (currentChoice.getArgumentProperty(i).getArgumentType() != VALUE_TYPE) {

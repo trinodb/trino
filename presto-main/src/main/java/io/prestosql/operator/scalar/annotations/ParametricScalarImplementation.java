@@ -28,6 +28,7 @@ import io.prestosql.operator.annotations.ImplementationDependency;
 import io.prestosql.operator.scalar.ScalarFunctionImplementation;
 import io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty;
 import io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention;
+import io.prestosql.operator.scalar.ScalarFunctionImplementation.ReturnPlaceConvention;
 import io.prestosql.operator.scalar.ScalarFunctionImplementation.ScalarImplementationChoice;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.connector.ConnectorSession;
@@ -164,6 +165,7 @@ public class ParametricScalarImplementation
             implementationChoices.add(new ScalarImplementationChoice(
                     choice.nullable,
                     choice.argumentProperties,
+                    choice.returnPlaceConvention,
                     boundMethodHandle.asType(javaMethodType(choice, boundSignature, typeManager)),
                     boundConstructor));
         }
@@ -305,6 +307,7 @@ public class ParametricScalarImplementation
     {
         private final boolean nullable;
         private final List<ArgumentProperty> argumentProperties;
+        private final ReturnPlaceConvention returnPlaceConvention;
         private final MethodHandle methodHandle;
         private final Optional<MethodHandle> constructor;
         private final List<ImplementationDependency> dependencies;
@@ -316,6 +319,7 @@ public class ParametricScalarImplementation
                 boolean nullable,
                 boolean hasConnectorSession,
                 List<ArgumentProperty> argumentProperties,
+                ReturnPlaceConvention returnPlaceConvention,
                 MethodHandle methodHandle,
                 Optional<MethodHandle> constructor,
                 List<ImplementationDependency> dependencies,
@@ -324,6 +328,7 @@ public class ParametricScalarImplementation
             this.nullable = nullable;
             this.hasConnectorSession = hasConnectorSession;
             this.argumentProperties = ImmutableList.copyOf(requireNonNull(argumentProperties, "argumentProperties is null"));
+            this.returnPlaceConvention = requireNonNull(returnPlaceConvention, "returnPlaceConvention is null");
             this.methodHandle = requireNonNull(methodHandle, "methodHandle is null");
             this.constructor = requireNonNull(constructor, "constructor is null");
             this.dependencies = ImmutableList.copyOf(requireNonNull(dependencies, "dependencies is null"));
@@ -362,6 +367,11 @@ public class ParametricScalarImplementation
         public List<ArgumentProperty> getArgumentProperties()
         {
             return argumentProperties;
+        }
+
+        public ReturnPlaceConvention getReturnPlaceConvention()
+        {
+            return returnPlaceConvention;
         }
 
         public boolean checkDependencies()
@@ -503,7 +513,15 @@ public class ParametricScalarImplementation
 
             this.methodHandle = getMethodHandle(method);
 
-            ParametricScalarImplementationChoice choice = new ParametricScalarImplementationChoice(nullable, hasConnectorSession, argumentProperties, methodHandle, constructorMethodHandle, dependencies, constructorDependencies);
+            ParametricScalarImplementationChoice choice = new ParametricScalarImplementationChoice(
+                    nullable,
+                    hasConnectorSession,
+                    argumentProperties,
+                    ReturnPlaceConvention.STACK, // TODO: support other return place convention
+                    methodHandle,
+                    constructorMethodHandle,
+                    dependencies,
+                    constructorDependencies);
             choices.add(choice);
         }
 
