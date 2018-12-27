@@ -29,7 +29,6 @@ import io.prestosql.metadata.Signature;
 import io.prestosql.operator.scalar.ScalarFunctionImplementation;
 import io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty;
 import io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention;
-import io.prestosql.operator.scalar.ScalarFunctionImplementation.ReturnPlaceConvention;
 import io.prestosql.operator.scalar.ScalarFunctionImplementation.ScalarImplementationChoice;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.connector.ConnectorSession;
@@ -49,6 +48,7 @@ import static io.airlift.bytecode.expression.BytecodeExpressions.constantFalse;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantTrue;
 import static io.airlift.bytecode.expression.BytecodeExpressions.invokeDynamic;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentType.VALUE_TYPE;
+import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ReturnPlaceConvention.PROVIDED_BLOCKBUILDER;
 import static io.prestosql.sql.gen.Bootstrap.BOOTSTRAP_METHOD;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -61,25 +61,35 @@ public final class BytecodeUtils
 
     public static BytecodeNode ifWasNullPopAndGoto(Scope scope, LabelNode label, Class<?> returnType, Class<?>... stackArgsToPop)
     {
-        return handleNullValue(scope, label, returnType, ImmutableList.copyOf(stackArgsToPop), false);
+        return handleNullValue(scope, label, returnType, ImmutableList.copyOf(stackArgsToPop), Optional.empty(), false);
     }
 
-    public static BytecodeNode ifWasNullPopAndGoto(Scope scope, LabelNode label, Class<?> returnType, Iterable<? extends Class<?>> stackArgsToPop)
+    public static BytecodeNode ifWasNullPopAndGoto(Scope scope, LabelNode label, Class<?> methodReturnType, Iterable<? extends Class<?>> stackArgsToPop)
     {
-        return handleNullValue(scope, label, returnType, ImmutableList.copyOf(stackArgsToPop), false);
+        return handleNullValue(scope, label, methodReturnType, ImmutableList.copyOf(stackArgsToPop), Optional.empty(), false);
     }
 
-    public static BytecodeNode ifWasNullClearPopAndGoto(Scope scope, LabelNode label, Class<?> returnType, Class<?>... stackArgsToPop)
+    public static BytecodeNode ifWasNullClearPopAndGoto(Scope scope, LabelNode label, Class<?> methodReturnType, Class<?>... stackArgsToPop)
     {
-        return handleNullValue(scope, label, returnType, ImmutableList.copyOf(stackArgsToPop), true);
+        return handleNullValue(scope, label, methodReturnType, ImmutableList.copyOf(stackArgsToPop), Optional.empty(), true);
+    }
+
+    public static BytecodeNode ifWasNullClearPopAppendAndGoto(Scope scope, LabelNode label, Class<?> methodReturnType, Variable outputBlockVariable, Iterable<? extends Class<?>> stackArgsToPop)
+    {
+        return handleNullValue(scope, label, methodReturnType, ImmutableList.copyOf(stackArgsToPop), Optional.of(outputBlockVariable), true);
     }
 
     public static BytecodeNode handleNullValue(Scope scope,
             LabelNode label,
-            Class<?> returnType,
+            Class<?> methodReturnType,
             List<Class<?>> stackArgsToPop,
+            Optional<Variable> outputBlockVariable,
             boolean clearNullFlag)
     {
+        if (outputBlockVariable.isPresent()) {
+            checkArgument(methodReturnType == void.class);
+        }
+
         Variable wasNull = scope.getVariable("wasNull");
 
         BytecodeBlock nullCheck = new BytecodeBlock()
@@ -97,9 +107,17 @@ public final class BytecodeUtils
             isNull.pop(parameterType);
         }
 
-        isNull.pushJavaDefault(returnType);
-        String loadDefaultComment;
-        loadDefaultComment = format("loadJavaDefault(%s)", returnType.getName());
+        String loadDefaultOrAppendNullComment;
+        if (!outputBlockVariable.isPresent()) {
+            isNull.pushJavaDefault(methodReturnType);
+            loadDefaultOrAppendNullComment = format("loadJavaDefault(%s)", methodReturnType.getName());
+        }
+        else {
+            isNull.append(outputBlockVariable.get()
+                    .invoke("appendNull", BlockBuilder.class)
+                    .pop());
+            loadDefaultOrAppendNullComment = "appendNullToOutputBlock";
+        }
 
         isNull.gotoLabel(label);
 
@@ -108,7 +126,7 @@ public final class BytecodeUtils
             popComment = format("pop(%s)", Joiner.on(", ").join(stackArgsToPop));
         }
 
-        return new IfStatement("if wasNull then %s", Joiner.on(", ").skipNulls().join(clearComment, popComment, loadDefaultComment, "goto " + label.getLabel()))
+        return new IfStatement("if wasNull then %s", Joiner.on(", ").skipNulls().join(clearComment, popComment, loadDefaultOrAppendNullComment, "goto " + label.getLabel()))
                 .condition(nullCheck)
                 .ifTrue(isNull);
     }
@@ -208,17 +226,13 @@ public final class BytecodeUtils
         List<ScalarImplementationChoice> choices = function.getAllChoices();
         ScalarImplementationChoice bestChoice = null;
         for (ScalarImplementationChoice currentChoice : choices) {
-            if (currentChoice.getReturnPlaceConvention() != ReturnPlaceConvention.STACK) {
-                // TODO: support other return place convention
-                continue;
-            }
-
             boolean isValid = true;
             for (int i = 0; i < arguments.size(); i++) {
                 if (currentChoice.getArgumentProperty(i).getArgumentType() != VALUE_TYPE) {
                     continue;
                 }
-                if (!(arguments.get(i) instanceof InputReferenceNode) && currentChoice.getArgumentProperty(i).getNullConvention() == NullConvention.BLOCK_AND_POSITION) {
+                if (currentChoice.getArgumentProperty(i).getNullConvention() == NullConvention.BLOCK_AND_POSITION && !(arguments.get(i) instanceof InputReferenceNode)
+                        || currentChoice.getReturnPlaceConvention() == PROVIDED_BLOCKBUILDER && (!outputBlockVariableAndType.isPresent())) {
                     isValid = false;
                     break;
                 }
@@ -247,6 +261,9 @@ public final class BytecodeUtils
             else if (type == ConnectorSession.class) {
                 block.append(scope.getVariable("session"));
             }
+            else if (type == BlockBuilder.class) {
+                block.append(outputBlockVariableAndType.get().getOutputBlockVariable());
+            }
             else {
                 ArgumentProperty argumentProperty = bestChoice.getArgumentProperty(realParameterIndex);
                 switch (argumentProperty.getArgumentType()) {
@@ -256,7 +273,17 @@ public final class BytecodeUtils
                             case RETURN_NULL_ON_NULL:
                                 block.append(arguments.get(realParameterIndex));
                                 checkArgument(!Primitives.isWrapperType(type), "Non-nullable argument must not be primitive wrapper type");
-                                block.append(ifWasNullPopAndGoto(scope, end, unboxedReturnType, Lists.reverse(stackTypes)));
+                                switch (bestChoice.getReturnPlaceConvention()) {
+                                    case STACK:
+                                        block.append(ifWasNullPopAndGoto(scope, end, unboxedReturnType, Lists.reverse(stackTypes)));
+                                        break;
+                                    case PROVIDED_BLOCKBUILDER:
+                                        checkArgument(unboxedReturnType == void.class);
+                                        block.append(ifWasNullClearPopAppendAndGoto(scope, end, unboxedReturnType, outputBlockVariableAndType.get().getOutputBlockVariable(), Lists.reverse(stackTypes)));
+                                        break;
+                                    default:
+                                        throw new UnsupportedOperationException(format("Unsupported return place convention: %s", bestChoice.getReturnPlaceConvention()));
+                                }
                                 break;
                             case USE_NULL_FLAG:
                                 block.append(arguments.get(realParameterIndex));
@@ -293,12 +320,30 @@ public final class BytecodeUtils
         block.append(invoke(binding, name));
 
         if (function.isNullable()) {
-            block.append(unboxPrimitiveIfNecessary(scope, returnType));
+            switch (bestChoice.getReturnPlaceConvention()) {
+                case STACK:
+                    block.append(unboxPrimitiveIfNecessary(scope, returnType));
+                    break;
+                case PROVIDED_BLOCKBUILDER:
+                    // no-op
+                    break;
+                default:
+                    throw new UnsupportedOperationException(format("Unsupported return place convention: %s", bestChoice.getReturnPlaceConvention()));
+            }
         }
         block.visitLabel(end);
 
         if (outputBlockVariableAndType.isPresent()) {
-            block.append(generateWrite(binder, scope, scope.getVariable("wasNull"), outputBlockVariableAndType.get().getType(), outputBlockVariableAndType.get().getOutputBlockVariable()));
+            switch (bestChoice.getReturnPlaceConvention()) {
+                case STACK:
+                    block.append(generateWrite(binder, scope, scope.getVariable("wasNull"), outputBlockVariableAndType.get().getType(), outputBlockVariableAndType.get().getOutputBlockVariable()));
+                    break;
+                case PROVIDED_BLOCKBUILDER:
+                    // no-op
+                    break;
+                default:
+                    throw new UnsupportedOperationException(format("Unsupported return place convention: %s", bestChoice.getReturnPlaceConvention()));
+            }
         }
         return block;
     }
