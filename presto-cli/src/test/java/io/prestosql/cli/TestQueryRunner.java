@@ -23,7 +23,6 @@ import io.prestosql.client.ClientTypeSignature;
 import io.prestosql.client.Column;
 import io.prestosql.client.QueryResults;
 import io.prestosql.client.StatementStats;
-import io.prestosql.spi.type.StandardTypes;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
 import org.testng.annotations.AfterMethod;
@@ -43,6 +42,7 @@ import static com.google.common.net.HttpHeaders.LOCATION;
 import static com.google.common.net.HttpHeaders.SET_COOKIE;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.prestosql.cli.ClientOptions.OutputFormat.CSV;
+import static io.prestosql.client.ClientStandardTypes.BIGINT;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static org.testng.Assert.assertEquals;
 
@@ -119,7 +119,7 @@ public class TestQueryRunner
                 server.url("/query.html?20160128_214710_00012_rk68b").uri(),
                 null,
                 null,
-                ImmutableList.of(new Column("_col0", StandardTypes.BIGINT, new ClientTypeSignature(StandardTypes.BIGINT))),
+                ImmutableList.of(new Column("_col0", BIGINT, new ClientTypeSignature(BIGINT))),
                 ImmutableList.of(ImmutableList.of(123)),
                 StatementStats.builder().setState("FINISHED").build(),
                 //new StatementStats("FINISHED", false, true, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, null),
