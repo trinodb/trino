@@ -16,7 +16,6 @@ package io.prestosql.client;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
-import io.prestosql.spi.type.StandardTypes;
 
 import javax.annotation.concurrent.Immutable;
 
@@ -31,6 +30,7 @@ import java.util.stream.Collectors;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.prestosql.client.ClientStandardTypes.ROW;
 import static java.lang.String.format;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
@@ -71,7 +71,7 @@ public class ClientTypeSignature
             requireNonNull(literalArguments, "literalArguments is null");
             ImmutableList.Builder<ClientTypeSignatureParameter> convertedArguments = ImmutableList.builder();
             // Talking to a legacy server (< 0.133)
-            if (rawType.equals(StandardTypes.ROW)) {
+            if (rawType.equals(ROW)) {
                 checkArgument(typeArguments.size() == literalArguments.size());
                 for (int i = 0; i < typeArguments.size(); i++) {
                     Object value = literalArguments.get(i);
@@ -158,7 +158,7 @@ public class ClientTypeSignature
     @Override
     public String toString()
     {
-        if (rawType.equals(StandardTypes.ROW)) {
+        if (rawType.equals(ROW)) {
             return rowToString();
         }
         else {
