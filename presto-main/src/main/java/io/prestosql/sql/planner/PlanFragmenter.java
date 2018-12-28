@@ -38,12 +38,15 @@ import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 import io.prestosql.sql.planner.plan.PlanVisitor;
 import io.prestosql.sql.planner.plan.RemoteSourceNode;
+import io.prestosql.sql.planner.plan.RowNumberNode;
 import io.prestosql.sql.planner.plan.SimplePlanRewriter;
 import io.prestosql.sql.planner.plan.StatisticsWriterNode;
 import io.prestosql.sql.planner.plan.TableFinishNode;
 import io.prestosql.sql.planner.plan.TableScanNode;
 import io.prestosql.sql.planner.plan.TableWriterNode;
+import io.prestosql.sql.planner.plan.TopNRowNumberNode;
 import io.prestosql.sql.planner.plan.ValuesNode;
+import io.prestosql.sql.planner.plan.WindowNode;
 
 import javax.inject.Inject;
 
@@ -57,6 +60,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.in;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.prestosql.SystemSessionProperties.getQueryMaxStageCount;
 import static io.prestosql.SystemSessionProperties.isForceSingleNodeOutput;
 import static io.prestosql.operator.StageExecutionDescriptor.ungroupedExecution;
@@ -503,14 +507,14 @@ public class PlanFragmenter
         private final Session session;
         private final Metadata metadata;
         private final NodePartitioningManager nodePartitioningManager;
-        private final boolean groupedExecutionForAggregation;
+        private final boolean groupedExecutionEnabled;
 
         public GroupedExecutionTagger(Session session, Metadata metadata, NodePartitioningManager nodePartitioningManager)
         {
             this.session = requireNonNull(session, "session is null");
             this.metadata = requireNonNull(metadata, "metadata is null");
             this.nodePartitioningManager = requireNonNull(nodePartitioningManager, "nodePartitioningManager is null");
-            this.groupedExecutionForAggregation = SystemSessionProperties.isGroupedExecutionForAggregationEnabled(session);
+            this.groupedExecutionEnabled = SystemSessionProperties.isGroupedExecutionEnabled(session);
         }
 
         @Override
@@ -591,7 +595,7 @@ public class PlanFragmenter
         public GroupedExecutionProperties visitAggregation(AggregationNode node, Void context)
         {
             GroupedExecutionProperties properties = node.getSource().accept(this, null);
-            if (groupedExecutionForAggregation && properties.isCurrentNodeCapable()) {
+            if (groupedExecutionEnabled && properties.isCurrentNodeCapable()) {
                 switch (node.getStep()) {
                     case SINGLE:
                     case FINAL:
@@ -600,6 +604,33 @@ public class PlanFragmenter
                     case INTERMEDIATE:
                         return properties;
                 }
+            }
+            return GroupedExecutionProperties.notCapable();
+        }
+
+        @Override
+        public GroupedExecutionProperties visitWindow(WindowNode node, Void context)
+        {
+            return processWindowFunction(node);
+        }
+
+        @Override
+        public GroupedExecutionProperties visitRowNumber(RowNumberNode node, Void context)
+        {
+            return processWindowFunction(node);
+        }
+
+        @Override
+        public GroupedExecutionProperties visitTopNRowNumber(TopNRowNumberNode node, Void context)
+        {
+            return processWindowFunction(node);
+        }
+
+        private GroupedExecutionProperties processWindowFunction(PlanNode node)
+        {
+            GroupedExecutionProperties properties = getOnlyElement(node.getSources()).accept(this, null);
+            if (groupedExecutionEnabled && properties.isCurrentNodeCapable()) {
+                return new GroupedExecutionProperties(true, true, properties.capableTableScanNodes);
             }
             return GroupedExecutionProperties.notCapable();
         }

@@ -78,7 +78,7 @@ import static io.airlift.tpch.TpchTable.ORDERS;
 import static io.prestosql.SystemSessionProperties.COLOCATED_JOIN;
 import static io.prestosql.SystemSessionProperties.CONCURRENT_LIFESPANS_PER_NODE;
 import static io.prestosql.SystemSessionProperties.DYNAMIC_SCHEDULE_FOR_GROUPED_EXECUTION;
-import static io.prestosql.SystemSessionProperties.GROUPED_EXECUTION_FOR_AGGREGATION;
+import static io.prestosql.SystemSessionProperties.GROUPED_EXECUTION;
 import static io.prestosql.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.prestosql.plugin.hive.HiveColumnHandle.BUCKET_COLUMN_NAME;
 import static io.prestosql.plugin.hive.HiveColumnHandle.PATH_COLUMN_NAME;
@@ -2408,37 +2408,42 @@ public class TestHiveIntegrationSmokeTest
                             "WITH (bucket_count = 13, bucketed_by = ARRAY['keyD']) AS\n" +
                             "SELECT orderkey keyD, comment valueD FROM orders CROSS JOIN UNNEST(repeat(NULL, 2))",
                     30000);
+            assertUpdate(
+                    "CREATE TABLE test_grouped_window\n" +
+                            "WITH (bucket_count = 5, bucketed_by = ARRAY['key']) AS\n" +
+                            "SELECT custkey key, orderkey value FROM orders WHERE custkey <= 5 ORDER BY orderkey LIMIT 10",
+                    10);
 
             // NOT grouped execution; default
             Session notColocated = Session.builder(getSession())
                     .setSystemProperty(COLOCATED_JOIN, "false")
-                    .setSystemProperty(GROUPED_EXECUTION_FOR_AGGREGATION, "false")
+                    .setSystemProperty(GROUPED_EXECUTION, "false")
                     .build();
             // Co-located JOIN with all groups at once, fixed schedule
             Session colocatedAllGroupsAtOnce = Session.builder(getSession())
                     .setSystemProperty(COLOCATED_JOIN, "true")
-                    .setSystemProperty(GROUPED_EXECUTION_FOR_AGGREGATION, "true")
+                    .setSystemProperty(GROUPED_EXECUTION, "true")
                     .setSystemProperty(CONCURRENT_LIFESPANS_PER_NODE, "0")
                     .setSystemProperty(DYNAMIC_SCHEDULE_FOR_GROUPED_EXECUTION, "false")
                     .build();
             // Co-located JOIN, 1 group per worker at a time, fixed schedule
             Session colocatedOneGroupAtATime = Session.builder(getSession())
                     .setSystemProperty(COLOCATED_JOIN, "true")
-                    .setSystemProperty(GROUPED_EXECUTION_FOR_AGGREGATION, "true")
+                    .setSystemProperty(GROUPED_EXECUTION, "true")
                     .setSystemProperty(CONCURRENT_LIFESPANS_PER_NODE, "1")
                     .setSystemProperty(DYNAMIC_SCHEDULE_FOR_GROUPED_EXECUTION, "false")
                     .build();
             // Co-located JOIN with all groups at once, dynamic schedule
             Session colocatedAllGroupsAtOnceDynamic = Session.builder(getSession())
                     .setSystemProperty(COLOCATED_JOIN, "true")
-                    .setSystemProperty(GROUPED_EXECUTION_FOR_AGGREGATION, "true")
+                    .setSystemProperty(GROUPED_EXECUTION, "true")
                     .setSystemProperty(CONCURRENT_LIFESPANS_PER_NODE, "0")
                     .setSystemProperty(DYNAMIC_SCHEDULE_FOR_GROUPED_EXECUTION, "true")
                     .build();
             // Co-located JOIN, 1 group per worker at a time, dynamic schedule
             Session colocatedOneGroupAtATimeDynamic = Session.builder(getSession())
                     .setSystemProperty(COLOCATED_JOIN, "true")
-                    .setSystemProperty(GROUPED_EXECUTION_FOR_AGGREGATION, "true")
+                    .setSystemProperty(GROUPED_EXECUTION, "true")
                     .setSystemProperty(CONCURRENT_LIFESPANS_PER_NODE, "1")
                     .setSystemProperty(DYNAMIC_SCHEDULE_FOR_GROUPED_EXECUTION, "true")
                     .build();
@@ -2446,7 +2451,7 @@ public class TestHiveIntegrationSmokeTest
             Session broadcastOneGroupAtATime = Session.builder(getSession())
                     .setSystemProperty(JOIN_DISTRIBUTION_TYPE, BROADCAST.name())
                     .setSystemProperty(COLOCATED_JOIN, "true")
-                    .setSystemProperty(GROUPED_EXECUTION_FOR_AGGREGATION, "true")
+                    .setSystemProperty(GROUPED_EXECUTION, "true")
                     .setSystemProperty(CONCURRENT_LIFESPANS_PER_NODE, "1")
                     .build();
 
@@ -2763,6 +2768,54 @@ public class TestHiveIntegrationSmokeTest
             assertQuery(colocatedOneGroupAtATimeDynamic, chainedSharedBuildOuterJoin, expectedChainedOuterJoinResult, assertRemoteExchangesCount(2));
 
             //
+            // Window function
+            // ===============
+            assertQuery(
+                    colocatedOneGroupAtATime,
+                    "SELECT key, count(*) OVER (PARTITION BY key ORDER BY value) FROM test_grouped_window",
+                    "VALUES\n" +
+                            "(1, 1),\n" +
+                            "(2, 1),\n" +
+                            "(2, 2),\n" +
+                            "(4, 1),\n" +
+                            "(4, 2),\n" +
+                            "(4, 3),\n" +
+                            "(4, 4),\n" +
+                            "(4, 5),\n" +
+                            "(5, 1),\n" +
+                            "(5, 2)",
+                    assertRemoteExchangesCount(1));
+
+            assertQuery(
+                    colocatedOneGroupAtATime,
+                    "SELECT key, row_number() OVER (PARTITION BY key ORDER BY value) FROM test_grouped_window",
+                    "VALUES\n" +
+                            "(1, 1),\n" +
+                            "(2, 1),\n" +
+                            "(2, 2),\n" +
+                            "(4, 1),\n" +
+                            "(4, 2),\n" +
+                            "(4, 3),\n" +
+                            "(4, 4),\n" +
+                            "(4, 5),\n" +
+                            "(5, 1),\n" +
+                            "(5, 2)",
+                    assertRemoteExchangesCount(1));
+
+            assertQuery(
+                    colocatedOneGroupAtATime,
+                    "SELECT key, n FROM (SELECT key, row_number() OVER (PARTITION BY key ORDER BY value) AS n FROM test_grouped_window) WHERE n <= 2",
+                    "VALUES\n" +
+                            "(1, 1),\n" +
+                            "(2, 1),\n" +
+                            "(2, 2),\n" +
+                            "(4, 1),\n" +
+                            "(4, 2),\n" +
+                            "(5, 1),\n" +
+                            "(5, 2)",
+                    assertRemoteExchangesCount(1));
+
+            //
             // Filter out all or majority of splits
             // ====================================
             @Language("SQL") String noSplits =
@@ -2805,6 +2858,7 @@ public class TestHiveIntegrationSmokeTest
             assertUpdate("DROP TABLE IF EXISTS test_grouped_join3");
             assertUpdate("DROP TABLE IF EXISTS test_grouped_joinN");
             assertUpdate("DROP TABLE IF EXISTS test_grouped_joinDual");
+            assertUpdate("DROP TABLE IF EXISTS test_grouped_window");
         }
     }
 
