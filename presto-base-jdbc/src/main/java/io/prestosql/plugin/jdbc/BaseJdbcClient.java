@@ -471,7 +471,8 @@ public class BaseJdbcClient
         }
     }
 
-    protected WriteMapping toWriteMapping(Type type)
+    @Override
+    public WriteMapping toWriteMapping(Type type)
     {
         if (isVarcharType(type)) {
             VarcharType varcharType = (VarcharType) type;
