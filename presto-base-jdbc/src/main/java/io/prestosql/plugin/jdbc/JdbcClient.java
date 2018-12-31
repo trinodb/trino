@@ -20,6 +20,7 @@ import io.prestosql.spi.connector.ConnectorTableMetadata;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.statistics.TableStatistics;
+import io.prestosql.spi.type.Type;
 
 import javax.annotation.Nullable;
 
@@ -47,6 +48,8 @@ public interface JdbcClient
     List<JdbcColumnHandle> getColumns(ConnectorSession session, JdbcTableHandle tableHandle);
 
     Optional<ColumnMapping> toPrestoType(ConnectorSession session, JdbcTypeHandle typeHandle);
+
+    WriteMapping toWriteMapping(Type type);
 
     ConnectorSplitSource getSplits(JdbcTableLayoutHandle layoutHandle);
 
