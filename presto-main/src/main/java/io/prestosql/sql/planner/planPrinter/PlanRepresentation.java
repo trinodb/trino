@@ -13,6 +13,8 @@
  */
 package io.prestosql.sql.planner.planPrinter;
 
+import io.airlift.units.Duration;
+import io.prestosql.sql.planner.TypeProvider;
 import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 
@@ -20,17 +22,30 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
+import static java.util.Objects.requireNonNull;
+
 class PlanRepresentation
 {
     private final PlanNode root;
     private final int level;
+    private final Optional<Duration> totalCpuTime;
+    private final Optional<Duration> totalScheduledTime;
+    private final TypeProvider types;
 
     private final Map<PlanNodeId, NodeRepresentation> nodeInfo = new HashMap<>();
 
-    public PlanRepresentation(PlanNode root, int level)
+    public PlanRepresentation(PlanNode root, int level, TypeProvider types, Optional<Duration> totalCpuTime, Optional<Duration> totalScheduledTime)
     {
-        this.root = root;
+        this.root = requireNonNull(root, "root is null");
         this.level = level;
+        this.totalCpuTime = requireNonNull(totalCpuTime, "totalCpuTime is null");
+        this.types = requireNonNull(types, "types is null");
+        this.totalScheduledTime = requireNonNull(totalScheduledTime, "totalScheduledTime is null");
+    }
+
+    public NodeRepresentation getRoot()
+    {
+        return nodeInfo.get(root.getId());
     }
 
     public int getLevel()
@@ -38,9 +53,19 @@ class PlanRepresentation
         return level;
     }
 
-    public NodeRepresentation getRoot()
+    public TypeProvider getTypes()
     {
-        return nodeInfo.get(root.getId());
+        return types;
+    }
+
+    public Optional<Duration> getTotalCpuTime()
+    {
+        return totalCpuTime;
+    }
+
+    public Optional<Duration> getTotalScheduledTime()
+    {
+        return totalScheduledTime;
     }
 
     public Optional<NodeRepresentation> getNode(PlanNodeId id)
