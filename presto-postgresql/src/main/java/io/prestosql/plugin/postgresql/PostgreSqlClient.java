@@ -18,6 +18,7 @@ import io.prestosql.plugin.jdbc.BaseJdbcConfig;
 import io.prestosql.plugin.jdbc.DriverConnectionFactory;
 import io.prestosql.plugin.jdbc.JdbcConnectorId;
 import io.prestosql.plugin.jdbc.JdbcOutputTableHandle;
+import io.prestosql.plugin.jdbc.WriteMapping;
 import io.prestosql.spi.type.Type;
 import org.postgresql.Driver;
 
@@ -29,6 +30,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.varbinaryWriteFunction;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static java.lang.String.format;
 
@@ -82,12 +84,12 @@ public class PostgreSqlClient
     }
 
     @Override
-    protected String toSqlType(Type type)
+    protected WriteMapping toWriteMapping(Type type)
     {
         if (VARBINARY.equals(type)) {
-            return "bytea";
+            return WriteMapping.sliceMapping("bytea", varbinaryWriteFunction());
         }
 
-        return super.toSqlType(type);
+        return super.toWriteMapping(type);
     }
 }

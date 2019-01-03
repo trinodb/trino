@@ -53,7 +53,20 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.prestosql.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.bigintWriteFunction;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.booleanWriteFunction;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.charWriteFunction;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.dateWriteFunction;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.doubleWriteFunction;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.integerWriteFunction;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.jdbcTypeToPrestoType;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.longDecimalWriteFunction;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.realWriteFunction;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.shortDecimalWriteFunction;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.smallintWriteFunction;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.tinyintWriteFunction;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.varbinaryWriteFunction;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.varcharWriteFunction;
 import static io.prestosql.spi.StandardErrorCode.NOT_FOUND;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.type.BigintType.BIGINT;
@@ -77,16 +90,16 @@ public class BaseJdbcClient
 {
     private static final Logger log = Logger.get(BaseJdbcClient.class);
 
-    private static final Map<Type, String> SQL_TYPES = ImmutableMap.<Type, String>builder()
-            .put(BOOLEAN, "boolean")
-            .put(BIGINT, "bigint")
-            .put(INTEGER, "integer")
-            .put(SMALLINT, "smallint")
-            .put(TINYINT, "tinyint")
-            .put(DOUBLE, "double precision")
-            .put(REAL, "real")
-            .put(VARBINARY, "varbinary")
-            .put(DATE, "date")
+    private static final Map<Type, WriteMapping> WRITE_MAPPINGS = ImmutableMap.<Type, WriteMapping>builder()
+            .put(BOOLEAN, WriteMapping.booleanMapping("boolean", booleanWriteFunction()))
+            .put(BIGINT, WriteMapping.longMapping("bigint", bigintWriteFunction()))
+            .put(INTEGER, WriteMapping.longMapping("integer", integerWriteFunction()))
+            .put(SMALLINT, WriteMapping.longMapping("smallint", smallintWriteFunction()))
+            .put(TINYINT, WriteMapping.longMapping("tinyint", tinyintWriteFunction()))
+            .put(DOUBLE, WriteMapping.doubleMapping("double precision", doubleWriteFunction()))
+            .put(REAL, WriteMapping.longMapping("real", realWriteFunction()))
+            .put(VARBINARY, WriteMapping.sliceMapping("varbinary", varbinaryWriteFunction()))
+            .put(DATE, WriteMapping.longMapping("date", dateWriteFunction()))
             .build();
 
     protected final String connectorId;
@@ -308,7 +321,8 @@ public class BaseJdbcClient
                 }
                 columnNames.add(columnName);
                 columnTypes.add(column.getType());
-                columnList.add(format("%s %s", quoted(columnName), toSqlType(column.getType())));
+                // TODO in INSERT case, we should reuse original column type and, ideally, constraints (then JdbcPageSink must get writer from toPrestoType())
+                columnList.add(format("%s %s", quoted(columnName), toWriteMapping(column.getType()).getDataType()));
             }
 
             String sql = format(
@@ -457,28 +471,42 @@ public class BaseJdbcClient
         }
     }
 
-    protected String toSqlType(Type type)
+    protected WriteMapping toWriteMapping(Type type)
     {
         if (isVarcharType(type)) {
             VarcharType varcharType = (VarcharType) type;
+            String dataType;
             if (varcharType.isUnbounded()) {
-                return "varchar";
+                dataType = "varchar";
             }
-            return "varchar(" + varcharType.getBoundedLength() + ")";
+            else {
+                dataType = "varchar(" + varcharType.getBoundedLength() + ")";
+            }
+            return WriteMapping.sliceMapping(dataType, varcharWriteFunction());
         }
         if (type instanceof CharType) {
-            if (((CharType) type).getLength() == CharType.MAX_LENGTH) {
-                return "char";
+            CharType charType = (CharType) type;
+            String dataType;
+            if (charType.getLength() == CharType.MAX_LENGTH) {
+                dataType = "char";
             }
-            return "char(" + ((CharType) type).getLength() + ")";
+            else {
+                dataType = "char(" + charType.getLength() + ")";
+            }
+            return WriteMapping.sliceMapping(dataType, charWriteFunction(charType));
         }
         if (type instanceof DecimalType) {
-            return format("decimal(%s, %s)", ((DecimalType) type).getPrecision(), ((DecimalType) type).getScale());
+            DecimalType decimalType = (DecimalType) type;
+            String dataType = format("decimal(%s, %s)", decimalType.getPrecision(), decimalType.getScale());
+            if (decimalType.isShort()) {
+                return WriteMapping.longMapping(dataType, shortDecimalWriteFunction(decimalType));
+            }
+            return WriteMapping.sliceMapping(dataType, longDecimalWriteFunction(decimalType));
         }
 
-        String sqlType = SQL_TYPES.get(type);
-        if (sqlType != null) {
-            return sqlType;
+        WriteMapping writeMapping = WRITE_MAPPINGS.get(type);
+        if (writeMapping != null) {
+            return writeMapping;
         }
         throw new PrestoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
     }
