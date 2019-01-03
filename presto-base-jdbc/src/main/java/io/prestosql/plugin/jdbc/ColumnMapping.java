@@ -13,7 +13,10 @@
  */
 package io.prestosql.plugin.jdbc;
 
+import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.type.Type;
+
+import java.util.function.UnaryOperator;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -23,29 +26,50 @@ public final class ColumnMapping
 {
     public static ColumnMapping booleanMapping(Type prestoType, BooleanReadFunction readFunction, BooleanWriteFunction writeFunction)
     {
-        return new ColumnMapping(prestoType, readFunction, writeFunction);
+        return booleanMapping(prestoType, readFunction, writeFunction, UnaryOperator.identity());
+    }
+
+    public static ColumnMapping booleanMapping(Type prestoType, BooleanReadFunction readFunction, BooleanWriteFunction writeFunction, UnaryOperator<Domain> pushdownConverter)
+    {
+        return new ColumnMapping(prestoType, readFunction, writeFunction, pushdownConverter);
     }
 
     public static ColumnMapping longMapping(Type prestoType, LongReadFunction readFunction, LongWriteFunction writeFunction)
     {
-        return new ColumnMapping(prestoType, readFunction, writeFunction);
+        return longMapping(prestoType, readFunction, writeFunction, UnaryOperator.identity());
+    }
+
+    public static ColumnMapping longMapping(Type prestoType, LongReadFunction readFunction, LongWriteFunction writeFunction, UnaryOperator<Domain> pushdownConverter)
+    {
+        return new ColumnMapping(prestoType, readFunction, writeFunction, pushdownConverter);
     }
 
     public static ColumnMapping doubleMapping(Type prestoType, DoubleReadFunction readFunction, DoubleWriteFunction writeFunction)
     {
-        return new ColumnMapping(prestoType, readFunction, writeFunction);
+        return doubleMapping(prestoType, readFunction, writeFunction, UnaryOperator.identity());
+    }
+
+    public static ColumnMapping doubleMapping(Type prestoType, DoubleReadFunction readFunction, DoubleWriteFunction writeFunction, UnaryOperator<Domain> pushdownConverter)
+    {
+        return new ColumnMapping(prestoType, readFunction, writeFunction, pushdownConverter);
     }
 
     public static ColumnMapping sliceMapping(Type prestoType, SliceReadFunction readFunction, SliceWriteFunction writeFunction)
     {
-        return new ColumnMapping(prestoType, readFunction, writeFunction);
+        return sliceMapping(prestoType, readFunction, writeFunction, UnaryOperator.identity());
+    }
+
+    public static ColumnMapping sliceMapping(Type prestoType, SliceReadFunction readFunction, SliceWriteFunction writeFunction, UnaryOperator<Domain> pushdownConverter)
+    {
+        return new ColumnMapping(prestoType, readFunction, writeFunction, pushdownConverter);
     }
 
     private final Type type;
     private final ReadFunction readFunction;
     private final WriteFunction writeFunction;
+    private final UnaryOperator<Domain> pushdownConverter;
 
-    private ColumnMapping(Type type, ReadFunction readFunction, WriteFunction writeFunction)
+    private ColumnMapping(Type type, ReadFunction readFunction, WriteFunction writeFunction, UnaryOperator<Domain> pushdownConverter)
     {
         this.type = requireNonNull(type, "type is null");
         this.readFunction = requireNonNull(readFunction, "readFunction is null");
@@ -62,6 +86,7 @@ public final class ColumnMapping
                 type,
                 writeFunction,
                 writeFunction.getJavaType());
+        this.pushdownConverter = requireNonNull(pushdownConverter, "pushdownConverter is null");
     }
 
     public Type getType()
@@ -77,6 +102,11 @@ public final class ColumnMapping
     public WriteFunction getWriteFunction()
     {
         return writeFunction;
+    }
+
+    public UnaryOperator<Domain> getPushdownConverter()
+    {
+        return pushdownConverter;
     }
 
     @Override

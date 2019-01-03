@@ -16,6 +16,7 @@ package io.prestosql.plugin.jdbc;
 import com.google.common.base.CharMatcher;
 import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;
+import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.type.CharType;
 import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.Decimals;
@@ -149,12 +150,14 @@ public final class StandardColumnMappings
             return ColumnMapping.longMapping(
                     decimalType,
                     (resultSet, columnIndex) -> encodeShortScaledValue(resultSet.getBigDecimal(columnIndex), scale),
-                    shortDecimalWriteFunction(decimalType));
+                    shortDecimalWriteFunction(decimalType),
+                    domain -> Domain.all(domain.getType())); // TODO enable
         }
         return ColumnMapping.sliceMapping(
                 decimalType,
                 (resultSet, columnIndex) -> encodeScaledValue(resultSet.getBigDecimal(columnIndex), scale),
-                longDecimalWriteFunction(decimalType));
+                longDecimalWriteFunction(decimalType),
+                domain -> Domain.all(domain.getType())); // TODO enable
     }
 
     public static LongWriteFunction shortDecimalWriteFunction(DecimalType decimalType)
@@ -211,7 +214,8 @@ public final class StandardColumnMappings
         return ColumnMapping.sliceMapping(
                 VARBINARY,
                 (resultSet, columnIndex) -> wrappedBuffer(resultSet.getBytes(columnIndex)),
-                varbinaryWriteFunction());
+                varbinaryWriteFunction(),
+                domain -> Domain.all(domain.getType()));
     }
 
     public static SliceWriteFunction varbinaryWriteFunction()
