@@ -283,6 +283,9 @@ final class PrestoDriverUri
             Iterable<String> queryArgs = QUERY_SPLITTER.split(query);
             for (String queryArg : queryArgs) {
                 List<String> parts = ARG_SPLITTER.splitToList(queryArg);
+                if (parts.size() != 2) {
+                    throw new SQLException(format("Connection argument is not valid connection property: '%s'", queryArg));
+                }
                 if (result.put(parts.get(0), parts.get(1)) != null) {
                     throw new SQLException(format("Connection property '%s' is in URL multiple times", parts.get(0)));
                 }

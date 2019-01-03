@@ -69,6 +69,9 @@ public class TestPrestoDriverUri
         // property in url multiple times
         assertInvalid("presto://localhost:8080/blackhole?password=a&password=b", "Connection property 'password' is in URL multiple times");
 
+        // property not well formed, missing '='
+        assertInvalid("presto://localhost:8080/blackhole?password&user=abc", "Connection argument is not valid connection property: 'password'");
+
         // property in both url and arguments
         assertInvalid("presto://localhost:8080/blackhole?user=test123", "Connection property 'user' is both in the URL and an argument");
 
