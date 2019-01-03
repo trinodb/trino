@@ -22,19 +22,7 @@ import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.Range;
 import io.prestosql.spi.predicate.TupleDomain;
-import io.prestosql.spi.type.BigintType;
-import io.prestosql.spi.type.BooleanType;
-import io.prestosql.spi.type.CharType;
-import io.prestosql.spi.type.DateType;
-import io.prestosql.spi.type.DoubleType;
-import io.prestosql.spi.type.IntegerType;
-import io.prestosql.spi.type.RealType;
-import io.prestosql.spi.type.SmallintType;
-import io.prestosql.spi.type.TimeType;
-import io.prestosql.spi.type.TimestampType;
-import io.prestosql.spi.type.TinyintType;
 import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.VarcharType;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -130,7 +118,7 @@ public class QueryBuilder
 
         List<TypeAndValue> accumulator = new ArrayList<>();
 
-        List<String> clauses = toConjuncts(columns, tupleDomain, accumulator);
+        List<String> clauses = toConjuncts(client, session, columns, tupleDomain, accumulator);
         if (additionalPredicate.isPresent()) {
             clauses = ImmutableList.<String>builder()
                     .addAll(clauses)
@@ -173,33 +161,21 @@ public class QueryBuilder
         return statement;
     }
 
-    private static boolean isAcceptedType(Type type)
+    private static Domain pushDownDomain(JdbcClient client, ConnectorSession session, JdbcColumnHandle column, Domain domain)
     {
-        Type validType = requireNonNull(type, "type is null");
-        return validType.equals(BigintType.BIGINT) ||
-                validType.equals(TinyintType.TINYINT) ||
-                validType.equals(SmallintType.SMALLINT) ||
-                validType.equals(IntegerType.INTEGER) ||
-                validType.equals(DoubleType.DOUBLE) ||
-                validType.equals(RealType.REAL) ||
-                validType.equals(BooleanType.BOOLEAN) ||
-                validType.equals(DateType.DATE) ||
-                validType.equals(TimeType.TIME) ||
-                validType.equals(TimestampType.TIMESTAMP) ||
-                validType instanceof VarcharType ||
-                validType instanceof CharType;
+        return client.toPrestoType(session, column.getJdbcTypeHandle())
+                .orElseThrow(() -> new IllegalStateException(format("Unsupported type %s with handle %s", column.getColumnType(), column.getJdbcTypeHandle())))
+                .getPushdownConverter().apply(domain);
     }
 
-    private List<String> toConjuncts(List<JdbcColumnHandle> columns, TupleDomain<ColumnHandle> tupleDomain, List<TypeAndValue> accumulator)
+    private List<String> toConjuncts(JdbcClient client, ConnectorSession session, List<JdbcColumnHandle> columns, TupleDomain<ColumnHandle> tupleDomain, List<TypeAndValue> accumulator)
     {
         ImmutableList.Builder<String> builder = ImmutableList.builder();
         for (JdbcColumnHandle column : columns) {
-            Type type = column.getColumnType();
-            if (isAcceptedType(type)) {
-                Domain domain = tupleDomain.getDomains().get().get(column);
-                if (domain != null) {
-                    builder.add(toPredicate(column.getColumnName(), domain, column, accumulator));
-                }
+            Domain domain = tupleDomain.getDomains().get().get(column);
+            if (domain != null) {
+                domain = pushDownDomain(client, session, column, domain);
+                builder.add(toPredicate(column.getColumnName(), domain, column, accumulator));
             }
         }
         return builder.build();
@@ -296,7 +272,6 @@ public class QueryBuilder
     private static void bindValue(Object value, JdbcColumnHandle column, List<TypeAndValue> accumulator)
     {
         Type type = column.getColumnType();
-        checkArgument(isAcceptedType(type), "Can't handle type: %s", type);
         accumulator.add(new TypeAndValue(type, column.getJdbcTypeHandle(), value));
     }
 }
