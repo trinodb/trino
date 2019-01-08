@@ -17,14 +17,14 @@ import com.esri.core.geometry.ogc.OGCGeometry;
 import io.airlift.slice.Slice;
 import io.prestosql.block.BlockAssertions;
 import io.prestosql.geospatial.serde.GeometrySerde;
-import io.prestosql.metadata.FunctionKind;
-import io.prestosql.metadata.Signature;
+import io.prestosql.metadata.FunctionHandle;
+import io.prestosql.metadata.FunctionManager;
 import io.prestosql.operator.aggregation.InternalAggregationFunction;
 import io.prestosql.operator.scalar.AbstractTestFunctions;
 import io.prestosql.plugin.geospatial.GeoPlugin;
-import io.prestosql.plugin.geospatial.GeometryType;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.type.Type;
+import io.prestosql.sql.tree.QualifiedName;
 import org.testng.annotations.BeforeClass;
 
 import java.util.Arrays;
@@ -33,9 +33,11 @@ import java.util.List;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 
+import static io.prestosql.SessionTestUtils.TEST_SESSION;
 import static io.prestosql.metadata.FunctionExtractor.extractFunctions;
 import static io.prestosql.operator.aggregation.AggregationTestUtils.assertAggregation;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.plugin.geospatial.GeometryType.GEOMETRY;
+import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 
 public abstract class AbstractTestGeoAggregationFunctions
         extends AbstractTestFunctions
@@ -50,14 +52,9 @@ public abstract class AbstractTestGeoAggregationFunctions
             functionAssertions.getTypeRegistry().addType(type);
         }
         functionAssertions.getMetadata().addFunctions(extractFunctions(plugin.getFunctions()));
-        function = functionAssertions
-                .getMetadata()
-                .getFunctionManager()
-                .getAggregateFunctionImplementation(new Signature(
-                        getFunctionName(),
-                        FunctionKind.AGGREGATE,
-                        parseTypeSignature(GeometryType.GEOMETRY_TYPE_NAME),
-                        parseTypeSignature(GeometryType.GEOMETRY_TYPE_NAME)));
+        FunctionManager functionManager = functionAssertions.getMetadata().getFunctionManager();
+        FunctionHandle functionHandle = functionManager.resolveFunction(TEST_SESSION, QualifiedName.of(getFunctionName()), fromTypes(GEOMETRY));
+        function = functionManager.getAggregateFunctionImplementation(functionHandle);
     }
 
     protected void assertAggregatedGeometries(String testDescription, String expectedWkt, String... wkts)

@@ -15,9 +15,10 @@ package io.prestosql.sql.planner;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.Session;
+import io.prestosql.metadata.FunctionHandle;
 import io.prestosql.metadata.FunctionManager;
 import io.prestosql.metadata.Metadata;
-import io.prestosql.metadata.Signature;
 import io.prestosql.operator.aggregation.MaxDataSizeForStats;
 import io.prestosql.operator.aggregation.SumDataSizeForStats;
 import io.prestosql.spi.PrestoException;
@@ -26,7 +27,6 @@ import io.prestosql.spi.statistics.ColumnStatisticType;
 import io.prestosql.spi.statistics.TableStatisticType;
 import io.prestosql.spi.statistics.TableStatisticsMetadata;
 import io.prestosql.spi.type.Type;
-import io.prestosql.sql.analyzer.TypeSignatureProvider;
 import io.prestosql.sql.planner.plan.AggregationNode;
 import io.prestosql.sql.planner.plan.StatisticAggregations;
 import io.prestosql.sql.planner.plan.StatisticAggregationsDescriptor;
@@ -45,15 +45,18 @@ import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.statistics.TableStatisticType.ROW_COUNT;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
+import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static java.util.Objects.requireNonNull;
 
 public class StatisticsAggregationPlanner
 {
+    private final Session session;
     private final SymbolAllocator symbolAllocator;
     private final Metadata metadata;
 
-    public StatisticsAggregationPlanner(SymbolAllocator symbolAllocator, Metadata metadata)
+    public StatisticsAggregationPlanner(Session session, SymbolAllocator symbolAllocator, Metadata metadata)
     {
+        this.session = requireNonNull(session, "session is null");
         this.symbolAllocator = requireNonNull(symbolAllocator, "symbolAllocator is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
     }
@@ -80,7 +83,7 @@ public class StatisticsAggregationPlanner
             QualifiedName count = QualifiedName.of("count");
             AggregationNode.Aggregation aggregation = new AggregationNode.Aggregation(
                     new FunctionCall(count, ImmutableList.of()),
-                    functionManager.resolveFunction(count, ImmutableList.of()),
+                    functionManager.resolveFunction(session, count, ImmutableList.of()),
                     Optional.empty());
             Symbol symbol = symbolAllocator.newSymbol("rowCount", BIGINT);
             aggregations.put(symbol, aggregation);
@@ -128,13 +131,13 @@ public class StatisticsAggregationPlanner
 
     private ColumnStatisticsAggregation createAggregation(QualifiedName functionName, SymbolReference input, Type inputType, Type outputType)
     {
-        Signature signature = metadata.getFunctionManager().resolveFunction(functionName, TypeSignatureProvider.fromTypes(ImmutableList.of(inputType)));
-        Type resolvedType = metadata.getType(getOnlyElement(signature.getArgumentTypes()));
+        FunctionHandle functionHandle = metadata.getFunctionManager().resolveFunction(session, functionName, fromTypes(inputType));
+        Type resolvedType = metadata.getType(getOnlyElement(functionHandle.getSignature().getArgumentTypes()));
         verify(resolvedType.equals(inputType), "resolved function input type does not match the input type: %s != %s", resolvedType, inputType);
         return new ColumnStatisticsAggregation(
                 new AggregationNode.Aggregation(
                         new FunctionCall(functionName, ImmutableList.of(input)),
-                        signature,
+                        functionHandle,
                         Optional.empty()),
                 outputType);
     }

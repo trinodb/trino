@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.prestosql.Session;
-import io.prestosql.metadata.Signature;
+import io.prestosql.metadata.FunctionManager;
 import io.prestosql.operator.TableFinishOperator.TableFinishOperatorFactory;
 import io.prestosql.operator.TableFinishOperator.TableFinisher;
 import io.prestosql.operator.aggregation.InternalAggregationFunction;
@@ -31,6 +31,7 @@ import io.prestosql.spi.type.Type;
 import io.prestosql.sql.planner.plan.AggregationNode;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 import io.prestosql.sql.planner.plan.StatisticAggregationsDescriptor;
+import io.prestosql.sql.tree.QualifiedName;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -44,13 +45,14 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.prestosql.RowPagesBuilder.rowPagesBuilder;
+import static io.prestosql.SessionTestUtils.TEST_SESSION;
 import static io.prestosql.block.BlockAssertions.assertBlockEquals;
-import static io.prestosql.metadata.FunctionKind.AGGREGATE;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.operator.PageAssertions.assertPageEquals;
 import static io.prestosql.spi.statistics.ColumnStatisticType.MAX_VALUE;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
+import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static io.prestosql.testing.TestingTaskContext.createTaskContext;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
@@ -63,8 +65,9 @@ import static org.testng.Assert.assertTrue;
 
 public class TestTableFinishOperator
 {
-    private static final InternalAggregationFunction LONG_MAX = createTestMetadataManager().getFunctionManager().getAggregateFunctionImplementation(
-            new Signature("max", AGGREGATE, BIGINT.getTypeSignature(), BIGINT.getTypeSignature()));
+    private static final FunctionManager FUNCTION_MANAGER = createTestMetadataManager().getFunctionManager();
+    private static final InternalAggregationFunction LONG_MAX = FUNCTION_MANAGER.getAggregateFunctionImplementation(
+            FUNCTION_MANAGER.resolveFunction(TEST_SESSION, QualifiedName.of("max"), fromTypes(BIGINT)));
 
     private ScheduledExecutorService scheduledExecutor;
 

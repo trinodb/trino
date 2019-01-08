@@ -21,6 +21,7 @@ import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.FunctionCall;
 import io.prestosql.sql.tree.GroupingOperation;
 import io.prestosql.sql.tree.Identifier;
+import io.prestosql.sql.tree.QualifiedName;
 import io.prestosql.sql.tree.SymbolReference;
 
 import java.util.HashMap;
@@ -49,6 +50,11 @@ public class SymbolAllocator
     {
         checkArgument(symbols.containsKey(symbolHint), "symbolHint not in symbols map");
         return newSymbol(symbolHint.getName(), symbols.get(symbolHint));
+    }
+
+    public Symbol newSymbol(QualifiedName nameHint, Type type)
+    {
+        return newSymbol(nameHint.getSuffix(), type, null);
     }
 
     public Symbol newSymbol(String nameHint, Type type)

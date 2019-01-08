@@ -16,7 +16,6 @@ package io.prestosql.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.matching.Captures;
 import io.prestosql.matching.Pattern;
-import io.prestosql.metadata.Signature;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.iterative.Rule;
 import io.prestosql.sql.planner.plan.AggregationNode;
@@ -55,9 +54,8 @@ public class PruneCountAggregationOverScalar
         for (Map.Entry<Symbol, AggregationNode.Aggregation> entry : assignments.entrySet()) {
             AggregationNode.Aggregation aggregation = entry.getValue();
             requireNonNull(aggregation, "aggregation is null");
-            Signature signature = aggregation.getSignature();
             FunctionCall functionCall = aggregation.getCall();
-            if (!"count".equals(signature.getName()) || !functionCall.getArguments().isEmpty()) {
+            if (!"count".equals(functionCall.getName().getSuffix()) || !functionCall.getArguments().isEmpty()) {
                 return Result.empty();
             }
         }

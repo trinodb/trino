@@ -19,8 +19,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import io.prestosql.metadata.FunctionHandle;
 import io.prestosql.metadata.FunctionManager;
-import io.prestosql.metadata.Signature;
 import io.prestosql.operator.aggregation.InternalAggregationFunction;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.tree.FunctionCall;
@@ -216,7 +216,7 @@ public class AggregationNode
                 .anyMatch(FunctionCall::isDistinct);
 
         boolean decomposableFunctions = getAggregations().values().stream()
-                .map(Aggregation::getSignature)
+                .map(Aggregation::getFunctionHandle)
                 .map(functionManager::getAggregateFunctionImplementation)
                 .allMatch(InternalAggregationFunction::isDecomposable);
 
@@ -359,17 +359,17 @@ public class AggregationNode
     public static class Aggregation
     {
         private final FunctionCall call;
-        private final Signature signature;
+        private final FunctionHandle functionHandle;
         private final Optional<Symbol> mask;
 
         @JsonCreator
         public Aggregation(
                 @JsonProperty("call") FunctionCall call,
-                @JsonProperty("signature") Signature signature,
+                @JsonProperty("functionHandle") FunctionHandle functionHandle,
                 @JsonProperty("mask") Optional<Symbol> mask)
         {
             this.call = requireNonNull(call, "call is null");
-            this.signature = requireNonNull(signature, "signature is null");
+            this.functionHandle = requireNonNull(functionHandle, "functionHandle is null");
             this.mask = requireNonNull(mask, "mask is null");
         }
 
@@ -380,9 +380,9 @@ public class AggregationNode
         }
 
         @JsonProperty
-        public Signature getSignature()
+        public FunctionHandle getFunctionHandle()
         {
-            return signature;
+            return functionHandle;
         }
 
         @JsonProperty

@@ -17,14 +17,13 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.metadata.FunctionHandle;
 import io.prestosql.metadata.FunctionManager;
-import io.prestosql.metadata.Signature;
 import io.prestosql.operator.aggregation.InternalAggregationFunction;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.SymbolAllocator;
 import io.prestosql.sql.planner.plan.AggregationNode.Aggregation;
 import io.prestosql.sql.tree.FunctionCall;
-import io.prestosql.sql.tree.QualifiedName;
 
 import java.util.List;
 import java.util.Map;
@@ -65,15 +64,15 @@ public class StatisticAggregations
         ImmutableMap.Builder<Symbol, Symbol> mappings = ImmutableMap.builder();
         for (Map.Entry<Symbol, Aggregation> entry : aggregations.entrySet()) {
             Aggregation originalAggregation = entry.getValue();
-            Signature signature = originalAggregation.getSignature();
-            InternalAggregationFunction function = functionManager.getAggregateFunctionImplementation(signature);
-            Symbol partialSymbol = symbolAllocator.newSymbol(signature.getName(), function.getIntermediateType());
+            FunctionHandle functionHandle = originalAggregation.getFunctionHandle();
+            InternalAggregationFunction function = functionManager.getAggregateFunctionImplementation(functionHandle);
+            Symbol partialSymbol = symbolAllocator.newSymbol(originalAggregation.getCall().getName(), function.getIntermediateType());
             mappings.put(entry.getKey(), partialSymbol);
-            partialAggregation.put(partialSymbol, new Aggregation(originalAggregation.getCall(), signature, originalAggregation.getMask()));
+            partialAggregation.put(partialSymbol, new Aggregation(originalAggregation.getCall(), functionHandle, originalAggregation.getMask()));
             finalAggregation.put(entry.getKey(),
                     new Aggregation(
-                            new FunctionCall(QualifiedName.of(signature.getName()), ImmutableList.of(partialSymbol.toSymbolReference())),
-                            signature,
+                            new FunctionCall(originalAggregation.getCall().getName(), ImmutableList.of(partialSymbol.toSymbolReference())),
+                            functionHandle,
                             Optional.empty()));
         }
         groupingSymbols.forEach(symbol -> mappings.put(symbol, symbol));

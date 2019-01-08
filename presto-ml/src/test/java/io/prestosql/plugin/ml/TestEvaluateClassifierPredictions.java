@@ -16,25 +16,25 @@ package io.prestosql.plugin.ml;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.RowPageBuilder;
+import io.prestosql.metadata.FunctionHandle;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.MetadataManager;
-import io.prestosql.metadata.Signature;
 import io.prestosql.operator.aggregation.Accumulator;
 import io.prestosql.operator.aggregation.InternalAggregationFunction;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.type.StandardTypes;
+import io.prestosql.sql.tree.QualifiedName;
 import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.Optional;
 
+import static io.prestosql.SessionTestUtils.TEST_SESSION;
 import static io.prestosql.metadata.FunctionExtractor.extractFunctions;
-import static io.prestosql.metadata.FunctionKind.AGGREGATE;
 import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static org.testng.Assert.assertEquals;
 
 public class TestEvaluateClassifierPredictions
@@ -45,10 +45,8 @@ public class TestEvaluateClassifierPredictions
     public void testEvaluateClassifierPredictions()
     {
         metadata.addFunctions(extractFunctions(new MLPlugin().getFunctions()));
-        InternalAggregationFunction aggregation = metadata.getFunctionManager().getAggregateFunctionImplementation(
-                new Signature("evaluate_classifier_predictions",
-                        AGGREGATE,
-                        parseTypeSignature(StandardTypes.VARCHAR), parseTypeSignature(StandardTypes.BIGINT), parseTypeSignature(StandardTypes.BIGINT)));
+        FunctionHandle functionHandle = metadata.getFunctionManager().resolveFunction(TEST_SESSION, QualifiedName.of("evaluate_classifier_predictions"), fromTypes(BIGINT, BIGINT));
+        InternalAggregationFunction aggregation = metadata.getFunctionManager().getAggregateFunctionImplementation(functionHandle);
         Accumulator accumulator = aggregation.bind(ImmutableList.of(0, 1), Optional.empty()).createAccumulator();
         accumulator.addInput(getPage());
         BlockBuilder finalOut = accumulator.getFinalType().createBlockBuilder(null, 1);

@@ -16,28 +16,28 @@ package io.prestosql.operator.aggregation;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
 import io.prestosql.block.BlockEncodingManager;
+import io.prestosql.metadata.FunctionHandle;
 import io.prestosql.metadata.FunctionManager;
-import io.prestosql.metadata.Signature;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.PageBuilder;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.type.MapType;
-import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.sql.analyzer.FeaturesConfig;
+import io.prestosql.sql.tree.QualifiedName;
 import io.prestosql.type.TypeRegistry;
 import org.testng.annotations.Test;
 
 import java.util.Map;
 import java.util.Optional;
 
-import static io.prestosql.metadata.FunctionKind.AGGREGATE;
+import static io.prestosql.SessionTestUtils.TEST_SESSION;
 import static io.prestosql.operator.aggregation.AggregationTestUtils.getFinalBlock;
 import static io.prestosql.operator.aggregation.AggregationTestUtils.getIntermediateBlock;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.RealType.REAL;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.prestosql.util.StructuralTestUtil.mapType;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
@@ -51,13 +51,8 @@ public class TestRealHistogramAggregation
     {
         TypeRegistry typeRegistry = new TypeRegistry();
         FunctionManager functionManager = new FunctionManager(typeRegistry, new BlockEncodingManager(typeRegistry), new FeaturesConfig());
-        InternalAggregationFunction function = functionManager.getAggregateFunctionImplementation(
-                new Signature("numeric_histogram",
-                        AGGREGATE,
-                        parseTypeSignature("map(real, real)"),
-                        parseTypeSignature(StandardTypes.BIGINT),
-                        parseTypeSignature(StandardTypes.REAL),
-                        parseTypeSignature(StandardTypes.DOUBLE)));
+        FunctionHandle functionHandle = functionManager.resolveFunction(TEST_SESSION, QualifiedName.of("numeric_histogram"), fromTypes(BIGINT, REAL, DOUBLE));
+        InternalAggregationFunction function = functionManager.getAggregateFunctionImplementation(functionHandle);
         factory = function.bind(ImmutableList.of(0, 1, 2), Optional.empty());
 
         input = makeInput(10);

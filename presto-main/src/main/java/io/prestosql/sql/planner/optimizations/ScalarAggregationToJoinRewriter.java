@@ -15,6 +15,7 @@ package io.prestosql.sql.planner.optimizations;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.Session;
 import io.prestosql.metadata.FunctionManager;
 import io.prestosql.spi.type.BigintType;
 import io.prestosql.spi.type.BooleanType;
@@ -55,14 +56,16 @@ public class ScalarAggregationToJoinRewriter
 {
     private static final QualifiedName COUNT = QualifiedName.of("count");
 
+    private final Session session;
     private final FunctionManager functionManager;
     private final SymbolAllocator symbolAllocator;
     private final PlanNodeIdAllocator idAllocator;
     private final Lookup lookup;
     private final PlanNodeDecorrelator planNodeDecorrelator;
 
-    public ScalarAggregationToJoinRewriter(FunctionManager functionManager, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, Lookup lookup)
+    public ScalarAggregationToJoinRewriter(Session session, FunctionManager functionManager, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, Lookup lookup)
     {
+        this.session = requireNonNull(session, "session is null");
         this.functionManager = requireNonNull(functionManager, "metadata is null");
         this.symbolAllocator = requireNonNull(symbolAllocator, "symbolAllocator is null");
         this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
@@ -183,6 +186,7 @@ public class ScalarAggregationToJoinRewriter
                                 COUNT,
                                 ImmutableList.of(nonNullableAggregationSourceSymbol.toSymbolReference())),
                         functionManager.resolveFunction(
+                                session,
                                 COUNT,
                                 fromTypeSignatures(scalarAggregationSourceTypeSignatures)),
                         entry.getValue().getMask()));

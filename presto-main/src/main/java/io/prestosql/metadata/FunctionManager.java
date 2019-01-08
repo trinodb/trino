@@ -76,9 +76,9 @@ public class FunctionManager
         return functionRegistry.getWindowFunctionImplementation(functionHandle);
     }
 
-    public InternalAggregationFunction getAggregateFunctionImplementation(Signature signature)
+    public InternalAggregationFunction getAggregateFunctionImplementation(FunctionHandle functionHandle)
     {
-        return functionRegistry.getAggregateFunctionImplementation(signature);
+        return functionRegistry.getAggregateFunctionImplementation(functionHandle);
     }
 
     public ScalarFunctionImplementation getScalarFunctionImplementation(Signature signature)

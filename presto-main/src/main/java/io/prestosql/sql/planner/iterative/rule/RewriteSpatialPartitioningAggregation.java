@@ -18,8 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import io.prestosql.matching.Captures;
 import io.prestosql.matching.Pattern;
 import io.prestosql.metadata.Metadata;
-import io.prestosql.metadata.Signature;
-import io.prestosql.spi.type.TypeSignature;
+import io.prestosql.spi.type.Type;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.iterative.Rule;
 import io.prestosql.sql.planner.plan.AggregationNode;
@@ -35,10 +34,9 @@ import java.util.Map;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.prestosql.SystemSessionProperties.getHashPartitionCount;
-import static io.prestosql.metadata.FunctionKind.AGGREGATE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.prestosql.sql.planner.plan.Patterns.aggregation;
 import static java.util.Objects.requireNonNull;
 
@@ -60,9 +58,7 @@ import static java.util.Objects.requireNonNull;
 public class RewriteSpatialPartitioningAggregation
         implements Rule<AggregationNode>
 {
-    private static final TypeSignature GEOMETRY_TYPE_SIGNATURE = parseTypeSignature("Geometry");
     private static final String NAME = "spatial_partitioning";
-    private static final Signature INTERNAL_SIGNATURE = new Signature(NAME, AGGREGATE, VARCHAR.getTypeSignature(), GEOMETRY_TYPE_SIGNATURE, INTEGER.getTypeSignature());
     private static final Pattern<AggregationNode> PATTERN = aggregation()
             .matching(RewriteSpatialPartitioningAggregation::hasSpatialPartitioningAggregation);
 
@@ -98,7 +94,8 @@ public class RewriteSpatialPartitioningAggregation
             QualifiedName name = call.getName();
             if (name.toString().equals(NAME) && call.getArguments().size() == 1) {
                 Expression geometry = getOnlyElement(call.getArguments());
-                Symbol envelopeSymbol = context.getSymbolAllocator().newSymbol("envelope", metadata.getType(GEOMETRY_TYPE_SIGNATURE));
+                Type geometryType = metadata.getType(parseTypeSignature("Geometry"));
+                Symbol envelopeSymbol = context.getSymbolAllocator().newSymbol("envelope", geometryType);
                 if (geometry instanceof FunctionCall && ((FunctionCall) geometry).getName().toString().equalsIgnoreCase("ST_Envelope")) {
                     envelopeAssignments.put(envelopeSymbol, geometry);
                 }
@@ -108,7 +105,7 @@ public class RewriteSpatialPartitioningAggregation
                 aggregations.put(entry.getKey(),
                         new Aggregation(
                                 new FunctionCall(name, ImmutableList.of(envelopeSymbol.toSymbolReference(), partitionCountSymbol.toSymbolReference())),
-                                INTERNAL_SIGNATURE,
+                                metadata.getFunctionManager().resolveFunction(context.getSession(), QualifiedName.of(NAME), fromTypes(geometryType, INTEGER)),
                                 aggregation.getMask()));
             }
             else {

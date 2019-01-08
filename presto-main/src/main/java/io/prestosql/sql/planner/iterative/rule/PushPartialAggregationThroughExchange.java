@@ -17,8 +17,8 @@ import com.google.common.collect.ImmutableList;
 import io.prestosql.matching.Capture;
 import io.prestosql.matching.Captures;
 import io.prestosql.matching.Pattern;
+import io.prestosql.metadata.FunctionHandle;
 import io.prestosql.metadata.FunctionManager;
-import io.prestosql.metadata.Signature;
 import io.prestosql.operator.aggregation.InternalAggregationFunction;
 import io.prestosql.sql.planner.Partitioning;
 import io.prestosql.sql.planner.PartitioningScheme;
@@ -33,7 +33,6 @@ import io.prestosql.sql.planner.plan.ProjectNode;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.FunctionCall;
 import io.prestosql.sql.tree.LambdaExpression;
-import io.prestosql.sql.tree.QualifiedName;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -202,18 +201,18 @@ public class PushPartialAggregationThroughExchange
         Map<Symbol, AggregationNode.Aggregation> finalAggregation = new HashMap<>();
         for (Map.Entry<Symbol, AggregationNode.Aggregation> entry : node.getAggregations().entrySet()) {
             AggregationNode.Aggregation originalAggregation = entry.getValue();
-            Signature signature = originalAggregation.getSignature();
-            InternalAggregationFunction function = functionManager.getAggregateFunctionImplementation(signature);
-            Symbol intermediateSymbol = context.getSymbolAllocator().newSymbol(signature.getName(), function.getIntermediateType());
+            FunctionHandle functionHandle = originalAggregation.getFunctionHandle();
+            InternalAggregationFunction function = functionManager.getAggregateFunctionImplementation(functionHandle);
+            Symbol intermediateSymbol = context.getSymbolAllocator().newSymbol(originalAggregation.getCall().getName(), function.getIntermediateType());
 
             checkState(!originalAggregation.getCall().getOrderBy().isPresent(), "Aggregate with ORDER BY does not support partial aggregation");
-            intermediateAggregation.put(intermediateSymbol, new AggregationNode.Aggregation(originalAggregation.getCall(), signature, originalAggregation.getMask()));
+            intermediateAggregation.put(intermediateSymbol, new AggregationNode.Aggregation(originalAggregation.getCall(), functionHandle, originalAggregation.getMask()));
 
             // rewrite final aggregation in terms of intermediate function
             finalAggregation.put(entry.getKey(),
                     new AggregationNode.Aggregation(
                             new FunctionCall(
-                                    QualifiedName.of(signature.getName()),
+                                    originalAggregation.getCall().getName(),
                                     ImmutableList.<Expression>builder()
                                             .add(intermediateSymbol.toSymbolReference())
                                             .addAll(originalAggregation.getCall().getArguments().stream()
@@ -221,7 +220,7 @@ public class PushPartialAggregationThroughExchange
                                                     .collect(toImmutableList()))
                                             .build()),
 
-                            signature,
+                            functionHandle,
                             Optional.empty()));
         }
 

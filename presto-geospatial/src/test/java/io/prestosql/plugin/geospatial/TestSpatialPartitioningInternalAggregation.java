@@ -22,8 +22,8 @@ import com.google.common.primitives.Ints;
 import io.prestosql.block.BlockAssertions;
 import io.prestosql.geospatial.KdbTreeUtils;
 import io.prestosql.geospatial.Rectangle;
-import io.prestosql.metadata.FunctionKind;
-import io.prestosql.metadata.Signature;
+import io.prestosql.metadata.FunctionHandle;
+import io.prestosql.metadata.FunctionManager;
 import io.prestosql.operator.aggregation.Accumulator;
 import io.prestosql.operator.aggregation.AccumulatorFactory;
 import io.prestosql.operator.aggregation.GroupedAccumulator;
@@ -32,7 +32,8 @@ import io.prestosql.operator.scalar.AbstractTestFunctions;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.type.TypeSignature;
+import io.prestosql.spi.type.IntegerType;
+import io.prestosql.sql.tree.QualifiedName;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -41,15 +42,14 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.math.DoubleMath.roundToInt;
+import static io.prestosql.SessionTestUtils.TEST_SESSION;
 import static io.prestosql.geospatial.KdbTree.buildKdbTree;
 import static io.prestosql.geospatial.serde.GeometrySerde.serialize;
 import static io.prestosql.operator.aggregation.AggregationTestUtils.createGroupByIdBlock;
 import static io.prestosql.operator.aggregation.AggregationTestUtils.getFinalBlock;
 import static io.prestosql.operator.aggregation.AggregationTestUtils.getGroupValue;
 import static io.prestosql.plugin.geospatial.GeometryType.GEOMETRY;
-import static io.prestosql.plugin.geospatial.GeometryType.GEOMETRY_TYPE_NAME;
-import static io.prestosql.spi.type.StandardTypes.INTEGER;
-import static io.prestosql.spi.type.StandardTypes.VARCHAR;
+import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static java.math.RoundingMode.CEILING;
 import static org.testng.Assert.assertEquals;
 
@@ -98,15 +98,9 @@ public class TestSpatialPartitioningInternalAggregation
 
     private InternalAggregationFunction getFunction()
     {
-        return functionAssertions
-                .getMetadata()
-                .getFunctionManager()
-                .getAggregateFunctionImplementation(
-                        new Signature("spatial_partitioning",
-                                FunctionKind.AGGREGATE,
-                                TypeSignature.parseTypeSignature(VARCHAR),
-                                TypeSignature.parseTypeSignature(GEOMETRY_TYPE_NAME),
-                                TypeSignature.parseTypeSignature(INTEGER)));
+        FunctionManager functionManager = functionAssertions.getMetadata().getFunctionManager();
+        FunctionHandle functionHandle = functionManager.resolveFunction(TEST_SESSION, QualifiedName.of("spatial_partitioning"), fromTypes(GEOMETRY, IntegerType.INTEGER));
+        return functionManager.getAggregateFunctionImplementation(functionHandle);
     }
 
     private List<OGCGeometry> makeGeometries()

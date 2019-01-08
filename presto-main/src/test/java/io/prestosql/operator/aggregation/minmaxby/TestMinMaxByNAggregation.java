@@ -14,41 +14,41 @@
 package io.prestosql.operator.aggregation.minmaxby;
 
 import com.google.common.collect.ImmutableList;
+import io.prestosql.metadata.FunctionHandle;
+import io.prestosql.metadata.FunctionManager;
 import io.prestosql.metadata.MetadataManager;
-import io.prestosql.metadata.Signature;
 import io.prestosql.operator.aggregation.InternalAggregationFunction;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.type.StandardTypes;
+import io.prestosql.spi.type.ArrayType;
+import io.prestosql.sql.tree.QualifiedName;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
 
+import static io.prestosql.SessionTestUtils.TEST_SESSION;
 import static io.prestosql.block.BlockAssertions.createArrayBigintBlock;
 import static io.prestosql.block.BlockAssertions.createDoublesBlock;
 import static io.prestosql.block.BlockAssertions.createLongsBlock;
 import static io.prestosql.block.BlockAssertions.createRLEBlock;
 import static io.prestosql.block.BlockAssertions.createStringsBlock;
-import static io.prestosql.metadata.FunctionKind.AGGREGATE;
 import static io.prestosql.operator.aggregation.AggregationTestUtils.assertAggregation;
 import static io.prestosql.operator.aggregation.AggregationTestUtils.groupedAggregation;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.DoubleType.DOUBLE;
+import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static org.testng.Assert.assertEquals;
 
 public class TestMinMaxByNAggregation
 {
-    private static final MetadataManager METADATA = MetadataManager.createTestMetadataManager();
+    private static final FunctionManager functionManager = MetadataManager.createTestMetadataManager().getFunctionManager();
 
     @Test
     public void testMaxDoubleDouble()
     {
-        InternalAggregationFunction function = METADATA.getFunctionManager().getAggregateFunctionImplementation(
-                new Signature("max_by",
-                        AGGREGATE,
-                        parseTypeSignature("array(double)"),
-                        parseTypeSignature(StandardTypes.DOUBLE),
-                        parseTypeSignature(StandardTypes.DOUBLE),
-                        parseTypeSignature(StandardTypes.BIGINT)));
+        FunctionHandle functionHandle = functionManager.resolveFunction(TEST_SESSION, QualifiedName.of("max_by"), fromTypes(DOUBLE, DOUBLE, BIGINT));
+        InternalAggregationFunction function = functionManager.getAggregateFunctionImplementation(functionHandle);
         assertAggregation(
                 function,
                 Arrays.asList((Double) null),
@@ -102,13 +102,8 @@ public class TestMinMaxByNAggregation
     @Test
     public void testMinDoubleDouble()
     {
-        InternalAggregationFunction function = METADATA.getFunctionManager().getAggregateFunctionImplementation(
-                new Signature("min_by",
-                        AGGREGATE,
-                        parseTypeSignature("array(double)"),
-                        parseTypeSignature(StandardTypes.DOUBLE),
-                        parseTypeSignature(StandardTypes.DOUBLE),
-                        parseTypeSignature(StandardTypes.BIGINT)));
+        FunctionHandle functionHandle = functionManager.resolveFunction(TEST_SESSION, QualifiedName.of("min_by"), fromTypes(DOUBLE, DOUBLE, BIGINT));
+        InternalAggregationFunction function = functionManager.getAggregateFunctionImplementation(functionHandle);
         assertAggregation(
                 function,
                 Arrays.asList((Double) null),
@@ -141,13 +136,8 @@ public class TestMinMaxByNAggregation
     @Test
     public void testMinDoubleVarchar()
     {
-        InternalAggregationFunction function = METADATA.getFunctionManager().getAggregateFunctionImplementation(
-                new Signature("min_by",
-                        AGGREGATE,
-                        parseTypeSignature("array(varchar)"),
-                        parseTypeSignature(StandardTypes.VARCHAR),
-                        parseTypeSignature(StandardTypes.DOUBLE),
-                        parseTypeSignature(StandardTypes.BIGINT)));
+        FunctionHandle functionHandle = functionManager.resolveFunction(TEST_SESSION, QualifiedName.of("min_by"), fromTypes(VARCHAR, DOUBLE, BIGINT));
+        InternalAggregationFunction function = functionManager.getAggregateFunctionImplementation(functionHandle);
         assertAggregation(
                 function,
                 ImmutableList.of("z", "a"),
@@ -173,13 +163,8 @@ public class TestMinMaxByNAggregation
     @Test
     public void testMaxDoubleVarchar()
     {
-        InternalAggregationFunction function = METADATA.getFunctionManager().getAggregateFunctionImplementation(
-                new Signature("max_by",
-                        AGGREGATE,
-                        parseTypeSignature("array(varchar)"),
-                        parseTypeSignature(StandardTypes.VARCHAR),
-                        parseTypeSignature(StandardTypes.DOUBLE),
-                        parseTypeSignature(StandardTypes.BIGINT)));
+        FunctionHandle functionHandle = functionManager.resolveFunction(TEST_SESSION, QualifiedName.of("max_by"), fromTypes(VARCHAR, DOUBLE, BIGINT));
+        InternalAggregationFunction function = functionManager.getAggregateFunctionImplementation(functionHandle);
         assertAggregation(
                 function,
                 ImmutableList.of("a", "z"),
@@ -205,13 +190,8 @@ public class TestMinMaxByNAggregation
     @Test
     public void testMinVarcharDouble()
     {
-        InternalAggregationFunction function = METADATA.getFunctionManager().getAggregateFunctionImplementation(
-                new Signature("min_by",
-                        AGGREGATE,
-                        parseTypeSignature("array(double)"),
-                        parseTypeSignature(StandardTypes.DOUBLE),
-                        parseTypeSignature(StandardTypes.VARCHAR),
-                        parseTypeSignature(StandardTypes.BIGINT)));
+        FunctionHandle functionHandle = functionManager.resolveFunction(TEST_SESSION, QualifiedName.of("min_by"), fromTypes(DOUBLE, VARCHAR, BIGINT));
+        InternalAggregationFunction function = functionManager.getAggregateFunctionImplementation(functionHandle);
         assertAggregation(
                 function,
                 ImmutableList.of(2.0, 3.0),
@@ -237,13 +217,8 @@ public class TestMinMaxByNAggregation
     @Test
     public void testMaxVarcharDouble()
     {
-        InternalAggregationFunction function = METADATA.getFunctionManager().getAggregateFunctionImplementation(
-                new Signature("max_by",
-                        AGGREGATE,
-                        parseTypeSignature("array(double)"),
-                        parseTypeSignature(StandardTypes.DOUBLE),
-                        parseTypeSignature(StandardTypes.VARCHAR),
-                        parseTypeSignature(StandardTypes.BIGINT)));
+        FunctionHandle functionHandle = functionManager.resolveFunction(TEST_SESSION, QualifiedName.of("max_by"), fromTypes(DOUBLE, VARCHAR, BIGINT));
+        InternalAggregationFunction function = functionManager.getAggregateFunctionImplementation(functionHandle);
         assertAggregation(
                 function,
                 ImmutableList.of(1.0, 2.0),
@@ -269,13 +244,8 @@ public class TestMinMaxByNAggregation
     @Test
     public void testMinVarcharArray()
     {
-        InternalAggregationFunction function = METADATA.getFunctionManager().getAggregateFunctionImplementation(
-                new Signature("min_by",
-                        AGGREGATE,
-                        parseTypeSignature("array(array(bigint))"),
-                        parseTypeSignature("array(bigint)"),
-                        parseTypeSignature(StandardTypes.VARCHAR),
-                        parseTypeSignature(StandardTypes.BIGINT)));
+        FunctionHandle functionHandle = functionManager.resolveFunction(TEST_SESSION, QualifiedName.of("min_by"), fromTypes(new ArrayType(BIGINT), VARCHAR, BIGINT));
+        InternalAggregationFunction function = functionManager.getAggregateFunctionImplementation(functionHandle);
         assertAggregation(
                 function,
                 ImmutableList.of(ImmutableList.of(2L, 3L), ImmutableList.of(4L, 5L)),
@@ -287,13 +257,8 @@ public class TestMinMaxByNAggregation
     @Test
     public void testMaxVarcharArray()
     {
-        InternalAggregationFunction function = METADATA.getFunctionManager().getAggregateFunctionImplementation(
-                new Signature("max_by",
-                        AGGREGATE,
-                        parseTypeSignature("array(array(bigint))"),
-                        parseTypeSignature("array(bigint)"),
-                        parseTypeSignature(StandardTypes.VARCHAR),
-                        parseTypeSignature(StandardTypes.BIGINT)));
+        FunctionHandle functionHandle = functionManager.resolveFunction(TEST_SESSION, QualifiedName.of("max_by"), fromTypes(new ArrayType(BIGINT), VARCHAR, BIGINT));
+        InternalAggregationFunction function = functionManager.getAggregateFunctionImplementation(functionHandle);
         assertAggregation(
                 function,
                 ImmutableList.of(ImmutableList.of(1L, 2L), ImmutableList.of(3L, 4L)),
@@ -305,13 +270,8 @@ public class TestMinMaxByNAggregation
     @Test
     public void testMinArrayVarchar()
     {
-        InternalAggregationFunction function = METADATA.getFunctionManager().getAggregateFunctionImplementation(
-                new Signature("min_by",
-                        AGGREGATE,
-                        parseTypeSignature("array(varchar)"),
-                        parseTypeSignature(StandardTypes.VARCHAR),
-                        parseTypeSignature("array(bigint)"),
-                        parseTypeSignature(StandardTypes.BIGINT)));
+        FunctionHandle functionHandle = functionManager.resolveFunction(TEST_SESSION, QualifiedName.of("min_by"), fromTypes(VARCHAR, new ArrayType(BIGINT), BIGINT));
+        InternalAggregationFunction function = functionManager.getAggregateFunctionImplementation(functionHandle);
         assertAggregation(
                 function,
                 ImmutableList.of("b", "x", "z"),
@@ -323,13 +283,8 @@ public class TestMinMaxByNAggregation
     @Test
     public void testMaxArrayVarchar()
     {
-        InternalAggregationFunction function = METADATA.getFunctionManager().getAggregateFunctionImplementation(
-                new Signature("max_by",
-                        AGGREGATE,
-                        parseTypeSignature("array(varchar)"),
-                        parseTypeSignature(StandardTypes.VARCHAR),
-                        parseTypeSignature("array(bigint)"),
-                        parseTypeSignature(StandardTypes.BIGINT)));
+        FunctionHandle functionHandle = functionManager.resolveFunction(TEST_SESSION, QualifiedName.of("max_by"), fromTypes(VARCHAR, new ArrayType(BIGINT), BIGINT));
+        InternalAggregationFunction function = functionManager.getAggregateFunctionImplementation(functionHandle);
         assertAggregation(
                 function,
                 ImmutableList.of("a", "z", "x"),
@@ -341,13 +296,8 @@ public class TestMinMaxByNAggregation
     @Test
     public void testOutOfBound()
     {
-        InternalAggregationFunction function = METADATA.getFunctionManager().getAggregateFunctionImplementation(
-                new Signature("max_by",
-                        AGGREGATE,
-                        parseTypeSignature("array(varchar)"),
-                        parseTypeSignature(StandardTypes.VARCHAR),
-                        parseTypeSignature(StandardTypes.BIGINT),
-                        parseTypeSignature(StandardTypes.BIGINT)));
+        FunctionHandle functionHandle = functionManager.resolveFunction(TEST_SESSION, QualifiedName.of("max_by"), fromTypes(VARCHAR, BIGINT, BIGINT));
+        InternalAggregationFunction function = functionManager.getAggregateFunctionImplementation(functionHandle);
         try {
             groupedAggregation(function, new Page(createStringsBlock("z"), createLongsBlock(0), createLongsBlock(10001)));
         }

@@ -14,9 +14,10 @@
 package io.prestosql.operator.aggregation;
 
 import com.google.common.collect.Lists;
+import io.prestosql.Session;
 import io.prestosql.block.BlockEncodingManager;
+import io.prestosql.metadata.FunctionHandle;
 import io.prestosql.metadata.FunctionManager;
-import io.prestosql.metadata.Signature;
 import io.prestosql.spi.Plugin;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
@@ -36,17 +37,20 @@ import java.util.List;
 import static io.prestosql.metadata.FunctionExtractor.extractFunctions;
 import static io.prestosql.operator.aggregation.AggregationTestUtils.assertAggregation;
 import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
+import static io.prestosql.testing.TestingSession.testSessionBuilder;
 
 public abstract class AbstractTestAggregationFunction
 {
     protected TypeRegistry typeRegistry;
     protected FunctionManager functionManager;
+    protected Session session;
 
     @BeforeClass
     public final void initTestAggregationFunction()
     {
         typeRegistry = new TypeRegistry();
         functionManager = new FunctionManager(typeRegistry, new BlockEncodingManager(typeRegistry), new FeaturesConfig());
+        session = testSessionBuilder().build();
     }
 
     @AfterClass(alwaysRun = true)
@@ -54,6 +58,7 @@ public abstract class AbstractTestAggregationFunction
     {
         functionManager = null;
         typeRegistry = null;
+        session = null;
     }
 
     public abstract Block[] getSequenceBlocks(int start, int length);
@@ -73,8 +78,8 @@ public abstract class AbstractTestAggregationFunction
     protected final InternalAggregationFunction getFunction()
     {
         List<TypeSignatureProvider> parameterTypes = fromTypeSignatures(Lists.transform(getFunctionParameterTypes(), TypeSignature::parseTypeSignature));
-        Signature signature = functionManager.resolveFunction(QualifiedName.of(getFunctionName()), parameterTypes);
-        return functionManager.getAggregateFunctionImplementation(signature);
+        FunctionHandle functionHandle = functionManager.resolveFunction(session, QualifiedName.of(getFunctionName()), parameterTypes);
+        return functionManager.getAggregateFunctionImplementation(functionHandle);
     }
 
     protected abstract String getFunctionName();

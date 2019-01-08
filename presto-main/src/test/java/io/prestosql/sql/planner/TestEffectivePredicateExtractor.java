@@ -22,17 +22,15 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import io.prestosql.connector.ConnectorId;
-import io.prestosql.metadata.FunctionKind;
+import io.prestosql.metadata.FunctionHandle;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.MetadataManager;
-import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.TableHandle;
 import io.prestosql.metadata.TableLayoutHandle;
 import io.prestosql.spi.block.SortOrder;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.TupleDomain;
-import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.sql.planner.plan.AggregationNode;
 import io.prestosql.sql.planner.plan.AggregationNode.Aggregation;
 import io.prestosql.sql.planner.plan.Assignments;
@@ -61,7 +59,6 @@ import io.prestosql.testing.TestingHandle;
 import io.prestosql.testing.TestingMetadata.TestingColumnHandle;
 import io.prestosql.testing.TestingMetadata.TestingTableHandle;
 import io.prestosql.testing.TestingTransactionHandle;
-import io.prestosql.type.UnknownType;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -75,7 +72,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
-import static io.prestosql.metadata.FunctionKind.AGGREGATE;
+import static io.prestosql.SessionTestUtils.TEST_SESSION;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.sql.ExpressionUtils.and;
 import static io.prestosql.sql.ExpressionUtils.combineConjuncts;
@@ -142,6 +139,7 @@ public class TestEffectivePredicateExtractor
     @Test
     public void testAggregation()
     {
+        FunctionHandle aggregationFunction = metadata.getFunctionManager().resolveFunction(TEST_SESSION, QualifiedName.of("count"), ImmutableList.of());
         PlanNode node = new AggregationNode(newId(),
                 filter(baseTableScan,
                         and(
@@ -153,8 +151,8 @@ public class TestEffectivePredicateExtractor
                                 greaterThan(AE, bigintLiteral(2)),
                                 equals(EE, FE))),
                 ImmutableMap.of(
-                        C, new Aggregation(fakeFunction(), fakeFunctionHandle("test", AGGREGATE), Optional.empty()),
-                        D, new Aggregation(fakeFunction(), fakeFunctionHandle("test", AGGREGATE), Optional.empty())),
+                        C, new Aggregation(fakeFunction(), aggregationFunction, Optional.empty()),
+                        D, new Aggregation(fakeFunction(), aggregationFunction, Optional.empty())),
                 singleGroupingSet(ImmutableList.of(A, B, C)),
                 ImmutableList.of(),
                 AggregationNode.Step.FINAL,
@@ -761,11 +759,6 @@ public class TestEffectivePredicateExtractor
     private static FunctionCall fakeFunction()
     {
         return new FunctionCall(QualifiedName.of("test"), ImmutableList.of());
-    }
-
-    private static Signature fakeFunctionHandle(String name, FunctionKind kind)
-    {
-        return new Signature(name, kind, TypeSignature.parseTypeSignature(UnknownType.NAME), ImmutableList.of());
     }
 
     private Set<Expression> normalizeConjuncts(Expression... conjuncts)

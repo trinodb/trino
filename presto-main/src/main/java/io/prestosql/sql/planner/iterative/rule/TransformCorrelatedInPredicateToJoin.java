@@ -16,10 +16,11 @@ package io.prestosql.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.prestosql.Session;
 import io.prestosql.matching.Captures;
 import io.prestosql.matching.Pattern;
-import io.prestosql.metadata.FunctionKind;
-import io.prestosql.metadata.Signature;
+import io.prestosql.metadata.FunctionHandle;
+import io.prestosql.metadata.FunctionManager;
 import io.prestosql.sql.planner.PlanNodeIdAllocator;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.SymbolAllocator;
@@ -97,6 +98,13 @@ public class TransformCorrelatedInPredicateToJoin
     private static final Pattern<ApplyNode> PATTERN = applyNode()
             .with(nonEmpty(correlation()));
 
+    private FunctionManager functionManager;
+
+    public TransformCorrelatedInPredicateToJoin(FunctionManager functionManager)
+    {
+        this.functionManager = requireNonNull(functionManager, "functionManager is null");
+    }
+
     @Override
     public Pattern<ApplyNode> getPattern()
     {
@@ -118,10 +126,11 @@ public class TransformCorrelatedInPredicateToJoin
         InPredicate inPredicate = (InPredicate) assignmentExpression;
         Symbol inPredicateOutputSymbol = getOnlyElement(subqueryAssignments.getSymbols());
 
-        return apply(apply, inPredicate, inPredicateOutputSymbol, context.getLookup(), context.getIdAllocator(), context.getSymbolAllocator());
+        return apply(context.getSession(), apply, inPredicate, inPredicateOutputSymbol, context.getLookup(), context.getIdAllocator(), context.getSymbolAllocator());
     }
 
     private Result apply(
+            Session session,
             ApplyNode apply,
             InPredicate inPredicate,
             Symbol inPredicateOutputSymbol,
@@ -137,6 +146,7 @@ public class TransformCorrelatedInPredicateToJoin
         }
 
         PlanNode projection = buildInPredicateEquivalent(
+                session,
                 apply,
                 inPredicate,
                 inPredicateOutputSymbol,
@@ -148,6 +158,7 @@ public class TransformCorrelatedInPredicateToJoin
     }
 
     private PlanNode buildInPredicateEquivalent(
+            Session session,
             ApplyNode apply,
             InPredicate inPredicate,
             Symbol inPredicateOutputSymbol,
@@ -199,8 +210,8 @@ public class TransformCorrelatedInPredicateToJoin
                 idAllocator.getNextId(),
                 leftOuterJoin,
                 ImmutableMap.<Symbol, AggregationNode.Aggregation>builder()
-                        .put(countMatchesSymbol, countWithFilter(matchCondition))
-                        .put(countNullMatchesSymbol, countWithFilter(nullMatchCondition))
+                        .put(countMatchesSymbol, countWithFilter(session, matchCondition))
+                        .put(countNullMatchesSymbol, countWithFilter(session, nullMatchCondition))
                         .build(),
                 singleGroupingSet(probeSide.getOutputSymbols()),
                 ImmutableList.of(),
@@ -241,7 +252,7 @@ public class TransformCorrelatedInPredicateToJoin
                 Optional.empty());
     }
 
-    private static AggregationNode.Aggregation countWithFilter(Expression condition)
+    private AggregationNode.Aggregation countWithFilter(Session session, Expression condition)
     {
         FunctionCall countCall = new FunctionCall(
                 QualifiedName.of("count"),
@@ -251,9 +262,10 @@ public class TransformCorrelatedInPredicateToJoin
                 false,
                 ImmutableList.<Expression>of()); /* arguments */
 
+        FunctionHandle functionHandle = functionManager.resolveFunction(session, QualifiedName.of("count"), ImmutableList.of());
         return new AggregationNode.Aggregation(
                 countCall,
-                new Signature("count", FunctionKind.AGGREGATE, BIGINT.getTypeSignature()),
+                functionHandle,
                 Optional.<Symbol>empty()); /* mask */
     }
 

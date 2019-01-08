@@ -17,8 +17,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.matching.Captures;
 import io.prestosql.matching.Pattern;
+import io.prestosql.metadata.FunctionHandle;
 import io.prestosql.metadata.FunctionManager;
-import io.prestosql.metadata.Signature;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.iterative.Rule;
 import io.prestosql.sql.planner.optimizations.PlanNodeDecorrelator;
@@ -81,12 +81,11 @@ public class TransformExistsApplyToLateralNode
 
     private static final QualifiedName COUNT = QualifiedName.of("count");
     private static final FunctionCall COUNT_CALL = new FunctionCall(COUNT, ImmutableList.of());
-    private final Signature countSignature;
+    private final FunctionManager functionManager;
 
     public TransformExistsApplyToLateralNode(FunctionManager functionManager)
     {
-        requireNonNull(functionManager, "functionManager is null");
-        countSignature = functionManager.resolveFunction(COUNT, ImmutableList.of());
+        this.functionManager = requireNonNull(functionManager, "functionManager is null");
     }
 
     @Override
@@ -154,6 +153,7 @@ public class TransformExistsApplyToLateralNode
         Symbol count = context.getSymbolAllocator().newSymbol(COUNT.toString(), BIGINT);
         Symbol exists = getOnlyElement(parent.getSubqueryAssignments().getSymbols());
 
+        FunctionHandle countSignature = functionManager.resolveFunction(context.getSession(), COUNT, ImmutableList.of());
         return new LateralJoinNode(
                 parent.getId(),
                 parent.getInput(),

@@ -19,10 +19,11 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Maps;
+import io.prestosql.Session;
 import io.prestosql.connector.ConnectorId;
+import io.prestosql.metadata.FunctionHandle;
 import io.prestosql.metadata.IndexHandle;
 import io.prestosql.metadata.Metadata;
-import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.TableHandle;
 import io.prestosql.metadata.TableLayoutHandle;
 import io.prestosql.spi.block.SortOrder;
@@ -96,6 +97,7 @@ import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static io.prestosql.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
+import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static io.prestosql.util.MoreLists.nElements;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
@@ -249,6 +251,7 @@ public class PlanBuilder
         private Step step = Step.SINGLE;
         private Optional<Symbol> hashSymbol = Optional.empty();
         private Optional<Symbol> groupIdSymbol = Optional.empty();
+        private final Session session = testSessionBuilder().build();
 
         public AggregationBuilder source(PlanNode source)
         {
@@ -270,8 +273,8 @@ public class PlanBuilder
         {
             checkArgument(expression instanceof FunctionCall);
             FunctionCall aggregation = (FunctionCall) expression;
-            Signature signature = metadata.getFunctionManager().resolveFunction(aggregation.getName(), TypeSignatureProvider.fromTypes(inputTypes));
-            return addAggregation(output, new Aggregation(aggregation, signature, mask));
+            FunctionHandle functionHandle = metadata.getFunctionManager().resolveFunction(session, aggregation.getName(), TypeSignatureProvider.fromTypes(inputTypes));
+            return addAggregation(output, new Aggregation(aggregation, functionHandle, mask));
         }
 
         public AggregationBuilder addAggregation(Symbol output, Aggregation aggregation)

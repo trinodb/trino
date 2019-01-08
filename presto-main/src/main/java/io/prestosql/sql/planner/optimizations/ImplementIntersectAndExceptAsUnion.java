@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.Session;
 import io.prestosql.execution.warnings.WarningCollector;
-import io.prestosql.metadata.Signature;
+import io.prestosql.metadata.FunctionManager;
 import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.ExpressionUtils;
@@ -52,10 +52,9 @@ import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.concat;
-import static io.prestosql.metadata.FunctionKind.AGGREGATE;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.prestosql.sql.planner.plan.AggregationNode.Step;
 import static io.prestosql.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
@@ -105,6 +104,13 @@ import static java.util.stream.Collectors.toList;
 public class ImplementIntersectAndExceptAsUnion
         implements PlanOptimizer
 {
+    private FunctionManager functionManager;
+
+    public ImplementIntersectAndExceptAsUnion(FunctionManager functionManager)
+    {
+        this.functionManager = requireNonNull(functionManager, "functionManager is null");
+    }
+
     @Override
     public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
     {
@@ -114,19 +120,22 @@ public class ImplementIntersectAndExceptAsUnion
         requireNonNull(symbolAllocator, "symbolAllocator is null");
         requireNonNull(idAllocator, "idAllocator is null");
 
-        return SimplePlanRewriter.rewriteWith(new Rewriter(idAllocator, symbolAllocator), plan);
+        return SimplePlanRewriter.rewriteWith(new Rewriter(session, functionManager, idAllocator, symbolAllocator), plan);
     }
 
     private static class Rewriter
             extends SimplePlanRewriter<Void>
     {
         private static final String MARKER = "marker";
-        private static final Signature COUNT_AGGREGATION = new Signature("count", AGGREGATE, parseTypeSignature(StandardTypes.BIGINT), parseTypeSignature(StandardTypes.BOOLEAN));
+        private final Session session;
+        private final FunctionManager functionManager;
         private final PlanNodeIdAllocator idAllocator;
         private final SymbolAllocator symbolAllocator;
 
-        private Rewriter(PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator)
+        private Rewriter(Session session, FunctionManager functionManager, PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator)
         {
+            this.session = requireNonNull(session, "session is null");
+            this.functionManager = requireNonNull(functionManager, "functionManager is null");
             this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
             this.symbolAllocator = requireNonNull(symbolAllocator, "symbolAllocator is null");
         }
@@ -237,7 +246,7 @@ public class ImplementIntersectAndExceptAsUnion
                 Symbol output = aggregationOutputs.get(i);
                 aggregations.put(output, new Aggregation(
                         new FunctionCall(QualifiedName.of("count"), ImmutableList.of(markers.get(i).toSymbolReference())),
-                        COUNT_AGGREGATION,
+                        functionManager.resolveFunction(session, QualifiedName.of("count"), fromTypes(BOOLEAN)),
                         Optional.empty()));
             }
 

@@ -27,7 +27,6 @@ import io.prestosql.execution.scheduler.NodeSchedulerConfig;
 import io.prestosql.metadata.CatalogManager;
 import io.prestosql.metadata.InMemoryNodeManager;
 import io.prestosql.metadata.MetadataManager;
-import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.TableHandle;
 import io.prestosql.metadata.TableLayoutHandle;
 import io.prestosql.plugin.tpch.TpchColumnHandle;
@@ -36,7 +35,6 @@ import io.prestosql.plugin.tpch.TpchTableLayoutHandle;
 import io.prestosql.security.AllowAllAccessControl;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.predicate.TupleDomain;
-import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.analyzer.FeaturesConfig;
 import io.prestosql.sql.planner.NodePartitioningManager;
@@ -74,13 +72,13 @@ import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.prestosql.SessionTestUtils.TEST_SESSION;
 import static io.prestosql.cost.PlanNodeCostEstimate.cpuCost;
-import static io.prestosql.metadata.FunctionKind.AGGREGATE;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.plugin.tpch.TpchTransactionHandle.INSTANCE;
 import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.prestosql.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static io.prestosql.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static io.prestosql.sql.planner.plan.ExchangeNode.Scope.REMOTE;
@@ -661,7 +659,7 @@ public class TestCostCalculator
     {
         AggregationNode.Aggregation aggregation = new AggregationNode.Aggregation(
                 new FunctionCall(QualifiedName.of("count"), ImmutableList.of()),
-                new Signature("count", AGGREGATE, parseTypeSignature(StandardTypes.BIGINT)),
+                metadata.getFunctionManager().resolveFunction(TEST_SESSION, QualifiedName.of("count"), fromTypes()),
                 Optional.empty());
 
         return new AggregationNode(

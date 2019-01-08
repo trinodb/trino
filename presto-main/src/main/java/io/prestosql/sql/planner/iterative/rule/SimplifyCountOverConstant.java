@@ -17,8 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.prestosql.matching.Capture;
 import io.prestosql.matching.Captures;
 import io.prestosql.matching.Pattern;
-import io.prestosql.metadata.Signature;
-import io.prestosql.spi.type.StandardTypes;
+import io.prestosql.metadata.FunctionManager;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.iterative.Rule;
 import io.prestosql.sql.planner.plan.AggregationNode;
@@ -36,11 +35,10 @@ import java.util.Map;
 import java.util.Map.Entry;
 
 import static io.prestosql.matching.Capture.newCapture;
-import static io.prestosql.metadata.FunctionKind.AGGREGATE;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static io.prestosql.sql.planner.plan.Patterns.aggregation;
 import static io.prestosql.sql.planner.plan.Patterns.project;
 import static io.prestosql.sql.planner.plan.Patterns.source;
+import static java.util.Objects.requireNonNull;
 
 public class SimplifyCountOverConstant
         implements Rule<AggregationNode>
@@ -49,6 +47,13 @@ public class SimplifyCountOverConstant
 
     private static final Pattern<AggregationNode> PATTERN = aggregation()
             .with(source().matching(project().capturedAs(CHILD)));
+
+    private final FunctionManager functionManager;
+
+    public SimplifyCountOverConstant(FunctionManager functionManager)
+    {
+        this.functionManager = requireNonNull(functionManager, "functionManager is null");
+    }
 
     @Override
     public Pattern<AggregationNode> getPattern()
@@ -72,7 +77,7 @@ public class SimplifyCountOverConstant
                 changed = true;
                 aggregations.put(symbol, new AggregationNode.Aggregation(
                         new FunctionCall(QualifiedName.of("count"), ImmutableList.of()),
-                        new Signature("count", AGGREGATE, parseTypeSignature(StandardTypes.BIGINT)),
+                        functionManager.resolveFunction(context.getSession(), QualifiedName.of("count"), ImmutableList.of()),
                         aggregation.getMask()));
             }
         }
@@ -94,12 +99,12 @@ public class SimplifyCountOverConstant
 
     private static boolean isCountOverConstant(AggregationNode.Aggregation aggregation, Assignments inputs)
     {
-        Signature signature = aggregation.getSignature();
-        if (!signature.getName().equals("count") || signature.getArgumentTypes().size() != 1) {
+        FunctionCall call = aggregation.getCall();
+        if (!call.getName().getSuffix().equals("count") || call.getArguments().size() != 1) {
             return false;
         }
 
-        Expression argument = aggregation.getCall().getArguments().get(0);
+        Expression argument = call.getArguments().get(0);
         if (argument instanceof SymbolReference) {
             argument = inputs.get(Symbol.from(argument));
         }

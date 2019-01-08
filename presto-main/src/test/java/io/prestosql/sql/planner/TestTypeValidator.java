@@ -21,9 +21,7 @@ import com.google.common.collect.ListMultimap;
 import io.prestosql.connector.ConnectorId;
 import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.metadata.FunctionHandle;
-import io.prestosql.metadata.FunctionKind;
 import io.prestosql.metadata.FunctionManager;
-import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.TableHandle;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.predicate.TupleDomain;
@@ -187,14 +185,7 @@ public class TestTypeValidator
                 baseTableScan,
                 ImmutableMap.of(aggregationSymbol, new Aggregation(
                         new FunctionCall(QualifiedName.of("sum"), ImmutableList.of(columnC.toSymbolReference())),
-                        new Signature(
-                                "sum",
-                                FunctionKind.AGGREGATE,
-                                ImmutableList.of(),
-                                ImmutableList.of(),
-                                DOUBLE.getTypeSignature(),
-                                ImmutableList.of(DOUBLE.getTypeSignature()),
-                                false),
+                        FUNCTION_MANAGER.resolveFunction(TEST_SESSION, QualifiedName.of("sum"), fromTypes(DOUBLE)),
                         Optional.empty())),
                 singleGroupingSet(ImmutableList.of(columnA, columnB)),
                 ImmutableList.of(),
@@ -245,14 +236,7 @@ public class TestTypeValidator
                 baseTableScan,
                 ImmutableMap.of(aggregationSymbol, new Aggregation(
                         new FunctionCall(QualifiedName.of("sum"), ImmutableList.of(columnA.toSymbolReference())),
-                        new Signature(
-                                "sum",
-                                FunctionKind.AGGREGATE,
-                                ImmutableList.of(),
-                                ImmutableList.of(),
-                                DOUBLE.getTypeSignature(),
-                                ImmutableList.of(DOUBLE.getTypeSignature()),
-                                false),
+                        FUNCTION_MANAGER.resolveFunction(TEST_SESSION, QualifiedName.of("sum"), fromTypes(DOUBLE)),
                         Optional.empty())),
                 singleGroupingSet(ImmutableList.of(columnA, columnB)),
                 ImmutableList.of(),
@@ -273,14 +257,7 @@ public class TestTypeValidator
                 baseTableScan,
                 ImmutableMap.of(aggregationSymbol, new Aggregation(
                         new FunctionCall(QualifiedName.of("sum"), ImmutableList.of(columnC.toSymbolReference())),
-                        new Signature(
-                                "sum",
-                                FunctionKind.AGGREGATE,
-                                ImmutableList.of(),
-                                ImmutableList.of(),
-                                BIGINT.getTypeSignature(), // should be DOUBLE
-                                ImmutableList.of(DOUBLE.getTypeSignature()),
-                                false),
+                        FUNCTION_MANAGER.resolveFunction(TEST_SESSION, QualifiedName.of("sum"), fromTypes(BIGINT)),
                         Optional.empty())),
                 singleGroupingSet(ImmutableList.of(columnA, columnB)),
                 ImmutableList.of(),

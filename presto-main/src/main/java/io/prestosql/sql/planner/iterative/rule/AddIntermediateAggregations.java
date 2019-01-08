@@ -31,7 +31,6 @@ import io.prestosql.sql.planner.plan.ExchangeNode;
 import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.ProjectNode;
 import io.prestosql.sql.tree.FunctionCall;
-import io.prestosql.sql.tree.QualifiedName;
 
 import java.util.Map;
 import java.util.Optional;
@@ -183,8 +182,8 @@ public class AddIntermediateAggregations
             builder.put(
                     output,
                     new AggregationNode.Aggregation(
-                            new FunctionCall(QualifiedName.of(aggregation.getSignature().getName()), ImmutableList.of(output.toSymbolReference())),
-                            aggregation.getSignature(),
+                            new FunctionCall(aggregation.getCall().getName(), ImmutableList.of(output.toSymbolReference())),
+                            aggregation.getFunctionHandle(),
                             Optional.empty()));  // No mask for INTERMEDIATE
         }
         return builder.build();

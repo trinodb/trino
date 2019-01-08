@@ -85,7 +85,7 @@ public class TransformQuantifiedComparisonApplyToLateralJoin
     @Override
     public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
     {
-        return rewriteWith(new Rewriter(idAllocator, types, symbolAllocator, metadata), plan, null);
+        return rewriteWith(new Rewriter(session, idAllocator, types, symbolAllocator, metadata), plan, null);
     }
 
     private static class Rewriter
@@ -95,13 +95,15 @@ public class TransformQuantifiedComparisonApplyToLateralJoin
         private static final QualifiedName MAX = QualifiedName.of("max");
         private static final QualifiedName COUNT = QualifiedName.of("count");
 
+        private final Session session;
         private final PlanNodeIdAllocator idAllocator;
         private final TypeProvider types;
         private final SymbolAllocator symbolAllocator;
         private final Metadata metadata;
 
-        public Rewriter(PlanNodeIdAllocator idAllocator, TypeProvider types, SymbolAllocator symbolAllocator, Metadata metadata)
+        public Rewriter(Session session, PlanNodeIdAllocator idAllocator, TypeProvider types, SymbolAllocator symbolAllocator, Metadata metadata)
         {
+            this.session = requireNonNull(session, "session is null");
             this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
             this.types = requireNonNull(types, "types is null");
             this.symbolAllocator = requireNonNull(symbolAllocator, "symbolAllocator is null");
@@ -148,19 +150,19 @@ public class TransformQuantifiedComparisonApplyToLateralJoin
                     ImmutableMap.of(
                             minValue, new Aggregation(
                                     new FunctionCall(MIN, outputColumnReferences),
-                                    functionManager.resolveFunction(MIN, fromTypeSignatures(outputColumnTypeSignature)),
+                                    functionManager.resolveFunction(session, MIN, fromTypeSignatures(outputColumnTypeSignature)),
                                     Optional.empty()),
                             maxValue, new Aggregation(
                                     new FunctionCall(MAX, outputColumnReferences),
-                                    functionManager.resolveFunction(MAX, fromTypeSignatures(outputColumnTypeSignature)),
+                                    functionManager.resolveFunction(session, MAX, fromTypeSignatures(outputColumnTypeSignature)),
                                     Optional.empty()),
                             countAllValue, new Aggregation(
                                     new FunctionCall(COUNT, emptyList()),
-                                    functionManager.resolveFunction(COUNT, emptyList()),
+                                    functionManager.resolveFunction(session, COUNT, emptyList()),
                                     Optional.empty()),
                             countNonNullValue, new Aggregation(
                                     new FunctionCall(COUNT, outputColumnReferences),
-                                    functionManager.resolveFunction(COUNT, fromTypeSignatures(outputColumnTypeSignature)),
+                                    functionManager.resolveFunction(session, COUNT, fromTypeSignatures(outputColumnTypeSignature)),
                                     Optional.empty())),
                     globalAggregation(),
                     ImmutableList.of(),

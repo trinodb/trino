@@ -16,14 +16,16 @@ package io.prestosql.operator.aggregation;
 import com.google.common.base.Joiner;
 import com.google.common.primitives.Floats;
 import io.airlift.stats.QuantileDigest;
+import io.prestosql.metadata.FunctionHandle;
+import io.prestosql.metadata.FunctionManager;
 import io.prestosql.metadata.MetadataManager;
-import io.prestosql.metadata.Signature;
 import io.prestosql.operator.scalar.AbstractTestFunctions;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.type.SqlVarbinary;
 import io.prestosql.spi.type.StandardTypes;
-import io.prestosql.spi.type.TypeSignature;
+import io.prestosql.spi.type.Type;
+import io.prestosql.sql.tree.QualifiedName;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
@@ -33,6 +35,7 @@ import java.util.stream.Collectors;
 import java.util.stream.LongStream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.prestosql.SessionTestUtils.TEST_SESSION;
 import static io.prestosql.block.BlockAssertions.createBlockOfReals;
 import static io.prestosql.block.BlockAssertions.createDoubleSequenceBlock;
 import static io.prestosql.block.BlockAssertions.createDoublesBlock;
@@ -40,13 +43,16 @@ import static io.prestosql.block.BlockAssertions.createLongSequenceBlock;
 import static io.prestosql.block.BlockAssertions.createLongsBlock;
 import static io.prestosql.block.BlockAssertions.createRLEBlock;
 import static io.prestosql.block.BlockAssertions.createSequenceBlockOfReal;
-import static io.prestosql.metadata.FunctionKind.AGGREGATE;
 import static io.prestosql.operator.aggregation.AggregationTestUtils.assertAggregation;
 import static io.prestosql.operator.aggregation.FloatingPointBitsConverterUtil.doubleToSortableLong;
 import static io.prestosql.operator.aggregation.FloatingPointBitsConverterUtil.floatToSortableInt;
 import static io.prestosql.operator.aggregation.TestMergeQuantileDigestFunction.QDIGEST_EQUALITY;
+import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
+import static io.prestosql.spi.type.DoubleType.DOUBLE;
+import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static java.lang.Double.NaN;
 import static java.lang.Integer.max;
 import static java.lang.Integer.min;
@@ -160,34 +166,31 @@ public class TestQuantileDigestAggregationFunction
                 LongStream.range(-1000, 1000).toArray());
     }
 
-    private InternalAggregationFunction getAggregationFunction(String... type)
+    private InternalAggregationFunction getAggregationFunction(Type... types)
     {
-        TypeSignature[] typeSignatures = Arrays.stream(type).map(TypeSignature::parseTypeSignature).toArray(TypeSignature[]::new);
-        return METADATA.getFunctionManager().getAggregateFunctionImplementation(
-                new Signature("qdigest_agg",
-                        AGGREGATE,
-                        parseTypeSignature(format("qdigest(%s)", type[0])),
-                        typeSignatures));
+        FunctionManager functionManager = METADATA.getFunctionManager();
+        FunctionHandle functionHandle = functionManager.resolveFunction(TEST_SESSION, QualifiedName.of("qdigest_agg"), fromTypes(types));
+        return functionManager.getAggregateFunctionImplementation(functionHandle);
     }
 
     private void testAggregationBigint(Block inputBlock, Block weightsBlock, double maxError, long... inputs)
     {
         // Test without weights and accuracy
         testAggregationBigints(
-                getAggregationFunction(StandardTypes.BIGINT),
+                getAggregationFunction(BIGINT),
                 new Page(inputBlock),
                 maxError,
                 inputs);
 
         // Test with weights and without accuracy
         testAggregationBigints(
-                getAggregationFunction(StandardTypes.BIGINT, StandardTypes.BIGINT),
+                getAggregationFunction(BIGINT, BIGINT),
                 new Page(inputBlock, weightsBlock),
                 maxError,
                 inputs);
         // Test with weights and accuracy
         testAggregationBigints(
-                getAggregationFunction(StandardTypes.BIGINT, StandardTypes.BIGINT, StandardTypes.DOUBLE),
+                getAggregationFunction(BIGINT, BIGINT, DOUBLE),
                 new Page(inputBlock, weightsBlock, createRLEBlock(maxError, inputBlock.getPositionCount())),
                 maxError,
                 inputs);
@@ -197,19 +200,19 @@ public class TestQuantileDigestAggregationFunction
     {
         // Test without weights and accuracy
         testAggregationReal(
-                getAggregationFunction(StandardTypes.REAL),
+                getAggregationFunction(REAL),
                 new Page(longsBlock),
                 maxError,
                 inputs);
         // Test with weights and without accuracy
         testAggregationReal(
-                getAggregationFunction(StandardTypes.REAL, StandardTypes.BIGINT),
+                getAggregationFunction(REAL, BIGINT),
                 new Page(longsBlock, weightsBlock),
                 maxError,
                 inputs);
         // Test with weights and accuracy
         testAggregationReal(
-                getAggregationFunction(StandardTypes.REAL, StandardTypes.BIGINT, StandardTypes.DOUBLE),
+                getAggregationFunction(REAL, BIGINT, DOUBLE),
                 new Page(longsBlock, weightsBlock, createRLEBlock(maxError, longsBlock.getPositionCount())),
                 maxError,
                 inputs);
@@ -219,19 +222,19 @@ public class TestQuantileDigestAggregationFunction
     {
         // Test without weights and accuracy
         testAggregationDoubles(
-                getAggregationFunction(StandardTypes.DOUBLE),
+                getAggregationFunction(DOUBLE),
                 new Page(longsBlock),
                 maxError,
                 inputs);
         // Test with weights and without accuracy
         testAggregationDoubles(
-                getAggregationFunction(StandardTypes.DOUBLE, StandardTypes.BIGINT),
+                getAggregationFunction(DOUBLE, BIGINT),
                 new Page(longsBlock, weightsBlock),
                 maxError,
                 inputs);
         // Test with weights and accuracy
         testAggregationDoubles(
-                getAggregationFunction(StandardTypes.DOUBLE, StandardTypes.BIGINT, StandardTypes.DOUBLE),
+                getAggregationFunction(DOUBLE, BIGINT, DOUBLE),
                 new Page(longsBlock, weightsBlock, createRLEBlock(maxError, longsBlock.getPositionCount())),
                 maxError,
                 inputs);
