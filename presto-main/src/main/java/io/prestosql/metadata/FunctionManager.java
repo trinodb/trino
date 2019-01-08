@@ -13,6 +13,7 @@
  */
 package io.prestosql.metadata;
 
+import io.prestosql.Session;
 import io.prestosql.operator.aggregation.InternalAggregationFunction;
 import io.prestosql.operator.scalar.ScalarFunctionImplementation;
 import io.prestosql.operator.window.WindowFunctionSupplier;
@@ -62,6 +63,11 @@ public class FunctionManager
 
     public Signature resolveFunction(QualifiedName name, List<TypeSignatureProvider> parameterTypes)
     {
+        return functionRegistry.resolveFunction(name, parameterTypes).getSignature();
+    }
+
+    public FunctionHandle resolveFunction(Session session, QualifiedName name, List<TypeSignatureProvider> parameterTypes)
+    {
         return functionRegistry.resolveFunction(name, parameterTypes);
     }
 
@@ -92,7 +98,7 @@ public class FunctionManager
 
     public Signature resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)
     {
-        return functionRegistry.resolveOperator(operatorType, argumentTypes);
+        return functionRegistry.resolveOperator(operatorType, argumentTypes).getSignature();
     }
 
     public boolean isRegistered(Signature signature)
