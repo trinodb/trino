@@ -15,8 +15,8 @@ package io.prestosql.sql.planner.assertions;
 
 import io.prestosql.Session;
 import io.prestosql.cost.StatsProvider;
+import io.prestosql.metadata.FunctionHandle;
 import io.prestosql.metadata.Metadata;
-import io.prestosql.metadata.Signature;
 import io.prestosql.spi.block.SortOrder;
 import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.WindowNode;
@@ -193,13 +193,13 @@ public final class WindowMatcher
         public Builder addFunction(
                 String outputAlias,
                 ExpectedValueProvider<FunctionCall> functionCall,
-                Signature signature,
+                FunctionHandle functionHandle,
                 ExpectedValueProvider<WindowNode.Frame> frame)
         {
             windowFunctionMatchers.add(
                     new AliasMatcher(
                             Optional.of(outputAlias),
-                            new WindowFunctionMatcher(functionCall, Optional.of(signature), Optional.of(frame))));
+                            new WindowFunctionMatcher(functionCall, Optional.of(functionHandle), Optional.of(frame))));
             return this;
         }
 

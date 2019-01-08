@@ -22,7 +22,7 @@ import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Lists;
 import io.prestosql.Session;
 import io.prestosql.execution.warnings.WarningCollector;
-import io.prestosql.metadata.Signature;
+import io.prestosql.metadata.FunctionHandle;
 import io.prestosql.spi.block.SortOrder;
 import io.prestosql.sql.planner.DeterminismEvaluator;
 import io.prestosql.sql.planner.OrderingScheme;
@@ -195,10 +195,10 @@ public class UnaliasSymbolReferences
                 Symbol symbol = entry.getKey();
 
                 FunctionCall canonicalFunctionCall = (FunctionCall) canonicalize(entry.getValue().getFunctionCall());
-                Signature signature = entry.getValue().getSignature();
+                FunctionHandle functionHandle = entry.getValue().getFunctionHandle();
                 WindowNode.Frame canonicalFrame = canonicalize(entry.getValue().getFrame());
 
-                functions.put(canonicalize(symbol), new WindowNode.Function(canonicalFunctionCall, signature, canonicalFrame));
+                functions.put(canonicalize(symbol), new WindowNode.Function(canonicalFunctionCall, functionHandle, canonicalFrame));
             }
 
             return new WindowNode(

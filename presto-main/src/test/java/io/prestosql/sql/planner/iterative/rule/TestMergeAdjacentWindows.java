@@ -15,8 +15,8 @@ package io.prestosql.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.metadata.FunctionKind;
-import io.prestosql.metadata.Signature;
+import io.prestosql.metadata.FunctionHandle;
+import io.prestosql.metadata.FunctionManager;
 import io.prestosql.sql.planner.assertions.ExpectedValueProvider;
 import io.prestosql.sql.planner.assertions.PlanMatchPattern;
 import io.prestosql.sql.planner.iterative.rule.test.BaseRuleTest;
@@ -34,8 +34,11 @@ import java.util.Arrays;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import static io.prestosql.SessionTestUtils.TEST_SESSION;
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
+import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.functionCall;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.specification;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.strictProject;
@@ -57,14 +60,8 @@ public class TestMergeAdjacentWindows
             Optional.empty(),
             Optional.empty());
 
-    private static final Signature signature = new Signature(
-            "avg",
-            FunctionKind.WINDOW,
-            ImmutableList.of(),
-            ImmutableList.of(),
-            DOUBLE.getTypeSignature(),
-            ImmutableList.of(DOUBLE.getTypeSignature()),
-            false);
+    private static final FunctionManager FUNCTION_MANAGER = createTestMetadataManager().getFunctionManager();
+    private static final FunctionHandle FUNCTION_HANDLE = FUNCTION_MANAGER.resolveFunction(TEST_SESSION, QualifiedName.of("avg"), fromTypes(DOUBLE));
     private static final String columnAAlias = "ALIAS_A";
     private static final ExpectedValueProvider<WindowNode.Specification> specificationA =
             specification(ImmutableList.of(columnAAlias), ImmutableList.of(), ImmutableMap.of());
@@ -231,7 +228,7 @@ public class TestMergeAdjacentWindows
                 new FunctionCall(
                         QualifiedName.of(functionName),
                         Arrays.stream(symbols).map(SymbolReference::new).collect(Collectors.toList())),
-                signature,
+                FUNCTION_HANDLE,
                 frame);
     }
 
@@ -243,7 +240,7 @@ public class TestMergeAdjacentWindows
                         window,
                         false,
                         Arrays.stream(symbols).map(SymbolReference::new).collect(Collectors.toList())),
-                signature,
+                FUNCTION_HANDLE,
                 frame);
     }
 }

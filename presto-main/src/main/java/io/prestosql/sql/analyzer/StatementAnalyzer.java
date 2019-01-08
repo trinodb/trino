@@ -25,6 +25,7 @@ import io.prestosql.Session;
 import io.prestosql.SystemSessionProperties;
 import io.prestosql.connector.ConnectorId;
 import io.prestosql.execution.warnings.WarningCollector;
+import io.prestosql.metadata.FunctionHandle;
 import io.prestosql.metadata.FunctionKind;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.OperatorNotFoundException;
@@ -1381,7 +1382,8 @@ class StatementAnalyzer
 
                 List<TypeSignature> argumentTypes = Lists.transform(windowFunction.getArguments(), expression -> analysis.getType(expression).getTypeSignature());
 
-                FunctionKind kind = metadata.getFunctionManager().resolveFunction(windowFunction.getName(), fromTypeSignatures(argumentTypes)).getKind();
+                FunctionHandle functionHandle = metadata.getFunctionManager().resolveFunction(session, windowFunction.getName(), fromTypeSignatures(argumentTypes));
+                FunctionKind kind = functionHandle.getSignature().getKind();
                 if (kind != AGGREGATE && kind != WINDOW) {
                     throw new SemanticException(MUST_BE_WINDOW_FUNCTION, node, "Not a window function: %s", windowFunction.getName());
                 }
