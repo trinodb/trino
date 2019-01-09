@@ -47,6 +47,7 @@ ENV PRESTO_CLI /opt/presto/presto-cli
 ENV PROMETHEUS_JMX_EXPORTER /opt/jmx_exporter/jmx_exporter.jar
 ENV TERM linux
 ENV HOME /opt/presto
+ENV JAVA_HOME=/etc/alternatives/jre
 
 RUN mkdir -p $PRESTO_HOME
 
