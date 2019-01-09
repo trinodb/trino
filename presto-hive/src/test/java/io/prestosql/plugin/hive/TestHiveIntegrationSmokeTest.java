@@ -20,6 +20,7 @@ import com.google.common.io.Files;
 import io.prestosql.Session;
 import io.prestosql.connector.ConnectorId;
 import io.prestosql.cost.StatsAndCosts;
+import io.prestosql.metadata.InsertTableHandle;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.metadata.TableHandle;
@@ -3548,6 +3549,37 @@ public class TestHiveIntegrationSmokeTest
                 "WHERE x < 0 AND cast(p AS int) > 0");
 
         assertUpdate("DROP TABLE test_prune_failure");
+    }
+
+    @Test
+    public void testTemporaryStagingDirectorySessionProperty()
+    {
+        String tableName = "test_temporary_staging_directory_session_property";
+        assertUpdate(format("CREATE TABLE %s(i int)", tableName));
+
+        Session session = Session.builder(getSession())
+                .setCatalogSessionProperty("hive", "temporary_staging_directory_enabled", "false")
+                .build();
+
+        HiveInsertTableHandle hiveInsertTableHandle = getHiveInsertTableHandle(session, tableName);
+        assertEquals(hiveInsertTableHandle.getLocationHandle().getWritePath(), hiveInsertTableHandle.getLocationHandle().getTargetPath());
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    private HiveInsertTableHandle getHiveInsertTableHandle(Session session, String tableName)
+    {
+        Metadata metadata = ((DistributedQueryRunner) getQueryRunner()).getCoordinator().getMetadata();
+        return transaction(getQueryRunner().getTransactionManager(), getQueryRunner().getAccessControl())
+                .execute(session, transactionSession -> {
+                    QualifiedObjectName objectName = new QualifiedObjectName(catalog, TPCH_SCHEMA, tableName);
+                    Optional<TableHandle> handle = metadata.getTableHandle(transactionSession, objectName);
+                    InsertTableHandle insertTableHandle = metadata.beginInsert(transactionSession, handle.get());
+                    HiveInsertTableHandle hiveInsertTableHandle = (HiveInsertTableHandle) insertTableHandle.getConnectorHandle();
+
+                    metadata.finishInsert(transactionSession, insertTableHandle, ImmutableList.of(), ImmutableList.of());
+                    return hiveInsertTableHandle;
+                });
     }
 
     private Session getParallelWriteSession()
