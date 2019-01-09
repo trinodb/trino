@@ -947,26 +947,22 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
-    public void testCreateEmptyPartition()
+    public void testCreateEmptyNonBucketedPartition()
     {
-        String tableName = "empty_partition_table";
-        assertUpdate(format("" +
-                "CREATE TABLE %s " +
-                "WITH ( " +
-                " FORMAT = 'ORC', " +
-                "   partitioned_by = ARRAY['p_varchar'] " +
-                ") " +
-                "AS " +
-                "SELECT c_bigint, p_varchar " +
-                "FROM ( " +
-                "  VALUES " +
-                "    (BIGINT '7', 'longlonglong')" +
-                ") AS x (c_bigint, p_varchar)", tableName), 1);
-        assertQuery(format("SELECT count(*) FROM \"%s$partitions\"", tableName), "SELECT 1");
+        String tableName = "test_insert_empty_partitioned_unbucketed_table";
+        assertUpdate("" +
+                "CREATE TABLE " + tableName + " (" +
+                "  dummy_col bigint," +
+                "  part varchar)" +
+                "WITH (" +
+                "  format = 'ORC', " +
+                "  partitioned_by = ARRAY[ 'part' ] " +
+                ")");
+        assertQuery(format("SELECT count(*) FROM \"%s$partitions\"", tableName), "SELECT 0");
 
         // create an empty partition
-        assertUpdate(format("CALL system.create_empty_partition('%s', '%s', ARRAY['p_varchar'], ARRAY['%s'])", TPCH_SCHEMA, tableName, "empty"));
-        assertQuery(format("SELECT count(*) FROM \"%s$partitions\"", tableName), "SELECT 2");
+        assertUpdate(format("CALL system.create_empty_partition('%s', '%s', ARRAY['part'], ARRAY['%s'])", TPCH_SCHEMA, tableName, "empty"));
+        assertQuery(format("SELECT count(*) FROM \"%s$partitions\"", tableName), "SELECT 1");
         assertUpdate("DROP TABLE " + tableName);
     }
 
