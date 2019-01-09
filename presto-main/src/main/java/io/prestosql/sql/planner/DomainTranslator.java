@@ -20,7 +20,7 @@ import io.prestosql.Session;
 import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.metadata.FunctionHandle;
 import io.prestosql.metadata.Metadata;
-import io.prestosql.metadata.Signature;
+import io.prestosql.metadata.OperatorNotFoundException;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.predicate.DiscreteValues;
 import io.prestosql.spi.predicate.Domain;
@@ -65,8 +65,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Iterators.peekingIterator;
-import static io.prestosql.metadata.Signature.internalOperator;
-import static io.prestosql.spi.function.OperatorType.SATURATED_FLOOR_CAST;
 import static io.prestosql.sql.ExpressionUtils.and;
 import static io.prestosql.sql.ExpressionUtils.combineConjuncts;
 import static io.prestosql.sql.ExpressionUtils.combineDisjunctsWithDefault;
@@ -660,12 +658,14 @@ public final class DomainTranslator
                     .map((operator) -> functionInvoker.invoke(operator, session.toConnectorSession(), value));
         }
 
-        private Optional<Signature> getSaturatedFloorCastOperator(Type fromType, Type toType)
+        private Optional<FunctionHandle> getSaturatedFloorCastOperator(Type fromType, Type toType)
         {
-            if (metadata.getFunctionManager().canResolveOperator(SATURATED_FLOOR_CAST, toType, ImmutableList.of(fromType))) {
-                return Optional.of(internalOperator(SATURATED_FLOOR_CAST, toType, ImmutableList.of(fromType)));
+            try {
+                return Optional.of(metadata.getFunctionManager().lookupSaturatedFloorCast(fromType.getTypeSignature(), toType.getTypeSignature()));
             }
-            return Optional.empty();
+            catch (OperatorNotFoundException e) {
+                return Optional.empty();
+            }
         }
 
         private int compareOriginalValueToCoerced(Type originalValueType, Object originalValue, Type coercedValueType, Object coercedValue)

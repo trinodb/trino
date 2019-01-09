@@ -1108,6 +1108,21 @@ class FunctionRegistry
         return new FunctionHandle(signature);
     }
 
+    public FunctionHandle lookupSaturatedFloorCast(TypeSignature fromType, TypeSignature toType)
+    {
+        Signature signature = internalOperator(OperatorType.SATURATED_FLOOR_CAST.name(), toType, ImmutableList.of(fromType));
+        try {
+            getScalarFunctionImplementation(signature);
+        }
+        catch (PrestoException e) {
+            if (e.getErrorCode().getCode() == FUNCTION_IMPLEMENTATION_MISSING.toErrorCode().getCode()) {
+                throw new OperatorNotFoundException(OperatorType.SATURATED_FLOOR_CAST, ImmutableList.of(fromType), toType);
+            }
+            throw e;
+        }
+        return new FunctionHandle(signature);
+    }
+
     private static Optional<List<Type>> toTypes(List<TypeSignatureProvider> typeSignatureProviders, TypeManager typeManager)
     {
         ImmutableList.Builder<Type> resultBuilder = ImmutableList.builder();
