@@ -1240,9 +1240,9 @@ public class ExpressionAnalyzer
                 argumentTypes.add(process(expression, context));
             }
 
-            Signature operatorSignature;
+            FunctionHandle operatorHandle;
             try {
-                operatorSignature = functionManager.resolveOperator(operatorType, argumentTypes.build());
+                operatorHandle = functionManager.resolveOperator(operatorType, argumentTypes.build());
             }
             catch (OperatorNotFoundException e) {
                 throw new SemanticException(TYPE_MISMATCH, node, "%s", e.getMessage());
@@ -1254,6 +1254,7 @@ public class ExpressionAnalyzer
                 throw e;
             }
 
+            Signature operatorSignature = operatorHandle.getSignature();
             for (int i = 0; i < arguments.length; i++) {
                 Expression expression = arguments[i];
                 Type type = typeManager.getType(operatorSignature.getArgumentTypes().get(i));

@@ -44,16 +44,22 @@ public class FunctionInvokerProvider
         this.functionRegistry = functionRegistry;
     }
 
+    @Deprecated
     public FunctionInvoker createFunctionInvoker(Signature signature, Optional<InvocationConvention> invocationConvention)
     {
-        ScalarFunctionImplementation scalarFunctionImplementation = functionRegistry.getScalarFunctionImplementation(signature);
+        return createFunctionInvoker(new FunctionHandle(signature), invocationConvention);
+    }
+
+    public FunctionInvoker createFunctionInvoker(FunctionHandle functionHandle, Optional<InvocationConvention> invocationConvention)
+    {
+        ScalarFunctionImplementation scalarFunctionImplementation = functionRegistry.getScalarFunctionImplementation(functionHandle);
         for (ScalarImplementationChoice choice : scalarFunctionImplementation.getAllChoices()) {
             if (checkChoice(choice.getArgumentProperties(), choice.isNullable(), choice.hasSession(), invocationConvention)) {
                 return new FunctionInvoker(choice.getMethodHandle());
             }
         }
         checkState(invocationConvention.isPresent());
-        throw new PrestoException(FUNCTION_NOT_FOUND, format("Dependent function implementation (%s) with convention (%s) is not available", signature, invocationConvention.toString()));
+        throw new PrestoException(FUNCTION_NOT_FOUND, format("Dependent function implementation (%s) with convention (%s) is not available", functionHandle, invocationConvention.toString()));
     }
 
     @VisibleForTesting

@@ -25,7 +25,6 @@ import io.airlift.bytecode.control.IfStatement;
 import io.airlift.bytecode.expression.BytecodeExpression;
 import io.airlift.bytecode.instruction.LabelNode;
 import io.airlift.slice.Slice;
-import io.prestosql.metadata.Signature;
 import io.prestosql.operator.scalar.ScalarFunctionImplementation;
 import io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty;
 import io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention;
@@ -337,11 +336,6 @@ public final class BytecodeUtils
     public static BytecodeExpression invoke(Binding binding, String name)
     {
         return invokeDynamic(BOOTSTRAP_METHOD, ImmutableList.of(binding.getBindingId()), name, binding.getType());
-    }
-
-    public static BytecodeExpression invoke(Binding binding, Signature signature)
-    {
-        return invoke(binding, signature.getName());
     }
 
     public static BytecodeNode generateWrite(CallSiteBinder callSiteBinder, Scope scope, Variable wasNullVariable, Type type)

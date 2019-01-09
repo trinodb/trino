@@ -17,9 +17,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import io.prestosql.PagesIndexPageSorter;
+import io.prestosql.metadata.FunctionHandle;
 import io.prestosql.metadata.FunctionManager;
 import io.prestosql.metadata.Metadata;
-import io.prestosql.metadata.Signature;
 import io.prestosql.operator.PagesIndex;
 import io.prestosql.plugin.hive.authentication.NoHdfsAuthentication;
 import io.prestosql.plugin.hive.gcs.GoogleGcsConfigurationInitializer;
@@ -167,8 +167,8 @@ public final class HiveTestUtils
 
     public static MethodHandle distinctFromOperator(Type type)
     {
-        Signature signature = FUNCTION_REGISTRY.resolveOperator(IS_DISTINCT_FROM, ImmutableList.of(type, type));
-        return FUNCTION_REGISTRY.getScalarFunctionImplementation(signature).getMethodHandle();
+        FunctionHandle functionHandle = FUNCTION_REGISTRY.resolveOperator(IS_DISTINCT_FROM, ImmutableList.of(type, type));
+        return FUNCTION_REGISTRY.getScalarFunctionImplementation(functionHandle).getMethodHandle();
     }
 
     public static boolean isDistinctFrom(MethodHandle handle, Block left, Block right)

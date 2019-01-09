@@ -96,9 +96,9 @@ public class FunctionManager
         return functionRegistry.isAggregationFunction(name);
     }
 
-    public Signature resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)
+    public FunctionHandle resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)
     {
-        return functionRegistry.resolveOperator(operatorType, argumentTypes).getSignature();
+        return functionRegistry.resolveOperator(operatorType, argumentTypes);
     }
 
     public FunctionHandle lookupCast(TypeSignature fromType, TypeSignature toType)

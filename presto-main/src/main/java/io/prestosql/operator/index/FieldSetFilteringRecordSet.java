@@ -16,11 +16,11 @@ package io.prestosql.operator.index;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
+import io.prestosql.metadata.FunctionHandle;
 import io.prestosql.metadata.FunctionManager;
 import io.prestosql.spi.connector.RecordCursor;
 import io.prestosql.spi.connector.RecordSet;
 import io.prestosql.spi.function.OperatorType;
-import io.prestosql.spi.type.BooleanType;
 import io.prestosql.spi.type.Type;
 
 import java.lang.invoke.MethodHandle;
@@ -30,7 +30,6 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfUnchecked;
-import static io.prestosql.metadata.Signature.internalOperator;
 import static java.lang.Boolean.TRUE;
 import static java.util.Objects.requireNonNull;
 
@@ -53,9 +52,9 @@ public class FieldSetFilteringRecordSet
         for (Set<Integer> fieldSet : requireNonNull(fieldSets, "fieldSets is null")) {
             ImmutableSet.Builder<Field> fieldSetBuilder = ImmutableSet.builder();
             for (int field : fieldSet) {
-                fieldSetBuilder.add(new Field(
-                        field,
-                        functionManager.getScalarFunctionImplementation(internalOperator(OperatorType.EQUAL, BooleanType.BOOLEAN, ImmutableList.of(columnTypes.get(field), columnTypes.get(field)))).getMethodHandle()));
+                FunctionHandle functionHandle = functionManager.resolveOperator(OperatorType.EQUAL, ImmutableList.of(columnTypes.get(field), columnTypes.get(field)));
+                MethodHandle methodHandle = functionManager.getScalarFunctionImplementation(functionHandle).getMethodHandle();
+                fieldSetBuilder.add(new Field(field, methodHandle));
             }
             fieldSetsBuilder.add(fieldSetBuilder.build());
         }

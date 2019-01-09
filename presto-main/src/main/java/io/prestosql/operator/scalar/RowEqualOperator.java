@@ -15,8 +15,8 @@ package io.prestosql.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
 import io.prestosql.metadata.BoundVariables;
+import io.prestosql.metadata.FunctionHandle;
 import io.prestosql.metadata.FunctionManager;
-import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlOperator;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.type.RowType;
@@ -76,7 +76,7 @@ public class RowEqualOperator
 
     private static MethodHandle resolveEqualOperator(Type type, FunctionManager functionManager)
     {
-        Signature operator = functionManager.resolveOperator(EQUAL, ImmutableList.of(type, type));
+        FunctionHandle operator = functionManager.resolveOperator(EQUAL, ImmutableList.of(type, type));
         ScalarFunctionImplementation implementation = functionManager.getScalarFunctionImplementation(operator);
         return implementation.getMethodHandle();
     }

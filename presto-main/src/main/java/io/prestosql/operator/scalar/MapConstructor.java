@@ -27,7 +27,6 @@ import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.block.DuplicateMapKeyException;
 import io.prestosql.spi.block.MapBlockBuilder;
 import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.function.OperatorType;
 import io.prestosql.spi.type.MapType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeManager;
@@ -38,13 +37,13 @@ import java.lang.invoke.MethodHandle;
 import java.util.Optional;
 
 import static io.prestosql.metadata.Signature.comparableTypeParameter;
-import static io.prestosql.metadata.Signature.internalOperator;
 import static io.prestosql.metadata.Signature.typeVariable;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
 import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.prestosql.spi.function.OperatorType.EQUAL;
+import static io.prestosql.spi.function.OperatorType.HASH_CODE;
 import static io.prestosql.spi.function.OperatorType.INDETERMINATE;
-import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.StandardTypes.MAP;
 import static io.prestosql.spi.type.TypeUtils.readNativeValue;
 import static io.prestosql.util.Failures.checkCondition;
@@ -108,9 +107,9 @@ public final class MapConstructor
         Type valueType = boundVariables.getTypeVariable("V");
 
         Type mapType = typeManager.getParameterizedType(MAP, ImmutableList.of(TypeSignatureParameter.of(keyType.getTypeSignature()), TypeSignatureParameter.of(valueType.getTypeSignature())));
-        MethodHandle keyHashCode = functionManager.getScalarFunctionImplementation(functionManager.resolveOperator(OperatorType.HASH_CODE, ImmutableList.of(keyType))).getMethodHandle();
-        MethodHandle keyEqual = functionManager.getScalarFunctionImplementation(functionManager.resolveOperator(OperatorType.EQUAL, ImmutableList.of(keyType, keyType))).getMethodHandle();
-        MethodHandle keyIndeterminate = functionManager.getScalarFunctionImplementation(internalOperator(INDETERMINATE.name(), BOOLEAN.getTypeSignature(), ImmutableList.of(keyType.getTypeSignature()))).getMethodHandle();
+        MethodHandle keyHashCode = functionManager.getScalarFunctionImplementation(functionManager.resolveOperator(HASH_CODE, ImmutableList.of(keyType))).getMethodHandle();
+        MethodHandle keyEqual = functionManager.getScalarFunctionImplementation(functionManager.resolveOperator(EQUAL, ImmutableList.of(keyType, keyType))).getMethodHandle();
+        MethodHandle keyIndeterminate = functionManager.getScalarFunctionImplementation(functionManager.resolveOperator(INDETERMINATE, ImmutableList.of(keyType))).getMethodHandle();
         MethodHandle instanceFactory = constructorMethodHandle(State.class, MapType.class).bindTo(mapType);
 
         return new ScalarFunctionImplementation(
