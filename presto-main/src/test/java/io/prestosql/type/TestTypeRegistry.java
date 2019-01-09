@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.prestosql.block.BlockEncodingManager;
 import io.prestosql.metadata.FunctionManager;
-import io.prestosql.spi.function.OperatorType;
+import io.prestosql.metadata.OperatorNotFoundException;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeManager;
 import io.prestosql.spi.type.TypeSignature;
@@ -251,8 +251,12 @@ public class TestTypeRegistry
         for (Type sourceType : types) {
             for (Type resultType : types) {
                 if (typeRegistry.canCoerce(sourceType, resultType) && sourceType != UNKNOWN && resultType != UNKNOWN) {
-                    assertTrue(functionManager.canResolveOperator(OperatorType.CAST, resultType, ImmutableList.of(sourceType)),
-                            format("'%s' -> '%s' coercion exists but there is no cast operator", sourceType, resultType));
+                    try {
+                        functionManager.lookupCast(sourceType.getTypeSignature(), resultType.getTypeSignature());
+                    }
+                    catch (OperatorNotFoundException e) {
+                        fail(format("'%s' -> '%s' coercion exists but there is no cast operator", sourceType, resultType));
+                    }
                 }
             }
         }

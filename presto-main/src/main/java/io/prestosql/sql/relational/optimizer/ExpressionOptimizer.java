@@ -255,7 +255,7 @@ public class ExpressionOptimizer
             }
 
             return call(
-                    registry.getCoercion(call.getArguments().get(0).getType(), call.getType()),
+                    registry.lookupCast(call.getArguments().get(0).getType().getTypeSignature(), call.getType().getTypeSignature()).getSignature(),
                     call.getType(),
                     call.getArguments());
         }

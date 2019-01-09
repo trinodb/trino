@@ -15,6 +15,7 @@ package io.prestosql.sql.planner;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
+import io.prestosql.metadata.FunctionHandle;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
 import io.prestosql.spi.connector.ConnectorSession;
@@ -136,8 +137,8 @@ public final class LiteralInterpreter
             }
 
             try {
-                Signature signature = metadata.getFunctionManager().getCoercion(VARCHAR, type);
-                return functionInvoker.invoke(signature, session, ImmutableList.of(utf8Slice(node.getValue())));
+                FunctionHandle functionHandle = metadata.getFunctionManager().lookupCast(VARCHAR.getTypeSignature(), type.getTypeSignature());
+                return functionInvoker.invoke(functionHandle, session, ImmutableList.of(utf8Slice(node.getValue())));
             }
             catch (IllegalArgumentException e) {
                 throw new SemanticException(TYPE_MISMATCH, node, "No literal form for type %s", type);

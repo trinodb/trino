@@ -14,6 +14,7 @@
 package io.prestosql.sql;
 
 import com.google.common.base.Defaults;
+import io.prestosql.metadata.FunctionHandle;
 import io.prestosql.metadata.FunctionManager;
 import io.prestosql.metadata.Signature;
 import io.prestosql.operator.scalar.ScalarFunctionImplementation;
@@ -40,6 +41,7 @@ public class InterpretedFunctionInvoker
         this.functionManager = requireNonNull(functionManager, "registry is null");
     }
 
+    @Deprecated
     public Object invoke(Signature function, ConnectorSession session, Object... arguments)
     {
         return invoke(function, session, Arrays.asList(arguments));
@@ -50,13 +52,35 @@ public class InterpretedFunctionInvoker
      * <p>
      * Returns a value in the native container type corresponding to the declared SQL return type
      */
+    @Deprecated
     public Object invoke(Signature function, ConnectorSession session, List<Object> arguments)
     {
         ScalarFunctionImplementation implementation = functionManager.getScalarFunctionImplementation(function);
-        MethodHandle method = implementation.getMethodHandle();
+        return invoke(implementation, session, arguments);
+    }
+
+    public Object invoke(FunctionHandle function, ConnectorSession session, Object... arguments)
+    {
+        return invoke(function, session, Arrays.asList(arguments));
+    }
+
+    /**
+     * Arguments must be the native container type for the corresponding SQL types.
+     * <p>
+     * Returns a value in the native container type corresponding to the declared SQL return type
+     */
+    public Object invoke(FunctionHandle function, ConnectorSession session, List<Object> arguments)
+    {
+        ScalarFunctionImplementation implementation = functionManager.getScalarFunctionImplementation(function);
+        return invoke(implementation, session, arguments);
+    }
+
+    private Object invoke(ScalarFunctionImplementation function, ConnectorSession session, List<Object> arguments)
+    {
+        MethodHandle method = function.getMethodHandle();
 
         // handle function on instance method, to allow use of fields
-        method = bindInstanceFactory(method, implementation);
+        method = bindInstanceFactory(method, function);
 
         if (method.type().parameterCount() > 0 && method.type().parameterType(0) == ConnectorSession.class) {
             method = method.bindTo(session);
@@ -64,9 +88,9 @@ public class InterpretedFunctionInvoker
         List<Object> actualArguments = new ArrayList<>();
         for (int i = 0; i < arguments.size(); i++) {
             Object argument = arguments.get(i);
-            ArgumentProperty argumentProperty = implementation.getArgumentProperty(i);
+            ArgumentProperty argumentProperty = function.getArgumentProperty(i);
             if (argumentProperty.getArgumentType() == VALUE_TYPE) {
-                if (implementation.getArgumentProperty(i).getNullConvention() == USE_NULL_FLAG) {
+                if (function.getArgumentProperty(i).getNullConvention() == USE_NULL_FLAG) {
                     boolean isNull = argument == null;
                     if (isNull) {
                         argument = Defaults.defaultValue(method.type().parameterType(actualArguments.size()));

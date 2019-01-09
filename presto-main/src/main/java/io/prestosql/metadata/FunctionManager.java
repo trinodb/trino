@@ -81,9 +81,14 @@ public class FunctionManager
         return functionRegistry.getAggregateFunctionImplementation(functionHandle);
     }
 
+    public ScalarFunctionImplementation getScalarFunctionImplementation(FunctionHandle functionHandle)
+    {
+        return functionRegistry.getScalarFunctionImplementation(functionHandle);
+    }
+
     public ScalarFunctionImplementation getScalarFunctionImplementation(Signature signature)
     {
-        return functionRegistry.getScalarFunctionImplementation(signature);
+        return functionRegistry.getScalarFunctionImplementation(new FunctionHandle(signature));
     }
 
     public boolean isAggregationFunction(QualifiedName name)
@@ -101,18 +106,13 @@ public class FunctionManager
         return functionRegistry.resolveOperator(operatorType, argumentTypes).getSignature();
     }
 
+    public FunctionHandle lookupCast(TypeSignature fromType, TypeSignature toType)
+    {
+        return functionRegistry.lookupCast(fromType, toType);
+    }
+
     public boolean isRegistered(Signature signature)
     {
         return functionRegistry.isRegistered(signature);
-    }
-
-    public Signature getCoercion(Type fromType, Type toType)
-    {
-        return getCoercion(fromType.getTypeSignature(), toType.getTypeSignature());
-    }
-
-    public Signature getCoercion(TypeSignature fromType, TypeSignature toType)
-    {
-        return functionRegistry.getCoercion(fromType, toType);
     }
 }

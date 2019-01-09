@@ -20,6 +20,8 @@ import io.airlift.bytecode.Scope;
 import io.airlift.bytecode.Variable;
 import io.airlift.bytecode.control.IfStatement;
 import io.airlift.bytecode.instruction.LabelNode;
+import io.prestosql.metadata.FunctionHandle;
+import io.prestosql.metadata.FunctionManager;
 import io.prestosql.metadata.Signature;
 import io.prestosql.operator.scalar.ScalarFunctionImplementation;
 import io.prestosql.spi.function.OperatorType;
@@ -30,6 +32,7 @@ import io.prestosql.sql.relational.RowExpression;
 import java.util.List;
 
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantTrue;
+import static io.prestosql.spi.function.OperatorType.CAST;
 import static io.prestosql.sql.gen.BytecodeUtils.ifWasNullPopAndGoto;
 
 public class NullIfCodeGenerator
@@ -96,11 +99,10 @@ public class NullIfCodeGenerator
             return argument;
         }
 
-        Signature function = generatorContext
-                .getRegistry()
-                .getCoercion(actualType.getTypeSignature(), requiredType);
+        FunctionManager functionManager = generatorContext.getRegistry();
+        FunctionHandle functionHandle = functionManager.lookupCast(actualType.getTypeSignature(), requiredType);
 
         // TODO: do we need a full function call? (nullability checks, etc)
-        return generatorContext.generateCall(function.getName(), generatorContext.getRegistry().getScalarFunctionImplementation(function), ImmutableList.of(argument));
+        return generatorContext.generateCall(CAST.name(), functionManager.getScalarFunctionImplementation(functionHandle), ImmutableList.of(argument));
     }
 }

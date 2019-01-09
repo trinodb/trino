@@ -30,9 +30,9 @@ import io.prestosql.cost.PlanNodeStatsEstimate;
 import io.prestosql.cost.StatsAndCosts;
 import io.prestosql.execution.StageInfo;
 import io.prestosql.execution.StageStats;
+import io.prestosql.metadata.FunctionHandle;
 import io.prestosql.metadata.FunctionManager;
 import io.prestosql.metadata.OperatorNotFoundException;
-import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.TableHandle;
 import io.prestosql.operator.StageExecutionDescriptor;
 import io.prestosql.spi.connector.ColumnHandle;
@@ -1197,7 +1197,7 @@ public class PlanPrinter
         }
 
         try {
-            Signature coercion = functionManager.getCoercion(type, VARCHAR);
+            FunctionHandle coercion = functionManager.lookupCast(type.getTypeSignature(), VARCHAR.getTypeSignature());
             Slice coerced = (Slice) new InterpretedFunctionInvoker(functionManager).invoke(coercion, session.toConnectorSession(), value);
             return coerced.toStringUtf8();
         }

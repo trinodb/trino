@@ -23,6 +23,7 @@ import io.airlift.slice.Slice;
 import io.prestosql.Session;
 import io.prestosql.client.FailureInfo;
 import io.prestosql.execution.warnings.WarningCollector;
+import io.prestosql.metadata.FunctionHandle;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
 import io.prestosql.operator.scalar.ArraySubscriptOperator;
@@ -822,8 +823,8 @@ public class ExpressionInterpreter
 
             Type commonType = metadata.getTypeManager().getCommonSuperType(firstType, secondType).get();
 
-            Signature firstCast = metadata.getFunctionManager().getCoercion(firstType, commonType);
-            Signature secondCast = metadata.getFunctionManager().getCoercion(secondType, commonType);
+            FunctionHandle firstCast = metadata.getFunctionManager().lookupCast(firstType.getTypeSignature(), commonType.getTypeSignature());
+            FunctionHandle secondCast = metadata.getFunctionManager().lookupCast(secondType.getTypeSignature(), commonType.getTypeSignature());
 
             // cast(first as <common type>) == cast(second as <common type>)
             boolean equal = Boolean.TRUE.equals(invokeOperator(
@@ -1130,7 +1131,7 @@ public class ExpressionInterpreter
                 return null;
             }
 
-            Signature operator = metadata.getFunctionManager().getCoercion(sourceType, targetType);
+            FunctionHandle operator = metadata.getFunctionManager().lookupCast(sourceType.getTypeSignature(), targetType.getTypeSignature());
 
             try {
                 return functionInvoker.invoke(operator, session, ImmutableList.of(value));

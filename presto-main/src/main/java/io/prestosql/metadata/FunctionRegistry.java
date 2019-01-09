@@ -941,6 +941,11 @@ class FunctionRegistry
         }
     }
 
+    public ScalarFunctionImplementation getScalarFunctionImplementation(FunctionHandle functionHandle)
+    {
+        return getScalarFunctionImplementation(functionHandle.getSignature());
+    }
+
     public ScalarFunctionImplementation getScalarFunctionImplementation(Signature signature)
     {
         checkArgument(signature.getKind() == SCALAR, "%s is not a scalar function", signature);
@@ -1088,12 +1093,7 @@ class FunctionRegistry
         }
     }
 
-    public Signature getCoercion(Type fromType, Type toType)
-    {
-        return getCoercion(fromType.getTypeSignature(), toType.getTypeSignature());
-    }
-
-    public Signature getCoercion(TypeSignature fromType, TypeSignature toType)
+    public FunctionHandle lookupCast(TypeSignature fromType, TypeSignature toType)
     {
         Signature signature = internalOperator(OperatorType.CAST.name(), toType, ImmutableList.of(fromType));
         try {
@@ -1105,7 +1105,7 @@ class FunctionRegistry
             }
             throw e;
         }
-        return signature;
+        return new FunctionHandle(signature);
     }
 
     private static Optional<List<Type>> toTypes(List<TypeSignatureProvider> typeSignatureProviders, TypeManager typeManager)

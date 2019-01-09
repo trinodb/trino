@@ -15,11 +15,15 @@ package io.prestosql.sql.gen;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.BytecodeNode;
+import io.prestosql.metadata.FunctionHandle;
+import io.prestosql.metadata.FunctionManager;
 import io.prestosql.metadata.Signature;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.relational.RowExpression;
 
 import java.util.List;
+
+import static io.prestosql.spi.function.OperatorType.CAST;
 
 public class CastCodeGenerator
         implements BytecodeGenerator
@@ -29,10 +33,8 @@ public class CastCodeGenerator
     {
         RowExpression argument = arguments.get(0);
 
-        Signature function = generatorContext
-                .getRegistry()
-                .getCoercion(argument.getType(), returnType);
-
-        return generatorContext.generateCall(function.getName(), generatorContext.getRegistry().getScalarFunctionImplementation(function), ImmutableList.of(generatorContext.generate(argument)));
+        FunctionManager functionManager = generatorContext.getRegistry();
+        FunctionHandle functionHandle = functionManager.lookupCast(argument.getType().getTypeSignature(), returnType.getTypeSignature());
+        return generatorContext.generateCall(CAST.name(), functionManager.getScalarFunctionImplementation(functionHandle), ImmutableList.of(generatorContext.generate(argument)));
     }
 }
