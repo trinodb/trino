@@ -96,11 +96,6 @@ public class FunctionManager
         return functionRegistry.isAggregationFunction(name);
     }
 
-    public boolean canResolveOperator(OperatorType operatorType, Type returnType, List<? extends Type> argumentTypes)
-    {
-        return functionRegistry.canResolveOperator(operatorType, returnType, argumentTypes);
-    }
-
     public Signature resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)
     {
         return functionRegistry.resolveOperator(operatorType, argumentTypes).getSignature();
