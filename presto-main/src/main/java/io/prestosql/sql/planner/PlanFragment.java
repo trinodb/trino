@@ -54,6 +54,7 @@ public class PlanFragment
     private final PartitioningScheme partitioningScheme;
     private final StageExecutionDescriptor stageExecutionDescriptor;
     private final StatsAndCosts statsAndCosts;
+    private final Optional<String> jsonRepresentation;
 
     @JsonCreator
     public PlanFragment(
@@ -64,7 +65,8 @@ public class PlanFragment
             @JsonProperty("partitionedSources") List<PlanNodeId> partitionedSources,
             @JsonProperty("partitioningScheme") PartitioningScheme partitioningScheme,
             @JsonProperty("stageExecutionDescriptor") StageExecutionDescriptor stageExecutionDescriptor,
-            @JsonProperty("statsAndCosts") StatsAndCosts statsAndCosts)
+            @JsonProperty("statsAndCosts") StatsAndCosts statsAndCosts,
+            @JsonProperty("jsonRepresentation") Optional<String> jsonRepresentation)
     {
         this.id = requireNonNull(id, "id is null");
         this.root = requireNonNull(root, "root is null");
@@ -74,6 +76,7 @@ public class PlanFragment
         this.partitionedSourcesSet = ImmutableSet.copyOf(partitionedSources);
         this.stageExecutionDescriptor = requireNonNull(stageExecutionDescriptor, "stageExecutionDescriptor is null");
         this.statsAndCosts = requireNonNull(statsAndCosts, "statsAndCosts is null");
+        this.jsonRepresentation = requireNonNull(jsonRepresentation, "jsonRepresentation is null");
 
         checkArgument(partitionedSourcesSet.size() == partitionedSources.size(), "partitionedSources contains duplicates");
         checkArgument(ImmutableSet.copyOf(root.getOutputSymbols()).containsAll(partitioningScheme.getOutputLayout()),
@@ -145,6 +148,14 @@ public class PlanFragment
         return statsAndCosts;
     }
 
+    @JsonProperty
+    public Optional<String> getJsonRepresentation()
+    {
+        // @reviewer: I believe this should be a json raw value, but that would make this class have a different deserialization constructor.
+        // workers don't need this, so that should be OK, but it's worth thinking about.
+        return jsonRepresentation;
+    }
+
     public List<Type> getTypes()
     {
         return types;
@@ -196,12 +207,12 @@ public class PlanFragment
 
     public PlanFragment withBucketToPartition(Optional<int[]> bucketToPartition)
     {
-        return new PlanFragment(id, root, symbols, partitioning, partitionedSources, partitioningScheme.withBucketToPartition(bucketToPartition), stageExecutionDescriptor, statsAndCosts);
+        return new PlanFragment(id, root, symbols, partitioning, partitionedSources, partitioningScheme.withBucketToPartition(bucketToPartition), stageExecutionDescriptor, statsAndCosts, jsonRepresentation);
     }
 
     public PlanFragment withGroupedExecution(List<PlanNodeId> capableTableScanNodes)
     {
-        return new PlanFragment(id, root, symbols, partitioning, partitionedSources, partitioningScheme, groupedExecution(capableTableScanNodes), statsAndCosts);
+        return new PlanFragment(id, root, symbols, partitioning, partitionedSources, partitioningScheme, groupedExecution(capableTableScanNodes), statsAndCosts, jsonRepresentation);
     }
 
     @Override
