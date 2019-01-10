@@ -27,6 +27,7 @@ import io.prestosql.metadata.TableLayoutHandle;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ConnectorPartitionHandle;
 import io.prestosql.spi.connector.ConnectorPartitioningHandle;
+import io.prestosql.spi.type.Type;
 import io.prestosql.sql.planner.plan.AggregationNode;
 import io.prestosql.sql.planner.plan.ExchangeNode;
 import io.prestosql.sql.planner.plan.ExplainAnalyzeNode;
@@ -50,6 +51,7 @@ import javax.inject.Inject;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -67,6 +69,7 @@ import static io.prestosql.sql.planner.SystemPartitioningHandle.COORDINATOR_DIST
 import static io.prestosql.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.prestosql.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
 import static io.prestosql.sql.planner.plan.ExchangeNode.Scope.REMOTE;
+import static io.prestosql.sql.planner.planPrinter.PlanPrinter.jsonFragmentPlan;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -168,7 +171,8 @@ public class PlanFragmenter
                         outputPartitioningScheme.isReplicateNullsAndAny(),
                         outputPartitioningScheme.getBucketToPartition()),
                 fragment.getStageExecutionDescriptor(),
-                fragment.getStatsAndCosts());
+                fragment.getStatsAndCosts(),
+                fragment.getJsonRepresentation());
 
         ImmutableList.Builder<SubPlan> childrenBuilder = ImmutableList.builder();
         for (SubPlan child : subPlan.getChildren()) {
@@ -214,15 +218,18 @@ public class PlanFragmenter
             boolean equals = properties.getPartitionedSources().equals(ImmutableSet.copyOf(schedulingOrder));
             checkArgument(equals, "Expected scheduling order (%s) to contain an entry for all partitioned sources (%s)", schedulingOrder, properties.getPartitionedSources());
 
+            Map<Symbol, Type> symbols = Maps.filterKeys(types.allTypes(), in(dependencies));
+
             PlanFragment fragment = new PlanFragment(
                     fragmentId,
                     root,
-                    Maps.filterKeys(types.allTypes(), in(dependencies)),
+                    symbols,
                     properties.getPartitioningHandle(),
                     schedulingOrder,
                     properties.getPartitioningScheme(),
                     ungroupedExecution(),
-                    statsAndCosts.getForSubplan(root));
+                    statsAndCosts.getForSubplan(root),
+                    Optional.of(jsonFragmentPlan(root, symbols, metadata.getFunctionRegistry(), session)));
 
             return new SubPlan(fragment, properties.getChildren());
         }
