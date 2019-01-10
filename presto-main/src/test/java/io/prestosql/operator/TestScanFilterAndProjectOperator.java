@@ -18,9 +18,10 @@ import io.airlift.units.DataSize;
 import io.prestosql.SequencePageBuilder;
 import io.prestosql.block.BlockAssertions;
 import io.prestosql.connector.ConnectorId;
+import io.prestosql.metadata.FunctionHandle;
+import io.prestosql.metadata.FunctionManager;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.MetadataManager;
-import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.Split;
 import io.prestosql.metadata.SqlScalarFunction;
 import io.prestosql.operator.index.PageRecordSet;
@@ -38,7 +39,9 @@ import io.prestosql.spi.connector.RecordPageSource;
 import io.prestosql.sql.gen.ExpressionCompiler;
 import io.prestosql.sql.gen.PageFunctionCompiler;
 import io.prestosql.sql.planner.plan.PlanNodeId;
+import io.prestosql.sql.relational.CallExpression;
 import io.prestosql.sql.relational.RowExpression;
+import io.prestosql.sql.tree.QualifiedName;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.TestingSplit;
 import io.prestosql.testing.TestingTransactionHandle;
@@ -57,7 +60,6 @@ import static io.prestosql.RowPagesBuilder.rowPagesBuilder;
 import static io.prestosql.SessionTestUtils.TEST_SESSION;
 import static io.prestosql.block.BlockAssertions.toValues;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
-import static io.prestosql.metadata.Signature.internalScalarFunction;
 import static io.prestosql.operator.OperatorAssertion.toMaterializedResult;
 import static io.prestosql.operator.PageAssertions.assertPageEquals;
 import static io.prestosql.operator.project.PageProcessor.MAX_BATCH_SIZE;
@@ -65,7 +67,7 @@ import static io.prestosql.spi.function.OperatorType.EQUAL;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
-import static io.prestosql.sql.relational.Expressions.call;
+import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.prestosql.sql.relational.Expressions.constant;
 import static io.prestosql.sql.relational.Expressions.field;
 import static io.prestosql.testing.TestingTaskContext.createTaskContext;
@@ -134,11 +136,10 @@ public class TestScanFilterAndProjectOperator
                 .addSequencePage(100, 0)
                 .build();
 
-        RowExpression filter = call(
-                Signature.internalOperator(EQUAL, BOOLEAN.getTypeSignature(), ImmutableList.of(BIGINT.getTypeSignature(), BIGINT.getTypeSignature())),
+        RowExpression filter = new CallExpression(
+                metadata.getFunctionManager().resolveOperator(EQUAL, fromTypes(BIGINT, BIGINT)),
                 BOOLEAN,
-                field(0, BIGINT),
-                constant(10L, BIGINT));
+                ImmutableList.of(field(0, BIGINT), constant(10L, BIGINT)));
         List<RowExpression> projections = ImmutableList.of(field(0, BIGINT));
         Supplier<CursorProcessor> cursorProcessor = expressionCompiler.compileCursorProcessor(Optional.of(filter), projections, "key");
         Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(Optional.of(filter), projections);
@@ -259,13 +260,15 @@ public class TestScanFilterAndProjectOperator
             }));
         }
         Metadata metadata = functionAssertions.getMetadata();
-        metadata.getFunctionManager().addFunctions(functions.build());
+        FunctionManager functionManager = metadata.getFunctionManager();
+        functionManager.addFunctions(functions.build());
 
         // match each column with a projection
         ExpressionCompiler expressionCompiler = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0));
         ImmutableList.Builder<RowExpression> projections = ImmutableList.builder();
         for (int i = 0; i < totalColumns; i++) {
-            projections.add(call(internalScalarFunction("generic_long_page_col" + i, BIGINT.getTypeSignature(), ImmutableList.of(BIGINT.getTypeSignature())), BIGINT, field(0, BIGINT)));
+            FunctionHandle functionHandle = functionManager.resolveFunction(TEST_SESSION, QualifiedName.of("generic_long_page_col" + i), fromTypes(BIGINT));
+            projections.add(new CallExpression(functionHandle, BIGINT, ImmutableList.of(field(0, BIGINT))));
         }
         Supplier<CursorProcessor> cursorProcessor = expressionCompiler.compileCursorProcessor(Optional.empty(), projections.build(), "key");
         Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(Optional.empty(), projections.build(), MAX_BATCH_SIZE);
@@ -321,16 +324,17 @@ public class TestScanFilterAndProjectOperator
 
         // set up generic long function with a callback to force yield
         Metadata metadata = functionAssertions.getMetadata();
-        metadata.getFunctionManager().addFunctions(ImmutableList.of(new GenericLongFunction("record_cursor", value -> {
+        FunctionManager functionManager = metadata.getFunctionManager();
+        functionManager.addFunctions(ImmutableList.of(new GenericLongFunction("record_cursor", value -> {
             driverContext.getYieldSignal().forceYieldForTesting();
             return value;
         })));
         ExpressionCompiler expressionCompiler = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0));
 
-        List<RowExpression> projections = ImmutableList.of(call(
-                Signature.internalScalarFunction("generic_long_record_cursor", BIGINT.getTypeSignature(), ImmutableList.of(BIGINT.getTypeSignature())),
+        List<RowExpression> projections = ImmutableList.of(new CallExpression(
+                functionManager.resolveFunction(TEST_SESSION, QualifiedName.of("generic_long_record_cursor"), fromTypes(BIGINT)),
                 BIGINT,
-                field(0, BIGINT)));
+                ImmutableList.of(field(0, BIGINT))));
         Supplier<CursorProcessor> cursorProcessor = expressionCompiler.compileCursorProcessor(Optional.empty(), projections, "key");
         Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(Optional.empty(), projections);
 

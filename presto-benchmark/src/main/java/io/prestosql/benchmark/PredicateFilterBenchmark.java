@@ -15,12 +15,14 @@ package io.prestosql.benchmark;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
+import io.prestosql.metadata.FunctionHandle;
 import io.prestosql.operator.FilterAndProjectOperator;
 import io.prestosql.operator.OperatorFactory;
 import io.prestosql.operator.project.PageProcessor;
 import io.prestosql.sql.gen.ExpressionCompiler;
 import io.prestosql.sql.gen.PageFunctionCompiler;
 import io.prestosql.sql.planner.plan.PlanNodeId;
+import io.prestosql.sql.relational.CallExpression;
 import io.prestosql.sql.relational.RowExpression;
 import io.prestosql.testing.LocalQueryRunner;
 
@@ -30,11 +32,10 @@ import java.util.function.Supplier;
 
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.prestosql.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
-import static io.prestosql.metadata.Signature.internalOperator;
 import static io.prestosql.spi.function.OperatorType.GREATER_THAN_OR_EQUAL;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
-import static io.prestosql.sql.relational.Expressions.call;
+import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.prestosql.sql.relational.Expressions.constant;
 import static io.prestosql.sql.relational.Expressions.field;
 
@@ -50,11 +51,11 @@ public class PredicateFilterBenchmark
     protected List<? extends OperatorFactory> createOperatorFactories()
     {
         OperatorFactory tableScanOperator = createTableScanOperator(0, new PlanNodeId("test"), "orders", "totalprice");
-        RowExpression filter = call(
-                internalOperator(GREATER_THAN_OR_EQUAL, BOOLEAN.getTypeSignature(), ImmutableList.of(DOUBLE.getTypeSignature(), DOUBLE.getTypeSignature())),
+        FunctionHandle functionHandle = localQueryRunner.getMetadata().getFunctionManager().resolveOperator(GREATER_THAN_OR_EQUAL, fromTypes(DOUBLE, DOUBLE));
+        RowExpression filter = new CallExpression(
+                functionHandle,
                 BOOLEAN,
-                field(0, DOUBLE),
-                constant(50000.0, DOUBLE));
+                ImmutableList.of(field(0, DOUBLE), constant(50000.0, DOUBLE)));
         ExpressionCompiler expressionCompiler = new ExpressionCompiler(localQueryRunner.getMetadata(), new PageFunctionCompiler(localQueryRunner.getMetadata(), 0));
         Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(Optional.of(filter), ImmutableList.of(field(0, DOUBLE)));
 

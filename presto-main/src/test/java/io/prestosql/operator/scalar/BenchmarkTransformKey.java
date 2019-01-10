@@ -15,9 +15,9 @@
 package io.prestosql.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.metadata.FunctionKind;
+import io.prestosql.metadata.FunctionHandle;
+import io.prestosql.metadata.FunctionManager;
 import io.prestosql.metadata.MetadataManager;
-import io.prestosql.metadata.Signature;
 import io.prestosql.operator.DriverYieldSignal;
 import io.prestosql.operator.project.PageProcessor;
 import io.prestosql.spi.Page;
@@ -27,9 +27,11 @@ import io.prestosql.spi.type.MapType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.gen.ExpressionCompiler;
 import io.prestosql.sql.gen.PageFunctionCompiler;
+import io.prestosql.sql.relational.CallExpression;
 import io.prestosql.sql.relational.LambdaDefinitionExpression;
 import io.prestosql.sql.relational.RowExpression;
 import io.prestosql.sql.relational.VariableReferenceExpression;
+import io.prestosql.sql.tree.QualifiedName;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -53,13 +55,15 @@ import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
+import static io.prestosql.SessionTestUtils.TEST_SESSION;
 import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.prestosql.spi.function.OperatorType.ADD;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static io.prestosql.spi.type.TypeUtils.writeNativeValue;
-import static io.prestosql.sql.relational.Expressions.call;
+import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
+import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.prestosql.sql.relational.Expressions.constant;
 import static io.prestosql.sql.relational.Expressions.field;
 import static io.prestosql.testing.TestingConnectorSession.SESSION;
@@ -105,6 +109,7 @@ public class BenchmarkTransformKey
         public void setup()
         {
             MetadataManager metadata = MetadataManager.createTestMetadataManager();
+            FunctionManager functionManager = metadata.getFunctionManager();
             ExpressionCompiler compiler = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0));
             ImmutableList.Builder<RowExpression> projectionsBuilder = ImmutableList.builder();
             Type elementType;
@@ -122,19 +127,19 @@ public class BenchmarkTransformKey
                     throw new UnsupportedOperationException();
             }
             MapType mapType = mapType(elementType, elementType);
-            Signature signature = new Signature(
-                    name,
-                    FunctionKind.SCALAR,
-                    mapType.getTypeSignature(),
-                    mapType.getTypeSignature(),
-                    parseTypeSignature(format("function(%s, %s, %s)", type, type, type)));
-            Signature add = new Signature("$operator$" + ADD.name(), FunctionKind.SCALAR, elementType.getTypeSignature(), elementType.getTypeSignature(), elementType.getTypeSignature());
-            projectionsBuilder.add(call(signature, mapType, ImmutableList.of(
+            FunctionHandle functionHandle = functionManager.resolveFunction(
+                    TEST_SESSION,
+                    QualifiedName.of(name),
+                    fromTypeSignatures(
+                            mapType.getTypeSignature(),
+                            parseTypeSignature(format("function(%s, %s, %s)", type, type, type))));
+            FunctionHandle add = functionManager.resolveOperator(ADD, fromTypes(elementType, elementType));
+            projectionsBuilder.add(new CallExpression(functionHandle, mapType, ImmutableList.of(
                     field(0, mapType),
                     new LambdaDefinitionExpression(
                             ImmutableList.of(elementType, elementType),
                             ImmutableList.of("x", "y"),
-                            call(add, elementType, ImmutableList.of(
+                            new CallExpression(add, elementType, ImmutableList.of(
                                     new VariableReferenceExpression("x", elementType),
                                     constant(increment, elementType)))))));
             Block block = createChannel(POSITIONS, mapType, elementType);

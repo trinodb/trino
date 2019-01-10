@@ -14,7 +14,6 @@
 package io.prestosql.sql.gen;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.metadata.Signature;
 import io.prestosql.operator.DriverYieldSignal;
 import io.prestosql.operator.Work;
 import io.prestosql.operator.project.PageProjection;
@@ -33,7 +32,7 @@ import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.prestosql.spi.function.OperatorType.ADD;
 import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.sql.relational.Expressions.call;
+import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.prestosql.sql.relational.Expressions.constant;
 import static io.prestosql.sql.relational.Expressions.field;
 import static io.prestosql.testing.TestingConnectorSession.SESSION;
@@ -45,11 +44,10 @@ import static org.testng.Assert.fail;
 
 public class TestPageFunctionCompiler
 {
-    private static final CallExpression ADD_10_EXPRESSION = call(
-            Signature.internalOperator(ADD, BIGINT.getTypeSignature(), ImmutableList.of(BIGINT.getTypeSignature(), BIGINT.getTypeSignature())),
+    private static final CallExpression ADD_10_EXPRESSION = new CallExpression(
+            createTestMetadataManager().getFunctionManager().resolveOperator(ADD, fromTypes(BIGINT, BIGINT)),
             BIGINT,
-            field(0, BIGINT),
-            constant(10L, BIGINT));
+            ImmutableList.of(field(0, BIGINT), constant(10L, BIGINT)));
 
     @Test
     public void testFailureDoesNotCorruptFutureResults()

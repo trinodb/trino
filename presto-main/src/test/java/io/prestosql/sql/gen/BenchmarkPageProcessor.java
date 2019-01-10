@@ -17,16 +17,17 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.airlift.tpch.LineItem;
 import io.airlift.tpch.LineItemGenerator;
+import io.prestosql.metadata.FunctionManager;
 import io.prestosql.metadata.MetadataManager;
-import io.prestosql.metadata.Signature;
 import io.prestosql.operator.DriverYieldSignal;
 import io.prestosql.operator.project.PageProcessor;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.PageBuilder;
 import io.prestosql.spi.block.Block;
-import io.prestosql.spi.function.OperatorType;
-import io.prestosql.spi.type.StandardTypes;
+import io.prestosql.sql.relational.CallExpression;
 import io.prestosql.sql.relational.RowExpression;
+import io.prestosql.sql.relational.SpecialForm;
+import io.prestosql.sql.relational.SpecialForm.Form;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.Fork;
 import org.openjdk.jmh.annotations.Measurement;
@@ -49,14 +50,15 @@ import java.util.concurrent.TimeUnit;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static io.prestosql.metadata.FunctionKind.SCALAR;
-import static io.prestosql.metadata.Signature.internalOperator;
+import static io.prestosql.spi.function.OperatorType.GREATER_THAN_OR_EQUAL;
+import static io.prestosql.spi.function.OperatorType.LESS_THAN;
+import static io.prestosql.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
+import static io.prestosql.spi.function.OperatorType.MULTIPLY;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
-import static io.prestosql.sql.relational.Expressions.call;
+import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.prestosql.sql.relational.Expressions.constant;
 import static io.prestosql.sql.relational.Expressions.field;
 
@@ -84,7 +86,10 @@ public class BenchmarkPageProcessor
         inputPage = createInputPage();
 
         MetadataManager metadata = MetadataManager.createTestMetadataManager();
-        compiledProcessor = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0)).compilePageProcessor(Optional.of(FILTER), ImmutableList.of(PROJECT)).get();
+        RowExpression filterExpression = createFilterExpression(metadata.getFunctionManager());
+        RowExpression projectExpression = createProjectExpression(metadata.getFunctionManager());
+        ExpressionCompiler expressionCompiler = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0));
+        compiledProcessor = expressionCompiler.compilePageProcessor(Optional.of(filterExpression), ImmutableList.of(projectExpression)).get();
     }
 
     @Benchmark
@@ -183,38 +188,47 @@ public class BenchmarkPageProcessor
     //    and discount >= 0.05
     //    and discount <= 0.07
     //    and quantity < 24;
-    private static final RowExpression FILTER = call(new Signature("AND", SCALAR, parseTypeSignature(StandardTypes.BOOLEAN)),
-            BOOLEAN,
-            call(internalOperator(OperatorType.GREATER_THAN_OR_EQUAL, BOOLEAN.getTypeSignature(), VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature()),
-                    BOOLEAN,
-                    field(SHIP_DATE, VARCHAR),
-                    constant(MIN_SHIP_DATE, VARCHAR)),
-            call(new Signature("AND", SCALAR, parseTypeSignature(StandardTypes.BOOLEAN)),
-                    BOOLEAN,
-                    call(internalOperator(OperatorType.LESS_THAN, BOOLEAN.getTypeSignature(), VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature()),
-                            BOOLEAN,
-                            field(SHIP_DATE, VARCHAR),
-                            constant(MAX_SHIP_DATE, VARCHAR)),
-                    call(new Signature("AND", SCALAR, parseTypeSignature(StandardTypes.BOOLEAN)),
-                            BOOLEAN,
-                            call(internalOperator(OperatorType.GREATER_THAN_OR_EQUAL, BOOLEAN.getTypeSignature(), DOUBLE.getTypeSignature(), DOUBLE.getTypeSignature()),
-                                    BOOLEAN,
-                                    field(DISCOUNT, DOUBLE),
-                                    constant(0.05, DOUBLE)),
-                            call(new Signature("AND", SCALAR, parseTypeSignature(StandardTypes.BOOLEAN)),
-                                    BOOLEAN,
-                                    call(internalOperator(OperatorType.LESS_THAN_OR_EQUAL, BOOLEAN.getTypeSignature(), DOUBLE.getTypeSignature(), DOUBLE.getTypeSignature()),
-                                            BOOLEAN,
-                                            field(DISCOUNT, DOUBLE),
-                                            constant(0.07, DOUBLE)),
-                                    call(internalOperator(OperatorType.LESS_THAN, BOOLEAN.getTypeSignature(), DOUBLE.getTypeSignature(), DOUBLE.getTypeSignature()),
-                                            BOOLEAN,
-                                            field(QUANTITY, DOUBLE),
-                                            constant(24.0, DOUBLE))))));
+    private static RowExpression createFilterExpression(FunctionManager functionManager)
+    {
+        return new SpecialForm(
+                Form.AND,
+                BOOLEAN,
+                new CallExpression(
+                        functionManager.resolveOperator(GREATER_THAN_OR_EQUAL, fromTypes(VARCHAR, VARCHAR)),
+                        BOOLEAN,
+                        ImmutableList.of(field(SHIP_DATE, VARCHAR), constant(MIN_SHIP_DATE, VARCHAR))),
+                new SpecialForm(
+                        Form.AND,
+                        BOOLEAN,
+                        new CallExpression(
+                                functionManager.resolveOperator(LESS_THAN, fromTypes(VARCHAR, VARCHAR)),
+                                BOOLEAN,
+                                ImmutableList.of(field(SHIP_DATE, VARCHAR), constant(MAX_SHIP_DATE, VARCHAR))),
+                        new SpecialForm(
+                                Form.AND,
+                                BOOLEAN,
+                                new CallExpression(
+                                        functionManager.resolveOperator(GREATER_THAN_OR_EQUAL, fromTypes(DOUBLE, DOUBLE)),
+                                        BOOLEAN,
+                                        ImmutableList.of(field(DISCOUNT, DOUBLE), constant(0.05, DOUBLE))),
+                                new SpecialForm(
+                                        Form.AND,
+                                        BOOLEAN,
+                                        new CallExpression(
+                                                functionManager.resolveOperator(LESS_THAN_OR_EQUAL, fromTypes(DOUBLE, DOUBLE)),
+                                                BOOLEAN,
+                                                ImmutableList.of(field(DISCOUNT, DOUBLE), constant(0.07, DOUBLE))),
+                                        new CallExpression(
+                                                functionManager.resolveOperator(LESS_THAN, fromTypes(DOUBLE, DOUBLE)),
+                                                BOOLEAN,
+                                                ImmutableList.of(field(QUANTITY, DOUBLE), constant(24.0, DOUBLE)))))));
+    }
 
-    private static final RowExpression PROJECT = call(
-            internalOperator(OperatorType.MULTIPLY, DOUBLE.getTypeSignature(), DOUBLE.getTypeSignature(), DOUBLE.getTypeSignature()),
-            DOUBLE,
-            field(EXTENDED_PRICE, DOUBLE),
-            field(DISCOUNT, DOUBLE));
+    private static RowExpression createProjectExpression(FunctionManager functionManager)
+    {
+        return new CallExpression(
+                functionManager.resolveOperator(MULTIPLY, fromTypes(DOUBLE, DOUBLE)),
+                DOUBLE,
+                ImmutableList.of(field(EXTENDED_PRICE, DOUBLE), field(DISCOUNT, DOUBLE)));
+    }
 }

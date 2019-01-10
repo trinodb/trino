@@ -14,10 +14,8 @@
 package io.prestosql.sql.relational;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.metadata.Signature;
 import io.prestosql.spi.type.Type;
 
-import java.util.Arrays;
 import java.util.List;
 
 public final class Expressions
@@ -34,16 +32,6 @@ public final class Expressions
     public static ConstantExpression constantNull(Type type)
     {
         return new ConstantExpression(null, type);
-    }
-
-    public static CallExpression call(Signature signature, Type returnType, RowExpression... arguments)
-    {
-        return new CallExpression(signature, returnType, Arrays.asList(arguments));
-    }
-
-    public static CallExpression call(Signature signature, Type returnType, List<RowExpression> arguments)
-    {
-        return new CallExpression(signature, returnType, arguments);
     }
 
     public static InputReferenceExpression field(int field, Type type)

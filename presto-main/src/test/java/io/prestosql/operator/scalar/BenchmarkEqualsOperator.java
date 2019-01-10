@@ -14,6 +14,7 @@
 package io.prestosql.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
+import io.prestosql.metadata.FunctionManager;
 import io.prestosql.metadata.MetadataManager;
 import io.prestosql.operator.DriverYieldSignal;
 import io.prestosql.operator.project.PageProcessor;
@@ -21,11 +22,12 @@ import io.prestosql.spi.Page;
 import io.prestosql.spi.PageBuilder;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.function.OperatorType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.gen.ExpressionCompiler;
 import io.prestosql.sql.gen.PageFunctionCompiler;
+import io.prestosql.sql.relational.CallExpression;
 import io.prestosql.sql.relational.RowExpression;
+import io.prestosql.sql.tree.QualifiedName;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -54,11 +56,10 @@ import static com.google.common.collect.Iterables.cycle;
 import static com.google.common.collect.Iterables.limit;
 import static io.prestosql.SessionTestUtils.TEST_SESSION;
 import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static io.prestosql.metadata.Signature.internalOperator;
-import static io.prestosql.metadata.Signature.internalScalarFunction;
+import static io.prestosql.spi.function.OperatorType.EQUAL;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
-import static io.prestosql.sql.relational.Expressions.call;
+import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.prestosql.sql.relational.Expressions.field;
 
 @State(Scope.Thread)
@@ -85,40 +86,39 @@ public class BenchmarkEqualsOperator
         ExpressionCompiler expressionCompiler = new ExpressionCompiler(
                 metadata,
                 new PageFunctionCompiler(metadata, 0));
-        RowExpression projection = generateComplexComparisonProjection(FIELDS_COUNT, COMPARISONS_COUNT);
+        RowExpression projection = generateComplexComparisonProjection(metadata.getFunctionManager(), FIELDS_COUNT, COMPARISONS_COUNT);
         compiledProcessor = expressionCompiler.compilePageProcessor(Optional.empty(), ImmutableList.of(projection)).get();
     }
 
-    private static RowExpression generateComplexComparisonProjection(int fieldsCount, int comparisonsCount)
+    private static RowExpression generateComplexComparisonProjection(FunctionManager functionManager, int fieldsCount, int comparisonsCount)
     {
         checkArgument(fieldsCount > 0, "fieldsCount must be greater than zero");
         checkArgument(comparisonsCount > 0, "comparisonsCount must be greater than zero");
 
         if (comparisonsCount == 1) {
-            return createComparison(0, 0);
+            return createComparison(functionManager, 0, 0);
         }
 
         return createConjunction(
-                createComparison(0, comparisonsCount % fieldsCount),
-                generateComplexComparisonProjection(fieldsCount, comparisonsCount - 1));
+                functionManager,
+                createComparison(functionManager, 0, comparisonsCount % fieldsCount),
+                generateComplexComparisonProjection(functionManager, fieldsCount, comparisonsCount - 1));
     }
 
-    private static RowExpression createConjunction(RowExpression left, RowExpression right)
+    private static RowExpression createConjunction(FunctionManager functionManager, RowExpression left, RowExpression right)
     {
-        return call(
-                internalScalarFunction("OR", BOOLEAN.getTypeSignature(), BOOLEAN.getTypeSignature(), BOOLEAN.getTypeSignature()),
+        return new CallExpression(
+                functionManager.resolveFunction(TEST_SESSION, QualifiedName.of("OR"), fromTypes(BOOLEAN, BOOLEAN)),
                 BOOLEAN,
-                left,
-                right);
+                ImmutableList.of(left, right));
     }
 
-    private static RowExpression createComparison(int leftField, int rightField)
+    private static RowExpression createComparison(FunctionManager functionManager, int leftField, int rightField)
     {
-        return call(
-                internalOperator(OperatorType.EQUAL, BOOLEAN.getTypeSignature(), BIGINT.getTypeSignature(), BIGINT.getTypeSignature()),
+        return new CallExpression(
+                functionManager.resolveOperator(EQUAL, fromTypes(BIGINT, BIGINT)),
                 BOOLEAN,
-                field(leftField, BIGINT),
-                field(rightField, BIGINT));
+                ImmutableList.of(field(leftField, BIGINT), field(rightField, BIGINT)));
     }
 
     @Benchmark

@@ -14,7 +14,7 @@
 package io.prestosql.sql.gen;
 
 import io.airlift.slice.Slices;
-import io.prestosql.metadata.Signature;
+import io.prestosql.metadata.FunctionManager;
 import io.prestosql.sql.relational.CallExpression;
 import io.prestosql.sql.relational.RowExpression;
 import org.testng.annotations.Test;
@@ -23,7 +23,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-import static io.prestosql.metadata.FunctionKind.SCALAR;
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
@@ -34,7 +34,6 @@ import static io.prestosql.sql.gen.InCodeGenerator.SwitchGenerationCase.HASH_SWI
 import static io.prestosql.sql.gen.InCodeGenerator.SwitchGenerationCase.SET_CONTAINS;
 import static io.prestosql.sql.gen.InCodeGenerator.checkSwitchGenerationCase;
 import static io.prestosql.sql.relational.Expressions.constant;
-import static io.prestosql.sql.relational.Signatures.CAST;
 import static org.testng.Assert.assertEquals;
 
 public class TestInCodeGenerator
@@ -50,12 +49,9 @@ public class TestInCodeGenerator
 
         values.add(constant(null, INTEGER));
         assertEquals(checkSwitchGenerationCase(INTEGER, values), DIRECT_SWITCH);
+        FunctionManager functionManager = createTestMetadataManager().getFunctionManager();
         values.add(new CallExpression(
-                new Signature(
-                        CAST,
-                        SCALAR,
-                        INTEGER.getTypeSignature(),
-                        DOUBLE.getTypeSignature()),
+                functionManager.lookupCast(DOUBLE.getTypeSignature(), INTEGER.getTypeSignature()),
                 INTEGER,
                 Collections.singletonList(constant(12345678901234.0, DOUBLE))));
         assertEquals(checkSwitchGenerationCase(INTEGER, values), DIRECT_SWITCH);
@@ -80,12 +76,9 @@ public class TestInCodeGenerator
 
         values.add(constant(null, BIGINT));
         assertEquals(checkSwitchGenerationCase(BIGINT, values), HASH_SWITCH);
+        FunctionManager functionManager = createTestMetadataManager().getFunctionManager();
         values.add(new CallExpression(
-                new Signature(
-                        CAST,
-                        SCALAR,
-                        BIGINT.getTypeSignature(),
-                        DOUBLE.getTypeSignature()),
+                functionManager.lookupCast(DOUBLE.getTypeSignature(), BIGINT.getTypeSignature()),
                 BIGINT,
                 Collections.singletonList(constant(12345678901234.0, DOUBLE))));
         assertEquals(checkSwitchGenerationCase(BIGINT, values), HASH_SWITCH);

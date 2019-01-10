@@ -14,8 +14,9 @@
 package io.prestosql.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
+import io.prestosql.metadata.FunctionHandle;
+import io.prestosql.metadata.FunctionManager;
 import io.prestosql.metadata.MetadataManager;
-import io.prestosql.metadata.Signature;
 import io.prestosql.operator.DriverYieldSignal;
 import io.prestosql.operator.project.PageProcessor;
 import io.prestosql.spi.Page;
@@ -49,7 +50,7 @@ import java.util.concurrent.ThreadLocalRandom;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static io.prestosql.metadata.FunctionKind.SCALAR;
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.spi.block.RowBlock.fromFieldBlocks;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
@@ -91,12 +92,13 @@ public class BenchmarkRowToRowCast
         @Setup
         public void setup()
         {
-            Signature signature = new Signature("$operator$CAST", SCALAR, RowType.anonymous(fromFieldTypes).getTypeSignature(), RowType.anonymous(toFieldTypes).getTypeSignature());
+            MetadataManager metadata = createTestMetadataManager();
+            FunctionManager functionManager = metadata.getFunctionManager();
+            FunctionHandle functionHandle = functionManager.lookupCast(RowType.anonymous(toFieldTypes).getTypeSignature(), RowType.anonymous(fromFieldTypes).getTypeSignature());
 
             List<RowExpression> projections = ImmutableList.of(
-                    new CallExpression(signature, RowType.anonymous(fromFieldTypes), ImmutableList.of(field(0, RowType.anonymous(toFieldTypes)))));
+                    new CallExpression(functionHandle, RowType.anonymous(fromFieldTypes), ImmutableList.of(field(0, RowType.anonymous(toFieldTypes)))));
 
-            MetadataManager metadata = MetadataManager.createTestMetadataManager();
             pageProcessor = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0))
                     .compilePageProcessor(Optional.empty(), projections)
                     .get();

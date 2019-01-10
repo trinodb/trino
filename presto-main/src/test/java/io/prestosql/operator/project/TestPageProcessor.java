@@ -20,6 +20,7 @@ import io.airlift.testing.TestingTicker;
 import io.airlift.units.Duration;
 import io.prestosql.memory.context.AggregatedMemoryContext;
 import io.prestosql.memory.context.LocalMemoryContext;
+import io.prestosql.metadata.MetadataManager;
 import io.prestosql.operator.CompletedWork;
 import io.prestosql.operator.DriverYieldSignal;
 import io.prestosql.operator.Work;
@@ -51,7 +52,6 @@ import static io.prestosql.block.BlockAssertions.createStringsBlock;
 import static io.prestosql.execution.executor.PrioritizedSplitRunner.SPLIT_RUN_QUANTA;
 import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
-import static io.prestosql.metadata.Signature.internalOperator;
 import static io.prestosql.operator.PageAssertions.assertPageEquals;
 import static io.prestosql.operator.project.PageProcessor.MAX_BATCH_SIZE;
 import static io.prestosql.operator.project.PageProcessor.MAX_PAGE_SIZE_IN_BYTES;
@@ -60,7 +60,7 @@ import static io.prestosql.operator.project.SelectedPositions.positionsRange;
 import static io.prestosql.spi.function.OperatorType.ADD;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
-import static io.prestosql.sql.relational.Expressions.call;
+import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.prestosql.sql.relational.Expressions.constant;
 import static io.prestosql.sql.relational.Expressions.field;
 import static io.prestosql.testing.TestingConnectorSession.SESSION;
@@ -383,14 +383,14 @@ public class TestPageProcessor
     @Test
     public void testExpressionProfiler()
     {
-        CallExpression add10Expression = call(
-                internalOperator(ADD, BIGINT.getTypeSignature(), ImmutableList.of(BIGINT.getTypeSignature(), BIGINT.getTypeSignature())),
-                BIGINT,
-                field(0, BIGINT),
-                constant(10L, BIGINT));
+        MetadataManager metadata = createTestMetadataManager();
+        CallExpression add10Expression = new CallExpression(
+                    metadata.getFunctionManager().resolveOperator(ADD, fromTypes(BIGINT, BIGINT)),
+                    BIGINT,
+                    ImmutableList.of(field(0, BIGINT), constant(10L, BIGINT)));
 
         TestingTicker testingTicker = new TestingTicker();
-        PageFunctionCompiler functionCompiler = new PageFunctionCompiler(createTestMetadataManager(), 0);
+        PageFunctionCompiler functionCompiler = new PageFunctionCompiler(metadata, 0);
         Supplier<PageProjection> projectionSupplier = functionCompiler.compileProjection(add10Expression, Optional.empty());
         PageProjection projection = projectionSupplier.get();
         Page page = new Page(createLongSequenceBlock(1, 11));

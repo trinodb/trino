@@ -21,8 +21,8 @@ import com.google.common.collect.Ordering;
 import io.airlift.slice.Slice;
 import io.prestosql.Session;
 import io.prestosql.execution.warnings.WarningCollector;
+import io.prestosql.metadata.FunctionHandle;
 import io.prestosql.metadata.Metadata;
-import io.prestosql.metadata.Signature;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.parser.SqlParser;
 import io.prestosql.sql.planner.Symbol;
@@ -60,6 +60,7 @@ import static io.prestosql.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static io.prestosql.spi.function.OperatorType.NOT_EQUAL;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.sql.analyzer.ExpressionAnalyzer.getExpressionTypesFromInput;
+import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
 import static io.prestosql.sql.relational.SpecialForm.Form.AND;
 import static io.prestosql.sql.relational.SpecialForm.Form.OR;
 import static io.prestosql.sql.relational.SqlToRowExpressionTranslator.translate;
@@ -70,14 +71,15 @@ import static java.util.Objects.requireNonNull;
 public class ExpressionEquivalence
 {
     private static final Ordering<RowExpression> ROW_EXPRESSION_ORDERING = Ordering.from(new RowExpressionComparator());
-    private static final CanonicalizationVisitor CANONICALIZATION_VISITOR = new CanonicalizationVisitor();
     private final Metadata metadata;
     private final SqlParser sqlParser;
+    private final CanonicalizationVisitor canonicalizationVisitor;
 
     public ExpressionEquivalence(Metadata metadata, SqlParser sqlParser)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
+        this.canonicalizationVisitor = new CanonicalizationVisitor(metadata);
     }
 
     public boolean areExpressionsEquivalent(Session session, Expression leftExpression, Expression rightExpression, TypeProvider types)
@@ -93,8 +95,8 @@ public class ExpressionEquivalence
         RowExpression leftRowExpression = toRowExpression(session, leftExpression, symbolInput, inputTypes);
         RowExpression rightRowExpression = toRowExpression(session, rightExpression, symbolInput, inputTypes);
 
-        RowExpression canonicalizedLeft = leftRowExpression.accept(CANONICALIZATION_VISITOR, null);
-        RowExpression canonicalizedRight = rightRowExpression.accept(CANONICALIZATION_VISITOR, null);
+        RowExpression canonicalizedLeft = leftRowExpression.accept(canonicalizationVisitor, null);
+        RowExpression canonicalizedRight = rightRowExpression.accept(canonicalizationVisitor, null);
 
         return canonicalizedLeft.equals(canonicalizedRight);
     }
@@ -121,39 +123,39 @@ public class ExpressionEquivalence
     private static class CanonicalizationVisitor
             implements RowExpressionVisitor<RowExpression, Void>
     {
+        private final Metadata metadata;
+
+        public CanonicalizationVisitor(Metadata metadata)
+        {
+            this.metadata = requireNonNull(metadata, "metadata is null");
+        }
+
         @Override
         public RowExpression visitCall(CallExpression call, Void context)
         {
             call = new CallExpression(
-                    call.getSignature(),
+                    call.getFunctionHandle(),
                     call.getType(),
                     call.getArguments().stream()
                             .map(expression -> expression.accept(this, context))
                             .collect(toImmutableList()));
 
-            String callName = call.getSignature().getName();
+            String callName = call.getFunctionHandle().getSignature().getName();
 
             if (callName.equals(mangleOperatorName(EQUAL)) || callName.equals(mangleOperatorName(NOT_EQUAL)) || callName.equals(mangleOperatorName(IS_DISTINCT_FROM))) {
                 // sort arguments
                 return new CallExpression(
-                        call.getSignature(),
+                        call.getFunctionHandle(),
                         call.getType(),
                         ROW_EXPRESSION_ORDERING.sortedCopy(call.getArguments()));
             }
 
             if (callName.equals(mangleOperatorName(GREATER_THAN)) || callName.equals(mangleOperatorName(GREATER_THAN_OR_EQUAL))) {
                 // convert greater than to less than
-                return new CallExpression(
-                        new Signature(
-                                callName.equals(mangleOperatorName(GREATER_THAN)) ? mangleOperatorName(LESS_THAN) : mangleOperatorName(LESS_THAN_OR_EQUAL),
-                                SCALAR,
-                                call.getSignature().getTypeVariableConstraints(),
-                                call.getSignature().getLongVariableConstraints(),
-                                call.getSignature().getReturnType(),
-                                swapPair(call.getSignature().getArgumentTypes()),
-                                false),
-                        call.getType(),
-                        swapPair(call.getArguments()));
+                FunctionHandle newFunctionHandle = metadata.getFunctionManager().resolveOperator(
+                        callName.equals(mangleOperatorName(GREATER_THAN)) ? LESS_THAN : LESS_THAN_OR_EQUAL,
+                        fromTypeSignatures(call.getFunctionHandle().getSignature().getArgumentTypes()));
+                return new CallExpression(newFunctionHandle, call.getType(), swapPair(call.getArguments()));
             }
 
             return call;
@@ -247,7 +249,7 @@ public class ExpressionEquivalence
                 CallExpression leftCall = (CallExpression) left;
                 CallExpression rightCall = (CallExpression) right;
                 return ComparisonChain.start()
-                        .compare(leftCall.getSignature().toString(), rightCall.getSignature().toString())
+                        .compare(leftCall.getFunctionHandle().toString(), rightCall.getFunctionHandle().toString())
                         .compare(leftCall.getArguments(), rightCall.getArguments(), argumentComparator)
                         .result();
             }

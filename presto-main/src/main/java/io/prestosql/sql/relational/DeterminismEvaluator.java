@@ -56,7 +56,7 @@ public class DeterminismEvaluator
         @Override
         public Boolean visitCall(CallExpression call, Void context)
         {
-            if (!functionManager.getScalarFunctionImplementation(call.getSignature()).isDeterministic()) {
+            if (!functionManager.getScalarFunctionImplementation(call.getFunctionHandle()).isDeterministic()) {
                 return false;
             }
 

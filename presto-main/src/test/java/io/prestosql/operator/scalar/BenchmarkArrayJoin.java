@@ -15,9 +15,9 @@ package io.prestosql.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slices;
-import io.prestosql.metadata.FunctionKind;
+import io.prestosql.metadata.FunctionHandle;
+import io.prestosql.metadata.FunctionManager;
 import io.prestosql.metadata.MetadataManager;
-import io.prestosql.metadata.Signature;
 import io.prestosql.operator.DriverYieldSignal;
 import io.prestosql.operator.project.PageProcessor;
 import io.prestosql.spi.Page;
@@ -28,6 +28,7 @@ import io.prestosql.sql.gen.ExpressionCompiler;
 import io.prestosql.sql.gen.PageFunctionCompiler;
 import io.prestosql.sql.relational.CallExpression;
 import io.prestosql.sql.relational.RowExpression;
+import io.prestosql.sql.tree.QualifiedName;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -48,9 +49,12 @@ import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
+import static io.prestosql.SessionTestUtils.TEST_SESSION;
 import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.prestosql.sql.relational.Expressions.constant;
 import static io.prestosql.sql.relational.Expressions.field;
 import static io.prestosql.testing.TestingConnectorSession.SESSION;
@@ -88,14 +92,15 @@ public class BenchmarkArrayJoin
         @Setup
         public void setup()
         {
-            Signature signature = new Signature("array_join", FunctionKind.SCALAR, VARCHAR.getTypeSignature(), new ArrayType(BIGINT).getTypeSignature(), VARCHAR.getTypeSignature());
+            FunctionManager functionManager = createTestMetadataManager().getFunctionManager();
+            FunctionHandle functionHandle = functionManager.resolveFunction(TEST_SESSION, QualifiedName.of("array_join"), fromTypes(new ArrayType(BIGINT), VARCHAR));
 
             List<RowExpression> projections = ImmutableList.of(
-                    new CallExpression(signature, VARCHAR, ImmutableList.of(
+                    new CallExpression(functionHandle, VARCHAR, ImmutableList.of(
                             field(0, new ArrayType(BIGINT)),
                             constant(Slices.wrappedBuffer(",".getBytes(UTF_8)), VARCHAR))));
 
-            MetadataManager metadata = MetadataManager.createTestMetadataManager();
+            MetadataManager metadata = createTestMetadataManager();
             pageProcessor = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0))
                     .compilePageProcessor(Optional.empty(), projections)
                     .get();
