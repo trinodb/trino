@@ -30,6 +30,7 @@ import io.prestosql.sql.relational.ConstantExpression;
 import io.prestosql.sql.relational.InputReferenceExpression;
 import io.prestosql.sql.relational.LambdaDefinitionExpression;
 import io.prestosql.sql.relational.RowExpressionVisitor;
+import io.prestosql.sql.relational.SpecialForm;
 import io.prestosql.sql.relational.VariableReferenceExpression;
 import org.objectweb.asm.MethodVisitor;
 
@@ -75,6 +76,12 @@ class InputReferenceCompiler
 
     @Override
     public BytecodeNode visitCall(CallExpression call, Scope scope)
+    {
+        throw new UnsupportedOperationException("not yet implemented");
+    }
+
+    @Override
+    public BytecodeNode visitSpecialForm(SpecialForm specialForm, Scope context)
     {
         throw new UnsupportedOperationException("not yet implemented");
     }

@@ -28,6 +28,7 @@ import io.prestosql.sql.relational.InputReferenceExpression;
 import io.prestosql.sql.relational.LambdaDefinitionExpression;
 import io.prestosql.sql.relational.RowExpression;
 import io.prestosql.sql.relational.RowExpressionVisitor;
+import io.prestosql.sql.relational.SpecialForm;
 import io.prestosql.sql.relational.VariableReferenceExpression;
 
 import java.lang.invoke.MethodHandle;
@@ -52,17 +53,8 @@ import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static io.prestosql.sql.relational.Expressions.call;
 import static io.prestosql.sql.relational.Expressions.constant;
 import static io.prestosql.sql.relational.Expressions.constantNull;
-import static io.prestosql.sql.relational.Signatures.BIND;
 import static io.prestosql.sql.relational.Signatures.CAST;
-import static io.prestosql.sql.relational.Signatures.COALESCE;
-import static io.prestosql.sql.relational.Signatures.DEREFERENCE;
-import static io.prestosql.sql.relational.Signatures.IF;
-import static io.prestosql.sql.relational.Signatures.IN;
-import static io.prestosql.sql.relational.Signatures.IS_NULL;
-import static io.prestosql.sql.relational.Signatures.NULL_IF;
-import static io.prestosql.sql.relational.Signatures.ROW_CONSTRUCTOR;
-import static io.prestosql.sql.relational.Signatures.SWITCH;
-import static io.prestosql.sql.relational.Signatures.TRY_CAST;
+import static io.prestosql.sql.relational.SpecialForm.Form.BIND;
 import static io.prestosql.type.JsonType.JSON;
 
 public class ExpressionOptimizer
@@ -106,64 +98,6 @@ public class ExpressionOptimizer
             }
             Signature signature = call.getSignature();
 
-            switch (signature.getName()) {
-                // TODO: optimize these special forms
-                case IF: {
-                    checkState(call.getArguments().size() == 3, "IF function should have 3 arguments. Get " + call.getArguments().size());
-                    RowExpression optimizedOperand = call.getArguments().get(0).accept(this, context);
-                    if (optimizedOperand instanceof ConstantExpression) {
-                        ConstantExpression constantOperand = (ConstantExpression) optimizedOperand;
-                        checkState(constantOperand.getType().equals(BOOLEAN), "Operand of IF function should be BOOLEAN type. Get type " + constantOperand.getType().getDisplayName());
-                        if (Boolean.TRUE.equals(constantOperand.getValue())) {
-                            return call.getArguments().get(1).accept(this, context);
-                        }
-                        // FALSE and NULL
-                        else {
-                            return call.getArguments().get(2).accept(this, context);
-                        }
-                    }
-                    List<RowExpression> arguments = call.getArguments().stream()
-                            .map(argument -> argument.accept(this, null))
-                            .collect(toImmutableList());
-                    return call(signature, call.getType(), arguments);
-                }
-                case BIND: {
-                    checkState(call.getArguments().size() >= 1, BIND + " function should have at least 1 argument. Got " + call.getArguments().size());
-
-                    boolean allConstantExpression = true;
-                    ImmutableList.Builder<RowExpression> optimizedArgumentsBuilder = ImmutableList.builder();
-                    for (RowExpression argument : call.getArguments()) {
-                        RowExpression optimizedArgument = argument.accept(this, context);
-                        if (!(optimizedArgument instanceof ConstantExpression)) {
-                            allConstantExpression = false;
-                        }
-                        optimizedArgumentsBuilder.add(optimizedArgument);
-                    }
-                    if (allConstantExpression) {
-                        // Here, optimizedArguments should be merged together into a new ConstantExpression.
-                        // It's not implemented because it would be dead code anyways because visitLambda does not produce ConstantExpression.
-                        throw new UnsupportedOperationException();
-                    }
-                    return call(signature, call.getType(), optimizedArgumentsBuilder.build());
-                }
-                case NULL_IF:
-                case SWITCH:
-                case "WHEN":
-                case TRY_CAST:
-                case IS_NULL:
-                case COALESCE:
-                case "AND":
-                case "OR":
-                case IN:
-                case DEREFERENCE:
-                case ROW_CONSTRUCTOR: {
-                    List<RowExpression> arguments = call.getArguments().stream()
-                            .map(argument -> argument.accept(this, null))
-                            .collect(toImmutableList());
-                    return call(signature, call.getType(), arguments);
-                }
-            }
-
             ScalarFunctionImplementation function = registry.getScalarFunctionImplementation(signature);
             List<RowExpression> arguments = call.getArguments().stream()
                     .map(argument -> argument.accept(this, context))
@@ -201,6 +135,69 @@ public class ExpressionOptimizer
             }
 
             return call(signature, typeManager.getType(signature.getReturnType()), arguments);
+        }
+
+        @Override
+        public RowExpression visitSpecialForm(SpecialForm specialForm, Void context)
+        {
+            switch (specialForm.getForm()) {
+                // TODO: optimize these special forms
+                case IF: {
+                    checkState(specialForm.getArguments().size() == 3, "IF function should have 3 arguments. Get " + specialForm.getArguments().size());
+                    RowExpression optimizedOperand = specialForm.getArguments().get(0).accept(this, context);
+                    if (optimizedOperand instanceof ConstantExpression) {
+                        ConstantExpression constantOperand = (ConstantExpression) optimizedOperand;
+                        checkState(constantOperand.getType().equals(BOOLEAN), "Operand of IF function should be BOOLEAN type. Get type " + constantOperand.getType().getDisplayName());
+                        if (Boolean.TRUE.equals(constantOperand.getValue())) {
+                            return specialForm.getArguments().get(1).accept(this, context);
+                        }
+                        // FALSE and NULL
+                        else {
+                            return specialForm.getArguments().get(2).accept(this, context);
+                        }
+                    }
+                    List<RowExpression> arguments = specialForm.getArguments().stream()
+                            .map(argument -> argument.accept(this, null))
+                            .collect(toImmutableList());
+                    return new SpecialForm(specialForm.getForm(), specialForm.getType(), arguments);
+                }
+                case BIND: {
+                    checkState(specialForm.getArguments().size() >= 1, BIND + " function should have at least 1 argument. Got " + specialForm.getArguments().size());
+
+                    boolean allConstantExpression = true;
+                    ImmutableList.Builder<RowExpression> optimizedArgumentsBuilder = ImmutableList.builder();
+                    for (RowExpression argument : specialForm.getArguments()) {
+                        RowExpression optimizedArgument = argument.accept(this, context);
+                        if (!(optimizedArgument instanceof ConstantExpression)) {
+                            allConstantExpression = false;
+                        }
+                        optimizedArgumentsBuilder.add(optimizedArgument);
+                    }
+                    if (allConstantExpression) {
+                        // Here, optimizedArguments should be merged together into a new ConstantExpression.
+                        // It's not implemented because it would be dead code anyways because visitLambda does not produce ConstantExpression.
+                        throw new UnsupportedOperationException();
+                    }
+                    return new SpecialForm(specialForm.getForm(), specialForm.getType(), optimizedArgumentsBuilder.build());
+                }
+                case NULL_IF:
+                case SWITCH:
+                case WHEN:
+                case IS_NULL:
+                case COALESCE:
+                case AND:
+                case OR:
+                case IN:
+                case DEREFERENCE:
+                case ROW_CONSTRUCTOR: {
+                    List<RowExpression> arguments = specialForm.getArguments().stream()
+                            .map(argument -> argument.accept(this, null))
+                            .collect(toImmutableList());
+                    return new SpecialForm(specialForm.getForm(), specialForm.getType(), arguments);
+                }
+                default:
+                    throw new IllegalArgumentException("Unsupported special form " + specialForm.getForm());
+            }
         }
 
         @Override

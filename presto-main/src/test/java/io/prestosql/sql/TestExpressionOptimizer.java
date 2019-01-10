@@ -26,6 +26,7 @@ import io.prestosql.sql.analyzer.FeaturesConfig;
 import io.prestosql.sql.relational.CallExpression;
 import io.prestosql.sql.relational.ConstantExpression;
 import io.prestosql.sql.relational.RowExpression;
+import io.prestosql.sql.relational.SpecialForm;
 import io.prestosql.sql.relational.optimizer.ExpressionOptimizer;
 import io.prestosql.type.TypeRegistry;
 import org.testng.annotations.AfterClass;
@@ -51,6 +52,7 @@ import static io.prestosql.sql.relational.Expressions.call;
 import static io.prestosql.sql.relational.Expressions.constant;
 import static io.prestosql.sql.relational.Expressions.field;
 import static io.prestosql.sql.relational.Signatures.CAST;
+import static io.prestosql.sql.relational.SpecialForm.Form.IF;
 import static io.prestosql.type.JsonType.JSON;
 import static io.prestosql.util.StructuralTestUtil.mapType;
 import static org.testng.Assert.assertEquals;
@@ -138,7 +140,6 @@ public class TestExpressionOptimizer
 
     private static RowExpression ifExpression(RowExpression condition, long trueValue, long falseValue)
     {
-        Signature signature = new Signature("IF", SCALAR, BIGINT.getTypeSignature(), BOOLEAN.getTypeSignature(), BIGINT.getTypeSignature(), BIGINT.getTypeSignature());
-        return new CallExpression(signature, BIGINT, ImmutableList.of(condition, constant(trueValue, BIGINT), constant(falseValue, BIGINT)));
+        return new SpecialForm(IF, BIGINT, ImmutableList.of(condition, constant(trueValue, BIGINT), constant(falseValue, BIGINT)));
     }
 }

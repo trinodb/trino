@@ -17,9 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import io.prestosql.metadata.Signature;
 import io.prestosql.spi.function.OperatorType;
-import io.prestosql.spi.type.BigintType;
 import io.prestosql.spi.type.CharType;
-import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignature;
@@ -31,7 +29,6 @@ import io.prestosql.type.LikePatternType;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.metadata.FunctionKind.SCALAR;
 import static io.prestosql.metadata.OperatorSignatureUtils.mangleOperatorName;
 import static io.prestosql.metadata.Signature.internalOperator;
@@ -42,18 +39,7 @@ import static io.prestosql.sql.tree.ArrayConstructor.ARRAY_CONSTRUCTOR;
 
 public final class Signatures
 {
-    public static final String IF = "IF";
-    public static final String NULL_IF = "NULL_IF";
-    public static final String SWITCH = "SWITCH";
     public static final String CAST = mangleOperatorName("CAST");
-    public static final String TRY_CAST = "TRY_CAST";
-    public static final String IS_NULL = "IS_NULL";
-    public static final String COALESCE = "COALESCE";
-    public static final String IN = "IN";
-    public static final String TRY = "TRY";
-    public static final String DEREFERENCE = "DEREFERENCE";
-    public static final String ROW_CONSTRUCTOR = "ROW_CONSTRUCTOR";
-    public static final String BIND = "$INTERNAL$BIND";
 
     private Signatures()
     {
@@ -94,7 +80,7 @@ public final class Signatures
 
     public static Signature tryCastSignature(Type returnType, Type valueType)
     {
-        return internalScalarFunction(TRY_CAST, returnType.getTypeSignature(), valueType.getTypeSignature());
+        return internalScalarFunction("TRY_CAST", returnType.getTypeSignature(), valueType.getTypeSignature());
     }
 
     public static Signature logicalExpressionSignature(LogicalBinaryExpression.Operator operator)
@@ -137,66 +123,8 @@ public final class Signatures
         return internalScalarFunction(operator.name(), parseTypeSignature(StandardTypes.BOOLEAN), leftType.getTypeSignature(), rightType.getTypeSignature());
     }
 
-    // **************** special forms (lazy evaluation, etc) ****************
-    public static Signature ifSignature(Type returnType)
-    {
-        return new Signature(IF, SCALAR, returnType.getTypeSignature());
-    }
-
-    public static Signature nullIfSignature(Type returnType, Type firstType, Type secondType)
-    {
-        return new Signature(NULL_IF, SCALAR, returnType.getTypeSignature(), firstType.getTypeSignature(), secondType.getTypeSignature());
-    }
-
-    public static Signature switchSignature(Type returnType)
-    {
-        return new Signature(SWITCH, SCALAR, returnType.getTypeSignature());
-    }
-
-    public static Signature whenSignature(Type returnType)
-    {
-        return new Signature("WHEN", SCALAR, returnType.getTypeSignature());
-    }
-
     public static Signature trySignature(Type returnType)
     {
-        return new Signature(TRY, SCALAR, returnType.getTypeSignature());
-    }
-
-    public static Signature bindSignature(Type returnType, List<Type> valueTypes, Type functionType)
-    {
-        ImmutableList.Builder<TypeSignature> typeSignatureBuilder = ImmutableList.builder();
-        for (Type valueType : valueTypes) {
-            typeSignatureBuilder.add(valueType.getTypeSignature());
-        }
-        typeSignatureBuilder.add(functionType.getTypeSignature());
-        return new Signature(BIND, SCALAR, returnType.getTypeSignature(), typeSignatureBuilder.build());
-    }
-
-    // **************** functions that require varargs and/or complex types (e.g., lists) ****************
-    public static Signature inSignature()
-    {
-        return internalScalarFunction(IN, parseTypeSignature(StandardTypes.BOOLEAN));
-    }
-
-    public static Signature rowConstructorSignature(Type returnType, List<Type> argumentTypes)
-    {
-        return internalScalarFunction(ROW_CONSTRUCTOR, returnType.getTypeSignature(), argumentTypes.stream().map(Type::getTypeSignature).collect(toImmutableList()));
-    }
-
-    // **************** functions that need to do special null handling ****************
-    public static Signature isNullSignature(Type argumentType)
-    {
-        return internalScalarFunction(IS_NULL, parseTypeSignature(StandardTypes.BOOLEAN), argumentType.getTypeSignature());
-    }
-
-    public static Signature coalesceSignature(Type returnType, List<Type> argumentTypes)
-    {
-        return internalScalarFunction(COALESCE, returnType.getTypeSignature(), Lists.transform(argumentTypes, Type::getTypeSignature));
-    }
-
-    public static Signature dereferenceSignature(Type returnType, RowType rowType)
-    {
-        return internalScalarFunction(DEREFERENCE, returnType.getTypeSignature(), ImmutableList.of(rowType.getTypeSignature(), BigintType.BIGINT.getTypeSignature()));
+        return new Signature("TRY", SCALAR, returnType.getTypeSignature());
     }
 }

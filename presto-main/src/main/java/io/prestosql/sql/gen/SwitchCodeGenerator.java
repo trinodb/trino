@@ -26,8 +26,8 @@ import io.airlift.bytecode.instruction.VariableInstruction;
 import io.prestosql.metadata.FunctionHandle;
 import io.prestosql.metadata.Signature;
 import io.prestosql.spi.type.Type;
-import io.prestosql.sql.relational.CallExpression;
 import io.prestosql.sql.relational.RowExpression;
+import io.prestosql.sql.relational.SpecialForm;
 
 import java.util.List;
 
@@ -35,6 +35,7 @@ import static io.airlift.bytecode.expression.BytecodeExpressions.constantFalse;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantTrue;
 import static io.prestosql.spi.function.OperatorType.EQUAL;
 import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.prestosql.sql.relational.SpecialForm.Form.WHEN;
 
 public class SwitchCodeGenerator
         implements BytecodeGenerator
@@ -81,7 +82,7 @@ public class SwitchCodeGenerator
 
         List<RowExpression> whenClauses;
         RowExpression last = arguments.get(arguments.size() - 1);
-        if (last instanceof CallExpression && ((CallExpression) last).getSignature().getName().equals("WHEN")) {
+        if (last instanceof SpecialForm && ((SpecialForm) last).getForm() == WHEN) {
             whenClauses = arguments.subList(1, arguments.size());
             elseValue = new BytecodeBlock()
                     .append(generatorContext.wasNull().set(constantTrue()))
@@ -109,10 +110,10 @@ public class SwitchCodeGenerator
         elseValue = new BytecodeBlock().visitLabel(nullValue).append(elseValue);
         // reverse list because current if statement builder doesn't support if/else so we need to build the if statements bottom up
         for (RowExpression clause : Lists.reverse(whenClauses)) {
-            Preconditions.checkArgument(clause instanceof CallExpression && ((CallExpression) clause).getSignature().getName().equals("WHEN"));
+            Preconditions.checkArgument(clause instanceof SpecialForm && ((SpecialForm) clause).getForm() == WHEN);
 
-            RowExpression operand = ((CallExpression) clause).getArguments().get(0);
-            RowExpression result = ((CallExpression) clause).getArguments().get(1);
+            RowExpression operand = ((SpecialForm) clause).getArguments().get(0);
+            RowExpression result = ((SpecialForm) clause).getArguments().get(1);
 
             // call equals(value, operand)
             FunctionHandle equalsFunction = generatorContext.getRegistry().resolveOperator(EQUAL, fromTypes(value.getType(), operand.getType()));
