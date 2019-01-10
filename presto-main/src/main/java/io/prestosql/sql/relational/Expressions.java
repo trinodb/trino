@@ -69,6 +69,16 @@ public final class Expressions
                 }
 
                 @Override
+                public Void visitSpecialForm(SpecialForm specialForm, Void context)
+                {
+                    builder.add(specialForm);
+                    for (RowExpression argument : specialForm.getArguments()) {
+                        argument.accept(this, context);
+                    }
+                    return null;
+                }
+
+                @Override
                 public Void visitInputReference(InputReferenceExpression reference, Void context)
                 {
                     builder.add(reference);

@@ -20,6 +20,7 @@ import io.prestosql.sql.relational.InputReferenceExpression;
 import io.prestosql.sql.relational.LambdaDefinitionExpression;
 import io.prestosql.sql.relational.RowExpression;
 import io.prestosql.sql.relational.RowExpressionVisitor;
+import io.prestosql.sql.relational.SpecialForm;
 import io.prestosql.sql.relational.VariableReferenceExpression;
 
 import java.util.List;
@@ -53,6 +54,16 @@ public class LambdaExpressionExtractor
         public Void visitCall(CallExpression call, Context context)
         {
             for (RowExpression rowExpression : call.getArguments()) {
+                rowExpression.accept(this, context);
+            }
+
+            return null;
+        }
+
+        @Override
+        public Void visitSpecialForm(SpecialForm specialForm, Context context)
+        {
+            for (RowExpression rowExpression : specialForm.getArguments()) {
                 rowExpression.accept(this, context);
             }
 

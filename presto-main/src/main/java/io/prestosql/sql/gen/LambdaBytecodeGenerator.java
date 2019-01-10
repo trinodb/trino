@@ -39,6 +39,7 @@ import io.prestosql.sql.relational.InputReferenceExpression;
 import io.prestosql.sql.relational.LambdaDefinitionExpression;
 import io.prestosql.sql.relational.RowExpression;
 import io.prestosql.sql.relational.RowExpressionVisitor;
+import io.prestosql.sql.relational.SpecialForm;
 import io.prestosql.sql.relational.VariableReferenceExpression;
 import org.objectweb.asm.Handle;
 import org.objectweb.asm.Opcodes;
@@ -324,6 +325,12 @@ public class LambdaBytecodeGenerator
 
             @Override
             public BytecodeNode visitCall(CallExpression call, Scope scope)
+            {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public BytecodeNode visitSpecialForm(SpecialForm specialForm, Scope context)
             {
                 throw new UnsupportedOperationException();
             }
