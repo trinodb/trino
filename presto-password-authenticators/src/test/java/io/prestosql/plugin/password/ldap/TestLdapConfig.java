@@ -40,6 +40,8 @@ public class TestLdapConfig
                 .setUserBindSearchPattern(null)
                 .setUserBaseDistinguishedName(null)
                 .setGroupAuthorizationSearchPattern(null)
+                .setBindDistingushedName(null)
+                .setBindPassword(null)
                 .setLdapCacheTtl(new Duration(1, TimeUnit.HOURS)));
     }
 
@@ -51,6 +53,8 @@ public class TestLdapConfig
                 .put("ldap.user-bind-pattern", "uid=${USER},ou=org,dc=test,dc=com")
                 .put("ldap.user-base-dn", "dc=test,dc=com")
                 .put("ldap.group-auth-pattern", "&(objectClass=user)(memberOf=cn=group)(user=username)")
+                .put("ldap.bind-dn", "CN=User Name,OU=CITY_OU,OU=STATE_OU,DC=domain,DC=domain_root")
+                .put("ldap.bind-password", "password1234")
                 .put("ldap.cache-ttl", "2m")
                 .build();
 
@@ -59,6 +63,8 @@ public class TestLdapConfig
                 .setUserBindSearchPattern("uid=${USER},ou=org,dc=test,dc=com")
                 .setUserBaseDistinguishedName("dc=test,dc=com")
                 .setGroupAuthorizationSearchPattern("&(objectClass=user)(memberOf=cn=group)(user=username)")
+                .setBindDistingushedName("CN=User Name,OU=CITY_OU,OU=STATE_OU,DC=domain,DC=domain_root")
+                .setBindPassword("password1234")
                 .setLdapCacheTtl(new Duration(2, TimeUnit.MINUTES));
 
         assertFullMapping(properties, expected);
@@ -78,6 +84,5 @@ public class TestLdapConfig
         assertFailsValidation(new LdapConfig().setLdapUrl("ldaps:/localhost"), "ldapUrl", "LDAP without SSL/TLS unsupported. Expected ldaps://", Pattern.class);
 
         assertFailsValidation(new LdapConfig(), "ldapUrl", "may not be null", NotNull.class);
-        assertFailsValidation(new LdapConfig(), "userBindSearchPattern", "may not be null", NotNull.class);
     }
 }

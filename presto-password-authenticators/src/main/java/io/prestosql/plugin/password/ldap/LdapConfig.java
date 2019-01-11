@@ -15,6 +15,7 @@ package io.prestosql.plugin.password.ldap;
 
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import io.airlift.configuration.ConfigSecuritySensitive;
 import io.airlift.units.Duration;
 
 import javax.validation.constraints.NotNull;
@@ -28,6 +29,8 @@ public class LdapConfig
     private String userBindSearchPattern;
     private String groupAuthorizationSearchPattern;
     private String userBaseDistinguishedName;
+    private String bindDistinguishedName;
+    private String bindPassword;
     private Duration ldapCacheTtl = new Duration(1, TimeUnit.HOURS);
 
     @NotNull
@@ -45,7 +48,6 @@ public class LdapConfig
         return this;
     }
 
-    @NotNull
     public String getUserBindSearchPattern()
     {
         return userBindSearchPattern;
@@ -82,6 +84,33 @@ public class LdapConfig
     public LdapConfig setUserBaseDistinguishedName(String userBaseDistinguishedName)
     {
         this.userBaseDistinguishedName = userBaseDistinguishedName;
+        return this;
+    }
+
+    public String getBindDistingushedName()
+    {
+        return bindDistinguishedName;
+    }
+
+    @Config("ldap.bind-dn")
+    @ConfigDescription("Bind distinguished name used by Presto. Example: CN=User Name,OU=CITY_OU,OU=STATE_OU,DC=domain,DC=domain_root")
+    public LdapConfig setBindDistingushedName(String bindDistingushedName)
+    {
+        this.bindDistinguishedName = bindDistingushedName;
+        return this;
+    }
+
+    public String getBindPassword()
+    {
+        return bindPassword;
+    }
+
+    @Config("ldap.bind-password")
+    @ConfigDescription("Bind password used by Presto. Example: password1234")
+    @ConfigSecuritySensitive
+    public LdapConfig setBindPassword(String bindPassword)
+    {
+        this.bindPassword = bindPassword;
         return this;
     }
 
