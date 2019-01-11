@@ -16,6 +16,7 @@ package io.prestosql.operator.aggregation;
 import com.google.common.annotations.VisibleForTesting;
 import io.airlift.slice.Slice;
 import io.airlift.stats.cardinality.HyperLogLog;
+import io.prestosql.operator.aggregation.state.BooleanDistinctState;
 import io.prestosql.operator.aggregation.state.HyperLogLogState;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
@@ -120,6 +121,12 @@ public final class ApproximateCountDistinctAggregation
         state.addMemoryUsage(hll.estimatedInMemorySize());
     }
 
+    @InputFunction
+    public static void input(BooleanDistinctState state, @SqlType(StandardTypes.BOOLEAN) boolean value, @SqlType(StandardTypes.DOUBLE) double maxStandardError)
+    {
+        state.setByte((byte) (state.getByte() | (value ? 1 : 2)));
+    }
+
     private static HyperLogLog getOrCreateHyperLogLog(HyperLogLogState state, double maxStandardError)
     {
         HyperLogLog hll = state.getHyperLogLog();
@@ -162,6 +169,12 @@ public final class ApproximateCountDistinctAggregation
         }
     }
 
+    @CombineFunction
+    public static void combineState(BooleanDistinctState state, BooleanDistinctState otherState)
+    {
+        state.setByte((byte) (state.getByte() | otherState.getByte()));
+    }
+
     @OutputFunction(StandardTypes.BIGINT)
     public static void evaluateFinal(@AggregationState HyperLogLogState state, BlockBuilder out)
     {
@@ -172,5 +185,11 @@ public final class ApproximateCountDistinctAggregation
         else {
             BIGINT.writeLong(out, hyperLogLog.cardinality());
         }
+    }
+
+    @OutputFunction(StandardTypes.BIGINT)
+    public static void evaluateFinal(BooleanDistinctState state, BlockBuilder out)
+    {
+        BIGINT.writeLong(out, Integer.bitCount(state.getByte()));
     }
 }
