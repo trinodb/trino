@@ -52,5 +52,10 @@ env HADOOP_BASE_IMAGE="not-used" TESTS_HIVE_VERSION_MAJOR="3" TESTS_HIVE_VERSION
     -g hdp3_only,storage_formats,hive_transactional \
     || suite_exit_code=1
 
+presto-product-tests/bin/run_on_docker.sh \
+    singlenode-ldap-bind-dn \
+    -g ldap \
+    || suite_exit_code=1
+
 echo "$0: exiting with ${suite_exit_code}"
 exit "${suite_exit_code}"
