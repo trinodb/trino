@@ -95,7 +95,7 @@ public class RowExpressionCompiler
         @Override
         public BytecodeNode visitSpecialForm(SpecialForm specialForm, Context context)
         {
-            BytecodeGenerator generator;
+            SpecialFormBytecodeGenerator generator;
             // special-cased in function registry
             switch (specialForm.getForm()) {
                 // lazy evaluation
@@ -147,7 +147,7 @@ public class RowExpressionCompiler
                     cachedInstanceBinder,
                     functionManager);
 
-            return generator.generateExpression(null, generatorContext, specialForm.getType(), specialForm.getArguments());
+            return generator.generateExpression(generatorContext, specialForm.getType(), specialForm.getArguments());
         }
 
         @Override

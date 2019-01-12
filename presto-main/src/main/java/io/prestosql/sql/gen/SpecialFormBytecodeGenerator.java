@@ -14,13 +14,12 @@
 package io.prestosql.sql.gen;
 
 import io.airlift.bytecode.BytecodeNode;
-import io.prestosql.metadata.Signature;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.relational.RowExpression;
 
 import java.util.List;
 
-public interface BytecodeGenerator
+public interface SpecialFormBytecodeGenerator
 {
-    BytecodeNode generateExpression(Signature signature, BytecodeGeneratorContext context, Type returnType, List<RowExpression> arguments);
+    BytecodeNode generateExpression(BytecodeGeneratorContext context, Type returnType, List<RowExpression> arguments);
 }

@@ -19,7 +19,6 @@ import io.airlift.bytecode.BytecodeNode;
 import io.airlift.bytecode.Variable;
 import io.airlift.bytecode.control.IfStatement;
 import io.airlift.bytecode.instruction.LabelNode;
-import io.prestosql.metadata.Signature;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.relational.RowExpression;
 
@@ -28,10 +27,10 @@ import java.util.List;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantFalse;
 
 public class OrCodeGenerator
-        implements BytecodeGenerator
+        implements SpecialFormBytecodeGenerator
 {
     @Override
-    public BytecodeNode generateExpression(Signature signature, BytecodeGeneratorContext generator, Type returnType, List<RowExpression> arguments)
+    public BytecodeNode generateExpression(BytecodeGeneratorContext generator, Type returnType, List<RowExpression> arguments)
     {
         Preconditions.checkArgument(arguments.size() == 2);
 

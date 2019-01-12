@@ -17,7 +17,6 @@ import com.google.common.base.Preconditions;
 import io.airlift.bytecode.BytecodeBlock;
 import io.airlift.bytecode.BytecodeNode;
 import io.airlift.bytecode.Variable;
-import io.prestosql.metadata.Signature;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.relational.RowExpression;
 
@@ -28,10 +27,10 @@ import static io.airlift.bytecode.instruction.Constant.loadBoolean;
 import static io.prestosql.type.UnknownType.UNKNOWN;
 
 public class IsNullCodeGenerator
-        implements BytecodeGenerator
+        implements SpecialFormBytecodeGenerator
 {
     @Override
-    public BytecodeNode generateExpression(Signature signature, BytecodeGeneratorContext generatorContext, Type returnType, List<RowExpression> arguments)
+    public BytecodeNode generateExpression(BytecodeGeneratorContext generatorContext, Type returnType, List<RowExpression> arguments)
     {
         Preconditions.checkArgument(arguments.size() == 1);
 
