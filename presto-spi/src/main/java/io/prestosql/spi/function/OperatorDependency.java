@@ -26,7 +26,7 @@ public @interface OperatorDependency
 {
     OperatorType operator();
 
-    String returnType();
+    String returnType() default "";
 
     String[] argumentTypes();
 

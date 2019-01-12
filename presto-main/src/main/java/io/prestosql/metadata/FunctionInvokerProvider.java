@@ -44,12 +44,6 @@ public class FunctionInvokerProvider
         this.functionRegistry = functionRegistry;
     }
 
-    @Deprecated
-    public FunctionInvoker createFunctionInvoker(Signature signature, Optional<InvocationConvention> invocationConvention)
-    {
-        return createFunctionInvoker(new FunctionHandle(signature), invocationConvention);
-    }
-
     public FunctionInvoker createFunctionInvoker(FunctionHandle functionHandle, Optional<InvocationConvention> invocationConvention)
     {
         ScalarFunctionImplementation scalarFunctionImplementation = functionRegistry.getScalarFunctionImplementation(functionHandle);

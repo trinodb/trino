@@ -19,10 +19,12 @@ import io.prestosql.spi.function.Convention;
 import io.prestosql.spi.function.FunctionDependency;
 import io.prestosql.spi.function.InvocationConvention;
 import io.prestosql.spi.function.OperatorDependency;
+import io.prestosql.spi.function.OperatorType;
 import io.prestosql.spi.function.TypeParameter;
 import io.prestosql.spi.type.TypeManager;
 import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.spi.type.TypeSignatureParameter;
+import io.prestosql.sql.tree.QualifiedName;
 import io.prestosql.type.LiteralParameter;
 
 import java.lang.annotation.Annotation;
@@ -105,8 +107,7 @@ public interface ImplementationDependency
             if (annotation instanceof FunctionDependency) {
                 FunctionDependency functionDependency = (FunctionDependency) annotation;
                 return new FunctionImplementationDependency(
-                        functionDependency.name(),
-                        parseTypeSignature(functionDependency.returnType(), literalParameters),
+                        QualifiedName.of(functionDependency.name()),
                         Arrays.stream(functionDependency.argumentTypes())
                                 .map(signature -> parseTypeSignature(signature, literalParameters))
                                 .collect(toImmutableList()),
@@ -114,9 +115,25 @@ public interface ImplementationDependency
             }
             if (annotation instanceof OperatorDependency) {
                 OperatorDependency operatorDependency = (OperatorDependency) annotation;
+                if (operatorDependency.operator() == OperatorType.CAST) {
+                    checkArgument(!operatorDependency.returnType().equals(""), "CAST operator dependency must have a return type");
+                    checkArgument(operatorDependency.argumentTypes().length == 1, "CAST operator dependency must have one argument type");
+                    return new CastImplementationDependency(
+                            parseTypeSignature(operatorDependency.argumentTypes()[0], literalParameters),
+                            parseTypeSignature(operatorDependency.returnType(), literalParameters),
+                            toInvocationConvention(operatorDependency.convention()));
+                }
+                if (operatorDependency.operator() == OperatorType.SATURATED_FLOOR_CAST) {
+                    checkArgument(!operatorDependency.returnType().equals(""), "SATURATED_FLOOR_CAST operator dependency must have a return type");
+                    checkArgument(operatorDependency.argumentTypes().length == 1, "SATURATED_FLOOR_CAST operator dependency must have one argument type");
+                    return new SaturatedFloorCastImplementationdependency(
+                            parseTypeSignature(operatorDependency.argumentTypes()[0], literalParameters),
+                            parseTypeSignature(operatorDependency.returnType(), literalParameters),
+                            toInvocationConvention(operatorDependency.convention()));
+                }
+                checkArgument(!operatorDependency.returnType().equals(""), operatorDependency.operator() + " operator dependency must not have a return type");
                 return new OperatorImplementationDependency(
                         operatorDependency.operator(),
-                        parseTypeSignature(operatorDependency.returnType(), literalParameters),
                         Arrays.stream(operatorDependency.argumentTypes())
                                 .map(signature -> parseTypeSignature(signature, literalParameters))
                                 .collect(toImmutableList()),

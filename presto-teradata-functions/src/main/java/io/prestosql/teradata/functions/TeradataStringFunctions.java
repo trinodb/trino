@@ -42,7 +42,6 @@ public final class TeradataStringFunctions
     public static long index(
             @FunctionDependency(
                     name = "strpos",
-                    returnType = StandardTypes.BIGINT,
                     argumentTypes = {StandardTypes.VARCHAR, StandardTypes.VARCHAR})
                     MethodHandle method,
             @SqlType(StandardTypes.VARCHAR) Slice string,
@@ -65,7 +64,6 @@ public final class TeradataStringFunctions
     public static Slice substring(
             @FunctionDependency(
                     name = "substr",
-                    returnType = "varchar(x)",
                     argumentTypes = {"varchar(x)", StandardTypes.BIGINT})
                     MethodHandle method,
             @SqlType("varchar(x)") Slice utf8,
@@ -88,7 +86,6 @@ public final class TeradataStringFunctions
     public static Slice substring(
             @FunctionDependency(
                     name = "substr",
-                    returnType = "varchar(x)",
                     argumentTypes = {"varchar(x)", StandardTypes.BIGINT, StandardTypes.BIGINT})
                     MethodHandle method,
             @SqlType("varchar(x)") Slice utf8,

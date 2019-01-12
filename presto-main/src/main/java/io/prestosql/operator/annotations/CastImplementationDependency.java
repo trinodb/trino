@@ -18,33 +18,32 @@ import io.prestosql.metadata.FunctionHandle;
 import io.prestosql.metadata.FunctionManager;
 import io.prestosql.spi.function.InvocationConvention;
 import io.prestosql.spi.type.TypeSignature;
-import io.prestosql.sql.tree.QualifiedName;
 
-import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
 import static io.prestosql.metadata.SignatureBinder.applyBoundVariables;
-import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
 import static java.util.Objects.requireNonNull;
 
-public final class FunctionImplementationDependency
+public final class CastImplementationDependency
         extends ScalarImplementationDependency
 {
-    private final QualifiedName name;
-    private final List<TypeSignature> argumentTypes;
+    private final TypeSignature fromType;
+    private final TypeSignature toType;
 
-    public FunctionImplementationDependency(QualifiedName name, List<TypeSignature> argumentTypes, Optional<InvocationConvention> invocationConvention)
+    public CastImplementationDependency(TypeSignature fromType, TypeSignature toType, Optional<InvocationConvention> invocationConvention)
     {
         super(invocationConvention);
-        this.name = requireNonNull(name, "name is null");
-        this.argumentTypes = requireNonNull(argumentTypes, "argumentTypes is null");
+        this.fromType = requireNonNull(fromType, "fromType is null");
+        this.toType = requireNonNull(toType, "toType is null");
     }
 
     @Override
     protected FunctionHandle getFunctionHandle(BoundVariables boundVariables, FunctionManager functionManager)
     {
-        return functionManager.lookupFunction(name, fromTypeSignatures(applyBoundVariables(this.argumentTypes, boundVariables)));
+        return functionManager.lookupCast(
+                applyBoundVariables(fromType, boundVariables),
+                applyBoundVariables(toType, boundVariables));
     }
 
     @Override
@@ -56,14 +55,14 @@ public final class FunctionImplementationDependency
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        FunctionImplementationDependency that = (FunctionImplementationDependency) o;
-        return Objects.equals(name, that.name) &&
-                Objects.equals(argumentTypes, that.argumentTypes);
+        CastImplementationDependency that = (CastImplementationDependency) o;
+        return Objects.equals(fromType, that.fromType) &&
+                Objects.equals(toType, that.toType);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, argumentTypes);
+        return Objects.hash(fromType, toType);
     }
 }

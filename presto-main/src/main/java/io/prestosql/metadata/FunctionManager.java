@@ -60,6 +60,11 @@ public class FunctionManager
         return functionRegistry.list();
     }
 
+    public FunctionHandle lookupFunction(QualifiedName name, List<TypeSignatureProvider> parameterTypes)
+    {
+        return functionRegistry.resolveFunction(name, parameterTypes);
+    }
+
     public FunctionHandle resolveFunction(Session session, QualifiedName name, List<TypeSignatureProvider> parameterTypes)
     {
         return functionRegistry.resolveFunction(name, parameterTypes);
