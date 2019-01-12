@@ -220,6 +220,7 @@ import static io.prestosql.metadata.FunctionKind.SCALAR;
 import static io.prestosql.metadata.FunctionKind.WINDOW;
 import static io.prestosql.metadata.OperatorSignatureUtils.mangleOperatorName;
 import static io.prestosql.metadata.Signature.internalOperator;
+import static io.prestosql.metadata.Signature.internalScalarFunction;
 import static io.prestosql.metadata.SignatureBinder.applyBoundVariables;
 import static io.prestosql.operator.aggregation.ArbitraryAggregationFunction.ARBITRARY_AGGREGATION;
 import static io.prestosql.operator.aggregation.ChecksumAggregationFunction.CHECKSUM_AGGREGATION;
@@ -1098,6 +1099,13 @@ class FunctionRegistry
             }
             throw e;
         }
+        return new FunctionHandle(signature);
+    }
+
+    public FunctionHandle lookupInternalCastFunction(String name, TypeSignature fromType, TypeSignature toType)
+    {
+        Signature signature = internalScalarFunction(name, toType, fromType);
+        getScalarFunctionImplementation(signature);
         return new FunctionHandle(signature);
     }
 

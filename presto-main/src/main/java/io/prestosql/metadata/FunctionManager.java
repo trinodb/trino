@@ -104,4 +104,9 @@ public class FunctionManager
     {
         return functionRegistry.lookupSaturatedFloorCast(fromType, toType);
     }
+
+    public FunctionHandle lookupInternalCastFunction(String name, TypeSignature fromType, TypeSignature toType)
+    {
+        return functionRegistry.lookupInternalCastFunction(name, fromType, toType);
+    }
 }
