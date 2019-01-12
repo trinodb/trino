@@ -104,9 +104,4 @@ public class FunctionManager
     {
         return functionRegistry.lookupSaturatedFloorCast(fromType, toType);
     }
-
-    public boolean isRegistered(Signature signature)
-    {
-        return functionRegistry.isRegistered(signature);
-    }
 }

@@ -14,7 +14,6 @@
 package io.prestosql.sql.relational;
 
 import io.prestosql.metadata.FunctionManager;
-import io.prestosql.metadata.Signature;
 
 import static java.util.Objects.requireNonNull;
 
@@ -57,8 +56,7 @@ public class DeterminismEvaluator
         @Override
         public Boolean visitCall(CallExpression call, Void context)
         {
-            Signature signature = call.getSignature();
-            if (functionManager.isRegistered(signature) && !functionManager.getScalarFunctionImplementation(signature).isDeterministic()) {
+            if (!functionManager.getScalarFunctionImplementation(call.getSignature()).isDeterministic()) {
                 return false;
             }
 
