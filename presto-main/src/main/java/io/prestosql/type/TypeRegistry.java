@@ -75,6 +75,7 @@ import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
+import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.prestosql.type.ArrayParametricType.ARRAY;
 import static io.prestosql.type.CodePointsType.CODE_POINTS;
 import static io.prestosql.type.ColorType.COLOR;
@@ -662,7 +663,7 @@ public final class TypeRegistry
     public MethodHandle resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)
     {
         requireNonNull(functionManager, "functionManager is null");
-        return functionManager.getScalarFunctionImplementation(functionManager.resolveOperator(operatorType, argumentTypes)).getMethodHandle();
+        return functionManager.getScalarFunctionImplementation(functionManager.resolveOperator(operatorType, fromTypes(argumentTypes))).getMethodHandle();
     }
 
     public static class TypeCompatibility

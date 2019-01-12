@@ -54,6 +54,7 @@ import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConv
 import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.prestosql.sql.gen.BytecodeUtils.invoke;
 import static io.prestosql.util.CompilerUtils.defineClass;
 import static io.prestosql.util.CompilerUtils.makeClassName;
@@ -102,7 +103,7 @@ public abstract class AbstractGreatestLeast
         Type type = boundVariables.getTypeVariable("E");
         checkArgument(type.isOrderable(), "Type must be orderable");
 
-        MethodHandle compareMethod = functionManager.getScalarFunctionImplementation(functionManager.resolveOperator(operatorType, ImmutableList.of(type, type))).getMethodHandle();
+        MethodHandle compareMethod = functionManager.getScalarFunctionImplementation(functionManager.resolveOperator(operatorType, fromTypes(type, type))).getMethodHandle();
 
         List<Class<?>> javaTypes = IntStream.range(0, arity)
                 .mapToObj(i -> type.getJavaType())

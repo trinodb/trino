@@ -82,6 +82,7 @@ import static io.airlift.bytecode.expression.BytecodeExpressions.constantTrue;
 import static io.airlift.bytecode.expression.BytecodeExpressions.getStatic;
 import static io.airlift.bytecode.expression.BytecodeExpressions.newInstance;
 import static io.airlift.bytecode.expression.BytecodeExpressions.notEqual;
+import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.prestosql.sql.gen.InputReferenceCompiler.generateInputReference;
 import static io.prestosql.sql.gen.SqlTypeBytecodeExpression.constantType;
 import static io.prestosql.util.CompilerUtils.defineClass;
@@ -706,7 +707,7 @@ public class JoinCompiler
                         continue;
                 }
             }
-            ScalarFunctionImplementation operator = registry.getScalarFunctionImplementation(registry.resolveOperator(OperatorType.IS_DISTINCT_FROM, ImmutableList.of(type, type)));
+            ScalarFunctionImplementation operator = registry.getScalarFunctionImplementation(registry.resolveOperator(OperatorType.IS_DISTINCT_FROM, fromTypes(type, type)));
             Binding binding = callSiteBinder.bind(operator.getMethodHandle());
             List<BytecodeNode> argumentsBytecode = new ArrayList<>();
             argumentsBytecode.add(generateInputReference(callSiteBinder, scope, type, leftBlock, leftBlockPosition));

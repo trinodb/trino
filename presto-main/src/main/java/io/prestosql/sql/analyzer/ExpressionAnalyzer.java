@@ -149,6 +149,7 @@ import static io.prestosql.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
 import static io.prestosql.sql.analyzer.SemanticErrorCode.STANDALONE_LAMBDA;
 import static io.prestosql.sql.analyzer.SemanticErrorCode.TYPE_MISMATCH;
 import static io.prestosql.sql.analyzer.SemanticExceptions.missingAttributeException;
+import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.prestosql.sql.tree.Extract.Field.TIMEZONE_HOUR;
 import static io.prestosql.sql.tree.Extract.Field.TIMEZONE_MINUTE;
 import static io.prestosql.type.ArrayParametricType.ARRAY;
@@ -1242,7 +1243,7 @@ public class ExpressionAnalyzer
 
             FunctionHandle operatorHandle;
             try {
-                operatorHandle = functionManager.resolveOperator(operatorType, argumentTypes.build());
+                operatorHandle = functionManager.resolveOperator(operatorType, fromTypes(argumentTypes.build()));
             }
             catch (OperatorNotFoundException e) {
                 throw new SemanticException(TYPE_MISMATCH, node, "%s", e.getMessage());

@@ -300,7 +300,6 @@ import static io.prestosql.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_MISSING
 import static io.prestosql.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
-import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.prestosql.sql.planner.LiteralEncoder.MAGIC_LITERAL_FUNCTION_PREFIX;
 import static io.prestosql.sql.planner.LiteralEncoder.getMagicLiteralFunctionSignature;
 import static io.prestosql.type.DecimalCasts.BIGINT_TO_DECIMAL_CAST;
@@ -1067,18 +1066,18 @@ class FunctionRegistry
         }
     }
 
-    public FunctionHandle resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)
+    public FunctionHandle resolveOperator(OperatorType operatorType, List<TypeSignatureProvider> argumentTypes)
             throws OperatorNotFoundException
     {
         try {
-            return resolveFunction(QualifiedName.of(mangleOperatorName(operatorType)), fromTypes(argumentTypes));
+            return resolveFunction(QualifiedName.of(mangleOperatorName(operatorType)), argumentTypes);
         }
         catch (PrestoException e) {
             if (e.getErrorCode().getCode() == FUNCTION_NOT_FOUND.toErrorCode().getCode()) {
                 throw new OperatorNotFoundException(
                         operatorType,
                         argumentTypes.stream()
-                                .map(Type::getTypeSignature)
+                                .map(TypeSignatureProvider::getTypeSignature)
                                 .collect(toImmutableList()));
             }
             else {

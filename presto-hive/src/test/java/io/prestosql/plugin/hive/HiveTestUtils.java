@@ -52,6 +52,7 @@ import java.util.Set;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.spi.function.OperatorType.IS_DISTINCT_FROM;
 import static io.prestosql.spi.type.Decimals.encodeScaledValue;
+import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static java.util.stream.Collectors.toList;
 
 public final class HiveTestUtils
@@ -167,7 +168,7 @@ public final class HiveTestUtils
 
     public static MethodHandle distinctFromOperator(Type type)
     {
-        FunctionHandle functionHandle = FUNCTION_REGISTRY.resolveOperator(IS_DISTINCT_FROM, ImmutableList.of(type, type));
+        FunctionHandle functionHandle = FUNCTION_REGISTRY.resolveOperator(IS_DISTINCT_FROM, fromTypes(type, type));
         return FUNCTION_REGISTRY.getScalarFunctionImplementation(functionHandle).getMethodHandle();
     }
 

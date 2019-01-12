@@ -46,7 +46,6 @@ import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIM
 import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
 import static io.prestosql.sql.planner.LiteralEncoder.getMagicLiteralFunctionSignature;
-import static io.prestosql.type.TypeUtils.resolveTypes;
 import static java.lang.String.format;
 import static java.util.Collections.nCopies;
 import static java.util.stream.Collectors.toList;
@@ -83,7 +82,7 @@ public class TestFunctionRegistry
             if (function.getSignature().getArgumentTypes().stream().anyMatch(TypeSignature::isCalculated)) {
                 continue;
             }
-            FunctionHandle exactOperator = registry.resolveOperator(operatorType, resolveTypes(function.getSignature().getArgumentTypes(), typeManager));
+            FunctionHandle exactOperator = registry.resolveOperator(operatorType, fromTypeSignatures(function.getSignature().getArgumentTypes()));
             assertEquals(exactOperator, new FunctionHandle(function.getSignature()));
             foundOperator = true;
         }

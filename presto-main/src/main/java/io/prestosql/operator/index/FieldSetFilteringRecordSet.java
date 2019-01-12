@@ -30,6 +30,7 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfUnchecked;
+import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static java.lang.Boolean.TRUE;
 import static java.util.Objects.requireNonNull;
 
@@ -52,7 +53,7 @@ public class FieldSetFilteringRecordSet
         for (Set<Integer> fieldSet : requireNonNull(fieldSets, "fieldSets is null")) {
             ImmutableSet.Builder<Field> fieldSetBuilder = ImmutableSet.builder();
             for (int field : fieldSet) {
-                FunctionHandle functionHandle = functionManager.resolveOperator(OperatorType.EQUAL, ImmutableList.of(columnTypes.get(field), columnTypes.get(field)));
+                FunctionHandle functionHandle = functionManager.resolveOperator(OperatorType.EQUAL, fromTypes(columnTypes.get(field), columnTypes.get(field)));
                 MethodHandle methodHandle = functionManager.getScalarFunctionImplementation(functionHandle).getMethodHandle();
                 fieldSetBuilder.add(new Field(field, methodHandle));
             }

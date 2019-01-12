@@ -35,6 +35,7 @@ import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConv
 import static io.prestosql.spi.function.OperatorType.EQUAL;
 import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static io.prestosql.spi.type.TypeUtils.readNativeValue;
+import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.prestosql.util.Reflection.methodHandle;
 
 public class MapElementAtFunction
@@ -84,7 +85,7 @@ public class MapElementAtFunction
         Type keyType = boundVariables.getTypeVariable("K");
         Type valueType = boundVariables.getTypeVariable("V");
 
-        MethodHandle keyEqualsMethod = functionManager.getScalarFunctionImplementation(functionManager.resolveOperator(EQUAL, ImmutableList.of(keyType, keyType))).getMethodHandle();
+        MethodHandle keyEqualsMethod = functionManager.getScalarFunctionImplementation(functionManager.resolveOperator(EQUAL, fromTypes(keyType, keyType))).getMethodHandle();
 
         MethodHandle methodHandle;
         if (keyType.getJavaType() == boolean.class) {

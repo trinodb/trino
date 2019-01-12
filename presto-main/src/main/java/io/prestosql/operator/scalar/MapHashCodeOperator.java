@@ -30,6 +30,7 @@ import static io.prestosql.operator.scalar.ScalarFunctionImplementation.Argument
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
 import static io.prestosql.spi.function.OperatorType.HASH_CODE;
 import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.prestosql.type.TypeUtils.hashPosition;
 import static io.prestosql.util.Reflection.methodHandle;
 
@@ -54,8 +55,8 @@ public class MapHashCodeOperator
         Type keyType = boundVariables.getTypeVariable("K");
         Type valueType = boundVariables.getTypeVariable("V");
 
-        MethodHandle keyHashCodeFunction = functionManager.getScalarFunctionImplementation(functionManager.resolveOperator(HASH_CODE, ImmutableList.of(keyType))).getMethodHandle();
-        MethodHandle valueHashCodeFunction = functionManager.getScalarFunctionImplementation(functionManager.resolveOperator(HASH_CODE, ImmutableList.of(valueType))).getMethodHandle();
+        MethodHandle keyHashCodeFunction = functionManager.getScalarFunctionImplementation(functionManager.resolveOperator(HASH_CODE, fromTypes(keyType))).getMethodHandle();
+        MethodHandle valueHashCodeFunction = functionManager.getScalarFunctionImplementation(functionManager.resolveOperator(HASH_CODE, fromTypes(valueType))).getMethodHandle();
 
         MethodHandle method = METHOD_HANDLE.bindTo(keyHashCodeFunction).bindTo(valueHashCodeFunction).bindTo(keyType).bindTo(valueType);
         return new ScalarFunctionImplementation(

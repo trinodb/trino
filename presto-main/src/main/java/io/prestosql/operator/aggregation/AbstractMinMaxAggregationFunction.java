@@ -49,6 +49,7 @@ import static io.prestosql.operator.aggregation.AggregationUtils.generateAggrega
 import static io.prestosql.spi.function.OperatorType.GREATER_THAN;
 import static io.prestosql.spi.function.OperatorType.LESS_THAN;
 import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.prestosql.util.Failures.internalError;
 import static io.prestosql.util.Reflection.methodHandle;
 
@@ -90,7 +91,7 @@ public abstract class AbstractMinMaxAggregationFunction
     public InternalAggregationFunction specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionManager functionManager)
     {
         Type type = boundVariables.getTypeVariable("E");
-        MethodHandle compareMethodHandle = functionManager.getScalarFunctionImplementation(functionManager.resolveOperator(operatorType, ImmutableList.of(type, type))).getMethodHandle();
+        MethodHandle compareMethodHandle = functionManager.getScalarFunctionImplementation(functionManager.resolveOperator(operatorType, fromTypes(type, type))).getMethodHandle();
         return generateAggregation(type, compareMethodHandle);
     }
 

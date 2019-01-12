@@ -34,6 +34,7 @@ import java.util.List;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantFalse;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantTrue;
 import static io.prestosql.spi.function.OperatorType.EQUAL;
+import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 
 public class SwitchCodeGenerator
         implements BytecodeGenerator
@@ -114,7 +115,7 @@ public class SwitchCodeGenerator
             RowExpression result = ((CallExpression) clause).getArguments().get(1);
 
             // call equals(value, operand)
-            FunctionHandle equalsFunction = generatorContext.getRegistry().resolveOperator(EQUAL, ImmutableList.of(value.getType(), operand.getType()));
+            FunctionHandle equalsFunction = generatorContext.getRegistry().resolveOperator(EQUAL, fromTypes(value.getType(), operand.getType()));
 
             // TODO: what if operand is null? It seems that the call will return "null" (which is cleared below)
             // and the code only does the right thing because the value in the stack for that scenario is

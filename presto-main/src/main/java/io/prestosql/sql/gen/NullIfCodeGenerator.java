@@ -33,6 +33,7 @@ import java.util.List;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantTrue;
 import static io.prestosql.spi.function.OperatorType.CAST;
 import static io.prestosql.spi.function.OperatorType.EQUAL;
+import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.prestosql.sql.gen.BytecodeUtils.ifWasNullPopAndGoto;
 
 public class NullIfCodeGenerator
@@ -61,7 +62,7 @@ public class NullIfCodeGenerator
         Type secondType = second.getType();
 
         // if (equal(cast(first as <common type>), cast(second as <common type>))
-        FunctionHandle equalsHandle = generatorContext.getRegistry().resolveOperator(EQUAL, ImmutableList.of(firstType, secondType));
+        FunctionHandle equalsHandle = generatorContext.getRegistry().resolveOperator(EQUAL, fromTypes(firstType, secondType));
         ScalarFunctionImplementation equalsFunction = generatorContext.getRegistry().getScalarFunctionImplementation(equalsHandle);
         BytecodeNode equalsCall = generatorContext.generateCall(
                 EQUAL.name(),

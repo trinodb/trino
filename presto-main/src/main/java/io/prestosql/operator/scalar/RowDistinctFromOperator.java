@@ -39,6 +39,7 @@ import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentC
 import static io.prestosql.spi.function.OperatorType.IS_DISTINCT_FROM;
 import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static io.prestosql.spi.type.TypeUtils.readNativeValue;
+import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.prestosql.util.Failures.internalError;
 import static io.prestosql.util.Reflection.methodHandle;
 
@@ -64,7 +65,7 @@ public class RowDistinctFromOperator
         ImmutableList.Builder<MethodHandle> argumentMethods = ImmutableList.builder();
         Type type = boundVariables.getTypeVariable("T");
         for (Type parameterType : type.getTypeParameters()) {
-            FunctionHandle functionHandle = functionManager.resolveOperator(IS_DISTINCT_FROM, ImmutableList.of(parameterType, parameterType));
+            FunctionHandle functionHandle = functionManager.resolveOperator(IS_DISTINCT_FROM, fromTypes(parameterType, parameterType));
             FunctionInvoker functionInvoker = functionManager.getFunctionInvokerProvider().createFunctionInvoker(
                     functionHandle,
                     Optional.of(new InvocationConvention(

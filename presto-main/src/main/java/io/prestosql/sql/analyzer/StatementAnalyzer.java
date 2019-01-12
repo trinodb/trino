@@ -203,6 +203,7 @@ import static io.prestosql.sql.analyzer.SemanticErrorCode.VIEW_IS_STALE;
 import static io.prestosql.sql.analyzer.SemanticErrorCode.VIEW_PARSE_ERROR;
 import static io.prestosql.sql.analyzer.SemanticErrorCode.WILDCARD_WITHOUT_FROM;
 import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
+import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.prestosql.sql.planner.DeterminismEvaluator.isDeterministic;
 import static io.prestosql.sql.planner.ExpressionInterpreter.expressionOptimizer;
 import static io.prestosql.sql.tree.ExplainType.Type.DISTRIBUTED;
@@ -1210,8 +1211,7 @@ class StatementAnalyzer
 
                 // ensure a comparison operator exists for the given types (applying coercions if necessary)
                 try {
-                    metadata.getFunctionManager().resolveOperator(OperatorType.EQUAL, ImmutableList.of(
-                            leftField.get().getType(), rightField.get().getType()));
+                    metadata.getFunctionManager().resolveOperator(OperatorType.EQUAL, fromTypes(leftField.get().getType(), rightField.get().getType()));
                 }
                 catch (OperatorNotFoundException e) {
                     throw new SemanticException(TYPE_MISMATCH, column, "%s", e.getMessage());

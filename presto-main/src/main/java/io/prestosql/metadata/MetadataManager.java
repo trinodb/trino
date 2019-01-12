@@ -104,6 +104,7 @@ import static io.prestosql.spi.function.OperatorType.HASH_CODE;
 import static io.prestosql.spi.function.OperatorType.LESS_THAN;
 import static io.prestosql.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static io.prestosql.spi.function.OperatorType.NOT_EQUAL;
+import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.prestosql.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
@@ -250,7 +251,7 @@ public class MetadataManager
     private boolean canResolveOperator(OperatorType operatorType, ImmutableList<Type> argumentTypes)
     {
         try {
-            functions.resolveOperator(operatorType, argumentTypes);
+            functions.resolveOperator(operatorType, fromTypes(argumentTypes));
             return true;
         }
         catch (OperatorNotFoundException e) {

@@ -13,7 +13,6 @@
  */
 package io.prestosql.type;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.prestosql.block.BlockEncodingManager;
 import io.prestosql.metadata.FunctionManager;
@@ -53,6 +52,7 @@ import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
+import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.prestosql.type.JoniRegexpType.JONI_REGEXP;
 import static io.prestosql.type.JsonPathType.JSON_PATH;
 import static io.prestosql.type.LikePatternType.LIKE_PATTERN;
@@ -267,16 +267,16 @@ public class TestTypeRegistry
     {
         for (Type type : typeRegistry.getTypes()) {
             if (type.isComparable()) {
-                functionManager.resolveOperator(EQUAL, ImmutableList.of(type, type));
-                functionManager.resolveOperator(NOT_EQUAL, ImmutableList.of(type, type));
-                functionManager.resolveOperator(IS_DISTINCT_FROM, ImmutableList.of(type, type));
-                functionManager.resolveOperator(HASH_CODE, ImmutableList.of(type));
+                functionManager.resolveOperator(EQUAL, fromTypes(type, type));
+                functionManager.resolveOperator(NOT_EQUAL, fromTypes(type, type));
+                functionManager.resolveOperator(IS_DISTINCT_FROM, fromTypes(type, type));
+                functionManager.resolveOperator(HASH_CODE, fromTypes(type));
             }
             if (type.isOrderable()) {
-                functionManager.resolveOperator(LESS_THAN, ImmutableList.of(type, type));
-                functionManager.resolveOperator(LESS_THAN_OR_EQUAL, ImmutableList.of(type, type));
-                functionManager.resolveOperator(GREATER_THAN_OR_EQUAL, ImmutableList.of(type, type));
-                functionManager.resolveOperator(GREATER_THAN, ImmutableList.of(type, type));
+                functionManager.resolveOperator(LESS_THAN, fromTypes(type, type));
+                functionManager.resolveOperator(LESS_THAN_OR_EQUAL, fromTypes(type, type));
+                functionManager.resolveOperator(GREATER_THAN_OR_EQUAL, fromTypes(type, type));
+                functionManager.resolveOperator(GREATER_THAN, fromTypes(type, type));
             }
         }
     }

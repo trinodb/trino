@@ -72,6 +72,7 @@ import static io.prestosql.operator.aggregation.minmaxby.TwoNullableValueStateMa
 import static io.prestosql.spi.function.OperatorType.GREATER_THAN;
 import static io.prestosql.spi.function.OperatorType.LESS_THAN;
 import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.prestosql.sql.gen.BytecodeUtils.loadConstant;
 import static io.prestosql.sql.gen.SqlTypeBytecodeExpression.constantType;
 import static io.prestosql.util.CompilerUtils.defineClass;
@@ -135,7 +136,7 @@ public abstract class AbstractMinMaxBy
 
         CallSiteBinder binder = new CallSiteBinder();
         OperatorType operator = min ? LESS_THAN : GREATER_THAN;
-        MethodHandle compareMethod = functionManager.getScalarFunctionImplementation(functionManager.resolveOperator(operator, ImmutableList.of(keyType, keyType))).getMethodHandle();
+        MethodHandle compareMethod = functionManager.getScalarFunctionImplementation(functionManager.resolveOperator(operator, fromTypes(keyType, keyType))).getMethodHandle();
 
         ClassDefinition definition = new ClassDefinition(
                 a(PUBLIC, FINAL),

@@ -50,6 +50,7 @@ import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConv
 import static io.prestosql.spi.function.OperatorType.INDETERMINATE;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.prestosql.sql.gen.InvokeFunctionBytecodeExpression.invokeFunction;
 import static io.prestosql.sql.gen.SqlTypeBytecodeExpression.constantType;
 import static io.prestosql.type.UnknownType.UNKNOWN;
@@ -131,7 +132,7 @@ public class RowIndeterminateOperator
                                 .push(true)
                                 .gotoLabel(end));
 
-                FunctionHandle functionHandle = functionManager.resolveOperator(INDETERMINATE, ImmutableList.of(fieldTypes.get(i)));
+                FunctionHandle functionHandle = functionManager.resolveOperator(INDETERMINATE, fromTypes(fieldTypes.get(i)));
                 ScalarFunctionImplementation function = functionManager.getScalarFunctionImplementation(functionHandle);
                 BytecodeExpression element = constantType(binder, fieldTypes.get(i)).getValue(value, constantInt(i));
 

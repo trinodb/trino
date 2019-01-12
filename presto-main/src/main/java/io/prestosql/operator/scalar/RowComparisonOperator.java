@@ -29,6 +29,7 @@ import java.util.List;
 import static io.prestosql.metadata.Signature.orderableWithVariadicBound;
 import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static io.prestosql.spi.type.TypeUtils.readNativeValue;
+import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.prestosql.type.TypeUtils.checkElementNotNull;
 import static io.prestosql.util.Failures.internalError;
 
@@ -48,7 +49,7 @@ public abstract class RowComparisonOperator
     {
         ImmutableList.Builder<MethodHandle> argumentMethods = ImmutableList.builder();
         for (Type parameterType : type.getTypeParameters()) {
-            FunctionHandle functionHandle = functionManager.resolveOperator(operatorType, ImmutableList.of(parameterType, parameterType));
+            FunctionHandle functionHandle = functionManager.resolveOperator(operatorType, fromTypes(parameterType, parameterType));
             argumentMethods.add(functionManager.getScalarFunctionImplementation(functionHandle).getMethodHandle());
         }
         return argumentMethods.build();

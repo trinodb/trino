@@ -30,6 +30,7 @@ import java.util.OptionalInt;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.spi.function.OperatorType.IS_DISTINCT_FROM;
 import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.prestosql.util.Failures.internalError;
 import static java.util.Objects.requireNonNull;
 
@@ -74,7 +75,7 @@ public class SimplePagesHashStrategy
         ImmutableList.Builder<MethodHandle> distinctFromMethodHandlesBuilder = ImmutableList.builder();
         for (Type type : types) {
             distinctFromMethodHandlesBuilder.add(
-                    functionManager.getScalarFunctionImplementation(functionManager.resolveOperator(IS_DISTINCT_FROM, ImmutableList.of(type, type))).getMethodHandle());
+                    functionManager.getScalarFunctionImplementation(functionManager.resolveOperator(IS_DISTINCT_FROM, fromTypes(type, type))).getMethodHandle());
         }
         distinctFromMethodHandles = distinctFromMethodHandlesBuilder.build();
     }

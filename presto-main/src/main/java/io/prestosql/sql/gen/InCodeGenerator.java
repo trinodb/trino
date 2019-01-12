@@ -51,6 +51,7 @@ import static io.airlift.bytecode.instruction.JumpInstruction.jump;
 import static io.prestosql.spi.function.OperatorType.EQUAL;
 import static io.prestosql.spi.function.OperatorType.HASH_CODE;
 import static io.prestosql.spi.function.OperatorType.INDETERMINATE;
+import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.prestosql.sql.gen.BytecodeUtils.ifWasNullPopAndGoto;
 import static io.prestosql.sql.gen.BytecodeUtils.invoke;
 import static io.prestosql.sql.gen.BytecodeUtils.loadConstant;
@@ -120,9 +121,9 @@ public class InCodeGenerator
 
         SwitchGenerationCase switchGenerationCase = checkSwitchGenerationCase(type, values);
 
-        FunctionHandle hashCodeHandle = generatorContext.getRegistry().resolveOperator(HASH_CODE, ImmutableList.of(type));
+        FunctionHandle hashCodeHandle = generatorContext.getRegistry().resolveOperator(HASH_CODE, fromTypes(type));
         MethodHandle hashCodeFunction = generatorContext.getRegistry().getScalarFunctionImplementation(hashCodeHandle).getMethodHandle();
-        FunctionHandle isIndeterminateHandle = generatorContext.getRegistry().resolveOperator(INDETERMINATE, ImmutableList.of(type));
+        FunctionHandle isIndeterminateHandle = generatorContext.getRegistry().resolveOperator(INDETERMINATE, fromTypes(type));
         ScalarFunctionImplementation isIndeterminateFunction = generatorContext.getRegistry().getScalarFunctionImplementation(isIndeterminateHandle);
 
         ImmutableListMultimap.Builder<Integer, BytecodeNode> hashBucketsBuilder = ImmutableListMultimap.builder();
@@ -328,7 +329,7 @@ public class InCodeGenerator
 
         elseBlock.gotoLabel(noMatchLabel);
 
-        FunctionHandle equalsHandle = generatorContext.getRegistry().resolveOperator(EQUAL, ImmutableList.of(type, type));
+        FunctionHandle equalsHandle = generatorContext.getRegistry().resolveOperator(EQUAL, fromTypes(type, type));
         ScalarFunctionImplementation equalsFunction = generatorContext.getRegistry().getScalarFunctionImplementation(equalsHandle);
 
         BytecodeNode elseNode = elseBlock;

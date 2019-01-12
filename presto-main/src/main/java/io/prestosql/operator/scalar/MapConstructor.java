@@ -46,6 +46,7 @@ import static io.prestosql.spi.function.OperatorType.HASH_CODE;
 import static io.prestosql.spi.function.OperatorType.INDETERMINATE;
 import static io.prestosql.spi.type.StandardTypes.MAP;
 import static io.prestosql.spi.type.TypeUtils.readNativeValue;
+import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.prestosql.util.Failures.checkCondition;
 import static io.prestosql.util.Failures.internalError;
 import static io.prestosql.util.Reflection.constructorMethodHandle;
@@ -107,9 +108,9 @@ public final class MapConstructor
         Type valueType = boundVariables.getTypeVariable("V");
 
         Type mapType = typeManager.getParameterizedType(MAP, ImmutableList.of(TypeSignatureParameter.of(keyType.getTypeSignature()), TypeSignatureParameter.of(valueType.getTypeSignature())));
-        MethodHandle keyHashCode = functionManager.getScalarFunctionImplementation(functionManager.resolveOperator(HASH_CODE, ImmutableList.of(keyType))).getMethodHandle();
-        MethodHandle keyEqual = functionManager.getScalarFunctionImplementation(functionManager.resolveOperator(EQUAL, ImmutableList.of(keyType, keyType))).getMethodHandle();
-        MethodHandle keyIndeterminate = functionManager.getScalarFunctionImplementation(functionManager.resolveOperator(INDETERMINATE, ImmutableList.of(keyType))).getMethodHandle();
+        MethodHandle keyHashCode = functionManager.getScalarFunctionImplementation(functionManager.resolveOperator(HASH_CODE, fromTypes(keyType))).getMethodHandle();
+        MethodHandle keyEqual = functionManager.getScalarFunctionImplementation(functionManager.resolveOperator(EQUAL, fromTypes(keyType, keyType))).getMethodHandle();
+        MethodHandle keyIndeterminate = functionManager.getScalarFunctionImplementation(functionManager.resolveOperator(INDETERMINATE, fromTypes(keyType))).getMethodHandle();
         MethodHandle instanceFactory = constructorMethodHandle(State.class, MapType.class).bindTo(mapType);
 
         return new ScalarFunctionImplementation(

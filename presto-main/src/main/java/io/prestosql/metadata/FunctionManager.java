@@ -19,7 +19,6 @@ import io.prestosql.operator.scalar.ScalarFunctionImplementation;
 import io.prestosql.operator.window.WindowFunctionSupplier;
 import io.prestosql.spi.block.BlockEncodingSerde;
 import io.prestosql.spi.function.OperatorType;
-import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeManager;
 import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.sql.analyzer.FeaturesConfig;
@@ -96,7 +95,7 @@ public class FunctionManager
         return functionRegistry.isAggregationFunction(name);
     }
 
-    public FunctionHandle resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)
+    public FunctionHandle resolveOperator(OperatorType operatorType, List<TypeSignatureProvider> argumentTypes)
     {
         return functionRegistry.resolveOperator(operatorType, argumentTypes);
     }
