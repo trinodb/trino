@@ -40,8 +40,8 @@ import static io.airlift.bytecode.instruction.Constant.loadFloat;
 import static io.airlift.bytecode.instruction.Constant.loadInt;
 import static io.airlift.bytecode.instruction.Constant.loadLong;
 import static io.airlift.bytecode.instruction.Constant.loadString;
-import static io.prestosql.metadata.OperatorSignatureUtils.mangleOperatorName;
 import static io.prestosql.sql.gen.BytecodeUtils.loadConstant;
+import static io.prestosql.sql.gen.FunctionCallCodeGenerator.generateFunctionCallBytecode;
 import static io.prestosql.sql.gen.LambdaBytecodeGenerator.generateLambda;
 
 public class RowExpressionCompiler
@@ -82,15 +82,6 @@ public class RowExpressionCompiler
         @Override
         public BytecodeNode visitCall(CallExpression call, Context context)
         {
-            BytecodeGenerator generator;
-            // special-cased in function registry
-            if (call.getFunctionHandle().getSignature().getName().equals(mangleOperatorName("CAST"))) {
-                generator = new CastCodeGenerator();
-            }
-            else {
-                generator = new FunctionCallCodeGenerator();
-            }
-
             BytecodeGeneratorContext generatorContext = new BytecodeGeneratorContext(
                     RowExpressionCompiler.this,
                     context.getScope(),
@@ -98,7 +89,7 @@ public class RowExpressionCompiler
                     cachedInstanceBinder,
                     functionManager);
 
-            return generator.generateExpression(call.getFunctionHandle().getSignature(), generatorContext, call.getType(), call.getArguments());
+            return generateFunctionCallBytecode(call.getNameHint(), call.getFunctionHandle(), call.getArguments(), generatorContext);
         }
 
         @Override
