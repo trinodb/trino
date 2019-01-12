@@ -16,7 +16,6 @@ package io.prestosql.sql;
 import com.google.common.base.Defaults;
 import io.prestosql.metadata.FunctionHandle;
 import io.prestosql.metadata.FunctionManager;
-import io.prestosql.metadata.Signature;
 import io.prestosql.operator.scalar.ScalarFunctionImplementation;
 import io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty;
 import io.prestosql.spi.connector.ConnectorSession;
@@ -39,24 +38,6 @@ public class InterpretedFunctionInvoker
     public InterpretedFunctionInvoker(FunctionManager functionManager)
     {
         this.functionManager = requireNonNull(functionManager, "registry is null");
-    }
-
-    @Deprecated
-    public Object invoke(Signature function, ConnectorSession session, Object... arguments)
-    {
-        return invoke(function, session, Arrays.asList(arguments));
-    }
-
-    /**
-     * Arguments must be the native container type for the corresponding SQL types.
-     * <p>
-     * Returns a value in the native container type corresponding to the declared SQL return type
-     */
-    @Deprecated
-    public Object invoke(Signature function, ConnectorSession session, List<Object> arguments)
-    {
-        ScalarFunctionImplementation implementation = functionManager.getScalarFunctionImplementation(function);
-        return invoke(implementation, session, arguments);
     }
 
     public Object invoke(FunctionHandle function, ConnectorSession session, Object... arguments)

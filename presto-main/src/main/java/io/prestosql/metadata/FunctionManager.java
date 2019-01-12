@@ -85,11 +85,6 @@ public class FunctionManager
         return functionRegistry.getScalarFunctionImplementation(functionHandle);
     }
 
-    public ScalarFunctionImplementation getScalarFunctionImplementation(Signature signature)
-    {
-        return functionRegistry.getScalarFunctionImplementation(new FunctionHandle(signature));
-    }
-
     public boolean isAggregationFunction(QualifiedName name)
     {
         return functionRegistry.isAggregationFunction(name);
