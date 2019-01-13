@@ -53,6 +53,7 @@ public class PredicateFilterBenchmark
         OperatorFactory tableScanOperator = createTableScanOperator(0, new PlanNodeId("test"), "orders", "totalprice");
         FunctionHandle functionHandle = localQueryRunner.getMetadata().getFunctionManager().resolveOperator(GREATER_THAN_OR_EQUAL, fromTypes(DOUBLE, DOUBLE));
         RowExpression filter = new CallExpression(
+                "test",
                 functionHandle,
                 BOOLEAN,
                 ImmutableList.of(field(0, DOUBLE), constant(50000.0, DOUBLE)));

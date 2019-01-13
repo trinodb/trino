@@ -134,12 +134,12 @@ public class BenchmarkTransformKey
                             mapType.getTypeSignature(),
                             parseTypeSignature(format("function(%s, %s, %s)", type, type, type))));
             FunctionHandle add = functionManager.resolveOperator(ADD, fromTypes(elementType, elementType));
-            projectionsBuilder.add(new CallExpression(functionHandle, mapType, ImmutableList.of(
+            projectionsBuilder.add(new CallExpression(name, functionHandle, mapType, ImmutableList.of(
                     field(0, mapType),
                     new LambdaDefinitionExpression(
                             ImmutableList.of(elementType, elementType),
                             ImmutableList.of("x", "y"),
-                            new CallExpression(add, elementType, ImmutableList.of(
+                            new CallExpression(ADD.name(), add, elementType, ImmutableList.of(
                                     new VariableReferenceExpression("x", elementType),
                                     constant(increment, elementType)))))));
             Block block = createChannel(POSITIONS, mapType, elementType);

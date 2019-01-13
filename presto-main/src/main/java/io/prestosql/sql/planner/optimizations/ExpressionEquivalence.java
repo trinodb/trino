@@ -23,6 +23,7 @@ import io.prestosql.Session;
 import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.metadata.FunctionHandle;
 import io.prestosql.metadata.Metadata;
+import io.prestosql.spi.function.OperatorType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.parser.SqlParser;
 import io.prestosql.sql.planner.Symbol;
@@ -134,6 +135,7 @@ public class ExpressionEquivalence
         public RowExpression visitCall(CallExpression call, Void context)
         {
             call = new CallExpression(
+                    call.getNameHint(),
                     call.getFunctionHandle(),
                     call.getType(),
                     call.getArguments().stream()
@@ -145,6 +147,7 @@ public class ExpressionEquivalence
             if (callName.equals(mangleOperatorName(EQUAL)) || callName.equals(mangleOperatorName(NOT_EQUAL)) || callName.equals(mangleOperatorName(IS_DISTINCT_FROM))) {
                 // sort arguments
                 return new CallExpression(
+                        call.getNameHint(),
                         call.getFunctionHandle(),
                         call.getType(),
                         ROW_EXPRESSION_ORDERING.sortedCopy(call.getArguments()));
@@ -152,10 +155,11 @@ public class ExpressionEquivalence
 
             if (callName.equals(mangleOperatorName(GREATER_THAN)) || callName.equals(mangleOperatorName(GREATER_THAN_OR_EQUAL))) {
                 // convert greater than to less than
+                OperatorType newCallName = callName.equals(mangleOperatorName(GREATER_THAN)) ? LESS_THAN : LESS_THAN_OR_EQUAL;
                 FunctionHandle newFunctionHandle = metadata.getFunctionManager().resolveOperator(
-                        callName.equals(mangleOperatorName(GREATER_THAN)) ? LESS_THAN : LESS_THAN_OR_EQUAL,
+                        newCallName,
                         fromTypeSignatures(call.getFunctionHandle().getSignature().getArgumentTypes()));
-                return new CallExpression(newFunctionHandle, call.getType(), swapPair(call.getArguments()));
+                return new CallExpression(newCallName.name(), newFunctionHandle, call.getType(), swapPair(call.getArguments()));
             }
 
             return call;

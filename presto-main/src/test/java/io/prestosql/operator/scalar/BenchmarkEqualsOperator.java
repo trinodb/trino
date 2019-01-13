@@ -108,6 +108,7 @@ public class BenchmarkEqualsOperator
     private static RowExpression createConjunction(FunctionManager functionManager, RowExpression left, RowExpression right)
     {
         return new CallExpression(
+                "OR",
                 functionManager.resolveFunction(TEST_SESSION, QualifiedName.of("OR"), fromTypes(BOOLEAN, BOOLEAN)),
                 BOOLEAN,
                 ImmutableList.of(left, right));
@@ -116,6 +117,7 @@ public class BenchmarkEqualsOperator
     private static RowExpression createComparison(FunctionManager functionManager, int leftField, int rightField)
     {
         return new CallExpression(
+                EQUAL.name(),
                 functionManager.resolveOperator(EQUAL, fromTypes(BIGINT, BIGINT)),
                 BOOLEAN,
                 ImmutableList.of(field(leftField, BIGINT), field(rightField, BIGINT)));

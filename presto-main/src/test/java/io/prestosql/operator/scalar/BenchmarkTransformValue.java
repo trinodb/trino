@@ -142,12 +142,12 @@ public class BenchmarkTransformValue
                             mapType.getTypeSignature(),
                             parseTypeSignature(format("function(%s, %s, boolean)", type, type))));
             FunctionHandle greaterThan = functionManager.resolveOperator(GREATER_THAN, fromTypes(elementType, elementType));
-            projectionsBuilder.add(new CallExpression(functionHandle, returnType, ImmutableList.of(
+            projectionsBuilder.add(new CallExpression(name, functionHandle, returnType, ImmutableList.of(
                     field(0, mapType),
                     new LambdaDefinitionExpression(
                             ImmutableList.of(elementType, elementType),
                             ImmutableList.of("x", "y"),
-                            new CallExpression(greaterThan, BOOLEAN, ImmutableList.of(
+                            new CallExpression(GREATER_THAN.name(), greaterThan, BOOLEAN, ImmutableList.of(
                                     new VariableReferenceExpression("y", elementType),
                                     constant(compareValue, elementType)))))));
             Block block = createChannel(POSITIONS, mapType, elementType);

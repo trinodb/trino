@@ -137,6 +137,7 @@ public class TestScanFilterAndProjectOperator
                 .build();
 
         RowExpression filter = new CallExpression(
+                EQUAL.name(),
                 metadata.getFunctionManager().resolveOperator(EQUAL, fromTypes(BIGINT, BIGINT)),
                 BOOLEAN,
                 ImmutableList.of(field(0, BIGINT), constant(10L, BIGINT)));
@@ -267,8 +268,9 @@ public class TestScanFilterAndProjectOperator
         ExpressionCompiler expressionCompiler = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0));
         ImmutableList.Builder<RowExpression> projections = ImmutableList.builder();
         for (int i = 0; i < totalColumns; i++) {
-            FunctionHandle functionHandle = functionManager.resolveFunction(TEST_SESSION, QualifiedName.of("generic_long_page_col" + i), fromTypes(BIGINT));
-            projections.add(new CallExpression(functionHandle, BIGINT, ImmutableList.of(field(0, BIGINT))));
+            String name = "generic_long_page_col" + i;
+            FunctionHandle functionHandle = functionManager.resolveFunction(TEST_SESSION, QualifiedName.of(name), fromTypes(BIGINT));
+            projections.add(new CallExpression(name, functionHandle, BIGINT, ImmutableList.of(field(0, BIGINT))));
         }
         Supplier<CursorProcessor> cursorProcessor = expressionCompiler.compileCursorProcessor(Optional.empty(), projections.build(), "key");
         Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(Optional.empty(), projections.build(), MAX_BATCH_SIZE);
@@ -332,6 +334,7 @@ public class TestScanFilterAndProjectOperator
         ExpressionCompiler expressionCompiler = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0));
 
         List<RowExpression> projections = ImmutableList.of(new CallExpression(
+                "generic_long_record_cursor",
                 functionManager.resolveFunction(TEST_SESSION, QualifiedName.of("generic_long_record_cursor"), fromTypes(BIGINT)),
                 BIGINT,
                 ImmutableList.of(field(0, BIGINT))));

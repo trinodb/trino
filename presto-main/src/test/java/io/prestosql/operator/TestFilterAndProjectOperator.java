@@ -91,6 +91,7 @@ public class TestFilterAndProjectOperator
         FunctionManager functionManager = metadata.getFunctionManager();
 
         RowExpression filter = new CallExpression(
+                BETWEEN.name(),
                 functionManager.resolveOperator(BETWEEN, fromTypes(BIGINT, BIGINT, BIGINT)),
                 BOOLEAN,
                 ImmutableList.of(
@@ -100,6 +101,7 @@ public class TestFilterAndProjectOperator
 
         RowExpression field0 = field(0, VARCHAR);
         RowExpression add5 = new CallExpression(
+                ADD.name(),
                 functionManager.resolveOperator(ADD, fromTypes(BIGINT, BIGINT)),
                 BIGINT,
                 ImmutableList.of(
@@ -147,6 +149,7 @@ public class TestFilterAndProjectOperator
         FunctionManager functionManager = metadata.getFunctionManager();
 
         RowExpression filter = new CallExpression(
+                EQUAL.name(),
                 functionManager.resolveOperator(EQUAL, fromTypes(BIGINT, BIGINT)),
                 BOOLEAN,
                 ImmutableList.of(

@@ -26,19 +26,27 @@ import static java.util.Objects.requireNonNull;
 public final class CallExpression
         extends RowExpression
 {
+    private final String nameHint;
     private final FunctionHandle functionHandle;
     private final Type returnType;
     private final List<RowExpression> arguments;
 
-    public CallExpression(FunctionHandle functionHandle, Type returnType, List<RowExpression> arguments)
+    public CallExpression(String nameHint, FunctionHandle functionHandle, Type returnType, List<RowExpression> arguments)
     {
+        requireNonNull(nameHint, "nameHint is null");
         requireNonNull(functionHandle, "functionHandle is null");
         requireNonNull(arguments, "arguments is null");
         requireNonNull(returnType, "returnType is null");
 
+        this.nameHint = nameHint;
         this.functionHandle = functionHandle;
         this.returnType = returnType;
         this.arguments = ImmutableList.copyOf(arguments);
+    }
+
+    public String getNameHint()
+    {
+        return nameHint;
     }
 
     public FunctionHandle getFunctionHandle()
@@ -60,7 +68,7 @@ public final class CallExpression
     @Override
     public String toString()
     {
-        return functionHandle.getSignature().getName() + "(" + Joiner.on(", ").join(arguments) + ")";
+        return nameHint + "(" + Joiner.on(", ").join(arguments) + ")";
     }
 
     @Override

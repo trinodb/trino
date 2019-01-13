@@ -385,9 +385,10 @@ public class TestPageProcessor
     {
         MetadataManager metadata = createTestMetadataManager();
         CallExpression add10Expression = new CallExpression(
-                    metadata.getFunctionManager().resolveOperator(ADD, fromTypes(BIGINT, BIGINT)),
-                    BIGINT,
-                    ImmutableList.of(field(0, BIGINT), constant(10L, BIGINT)));
+                ADD.name(),
+                metadata.getFunctionManager().resolveOperator(ADD, fromTypes(BIGINT, BIGINT)),
+                BIGINT,
+                ImmutableList.of(field(0, BIGINT), constant(10L, BIGINT)));
 
         TestingTicker testingTicker = new TestingTicker();
         PageFunctionCompiler functionCompiler = new PageFunctionCompiler(metadata, 0);

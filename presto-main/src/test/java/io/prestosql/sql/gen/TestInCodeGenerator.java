@@ -24,6 +24,7 @@ import java.util.Collections;
 import java.util.List;
 
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
+import static io.prestosql.spi.function.OperatorType.CAST;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
@@ -51,6 +52,7 @@ public class TestInCodeGenerator
         assertEquals(checkSwitchGenerationCase(INTEGER, values), DIRECT_SWITCH);
         FunctionManager functionManager = createTestMetadataManager().getFunctionManager();
         values.add(new CallExpression(
+                CAST.name(),
                 functionManager.lookupCast(DOUBLE.getTypeSignature(), INTEGER.getTypeSignature()),
                 INTEGER,
                 Collections.singletonList(constant(12345678901234.0, DOUBLE))));
@@ -78,6 +80,7 @@ public class TestInCodeGenerator
         assertEquals(checkSwitchGenerationCase(BIGINT, values), HASH_SWITCH);
         FunctionManager functionManager = createTestMetadataManager().getFunctionManager();
         values.add(new CallExpression(
+                CAST.name(),
                 functionManager.lookupCast(DOUBLE.getTypeSignature(), BIGINT.getTypeSignature()),
                 BIGINT,
                 Collections.singletonList(constant(12345678901234.0, DOUBLE))));

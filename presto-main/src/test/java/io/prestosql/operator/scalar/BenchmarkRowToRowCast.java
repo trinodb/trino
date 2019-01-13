@@ -52,6 +52,7 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.spi.block.RowBlock.fromFieldBlocks;
+import static io.prestosql.spi.function.OperatorType.CAST;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
 import static io.prestosql.sql.relational.Expressions.field;
@@ -97,7 +98,7 @@ public class BenchmarkRowToRowCast
             FunctionHandle functionHandle = functionManager.lookupCast(RowType.anonymous(toFieldTypes).getTypeSignature(), RowType.anonymous(fromFieldTypes).getTypeSignature());
 
             List<RowExpression> projections = ImmutableList.of(
-                    new CallExpression(functionHandle, RowType.anonymous(fromFieldTypes), ImmutableList.of(field(0, RowType.anonymous(toFieldTypes)))));
+                    new CallExpression(CAST.name(), functionHandle, RowType.anonymous(fromFieldTypes), ImmutableList.of(field(0, RowType.anonymous(toFieldTypes)))));
 
             pageProcessor = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0))
                     .compilePageProcessor(Optional.empty(), projections)

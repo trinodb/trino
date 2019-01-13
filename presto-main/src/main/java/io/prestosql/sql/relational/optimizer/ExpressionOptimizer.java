@@ -20,7 +20,7 @@ import io.prestosql.metadata.FunctionHandle;
 import io.prestosql.metadata.FunctionManager;
 import io.prestosql.operator.scalar.ScalarFunctionImplementation;
 import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.type.TypeManager;
+import io.prestosql.spi.function.OperatorType;
 import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.sql.relational.CallExpression;
 import io.prestosql.sql.relational.ConstantExpression;
@@ -59,7 +59,7 @@ public class ExpressionOptimizer
     private final FunctionManager functionManager;
     private final ConnectorSession session;
 
-    public ExpressionOptimizer(FunctionManager functionManager, TypeManager typeManager, Session session)
+    public ExpressionOptimizer(FunctionManager functionManager, Session session)
     {
         this.functionManager = functionManager;
         this.session = session.toConnectorSession();
@@ -128,7 +128,7 @@ public class ExpressionOptimizer
                 }
             }
 
-            return new CallExpression(call.getFunctionHandle(), call.getType(), arguments);
+            return new CallExpression(call.getNameHint(), call.getFunctionHandle(), call.getType(), arguments);
         }
 
         @Override
@@ -217,21 +217,21 @@ public class ExpressionOptimizer
                     TypeSignature returnType = call.getFunctionHandle().getSignature().getReturnType();
                     if (returnType.getBase().equals(ARRAY)) {
                         FunctionHandle functionHandle = functionManager.lookupInternalCastFunction(JSON_STRING_TO_ARRAY_NAME, VARCHAR.getTypeSignature(), returnType);
-                        return new CallExpression(functionHandle, call.getType(), innerCall.getArguments());
+                        return new CallExpression(JSON_STRING_TO_ARRAY_NAME, functionHandle, call.getType(), innerCall.getArguments());
                     }
                     if (returnType.getBase().equals(MAP)) {
                         FunctionHandle functionHandle = functionManager.lookupInternalCastFunction(JSON_STRING_TO_MAP_NAME, VARCHAR.getTypeSignature(), returnType);
-                        return new CallExpression(functionHandle, call.getType(), innerCall.getArguments());
+                        return new CallExpression(JSON_STRING_TO_MAP_NAME, functionHandle, call.getType(), innerCall.getArguments());
                     }
                     if (returnType.getBase().equals(ROW)) {
                         FunctionHandle functionHandle = functionManager.lookupInternalCastFunction(JSON_STRING_TO_ROW_NAME, VARCHAR.getTypeSignature(), returnType);
-                        return new CallExpression(functionHandle, call.getType(), innerCall.getArguments());
+                        return new CallExpression(JSON_STRING_TO_ROW_NAME, functionHandle, call.getType(), innerCall.getArguments());
                     }
                 }
             }
 
             FunctionHandle functionHandle = functionManager.lookupCast(call.getArguments().get(0).getType().getTypeSignature(), call.getType().getTypeSignature());
-            return new CallExpression(functionHandle, call.getType(), call.getArguments());
+            return new CallExpression(OperatorType.CAST.name(), functionHandle, call.getType(), call.getArguments());
         }
     }
 }
