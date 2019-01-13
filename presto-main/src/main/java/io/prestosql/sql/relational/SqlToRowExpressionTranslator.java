@@ -19,7 +19,6 @@ import com.google.common.collect.Lists;
 import io.prestosql.Session;
 import io.prestosql.SystemSessionProperties;
 import io.prestosql.metadata.FunctionHandle;
-import io.prestosql.metadata.FunctionKind;
 import io.prestosql.metadata.FunctionManager;
 import io.prestosql.spi.type.CharType;
 import io.prestosql.spi.type.DecimalParseResult;
@@ -137,7 +136,6 @@ public final class SqlToRowExpressionTranslator
 
     public static RowExpression translate(
             Expression expression,
-            FunctionKind functionKind,
             Map<NodeRef<Expression>, Type> types,
             FunctionManager functionManager,
             TypeManager typeManager,
@@ -145,7 +143,6 @@ public final class SqlToRowExpressionTranslator
             boolean optimize)
     {
         Visitor visitor = new Visitor(
-                functionKind,
                 types,
                 functionManager,
                 session);
@@ -164,7 +161,6 @@ public final class SqlToRowExpressionTranslator
     private static class Visitor
             extends AstVisitor<RowExpression, Void>
     {
-        private final FunctionKind functionKind;
         private final Map<NodeRef<Expression>, Type> types;
         private final FunctionManager functionManager;
         private final Session session;
@@ -175,12 +171,10 @@ public final class SqlToRowExpressionTranslator
         private final StandardFunctionResolution standardFunctionResolution;
 
         private Visitor(
-                FunctionKind functionKind,
                 Map<NodeRef<Expression>, Type> types,
                 FunctionManager functionManager,
                 Session session)
         {
-            this.functionKind = functionKind;
             this.types = ImmutableMap.copyOf(requireNonNull(types, "types is null"));
             this.functionManager = functionManager;
             this.session = session;
