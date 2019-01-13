@@ -96,7 +96,6 @@ import static io.prestosql.spi.type.CharType.createCharType;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
@@ -264,24 +263,17 @@ public final class SqlToRowExpressionTranslator
         @Override
         protected RowExpression visitGenericLiteral(GenericLiteral node, Void context)
         {
-            Type type;
-            try {
-                type = typeManager.getType(parseTypeSignature(node.getType()));
-            }
-            catch (IllegalArgumentException e) {
-                throw new IllegalArgumentException("Unsupported type: " + node.getType());
-            }
-
+            Type type = getType(node);
             if (JSON.equals(type)) {
                 return call(
-                        new Signature("json_parse", SCALAR, getType(node).getTypeSignature(), VARCHAR.getTypeSignature()),
+                        new Signature("json_parse", SCALAR, type.getTypeSignature(), VARCHAR.getTypeSignature()),
                         getType(node),
                         constant(utf8Slice(node.getValue()), VARCHAR));
             }
 
             return call(
-                    castSignature(getType(node), VARCHAR),
-                    getType(node),
+                    castSignature(type, VARCHAR),
+                    type,
                     constant(utf8Slice(node.getValue()), VARCHAR));
         }
 
