@@ -13,7 +13,9 @@
  */
 package io.prestosql.sql.analyzer;
 
-import io.prestosql.metadata.Signature;
+import io.prestosql.metadata.FunctionHandle;
+import io.prestosql.metadata.FunctionManager;
+import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.sql.tree.DefaultExpressionTraversalVisitor;
 import io.prestosql.sql.tree.FunctionCall;
 
@@ -24,14 +26,22 @@ import static java.util.Objects.requireNonNull;
 class WindowFunctionValidator
         extends DefaultExpressionTraversalVisitor<Void, Analysis>
 {
+    private final FunctionManager functionManager;
+
+    public WindowFunctionValidator(FunctionManager functionManager)
+    {
+        this.functionManager = requireNonNull(functionManager, "functionManager is null");
+    }
+
     @Override
     protected Void visitFunctionCall(FunctionCall functionCall, Analysis analysis)
     {
         requireNonNull(analysis, "analysis is null");
 
-        Signature signature = analysis.getFunctionHandle(functionCall).getSignature();
-        if (signature != null && signature.getKind() == WINDOW && !functionCall.getWindow().isPresent()) {
-            throw new SemanticException(WINDOW_REQUIRES_OVER, functionCall, "Window function %s requires an OVER clause", signature.getName());
+        FunctionHandle functionHandle = analysis.getFunctionHandle(functionCall);
+        FunctionMetadata functionMetadata = functionManager.getFunctionMetadata(functionHandle);
+        if (functionMetadata.getKind() == WINDOW && !functionCall.getWindow().isPresent()) {
+            throw new SemanticException(WINDOW_REQUIRES_OVER, functionCall, "Window function %s requires an OVER clause", functionMetadata.getName());
         }
         return super.visitFunctionCall(functionCall, analysis);
     }

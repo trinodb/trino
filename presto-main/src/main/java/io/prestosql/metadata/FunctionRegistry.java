@@ -1109,6 +1109,18 @@ class FunctionRegistry
         return new FunctionHandle(signature);
     }
 
+    public FunctionMetadata getFunctionMetadata(FunctionHandle functionHandle)
+    {
+        Signature signature = functionHandle.getSignature();
+        Type returnType = typeManager.getType(signature.getReturnType());
+        List<Type> argumentTypes = resolveTypes(signature.getArgumentTypes(), typeManager);
+        return new FunctionMetadata(
+                signature.getName(),
+                signature.getKind(),
+                returnType,
+                argumentTypes);
+    }
+
     private static Optional<List<Type>> toTypes(List<TypeSignatureProvider> typeSignatureProviders, TypeManager typeManager)
     {
         ImmutableList.Builder<Type> resultBuilder = ImmutableList.builder();

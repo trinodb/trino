@@ -24,7 +24,6 @@ import io.airlift.bytecode.Variable;
 import io.prestosql.metadata.BoundVariables;
 import io.prestosql.metadata.FunctionHandle;
 import io.prestosql.metadata.FunctionManager;
-import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlOperator;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.connector.ConnectorSession;
@@ -77,7 +76,7 @@ public class ArrayToArrayCast
 
         FunctionHandle functionHandle = functionManager.lookupCast(fromType.getTypeSignature(), toType.getTypeSignature());
         ScalarFunctionImplementation function = functionManager.getScalarFunctionImplementation(functionHandle);
-        Class<?> castOperatorClass = generateArrayCast(typeManager, functionHandle.getSignature(), function);
+        Class<?> castOperatorClass = generateArrayCast(fromType, toType, function);
         MethodHandle methodHandle = methodHandle(castOperatorClass, "castArray", ConnectorSession.class, Block.class);
         return new ScalarFunctionImplementation(
                 false,
@@ -88,13 +87,13 @@ public class ArrayToArrayCast
                 isDeterministic());
     }
 
-    private static Class<?> generateArrayCast(TypeManager typeManager, Signature elementCastSignature, ScalarFunctionImplementation elementCast)
+    private static Class<?> generateArrayCast(Type fromElementType, Type toElementType, ScalarFunctionImplementation elementCast)
     {
         CallSiteBinder binder = new CallSiteBinder();
 
         ClassDefinition definition = new ClassDefinition(
                 a(PUBLIC, FINAL),
-                makeClassName(Joiner.on("$").join("ArrayCast", elementCastSignature.getArgumentTypes().get(0), elementCastSignature.getReturnType())),
+                makeClassName(Joiner.on("$").join("ArrayCast", fromElementType, toElementType)),
                 type(Object.class));
 
         Parameter session = arg("session", ConnectorSession.class);
@@ -114,10 +113,8 @@ public class ArrayToArrayCast
         body.append(wasNull.set(constantBoolean(false)));
 
         // cast map elements
-        Type fromElementType = typeManager.getType(elementCastSignature.getArgumentTypes().get(0));
-        Type toElementType = typeManager.getType(elementCastSignature.getReturnType());
         CachedInstanceBinder cachedInstanceBinder = new CachedInstanceBinder(definition, binder);
-        ArrayMapBytecodeExpression newArray = ArrayGeneratorUtils.map(scope, cachedInstanceBinder, fromElementType, toElementType, value, elementCastSignature.getName(), elementCast);
+        ArrayMapBytecodeExpression newArray = ArrayGeneratorUtils.map(scope, cachedInstanceBinder, fromElementType, toElementType, value, CAST.name(), elementCast);
 
         // return the block
         body.append(newArray.ret());

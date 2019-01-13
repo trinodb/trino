@@ -22,9 +22,9 @@ import io.airlift.bytecode.control.IfStatement;
 import io.airlift.bytecode.instruction.LabelNode;
 import io.prestosql.metadata.FunctionHandle;
 import io.prestosql.metadata.FunctionManager;
+import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.operator.scalar.ScalarFunctionImplementation;
 import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.sql.relational.RowExpression;
 
 import java.util.List;
@@ -61,14 +61,16 @@ public class NullIfCodeGenerator
         Type secondType = second.getType();
 
         // if (equal(cast(first as <common type>), cast(second as <common type>))
-        FunctionHandle equalsHandle = generatorContext.getRegistry().resolveOperator(EQUAL, fromTypes(firstType, secondType));
-        ScalarFunctionImplementation equalsFunction = generatorContext.getRegistry().getScalarFunctionImplementation(equalsHandle);
+        FunctionManager functionManager = generatorContext.getRegistry();
+        FunctionHandle equalsHandle = functionManager.resolveOperator(EQUAL, fromTypes(firstType, secondType));
+        FunctionMetadata equalsMetadata = functionManager.getFunctionMetadata(equalsHandle);
+        ScalarFunctionImplementation equalsFunction = functionManager.getScalarFunctionImplementation(equalsHandle);
         BytecodeNode equalsCall = generatorContext.generateCall(
                 EQUAL.name(),
                 equalsFunction,
                 ImmutableList.of(
-                        cast(generatorContext, firstValue, firstType, equalsHandle.getSignature().getArgumentTypes().get(0)),
-                        cast(generatorContext, generatorContext.generate(second), secondType, equalsHandle.getSignature().getArgumentTypes().get(1))));
+                        cast(generatorContext, firstValue, firstType, equalsMetadata.getArgumentTypes().get(0)),
+                        cast(generatorContext, generatorContext.generate(second), secondType, equalsMetadata.getArgumentTypes().get(1))));
 
         BytecodeBlock conditionBlock = new BytecodeBlock()
                 .append(equalsCall)
@@ -93,14 +95,14 @@ public class NullIfCodeGenerator
             BytecodeGeneratorContext generatorContext,
             BytecodeNode argument,
             Type actualType,
-            TypeSignature requiredType)
+            Type requiredType)
     {
-        if (actualType.getTypeSignature().equals(requiredType)) {
+        if (actualType.equals(requiredType)) {
             return argument;
         }
 
         FunctionManager functionManager = generatorContext.getRegistry();
-        FunctionHandle functionHandle = functionManager.lookupCast(actualType.getTypeSignature(), requiredType);
+        FunctionHandle functionHandle = functionManager.lookupCast(actualType.getTypeSignature(), requiredType.getTypeSignature());
 
         // TODO: do we need a full function call? (nullability checks, etc)
         return generatorContext.generateCall(CAST.name(), functionManager.getScalarFunctionImplementation(functionHandle), ImmutableList.of(argument));

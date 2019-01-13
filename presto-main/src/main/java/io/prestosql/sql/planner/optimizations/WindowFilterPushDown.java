@@ -16,13 +16,14 @@ package io.prestosql.sql.planner.optimizations;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.Session;
 import io.prestosql.execution.warnings.WarningCollector;
+import io.prestosql.metadata.FunctionHandle;
+import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Metadata;
-import io.prestosql.metadata.Signature;
 import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.Range;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.predicate.ValueSet;
-import io.prestosql.spi.type.StandardTypes;
+import io.prestosql.spi.type.BigintType;
 import io.prestosql.sql.ExpressionUtils;
 import io.prestosql.sql.planner.DomainTranslator;
 import io.prestosql.sql.planner.LiteralEncoder;
@@ -51,7 +52,6 @@ import static io.prestosql.SystemSessionProperties.isOptimizeTopNRowNumber;
 import static io.prestosql.metadata.FunctionKind.WINDOW;
 import static io.prestosql.spi.predicate.Marker.Bound.BELOW;
 import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static io.prestosql.sql.planner.DomainTranslator.ExtractionResult;
 import static io.prestosql.sql.planner.DomainTranslator.fromPredicate;
 import static io.prestosql.sql.planner.plan.ChildReplacer.replaceChildren;
@@ -62,8 +62,6 @@ import static java.util.stream.Collectors.toMap;
 public class WindowFilterPushDown
         implements PlanOptimizer
 {
-    private static final Signature ROW_NUMBER_SIGNATURE = new Signature("row_number", WINDOW, parseTypeSignature(StandardTypes.BIGINT), ImmutableList.of());
-
     private final Metadata metadata;
     private final DomainTranslator domainTranslator;
 
@@ -266,23 +264,28 @@ public class WindowFilterPushDown
                     Optional.empty());
         }
 
-        private static boolean canReplaceWithRowNumber(WindowNode node)
+        private boolean canReplaceWithRowNumber(WindowNode node)
         {
             return canOptimizeWindowFunction(node) && !node.getOrderingScheme().isPresent();
         }
 
-        private static boolean canOptimizeWindowFunction(WindowNode node)
+        private boolean canOptimizeWindowFunction(WindowNode node)
         {
             if (node.getWindowFunctions().size() != 1) {
                 return false;
             }
             Symbol rowNumberSymbol = getOnlyElement(node.getWindowFunctions().entrySet()).getKey();
-            return isRowNumberSignature(node.getWindowFunctions().get(rowNumberSymbol).getFunctionHandle().getSignature());
+            FunctionHandle functionHandle = node.getWindowFunctions().get(rowNumberSymbol).getFunctionHandle();
+            FunctionMetadata functionMetadata = metadata.getFunctionManager().getFunctionMetadata(functionHandle);
+            return isRowNumberSignature(functionMetadata);
         }
 
-        private static boolean isRowNumberSignature(Signature signature)
+        private static boolean isRowNumberSignature(FunctionMetadata functionMetadata)
         {
-            return signature.equals(ROW_NUMBER_SIGNATURE);
+            return functionMetadata.getKind() == WINDOW &&
+                    functionMetadata.getName().equals("row_number") &&
+                    functionMetadata.getReturnType() instanceof BigintType &&
+                    functionMetadata.getArgumentTypes().isEmpty();
         }
     }
 }

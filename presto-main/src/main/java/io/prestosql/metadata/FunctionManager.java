@@ -109,4 +109,9 @@ public class FunctionManager
     {
         return functionRegistry.lookupInternalCastFunction(name, fromType, toType);
     }
+
+    public FunctionMetadata getFunctionMetadata(FunctionHandle functionHandle)
+    {
+        return functionRegistry.getFunctionMetadata(functionHandle);
+    }
 }

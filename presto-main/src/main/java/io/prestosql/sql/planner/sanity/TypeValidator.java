@@ -16,8 +16,8 @@ package io.prestosql.sql.planner.sanity;
 import com.google.common.collect.ListMultimap;
 import io.prestosql.Session;
 import io.prestosql.execution.warnings.WarningCollector;
+import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Metadata;
-import io.prestosql.metadata.Signature;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeManager;
 import io.prestosql.spi.type.TypeSignature;
@@ -147,18 +147,18 @@ public final class TypeValidator
         private void checkWindowFunctions(Map<Symbol, WindowNode.Function> functions)
         {
             for (Map.Entry<Symbol, WindowNode.Function> entry : functions.entrySet()) {
-                Signature signature = entry.getValue().getFunctionHandle().getSignature();
+                FunctionMetadata functionMetadata = metadata.getFunctionManager().getFunctionMetadata(entry.getValue().getFunctionHandle());
                 FunctionCall call = entry.getValue().getFunctionCall();
 
-                checkSignature(entry.getKey(), signature);
+                checkType(entry.getKey(), functionMetadata.getReturnType());
                 checkCall(entry.getKey(), call);
             }
         }
 
-        private void checkSignature(Symbol symbol, Signature signature)
+        private void checkType(Symbol symbol, Type returnType)
         {
             TypeSignature expectedTypeSignature = types.get(symbol).getTypeSignature();
-            TypeSignature actualTypeSignature = signature.getReturnType();
+            TypeSignature actualTypeSignature = returnType.getTypeSignature();
             verifyTypeSignature(symbol, expectedTypeSignature, actualTypeSignature);
         }
 
@@ -173,7 +173,8 @@ public final class TypeValidator
         private void checkFunctionSignature(Map<Symbol, Aggregation> aggregations)
         {
             for (Map.Entry<Symbol, Aggregation> entry : aggregations.entrySet()) {
-                checkSignature(entry.getKey(), entry.getValue().getFunctionHandle().getSignature());
+                FunctionMetadata functionMetadata = metadata.getFunctionManager().getFunctionMetadata(entry.getValue().getFunctionHandle());
+                checkType(entry.getKey(), functionMetadata.getReturnType());
             }
         }
 

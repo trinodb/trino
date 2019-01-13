@@ -22,6 +22,7 @@ import io.airlift.slice.Slice;
 import io.prestosql.Session;
 import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.metadata.FunctionHandle;
+import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.spi.function.OperatorType;
 import io.prestosql.spi.type.Type;
@@ -60,7 +61,7 @@ import static io.prestosql.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static io.prestosql.spi.function.OperatorType.NOT_EQUAL;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.sql.analyzer.ExpressionAnalyzer.getExpressionTypesFromInput;
-import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
+import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.prestosql.sql.relational.SpecialForm.Form.AND;
 import static io.prestosql.sql.relational.SpecialForm.Form.OR;
 import static io.prestosql.sql.relational.SqlToRowExpressionTranslator.translate;
@@ -141,7 +142,8 @@ public class ExpressionEquivalence
                             .map(expression -> expression.accept(this, context))
                             .collect(toImmutableList()));
 
-            String callName = call.getFunctionHandle().getSignature().getName();
+            FunctionMetadata functionMetadata = metadata.getFunctionManager().getFunctionMetadata(call.getFunctionHandle());
+            String callName = functionMetadata.getName();
 
             if (callName.equals(mangleOperatorName(EQUAL)) || callName.equals(mangleOperatorName(NOT_EQUAL)) || callName.equals(mangleOperatorName(IS_DISTINCT_FROM))) {
                 // sort arguments
@@ -157,7 +159,7 @@ public class ExpressionEquivalence
                 OperatorType newCallName = callName.equals(mangleOperatorName(GREATER_THAN)) ? LESS_THAN : LESS_THAN_OR_EQUAL;
                 FunctionHandle newFunctionHandle = metadata.getFunctionManager().resolveOperator(
                         newCallName,
-                        fromTypeSignatures(call.getFunctionHandle().getSignature().getArgumentTypes()));
+                        fromTypes(functionMetadata.getArgumentTypes()));
                 return new CallExpression(newCallName.name(), newFunctionHandle, call.getType(), swapPair(call.getArguments()));
             }
 

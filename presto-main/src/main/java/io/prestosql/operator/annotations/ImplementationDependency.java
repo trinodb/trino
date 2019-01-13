@@ -131,7 +131,7 @@ public interface ImplementationDependency
                             parseTypeSignature(operatorDependency.returnType(), literalParameters),
                             toInvocationConvention(operatorDependency.convention()));
                 }
-                checkArgument(!operatorDependency.returnType().equals(""), operatorDependency.operator() + " operator dependency must not have a return type");
+                checkArgument(operatorDependency.returnType().equals(""), operatorDependency.operator() + " operator dependency must not have a return type");
                 return new OperatorImplementationDependency(
                         operatorDependency.operator(),
                         Arrays.stream(operatorDependency.argumentTypes())

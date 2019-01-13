@@ -23,10 +23,10 @@ import io.prestosql.SystemSessionProperties;
 import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.metadata.FunctionHandle;
 import io.prestosql.metadata.FunctionManager;
+import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.OperatorNotFoundException;
 import io.prestosql.metadata.QualifiedObjectName;
-import io.prestosql.metadata.Signature;
 import io.prestosql.security.AccessControl;
 import io.prestosql.security.DenyAllAccessControl;
 import io.prestosql.spi.PrestoException;
@@ -868,6 +868,7 @@ public class ExpressionAnalyzer
 
             ImmutableList<TypeSignatureProvider> argumentTypes = argumentTypesBuilder.build();
             FunctionHandle function = resolveFunction(session, node, argumentTypes, functionManager);
+            FunctionMetadata functionMetadata = functionManager.getFunctionMetadata(function);
 
             if (node.getOrderBy().isPresent()) {
                 for (SortItem sortItem : node.getOrderBy().get().getSortItems()) {
@@ -880,8 +881,8 @@ public class ExpressionAnalyzer
 
             for (int i = 0; i < node.getArguments().size(); i++) {
                 Expression expression = node.getArguments().get(i);
-                Type expectedType = typeManager.getType(function.getSignature().getArgumentTypes().get(i));
-                requireNonNull(expectedType, format("Type %s not found", function.getSignature().getArgumentTypes().get(i)));
+                Type expectedType = functionMetadata.getArgumentTypes().get(i);
+                requireNonNull(expectedType, format("Type %s not found", functionMetadata.getArgumentTypes().get(i)));
                 if (node.isDistinct() && !expectedType.isComparable()) {
                     throw new SemanticException(TYPE_MISMATCH, node, "DISTINCT can only be applied to comparable types (actual: %s)", expectedType);
                 }
@@ -896,8 +897,7 @@ public class ExpressionAnalyzer
             }
             resolvedFunctions.put(NodeRef.of(node), function);
 
-            Type type = typeManager.getType(function.getSignature().getReturnType());
-            return setExpressionType(node, type);
+            return setExpressionType(node, functionMetadata.getReturnType());
         }
 
         @Override
@@ -1241,9 +1241,9 @@ public class ExpressionAnalyzer
                 argumentTypes.add(process(expression, context));
             }
 
-            FunctionHandle operatorHandle;
+            FunctionMetadata functionMetadata;
             try {
-                operatorHandle = functionManager.resolveOperator(operatorType, fromTypes(argumentTypes.build()));
+                functionMetadata = functionManager.getFunctionMetadata(functionManager.resolveOperator(operatorType, fromTypes(argumentTypes.build())));
             }
             catch (OperatorNotFoundException e) {
                 throw new SemanticException(TYPE_MISMATCH, node, "%s", e.getMessage());
@@ -1255,15 +1255,13 @@ public class ExpressionAnalyzer
                 throw e;
             }
 
-            Signature operatorSignature = operatorHandle.getSignature();
             for (int i = 0; i < arguments.length; i++) {
                 Expression expression = arguments[i];
-                Type type = typeManager.getType(operatorSignature.getArgumentTypes().get(i));
-                coerceType(context, expression, type, format("Operator %s argument %d", operatorSignature, i));
+                Type type = functionMetadata.getArgumentTypes().get(i);
+                coerceType(context, expression, type, format("Operator %s argument %d", functionMetadata, i));
             }
 
-            Type type = typeManager.getType(operatorSignature.getReturnType());
-            return setExpressionType(node, type);
+            return setExpressionType(node, functionMetadata.getReturnType());
         }
 
         private void coerceType(Expression expression, Type actualType, Type expectedType, String message)

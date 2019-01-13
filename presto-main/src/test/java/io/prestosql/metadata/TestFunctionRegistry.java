@@ -23,6 +23,7 @@ import io.prestosql.spi.function.OperatorType;
 import io.prestosql.spi.function.ScalarFunction;
 import io.prestosql.spi.function.SqlType;
 import io.prestosql.spi.type.StandardTypes;
+import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeManager;
 import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.sql.analyzer.FeaturesConfig;
@@ -62,7 +63,11 @@ public class TestFunctionRegistry
         TypeRegistry typeManager = new TypeRegistry();
         FunctionRegistry registry = createFunctionRegistry(typeManager);
         FunctionHandle exactOperator = registry.lookupCast(HYPER_LOG_LOG.getTypeSignature(), HYPER_LOG_LOG.getTypeSignature());
-        assertEquals(exactOperator, new FunctionHandle(new Signature(mangleOperatorName(OperatorType.CAST.name()), SCALAR, HYPER_LOG_LOG.getTypeSignature(), HYPER_LOG_LOG.getTypeSignature())));
+        FunctionMetadata functionMetadata = registry.getFunctionMetadata(exactOperator);
+        assertEquals(functionMetadata.getName(), mangleOperatorName(OperatorType.CAST.name()));
+        assertEquals(functionMetadata.getKind(), SCALAR);
+        assertEquals(functionMetadata.getReturnType(), HYPER_LOG_LOG);
+        assertEquals(functionMetadata.getArgumentTypes(), ImmutableList.of(HYPER_LOG_LOG));
     }
 
     @Test
@@ -83,7 +88,7 @@ public class TestFunctionRegistry
                 continue;
             }
             FunctionHandle exactOperator = registry.resolveOperator(operatorType, fromTypeSignatures(function.getSignature().getArgumentTypes()));
-            assertEquals(exactOperator, new FunctionHandle(function.getSignature()));
+            assertFunctionMetadata(registry.getFunctionMetadata(exactOperator), function.getSignature());
             foundOperator = true;
         }
         assertTrue(foundOperator);
@@ -100,7 +105,8 @@ public class TestFunctionRegistry
         TypeRegistry typeManager = new TypeRegistry();
         FunctionRegistry registry = createFunctionRegistry(typeManager);
         FunctionHandle function = registry.resolveFunction(QualifiedName.of(signature.getName()), fromTypeSignatures(signature.getArgumentTypes()));
-        assertEquals(function, new FunctionHandle(signature));
+        FunctionMetadata functionMetadata = registry.getFunctionMetadata(function);
+        assertFunctionMetadata(functionMetadata, signature);
     }
 
     @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "\\QFunction already registered: custom_add(bigint,bigint):bigint\\E")
@@ -319,6 +325,17 @@ public class TestFunctionRegistry
                 .kind(SCALAR);
     }
 
+    private static void assertFunctionMetadata(FunctionMetadata actual, Signature expected)
+    {
+        assertEquals(actual.getName(), expected.getName());
+        assertEquals(actual.getKind(), expected.getKind());
+        assertEquals(actual.getReturnType().getTypeSignature(), expected.getReturnType());
+        List<TypeSignature> argumentTypes = actual.getArgumentTypes().stream()
+                .map(Type::getTypeSignature)
+                .collect(toImmutableList());
+        assertEquals(argumentTypes, expected.getArgumentTypes());
+    }
+
     private static ResolveFunctionAssertion assertThatResolveFunction()
     {
         return new ResolveFunctionAssertion();
@@ -348,16 +365,15 @@ public class TestFunctionRegistry
 
         public ResolveFunctionAssertion returns(SignatureBuilder functionSignature)
         {
-            FunctionHandle expectedSignature = new FunctionHandle(functionSignature.name(TEST_FUNCTION_NAME).build());
-            FunctionHandle actualFunction = resolveFunctionHandle();
-            assertEquals(actualFunction, expectedSignature);
+            FunctionMetadata actualFunction = getFunctionMetadata();
+            assertFunctionMetadata(actualFunction, functionSignature.name(TEST_FUNCTION_NAME).build());
             return this;
         }
 
         public ResolveFunctionAssertion failsWithMessage(String... messages)
         {
             try {
-                resolveFunctionHandle();
+                getFunctionMetadata();
                 fail("didn't fail as expected");
             }
             catch (RuntimeException e) {
@@ -371,13 +387,14 @@ public class TestFunctionRegistry
             return this;
         }
 
-        private FunctionHandle resolveFunctionHandle()
+        private FunctionMetadata getFunctionMetadata()
         {
             FeaturesConfig featuresConfig = new FeaturesConfig();
             FunctionManager functionManager = new FunctionManager(typeRegistry, blockEncoding, featuresConfig);
             FunctionRegistry registry = new FunctionRegistry(typeRegistry, blockEncoding, featuresConfig, functionManager);
             registry.addFunctions(createFunctionsFromSignatures());
-            return registry.resolveFunction(QualifiedName.of(TEST_FUNCTION_NAME), fromTypeSignatures(parameterTypes));
+            FunctionHandle functionHandle = registry.resolveFunction(QualifiedName.of(TEST_FUNCTION_NAME), fromTypeSignatures(parameterTypes));
+            return registry.getFunctionMetadata(functionHandle);
         }
 
         private List<SqlFunction> createFunctionsFromSignatures()

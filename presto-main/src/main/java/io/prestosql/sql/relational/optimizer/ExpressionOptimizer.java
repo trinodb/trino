@@ -18,10 +18,13 @@ import com.google.common.collect.Iterables;
 import io.prestosql.Session;
 import io.prestosql.metadata.FunctionHandle;
 import io.prestosql.metadata.FunctionManager;
+import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.operator.scalar.ScalarFunctionImplementation;
 import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.function.OperatorType;
-import io.prestosql.spi.type.TypeSignature;
+import io.prestosql.spi.type.ArrayType;
+import io.prestosql.spi.type.MapType;
+import io.prestosql.spi.type.RowType;
+import io.prestosql.spi.type.Type;
 import io.prestosql.sql.relational.CallExpression;
 import io.prestosql.sql.relational.ConstantExpression;
 import io.prestosql.sql.relational.InputReferenceExpression;
@@ -44,10 +47,8 @@ import static io.prestosql.operator.scalar.JsonStringToArrayCast.JSON_STRING_TO_
 import static io.prestosql.operator.scalar.JsonStringToMapCast.JSON_STRING_TO_MAP_NAME;
 import static io.prestosql.operator.scalar.JsonStringToRowCast.JSON_STRING_TO_ROW_NAME;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
+import static io.prestosql.spi.function.OperatorType.CAST;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
-import static io.prestosql.spi.type.StandardTypes.ARRAY;
-import static io.prestosql.spi.type.StandardTypes.MAP;
-import static io.prestosql.spi.type.StandardTypes.ROW;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.sql.relational.Expressions.constant;
 import static io.prestosql.sql.relational.Expressions.constantNull;
@@ -88,9 +89,7 @@ public class ExpressionOptimizer
         @Override
         public RowExpression visitCall(CallExpression call, Void context)
         {
-            if (call.getFunctionHandle().getSignature().getName().equals(mangleOperatorName("CAST"))) {
-                call = rewriteCast(call);
-            }
+            call = optimizeJsonCast(call);
 
             ScalarFunctionImplementation function = functionManager.getScalarFunctionImplementation(call.getFunctionHandle());
             List<RowExpression> arguments = call.getArguments().stream()
@@ -206,32 +205,37 @@ public class ExpressionOptimizer
             return reference;
         }
 
-        private CallExpression rewriteCast(CallExpression call)
+        private CallExpression optimizeJsonCast(CallExpression call)
         {
+            FunctionMetadata callMetadata = functionManager.getFunctionMetadata(call.getFunctionHandle());
+            if (!callMetadata.getName().equals(mangleOperatorName("CAST"))) {
+                return call;
+            }
+
             if (call.getArguments().get(0) instanceof CallExpression) {
                 // Optimization for CAST(JSON_PARSE(...) AS ARRAY/MAP/ROW)
                 CallExpression innerCall = (CallExpression) call.getArguments().get(0);
-                if (innerCall.getFunctionHandle().getSignature().getName().equals("json_parse")) {
+                if (functionManager.getFunctionMetadata(innerCall.getFunctionHandle()).getName().equals("json_parse")) {
                     checkArgument(innerCall.getType().equals(JSON));
                     checkArgument(innerCall.getArguments().size() == 1);
-                    TypeSignature returnType = call.getFunctionHandle().getSignature().getReturnType();
-                    if (returnType.getBase().equals(ARRAY)) {
-                        FunctionHandle functionHandle = functionManager.lookupInternalCastFunction(JSON_STRING_TO_ARRAY_NAME, VARCHAR.getTypeSignature(), returnType);
+                    Type returnType = callMetadata.getReturnType();
+                    if (returnType instanceof ArrayType) {
+                        FunctionHandle functionHandle = functionManager.lookupInternalCastFunction(JSON_STRING_TO_ARRAY_NAME, VARCHAR.getTypeSignature(), returnType.getTypeSignature());
                         return new CallExpression(JSON_STRING_TO_ARRAY_NAME, functionHandle, call.getType(), innerCall.getArguments());
                     }
-                    if (returnType.getBase().equals(MAP)) {
-                        FunctionHandle functionHandle = functionManager.lookupInternalCastFunction(JSON_STRING_TO_MAP_NAME, VARCHAR.getTypeSignature(), returnType);
+                    if (returnType instanceof MapType) {
+                        FunctionHandle functionHandle = functionManager.lookupInternalCastFunction(JSON_STRING_TO_MAP_NAME, VARCHAR.getTypeSignature(), returnType.getTypeSignature());
                         return new CallExpression(JSON_STRING_TO_MAP_NAME, functionHandle, call.getType(), innerCall.getArguments());
                     }
-                    if (returnType.getBase().equals(ROW)) {
-                        FunctionHandle functionHandle = functionManager.lookupInternalCastFunction(JSON_STRING_TO_ROW_NAME, VARCHAR.getTypeSignature(), returnType);
+                    if (returnType instanceof RowType) {
+                        FunctionHandle functionHandle = functionManager.lookupInternalCastFunction(JSON_STRING_TO_ROW_NAME, VARCHAR.getTypeSignature(), returnType.getTypeSignature());
                         return new CallExpression(JSON_STRING_TO_ROW_NAME, functionHandle, call.getType(), innerCall.getArguments());
                     }
                 }
             }
 
             FunctionHandle functionHandle = functionManager.lookupCast(call.getArguments().get(0).getType().getTypeSignature(), call.getType().getTypeSignature());
-            return new CallExpression(OperatorType.CAST.name(), functionHandle, call.getType(), call.getArguments());
+            return new CallExpression(CAST.name(), functionHandle, call.getType(), call.getArguments());
         }
     }
 }
