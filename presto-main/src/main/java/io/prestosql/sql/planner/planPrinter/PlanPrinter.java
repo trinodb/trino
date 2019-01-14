@@ -269,7 +269,7 @@ public class PlanPrinter
                     Joiner.on(", ").join(arguments),
                     formatHash(partitioningScheme.getHashColumn())));
         }
-        builder.append(indentString(1)).append(format("Grouped Execution: %s\n", fragment.getStageExecutionDescriptor().isAnyScanGroupedExecution()));
+        builder.append(indentString(1)).append(format("Grouped Execution: %s\n", fragment.getStageExecutionDescriptor().isStageGroupedExecution()));
 
         TypeProvider typeProvider = TypeProvider.copyOf(allFragments.stream()
                 .flatMap(f -> f.getSymbols().entrySet().stream())
@@ -837,7 +837,7 @@ public class PlanPrinter
             if (stageExecutionStrategy.isPresent()) {
                 print(indent, "- TableScan[%s, grouped = %s] => [%s]",
                         table,
-                        stageExecutionStrategy.get().isGroupedExecution(node.getId()),
+                        stageExecutionStrategy.get().isScanGroupedExecution(node.getId()),
                         formatOutputs(node.getOutputSymbols()));
             }
             else {
@@ -915,7 +915,7 @@ public class PlanPrinter
                 arguments.add(table);
                 if (stageExecutionStrategy.isPresent()) {
                     format += "grouped = %s, ";
-                    arguments.add(stageExecutionStrategy.get().isGroupedExecution(scanNode.get().getId()));
+                    arguments.add(stageExecutionStrategy.get().isScanGroupedExecution(scanNode.get().getId()));
                 }
             }
 
