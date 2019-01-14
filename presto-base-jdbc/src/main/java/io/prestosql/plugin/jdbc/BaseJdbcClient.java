@@ -228,7 +228,8 @@ public class BaseJdbcClient
                 tableHandle.getCatalogName(),
                 tableHandle.getSchemaName(),
                 tableHandle.getTableName(),
-                layoutHandle.getTupleDomain());
+                layoutHandle.getTupleDomain(),
+                Optional.empty());
         return new FixedSplitSource(ImmutableList.of(jdbcSplit));
     }
 
@@ -258,7 +259,8 @@ public class BaseJdbcClient
                 split.getSchemaName(),
                 split.getTableName(),
                 columnHandles,
-                split.getTupleDomain());
+                split.getTupleDomain(),
+                split.getAdditionalPredicate());
     }
 
     @Override
