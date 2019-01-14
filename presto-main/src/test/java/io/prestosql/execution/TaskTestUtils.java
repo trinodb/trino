@@ -33,7 +33,6 @@ import io.prestosql.metadata.Split;
 import io.prestosql.metadata.TableHandle;
 import io.prestosql.operator.LookupJoinOperators;
 import io.prestosql.operator.PagesIndex;
-import io.prestosql.operator.StageExecutionStrategy;
 import io.prestosql.operator.index.IndexJoinLookupStats;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 import io.prestosql.spi.type.TestingTypeManager;
@@ -67,6 +66,7 @@ import java.util.Optional;
 import java.util.OptionalInt;
 
 import static io.prestosql.SessionTestUtils.TEST_SESSION;
+import static io.prestosql.operator.StageExecutionDescriptor.ungroupedExecution;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
@@ -102,7 +102,7 @@ public final class TaskTestUtils
             ImmutableList.of(TABLE_SCAN_NODE_ID),
             new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(SYMBOL))
                     .withBucketToPartition(Optional.of(new int[1])),
-            StageExecutionStrategy.ungroupedExecution(),
+            ungroupedExecution(),
             StatsAndCosts.empty());
 
     public static LocalExecutionPlanner createTestingPlanner()

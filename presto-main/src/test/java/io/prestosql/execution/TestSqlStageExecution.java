@@ -22,7 +22,6 @@ import io.prestosql.execution.TestSqlTaskManager.MockLocationFactory;
 import io.prestosql.execution.scheduler.SplitSchedulerStats;
 import io.prestosql.failureDetector.NoOpFailureDetector;
 import io.prestosql.metadata.PrestoNode;
-import io.prestosql.operator.StageExecutionStrategy;
 import io.prestosql.spi.Node;
 import io.prestosql.spi.QueryId;
 import io.prestosql.spi.type.Type;
@@ -52,6 +51,7 @@ import static io.prestosql.SessionTestUtils.TEST_SESSION;
 import static io.prestosql.execution.SqlStageExecution.createSqlStageExecution;
 import static io.prestosql.execution.buffer.OutputBuffers.BufferType.ARBITRARY;
 import static io.prestosql.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
+import static io.prestosql.operator.StageExecutionDescriptor.ungroupedExecution;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.prestosql.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
@@ -177,7 +177,7 @@ public class TestSqlStageExecution
                 SOURCE_DISTRIBUTION,
                 ImmutableList.of(planNode.getId()),
                 new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), planNode.getOutputSymbols()),
-                StageExecutionStrategy.ungroupedExecution(),
+                ungroupedExecution(),
                 StatsAndCosts.empty());
     }
 }

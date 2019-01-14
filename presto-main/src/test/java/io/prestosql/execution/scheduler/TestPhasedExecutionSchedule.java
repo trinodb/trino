@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableSet;
 import io.prestosql.connector.ConnectorId;
 import io.prestosql.cost.StatsAndCosts;
 import io.prestosql.metadata.TableHandle;
-import io.prestosql.operator.StageExecutionStrategy;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.planner.Partitioning;
 import io.prestosql.sql.planner.PartitioningScheme;
@@ -43,6 +42,7 @@ import java.util.Set;
 import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.prestosql.operator.StageExecutionDescriptor.ungroupedExecution;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.prestosql.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
@@ -251,7 +251,7 @@ public class TestPhasedExecutionSchedule
                 SOURCE_DISTRIBUTION,
                 ImmutableList.of(planNode.getId()),
                 new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), planNode.getOutputSymbols()),
-                StageExecutionStrategy.ungroupedExecution(),
+                ungroupedExecution(),
                 StatsAndCosts.empty());
     }
 }
