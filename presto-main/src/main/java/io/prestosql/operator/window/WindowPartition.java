@@ -230,7 +230,7 @@ public final class WindowPartition
             return (start < end) || ((start > rowPosition) && (end > rowPosition));
         }
 
-        return (start > end) || ((start > positions) && (end > positions));
+        return (start > end) || (start > positions);
     }
 
     private static int preceding(int rowPosition, long value)
