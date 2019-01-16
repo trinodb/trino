@@ -17,7 +17,9 @@ import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
 import io.prestosql.spi.connector.ConnectorAccessControl;
+import io.prestosql.spi.procedure.Procedure;
 
+import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static java.util.Objects.requireNonNull;
@@ -36,6 +38,7 @@ public class JdbcModule
     public void configure(Binder binder)
     {
         newOptionalBinder(binder, ConnectorAccessControl.class);
+        newSetBinder(binder, Procedure.class);
         binder.bind(JdbcConnectorId.class).toInstance(new JdbcConnectorId(connectorId));
         binder.bind(JdbcMetadataFactory.class).in(Scopes.SINGLETON);
         binder.bind(JdbcSplitManager.class).in(Scopes.SINGLETON);
