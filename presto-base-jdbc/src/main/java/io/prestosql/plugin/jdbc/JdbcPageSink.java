@@ -46,9 +46,15 @@ public class JdbcPageSink
 
     private final List<Type> columnTypes;
     private final List<WriteFunction> columnWriters;
+    private final boolean autocommit;
     private int batchSize;
 
     public JdbcPageSink(ConnectorSession session, JdbcOutputTableHandle handle, JdbcClient jdbcClient)
+    {
+        this(session, handle, jdbcClient, false);
+    }
+
+    protected JdbcPageSink(ConnectorSession session, JdbcOutputTableHandle handle, JdbcClient jdbcClient, boolean autocommit)
     {
         try {
             connection = jdbcClient.getConnection(JdbcIdentity.from(session), handle);
@@ -58,7 +64,7 @@ public class JdbcPageSink
         }
 
         try {
-            connection.setAutoCommit(false);
+            connection.setAutoCommit(autocommit);
             statement = connection.prepareStatement(jdbcClient.buildInsertSql(handle));
         }
         catch (SQLException e) {
@@ -67,6 +73,7 @@ public class JdbcPageSink
         }
 
         columnTypes = handle.getColumnTypes();
+        this.autocommit = autocommit;
 
         columnWriters = columnTypes.stream()
                 .map(type -> {
@@ -90,22 +97,29 @@ public class JdbcPageSink
                 for (int channel = 0; channel < page.getChannelCount(); channel++) {
                     appendColumn(page, position, channel);
                 }
-
-                statement.addBatch();
-                batchSize++;
-
-                if (batchSize >= 1000) {
-                    statement.executeBatch();
-                    connection.commit();
-                    connection.setAutoCommit(false);
-                    batchSize = 0;
-                }
+                executeInsertStatement();
             }
         }
         catch (SQLException e) {
             throw new PrestoException(JDBC_ERROR, e);
         }
         return NOT_BLOCKED;
+    }
+
+    protected void executeInsertStatement()
+            throws SQLException
+    {
+        statement.addBatch();
+        batchSize++;
+
+        if (batchSize >= 1000) {
+            statement.executeBatch();
+            if (!autocommit) {
+                connection.commit();
+            }
+            connection.setAutoCommit(autocommit);
+            batchSize = 0;
+        }
     }
 
     private void appendColumn(Page page, int position, int channel)
@@ -147,7 +161,9 @@ public class JdbcPageSink
                 PreparedStatement statement = this.statement) {
             if (batchSize > 0) {
                 statement.executeBatch();
-                connection.commit();
+                if (!autocommit) {
+                    connection.commit();
+                }
             }
         }
         catch (SQLNonTransientException e) {
@@ -167,7 +183,9 @@ public class JdbcPageSink
         // rollback and close
         try (Connection connection = this.connection;
                 PreparedStatement statement = this.statement) {
-            connection.rollback();
+            if (!autocommit) {
+                connection.rollback();
+            }
         }
         catch (SQLException e) {
             throw new PrestoException(JDBC_ERROR, e);
@@ -186,5 +204,10 @@ public class JdbcPageSink
                 throwable.addSuppressed(t);
             }
         }
+    }
+
+    protected PreparedStatement getStatement()
+    {
+        return statement;
     }
 }
