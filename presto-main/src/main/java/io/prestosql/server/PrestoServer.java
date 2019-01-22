@@ -136,6 +136,8 @@ public class PrestoServer
 
             injector.getInstance(Announcer.class).start();
 
+            injector.getInstance(ServerInfoResource.class).startupComplete();
+
             log.info("======== SERVER STARTED ========");
         }
         catch (Throwable e) {
