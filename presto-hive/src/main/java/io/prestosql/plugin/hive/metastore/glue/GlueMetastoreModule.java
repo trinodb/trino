@@ -13,7 +13,9 @@
  */
 package io.prestosql.plugin.hive.metastore.glue;
 
+import com.amazonaws.handlers.RequestHandler2;
 import com.google.inject.Binder;
+import com.google.inject.Key;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
@@ -50,6 +52,8 @@ public class GlueMetastoreModule
 
         newOptionalBinder(binder, GlueColumnStatisticsProvider.class)
                 .setDefault().to(DisabledGlueColumnStatisticsProvider.class).in(Scopes.SINGLETON);
+
+        newOptionalBinder(binder, Key.get(RequestHandler2.class, ForGlueHiveMetastore.class));
 
         if (buildConfigObject(HiveConfig.class).getRecordingPath() != null) {
             binder.bind(HiveMetastore.class)
