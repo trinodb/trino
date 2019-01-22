@@ -21,6 +21,7 @@ import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
 import com.amazonaws.auth.STSAssumeRoleSessionCredentialsProvider;
 import com.amazonaws.client.builder.AwsClientBuilder.EndpointConfiguration;
+import com.amazonaws.handlers.RequestHandler2;
 import com.amazonaws.services.glue.AWSGlueAsync;
 import com.amazonaws.services.glue.AWSGlueAsyncClientBuilder;
 import com.amazonaws.services.glue.model.AlreadyExistsException;
@@ -166,12 +167,13 @@ public class GlueHiveMetastore
             HdfsEnvironment hdfsEnvironment,
             GlueHiveMetastoreConfig glueConfig,
             GlueColumnStatisticsProvider columnStatisticsProvider,
-            @ForGlueHiveMetastore Executor executor)
+            @ForGlueHiveMetastore Executor executor,
+            @ForGlueHiveMetastore Optional<RequestHandler2> requestHandler)
     {
         requireNonNull(glueConfig, "glueConfig is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.hdfsContext = new HdfsContext(ConnectorIdentity.ofUser(DEFAULT_METASTORE_USER));
-        this.glueClient = createAsyncGlueClient(glueConfig);
+        this.glueClient = createAsyncGlueClient(glueConfig, requestHandler);
         this.defaultDir = glueConfig.getDefaultWarehouseDir();
         this.catalogId = glueConfig.getCatalogId().orElse(null);
         this.partitionSegments = glueConfig.getPartitionSegments();
@@ -179,11 +181,14 @@ public class GlueHiveMetastore
         this.columnStatisticsProvider = requireNonNull(columnStatisticsProvider, "columnStatisticsProvider is null");
     }
 
-    private static AWSGlueAsync createAsyncGlueClient(GlueHiveMetastoreConfig config)
+    private static AWSGlueAsync createAsyncGlueClient(GlueHiveMetastoreConfig config, Optional<RequestHandler2> requestHandler)
     {
         ClientConfiguration clientConfig = new ClientConfiguration().withMaxConnections(config.getMaxGlueConnections());
         AWSGlueAsyncClientBuilder asyncGlueClientBuilder = AWSGlueAsyncClientBuilder.standard()
                 .withClientConfiguration(clientConfig);
+
+        requestHandler.ifPresent(asyncGlueClientBuilder::setRequestHandlers);
+
         if (config.getGlueEndpointUrl().isPresent()) {
             checkArgument(config.getGlueRegion().isPresent(), "Glue region must be set when Glue endpoint URL is set");
             asyncGlueClientBuilder.setEndpointConfiguration(new EndpointConfiguration(
