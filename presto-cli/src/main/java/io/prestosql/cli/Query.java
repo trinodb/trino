@@ -115,7 +115,7 @@ public class Query
         return client.isClearTransactionId();
     }
 
-    public boolean renderOutput(PrintStream out, OutputFormat outputFormat, boolean interactive)
+    public boolean renderOutput(PrintStream out, PrintStream errorChannel, OutputFormat outputFormat, boolean interactive)
     {
         Thread clientThread = Thread.currentThread();
         SignalHandler oldHandler = Signal.handle(SIGINT, signal -> {
@@ -126,7 +126,7 @@ public class Query
             clientThread.interrupt();
         });
         try {
-            return renderQueryOutput(out, outputFormat, interactive);
+            return renderQueryOutput(out, errorChannel, outputFormat, interactive);
         }
         finally {
             Signal.handle(SIGINT, oldHandler);
@@ -134,18 +134,16 @@ public class Query
         }
     }
 
-    private boolean renderQueryOutput(PrintStream out, OutputFormat outputFormat, boolean interactive)
+    private boolean renderQueryOutput(PrintStream out, PrintStream errorChannel, OutputFormat outputFormat, boolean interactive)
     {
         StatusPrinter statusPrinter = null;
-        @SuppressWarnings("resource")
-        PrintStream errorChannel = interactive ? out : System.err;
-        WarningsPrinter warningsPrinter = new PrintStreamWarningsPrinter(System.err);
 
         if (interactive) {
-            statusPrinter = new StatusPrinter(client, out, debug);
+            statusPrinter = new StatusPrinter(client, errorChannel, debug);
             statusPrinter.printInitialStatusUpdates();
         }
         else {
+            WarningsPrinter warningsPrinter = new PrintStreamWarningsPrinter(errorChannel);
             processInitialStatusUpdates(warningsPrinter);
         }
 
@@ -166,13 +164,14 @@ public class Query
 
         checkState(!client.isRunning());
 
-        if (statusPrinter != null) {
+        if (interactive) {
             // Print all warnings at the end of the query
-            new PrintStreamWarningsPrinter(System.err).print(client.finalStatusInfo().getWarnings(), true, true);
+            new PrintStreamWarningsPrinter(errorChannel).print(client.finalStatusInfo().getWarnings(), true, true);
             statusPrinter.printFinalInfo();
         }
         else {
             // Print remaining warnings separated
+            WarningsPrinter warningsPrinter = new PrintStreamWarningsPrinter(errorChannel);
             warningsPrinter.print(client.finalStatusInfo().getWarnings(), true, true);
         }
 
