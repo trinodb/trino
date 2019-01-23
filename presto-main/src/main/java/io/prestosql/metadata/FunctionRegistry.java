@@ -127,7 +127,6 @@ import io.prestosql.operator.scalar.MapNotEqualOperator;
 import io.prestosql.operator.scalar.MapSubscriptOperator;
 import io.prestosql.operator.scalar.MapValues;
 import io.prestosql.operator.scalar.MathFunctions;
-import io.prestosql.operator.scalar.MathFunctions.LegacyLogFunction;
 import io.prestosql.operator.scalar.MultimapFromEntriesFunction;
 import io.prestosql.operator.scalar.QuantileDigestFunctions;
 import io.prestosql.operator.scalar.Re2JRegexpFunctions;
@@ -657,10 +656,6 @@ public class FunctionRegistry
                 builder.scalars(Re2JRegexpFunctions.class);
                 builder.scalar(Re2JRegexpReplaceLambdaFunction.class);
                 break;
-        }
-
-        if (featuresConfig.isLegacyLogFunction()) {
-            builder.scalar(LegacyLogFunction.class);
         }
 
         addFunctions(builder.getFunctions());
