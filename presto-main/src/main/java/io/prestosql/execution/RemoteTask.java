@@ -15,8 +15,8 @@ package io.prestosql.execution;
 
 import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.prestosql.OutputBuffers;
 import io.prestosql.execution.StateMachine.StateChangeListener;
+import io.prestosql.execution.buffer.OutputBuffers;
 import io.prestosql.metadata.Split;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 

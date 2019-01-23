@@ -15,7 +15,7 @@ package io.prestosql.execution.buffer;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.prestosql.OutputBuffers.OutputBufferId;
+import io.prestosql.execution.buffer.OutputBuffers.OutputBufferId;
 
 import java.util.Objects;
 

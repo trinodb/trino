@@ -16,9 +16,9 @@ package io.prestosql.server;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
-import io.prestosql.OutputBuffers;
 import io.prestosql.SessionRepresentation;
 import io.prestosql.TaskSource;
+import io.prestosql.execution.buffer.OutputBuffers;
 import io.prestosql.sql.planner.PlanFragment;
 
 import java.util.List;

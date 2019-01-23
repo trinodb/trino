@@ -14,8 +14,8 @@
 package io.prestosql.execution.scheduler;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.OutputBuffers;
-import io.prestosql.OutputBuffers.OutputBufferId;
+import io.prestosql.execution.buffer.OutputBuffers;
+import io.prestosql.execution.buffer.OutputBuffers.OutputBufferId;
 import org.testng.annotations.Test;
 
 import java.util.Map;

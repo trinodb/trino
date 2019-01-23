@@ -13,7 +13,7 @@
  */
 package io.prestosql.execution.scheduler;
 
-import io.prestosql.OutputBuffers.OutputBufferId;
+import io.prestosql.execution.buffer.OutputBuffers.OutputBufferId;
 
 import java.util.List;
 
