@@ -13,8 +13,8 @@
  */
 package io.prestosql.execution.scheduler;
 
-import io.prestosql.OutputBuffers;
-import io.prestosql.OutputBuffers.OutputBufferId;
+import io.prestosql.execution.buffer.OutputBuffers;
+import io.prestosql.execution.buffer.OutputBuffers.OutputBufferId;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
@@ -22,9 +22,9 @@ import javax.annotation.concurrent.ThreadSafe;
 import java.util.List;
 import java.util.function.Consumer;
 
-import static io.prestosql.OutputBuffers.BROADCAST_PARTITION_ID;
-import static io.prestosql.OutputBuffers.BufferType.BROADCAST;
-import static io.prestosql.OutputBuffers.createInitialEmptyOutputBuffers;
+import static io.prestosql.execution.buffer.OutputBuffers.BROADCAST_PARTITION_ID;
+import static io.prestosql.execution.buffer.OutputBuffers.BufferType.BROADCAST;
+import static io.prestosql.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe

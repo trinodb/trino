@@ -14,15 +14,15 @@
 package io.prestosql.execution.scheduler;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.OutputBuffers;
-import io.prestosql.OutputBuffers.OutputBufferId;
+import io.prestosql.execution.buffer.OutputBuffers;
+import io.prestosql.execution.buffer.OutputBuffers.OutputBufferId;
 import org.testng.annotations.Test;
 
 import java.util.concurrent.atomic.AtomicReference;
 
-import static io.prestosql.OutputBuffers.BROADCAST_PARTITION_ID;
-import static io.prestosql.OutputBuffers.BufferType.BROADCAST;
-import static io.prestosql.OutputBuffers.createInitialEmptyOutputBuffers;
+import static io.prestosql.execution.buffer.OutputBuffers.BROADCAST_PARTITION_ID;
+import static io.prestosql.execution.buffer.OutputBuffers.BufferType.BROADCAST;
+import static io.prestosql.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
 import static org.testng.Assert.assertEquals;
 
 public class TestBroadcastOutputBufferManager

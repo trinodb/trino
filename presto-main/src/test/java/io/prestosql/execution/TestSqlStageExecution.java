@@ -48,10 +48,10 @@ import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static io.prestosql.OutputBuffers.BufferType.ARBITRARY;
-import static io.prestosql.OutputBuffers.createInitialEmptyOutputBuffers;
 import static io.prestosql.SessionTestUtils.TEST_SESSION;
 import static io.prestosql.execution.SqlStageExecution.createSqlStageExecution;
+import static io.prestosql.execution.buffer.OutputBuffers.BufferType.ARBITRARY;
+import static io.prestosql.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.prestosql.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;

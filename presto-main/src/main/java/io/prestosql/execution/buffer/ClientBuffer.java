@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.units.DataSize;
-import io.prestosql.OutputBuffers.OutputBufferId;
+import io.prestosql.execution.buffer.OutputBuffers.OutputBufferId;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.Immutable;

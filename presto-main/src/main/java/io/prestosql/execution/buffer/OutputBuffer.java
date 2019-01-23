@@ -15,9 +15,8 @@ package io.prestosql.execution.buffer;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
-import io.prestosql.OutputBuffers;
-import io.prestosql.OutputBuffers.OutputBufferId;
 import io.prestosql.execution.StateMachine.StateChangeListener;
+import io.prestosql.execution.buffer.OutputBuffers.OutputBufferId;
 
 import java.util.List;
 

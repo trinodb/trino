@@ -13,16 +13,16 @@
  */
 package io.prestosql.execution.scheduler;
 
-import io.prestosql.OutputBuffers;
-import io.prestosql.OutputBuffers.OutputBufferId;
+import io.prestosql.execution.buffer.OutputBuffers;
+import io.prestosql.execution.buffer.OutputBuffers.OutputBufferId;
 
 import javax.annotation.concurrent.GuardedBy;
 
 import java.util.List;
 import java.util.function.Consumer;
 
-import static io.prestosql.OutputBuffers.BufferType.ARBITRARY;
-import static io.prestosql.OutputBuffers.createInitialEmptyOutputBuffers;
+import static io.prestosql.execution.buffer.OutputBuffers.BufferType.ARBITRARY;
+import static io.prestosql.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
 import static java.util.Objects.requireNonNull;
 
 public class ScaledOutputBufferManager

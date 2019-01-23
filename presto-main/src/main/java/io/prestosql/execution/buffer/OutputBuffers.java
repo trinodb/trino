@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql;
+package io.prestosql.execution.buffer;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -27,9 +27,9 @@ import java.util.Objects;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static io.prestosql.OutputBuffers.BufferType.ARBITRARY;
-import static io.prestosql.OutputBuffers.BufferType.BROADCAST;
-import static io.prestosql.OutputBuffers.BufferType.PARTITIONED;
+import static io.prestosql.execution.buffer.OutputBuffers.BufferType.ARBITRARY;
+import static io.prestosql.execution.buffer.OutputBuffers.BufferType.BROADCAST;
+import static io.prestosql.execution.buffer.OutputBuffers.BufferType.PARTITIONED;
 import static io.prestosql.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
 import static io.prestosql.sql.planner.SystemPartitioningHandle.FIXED_BROADCAST_DISTRIBUTION;
 import static java.lang.Integer.parseInt;

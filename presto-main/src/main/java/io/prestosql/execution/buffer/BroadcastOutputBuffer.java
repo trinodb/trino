@@ -19,10 +19,9 @@ import com.google.common.collect.Sets;
 import com.google.common.collect.Sets.SetView;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
-import io.prestosql.OutputBuffers;
-import io.prestosql.OutputBuffers.OutputBufferId;
 import io.prestosql.execution.StateMachine;
 import io.prestosql.execution.StateMachine.StateChangeListener;
+import io.prestosql.execution.buffer.OutputBuffers.OutputBufferId;
 import io.prestosql.memory.context.LocalMemoryContext;
 
 import javax.annotation.concurrent.GuardedBy;
@@ -40,13 +39,13 @@ import java.util.function.Supplier;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.prestosql.OutputBuffers.BufferType.BROADCAST;
 import static io.prestosql.execution.buffer.BufferState.FAILED;
 import static io.prestosql.execution.buffer.BufferState.FINISHED;
 import static io.prestosql.execution.buffer.BufferState.FLUSHING;
 import static io.prestosql.execution.buffer.BufferState.NO_MORE_BUFFERS;
 import static io.prestosql.execution.buffer.BufferState.NO_MORE_PAGES;
 import static io.prestosql.execution.buffer.BufferState.OPEN;
+import static io.prestosql.execution.buffer.OutputBuffers.BufferType.BROADCAST;
 import static java.util.Objects.requireNonNull;
 
 public class BroadcastOutputBuffer
