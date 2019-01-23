@@ -17,6 +17,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableSet;
 import io.prestosql.execution.Lifespan;
+import io.prestosql.execution.ScheduledSplit;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 
 import java.util.Set;
