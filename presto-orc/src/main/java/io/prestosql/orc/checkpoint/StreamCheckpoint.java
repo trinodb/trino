@@ -13,6 +13,7 @@
  */
 package io.prestosql.orc.checkpoint;
 
+@SuppressWarnings("MarkerInterface")
 public interface StreamCheckpoint
 {
 }

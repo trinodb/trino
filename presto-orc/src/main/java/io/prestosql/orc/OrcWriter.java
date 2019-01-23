@@ -16,7 +16,7 @@ package io.prestosql.orc;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.log.Logger;
+import com.google.common.primitives.UnsignedBytes;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.prestosql.orc.OrcWriteValidation.OrcWriteValidationBuilder;
@@ -58,6 +58,7 @@ import java.util.stream.Collectors;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.orc.OrcReader.validateFile;
 import static io.prestosql.orc.OrcWriterStats.FlushReason.CLOSED;
@@ -73,11 +74,10 @@ import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
-public class OrcWriter
+public final class OrcWriter
         implements Closeable
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(OrcWriter.class).instanceSize();
-    private static final Logger log = Logger.get(OrcWriter.class);
 
     static final String PRESTO_ORC_WRITER_VERSION_METADATA_KEY = "presto.writer.version";
     static final String PRESTO_ORC_WRITER_VERSION;
@@ -116,7 +116,7 @@ public class OrcWriter
     private boolean closed;
 
     @Nullable
-    private final OrcWriteValidation.OrcWriteValidationBuilder validationBuilder;
+    private final OrcWriteValidationBuilder validationBuilder;
 
     public OrcWriter(
             OrcDataSink orcDataSink,
@@ -131,7 +131,8 @@ public class OrcWriter
             OrcWriteValidationMode validationMode,
             OrcWriterStats stats)
     {
-        this.validationBuilder = validate ? new OrcWriteValidation.OrcWriteValidationBuilder(validationMode, types).setStringStatisticsLimitInBytes(toIntExact(options.getMaxStringStatisticsLimit().toBytes())) : null;
+        this.validationBuilder = validate ? new OrcWriteValidationBuilder(validationMode, types)
+                .setStringStatisticsLimitInBytes(toIntExact(options.getMaxStringStatisticsLimit().toBytes())) : null;
 
         this.orcDataSink = requireNonNull(orcDataSink, "orcDataSink is null");
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
@@ -477,7 +478,7 @@ public class OrcWriter
                 rowGroupMaxRowCount,
                 closedStripes.stream()
                         .map(ClosedStripe::getStripeInformation)
-                        .collect(toList()),
+                        .collect(toImmutableList()),
                 orcTypes,
                 fileStats,
                 userMetadata);
@@ -491,7 +492,7 @@ public class OrcWriter
         recordValidation(validation -> validation.setVersion(metadataWriter.getOrcMetadataVersion()));
         Slice postscriptSlice = metadataWriter.writePostscript(footerSlice.length(), metadataSlice.length(), compression, maxCompressionBufferSize);
         outputData.add(createDataOutput(postscriptSlice));
-        outputData.add(createDataOutput(Slices.wrappedBuffer((byte) postscriptSlice.length())));
+        outputData.add(createDataOutput(Slices.wrappedBuffer(UnsignedBytes.checkedCast(postscriptSlice.length()))));
         return outputData;
     }
 
@@ -518,7 +519,7 @@ public class OrcWriter
     private static <T> List<T> toDenseList(Map<Integer, T> data, int expectedSize)
     {
         checkArgument(data.size() == expectedSize);
-        ArrayList<T> list = new ArrayList<>(expectedSize);
+        List<T> list = new ArrayList<>(expectedSize);
         for (int i = 0; i < expectedSize; i++) {
             list.add(data.get(i));
         }

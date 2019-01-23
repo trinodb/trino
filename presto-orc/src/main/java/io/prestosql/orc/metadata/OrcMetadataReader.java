@@ -45,7 +45,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.SliceUtf8.lengthOfCodePoint;
 import static io.airlift.slice.SliceUtf8.tryGetCodePointAt;
@@ -217,9 +217,10 @@ public class OrcMetadataReader
         ImmutableList.Builder<Integer> positions = ImmutableList.builder();
         for (int index = 0; index < positionsList.size(); index++) {
             long longPosition = positionsList.get(index);
-            int intPosition = (int) longPosition;
 
-            checkState(intPosition == longPosition, "Expected checkpoint position %s, to be an integer", index);
+            @SuppressWarnings("NumericCastThatLosesPrecision")
+            int intPosition = (int) longPosition;
+            checkArgument(intPosition == longPosition, "Expected checkpoint position [%s] value [%s] to be an integer", index, longPosition);
 
             positions.add(intPosition);
         }
