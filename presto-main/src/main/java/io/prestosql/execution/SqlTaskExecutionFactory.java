@@ -15,7 +15,6 @@ package io.prestosql.execution;
 
 import io.airlift.concurrent.SetThreadName;
 import io.prestosql.Session;
-import io.prestosql.TaskSource;
 import io.prestosql.event.SplitMonitor;
 import io.prestosql.execution.buffer.OutputBuffer;
 import io.prestosql.execution.executor.TaskExecutor;

@@ -24,7 +24,6 @@ import io.airlift.stats.CounterStat;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.prestosql.Session;
-import io.prestosql.TaskSource;
 import io.prestosql.execution.StateMachine.StateChangeListener;
 import io.prestosql.execution.buffer.BufferResult;
 import io.prestosql.execution.buffer.LazyOutputBuffer;

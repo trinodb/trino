@@ -23,7 +23,6 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.concurrent.SetThreadName;
 import io.airlift.units.Duration;
-import io.prestosql.TaskSource;
 import io.prestosql.event.SplitMonitor;
 import io.prestosql.execution.StateMachine.StateChangeListener;
 import io.prestosql.execution.buffer.BufferState;
