@@ -104,10 +104,10 @@ public class TestQueryRunner
                         null,
                         new Duration(2, MINUTES)));
         try (Query query = queryRunner.startQuery("first query will introduce a cookie")) {
-            query.renderOutput(new PrintStream(nullOutputStream()), CSV, false);
+            query.renderOutput(nullPrintStream(), nullPrintStream(), CSV, false, false);
         }
         try (Query query = queryRunner.startQuery("second query should carry the cookie")) {
-            query.renderOutput(new PrintStream(nullOutputStream()), CSV, false);
+            query.renderOutput(nullPrintStream(), nullPrintStream(), CSV, false, false);
         }
         assertEquals(server.takeRequest().getHeader("Cookie"), null);
         assertEquals(server.takeRequest().getHeader("Cookie"), "a=apple");
@@ -152,5 +152,10 @@ public class TestQueryRunner
                 Optional.empty(),
                 Optional.empty(),
                 false);
+    }
+
+    private static PrintStream nullPrintStream()
+    {
+        return new PrintStream(nullOutputStream());
     }
 }

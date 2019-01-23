@@ -20,7 +20,7 @@ import java.io.PrintStream;
 import static java.util.Objects.requireNonNull;
 import static org.fusesource.jansi.Ansi.Erase;
 import static org.fusesource.jansi.Ansi.ansi;
-import static org.fusesource.jansi.internal.CLibrary.STDOUT_FILENO;
+import static org.fusesource.jansi.internal.CLibrary.STDERR_FILENO;
 import static org.fusesource.jansi.internal.CLibrary.isatty;
 
 public class ConsolePrinter
@@ -108,8 +108,8 @@ public class ConsolePrinter
 
         // We must be on some unix variant..
         try {
-            // check if standard out is a terminal
-            if (isatty(STDOUT_FILENO) == 0) {
+            // check if standard error is a terminal
+            if (isatty(STDERR_FILENO) == 0) {
                 return false;
             }
         }
