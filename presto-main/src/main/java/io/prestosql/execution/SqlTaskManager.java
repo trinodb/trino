@@ -27,7 +27,6 @@ import io.airlift.stats.GcMonitor;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.prestosql.Session;
-import io.prestosql.TaskSource;
 import io.prestosql.event.SplitMonitor;
 import io.prestosql.execution.StateMachine.StateChangeListener;
 import io.prestosql.execution.buffer.BufferResult;
