@@ -24,7 +24,6 @@ import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.stats.TestingGcMonitor;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-import io.prestosql.ScheduledSplit;
 import io.prestosql.TaskSource;
 import io.prestosql.block.BlockEncodingManager;
 import io.prestosql.connector.ConnectorId;

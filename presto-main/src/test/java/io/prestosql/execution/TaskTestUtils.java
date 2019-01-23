@@ -16,7 +16,6 @@ package io.prestosql.execution;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.ObjectMapperProvider;
-import io.prestosql.ScheduledSplit;
 import io.prestosql.TaskSource;
 import io.prestosql.block.BlockEncodingManager;
 import io.prestosql.connector.ConnectorId;
