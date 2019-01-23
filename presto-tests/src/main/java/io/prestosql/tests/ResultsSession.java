@@ -15,7 +15,9 @@ package io.prestosql.tests;
 
 import io.prestosql.client.QueryData;
 import io.prestosql.client.QueryStatusInfo;
+import io.prestosql.client.Warning;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -30,6 +32,8 @@ public interface ResultsSession<T>
     {
         throw new UnsupportedOperationException();
     }
+
+    default void setWarnings(List<Warning> warnings) {}
 
     void addResults(QueryStatusInfo statusInfo, QueryData data);
 

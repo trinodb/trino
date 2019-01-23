@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slices;
 import io.prestosql.Session;
+import io.prestosql.client.Warning;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.PageBuilder;
 import io.prestosql.spi.block.Block;
@@ -96,10 +97,11 @@ public class MaterializedResult
     private final Set<String> resetSessionProperties;
     private final Optional<String> updateType;
     private final OptionalLong updateCount;
+    private final List<Warning> warnings;
 
     public MaterializedResult(List<MaterializedRow> rows, List<? extends Type> types)
     {
-        this(rows, types, ImmutableMap.of(), ImmutableSet.of(), Optional.empty(), OptionalLong.empty());
+        this(rows, types, ImmutableMap.of(), ImmutableSet.of(), Optional.empty(), OptionalLong.empty(), ImmutableList.of());
     }
 
     public MaterializedResult(
@@ -108,7 +110,8 @@ public class MaterializedResult
             Map<String, String> setSessionProperties,
             Set<String> resetSessionProperties,
             Optional<String> updateType,
-            OptionalLong updateCount)
+            OptionalLong updateCount,
+            List<Warning> warnings)
     {
         this.rows = ImmutableList.copyOf(requireNonNull(rows, "rows is null"));
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
@@ -116,6 +119,7 @@ public class MaterializedResult
         this.resetSessionProperties = ImmutableSet.copyOf(requireNonNull(resetSessionProperties, "resetSessionProperties is null"));
         this.updateType = requireNonNull(updateType, "updateType is null");
         this.updateCount = requireNonNull(updateCount, "updateCount is null");
+        this.warnings = requireNonNull(warnings, "warnings is null");
     }
 
     public int getRowCount()
@@ -157,6 +161,11 @@ public class MaterializedResult
     public OptionalLong getUpdateCount()
     {
         return updateCount;
+    }
+
+    public List<Warning> getWarnings()
+    {
+        return warnings;
     }
 
     @Override
@@ -348,7 +357,8 @@ public class MaterializedResult
                 setSessionProperties,
                 resetSessionProperties,
                 updateType,
-                updateCount);
+                updateCount,
+                warnings);
     }
 
     private static MaterializedRow convertToTestTypes(MaterializedRow prestoRow)
