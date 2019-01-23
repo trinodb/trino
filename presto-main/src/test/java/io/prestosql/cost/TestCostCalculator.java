@@ -24,6 +24,7 @@ import io.prestosql.execution.QueryManagerConfig;
 import io.prestosql.execution.scheduler.LegacyNetworkTopology;
 import io.prestosql.execution.scheduler.NodeScheduler;
 import io.prestosql.execution.scheduler.NodeSchedulerConfig;
+import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.metadata.CatalogManager;
 import io.prestosql.metadata.InMemoryNodeManager;
 import io.prestosql.metadata.MetadataManager;
@@ -811,7 +812,7 @@ public class TestCostCalculator
 
     private SubPlan fragment(Plan plan)
     {
-        return inTransaction(session -> planFragmenter.createSubPlans(session, plan, false));
+        return inTransaction(session -> planFragmenter.createSubPlans(session, plan, false, WarningCollector.NOOP));
     }
 
     private <T> T inTransaction(Function<Session, T> transactionSessionConsumer)

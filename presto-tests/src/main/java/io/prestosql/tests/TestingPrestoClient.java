@@ -20,6 +20,7 @@ import io.prestosql.client.IntervalDayTime;
 import io.prestosql.client.IntervalYearMonth;
 import io.prestosql.client.QueryData;
 import io.prestosql.client.QueryStatusInfo;
+import io.prestosql.client.Warning;
 import io.prestosql.server.testing.TestingPrestoServer;
 import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.DecimalType;
@@ -102,6 +103,7 @@ public class TestingPrestoClient
 
         private final AtomicReference<Optional<String>> updateType = new AtomicReference<>(Optional.empty());
         private final AtomicReference<OptionalLong> updateCount = new AtomicReference<>(OptionalLong.empty());
+        private final AtomicReference<List<Warning>> warnings = new AtomicReference<>(ImmutableList.of());
 
         @Override
         public void setUpdateType(String type)
@@ -113,6 +115,12 @@ public class TestingPrestoClient
         public void setUpdateCount(long count)
         {
             updateCount.set(OptionalLong.of(count));
+        }
+
+        @Override
+        public void setWarnings(List<Warning> warnings)
+        {
+            this.warnings.set(warnings);
         }
 
         @Override
@@ -138,7 +146,8 @@ public class TestingPrestoClient
                     setSessionProperties,
                     resetSessionProperties,
                     updateType.get(),
-                    updateCount.get());
+                    updateCount.get(),
+                    warnings.get());
         }
     }
 

@@ -20,10 +20,12 @@ import io.prestosql.Session;
 import io.prestosql.SystemSessionProperties;
 import io.prestosql.cost.StatsAndCosts;
 import io.prestosql.execution.QueryManagerConfig;
+import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.TableHandle;
 import io.prestosql.metadata.TableLayout.TablePartitioning;
 import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.PrestoWarning;
 import io.prestosql.spi.connector.ConnectorPartitionHandle;
 import io.prestosql.spi.connector.ConnectorPartitioningHandle;
 import io.prestosql.spi.type.Type;
@@ -67,6 +69,7 @@ import static io.prestosql.SystemSessionProperties.isForceSingleNodeOutput;
 import static io.prestosql.operator.StageExecutionDescriptor.ungroupedExecution;
 import static io.prestosql.spi.StandardErrorCode.QUERY_HAS_TOO_MANY_STAGES;
 import static io.prestosql.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
+import static io.prestosql.spi.connector.StandardWarningCode.TOO_MANY_STAGES;
 import static io.prestosql.sql.planner.SchedulingOrderVisitor.scheduleOrder;
 import static io.prestosql.sql.planner.SystemPartitioningHandle.COORDINATOR_DISTRIBUTION;
 import static io.prestosql.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
@@ -81,17 +84,23 @@ import static java.util.Objects.requireNonNull;
  */
 public class PlanFragmenter
 {
+    private static final String TOO_MANY_STAGES_MESSAGE = "" +
+            "If the query contains multiple aggregates with DISTINCT over different columns, please set the 'use_mark_distinct' session property to false. " +
+            "If the query contains WITH clauses that are referenced more than once, please create temporary table(s) for the queries in those clauses.";
+
     private final Metadata metadata;
     private final NodePartitioningManager nodePartitioningManager;
+    private final QueryManagerConfig config;
 
     @Inject
     public PlanFragmenter(Metadata metadata, NodePartitioningManager nodePartitioningManager, QueryManagerConfig queryManagerConfig)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.nodePartitioningManager = requireNonNull(nodePartitioningManager, "nodePartitioningManager is null");
+        this.config = requireNonNull(queryManagerConfig, "queryManagerConfig is null");
     }
 
-    public SubPlan createSubPlans(Session session, Plan plan, boolean forceSingleNode)
+    public SubPlan createSubPlans(Session session, Plan plan, boolean forceSingleNode, WarningCollector warningCollector)
     {
         Fragmenter fragmenter = new Fragmenter(session, metadata, plan.getTypes(), plan.getStatsAndCosts());
 
@@ -108,21 +117,26 @@ public class PlanFragmenter
         checkState(!isForceSingleNodeOutput(session) || subPlan.getFragment().getPartitioning().isSingleNode(), "Root of PlanFragment is not single node");
 
         // TODO: Remove query_max_stage_count session property and use queryManagerConfig.getMaxStageCount() here
-        sanityCheckFragmentedPlan(subPlan, getQueryMaxStageCount(session));
+        sanityCheckFragmentedPlan(subPlan, warningCollector, getQueryMaxStageCount(session), config.getStageCountWarningThreshold());
 
         return subPlan;
     }
 
-    private void sanityCheckFragmentedPlan(SubPlan subPlan, int maxStageCount)
+    private void sanityCheckFragmentedPlan(SubPlan subPlan, WarningCollector warningCollector, int maxStageCount, int stageCountSoftLimit)
     {
         subPlan.sanityCheck();
         int fragmentCount = subPlan.getAllFragments().size();
         if (fragmentCount > maxStageCount) {
             throw new PrestoException(QUERY_HAS_TOO_MANY_STAGES, format(
-                    "Number of stages in the query (%s) exceeds the allowed maximum (%s). " +
-                            "If the query contains multiple DISTINCTs, please set the use_mark_distinct session property to false. " +
-                            "If the query contains multiple CTEs that are referenced more than once, please create temporary table(s) for one or more of the CTEs.",
-                    fragmentCount, maxStageCount));
+                    "Number of stages in the query (%s) exceeds the allowed maximum (%s). " + TOO_MANY_STAGES_MESSAGE,
+                    fragmentCount,
+                    maxStageCount));
+        }
+        if (fragmentCount > stageCountSoftLimit) {
+            warningCollector.add(new PrestoWarning(TOO_MANY_STAGES, format(
+                    "Number of stages in the query (%s) exceeds the soft limit (%s). " + TOO_MANY_STAGES_MESSAGE,
+                    fragmentCount,
+                    stageCountSoftLimit)));
         }
     }
 
