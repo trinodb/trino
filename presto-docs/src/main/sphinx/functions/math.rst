@@ -89,6 +89,10 @@ Mathematical Functions
 
     Returns the natural logarithm of ``x``.
 
+.. function:: log(b, x) -> double
+
+    Returns the base ``b`` logarithm of ``x``.
+
 .. function:: log2(x) -> double
 
     Returns the base 2 logarithm of ``x``.
