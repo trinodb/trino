@@ -102,6 +102,7 @@ import io.prestosql.util.FastutilSetHelper;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
@@ -118,6 +119,7 @@ import static com.google.common.base.Predicates.instanceOf;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.prestosql.SystemSessionProperties.isLegacyRowFieldOrdinalAccessEnabled;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -128,6 +130,7 @@ import static io.prestosql.sql.analyzer.ConstantExpressionVerifier.verifyExpress
 import static io.prestosql.sql.analyzer.ExpressionAnalyzer.createConstantAnalyzer;
 import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.prestosql.sql.gen.VarArgsToMapAdapterGenerator.generateVarArgsToMapAdapter;
+import static io.prestosql.sql.planner.DeterminismEvaluator.isDeterministic;
 import static io.prestosql.sql.planner.iterative.rule.CanonicalizeExpressionRewriter.canonicalizeExpression;
 import static io.prestosql.type.LikeFunctions.isLikePattern;
 import static io.prestosql.type.LikeFunctions.unescapeLiteralLikePattern;
@@ -551,13 +554,26 @@ public class ExpressionInterpreter
             if ((!values.isEmpty() && !(values.get(0) instanceof Expression)) || values.size() == 1) {
                 return values.get(0);
             }
-
-            List<Expression> expressions = values.stream()
-                    .map(value -> toExpression(value, type))
-                    .collect(Collectors.toList());
+            ImmutableList.Builder<Expression> operandsBuilder = ImmutableList.builder();
+            Set<Expression> visitedExpression = new HashSet<>();
+            for (Object value : values) {
+                Expression expression = toExpression(value, type);
+                if (!isDeterministic(expression) || visitedExpression.add(expression)) {
+                    operandsBuilder.add(expression);
+                }
+                // TODO: Replace this logic with an anlyzer which specifies whether it evaluates to null
+                if (expression instanceof Literal && !(expression instanceof NullLiteral)) {
+                    break;
+                }
+            }
+            List<Expression> expressions = operandsBuilder.build();
 
             if (expressions.isEmpty()) {
                 return null;
+            }
+
+            if (expressions.size() == 1) {
+                return getOnlyElement(expressions);
             }
             return new CoalesceExpression(expressions);
         }
@@ -642,7 +658,7 @@ public class ExpressionInterpreter
                                 .filter(DeterminismEvaluator::isDeterministic)
                                 .distinct(),
                         expressionValues.stream()
-                                .filter((expression -> !DeterminismEvaluator.isDeterministic(expression))))
+                                .filter((expression -> !isDeterministic(expression))))
                         .collect(toImmutableList());
                 return new InPredicate(toExpression(value, type), new InListExpression(simplifiedExpressionValues));
             }
