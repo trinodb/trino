@@ -22,7 +22,6 @@ import org.apache.zookeeper.server.persistence.FileTxnSnapLog;
 import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
-import java.net.InetSocketAddress;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
@@ -31,7 +30,6 @@ import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 public class EmbeddedZookeeper
         implements Closeable
 {
-    private final int port;
     private final File zkDataDir;
     private final ZooKeeperServer zkServer;
     private final ServerCnxnFactory cnxnFactory;
@@ -42,14 +40,13 @@ public class EmbeddedZookeeper
     public EmbeddedZookeeper()
             throws IOException
     {
-        this.port = TestUtils.findUnusedPort();
         zkDataDir = Files.createTempDir();
         zkServer = new ZooKeeperServer();
 
         FileTxnSnapLog ftxn = new FileTxnSnapLog(zkDataDir, zkDataDir);
         zkServer.setTxnLogFactory(ftxn);
 
-        cnxnFactory = NIOServerCnxnFactory.createFactory(new InetSocketAddress(port), 0);
+        cnxnFactory = NIOServerCnxnFactory.createFactory(0, 0);
     }
 
     public void start()
@@ -83,6 +80,6 @@ public class EmbeddedZookeeper
 
     public String getConnectString()
     {
-        return "127.0.0.1:" + port;
+        return "127.0.0.1:" + cnxnFactory.getLocalPort();
     }
 }
