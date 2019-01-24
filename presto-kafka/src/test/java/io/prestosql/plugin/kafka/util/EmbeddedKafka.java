@@ -155,19 +155,9 @@ public class EmbeddedKafka
         }
     }
 
-    public int getZookeeperPort()
-    {
-        return zookeeper.getPort();
-    }
-
-    public int getPort()
-    {
-        return port;
-    }
-
     public String getConnectString()
     {
-        return "localhost:" + Integer.toString(port);
+        return "localhost:" + port;
     }
 
     public String getZookeeperConnectString()

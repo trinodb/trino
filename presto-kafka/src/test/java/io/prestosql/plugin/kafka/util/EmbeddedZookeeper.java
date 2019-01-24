@@ -42,13 +42,7 @@ public class EmbeddedZookeeper
     public EmbeddedZookeeper()
             throws IOException
     {
-        this(TestUtils.findUnusedPort());
-    }
-
-    public EmbeddedZookeeper(int port)
-            throws IOException
-    {
-        this.port = port;
+        this.port = TestUtils.findUnusedPort();
         zkDataDir = Files.createTempDir();
         zkServer = new ZooKeeperServer();
 
@@ -89,11 +83,6 @@ public class EmbeddedZookeeper
 
     public String getConnectString()
     {
-        return "127.0.0.1:" + Integer.toString(port);
-    }
-
-    public int getPort()
-    {
-        return port;
+        return "127.0.0.1:" + port;
     }
 }
