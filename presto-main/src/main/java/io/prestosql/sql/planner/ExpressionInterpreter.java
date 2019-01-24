@@ -549,6 +549,12 @@ public class ExpressionInterpreter
             List<Object> values = node.getOperands().stream()
                     .map(value -> processWithExceptionHandling(value, context))
                     .filter(Objects::nonNull)
+                    .flatMap(expression -> {
+                        if (expression instanceof CoalesceExpression) {
+                            return ((CoalesceExpression) expression).getOperands().stream();
+                        }
+                        return Stream.of(expression);
+                    })
                     .collect(Collectors.toList());
 
             if ((!values.isEmpty() && !(values.get(0) instanceof Expression)) || values.size() == 1) {
