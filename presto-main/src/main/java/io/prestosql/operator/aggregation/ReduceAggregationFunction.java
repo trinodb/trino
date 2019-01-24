@@ -24,6 +24,7 @@ import io.prestosql.operator.aggregation.state.NullableBooleanState;
 import io.prestosql.operator.aggregation.state.NullableDoubleState;
 import io.prestosql.operator.aggregation.state.NullableLongState;
 import io.prestosql.operator.aggregation.state.StateCompiler;
+import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeManager;
@@ -36,8 +37,10 @@ import static io.prestosql.metadata.Signature.typeVariable;
 import static io.prestosql.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.INPUT_CHANNEL;
 import static io.prestosql.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
 import static io.prestosql.operator.aggregation.AggregationUtils.generateAggregationName;
+import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static io.prestosql.util.Reflection.methodHandle;
+import static java.lang.String.format;
 
 public class ReduceAggregationFunction
         extends SqlAggregationFunction
@@ -124,7 +127,7 @@ public class ReduceAggregationFunction
             // State with Slice or Block as native container type is intentionally not supported yet,
             // as it may result in excessive JVM memory usage of remembered set.
             // See JDK-8017163.
-            throw new UnsupportedOperationException();
+            throw new PrestoException(NOT_SUPPORTED, format("State type not supported for %s: %s", NAME, stateType.getDisplayName()));
         }
 
         AggregationMetadata metadata = new AggregationMetadata(
