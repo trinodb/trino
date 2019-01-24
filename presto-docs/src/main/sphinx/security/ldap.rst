@@ -176,6 +176,34 @@ Property                                                Description
 Based on the LDAP server implementation type, the property
 ``ldap.group-auth-pattern`` can be used as described below.
 
+Authorization using Presto LDAP service user
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Presto server can use dedicated LDAP service user for doing user group membership queries.
+In such case Presto will first issue a group membership query for a Presto user that needs
+to be authenticated. A user distinguished name will be extracted from a group membership
+query result. Presto will then validate user password by creating LDAP context with
+user distinguished name and user password. In order to use this mechanism ``ldap.bind-dn``,
+``ldap.bind-password`` and ``ldap.group-auth-pattern`` properties need to be defined.
+
+======================================================= ======================================================
+Property                                                Description
+======================================================= ======================================================
+``ldap.bind-dn``                                        Bind distinguished name used by Presto when issuing
+                                                        group membership queries.
+                                                        Example: ``CN=admin,OU=CITY_OU,OU=STATE_OU,DC=domain``
+``ldap.bind-password``                                  Bind password used by Presto when issuing group
+                                                        membership queries.
+                                                        Example: ``password1234``
+``ldap.group-auth-pattern``                             This property is used to specify the LDAP query for
+                                                        the LDAP group membership authorization. This query
+                                                        will be executed against the LDAP server and if
+                                                        successful, a user distinguished name will be
+                                                        extracted from a query result. Presto will then
+                                                        validate user password by creating LDAP context with
+                                                        user distinguished name and user password.
+======================================================= ======================================================
+
 Active Directory
 ****************
 
