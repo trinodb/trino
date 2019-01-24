@@ -17,8 +17,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import io.prestosql.PagesIndexPageSorter;
-import io.prestosql.block.BlockEncodingManager;
 import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.metadata.Metadata;
+import io.prestosql.metadata.Signature;
 import io.prestosql.operator.PagesIndex;
 import io.prestosql.plugin.hive.authentication.NoHdfsAuthentication;
 import io.prestosql.plugin.hive.orc.DwrfPageSourceFactory;
@@ -28,6 +29,7 @@ import io.prestosql.plugin.hive.rcfile.RcFilePageSourceFactory;
 import io.prestosql.plugin.hive.s3.HiveS3Config;
 import io.prestosql.plugin.hive.s3.PrestoS3ConfigurationUpdater;
 import io.prestosql.spi.PageSorter;
+import io.prestosql.spi.block.Block;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.type.ArrayType;
@@ -36,15 +38,17 @@ import io.prestosql.spi.type.NamedTypeSignature;
 import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeManager;
 import io.prestosql.spi.type.TypeSignatureParameter;
-import io.prestosql.sql.analyzer.FeaturesConfig;
 import io.prestosql.testing.TestingConnectorSession;
-import io.prestosql.type.TypeRegistry;
 
+import java.lang.invoke.MethodHandle;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Set;
 
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
+import static io.prestosql.spi.function.OperatorType.IS_DISTINCT_FROM;
 import static io.prestosql.spi.type.Decimals.encodeScaledValue;
 import static java.util.stream.Collectors.toList;
 
@@ -57,12 +61,9 @@ public final class HiveTestUtils
     public static final ConnectorSession SESSION = new TestingConnectorSession(
             new HiveSessionProperties(new HiveClientConfig(), new OrcFileWriterConfig(), new ParquetFileWriterConfig()).getSessionProperties());
 
-    public static final TypeRegistry TYPE_MANAGER = new TypeRegistry();
-
-    static {
-        // associate TYPE_MANAGER with a function registry
-        new FunctionRegistry(TYPE_MANAGER, new BlockEncodingManager(TYPE_MANAGER), new FeaturesConfig());
-    }
+    private static final Metadata METADATA = createTestMetadataManager();
+    private static final FunctionRegistry FUNCTION_REGISTRY = METADATA.getFunctionRegistry();
+    public static final TypeManager TYPE_MANAGER = METADATA.getTypeManager();
 
     public static final HdfsEnvironment HDFS_ENVIRONMENT = createTestHdfsEnvironment(new HiveClientConfig());
 
@@ -155,5 +156,21 @@ public final class HiveTestUtils
     public static Slice longDecimal(String value)
     {
         return encodeScaledValue(new BigDecimal(value));
+    }
+
+    public static MethodHandle distinctFromOperator(Type type)
+    {
+        Signature signature = FUNCTION_REGISTRY.resolveOperator(IS_DISTINCT_FROM, ImmutableList.of(type, type));
+        return FUNCTION_REGISTRY.getScalarFunctionImplementation(signature).getMethodHandle();
+    }
+
+    public static boolean isDistinctFrom(MethodHandle handle, Block left, Block right)
+    {
+        try {
+            return (boolean) handle.invokeExact(left, left == null, right, right == null);
+        }
+        catch (Throwable t) {
+            throw new AssertionError(t);
+        }
     }
 }

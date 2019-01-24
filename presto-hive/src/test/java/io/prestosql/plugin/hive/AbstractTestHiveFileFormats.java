@@ -16,18 +16,13 @@ package io.prestosql.plugin.hive;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
-import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
-import io.prestosql.block.BlockEncodingManager;
-import io.prestosql.block.BlockSerdeUtil;
 import io.prestosql.plugin.hive.metastore.StorageFormat;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.PageBuilder;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.block.BlockEncodingSerde;
 import io.prestosql.spi.connector.ConnectorPageSource;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.RecordCursor;
@@ -46,7 +41,6 @@ import io.prestosql.spi.type.Type;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.MaterializedRow;
 import io.prestosql.tests.StructuralTestUtil;
-import io.prestosql.type.TypeRegistry;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.common.type.HiveChar;
@@ -73,6 +67,7 @@ import org.testng.annotations.Test;
 
 import java.io.File;
 import java.io.IOException;
+import java.lang.invoke.MethodHandle;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.sql.Date;
@@ -89,6 +84,8 @@ import java.util.concurrent.TimeUnit;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.base.Strings.padEnd;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterables.filter;
 import static com.google.common.collect.Iterables.transform;
 import static io.prestosql.plugin.hive.HdfsConfigurationUpdater.configureCompression;
@@ -97,6 +94,7 @@ import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.prestosql.plugin.hive.HivePartitionKey.HIVE_DEFAULT_DYNAMIC_PARTITION;
 import static io.prestosql.plugin.hive.HiveTestUtils.SESSION;
 import static io.prestosql.plugin.hive.HiveTestUtils.TYPE_MANAGER;
+import static io.prestosql.plugin.hive.HiveTestUtils.isDistinctFrom;
 import static io.prestosql.plugin.hive.HiveTestUtils.mapType;
 import static io.prestosql.plugin.hive.HiveUtil.isStructuralType;
 import static io.prestosql.plugin.hive.util.SerDeUtils.serializeObject;
@@ -124,6 +122,7 @@ import static java.lang.Float.intBitsToFloat;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Arrays.fill;
 import static java.util.Objects.requireNonNull;
+import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.getStandardListObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.getStandardMapObjectInspector;
@@ -464,8 +463,6 @@ public abstract class AbstractTestHiveFileFormats
             .add(new TestColumn("t_array_string_all_nulls", getStandardListObjectInspector(javaStringObjectInspector), Arrays.asList(null, null, null), arrayBlockOf(createUnboundedVarcharType(), null, null, null)))
             .build();
 
-    private final BlockEncodingSerde blockEncodingSerde = new BlockEncodingManager(new TypeRegistry());
-
     private static <K, V> Map<K, V> asMap(K[] keys, V[] values)
     {
         checkArgument(keys.length == values.length, "array lengths don't match");
@@ -671,12 +668,20 @@ public abstract class AbstractTestHiveFileFormats
 
     protected void checkCursor(RecordCursor cursor, List<TestColumn> testColumns, int rowCount)
     {
+        List<Type> types = testColumns.stream()
+                .map(column -> column.getObjectInspector().getTypeName())
+                .map(type -> HiveType.valueOf(type).getType(TYPE_MANAGER))
+                .collect(toImmutableList());
+
+        Map<Type, MethodHandle> distinctFromOperators = types.stream().distinct()
+                .collect(toImmutableMap(identity(), HiveTestUtils::distinctFromOperator));
+
         for (int row = 0; row < rowCount; row++) {
             assertTrue(cursor.advanceNextPosition());
             for (int i = 0, testColumnsSize = testColumns.size(); i < testColumnsSize; i++) {
                 TestColumn testColumn = testColumns.get(i);
 
-                Type type = HiveType.valueOf(testColumn.getObjectInspector().getTypeName()).getType(TYPE_MANAGER);
+                Type type = types.get(i);
                 Object fieldFromCursor = getFieldFromCursor(cursor, type, i);
                 if (fieldFromCursor == null) {
                     assertEquals(null, testColumn.getExpectedValue(), String.format("Expected null for column %s", testColumn.getName()));
@@ -707,7 +712,8 @@ public abstract class AbstractTestHiveFileFormats
                 else {
                     Block expected = (Block) testColumn.getExpectedValue();
                     Block actual = (Block) fieldFromCursor;
-                    assertBlockEquals(actual, expected, String.format("Wrong value for column %s", testColumn.getName()));
+                    boolean distinct = isDistinctFrom(distinctFromOperators.get(type), expected, actual);
+                    assertFalse(distinct, "Wrong value for column: " + testColumn.getName());
                 }
             }
         }
@@ -786,19 +792,6 @@ public abstract class AbstractTestHiveFileFormats
         finally {
             pageSource.close();
         }
-    }
-
-    private void assertBlockEquals(Block actual, Block expected, String message)
-    {
-        assertEquals(blockToSlice(actual), blockToSlice(expected), message);
-    }
-
-    private Slice blockToSlice(Block block)
-    {
-        // This function is strictly for testing use only
-        SliceOutput sliceOutput = new DynamicSliceOutput(1000);
-        BlockSerdeUtil.writeBlock(blockEncodingSerde, sliceOutput, block);
-        return sliceOutput.slice();
     }
 
     public static final class TestColumn
