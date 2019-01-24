@@ -21,11 +21,14 @@ import kafka.admin.RackAwareMode;
 import kafka.javaapi.producer.Producer;
 import kafka.producer.ProducerConfig;
 import kafka.server.KafkaConfig;
-import kafka.server.KafkaServerStartable;
+import kafka.server.KafkaServer;
 import kafka.utils.ZKStringSerializer$;
 import kafka.utils.ZkUtils;
 import org.I0Itec.zkclient.ZkClient;
 import org.I0Itec.zkclient.ZkConnection;
+import org.apache.kafka.common.utils.Time;
+import scala.Option;
+import scala.collection.immutable.List;
 
 import java.io.Closeable;
 import java.io.File;
@@ -47,7 +50,7 @@ public class EmbeddedKafka
     private final EmbeddedZookeeper zookeeper;
     private final int port;
     private final File kafkaDataDir;
-    private final KafkaServerStartable kafka;
+    private final KafkaServer kafkaServer;
 
     private final AtomicBoolean started = new AtomicBoolean();
     private final AtomicBoolean stopped = new AtomicBoolean();
@@ -90,7 +93,7 @@ public class EmbeddedKafka
                 .build();
 
         KafkaConfig config = new KafkaConfig(properties);
-        this.kafka = new KafkaServerStartable(config);
+        this.kafkaServer = new KafkaServer(config, Time.SYSTEM, Option.empty(), List.make(0, null));
     }
 
     public void start()
@@ -98,7 +101,7 @@ public class EmbeddedKafka
     {
         if (!started.getAndSet(true)) {
             zookeeper.start();
-            kafka.startup();
+            kafkaServer.startup();
         }
     }
 
@@ -107,8 +110,8 @@ public class EmbeddedKafka
             throws IOException
     {
         if (started.get() && !stopped.getAndSet(true)) {
-            kafka.shutdown();
-            kafka.awaitShutdown();
+            kafkaServer.shutdown();
+            kafkaServer.awaitShutdown();
             zookeeper.close();
             deleteRecursively(kafkaDataDir.toPath(), ALLOW_INSECURE);
         }
