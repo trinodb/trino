@@ -17,12 +17,15 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.common.io.Files;
 import kafka.admin.AdminUtils;
+import kafka.admin.RackAwareMode;
 import kafka.javaapi.producer.Producer;
 import kafka.producer.ProducerConfig;
 import kafka.server.KafkaConfig;
 import kafka.server.KafkaServerStartable;
 import kafka.utils.ZKStringSerializer$;
+import kafka.utils.ZkUtils;
 import org.I0Itec.zkclient.ZkClient;
+import org.I0Itec.zkclient.ZkConnection;
 
 import java.io.Closeable;
 import java.io.File;
@@ -86,7 +89,7 @@ public class EmbeddedKafka
                 .putAll(Maps.fromProperties(overrideProperties))
                 .build();
 
-        KafkaConfig config = new KafkaConfig(toProperties(properties));
+        KafkaConfig config = new KafkaConfig(properties);
         this.kafka = new KafkaServerStartable(config);
     }
 
@@ -120,10 +123,17 @@ public class EmbeddedKafka
     {
         checkState(started.get() && !stopped.get(), "not started!");
 
-        ZkClient zkClient = new ZkClient(getZookeeperConnectString(), 30_000, 30_000, ZKStringSerializer$.MODULE$);
+        ZkConnection zkConnection = new ZkConnection(getZookeeperConnectString(), 30_000);
+        ZkClient zkClient = new ZkClient(zkConnection, 30_000, ZKStringSerializer$.MODULE$);
         try {
             for (String topic : topics) {
-                AdminUtils.createTopic(zkClient, topic, partitions, replication, topicProperties);
+                AdminUtils.createTopic(
+                        new ZkUtils(zkClient, zkConnection, false),
+                        topic,
+                        partitions,
+                        replication,
+                        topicProperties,
+                        RackAwareMode.Disabled$.MODULE$);
             }
         }
         finally {
