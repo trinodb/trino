@@ -26,6 +26,8 @@ import kafka.utils.ZKStringSerializer$;
 import kafka.utils.ZkUtils;
 import org.I0Itec.zkclient.ZkClient;
 import org.I0Itec.zkclient.ZkConnection;
+import org.apache.kafka.common.network.ListenerName;
+import org.apache.kafka.common.protocol.SecurityProtocol;
 import org.apache.kafka.common.utils.Time;
 import scala.Option;
 import scala.collection.immutable.List;
@@ -40,7 +42,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
-import static io.prestosql.plugin.kafka.util.TestUtils.findUnusedPort;
 import static io.prestosql.plugin.kafka.util.TestUtils.toProperties;
 import static java.util.Objects.requireNonNull;
 
@@ -48,7 +49,6 @@ public class EmbeddedKafka
         implements Closeable
 {
     private final EmbeddedZookeeper zookeeper;
-    private final int port;
     private final File kafkaDataDir;
     private final KafkaServer kafkaServer;
 
@@ -68,12 +68,10 @@ public class EmbeddedKafka
     }
 
     EmbeddedKafka(EmbeddedZookeeper zookeeper, Properties overrideProperties)
-            throws IOException
     {
         this.zookeeper = requireNonNull(zookeeper, "zookeeper is null");
         requireNonNull(overrideProperties, "overrideProperties is null");
 
-        this.port = findUnusedPort();
         this.kafkaDataDir = Files.createTempDir();
 
         Map<String, String> properties = ImmutableMap.<String, String>builder()
@@ -86,7 +84,7 @@ public class EmbeddedKafka
                 .put("log.segment.bytes", "1048576")
                 .put("auto.create.topics.enable", "false")
                 .put("zookeeper.connection.timeout.ms", "1000000")
-                .put("port", Integer.toString(port))
+                .put("port", "0")
                 .put("log.dirs", kafkaDataDir.getAbsolutePath())
                 .put("zookeeper.connect", zookeeper.getConnectString())
                 .putAll(Maps.fromProperties(overrideProperties))
@@ -170,7 +168,7 @@ public class EmbeddedKafka
 
     public String getConnectString()
     {
-        return "localhost:" + port;
+        return "localhost:" + kafkaServer.boundPort(ListenerName.forSecurityProtocol(SecurityProtocol.PLAINTEXT));
     }
 
     public String getZookeeperConnectString()
