@@ -42,6 +42,7 @@ import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static io.prestosql.matching.Capture.newCapture;
 import static io.prestosql.spi.StandardErrorCode.OPTIMIZER_TIMEOUT;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -152,14 +153,16 @@ public class IterativeOptimizer
 
     private <T> Rule.Result transform(PlanNode node, Rule<T> rule, Matcher matcher, Context context)
     {
-        Iterator<Match<T>> matches = matcher.match(rule.getPattern(), node, context.lookup).iterator();
+        Capture<T> nodeCapture = newCapture();
+        Pattern<T> pattern = rule.getPattern().capturedAs(nodeCapture);
+        Iterator<Match> matches = matcher.match(pattern, node, context.lookup).iterator();
         while (matches.hasNext()) {
-            Match<T> match = matches.next();
+            Match match = matches.next();
             long duration;
             Rule.Result result;
             try {
                 long start = System.nanoTime();
-                result = rule.apply(match.value(), match.captures(), ruleContext(context));
+                result = rule.apply(match.capture(nodeCapture), match.captures(), ruleContext(context));
                 duration = System.nanoTime() - start;
             }
             catch (RuntimeException e) {
