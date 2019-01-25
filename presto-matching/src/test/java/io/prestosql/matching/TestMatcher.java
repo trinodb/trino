@@ -152,7 +152,7 @@ public class TestMatcher
         Capture<Void> impossible = newCapture();
         Pattern<Void> pattern = typeOf(Void.class).capturedAs(impossible);
 
-        Match<Void> match = DefaultMatcher.DEFAULT_MATCHER.match(pattern, 42);
+        Match<Void> match = DEFAULT_MATCHER.match(pattern, 42);
 
         assertTrue(match.isEmpty());
         Throwable throwable = expectThrows(NoSuchElementException.class, () -> match.capture(impossible));
@@ -165,7 +165,7 @@ public class TestMatcher
         Pattern<?> pattern = any();
         Capture<?> unknownCapture = newCapture();
 
-        Match<?> match = DefaultMatcher.DEFAULT_MATCHER.match(pattern, 42);
+        Match<?> match = DEFAULT_MATCHER.match(pattern, 42);
 
         Throwable throwable = expectThrows(NoSuchElementException.class, () -> match.capture(unknownCapture));
         assertTrue(throwable.getMessage().contains("unknown Capture"));
@@ -185,14 +185,14 @@ public class TestMatcher
 
     private <T, R> Match<R> assertMatch(Pattern<R> pattern, T matchedAgainst, R expectedMatch)
     {
-        Match<R> match = DefaultMatcher.DEFAULT_MATCHER.match(pattern, matchedAgainst);
+        Match<R> match = DEFAULT_MATCHER.match(pattern, matchedAgainst);
         assertEquals(expectedMatch, match.value());
         return match;
     }
 
     private <T> void assertNoMatch(Pattern<T> pattern, Object expectedNoMatch)
     {
-        Match<T> match = DefaultMatcher.DEFAULT_MATCHER.match(pattern, expectedNoMatch);
+        Match<T> match = DEFAULT_MATCHER.match(pattern, expectedNoMatch);
         assertEquals(Match.empty(), match);
     }
 }
