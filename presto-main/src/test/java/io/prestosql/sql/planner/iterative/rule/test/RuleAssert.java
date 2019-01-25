@@ -24,7 +24,9 @@ import io.prestosql.cost.StatsAndCosts;
 import io.prestosql.cost.StatsCalculator;
 import io.prestosql.cost.StatsProvider;
 import io.prestosql.execution.warnings.WarningCollector;
+import io.prestosql.matching.Capture;
 import io.prestosql.matching.Match;
+import io.prestosql.matching.Pattern;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.security.AccessControl;
 import io.prestosql.sql.planner.Plan;
@@ -34,7 +36,6 @@ import io.prestosql.sql.planner.TypeProvider;
 import io.prestosql.sql.planner.assertions.PlanMatchPattern;
 import io.prestosql.sql.planner.iterative.Lookup;
 import io.prestosql.sql.planner.iterative.Memo;
-import io.prestosql.sql.planner.iterative.PlanNodeMatcher;
 import io.prestosql.sql.planner.iterative.Rule;
 import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.PlanNodeId;
@@ -172,8 +173,8 @@ public class RuleAssert
 
     private static <T> RuleApplication applyRule(Rule<T> rule, PlanNode planNode, Rule.Context context)
     {
-        PlanNodeMatcher matcher = new PlanNodeMatcher(context.getLookup());
-        Optional<Match<T>> match = matcher.match(rule.getPattern(), planNode).collect(toOptional());
+        Matcher matcher = new DefaultMatcher();
+        Optional<Match<T>> match = matcher.match(rule.getPattern(), planNode, context.getLookup()).collect(toOptional());
 
         Rule.Result result;
         if (!rule.isEnabled(context.getSession()) || !match.isPresent()) {
