@@ -24,6 +24,7 @@ import io.prestosql.sql.planner.Partitioning;
 import io.prestosql.sql.planner.PartitioningScheme;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.iterative.Rule;
+import io.prestosql.sql.planner.iterative.TraitSet;
 import io.prestosql.sql.planner.optimizations.SymbolMapper;
 import io.prestosql.sql.planner.plan.AggregationNode;
 import io.prestosql.sql.planner.plan.Assignments;
@@ -82,7 +83,7 @@ public class PushPartialAggregationThroughExchange
     }
 
     @Override
-    public Result apply(AggregationNode aggregationNode, Captures captures, Context context)
+    public Result apply(AggregationNode aggregationNode, Captures captures, TraitSet traitSet, Context context)
     {
         ExchangeNode exchangeNode = captures.get(EXCHANGE_NODE);
 

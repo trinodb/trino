@@ -21,6 +21,7 @@ import io.prestosql.matching.Pattern;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.SymbolsExtractor;
 import io.prestosql.sql.planner.iterative.Rule;
+import io.prestosql.sql.planner.iterative.TraitSet;
 import io.prestosql.sql.planner.plan.Assignments;
 import io.prestosql.sql.planner.plan.ProjectNode;
 import io.prestosql.sql.tree.Expression;
@@ -60,7 +61,7 @@ public class InlineProjections
     }
 
     @Override
-    public Result apply(ProjectNode parent, Captures captures, Context context)
+    public Result apply(ProjectNode parent, Captures captures, TraitSet traitSet, Context context)
     {
         ProjectNode child = captures.get(CHILD);
 

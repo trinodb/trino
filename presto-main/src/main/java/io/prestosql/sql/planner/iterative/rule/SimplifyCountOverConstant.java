@@ -21,6 +21,7 @@ import io.prestosql.metadata.Signature;
 import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.iterative.Rule;
+import io.prestosql.sql.planner.iterative.TraitSet;
 import io.prestosql.sql.planner.plan.AggregationNode;
 import io.prestosql.sql.planner.plan.Assignments;
 import io.prestosql.sql.planner.plan.ProjectNode;
@@ -57,7 +58,7 @@ public class SimplifyCountOverConstant
     }
 
     @Override
-    public Result apply(AggregationNode parent, Captures captures, Context context)
+    public Result apply(AggregationNode parent, Captures captures, TraitSet traitSet, Context context)
     {
         ProjectNode child = captures.get(CHILD);
 

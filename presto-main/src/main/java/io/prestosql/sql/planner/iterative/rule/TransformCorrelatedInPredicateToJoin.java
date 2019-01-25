@@ -26,6 +26,7 @@ import io.prestosql.sql.planner.SymbolAllocator;
 import io.prestosql.sql.planner.SymbolsExtractor;
 import io.prestosql.sql.planner.iterative.Lookup;
 import io.prestosql.sql.planner.iterative.Rule;
+import io.prestosql.sql.planner.iterative.TraitSet;
 import io.prestosql.sql.planner.plan.AggregationNode;
 import io.prestosql.sql.planner.plan.ApplyNode;
 import io.prestosql.sql.planner.plan.AssignUniqueId;
@@ -104,7 +105,7 @@ public class TransformCorrelatedInPredicateToJoin
     }
 
     @Override
-    public Result apply(ApplyNode apply, Captures captures, Context context)
+    public Result apply(ApplyNode apply, Captures captures, TraitSet traitSet, Context context)
     {
         Assignments subqueryAssignments = apply.getSubqueryAssignments();
         if (subqueryAssignments.size() != 1) {

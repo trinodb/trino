@@ -24,6 +24,7 @@ import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.SymbolAllocator;
 import io.prestosql.sql.planner.iterative.Lookup;
 import io.prestosql.sql.planner.iterative.Rule;
+import io.prestosql.sql.planner.iterative.TraitSet;
 import io.prestosql.sql.planner.plan.AggregationNode;
 import io.prestosql.sql.planner.plan.Assignments;
 import io.prestosql.sql.planner.plan.JoinNode;
@@ -113,7 +114,7 @@ public class PushAggregationThroughOuterJoin
     }
 
     @Override
-    public Result apply(AggregationNode aggregation, Captures captures, Context context)
+    public Result apply(AggregationNode aggregation, Captures captures, TraitSet traitSet, Context context)
     {
         JoinNode join = captures.get(JOIN);
 

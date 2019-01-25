@@ -16,6 +16,7 @@ package io.prestosql.sql.planner.iterative.rule;
 import io.prestosql.matching.Captures;
 import io.prestosql.matching.Pattern;
 import io.prestosql.sql.planner.iterative.Rule;
+import io.prestosql.sql.planner.iterative.TraitSet;
 import io.prestosql.sql.planner.plan.Assignments;
 import io.prestosql.sql.planner.plan.LateralJoinNode;
 import io.prestosql.sql.planner.plan.PlanNode;
@@ -56,7 +57,7 @@ public class TransformCorrelatedSingleRowSubqueryToProject
     }
 
     @Override
-    public Result apply(LateralJoinNode parent, Captures captures, Context context)
+    public Result apply(LateralJoinNode parent, Captures captures, TraitSet traitSet, Context context)
     {
         List<ValuesNode> values = searchFrom(parent.getSubquery(), context.getLookup())
                 .recurseOnlyWhen(ProjectNode.class::isInstance)

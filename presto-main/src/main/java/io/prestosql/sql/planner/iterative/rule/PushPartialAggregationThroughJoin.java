@@ -23,6 +23,7 @@ import io.prestosql.matching.Pattern;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.SymbolsExtractor;
 import io.prestosql.sql.planner.iterative.Rule;
+import io.prestosql.sql.planner.iterative.TraitSet;
 import io.prestosql.sql.planner.plan.AggregationNode;
 import io.prestosql.sql.planner.plan.JoinNode;
 import io.prestosql.sql.planner.plan.PlanNode;
@@ -81,7 +82,7 @@ public class PushPartialAggregationThroughJoin
     }
 
     @Override
-    public Result apply(AggregationNode aggregationNode, Captures captures, Context context)
+    public Result apply(AggregationNode aggregationNode, Captures captures, TraitSet traitSet, Context context)
     {
         JoinNode joinNode = captures.get(JOIN_NODE);
 

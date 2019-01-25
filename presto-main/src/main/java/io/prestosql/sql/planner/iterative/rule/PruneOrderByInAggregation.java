@@ -19,6 +19,7 @@ import io.prestosql.matching.Pattern;
 import io.prestosql.metadata.FunctionRegistry;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.iterative.Rule;
+import io.prestosql.sql.planner.iterative.TraitSet;
 import io.prestosql.sql.planner.plan.AggregationNode;
 import io.prestosql.sql.tree.FunctionCall;
 
@@ -46,7 +47,7 @@ public class PruneOrderByInAggregation
     }
 
     @Override
-    public Result apply(AggregationNode node, Captures captures, Context context)
+    public Result apply(AggregationNode node, Captures captures, TraitSet traitSet, Context context)
     {
         if (!node.hasOrderings()) {
             return Result.empty();

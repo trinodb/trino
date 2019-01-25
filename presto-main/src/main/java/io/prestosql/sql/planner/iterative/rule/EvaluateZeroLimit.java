@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.prestosql.matching.Captures;
 import io.prestosql.matching.Pattern;
 import io.prestosql.sql.planner.iterative.Rule;
+import io.prestosql.sql.planner.iterative.TraitSet;
 import io.prestosql.sql.planner.plan.LimitNode;
 import io.prestosql.sql.planner.plan.ValuesNode;
 
@@ -36,7 +37,7 @@ public class EvaluateZeroLimit
     }
 
     @Override
-    public Result apply(LimitNode limit, Captures captures, Context context)
+    public Result apply(LimitNode limit, Captures captures, TraitSet traitSet, Context context)
     {
         return Result.ofPlanNode(new ValuesNode(limit.getId(), limit.getOutputSymbols(), ImmutableList.of()));
     }

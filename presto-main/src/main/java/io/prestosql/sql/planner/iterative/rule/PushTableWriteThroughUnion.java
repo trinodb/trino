@@ -22,6 +22,7 @@ import io.prestosql.matching.Captures;
 import io.prestosql.matching.Pattern;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.iterative.Rule;
+import io.prestosql.sql.planner.iterative.TraitSet;
 import io.prestosql.sql.planner.optimizations.SymbolMapper;
 import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.TableWriterNode;
@@ -65,7 +66,7 @@ public class PushTableWriteThroughUnion
     }
 
     @Override
-    public Result apply(TableWriterNode writerNode, Captures captures, Context context)
+    public Result apply(TableWriterNode writerNode, Captures captures, TraitSet traitSet, Context context)
     {
         UnionNode unionNode = captures.get(CHILD);
         ImmutableList.Builder<PlanNode> rewrittenSources = ImmutableList.builder();

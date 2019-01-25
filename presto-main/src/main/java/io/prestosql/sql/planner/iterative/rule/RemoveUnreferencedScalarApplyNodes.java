@@ -17,6 +17,7 @@ package io.prestosql.sql.planner.iterative.rule;
 import io.prestosql.matching.Captures;
 import io.prestosql.matching.Pattern;
 import io.prestosql.sql.planner.iterative.Rule;
+import io.prestosql.sql.planner.iterative.TraitSet;
 import io.prestosql.sql.planner.plan.ApplyNode;
 
 import static io.prestosql.sql.planner.plan.Patterns.applyNode;
@@ -34,7 +35,7 @@ public class RemoveUnreferencedScalarApplyNodes
     }
 
     @Override
-    public Result apply(ApplyNode applyNode, Captures captures, Context context)
+    public Result apply(ApplyNode applyNode, Captures captures, TraitSet traitSet, Context context)
     {
         return Result.ofPlanNode(applyNode.getInput());
     }

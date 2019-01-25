@@ -26,6 +26,7 @@ import io.prestosql.matching.Pattern;
 import io.prestosql.sql.analyzer.FeaturesConfig.JoinDistributionType;
 import io.prestosql.sql.planner.TypeProvider;
 import io.prestosql.sql.planner.iterative.Rule;
+import io.prestosql.sql.planner.iterative.TraitSet;
 import io.prestosql.sql.planner.plan.JoinNode;
 import io.prestosql.sql.planner.plan.PlanNode;
 
@@ -69,7 +70,7 @@ public class DetermineJoinDistributionType
     }
 
     @Override
-    public Result apply(JoinNode joinNode, Captures captures, Context context)
+    public Result apply(JoinNode joinNode, Captures captures, TraitSet traitSet, Context context)
     {
         JoinDistributionType joinDistributionType = getJoinDistributionType(context.getSession());
         if (joinDistributionType == AUTOMATIC) {

@@ -19,6 +19,7 @@ import io.prestosql.matching.Pattern;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.SymbolsExtractor;
 import io.prestosql.sql.planner.iterative.Rule;
+import io.prestosql.sql.planner.iterative.TraitSet;
 import io.prestosql.sql.planner.plan.JoinNode;
 
 import java.util.Set;
@@ -43,7 +44,7 @@ public class PruneJoinChildrenColumns
     }
 
     @Override
-    public Result apply(JoinNode joinNode, Captures captures, Context context)
+    public Result apply(JoinNode joinNode, Captures captures, TraitSet traitSet, Context context)
     {
         Set<Symbol> globallyUsableInputs = ImmutableSet.<Symbol>builder()
                 .addAll(joinNode.getOutputSymbols())

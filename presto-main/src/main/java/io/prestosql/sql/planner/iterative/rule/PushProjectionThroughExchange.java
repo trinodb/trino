@@ -22,6 +22,7 @@ import io.prestosql.spi.type.Type;
 import io.prestosql.sql.planner.PartitioningScheme;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.iterative.Rule;
+import io.prestosql.sql.planner.iterative.TraitSet;
 import io.prestosql.sql.planner.plan.Assignments;
 import io.prestosql.sql.planner.plan.ExchangeNode;
 import io.prestosql.sql.planner.plan.PlanNode;
@@ -79,7 +80,7 @@ public class PushProjectionThroughExchange
     }
 
     @Override
-    public Result apply(ProjectNode project, Captures captures, Context context)
+    public Result apply(ProjectNode project, Captures captures, TraitSet traitSet, Context context)
     {
         ExchangeNode exchange = captures.get(CHILD);
         Set<Symbol> partitioningColumns = exchange.getPartitioningScheme().getPartitioning().getColumns();

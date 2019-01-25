@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.prestosql.matching.Captures;
 import io.prestosql.matching.Pattern;
 import io.prestosql.sql.planner.iterative.Rule;
+import io.prestosql.sql.planner.iterative.TraitSet;
 import io.prestosql.sql.planner.plan.FilterNode;
 import io.prestosql.sql.planner.plan.SampleNode;
 import io.prestosql.sql.tree.ComparisonExpression;
@@ -53,7 +54,7 @@ public class ImplementBernoulliSampleAsFilter
     }
 
     @Override
-    public Result apply(SampleNode sample, Captures captures, Context context)
+    public Result apply(SampleNode sample, Captures captures, TraitSet traitSet, Context context)
     {
         return Result.ofPlanNode(new FilterNode(
                 sample.getId(),

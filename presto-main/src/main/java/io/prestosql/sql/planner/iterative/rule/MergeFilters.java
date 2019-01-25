@@ -17,6 +17,7 @@ import io.prestosql.matching.Capture;
 import io.prestosql.matching.Captures;
 import io.prestosql.matching.Pattern;
 import io.prestosql.sql.planner.iterative.Rule;
+import io.prestosql.sql.planner.iterative.TraitSet;
 import io.prestosql.sql.planner.plan.FilterNode;
 
 import static io.prestosql.matching.Capture.newCapture;
@@ -39,7 +40,7 @@ public class MergeFilters
     }
 
     @Override
-    public Result apply(FilterNode parent, Captures captures, Context context)
+    public Result apply(FilterNode parent, Captures captures, TraitSet traitSet, Context context)
     {
         FilterNode child = captures.get(CHILD);
 

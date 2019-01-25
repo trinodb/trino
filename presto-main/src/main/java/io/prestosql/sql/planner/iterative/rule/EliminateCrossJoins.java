@@ -22,6 +22,7 @@ import io.prestosql.sql.analyzer.FeaturesConfig.JoinReorderingStrategy;
 import io.prestosql.sql.planner.PlanNodeIdAllocator;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.iterative.Rule;
+import io.prestosql.sql.planner.iterative.TraitSet;
 import io.prestosql.sql.planner.optimizations.joins.JoinGraph;
 import io.prestosql.sql.planner.plan.Assignments;
 import io.prestosql.sql.planner.plan.FilterNode;
@@ -70,7 +71,7 @@ public class EliminateCrossJoins
     }
 
     @Override
-    public Result apply(JoinNode node, Captures captures, Context context)
+    public Result apply(JoinNode node, Captures captures, TraitSet traitSet, Context context)
     {
         JoinGraph joinGraph = JoinGraph.buildShallowFrom(node, context.getLookup());
         if (joinGraph.size() < 3) {

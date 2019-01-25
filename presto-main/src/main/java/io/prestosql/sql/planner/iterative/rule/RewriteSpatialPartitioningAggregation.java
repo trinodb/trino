@@ -22,6 +22,7 @@ import io.prestosql.metadata.Signature;
 import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.iterative.Rule;
+import io.prestosql.sql.planner.iterative.TraitSet;
 import io.prestosql.sql.planner.plan.AggregationNode;
 import io.prestosql.sql.planner.plan.AggregationNode.Aggregation;
 import io.prestosql.sql.planner.plan.Assignments;
@@ -87,7 +88,7 @@ public class RewriteSpatialPartitioningAggregation
     }
 
     @Override
-    public Result apply(AggregationNode node, Captures captures, Context context)
+    public Result apply(AggregationNode node, Captures captures, TraitSet traitSet, Context context)
     {
         ImmutableMap.Builder<Symbol, Aggregation> aggregations = ImmutableMap.builder();
         Symbol partitionCountSymbol = context.getSymbolAllocator().newSymbol("partition_count", INTEGER);

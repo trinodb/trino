@@ -31,6 +31,7 @@ import io.prestosql.sql.planner.Plan;
 import io.prestosql.sql.planner.RuleStatsRecorder;
 import io.prestosql.sql.planner.iterative.IterativeOptimizer;
 import io.prestosql.sql.planner.iterative.Rule;
+import io.prestosql.sql.planner.iterative.TraitSet;
 import io.prestosql.sql.planner.optimizations.PlanOptimizer;
 import io.prestosql.sql.planner.plan.ProjectNode;
 import io.prestosql.testing.LocalQueryRunner;
@@ -157,7 +158,7 @@ public class TestPlannerWarnings
         }
 
         @Override
-        public Result apply(ProjectNode node, Captures captures, Context context)
+        public Result apply(ProjectNode node, Captures captures, TraitSet traitSet, Context context)
         {
             warnings.stream()
                     .forEach(context.getWarningCollector()::add);

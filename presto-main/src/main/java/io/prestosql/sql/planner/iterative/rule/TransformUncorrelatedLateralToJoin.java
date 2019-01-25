@@ -18,6 +18,7 @@ import io.prestosql.matching.Captures;
 import io.prestosql.matching.Pattern;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.iterative.Rule;
+import io.prestosql.sql.planner.iterative.TraitSet;
 import io.prestosql.sql.planner.plan.JoinNode;
 import io.prestosql.sql.planner.plan.LateralJoinNode;
 
@@ -40,7 +41,7 @@ public class TransformUncorrelatedLateralToJoin
     }
 
     @Override
-    public Result apply(LateralJoinNode lateralJoinNode, Captures captures, Context context)
+    public Result apply(LateralJoinNode lateralJoinNode, Captures captures, TraitSet traitSet, Context context)
     {
         return Result.ofPlanNode(new JoinNode(
                 context.getIdAllocator().getNextId(),

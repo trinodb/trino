@@ -17,6 +17,7 @@ import io.prestosql.matching.Capture;
 import io.prestosql.matching.Captures;
 import io.prestosql.matching.Pattern;
 import io.prestosql.sql.planner.iterative.Rule;
+import io.prestosql.sql.planner.iterative.TraitSet;
 import io.prestosql.sql.planner.plan.LimitNode;
 
 import static io.prestosql.matching.Capture.newCapture;
@@ -38,7 +39,7 @@ public class MergeLimits
     }
 
     @Override
-    public Result apply(LimitNode parent, Captures captures, Context context)
+    public Result apply(LimitNode parent, Captures captures, TraitSet traitSet, Context context)
     {
         LimitNode child = captures.get(CHILD);
 

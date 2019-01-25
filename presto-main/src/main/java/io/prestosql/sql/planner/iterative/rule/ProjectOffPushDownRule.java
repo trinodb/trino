@@ -20,6 +20,7 @@ import io.prestosql.matching.Pattern;
 import io.prestosql.sql.planner.PlanNodeIdAllocator;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.iterative.Rule;
+import io.prestosql.sql.planner.iterative.TraitSet;
 import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.ProjectNode;
 
@@ -56,7 +57,7 @@ public abstract class ProjectOffPushDownRule<N extends PlanNode>
     }
 
     @Override
-    public Result apply(ProjectNode parent, Captures captures, Context context)
+    public Result apply(ProjectNode parent, Captures captures, TraitSet traitSet, Context context)
     {
         N targetNode = captures.get(targetCapture);
 

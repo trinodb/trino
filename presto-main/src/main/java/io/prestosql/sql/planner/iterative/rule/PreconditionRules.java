@@ -16,6 +16,7 @@ package io.prestosql.sql.planner.iterative.rule;
 import io.prestosql.matching.Captures;
 import io.prestosql.matching.Pattern;
 import io.prestosql.sql.planner.iterative.Rule;
+import io.prestosql.sql.planner.iterative.TraitSet;
 import io.prestosql.sql.planner.plan.ExchangeNode;
 import io.prestosql.sql.planner.plan.PlanNode;
 
@@ -55,7 +56,7 @@ public final class PreconditionRules
         }
 
         @Override
-        public Result apply(T node, Captures captures, Context context)
+        public Result apply(T node, Captures captures, TraitSet traitSet, Context context)
         {
             throw new IllegalStateException(message);
         }

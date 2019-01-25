@@ -17,6 +17,7 @@ import io.prestosql.matching.Captures;
 import io.prestosql.matching.Pattern;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.iterative.Rule;
+import io.prestosql.sql.planner.iterative.TraitSet;
 import io.prestosql.sql.planner.plan.ApplyNode;
 import io.prestosql.sql.planner.plan.SemiJoinNode;
 import io.prestosql.sql.tree.Expression;
@@ -65,7 +66,7 @@ public class TransformUncorrelatedInPredicateSubqueryToSemiJoin
     }
 
     @Override
-    public Result apply(ApplyNode applyNode, Captures captures, Context context)
+    public Result apply(ApplyNode applyNode, Captures captures, TraitSet traitSet, Context context)
     {
         if (applyNode.getSubqueryAssignments().size() != 1) {
             return Result.empty();

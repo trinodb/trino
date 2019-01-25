@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.prestosql.matching.Captures;
 import io.prestosql.matching.Pattern;
 import io.prestosql.sql.planner.iterative.Rule;
+import io.prestosql.sql.planner.iterative.TraitSet;
 import io.prestosql.sql.planner.plan.TableFinishNode;
 import io.prestosql.sql.planner.plan.ValuesNode;
 import io.prestosql.sql.tree.LongLiteral;
@@ -68,7 +69,7 @@ public class RemoveEmptyDelete
     }
 
     @Override
-    public Result apply(TableFinishNode node, Captures captures, Context context)
+    public Result apply(TableFinishNode node, Captures captures, TraitSet traitSet, Context context)
     {
         return Result.ofPlanNode(
                 new ValuesNode(

@@ -33,6 +33,7 @@ import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.SymbolsExtractor;
 import io.prestosql.sql.planner.iterative.Lookup;
 import io.prestosql.sql.planner.iterative.Rule;
+import io.prestosql.sql.planner.iterative.TraitSet;
 import io.prestosql.sql.planner.plan.FilterNode;
 import io.prestosql.sql.planner.plan.JoinNode;
 import io.prestosql.sql.planner.plan.JoinNode.DistributionType;
@@ -118,7 +119,7 @@ public class ReorderJoins
     }
 
     @Override
-    public Result apply(JoinNode joinNode, Captures captures, Context context)
+    public Result apply(JoinNode joinNode, Captures captures, TraitSet traitSet, Context context)
     {
         MultiJoinNode multiJoinNode = toMultiJoinNode(joinNode, context.getLookup(), getMaxReorderedJoins(context.getSession()));
         JoinEnumerator joinEnumerator = new JoinEnumerator(

@@ -17,6 +17,7 @@ import io.prestosql.matching.Capture;
 import io.prestosql.matching.Captures;
 import io.prestosql.matching.Pattern;
 import io.prestosql.sql.planner.iterative.Rule;
+import io.prestosql.sql.planner.iterative.TraitSet;
 import io.prestosql.sql.planner.plan.AggregationNode;
 import io.prestosql.sql.planner.plan.DistinctLimitNode;
 import io.prestosql.sql.planner.plan.LimitNode;
@@ -52,7 +53,7 @@ public class MergeLimitWithDistinct
     }
 
     @Override
-    public Result apply(LimitNode parent, Captures captures, Context context)
+    public Result apply(LimitNode parent, Captures captures, TraitSet traitSet, Context context)
     {
         AggregationNode child = captures.get(CHILD);
 

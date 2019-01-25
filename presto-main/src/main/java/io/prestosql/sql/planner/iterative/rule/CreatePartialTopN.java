@@ -16,6 +16,7 @@ package io.prestosql.sql.planner.iterative.rule;
 import io.prestosql.matching.Captures;
 import io.prestosql.matching.Pattern;
 import io.prestosql.sql.planner.iterative.Rule;
+import io.prestosql.sql.planner.iterative.TraitSet;
 import io.prestosql.sql.planner.plan.TopNNode;
 
 import static io.prestosql.sql.planner.plan.Patterns.TopN.step;
@@ -37,7 +38,7 @@ public class CreatePartialTopN
     }
 
     @Override
-    public Result apply(TopNNode single, Captures captures, Context context)
+    public Result apply(TopNNode single, Captures captures, TraitSet traitSet, Context context)
     {
         TopNNode partial = new TopNNode(
                 context.getIdAllocator().getNextId(),

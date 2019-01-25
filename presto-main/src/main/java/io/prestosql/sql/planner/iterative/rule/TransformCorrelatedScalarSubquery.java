@@ -20,6 +20,7 @@ import io.prestosql.spi.type.BigintType;
 import io.prestosql.spi.type.BooleanType;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.iterative.Rule;
+import io.prestosql.sql.planner.iterative.TraitSet;
 import io.prestosql.sql.planner.plan.AssignUniqueId;
 import io.prestosql.sql.planner.plan.Assignments;
 import io.prestosql.sql.planner.plan.EnforceSingleRowNode;
@@ -88,7 +89,7 @@ public class TransformCorrelatedScalarSubquery
     }
 
     @Override
-    public Result apply(LateralJoinNode lateralJoinNode, Captures captures, Context context)
+    public Result apply(LateralJoinNode lateralJoinNode, Captures captures, TraitSet traitSet, Context context)
     {
         PlanNode subquery = context.getLookup().resolve(lateralJoinNode.getSubquery());
 

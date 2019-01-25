@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.prestosql.matching.Captures;
 import io.prestosql.matching.Pattern;
 import io.prestosql.sql.planner.iterative.Rule;
+import io.prestosql.sql.planner.iterative.TraitSet;
 import io.prestosql.sql.planner.plan.Assignments;
 import io.prestosql.sql.planner.plan.PlanNode;
 import org.testng.annotations.Test;
@@ -52,7 +53,7 @@ public class TestRuleTester
         }
 
         @Override
-        public Result apply(PlanNode node, Captures captures, Context context)
+        public Result apply(PlanNode node, Captures captures, TraitSet traitSet, Context context)
         {
             return Result.ofPlanNode(node.replaceChildren(node.getSources()));
         }

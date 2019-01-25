@@ -19,6 +19,7 @@ import io.prestosql.matching.Captures;
 import io.prestosql.matching.Pattern;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.iterative.Rule;
+import io.prestosql.sql.planner.iterative.TraitSet;
 import io.prestosql.sql.planner.plan.SemiJoinNode;
 
 import java.util.Set;
@@ -40,7 +41,7 @@ public class PruneSemiJoinFilteringSourceColumns
     }
 
     @Override
-    public Result apply(SemiJoinNode semiJoinNode, Captures captures, Context context)
+    public Result apply(SemiJoinNode semiJoinNode, Captures captures, TraitSet traitSet, Context context)
     {
         Set<Symbol> requiredFilteringSourceInputs = Streams.concat(
                 Stream.of(semiJoinNode.getFilteringSourceJoinSymbol()),

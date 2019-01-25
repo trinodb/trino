@@ -21,6 +21,7 @@ import io.prestosql.matching.Pattern;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.iterative.Rule;
+import io.prestosql.sql.planner.iterative.TraitSet;
 import io.prestosql.sql.planner.plan.Assignments;
 import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.ProjectNode;
@@ -53,7 +54,7 @@ public class PushProjectionThroughUnion
     }
 
     @Override
-    public Result apply(ProjectNode parent, Captures captures, Context context)
+    public Result apply(ProjectNode parent, Captures captures, TraitSet traitSet, Context context)
     {
         UnionNode source = captures.get(CHILD);
 

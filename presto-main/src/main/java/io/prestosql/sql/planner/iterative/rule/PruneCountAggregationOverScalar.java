@@ -19,6 +19,7 @@ import io.prestosql.matching.Pattern;
 import io.prestosql.metadata.Signature;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.iterative.Rule;
+import io.prestosql.sql.planner.iterative.TraitSet;
 import io.prestosql.sql.planner.plan.AggregationNode;
 import io.prestosql.sql.planner.plan.ValuesNode;
 import io.prestosql.sql.tree.FunctionCall;
@@ -46,7 +47,7 @@ public class PruneCountAggregationOverScalar
     }
 
     @Override
-    public Result apply(AggregationNode parent, Captures captures, Context context)
+    public Result apply(AggregationNode parent, Captures captures, TraitSet traitSet, Context context)
     {
         if (!parent.hasDefaultOutput() || parent.getOutputSymbols().size() != 1) {
             return Result.empty();

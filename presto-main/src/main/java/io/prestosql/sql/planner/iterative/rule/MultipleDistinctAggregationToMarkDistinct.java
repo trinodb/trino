@@ -22,6 +22,7 @@ import io.prestosql.matching.Captures;
 import io.prestosql.matching.Pattern;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.iterative.Rule;
+import io.prestosql.sql.planner.iterative.TraitSet;
 import io.prestosql.sql.planner.plan.AggregationNode;
 import io.prestosql.sql.planner.plan.AggregationNode.Aggregation;
 import io.prestosql.sql.planner.plan.MarkDistinctNode;
@@ -108,7 +109,7 @@ public class MultipleDistinctAggregationToMarkDistinct
     }
 
     @Override
-    public Result apply(AggregationNode parent, Captures captures, Context context)
+    public Result apply(AggregationNode parent, Captures captures, TraitSet traitSet, Context context)
     {
         if (!SystemSessionProperties.useMarkDistinct(context.getSession())) {
             return Result.empty();

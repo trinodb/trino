@@ -39,6 +39,7 @@ import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.SymbolsExtractor;
 import io.prestosql.sql.planner.TypeProvider;
 import io.prestosql.sql.planner.iterative.Rule;
+import io.prestosql.sql.planner.iterative.TraitSet;
 import io.prestosql.sql.planner.plan.FilterNode;
 import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.TableScanNode;
@@ -140,7 +141,7 @@ public class PickTableLayout
         }
 
         @Override
-        public Result apply(FilterNode filterNode, Captures captures, Context context)
+        public Result apply(FilterNode filterNode, Captures captures, TraitSet traitSet, Context context)
         {
             TableScanNode tableScan = captures.get(TABLE_SCAN);
 
@@ -207,8 +208,7 @@ public class PickTableLayout
             return isNewOptimizerEnabled(session);
         }
 
-        @Override
-        public Result apply(TableScanNode tableScanNode, Captures captures, Context context)
+        public Result apply(TableScanNode tableScanNode, Captures captures, TraitSet traitSet, Context context)
         {
             if (tableScanNode.getLayout().isPresent()) {
                 return Result.empty();

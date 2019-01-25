@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableSet;
 import io.prestosql.matching.Captures;
 import io.prestosql.matching.Pattern;
 import io.prestosql.sql.planner.iterative.Rule;
+import io.prestosql.sql.planner.iterative.TraitSet;
 import io.prestosql.sql.planner.plan.OutputNode;
 
 import static io.prestosql.sql.planner.iterative.rule.Util.restrictChildOutputs;
@@ -34,7 +35,7 @@ public class PruneOutputColumns
     }
 
     @Override
-    public Result apply(OutputNode outputNode, Captures captures, Context context)
+    public Result apply(OutputNode outputNode, Captures captures, TraitSet traitSet, Context context)
     {
         return restrictChildOutputs(
                 context.getIdAllocator(),

@@ -46,6 +46,7 @@ import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.iterative.Rule;
 import io.prestosql.sql.planner.iterative.Rule.Context;
 import io.prestosql.sql.planner.iterative.Rule.Result;
+import io.prestosql.sql.planner.iterative.TraitSet;
 import io.prestosql.sql.planner.plan.Assignments;
 import io.prestosql.sql.planner.plan.FilterNode;
 import io.prestosql.sql.planner.plan.JoinNode;
@@ -200,7 +201,7 @@ public class ExtractSpatialJoins
         }
 
         @Override
-        public Result apply(FilterNode node, Captures captures, Context context)
+        public Result apply(FilterNode node, Captures captures, TraitSet traitSet, Context context)
         {
             JoinNode joinNode = captures.get(JOIN);
 
@@ -256,7 +257,7 @@ public class ExtractSpatialJoins
         }
 
         @Override
-        public Result apply(JoinNode joinNode, Captures captures, Context context)
+        public Result apply(JoinNode joinNode, Captures captures, TraitSet traitSet, Context context)
         {
             Expression filter = joinNode.getFilter().get();
             List<FunctionCall> spatialFunctions = extractSupportedSpatialFunctions(filter);

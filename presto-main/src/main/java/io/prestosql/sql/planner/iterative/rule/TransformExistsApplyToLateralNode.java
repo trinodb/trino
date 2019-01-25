@@ -21,6 +21,7 @@ import io.prestosql.metadata.FunctionRegistry;
 import io.prestosql.metadata.Signature;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.iterative.Rule;
+import io.prestosql.sql.planner.iterative.TraitSet;
 import io.prestosql.sql.planner.optimizations.PlanNodeDecorrelator;
 import io.prestosql.sql.planner.plan.AggregationNode;
 import io.prestosql.sql.planner.plan.AggregationNode.Aggregation;
@@ -96,7 +97,7 @@ public class TransformExistsApplyToLateralNode
     }
 
     @Override
-    public Result apply(ApplyNode parent, Captures captures, Context context)
+    public Result apply(ApplyNode parent, Captures captures, TraitSet traitSet, Context context)
     {
         if (parent.getSubqueryAssignments().size() != 1) {
             return Result.empty();

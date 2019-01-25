@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.prestosql.matching.Captures;
 import io.prestosql.matching.Pattern;
 import io.prestosql.sql.planner.iterative.Rule;
+import io.prestosql.sql.planner.iterative.TraitSet;
 import io.prestosql.sql.planner.optimizations.PlanNodeDecorrelator;
 import io.prestosql.sql.planner.optimizations.PlanNodeDecorrelator.DecorrelatedNode;
 import io.prestosql.sql.planner.plan.JoinNode;
@@ -46,7 +47,7 @@ public class TransformCorrelatedLateralJoinToJoin
     }
 
     @Override
-    public Result apply(LateralJoinNode lateralJoinNode, Captures captures, Context context)
+    public Result apply(LateralJoinNode lateralJoinNode, Captures captures, TraitSet traitSet, Context context)
     {
         PlanNode subquery = lateralJoinNode.getSubquery();
 

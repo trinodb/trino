@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableSet;
 import io.prestosql.matching.Captures;
 import io.prestosql.matching.Pattern;
 import io.prestosql.sql.planner.iterative.Rule;
+import io.prestosql.sql.planner.iterative.TraitSet;
 import io.prestosql.sql.planner.plan.ProjectNode;
 
 import static io.prestosql.sql.planner.plan.Patterns.project;
@@ -45,7 +46,7 @@ public class RemoveRedundantIdentityProjections
     }
 
     @Override
-    public Result apply(ProjectNode project, Captures captures, Context context)
+    public Result apply(ProjectNode project, Captures captures, TraitSet traitSet, Context context)
     {
         return Result.ofPlanNode(project.getSource());
     }

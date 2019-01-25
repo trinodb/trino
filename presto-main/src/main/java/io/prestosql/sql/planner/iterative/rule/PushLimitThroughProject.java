@@ -17,6 +17,7 @@ import io.prestosql.matching.Capture;
 import io.prestosql.matching.Captures;
 import io.prestosql.matching.Pattern;
 import io.prestosql.sql.planner.iterative.Rule;
+import io.prestosql.sql.planner.iterative.TraitSet;
 import io.prestosql.sql.planner.plan.LimitNode;
 import io.prestosql.sql.planner.plan.ProjectNode;
 
@@ -45,7 +46,7 @@ public class PushLimitThroughProject
     }
 
     @Override
-    public Result apply(LimitNode parent, Captures captures, Context context)
+    public Result apply(LimitNode parent, Captures captures, TraitSet traitSet, Context context)
     {
         return Result.ofPlanNode(transpose(parent, captures.get(CHILD)));
     }

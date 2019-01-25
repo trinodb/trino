@@ -18,6 +18,7 @@ import io.prestosql.matching.Pattern;
 import io.prestosql.metadata.FunctionRegistry;
 import io.prestosql.sql.planner.iterative.Lookup;
 import io.prestosql.sql.planner.iterative.Rule;
+import io.prestosql.sql.planner.iterative.TraitSet;
 import io.prestosql.sql.planner.optimizations.ScalarAggregationToJoinRewriter;
 import io.prestosql.sql.planner.plan.AggregationNode;
 import io.prestosql.sql.planner.plan.EnforceSingleRowNode;
@@ -83,7 +84,7 @@ public class TransformCorrelatedScalarAggregationToJoin
     }
 
     @Override
-    public Result apply(LateralJoinNode lateralJoinNode, Captures captures, Context context)
+    public Result apply(LateralJoinNode lateralJoinNode, Captures captures, TraitSet traitSet, Context context)
     {
         PlanNode subquery = lateralJoinNode.getSubquery();
 

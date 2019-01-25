@@ -20,6 +20,7 @@ import io.prestosql.matching.Pattern;
 import io.prestosql.sql.planner.PartitioningScheme;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.iterative.Rule;
+import io.prestosql.sql.planner.iterative.TraitSet;
 import io.prestosql.sql.planner.plan.AssignUniqueId;
 import io.prestosql.sql.planner.plan.ExchangeNode;
 
@@ -57,7 +58,7 @@ public final class PushRemoteExchangeThroughAssignUniqueId
     }
 
     @Override
-    public Result apply(ExchangeNode node, Captures captures, Context context)
+    public Result apply(ExchangeNode node, Captures captures, TraitSet traitSet, Context context)
     {
         checkArgument(!node.getOrderingScheme().isPresent(), "Merge exchange over AssignUniqueId not supported");
 
