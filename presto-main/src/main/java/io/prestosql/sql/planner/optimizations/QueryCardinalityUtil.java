@@ -29,7 +29,6 @@ import io.prestosql.sql.planner.plan.ValuesNode;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.prestosql.sql.planner.iterative.Lookup.noLookup;
 import static java.lang.Math.min;
-import static java.util.Objects.requireNonNull;
 
 public final class QueryCardinalityUtil
 {
@@ -39,49 +38,27 @@ public final class QueryCardinalityUtil
 
     public static boolean isScalar(PlanNode node)
     {
-        return isScalar(node, noLookup());
-    }
-
-    public static boolean isScalar(PlanNode node, Lookup lookup)
-    {
-        return Range.singleton(1L).encloses(extractCardinality(node, lookup));
+        return Range.singleton(1L).encloses(extractCardinality(node));
     }
 
     public static boolean isAtMostScalar(PlanNode node)
     {
-        return isAtMostScalar(node, noLookup());
+        return isAtMost(node, 1L);
     }
 
-    public static boolean isAtMostScalar(PlanNode node, Lookup lookup)
+    private static boolean isAtMost(PlanNode node, long maxCardinality)
     {
-        return isAtMost(node, lookup, 1L);
-    }
-
-    private static boolean isAtMost(PlanNode node, Lookup lookup, long maxCardinality)
-    {
-        return Range.closed(0L, maxCardinality).encloses(extractCardinality(node, lookup));
+        return Range.closed(0L, maxCardinality).encloses(extractCardinality(node));
     }
 
     public static Range<Long> extractCardinality(PlanNode node)
     {
-        return extractCardinality(node, noLookup());
-    }
-
-    private static Range<Long> extractCardinality(PlanNode node, Lookup lookup)
-    {
-        return node.accept(new CardinalityExtractorPlanVisitor(lookup), null);
+        return node.accept(new CardinalityExtractorPlanVisitor(), null);
     }
 
     private static final class CardinalityExtractorPlanVisitor
             extends PlanVisitor<Range<Long>, Void>
     {
-        private final Lookup lookup;
-
-        public CardinalityExtractorPlanVisitor(Lookup lookup)
-        {
-            this.lookup = requireNonNull(lookup, "lookup is null");
-        }
-
         @Override
         protected Range<Long> visitPlan(PlanNode node, Void context)
         {
@@ -91,7 +68,7 @@ public final class QueryCardinalityUtil
         @Override
         public Range<Long> visitGroupReference(GroupReference node, Void context)
         {
-            return lookup.resolve(node).accept(this, context);
+            throw new UnsupportedOperationException("GroupRefence node is not supported");
         }
 
         @Override
