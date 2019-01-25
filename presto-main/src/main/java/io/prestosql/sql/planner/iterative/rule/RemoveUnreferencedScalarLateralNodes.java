@@ -54,6 +54,7 @@ public class RemoveUnreferencedScalarLateralNodes
 
     private boolean isUnreferencedScalar(PlanNode planNode, Lookup lookup)
     {
-        return planNode.getOutputSymbols().isEmpty() && isScalar(planNode, lookup);
+        Optional<CardinalityTrait> cardinality = lookup.resolveTrait(planNode, CARDINALITY);
+        return planNode.getOutputSymbols().isEmpty() && cardinality.isPresent() && cardinality.get().isScalar();
     }
 }

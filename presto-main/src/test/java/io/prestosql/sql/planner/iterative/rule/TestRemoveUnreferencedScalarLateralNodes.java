@@ -31,7 +31,7 @@ public class TestRemoveUnreferencedScalarLateralNodes
                 .on(p -> p.lateral(
                         emptyList(),
                         p.values(p.symbol("x", BigintType.BIGINT)),
-                        p.values(emptyList(), ImmutableList.of(emptyList()))))
+                        p.nodeWithTrait(CardinalityTrait.scalar())))
                 .matches(values("x"));
     }
 
@@ -41,7 +41,7 @@ public class TestRemoveUnreferencedScalarLateralNodes
         tester().assertThat(new RemoveUnreferencedScalarLateralNodes())
                 .on(p -> p.lateral(
                         emptyList(),
-                        p.values(emptyList(), ImmutableList.of(emptyList())),
+                        p.nodeWithTrait(CardinalityTrait.scalar()),
                         p.values(p.symbol("x", BigintType.BIGINT))))
                 .matches(values("x"));
     }
@@ -49,6 +49,20 @@ public class TestRemoveUnreferencedScalarLateralNodes
     @Test
     public void testDoesNotFire()
     {
+        tester().assertThat(new RemoveUnreferencedScalarLateralNodes())
+                .on(p -> p.lateral(
+                        emptyList(),
+                        p.values(p.symbol("x", BigintType.BIGINT)),
+                        p.values(emptyList(), ImmutableList.of(emptyList()))))
+                .doesNotFire();
+
+        tester().assertThat(new RemoveUnreferencedScalarLateralNodes())
+                .on(p -> p.lateral(
+                        emptyList(),
+                        p.values(emptyList(), ImmutableList.of(emptyList())),
+                        p.values(p.symbol("x", BigintType.BIGINT))))
+                .doesNotFire();
+
         tester().assertThat(new RemoveUnreferencedScalarLateralNodes())
                 .on(p -> p.lateral(
                         emptyList(),
