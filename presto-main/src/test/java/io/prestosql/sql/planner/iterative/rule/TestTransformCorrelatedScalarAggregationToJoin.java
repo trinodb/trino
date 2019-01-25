@@ -78,7 +78,7 @@ public class TestTransformCorrelatedScalarAggregationToJoin
     }
 
     @Test
-    public void rewritesOnSubqueryWithoutProjection()
+    public void doesNotFireOnSubqueryWithoutCardinality()
     {
         tester().assertThat(new TransformCorrelatedScalarAggregationToJoin(tester().getMetadata().getFunctionRegistry()))
                 .on(p -> p.lateral(
@@ -88,6 +88,22 @@ public class TestTransformCorrelatedScalarAggregationToJoin
                                 .source(p.values(p.symbol("a"), p.symbol("b")))
                                 .addAggregation(p.symbol("sum"), PlanBuilder.expression("sum(a)"), ImmutableList.of(BIGINT))
                                 .globalGrouping())))
+                .doesNotFire();
+    }
+
+    @Test
+    public void rewritesOnSubqueryWithoutProjection()
+    {
+        tester().assertThat(new TransformCorrelatedScalarAggregationToJoin(tester().getMetadata().getFunctionRegistry()))
+                .on(p -> p.lateral(
+                        ImmutableList.of(p.symbol("corr")),
+                        p.values(p.symbol("corr")),
+                        p.nodeWithTrait(
+                                CardinalityTrait.scalar(),
+                                p.aggregation(ab -> ab
+                                        .source(p.values(p.symbol("a"), p.symbol("b")))
+                                        .addAggregation(p.symbol("sum"), PlanBuilder.expression("sum(a)"), ImmutableList.of(BIGINT))
+                                        .globalGrouping()))))
                 .matches(
                         project(ImmutableMap.of("sum_1", expression("sum_1"), "corr", expression("corr")),
                                 aggregation(ImmutableMap.of("sum_1", functionCall("sum", ImmutableList.of("a"))),
@@ -106,11 +122,13 @@ public class TestTransformCorrelatedScalarAggregationToJoin
                 .on(p -> p.lateral(
                         ImmutableList.of(p.symbol("corr")),
                         p.values(p.symbol("corr")),
-                        p.project(Assignments.of(p.symbol("expr"), p.expression("sum + 1")),
-                                p.aggregation(ab -> ab
-                                        .source(p.values(p.symbol("a"), p.symbol("b")))
-                                        .addAggregation(p.symbol("sum"), PlanBuilder.expression("sum(a)"), ImmutableList.of(BIGINT))
-                                        .globalGrouping()))))
+                        p.nodeWithTrait(
+                                CardinalityTrait.scalar(),
+                                p.project(Assignments.of(p.symbol("expr"), p.expression("sum + 1")),
+                                        p.aggregation(ab -> ab
+                                                .source(p.values(p.symbol("a"), p.symbol("b")))
+                                                .addAggregation(p.symbol("sum"), PlanBuilder.expression("sum(a)"), ImmutableList.of(BIGINT))
+                                                .globalGrouping())))))
                 .matches(
                         project(ImmutableMap.of("corr", expression("corr"), "expr", expression("(\"sum_1\" + 1)")),
                                 aggregation(ImmutableMap.of("sum_1", functionCall("sum", ImmutableList.of("a"))),

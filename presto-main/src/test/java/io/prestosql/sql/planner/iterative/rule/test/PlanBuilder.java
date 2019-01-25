@@ -107,6 +107,7 @@ public class PlanBuilder
     private final PlanNodeIdAllocator idAllocator;
     private final Metadata metadata;
     private final Map<Symbol, Type> symbols = new HashMap<>();
+    private Map<PlanNodeId, TraitSet> planNodeTraits = new HashMap<>();
 
     public PlanBuilder(PlanNodeIdAllocator idAllocator, Metadata metadata)
     {
@@ -245,6 +246,17 @@ public class PlanBuilder
     public PlanNode nodeWithTrait(Trait trait)
     {
         return new PlanWithTrait(idAllocator.getNextId(), trait);
+    }
+
+    public PlanNode nodeWithTrait(Trait trait, PlanNode planNode)
+    {
+        planNodeTraits.put(planNode.getId(), planNodeTraits.getOrDefault(planNode, TraitSet.empty()).addTrait(trait));
+        return planNode;
+    }
+
+    public Map<PlanNodeId, TraitSet> getPlanNodeTraits()
+    {
+        return planNodeTraits;
     }
 
     public class AggregationBuilder

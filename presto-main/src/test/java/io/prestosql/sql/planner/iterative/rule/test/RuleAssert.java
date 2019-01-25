@@ -69,6 +69,7 @@ public class RuleAssert
 
     private TypeProvider types;
     private PlanNode plan;
+    private Map<PlanNodeId, TraitSet> planNodeTraits;
     private final TransactionManager transactionManager;
     private final AccessControl accessControl;
 
@@ -109,6 +110,7 @@ public class RuleAssert
         PlanBuilder builder = new PlanBuilder(idAllocator, metadata);
         plan = planProvider.apply(builder);
         types = builder.getTypes();
+        planNodeTraits = builder.getPlanNodeTraits();
         return this;
     }
 
@@ -172,6 +174,9 @@ public class RuleAssert
                     if (node instanceof PlanWithTrait) {
                         memo.storeTrait(group, ((PlanWithTrait) node).getTrait());
                     }
+                    planNodeTraits.getOrDefault(node.getId(), TraitSet.empty())
+                            .getTraits()
+                            .forEach(trait -> memo.storeTrait(group, trait));
                 });
         Lookup lookup = memo.getLookup();
         int rootGroup = memo.getRootGroup();

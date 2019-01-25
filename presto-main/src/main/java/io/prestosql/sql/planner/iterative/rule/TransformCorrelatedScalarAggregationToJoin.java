@@ -86,11 +86,12 @@ public class TransformCorrelatedScalarAggregationToJoin
     @Override
     public Result apply(LateralJoinNode lateralJoinNode, Captures captures, TraitSet traitSet, Context context)
     {
-        PlanNode subquery = lateralJoinNode.getSubquery();
-
-        if (!isScalar(subquery, context.getLookup())) {
+        Optional<CardinalityTrait> subqueryCardinality = context.getLookup().resolveTrait(lateralJoinNode.getSubquery(), CARDINALITY);
+        if (!subqueryCardinality.isPresent() || !subqueryCardinality.get().isScalar()) {
             return Result.empty();
         }
+
+        PlanNode subquery = context.getLookup().resolve(lateralJoinNode.getSubquery());
 
         Optional<AggregationNode> aggregation = findAggregation(subquery, context.getLookup());
         if (!(aggregation.isPresent() && aggregation.get().getGroupingKeys().isEmpty())) {
