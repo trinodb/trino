@@ -15,7 +15,6 @@ package io.prestosql.matching.pattern;
 
 import io.prestosql.matching.Captures;
 import io.prestosql.matching.Match;
-import io.prestosql.matching.Matcher;
 import io.prestosql.matching.Pattern;
 import io.prestosql.matching.PatternVisitor;
 
@@ -46,7 +45,7 @@ public class TypeOfPattern<T>
     }
 
     @Override
-    public <C> Stream<Match> accept(Matcher matcher, Object object, Captures captures, C context)
+    public <C> Stream<Match> accept(Object object, Captures captures, C context)
     {
         if (expectedClass.isInstance(object)) {
             return Stream.of(Match.of(captures));

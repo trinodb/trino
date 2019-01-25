@@ -173,10 +173,10 @@ public class RuleAssert
 
     private static <T> RuleApplication applyRule(Rule<T> rule, PlanNode planNode, Rule.Context context)
     {
-        Matcher matcher = new DefaultMatcher();
         Capture<T> planNodeCapture = newCapture();
         Pattern<T> pattern = rule.getPattern().capturedAs(planNodeCapture);
-        Optional<Match> match = matcher.match(pattern, planNode, context.getLookup()).collect(toOptional());
+        Optional<Match> match = pattern.match(planNode, context.getLookup())
+                .collect(toOptional());
 
         Rule.Result result;
         if (!rule.isEnabled(context.getSession()) || !match.isPresent()) {
