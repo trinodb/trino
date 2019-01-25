@@ -25,6 +25,7 @@ import io.prestosql.sql.planner.plan.PlanNode;
 
 import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public interface Rule<T>
@@ -64,19 +65,27 @@ public interface Rule<T>
     {
         public static Result empty()
         {
-            return new Result(Optional.empty());
+            return new Result(Optional.empty(), Optional.empty());
         }
 
         public static Result ofPlanNode(PlanNode transformedPlan)
         {
-            return new Result(Optional.of(transformedPlan));
+            return new Result(Optional.of(transformedPlan), Optional.empty());
+        }
+
+        public static Result setTrait(Trait trait)
+        {
+            return new Result(Optional.empty(), Optional.of(trait));
         }
 
         private final Optional<PlanNode> transformedPlan;
+        private final Optional<Trait> trait;
 
-        private Result(Optional<PlanNode> transformedPlan)
+        private Result(Optional<PlanNode> transformedPlan, Optional<Trait> trait)
         {
             this.transformedPlan = requireNonNull(transformedPlan, "transformedPlan is null");
+            this.trait = requireNonNull(trait, "trait is null");
+            checkArgument(!(transformedPlan.isPresent() && trait.isPresent()), "Either transformed plan or trait can be set");
         }
 
         public Optional<PlanNode> getTransformedPlan()
@@ -86,7 +95,12 @@ public interface Rule<T>
 
         public boolean isEmpty()
         {
-            return !transformedPlan.isPresent();
+            return !transformedPlan.isPresent() && !trait.isPresent();
+        }
+
+        public Optional<Trait> getTrait()
+        {
+            return trait;
         }
     }
 }

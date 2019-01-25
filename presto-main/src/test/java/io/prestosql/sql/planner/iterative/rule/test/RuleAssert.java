@@ -44,7 +44,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
-import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.sql.planner.assertions.PlanAssert.assertPlan;
@@ -161,7 +160,7 @@ public class RuleAssert
     {
         SymbolAllocator symbolAllocator = new SymbolAllocator(types.allTypes());
         Memo memo = new Memo(idAllocator, plan);
-        Lookup lookup = Lookup.from(planNode -> Stream.of(memo.resolve(planNode)));
+        Lookup lookup = memo.getLookup();
 
         PlanNode memoRoot = memo.getNode(memo.getRootGroup());
 
