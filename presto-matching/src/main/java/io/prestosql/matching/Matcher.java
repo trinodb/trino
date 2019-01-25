@@ -13,12 +13,6 @@
  */
 package io.prestosql.matching;
 
-import io.prestosql.matching.pattern.CapturePattern;
-import io.prestosql.matching.pattern.EqualsPattern;
-import io.prestosql.matching.pattern.FilterPattern;
-import io.prestosql.matching.pattern.TypeOfPattern;
-import io.prestosql.matching.pattern.WithPattern;
-
 import java.util.stream.Stream;
 
 public interface Matcher
@@ -39,14 +33,4 @@ public interface Matcher
     }
 
     <T, C> Stream<Match> match(Pattern<T> pattern, Object object, Captures captures, C context);
-
-    <T, C> Stream<Match> matchTypeOf(TypeOfPattern<T> typeOfPattern, Object object, Captures captures, C context);
-
-    <T, C> Stream<Match> matchWith(WithPattern<T> withPattern, Object object, Captures captures, C context);
-
-    <T, C> Stream<Match> matchCapture(CapturePattern<T> capturePattern, Object object, Captures captures, C context);
-
-    <T, C> Stream<Match> matchEquals(EqualsPattern<T> equalsPattern, Object object, Captures captures, C context);
-
-    <T, C> Stream<Match> matchFilter(FilterPattern<T> filterPattern, Object object, Captures captures, C context);
 }
