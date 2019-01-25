@@ -19,6 +19,8 @@ import io.prestosql.matching.Matcher;
 import io.prestosql.matching.Pattern;
 import io.prestosql.matching.PatternVisitor;
 
+import java.util.Optional;
+
 import static java.util.Objects.requireNonNull;
 
 public class EqualsPattern<T>
@@ -26,11 +28,10 @@ public class EqualsPattern<T>
 {
     private final T expectedValue;
 
-    public EqualsPattern(T expectedValue, Pattern<?> previous)
+    public EqualsPattern(T expectedValue, Optional<Pattern<?>> previous)
     {
         super(previous);
-        this.expectedValue = requireNonNull(expectedValue,
-                "expectedValue can't be null. Use isNull() pattern instead.");
+        this.expectedValue = requireNonNull(expectedValue, "expectedValue can't be null. Use isNull() pattern instead.");
     }
 
     public T expectedValue()

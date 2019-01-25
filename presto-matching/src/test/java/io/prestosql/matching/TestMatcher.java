@@ -24,6 +24,8 @@ import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 
+import static com.google.common.collect.MoreCollectors.onlyElement;
+import static com.google.common.collect.MoreCollectors.toOptional;
 import static io.prestosql.matching.Capture.newCapture;
 import static io.prestosql.matching.Pattern.any;
 import static io.prestosql.matching.Pattern.typeOf;
