@@ -14,22 +14,47 @@
 package io.prestosql.plugin.hive.metastore.glue;
 
 import com.google.inject.Binder;
-import com.google.inject.Module;
 import com.google.inject.Scopes;
+import com.google.inject.multibindings.Multibinder;
+import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.prestosql.plugin.hive.ForRecordingHiveMetastore;
+import io.prestosql.plugin.hive.HiveClientConfig;
 import io.prestosql.plugin.hive.metastore.ExtendedHiveMetastore;
+import io.prestosql.plugin.hive.metastore.RecordingHiveMetastore;
+import io.prestosql.plugin.hive.metastore.WriteHiveMetastoreRecordingProcedure;
+import io.prestosql.spi.procedure.Procedure;
 
+import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
 public class GlueMetastoreModule
-        implements Module
+        extends AbstractConfigurationAwareModule
 {
     @Override
-    public void configure(Binder binder)
+    protected void setup(Binder binder)
     {
         configBinder(binder).bindConfig(GlueHiveMetastoreConfig.class);
-        binder.bind(ExtendedHiveMetastore.class).to(GlueHiveMetastore.class).in(Scopes.SINGLETON);
-        newExporter(binder).export(ExtendedHiveMetastore.class)
-                .as(generator -> generator.generatedNameOf(GlueHiveMetastore.class));
+
+        if (buildConfigObject(HiveClientConfig.class).getRecordingPath() != null) {
+            binder.bind(ExtendedHiveMetastore.class)
+                    .annotatedWith(ForRecordingHiveMetastore.class)
+                    .to(GlueHiveMetastore.class)
+                    .in(Scopes.SINGLETON);
+            binder.bind(GlueHiveMetastore.class).in(Scopes.SINGLETON);
+            newExporter(binder).export(GlueHiveMetastore.class).withGeneratedName();
+
+            binder.bind(ExtendedHiveMetastore.class).to(RecordingHiveMetastore.class).in(Scopes.SINGLETON);
+            binder.bind(RecordingHiveMetastore.class).in(Scopes.SINGLETON);
+            newExporter(binder).export(RecordingHiveMetastore.class).withGeneratedName();
+
+            Multibinder<Procedure> procedures = newSetBinder(binder, Procedure.class);
+            procedures.addBinding().toProvider(WriteHiveMetastoreRecordingProcedure.class).in(Scopes.SINGLETON);
+        }
+        else {
+            binder.bind(ExtendedHiveMetastore.class).to(GlueHiveMetastore.class).in(Scopes.SINGLETON);
+            newExporter(binder).export(ExtendedHiveMetastore.class)
+                    .as(generator -> generator.generatedNameOf(GlueHiveMetastore.class));
+        }
     }
 }
