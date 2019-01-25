@@ -156,7 +156,7 @@ public class TestMatcher
         Capture<Void> impossible = newCapture();
         Pattern<Void> pattern = typeOf(Void.class).capturedAs(impossible);
 
-        Optional<Match> match = DEFAULT_MATCHER.match(pattern, 42)
+        Optional<Match> match = pattern.match(42)
                 .collect(toOptional());
 
         assertFalse(match.isPresent());
@@ -168,7 +168,7 @@ public class TestMatcher
         Pattern<?> pattern = any();
         Capture<?> unknownCapture = newCapture();
 
-        Match match = DEFAULT_MATCHER.match(pattern, 42)
+        Match match = pattern.match(42)
                 .collect(onlyElement());
 
         Throwable throwable = expectThrows(NoSuchElementException.class, () -> match.capture(unknownCapture));
@@ -194,7 +194,7 @@ public class TestMatcher
                         }).equalTo(true));
 
         AtomicBoolean wasContextUsed = new AtomicBoolean();
-        DEFAULT_MATCHER.match(pattern, "object", wasContextUsed)
+        pattern.match("object", wasContextUsed)
                 .collect(onlyElement());
         assertEquals(wasContextUsed.get(), true);
     }
@@ -209,20 +209,20 @@ public class TestMatcher
                 });
 
         AtomicBoolean wasContextUsed = new AtomicBoolean();
-        DEFAULT_MATCHER.match(pattern, "object", wasContextUsed)
+        pattern.match("object", wasContextUsed)
                 .collect(onlyElement());
         assertEquals(wasContextUsed.get(), true);
     }
 
     private <T> Match assertMatch(Pattern<T> pattern, T object)
     {
-        return DEFAULT_MATCHER.match(pattern, object)
+        return pattern.match(object)
                 .collect(onlyElement());
     }
 
     private <T> void assertNoMatch(Pattern<T> pattern, Object expectedNoMatch)
     {
-        Optional<Match> match = DEFAULT_MATCHER.match(pattern, expectedNoMatch)
+        Optional<Match> match = pattern.match(expectedNoMatch)
                 .collect(toOptional());
         assertFalse(match.isPresent());
     }

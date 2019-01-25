@@ -41,7 +41,7 @@ public class FilterPattern<T>
     }
 
     @Override
-    public <C> Stream<Match> accept(Matcher matcher, Object object, Captures captures, C context)
+    public <C> Stream<Match> accept(Object object, Captures captures, C context)
     {
         //TODO remove cast
         BiPredicate<? super T, C> predicate = (BiPredicate<? super T, C>) this.predicate;

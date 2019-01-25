@@ -15,7 +15,6 @@ package io.prestosql.matching.pattern;
 
 import io.prestosql.matching.Captures;
 import io.prestosql.matching.Match;
-import io.prestosql.matching.Matcher;
 import io.prestosql.matching.Pattern;
 import io.prestosql.matching.PatternVisitor;
 import io.prestosql.matching.Property;
@@ -49,12 +48,12 @@ public class WithPattern<T>
     }
 
     @Override
-    public <C> Stream<Match> accept(Matcher matcher, Object object, Captures captures, C context)
+    public <C> Stream<Match> accept(Object object, Captures captures, C context)
     {
         //TODO remove cast
         BiFunction<? super T, C, Optional<?>> property = (BiFunction<? super T, C, Optional<?>>) propertyPattern.getProperty().getFunction();
         Optional<?> propertyValue = property.apply((T) object, context);
-        return propertyValue.map(value -> matcher.match(propertyPattern.getPattern(), value, captures, context))
+        return propertyValue.map(value -> propertyPattern.getPattern().match(value, captures, context))
                 .orElse(Stream.of());
     }
 
