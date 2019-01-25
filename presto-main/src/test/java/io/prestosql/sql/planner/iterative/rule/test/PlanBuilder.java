@@ -13,6 +13,7 @@
  */
 package io.prestosql.sql.planner.iterative.rule.test;
 
+import io.prestosql.sql.planner.plan.PlanWithTrait;
 import com.google.common.base.Functions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -42,6 +43,7 @@ import io.prestosql.sql.planner.TestingConnectorIndexHandle;
 import io.prestosql.sql.planner.TestingConnectorTransactionHandle;
 import io.prestosql.sql.planner.TestingWriterTarget;
 import io.prestosql.sql.planner.TypeProvider;
+import io.prestosql.sql.planner.iterative.Trait;
 import io.prestosql.sql.planner.plan.AggregationNode;
 import io.prestosql.sql.planner.plan.AggregationNode.Aggregation;
 import io.prestosql.sql.planner.plan.AggregationNode.Step;
@@ -238,6 +240,11 @@ public class PlanBuilder
         AggregationBuilder aggregationBuilder = new AggregationBuilder();
         aggregationBuilderConsumer.accept(aggregationBuilder);
         return aggregationBuilder.build();
+    }
+
+    public PlanNode nodeWithTrait(Trait trait)
+    {
+        return new PlanWithTrait(idAllocator.getNextId(), trait);
     }
 
     public class AggregationBuilder
