@@ -219,4 +219,10 @@ public class DetermineJoinDistributionType
             return cost;
         }
     }
+
+    private static boolean isAtMostScalar(PlanNode planNode, Lookup lookup)
+    {
+        Optional<CardinalityTrait> cardinality = lookup.resolveTrait(planNode, CARDINALITY);
+        return cardinality.isPresent() && cardinality.get().isAtMostScalar();
+    }
 }

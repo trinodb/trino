@@ -147,7 +147,8 @@ public class TestDetermineJoinDistributionType
                         p.join(
                                 INNER,
                                 p.values(ImmutableList.of(p.symbol("A1")), ImmutableList.of(expressions("10"), expressions("11"))),
-                                p.enforceSingleRow(
+                                p.nodeWithTrait(
+                                        CardinalityTrait.scalar(),
                                         p.values(ImmutableList.of(p.symbol("B1")), ImmutableList.of(expressions("50"), expressions("11")))),
                                 ImmutableList.of(new JoinNode.EquiJoinClause(p.symbol("A1", BIGINT), p.symbol("B1", BIGINT))),
                                 ImmutableList.of(p.symbol("A1", BIGINT), p.symbol("B1", BIGINT)),
@@ -159,7 +160,7 @@ public class TestDetermineJoinDistributionType
                         Optional.empty(),
                         Optional.of(DistributionType.REPLICATED),
                         values(ImmutableMap.of("A1", 0)),
-                        enforceSingleRow(values(ImmutableMap.of("B1", 0)))));
+                        values(ImmutableMap.of("B1", 0))));
     }
 
     @Test
