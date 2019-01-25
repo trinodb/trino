@@ -21,6 +21,7 @@ import io.prestosql.matching.pattern.WithPattern;
 
 import java.util.Optional;
 import java.util.function.Predicate;
+import java.util.stream.Stream;
 
 import static com.google.common.base.Predicates.not;
 import static io.prestosql.matching.DefaultMatcher.DEFAULT_MATCHER;
@@ -83,13 +84,15 @@ public abstract class Pattern<T>
         return previous;
     }
 
-    public abstract Match<T> accept(Matcher matcher, Object object, Captures captures);
+    public abstract Stream<Match<T>> accept(Matcher matcher, Object object, Captures captures);
 
     public abstract void accept(PatternVisitor patternVisitor);
 
     public boolean matches(Object object)
     {
-        return DEFAULT_MATCHER.match(this, object).isPresent();
+        return DEFAULT_MATCHER.match(this, object)
+                .findFirst()
+                .isPresent();
     }
 
     @Override
