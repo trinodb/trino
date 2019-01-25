@@ -317,12 +317,14 @@ public class PlanOptimizers
                         ruleStats,
                         statsCalculator,
                         estimatedExchangesCostCalculator,
-                        ImmutableSet.of(
-                                new RemoveUnreferencedScalarLateralNodes(),
-                                new TransformUncorrelatedLateralToJoin(),
-                                new TransformUncorrelatedInPredicateSubqueryToSemiJoin(),
-                                new TransformCorrelatedScalarAggregationToJoin(metadata.getFunctionRegistry()),
-                                new TransformCorrelatedLateralJoinToJoin())),
+                        ImmutableSet.<Rule<?>>builder()
+                                .addAll(new CardinalityTraitCalculationRuleSet().rules())
+                                .add(new RemoveUnreferencedScalarJoinNodes())
+                                .add(new RemoveUnreferencedScalarLateralNodes())
+                                .add(new TransformUncorrelatedLateralToJoin())
+                                .add(new TransformUncorrelatedInPredicateSubqueryToSemiJoin())
+                                .add(new TransformCorrelatedScalarAggregationToJoin(metadata.getFunctionRegistry()))
+                                .build()),
                 new IterativeOptimizer(
                         ruleStats,
                         statsCalculator,
