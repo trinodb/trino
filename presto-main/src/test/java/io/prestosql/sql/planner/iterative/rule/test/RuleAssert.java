@@ -173,14 +173,14 @@ public class RuleAssert
     private static <T> RuleApplication applyRule(Rule<T> rule, PlanNode planNode, Rule.Context context)
     {
         PlanNodeMatcher matcher = new PlanNodeMatcher(context.getLookup());
-        Match<T> match = matcher.match(rule.getPattern(), planNode);
+        Optional<Match<T>> match = matcher.match(rule.getPattern(), planNode).collect(toOptional());
 
         Rule.Result result;
-        if (!rule.isEnabled(context.getSession()) || match.isEmpty()) {
+        if (!rule.isEnabled(context.getSession()) || !match.isPresent()) {
             result = Rule.Result.empty();
         }
         else {
-            result = rule.apply(match.value(), match.captures(), context);
+            result = rule.apply(match.get().value(), match.get().captures(), context);
         }
 
         return new RuleApplication(context.getLookup(), context.getStatsProvider(), context.getSymbolAllocator().getTypes(), result);
