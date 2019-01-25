@@ -26,6 +26,7 @@ import io.prestosql.sql.tree.FunctionCall;
 import io.prestosql.sql.tree.LongLiteral;
 
 import java.util.Map;
+import java.util.Optional;
 
 import static io.prestosql.sql.planner.optimizations.QueryCardinalityUtil.isScalar;
 import static io.prestosql.sql.planner.plan.Patterns.aggregation;
@@ -62,7 +63,8 @@ public class PruneCountAggregationOverScalar
                 return Result.empty();
             }
         }
-        if (!assignments.isEmpty() && isScalar(parent.getSource(), context.getLookup())) {
+        Optional<CardinalityTrait> sourceCardinality = context.getLookup().resolveTrait(parent.getSource(), CARDINALITY);
+        if (!assignments.isEmpty() && sourceCardinality.isPresent() && sourceCardinality.get().isScalar()) {
             return Result.ofPlanNode(new ValuesNode(parent.getId(), parent.getOutputSymbols(), ImmutableList.of(ImmutableList.of(new LongLiteral("1")))));
         }
         return Result.empty();
