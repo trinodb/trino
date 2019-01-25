@@ -125,6 +125,7 @@ import org.weakref.jmx.MBeanExporter;
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
 import javax.inject.Inject;
+import javax.ws.rs.HEAD;
 
 import java.util.List;
 import java.util.Set;
@@ -326,12 +327,14 @@ public class PlanOptimizers
                         ruleStats,
                         statsCalculator,
                         estimatedExchangesCostCalculator,
-                        ImmutableSet.of(
-                                new RemoveUnreferencedScalarApplyNodes(),
-                                new TransformCorrelatedInPredicateToJoin(), // must be run after PruneUnreferencedOutputs
-                                new TransformCorrelatedScalarSubquery(), // must be run after TransformCorrelatedScalarAggregationToJoin
-                                new TransformCorrelatedLateralJoinToJoin(),
-                                new ImplementFilteredAggregations())),
+                        ImmutableSet.<Rule<?>>builder()
+                                .addAll(new CardinalityTraitCalculationRuleSet().rules())
+                                .add(new RemoveUnreferencedScalarApplyNodes())
+                                .add(new TransformCorrelatedInPredicateToJoin()) // must be run after PruneUnreferencedOutputs
+                                .add(new TransformCorrelatedScalarSubquery()) // must be run after TransformCorrelatedScalarAggregationToJoin
+                                .add(new TransformCorrelatedLateralJoinToJoin())
+                                .add(new ImplementFilteredAggregations())
+                                .build()),
                 new IterativeOptimizer(
                         ruleStats,
                         statsCalculator,

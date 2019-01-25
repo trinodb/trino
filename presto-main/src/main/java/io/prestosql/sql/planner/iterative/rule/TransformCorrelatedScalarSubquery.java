@@ -91,19 +91,15 @@ public class TransformCorrelatedScalarSubquery
     @Override
     public Result apply(LateralJoinNode lateralJoinNode, Captures captures, TraitSet traitSet, Context context)
     {
-        PlanNode subquery = context.getLookup().resolve(lateralJoinNode.getSubquery());
-
-        if (!searchFrom(subquery, context.getLookup())
+        PlanNodeSearcher enforceSingleRowSearcher = searchFrom(lateralJoinNode.getSubquery(), context.getLookup())
                 .where(EnforceSingleRowNode.class::isInstance)
-                .recurseOnlyWhen(ProjectNode.class::isInstance)
-                .matches()) {
+                .recurseOnlyWhen(ProjectNode.class::isInstance);
+
+        if (!enforceSingleRowSearcher.matches()) {
             return Result.empty();
         }
 
-        PlanNode rewrittenSubquery = searchFrom(subquery, context.getLookup())
-                .where(EnforceSingleRowNode.class::isInstance)
-                .recurseOnlyWhen(ProjectNode.class::isInstance)
-                .removeFirst();
+        PlanNode rewrittenSubquery = enforceSingleRowSearcher.removeFirst();
 
         if (isAtMostScalar(rewrittenSubquery, context.getLookup())) {
             return Result.ofPlanNode(new LateralJoinNode(
@@ -155,5 +151,14 @@ public class TransformCorrelatedScalarSubquery
                 context.getIdAllocator().getNextId(),
                 filterNode,
                 Assignments.identity(lateralJoinNode.getOutputSymbols())));
+    }
+
+    private static boolean isAtMostScalar(PlanNode planNode, Lookup lookup)
+    {
+        if (planNode instanceof ProjectNode) {
+            return isAtMostScalar(((ProjectNode) planNode).getSource(), lookup);
+        }
+        Optional<CardinalityTrait> cardinality = lookup.resolveTrait(planNode, CARDINALITY);
+        return cardinality.isPresent() && cardinality.get().isAtMostScalar();
     }
 }

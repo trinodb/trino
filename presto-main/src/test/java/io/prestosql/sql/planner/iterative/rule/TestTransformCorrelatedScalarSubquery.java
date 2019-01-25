@@ -33,7 +33,6 @@ import io.prestosql.sql.tree.SymbolReference;
 import io.prestosql.sql.tree.WhenClause;
 import org.testng.annotations.Test;
 
-import java.util.List;
 import java.util.Optional;
 
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.assignUniqueId;
@@ -49,9 +48,6 @@ import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
 public class TestTransformCorrelatedScalarSubquery
         extends BaseRuleTest
 {
-    private static final ImmutableList<List<Expression>> ONE_ROW = ImmutableList.of(ImmutableList.of(new LongLiteral("1")));
-    private static final ImmutableList<List<Expression>> TWO_ROWS = ImmutableList.of(ImmutableList.of(new LongLiteral("1")), ImmutableList.of(new LongLiteral("2")));
-
     private Rule rule = new TransformCorrelatedScalarSubquery();
 
     @Test
@@ -94,7 +90,9 @@ public class TestTransformCorrelatedScalarSubquery
                         p.enforceSingleRow(
                                 p.filter(
                                         p.expression("1 = a"), // TODO use correlated predicate, it requires support for correlated subqueries in plan matchers
-                                        p.values(ImmutableList.of(p.symbol("a")), TWO_ROWS)))))
+                                        p.nodeWithTrait(
+                                                CardinalityTrait.exactly(2),
+                                                p.values(p.symbol("a")))))))
                 .matches(
                         project(
                                 filter(
@@ -124,7 +122,9 @@ public class TestTransformCorrelatedScalarSubquery
                                         Assignments.of(p.symbol("a2"), p.expression("a * 2")),
                                         p.filter(
                                                 p.expression("1 = a"), // TODO use correlated predicate, it requires support for correlated subqueries in plan matchers
-                                                p.values(ImmutableList.of(p.symbol("a")), TWO_ROWS))))))
+                                                p.nodeWithTrait(
+                                                        CardinalityTrait.exactly(2),
+                                                        p.values(p.symbol("a"))))))))
                 .matches(
                         project(
                                 filter(
@@ -156,7 +156,9 @@ public class TestTransformCorrelatedScalarSubquery
                                                 Assignments.of(p.symbol("a2"), p.expression("a * 2")),
                                                 p.filter(
                                                         p.expression("1 = a"), // TODO use correlated predicate, it requires support for correlated subqueries in plan matchers
-                                                        p.values(ImmutableList.of(p.symbol("a")), TWO_ROWS)))))))
+                                                        p.nodeWithTrait(
+                                                                CardinalityTrait.exactly(2),
+                                                                p.values(p.symbol("a")))))))))
                 .matches(
                         project(
                                 filter(
@@ -186,9 +188,11 @@ public class TestTransformCorrelatedScalarSubquery
                         ImmutableList.of(p.symbol("corr")),
                         p.values(p.symbol("corr")),
                         p.enforceSingleRow(
-                                p.filter(
-                                        p.expression("1 = a"), // TODO use correlated predicate, it requires support for correlated subqueries in plan matchers
-                                        p.values(ImmutableList.of(p.symbol("a")), ONE_ROW)))))
+                                p.nodeWithTrait(
+                                        CardinalityTrait.scalar(),
+                                        p.filter(
+                                                p.expression("1 = a"), // TODO use correlated predicate, it requires support for correlated subqueries in plan matchers
+                                                p.values(p.symbol("a")))))))
                 .matches(
                         lateral(
                                 ImmutableList.of("corr"),
