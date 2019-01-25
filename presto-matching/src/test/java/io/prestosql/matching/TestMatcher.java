@@ -23,6 +23,7 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.collect.MoreCollectors.toOptional;
@@ -70,7 +71,7 @@ public class TestMatcher
     public void propertyMatchers()
     {
         Pattern<String> aString = typeOf(String.class);
-        Property<String, Integer> length = Property.property("length", String::length);
+        Property<String, ?, Integer> length = Property.property("length", String::length);
         String string = "a";
 
         assertMatch(aString.with(length.equalTo(1)), string);
@@ -114,7 +115,7 @@ public class TestMatcher
     @Test
     public void optionalProperties()
     {
-        Property<RelNode, RelNode> onlySource = Property.optionalProperty("onlySource", node ->
+        Property<RelNode, ?, RelNode> onlySource = Property.optionalProperty("onlySource", node ->
                 Optional.of(node.getSources())
                         .filter(sources -> sources.size() == 1)
                         .map((List<RelNode> sources) -> sources.get(0)));
@@ -179,6 +180,38 @@ public class TestMatcher
     {
         assertNoMatch(any(), null);
         assertNoMatch(typeOf(Integer.class), null);
+    }
+
+    @Test
+    public void contextIsPassedToPropertyFunction()
+    {
+        Pattern pattern = any().with(
+                Property.property(
+                        "non null",
+                        (Object value, AtomicBoolean context) -> {
+                            context.set(true);
+                            return value != null;
+                        }).equalTo(true));
+
+        AtomicBoolean wasContextUsed = new AtomicBoolean();
+        DEFAULT_MATCHER.match(pattern, "object", wasContextUsed)
+                .collect(onlyElement());
+        assertEquals(wasContextUsed.get(), true);
+    }
+
+    @Test
+    public void contextIsPassedToPredicate()
+    {
+        Pattern pattern = any().matching(
+                (Object value, AtomicBoolean context) -> {
+                    context.set(true);
+                    return value != null;
+                });
+
+        AtomicBoolean wasContextUsed = new AtomicBoolean();
+        DEFAULT_MATCHER.match(pattern, "object", wasContextUsed)
+                .collect(onlyElement());
+        assertEquals(wasContextUsed.get(), true);
     }
 
     private <T> Match<T> assertMatch(Pattern<T> pattern, T expectedMatch)

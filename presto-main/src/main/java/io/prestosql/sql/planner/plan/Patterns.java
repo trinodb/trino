@@ -159,26 +159,26 @@ public class Patterns
         return typeOf(RowNumberNode.class);
     }
 
-    public static Property<PlanNode, PlanNode> source()
+    public static <C> Property<PlanNode, C, PlanNode> source()
     {
         return optionalProperty("source", node -> node.getSources().size() == 1 ?
                 Optional.of(node.getSources().get(0)) :
                 Optional.empty());
     }
 
-    public static Property<PlanNode, List<PlanNode>> sources()
+    public static <C> Property<PlanNode, C, List<PlanNode>> sources()
     {
         return property("sources", PlanNode::getSources);
     }
 
     public static class Aggregation
     {
-        public static Property<AggregationNode, List<Symbol>> groupingColumns()
+        public static <C> Property<AggregationNode, C, List<Symbol>> groupingColumns()
         {
             return property("groupingKeys", AggregationNode::getGroupingKeys);
         }
 
-        public static Property<AggregationNode, AggregationNode.Step> step()
+        public static <C> Property<AggregationNode, C, AggregationNode.Step> step()
         {
             return property("step", AggregationNode::getStep);
         }
@@ -186,7 +186,7 @@ public class Patterns
 
     public static class Apply
     {
-        public static Property<ApplyNode, List<Symbol>> correlation()
+        public static <C> Property<ApplyNode, C, List<Symbol>> correlation()
         {
             return property("correlation", ApplyNode::getCorrelation);
         }
@@ -202,7 +202,7 @@ public class Patterns
 
     public static class LateralJoin
     {
-        public static Property<LateralJoinNode, List<Symbol>> correlation()
+        public static <C> Property<LateralJoinNode, C, List<Symbol>> correlation()
         {
             return property("correlation", LateralJoinNode::getCorrelation);
         }
@@ -215,7 +215,7 @@ public class Patterns
 
     public static class Limit
     {
-        public static Property<LimitNode, Long> count()
+        public static <C> Property<LimitNode, C, Long> count()
         {
             return property("count", LimitNode::getCount);
         }
@@ -223,12 +223,12 @@ public class Patterns
 
     public static class Sample
     {
-        public static Property<SampleNode, Double> sampleRatio()
+        public static <C> Property<SampleNode, C, Double> sampleRatio()
         {
             return property("sampleRatio", SampleNode::getSampleRatio);
         }
 
-        public static Property<SampleNode, SampleNode.Type> sampleType()
+        public static <C> Property<SampleNode, C, SampleNode.Type> sampleType()
         {
             return property("sampleType", SampleNode::getSampleType);
         }
@@ -236,7 +236,7 @@ public class Patterns
 
     public static class TopN
     {
-        public static Property<TopNNode, TopNNode.Step> step()
+        public static <C> Property<TopNNode, C, TopNNode.Step> step()
         {
             return property("step", TopNNode::getStep);
         }
@@ -244,7 +244,7 @@ public class Patterns
 
     public static class Values
     {
-        public static Property<ValuesNode, List<List<Expression>>> rows()
+        public static <C> Property<ValuesNode, C, List<List<Expression>>> rows()
         {
             return property("rows", ValuesNode::getRows);
         }
