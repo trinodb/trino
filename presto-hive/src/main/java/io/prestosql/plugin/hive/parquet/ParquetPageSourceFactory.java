@@ -16,6 +16,7 @@ package io.prestosql.plugin.hive.parquet;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.units.DataSize;
 import io.prestosql.memory.context.AggregatedMemoryContext;
 import io.prestosql.parquet.ParquetCorruptionException;
 import io.prestosql.parquet.ParquetDataSource;
@@ -68,6 +69,7 @@ import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_MISSING_DATA;
+import static io.prestosql.plugin.hive.HiveSessionProperties.getParquetMaxReadBlockSize;
 import static io.prestosql.plugin.hive.HiveSessionProperties.isFailOnCorruptedParquetStatistics;
 import static io.prestosql.plugin.hive.HiveSessionProperties.isUseParquetColumnNames;
 import static io.prestosql.plugin.hive.HiveUtil.getDeserializerClassName;
@@ -126,6 +128,7 @@ public class ParquetPageSourceFactory
                 columns,
                 isUseParquetColumnNames(session),
                 isFailOnCorruptedParquetStatistics(session),
+                getParquetMaxReadBlockSize(session),
                 typeManager,
                 effectivePredicate,
                 stats));
@@ -143,6 +146,7 @@ public class ParquetPageSourceFactory
             List<HiveColumnHandle> columns,
             boolean useParquetColumnNames,
             boolean failOnCorruptedParquetStatistics,
+            DataSize maxReadBlockSize,
             TypeManager typeManager,
             TupleDomain<HiveColumnHandle> effectivePredicate,
             FileFormatDataSourceStats stats)
@@ -189,7 +193,8 @@ public class ParquetPageSourceFactory
                     messageColumnIO,
                     blocks.build(),
                     dataSource,
-                    systemMemoryContext);
+                    systemMemoryContext,
+                    maxReadBlockSize);
 
             return new ParquetPageSource(
                     parquetReader,
