@@ -88,7 +88,7 @@ public class IterativeOptimizer
 
         Memo memo = new Memo(idAllocator, plan);
         Lookup lookup = Lookup.from(planNode -> Stream.of(memo.resolve(planNode)));
-        Matcher matcher = new PlanNodeMatcher(lookup);
+        Matcher matcher = new DefaultMatcher();
 
         Duration timeout = SystemSessionProperties.getOptimizerTimeout(session);
         Context context = new Context(memo, lookup, idAllocator, symbolAllocator, System.nanoTime(), timeout.toMillis(), session, warningCollector);
@@ -152,7 +152,7 @@ public class IterativeOptimizer
 
     private <T> Rule.Result transform(PlanNode node, Rule<T> rule, Matcher matcher, Context context)
     {
-        Iterator<Match<T>> matches = matcher.match(rule.getPattern(), node).iterator();
+        Iterator<Match<T>> matches = matcher.match(rule.getPattern(), node, context.lookup).iterator();
         while (matches.hasNext()) {
             Match<T> match = matches.next();
             long duration;

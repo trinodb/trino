@@ -16,11 +16,14 @@ package io.prestosql.sql.planner.plan;
 import io.prestosql.matching.Pattern;
 import io.prestosql.matching.Property;
 import io.prestosql.sql.planner.Symbol;
+import io.prestosql.sql.planner.iterative.Lookup;
 import io.prestosql.sql.tree.Expression;
 
 import java.util.List;
 import java.util.Optional;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.prestosql.matching.Pattern.typeOf;
 import static io.prestosql.matching.Property.optionalProperty;
 import static io.prestosql.matching.Property.property;
@@ -159,26 +162,36 @@ public class Patterns
         return typeOf(RowNumberNode.class);
     }
 
-    public static <C> Property<PlanNode, C, PlanNode> source()
+    public static Property<PlanNode, Lookup, PlanNode> source()
     {
-        return optionalProperty("source", node -> node.getSources().size() == 1 ?
-                Optional.of(node.getSources().get(0)) :
-                Optional.empty());
+        return optionalProperty(
+                "source",
+                (node, lookup) -> {
+                    if (node.getSources().size() == 1) {
+                        PlanNode source = getOnlyElement(node.getSources());
+                        return Optional.of(lookup.resolve(source));
+                    }
+                    return Optional.empty();
+                });
     }
 
-    public static <C> Property<PlanNode, C, List<PlanNode>> sources()
+    public static Property<PlanNode, Lookup, List<PlanNode>> sources()
     {
-        return property("sources", PlanNode::getSources);
+        return property(
+                "sources",
+                (PlanNode node, Lookup lookup) -> node.getSources().stream()
+                        .map(source -> lookup.resolve(source))
+                        .collect(toImmutableList()));
     }
 
     public static class Aggregation
     {
-        public static <C> Property<AggregationNode, C, List<Symbol>> groupingColumns()
+        public static Property<AggregationNode, Lookup, List<Symbol>> groupingColumns()
         {
             return property("groupingKeys", AggregationNode::getGroupingKeys);
         }
 
-        public static <C> Property<AggregationNode, C, AggregationNode.Step> step()
+        public static Property<AggregationNode, Lookup, AggregationNode.Step> step()
         {
             return property("step", AggregationNode::getStep);
         }
@@ -186,7 +199,7 @@ public class Patterns
 
     public static class Apply
     {
-        public static <C> Property<ApplyNode, C, List<Symbol>> correlation()
+        public static Property<ApplyNode, Lookup, List<Symbol>> correlation()
         {
             return property("correlation", ApplyNode::getCorrelation);
         }
@@ -202,12 +215,12 @@ public class Patterns
 
     public static class LateralJoin
     {
-        public static <C> Property<LateralJoinNode, C, List<Symbol>> correlation()
+        public static Property<LateralJoinNode, Lookup, List<Symbol>> correlation()
         {
             return property("correlation", LateralJoinNode::getCorrelation);
         }
 
-        public static Property<LateralJoinNode, PlanNode> subquery()
+        public static Property<LateralJoinNode, Lookup, PlanNode> subquery()
         {
             return property("subquery", LateralJoinNode::getSubquery);
         }
@@ -215,7 +228,7 @@ public class Patterns
 
     public static class Limit
     {
-        public static <C> Property<LimitNode, C, Long> count()
+        public static Property<LimitNode, Lookup, Long> count()
         {
             return property("count", LimitNode::getCount);
         }
@@ -223,12 +236,12 @@ public class Patterns
 
     public static class Sample
     {
-        public static <C> Property<SampleNode, C, Double> sampleRatio()
+        public static Property<SampleNode, Lookup, Double> sampleRatio()
         {
             return property("sampleRatio", SampleNode::getSampleRatio);
         }
 
-        public static <C> Property<SampleNode, C, SampleNode.Type> sampleType()
+        public static Property<SampleNode, Lookup, SampleNode.Type> sampleType()
         {
             return property("sampleType", SampleNode::getSampleType);
         }
@@ -236,7 +249,7 @@ public class Patterns
 
     public static class TopN
     {
-        public static <C> Property<TopNNode, C, TopNNode.Step> step()
+        public static Property<TopNNode, Lookup, TopNNode.Step> step()
         {
             return property("step", TopNNode::getStep);
         }
@@ -244,7 +257,7 @@ public class Patterns
 
     public static class Values
     {
-        public static <C> Property<ValuesNode, C, List<List<Expression>>> rows()
+        public static Property<ValuesNode, Lookup, List<List<Expression>>> rows()
         {
             return property("rows", ValuesNode::getRows);
         }
