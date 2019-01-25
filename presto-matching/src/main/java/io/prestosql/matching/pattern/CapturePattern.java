@@ -20,6 +20,8 @@ import io.prestosql.matching.Matcher;
 import io.prestosql.matching.Pattern;
 import io.prestosql.matching.PatternVisitor;
 
+import static java.util.Objects.requireNonNull;
+
 public class CapturePattern<T>
         extends Pattern<T>
 {
@@ -28,7 +30,7 @@ public class CapturePattern<T>
     public CapturePattern(Capture<T> capture, Pattern<T> previous)
     {
         super(previous);
-        this.capture = capture;
+        this.capture = requireNonNull(capture, "capture is null");
     }
 
     public Capture<T> capture()
