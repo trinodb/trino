@@ -47,6 +47,8 @@ import java.util.function.Function;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.MoreCollectors.toOptional;
+import static io.prestosql.matching.Capture.newCapture;
 import static io.prestosql.sql.planner.assertions.PlanAssert.assertPlan;
 import static io.prestosql.sql.planner.planPrinter.PlanPrinter.textLogicalPlan;
 import static io.prestosql.transaction.TransactionBuilder.transaction;
