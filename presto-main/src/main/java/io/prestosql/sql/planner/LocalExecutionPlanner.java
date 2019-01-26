@@ -1181,6 +1181,18 @@ public class LocalExecutionPlanner
                     channel++;
                 }
             }
+            //TODO: This is a simple hack, it will be replaced when we add ability to push down sampling into connectors.
+            // SYSTEM sampling is performed in the coordinator by dropping some random splits so the SamplingNode can be skipped here.
+            else if (sourceNode instanceof SampleNode) {
+                SampleNode sampleNode = (SampleNode) sourceNode;
+                checkArgument(sampleNode.getSampleType() == SampleNode.Type.SYSTEM, format("%w sampling is not supported", sampleNode.getSampleType()));
+                return visitScanFilterAndProject(context,
+                        planNodeId,
+                        sampleNode.getSource(),
+                        filterExpression,
+                        assignments,
+                        outputSymbols);
+            }
             else {
                 // plan source
                 source = sourceNode.accept(this, context);
