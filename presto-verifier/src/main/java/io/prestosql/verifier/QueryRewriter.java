@@ -142,14 +142,14 @@ public class QueryRewriter
 
     private QualifiedName generateTemporaryTableName(QualifiedName originalName)
     {
-        List<String> parts = new ArrayList<>();
+        List<Identifier> parts = new ArrayList<>();
         int originalSize = originalName.getOriginalParts().size();
         int prefixSize = rewritePrefix.getOriginalParts().size();
         if (originalSize > prefixSize) {
             parts.addAll(originalName.getOriginalParts().subList(0, originalSize - prefixSize));
         }
         parts.addAll(rewritePrefix.getOriginalParts());
-        parts.set(parts.size() - 1, createTemporaryTableName());
+        parts.set(parts.size() - 1, new Identifier(createTemporaryTableName()));
         return QualifiedName.of(parts);
     }
 

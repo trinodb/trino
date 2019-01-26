@@ -21,6 +21,7 @@ import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.Duration;
+import io.prestosql.sql.tree.Identifier;
 import io.prestosql.sql.tree.QualifiedName;
 import org.joda.time.DateTime;
 
@@ -28,9 +29,11 @@ import javax.annotation.Nullable;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 import static io.prestosql.verifier.QueryType.CREATE;
 import static io.prestosql.verifier.QueryType.MODIFY;
@@ -734,7 +737,9 @@ public class VerifierConfig
 
     public QualifiedName getShadowTestTablePrefix()
     {
-        return QualifiedName.of(Splitter.on(".").splitToList(shadowTestTablePrefix));
+        return QualifiedName.of(Arrays.stream(shadowTestTablePrefix.split("\\."))
+                .map(Identifier::new)
+                .collect(Collectors.toList()));
     }
 
     @ConfigDescription("The prefix to use for temporary test shadow tables. May be fully qualified like 'tmp_catalog.tmp_schema.tmp_'")
@@ -747,7 +752,9 @@ public class VerifierConfig
 
     public QualifiedName getShadowControlTablePrefix()
     {
-        return QualifiedName.of(Splitter.on(".").splitToList(shadowControlTablePrefix));
+        return QualifiedName.of(Arrays.stream(shadowControlTablePrefix.split("\\."))
+                .map(Identifier::new)
+                .collect(Collectors.toList()));
     }
 
     @ConfigDescription("The prefix to use for temporary control shadow tables. May be fully qualified like 'tmp_catalog.tmp_schema.tmp_'")
