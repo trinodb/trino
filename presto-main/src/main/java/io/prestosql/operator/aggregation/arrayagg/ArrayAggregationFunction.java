@@ -39,7 +39,6 @@ import java.util.List;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.metadata.Signature.typeVariable;
 import static io.prestosql.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INDEX;
-import static io.prestosql.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INPUT_CHANNEL;
 import static io.prestosql.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.NULLABLE_BLOCK_INPUT_CHANNEL;
 import static io.prestosql.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
 import static io.prestosql.operator.aggregation.AggregationUtils.generateAggregationName;
@@ -55,17 +54,15 @@ public class ArrayAggregationFunction
     private static final MethodHandle COMBINE_FUNCTION = methodHandle(ArrayAggregationFunction.class, "combine", Type.class, ArrayAggregationState.class, ArrayAggregationState.class);
     private static final MethodHandle OUTPUT_FUNCTION = methodHandle(ArrayAggregationFunction.class, "output", Type.class, ArrayAggregationState.class, BlockBuilder.class);
 
-    private final boolean legacyArrayAgg;
     private final ArrayAggGroupImplementation groupMode;
 
-    public ArrayAggregationFunction(boolean legacyArrayAgg, ArrayAggGroupImplementation groupMode)
+    public ArrayAggregationFunction(ArrayAggGroupImplementation groupMode)
     {
         super(NAME,
                 ImmutableList.of(typeVariable("T")),
                 ImmutableList.of(),
                 parseTypeSignature("array(T)"),
                 ImmutableList.of(parseTypeSignature("T")));
-        this.legacyArrayAgg = legacyArrayAgg;
         this.groupMode = requireNonNull(groupMode, "groupMode is null");
     }
 
@@ -79,10 +76,10 @@ public class ArrayAggregationFunction
     public InternalAggregationFunction specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
     {
         Type type = boundVariables.getTypeVariable("T");
-        return generateAggregation(type, legacyArrayAgg, groupMode);
+        return generateAggregation(type, groupMode);
     }
 
-    private static InternalAggregationFunction generateAggregation(Type type, boolean legacyArrayAgg, ArrayAggGroupImplementation groupMode)
+    private static InternalAggregationFunction generateAggregation(Type type, ArrayAggGroupImplementation groupMode)
     {
         DynamicClassLoader classLoader = new DynamicClassLoader(ArrayAggregationFunction.class.getClassLoader());
 
@@ -92,7 +89,7 @@ public class ArrayAggregationFunction
         List<Type> inputTypes = ImmutableList.of(type);
         Type outputType = new ArrayType(type);
         Type intermediateType = stateSerializer.getSerializedType();
-        List<ParameterMetadata> inputParameterMetadata = createInputParameterMetadata(type, legacyArrayAgg);
+        List<ParameterMetadata> inputParameterMetadata = createInputParameterMetadata(type);
 
         MethodHandle inputFunction = INPUT_FUNCTION.bindTo(type);
         MethodHandle combineFunction = COMBINE_FUNCTION.bindTo(type);
@@ -115,9 +112,9 @@ public class ArrayAggregationFunction
         return new InternalAggregationFunction(NAME, inputTypes, ImmutableList.of(intermediateType), outputType, true, true, factory);
     }
 
-    private static List<ParameterMetadata> createInputParameterMetadata(Type value, boolean legacyArrayAgg)
+    private static List<ParameterMetadata> createInputParameterMetadata(Type value)
     {
-        return ImmutableList.of(new ParameterMetadata(STATE), new ParameterMetadata(legacyArrayAgg ? BLOCK_INPUT_CHANNEL : NULLABLE_BLOCK_INPUT_CHANNEL, value), new ParameterMetadata(BLOCK_INDEX));
+        return ImmutableList.of(new ParameterMetadata(STATE), new ParameterMetadata(NULLABLE_BLOCK_INPUT_CHANNEL, value), new ParameterMetadata(BLOCK_INDEX));
     }
 
     public static void input(Type type, ArrayAggregationState state, Block value, int position)
