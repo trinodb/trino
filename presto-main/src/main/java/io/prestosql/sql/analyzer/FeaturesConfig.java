@@ -81,7 +81,6 @@ public class FeaturesConfig
     private boolean enableIntermediateAggregations;
     private boolean pushTableWriteThroughUnion = true;
     private boolean exchangeCompressionEnabled;
-    private boolean legacyArrayAgg;
     private boolean groupByUsesEqualTo;
     private boolean legacyTimestamp = true;
     private boolean legacyMapSubscript;
@@ -218,18 +217,6 @@ public class FeaturesConfig
     public boolean isLegacyCharToVarcharCoercion()
     {
         return legacyCharToVarcharCoercion;
-    }
-
-    @Config("deprecated.legacy-array-agg")
-    public FeaturesConfig setLegacyArrayAgg(boolean legacyArrayAgg)
-    {
-        this.legacyArrayAgg = legacyArrayAgg;
-        return this;
-    }
-
-    public boolean isLegacyArrayAgg()
-    {
-        return legacyArrayAgg;
     }
 
     @Config("deprecated.group-by-uses-equal")
