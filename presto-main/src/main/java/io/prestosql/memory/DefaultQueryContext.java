@@ -31,6 +31,7 @@ import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.OptionalInt;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
@@ -40,6 +41,7 @@ import java.util.function.BiPredicate;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.airlift.units.DataSize.succinctBytes;
@@ -48,6 +50,9 @@ import static io.prestosql.ExceededMemoryLimitException.exceededLocalUserMemoryL
 import static io.prestosql.ExceededSpillLimitException.exceededPerQueryLocalLimit;
 import static io.prestosql.memory.context.AggregatedMemoryContext.newRootAggregatedMemoryContext;
 import static io.prestosql.operator.Operator.NOT_BLOCKED;
+import static java.lang.String.format;
+import static java.util.Comparator.reverseOrder;
+import static java.util.Map.Entry.comparingByValue;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
@@ -320,17 +325,40 @@ public class DefaultQueryContext
         throw new UnsupportedOperationException("tryReserveMemory is not supported");
     }
 
-    private static void enforceUserMemoryLimit(long allocated, long delta, long maxMemory)
+    @GuardedBy("this")
+    private void enforceUserMemoryLimit(long allocated, long delta, long maxMemory)
     {
         if (allocated + delta > maxMemory) {
-            throw exceededLocalUserMemoryLimit(succinctBytes(maxMemory), succinctBytes(allocated), succinctBytes(delta));
+            throw exceededLocalUserMemoryLimit(succinctBytes(maxMemory), getAdditionalFailureInfo(allocated, delta));
         }
     }
 
-    private static void enforceTotalMemoryLimit(long allocated, long delta, long maxMemory)
+    @GuardedBy("this")
+    private void enforceTotalMemoryLimit(long allocated, long delta, long maxMemory)
     {
         if (allocated + delta > maxMemory) {
-            throw exceededLocalTotalMemoryLimit(succinctBytes(maxMemory), succinctBytes(allocated), succinctBytes(delta));
+            throw exceededLocalTotalMemoryLimit(succinctBytes(maxMemory), getAdditionalFailureInfo(allocated, delta));
         }
+    }
+
+    @GuardedBy("this")
+    private String getAdditionalFailureInfo(long allocated, long delta)
+    {
+        Map<String, Long> queryAllocations = memoryPool.getTaggedMemoryAllocations().get(queryId);
+
+        String additionalInfo = format("Allocated: %s, Delta: %s", succinctBytes(allocated), succinctBytes(delta));
+
+        // It's possible that a query tries allocating more than the available memory
+        // failing immediately before any allocation of that query is tagged
+        if (queryAllocations == null) {
+            return additionalInfo;
+        }
+
+        Map<String, DataSize> topConsumers = queryAllocations.entrySet().stream()
+                .sorted(comparingByValue(reverseOrder()))
+                .limit(3)
+                .collect(toImmutableMap(Entry::getKey, e -> succinctBytes(e.getValue())));
+
+        return format("%s, Top Consumers: %s", additionalInfo, topConsumers);
     }
 }
