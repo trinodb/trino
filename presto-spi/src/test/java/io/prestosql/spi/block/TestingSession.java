@@ -44,7 +44,7 @@ public final class TestingSession
         @Override
         public Identity getIdentity()
         {
-            return new Identity("user", Optional.empty());
+            return new Identity("user", Optional.empty(), Optional.empty());
         }
 
         @Override

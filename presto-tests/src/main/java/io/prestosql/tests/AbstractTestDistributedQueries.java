@@ -884,7 +884,7 @@ public abstract class AbstractTestDistributedQueries
         skipTestUnless(supportsViews());
 
         Session viewOwnerSession = TestingSession.testSessionBuilder()
-                .setIdentity(new Identity("test_view_access_owner", Optional.empty()))
+                .setIdentity(new Identity("test_view_access_owner", Optional.empty(), Optional.empty()))
                 .setCatalog(getSession().getCatalog().get())
                 .setSchema(getSession().getSchema().get())
                 .build();
@@ -917,7 +917,7 @@ public abstract class AbstractTestDistributedQueries
                 privilege(getSession().getUser(), "orders", SELECT_COLUMN));
 
         Session nestedViewOwnerSession = TestingSession.testSessionBuilder()
-                .setIdentity(new Identity("test_nested_view_access_owner", Optional.empty()))
+                .setIdentity(new Identity("test_nested_view_access_owner", Optional.empty(), Optional.empty()))
                 .setCatalog(getSession().getCatalog().get())
                 .setSchema(getSession().getSchema().get())
                 .build();

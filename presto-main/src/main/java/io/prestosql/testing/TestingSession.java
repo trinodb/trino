@@ -62,7 +62,7 @@ public final class TestingSession
     {
         return Session.builder(sessionPropertyManager)
                 .setQueryId(queryIdGenerator.createNextQueryId())
-                .setIdentity(new Identity("user", Optional.empty()))
+                .setIdentity(new Identity("user", Optional.empty(), Optional.empty()))
                 .setSource("test")
                 .setCatalog("catalog")
                 .setSchema("schema")

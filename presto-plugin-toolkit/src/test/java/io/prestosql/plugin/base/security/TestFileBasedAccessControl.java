@@ -95,7 +95,7 @@ public class TestFileBasedAccessControl
 
     private static Identity user(String name)
     {
-        return new Identity(name, Optional.empty());
+        return new Identity(name, Optional.empty(), Optional.empty());
     }
 
     private ConnectorAccessControl createAccessControl(String fileName)

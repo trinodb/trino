@@ -14,6 +14,7 @@
 package io.prestosql.spi.security;
 
 import java.security.Principal;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -23,11 +24,13 @@ public class Identity
 {
     private final String user;
     private final Optional<Principal> principal;
+    private final Optional<Map<String, String>> connectorTokens;
 
-    public Identity(String user, Optional<Principal> principal)
+    public Identity(String user, Optional<Principal> principal, Optional<Map<String, String>> connectorTokens)
     {
         this.user = requireNonNull(user, "user is null");
         this.principal = requireNonNull(principal, "principal is null");
+        this.connectorTokens = requireNonNull(connectorTokens, "connectorTokens is null");
     }
 
     public String getUser()
@@ -38,6 +41,11 @@ public class Identity
     public Optional<Principal> getPrincipal()
     {
         return principal;
+    }
+
+    public Optional<Map<String, String>> getConnectorTokens()
+    {
+        return connectorTokens;
     }
 
     @Override

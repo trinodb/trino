@@ -79,7 +79,7 @@ public class TestAccessControlManager
     @Test
     public void testReadOnlySystemAccessControl()
     {
-        Identity identity = new Identity(USER_NAME, Optional.of(PRINCIPAL));
+        Identity identity = new Identity(USER_NAME, Optional.of(PRINCIPAL), Optional.empty());
         QualifiedObjectName tableName = new QualifiedObjectName("catalog", "schema", "table");
         TransactionManager transactionManager = createTestTransactionManager();
         AccessControlManager accessControlManager = new AccessControlManager(transactionManager);
@@ -140,7 +140,7 @@ public class TestAccessControlManager
 
         transaction(transactionManager, accessControlManager)
                 .execute(transactionId -> {
-                    accessControlManager.checkCanSelectFromColumns(transactionId, new Identity(USER_NAME, Optional.of(PRINCIPAL)), new QualifiedObjectName("catalog", "schema", "table"), ImmutableSet.of("column"));
+                    accessControlManager.checkCanSelectFromColumns(transactionId, new Identity(USER_NAME, Optional.of(PRINCIPAL), Optional.empty()), new QualifiedObjectName("catalog", "schema", "table"), ImmutableSet.of("column"));
                 });
     }
 
@@ -160,7 +160,7 @@ public class TestAccessControlManager
 
         transaction(transactionManager, accessControlManager)
                 .execute(transactionId -> {
-                    accessControlManager.checkCanSelectFromColumns(transactionId, new Identity(USER_NAME, Optional.of(PRINCIPAL)), new QualifiedObjectName("catalog", "schema", "table"), ImmutableSet.of("column"));
+                    accessControlManager.checkCanSelectFromColumns(transactionId, new Identity(USER_NAME, Optional.of(PRINCIPAL), Optional.empty()), new QualifiedObjectName("catalog", "schema", "table"), ImmutableSet.of("column"));
                 });
     }
 
@@ -180,7 +180,7 @@ public class TestAccessControlManager
 
         transaction(transactionManager, accessControlManager)
                 .execute(transactionId -> {
-                    accessControlManager.checkCanSelectFromColumns(transactionId, new Identity(USER_NAME, Optional.of(PRINCIPAL)), new QualifiedObjectName("secured_catalog", "schema", "table"), ImmutableSet.of("column"));
+                    accessControlManager.checkCanSelectFromColumns(transactionId, new Identity(USER_NAME, Optional.of(PRINCIPAL), Optional.empty()), new QualifiedObjectName("secured_catalog", "schema", "table"), ImmutableSet.of("column"));
                 });
     }
 

@@ -135,7 +135,7 @@ public class FileHiveMetastore
     {
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.catalogDirectory = new Path(requireNonNull(catalogDirectory, "baseDirectory is null"));
-        this.hdfsContext = new HdfsContext(new Identity(metastoreUser, Optional.empty()));
+        this.hdfsContext = new HdfsContext(new Identity(metastoreUser, Optional.empty(), Optional.empty()));
         try {
             metadataFileSystem = hdfsEnvironment.getFileSystem(hdfsContext, this.catalogDirectory);
         }

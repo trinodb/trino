@@ -265,7 +265,7 @@ public final class SessionRepresentation
                 new QueryId(queryId),
                 transactionId,
                 clientTransactionSupport,
-                new Identity(user, principal.map(BasicPrincipal::new)),
+                new Identity(user, principal.map(BasicPrincipal::new), Optional.empty()),
                 source,
                 catalog,
                 schema,
