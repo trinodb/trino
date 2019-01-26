@@ -145,6 +145,7 @@ import org.testng.annotations.Test;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import static io.prestosql.sql.QueryUtil.identifier;
 import static io.prestosql.sql.QueryUtil.query;
@@ -1941,7 +1942,7 @@ public class TestSqlParser
         final String[] tableNames = {"t", "s.t", "c.s.t"};
 
         for (String fullName : tableNames) {
-            QualifiedName qualifiedName = QualifiedName.of(Arrays.asList(fullName.split("\\.")));
+            QualifiedName qualifiedName = makeQualifiedName(fullName);
             assertStatement(format("SHOW STATS FOR %s", qualifiedName), new ShowStats(new Table(qualifiedName)));
         }
     }
@@ -1952,7 +1953,7 @@ public class TestSqlParser
         final String[] tableNames = {"t", "s.t", "c.s.t"};
 
         for (String fullName : tableNames) {
-            QualifiedName qualifiedName = QualifiedName.of(Arrays.asList(fullName.split("\\.")));
+            QualifiedName qualifiedName = makeQualifiedName(fullName);
             assertStatement(format("SHOW STATS FOR (SELECT * FROM %s)", qualifiedName),
                     createShowStats(qualifiedName, ImmutableList.of(new AllColumns()), Optional.empty()));
             assertStatement(format("SHOW STATS FOR (SELECT * FROM %s WHERE field > 0)", qualifiedName),
@@ -2268,6 +2269,14 @@ public class TestSqlParser
         assertStatement("SET ROLE NONE", new SetRole(SetRole.Type.NONE, Optional.empty()));
         assertStatement("SET ROLE role", new SetRole(SetRole.Type.ROLE, Optional.of(new Identifier("role"))));
         assertStatement("SET ROLE \"role\"", new SetRole(SetRole.Type.ROLE, Optional.of(new Identifier("role"))));
+    }
+
+    private QualifiedName makeQualifiedName(String tableName)
+    {
+        List<Identifier> parts = Arrays.stream(tableName.split("\\."))
+                .map(Identifier::new)
+                .collect(Collectors.toList());
+        return QualifiedName.of(parts);
     }
 
     private static void assertCast(String type)
