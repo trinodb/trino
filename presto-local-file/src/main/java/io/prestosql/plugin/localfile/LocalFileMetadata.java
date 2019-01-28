@@ -158,7 +158,7 @@ public class LocalFileMetadata
 
     private List<SchemaTableName> listTables(ConnectorSession session, SchemaTablePrefix prefix)
     {
-        if (prefix.getSchemaName() == null) {
+        if (!prefix.getTable().isPresent()) {
             return listTables(session, prefix.getSchemaName());
         }
         return ImmutableList.of(prefix.toSchemaTableName());
