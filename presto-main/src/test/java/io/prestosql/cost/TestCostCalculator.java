@@ -886,7 +886,8 @@ public class TestCostCalculator
                 Optional.empty(),
                 Optional.empty(),
                 Optional.of(distributionType),
-                Optional.empty());
+                Optional.empty(),
+                ImmutableMap.of());
     }
 
     private SubPlan fragment(Plan plan)

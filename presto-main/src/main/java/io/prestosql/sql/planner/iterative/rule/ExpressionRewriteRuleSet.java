@@ -231,7 +231,8 @@ public class ExpressionRewriteRuleSet
                         joinNode.getLeftHashSymbol(),
                         joinNode.getRightHashSymbol(),
                         joinNode.getDistributionType(),
-                        joinNode.isSpillable()));
+                        joinNode.isSpillable(),
+                        joinNode.getDynamicFilters()));
             }
             return Result.empty();
         }

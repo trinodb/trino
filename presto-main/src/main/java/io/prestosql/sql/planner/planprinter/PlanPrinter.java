@@ -42,6 +42,7 @@ import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.statistics.ColumnStatisticMetadata;
 import io.prestosql.spi.statistics.TableStatisticType;
 import io.prestosql.spi.type.Type;
+import io.prestosql.sql.DynamicFilters;
 import io.prestosql.sql.planner.OrderingScheme;
 import io.prestosql.sql.planner.Partitioning;
 import io.prestosql.sql.planner.PartitioningScheme;
@@ -103,6 +104,7 @@ import io.prestosql.sql.tree.SymbolReference;
 import io.prestosql.util.GraphvizPrinter;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -119,6 +121,8 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.prestosql.execution.StageInfo.getAllStages;
 import static io.prestosql.operator.StageExecutionDescriptor.ungroupedExecution;
+import static io.prestosql.sql.DynamicFilters.extractDynamicFilters;
+import static io.prestosql.sql.ExpressionUtils.combineConjuncts;
 import static io.prestosql.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.prestosql.sql.planner.planprinter.PlanNodeStatsSummarizer.aggregateStageStats;
 import static io.prestosql.sql.planner.planprinter.PlanPrinterUtil.castToVarchar;
@@ -383,7 +387,10 @@ public class PlanPrinter
                         format("[%s]%s", Joiner.on(" AND ").join(joinExpressions), formatHash(node.getLeftHashSymbol(), node.getRightHashSymbol())));
             }
 
-            node.getDistributionType().ifPresent(distributionType -> nodeOutput.appendDetails("Distribution: %s", distributionType));
+            node.getDistributionType().ifPresent(distributionType -> nodeOutput.appendDetailsLine("Distribution: %s", distributionType));
+            if (!node.getDynamicFilters().isEmpty()) {
+                nodeOutput.appendDetails("dynamicFilterAssignments = %s", printDynamicFilterAssignments(node.getDynamicFilters()));
+            }
             node.getSortExpressionContext().ifPresent(sortContext -> nodeOutput.appendDetails("SortExpression[%s]", sortContext.getSortExpression()));
             node.getLeft().accept(this, context);
             node.getRight().accept(this, context);
@@ -714,7 +721,13 @@ public class PlanPrinter
             if (filterNode.isPresent()) {
                 operatorName += "Filter";
                 formatString += "filterPredicate = %s, ";
-                arguments.add(filterNode.get().getPredicate());
+                Expression predicate = filterNode.get().getPredicate();
+                DynamicFilters.ExtractResult extractResult = extractDynamicFilters(predicate);
+                arguments.add(combineConjuncts(extractResult.getStaticConjuncts()));
+                if (!extractResult.getDynamicConjuncts().isEmpty()) {
+                    formatString += "dynamicFilter = %s, ";
+                    arguments.add(printDynamicFilters(extractResult.getDynamicConjuncts()));
+                }
             }
 
             if (formatString.length() > 1) {
@@ -758,6 +771,20 @@ public class PlanPrinter
 
             sourceNode.accept(this, context);
             return null;
+        }
+
+        private String printDynamicFilters(Collection<DynamicFilters.Descriptor> filters)
+        {
+            return filters.stream()
+                    .map(filter -> filter.getId() + " -> " + filter.getInput())
+                    .collect(Collectors.joining(", ", "{", "}"));
+        }
+
+        private String printDynamicFilterAssignments(Map<String, Symbol> filters)
+        {
+            return filters.entrySet().stream()
+                    .map(filter -> filter.getValue() + " -> " + filter.getKey())
+                    .collect(Collectors.joining(", ", "{", "}"));
         }
 
         private void printTableScanInfo(NodeRepresentation nodeOutput, TableScanNode node)

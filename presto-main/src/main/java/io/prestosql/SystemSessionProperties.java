@@ -117,6 +117,7 @@ public final class SystemSessionProperties
     public static final String UNWRAP_CASTS = "unwrap_casts";
     public static final String SKIP_REDUNDANT_SORT = "skip_redundant_sort";
     public static final String WORK_PROCESSOR_PIPELINES = "work_processor_pipelines";
+    public static final String ENABLE_DYNAMIC_FILTERING = "enable_dynamic_filtering";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -503,6 +504,11 @@ public final class SystemSessionProperties
                         WORK_PROCESSOR_PIPELINES,
                         "Experimental: Use WorkProcessor pipelines",
                         featuresConfig.isWorkProcessorPipelines(),
+                        false),
+                booleanProperty(
+                        ENABLE_DYNAMIC_FILTERING,
+                        "Enable dynamic filtering",
+                        featuresConfig.isEnableDynamicFiltering(),
                         false));
     }
 
@@ -894,5 +900,10 @@ public final class SystemSessionProperties
     public static boolean isWorkProcessorPipelines(Session session)
     {
         return session.getSystemProperty(WORK_PROCESSOR_PIPELINES, Boolean.class);
+    }
+
+    public static boolean isEnableDynamicFiltering(Session session)
+    {
+        return session.getSystemProperty(ENABLE_DYNAMIC_FILTERING, Boolean.class);
     }
 }

@@ -21,6 +21,7 @@ import io.prestosql.operator.StageExecutionDescriptor;
 import io.prestosql.split.SampledSplitSource;
 import io.prestosql.split.SplitManager;
 import io.prestosql.split.SplitSource;
+import io.prestosql.sql.DynamicFilters;
 import io.prestosql.sql.planner.plan.AggregationNode;
 import io.prestosql.sql.planner.plan.AssignUniqueId;
 import io.prestosql.sql.planner.plan.DeleteNode;
@@ -61,6 +62,7 @@ import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.prestosql.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.GROUPED_SCHEDULING;
@@ -143,6 +145,22 @@ public class DistributedExecutionPlanner
         @Override
         public Map<PlanNodeId, SplitSource> visitTableScan(TableScanNode node, Void context)
         {
+            return visitScanAndFilter(node, Optional.empty());
+        }
+
+        private Map<PlanNodeId, SplitSource> visitScanAndFilter(TableScanNode node, Optional<FilterNode> filter)
+        {
+            List<DynamicFilters.Descriptor> dynamicFilters = filter
+                    .map(FilterNode::getPredicate)
+                    .map(DynamicFilters::extractDynamicFilters)
+                    .map(DynamicFilters.ExtractResult::getDynamicConjuncts)
+                    .orElse(ImmutableList.of());
+
+            // TODO: Execution must be plugged in here
+            if (!dynamicFilters.isEmpty()) {
+                log.debug("Dynamic filters: %s", dynamicFilters);
+            }
+
             // get dataSource for table
             SplitSource splitSource = splitManager.getSplits(
                     session,
@@ -210,6 +228,11 @@ public class DistributedExecutionPlanner
         @Override
         public Map<PlanNodeId, SplitSource> visitFilter(FilterNode node, Void context)
         {
+            if (node.getSource() instanceof TableScanNode) {
+                TableScanNode scan = (TableScanNode) node.getSource();
+                return visitScanAndFilter(scan, Optional.of(node));
+            }
+
             return node.getSource().accept(this, context);
         }
 

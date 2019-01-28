@@ -368,7 +368,8 @@ public class HashGenerationOptimizer
                             leftHashSymbol,
                             rightHashSymbol,
                             node.getDistributionType(),
-                            node.isSpillable()),
+                            node.isSpillable(),
+                            node.getDynamicFilters()),
                     hashSymbolsWithParentPreferences);
         }
 
