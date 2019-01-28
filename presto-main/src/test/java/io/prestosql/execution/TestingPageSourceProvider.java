@@ -47,6 +47,6 @@ public class TestingPageSourceProvider
                 .map(column -> new FixedWidthBlockBuilder(0, 1).appendNull().build())
                 .collect(toImmutableList());
 
-        return new FixedPageSource(ImmutableList.of(new Page(blocks.toArray(new Block[blocks.size()]))));
+        return new FixedPageSource(ImmutableList.of(new Page(blocks.toArray(new Block[0]))));
     }
 }

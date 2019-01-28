@@ -211,7 +211,7 @@ public class JmxRecordSetProvider
     {
         ObjectName objectName = new ObjectName(name);
 
-        String[] columnNamesArray = uniqueColumnNames.toArray(new String[uniqueColumnNames.size()]);
+        String[] columnNamesArray = uniqueColumnNames.toArray(new String[0]);
 
         ImmutableMap.Builder<String, Optional<Object>> attributes = ImmutableMap.builder();
         for (Attribute attribute : mbeanServer.getAttributes(objectName, columnNamesArray).asList()) {

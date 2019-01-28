@@ -152,7 +152,7 @@ public class ExecutionFailureInfo
             stackTraceBuilder.add(toStackTraceElement(stack));
         }
         ImmutableList<StackTraceElement> stackTrace = stackTraceBuilder.build();
-        failure.setStackTrace(stackTrace.toArray(new StackTraceElement[stackTrace.size()]));
+        failure.setStackTrace(stackTrace.toArray(new StackTraceElement[0]));
         return failure;
     }
 

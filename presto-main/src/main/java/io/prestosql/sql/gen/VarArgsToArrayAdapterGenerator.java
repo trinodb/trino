@@ -158,7 +158,7 @@ public class VarArgsToArrayAdapterGenerator
                                 .add(VarArgsToArrayAdapterState.class)
                                 .addAll(nCopies(argsLength, javaType))
                                 .build()
-                                .toArray(new Class<?>[argsLength])),
+                                .toArray(new Class<?>[0])),
                 Reflection.methodHandle(generatedClass, "createState"));
     }
 

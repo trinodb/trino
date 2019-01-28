@@ -147,7 +147,7 @@ public class TestReadWrite
     {
         testReadWrite(random, records, blocks -> {
             List<Type> types = columns.stream().map(ColumnDefinition::getType).collect(toImmutableList());
-            PageRecordSet inputRecordSet = new PageRecordSet(types, new Page(blocks.toArray(new Block[blocks.size()])));
+            PageRecordSet inputRecordSet = new PageRecordSet(types, new Page(blocks.toArray(new Block[0])));
             return fromRecordSet(inputRecordSet);
         });
     }

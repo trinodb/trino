@@ -112,7 +112,7 @@ public final class ConcatFunction
         }
 
         Class<?> clazz = generateConcat(getSignature().getReturnType(), arity);
-        MethodHandle methodHandle = methodHandle(clazz, "concat", nCopies(arity, Slice.class).toArray(new Class<?>[arity]));
+        MethodHandle methodHandle = methodHandle(clazz, "concat", nCopies(arity, Slice.class).toArray(new Class<?>[0]));
 
         return new ScalarFunctionImplementation(
                 false,

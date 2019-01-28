@@ -120,7 +120,7 @@ public final class ArrayConstructor
         Class<?> clazz = generateArrayConstructor(stackTypes, type);
         MethodHandle methodHandle;
         try {
-            Method method = clazz.getMethod("arrayConstructor", stackTypes.toArray(new Class<?>[stackTypes.size()]));
+            Method method = clazz.getMethod("arrayConstructor", stackTypes.toArray(new Class<?>[0]));
             methodHandle = lookup().unreflect(method);
         }
         catch (ReflectiveOperationException e) {

@@ -88,7 +88,7 @@ public class PartitionedLookupSource
 
     private PartitionedLookupSource(List<? extends LookupSource> lookupSources, List<Type> hashChannelTypes, Optional<OuterPositionTracker> outerPositionTracker)
     {
-        this.lookupSources = lookupSources.toArray(new LookupSource[lookupSources.size()]);
+        this.lookupSources = lookupSources.toArray(new LookupSource[0]);
 
         // this generator is only used for getJoinPosition without a rawHash and in this case
         // the hash channels are always packed in a page without extra columns

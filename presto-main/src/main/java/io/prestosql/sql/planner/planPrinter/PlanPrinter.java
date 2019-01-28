@@ -313,7 +313,7 @@ public class PlanPrinter
 
     private void print(int indent, String format, List<Object> args)
     {
-        print(indent, format, args.toArray(new Object[args.size()]));
+        print(indent, format, args.toArray(new Object[0]));
     }
 
     private void printStats(int intent, PlanNodeId planNodeId)

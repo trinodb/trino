@@ -1839,7 +1839,7 @@ public class TestExpressionCompiler
         ImmutableList.Builder<String> expressions = ImmutableList.builder();
         Set<List<String>> valueLists = Sets.cartesianProduct(unrolledValues);
         for (List<String> valueList : valueLists) {
-            expressions.add(format(expressionPattern, valueList.toArray(new Object[valueList.size()])));
+            expressions.add(format(expressionPattern, valueList.toArray(new Object[0])));
         }
         return expressions.build();
     }

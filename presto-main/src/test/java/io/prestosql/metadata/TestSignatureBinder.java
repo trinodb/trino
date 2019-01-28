@@ -1171,7 +1171,7 @@ public class TestSignatureBinder
 
         public BindSignatureAssertion boundTo(List<String> arguments, String returnType)
         {
-            this.argumentTypes = fromTypes(types(arguments.toArray(new String[arguments.size()])));
+            this.argumentTypes = fromTypes(types(arguments.toArray(new String[0])));
             this.returnType = type(returnType);
             return this;
         }

@@ -91,6 +91,6 @@ public class VarArgsToMapAdapterGenerator
                         .ret());
 
         Class<?> generatedClass = defineClass(classDefinition, Object.class, callSiteBinder.getBindings(), new DynamicClassLoader(VarArgsToMapAdapterGenerator.class.getClassLoader()));
-        return Reflection.methodHandle(generatedClass, "varArgsToMap", javaTypes.toArray(new Class<?>[javaTypes.size()]));
+        return Reflection.methodHandle(generatedClass, "varArgsToMap", javaTypes.toArray(new Class<?>[0]));
     }
 }
