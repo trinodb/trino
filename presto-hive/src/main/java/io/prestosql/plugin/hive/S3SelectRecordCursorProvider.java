@@ -87,7 +87,7 @@ public class S3SelectRecordCursorProvider
             IonSqlQueryBuilder queryBuilder = new IonSqlQueryBuilder(typeManager);
             String ionSqlQuery = queryBuilder.buildSql(columns, effectivePredicate);
             S3SelectLineRecordReader recordReader = new S3SelectCsvRecordReader(configuration, clientConfig, path, start, length, schema, ionSqlQuery, s3ClientFactory);
-            return Optional.of(new S3SelectRecordCursor(configuration, path, recordReader, length, schema, columns, hiveStorageTimeZone, typeManager));
+            return Optional.of(new S3SelectRecordCursor<>(configuration, path, recordReader, length, schema, columns, hiveStorageTimeZone, session, typeManager));
         }
 
         // unsupported serdes

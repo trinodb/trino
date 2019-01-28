@@ -136,7 +136,11 @@ public class TestHiveBucketing
                 .collect(toImmutableList());
 
         assertEquals(computePresto(hiveTypeStrings, hiveValues, hiveTypes, hiveTypeInfos), expectedHashCode);
-        assertEquals(computeHive(hiveTypeStrings, hiveValues, hiveTypeInfos), expectedHashCode);
+
+        // TODO: enable these tests after HIVE-21376 is fixed
+        if (!hiveTypeStrings.equals(ImmutableList.of("date")) && !hiveTypeStrings.equals(ImmutableList.of("timestamp"))) {
+            assertEquals(computeHive(hiveTypeStrings, hiveValues, hiveTypeInfos), expectedHashCode);
+        }
 
         for (int bucketCount : new int[] {1, 2, 500, 997}) {
             int actual = HiveBucketing.getBucketNumber(expectedHashCode, bucketCount);

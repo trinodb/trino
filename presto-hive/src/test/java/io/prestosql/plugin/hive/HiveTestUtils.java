@@ -42,9 +42,12 @@ import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeManager;
 import io.prestosql.spi.type.TypeSignatureParameter;
 import io.prestosql.testing.TestingConnectorSession;
+import org.apache.hadoop.hive.common.type.Timestamp;
 
 import java.lang.invoke.MethodHandle;
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Set;
 
@@ -178,5 +181,10 @@ public final class HiveTestUtils
         catch (Throwable t) {
             throw new AssertionError(t);
         }
+    }
+
+    public static Timestamp hiveTimestamp(LocalDateTime local)
+    {
+        return Timestamp.ofEpochSecond(local.toEpochSecond(ZoneOffset.UTC), local.getNano());
     }
 }

@@ -14,11 +14,10 @@
 package io.prestosql.parquet;
 
 import io.prestosql.spi.PrestoException;
+import org.apache.hadoop.hive.common.type.Timestamp;
 import org.apache.hadoop.hive.ql.io.parquet.timestamp.NanoTimeUtils;
 import org.apache.parquet.io.api.Binary;
 import org.testng.annotations.Test;
-
-import java.sql.Timestamp;
 
 import static io.prestosql.parquet.ParquetTimestampUtils.getTimestampMillis;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -52,6 +51,6 @@ public class TestParquetTimestampUtils
         Timestamp timestamp = Timestamp.valueOf(timestampString);
         Binary timestampBytes = NanoTimeUtils.getNanoTime(timestamp, false).toBinary();
         long decodedTimestampMillis = getTimestampMillis(timestampBytes);
-        assertEquals(decodedTimestampMillis, timestamp.getTime());
+        assertEquals(decodedTimestampMillis, timestamp.toEpochMilli());
     }
 }

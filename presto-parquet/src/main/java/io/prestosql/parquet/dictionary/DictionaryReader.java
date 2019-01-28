@@ -21,8 +21,6 @@ import org.apache.parquet.io.ParquetDecodingException;
 import org.apache.parquet.io.api.Binary;
 
 import java.io.IOException;
-import java.io.InputStream;
-import java.nio.ByteBuffer;
 
 public class DictionaryReader
         extends ValuesReader
@@ -36,10 +34,9 @@ public class DictionaryReader
     }
 
     @Override
-    public void initFromPage(int valueCount, ByteBuffer page, int offset)
+    public void initFromPage(int valueCount, ByteBufferInputStream in)
             throws IOException
     {
-        InputStream in = new ByteBufferInputStream(page, offset, page.limit() - offset);
         int bitWidth = BytesUtils.readIntLittleEndianOnOneByte(in);
         decoder = new RunLengthBitPackingHybridDecoder(bitWidth, in);
     }

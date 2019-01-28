@@ -79,6 +79,7 @@ public class GenericHiveRecordCursorProvider
                 schema,
                 columns,
                 hiveStorageTimeZone,
+                session,
                 typeManager));
     }
 

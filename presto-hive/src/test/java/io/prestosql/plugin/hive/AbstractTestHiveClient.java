@@ -3898,6 +3898,18 @@ public abstract class AbstractTestHiveClient
                     }
                 }
 
+                // ARRAY<TIMESTAMP>
+                index = columnIndex.get("t_array_timestamp");
+                if (index != null) {
+                    if ((rowNumber % 43) == 0) {
+                        assertNull(row.getField(index));
+                    }
+                    else {
+                        SqlTimestamp expected = sqlTimestampOf(2011, 5, 6, 7, 8, 9, 123, timeZone, UTC_KEY, SESSION);
+                        assertEquals(row.getField(index), ImmutableList.of(expected));
+                    }
+                }
+
                 // ARRAY<STRUCT<s_string: STRING, s_double:DOUBLE>>
                 index = columnIndex.get("t_array_struct");
                 if (index != null) {

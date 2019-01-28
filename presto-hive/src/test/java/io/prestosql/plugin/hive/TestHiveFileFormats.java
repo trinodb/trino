@@ -89,8 +89,6 @@ public class TestHiveFileFormats
     private static TestingConnectorSession parquetPageSourceSession = new TestingConnectorSession(new HiveSessionProperties(createParquetHiveClientConfig(false), new OrcFileWriterConfig(), new ParquetFileWriterConfig()).getSessionProperties());
     private static TestingConnectorSession parquetPageSourceSessionUseName = new TestingConnectorSession(new HiveSessionProperties(createParquetHiveClientConfig(true), new OrcFileWriterConfig(), new ParquetFileWriterConfig()).getSessionProperties());
 
-    private static final DateTimeZone HIVE_STORAGE_TIME_ZONE = DateTimeZone.forID("America/Bahia_Banderas");
-
     @DataProvider(name = "rowCount")
     public static Object[][] rowCountProvider()
     {
@@ -149,9 +147,7 @@ public class TestHiveFileFormats
                 .filter(column -> !column.getName().equals("t_map_float"))
                 .filter(column -> !column.getName().equals("t_map_double"))
                 // null map keys are not supported
-                .filter(column -> !column.getName().equals("t_map_null_key"))
-                .filter(column -> !column.getName().equals("t_map_null_key_complex_key_value"))
-                .filter(column -> !column.getName().equals("t_map_null_key_complex_value"))
+                .filter(TestHiveFileFormats::withoutNullMapKeyTests)
                 // decimal(38) is broken or not supported
                 .filter(column -> !column.getName().equals("t_decimal_precision_38"))
                 .filter(column -> !column.getName().equals("t_map_decimal_precision_38"))
@@ -159,22 +155,6 @@ public class TestHiveFileFormats
                 .collect(toList());
 
         assertThatFileFormat(JSON)
-                .withColumns(testColumns)
-                .withRowsCount(rowCount)
-                .isReadableByRecordCursor(new GenericHiveRecordCursorProvider(HDFS_ENVIRONMENT));
-    }
-
-    @Test(dataProvider = "rowCount")
-    public void testRCText(int rowCount)
-            throws Exception
-    {
-        List<TestColumn> testColumns = ImmutableList.copyOf(filter(TEST_COLUMNS, testColumn -> {
-            // TODO: This is a bug in the RC text reader
-            // RC file does not support complex type as key of a map
-            return !testColumn.getName().equals("t_struct_null")
-                    && !testColumn.getName().equals("t_map_null_key_complex_key_value");
-        }));
-        assertThatFileFormat(RCTEXT)
                 .withColumns(testColumns)
                 .withRowsCount(rowCount)
                 .isReadableByRecordCursor(new GenericHiveRecordCursorProvider(HDFS_ENVIRONMENT));
@@ -208,28 +188,14 @@ public class TestHiveFileFormats
     }
 
     @Test(dataProvider = "rowCount")
-    public void testRCBinary(int rowCount)
-            throws Exception
-    {
-        // RCBinary does not support complex type as key of a map and interprets empty VARCHAR as nulls
-        List<TestColumn> testColumns = TEST_COLUMNS.stream()
-                .filter(testColumn -> {
-                    String name = testColumn.getName();
-                    return !name.equals("t_map_null_key_complex_key_value") && !name.equals("t_empty_varchar");
-                }).collect(toList());
-        assertThatFileFormat(RCBINARY)
-                .withColumns(testColumns)
-                .withRowsCount(rowCount)
-                .isReadableByRecordCursor(new GenericHiveRecordCursorProvider(HDFS_ENVIRONMENT));
-    }
-
-    @Test(dataProvider = "rowCount")
     public void testRcBinaryPageSource(int rowCount)
             throws Exception
     {
         // RCBinary does not support complex type as key of a map and interprets empty VARCHAR as nulls
+        // Hive binary writers are broken for timestamps
         List<TestColumn> testColumns = TEST_COLUMNS.stream()
                 .filter(testColumn -> !testColumn.getName().equals("t_empty_varchar"))
+                .filter(TestHiveFileFormats::withoutTimestamps)
                 .collect(toList());
 
         assertThatFileFormat(RCBINARY)
@@ -249,20 +215,31 @@ public class TestHiveFileFormats
                 .filter(TestHiveFileFormats::withoutNullMapKeyTests)
                 .collect(toList());
 
+        // Hive cannot read timestamps from old files
+        List<TestColumn> testColumnsNoTimestamps = testColumns.stream()
+                .filter(TestHiveFileFormats::withoutTimestamps)
+                .collect(toList());
+
         assertThatFileFormat(RCBINARY)
                 .withColumns(testColumns)
                 .withRowsCount(rowCount)
                 .withFileWriterFactory(new RcFileFileWriterFactory(HDFS_ENVIRONMENT, TYPE_MANAGER, new NodeVersion("test"), HIVE_STORAGE_TIME_ZONE, STATS))
-                .isReadableByRecordCursor(new GenericHiveRecordCursorProvider(HDFS_ENVIRONMENT))
-                .isReadableByPageSource(new RcFilePageSourceFactory(TYPE_MANAGER, HDFS_ENVIRONMENT, STATS));
+                .isReadableByPageSource(new RcFilePageSourceFactory(TYPE_MANAGER, HDFS_ENVIRONMENT, STATS))
+                .withColumns(testColumnsNoTimestamps)
+                .isReadableByRecordCursor(new GenericHiveRecordCursorProvider(HDFS_ENVIRONMENT));
     }
 
     @Test(dataProvider = "rowCount")
     public void testOrc(int rowCount)
             throws Exception
     {
+        // Hive binary writers are broken for timestamps
+        List<TestColumn> testColumns = TEST_COLUMNS.stream()
+                .filter(TestHiveFileFormats::withoutTimestamps)
+                .collect(toImmutableList());
+
         assertThatFileFormat(ORC)
-                .withColumns(TEST_COLUMNS)
+                .withColumns(testColumns)
                 .withRowsCount(rowCount)
                 .isReadableByPageSource(new OrcPageSourceFactory(TYPE_MANAGER, false, HDFS_ENVIRONMENT, STATS));
     }
@@ -280,7 +257,7 @@ public class TestHiveFileFormats
 
         // A Presto page can not contain a map with null keys, so a page based writer can not write null keys
         List<TestColumn> testColumns = TEST_COLUMNS.stream()
-                .filter(testColumn -> !testColumn.getName().equals("t_map_null_key") && !testColumn.getName().equals("t_map_null_key_complex_value") && !testColumn.getName().equals("t_map_null_key_complex_key_value"))
+                .filter(TestHiveFileFormats::withoutNullMapKeyTests)
                 .collect(toList());
 
         assertThatFileFormat(ORC)
@@ -298,10 +275,15 @@ public class TestHiveFileFormats
     {
         TestingConnectorSession session = new TestingConnectorSession(new HiveSessionProperties(new HiveClientConfig(), new OrcFileWriterConfig(), new ParquetFileWriterConfig()).getSessionProperties());
 
+        // Hive binary writers are broken for timestamps
+        List<TestColumn> testColumns = TEST_COLUMNS.stream()
+                .filter(TestHiveFileFormats::withoutTimestamps)
+                .collect(toImmutableList());
+
         assertThatFileFormat(ORC)
-                .withWriteColumns(TEST_COLUMNS)
+                .withWriteColumns(testColumns)
                 .withRowsCount(rowCount)
-                .withReadColumns(Lists.reverse(TEST_COLUMNS))
+                .withReadColumns(Lists.reverse(testColumns))
                 .withSession(session)
                 .isReadableByPageSource(new OrcPageSourceFactory(TYPE_MANAGER, true, HDFS_ENVIRONMENT, STATS));
     }
@@ -374,9 +356,12 @@ public class TestHiveFileFormats
         // Write of complex hive data to Parquet is broken
         // TODO: empty arrays or maps with null keys don't seem to work
         // Parquet does not support DATE
+        // Hive binary writers are broken for timestamps
         return TEST_COLUMNS.stream()
-                .filter(column -> !ImmutableSet.of("t_null_array_int", "t_array_empty", "t_map_null_key", "t_map_null_key_complex_value", "t_map_null_key_complex_key_value")
-                        .contains(column.getName()))
+                .filter(TestHiveFileFormats::withoutTimestamps)
+                .filter(TestHiveFileFormats::withoutNullMapKeyTests)
+                .filter(column -> !column.getName().equals("t_null_array_int"))
+                .filter(column -> !column.getName().equals("t_array_empty"))
                 .filter(column -> column.isPartitionKey() || (
                         !hasType(column.getObjectInspector(), PrimitiveCategory.DATE)) &&
                         !hasType(column.getObjectInspector(), PrimitiveCategory.SHORT) &&
@@ -601,6 +586,14 @@ public class TestHiveFileFormats
                 !name.equals("t_map_null_key_complex_value");
     }
 
+    private static boolean withoutTimestamps(TestColumn testColumn)
+    {
+        String name = testColumn.getName();
+        return !name.equals("t_timestamp") &&
+                !name.equals("t_map_timestamp") &&
+                !name.equals("t_array_timestamp");
+    }
+
     private FileFormatAssertion assertThatFileFormat(HiveStorageFormat hiveStorageFormat)
     {
         return new FileFormatAssertion(hiveStorageFormat.name())
@@ -732,10 +725,10 @@ public class TestHiveFileFormats
             try {
                 FileSplit split;
                 if (fileWriterFactory != null) {
-                    split = createTestFile(file.getAbsolutePath(), storageFormat, compressionCodec, writeColumns, session, rowsCount, fileWriterFactory);
+                    split = createTestFilePresto(file.getAbsolutePath(), storageFormat, compressionCodec, writeColumns, session, rowsCount, fileWriterFactory);
                 }
                 else {
-                    split = createTestFile(file.getAbsolutePath(), storageFormat, compressionCodec, writeColumns, rowsCount);
+                    split = createTestFileHive(file.getAbsolutePath(), storageFormat, compressionCodec, writeColumns, rowsCount);
                 }
                 if (pageSourceFactory.isPresent()) {
                     testPageSourceFactory(pageSourceFactory.get(), split, storageFormat, readColumns, session, rowsCount);

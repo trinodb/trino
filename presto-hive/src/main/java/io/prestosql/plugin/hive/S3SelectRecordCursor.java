@@ -13,6 +13,7 @@
  */
 package io.prestosql.plugin.hive;
 
+import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.type.TypeManager;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
@@ -51,9 +52,10 @@ class S3SelectRecordCursor<K, V extends Writable>
             Properties splitSchema,
             List<HiveColumnHandle> columns,
             DateTimeZone hiveStorageTimeZone,
+            ConnectorSession session,
             TypeManager typeManager)
     {
-        super(configuration, path, recordReader, totalBytes, updateSplitSchema(splitSchema, columns), columns, hiveStorageTimeZone, typeManager);
+        super(configuration, path, recordReader, totalBytes, updateSplitSchema(splitSchema, columns), columns, hiveStorageTimeZone, session, typeManager);
     }
 
     // since s3select only returns the required column, not the whole columns

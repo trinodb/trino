@@ -28,6 +28,8 @@ import io.prestosql.spi.block.BlockEncodingSerde;
 import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.RowType;
 import io.prestosql.type.TypeRegistry;
+import org.apache.hadoop.hive.common.type.Date;
+import org.apache.hadoop.hive.common.type.Timestamp;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector.Category;
 import org.apache.hadoop.io.BytesWritable;
@@ -35,11 +37,12 @@ import org.joda.time.DateTime;
 import org.testng.annotations.Test;
 
 import java.lang.reflect.Type;
-import java.sql.Timestamp;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
+import java.util.function.LongUnaryOperator;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.plugin.hive.HiveTestUtils.mapType;
@@ -60,6 +63,7 @@ import static io.prestosql.tests.StructuralTestUtil.mapBlockOf;
 import static io.prestosql.tests.StructuralTestUtil.rowBlockOf;
 import static java.lang.Double.doubleToLongBits;
 import static java.lang.Float.floatToRawIntBits;
+import static java.lang.Math.toIntExact;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.ObjectInspectorOptions;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.getReflectionObjectInspector;
@@ -157,10 +161,16 @@ public class TestSerDeUtils
         Block actualString = toBinaryBlock(createUnboundedVarcharType(), "abdd", getInspector(String.class));
         assertBlockEquals(actualString, expectedString);
 
+        // date
+        int date = toIntExact(LocalDate.of(2008, 10, 28).toEpochDay());
+        Block expectedDate = VARBINARY.createBlockBuilder(null, 1).writeInt(date).closeEntry().build();
+        Block actualDate = toBinaryBlock(BIGINT, Date.ofEpochDay(date), getInspector(Date.class));
+        assertBlockEquals(actualDate, expectedDate);
+
         // timestamp
         DateTime dateTime = new DateTime(2008, 10, 28, 16, 7, 15, 0);
         Block expectedTimestamp = VARBINARY.createBlockBuilder(null, 1).writeLong(dateTime.getMillis()).closeEntry().build();
-        Block actualTimestamp = toBinaryBlock(BIGINT, new Timestamp(dateTime.getMillis()), getInspector(Timestamp.class));
+        Block actualTimestamp = toBinaryBlock(BIGINT, Timestamp.ofEpochMilli(dateTime.getMillis()), getInspector(Timestamp.class));
         assertBlockEquals(actualTimestamp, expectedTimestamp);
 
         // binary
@@ -291,7 +301,7 @@ public class TestSerDeUtils
         Type type = new TypeToken<Map<BytesWritable, Long>>() {}.getType();
         ObjectInspector inspector = getInspector(type);
 
-        Block actual = getBlockObject(mapType(createUnboundedVarcharType(), BIGINT), ImmutableMap.of(value, 0L), inspector);
+        Block actual = getBlockObject(mapType(createUnboundedVarcharType(), BIGINT), ImmutableMap.of(value, 0L), inspector, LongUnaryOperator.identity());
         Block expected = mapBlockOf(createUnboundedVarcharType(), BIGINT, "bye", 0L);
 
         assertBlockEquals(actual, expected);
@@ -315,13 +325,13 @@ public class TestSerDeUtils
         if (inspector.getCategory() == Category.PRIMITIVE) {
             return getPrimitiveBlock(type, object, inspector);
         }
-        return getBlockObject(type, object, inspector);
+        return getBlockObject(type, object, inspector, LongUnaryOperator.identity());
     }
 
     private static Block getPrimitiveBlock(io.prestosql.spi.type.Type type, Object object, ObjectInspector inspector)
     {
         BlockBuilder builder = VARBINARY.createBlockBuilder(null, 1);
-        serializeObject(type, builder, object, inspector);
+        serializeObject(type, builder, object, inspector, LongUnaryOperator.identity());
         return builder.build();
     }
 }

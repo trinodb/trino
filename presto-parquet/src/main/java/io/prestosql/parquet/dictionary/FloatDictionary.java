@@ -19,6 +19,7 @@ import org.apache.parquet.column.values.plain.PlainValuesReader.FloatPlainValues
 import java.io.IOException;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static io.prestosql.parquet.ParquetReaderUtils.toInputStream;
 
 public class FloatDictionary
         extends Dictionary
@@ -31,7 +32,7 @@ public class FloatDictionary
         super(dictionaryPage.getEncoding());
         content = new float[dictionaryPage.getDictionarySize()];
         FloatPlainValuesReader floatReader = new FloatPlainValuesReader();
-        floatReader.initFromPage(dictionaryPage.getDictionarySize(), dictionaryPage.getSlice().getBytes(), 0);
+        floatReader.initFromPage(dictionaryPage.getDictionarySize(), toInputStream(dictionaryPage));
         for (int i = 0; i < content.length; i++) {
             content[i] = floatReader.readFloat();
         }

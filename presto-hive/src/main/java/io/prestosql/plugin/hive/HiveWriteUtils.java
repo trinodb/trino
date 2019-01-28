@@ -52,8 +52,10 @@ import org.apache.hadoop.fs.FilterFileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.fs.viewfs.ViewFileSystem;
+import org.apache.hadoop.hive.common.type.Date;
 import org.apache.hadoop.hive.common.type.HiveDecimal;
 import org.apache.hadoop.hive.common.type.HiveVarchar;
+import org.apache.hadoop.hive.common.type.Timestamp;
 import org.apache.hadoop.hive.conf.HiveConf;
 import org.apache.hadoop.hive.metastore.ProtectMode;
 import org.apache.hadoop.hive.ql.exec.FileSinkOperator.RecordWriter;
@@ -61,11 +63,11 @@ import org.apache.hadoop.hive.ql.io.HiveOutputFormat;
 import org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat;
 import org.apache.hadoop.hive.serde2.SerDeException;
 import org.apache.hadoop.hive.serde2.Serializer;
-import org.apache.hadoop.hive.serde2.io.DateWritable;
+import org.apache.hadoop.hive.serde2.io.DateWritableV2;
 import org.apache.hadoop.hive.serde2.io.DoubleWritable;
 import org.apache.hadoop.hive.serde2.io.HiveDecimalWritable;
 import org.apache.hadoop.hive.serde2.io.ShortWritable;
-import org.apache.hadoop.hive.serde2.io.TimestampWritable;
+import org.apache.hadoop.hive.serde2.io.TimestampWritableV2;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory;
 import org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector.PrimitiveCategory;
@@ -86,12 +88,9 @@ import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.Reporter;
-import org.joda.time.DateTimeZone;
 
 import java.io.IOException;
 import java.math.BigInteger;
-import java.sql.Date;
-import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -99,7 +98,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
-import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Strings.padEnd;
 import static com.google.common.io.BaseEncoding.base16;
@@ -154,7 +152,6 @@ import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveO
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.writableTimestampObjectInspector;
 import static org.apache.hadoop.hive.serde2.typeinfo.TypeInfoFactory.getCharTypeInfo;
 import static org.apache.hadoop.hive.serde2.typeinfo.TypeInfoFactory.getVarcharTypeInfo;
-import static org.joda.time.DateTimeZone.UTC;
 
 public final class HiveWriteUtils
 {
@@ -315,12 +312,10 @@ public final class HiveWriteUtils
             return type.getSlice(block, position).getBytes();
         }
         if (DateType.DATE.equals(type)) {
-            long days = type.getLong(block, position);
-            return new Date(UTC.getMillisKeepLocal(DateTimeZone.getDefault(), TimeUnit.DAYS.toMillis(days)));
+            return Date.ofEpochDay(toIntExact(type.getLong(block, position)));
         }
         if (TimestampType.TIMESTAMP.equals(type)) {
-            long millisUtc = type.getLong(block, position);
-            return new Timestamp(millisUtc);
+            return Timestamp.ofEpochMilli(type.getLong(block, position));
         }
         if (type instanceof DecimalType) {
             DecimalType decimalType = (DecimalType) type;
@@ -933,7 +928,7 @@ public final class HiveWriteUtils
     private static class DateFieldSetter
             extends FieldSetter
     {
-        private final DateWritable value = new DateWritable();
+        private final DateWritableV2 value = new DateWritableV2();
 
         public DateFieldSetter(SettableStructObjectInspector rowInspector, Object row, StructField field)
         {
@@ -951,7 +946,7 @@ public final class HiveWriteUtils
     private static class TimestampFieldSetter
             extends FieldSetter
     {
-        private final TimestampWritable value = new TimestampWritable();
+        private final TimestampWritableV2 value = new TimestampWritableV2();
 
         public TimestampFieldSetter(SettableStructObjectInspector rowInspector, Object row, StructField field)
         {
@@ -961,8 +956,7 @@ public final class HiveWriteUtils
         @Override
         public void setField(Block block, int position)
         {
-            long millisUtc = TimestampType.TIMESTAMP.getLong(block, position);
-            value.setTime(millisUtc);
+            value.set(Timestamp.ofEpochMilli(TimestampType.TIMESTAMP.getLong(block, position)));
             rowInspector.setStructFieldData(row, field, value);
         }
     }

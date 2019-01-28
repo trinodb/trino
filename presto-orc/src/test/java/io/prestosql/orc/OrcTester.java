@@ -47,8 +47,10 @@ import io.prestosql.sql.analyzer.FeaturesConfig;
 import io.prestosql.type.TypeRegistry;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.hive.common.type.Date;
 import org.apache.hadoop.hive.common.type.HiveChar;
 import org.apache.hadoop.hive.common.type.HiveDecimal;
+import org.apache.hadoop.hive.common.type.Timestamp;
 import org.apache.hadoop.hive.ql.exec.FileSinkOperator.RecordWriter;
 import org.apache.hadoop.hive.ql.io.orc.OrcFile;
 import org.apache.hadoop.hive.ql.io.orc.OrcFile.ReaderOptions;
@@ -59,11 +61,11 @@ import org.apache.hadoop.hive.ql.io.orc.OrcUtil;
 import org.apache.hadoop.hive.ql.io.orc.Reader;
 import org.apache.hadoop.hive.ql.io.orc.RecordReader;
 import org.apache.hadoop.hive.serde2.Serializer;
-import org.apache.hadoop.hive.serde2.io.DateWritable;
+import org.apache.hadoop.hive.serde2.io.DateWritableV2;
 import org.apache.hadoop.hive.serde2.io.HiveCharWritable;
 import org.apache.hadoop.hive.serde2.io.HiveDecimalWritable;
 import org.apache.hadoop.hive.serde2.io.ShortWritable;
-import org.apache.hadoop.hive.serde2.io.TimestampWritable;
+import org.apache.hadoop.hive.serde2.io.TimestampWritableV2;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.SettableStructObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.StructField;
@@ -87,11 +89,6 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.math.BigInteger;
-import java.sql.Date;
-import java.sql.Timestamp;
-import java.time.LocalDate;
-import java.time.ZoneId;
-import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -136,7 +133,6 @@ import static io.prestosql.testing.DateTimeTestingUtils.sqlTimestampOf;
 import static io.prestosql.testing.TestingConnectorSession.SESSION;
 import static java.lang.Math.toIntExact;
 import static java.util.Arrays.asList;
-import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.hive.serde2.ColumnProjectionUtils.READ_ALL_COLUMNS;
 import static org.apache.hadoop.hive.serde2.ColumnProjectionUtils.READ_COLUMN_IDS_CONF_STR;
@@ -715,7 +711,8 @@ public class OrcTester
 
         Reader reader = OrcFile.createReader(
                 new Path(tempFile.getFile().getAbsolutePath()),
-                new ReaderOptions(configuration));
+                new ReaderOptions(configuration)
+                        .useUTCTimestamp(false));
         RecordReader recordReader = reader.rows();
 
         StructObjectInspector rowInspector = (StructObjectInspector) reader.getObjectInspector();
@@ -745,8 +742,8 @@ public class OrcTester
         else if (actualValue instanceof BytesWritable) {
             actualValue = new SqlVarbinary(((BytesWritable) actualValue).copyBytes());
         }
-        else if (actualValue instanceof DateWritable) {
-            actualValue = new SqlDate(((DateWritable) actualValue).getDays());
+        else if (actualValue instanceof DateWritableV2) {
+            actualValue = new SqlDate(((DateWritableV2) actualValue).getDays());
         }
         else if (actualValue instanceof DoubleWritable) {
             actualValue = ((DoubleWritable) actualValue).get();
@@ -776,9 +773,8 @@ public class OrcTester
         else if (actualValue instanceof Text) {
             actualValue = actualValue.toString();
         }
-        else if (actualValue instanceof TimestampWritable) {
-            TimestampWritable timestamp = (TimestampWritable) actualValue;
-            actualValue = sqlTimestampOf((timestamp.getSeconds() * 1000) + (timestamp.getNanos() / 1000000L), SESSION);
+        else if (actualValue instanceof TimestampWritableV2) {
+            actualValue = sqlTimestampOf(((TimestampWritableV2) actualValue).getTimestamp().toEpochMilli(), SESSION);
         }
         else if (actualValue instanceof OrcStruct) {
             List<Object> fields = new ArrayList<>();
@@ -964,19 +960,10 @@ public class OrcTester
             return ((SqlVarbinary) value).getBytes();
         }
         if (type.equals(DATE)) {
-            int days = ((SqlDate) value).getDays();
-            LocalDate localDate = LocalDate.ofEpochDay(days);
-            ZonedDateTime zonedDateTime = localDate.atStartOfDay(ZoneId.systemDefault());
-
-            long millis = SECONDS.toMillis(zonedDateTime.toEpochSecond());
-            Date date = new Date(0);
-            // millis must be set separately to avoid masking
-            date.setTime(millis);
-            return date;
+            return Date.ofEpochDay(((SqlDate) value).getDays());
         }
         if (type.equals(TIMESTAMP)) {
-            long millisUtc = (int) ((SqlTimestamp) value).getMillisUtc();
-            return new Timestamp(millisUtc);
+            return Timestamp.ofEpochMilli(((SqlTimestamp) value).getMillisUtc());
         }
         if (type instanceof DecimalType) {
             return HiveDecimal.create(((SqlDecimal) value).toBigDecimal());

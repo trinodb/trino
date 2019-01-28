@@ -19,6 +19,7 @@ import org.apache.parquet.column.values.plain.PlainValuesReader.IntegerPlainValu
 import java.io.IOException;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static io.prestosql.parquet.ParquetReaderUtils.toInputStream;
 
 public class IntegerDictionary
         extends Dictionary
@@ -31,7 +32,7 @@ public class IntegerDictionary
         super(dictionaryPage.getEncoding());
         content = new int[dictionaryPage.getDictionarySize()];
         IntegerPlainValuesReader intReader = new IntegerPlainValuesReader();
-        intReader.initFromPage(dictionaryPage.getDictionarySize(), dictionaryPage.getSlice().getBytes(), 0);
+        intReader.initFromPage(dictionaryPage.getDictionarySize(), toInputStream(dictionaryPage));
         for (int i = 0; i < content.length; i++) {
             content[i] = intReader.readInteger();
         }

@@ -54,12 +54,10 @@ import org.apache.hadoop.hive.serde2.objectinspector.primitive.LongObjectInspect
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.ShortObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.StringObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.TimestampObjectInspector;
-import org.joda.time.DateTimeZone;
 
-import java.sql.Timestamp;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
+import java.util.function.LongUnaryOperator;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.spi.type.Chars.truncateToLengthAndTrimSpaces;
@@ -71,36 +69,37 @@ public final class SerDeUtils
 {
     private SerDeUtils() {}
 
-    public static Block getBlockObject(Type type, Object object, ObjectInspector objectInspector)
+    public static Block getBlockObject(Type type, Object object, ObjectInspector objectInspector, LongUnaryOperator timestampConverter)
     {
-        return requireNonNull(serializeObject(type, null, object, objectInspector), "serialized result is null");
+        Block block = serializeObject(type, null, object, objectInspector, timestampConverter);
+        return requireNonNull(block, "serialized result is null");
     }
 
-    public static Block serializeObject(Type type, BlockBuilder builder, Object object, ObjectInspector inspector)
+    public static Block serializeObject(Type type, BlockBuilder builder, Object object, ObjectInspector inspector, LongUnaryOperator timestampConverter)
     {
-        return serializeObject(type, builder, object, inspector, true);
+        return serializeObject(type, builder, object, inspector, timestampConverter, true);
     }
 
     // This version supports optionally disabling the filtering of null map key, which should only be used for building test data sets
     // that contain null map keys.  For production, null map keys are not allowed.
     @VisibleForTesting
-    public static Block serializeObject(Type type, BlockBuilder builder, Object object, ObjectInspector inspector, boolean filterNullMapKeys)
+    public static Block serializeObject(Type type, BlockBuilder builder, Object object, ObjectInspector inspector, LongUnaryOperator timestampConverter, boolean filterNullMapKeys)
     {
         switch (inspector.getCategory()) {
             case PRIMITIVE:
-                serializePrimitive(type, builder, object, (PrimitiveObjectInspector) inspector);
+                serializePrimitive(type, builder, object, (PrimitiveObjectInspector) inspector, timestampConverter);
                 return null;
             case LIST:
-                return serializeList(type, builder, object, (ListObjectInspector) inspector);
+                return serializeList(type, builder, object, (ListObjectInspector) inspector, timestampConverter);
             case MAP:
-                return serializeMap(type, builder, object, (MapObjectInspector) inspector, filterNullMapKeys);
+                return serializeMap(type, builder, object, (MapObjectInspector) inspector, timestampConverter, filterNullMapKeys);
             case STRUCT:
-                return serializeStruct(type, builder, object, (StructObjectInspector) inspector);
+                return serializeStruct(type, builder, object, (StructObjectInspector) inspector, timestampConverter);
         }
         throw new RuntimeException("Unknown object inspector category: " + inspector.getCategory());
     }
 
-    private static void serializePrimitive(Type type, BlockBuilder builder, Object object, PrimitiveObjectInspector inspector)
+    private static void serializePrimitive(Type type, BlockBuilder builder, Object object, PrimitiveObjectInspector inspector, LongUnaryOperator timestampConverter)
     {
         requireNonNull(builder, "parent builder is null");
 
@@ -146,7 +145,7 @@ public final class SerDeUtils
                 DateType.DATE.writeLong(builder, formatDateAsLong(object, (DateObjectInspector) inspector));
                 return;
             case TIMESTAMP:
-                TimestampType.TIMESTAMP.writeLong(builder, formatTimestampAsLong(object, (TimestampObjectInspector) inspector));
+                TimestampType.TIMESTAMP.writeLong(builder, formatTimestampAsLong(object, (TimestampObjectInspector) inspector, timestampConverter));
                 return;
             case BINARY:
                 VARBINARY.writeSlice(builder, Slices.wrappedBuffer(((BinaryObjectInspector) inspector).getPrimitiveJavaObject(object)));
@@ -165,7 +164,7 @@ public final class SerDeUtils
         throw new RuntimeException("Unknown primitive type: " + inspector.getPrimitiveCategory());
     }
 
-    private static Block serializeList(Type type, BlockBuilder builder, Object object, ListObjectInspector inspector)
+    private static Block serializeList(Type type, BlockBuilder builder, Object object, ListObjectInspector inspector, LongUnaryOperator timestampConverter)
     {
         List<?> list = inspector.getList(object);
         if (list == null) {
@@ -186,7 +185,7 @@ public final class SerDeUtils
         }
 
         for (Object element : list) {
-            serializeObject(elementType, currentBuilder, element, elementInspector);
+            serializeObject(elementType, currentBuilder, element, elementInspector, timestampConverter);
         }
 
         if (builder != null) {
@@ -199,7 +198,7 @@ public final class SerDeUtils
         }
     }
 
-    private static Block serializeMap(Type type, BlockBuilder builder, Object object, MapObjectInspector inspector, boolean filterNullMapKeys)
+    private static Block serializeMap(Type type, BlockBuilder builder, Object object, MapObjectInspector inspector, LongUnaryOperator timestampConverter, boolean filterNullMapKeys)
     {
         Map<?, ?> map = inspector.getMap(object);
         if (map == null) {
@@ -225,8 +224,8 @@ public final class SerDeUtils
         for (Map.Entry<?, ?> entry : map.entrySet()) {
             // Hive skips map entries with null keys
             if (!filterNullMapKeys || entry.getKey() != null) {
-                serializeObject(keyType, currentBuilder, entry.getKey(), keyInspector);
-                serializeObject(valueType, currentBuilder, entry.getValue(), valueInspector);
+                serializeObject(keyType, currentBuilder, entry.getKey(), keyInspector, timestampConverter);
+                serializeObject(valueType, currentBuilder, entry.getValue(), valueInspector, timestampConverter);
             }
         }
 
@@ -239,7 +238,7 @@ public final class SerDeUtils
         }
     }
 
-    private static Block serializeStruct(Type type, BlockBuilder builder, Object object, StructObjectInspector inspector)
+    private static Block serializeStruct(Type type, BlockBuilder builder, Object object, StructObjectInspector inspector, LongUnaryOperator timestampConverter)
     {
         if (object == null) {
             requireNonNull(builder, "parent builder is null").appendNull();
@@ -260,7 +259,7 @@ public final class SerDeUtils
 
         for (int i = 0; i < typeParameters.size(); i++) {
             StructField field = allStructFieldRefs.get(i);
-            serializeObject(typeParameters.get(i), currentBuilder, inspector.getStructFieldData(object, field), field.getFieldObjectInspector());
+            serializeObject(typeParameters.get(i), currentBuilder, inspector.getStructFieldData(object, field), field.getFieldObjectInspector(), timestampConverter);
         }
 
         builder.closeEntry();
@@ -272,6 +271,7 @@ public final class SerDeUtils
         }
     }
 
+    @SuppressWarnings("deprecation")
     private static long formatDateAsLong(Object object, DateObjectInspector inspector)
     {
         if (object instanceof LazyDate) {
@@ -280,27 +280,14 @@ public final class SerDeUtils
         if (object instanceof DateWritable) {
             return ((DateWritable) object).getDays();
         }
-
-        // Hive will return java.sql.Date at midnight in JVM time zone
-        long millisLocal = inspector.getPrimitiveJavaObject(object).getTime();
-        // Convert it to midnight in UTC
-        long millisUtc = DateTimeZone.getDefault().getMillisKeepLocal(DateTimeZone.UTC, millisLocal);
-        // Convert midnight UTC to days
-        return TimeUnit.MILLISECONDS.toDays(millisUtc);
+        return inspector.getPrimitiveJavaObject(object).toEpochDay();
     }
 
-    private static long formatTimestampAsLong(Object object, TimestampObjectInspector inspector)
+    private static long formatTimestampAsLong(Object object, TimestampObjectInspector inspector, LongUnaryOperator timestampConverter)
     {
-        Timestamp timestamp = getTimestamp(object, inspector);
-        return timestamp.getTime();
-    }
-
-    private static Timestamp getTimestamp(Object object, TimestampObjectInspector inspector)
-    {
-        // handle broken ObjectInspectors
         if (object instanceof TimestampWritable) {
-            return ((TimestampWritable) object).getTimestamp();
+            return ((TimestampWritable) object).getTimestamp().getTime();
         }
-        return inspector.getPrimitiveJavaObject(object);
+        return timestampConverter.applyAsLong(inspector.getPrimitiveJavaObject(object).toEpochMilli());
     }
 }
