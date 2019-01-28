@@ -29,7 +29,6 @@ import io.prestosql.spi.block.RunLengthEncodedBlock;
 import io.prestosql.spi.connector.ConnectorPageSource;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeManager;
-import org.joda.time.DateTimeZone;
 
 import java.io.IOException;
 import java.util.List;
@@ -59,15 +58,10 @@ public class RcFilePageSource
 
     private boolean closed;
 
-    public RcFilePageSource(
-            RcFileReader rcFileReader,
-            List<HiveColumnHandle> columns,
-            DateTimeZone hiveStorageTimeZone,
-            TypeManager typeManager)
+    public RcFilePageSource(RcFileReader rcFileReader, List<HiveColumnHandle> columns, TypeManager typeManager)
     {
         requireNonNull(rcFileReader, "rcReader is null");
         requireNonNull(columns, "columns is null");
-        requireNonNull(hiveStorageTimeZone, "hiveStorageTimeZone is null");
         requireNonNull(typeManager, "typeManager is null");
 
         this.rcFileReader = rcFileReader;
