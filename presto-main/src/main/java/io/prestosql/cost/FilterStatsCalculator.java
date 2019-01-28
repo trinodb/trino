@@ -32,6 +32,7 @@ import io.prestosql.sql.tree.BetweenPredicate;
 import io.prestosql.sql.tree.BooleanLiteral;
 import io.prestosql.sql.tree.ComparisonExpression;
 import io.prestosql.sql.tree.Expression;
+import io.prestosql.sql.tree.FunctionCall;
 import io.prestosql.sql.tree.InListExpression;
 import io.prestosql.sql.tree.InPredicate;
 import io.prestosql.sql.tree.IsNotNullPredicate;
@@ -58,6 +59,7 @@ import static io.prestosql.cost.PlanNodeStatsEstimateMath.capStats;
 import static io.prestosql.cost.PlanNodeStatsEstimateMath.subtractSubsetStats;
 import static io.prestosql.cost.StatsUtil.toStatsRepresentation;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
+import static io.prestosql.sql.DynamicFilters.isDynamicFilter;
 import static io.prestosql.sql.ExpressionUtils.and;
 import static io.prestosql.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static io.prestosql.sql.tree.ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL;
@@ -386,6 +388,15 @@ public class FilterStatsCalculator
 
             Optional<Symbol> rightSymbol = right instanceof SymbolReference ? Optional.of(Symbol.from(right)) : Optional.empty();
             return estimateExpressionToExpressionComparison(input, leftStats, leftSymbol, rightStats, rightSymbol, operator);
+        }
+
+        @Override
+        protected PlanNodeStatsEstimate visitFunctionCall(FunctionCall node, Void context)
+        {
+            if (isDynamicFilter(node)) {
+                return process(BooleanLiteral.TRUE_LITERAL, context);
+            }
+            return PlanNodeStatsEstimate.unknown();
         }
 
         private Type getType(Expression expression)

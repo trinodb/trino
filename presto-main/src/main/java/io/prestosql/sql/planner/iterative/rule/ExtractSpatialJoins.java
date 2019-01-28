@@ -344,7 +344,8 @@ public class ExtractSpatialJoins
                 joinNode.getLeftHashSymbol(),
                 joinNode.getRightHashSymbol(),
                 joinNode.getDistributionType(),
-                joinNode.isSpillable());
+                joinNode.isSpillable(),
+                joinNode.getDynamicFilters());
 
         return tryCreateSpatialJoin(context, newJoinNode, newFilter, nodeId, outputSymbols, (FunctionCall) newComparison.getLeft(), Optional.of(newComparison.getRight()), metadata, splitManager, pageSourceManager, typeAnalyzer);
     }

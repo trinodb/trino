@@ -388,7 +388,8 @@ public final class PlanMatchPattern
                         expectedEquiCriteria,
                         expectedFilter.map(predicate -> rewriteIdentifiersToSymbolReferences(new SqlParser().createExpression(predicate))),
                         expectedDistributionType,
-                        expectedSpillable));
+                        expectedSpillable,
+                        Optional.empty()));
     }
 
     public static PlanMatchPattern spatialJoin(String expectedFilter, PlanMatchPattern left, PlanMatchPattern right)

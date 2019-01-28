@@ -166,6 +166,7 @@ import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeManager;
 import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.spi.type.VarcharType;
+import io.prestosql.sql.DynamicFilters;
 import io.prestosql.sql.analyzer.FeaturesConfig;
 import io.prestosql.sql.analyzer.TypeSignatureProvider;
 import io.prestosql.sql.tree.QualifiedName;
@@ -592,6 +593,7 @@ public class FunctionRegistry
                 .scalar(MapIndeterminateOperator.class)
                 .scalar(TypeOfFunction.class)
                 .scalar(TryFunction.class)
+                .scalar(DynamicFilters.Function.class)
                 .functions(ZIP_WITH_FUNCTION, MAP_ZIP_WITH_FUNCTION)
                 .functions(ZIP_FUNCTIONS)
                 .functions(ARRAY_JOIN, ARRAY_JOIN_WITH_NULL_REPLACEMENT)

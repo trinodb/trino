@@ -14,6 +14,7 @@
 package io.prestosql.sql.planner.optimizations;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import io.prestosql.Session;
@@ -81,6 +82,8 @@ import static com.google.common.base.Predicates.in;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.filter;
+import static io.prestosql.SystemSessionProperties.isEnableDynamicFiltering;
+import static io.prestosql.sql.DynamicFilters.createDynamicFilterExpression;
 import static io.prestosql.sql.ExpressionUtils.combineConjuncts;
 import static io.prestosql.sql.ExpressionUtils.extractConjuncts;
 import static io.prestosql.sql.ExpressionUtils.filterDeterministicConjuncts;
@@ -442,11 +445,6 @@ public class PredicatePushDown
                 newJoinPredicate = new ComparisonExpression(ComparisonExpression.Operator.EQUAL, new LongLiteral("0"), new LongLiteral("1"));
             }
 
-            PlanNode leftSource = context.rewrite(node.getLeft(), leftPredicate);
-            PlanNode rightSource = context.rewrite(node.getRight(), rightPredicate);
-
-            PlanNode output = node;
-
             // Create identity projections for all existing symbols
             Assignments.Builder leftProjections = Assignments.builder();
             leftProjections.putAll(node.getLeft()
@@ -486,6 +484,22 @@ public class PredicatePushDown
                 }
             }
 
+            DynamicFiltersResult dynamicFiltersResult = createDynamicFilters(node, equiJoinClauses, session, idAllocator);
+            Map<String, Symbol> dynamicFilters = dynamicFiltersResult.getDynamicFilters();
+            leftPredicate = combineConjuncts(leftPredicate, combineConjuncts(dynamicFiltersResult.getPredicates()));
+
+            PlanNode leftSource;
+            PlanNode rightSource;
+            boolean equiJoinClausesUnmodified = ImmutableSet.copyOf(equiJoinClauses).equals(ImmutableSet.copyOf(node.getCriteria()));
+            if (!equiJoinClausesUnmodified) {
+                leftSource = context.rewrite(new ProjectNode(idAllocator.getNextId(), node.getLeft(), leftProjections.build()), leftPredicate);
+                rightSource = context.rewrite(new ProjectNode(idAllocator.getNextId(), node.getRight(), rightProjections.build()), rightPredicate);
+            }
+            else {
+                leftSource = context.rewrite(node.getLeft(), leftPredicate);
+                rightSource = context.rewrite(node.getRight(), rightPredicate);
+            }
+
             Optional<Expression> newJoinFilter = Optional.of(combineConjuncts(joinFilterBuilder.build()));
             if (newJoinFilter.get() == TRUE_LITERAL) {
                 newJoinFilter = Optional.empty();
@@ -504,10 +518,12 @@ public class PredicatePushDown
                     newJoinFilter.isPresent() == node.getFilter().isPresent() &&
                             (!newJoinFilter.isPresent() || areExpressionsEquivalent(newJoinFilter.get(), node.getFilter().get()));
 
+            PlanNode output = node;
             if (leftSource != node.getLeft() ||
                     rightSource != node.getRight() ||
                     !filtersEquivalent ||
-                    !ImmutableSet.copyOf(equiJoinClauses).equals(ImmutableSet.copyOf(node.getCriteria()))) {
+                    !dynamicFilters.equals(node.getDynamicFilters()) ||
+                    !equiJoinClausesUnmodified) {
                 leftSource = new ProjectNode(idAllocator.getNextId(), leftSource, leftProjections.build());
                 rightSource = new ProjectNode(idAllocator.getNextId(), rightSource, rightProjections.build());
 
@@ -525,7 +541,8 @@ public class PredicatePushDown
                         node.getLeftHashSymbol(),
                         node.getRightHashSymbol(),
                         node.getDistributionType(),
-                        node.isSpillable());
+                        node.isSpillable(),
+                        dynamicFilters);
             }
 
             if (!postJoinPredicate.equals(TRUE_LITERAL)) {
@@ -537,6 +554,52 @@ public class PredicatePushDown
             }
 
             return output;
+        }
+
+        private static DynamicFiltersResult createDynamicFilters(JoinNode node, List<JoinNode.EquiJoinClause> equiJoinClauses, Session session, PlanNodeIdAllocator idAllocator)
+        {
+            Map<String, Symbol> dynamicFilters = ImmutableMap.of();
+            List<Expression> predicates = ImmutableList.of();
+            if (node.getType() == INNER && isEnableDynamicFiltering(session)) {
+                // New equiJoinClauses could potentially not contain symbols used in current dynamic filters.
+                // Since we use PredicatePushdown to push dynamic filters themselves,
+                // instead of separate ApplyDynamicFilters rule we derive dynamic filters within PredicatePushdown itself.
+                // Even if equiJoinClauses.equals(node.getCriteria), current dynamic filters may not match equiJoinClauses
+                ImmutableMap.Builder<String, Symbol> dynamicFiltersBuilder = ImmutableMap.builder();
+                ImmutableList.Builder<Expression> predicatesBuilder = ImmutableList.builder();
+                for (JoinNode.EquiJoinClause clause : equiJoinClauses) {
+                    Symbol probeSymbol = clause.getLeft();
+                    Symbol buildSymbol = clause.getRight();
+                    String id = idAllocator.getNextId().toString();
+                    predicatesBuilder.add(createDynamicFilterExpression(id, probeSymbol.toSymbolReference()));
+                    dynamicFiltersBuilder.put(id, buildSymbol);
+                }
+                dynamicFilters = dynamicFiltersBuilder.build();
+                predicates = predicatesBuilder.build();
+            }
+            return new DynamicFiltersResult(dynamicFilters, predicates);
+        }
+
+        private static class DynamicFiltersResult
+        {
+            private final Map<String, Symbol> dynamicFilters;
+            private final List<Expression> predicates;
+
+            public DynamicFiltersResult(Map<String, Symbol> dynamicFilters, List<Expression> predicates)
+            {
+                this.dynamicFilters = dynamicFilters;
+                this.predicates = predicates;
+            }
+
+            public Map<String, Symbol> getDynamicFilters()
+            {
+                return dynamicFilters;
+            }
+
+            public List<Expression> getPredicates()
+            {
+                return predicates;
+            }
         }
 
         @Override
@@ -904,11 +967,11 @@ public class PredicatePushDown
                     return node;
                 }
                 if (canConvertToLeftJoin && canConvertToRightJoin) {
-                    return new JoinNode(node.getId(), INNER, node.getLeft(), node.getRight(), node.getCriteria(), node.getOutputSymbols(), node.getFilter(), node.getLeftHashSymbol(), node.getRightHashSymbol(), node.getDistributionType(), node.isSpillable());
+                    return new JoinNode(node.getId(), INNER, node.getLeft(), node.getRight(), node.getCriteria(), node.getOutputSymbols(), node.getFilter(), node.getLeftHashSymbol(), node.getRightHashSymbol(), node.getDistributionType(), node.isSpillable(), node.getDynamicFilters());
                 }
                 else {
                     return new JoinNode(node.getId(), canConvertToLeftJoin ? LEFT : RIGHT,
-                            node.getLeft(), node.getRight(), node.getCriteria(), node.getOutputSymbols(), node.getFilter(), node.getLeftHashSymbol(), node.getRightHashSymbol(), node.getDistributionType(), node.isSpillable());
+                            node.getLeft(), node.getRight(), node.getCriteria(), node.getOutputSymbols(), node.getFilter(), node.getLeftHashSymbol(), node.getRightHashSymbol(), node.getDistributionType(), node.isSpillable(), node.getDynamicFilters());
                 }
             }
 
@@ -916,7 +979,7 @@ public class PredicatePushDown
                     node.getType() == JoinNode.Type.RIGHT && !canConvertOuterToInner(node.getLeft().getOutputSymbols(), inheritedPredicate)) {
                 return node;
             }
-            return new JoinNode(node.getId(), JoinNode.Type.INNER, node.getLeft(), node.getRight(), node.getCriteria(), node.getOutputSymbols(), node.getFilter(), node.getLeftHashSymbol(), node.getRightHashSymbol(), node.getDistributionType(), node.isSpillable());
+            return new JoinNode(node.getId(), JoinNode.Type.INNER, node.getLeft(), node.getRight(), node.getCriteria(), node.getOutputSymbols(), node.getFilter(), node.getLeftHashSymbol(), node.getRightHashSymbol(), node.getDistributionType(), node.isSpillable(), node.getDynamicFilters());
         }
 
         private boolean canConvertOuterToInner(List<Symbol> innerSymbolsForOuterJoin, Expression inheritedPredicate)

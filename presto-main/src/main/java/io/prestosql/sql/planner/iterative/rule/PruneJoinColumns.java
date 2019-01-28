@@ -51,6 +51,7 @@ public class PruneJoinColumns
                         joinNode.getLeftHashSymbol(),
                         joinNode.getRightHashSymbol(),
                         joinNode.getDistributionType(),
-                        joinNode.isSpillable()));
+                        joinNode.isSpillable(),
+                        joinNode.getDynamicFilters()));
     }
 }

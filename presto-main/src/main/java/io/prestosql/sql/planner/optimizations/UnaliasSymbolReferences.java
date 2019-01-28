@@ -499,6 +499,8 @@ public class UnaliasSymbolReferences
             Optional<Symbol> canonicalLeftHashSymbol = canonicalize(node.getLeftHashSymbol());
             Optional<Symbol> canonicalRightHashSymbol = canonicalize(node.getRightHashSymbol());
 
+            Map<String, Symbol> canonicalDynamicFilters = canonicalizeAndDistinct(node.getDynamicFilters());
+
             if (node.getType().equals(INNER)) {
                 canonicalCriteria.stream()
                         .filter(clause -> types.get(clause.getLeft()).equals(types.get(clause.getRight())))
@@ -506,7 +508,19 @@ public class UnaliasSymbolReferences
                         .forEach(clause -> map(clause.getRight(), clause.getLeft()));
             }
 
-            return new JoinNode(node.getId(), node.getType(), left, right, canonicalCriteria, canonicalizeAndDistinct(node.getOutputSymbols()), canonicalFilter, canonicalLeftHashSymbol, canonicalRightHashSymbol, node.getDistributionType(), node.isSpillable());
+            return new JoinNode(
+                    node.getId(),
+                    node.getType(),
+                    left,
+                    right,
+                    canonicalCriteria,
+                    canonicalizeAndDistinct(node.getOutputSymbols()),
+                    canonicalFilter,
+                    canonicalLeftHashSymbol,
+                    canonicalRightHashSymbol,
+                    node.getDistributionType(),
+                    node.isSpillable(),
+                    canonicalDynamicFilters);
         }
 
         @Override
@@ -678,6 +692,19 @@ public class UnaliasSymbolReferences
                 Symbol canonical = canonicalize(symbol);
                 if (added.add(canonical)) {
                     builder.add(canonical);
+                }
+            }
+            return builder.build();
+        }
+
+        private Map<String, Symbol> canonicalizeAndDistinct(Map<String, Symbol> dynamicFilters)
+        {
+            Set<Symbol> added = new HashSet<>();
+            ImmutableMap.Builder<String, Symbol> builder = ImmutableMap.builder();
+            for (Map.Entry<String, Symbol> entry : dynamicFilters.entrySet()) {
+                Symbol canonical = canonicalize(entry.getValue());
+                if (added.add(canonical)) {
+                    builder.put(entry.getKey(), canonical);
                 }
             }
             return builder.build();

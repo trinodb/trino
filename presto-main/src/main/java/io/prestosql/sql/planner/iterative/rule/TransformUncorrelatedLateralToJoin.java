@@ -14,6 +14,7 @@
 package io.prestosql.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.prestosql.matching.Captures;
 import io.prestosql.matching.Pattern;
 import io.prestosql.sql.planner.Symbol;
@@ -58,7 +59,8 @@ public class TransformUncorrelatedLateralToJoin
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                Optional.empty()));
+                Optional.empty(),
+                ImmutableMap.of()));
     }
 
     private Optional<Expression> filter(Expression lateralJoinFilter)
