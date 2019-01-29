@@ -197,7 +197,8 @@ public class DistributedQueryRunner
 
         TestingPrestoServer server = new TestingPrestoServer(coordinator, properties, environment, discoveryUri, parserOptions, ImmutableList.of());
 
-        log.info("Created TestingPrestoServer in %s: %s", nanosSince(start).convertToMostSuccinctTimeUnit(), server.getBaseUrl());
+        String nodeRole = coordinator ? "coordinator" : "worker";
+        log.info("Created %s TestingPrestoServer in %s: %s", nodeRole, nanosSince(start).convertToMostSuccinctTimeUnit(), server.getBaseUrl());
 
         return server;
     }
