@@ -150,6 +150,7 @@ public abstract class AbstractTestingPrestoClient<T>
                 session.getLocale(),
                 resourceEstimates.build(),
                 properties.build(),
+                ImmutableMap.of(),
                 session.getPreparedStatements(),
                 session.getTransactionId().map(Object::toString).orElse(null),
                 clientRequestTimeout);

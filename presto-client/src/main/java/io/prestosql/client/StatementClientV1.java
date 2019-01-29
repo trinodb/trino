@@ -56,6 +56,7 @@ import static io.prestosql.client.PrestoHeaders.PRESTO_CLEAR_TRANSACTION_ID;
 import static io.prestosql.client.PrestoHeaders.PRESTO_CLIENT_CAPABILITIES;
 import static io.prestosql.client.PrestoHeaders.PRESTO_CLIENT_INFO;
 import static io.prestosql.client.PrestoHeaders.PRESTO_CLIENT_TAGS;
+import static io.prestosql.client.PrestoHeaders.PRESTO_CONNECTOR_TOKEN;
 import static io.prestosql.client.PrestoHeaders.PRESTO_DEALLOCATED_PREPARE;
 import static io.prestosql.client.PrestoHeaders.PRESTO_LANGUAGE;
 import static io.prestosql.client.PrestoHeaders.PRESTO_PATH;
@@ -180,6 +181,11 @@ class StatementClientV1
         Map<String, String> resourceEstimates = session.getResourceEstimates();
         for (Entry<String, String> entry : resourceEstimates.entrySet()) {
             builder.addHeader(PRESTO_RESOURCE_ESTIMATE, entry.getKey() + "=" + entry.getValue());
+        }
+
+        Map<String, String> connectorTokens = session.getConnectorTokens();
+        for (Entry<String, String> entry : connectorTokens.entrySet()) {
+            builder.addHeader(PRESTO_CONNECTOR_TOKEN, entry.getKey() + "=" + entry.getValue());
         }
 
         Map<String, String> statements = session.getPreparedStatements();

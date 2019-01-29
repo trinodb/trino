@@ -53,6 +53,7 @@ import static io.prestosql.client.PrestoHeaders.PRESTO_CATALOG;
 import static io.prestosql.client.PrestoHeaders.PRESTO_CLIENT_CAPABILITIES;
 import static io.prestosql.client.PrestoHeaders.PRESTO_CLIENT_INFO;
 import static io.prestosql.client.PrestoHeaders.PRESTO_CLIENT_TAGS;
+import static io.prestosql.client.PrestoHeaders.PRESTO_CONNECTOR_TOKEN;
 import static io.prestosql.client.PrestoHeaders.PRESTO_LANGUAGE;
 import static io.prestosql.client.PrestoHeaders.PRESTO_PATH;
 import static io.prestosql.client.PrestoHeaders.PRESTO_PREPARED_STATEMENT;
@@ -107,7 +108,7 @@ public final class HttpRequestSessionContext
 
         String user = trimEmptyToNull(servletRequest.getHeader(PRESTO_USER));
         assertRequest(user != null, "User must be set");
-        identity = new Identity(user, Optional.ofNullable(servletRequest.getUserPrincipal()), Optional.empty());
+        identity = new Identity(user, Optional.ofNullable(servletRequest.getUserPrincipal()), Optional.ofNullable(trimEmptyToNull(parseConnectorTokens(servletRequest))));
 
         source = servletRequest.getHeader(PRESTO_SOURCE);
         traceToken = Optional.ofNullable(trimEmptyToNull(servletRequest.getHeader(PRESTO_TRACE_TOKEN)));
@@ -285,13 +286,12 @@ public final class HttpRequestSessionContext
 
     private static Map<String, String> parseSessionHeaders(HttpServletRequest servletRequest)
     {
-        Map<String, String> sessionProperties = new HashMap<>();
-        for (String header : splitSessionHeader(servletRequest.getHeaders(PRESTO_SESSION))) {
-            List<String> nameValue = Splitter.on('=').limit(2).trimResults().splitToList(header);
-            assertRequest(nameValue.size() == 2, "Invalid %s header", PRESTO_SESSION);
-            sessionProperties.put(nameValue.get(0), nameValue.get(1));
-        }
-        return sessionProperties;
+        return parsePropertyHeaders(servletRequest, PRESTO_SESSION);
+    }
+
+    private static Map<String, String> parseConnectorTokens(HttpServletRequest servletRequest)
+    {
+        return parsePropertyHeaders(servletRequest, PRESTO_CONNECTOR_TOKEN);
     }
 
     private Set<String> parseClientTags(HttpServletRequest servletRequest)
@@ -336,6 +336,17 @@ public final class HttpRequestSessionContext
         }
 
         return builder.build();
+    }
+
+    private static Map<String, String> parsePropertyHeaders(HttpServletRequest servletRequest, String headerName)
+    {
+        Map<String, String> properties = new HashMap<>();
+        for (String header : splitSessionHeader(servletRequest.getHeaders(headerName))) {
+            List<String> nameValue = Splitter.on('=').limit(2).trimResults().splitToList(header);
+            assertRequest(nameValue.size() == 2, "Invalid %s header", headerName);
+            properties.put(nameValue.get(0), nameValue.get(1));
+        }
+        return properties;
     }
 
     private static void assertRequest(boolean expression, String format, Object... args)
@@ -402,6 +413,11 @@ public final class HttpRequestSessionContext
     private static String trimEmptyToNull(String value)
     {
         return emptyToNull(nullToEmpty(value).trim());
+    }
+
+    private static Map<String, String> trimEmptyToNull(Map<String, String> properties)
+    {
+        return properties.size() > 0 ? properties : null;
     }
 
     private static String urlDecode(String value)
