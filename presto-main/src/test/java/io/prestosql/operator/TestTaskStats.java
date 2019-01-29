@@ -56,6 +56,12 @@ public class TestTaskStats
             false,
             ImmutableSet.of(),
 
+            new DataSize(191, BYTE),
+            201,
+
+            new DataSize(192, BYTE),
+            202,
+
             new DataSize(19, BYTE),
             20,
 
@@ -109,6 +115,12 @@ public class TestTaskStats
         assertEquals(actual.getTotalScheduledTime(), new Duration(15, NANOSECONDS));
         assertEquals(actual.getTotalCpuTime(), new Duration(16, NANOSECONDS));
         assertEquals(actual.getTotalBlockedTime(), new Duration(18, NANOSECONDS));
+
+        assertEquals(actual.getPhysicalInputDataSize(), new DataSize(191, BYTE));
+        assertEquals(actual.getPhysicalInputPositions(), 201);
+
+        assertEquals(actual.getInternalNetworkInputDataSize(), new DataSize(192, BYTE));
+        assertEquals(actual.getInternalNetworkInputPositions(), 202);
 
         assertEquals(actual.getRawInputDataSize(), new DataSize(19, BYTE));
         assertEquals(actual.getRawInputPositions(), 20);

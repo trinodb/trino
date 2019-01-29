@@ -61,7 +61,8 @@ public class OperatorContext
     private final DriverContext driverContext;
     private final Executor executor;
 
-    private final CounterStat rawInputDataSize = new CounterStat();
+    private final CounterStat physicalInputDataSize = new CounterStat();
+    private final CounterStat internalNetworkInputDataSize = new CounterStat();
 
     private final OperationTiming addInputTiming = new OperationTiming();
     private final CounterStat inputDataSize = new CounterStat();
@@ -157,18 +158,37 @@ public class OperatorContext
      * Record the amount of physical bytes that were read by an operator.
      * This metric is valid only for source operators.
      */
-    public void recordRawInput(long sizeInBytes)
+    public void recordPhysicalInput(long sizeInBytes)
     {
-        rawInputDataSize.update(sizeInBytes);
+        physicalInputDataSize.update(sizeInBytes);
     }
 
     /**
      * Record the amount of physical bytes that were read by an operator and
      * the time it took to read the data. This metric is valid only for source operators.
      */
-    public void recordRawInputWithTiming(long sizeInBytes, long readNanos)
+    public void recordPhysicalInputWithTiming(long sizeInBytes, long readNanos)
     {
-        rawInputDataSize.update(sizeInBytes);
+        physicalInputDataSize.update(sizeInBytes);
+        addInputTiming.record(readNanos, 0);
+    }
+
+    /**
+     * Record the amount of network bytes that were read by an operator.
+     * This metric is valid only for source operators.
+     */
+    public void recordNetworkInput(long sizeInBytes)
+    {
+        internalNetworkInputDataSize.update(sizeInBytes);
+    }
+
+    /**
+     * Record the amount of network bytes that were read by an operator and
+     * the time it took to read the data. This metric is valid only for source operators.
+     */
+    public void recordNetworkInputWithTiming(long sizeInBytes, long readNanos)
+    {
+        internalNetworkInputDataSize.update(sizeInBytes);
         addInputTiming.record(readNanos, 0);
     }
 
@@ -450,7 +470,9 @@ public class OperatorContext
                 addInputTiming.getCalls(),
                 new Duration(addInputTiming.getWallNanos(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(addInputTiming.getCpuNanos(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
-                succinctBytes(rawInputDataSize.getTotalCount()),
+                succinctBytes(physicalInputDataSize.getTotalCount()),
+                succinctBytes(internalNetworkInputDataSize.getTotalCount()),
+                succinctBytes(physicalInputDataSize.getTotalCount() + internalNetworkInputDataSize.getTotalCount()),
                 succinctBytes(inputDataSize.getTotalCount()),
                 inputPositionsCount,
                 (double) inputPositionsCount * inputPositionsCount,

@@ -55,6 +55,14 @@ public class DriverStats
     private final boolean fullyBlocked;
     private final Set<BlockedReason> blockedReasons;
 
+    private final DataSize physicalInputDataSize;
+    private final long physicalInputPositions;
+    private final Duration physicalInputReadTime;
+
+    private final DataSize internalNetworkInputDataSize;
+    private final long internalNetworkInputPositions;
+    private final Duration internalNetworkInputReadTime;
+
     private final DataSize rawInputDataSize;
     private final long rawInputPositions;
     private final Duration rawInputReadTime;
@@ -88,6 +96,14 @@ public class DriverStats
         this.totalBlockedTime = new Duration(0, MILLISECONDS);
         this.fullyBlocked = false;
         this.blockedReasons = ImmutableSet.of();
+
+        this.physicalInputDataSize = new DataSize(0, BYTE);
+        this.physicalInputPositions = 0;
+        this.physicalInputReadTime = new Duration(0, MILLISECONDS);
+
+        this.internalNetworkInputDataSize = new DataSize(0, BYTE);
+        this.internalNetworkInputPositions = 0;
+        this.internalNetworkInputReadTime = new Duration(0, MILLISECONDS);
 
         this.rawInputDataSize = new DataSize(0, BYTE);
         this.rawInputPositions = 0;
@@ -124,6 +140,14 @@ public class DriverStats
             @JsonProperty("fullyBlocked") boolean fullyBlocked,
             @JsonProperty("blockedReasons") Set<BlockedReason> blockedReasons,
 
+            @JsonProperty("physicalInputDataSize") DataSize physicalInputDataSize,
+            @JsonProperty("physicalInputPositions") long physicalInputPositions,
+            @JsonProperty("physicalInputReadTime") Duration physicalInputReadTime,
+
+            @JsonProperty("internalNetworkInputDataSize") DataSize internalNetworkInputDataSize,
+            @JsonProperty("internalNetworkInputPositions") long internalNetworkInputPositions,
+            @JsonProperty("internalNetworkInputReadTime") Duration internalNetworkInputReadTime,
+
             @JsonProperty("rawInputDataSize") DataSize rawInputDataSize,
             @JsonProperty("rawInputPositions") long rawInputPositions,
             @JsonProperty("rawInputReadTime") Duration rawInputReadTime,
@@ -155,6 +179,16 @@ public class DriverStats
         this.totalBlockedTime = requireNonNull(totalBlockedTime, "totalBlockedTime is null");
         this.fullyBlocked = fullyBlocked;
         this.blockedReasons = ImmutableSet.copyOf(requireNonNull(blockedReasons, "blockedReasons is null"));
+
+        this.physicalInputDataSize = requireNonNull(physicalInputDataSize, "physicalInputDataSize is null");
+        Preconditions.checkArgument(physicalInputPositions >= 0, "physicalInputPositions is negative");
+        this.physicalInputPositions = physicalInputPositions;
+        this.physicalInputReadTime = requireNonNull(physicalInputReadTime, "physicalInputReadTime is null");
+
+        this.internalNetworkInputDataSize = requireNonNull(internalNetworkInputDataSize, "internalNetworkInputDataSize is null");
+        Preconditions.checkArgument(internalNetworkInputPositions >= 0, "internalNetworkInputPositions is negative");
+        this.internalNetworkInputPositions = internalNetworkInputPositions;
+        this.internalNetworkInputReadTime = requireNonNull(internalNetworkInputReadTime, "internalNetworkInputReadTime is null");
 
         this.rawInputDataSize = requireNonNull(rawInputDataSize, "rawInputDataSize is null");
         Preconditions.checkArgument(rawInputPositions >= 0, "rawInputPositions is negative");
@@ -261,21 +295,57 @@ public class DriverStats
     }
 
     @JsonProperty
+    public DataSize getPhysicalInputDataSize()
+    {
+        return physicalInputDataSize;
+    }
+
+    @JsonProperty
+    public long getPhysicalInputPositions()
+    {
+        return physicalInputPositions;
+    }
+
+    @JsonProperty
+    public Duration getPhysicalInputReadTime()
+    {
+        return physicalInputReadTime;
+    }
+
+    @JsonProperty
+    public DataSize getInternalNetworkInputDataSize()
+    {
+        return internalNetworkInputDataSize;
+    }
+
+    @JsonProperty
+    public long getInternalNetworkInputPositions()
+    {
+        return internalNetworkInputPositions;
+    }
+
+    @JsonProperty
+    public Duration getInternalNetworkInputReadTime()
+    {
+        return internalNetworkInputReadTime;
+    }
+
+    @JsonProperty
     public DataSize getRawInputDataSize()
     {
         return rawInputDataSize;
     }
 
     @JsonProperty
-    public Duration getRawInputReadTime()
-    {
-        return rawInputReadTime;
-    }
-
-    @JsonProperty
     public long getRawInputPositions()
     {
         return rawInputPositions;
+    }
+
+    @JsonProperty
+    public Duration getRawInputReadTime()
+    {
+        return rawInputReadTime;
     }
 
     @JsonProperty

@@ -83,6 +83,12 @@ public class PipelineContext
     private final AtomicLong totalCpuTime = new AtomicLong();
     private final AtomicLong totalBlockedTime = new AtomicLong();
 
+    private final CounterStat physicalInputDataSize = new CounterStat();
+    private final CounterStat physicalInputPositions = new CounterStat();
+
+    private final CounterStat internalNetworkInputDataSize = new CounterStat();
+    private final CounterStat internalNetworkInputPositions = new CounterStat();
+
     private final CounterStat rawInputDataSize = new CounterStat();
     private final CounterStat rawInputPositions = new CounterStat();
 
@@ -205,6 +211,12 @@ public class PipelineContext
             }
             while (!compareAndSet(operatorSummaries, operator.getOperatorId(), current, updated));
         }
+
+        physicalInputDataSize.update(driverStats.getPhysicalInputDataSize().toBytes());
+        physicalInputPositions.update(driverStats.getPhysicalInputPositions());
+
+        internalNetworkInputDataSize.update(driverStats.getInternalNetworkInputDataSize().toBytes());
+        internalNetworkInputPositions.update(driverStats.getInternalNetworkInputPositions());
 
         rawInputDataSize.update(driverStats.getRawInputDataSize().toBytes());
         rawInputPositions.update(driverStats.getRawInputPositions());
@@ -345,6 +357,12 @@ public class PipelineContext
         long totalCpuTime = this.totalCpuTime.get();
         long totalBlockedTime = this.totalBlockedTime.get();
 
+        long physicalInputDataSize = this.physicalInputDataSize.getTotalCount();
+        long physicalInputPositions = this.physicalInputPositions.getTotalCount();
+
+        long internalNetworkInputDataSize = this.internalNetworkInputDataSize.getTotalCount();
+        long internalNetworkInputPositions = this.internalNetworkInputPositions.getTotalCount();
+
         long rawInputDataSize = this.rawInputDataSize.getTotalCount();
         long rawInputPositions = this.rawInputPositions.getTotalCount();
 
@@ -374,6 +392,12 @@ public class PipelineContext
             for (OperatorStats operator : operators) {
                 runningOperators.put(operator.getOperatorId(), operator);
             }
+
+            physicalInputDataSize += driverStats.getPhysicalInputDataSize().toBytes();
+            physicalInputPositions += driverStats.getPhysicalInputPositions();
+
+            internalNetworkInputDataSize += driverStats.getInternalNetworkInputDataSize().toBytes();
+            internalNetworkInputPositions += driverStats.getInternalNetworkInputPositions();
 
             rawInputDataSize += driverStats.getRawInputDataSize().toBytes();
             rawInputPositions += driverStats.getRawInputPositions();
@@ -439,6 +463,12 @@ public class PipelineContext
                 new Duration(totalBlockedTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 fullyBlocked,
                 blockedReasons,
+
+                succinctBytes(physicalInputDataSize),
+                physicalInputPositions,
+
+                succinctBytes(internalNetworkInputDataSize),
+                internalNetworkInputPositions,
 
                 succinctBytes(rawInputDataSize),
                 rawInputPositions,

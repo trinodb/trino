@@ -308,14 +308,32 @@ public class DriverContext
 
         List<OperatorStats> operators = ImmutableList.copyOf(transform(operatorContexts, OperatorContext::getOperatorStats));
         OperatorStats inputOperator = getFirst(operators, null);
+
+        DataSize physicalInputDataSize;
+        long physicalInputPositions;
+        Duration physicalInputReadTime;
+
+        DataSize internalNetworkInputDataSize;
+        long internalNetworkInputPositions;
+        Duration internalNetworkInputReadTime;
+
         DataSize rawInputDataSize;
         long rawInputPositions;
         Duration rawInputReadTime;
+
         DataSize processedInputDataSize;
         long processedInputPositions;
         DataSize outputDataSize;
         long outputPositions;
         if (inputOperator != null) {
+            physicalInputDataSize = inputOperator.getPhysicalInputDataSize();
+            physicalInputPositions = inputOperator.getInputPositions();
+            physicalInputReadTime = inputOperator.getAddInputWall();
+
+            internalNetworkInputDataSize = inputOperator.getInternalNetworkInputDataSize();
+            internalNetworkInputPositions = inputOperator.getInputPositions();
+            internalNetworkInputReadTime = inputOperator.getAddInputWall();
+
             rawInputDataSize = inputOperator.getRawInputDataSize();
             rawInputPositions = inputOperator.getInputPositions();
             rawInputReadTime = inputOperator.getAddInputWall();
@@ -328,6 +346,14 @@ public class DriverContext
             outputPositions = outputOperator.getOutputPositions();
         }
         else {
+            physicalInputDataSize = new DataSize(0, BYTE);
+            physicalInputPositions = 0;
+            physicalInputReadTime = new Duration(0, MILLISECONDS);
+
+            internalNetworkInputDataSize = new DataSize(0, BYTE);
+            internalNetworkInputPositions = 0;
+            internalNetworkInputReadTime = new Duration(0, MILLISECONDS);
+
             rawInputDataSize = new DataSize(0, BYTE);
             rawInputPositions = 0;
             rawInputReadTime = new Duration(0, MILLISECONDS);
@@ -382,6 +408,12 @@ public class DriverContext
                 new Duration(totalBlockedTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 blockedMonitor != null,
                 builder.build(),
+                physicalInputDataSize.convertToMostSuccinctDataSize(),
+                physicalInputPositions,
+                physicalInputReadTime,
+                internalNetworkInputDataSize.convertToMostSuccinctDataSize(),
+                internalNetworkInputPositions,
+                internalNetworkInputReadTime,
                 rawInputDataSize.convertToMostSuccinctDataSize(),
                 rawInputPositions,
                 rawInputReadTime,
