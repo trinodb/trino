@@ -98,6 +98,9 @@ public class ClientOptions
     @Option(name = "--client-tags", title = "client tags", description = "Client tags")
     public String clientTags = "";
 
+    @Option(name = "--trace-token", title = "trace token", description = "Trace token")
+    public String traceToken;
+
     @Option(name = "--catalog", title = "catalog", description = "Default catalog")
     public String catalog;
 
@@ -154,7 +157,7 @@ public class ClientOptions
                 parseServer(server),
                 user,
                 source,
-                Optional.empty(),
+                Optional.ofNullable(traceToken),
                 parseClientTags(clientTags),
                 clientInfo,
                 catalog,
