@@ -390,6 +390,12 @@ public class TaskContext
         long totalCpuTime = 0;
         long totalBlockedTime = 0;
 
+        long physicalInputDataSize = 0;
+        long physicalInputPositions = 0;
+
+        long internalNetworkInputDataSize = 0;
+        long internalNetworkInputPositions = 0;
+
         long rawInputDataSize = 0;
         long rawInputPositions = 0;
 
@@ -419,6 +425,12 @@ public class TaskContext
             totalBlockedTime += pipeline.getTotalBlockedTime().roundTo(NANOSECONDS);
 
             if (pipeline.isInputPipeline()) {
+                physicalInputDataSize += pipeline.getPhysicalInputDataSize().toBytes();
+                physicalInputPositions += pipeline.getPhysicalInputPositions();
+
+                internalNetworkInputDataSize += pipeline.getInternalNetworkInputDataSize().toBytes();
+                internalNetworkInputPositions += pipeline.getInternalNetworkInputPositions();
+
                 rawInputDataSize += pipeline.getRawInputDataSize().toBytes();
                 rawInputPositions += pipeline.getRawInputPositions();
 
@@ -496,6 +508,10 @@ public class TaskContext
                 new Duration(totalBlockedTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 fullyBlocked && (runningDrivers > 0 || runningPartitionedDrivers > 0),
                 blockedReasons,
+                succinctBytes(physicalInputDataSize),
+                physicalInputPositions,
+                succinctBytes(internalNetworkInputDataSize),
+                internalNetworkInputPositions,
                 succinctBytes(rawInputDataSize),
                 rawInputPositions,
                 succinctBytes(processedInputDataSize),

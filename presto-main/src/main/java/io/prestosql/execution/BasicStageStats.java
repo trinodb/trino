@@ -41,6 +41,12 @@ public class BasicStageStats
             new DataSize(0, BYTE),
             0,
 
+            new DataSize(0, BYTE),
+            0,
+
+            new DataSize(0, BYTE),
+            0,
+
             0,
             new DataSize(0, BYTE),
             new DataSize(0, BYTE),
@@ -58,6 +64,10 @@ public class BasicStageStats
     private final int queuedDrivers;
     private final int runningDrivers;
     private final int completedDrivers;
+    private final DataSize physicalInputDataSize;
+    private final long physicalInputPositions;
+    private final DataSize internalNetworkInputDataSize;
+    private final long internalNetworkInputPositions;
     private final DataSize rawInputDataSize;
     private final long rawInputPositions;
     private final long cumulativeUserMemory;
@@ -76,6 +86,12 @@ public class BasicStageStats
             int queuedDrivers,
             int runningDrivers,
             int completedDrivers,
+
+            DataSize physicalInputDataSize,
+            long physicalInputPositions,
+
+            DataSize internalNetworkInputDataSize,
+            long internalNetworkInputPositions,
 
             DataSize rawInputDataSize,
             long rawInputPositions,
@@ -97,6 +113,10 @@ public class BasicStageStats
         this.queuedDrivers = queuedDrivers;
         this.runningDrivers = runningDrivers;
         this.completedDrivers = completedDrivers;
+        this.physicalInputDataSize = requireNonNull(physicalInputDataSize, "physicalInputDataSize is null");
+        this.physicalInputPositions = physicalInputPositions;
+        this.internalNetworkInputDataSize = requireNonNull(internalNetworkInputDataSize, "internalNetworkInputDataSize is null");
+        this.internalNetworkInputPositions = internalNetworkInputPositions;
         this.rawInputDataSize = requireNonNull(rawInputDataSize, "rawInputDataSize is null");
         this.rawInputPositions = rawInputPositions;
         this.cumulativeUserMemory = cumulativeUserMemory;
@@ -132,6 +152,26 @@ public class BasicStageStats
     public int getCompletedDrivers()
     {
         return completedDrivers;
+    }
+
+    public DataSize getPhysicalInputDataSize()
+    {
+        return physicalInputDataSize;
+    }
+
+    public long getPhysicalInputPositions()
+    {
+        return physicalInputPositions;
+    }
+
+    public DataSize getInternalNetworkInputDataSize()
+    {
+        return internalNetworkInputDataSize;
+    }
+
+    public long getInternalNetworkInputPositions()
+    {
+        return internalNetworkInputPositions;
     }
 
     public DataSize getRawInputDataSize()
@@ -198,6 +238,12 @@ public class BasicStageStats
         long totalScheduledTimeMillis = 0;
         long totalCpuTime = 0;
 
+        long physicalInputDataSize = 0;
+        long physicalInputPositions = 0;
+
+        long internalNetworkInputDataSize = 0;
+        long internalNetworkInputPositions = 0;
+
         long rawInputDataSize = 0;
         long rawInputPositions = 0;
 
@@ -224,6 +270,12 @@ public class BasicStageStats
             fullyBlocked &= stageStats.isFullyBlocked();
             blockedReasons.addAll(stageStats.getBlockedReasons());
 
+            physicalInputDataSize += stageStats.getPhysicalInputDataSize().toBytes();
+            physicalInputPositions += stageStats.getPhysicalInputPositions();
+
+            internalNetworkInputDataSize += stageStats.getInternalNetworkInputDataSize().toBytes();
+            internalNetworkInputPositions += stageStats.getInternalNetworkInputPositions();
+
             rawInputDataSize += stageStats.getRawInputDataSize().toBytes();
             rawInputPositions += stageStats.getRawInputPositions();
         }
@@ -240,6 +292,12 @@ public class BasicStageStats
                 queuedDrivers,
                 runningDrivers,
                 completedDrivers,
+
+                succinctBytes(physicalInputDataSize),
+                physicalInputPositions,
+
+                succinctBytes(internalNetworkInputDataSize),
+                internalNetworkInputPositions,
 
                 succinctBytes(rawInputDataSize),
                 rawInputPositions,

@@ -48,6 +48,8 @@ public class TestQueryStats
                     15L,
                     new Duration(16, NANOSECONDS),
                     new Duration(17, NANOSECONDS),
+                    succinctBytes(181L),
+                    succinctBytes(182L),
                     succinctBytes(18L),
                     succinctBytes(19L),
                     110L,
@@ -80,6 +82,8 @@ public class TestQueryStats
                     25L,
                     new Duration(26, NANOSECONDS),
                     new Duration(27, NANOSECONDS),
+                    succinctBytes(281L),
+                    succinctBytes(282L),
                     succinctBytes(28L),
                     succinctBytes(29L),
                     210L,
@@ -112,6 +116,8 @@ public class TestQueryStats
                     35L,
                     new Duration(36, NANOSECONDS),
                     new Duration(37, NANOSECONDS),
+                    succinctBytes(381L),
+                    succinctBytes(382L),
                     succinctBytes(38L),
                     succinctBytes(39L),
                     310L,
@@ -173,6 +179,12 @@ public class TestQueryStats
             new Duration(23, NANOSECONDS),
             false,
             ImmutableSet.of(),
+
+            new DataSize(241, BYTE),
+            251,
+
+            new DataSize(242, BYTE),
+            252,
 
             new DataSize(24, BYTE),
             25,
@@ -242,6 +254,12 @@ public class TestQueryStats
         assertEquals(actual.getTotalScheduledTime(), new Duration(20, NANOSECONDS));
         assertEquals(actual.getTotalCpuTime(), new Duration(21, NANOSECONDS));
         assertEquals(actual.getTotalBlockedTime(), new Duration(23, NANOSECONDS));
+
+        assertEquals(actual.getPhysicalInputDataSize(), new DataSize(241, BYTE));
+        assertEquals(actual.getPhysicalInputPositions(), 251);
+
+        assertEquals(actual.getInternalNetworkInputDataSize(), new DataSize(242, BYTE));
+        assertEquals(actual.getInternalNetworkInputPositions(), 252);
 
         assertEquals(actual.getRawInputDataSize(), new DataSize(24, BYTE));
         assertEquals(actual.getRawInputPositions(), 25);

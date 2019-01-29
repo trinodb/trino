@@ -269,6 +269,12 @@ public class StageStateMachine
         long totalScheduledTime = 0;
         long totalCpuTime = 0;
 
+        long physicalInputDataSize = 0;
+        long physicalInputPositions = 0;
+
+        long internalNetworkInputDataSize = 0;
+        long internalNetworkInputPositions = 0;
+
         long rawInputDataSize = 0;
         long rawInputPositions = 0;
 
@@ -299,6 +305,12 @@ public class StageStateMachine
             }
 
             if (fragment.getPartitionedSourceNodes().stream().anyMatch(TableScanNode.class::isInstance)) {
+                physicalInputDataSize += taskStats.getPhysicalInputDataSize().toBytes();
+                physicalInputPositions += taskStats.getPhysicalInputPositions();
+
+                internalNetworkInputDataSize += taskStats.getInternalNetworkInputDataSize().toBytes();
+                internalNetworkInputPositions += taskStats.getInternalNetworkInputPositions();
+
                 rawInputDataSize += taskStats.getRawInputDataSize().toBytes();
                 rawInputPositions += taskStats.getRawInputPositions();
             }
@@ -316,6 +328,12 @@ public class StageStateMachine
                 queuedDrivers,
                 runningDrivers,
                 completedDrivers,
+
+                succinctBytes(physicalInputDataSize),
+                physicalInputPositions,
+
+                succinctBytes(internalNetworkInputDataSize),
+                internalNetworkInputPositions,
 
                 succinctBytes(rawInputDataSize),
                 rawInputPositions,
@@ -366,6 +384,12 @@ public class StageStateMachine
         long totalScheduledTime = 0;
         long totalCpuTime = 0;
         long totalBlockedTime = 0;
+
+        long physicalInputDataSize = 0;
+        long physicalInputPositions = 0;
+
+        long internalNetworkInputDataSize = 0;
+        long internalNetworkInputPositions = 0;
 
         long rawInputDataSize = 0;
         long rawInputPositions = 0;
@@ -421,6 +445,12 @@ public class StageStateMachine
                 blockedReasons.addAll(taskStats.getBlockedReasons());
             }
 
+            physicalInputDataSize += taskStats.getPhysicalInputDataSize().toBytes();
+            physicalInputPositions += taskStats.getPhysicalInputPositions();
+
+            internalNetworkInputDataSize += taskStats.getInternalNetworkInputDataSize().toBytes();
+            internalNetworkInputPositions += taskStats.getInternalNetworkInputPositions();
+
             rawInputDataSize += taskStats.getRawInputDataSize().toBytes();
             rawInputPositions += taskStats.getRawInputPositions();
 
@@ -473,8 +503,15 @@ public class StageStateMachine
                 fullyBlocked && runningTasks > 0,
                 blockedReasons,
 
+                succinctBytes(physicalInputDataSize),
+                physicalInputPositions,
+
+                succinctBytes(internalNetworkInputDataSize),
+                internalNetworkInputPositions,
+
                 succinctBytes(rawInputDataSize),
                 rawInputPositions,
+
                 succinctBytes(processedInputDataSize),
                 processedInputPositions,
                 succinctBytes(bufferedDataSize),

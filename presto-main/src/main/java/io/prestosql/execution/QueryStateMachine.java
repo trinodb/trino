@@ -300,6 +300,12 @@ public class QueryStateMachine
                 stageStats.getRunningDrivers(),
                 stageStats.getCompletedDrivers(),
 
+                stageStats.getPhysicalInputDataSize(),
+                stageStats.getPhysicalInputPositions(),
+
+                stageStats.getInternalNetworkInputDataSize(),
+                stageStats.getInternalNetworkInputPositions(),
+
                 stageStats.getRawInputDataSize(),
                 stageStats.getRawInputPositions(),
 
@@ -401,6 +407,12 @@ public class QueryStateMachine
         long totalCpuTime = 0;
         long totalBlockedTime = 0;
 
+        long physicalInputDataSize = 0;
+        long physicalInputPositions = 0;
+
+        long internalNetworkInputDataSize = 0;
+        long internalNetworkInputPositions = 0;
+
         long rawInputDataSize = 0;
         long rawInputPositions = 0;
 
@@ -444,6 +456,12 @@ public class QueryStateMachine
 
             PlanFragment plan = stageInfo.getPlan();
             if (plan != null && plan.getPartitionedSourceNodes().stream().anyMatch(TableScanNode.class::isInstance)) {
+                physicalInputDataSize += stageStats.getPhysicalInputDataSize().toBytes();
+                physicalInputPositions += stageStats.getPhysicalInputPositions();
+
+                internalNetworkInputDataSize += stageStats.getInternalNetworkInputDataSize().toBytes();
+                internalNetworkInputPositions += stageStats.getInternalNetworkInputPositions();
+
                 rawInputDataSize += stageStats.getRawInputDataSize().toBytes();
                 rawInputPositions += stageStats.getRawInputPositions();
 
@@ -507,6 +525,10 @@ public class QueryStateMachine
                 fullyBlocked,
                 blockedReasons,
 
+                succinctBytes(physicalInputDataSize),
+                physicalInputPositions,
+                succinctBytes(internalNetworkInputDataSize),
+                internalNetworkInputPositions,
                 succinctBytes(rawInputDataSize),
                 rawInputPositions,
                 succinctBytes(processedInputDataSize),
@@ -982,6 +1004,10 @@ public class QueryStateMachine
                 queryStats.getTotalBlockedTime(),
                 queryStats.isFullyBlocked(),
                 queryStats.getBlockedReasons(),
+                queryStats.getPhysicalInputDataSize(),
+                queryStats.getPhysicalInputPositions(),
+                queryStats.getInternalNetworkInputDataSize(),
+                queryStats.getInternalNetworkInputPositions(),
                 queryStats.getRawInputDataSize(),
                 queryStats.getRawInputPositions(),
                 queryStats.getProcessedInputDataSize(),

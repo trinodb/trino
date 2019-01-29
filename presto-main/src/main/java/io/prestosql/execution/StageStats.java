@@ -64,6 +64,12 @@ public class StageStats
     private final boolean fullyBlocked;
     private final Set<BlockedReason> blockedReasons;
 
+    private final DataSize physicalInputDataSize;
+    private final long physicalInputPositions;
+
+    private final DataSize internalNetworkInputDataSize;
+    private final long internalNetworkInputPositions;
+
     private final DataSize rawInputDataSize;
     private final long rawInputPositions;
 
@@ -106,6 +112,12 @@ public class StageStats
             @JsonProperty("totalBlockedTime") Duration totalBlockedTime,
             @JsonProperty("fullyBlocked") boolean fullyBlocked,
             @JsonProperty("blockedReasons") Set<BlockedReason> blockedReasons,
+
+            @JsonProperty("physicalInputDataSize") DataSize physicalInputDataSize,
+            @JsonProperty("physicalInputPositions") long physicalInputPositions,
+
+            @JsonProperty("internalNetworkInputDataSize") DataSize internalNetworkInputDataSize,
+            @JsonProperty("internalNetworkInputPositions") long internalNetworkInputPositions,
 
             @JsonProperty("rawInputDataSize") DataSize rawInputDataSize,
             @JsonProperty("rawInputPositions") long rawInputPositions,
@@ -154,6 +166,14 @@ public class StageStats
         this.totalBlockedTime = requireNonNull(totalBlockedTime, "totalBlockedTime is null");
         this.fullyBlocked = fullyBlocked;
         this.blockedReasons = ImmutableSet.copyOf(requireNonNull(blockedReasons, "blockedReasons is null"));
+
+        this.physicalInputDataSize = requireNonNull(physicalInputDataSize, "physicalInputDataSize is null");
+        checkArgument(physicalInputPositions >= 0, "physicalInputPositions is negative");
+        this.physicalInputPositions = physicalInputPositions;
+
+        this.internalNetworkInputDataSize = requireNonNull(internalNetworkInputDataSize, "internalNetworkInputDataSize is null");
+        checkArgument(internalNetworkInputPositions >= 0, "internalNetworkInputPositions is negative");
+        this.internalNetworkInputPositions = internalNetworkInputPositions;
 
         this.rawInputDataSize = requireNonNull(rawInputDataSize, "rawInputDataSize is null");
         checkArgument(rawInputPositions >= 0, "rawInputPositions is negative");
@@ -290,6 +310,30 @@ public class StageStats
     }
 
     @JsonProperty
+    public DataSize getPhysicalInputDataSize()
+    {
+        return physicalInputDataSize;
+    }
+
+    @JsonProperty
+    public long getPhysicalInputPositions()
+    {
+        return physicalInputPositions;
+    }
+
+    @JsonProperty
+    public DataSize getInternalNetworkInputDataSize()
+    {
+        return internalNetworkInputDataSize;
+    }
+
+    @JsonProperty
+    public long getInternalNetworkInputPositions()
+    {
+        return internalNetworkInputPositions;
+    }
+
+    @JsonProperty
     public DataSize getRawInputDataSize()
     {
         return rawInputDataSize;
@@ -364,6 +408,10 @@ public class StageStats
                 queuedDrivers,
                 runningDrivers,
                 completedDrivers,
+                physicalInputDataSize,
+                physicalInputPositions,
+                internalNetworkInputDataSize,
+                internalNetworkInputPositions,
                 rawInputDataSize,
                 rawInputPositions,
                 (long) cumulativeUserMemory,
