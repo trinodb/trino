@@ -36,6 +36,7 @@ import java.io.File;
 import java.util.Map;
 import java.util.Optional;
 
+import static io.airlift.log.Level.WARN;
 import static io.airlift.units.Duration.nanosSince;
 import static io.prestosql.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.prestosql.spi.security.SelectedRole.Type.ROLE;
@@ -82,6 +83,7 @@ public final class HiveQueryRunner
             throws Exception
     {
         assertEquals(DateTimeZone.getDefault(), TIME_ZONE, "Timezone not configured correctly. Add -Duser.timezone=America/Bahia_Banderas to your JVM arguments");
+        setupLogging();
 
         DistributedQueryRunner queryRunner = new DistributedQueryRunner(createSession(Optional.of(new SelectedRole(ROLE, Optional.of("admin")))), 4, extraProperties);
 
@@ -127,6 +129,12 @@ public final class HiveQueryRunner
             queryRunner.close();
             throw e;
         }
+    }
+
+    private static void setupLogging()
+    {
+        Logging logging = Logging.initialize();
+        logging.setLevel("org.apache.parquet.hadoop", WARN);
     }
 
     private static Database createDatabaseMetastoreObject(String name)
