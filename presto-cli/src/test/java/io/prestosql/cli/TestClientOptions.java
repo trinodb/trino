@@ -99,6 +99,16 @@ public class TestClientOptions
     }
 
     @Test
+    public void testConnectorTokens()
+    {
+        Console console = singleCommand(Console.class).parse("--connector-token", "test.token.a=hello", "--connector-token", "test.token.b=world");
+        ClientOptions options = console.clientOptions;
+        assertEquals(options.connectorTokens, ImmutableList.of(
+                new ClientOptions.ClientConnectorToken("test.token.a", "hello"),
+                new ClientOptions.ClientConnectorToken("test.token.b", "world")));
+    }
+
+    @Test
     public void testSessionProperties()
     {
         Console console = singleCommand(Console.class).parse("--session", "system=system-value", "--session", "catalog.name=catalog-property");

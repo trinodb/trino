@@ -28,6 +28,7 @@ import static io.prestosql.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.prestosql.SystemSessionProperties.QUERY_MAX_MEMORY;
 import static io.prestosql.client.PrestoHeaders.PRESTO_CATALOG;
 import static io.prestosql.client.PrestoHeaders.PRESTO_CLIENT_INFO;
+import static io.prestosql.client.PrestoHeaders.PRESTO_CONNECTOR_TOKEN;
 import static io.prestosql.client.PrestoHeaders.PRESTO_LANGUAGE;
 import static io.prestosql.client.PrestoHeaders.PRESTO_PATH;
 import static io.prestosql.client.PrestoHeaders.PRESTO_PREPARED_STATEMENT;
@@ -56,6 +57,7 @@ public class TestHttpRequestSessionContext
                         .put(PRESTO_SESSION, QUERY_MAX_MEMORY + "=1GB")
                         .put(PRESTO_SESSION, JOIN_DISTRIBUTION_TYPE + "=partitioned," + HASH_PARTITION_COUNT + " = 43")
                         .put(PRESTO_PREPARED_STATEMENT, "query1=select * from foo,query2=select * from bar")
+                        .put(PRESTO_CONNECTOR_TOKEN, "test.token=hello-world")
                         .build(),
                 "testRemote");
 
@@ -64,7 +66,7 @@ public class TestHttpRequestSessionContext
         assertEquals(context.getCatalog(), "testCatalog");
         assertEquals(context.getSchema(), "testSchema");
         assertEquals(context.getPath(), "testPath");
-        assertEquals(context.getIdentity(), new Identity("testUser", Optional.empty(), Optional.empty()));
+        assertEquals(context.getIdentity(), new Identity("testUser", Optional.empty(), Optional.of(ImmutableMap.of("test.token", "hello-world"))));
         assertEquals(context.getClientInfo(), "client-info");
         assertEquals(context.getLanguage(), "zh-TW");
         assertEquals(context.getTimeZoneId(), "Asia/Taipei");
