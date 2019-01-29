@@ -128,6 +128,7 @@ public class HiveClientConfig
     private boolean hdfsWireEncryptionEnabled;
 
     private boolean skipDeletionForAlter;
+    private boolean skipTargetCleanupOnRollback;
 
     private boolean bucketExecutionEnabled = true;
     private boolean sortedWritingEnabled = true;
@@ -1024,6 +1025,19 @@ public class HiveClientConfig
     public HiveClientConfig setSkipDeletionForAlter(boolean skipDeletionForAlter)
     {
         this.skipDeletionForAlter = skipDeletionForAlter;
+        return this;
+    }
+
+    public boolean isSkipTargetCleanupOnRollback()
+    {
+        return skipTargetCleanupOnRollback;
+    }
+
+    @Config("hive.skip-target-cleanup-on-rollback")
+    @ConfigDescription("Skip deletion of target directories when a metastore operation fails")
+    public HiveClientConfig setSkipTargetCleanupOnRollback(boolean skipTargetCleanupOnRollback)
+    {
+        this.skipTargetCleanupOnRollback = skipTargetCleanupOnRollback;
         return this;
     }
 
