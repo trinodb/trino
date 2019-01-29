@@ -272,7 +272,7 @@ public class PipelineContext
     public CounterStat getInputDataSize()
     {
         CounterStat stat = new CounterStat();
-        stat.merge(rawInputDataSize);
+        stat.merge(processedInputDataSize);
         for (DriverContext driver : drivers) {
             stat.merge(driver.getInputDataSize());
         }
@@ -282,7 +282,7 @@ public class PipelineContext
     public CounterStat getInputPositions()
     {
         CounterStat stat = new CounterStat();
-        stat.merge(rawInputPositions);
+        stat.merge(processedInputPositions);
         for (DriverContext driver : drivers) {
             stat.merge(driver.getInputPositions());
         }
