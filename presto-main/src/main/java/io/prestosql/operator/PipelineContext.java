@@ -281,7 +281,7 @@ public class PipelineContext
         return taskContext.isCpuTimerEnabled();
     }
 
-    public CounterStat getInputDataSize()
+    public CounterStat getProcessedInputDataSize()
     {
         CounterStat stat = new CounterStat();
         stat.merge(processedInputDataSize);

@@ -297,12 +297,12 @@ public class TaskContext
         return cpuTimerEnabled;
     }
 
-    public CounterStat getInputDataSize()
+    public CounterStat getProcessedInputDataSize()
     {
         CounterStat stat = new CounterStat();
         for (PipelineContext pipelineContext : pipelineContexts) {
             if (pipelineContext.isInputPipeline()) {
-                stat.merge(pipelineContext.getInputDataSize());
+                stat.merge(pipelineContext.getProcessedInputDataSize());
             }
         }
         return stat;
