@@ -155,15 +155,6 @@ public class OperatorContext
     }
 
     /**
-     * Record the amount of physical bytes that were read by an operator.
-     * This metric is valid only for source operators.
-     */
-    public void recordPhysicalInput(long sizeInBytes)
-    {
-        physicalInputDataSize.update(sizeInBytes);
-    }
-
-    /**
      * Record the amount of physical bytes that were read by an operator and
      * the time it took to read the data. This metric is valid only for source operators.
      */
@@ -180,16 +171,6 @@ public class OperatorContext
     public void recordNetworkInput(long sizeInBytes)
     {
         internalNetworkInputDataSize.update(sizeInBytes);
-    }
-
-    /**
-     * Record the amount of network bytes that were read by an operator and
-     * the time it took to read the data. This metric is valid only for source operators.
-     */
-    public void recordNetworkInputWithTiming(long sizeInBytes, long readNanos)
-    {
-        internalNetworkInputDataSize.update(sizeInBytes);
-        addInputTiming.record(readNanos, 0);
     }
 
     /**
