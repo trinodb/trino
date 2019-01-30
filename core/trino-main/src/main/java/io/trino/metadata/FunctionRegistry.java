@@ -126,6 +126,7 @@ import io.trino.operator.scalar.GenericLessThanOrEqualOperator;
 import io.trino.operator.scalar.GenericXxHash64Operator;
 import io.trino.operator.scalar.HmacFunctions;
 import io.trino.operator.scalar.HyperLogLogFunctions;
+import io.trino.operator.scalar.IpAddressFunctions;
 import io.trino.operator.scalar.JoniRegexpCasts;
 import io.trino.operator.scalar.JoniRegexpFunctions;
 import io.trino.operator.scalar.JoniRegexpReplaceLambdaFunction;
@@ -514,6 +515,7 @@ public class FunctionRegistry
                 .scalars(QuantileDigestOperators.class)
                 .scalars(TDigestOperators.class)
                 .scalars(IpAddressOperators.class)
+                .scalars(IpAddressFunctions.class)
                 .scalars(UuidOperators.class)
                 .scalars(LikeFunctions.class)
                 .scalars(ArrayFunctions.class)

@@ -28,6 +28,7 @@ and the :doc:`SQL statement and syntax reference</sql>`.
     Decimal             <functions/decimal>
     Geospatial          <functions/geospatial>
     HyperLogLog         <functions/hyperloglog>
+    IP Address          <functions/ipaddress>
     JSON                <functions/json>
     Lambda              <functions/lambda>
     Logical             <functions/logical>
