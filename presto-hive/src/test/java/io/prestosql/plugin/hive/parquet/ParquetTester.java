@@ -205,13 +205,27 @@ public class ParquetTester
     public void testRoundTrip(ObjectInspector objectInspector, Iterable<?> writeValues, Iterable<?> readValues, String columnName, Type type, Optional<MessageType> parquetSchema)
             throws Exception
     {
-        testRoundTrip(singletonList(objectInspector), new Iterable<?>[] {writeValues}, new Iterable<?>[] {readValues}, singletonList(columnName), singletonList(type), parquetSchema, false);
+        testRoundTrip(
+                singletonList(objectInspector),
+                new Iterable<?>[] {writeValues},
+                new Iterable<?>[] {readValues},
+                singletonList(columnName),
+                singletonList(type),
+                parquetSchema,
+                false);
     }
 
     public void testSingleLevelArrayRoundTrip(ObjectInspector objectInspector, Iterable<?> writeValues, Iterable<?> readValues, String columnName, Type type, Optional<MessageType> parquetSchema)
             throws Exception
     {
-        testRoundTrip(singletonList(objectInspector), new Iterable<?>[] {writeValues}, new Iterable<?>[] {readValues}, singletonList(columnName), singletonList(type), parquetSchema, true);
+        testRoundTrip(
+                singletonList(objectInspector),
+                new Iterable<?>[] {writeValues},
+                new Iterable<?>[] {readValues},
+                singletonList(columnName),
+                singletonList(type),
+                parquetSchema,
+                true);
     }
 
     public void testRoundTrip(List<ObjectInspector> objectInspectors, Iterable<?>[] writeValues, Iterable<?>[] readValues, List<String> columnNames, List<Type> columnTypes, Optional<MessageType> parquetSchema, boolean singleLevelArray)
@@ -224,8 +238,14 @@ public class ParquetTester
         assertRoundTrip(objectInspectors, transformToNulls(writeValues), transformToNulls(readValues), columnNames, columnTypes, parquetSchema, singleLevelArray);
     }
 
-    private void testRoundTripType(List<ObjectInspector> objectInspectors, Iterable<?>[] writeValues, Iterable<?>[] readValues,
-            List<String> columnNames, List<Type> columnTypes, Optional<MessageType> parquetSchema, boolean singleLevelArray)
+    private void testRoundTripType(
+            List<ObjectInspector> objectInspectors,
+            Iterable<?>[] writeValues,
+            Iterable<?>[] readValues,
+            List<String> columnNames,
+            List<Type> columnTypes,
+            Optional<MessageType> parquetSchema,
+            boolean singleLevelArray)
             throws Exception
     {
         // forward order
@@ -241,7 +261,8 @@ public class ParquetTester
         assertRoundTrip(objectInspectors, insertNullEvery(5, reverse(writeValues)), insertNullEvery(5, reverse(readValues)), columnNames, columnTypes, parquetSchema, singleLevelArray);
     }
 
-    void assertRoundTrip(List<ObjectInspector> objectInspectors,
+    void assertRoundTrip(
+            List<ObjectInspector> objectInspectors,
             Iterable<?>[] writeValues,
             Iterable<?>[] readValues,
             List<String> columnNames,
@@ -252,7 +273,8 @@ public class ParquetTester
         assertRoundTrip(objectInspectors, writeValues, readValues, columnNames, columnTypes, parquetSchema, false);
     }
 
-    void assertRoundTrip(List<ObjectInspector> objectInspectors,
+    void assertRoundTrip(
+            List<ObjectInspector> objectInspectors,
             Iterable<?>[] writeValues,
             Iterable<?>[] readValues,
             List<String> columnNames,
@@ -293,8 +315,14 @@ public class ParquetTester
     void testMaxReadBytes(ObjectInspector objectInspector, Iterable<?> writeValues, Iterable<?> readValues, Type type, DataSize maxReadBlockSize)
             throws Exception
     {
-        assertMaxReadBytes(singletonList(objectInspector), new Iterable<?>[] {writeValues}, new Iterable<?>[] {
-                readValues}, TEST_COLUMN, singletonList(type), Optional.empty(), maxReadBlockSize);
+        assertMaxReadBytes(
+                singletonList(objectInspector),
+                new Iterable<?>[] {writeValues},
+                new Iterable<?>[] {readValues},
+                TEST_COLUMN,
+                singletonList(type),
+                Optional.empty(),
+                maxReadBlockSize);
     }
 
     void assertMaxReadBytes(
@@ -309,7 +337,10 @@ public class ParquetTester
     {
         WriterVersion version = PARQUET_1_0;
         CompressionCodecName compressionCodecName = UNCOMPRESSED;
-        HiveClientConfig config = new HiveClientConfig().setHiveStorageFormat(HiveStorageFormat.PARQUET).setUseParquetColumnNames(false).setParquetMaxReadBlockSize(maxReadBlockSize);
+        HiveClientConfig config = new HiveClientConfig()
+                .setHiveStorageFormat(HiveStorageFormat.PARQUET)
+                .setUseParquetColumnNames(false)
+                .setParquetMaxReadBlockSize(maxReadBlockSize);
         ConnectorSession session = new TestingConnectorSession(new HiveSessionProperties(config, new OrcFileWriterConfig(), new ParquetFileWriterConfig()).getSessionProperties());
 
         try (TempFile tempFile = new TempFile("test", "parquet")) {
@@ -484,7 +515,8 @@ public class ParquetTester
         return OPTIMIZED ? FileFormat.PRESTO_PARQUET : FileFormat.HIVE_PARQUET;
     }
 
-    private static DataSize writeParquetColumn(JobConf jobConf,
+    private static DataSize writeParquetColumn(
+            JobConf jobConf,
             File outputFile,
             CompressionCodecName compressionCodecName,
             Properties tableProperties,
