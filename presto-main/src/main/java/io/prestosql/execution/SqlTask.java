@@ -504,7 +504,7 @@ public class SqlTask
             }
             // get IoStats from the current task execution
             TaskContext taskContext = taskExecution.getTaskContext();
-            return new SqlTaskIoStats(taskContext.getInputDataSize(), taskContext.getInputPositions(), taskContext.getOutputDataSize(), taskContext.getOutputPositions());
+            return new SqlTaskIoStats(taskContext.getProcessedInputDataSize(), taskContext.getInputPositions(), taskContext.getOutputDataSize(), taskContext.getOutputPositions());
         }
     }
 
