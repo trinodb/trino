@@ -42,7 +42,6 @@ import java.util.function.Supplier;
 
 import static io.prestosql.plugin.kafka.KafkaHandleResolver.convertColumnHandle;
 import static io.prestosql.plugin.kafka.KafkaHandleResolver.convertTableHandle;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -186,8 +185,7 @@ public class KafkaMetadata
                 columns.put(tableName, getTableMetadata(tableName).getColumns());
             }
             catch (TableNotFoundException e) {
-                // Normally it would mean the table disappeared during listing operation
-                throw new IllegalStateException(format("Table %s cannot be gone because tables are statically defined", tableName), e);
+                // information_schema table or a system table
             }
         }
         return columns.build();
