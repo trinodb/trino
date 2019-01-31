@@ -203,6 +203,11 @@ public abstract class AbstractTestQueryFramework
         QueryAssertions.assertUpdate(queryRunner, session, sql, OptionalLong.of(count), Optional.of(planAssertion));
     }
 
+    protected void assertQuerySucceeds(@Language("SQL") String sql)
+    {
+        assertQuerySucceeds(getSession(), sql);
+    }
+
     protected void assertQuerySucceeds(Session session, @Language("SQL") String sql)
     {
         QueryAssertions.assertQuerySucceeds(queryRunner, session, sql);

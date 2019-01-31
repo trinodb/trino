@@ -33,6 +33,7 @@ import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.SchemaTablePrefix;
 import io.prestosql.spi.connector.TableNotFoundException;
 
+import javax.annotation.Nullable;
 import javax.inject.Inject;
 
 import java.util.LinkedHashSet;
@@ -121,7 +122,12 @@ public class RedisMetadata
     @Override
     public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        return getTableMetadata(convertTableHandle(tableHandle).toSchemaTableName());
+        SchemaTableName schemaTableName = convertTableHandle(tableHandle).toSchemaTableName();
+        ConnectorTableMetadata tableMetadata = getTableMetadata(schemaTableName);
+        if (tableMetadata == null) {
+            throw new TableNotFoundException(schemaTableName);
+        }
+        return tableMetadata;
     }
 
     @Override
@@ -243,12 +249,12 @@ public class RedisMetadata
         return redisTableDescriptionSupplier.get();
     }
 
-    @SuppressWarnings("ValueOfIncrementOrDecrementUsed")
+    @Nullable
     private ConnectorTableMetadata getTableMetadata(SchemaTableName schemaTableName)
     {
         RedisTableDescription table = getDefinedTables().get(schemaTableName);
         if (table == null) {
-            throw new TableNotFoundException(schemaTableName);
+            return null;
         }
 
         ImmutableList.Builder<ColumnMetadata> builder = ImmutableList.builder();
