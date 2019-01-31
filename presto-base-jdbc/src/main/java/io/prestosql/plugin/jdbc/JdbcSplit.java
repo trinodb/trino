@@ -45,7 +45,7 @@ public class JdbcSplit
             @JsonProperty("schemaName") @Nullable String schemaName,
             @JsonProperty("tableName") String tableName,
             @JsonProperty("tupleDomain") TupleDomain<ColumnHandle> tupleDomain,
-            @JsonProperty("additionalProperty") Optional<String> additionalPredicate)
+            @JsonProperty("additionalPredicate") Optional<String> additionalPredicate)
     {
         this.connectorId = requireNonNull(connectorId, "connector id is null");
         this.catalogName = catalogName;
