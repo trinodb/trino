@@ -150,14 +150,12 @@ public final class StandardColumnMappings
             return ColumnMapping.longMapping(
                     decimalType,
                     (resultSet, columnIndex) -> encodeShortScaledValue(resultSet.getBigDecimal(columnIndex), scale),
-                    shortDecimalWriteFunction(decimalType),
-                    domain -> Domain.all(domain.getType())); // TODO enable
+                    shortDecimalWriteFunction(decimalType));
         }
         return ColumnMapping.sliceMapping(
                 decimalType,
                 (resultSet, columnIndex) -> encodeScaledValue(resultSet.getBigDecimal(columnIndex), scale),
-                longDecimalWriteFunction(decimalType),
-                domain -> Domain.all(domain.getType())); // TODO enable
+                longDecimalWriteFunction(decimalType));
     }
 
     public static LongWriteFunction shortDecimalWriteFunction(DecimalType decimalType)
