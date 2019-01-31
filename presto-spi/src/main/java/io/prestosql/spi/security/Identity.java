@@ -15,7 +15,6 @@ package io.prestosql.spi.security;
 
 import java.security.Principal;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 
 import static java.util.Collections.emptyMap;
@@ -69,20 +68,15 @@ public class Identity
     @Override
     public boolean equals(Object o)
     {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        Identity identity = (Identity) o;
-        return Objects.equals(user, identity.user);
+        // TODO: remove equals completely after a few months
+        throw new UnsupportedOperationException();
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(user);
+        // TODO remove hashCode completely after a few months
+        throw new UnsupportedOperationException();
     }
 
     @Override
