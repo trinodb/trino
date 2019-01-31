@@ -25,7 +25,7 @@ import static org.testng.Assert.assertEquals;
 
 public class TestJdbcSplit
 {
-    private final JdbcSplit split = new JdbcSplit("connectorId", "catalog", "schemaName", "tableName", TupleDomain.all(), Optional.empty());
+    private final JdbcSplit split = new JdbcSplit("connectorId", "catalog", "schemaName", "tableName", TupleDomain.all(), Optional.of("additional predicate"));
 
     @Test
     public void testAddresses()
@@ -45,8 +45,11 @@ public class TestJdbcSplit
         String json = codec.toJson(split);
         JdbcSplit copy = codec.fromJson(json);
         assertEquals(copy.getConnectorId(), split.getConnectorId());
+        assertEquals(copy.getCatalogName(), split.getCatalogName());
         assertEquals(copy.getSchemaName(), split.getSchemaName());
         assertEquals(copy.getTableName(), split.getTableName());
+        assertEquals(copy.getTupleDomain(), split.getTupleDomain());
+        assertEquals(copy.getAdditionalPredicate(), split.getAdditionalPredicate());
 
         assertEquals(copy.getAddresses(), ImmutableList.of());
         assertEquals(copy.isRemotelyAccessible(), true);
