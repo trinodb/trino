@@ -15,6 +15,12 @@ The driver is also available from Maven Central:
         <version>\ |version|\ </version>
     </dependency>
 
+Driver Name
+-----------
+
+The driver class name is ``io.prestosql.jdbc.PrestoDriver``.
+Most users will not need this information as drivers are loaded automatically.
+
 Connecting
 ----------
 
