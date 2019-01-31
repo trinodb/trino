@@ -700,6 +700,7 @@ public class PrestoConnection
                                 new ClientSelectedRole(
                                         ClientSelectedRole.Type.valueOf(entry.getValue().getType().toString()),
                                         entry.getValue().getRole()))),
+                ImmutableMap.of(),
                 transactionId.get(),
                 timeout);
 

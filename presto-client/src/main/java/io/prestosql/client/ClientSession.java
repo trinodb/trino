@@ -48,6 +48,7 @@ public class ClientSession
     private final Map<String, String> properties;
     private final Map<String, String> preparedStatements;
     private final Map<String, ClientSelectedRole> roles;
+    private final Map<String, String> extraCredentials;
     private final String transactionId;
     private final Duration clientRequestTimeout;
 
@@ -79,6 +80,7 @@ public class ClientSession
             Map<String, String> properties,
             Map<String, String> preparedStatements,
             Map<String, ClientSelectedRole> roles,
+            Map<String, String> extraCredentials,
             String transactionId,
             Duration clientRequestTimeout)
     {
@@ -98,6 +100,7 @@ public class ClientSession
         this.properties = ImmutableMap.copyOf(requireNonNull(properties, "properties is null"));
         this.preparedStatements = ImmutableMap.copyOf(requireNonNull(preparedStatements, "preparedStatements is null"));
         this.roles = ImmutableMap.copyOf(requireNonNull(roles, "roles is null"));
+        this.extraCredentials = ImmutableMap.copyOf(requireNonNull(extraCredentials, "extraCredentials is null"));
         this.clientRequestTimeout = clientRequestTimeout;
 
         for (String clientTag : clientTags) {
@@ -118,6 +121,14 @@ public class ClientSession
             checkArgument(entry.getKey().indexOf('=') < 0, "Session property name must not contain '=': %s", entry.getKey());
             checkArgument(charsetEncoder.canEncode(entry.getKey()), "Session property name is not US_ASCII: %s", entry.getKey());
             checkArgument(charsetEncoder.canEncode(entry.getValue()), "Session property value is not US_ASCII: %s", entry.getValue());
+        }
+
+        // verify the extra credentials are valid
+        for (Entry<String, String> entry : extraCredentials.entrySet()) {
+            checkArgument(!entry.getKey().isEmpty(), "Credential name is empty");
+            checkArgument(entry.getKey().indexOf('=') < 0, "Credential name must not contain '=': %s", entry.getKey());
+            checkArgument(charsetEncoder.canEncode(entry.getKey()), "Credential name is not US_ASCII: %s", entry.getKey());
+            checkArgument(charsetEncoder.canEncode(entry.getValue()), "Credential value is not US_ASCII: %s", entry.getValue());
         }
     }
 
@@ -199,6 +210,11 @@ public class ClientSession
         return roles;
     }
 
+    public Map<String, String> getExtraCredentials()
+    {
+        return extraCredentials;
+    }
+
     public String getTransactionId()
     {
         return transactionId;
@@ -251,6 +267,7 @@ public class ClientSession
         private Map<String, String> properties;
         private Map<String, String> preparedStatements;
         private Map<String, ClientSelectedRole> roles;
+        private Map<String, String> credentials;
         private String transactionId;
         private Duration clientRequestTimeout;
 
@@ -272,6 +289,7 @@ public class ClientSession
             properties = clientSession.getProperties();
             preparedStatements = clientSession.getPreparedStatements();
             roles = clientSession.getRoles();
+            credentials = clientSession.getExtraCredentials();
             transactionId = clientSession.getTransactionId();
             clientRequestTimeout = clientSession.getClientRequestTimeout();
         }
@@ -303,6 +321,12 @@ public class ClientSession
         public Builder withRoles(Map<String, ClientSelectedRole> roles)
         {
             this.roles = roles;
+            return this;
+        }
+
+        public Builder withCredentials(Map<String, String> credentials)
+        {
+            this.credentials = requireNonNull(credentials, "extraCredentials is null");
             return this;
         }
 
@@ -342,6 +366,7 @@ public class ClientSession
                     properties,
                     preparedStatements,
                     roles,
+                    credentials,
                     transactionId,
                     clientRequestTimeout);
         }
