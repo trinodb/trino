@@ -14,6 +14,7 @@
 package io.prestosql.jdbc;
 
 import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.common.net.HostAndPort;
 import io.prestosql.client.ClientException;
@@ -41,6 +42,7 @@ import static io.prestosql.client.OkHttpUtil.setupSsl;
 import static io.prestosql.client.OkHttpUtil.tokenAuth;
 import static io.prestosql.jdbc.ConnectionProperties.ACCESS_TOKEN;
 import static io.prestosql.jdbc.ConnectionProperties.APPLICATION_NAME_PREFIX;
+import static io.prestosql.jdbc.ConnectionProperties.EXTRA_CREDENTIALS;
 import static io.prestosql.jdbc.ConnectionProperties.HTTP_PROXY;
 import static io.prestosql.jdbc.ConnectionProperties.KERBEROS_CONFIG_PATH;
 import static io.prestosql.jdbc.ConnectionProperties.KERBEROS_CREDENTIAL_CACHE_PATH;
@@ -135,6 +137,12 @@ final class PrestoDriverUri
     public Properties getProperties()
     {
         return properties;
+    }
+
+    public Map<String, String> getExtraCredentials()
+            throws SQLException
+    {
+        return EXTRA_CREDENTIALS.getValue(properties).orElse(ImmutableMap.of());
     }
 
     public void setupClient(OkHttpClient.Builder builder)
