@@ -19,7 +19,7 @@ same table multiple times in a single query (e.g., performing a self join).
 
 .. note::
 
-    Apache Kafka 0.8+ is supported although it is highly recommend to use 0.8.1 or later.
+    The minimum supported Kafka broker version is 0.10.0.
 
 Configuration
 -------------
