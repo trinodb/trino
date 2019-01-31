@@ -44,6 +44,15 @@ public class TestClientOptions
     }
 
     @Test
+    public void testTraceToken()
+    {
+        ClientOptions options = new ClientOptions();
+        options.traceToken = "test token";
+        ClientSession session = options.toClientSession();
+        assertEquals(session.getTraceToken().get(), "test token");
+    }
+
+    @Test
     public void testServerHostOnly()
     {
         ClientOptions options = new ClientOptions();
