@@ -91,8 +91,8 @@ public class HiveTypeTranslator
             if (varcharType.isUnbounded()) {
                 return HIVE_STRING.getTypeInfo();
             }
-            if (varcharType.getLengthSafe() <= HiveVarchar.MAX_VARCHAR_LENGTH) {
-                return getVarcharTypeInfo(varcharType.getLengthSafe());
+            if (varcharType.getBoundedLength() <= HiveVarchar.MAX_VARCHAR_LENGTH) {
+                return getVarcharTypeInfo(varcharType.getBoundedLength());
             }
             throw new PrestoException(NOT_SUPPORTED, format("Unsupported Hive type: %s. Supported VARCHAR types: VARCHAR(<=%d), VARCHAR.", type, HiveVarchar.MAX_VARCHAR_LENGTH));
         }

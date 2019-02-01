@@ -238,7 +238,7 @@ public final class RcFileDecoderUtils
             if (((VarcharType) type).isUnbounded()) {
                 return length;
             }
-            return calculateTruncationLength(((VarcharType) type).getLengthSafe(), slice, offset, length);
+            return calculateTruncationLength(((VarcharType) type).getBoundedLength(), slice, offset, length);
         }
         if (type instanceof CharType) {
             int truncationLength = calculateTruncationLength(((CharType) type).getLength(), slice, offset, length);

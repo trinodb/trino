@@ -162,13 +162,13 @@ public class MySqlClient
             if (varcharType.isUnbounded()) {
                 return "longtext";
             }
-            if (varcharType.getLengthSafe() <= 255) {
+            if (varcharType.getBoundedLength() <= 255) {
                 return "tinytext";
             }
-            if (varcharType.getLengthSafe() <= 65535) {
+            if (varcharType.getBoundedLength() <= 65535) {
                 return "text";
             }
-            if (varcharType.getLengthSafe() <= 16777215) {
+            if (varcharType.getBoundedLength() <= 16777215) {
                 return "mediumtext";
             }
             return "longtext";

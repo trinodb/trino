@@ -74,7 +74,7 @@ public final class VarcharType
         return Optional.of(length);
     }
 
-    public int getLengthSafe()
+    public int getBoundedLength()
     {
         if (isUnbounded()) {
             throw new IllegalStateException("Cannot get size of unbounded VARCHAR.");

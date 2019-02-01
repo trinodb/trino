@@ -677,9 +677,9 @@ public final class HiveWriteUtils
                 // Values for such columns must be stored as STRING in Hive
                 return writableStringObjectInspector;
             }
-            if (varcharType.getLengthSafe() <= HiveVarchar.MAX_VARCHAR_LENGTH) {
+            if (varcharType.getBoundedLength() <= HiveVarchar.MAX_VARCHAR_LENGTH) {
                 // VARCHAR columns with the length less than or equal to 65535 are supported natively by Hive
-                return getPrimitiveWritableObjectInspector(getVarcharTypeInfo(varcharType.getLengthSafe()));
+                return getPrimitiveWritableObjectInspector(getVarcharTypeInfo(varcharType.getBoundedLength()));
             }
         }
 
