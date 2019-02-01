@@ -82,6 +82,7 @@ import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.prestosql.testing.DateTimeTestingUtils.sqlTimestampOf;
 import static io.prestosql.testing.TestingConnectorSession.SESSION;
 import static io.prestosql.tests.StructuralTestUtil.mapType;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Arrays.asList;
@@ -105,8 +106,8 @@ import static org.testng.Assert.assertEquals;
 
 public abstract class AbstractTestParquetReader
 {
-    private static final int MAX_PRECISION_INT32 = (int) maxPrecision(4);
-    private static final int MAX_PRECISION_INT64 = (int) maxPrecision(8);
+    private static final int MAX_PRECISION_INT32 = toIntExact(maxPrecision(4));
+    private static final int MAX_PRECISION_INT64 = toIntExact(maxPrecision(8));
 
     private Logger parquetLogger;
 
@@ -191,10 +192,10 @@ public abstract class AbstractTestParquetReader
     }
 
     @Test
-    public void testCustomSchemaArrayOfStucts()
+    public void testCustomSchemaArrayOfStructs()
             throws Exception
     {
-        MessageType customSchemaArrayOfStucts = parseMessageType("message ParquetSchema { " +
+        MessageType customSchemaArrayOfStructs = parseMessageType("message ParquetSchema { " +
                 "  optional group self (LIST) { " +
                 "    repeated group self_tuple { " +
                 "      optional int64 a; " +
@@ -213,11 +214,11 @@ public abstract class AbstractTestParquetReader
         Type structType = RowType.from(asList(field("a", BIGINT), field("b", BOOLEAN), field("c", VARCHAR)));
         tester.testSingleLevelArrayRoundTrip(
                 getStandardListObjectInspector(getStandardStructObjectInspector(structFieldNames, asList(javaLongObjectInspector, javaBooleanObjectInspector, javaStringObjectInspector))),
-                values, values, "self", new ArrayType(structType), Optional.of(customSchemaArrayOfStucts));
+                values, values, "self", new ArrayType(structType), Optional.of(customSchemaArrayOfStructs));
     }
 
     @Test
-    public void testSingleLevelSchemaArrayOfStucts()
+    public void testSingleLevelSchemaArrayOfStructs()
             throws Exception
     {
         Iterable<Long> aValues = limit(cycle(asList(1L, null, 3L, 5L, null, null, null, 7L, 11L, null, 13L, 17L)), 30_000);
