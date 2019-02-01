@@ -349,7 +349,7 @@ public final class TypeRegistry
             return createUnboundedVarcharType();
         }
 
-        return createVarcharType(Math.max(firstType.getLengthSafe(), secondType.getLengthSafe()));
+        return createVarcharType(Math.max(firstType.getBoundedLength(), secondType.getBoundedLength()));
     }
 
     private static Type getCommonSuperTypeForChar(CharType firstType, CharType secondType)
@@ -596,7 +596,7 @@ public final class TypeRegistry
                             return Optional.of(CharType.createCharType(CharType.MAX_LENGTH));
                         }
 
-                        return Optional.of(createCharType(Math.min(CharType.MAX_LENGTH, varcharType.getLengthSafe())));
+                        return Optional.of(createCharType(Math.min(CharType.MAX_LENGTH, varcharType.getBoundedLength())));
                     case JoniRegexpType.NAME:
                         return Optional.of(JONI_REGEXP);
                     case Re2JRegexpType.NAME:

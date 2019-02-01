@@ -44,7 +44,7 @@ public final class Varchars
         if (varcharType.isUnbounded()) {
             return slice;
         }
-        return truncateToLength(slice, varcharType.getLengthSafe());
+        return truncateToLength(slice, varcharType.getBoundedLength());
     }
 
     public static Slice truncateToLength(Slice slice, int maxLength)

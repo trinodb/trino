@@ -103,7 +103,7 @@ public final class BlackHolePageSourceProvider
         Slice slice;
         // do not exceed varchar limit
         if (isVarcharType(type) && !((VarcharType) type).isUnbounded()) {
-            slice = constantSlice.slice(0, Math.min(((VarcharType) type).getLengthSafe(), constantSlice.length()));
+            slice = constantSlice.slice(0, Math.min(((VarcharType) type).getBoundedLength(), constantSlice.length()));
         }
         else if (isLongDecimal(type)) {
             slice = encodeScaledValue(ZERO);

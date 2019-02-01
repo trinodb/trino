@@ -112,7 +112,7 @@ public class SliceStreamReader
     {
         if (isVarcharType(type)) {
             VarcharType varcharType = (VarcharType) type;
-            return varcharType.isUnbounded() ? -1 : varcharType.getLengthSafe();
+            return varcharType.isUnbounded() ? -1 : varcharType.getBoundedLength();
         }
         if (isCharType(type)) {
             return ((CharType) type).getLength();

@@ -474,7 +474,7 @@ public class BaseJdbcClient
             if (varcharType.isUnbounded()) {
                 return "varchar";
             }
-            return "varchar(" + varcharType.getLengthSafe() + ")";
+            return "varchar(" + varcharType.getBoundedLength() + ")";
         }
         if (type instanceof CharType) {
             if (((CharType) type).getLength() == CharType.MAX_LENGTH) {

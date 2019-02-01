@@ -200,7 +200,7 @@ public class OrcType
             if (varcharType.isUnbounded()) {
                 return ImmutableList.of(new OrcType(OrcTypeKind.STRING));
             }
-            return ImmutableList.of(new OrcType(OrcTypeKind.VARCHAR, varcharType.getLengthSafe()));
+            return ImmutableList.of(new OrcType(OrcTypeKind.VARCHAR, varcharType.getBoundedLength()));
         }
         if (type instanceof CharType) {
             return ImmutableList.of(new OrcType(OrcTypeKind.CHAR, ((CharType) type).getLength()));

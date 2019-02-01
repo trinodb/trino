@@ -776,7 +776,7 @@ public final class HiveUtil
     {
         Slice partitionKey = Slices.utf8Slice(value);
         VarcharType varcharType = (VarcharType) columnType;
-        if (!varcharType.isUnbounded() && SliceUtf8.countCodePoints(partitionKey) > varcharType.getLengthSafe()) {
+        if (!varcharType.isUnbounded() && SliceUtf8.countCodePoints(partitionKey) > varcharType.getBoundedLength()) {
             throw new PrestoException(HIVE_INVALID_PARTITION_VALUE, format("Invalid partition value '%s' for %s partition key: %s", value, columnType.toString(), name));
         }
         return partitionKey;

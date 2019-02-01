@@ -171,7 +171,7 @@ public final class LiteralEncoder
             Slice value = (Slice) object;
             StringLiteral stringLiteral = new StringLiteral(value.toStringUtf8());
 
-            if (!varcharType.isUnbounded() && varcharType.getLengthSafe() == SliceUtf8.countCodePoints(value)) {
+            if (!varcharType.isUnbounded() && varcharType.getBoundedLength() == SliceUtf8.countCodePoints(value)) {
                 return stringLiteral;
             }
             return new Cast(stringLiteral, type.getDisplayName(), false, true);
