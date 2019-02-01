@@ -207,7 +207,7 @@ public class Patterns
 
     public static class Exchange
     {
-        public static Property<ExchangeNode, ExchangeNode.Scope> scope()
+        public static Property<ExchangeNode, Lookup, ExchangeNode.Scope> scope()
         {
             return property("scope", ExchangeNode::getScope);
         }
