@@ -31,6 +31,10 @@ public class QueryStatistics
     // peak of user + system memory
     private final long peakTotalNonRevocableMemoryBytes;
     private final long peakTaskTotalMemory;
+    private final long physicalInputBytes;
+    private final long physicalInputRows;
+    private final long internalNetworkBytes;
+    private final long internalNetworkRows;
     private final long totalBytes;
     private final long totalRows;
     private final long outputBytes;
@@ -58,6 +62,10 @@ public class QueryStatistics
             long peakUserMemoryBytes,
             long peakTotalNonRevocableMemoryBytes,
             long peakTaskTotalMemory,
+            long physicalInputBytes,
+            long physicalInputRows,
+            long internalNetworkBytes,
+            long internalNetworkRows,
             long totalBytes,
             long totalRows,
             long outputBytes,
@@ -79,6 +87,10 @@ public class QueryStatistics
         this.peakUserMemoryBytes = peakUserMemoryBytes;
         this.peakTotalNonRevocableMemoryBytes = peakTotalNonRevocableMemoryBytes;
         this.peakTaskTotalMemory = peakTaskTotalMemory;
+        this.physicalInputBytes = physicalInputBytes;
+        this.physicalInputRows = physicalInputRows;
+        this.internalNetworkBytes = internalNetworkBytes;
+        this.internalNetworkRows = internalNetworkRows;
         this.totalBytes = totalBytes;
         this.totalRows = totalRows;
         this.outputBytes = outputBytes;
@@ -131,6 +143,26 @@ public class QueryStatistics
     public long peakTaskTotalMemory()
     {
         return peakTaskTotalMemory;
+    }
+
+    public long getPhysicalInputBytes()
+    {
+        return physicalInputBytes;
+    }
+
+    public long getPhysicalInputRows()
+    {
+        return physicalInputRows;
+    }
+
+    public long getInternalNetworkBytes()
+    {
+        return internalNetworkBytes;
+    }
+
+    public long getInternalNetworkRows()
+    {
+        return internalNetworkRows;
     }
 
     public long getTotalBytes()
