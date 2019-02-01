@@ -29,6 +29,7 @@ import io.prestosql.cost.CostCalculator.EstimatedExchanges;
 import io.prestosql.cost.CostCalculatorUsingExchanges;
 import io.prestosql.cost.CostCalculatorWithEstimatedExchanges;
 import io.prestosql.cost.CostComparator;
+import io.prestosql.cost.StatsAndCosts;
 import io.prestosql.cost.StatsCalculatorModule;
 import io.prestosql.cost.TaskCountEstimator;
 import io.prestosql.event.QueryMonitor;
@@ -199,6 +200,7 @@ public class CoordinatorModule
         httpClientBinder(binder).bindHttpClient("workerInfo", ForWorkerInfo.class);
 
         // query monitor
+        jsonCodecBinder(binder).bindJsonCodec(StatsAndCosts.class);
         configBinder(binder).bindConfig(QueryMonitorConfig.class);
         binder.bind(QueryMonitor.class).in(Scopes.SINGLETON);
 
