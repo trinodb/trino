@@ -30,6 +30,8 @@ import static java.util.Collections.emptySet;
 
 public interface Plugin
 {
+    default void setPrestoInformation(PrestoInformation prestoInformation) {}
+
     default Iterable<ConnectorFactory> getConnectorFactories()
     {
         return emptyList();

@@ -99,6 +99,7 @@ import io.prestosql.operator.TaskContext;
 import io.prestosql.operator.index.IndexJoinLookupStats;
 import io.prestosql.server.PluginManager;
 import io.prestosql.server.PluginManagerConfig;
+import io.prestosql.server.ServerConfig;
 import io.prestosql.server.SessionPropertyDefaults;
 import io.prestosql.server.security.PasswordAuthenticatorManager;
 import io.prestosql.spi.PageIndexerFactory;
@@ -351,6 +352,7 @@ public class LocalQueryRunner
                 ImmutableSet.of());
 
         this.pluginManager = new PluginManager(
+                new ServerConfig(),
                 nodeInfo,
                 new PluginManagerConfig(),
                 connectorManager,

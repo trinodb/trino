@@ -27,6 +27,7 @@ import io.prestosql.metadata.Metadata;
 import io.prestosql.security.AccessControlManager;
 import io.prestosql.server.security.PasswordAuthenticatorManager;
 import io.prestosql.spi.Plugin;
+import io.prestosql.spi.PrestoInformation;
 import io.prestosql.spi.block.BlockEncoding;
 import io.prestosql.spi.classloader.ThreadContextClassLoader;
 import io.prestosql.spi.connector.ConnectorFactory;
@@ -73,6 +74,7 @@ public class PluginManager
 
     private static final Logger log = Logger.get(PluginManager.class);
 
+    private final String prestoVersion;
     private final ConnectorManager connectorManager;
     private final Metadata metadata;
     private final ResourceGroupManager<?> resourceGroupManager;
@@ -90,6 +92,7 @@ public class PluginManager
 
     @Inject
     public PluginManager(
+            ServerConfig serverConfig,
             NodeInfo nodeInfo,
             PluginManagerConfig config,
             ConnectorManager connectorManager,
@@ -105,6 +108,7 @@ public class PluginManager
         requireNonNull(nodeInfo, "nodeInfo is null");
         requireNonNull(config, "config is null");
 
+        this.prestoVersion = requireNonNull(serverConfig, "serverConfig is null").getPrestoVersion();
         installedPluginsDir = config.getInstalledPluginsDir();
         if (config.getPlugins() == null) {
             this.plugins = ImmutableList.of();
@@ -175,6 +179,8 @@ public class PluginManager
 
     public void installPlugin(Plugin plugin)
     {
+        plugin.setPrestoInformation(new PrestoInformation(prestoVersion));
+
         for (BlockEncoding blockEncoding : plugin.getBlockEncodings()) {
             log.info("Registering block encoding %s", blockEncoding.getName());
             blockEncodingManager.addBlockEncoding(blockEncoding);
