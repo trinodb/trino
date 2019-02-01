@@ -246,7 +246,7 @@ public class ColumnJdbcTable
             return 53; // IEEE 754
         }
         if (isVarcharType(type)) {
-            return ((VarcharType) type).getLength();
+            return ((VarcharType) type).getLength().orElse(VarcharType.UNBOUNDED_LENGTH);
         }
         if (isCharType(type)) {
             return ((CharType) type).getLength();
@@ -284,7 +284,7 @@ public class ColumnJdbcTable
     private static Integer charOctetLength(Type type)
     {
         if (isVarcharType(type)) {
-            return ((VarcharType) type).getLength();
+            return ((VarcharType) type).getLength().orElse(VarcharType.UNBOUNDED_LENGTH);
         }
         if (isCharType(type)) {
             return ((CharType) type).getLength();

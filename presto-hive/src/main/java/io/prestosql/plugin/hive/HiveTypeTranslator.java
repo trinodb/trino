@@ -88,17 +88,13 @@ public class HiveTypeTranslator
         }
         if (type instanceof VarcharType) {
             VarcharType varcharType = (VarcharType) type;
-            int varcharLength = varcharType.getLength();
-            if (varcharLength <= HiveVarchar.MAX_VARCHAR_LENGTH) {
-                return getVarcharTypeInfo(varcharLength);
-            }
-            else if (varcharLength == VarcharType.UNBOUNDED_LENGTH) {
+            if (varcharType.isUnbounded()) {
                 return HIVE_STRING.getTypeInfo();
             }
-            else {
-                throw new PrestoException(NOT_SUPPORTED, format("Unsupported Hive type: %s. Supported VARCHAR types: VARCHAR(<=%d), VARCHAR.",
-                        type, HiveVarchar.MAX_VARCHAR_LENGTH));
+            if (varcharType.getLengthSafe() <= HiveVarchar.MAX_VARCHAR_LENGTH) {
+                return getVarcharTypeInfo(varcharType.getLengthSafe());
             }
+            throw new PrestoException(NOT_SUPPORTED, format("Unsupported Hive type: %s. Supported VARCHAR types: VARCHAR(<=%d), VARCHAR.", type, HiveVarchar.MAX_VARCHAR_LENGTH));
         }
         if (type instanceof CharType) {
             CharType charType = (CharType) type;
