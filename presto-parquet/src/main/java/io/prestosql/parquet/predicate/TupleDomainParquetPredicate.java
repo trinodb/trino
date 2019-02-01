@@ -43,7 +43,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
 
-import static io.prestosql.parquet.ParquetTypeUtils.getPrestoType;
 import static io.prestosql.parquet.predicate.PredicateUtils.isStatisticsOverflow;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
@@ -90,12 +89,11 @@ public class TupleDomainParquetPredicate
             }
 
             Statistics<?> columnStatistics = statistics.get(column);
-            Type type = getPrestoType(effectivePredicate, column);
             if (columnStatistics == null || columnStatistics.isEmpty()) {
                 // no stats for column
             }
             else {
-                Domain domain = getDomain(type, numberOfRows, columnStatistics, id, column.toString(), failOnCorruptedParquetStatistics);
+                Domain domain = getDomain(effectivePredicateDomain.getType(), numberOfRows, columnStatistics, id, column.toString(), failOnCorruptedParquetStatistics);
                 if (effectivePredicateDomain.intersect(domain).isNone()) {
                     return false;
                 }
@@ -119,7 +117,7 @@ public class TupleDomainParquetPredicate
                 continue;
             }
             DictionaryDescriptor dictionaryDescriptor = dictionaries.get(column);
-            Domain domain = getDomain(getPrestoType(effectivePredicate, column), dictionaryDescriptor);
+            Domain domain = getDomain(effectivePredicateDomain.getType(), dictionaryDescriptor);
             if (domain != null) {
                 if (effectivePredicateDomain.intersect(domain).isNone()) {
                     return false;
