@@ -53,6 +53,8 @@ public class QueryStatistics
 
     private final List<String> operatorSummaries;
 
+    private final Optional<String> planNodeStatsAndCosts;
+
     public QueryStatistics(
             Duration cpuTime,
             Duration wallTime,
@@ -77,7 +79,8 @@ public class QueryStatistics
             int completedSplits,
             boolean complete,
             List<StageCpuDistribution> cpuTimeDistribution,
-            List<String> operatorSummaries)
+            List<String> operatorSummaries,
+            Optional<String> planNodeStatsAndCosts)
     {
         this.cpuTime = requireNonNull(cpuTime, "cpuTime is null");
         this.wallTime = requireNonNull(wallTime, "wallTime is null");
@@ -103,6 +106,7 @@ public class QueryStatistics
         this.complete = complete;
         this.cpuTimeDistribution = requireNonNull(cpuTimeDistribution, "cpuTimeDistribution is null");
         this.operatorSummaries = requireNonNull(operatorSummaries, "operatorSummaries is null");
+        this.planNodeStatsAndCosts = requireNonNull(planNodeStatsAndCosts, "planNodeStatsAndCosts is null");
     }
 
     public Duration getCpuTime()
@@ -223,5 +227,10 @@ public class QueryStatistics
     public List<String> getOperatorSummaries()
     {
         return operatorSummaries;
+    }
+
+    public Optional<String> getPlanNodeStatsAndCosts()
+    {
+        return planNodeStatsAndCosts;
     }
 }

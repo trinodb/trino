@@ -23,6 +23,9 @@ import io.airlift.stats.Distribution.DistributionSnapshot;
 import io.prestosql.SessionRepresentation;
 import io.prestosql.client.NodeVersion;
 import io.prestosql.connector.ConnectorId;
+import io.prestosql.cost.PlanNodeCostEstimate;
+import io.prestosql.cost.PlanNodeStatsEstimate;
+import io.prestosql.cost.StatsAndCosts;
 import io.prestosql.eventlistener.EventListenerManager;
 import io.prestosql.execution.Column;
 import io.prestosql.execution.ExecutionFailureInfo;
@@ -51,6 +54,8 @@ import io.prestosql.spi.eventlistener.QueryOutputMetadata;
 import io.prestosql.spi.eventlistener.QueryStatistics;
 import io.prestosql.spi.eventlistener.StageCpuDistribution;
 import io.prestosql.spi.resourcegroups.ResourceGroupId;
+import io.prestosql.sql.planner.PlanFragment;
+import io.prestosql.sql.planner.plan.PlanNodeId;
 import io.prestosql.transaction.TransactionId;
 import org.joda.time.DateTime;
 
@@ -77,6 +82,7 @@ public class QueryMonitor
     private final JsonCodec<StageInfo> stageInfoCodec;
     private final JsonCodec<OperatorStats> operatorStatsCodec;
     private final JsonCodec<ExecutionFailureInfo> executionFailureInfoCodec;
+    private final JsonCodec<StatsAndCosts> statsAndCostsCodec;
     private final EventListenerManager eventListenerManager;
     private final String serverVersion;
     private final String serverAddress;
@@ -90,6 +96,7 @@ public class QueryMonitor
             JsonCodec<StageInfo> stageInfoCodec,
             JsonCodec<OperatorStats> operatorStatsCodec,
             JsonCodec<ExecutionFailureInfo> executionFailureInfoCodec,
+            JsonCodec<StatsAndCosts> statsAndCostsCodec,
             EventListenerManager eventListenerManager,
             NodeInfo nodeInfo,
             NodeVersion nodeVersion,
@@ -100,6 +107,7 @@ public class QueryMonitor
         this.eventListenerManager = requireNonNull(eventListenerManager, "eventListenerManager is null");
         this.stageInfoCodec = requireNonNull(stageInfoCodec, "stageInfoCodec is null");
         this.operatorStatsCodec = requireNonNull(operatorStatsCodec, "operatorStatsCodec is null");
+        this.statsAndCostsCodec = requireNonNull(statsAndCostsCodec, "statsAndCostsCodec is null");
         this.executionFailureInfoCodec = requireNonNull(executionFailureInfoCodec, "executionFailureInfoCodec is null");
         this.serverVersion = requireNonNull(nodeVersion, "nodeVersion is null").toString();
         this.serverAddress = requireNonNull(nodeInfo, "nodeInfo is null").getExternalAddress();
@@ -160,7 +168,8 @@ public class QueryMonitor
                         0,
                         true,
                         ImmutableList.of(),
-                        ImmutableList.of()),
+                        ImmutableList.of(),
+                        Optional.empty()),
                 createQueryContext(queryInfo.getSession(), queryInfo.getResourceGroupId()),
                 new QueryIOMetadata(ImmutableList.of(), Optional.empty()),
                 createQueryFailureInfo(failure, Optional.empty()),
@@ -209,6 +218,9 @@ public class QueryMonitor
             operatorSummaries.add(operatorStatsCodec.toJson(summary));
         }
 
+        Optional<StatsAndCosts> planNodeStatsAndCosts = queryInfo.getOutputStage().map(QueryMonitor::reconstructStatsAndCosts);
+        Optional<String> serializedPlanNodeStatsAndCosts = planNodeStatsAndCosts.map(statsAndCostsCodec::toJson);
+
         QueryStats queryStats = queryInfo.getQueryStats();
         return new QueryStatistics(
                 ofMillis(queryStats.getTotalCpuTime().toMillis()),
@@ -234,7 +246,31 @@ public class QueryMonitor
                 queryStats.getCompletedDrivers(),
                 queryInfo.isCompleteInfo(),
                 getCpuDistributions(queryInfo),
-                operatorSummaries.build());
+                operatorSummaries.build(),
+                serializedPlanNodeStatsAndCosts);
+    }
+
+    private static StatsAndCosts reconstructStatsAndCosts(StageInfo stageInfo)
+    {
+        ImmutableMap.Builder<PlanNodeId, PlanNodeStatsEstimate> planNodeStats = ImmutableMap.builder();
+        ImmutableMap.Builder<PlanNodeId, PlanNodeCostEstimate> planNodeCosts = ImmutableMap.builder();
+        reconstructStatsAndCosts(stageInfo, planNodeStats, planNodeCosts);
+        return new StatsAndCosts(planNodeStats.build(), planNodeCosts.build());
+    }
+
+    private static void reconstructStatsAndCosts(
+            StageInfo stage,
+            ImmutableMap.Builder<PlanNodeId, PlanNodeStatsEstimate> planNodeStats,
+            ImmutableMap.Builder<PlanNodeId, PlanNodeCostEstimate> planNodeCosts)
+    {
+        PlanFragment planFragment = stage.getPlan();
+        if (planFragment != null) {
+            planNodeStats.putAll(planFragment.getStatsAndCosts().getStats());
+            planNodeCosts.putAll(planFragment.getStatsAndCosts().getCosts());
+        }
+        for (StageInfo subStage : stage.getSubStages()) {
+            reconstructStatsAndCosts(subStage, planNodeStats, planNodeCosts);
+        }
     }
 
     private QueryContext createQueryContext(SessionRepresentation session, Optional<ResourceGroupId> resourceGroup)
