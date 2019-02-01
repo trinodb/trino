@@ -235,7 +235,10 @@ public final class RcFileDecoderUtils
     {
         requireNonNull(type, "type is null");
         if (type instanceof VarcharType) {
-            return calculateTruncationLength(((VarcharType) type).getLength(), slice, offset, length);
+            if (((VarcharType) type).isUnbounded()) {
+                return length;
+            }
+            return calculateTruncationLength(((VarcharType) type).getLengthSafe(), slice, offset, length);
         }
         if (type instanceof CharType) {
             int truncationLength = calculateTruncationLength(((CharType) type).getLength(), slice, offset, length);

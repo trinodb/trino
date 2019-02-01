@@ -41,7 +41,10 @@ public final class Varchars
     public static Slice truncateToLength(Slice slice, VarcharType varcharType)
     {
         requireNonNull(varcharType, "varcharType is null");
-        return truncateToLength(slice, varcharType.getLength());
+        if (varcharType.isUnbounded()) {
+            return slice;
+        }
+        return truncateToLength(slice, varcharType.getLengthSafe());
     }
 
     public static Slice truncateToLength(Slice slice, int maxLength)

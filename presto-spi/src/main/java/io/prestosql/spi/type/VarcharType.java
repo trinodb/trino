@@ -20,6 +20,7 @@ import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.connector.ConnectorSession;
 
 import java.util.Objects;
+import java.util.Optional;
 
 import static java.util.Collections.singletonList;
 
@@ -65,10 +66,12 @@ public final class VarcharType
         this.length = length;
     }
 
-    @Deprecated
-    public int getLength()
+    public Optional<Integer> getLength()
     {
-        return length;
+        if (isUnbounded()) {
+            return Optional.empty();
+        }
+        return Optional.of(length);
     }
 
     public int getLengthSafe()

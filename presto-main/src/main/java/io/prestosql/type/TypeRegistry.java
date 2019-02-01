@@ -349,7 +349,7 @@ public final class TypeRegistry
             return createUnboundedVarcharType();
         }
 
-        return createVarcharType(Math.max(firstType.getLength(), secondType.getLength()));
+        return createVarcharType(Math.max(firstType.getLengthSafe(), secondType.getLengthSafe()));
     }
 
     private static Type getCommonSuperTypeForChar(CharType firstType, CharType secondType)
