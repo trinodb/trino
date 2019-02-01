@@ -17,6 +17,7 @@ import com.google.common.base.CharMatcher;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.prestosql.spi.function.Description;
+import io.prestosql.spi.function.IsNull;
 import io.prestosql.spi.function.ScalarFunction;
 import io.prestosql.spi.function.ScalarOperator;
 import io.prestosql.spi.function.SqlNullable;
@@ -29,6 +30,7 @@ import static io.prestosql.spi.function.OperatorType.EQUAL;
 import static io.prestosql.spi.function.OperatorType.GREATER_THAN;
 import static io.prestosql.spi.function.OperatorType.GREATER_THAN_OR_EQUAL;
 import static io.prestosql.spi.function.OperatorType.HASH_CODE;
+import static io.prestosql.spi.function.OperatorType.IS_DISTINCT_FROM;
 import static io.prestosql.spi.function.OperatorType.LESS_THAN;
 import static io.prestosql.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static io.prestosql.spi.function.OperatorType.NOT_EQUAL;
@@ -59,6 +61,20 @@ public class ObjectIdFunctions
     public static Boolean equal(@SqlType("ObjectId") Slice left, @SqlType("ObjectId") Slice right)
     {
         return left.equals(right);
+    }
+
+    @ScalarOperator(IS_DISTINCT_FROM)
+    @SqlType(StandardTypes.BOOLEAN)
+    @SqlNullable
+    public static Boolean isDistinctFrom(@SqlType("ObjectId") Slice left, @IsNull boolean leftNull, @SqlType("ObjectId") Slice right, @IsNull boolean rightNull)
+    {
+        if (leftNull != rightNull) {
+            return true;
+        }
+        if (leftNull) {
+            return false;
+        }
+        return notEqual(left, right);
     }
 
     @ScalarOperator(NOT_EQUAL)
