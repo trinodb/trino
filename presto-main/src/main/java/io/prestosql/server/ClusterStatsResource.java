@@ -20,6 +20,7 @@ import io.prestosql.execution.QueryState;
 import io.prestosql.execution.scheduler.NodeSchedulerConfig;
 import io.prestosql.memory.ClusterMemoryManager;
 import io.prestosql.metadata.InternalNodeManager;
+import io.prestosql.spi.Node;
 import io.prestosql.spi.NodeState;
 
 import javax.inject.Inject;
@@ -28,6 +29,9 @@ import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
+
+import java.util.HashSet;
+import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -111,6 +115,45 @@ public class ClusterStatsResource
         return Response.ok()
                 .entity(clusterMemoryManager.getWorkerMemoryInfo())
                 .build();
+    }
+
+    @GET
+    @Path("workerList")
+    public Response getWorkerList()
+    {
+        Set<Node> nodes = nodeManager.getAllNodes().getActiveNodes();
+        Set<JsonNodeInfo> jsonNodes = new HashSet<>();
+        for (Node node : nodes) {
+            JsonNodeInfo jsonNode = new JsonNodeInfo(node.getNodeIdentifier(), node.getHostAndPort().getHostText());
+            jsonNodes.add(jsonNode);
+        }
+        return Response.ok().entity(jsonNodes).build();
+    }
+
+    public static class JsonNodeInfo
+    {
+        private final String nodeId;
+        private final String nodeIp;
+
+        @JsonCreator
+        public JsonNodeInfo(@JsonProperty("nodeId") String nodeId,
+                @JsonProperty("nodeIp") String nodeIp)
+        {
+            this.nodeId = nodeId;
+            this.nodeIp = nodeIp;
+        }
+
+        @JsonProperty
+        public String getNodeId()
+        {
+            return nodeId;
+        }
+
+        @JsonProperty
+        public String getNodeIp()
+        {
+            return nodeIp;
+        }
     }
 
     public static class ClusterStats

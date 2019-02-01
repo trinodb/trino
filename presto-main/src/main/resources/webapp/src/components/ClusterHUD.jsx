@@ -181,10 +181,12 @@ export class ClusterHUD extends React.Component {
                     </div>
                     <div className="col-xs-4">
                         <div className="stat stat-large">
-                            <span className="stat-text">
-                                {this.state.activeWorkers[this.state.activeWorkers.length - 1]}
-                            </span>
-                            <span className="sparkline" id="active-workers-sparkline"><div className="loader">Loading ...</div></span>
+                            <a target="_blank" href="workers.html">
+                                <span className="stat-text">
+                                    {this.state.activeWorkers[this.state.activeWorkers.length - 1]}
+                                </span>
+                                <span className="sparkline" id="active-workers-sparkline"><div className="loader">Loading ...</div></span>
+                            </a>
                         </div>
                     </div>
                     <div className="col-xs-4">
