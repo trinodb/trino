@@ -19,6 +19,7 @@ import io.prestosql.orc.OrcDataSourceId;
 import io.prestosql.plugin.hive.FileFormatDataSourceStats;
 import io.prestosql.spi.PrestoException;
 import org.apache.hadoop.fs.FSDataInputStream;
+import org.apache.hadoop.hdfs.BlockMissingException;
 
 import java.io.IOException;
 
@@ -70,7 +71,7 @@ public class HdfsOrcDataSource
         }
         catch (Exception e) {
             String message = format("Error reading from %s at position %s", this, position);
-            if (e.getClass().getSimpleName().equals("BlockMissingException")) {
+            if (e instanceof BlockMissingException) {
                 throw new PrestoException(HIVE_MISSING_DATA, message, e);
             }
             if (e instanceof IOException) {
