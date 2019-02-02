@@ -65,6 +65,10 @@ Date and Time Functions
 
     Parses the ISO 8601 formatted ``string`` into a ``date``.
 
+.. function:: at_timezone(timestamp, timezone) -> timestamp
+
+    Returns the corresponding timestamp in the target ``timezone``.
+
 .. function:: from_unixtime(unixtime) -> timestamp
 
     Returns the UNIX timestamp ``unixtime`` as a timestamp.

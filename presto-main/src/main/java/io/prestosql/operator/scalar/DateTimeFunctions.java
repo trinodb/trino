@@ -266,7 +266,7 @@ public final class DateTimeFunctions
         return MILLISECONDS.toDays(dateTime.getMillis());
     }
 
-    @ScalarFunction(value = "at_timezone", hidden = true)
+    @ScalarFunction(value = "at_timezone")
     @LiteralParameters("x")
     @SqlType(StandardTypes.TIME_WITH_TIME_ZONE)
     public static long timeAtTimeZone(ConnectorSession session, @SqlType(StandardTypes.TIME_WITH_TIME_ZONE) long timeWithTimeZone, @SqlType("varchar(x)") Slice zoneId)
@@ -274,7 +274,7 @@ public final class DateTimeFunctions
         return timeAtTimeZone(session, timeWithTimeZone, getTimeZoneKey(zoneId.toStringUtf8()));
     }
 
-    @ScalarFunction(value = "at_timezone", hidden = true)
+    @ScalarFunction(value = "at_timezone")
     @SqlType(StandardTypes.TIME_WITH_TIME_ZONE)
     public static long timeAtTimeZone(ConnectorSession session, @SqlType(StandardTypes.TIME_WITH_TIME_ZONE) long timeWithTimeZone, @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long zoneOffset)
     {
@@ -283,7 +283,7 @@ public final class DateTimeFunctions
         return timeAtTimeZone(session, timeWithTimeZone, getTimeZoneKeyForOffset(zoneOffsetMinutes));
     }
 
-    @ScalarFunction(value = "at_timezone", hidden = true)
+    @ScalarFunction(value = "at_timezone")
     @LiteralParameters("x")
     @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE)
     public static long timestampAtTimeZone(@SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long timestampWithTimeZone, @SqlType("varchar(x)") Slice zoneId)
@@ -291,7 +291,7 @@ public final class DateTimeFunctions
         return packDateTimeWithZone(unpackMillisUtc(timestampWithTimeZone), zoneId.toStringUtf8());
     }
 
-    @ScalarFunction(value = "at_timezone", hidden = true)
+    @ScalarFunction(value = "at_timezone")
     @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE)
     public static long timestampAtTimeZone(@SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long timestampWithTimeZone, @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long zoneOffset)
     {

@@ -958,7 +958,7 @@ public abstract class TestDateTimeFunctionsBase
     @Test
     public void testTimeWithTimeZoneAtTimeZone()
     {
-        // this test does use hidden at_timezone function as it is equivalent of using SQL syntax AT TIME ZONE
+        // this test does use at_timezone function as it is equivalent of using SQL syntax AT TIME ZONE
         // but our test framework doesn't support that syntax directly.
 
         Session oldKathmanduTimeZoneOffsetSession =
