@@ -39,6 +39,7 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.hdfs.BlockMissingException;
 import org.apache.hadoop.hive.serde2.columnar.ColumnarSerDe;
 import org.apache.hadoop.hive.serde2.columnar.LazyBinaryColumnarSerDe;
 import org.joda.time.DateTimeZone;
@@ -165,7 +166,7 @@ public class RcFilePageSourceFactory
             if (e instanceof RcFileCorruptionException) {
                 throw new PrestoException(HIVE_BAD_DATA, message, e);
             }
-            if (e.getClass().getSimpleName().equals("BlockMissingException")) {
+            if (e instanceof BlockMissingException) {
                 throw new PrestoException(HIVE_MISSING_DATA, message, e);
             }
             throw new PrestoException(HIVE_CANNOT_OPEN_SPLIT, message, e);

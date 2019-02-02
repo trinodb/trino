@@ -41,6 +41,7 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.hdfs.BlockMissingException;
 import org.apache.hadoop.hive.ql.io.orc.OrcSerde;
 import org.joda.time.DateTimeZone;
 
@@ -231,7 +232,7 @@ public class OrcPageSourceFactory
                 throw (PrestoException) e;
             }
             String message = splitError(e, path, start, length);
-            if (e.getClass().getSimpleName().equals("BlockMissingException")) {
+            if (e instanceof BlockMissingException) {
                 throw new PrestoException(HIVE_MISSING_DATA, message, e);
             }
             throw new PrestoException(HIVE_CANNOT_OPEN_SPLIT, message, e);
