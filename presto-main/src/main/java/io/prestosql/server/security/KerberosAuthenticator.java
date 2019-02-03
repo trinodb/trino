@@ -64,7 +64,10 @@ public class KerberosAuthenticator
         System.setProperty("java.security.krb5.conf", config.getKerberosConfig().getAbsolutePath());
 
         try {
-            String hostname = InetAddress.getLocalHost().getCanonicalHostName().toLowerCase(Locale.US);
+            String hostname = Optional.ofNullable(config.getPrincipalHostname())
+                    .orElseGet(() -> getLocalHost().getCanonicalHostName())
+                    .toLowerCase(Locale.US);
+
             String servicePrincipal = config.getServiceName() + "/" + hostname;
             loginContext = new LoginContext("", null, null, new Configuration()
             {
@@ -99,7 +102,7 @@ public class KerberosAuthenticator
                     },
                     ACCEPT_ONLY));
         }
-        catch (LoginException | UnknownHostException e) {
+        catch (LoginException e) {
             throw new RuntimeException(e);
         }
     }
@@ -193,5 +196,15 @@ public class KerberosAuthenticator
                 throw new RuntimeException(e);
             }
         });
+    }
+
+    private static InetAddress getLocalHost()
+    {
+        try {
+            return InetAddress.getLocalHost();
+        }
+        catch (UnknownHostException e) {
+            throw new RuntimeException(e);
+        }
     }
 }
