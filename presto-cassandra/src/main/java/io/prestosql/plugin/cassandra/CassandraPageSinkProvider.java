@@ -13,6 +13,7 @@
  */
 package io.prestosql.plugin.cassandra;
 
+import com.datastax.driver.core.ProtocolVersion;
 import io.prestosql.spi.connector.ConnectorInsertTableHandle;
 import io.prestosql.spi.connector.ConnectorOutputTableHandle;
 import io.prestosql.spi.connector.ConnectorPageSink;
@@ -29,11 +30,13 @@ public class CassandraPageSinkProvider
         implements ConnectorPageSinkProvider
 {
     private final CassandraSession cassandraSession;
+    private final ProtocolVersion protocolVersion;
 
     @Inject
-    public CassandraPageSinkProvider(CassandraSession cassandraSession)
+    public CassandraPageSinkProvider(CassandraSession cassandraSession, CassandraClientConfig cassandraClientConfig)
     {
         this.cassandraSession = requireNonNull(cassandraSession, "cassandraSession is null");
+        this.protocolVersion = requireNonNull(cassandraClientConfig, "cassandraClientConfig is null").getProtocolVersion();
     }
 
     @Override
@@ -45,6 +48,7 @@ public class CassandraPageSinkProvider
 
         return new CassandraPageSink(
                 cassandraSession,
+                protocolVersion,
                 handle.getSchemaName(),
                 handle.getTableName(),
                 handle.getColumnNames(),
@@ -61,6 +65,7 @@ public class CassandraPageSinkProvider
 
         return new CassandraPageSink(
                 cassandraSession,
+                protocolVersion,
                 handle.getSchemaName(),
                 handle.getTableName(),
                 handle.getColumnNames(),

@@ -14,6 +14,8 @@
 package io.prestosql.plugin.cassandra;
 
 import com.datastax.driver.core.DataType;
+import com.datastax.driver.core.LocalDate;
+import com.datastax.driver.core.ProtocolVersion;
 import com.datastax.driver.core.Row;
 import com.datastax.driver.core.utils.Bytes;
 import com.google.common.annotations.VisibleForTesting;
@@ -28,7 +30,9 @@ import io.prestosql.spi.type.DateType;
 import io.prestosql.spi.type.DoubleType;
 import io.prestosql.spi.type.IntegerType;
 import io.prestosql.spi.type.RealType;
+import io.prestosql.spi.type.SmallintType;
 import io.prestosql.spi.type.TimestampType;
+import io.prestosql.spi.type.TinyintType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.VarbinaryType;
 
@@ -66,7 +70,10 @@ public enum CassandraType
     FLOAT(RealType.REAL, Float.class),
     INET(createVarcharType(Constants.IP_ADDRESS_STRING_MAX_LENGTH), InetAddress.class),
     INT(IntegerType.INTEGER, Integer.class),
+    SMALLINT(SmallintType.SMALLINT, Short.class),
+    TINYINT(TinyintType.TINYINT, Byte.class),
     TEXT(createUnboundedVarcharType(), String.class),
+    DATE(DateType.DATE, LocalDate.class),
     TIMESTAMP(TimestampType.TIMESTAMP, Date.class),
     UUID(createVarcharType(Constants.UUID_STRING_MAX_LENGTH), java.util.UUID.class),
     TIMEUUID(createVarcharType(Constants.UUID_STRING_MAX_LENGTH), java.util.UUID.class),
@@ -127,6 +134,8 @@ public enum CassandraType
                 return COUNTER;
             case CUSTOM:
                 return CUSTOM;
+            case DATE:
+                return DATE;
             case DECIMAL:
                 return DECIMAL;
             case DOUBLE:
@@ -143,12 +152,16 @@ public enum CassandraType
                 return MAP;
             case SET:
                 return SET;
+            case SMALLINT:
+                return SMALLINT;
             case TEXT:
                 return TEXT;
             case TIMESTAMP:
                 return TIMESTAMP;
             case TIMEUUID:
                 return TIMEUUID;
+            case TINYINT:
+                return TINYINT;
             case UUID:
                 return UUID;
             case VARCHAR:
@@ -165,8 +178,7 @@ public enum CassandraType
         return getColumnValue(row, i, fullCassandraType.getCassandraType(), fullCassandraType.getTypeArguments());
     }
 
-    public static NullableValue getColumnValue(Row row, int i, CassandraType cassandraType,
-            List<CassandraType> typeArguments)
+    public static NullableValue getColumnValue(Row row, int i, CassandraType cassandraType, List<CassandraType> typeArguments)
     {
         Type nativeType = cassandraType.getNativeType();
         if (row.isNull(i)) {
@@ -180,6 +192,10 @@ public enum CassandraType
                     return NullableValue.of(nativeType, utf8Slice(row.getString(i)));
                 case INT:
                     return NullableValue.of(nativeType, (long) row.getInt(i));
+                case SMALLINT:
+                    return NullableValue.of(nativeType, (long) row.getShort(i));
+                case TINYINT:
+                    return NullableValue.of(nativeType, (long) row.getByte(i));
                 case BIGINT:
                 case COUNTER:
                     return NullableValue.of(nativeType, row.getLong(i));
@@ -196,6 +212,8 @@ public enum CassandraType
                     return NullableValue.of(nativeType, utf8Slice(row.getUUID(i).toString()));
                 case TIMESTAMP:
                     return NullableValue.of(nativeType, row.getTimestamp(i).getTime());
+                case DATE:
+                    return NullableValue.of(nativeType, (long) row.getDate(i).getDaysSinceEpoch());
                 case INET:
                     return NullableValue.of(nativeType, utf8Slice(toAddrString(row.getInet(i))));
                 case VARINT:
@@ -279,8 +297,7 @@ public enum CassandraType
         return sb.toString();
     }
 
-    private static void checkTypeArguments(CassandraType type, int expectedSize,
-            List<CassandraType> typeArguments)
+    private static void checkTypeArguments(CassandraType type, int expectedSize, List<CassandraType> typeArguments)
     {
         if (typeArguments == null || typeArguments.size() != expectedSize) {
             throw new IllegalArgumentException("Wrong number of type arguments " + typeArguments
@@ -301,6 +318,10 @@ public enum CassandraType
                     return CassandraCqlUtils.quoteStringLiteral(row.getString(i));
                 case INT:
                     return Integer.toString(row.getInt(i));
+                case SMALLINT:
+                    return Short.toString(row.getShort(i));
+                case TINYINT:
+                    return Byte.toString(row.getByte(i));
                 case BIGINT:
                 case COUNTER:
                     return Long.toString(row.getLong(i));
@@ -317,6 +338,8 @@ public enum CassandraType
                     return row.getUUID(i).toString();
                 case TIMESTAMP:
                     return Long.toString(row.getTimestamp(i).getTime());
+                case DATE:
+                    return row.getDate(i).toString();
                 case INET:
                     return CassandraCqlUtils.quoteStringLiteral(toAddrString(row.getInet(i)));
                 case VARINT:
@@ -340,6 +363,7 @@ public enum CassandraType
             case UUID:
             case TIMEUUID:
             case TIMESTAMP:
+            case DATE:
             case INET:
             case VARINT:
                 return CassandraCqlUtils.quoteStringLiteralForJson(object.toString());
@@ -348,6 +372,8 @@ public enum CassandraType
             case CUSTOM:
                 return CassandraCqlUtils.quoteStringLiteralForJson(Bytes.toHexString((ByteBuffer) object));
 
+            case SMALLINT:
+            case TINYINT:
             case INT:
             case BIGINT:
             case COUNTER:
@@ -400,6 +426,8 @@ public enum CassandraType
             case INET:
                 return InetAddresses.forString(((Slice) nativeValue).toStringUtf8());
             case INT:
+            case SMALLINT:
+            case TINYINT:
                 return ((Long) nativeValue).intValue();
             case FLOAT:
                 // conversion can result in precision lost
@@ -411,6 +439,8 @@ public enum CassandraType
                 return new BigDecimal(nativeValue.toString());
             case TIMESTAMP:
                 return new Date((Long) nativeValue);
+            case DATE:
+                return LocalDate.fromDaysSinceEpoch(((Long) nativeValue).intValue());
             case UUID:
             case TIMEUUID:
                 return java.util.UUID.fromString(((Slice) nativeValue).toStringUtf8());
@@ -467,9 +497,12 @@ public enum CassandraType
             case DOUBLE:
             case INET:
             case INT:
+            case SMALLINT:
+            case TINYINT:
             case FLOAT:
             case DECIMAL:
             case TIMESTAMP:
+            case DATE:
             case UUID:
             case TIMEUUID:
                 return value;
@@ -486,7 +519,7 @@ public enum CassandraType
         }
     }
 
-    public static CassandraType toCassandraType(Type type)
+    public static CassandraType toCassandraType(Type type, ProtocolVersion protocolVersion)
     {
         if (type.equals(BooleanType.BOOLEAN)) {
             return BOOLEAN;
@@ -496,6 +529,12 @@ public enum CassandraType
         }
         else if (type.equals(IntegerType.INTEGER)) {
             return INT;
+        }
+        else if (type.equals(SmallintType.SMALLINT)) {
+            return SMALLINT;
+        }
+        else if (type.equals(TinyintType.TINYINT)) {
+            return TINYINT;
         }
         else if (type.equals(DoubleType.DOUBLE)) {
             return DOUBLE;
@@ -507,7 +546,7 @@ public enum CassandraType
             return TEXT;
         }
         else if (type.equals(DateType.DATE)) {
-            return TEXT;
+            return protocolVersion.toInt() <= ProtocolVersion.V3.toInt() ? TEXT : DATE;
         }
         else if (type.equals(VarbinaryType.VARBINARY)) {
             return BLOB;
