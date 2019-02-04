@@ -39,7 +39,7 @@ public class TestKerberosConfig
                 .put("http.authentication.krb5.config", "/etc/krb5.conf")
                 .put("http.server.authentication.krb5.service-name", "airlift")
                 .put("http.server.authentication.krb5.keytab", "/tmp/presto.keytab")
-                .put("http.authentication.krb5.principal-hostname", "presto.prestosql.io")
+                .put("http.server.authentication.krb5.principal-hostname", "presto.prestosql.io")
                 .build();
 
         KerberosConfig expected = new KerberosConfig()

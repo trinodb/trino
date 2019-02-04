@@ -71,7 +71,7 @@ public class KerberosConfig
         return principalHostname;
     }
 
-    @Config("http.authentication.krb5.principal-hostname")
+    @Config("http.server.authentication.krb5.principal-hostname")
     public KerberosConfig setPrincipalHostname(String principalHostname)
     {
         this.principalHostname = principalHostname;
