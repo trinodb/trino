@@ -63,7 +63,7 @@ public class TestCassandraClusteringPredicatesExtractor
                         col4, Domain.singleValue(BIGINT, 26L)));
         CassandraClusteringPredicatesExtractor predicatesExtractor = new CassandraClusteringPredicatesExtractor(cassandraTable.getClusteringKeyColumns(), tupleDomain, cassandraVersion);
         String predicate = predicatesExtractor.getClusteringKeyPredicates();
-        assertEquals(predicate, new StringBuilder("\"clusteringKey1\" = 34").toString());
+        assertEquals(predicate, "\"clusteringKey1\" = 34");
     }
 
     @Test
