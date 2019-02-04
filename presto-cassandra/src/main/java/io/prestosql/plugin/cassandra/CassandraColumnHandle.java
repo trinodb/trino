@@ -33,7 +33,6 @@ import static java.util.Objects.requireNonNull;
 public class CassandraColumnHandle
         implements ColumnHandle
 {
-    private final String connectorId;
     private final String name;
     private final int ordinalPosition;
     private final CassandraType cassandraType;
@@ -45,7 +44,6 @@ public class CassandraColumnHandle
 
     @JsonCreator
     public CassandraColumnHandle(
-            @JsonProperty("connectorId") String connectorId,
             @JsonProperty("name") String name,
             @JsonProperty("ordinalPosition") int ordinalPosition,
             @JsonProperty("cassandraType") CassandraType cassandraType,
@@ -55,7 +53,6 @@ public class CassandraColumnHandle
             @JsonProperty("indexed") boolean indexed,
             @JsonProperty("hidden") boolean hidden)
     {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.name = requireNonNull(name, "name is null");
         checkArgument(ordinalPosition >= 0, "ordinalPosition is negative");
         this.ordinalPosition = ordinalPosition;
@@ -73,12 +70,6 @@ public class CassandraColumnHandle
         this.clusteringKey = clusteringKey;
         this.indexed = indexed;
         this.hidden = hidden;
-    }
-
-    @JsonProperty
-    public String getConnectorId()
-    {
-        return connectorId;
     }
 
     @JsonProperty
@@ -151,7 +142,6 @@ public class CassandraColumnHandle
     public int hashCode()
     {
         return Objects.hash(
-                connectorId,
                 name,
                 ordinalPosition,
                 cassandraType,
@@ -172,8 +162,7 @@ public class CassandraColumnHandle
             return false;
         }
         CassandraColumnHandle other = (CassandraColumnHandle) obj;
-        return Objects.equals(this.connectorId, other.connectorId) &&
-                Objects.equals(this.name, other.name) &&
+        return Objects.equals(this.name, other.name) &&
                 Objects.equals(this.ordinalPosition, other.ordinalPosition) &&
                 Objects.equals(this.cassandraType, other.cassandraType) &&
                 Objects.equals(this.typeArguments, other.typeArguments) &&
@@ -187,7 +176,6 @@ public class CassandraColumnHandle
     public String toString()
     {
         ToStringHelper helper = toStringHelper(this)
-                .add("connectorId", connectorId)
                 .add("name", name)
                 .add("ordinalPosition", ordinalPosition)
                 .add("cassandraType", cassandraType);

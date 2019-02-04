@@ -66,7 +66,7 @@ public class CassandraConnectorFactory
             Bootstrap app = new Bootstrap(
                     new MBeanModule(),
                     new JsonModule(),
-                    new CassandraClientModule(catalogName),
+                    new CassandraClientModule(),
                     new Module()
                     {
                         @Override

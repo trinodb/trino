@@ -31,12 +31,10 @@ import static org.testng.Assert.assertTrue;
 public class TestJsonCassandraHandles
 {
     private static final Map<String, Object> TABLE_HANDLE_AS_MAP = ImmutableMap.of(
-            "connectorId", "cassandra",
             "schemaName", "cassandra_schema",
             "tableName", "cassandra_table");
 
     private static final Map<String, Object> COLUMN_HANDLE_AS_MAP = ImmutableMap.<String, Object>builder()
-            .put("connectorId", "cassandra")
             .put("name", "column")
             .put("ordinalPosition", 42)
             .put("cassandraType", "BIGINT")
@@ -47,7 +45,6 @@ public class TestJsonCassandraHandles
             .build();
 
     private static final Map<String, Object> COLUMN2_HANDLE_AS_MAP = ImmutableMap.<String, Object>builder()
-            .put("connectorId", "cassandra")
             .put("name", "column2")
             .put("ordinalPosition", 0)
             .put("cassandraType", "SET")
@@ -64,7 +61,7 @@ public class TestJsonCassandraHandles
     public void testTableHandleSerialize()
             throws Exception
     {
-        CassandraTableHandle tableHandle = new CassandraTableHandle("cassandra", "cassandra_schema", "cassandra_table");
+        CassandraTableHandle tableHandle = new CassandraTableHandle("cassandra_schema", "cassandra_table");
 
         assertTrue(objectMapper.canSerialize(CassandraTableHandle.class));
         String json = objectMapper.writeValueAsString(tableHandle);
@@ -79,7 +76,6 @@ public class TestJsonCassandraHandles
 
         CassandraTableHandle tableHandle = objectMapper.readValue(json, CassandraTableHandle.class);
 
-        assertEquals(tableHandle.getConnectorId(), "cassandra");
         assertEquals(tableHandle.getSchemaName(), "cassandra_schema");
         assertEquals(tableHandle.getTableName(), "cassandra_table");
         assertEquals(tableHandle.getSchemaTableName(), new SchemaTableName("cassandra_schema", "cassandra_table"));
@@ -89,7 +85,7 @@ public class TestJsonCassandraHandles
     public void testColumnHandleSerialize()
             throws Exception
     {
-        CassandraColumnHandle columnHandle = new CassandraColumnHandle("cassandra", "column", 42, CassandraType.BIGINT, null, false, true, false, false);
+        CassandraColumnHandle columnHandle = new CassandraColumnHandle("column", 42, CassandraType.BIGINT, null, false, true, false, false);
 
         assertTrue(objectMapper.canSerialize(CassandraColumnHandle.class));
         String json = objectMapper.writeValueAsString(columnHandle);
@@ -101,7 +97,6 @@ public class TestJsonCassandraHandles
             throws Exception
     {
         CassandraColumnHandle columnHandle = new CassandraColumnHandle(
-                "cassandra",
                 "column2",
                 0,
                 CassandraType.SET,

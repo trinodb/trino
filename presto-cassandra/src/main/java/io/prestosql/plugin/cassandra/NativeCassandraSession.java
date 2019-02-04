@@ -93,15 +93,13 @@ public class NativeCassandraSession
     private static final String SIZE_ESTIMATES = "size_estimates";
     private static final VersionNumber PARTITION_FETCH_WITH_IN_PREDICATE_VERSION = VersionNumber.parse("2.2");
 
-    private final String connectorId;
     private final JsonCodec<List<ExtraColumnMetadata>> extraColumnMetadataCodec;
     private final Cluster cluster;
     private final Supplier<Session> session;
     private final Duration noHostAvailableRetryTimeout;
 
-    public NativeCassandraSession(String connectorId, JsonCodec<List<ExtraColumnMetadata>> extraColumnMetadataCodec, Cluster cluster, Duration noHostAvailableRetryTimeout)
+    public NativeCassandraSession(JsonCodec<List<ExtraColumnMetadata>> extraColumnMetadataCodec, Cluster cluster, Duration noHostAvailableRetryTimeout)
     {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.extraColumnMetadataCodec = requireNonNull(extraColumnMetadataCodec, "extraColumnMetadataCodec is null");
         this.cluster = requireNonNull(cluster, "cluster is null");
         this.noHostAvailableRetryTimeout = requireNonNull(noHostAvailableRetryTimeout, "noHostAvailableRetryTimeout is null");
@@ -247,7 +245,7 @@ public class NativeCassandraSession
                 .sorted(comparing(CassandraColumnHandle::getOrdinalPosition))
                 .collect(toList());
 
-        CassandraTableHandle tableHandle = new CassandraTableHandle(connectorId, tableMeta.getKeyspace().getName(), tableMeta.getName());
+        CassandraTableHandle tableHandle = new CassandraTableHandle(tableMeta.getKeyspace().getName(), tableMeta.getName());
         return new CassandraTable(tableHandle, sortedColumnHandles);
     }
 
@@ -347,7 +345,7 @@ public class NativeCassandraSession
                 }
             }
         }
-        return new CassandraColumnHandle(connectorId, columnMeta.getName(), ordinalPosition, cassandraType, typeArguments, partitionKey, clusteringKey, indexed, hidden);
+        return new CassandraColumnHandle(columnMeta.getName(), ordinalPosition, cassandraType, typeArguments, partitionKey, clusteringKey, indexed, hidden);
     }
 
     @Override
