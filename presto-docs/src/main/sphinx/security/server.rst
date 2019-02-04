@@ -87,7 +87,7 @@ Kerberos authentication is configured in the coordinator node's
     http-server.authentication.type=KERBEROS
 
     http.server.authentication.krb5.service-name=presto
-    http.server.authentication.krb5.host-name=presto.prestosql.io
+    http.server.authentication.krb5.principal-hostname=presto.prestosql.io
     http.server.authentication.krb5.keytab=/etc/presto/presto.keytab
     http.authentication.krb5.config=/etc/krb5.conf
 
