@@ -13,7 +13,6 @@
  */
 package io.prestosql.plugin.jdbc;
 
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -68,6 +67,7 @@ import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.Varchars.isVarcharType;
 import static java.lang.String.format;
+import static java.lang.String.join;
 import static java.util.Collections.nCopies;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -297,10 +297,7 @@ public class BaseJdbcClient
             String catalog = connection.getCatalog();
 
             String temporaryName = generateTemporaryTableName();
-            StringBuilder sql = new StringBuilder()
-                    .append("CREATE TABLE ")
-                    .append(quoted(catalog, schema, temporaryName))
-                    .append(" (");
+
             ImmutableList.Builder<String> columnNames = ImmutableList.builder();
             ImmutableList.Builder<Type> columnTypes = ImmutableList.builder();
             ImmutableList.Builder<String> columnList = ImmutableList.builder();
@@ -311,16 +308,14 @@ public class BaseJdbcClient
                 }
                 columnNames.add(columnName);
                 columnTypes.add(column.getType());
-                columnList.add(new StringBuilder()
-                        .append(quoted(columnName))
-                        .append(" ")
-                        .append(toSqlType(column.getType()))
-                        .toString());
+                columnList.add(format("%s %s", quoted(columnName), toSqlType(column.getType())));
             }
-            Joiner.on(", ").appendTo(sql, columnList.build());
-            sql.append(")");
 
-            execute(connection, sql.toString());
+            String sql = format(
+                    "CREATE TABLE %s (%s)",
+                    quoted(catalog, schema, temporaryName),
+                    join(", ", columnList.build()));
+            execute(connection, sql);
 
             return new JdbcOutputTableHandle(
                     connectorId,
@@ -344,14 +339,13 @@ public class BaseJdbcClient
     @Override
     public void commitCreateTable(JdbcOutputTableHandle handle)
     {
-        StringBuilder sql = new StringBuilder()
-                .append("ALTER TABLE ")
-                .append(quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTemporaryTableName()))
-                .append(" RENAME TO ")
-                .append(quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTableName()));
+        String sql = format(
+                "ALTER TABLE %s RENAME TO %s",
+                quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTemporaryTableName()),
+                quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTableName()));
 
         try (Connection connection = getConnection(handle)) {
-            execute(connection, sql.toString());
+            execute(connection, sql);
         }
         catch (SQLException e) {
             throw new PrestoException(JDBC_ERROR, e);
@@ -384,12 +378,10 @@ public class BaseJdbcClient
     @Override
     public void dropTable(JdbcTableHandle handle)
     {
-        StringBuilder sql = new StringBuilder()
-                .append("DROP TABLE ")
-                .append(quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTableName()));
+        String sql = "DROP TABLE " + quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTableName());
 
         try (Connection connection = connectionFactory.openConnection()) {
-            execute(connection, sql.toString());
+            execute(connection, sql);
         }
         catch (SQLException e) {
             throw new PrestoException(JDBC_ERROR, e);
@@ -410,12 +402,10 @@ public class BaseJdbcClient
     @Override
     public String buildInsertSql(JdbcOutputTableHandle handle)
     {
-        String vars = Joiner.on(',').join(nCopies(handle.getColumnNames().size(), "?"));
-        return new StringBuilder()
-                .append("INSERT INTO ")
-                .append(quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTemporaryTableName()))
-                .append(" VALUES (").append(vars).append(")")
-                .toString();
+        return format(
+                "INSERT INTO %s VALUES (%s)",
+                quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTemporaryTableName()),
+                join(",", nCopies(handle.getColumnNames().size(), "?")));
     }
 
     @Override

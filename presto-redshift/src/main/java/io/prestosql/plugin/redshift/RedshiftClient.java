@@ -28,6 +28,7 @@ import java.sql.PreparedStatement;
 import java.sql.SQLException;
 
 import static io.prestosql.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
+import static java.lang.String.format;
 
 public class RedshiftClient
         extends BaseJdbcClient
@@ -42,14 +43,13 @@ public class RedshiftClient
     public void commitCreateTable(JdbcOutputTableHandle handle)
     {
         // Redshift does not allow qualifying the target of a rename
-        StringBuilder sql = new StringBuilder()
-                .append("ALTER TABLE ")
-                .append(quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTemporaryTableName()))
-                .append(" RENAME TO ")
-                .append(quoted(handle.getTableName()));
+        String sql = format(
+                "ALTER TABLE %s RENAME TO %s",
+                quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTemporaryTableName()),
+                quoted(handle.getTableName()));
 
         try (Connection connection = getConnection(handle)) {
-            execute(connection, sql.toString());
+            execute(connection, sql);
         }
         catch (SQLException e) {
             throw new PrestoException(JDBC_ERROR, e);

@@ -27,6 +27,7 @@ import java.sql.Connection;
 import java.sql.SQLException;
 
 import static io.prestosql.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
+import static java.lang.String.format;
 
 public class SqlServerClient
         extends BaseJdbcClient
@@ -40,14 +41,13 @@ public class SqlServerClient
     @Override
     public void commitCreateTable(JdbcOutputTableHandle handle)
     {
-        StringBuilder sql = new StringBuilder()
-                .append("sp_rename ")
-                .append(singleQuote(handle.getCatalogName(), handle.getSchemaName(), handle.getTemporaryTableName()))
-                .append(", ")
-                .append(singleQuote(handle.getTableName()));
+        String sql = format(
+                "sp_rename %s, %s",
+                singleQuote(handle.getCatalogName(), handle.getSchemaName(), handle.getTemporaryTableName()),
+                singleQuote(handle.getTableName()));
 
         try (Connection connection = getConnection(handle)) {
-            execute(connection, sql.toString());
+            execute(connection, sql);
         }
         catch (SQLException e) {
             throw new PrestoException(JDBC_ERROR, e);
