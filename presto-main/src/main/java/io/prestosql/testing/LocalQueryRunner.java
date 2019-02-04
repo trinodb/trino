@@ -803,9 +803,7 @@ public class LocalQueryRunner
 
     public List<PlanOptimizer> getPlanOptimizers(boolean forceSingleNode)
     {
-        FeaturesConfig featuresConfig = new FeaturesConfig()
-                .setDistributedIndexJoinsEnabled(false)
-                .setOptimizeHashGeneration(true);
+        FeaturesConfig featuresConfig = new FeaturesConfig();
         return new PlanOptimizers(
                 metadata,
                 sqlParser,
