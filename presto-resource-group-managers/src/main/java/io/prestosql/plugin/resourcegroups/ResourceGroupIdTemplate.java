@@ -27,6 +27,7 @@ import java.util.stream.Collectors;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.lang.String.format;
+import static java.lang.String.join;
 import static java.util.Objects.requireNonNull;
 
 public class ResourceGroupIdTemplate
@@ -50,7 +51,7 @@ public class ResourceGroupIdTemplate
 
     public static ResourceGroupIdTemplate fromSegments(List<ResourceGroupNameTemplate> segments)
     {
-        return new ResourceGroupIdTemplate(String.join(".", segments.stream().map(ResourceGroupNameTemplate::toString).collect(Collectors.toList())));
+        return new ResourceGroupIdTemplate(join(".", segments.stream().map(ResourceGroupNameTemplate::toString).collect(Collectors.toList())));
     }
 
     public ResourceGroupId expandTemplate(VariableMap context)

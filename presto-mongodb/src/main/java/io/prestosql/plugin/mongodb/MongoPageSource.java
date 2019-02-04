@@ -51,6 +51,7 @@ import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.TimeType.TIME;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
+import static java.lang.String.join;
 import static java.util.stream.Collectors.toList;
 
 public class MongoPageSource
@@ -185,7 +186,7 @@ public class MongoPageSource
     private String toVarcharValue(Object value)
     {
         if (value instanceof Collection<?>) {
-            return "[" + String.join(", ", ((Collection<?>) value).stream().map(this::toVarcharValue).collect(toList())) + "]";
+            return "[" + join(", ", ((Collection<?>) value).stream().map(this::toVarcharValue).collect(toList())) + "]";
         }
         if (value instanceof Document) {
             return ((Document) value).toJson();

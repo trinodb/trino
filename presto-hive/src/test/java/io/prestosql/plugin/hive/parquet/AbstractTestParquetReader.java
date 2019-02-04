@@ -84,6 +84,7 @@ import static io.prestosql.testing.TestingConnectorSession.SESSION;
 import static io.prestosql.tests.StructuralTestUtil.mapType;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
+import static java.lang.String.join;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Arrays.asList;
 import static java.util.Collections.singletonList;
@@ -1493,8 +1494,8 @@ public abstract class AbstractTestParquetReader
     {
         DataSize maxReadBlockSize = new DataSize(1_000, DataSize.Unit.BYTE);
         List<List> structValues = createTestStructs(
-                Collections.nCopies(500, String.join("", Collections.nCopies(33, "test"))),
-                Collections.nCopies(500, String.join("", Collections.nCopies(1, "test"))));
+                Collections.nCopies(500, join("", Collections.nCopies(33, "test"))),
+                Collections.nCopies(500, join("", Collections.nCopies(1, "test"))));
         List<String> structFieldNames = asList("a", "b");
         Type structType = RowType.from(asList(field("a", VARCHAR), field("b", VARCHAR)));
 
@@ -1520,7 +1521,7 @@ public abstract class AbstractTestParquetReader
             throws Exception
     {
         DataSize maxReadBlockSize = new DataSize(1_000, DataSize.Unit.BYTE);
-        Iterable<Map<String, Long>> values = createFixedTestMaps(Collections.nCopies(5_000, String.join("", Collections.nCopies(33, "test"))), longsBetween(0, 5_000));
+        Iterable<Map<String, Long>> values = createFixedTestMaps(Collections.nCopies(5_000, join("", Collections.nCopies(33, "test"))), longsBetween(0, 5_000));
         tester.testMaxReadBytes(getStandardMapObjectInspector(javaStringObjectInspector, javaLongObjectInspector), values, values, mapType(VARCHAR, BIGINT), maxReadBlockSize);
     }
 
