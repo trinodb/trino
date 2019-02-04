@@ -51,8 +51,15 @@ public class QueryStatistics
 
     private final List<StageCpuDistribution> cpuTimeDistribution;
 
+    /**
+     * Operator summaries serialized to JSON. Serialization format and structure
+     * can change without preserving backward compatibility.
+     */
     private final List<String> operatorSummaries;
-
+    /**
+     * Plan node stats and costs summaries serialized to JSON. Serialization format and structure
+     * can change without preserving backward compatibility.
+     */
     private final Optional<String> planNodeStatsAndCosts;
 
     public QueryStatistics(
