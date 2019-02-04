@@ -34,6 +34,9 @@ cache:
   directories:
     - $HOME/.m2/repository
 
+git:
+  quiet: true
+
 install:
   - ./mvnw -v
   - |
