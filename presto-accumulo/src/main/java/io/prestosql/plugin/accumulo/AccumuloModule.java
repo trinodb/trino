@@ -85,7 +85,6 @@ public class AccumuloModule
         binder.bind(TypeManager.class).toInstance(typeManager);
 
         binder.bind(AccumuloConnector.class).in(Scopes.SINGLETON);
-        binder.bind(AccumuloConnectorId.class).toInstance(new AccumuloConnectorId(connectorId));
         binder.bind(AccumuloMetadata.class).in(Scopes.SINGLETON);
         binder.bind(AccumuloMetadataFactory.class).in(Scopes.SINGLETON);
         binder.bind(AccumuloClient.class).in(Scopes.SINGLETON);

@@ -32,7 +32,6 @@ public class TestAccumuloSplit
     public void testJsonRoundTrip()
     {
         AccumuloSplit expected = new AccumuloSplit(
-                "accumulo",
                 "schema",
                 "table",
                 "id",
@@ -63,7 +62,6 @@ public class TestAccumuloSplit
     public void testJsonRoundTripEmptyThings()
     {
         AccumuloSplit expected = new AccumuloSplit(
-                "accumulo",
                 "schema",
                 "table",
                 "id",
@@ -81,7 +79,6 @@ public class TestAccumuloSplit
     private static void assertSplit(AccumuloSplit actual, AccumuloSplit expected)
     {
         assertEquals(actual.getAddresses(), expected.getAddresses());
-        assertEquals(actual.getConnectorId(), expected.getConnectorId());
         assertEquals(actual.getConstraints(), expected.getConstraints());
         assertEquals(actual.getRowId(), expected.getRowId());
         assertEquals(actual.getHostPort(), expected.getHostPort());
