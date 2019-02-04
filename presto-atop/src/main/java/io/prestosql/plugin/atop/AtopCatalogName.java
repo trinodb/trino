@@ -17,30 +17,30 @@ import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
 
-public final class AtopConnectorId
+public final class AtopCatalogName
 {
-    private final String id;
+    private final String name;
 
-    public AtopConnectorId(String id)
+    public AtopCatalogName(String name)
     {
-        this.id = requireNonNull(id, "id is null");
+        this.name = requireNonNull(name, "name is null");
     }
 
-    public String getId()
+    public String getName()
     {
-        return id;
+        return name;
     }
 
     @Override
     public String toString()
     {
-        return id;
+        return name;
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(id);
+        return Objects.hash(name);
     }
 
     @Override
@@ -53,7 +53,7 @@ public final class AtopConnectorId
             return false;
         }
 
-        AtopConnectorId other = (AtopConnectorId) obj;
-        return Objects.equals(this.id, other.id);
+        AtopCatalogName other = (AtopCatalogName) obj;
+        return Objects.equals(this.name, other.name);
     }
 }
