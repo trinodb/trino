@@ -20,6 +20,7 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import static java.lang.String.join;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -99,7 +100,7 @@ public class TestKuduIntegrationRangePartitioning
     public void doTestCreateAndChangeTableWithRangePartition(TestRanges ranges)
     {
         String[] types = ranges.types;
-        String name = String.join("_", ranges.types);
+        String name = join("_", ranges.types);
         String tableName = "range_partitioning_" + name;
         String createTable = "CREATE TABLE " + tableName + " (\n";
         String rangePartitionColumns = "ARRAY[";
