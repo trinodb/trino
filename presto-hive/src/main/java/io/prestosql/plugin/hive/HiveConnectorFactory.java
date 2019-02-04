@@ -22,6 +22,7 @@ import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.event.client.EventModule;
 import io.airlift.json.JsonModule;
 import io.prestosql.plugin.hive.authentication.HiveAuthenticationModule;
+import io.prestosql.plugin.hive.gcs.HiveGcsModule;
 import io.prestosql.plugin.hive.metastore.ExtendedHiveMetastore;
 import io.prestosql.plugin.hive.metastore.HiveMetastoreModule;
 import io.prestosql.plugin.hive.s3.HiveS3Module;
@@ -100,6 +101,7 @@ public class HiveConnectorFactory
                     new JsonModule(),
                     new HiveClientModule(catalogName),
                     new HiveS3Module(),
+                    new HiveGcsModule(),
                     new HiveMetastoreModule(metastore),
                     new HiveSecurityModule(),
                     new HiveAuthenticationModule(),
