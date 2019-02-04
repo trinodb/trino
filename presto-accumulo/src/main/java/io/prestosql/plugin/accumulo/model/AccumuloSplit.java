@@ -34,7 +34,6 @@ import static java.util.Objects.requireNonNull;
 public class AccumuloSplit
         implements ConnectorSplit
 {
-    private final String connectorId;
     private final String rowId;
     private final String schema;
     private final String table;
@@ -47,7 +46,6 @@ public class AccumuloSplit
 
     @JsonCreator
     public AccumuloSplit(
-            @JsonProperty("connectorId") String connectorId,
             @JsonProperty("schema") String schema,
             @JsonProperty("table") String table,
             @JsonProperty("rowId") String rowId,
@@ -57,7 +55,6 @@ public class AccumuloSplit
             @JsonProperty("scanAuthorizations") Optional<String> scanAuthorizations,
             @JsonProperty("hostPort") Optional<String> hostPort)
     {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.rowId = requireNonNull(rowId, "rowId is null");
         this.schema = requireNonNull(schema, "schema is null");
         this.table = requireNonNull(table, "table is null");
@@ -74,12 +71,6 @@ public class AccumuloSplit
         else {
             addresses = ImmutableList.of();
         }
-    }
-
-    @JsonProperty
-    public String getConnectorId()
-    {
-        return connectorId;
     }
 
     @JsonProperty
@@ -176,7 +167,6 @@ public class AccumuloSplit
     public String toString()
     {
         return toStringHelper(this)
-                .add("connectorId", connectorId)
                 .add("schema", schema)
                 .add("table", table)
                 .add("rowId", rowId)

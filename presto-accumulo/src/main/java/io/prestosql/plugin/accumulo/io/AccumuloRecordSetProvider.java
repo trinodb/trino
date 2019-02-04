@@ -14,7 +14,6 @@
 package io.prestosql.plugin.accumulo.io;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.plugin.accumulo.AccumuloConnectorId;
 import io.prestosql.plugin.accumulo.conf.AccumuloConfig;
 import io.prestosql.plugin.accumulo.model.AccumuloColumnHandle;
 import io.prestosql.plugin.accumulo.model.AccumuloSplit;
@@ -30,7 +29,6 @@ import javax.inject.Inject;
 
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -43,17 +41,14 @@ public class AccumuloRecordSetProvider
         implements ConnectorRecordSetProvider
 {
     private final Connector connector;
-    private final String connectorId;
     private final String username;
 
     @Inject
     public AccumuloRecordSetProvider(
             Connector connector,
-            AccumuloConnectorId connectorId,
             AccumuloConfig config)
     {
         this.connector = requireNonNull(connector, "connector is null");
-        this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
         this.username = requireNonNull(config, "config is null").getUsername();
     }
 
@@ -65,7 +60,6 @@ public class AccumuloRecordSetProvider
 
         // Convert split
         AccumuloSplit accSplit = (AccumuloSplit) split;
-        checkArgument(accSplit.getConnectorId().equals(connectorId), "split is not for this connector");
 
         // Convert all columns handles
         ImmutableList.Builder<AccumuloColumnHandle> handles = ImmutableList.builder();

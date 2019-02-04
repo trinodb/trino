@@ -44,15 +44,11 @@ import static java.util.Objects.requireNonNull;
 public class AccumuloSplitManager
         implements ConnectorSplitManager
 {
-    private final String connectorId;
     private final AccumuloClient client;
 
     @Inject
-    public AccumuloSplitManager(
-            AccumuloConnectorId connectorId,
-            AccumuloClient client)
+    public AccumuloSplitManager(AccumuloClient client)
     {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
         this.client = requireNonNull(client, "client is null");
     }
 
@@ -79,7 +75,6 @@ public class AccumuloSplitManager
         ImmutableList.Builder<ConnectorSplit> cSplits = ImmutableList.builder();
         for (TabletSplitMetadata splitMetadata : tabletSplits) {
             AccumuloSplit split = new AccumuloSplit(
-                    connectorId,
                     schemaName,
                     tableName,
                     rowIdName,

@@ -53,7 +53,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.prestosql.plugin.accumulo.AccumuloErrorCode.ACCUMULO_TABLE_EXISTS;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -67,16 +66,12 @@ import static java.util.Objects.requireNonNull;
 public class AccumuloMetadata
         implements ConnectorMetadata
 {
-    private final String connectorId;
     private final AccumuloClient client;
     private final AtomicReference<Runnable> rollbackAction = new AtomicReference<>();
 
     @Inject
-    public AccumuloMetadata(
-            AccumuloConnectorId connectorId,
-            AccumuloClient client)
+    public AccumuloMetadata(AccumuloClient client)
     {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
         this.client = requireNonNull(client, "client is null");
     }
 
@@ -89,7 +84,6 @@ public class AccumuloMetadata
         AccumuloTable table = client.createTable(tableMetadata);
 
         AccumuloTableHandle handle = new AccumuloTableHandle(
-                connectorId,
                 tableName.getSchemaName(),
                 tableName.getTableName(),
                 table.getRowId(),
@@ -245,7 +239,6 @@ public class AccumuloMetadata
             }
 
             return new AccumuloTableHandle(
-                    connectorId,
                     table.getSchema(),
                     table.getTable(),
                     table.getRowId(),
@@ -279,7 +272,6 @@ public class AccumuloMetadata
     public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle table)
     {
         AccumuloTableHandle handle = (AccumuloTableHandle) table;
-        checkArgument(handle.getConnectorId().equals(connectorId), "table is not for this connector");
         SchemaTableName tableName = new SchemaTableName(handle.getSchema(), handle.getTable());
         ConnectorTableMetadata metadata = getTableMetadata(tableName);
         if (metadata == null) {
@@ -292,7 +284,6 @@ public class AccumuloMetadata
     public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         AccumuloTableHandle handle = (AccumuloTableHandle) tableHandle;
-        checkArgument(handle.getConnectorId().equals(connectorId), "tableHandle is not for this connector");
 
         AccumuloTable table = client.getTable(handle.toSchemaTableName());
         if (table == null) {
