@@ -37,8 +37,6 @@ public class KuduRecordCursor
     protected RowResult currentRow;
 
     private long totalBytes;
-    private long nanoStart;
-    private long nanoEnd;
     private boolean started;
 
     public KuduRecordCursor(KuduScanner scanner, List<Type> columnTypes)
@@ -65,7 +63,7 @@ public class KuduRecordCursor
     @Override
     public long getReadTimeNanos()
     {
-        return nanoStart > 0L ? (nanoEnd == 0 ? System.nanoTime() : nanoEnd) - nanoStart : 0L;
+        return 0;
     }
 
     @Override
@@ -89,7 +87,6 @@ public class KuduRecordCursor
 
         if (!started) {
             started = true;
-            nanoStart = System.nanoTime();
         }
 
         if (needNextRows) {
@@ -186,7 +183,6 @@ public class KuduRecordCursor
     @Override
     public void close()
     {
-        nanoEnd = System.nanoTime();
         currentRow = null;
         nextRows = null;
     }
