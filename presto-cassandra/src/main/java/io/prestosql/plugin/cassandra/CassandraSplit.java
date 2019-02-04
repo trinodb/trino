@@ -28,7 +28,6 @@ import static java.util.Objects.requireNonNull;
 public class CassandraSplit
         implements ConnectorSplit
 {
-    private final String connectorId;
     private final String partitionId;
     private final List<HostAddress> addresses;
     private final String schema;
@@ -37,31 +36,22 @@ public class CassandraSplit
 
     @JsonCreator
     public CassandraSplit(
-            @JsonProperty("connectorId") String connectorId,
             @JsonProperty("schema") String schema,
             @JsonProperty("table") String table,
             @JsonProperty("partitionId") String partitionId,
             @JsonProperty("splitCondition") String splitCondition,
             @JsonProperty("addresses") List<HostAddress> addresses)
     {
-        requireNonNull(connectorId, "connectorId is null");
         requireNonNull(schema, "schema is null");
         requireNonNull(table, "table is null");
         requireNonNull(partitionId, "partitionName is null");
         requireNonNull(addresses, "addresses is null");
 
-        this.connectorId = connectorId;
         this.schema = schema;
         this.table = table;
         this.partitionId = partitionId;
         this.addresses = ImmutableList.copyOf(addresses);
         this.splitCondition = splitCondition;
-    }
-
-    @JsonProperty
-    public String getConnectorId()
-    {
-        return connectorId;
     }
 
     @JsonProperty
@@ -143,6 +133,6 @@ public class CassandraSplit
 
     public CassandraTableHandle getCassandraTableHandle()
     {
-        return new CassandraTableHandle(connectorId, schema, table);
+        return new CassandraTableHandle(schema, table);
     }
 }

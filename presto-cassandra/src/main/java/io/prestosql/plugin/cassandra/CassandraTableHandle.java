@@ -25,25 +25,16 @@ import static java.util.Objects.requireNonNull;
 public class CassandraTableHandle
         implements ConnectorTableHandle
 {
-    private final String connectorId;
     private final String schemaName;
     private final String tableName;
 
     @JsonCreator
     public CassandraTableHandle(
-            @JsonProperty("connectorId") String connectorId,
             @JsonProperty("schemaName") String schemaName,
             @JsonProperty("tableName") String tableName)
     {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
-    }
-
-    @JsonProperty
-    public String getConnectorId()
-    {
-        return connectorId;
     }
 
     @JsonProperty
@@ -66,7 +57,7 @@ public class CassandraTableHandle
     @Override
     public int hashCode()
     {
-        return Objects.hash(connectorId, schemaName, tableName);
+        return Objects.hash(schemaName, tableName);
     }
 
     @Override
@@ -79,14 +70,13 @@ public class CassandraTableHandle
             return false;
         }
         CassandraTableHandle other = (CassandraTableHandle) obj;
-        return Objects.equals(this.connectorId, other.connectorId) &&
-                Objects.equals(this.schemaName, other.schemaName) &&
+        return Objects.equals(this.schemaName, other.schemaName) &&
                 Objects.equals(this.tableName, other.tableName);
     }
 
     @Override
     public String toString()
     {
-        return connectorId + ":" + schemaName + ":" + tableName;
+        return schemaName + ":" + tableName;
     }
 }

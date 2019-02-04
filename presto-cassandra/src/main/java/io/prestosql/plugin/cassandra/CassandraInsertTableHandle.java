@@ -27,7 +27,6 @@ import static java.util.Objects.requireNonNull;
 public class CassandraInsertTableHandle
         implements ConnectorInsertTableHandle
 {
-    private final String connectorId;
     private final String schemaName;
     private final String tableName;
     private final List<String> columnNames;
@@ -35,13 +34,11 @@ public class CassandraInsertTableHandle
 
     @JsonCreator
     public CassandraInsertTableHandle(
-            @JsonProperty("connectorId") String connectorId,
             @JsonProperty("schemaName") String schemaName,
             @JsonProperty("tableName") String tableName,
             @JsonProperty("columnNames") List<String> columnNames,
             @JsonProperty("columnTypes") List<Type> columnTypes)
     {
-        this.connectorId = requireNonNull(connectorId, "clientId is null");
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
 
@@ -50,12 +47,6 @@ public class CassandraInsertTableHandle
         checkArgument(columnNames.size() == columnTypes.size(), "columnNames and columnTypes sizes don't match");
         this.columnNames = ImmutableList.copyOf(columnNames);
         this.columnTypes = ImmutableList.copyOf(columnTypes);
-    }
-
-    @JsonProperty
-    public String getConnectorId()
-    {
-        return connectorId;
     }
 
     @JsonProperty
