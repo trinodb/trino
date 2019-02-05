@@ -74,6 +74,7 @@ import static io.prestosql.operator.GroupByHashYieldAssertion.GroupByHashYieldRe
 import static io.prestosql.operator.GroupByHashYieldAssertion.createPagesWithDistinctHashKeys;
 import static io.prestosql.operator.GroupByHashYieldAssertion.finishOperatorWithYieldingGroupByHash;
 import static io.prestosql.operator.OperatorAssertion.assertOperatorEqualsIgnoreOrder;
+import static io.prestosql.operator.OperatorAssertion.assertPagesEqualIgnoreOrder;
 import static io.prestosql.operator.OperatorAssertion.dropChannel;
 import static io.prestosql.operator.OperatorAssertion.toMaterializedResult;
 import static io.prestosql.operator.OperatorAssertion.toPages;
@@ -154,6 +155,8 @@ public class TestHashAggregationOperator
     @Test(dataProvider = "hashEnabledAndMemoryLimitForMergeValues")
     public void testHashAggregation(boolean hashEnabled, boolean spillEnabled, long memoryLimitForMerge, long memoryLimitForMergeWithMemory)
     {
+        // make operator produce multiple pages during finish phase
+        int numberOfRows = 40_000;
         MetadataManager metadata = MetadataManager.createTestMetadataManager();
         InternalAggregationFunction countVarcharColumn = metadata.getFunctionRegistry().getAggregateFunctionImplementation(
                 new Signature("count", AGGREGATE, parseTypeSignature(StandardTypes.BIGINT), parseTypeSignature(StandardTypes.VARCHAR)));
@@ -164,9 +167,9 @@ public class TestHashAggregationOperator
         List<Integer> hashChannels = Ints.asList(1);
         RowPagesBuilder rowPagesBuilder = rowPagesBuilder(hashEnabled, hashChannels, VARCHAR, VARCHAR, VARCHAR, BIGINT, BOOLEAN);
         List<Page> input = rowPagesBuilder
-                .addSequencePage(10, 100, 0, 100, 0, 500)
-                .addSequencePage(10, 100, 0, 200, 0, 500)
-                .addSequencePage(10, 100, 0, 300, 0, 500)
+                .addSequencePage(numberOfRows, 100, 0, 100_000, 0, 500)
+                .addSequencePage(numberOfRows, 100, 0, 200_000, 0, 500)
+                .addSequencePage(numberOfRows, 100, 0, 300_000, 0, 500)
                 .build();
 
         HashAggregationOperatorFactory operatorFactory = new HashAggregationOperatorFactory(
@@ -196,20 +199,16 @@ public class TestHashAggregationOperator
 
         DriverContext driverContext = createDriverContext(memoryLimitForMerge);
 
-        MaterializedResult expected = resultBuilder(driverContext.getSession(), VARCHAR, BIGINT, BIGINT, DOUBLE, VARCHAR, BIGINT, BIGINT)
-                .row("0", 3L, 0L, 0.0, "300", 3L, 3L)
-                .row("1", 3L, 3L, 1.0, "301", 3L, 3L)
-                .row("2", 3L, 6L, 2.0, "302", 3L, 3L)
-                .row("3", 3L, 9L, 3.0, "303", 3L, 3L)
-                .row("4", 3L, 12L, 4.0, "304", 3L, 3L)
-                .row("5", 3L, 15L, 5.0, "305", 3L, 3L)
-                .row("6", 3L, 18L, 6.0, "306", 3L, 3L)
-                .row("7", 3L, 21L, 7.0, "307", 3L, 3L)
-                .row("8", 3L, 24L, 8.0, "308", 3L, 3L)
-                .row("9", 3L, 27L, 9.0, "309", 3L, 3L)
-                .build();
+        MaterializedResult.Builder expectedBuilder = resultBuilder(driverContext.getSession(), VARCHAR, BIGINT, BIGINT, DOUBLE, VARCHAR, BIGINT, BIGINT);
+        for (int i = 0; i < numberOfRows; ++i) {
+            expectedBuilder.row(Integer.toString(i), 3L, 3L * i, (double) i, Integer.toString(300_000 + i), 3L, 3L);
+        }
+        MaterializedResult expected = expectedBuilder.build();
 
-        assertOperatorEqualsIgnoreOrder(operatorFactory, driverContext, input, expected, hashEnabled, Optional.of(hashChannels.size()));
+        List<Page> pages = toPages(operatorFactory, driverContext, input);
+        assertGreaterThan(pages.size(), 1, "Expected more than one output page");
+        assertPagesEqualIgnoreOrder(driverContext, pages, expected, hashEnabled, Optional.of(hashChannels.size()));
+
         assertTrue(spillEnabled == (spillerFactory.getSpillsCount() > 0), format("Spill state mismatch. Expected spill: %s, spill count: %s", spillEnabled, spillerFactory.getSpillsCount()));
     }
 
