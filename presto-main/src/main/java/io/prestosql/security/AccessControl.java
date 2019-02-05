@@ -240,7 +240,7 @@ public interface AccessControl
     /**
      * Check if identity is allowed to set role for specified catalog.
      *
-     * @throws java.security.AccessControlException if not allowed
+     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
     void checkCanSetRole(TransactionId requiredTransactionId, Identity identity, String role, String catalog);
 
