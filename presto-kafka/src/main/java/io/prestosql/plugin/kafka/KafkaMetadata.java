@@ -111,11 +111,11 @@ public class KafkaMetadata
     }
 
     @Override
-    public List<SchemaTableName> listTables(ConnectorSession session, String schemaNameOrNull)
+    public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
     {
         ImmutableList.Builder<SchemaTableName> builder = ImmutableList.builder();
         for (SchemaTableName tableName : tableDescriptions.keySet()) {
-            if (schemaNameOrNull == null || tableName.getSchemaName().equals(schemaNameOrNull)) {
+            if (schemaName.map(tableName.getSchemaName()::equals).orElse(true)) {
                 builder.add(tableName);
             }
         }

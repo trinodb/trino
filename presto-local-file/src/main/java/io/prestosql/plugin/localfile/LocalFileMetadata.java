@@ -79,7 +79,7 @@ public class LocalFileMetadata
     }
 
     @Override
-    public List<SchemaTableName> listTables(ConnectorSession session, String schemaNameOrNull)
+    public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
     {
         return localFileTables.getTables();
     }
@@ -145,7 +145,7 @@ public class LocalFileMetadata
     }
 
     @Override
-    public List<SchemaTableName> listViews(ConnectorSession session, String schemaNameOrNull)
+    public List<SchemaTableName> listViews(ConnectorSession session, Optional<String> schemaName)
     {
         return emptyList();
     }

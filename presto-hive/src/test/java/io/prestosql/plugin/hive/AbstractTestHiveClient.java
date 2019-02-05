@@ -909,7 +909,7 @@ public abstract class AbstractTestHiveClient
     {
         try (Transaction transaction = newTransaction()) {
             ConnectorMetadata metadata = transaction.getMetadata();
-            List<SchemaTableName> tables = metadata.listTables(newSession(), database);
+            List<SchemaTableName> tables = metadata.listTables(newSession(), Optional.of(database));
             assertTrue(tables.contains(tablePartitionFormat));
             assertTrue(tables.contains(tableUnpartitioned));
         }
@@ -955,9 +955,9 @@ public abstract class AbstractTestHiveClient
             ConnectorMetadata metadata = transaction.getMetadata();
             ConnectorSession session = newSession();
             assertNull(metadata.getTableHandle(session, new SchemaTableName(INVALID_DATABASE, INVALID_TABLE)));
-            assertEquals(metadata.listTables(session, INVALID_DATABASE), ImmutableList.of());
+            assertEquals(metadata.listTables(session, Optional.of(INVALID_DATABASE)), ImmutableList.of());
             assertEquals(metadata.listTableColumns(session, new SchemaTablePrefix(INVALID_DATABASE, INVALID_TABLE)), ImmutableMap.of());
-            assertEquals(metadata.listViews(session, INVALID_DATABASE), ImmutableList.of());
+            assertEquals(metadata.listViews(session, Optional.of(INVALID_DATABASE)), ImmutableList.of());
             assertEquals(metadata.getViews(session, new SchemaTablePrefix(INVALID_DATABASE, INVALID_TABLE)), ImmutableMap.of());
         }
     }
@@ -2922,7 +2922,7 @@ public abstract class AbstractTestHiveClient
         try (Transaction transaction = newTransaction()) {
             ConnectorMetadata metadata = transaction.getMetadata();
             assertEquals(metadata.getViews(newSession(), temporaryCreateView.toSchemaTablePrefix()).size(), 0);
-            assertFalse(metadata.listViews(newSession(), temporaryCreateView.getSchemaName()).contains(temporaryCreateView));
+            assertFalse(metadata.listViews(newSession(), Optional.of(temporaryCreateView.getSchemaName())).contains(temporaryCreateView));
         }
 
         // drop fails when view does not exist
@@ -2953,7 +2953,7 @@ public abstract class AbstractTestHiveClient
             assertEquals(views.size(), 1);
             assertEquals(views.get(viewName).getViewData(), viewData);
 
-            assertTrue(metadata.listViews(newSession(), viewName.getSchemaName()).contains(viewName));
+            assertTrue(metadata.listViews(newSession(), Optional.of(viewName.getSchemaName())).contains(viewName));
         }
     }
 

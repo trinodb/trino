@@ -19,6 +19,7 @@ import io.prestosql.spi.connector.SchemaTableName;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Optional;
 
 import static io.prestosql.plugin.jmx.JmxMetadata.HISTORY_SCHEMA_NAME;
 import static io.prestosql.plugin.jmx.JmxMetadata.JMX_SCHEMA_NAME;
@@ -48,8 +49,8 @@ public class TestJmxMetadata
     @Test
     public void testListTables()
     {
-        assertTrue(metadata.listTables(SESSION, JMX_SCHEMA_NAME).contains(RUNTIME_TABLE));
-        assertTrue(metadata.listTables(SESSION, HISTORY_SCHEMA_NAME).contains(RUNTIME_HISTORY_TABLE));
+        assertTrue(metadata.listTables(SESSION, Optional.of(JMX_SCHEMA_NAME)).contains(RUNTIME_TABLE));
+        assertTrue(metadata.listTables(SESSION, Optional.of(HISTORY_SCHEMA_NAME)).contains(RUNTIME_HISTORY_TABLE));
     }
 
     @Test

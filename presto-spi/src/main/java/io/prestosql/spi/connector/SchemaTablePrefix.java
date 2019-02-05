@@ -53,10 +53,16 @@ public class SchemaTablePrefix
 
     public boolean matches(SchemaTableName schemaTableName)
     {
-        return toOptionalSchemaTableName()
-                .map(schemaTableName::equals)
-                .orElse(schemaName.map(schemaTableName.getSchemaName()::equals)
-                        .orElse(true));
+        // empty prefix matches everything
+        if (isEmpty()) {
+            return true;
+        }
+
+        if (!schemaName.get().equals(schemaTableName.getSchemaName())) {
+            return false;
+        }
+
+        return !tableName.isPresent() || tableName.get().equals(schemaTableName.getTableName());
     }
 
     public boolean isEmpty()

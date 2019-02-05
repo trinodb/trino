@@ -101,10 +101,10 @@ public class BlackHoleMetadata
     }
 
     @Override
-    public List<SchemaTableName> listTables(ConnectorSession session, String schemaNameOrNull)
+    public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
     {
         return tables.values().stream()
-                .filter(table -> schemaNameOrNull == null || table.getSchemaName().equals(schemaNameOrNull))
+                .filter(table -> !schemaName.isPresent() || table.getSchemaName().equals(schemaName.get()))
                 .map(BlackHoleTableHandle::toSchemaTableName)
                 .collect(toList());
     }

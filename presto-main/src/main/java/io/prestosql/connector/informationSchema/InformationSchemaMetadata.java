@@ -178,14 +178,14 @@ public class InformationSchemaMetadata
     }
 
     @Override
-    public List<SchemaTableName> listTables(ConnectorSession session, String schemaNameOrNull)
+    public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
     {
-        if (schemaNameOrNull == null) {
+        if (!schemaName.isPresent()) {
             return ImmutableList.copyOf(TABLES.keySet());
         }
 
         return TABLES.keySet().stream()
-                .filter(compose(schemaNameOrNull::equals, SchemaTableName::getSchemaName))
+                .filter(compose(schemaName.get()::equals, SchemaTableName::getSchemaName))
                 .collect(toImmutableList());
     }
 

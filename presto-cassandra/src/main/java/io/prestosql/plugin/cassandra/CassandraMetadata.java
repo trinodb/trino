@@ -127,10 +127,11 @@ public class CassandraMetadata
     }
 
     @Override
-    public List<SchemaTableName> listTables(ConnectorSession session, String schemaNameOrNull)
+    public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName1)
     {
         ImmutableList.Builder<SchemaTableName> tableNames = ImmutableList.builder();
-        for (String schemaName : listSchemas(session, schemaNameOrNull)) {
+        List<String> schemaNames = listSchemas(session, schemaName1);
+        for (String schemaName : schemaNames) {
             try {
                 for (String tableName : cassandraSession.getCaseSensitiveTableNames(schemaName)) {
                     tableNames.add(new SchemaTableName(schemaName, tableName.toLowerCase(ENGLISH)));
@@ -143,12 +144,10 @@ public class CassandraMetadata
         return tableNames.build();
     }
 
-    private List<String> listSchemas(ConnectorSession session, String schemaNameOrNull)
+    private List<String> listSchemas(ConnectorSession session, Optional<String> schemaName)
     {
-        if (schemaNameOrNull == null) {
-            return listSchemaNames(session);
-        }
-        return ImmutableList.of(schemaNameOrNull);
+        return schemaName.map(ImmutableList::of)
+                .orElseGet(() -> (ImmutableList<String>) listSchemaNames(session));
     }
 
     @Override

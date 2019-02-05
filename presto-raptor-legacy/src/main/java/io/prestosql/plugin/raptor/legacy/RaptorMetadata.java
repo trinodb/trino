@@ -60,8 +60,6 @@ import io.prestosql.spi.statistics.ComputedStatistics;
 import io.prestosql.spi.type.Type;
 import org.skife.jdbi.v2.IDBI;
 
-import javax.annotation.Nullable;
-
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -249,9 +247,9 @@ public class RaptorMetadata
     }
 
     @Override
-    public List<SchemaTableName> listTables(ConnectorSession session, @Nullable String schemaNameOrNull)
+    public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
     {
-        return dao.listTables(schemaNameOrNull);
+        return dao.listTables(schemaName.orElse(null));
     }
 
     @Override
@@ -864,9 +862,9 @@ public class RaptorMetadata
     }
 
     @Override
-    public List<SchemaTableName> listViews(ConnectorSession session, String schemaNameOrNull)
+    public List<SchemaTableName> listViews(ConnectorSession session, Optional<String> schemaName)
     {
-        return dao.listViews(schemaNameOrNull);
+        return dao.listViews(schemaName.orElse(null));
     }
 
     @Override

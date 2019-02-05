@@ -166,9 +166,9 @@ public class MockConnectorFactory
             }
 
             @Override
-            public List<SchemaTableName> listTables(ConnectorSession session, String schemaNameOrNull)
+            public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
             {
-                return listTables.apply(session, schemaNameOrNull);
+                return listTables.apply(session, schemaName.orElse(null));
             }
 
             @Override

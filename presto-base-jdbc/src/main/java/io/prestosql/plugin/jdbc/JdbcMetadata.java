@@ -107,9 +107,9 @@ public class JdbcMetadata
     }
 
     @Override
-    public List<SchemaTableName> listTables(ConnectorSession session, String schemaNameOrNull)
+    public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
     {
-        return jdbcClient.getTableNames(schemaNameOrNull);
+        return jdbcClient.getTableNames(schemaName.orElse(null));
     }
 
     @Override
