@@ -23,6 +23,12 @@ public interface RecordCursor
 {
     long getCompletedBytes();
 
+    /**
+     * Gets the wall time spent reading data.
+     * If read time is not available, this method should return zero.
+     *
+     * @see ConnectorPageSource#getReadTimeNanos()
+     */
     long getReadTimeNanos();
 
     Type getType(int field);
