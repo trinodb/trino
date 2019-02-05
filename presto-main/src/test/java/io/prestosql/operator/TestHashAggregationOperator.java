@@ -131,11 +131,15 @@ public class TestHashAggregationOperator
     public static Object[][] hashEnabledAndMemoryLimitForMergeValuesProvider()
     {
         return new Object[][] {
-                {true, true, 8, Integer.MAX_VALUE},
-                {false, false, 0, 0},
-                {false, true, 0, 0},
-                {false, true, 8, 0},
-                {false, true, 8, Integer.MAX_VALUE}};
+                {true, true, true, 8, Integer.MAX_VALUE},
+                {true, true, false, 8, Integer.MAX_VALUE},
+                {false, false, false, 0, 0},
+                {false, true, true, 0, 0},
+                {false, true, false, 0, 0},
+                {false, true, true, 8, 0},
+                {false, true, false, 8, 0},
+                {false, true, true, 8, Integer.MAX_VALUE},
+                {false, true, false, 8, Integer.MAX_VALUE}};
     }
 
     @DataProvider
@@ -153,7 +157,7 @@ public class TestHashAggregationOperator
     }
 
     @Test(dataProvider = "hashEnabledAndMemoryLimitForMergeValues")
-    public void testHashAggregation(boolean hashEnabled, boolean spillEnabled, long memoryLimitForMerge, long memoryLimitForMergeWithMemory)
+    public void testHashAggregation(boolean hashEnabled, boolean spillEnabled, boolean revokeMemoryWhenAddingPages, long memoryLimitForMerge, long memoryLimitForMergeWithMemory)
     {
         // make operator produce multiple pages during finish phase
         int numberOfRows = 40_000;
@@ -205,7 +209,7 @@ public class TestHashAggregationOperator
         }
         MaterializedResult expected = expectedBuilder.build();
 
-        List<Page> pages = toPages(operatorFactory, driverContext, input);
+        List<Page> pages = toPages(operatorFactory, driverContext, input, revokeMemoryWhenAddingPages);
         assertGreaterThan(pages.size(), 1, "Expected more than one output page");
         assertPagesEqualIgnoreOrder(driverContext, pages, expected, hashEnabled, Optional.of(hashChannels.size()));
 
@@ -213,7 +217,7 @@ public class TestHashAggregationOperator
     }
 
     @Test(dataProvider = "hashEnabledAndMemoryLimitForMergeValues")
-    public void testHashAggregationWithGlobals(boolean hashEnabled, boolean spillEnabled, long memoryLimitForMerge, long memoryLimitForMergeWithMemory)
+    public void testHashAggregationWithGlobals(boolean hashEnabled, boolean spillEnabled, boolean revokeMemoryWhenAddingPages, long memoryLimitForMerge, long memoryLimitForMergeWithMemory)
     {
         MetadataManager metadata = MetadataManager.createTestMetadataManager();
         InternalAggregationFunction countVarcharColumn = metadata.getFunctionRegistry().getAggregateFunctionImplementation(
@@ -260,11 +264,11 @@ public class TestHashAggregationOperator
                 .row(null, 49L, 0L, null, null, null, 0L, 0L)
                 .build();
 
-        assertOperatorEqualsIgnoreOrder(operatorFactory, driverContext, input, expected, hashEnabled, Optional.of(groupByChannels.size()));
+        assertOperatorEqualsIgnoreOrder(operatorFactory, driverContext, input, expected, hashEnabled, Optional.of(groupByChannels.size()), revokeMemoryWhenAddingPages);
     }
 
     @Test(dataProvider = "hashEnabledAndMemoryLimitForMergeValues")
-    public void testHashAggregationMemoryReservation(boolean hashEnabled, boolean spillEnabled, long memoryLimitForMerge, long memoryLimitForMergeWithMemory)
+    public void testHashAggregationMemoryReservation(boolean hashEnabled, boolean spillEnabled, boolean revokeMemoryWhenAddingPages, long memoryLimitForMerge, long memoryLimitForMergeWithMemory)
     {
         MetadataManager metadata = MetadataManager.createTestMetadataManager();
         InternalAggregationFunction arrayAggColumn = metadata.getFunctionRegistry().getAggregateFunctionImplementation(
@@ -303,7 +307,7 @@ public class TestHashAggregationOperator
                 false);
 
         Operator operator = operatorFactory.createOperator(driverContext);
-        toPages(operator, input.iterator());
+        toPages(operator, input.iterator(), revokeMemoryWhenAddingPages);
         assertEquals(operator.getOperatorContext().getOperatorStats().getUserMemoryReservation().toBytes(), 0);
     }
 
@@ -348,7 +352,7 @@ public class TestHashAggregationOperator
     }
 
     @Test(dataProvider = "hashEnabledAndMemoryLimitForMergeValues")
-    public void testHashBuilderResize(boolean hashEnabled, boolean spillEnabled, long memoryLimitForMerge, long memoryLimitForMergeWithMemory)
+    public void testHashBuilderResize(boolean hashEnabled, boolean spillEnabled, boolean revokeMemoryWhenAddingPages, long memoryLimitForMerge, long memoryLimitForMergeWithMemory)
     {
         BlockBuilder builder = VARCHAR.createBlockBuilder(null, 1, MAX_BLOCK_SIZE_IN_BYTES);
         VARCHAR.writeSlice(builder, Slices.allocate(200_000)); // this must be larger than MAX_BLOCK_SIZE_IN_BYTES, 64K
@@ -384,7 +388,7 @@ public class TestHashAggregationOperator
                 joinCompiler,
                 false);
 
-        toPages(operatorFactory, driverContext, input);
+        toPages(operatorFactory, driverContext, input, revokeMemoryWhenAddingPages);
     }
 
     @Test(dataProvider = "dataType")
