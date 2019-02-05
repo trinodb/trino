@@ -86,11 +86,11 @@ public class KuduMetadata
         requireNonNull(prefix, "SchemaTablePrefix is null");
 
         List<SchemaTableName> tables;
-        if (prefix.getTableName() == null) {
-            tables = listTables(session, prefix.getSchemaName());
+        if (!prefix.getTable().isPresent()) {
+            tables = listTables(session, prefix.getSchema());
         }
         else {
-            tables = ImmutableList.of(new SchemaTableName(prefix.getSchemaName(), prefix.getTableName()));
+            tables = ImmutableList.of(prefix.toSchemaTableName());
         }
 
         ImmutableMap.Builder<SchemaTableName, List<ColumnMetadata>> columns = ImmutableMap.builder();

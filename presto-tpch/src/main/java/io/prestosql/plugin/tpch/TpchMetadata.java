@@ -308,7 +308,7 @@ public class TpchMetadata
         ImmutableMap.Builder<SchemaTableName, List<ColumnMetadata>> tableColumns = ImmutableMap.builder();
         for (String schemaName : getSchemaNames(session, prefix.getSchema())) {
             for (TpchTable<?> tpchTable : TpchTable.getTables()) {
-                if (prefix.getTableName() == null || tpchTable.getTableName().equals(prefix.getTableName())) {
+                if (prefix.getTable().map(tpchTable.getTableName()::equals).orElse(true)) {
                     ConnectorTableMetadata tableMetadata = getTableMetadata(schemaName, tpchTable, columnNaming);
                     tableColumns.put(new SchemaTableName(schemaName, tpchTable.getTableName()), tableMetadata.getColumns());
                 }
