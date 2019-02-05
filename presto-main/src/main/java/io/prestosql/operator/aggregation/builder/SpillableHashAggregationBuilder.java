@@ -154,9 +154,7 @@ public class SpillableHashAggregationBuilder
     @Override
     public ListenableFuture<?> startMemoryRevoke()
     {
-        checkState(spillInProgress.isDone());
-        spillToDisk();
-        return spillInProgress;
+        return spillToDisk();
     }
 
     @Override
