@@ -47,6 +47,7 @@ public class PartitionsAwareAccessControl
         return delegate;
     }
 
+    @Override
     public void checkCanCreateSchema(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, String schemaName)
     {
         delegate.checkCanCreateSchema(transactionHandle, identity, schemaName);
