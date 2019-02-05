@@ -139,7 +139,7 @@ public class SystemTablesMetadata
     {
         requireNonNull(prefix, "prefix is null");
 
-        if (prefix.getTableName() != null) {
+        if (prefix.getTable().isPresent()) {
             // if table is concrete we just use tables.getSystemTable to support tables which are not listable
             SchemaTableName tableName = prefix.toSchemaTableName();
             return tables.getSystemTable(session, tableName)

@@ -397,7 +397,7 @@ public class AccumuloMetadata
     private List<SchemaTableName> listTables(ConnectorSession session, SchemaTablePrefix prefix)
     {
         // List all tables if schema or table is null
-        if (prefix.getSchemaName() == null || prefix.getTableName() == null) {
+        if (prefix.isEmpty()) {
             return listTables(session, prefix.getSchema());
         }
 

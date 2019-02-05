@@ -292,7 +292,7 @@ public class RaptorMetadata
         requireNonNull(prefix, "prefix is null");
 
         ImmutableListMultimap.Builder<SchemaTableName, ColumnMetadata> columns = ImmutableListMultimap.builder();
-        for (TableColumn tableColumn : dao.listTableColumns(prefix.getSchemaName(), prefix.getTableName())) {
+        for (TableColumn tableColumn : dao.listTableColumns(prefix.getSchema().orElse(null), prefix.getTable().orElse(null))) {
             ColumnMetadata columnMetadata = new ColumnMetadata(tableColumn.getColumnName(), tableColumn.getDataType());
             columns.put(tableColumn.getTable(), columnMetadata);
         }
@@ -873,7 +873,7 @@ public class RaptorMetadata
     public Map<SchemaTableName, ConnectorViewDefinition> getViews(ConnectorSession session, SchemaTablePrefix prefix)
     {
         ImmutableMap.Builder<SchemaTableName, ConnectorViewDefinition> map = ImmutableMap.builder();
-        for (ViewResult view : dao.getViews(prefix.getSchemaName(), prefix.getTableName())) {
+        for (ViewResult view : dao.getViews(prefix.getSchema().orElse(null), prefix.getTable().orElse(null))) {
             map.put(view.getName(), new ConnectorViewDefinition(view.getName(), Optional.empty(), view.getData()));
         }
         return map.build();
