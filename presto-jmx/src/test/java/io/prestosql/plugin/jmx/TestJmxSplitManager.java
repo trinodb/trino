@@ -41,6 +41,7 @@ import org.testng.annotations.Test;
 import java.net.URI;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -138,7 +139,7 @@ public class TestJmxSplitManager
     public void testRecordSetProvider()
             throws Exception
     {
-        for (SchemaTableName schemaTableName : metadata.listTables(SESSION, JMX_SCHEMA_NAME)) {
+        for (SchemaTableName schemaTableName : metadata.listTables(SESSION, Optional.of(JMX_SCHEMA_NAME))) {
             RecordSet recordSet = getRecordSet(schemaTableName);
             try (RecordCursor cursor = recordSet.cursor()) {
                 while (cursor.advanceNextPosition()) {
@@ -154,7 +155,7 @@ public class TestJmxSplitManager
     public void testHistoryRecordSetProvider()
             throws Exception
     {
-        for (SchemaTableName schemaTableName : metadata.listTables(SESSION, HISTORY_SCHEMA_NAME)) {
+        for (SchemaTableName schemaTableName : metadata.listTables(SESSION, Optional.of(HISTORY_SCHEMA_NAME))) {
             // wait for at least two samples
             List<Long> timeStamps = ImmutableList.of();
             for (int waited = 0; waited < TIMEOUT_TIME; waited += SLEEP_TIME) {

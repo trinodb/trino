@@ -163,7 +163,7 @@ public class TestMemoryMetadata
         assertEquals(metadata.listSchemaNames(SESSION), ImmutableList.of("default"));
         metadata.createSchema(SESSION, "test", ImmutableMap.of());
         assertEquals(metadata.listSchemaNames(SESSION), ImmutableList.of("default", "test"));
-        assertEquals(metadata.listTables(SESSION, "test"), ImmutableList.of());
+        assertEquals(metadata.listTables(SESSION, Optional.of("test")), ImmutableList.of());
 
         SchemaTableName tableName = new SchemaTableName("test", "first_table");
         metadata.createTable(
@@ -219,7 +219,7 @@ public class TestMemoryMetadata
         metadata.createView(SESSION, test2, "test2", false);
 
         // verify listing
-        List<SchemaTableName> list = metadata.listViews(SESSION, "test");
+        List<SchemaTableName> list = metadata.listViews(SESSION, Optional.of("test"));
         assertEqualsIgnoreOrder(list, ImmutableList.of(test1, test2));
 
         // verify getting data
@@ -322,14 +322,14 @@ public class TestMemoryMetadata
         // rename table to same schema
         SchemaTableName sameSchemaTableName = new SchemaTableName("test_schema", "test_renamed");
         metadata.renameTable(SESSION, metadata.getTableHandle(SESSION, tableName), sameSchemaTableName);
-        assertEquals(metadata.listTables(SESSION, "test_schema"), ImmutableList.of(sameSchemaTableName));
+        assertEquals(metadata.listTables(SESSION, Optional.of("test_schema")), ImmutableList.of(sameSchemaTableName));
 
         // rename table to different schema
         metadata.createSchema(SESSION, "test_different_schema", ImmutableMap.of());
         SchemaTableName differentSchemaTableName = new SchemaTableName("test_different_schema", "test_renamed");
         metadata.renameTable(SESSION, metadata.getTableHandle(SESSION, sameSchemaTableName), differentSchemaTableName);
-        assertEquals(metadata.listTables(SESSION, "test_schema"), ImmutableList.of());
-        assertEquals(metadata.listTables(SESSION, "test_different_schema"), ImmutableList.of(differentSchemaTableName));
+        assertEquals(metadata.listTables(SESSION, Optional.of("test_schema")), ImmutableList.of());
+        assertEquals(metadata.listTables(SESSION, Optional.of("test_different_schema")), ImmutableList.of(differentSchemaTableName));
     }
 
     private void assertNoTables()

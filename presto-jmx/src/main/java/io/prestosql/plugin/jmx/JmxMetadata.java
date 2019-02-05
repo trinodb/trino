@@ -179,15 +179,10 @@ public class JmxMetadata
     }
 
     @Override
-    public List<SchemaTableName> listTables(ConnectorSession session, String schemaNameOrNull)
+    public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
     {
-        Set<String> schemaNames;
-        if (schemaNameOrNull != null) {
-            schemaNames = ImmutableSet.of(schemaNameOrNull);
-        }
-        else {
-            schemaNames = ImmutableSet.copyOf(listSchemaNames(session));
-        }
+        Set<String> schemaNames = schemaName.map(ImmutableSet::of)
+                .orElseGet(() -> ImmutableSet.copyOf(listSchemaNames(session)));
         ImmutableList.Builder<SchemaTableName> schemaTableNames = ImmutableList.builder();
         for (String schema : schemaNames) {
             if (JMX_SCHEMA_NAME.equals(schema)) {

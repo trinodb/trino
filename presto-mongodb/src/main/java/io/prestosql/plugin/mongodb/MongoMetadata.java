@@ -95,11 +95,12 @@ public class MongoMetadata
     }
 
     @Override
-    public List<SchemaTableName> listTables(ConnectorSession session, String schemaNameOrNull)
+    public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> optionalSchemaName)
     {
+        List<String> schemaNames = optionalSchemaName.map(ImmutableList::of)
+                .orElseGet(() -> (ImmutableList<String>) listSchemaNames(session));
         ImmutableList.Builder<SchemaTableName> tableNames = ImmutableList.builder();
-
-        for (String schemaName : listSchemas(session, schemaNameOrNull)) {
+        for (String schemaName : schemaNames) {
             for (String tableName : mongoSession.getAllTables(schemaName)) {
                 tableNames.add(new SchemaTableName(schemaName, tableName.toLowerCase(ENGLISH)));
             }
@@ -284,14 +285,6 @@ public class MongoMetadata
                         .collect(toList()));
 
         return new ConnectorTableMetadata(tableName, columns);
-    }
-
-    private List<String> listSchemas(ConnectorSession session, String schemaNameOrNull)
-    {
-        if (schemaNameOrNull == null) {
-            return listSchemaNames(session);
-        }
-        return ImmutableList.of(schemaNameOrNull);
     }
 
     private static List<MongoColumnHandle> buildColumnHandles(ConnectorTableMetadata tableMetadata)

@@ -105,15 +105,10 @@ public class ExampleMetadata
     }
 
     @Override
-    public List<SchemaTableName> listTables(ConnectorSession session, String schemaNameOrNull)
+    public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> optionalSchemaName)
     {
-        Set<String> schemaNames;
-        if (schemaNameOrNull != null) {
-            schemaNames = ImmutableSet.of(schemaNameOrNull);
-        }
-        else {
-            schemaNames = exampleClient.getSchemaNames();
-        }
+        Set<String> schemaNames = optionalSchemaName.map(ImmutableSet::of)
+                .orElseGet(() -> ImmutableSet.copyOf(exampleClient.getSchemaNames()));
 
         ImmutableList.Builder<SchemaTableName> builder = ImmutableList.builder();
         for (String schemaName : schemaNames) {

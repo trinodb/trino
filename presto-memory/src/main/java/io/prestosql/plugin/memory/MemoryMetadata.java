@@ -141,10 +141,10 @@ public class MemoryMetadata
     }
 
     @Override
-    public synchronized List<SchemaTableName> listTables(ConnectorSession session, String schemaNameOrNull)
+    public synchronized List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
     {
         return tables.values().stream()
-                .filter(table -> schemaNameOrNull == null || table.getSchemaName().equals(schemaNameOrNull))
+                .filter(table -> schemaName.map(table.getSchemaName()::equals).orElse(true))
                 .map(MemoryTableHandle::toSchemaTableName)
                 .collect(toList());
     }
@@ -299,10 +299,10 @@ public class MemoryMetadata
     }
 
     @Override
-    public synchronized List<SchemaTableName> listViews(ConnectorSession session, String schemaNameOrNull)
+    public synchronized List<SchemaTableName> listViews(ConnectorSession session, Optional<String> schemaName)
     {
         return views.keySet().stream()
-                .filter(viewName -> (schemaNameOrNull == null) || schemaNameOrNull.equals(viewName.getSchemaName()))
+                .filter(viewName -> schemaName.map(viewName.getSchemaName()::equals).orElse(true))
                 .collect(toImmutableList());
     }
 

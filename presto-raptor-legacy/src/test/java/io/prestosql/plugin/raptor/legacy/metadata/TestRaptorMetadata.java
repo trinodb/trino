@@ -593,7 +593,7 @@ public class TestRaptorMetadata
         metadata.createView(SESSION, test2, "test2", false);
 
         // verify listing
-        List<SchemaTableName> list = metadata.listViews(SESSION, "test");
+        List<SchemaTableName> list = metadata.listViews(SESSION, Optional.of("test"));
         assertEqualsIgnoreOrder(list, ImmutableList.of(test1, test2));
 
         // verify getting data

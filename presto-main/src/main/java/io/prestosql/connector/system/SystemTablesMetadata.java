@@ -98,12 +98,12 @@ public class SystemTablesMetadata
     }
 
     @Override
-    public List<SchemaTableName> listTables(ConnectorSession session, String schemaNameOrNull)
+    public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
     {
         return tables.listSystemTables(session).stream()
                 .map(SystemTable::getTableMetadata)
                 .map(ConnectorTableMetadata::getTable)
-                .filter(table -> schemaNameOrNull == null || table.getSchemaName().equals(schemaNameOrNull))
+                .filter(table -> !schemaName.isPresent() || table.getSchemaName().equals(schemaName.get()))
                 .collect(toImmutableList());
     }
 

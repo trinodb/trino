@@ -134,21 +134,10 @@ public interface ConnectorMetadata
 
     /**
      * List table names, possibly filtered by schema. An empty list is returned if none match.
-     *
-     * @deprecated replaced by {@link ConnectorMetadata#listTables(ConnectorSession, Optional)}
-     */
-    @Deprecated
-    default List<SchemaTableName> listTables(ConnectorSession session, String schemaNameOrNull)
-    {
-        return emptyList();
-    }
-
-    /**
-     * List table names, possibly filtered by schema. An empty list is returned if none match.
      */
     default List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
     {
-        return listTables(session, schemaName.orElse(null));
+        return emptyList();
     }
 
     /**
@@ -413,20 +402,9 @@ public interface ConnectorMetadata
         throw new PrestoException(NOT_SUPPORTED, "This connector does not support dropping views");
     }
 
-    /**
-     * List view names, possibly filtered by schema. An empty list is returned if none match.
-     *
-     * @deprecated replaced by {@link ConnectorMetadata#listViews(ConnectorSession, Optional)}
-     */
-    @Deprecated
-    default List<SchemaTableName> listViews(ConnectorSession session, String schemaNameOrNull)
-    {
-        return emptyList();
-    }
-
     default List<SchemaTableName> listViews(ConnectorSession session, Optional<String> schemaName)
     {
-        return listViews(session, schemaName.orElse(null));
+        return emptyList();
     }
 
     /**

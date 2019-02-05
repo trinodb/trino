@@ -504,10 +504,10 @@ public class HiveMetadata
     }
 
     @Override
-    public List<SchemaTableName> listTables(ConnectorSession session, String schemaNameOrNull)
+    public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> optionalSchemaName)
     {
         ImmutableList.Builder<SchemaTableName> tableNames = ImmutableList.builder();
-        for (String schemaName : listSchemas(session, schemaNameOrNull)) {
+        for (String schemaName : listSchemas(session, optionalSchemaName)) {
             for (String tableName : metastore.getAllTables(schemaName).orElse(emptyList())) {
                 tableNames.add(new SchemaTableName(schemaName, tableName));
             }
@@ -515,12 +515,12 @@ public class HiveMetadata
         return tableNames.build();
     }
 
-    private List<String> listSchemas(ConnectorSession session, String schemaNameOrNull)
+    private List<String> listSchemas(ConnectorSession session, Optional<String> schemaName)
     {
-        if (schemaNameOrNull == null) {
-            return listSchemaNames(session);
+        if (schemaName.isPresent()) {
+            return ImmutableList.of(schemaName.get());
         }
-        return ImmutableList.of(schemaNameOrNull);
+        return listSchemaNames(session);
     }
 
     @Override
@@ -643,8 +643,8 @@ public class HiveMetadata
     public void dropSchema(ConnectorSession session, String schemaName)
     {
         // basic sanity check to provide a better error message
-        if (!listTables(session, schemaName).isEmpty() ||
-                !listViews(session, schemaName).isEmpty()) {
+        if (!listTables(session, Optional.of(schemaName)).isEmpty() ||
+                !listViews(session, Optional.of(schemaName)).isEmpty()) {
             throw new PrestoException(SCHEMA_NOT_EMPTY, "Schema not empty: " + schemaName);
         }
         metastore.dropDatabase(schemaName);
@@ -1513,10 +1513,10 @@ public class HiveMetadata
     }
 
     @Override
-    public List<SchemaTableName> listViews(ConnectorSession session, String schemaNameOrNull)
+    public List<SchemaTableName> listViews(ConnectorSession session, Optional<String> optionalSchemaName)
     {
         ImmutableList.Builder<SchemaTableName> tableNames = ImmutableList.builder();
-        for (String schemaName : listSchemas(session, schemaNameOrNull)) {
+        for (String schemaName : listSchemas(session, optionalSchemaName)) {
             for (String tableName : metastore.getAllViews(schemaName).orElse(emptyList())) {
                 tableNames.add(new SchemaTableName(schemaName, tableName));
             }

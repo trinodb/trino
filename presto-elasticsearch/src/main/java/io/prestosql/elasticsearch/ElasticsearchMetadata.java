@@ -156,9 +156,8 @@ public class ElasticsearchMetadata
 
     private List<SchemaTableName> listTables(ConnectorSession session, SchemaTablePrefix prefix)
     {
-        if (prefix.getSchemaName() == null) {
-            return listTables(session, Optional.empty());
-        }
-        return ImmutableList.of(new SchemaTableName(prefix.getSchemaName(), prefix.getTableName()));
+        return prefix.toOptionalSchemaTableName()
+                .map(schemaTableName -> (List<SchemaTableName>) ImmutableList.of(schemaTableName))
+                .orElseGet(() -> listTables(session, prefix.getSchema()));
     }
 }
