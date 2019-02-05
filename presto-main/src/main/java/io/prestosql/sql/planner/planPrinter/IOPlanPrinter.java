@@ -30,6 +30,7 @@ import io.prestosql.spi.predicate.Marker;
 import io.prestosql.spi.predicate.Marker.Bound;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.type.BigintType;
+import io.prestosql.spi.type.BooleanType;
 import io.prestosql.spi.type.IntegerType;
 import io.prestosql.spi.type.SmallintType;
 import io.prestosql.spi.type.TinyintType;
@@ -568,6 +569,9 @@ public class IOPlanPrinter
             }
             if (type instanceof TinyintType || type instanceof SmallintType || type instanceof IntegerType || type instanceof BigintType) {
                 return ((Long) value).toString();
+            }
+            if (type instanceof BooleanType) {
+                return ((Boolean) value).toString();
             }
             throw new PrestoException(NOT_SUPPORTED, format("Unsupported data type in EXPLAIN (TYPE IO): %s", type.getDisplayName()));
         }
