@@ -20,12 +20,12 @@ import io.prestosql.connector.ConnectorId;
 import io.prestosql.metadata.SessionPropertyManager;
 import io.prestosql.plugin.tpch.TpchConnectorFactory;
 import io.prestosql.spi.connector.CatalogSchemaTableName;
-import io.prestosql.sql.planner.planPrinter.IOPlanPrinter.ColumnConstraint;
-import io.prestosql.sql.planner.planPrinter.IOPlanPrinter.FormattedDomain;
-import io.prestosql.sql.planner.planPrinter.IOPlanPrinter.FormattedMarker;
-import io.prestosql.sql.planner.planPrinter.IOPlanPrinter.FormattedRange;
-import io.prestosql.sql.planner.planPrinter.IOPlanPrinter.IOPlan;
-import io.prestosql.sql.planner.planPrinter.IOPlanPrinter.IOPlan.TableColumnInfo;
+import io.prestosql.sql.planner.planPrinter.IoPlanPrinter.ColumnConstraint;
+import io.prestosql.sql.planner.planPrinter.IoPlanPrinter.FormattedDomain;
+import io.prestosql.sql.planner.planPrinter.IoPlanPrinter.FormattedMarker;
+import io.prestosql.sql.planner.planPrinter.IoPlanPrinter.FormattedRange;
+import io.prestosql.sql.planner.planPrinter.IoPlanPrinter.IoPlan;
+import io.prestosql.sql.planner.planPrinter.IoPlanPrinter.IoPlan.TableColumnInfo;
 import io.prestosql.testing.LocalQueryRunner;
 import io.prestosql.testing.MaterializedResult;
 import org.testng.annotations.Test;
@@ -139,7 +139,7 @@ public class TestLocalQueries
                                                         new FormattedMarker(Optional.of("P"), EXACTLY),
                                                         new FormattedMarker(Optional.of("P"), EXACTLY)))))));
         assertEquals(
-                jsonCodec(IOPlan.class).fromJson((String) getOnlyElement(result.getOnlyColumnAsSet())),
-                new IOPlan(ImmutableSet.of(input), Optional.empty()));
+                jsonCodec(IoPlan.class).fromJson((String) getOnlyElement(result.getOnlyColumnAsSet())),
+                new IoPlan(ImmutableSet.of(input), Optional.empty()));
     }
 }

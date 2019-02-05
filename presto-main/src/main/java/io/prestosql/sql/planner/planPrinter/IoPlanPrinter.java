@@ -47,7 +47,7 @@ import io.prestosql.sql.planner.plan.TableWriterNode.DeleteHandle;
 import io.prestosql.sql.planner.plan.TableWriterNode.InsertHandle;
 import io.prestosql.sql.planner.plan.TableWriterNode.InsertReference;
 import io.prestosql.sql.planner.plan.TableWriterNode.WriterTarget;
-import io.prestosql.sql.planner.planPrinter.IOPlanPrinter.IOPlan.IOPlanBuilder;
+import io.prestosql.sql.planner.planPrinter.IoPlanPrinter.IoPlan.IoPlanBuilder;
 
 import java.util.HashSet;
 import java.util.Map;
@@ -64,36 +64,36 @@ import static io.prestosql.spi.predicate.Marker.Bound.EXACTLY;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
-public class IOPlanPrinter
+public class IoPlanPrinter
 {
     private final Metadata metadata;
     private final Session session;
 
-    private IOPlanPrinter(Metadata metadata, Session session)
+    private IoPlanPrinter(Metadata metadata, Session session)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.session = requireNonNull(session, "session is null");
     }
 
-    public static String textIOPlan(PlanNode plan, Metadata metadata, Session session)
+    public static String textIoPlan(PlanNode plan, Metadata metadata, Session session)
     {
-        return new IOPlanPrinter(metadata, session).print(plan);
+        return new IoPlanPrinter(metadata, session).print(plan);
     }
 
     private String print(PlanNode plan)
     {
-        IOPlanBuilder ioPlanBuilder = new IOPlanBuilder();
-        plan.accept(new IOPlanVisitor(), ioPlanBuilder);
-        return jsonCodec(IOPlan.class).toJson(ioPlanBuilder.build());
+        IoPlanBuilder ioPlanBuilder = new IoPlanBuilder();
+        plan.accept(new IoPlanVisitor(), ioPlanBuilder);
+        return jsonCodec(IoPlan.class).toJson(ioPlanBuilder.build());
     }
 
-    public static class IOPlan
+    public static class IoPlan
     {
         private final Set<TableColumnInfo> inputTableColumnInfos;
         private final Optional<CatalogSchemaTableName> outputTable;
 
         @JsonCreator
-        public IOPlan(
+        public IoPlan(
                 @JsonProperty("inputTableColumnInfos") Set<TableColumnInfo> inputTableColumnInfos,
                 @JsonProperty("outputTable") Optional<CatalogSchemaTableName> outputTable)
         {
@@ -122,7 +122,7 @@ public class IOPlanPrinter
             if (obj == null || getClass() != obj.getClass()) {
                 return false;
             }
-            IOPlan o = (IOPlan) obj;
+            IoPlan o = (IoPlan) obj;
             return Objects.equals(inputTableColumnInfos, o.inputTableColumnInfos) &&
                     Objects.equals(outputTable, o.outputTable);
         }
@@ -142,12 +142,12 @@ public class IOPlanPrinter
                     .toString();
         }
 
-        protected static class IOPlanBuilder
+        protected static class IoPlanBuilder
         {
             private Set<TableColumnInfo> inputTableColumnInfos;
             private Optional<CatalogSchemaTableName> outputTable;
 
-            private IOPlanBuilder()
+            private IoPlanBuilder()
             {
                 this.inputTableColumnInfos = new HashSet<>();
                 this.outputTable = Optional.empty();
@@ -163,9 +163,9 @@ public class IOPlanPrinter
                 this.outputTable = Optional.of(outputTable);
             }
 
-            private IOPlan build()
+            private IoPlan build()
             {
-                return new IOPlan(inputTableColumnInfos, outputTable);
+                return new IoPlan(inputTableColumnInfos, outputTable);
             }
         }
 
@@ -461,20 +461,20 @@ public class IOPlanPrinter
         }
     }
 
-    private class IOPlanVisitor
-            extends PlanVisitor<Void, IOPlanBuilder>
+    private class IoPlanVisitor
+            extends PlanVisitor<Void, IoPlanBuilder>
     {
         @Override
-        protected Void visitPlan(PlanNode node, IOPlanBuilder context)
+        protected Void visitPlan(PlanNode node, IoPlanBuilder context)
         {
             return processChildren(node, context);
         }
 
         @Override
-        public Void visitTableScan(TableScanNode node, IOPlanBuilder context)
+        public Void visitTableScan(TableScanNode node, IoPlanBuilder context)
         {
             TableMetadata tableMetadata = metadata.getTableMetadata(session, node.getTable());
-            context.addInputTableColumnInfo(new IOPlan.TableColumnInfo(
+            context.addInputTableColumnInfo(new IoPlan.TableColumnInfo(
                     new CatalogSchemaTableName(
                             tableMetadata.getConnectorId().getCatalogName(),
                             tableMetadata.getTable().getSchemaName(),
@@ -484,7 +484,7 @@ public class IOPlanPrinter
         }
 
         @Override
-        public Void visitTableFinish(TableFinishNode node, IOPlanBuilder context)
+        public Void visitTableFinish(TableFinishNode node, IoPlanBuilder context)
         {
             WriterTarget writerTarget = node.getTarget();
             if (writerTarget instanceof CreateHandle) {
@@ -576,7 +576,7 @@ public class IOPlanPrinter
             throw new PrestoException(NOT_SUPPORTED, format("Unsupported data type in EXPLAIN (TYPE IO): %s", type.getDisplayName()));
         }
 
-        private Void processChildren(PlanNode node, IOPlanBuilder context)
+        private Void processChildren(PlanNode node, IoPlanBuilder context)
         {
             for (PlanNode child : node.getSources()) {
                 child.accept(this, context);

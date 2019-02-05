@@ -38,12 +38,12 @@ import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.sql.planner.Plan;
 import io.prestosql.sql.planner.plan.ExchangeNode;
-import io.prestosql.sql.planner.planPrinter.IOPlanPrinter.ColumnConstraint;
-import io.prestosql.sql.planner.planPrinter.IOPlanPrinter.FormattedDomain;
-import io.prestosql.sql.planner.planPrinter.IOPlanPrinter.FormattedMarker;
-import io.prestosql.sql.planner.planPrinter.IOPlanPrinter.FormattedRange;
-import io.prestosql.sql.planner.planPrinter.IOPlanPrinter.IOPlan;
-import io.prestosql.sql.planner.planPrinter.IOPlanPrinter.IOPlan.TableColumnInfo;
+import io.prestosql.sql.planner.planPrinter.IoPlanPrinter.ColumnConstraint;
+import io.prestosql.sql.planner.planPrinter.IoPlanPrinter.FormattedDomain;
+import io.prestosql.sql.planner.planPrinter.IoPlanPrinter.FormattedMarker;
+import io.prestosql.sql.planner.planPrinter.IoPlanPrinter.FormattedRange;
+import io.prestosql.sql.planner.planPrinter.IoPlanPrinter.IoPlan;
+import io.prestosql.sql.planner.planPrinter.IoPlanPrinter.IoPlan.TableColumnInfo;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.MaterializedRow;
 import io.prestosql.tests.AbstractTestIntegrationSmokeTest;
@@ -180,8 +180,8 @@ public class TestHiveIntegrationSmokeTest
 
         MaterializedResult result = computeActual("EXPLAIN (TYPE IO, FORMAT JSON) INSERT INTO test_orders SELECT custkey, orderkey, processing FROM test_orders where custkey <= 10");
         assertEquals(
-                jsonCodec(IOPlan.class).fromJson((String) getOnlyElement(result.getOnlyColumnAsSet())),
-                new IOPlan(
+                jsonCodec(IoPlan.class).fromJson((String) getOnlyElement(result.getOnlyColumnAsSet())),
+                new IoPlan(
                         ImmutableSet.of(new TableColumnInfo(
                                 new CatalogSchemaTableName(catalog, "tpch", "test_orders"),
                                 ImmutableSet.of(
@@ -215,8 +215,8 @@ public class TestHiveIntegrationSmokeTest
 
         result = computeActual("EXPLAIN (TYPE IO, FORMAT JSON) INSERT INTO test_orders SELECT custkey, orderkey + 10 FROM test_orders where custkey <= 10");
         assertEquals(
-                jsonCodec(IOPlan.class).fromJson((String) getOnlyElement(result.getOnlyColumnAsSet())),
-                new IOPlan(
+                jsonCodec(IoPlan.class).fromJson((String) getOnlyElement(result.getOnlyColumnAsSet())),
+                new IoPlan(
                         ImmutableSet.of(new TableColumnInfo(
                                 new CatalogSchemaTableName(catalog, "tpch", "test_orders"),
                                 ImmutableSet.of(
