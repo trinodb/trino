@@ -1,5 +1,5 @@
 ========================
-Legacy And New Timestamp
+Legacy and New Timestamp
 ========================
 
 New ``TIMESTAMP`` and ``TIME`` semantics align the types with the SQL standard.
