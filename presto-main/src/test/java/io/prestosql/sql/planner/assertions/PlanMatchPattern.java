@@ -264,11 +264,11 @@ public final class PlanMatchPattern
                 endValue.map(SymbolAlias::new));
     }
 
-    public static PlanMatchPattern window(Consumer<WindowMatcher.Builder> windowMatcherBuilderConsumer, PlanMatchPattern source)
+    public static PlanMatchPattern window(Consumer<WindowMatcher.Builder> handler, PlanMatchPattern source)
     {
-        WindowMatcher.Builder windowMatcherBuilder = new WindowMatcher.Builder(source);
-        windowMatcherBuilderConsumer.accept(windowMatcherBuilder);
-        return windowMatcherBuilder.build();
+        WindowMatcher.Builder builder = new WindowMatcher.Builder(source);
+        handler.accept(builder);
+        return builder.build();
     }
 
     public static PlanMatchPattern sort(PlanMatchPattern source)
