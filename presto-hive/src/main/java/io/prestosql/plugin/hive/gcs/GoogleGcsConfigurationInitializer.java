@@ -42,6 +42,7 @@ public class GoogleGcsConfigurationInitializer
 
         if (useGcsAccessToken) {
             // use oauth token to authenticate with Google Cloud Storage
+            config.set(AUTH_SERVICE_ACCOUNT_ENABLE.getKey(), "false");
             config.set(AUTHENTICATION_PREFIX + ACCESS_TOKEN_PROVIDER_IMPL_SUFFIX, GcsAccessTokenProvider.class.getName());
         }
         else if (jsonKeyFilePath != null) {
