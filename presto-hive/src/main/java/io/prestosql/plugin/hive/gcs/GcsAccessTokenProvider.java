@@ -22,14 +22,14 @@ import static java.util.concurrent.TimeUnit.HOURS;
 public class GcsAccessTokenProvider
         implements AccessTokenProvider
 {
-    public static final String GCS_ACCESS_KEY_CONF = "presto.gcs.oauth-access-token";
+    public static final String GCS_ACCESS_TOKEN_CONF = "presto.gcs.oauth-access-token";
     public static final Long EXPIRATION_TIME_MILLISECONDS = HOURS.toMillis(1);
     private Configuration config;
 
     @Override
     public AccessToken getAccessToken()
     {
-        return new AccessToken(nullToEmpty(config.get(GCS_ACCESS_KEY_CONF)), EXPIRATION_TIME_MILLISECONDS);
+        return new AccessToken(nullToEmpty(config.get(GCS_ACCESS_TOKEN_CONF)), EXPIRATION_TIME_MILLISECONDS);
     }
 
     @Override
