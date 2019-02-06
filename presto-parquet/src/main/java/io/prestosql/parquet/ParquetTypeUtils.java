@@ -13,6 +13,9 @@
  */
 package io.prestosql.parquet;
 
+import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
+import io.prestosql.spi.NestedColumn;
 import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.Type;
 import org.apache.parquet.column.Encoding;
@@ -24,6 +27,7 @@ import org.apache.parquet.io.MessageColumnIO;
 import org.apache.parquet.io.ParquetDecodingException;
 import org.apache.parquet.io.PrimitiveColumnIO;
 import org.apache.parquet.schema.DecimalMetadata;
+import org.apache.parquet.schema.GroupType;
 import org.apache.parquet.schema.MessageType;
 
 import java.util.Arrays;
@@ -34,6 +38,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.Iterators.getOnlyElement;
 import static org.apache.parquet.schema.OriginalType.DECIMAL;
 import static org.apache.parquet.schema.Type.Repetition.REPEATED;
 
@@ -185,14 +190,14 @@ public final class ParquetTypeUtils
         }
     }
 
-    public static org.apache.parquet.schema.Type getParquetTypeByName(String columnName, MessageType messageType)
+    public static org.apache.parquet.schema.Type getParquetTypeByName(String columnName, GroupType groupType)
     {
-        if (messageType.containsField(columnName)) {
-            return messageType.getType(columnName);
+        if (groupType.containsField(columnName)) {
+            return groupType.getType(columnName);
         }
         // parquet is case-sensitive, but hive is not. all hive columns get converted to lowercase
         // check for direct match above but if no match found, try case-insensitive match
-        for (org.apache.parquet.schema.Type type : messageType.getFields()) {
+        for (org.apache.parquet.schema.Type type : groupType.getFields()) {
             if (type.getName().equalsIgnoreCase(columnName)) {
                 return type;
             }
@@ -261,5 +266,38 @@ public final class ParquetTypeUtils
         }
 
         return value;
+    }
+
+    public static org.apache.parquet.schema.Type getNestedColumnType(GroupType baseType, NestedColumn nestedColumn)
+    {
+        Preconditions.checkArgument(nestedColumn.getNames().size() >= 1, "fields size is less than 1");
+
+        ImmutableList.Builder<org.apache.parquet.schema.Type> typeBuilder = ImmutableList.builder();
+        org.apache.parquet.schema.Type parentType = baseType;
+
+        for (String field : nestedColumn.getNames()) {
+            org.apache.parquet.schema.Type childType = getParquetTypeByName(field, parentType.asGroupType());
+            if (childType == null) {
+                return null;
+            }
+            typeBuilder.add(childType);
+            parentType = childType;
+        }
+        List<org.apache.parquet.schema.Type> typeChain = typeBuilder.build();
+
+        if (typeChain.isEmpty()) {
+            return null;
+        }
+        else if (typeChain.size() == 1) {
+            return getOnlyElement(typeChain.iterator());
+        }
+        else {
+            org.apache.parquet.schema.Type messageType = typeChain.get(typeChain.size() - 1);
+            for (int i = typeChain.size() - 2; i >= 0; --i) {
+                GroupType groupType = typeChain.get(i).asGroupType();
+                messageType = new MessageType(groupType.getName(), ImmutableList.of(messageType));
+            }
+            return messageType;
+        }
     }
 }

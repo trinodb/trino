@@ -54,6 +54,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.spi.StandardErrorCode.ALREADY_EXISTS;
 import static java.util.Objects.requireNonNull;
@@ -63,6 +64,16 @@ public class TestingMetadata
 {
     private final ConcurrentMap<SchemaTableName, ConnectorTableMetadata> tables = new ConcurrentHashMap<>();
     private final ConcurrentMap<SchemaTableName, String> views = new ConcurrentHashMap<>();
+
+    protected ConcurrentMap<SchemaTableName, ConnectorTableMetadata> getTables()
+    {
+        return tables;
+    }
+
+    protected ConcurrentMap<SchemaTableName, String> getViews()
+    {
+        return views;
+    }
 
     @Override
     public List<String> listSchemaNames(ConnectorSession session)
@@ -290,7 +301,7 @@ public class TestingMetadata
         tables.clear();
     }
 
-    private static SchemaTableName getTableName(ConnectorTableHandle tableHandle)
+    protected static SchemaTableName getTableName(ConnectorTableHandle tableHandle)
     {
         requireNonNull(tableHandle, "tableHandle is null");
         checkArgument(tableHandle instanceof TestingTableHandle, "tableHandle is not an instance of TestingTableHandle");
@@ -396,6 +407,12 @@ public class TestingMetadata
         public int hashCode()
         {
             return Objects.hash(name, ordinalPosition, type);
+        }
+
+        @Override
+        public String toString()
+        {
+            return toStringHelper(this).add("name", name).add("position", ordinalPosition).add("type", type).toString();
         }
     }
 }

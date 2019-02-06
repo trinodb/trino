@@ -15,7 +15,9 @@ package io.prestosql.plugin.hive;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.spi.NestedColumn;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.type.NamedTypeSignature;
 import io.prestosql.spi.type.RowFieldName;
@@ -173,6 +175,22 @@ public final class HiveType
                         .allMatch(HiveType::isSupportedType);
         }
         return false;
+    }
+
+    public Optional<HiveType> findChildType(NestedColumn nestedColumn)
+    {
+        TypeInfo typeInfo = getTypeInfo();
+        for (String part : nestedColumn.getRest()) {
+            Preconditions.checkArgument(typeInfo instanceof StructTypeInfo, "typeinfo is not struct type", typeInfo);
+            StructTypeInfo structTypeInfo = (StructTypeInfo) typeInfo;
+            try {
+                typeInfo = structTypeInfo.getStructFieldTypeInfo(part);
+            }
+            catch (RuntimeException e) {
+                return Optional.empty();
+            }
+        }
+        return Optional.of(toHiveType(typeInfo));
     }
 
     @JsonCreator

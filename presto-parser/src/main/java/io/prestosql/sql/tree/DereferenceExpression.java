@@ -20,6 +20,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static java.util.Locale.ENGLISH;
 
 public class DereferenceExpression
         extends Expression
@@ -118,12 +119,12 @@ public class DereferenceExpression
         }
         DereferenceExpression that = (DereferenceExpression) o;
         return Objects.equals(base, that.base) &&
-                Objects.equals(field, that.field);
+                Objects.equals(field.getValue().toLowerCase(ENGLISH), that.field.getValue().toLowerCase(ENGLISH));
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(base, field);
+        return Objects.hash(base, field.getValue().toLowerCase(ENGLISH));
     }
 }

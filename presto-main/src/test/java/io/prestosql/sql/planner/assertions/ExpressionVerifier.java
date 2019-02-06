@@ -21,6 +21,7 @@ import io.prestosql.sql.tree.Cast;
 import io.prestosql.sql.tree.CoalesceExpression;
 import io.prestosql.sql.tree.ComparisonExpression;
 import io.prestosql.sql.tree.DecimalLiteral;
+import io.prestosql.sql.tree.DereferenceExpression;
 import io.prestosql.sql.tree.DoubleLiteral;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.FunctionCall;
@@ -34,8 +35,10 @@ import io.prestosql.sql.tree.LongLiteral;
 import io.prestosql.sql.tree.Node;
 import io.prestosql.sql.tree.NotExpression;
 import io.prestosql.sql.tree.NullLiteral;
+import io.prestosql.sql.tree.SearchedCaseExpression;
 import io.prestosql.sql.tree.SimpleCaseExpression;
 import io.prestosql.sql.tree.StringLiteral;
+import io.prestosql.sql.tree.SubscriptExpression;
 import io.prestosql.sql.tree.SymbolReference;
 import io.prestosql.sql.tree.TryExpression;
 import io.prestosql.sql.tree.WhenClause;
@@ -98,6 +101,20 @@ final class ExpressionVerifier
     }
 
     @Override
+    protected Boolean visitDereferenceExpression(DereferenceExpression actual, Node expectedExpression)
+    {
+        if (!(expectedExpression instanceof DereferenceExpression)) {
+            return false;
+        }
+
+        DereferenceExpression expected = (DereferenceExpression) expectedExpression;
+        if (actual.getField().equals(expected.getField())) {
+            return process(actual.getBase(), expected.getBase());
+        }
+        return false;
+    }
+
+    @Override
     protected Boolean visitCast(Cast actual, Node expectedExpression)
     {
         if (!(expectedExpression instanceof Cast)) {
@@ -123,6 +140,18 @@ final class ExpressionVerifier
         IsNullPredicate expected = (IsNullPredicate) expectedExpression;
 
         return process(actual.getValue(), expected.getValue());
+    }
+
+    @Override
+    protected Boolean visitSubscriptExpression(SubscriptExpression actual, Node expectedExpression)
+    {
+        if (!(expectedExpression instanceof SubscriptExpression)) {
+            return false;
+        }
+
+        SubscriptExpression expected = (SubscriptExpression) expectedExpression;
+
+        return process(actual.getBase(), expected.getBase()) && process(actual.getIndex(), expected.getIndex());
     }
 
     @Override
@@ -305,6 +334,17 @@ final class ExpressionVerifier
             return process(actual.getValue(), ((NotExpression) expected).getValue());
         }
         return false;
+    }
+
+    @Override
+    protected Boolean visitSearchedCaseExpression(SearchedCaseExpression actual, Node expectedExpression)
+    {
+        if (!(expectedExpression instanceof SearchedCaseExpression)) {
+            return false;
+        }
+
+        SearchedCaseExpression expected = (SearchedCaseExpression) expectedExpression;
+        return process(actual.getDefaultValue(), expected.getDefaultValue()) && process(actual.getWhenClauses(), expected.getWhenClauses());
     }
 
     @Override

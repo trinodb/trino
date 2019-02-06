@@ -16,6 +16,7 @@ package io.prestosql.metadata;
 import io.airlift.slice.Slice;
 import io.prestosql.Session;
 import io.prestosql.connector.ConnectorId;
+import io.prestosql.spi.NestedColumn;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.BlockEncodingSerde;
 import io.prestosql.spi.connector.CatalogSchemaName;
@@ -116,6 +117,13 @@ public interface Metadata
      * @throws RuntimeException if table handle is no longer valid
      */
     Map<String, ColumnHandle> getColumnHandles(Session session, TableHandle tableHandle);
+
+    /**
+     * Gets all of the columns on the specified table, or an empty map if the columns can not be enumerated.
+     *
+     * @throws RuntimeException if table handle is no longer valid
+     */
+    Map<NestedColumn, ColumnHandle> getNestedColumnHandles(Session session, TableHandle tableHandle, Collection<NestedColumn> dereferences);
 
     /**
      * Gets the metadata for the specified table column.

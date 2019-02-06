@@ -16,6 +16,7 @@ package io.prestosql.metadata;
 import io.airlift.slice.Slice;
 import io.prestosql.Session;
 import io.prestosql.connector.ConnectorId;
+import io.prestosql.spi.NestedColumn;
 import io.prestosql.spi.block.BlockEncodingSerde;
 import io.prestosql.spi.connector.CatalogSchemaName;
 import io.prestosql.spi.connector.ColumnHandle;
@@ -163,6 +164,12 @@ public abstract class AbstractMockMetadata
 
     @Override
     public Map<String, ColumnHandle> getColumnHandles(Session session, TableHandle tableHandle)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Map<NestedColumn, ColumnHandle> getNestedColumnHandles(Session session, TableHandle tableHandle, Collection<NestedColumn> dereferences)
     {
         throw new UnsupportedOperationException();
     }

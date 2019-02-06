@@ -27,6 +27,7 @@ import io.airlift.slice.Slice;
 import io.prestosql.Session;
 import io.prestosql.block.BlockEncodingManager;
 import io.prestosql.connector.ConnectorId;
+import io.prestosql.spi.NestedColumn;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.QueryId;
 import io.prestosql.spi.block.BlockEncodingSerde;
@@ -476,6 +477,14 @@ public class MetadataManager
             map.put(mapEntry.getKey().toLowerCase(ENGLISH), mapEntry.getValue());
         }
         return map.build();
+    }
+
+    @Override
+    public Map<NestedColumn, ColumnHandle> getNestedColumnHandles(Session session, TableHandle tableHandle, Collection<NestedColumn> dereferences)
+    {
+        ConnectorId connectorId = tableHandle.getConnectorId();
+        ConnectorMetadata metadata = getMetadata(session, connectorId);
+        return metadata.getNestedColumnHandles(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle(), dereferences);
     }
 
     @Override

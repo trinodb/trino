@@ -113,12 +113,14 @@ import io.prestosql.sql.planner.optimizations.HashGenerationOptimizer;
 import io.prestosql.sql.planner.optimizations.ImplementIntersectAndExceptAsUnion;
 import io.prestosql.sql.planner.optimizations.IndexJoinOptimizer;
 import io.prestosql.sql.planner.optimizations.LimitPushDown;
+import io.prestosql.sql.planner.optimizations.MergeNestedColumn;
 import io.prestosql.sql.planner.optimizations.MetadataDeleteOptimizer;
 import io.prestosql.sql.planner.optimizations.MetadataQueryOptimizer;
 import io.prestosql.sql.planner.optimizations.OptimizeMixedDistinctAggregations;
 import io.prestosql.sql.planner.optimizations.PlanOptimizer;
 import io.prestosql.sql.planner.optimizations.PredicatePushDown;
 import io.prestosql.sql.planner.optimizations.PruneUnreferencedOutputs;
+import io.prestosql.sql.planner.optimizations.PushDownDereferenceExpression;
 import io.prestosql.sql.planner.optimizations.SetFlatteningOptimizer;
 import io.prestosql.sql.planner.optimizations.StatsRecordingPlanOptimizer;
 import io.prestosql.sql.planner.optimizations.TransformQuantifiedComparisonApplyToLateralJoin;
@@ -349,6 +351,13 @@ public class PlanOptimizers
                                 new RemoveRedundantIdentityProjections(),
                                 new TransformCorrelatedSingleRowSubqueryToProject())),
                 new CheckSubqueryNodesAreRewritten(),
+
+                // pushdown dereference
+                new PushDownDereferenceExpression(metadata, sqlParser),
+                new PruneUnreferencedOutputs(),
+                new MergeNestedColumn(metadata, sqlParser),
+                new IterativeOptimizer(ruleStats, statsCalculator, estimatedExchangesCostCalculator, ImmutableSet.of(new PruneTableScanColumns())),
+
                 predicatePushDown,
                 new IterativeOptimizer(
                         ruleStats,
@@ -398,6 +407,7 @@ public class PlanOptimizers
                         statsCalculator,
                         estimatedExchangesCostCalculator,
                         ImmutableSet.of(new EliminateCrossJoins())), // This can pull up Filter and Project nodes from between Joins, so we need to push them down again
+
                 predicatePushDown,
                 simplifyOptimizer, // Should be always run after PredicatePushDown
                 new IterativeOptimizer(

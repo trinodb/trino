@@ -63,6 +63,7 @@ import static com.google.common.base.Strings.nullToEmpty;
 import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.prestosql.parquet.ParquetTypeUtils.getColumnIO;
 import static io.prestosql.parquet.ParquetTypeUtils.getDescriptors;
+import static io.prestosql.parquet.ParquetTypeUtils.getNestedColumnType;
 import static io.prestosql.parquet.ParquetTypeUtils.getParquetTypeByName;
 import static io.prestosql.parquet.predicate.PredicateUtils.buildPredicate;
 import static io.prestosql.parquet.predicate.PredicateUtils.predicateMatches;
@@ -77,7 +78,6 @@ import static io.prestosql.plugin.hive.HiveUtil.getDeserializerClassName;
 import static io.prestosql.plugin.hive.parquet.HdfsParquetDataSource.buildHdfsParquetDataSource;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector.Category.PRIMITIVE;
 
 public class ParquetPageSourceFactory
@@ -163,13 +163,14 @@ public class ParquetPageSourceFactory
             MessageType fileSchema = fileMetaData.getSchema();
             dataSource = buildHdfsParquetDataSource(inputStream, path, fileSize, stats);
 
-            List<org.apache.parquet.schema.Type> fields = columns.stream()
+            Optional<MessageType> optionalRequestedSchema = columns.stream()
                     .filter(column -> column.getColumnType() == REGULAR)
-                    .map(column -> getParquetType(column, fileSchema, useParquetColumnNames))
+                    .map(column -> getColumnType(column, fileSchema, useParquetColumnNames))
                     .filter(Objects::nonNull)
-                    .collect(toList());
+                    .map(type -> new MessageType(fileSchema.getName(), type))
+                    .reduce(MessageType::union);
 
-            MessageType requestedSchema = new MessageType(fileSchema.getName(), fields);
+            MessageType requestedSchema = optionalRequestedSchema.orElseGet(() -> new MessageType(fileSchema.getName(), ImmutableList.of()));
 
             ImmutableList.Builder<BlockMetaData> footerBlocks = ImmutableList.builder();
             for (BlockMetaData block : parquetMetadata.getBlocks()) {
@@ -265,5 +266,13 @@ public class ParquetPageSourceFactory
             return messageType.getType(column.getHiveColumnIndex());
         }
         return null;
+    }
+
+    public static org.apache.parquet.schema.Type getColumnType(HiveColumnHandle column, MessageType messageType, boolean useParquetColumnNames)
+    {
+        if (useParquetColumnNames && column.getNestedColumn().isPresent()) {
+            return getNestedColumnType(messageType, column.getNestedColumn().get());
+        }
+        return getParquetType(column, messageType, useParquetColumnNames);
     }
 }
