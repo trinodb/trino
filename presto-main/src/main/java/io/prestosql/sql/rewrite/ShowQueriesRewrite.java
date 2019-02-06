@@ -55,7 +55,6 @@ import io.prestosql.sql.tree.Identifier;
 import io.prestosql.sql.tree.LikePredicate;
 import io.prestosql.sql.tree.LongLiteral;
 import io.prestosql.sql.tree.Node;
-import io.prestosql.sql.tree.OrderBy;
 import io.prestosql.sql.tree.Property;
 import io.prestosql.sql.tree.QualifiedName;
 import io.prestosql.sql.tree.Query;
@@ -628,15 +627,6 @@ final class ShowQueriesRewrite
         private static Relation from(String catalog, SchemaTableName table)
         {
             return table(QualifiedName.of(catalog, table.getSchemaName(), table.getTableName()));
-        }
-
-        private static Optional<OrderBy> orderBy(List<SortItem> sortItems)
-        {
-            requireNonNull(sortItems, "sortItems is null");
-            if (sortItems.isEmpty()) {
-                return Optional.empty();
-            }
-            return Optional.of(new OrderBy(sortItems));
         }
 
         @Override
