@@ -500,6 +500,29 @@ public class TestSqlParser
     }
 
     @Test
+    public void testReservedWordIdentifier()
+    {
+        assertStatement("SELECT id FROM public.orders",
+                simpleQuery(
+                        selectList(identifier("id")),
+                        new Table(QualifiedName.of("public", "orders"))));
+
+        assertStatement("SELECT id FROM \"public\".\"order\"",
+                simpleQuery(
+                        selectList(identifier("id")),
+                        new Table(QualifiedName.of(ImmutableList.of(
+                                new Identifier("public", true),
+                                new Identifier("order", true))))));
+
+        assertStatement("SELECT id FROM \"public\".\"order\"\"2\"",
+                simpleQuery(
+                        selectList(identifier("id")),
+                        new Table(QualifiedName.of(ImmutableList.of(
+                                new Identifier("public", true),
+                                new Identifier("order\"2", true))))));
+    }
+
+    @Test
     public void testBetween()
     {
         assertExpression("1 BETWEEN 2 AND 3", new BetweenPredicate(new LongLiteral("1"), new LongLiteral("2"), new LongLiteral("3")));
