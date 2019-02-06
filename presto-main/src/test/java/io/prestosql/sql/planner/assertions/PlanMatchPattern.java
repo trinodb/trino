@@ -271,6 +271,20 @@ public final class PlanMatchPattern
         return builder.build();
     }
 
+    public static PlanMatchPattern rowNumber(Consumer<RowNumberMatcher.Builder> handler, PlanMatchPattern source)
+    {
+        RowNumberMatcher.Builder builder = new RowNumberMatcher.Builder(source);
+        handler.accept(builder);
+        return builder.build();
+    }
+
+    public static PlanMatchPattern topNRowNumber(Consumer<TopNRowNumberMatcher.Builder> handler, PlanMatchPattern source)
+    {
+        TopNRowNumberMatcher.Builder builder = new TopNRowNumberMatcher.Builder(source);
+        handler.accept(builder);
+        return builder.build();
+    }
+
     public static PlanMatchPattern sort(PlanMatchPattern source)
     {
         return node(SortNode.class, source);
