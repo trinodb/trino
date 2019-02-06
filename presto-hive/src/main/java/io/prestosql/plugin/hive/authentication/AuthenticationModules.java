@@ -20,7 +20,7 @@ import com.google.inject.Provides;
 import com.google.inject.Singleton;
 import io.prestosql.plugin.hive.ForHdfs;
 import io.prestosql.plugin.hive.ForHiveMetastore;
-import io.prestosql.plugin.hive.HdfsConfigurationUpdater;
+import io.prestosql.plugin.hive.HdfsConfigurationInitializer;
 
 import javax.inject.Inject;
 
@@ -57,7 +57,7 @@ public final class AuthenticationModules
             @Provides
             @Singleton
             @ForHiveMetastore
-            HadoopAuthentication createHadoopAuthentication(MetastoreKerberosConfig config, HdfsConfigurationUpdater updater)
+            HadoopAuthentication createHadoopAuthentication(MetastoreKerberosConfig config, HdfsConfigurationInitializer updater)
             {
                 String principal = config.getHiveMetastoreClientPrincipal();
                 String keytabLocation = config.getHiveMetastoreClientKeytab();
@@ -102,7 +102,7 @@ public final class AuthenticationModules
             @Provides
             @Singleton
             @ForHdfs
-            HadoopAuthentication createHadoopAuthentication(HdfsKerberosConfig config, HdfsConfigurationUpdater updater)
+            HadoopAuthentication createHadoopAuthentication(HdfsKerberosConfig config, HdfsConfigurationInitializer updater)
             {
                 String principal = config.getHdfsPrestoPrincipal();
                 String keytabLocation = config.getHdfsPrestoKeytab();
@@ -128,7 +128,7 @@ public final class AuthenticationModules
             @Provides
             @Singleton
             @ForHdfs
-            HadoopAuthentication createHadoopAuthentication(HdfsKerberosConfig config, HdfsConfigurationUpdater updater)
+            HadoopAuthentication createHadoopAuthentication(HdfsKerberosConfig config, HdfsConfigurationInitializer updater)
             {
                 String principal = config.getHdfsPrestoPrincipal();
                 String keytabLocation = config.getHdfsPrestoKeytab();
@@ -137,7 +137,7 @@ public final class AuthenticationModules
         };
     }
 
-    private static HadoopAuthentication createCachingKerberosHadoopAuthentication(String principal, String keytabLocation, HdfsConfigurationUpdater updater)
+    private static HadoopAuthentication createCachingKerberosHadoopAuthentication(String principal, String keytabLocation, HdfsConfigurationInitializer updater)
     {
         KerberosAuthentication kerberosAuthentication = new KerberosAuthentication(principal, keytabLocation);
         KerberosHadoopAuthentication kerberosHadoopAuthentication = createKerberosHadoopAuthentication(kerberosAuthentication, updater);

@@ -39,16 +39,16 @@ public class HiveHdfsConfiguration
         {
             Configuration configuration = new Configuration(false);
             copy(INITIAL_CONFIGURATION, configuration);
-            initializer.updateConfiguration(configuration);
+            initializer.initializeConfiguration(configuration);
             return configuration;
         }
     };
 
-    private final HdfsConfigurationUpdater initializer;
+    private final HdfsConfigurationInitializer initializer;
     private final Set<DynamicConfigurationProvider> dynamicProviders;
 
     @Inject
-    public HiveHdfsConfiguration(HdfsConfigurationUpdater initializer, Set<DynamicConfigurationProvider> dynamicProviders)
+    public HiveHdfsConfiguration(HdfsConfigurationInitializer initializer, Set<DynamicConfigurationProvider> dynamicProviders)
     {
         this.initializer = requireNonNull(initializer, "initializer is null");
         this.dynamicProviders = ImmutableSet.copyOf(requireNonNull(dynamicProviders, "dynamicProviders is null"));
@@ -58,6 +58,7 @@ public class HiveHdfsConfiguration
     public Configuration getConfiguration(HdfsContext context, URI uri)
     {
         if (dynamicProviders.isEmpty()) {
+            // use the same configuration for everything
             return hadoopConfiguration.get();
         }
         Configuration config = copy(hadoopConfiguration.get());
