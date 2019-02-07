@@ -85,7 +85,7 @@ public class TpchConnectorFactory
             @Override
             public ConnectorMetadata getMetadata(ConnectorTransactionHandle transaction)
             {
-                return new TpchMetadata(catalogName, columnNaming, predicatePushdownEnabled, partitioningEnabled);
+                return new TpchMetadata(columnNaming, predicatePushdownEnabled, partitioningEnabled);
             }
 
             @Override

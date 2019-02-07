@@ -51,12 +51,11 @@ public class TpchIndexedData
 {
     private final Map<Set<TpchScaledColumn>, IndexedTable> indexedTables;
 
-    public TpchIndexedData(String connectorId, TpchIndexSpec tpchIndexSpec)
+    public TpchIndexedData(TpchIndexSpec tpchIndexSpec)
     {
-        requireNonNull(connectorId, "connectorId is null");
         requireNonNull(tpchIndexSpec, "tpchIndexSpec is null");
 
-        TpchMetadata tpchMetadata = new TpchMetadata(connectorId);
+        TpchMetadata tpchMetadata = new TpchMetadata();
         TpchRecordSetProvider tpchRecordSetProvider = new TpchRecordSetProvider();
 
         ImmutableMap.Builder<Set<TpchScaledColumn>, IndexedTable> indexedTablesBuilder = ImmutableMap.builder();

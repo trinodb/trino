@@ -44,7 +44,7 @@ public class ThriftIndexedTpchService
         extends ThriftTpchService
 {
     private static final int NUMBER_OF_INDEX_SPLITS = 2;
-    private final TpchIndexedData indexedData = new TpchIndexedData("tpchindexed", INDEX_SPEC);
+    private final TpchIndexedData indexedData = new TpchIndexedData(INDEX_SPEC);
 
     @Override
     protected List<Set<String>> getIndexableKeys(String schemaName, String tableName)
