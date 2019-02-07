@@ -484,7 +484,7 @@ public class TestQueryStateMachine
     private static void assertEqualSessionsWithoutTransactionId(Session actual, Session expected)
     {
         assertEquals(actual.getQueryId(), expected.getQueryId());
-        assertEquals(actual.getIdentity(), expected.getIdentity());
+        assertEquals(actual.getIdentity().getUser(), expected.getIdentity().getUser());
         assertEquals(actual.getSource(), expected.getSource());
         assertEquals(actual.getCatalog(), expected.getCatalog());
         assertEquals(actual.getSchema(), expected.getSchema());
