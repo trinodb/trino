@@ -350,12 +350,6 @@ public class InformationSchemaMetadata
         return new ConnectorTableLayout(handle);
     }
 
-    static List<ColumnMetadata> informationSchemaTableColumns(SchemaTableName tableName)
-    {
-        checkArgument(TABLES.containsKey(tableName), "table does not exist: %s", tableName);
-        return TABLES.get(tableName).getColumns();
-    }
-
     private boolean isLowerCase(String value)
     {
         return value.toLowerCase(ENGLISH).equals(value);
