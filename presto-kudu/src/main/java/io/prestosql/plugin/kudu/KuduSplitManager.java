@@ -29,13 +29,11 @@ import static java.util.Objects.requireNonNull;
 public class KuduSplitManager
         implements ConnectorSplitManager
 {
-    private final String connectorId;
     private final KuduClientSession clientSession;
 
     @Inject
-    public KuduSplitManager(KuduConnectorId connectorId, KuduClientSession clientSession)
+    public KuduSplitManager(KuduClientSession clientSession)
     {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
         this.clientSession = requireNonNull(clientSession, "clientSession is null");
     }
 
