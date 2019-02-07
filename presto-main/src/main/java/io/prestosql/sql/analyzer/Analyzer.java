@@ -76,13 +76,12 @@ public class Analyzer
         analyzer.analyze(rewrittenStatement, Optional.empty());
 
         // check column access permissions for each table
-        analysis.getTableColumnReferences().forEach((accessControlInfo, tableColumnReferences) ->
-                tableColumnReferences.forEach((tableName, columns) ->
-                        accessControlInfo.getAccessControl().checkCanSelectFromColumns(
+        analysis.getTableColumnAccesses().forEach((objectName, accessControlCheck) ->
+                        accessControlCheck.getAccessControl().checkCanSelectFromColumns(
                                 session.getRequiredTransactionId(),
-                                accessControlInfo.getIdentity(),
-                                tableName,
-                                columns)));
+                                accessControlCheck.getIdentity(),
+                                accessControlCheck.getObjectName(),
+                                accessControlCheck.getColumns()));
         return analysis;
     }
 

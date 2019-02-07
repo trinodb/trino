@@ -14,10 +14,13 @@
 package io.prestosql.sql.analyzer;
 
 import com.google.common.collect.ArrayListMultimap;
+import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Multimap;
+import com.google.common.collect.SetMultimap;
 import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.TableHandle;
@@ -51,18 +54,18 @@ import javax.annotation.concurrent.Immutable;
 import java.util.ArrayDeque;
 import java.util.Collection;
 import java.util.Deque;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.MoreCollectors.toOptional;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.unmodifiableCollection;
@@ -84,7 +87,7 @@ public class Analysis
     private final Map<NodeRef<Expression>, FieldId> columnReferences = new LinkedHashMap<>();
 
     // a map of users to the columns per table that they access
-    private final Map<AccessControlInfo, Map<QualifiedObjectName, Set<String>>> tableColumnReferences = new LinkedHashMap<>();
+    private final SetMultimap<QualifiedObjectName, AccessControlCheck> tableColumnAccesses = HashMultimap.create();
 
     private final Map<NodeRef<QuerySpecification>, List<FunctionCall>> aggregates = new LinkedHashMap<>();
     private final Map<NodeRef<OrderBy>, List<Expression>> orderByAggregates = new LinkedHashMap<>();
@@ -646,21 +649,37 @@ public class Analysis
 
     public void addTableColumnReferences(AccessControl accessControl, Identity identity, Multimap<QualifiedObjectName, String> tableColumnMap)
     {
-        AccessControlInfo accessControlInfo = new AccessControlInfo(accessControl, identity);
-        Map<QualifiedObjectName, Set<String>> references = tableColumnReferences.computeIfAbsent(accessControlInfo, k -> new LinkedHashMap<>());
-        tableColumnMap.asMap()
-                .forEach((key, value) -> references.computeIfAbsent(key, k -> new HashSet<>()).addAll(value));
+        for (QualifiedObjectName objectName : tableColumnMap.keySet()) {
+            addTableColumnAccess(accessControl, identity, objectName, ImmutableSet.copyOf(tableColumnMap.get(objectName)));
+        }
     }
 
     public void addEmptyColumnReferencesForTable(AccessControl accessControl, Identity identity, QualifiedObjectName table)
     {
-        AccessControlInfo accessControlInfo = new AccessControlInfo(accessControl, identity);
-        tableColumnReferences.computeIfAbsent(accessControlInfo, k -> new LinkedHashMap<>()).computeIfAbsent(table, k -> new HashSet<>());
+        addTableColumnAccess(accessControl, identity, table, ImmutableSet.of());
     }
 
-    public Map<AccessControlInfo, Map<QualifiedObjectName, Set<String>>> getTableColumnReferences()
+    private void addTableColumnAccess(AccessControl accessControl, Identity identity, QualifiedObjectName objectName, Set<String> columns)
     {
-        return tableColumnReferences;
+        if (tableColumnAccesses.containsKey(objectName)) {
+            Optional<AccessControlCheck> oldTableAccessControlCheck = tableColumnAccesses.get(objectName).stream()
+                    .filter(accessControlCheck -> accessControlCheck.isUsing(accessControl, identity))
+                    .collect(toOptional());
+
+            if (oldTableAccessControlCheck.isPresent()) {
+                columns = ImmutableSet.<String>builder()
+                        .addAll(columns)
+                        .addAll(oldTableAccessControlCheck.get().getColumns())
+                        .build();
+                tableColumnAccesses.remove(objectName, oldTableAccessControlCheck.get());
+            }
+        }
+        tableColumnAccesses.put(objectName, new AccessControlCheck(accessControl, identity, objectName, columns));
+    }
+
+    public SetMultimap<QualifiedObjectName, AccessControlCheck> getTableColumnAccesses()
+    {
+        return tableColumnAccesses;
     }
 
     @Immutable
@@ -765,15 +784,24 @@ public class Analysis
         }
     }
 
-    public static final class AccessControlInfo
+    public static final class AccessControlCheck
     {
         private final AccessControl accessControl;
         private final Identity identity;
+        private final QualifiedObjectName objectName;
+        private final Set<String> columns;
 
-        public AccessControlInfo(AccessControl accessControl, Identity identity)
+        public AccessControlCheck(AccessControl accessControl, Identity identity, QualifiedObjectName objectName, Set<String> columns)
         {
             this.accessControl = requireNonNull(accessControl, "accessControl is null");
             this.identity = requireNonNull(identity, "identity is null");
+            this.objectName = requireNonNull(objectName, "objectName is null");
+            this.columns = ImmutableSet.copyOf(requireNonNull(columns, "columns is null"));
+        }
+
+        public boolean isUsing(AccessControl accessControl, Identity identity)
+        {
+           return this.accessControl == accessControl && this.identity == identity;
         }
 
         public AccessControl getAccessControl()
@@ -786,31 +814,25 @@ public class Analysis
             return identity;
         }
 
-        @Override
-        public boolean equals(Object o)
+        public QualifiedObjectName getObjectName()
         {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-
-            AccessControlInfo that = (AccessControlInfo) o;
-            return Objects.equals(accessControl, that.accessControl) &&
-                    Objects.equals(identity, that.identity);
+            return objectName;
         }
 
-        @Override
-        public int hashCode()
+        public Set<String> getColumns()
         {
-            return Objects.hash(accessControl, identity);
+            return columns;
         }
 
         @Override
         public String toString()
         {
-            return format("AccessControl: %s, Identity: %s", accessControl.getClass(), identity);
+            return toStringHelper(this)
+                    .add("accessControl", accessControl)
+                    .add("identity", identity)
+                    .add("objectName", objectName)
+                    .add("columns", columns)
+                    .toString();
         }
     }
 }
