@@ -50,8 +50,9 @@ public class KuduConnectorFactory
         requireNonNull(config, "config is null");
 
         try {
-            Bootstrap app = new Bootstrap(new JsonModule(),
-                    new KuduModule(catalogName, context.getTypeManager()));
+            Bootstrap app = new Bootstrap(
+                    new JsonModule(),
+                    new KuduModule(context.getTypeManager()));
 
             Injector injector =
                     app.strictConfig().doNotInitializeLogging().setRequiredConfigurationProperties(config)

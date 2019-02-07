@@ -60,13 +60,11 @@ import static java.util.Objects.requireNonNull;
 public class KuduMetadata
         implements ConnectorMetadata
 {
-    private final String connectorId;
     private final KuduClientSession clientSession;
 
     @Inject
-    public KuduMetadata(KuduConnectorId connectorId, KuduClientSession clientSession)
+    public KuduMetadata(KuduClientSession clientSession)
     {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
         this.clientSession = requireNonNull(clientSession, "clientSession is null");
     }
 

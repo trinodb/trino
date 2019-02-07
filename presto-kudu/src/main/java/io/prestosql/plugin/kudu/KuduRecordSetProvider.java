@@ -29,13 +29,11 @@ import static java.util.Objects.requireNonNull;
 public class KuduRecordSetProvider
         implements ConnectorRecordSetProvider
 {
-    private final String connectorId;
     private final KuduClientSession clientSession;
 
     @Inject
-    public KuduRecordSetProvider(KuduConnectorId connectorId, KuduClientSession clientSession)
+    public KuduRecordSetProvider(KuduClientSession clientSession)
     {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
         this.clientSession = clientSession;
     }
 

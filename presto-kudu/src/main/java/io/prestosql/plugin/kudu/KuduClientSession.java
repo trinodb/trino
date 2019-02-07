@@ -72,13 +72,11 @@ public class KuduClientSession
 {
     public static final String DEFAULT_SCHEMA = "default";
     private final Logger log = Logger.get(getClass());
-    private final KuduConnectorId connectorId;
     private final KuduClient client;
     private final SchemaEmulation schemaEmulation;
 
-    public KuduClientSession(KuduConnectorId connectorId, KuduClient client, SchemaEmulation schemaEmulation)
+    public KuduClientSession(KuduClient client, SchemaEmulation schemaEmulation)
     {
-        this.connectorId = connectorId;
         this.client = client;
         this.schemaEmulation = schemaEmulation;
     }
