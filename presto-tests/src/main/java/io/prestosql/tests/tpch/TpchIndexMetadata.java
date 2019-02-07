@@ -41,9 +41,8 @@ public class TpchIndexMetadata
 {
     private final TpchIndexedData indexedData;
 
-    public TpchIndexMetadata(String connectorId, TpchIndexedData indexedData)
+    public TpchIndexMetadata(TpchIndexedData indexedData)
     {
-        super(connectorId);
         this.indexedData = requireNonNull(indexedData, "indexedData is null");
     }
 
