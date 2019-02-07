@@ -77,7 +77,7 @@ public class InformationSchemaPageSourceProvider
     @Override
     public ConnectorPageSource createPageSource(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorSplit split, List<ColumnHandle> columns)
     {
-        InternalTable table = getInternalTable(session, split, columns);
+        InternalTable table = getInternalTable(session, split);
 
         List<Integer> channels = new ArrayList<>();
         for (ColumnHandle column : columns) {
@@ -97,12 +97,10 @@ public class InformationSchemaPageSourceProvider
         return new FixedPageSource(pages.build());
     }
 
-    private InternalTable getInternalTable(ConnectorSession connectorSession, ConnectorSplit connectorSplit, List<ColumnHandle> columns)
+    private InternalTable getInternalTable(ConnectorSession connectorSession, ConnectorSplit connectorSplit)
     {
         Session session = ((FullConnectorSession) connectorSession).getSession();
         InformationSchemaSplit split = (InformationSchemaSplit) connectorSplit;
-
-        requireNonNull(columns, "columns is null");
 
         InformationSchemaTableHandle handle = split.getTableHandle();
         Set<QualifiedTablePrefix> prefixes = split.getPrefixes();
