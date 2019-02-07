@@ -33,24 +33,22 @@ public class KuduOutputTableHandle
 
     @JsonCreator
     public KuduOutputTableHandle(
-            @JsonProperty("connectorId") String connectorId,
             @JsonProperty("schemaTableName") SchemaTableName schemaTableName,
             @JsonProperty("originalColumnTypes") List<Type> originalColumnTypes,
             @JsonProperty("columnTypes") List<Type> columnTypes,
             @JsonProperty("generateUUID") boolean generateUUID)
     {
-        this(connectorId, schemaTableName, originalColumnTypes, columnTypes, generateUUID, null);
+        this(schemaTableName, originalColumnTypes, columnTypes, generateUUID, null);
     }
 
     public KuduOutputTableHandle(
-            String connectorId,
             SchemaTableName schemaTableName,
             List<Type> originalColumnTypes,
             List<Type> columnTypes,
             boolean generateUUID,
             KuduTable table)
     {
-        super(connectorId, schemaTableName, table);
+        super(schemaTableName, table);
         this.columnTypes = ImmutableList.copyOf(columnTypes);
         this.originalColumnTypes = ImmutableList.copyOf(originalColumnTypes);
         this.generateUUID = generateUUID;
