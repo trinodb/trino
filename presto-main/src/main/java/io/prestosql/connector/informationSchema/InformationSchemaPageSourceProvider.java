@@ -43,7 +43,9 @@ import java.util.List;
 import java.util.Map.Entry;
 import java.util.Set;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Sets.union;
+import static io.prestosql.connector.informationSchema.InformationSchemaMetadata.TABLES;
 import static io.prestosql.connector.informationSchema.InformationSchemaMetadata.TABLE_APPLICABLE_ROLES;
 import static io.prestosql.connector.informationSchema.InformationSchemaMetadata.TABLE_COLUMNS;
 import static io.prestosql.connector.informationSchema.InformationSchemaMetadata.TABLE_ENABLED_ROLES;
@@ -52,7 +54,6 @@ import static io.prestosql.connector.informationSchema.InformationSchemaMetadata
 import static io.prestosql.connector.informationSchema.InformationSchemaMetadata.TABLE_TABLES;
 import static io.prestosql.connector.informationSchema.InformationSchemaMetadata.TABLE_TABLE_PRIVILEGES;
 import static io.prestosql.connector.informationSchema.InformationSchemaMetadata.TABLE_VIEWS;
-import static io.prestosql.connector.informationSchema.InformationSchemaMetadata.informationSchemaTableColumns;
 import static io.prestosql.metadata.MetadataListing.listSchemas;
 import static io.prestosql.metadata.MetadataListing.listTableColumns;
 import static io.prestosql.metadata.MetadataListing.listTablePrivileges;
@@ -271,5 +272,11 @@ public class InformationSchemaPageSourceProvider
             table.add(role);
         }
         return table.build();
+    }
+
+    private static List<ColumnMetadata> informationSchemaTableColumns(SchemaTableName tableName)
+    {
+        checkArgument(TABLES.containsKey(tableName), "table does not exist: %s", tableName);
+        return TABLES.get(tableName).getColumns();
     }
 }
