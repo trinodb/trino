@@ -50,9 +50,4 @@ public class KuduRecordSetProvider
 
         return new KuduRecordSet(clientSession, kuduSplit, columns);
     }
-
-    public KuduClientSession getClientSession()
-    {
-        return clientSession;
-    }
 }
