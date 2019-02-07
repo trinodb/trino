@@ -61,14 +61,10 @@ import static java.util.Objects.requireNonNull;
 public class AccumuloModule
         implements Module
 {
-    private final String connectorId;
     private final TypeManager typeManager;
 
-    public AccumuloModule(
-            String connectorId,
-            TypeManager typeManager)
+    public AccumuloModule(TypeManager typeManager)
     {
-        this.connectorId = requireNonNull(connectorId, "connector id is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
     }
 
