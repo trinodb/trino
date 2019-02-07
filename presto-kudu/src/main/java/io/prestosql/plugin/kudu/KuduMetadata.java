@@ -185,7 +185,7 @@ public class KuduMetadata
     {
         try {
             KuduTable table = clientSession.openTable(schemaTableName);
-            return new KuduTableHandle(connectorId, schemaTableName, table);
+            return new KuduTableHandle(schemaTableName, table);
         }
         catch (NotFoundException e) {
             return null;
@@ -285,7 +285,6 @@ public class KuduMetadata
                 .map(TypeHelper::fromKuduColumn).collect(toImmutableList());
 
         return new KuduInsertTableHandle(
-                connectorId,
                 tableHandle.getSchemaTableName(),
                 columnTypes,
                 table);
@@ -333,7 +332,6 @@ public class KuduMetadata
                 .map(ColumnMetadata::getType).collect(toImmutableList());
 
         return new KuduOutputTableHandle(
-                connectorId,
                 finalTableMetadata.getTable(),
                 columnOriginalTypes,
                 columnTypes,
