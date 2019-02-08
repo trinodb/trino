@@ -103,7 +103,7 @@ public abstract class AbstractGreatestLeast
         Type type = boundVariables.getTypeVariable("E");
         checkArgument(type.isOrderable(), "Type must be orderable");
 
-        MethodHandle compareMethod = functionManager.getScalarFunctionImplementation(functionManager.resolveOperator(operatorType, fromTypes(type, type))).getMethodHandle();
+        MethodHandle compareMethod = functionManager.getScalarFunctionImplementation(functionManager.lookupOperator(operatorType, fromTypes(type, type))).getMethodHandle();
 
         List<Class<?>> javaTypes = IntStream.range(0, arity)
                 .mapToObj(i -> type.getJavaType())

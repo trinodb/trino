@@ -135,7 +135,7 @@ public class BenchmarkArrayFilter
                 FunctionHandle functionHandle = functionManager.lookupFunction(
                         QualifiedName.of(name),
                         fromTypeSignatures(arrayType.getTypeSignature(), parseTypeSignature("function(bigint,boolean)")));
-                FunctionHandle greaterThan = functionManager.resolveOperator(GREATER_THAN, fromTypes(BIGINT, BIGINT));
+                FunctionHandle greaterThan = functionManager.lookupOperator(GREATER_THAN, fromTypes(BIGINT, BIGINT));
                 projectionsBuilder.add(new CallExpression(name, functionHandle, arrayType, ImmutableList.of(
                         field(0, arrayType),
                         new LambdaDefinitionExpression(

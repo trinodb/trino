@@ -51,7 +51,7 @@ public class PredicateFilterBenchmark
     protected List<? extends OperatorFactory> createOperatorFactories()
     {
         OperatorFactory tableScanOperator = createTableScanOperator(0, new PlanNodeId("test"), "orders", "totalprice");
-        FunctionHandle functionHandle = localQueryRunner.getMetadata().getFunctionManager().resolveOperator(GREATER_THAN_OR_EQUAL, fromTypes(DOUBLE, DOUBLE));
+        FunctionHandle functionHandle = localQueryRunner.getMetadata().getFunctionManager().lookupOperator(GREATER_THAN_OR_EQUAL, fromTypes(DOUBLE, DOUBLE));
         RowExpression filter = new CallExpression(
                 "test",
                 functionHandle,

@@ -124,7 +124,7 @@ public class TestPageProcessorCompiler
         FunctionManager functionManager = createTestMetadataManager().getFunctionManager();
         FunctionHandle functionHandle = functionManager.lookupFunction(QualifiedName.of("length"), fromTypes(VARCHAR));
         CallExpression lengthVarchar = new CallExpression("length", functionHandle, BIGINT, ImmutableList.of(field(0, VARCHAR)));
-        FunctionHandle lessThan = functionManager.resolveOperator(LESS_THAN, fromTypes(BIGINT, BIGINT));
+        FunctionHandle lessThan = functionManager.lookupOperator(LESS_THAN, fromTypes(BIGINT, BIGINT));
         CallExpression filter = new CallExpression(LESS_THAN.name(), lessThan, BOOLEAN, ImmutableList.of(lengthVarchar, constant(10L, BIGINT)));
 
         PageProcessor processor = compiler.compilePageProcessor(Optional.of(filter), ImmutableList.of(field(0, VARCHAR)), MAX_BATCH_SIZE).get();
@@ -163,7 +163,7 @@ public class TestPageProcessorCompiler
     public void testSanityFilterOnRLE()
     {
         FunctionManager functionManager = createTestMetadataManager().getFunctionManager();
-        FunctionHandle lessThan = functionManager.resolveOperator(LESS_THAN, fromTypes(BIGINT, BIGINT));
+        FunctionHandle lessThan = functionManager.lookupOperator(LESS_THAN, fromTypes(BIGINT, BIGINT));
         CallExpression filter = new CallExpression(LESS_THAN.name(), lessThan, BOOLEAN, ImmutableList.of(field(0, BIGINT), constant(10L, BIGINT)));
 
         PageProcessor processor = compiler.compilePageProcessor(Optional.of(filter), ImmutableList.of(field(0, BIGINT)), MAX_BATCH_SIZE).get();
@@ -209,7 +209,7 @@ public class TestPageProcessorCompiler
     public void testNonDeterministicProject()
     {
         FunctionManager functionManager = createTestMetadataManager().getFunctionManager();
-        FunctionHandle lessThan = functionManager.resolveOperator(LESS_THAN, fromTypes(BIGINT, BIGINT));
+        FunctionHandle lessThan = functionManager.lookupOperator(LESS_THAN, fromTypes(BIGINT, BIGINT));
         CallExpression random = new CallExpression(
                 "random",
                 functionManager.lookupFunction(QualifiedName.of("random"), fromTypes(BIGINT)),

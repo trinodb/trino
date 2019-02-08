@@ -132,7 +132,7 @@ public class RowIndeterminateOperator
                                 .push(true)
                                 .gotoLabel(end));
 
-                FunctionHandle functionHandle = functionManager.resolveOperator(INDETERMINATE, fromTypes(fieldTypes.get(i)));
+                FunctionHandle functionHandle = functionManager.lookupOperator(INDETERMINATE, fromTypes(fieldTypes.get(i)));
                 ScalarFunctionImplementation function = functionManager.getScalarFunctionImplementation(functionHandle);
                 BytecodeExpression element = constantType(binder, fieldTypes.get(i)).getValue(value, constantInt(i));
 

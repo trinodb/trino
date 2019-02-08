@@ -90,6 +90,11 @@ public class FunctionManager
         return functionRegistry.isAggregationFunction(name);
     }
 
+    public FunctionHandle lookupOperator(OperatorType operatorType, List<TypeSignatureProvider> argumentTypes)
+    {
+        return functionRegistry.resolveOperator(operatorType, argumentTypes);
+    }
+
     public FunctionHandle resolveOperator(OperatorType operatorType, List<TypeSignatureProvider> argumentTypes)
     {
         return functionRegistry.resolveOperator(operatorType, argumentTypes);

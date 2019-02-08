@@ -62,7 +62,7 @@ public class NullIfCodeGenerator
 
         // if (equal(cast(first as <common type>), cast(second as <common type>))
         FunctionManager functionManager = generatorContext.getRegistry();
-        FunctionHandle equalsHandle = functionManager.resolveOperator(EQUAL, fromTypes(firstType, secondType));
+        FunctionHandle equalsHandle = functionManager.lookupOperator(EQUAL, fromTypes(firstType, secondType));
         FunctionMetadata equalsMetadata = functionManager.getFunctionMetadata(equalsHandle);
         ScalarFunctionImplementation equalsFunction = functionManager.getScalarFunctionImplementation(equalsHandle);
         BytecodeNode equalsCall = generatorContext.generateCall(

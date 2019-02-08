@@ -85,7 +85,7 @@ public class MapElementAtFunction
         Type keyType = boundVariables.getTypeVariable("K");
         Type valueType = boundVariables.getTypeVariable("V");
 
-        MethodHandle keyEqualsMethod = functionManager.getScalarFunctionImplementation(functionManager.resolveOperator(EQUAL, fromTypes(keyType, keyType))).getMethodHandle();
+        MethodHandle keyEqualsMethod = functionManager.getScalarFunctionImplementation(functionManager.lookupOperator(EQUAL, fromTypes(keyType, keyType))).getMethodHandle();
 
         MethodHandle methodHandle;
         if (keyType.getJavaType() == boolean.class) {

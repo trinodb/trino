@@ -94,8 +94,8 @@ public final class FastutilSetHelper
 
         private LongStrategy(FunctionManager registry, Type type)
         {
-            hashCodeHandle = registry.getScalarFunctionImplementation(registry.resolveOperator(HASH_CODE, fromTypes(type))).getMethodHandle();
-            equalsHandle = registry.getScalarFunctionImplementation(registry.resolveOperator(EQUAL, fromTypes(type, type))).getMethodHandle();
+            hashCodeHandle = registry.getScalarFunctionImplementation(registry.lookupOperator(HASH_CODE, fromTypes(type))).getMethodHandle();
+            equalsHandle = registry.getScalarFunctionImplementation(registry.lookupOperator(EQUAL, fromTypes(type, type))).getMethodHandle();
         }
 
         @Override
@@ -136,8 +136,8 @@ public final class FastutilSetHelper
 
         private DoubleStrategy(FunctionManager registry, Type type)
         {
-            hashCodeHandle = registry.getScalarFunctionImplementation(registry.resolveOperator(HASH_CODE, fromTypes(type))).getMethodHandle();
-            equalsHandle = registry.getScalarFunctionImplementation(registry.resolveOperator(EQUAL, fromTypes(type, type))).getMethodHandle();
+            hashCodeHandle = registry.getScalarFunctionImplementation(registry.lookupOperator(HASH_CODE, fromTypes(type))).getMethodHandle();
+            equalsHandle = registry.getScalarFunctionImplementation(registry.lookupOperator(EQUAL, fromTypes(type, type))).getMethodHandle();
         }
 
         @Override
@@ -178,10 +178,10 @@ public final class FastutilSetHelper
 
         private ObjectStrategy(FunctionManager registry, Type type)
         {
-            hashCodeHandle = registry.getScalarFunctionImplementation(registry.resolveOperator(HASH_CODE, fromTypes(type)))
+            hashCodeHandle = registry.getScalarFunctionImplementation(registry.lookupOperator(HASH_CODE, fromTypes(type)))
                     .getMethodHandle()
                     .asType(MethodType.methodType(long.class, Object.class));
-            equalsHandle = registry.getScalarFunctionImplementation(registry.resolveOperator(EQUAL, fromTypes(type, type)))
+            equalsHandle = registry.getScalarFunctionImplementation(registry.lookupOperator(EQUAL, fromTypes(type, type)))
                     .getMethodHandle()
                     .asType(MethodType.methodType(Boolean.class, Object.class, Object.class));
         }

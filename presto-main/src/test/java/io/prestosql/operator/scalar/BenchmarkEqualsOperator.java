@@ -118,7 +118,7 @@ public class BenchmarkEqualsOperator
     {
         return new CallExpression(
                 EQUAL.name(),
-                functionManager.resolveOperator(EQUAL, fromTypes(BIGINT, BIGINT)),
+                functionManager.lookupOperator(EQUAL, fromTypes(BIGINT, BIGINT)),
                 BOOLEAN,
                 ImmutableList.of(field(leftField, BIGINT), field(rightField, BIGINT)));
     }

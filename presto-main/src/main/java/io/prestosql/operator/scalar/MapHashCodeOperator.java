@@ -55,8 +55,8 @@ public class MapHashCodeOperator
         Type keyType = boundVariables.getTypeVariable("K");
         Type valueType = boundVariables.getTypeVariable("V");
 
-        MethodHandle keyHashCodeFunction = functionManager.getScalarFunctionImplementation(functionManager.resolveOperator(HASH_CODE, fromTypes(keyType))).getMethodHandle();
-        MethodHandle valueHashCodeFunction = functionManager.getScalarFunctionImplementation(functionManager.resolveOperator(HASH_CODE, fromTypes(valueType))).getMethodHandle();
+        MethodHandle keyHashCodeFunction = functionManager.getScalarFunctionImplementation(functionManager.lookupOperator(HASH_CODE, fromTypes(keyType))).getMethodHandle();
+        MethodHandle valueHashCodeFunction = functionManager.getScalarFunctionImplementation(functionManager.lookupOperator(HASH_CODE, fromTypes(valueType))).getMethodHandle();
 
         MethodHandle method = METHOD_HANDLE.bindTo(keyHashCodeFunction).bindTo(valueHashCodeFunction).bindTo(keyType).bindTo(valueType);
         return new ScalarFunctionImplementation(

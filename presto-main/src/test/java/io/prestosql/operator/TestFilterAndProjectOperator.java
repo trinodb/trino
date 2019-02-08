@@ -92,7 +92,7 @@ public class TestFilterAndProjectOperator
 
         RowExpression filter = new CallExpression(
                 BETWEEN.name(),
-                functionManager.resolveOperator(BETWEEN, fromTypes(BIGINT, BIGINT, BIGINT)),
+                functionManager.lookupOperator(BETWEEN, fromTypes(BIGINT, BIGINT, BIGINT)),
                 BOOLEAN,
                 ImmutableList.of(
                         field(1, BIGINT),
@@ -102,7 +102,7 @@ public class TestFilterAndProjectOperator
         RowExpression field0 = field(0, VARCHAR);
         RowExpression add5 = new CallExpression(
                 ADD.name(),
-                functionManager.resolveOperator(ADD, fromTypes(BIGINT, BIGINT)),
+                functionManager.lookupOperator(ADD, fromTypes(BIGINT, BIGINT)),
                 BIGINT,
                 ImmutableList.of(
                         field(1, BIGINT),
@@ -150,7 +150,7 @@ public class TestFilterAndProjectOperator
 
         RowExpression filter = new CallExpression(
                 EQUAL.name(),
-                functionManager.resolveOperator(EQUAL, fromTypes(BIGINT, BIGINT)),
+                functionManager.lookupOperator(EQUAL, fromTypes(BIGINT, BIGINT)),
                 BOOLEAN,
                 ImmutableList.of(
                         field(1, BIGINT),

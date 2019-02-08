@@ -131,7 +131,7 @@ public class BenchmarkTransformKey
                     fromTypeSignatures(
                             mapType.getTypeSignature(),
                             parseTypeSignature(format("function(%s, %s, %s)", type, type, type))));
-            FunctionHandle add = functionManager.resolveOperator(ADD, fromTypes(elementType, elementType));
+            FunctionHandle add = functionManager.lookupOperator(ADD, fromTypes(elementType, elementType));
             projectionsBuilder.add(new CallExpression(name, functionHandle, mapType, ImmutableList.of(
                     field(0, mapType),
                     new LambdaDefinitionExpression(

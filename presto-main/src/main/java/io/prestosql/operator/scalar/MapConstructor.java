@@ -108,9 +108,9 @@ public final class MapConstructor
         Type valueType = boundVariables.getTypeVariable("V");
 
         Type mapType = typeManager.getParameterizedType(MAP, ImmutableList.of(TypeSignatureParameter.of(keyType.getTypeSignature()), TypeSignatureParameter.of(valueType.getTypeSignature())));
-        MethodHandle keyHashCode = functionManager.getScalarFunctionImplementation(functionManager.resolveOperator(HASH_CODE, fromTypes(keyType))).getMethodHandle();
-        MethodHandle keyEqual = functionManager.getScalarFunctionImplementation(functionManager.resolveOperator(EQUAL, fromTypes(keyType, keyType))).getMethodHandle();
-        MethodHandle keyIndeterminate = functionManager.getScalarFunctionImplementation(functionManager.resolveOperator(INDETERMINATE, fromTypes(keyType))).getMethodHandle();
+        MethodHandle keyHashCode = functionManager.getScalarFunctionImplementation(functionManager.lookupOperator(HASH_CODE, fromTypes(keyType))).getMethodHandle();
+        MethodHandle keyEqual = functionManager.getScalarFunctionImplementation(functionManager.lookupOperator(EQUAL, fromTypes(keyType, keyType))).getMethodHandle();
+        MethodHandle keyIndeterminate = functionManager.getScalarFunctionImplementation(functionManager.lookupOperator(INDETERMINATE, fromTypes(keyType))).getMethodHandle();
         MethodHandle instanceFactory = constructorMethodHandle(State.class, MapType.class).bindTo(mapType);
 
         return new ScalarFunctionImplementation(

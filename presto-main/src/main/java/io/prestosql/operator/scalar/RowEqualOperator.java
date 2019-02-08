@@ -77,7 +77,7 @@ public class RowEqualOperator
 
     private static MethodHandle resolveEqualOperator(Type type, FunctionManager functionManager)
     {
-        FunctionHandle operator = functionManager.resolveOperator(EQUAL, fromTypes(type, type));
+        FunctionHandle operator = functionManager.lookupOperator(EQUAL, fromTypes(type, type));
         ScalarFunctionImplementation implementation = functionManager.getScalarFunctionImplementation(operator);
         return implementation.getMethodHandle();
     }

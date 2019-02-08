@@ -79,7 +79,7 @@ public class TestExpressionOptimizer
     {
         RowExpression expression = constant(1L, BIGINT);
 
-        FunctionHandle functionHandle = functionManager.resolveOperator(ADD, fromTypes(BIGINT, BIGINT));
+        FunctionHandle functionHandle = functionManager.lookupOperator(ADD, fromTypes(BIGINT, BIGINT));
 
         for (int i = 0; i < 100; i++) {
             expression = new CallExpression(ADD.name(), functionHandle, BIGINT, ImmutableList.of(expression, constant(1L, BIGINT)));
@@ -94,7 +94,7 @@ public class TestExpressionOptimizer
         assertEquals(optimizer.optimize(ifExpression(constant(false, BOOLEAN), 1L, 2L)), constant(2L, BIGINT));
         assertEquals(optimizer.optimize(ifExpression(constant(null, BOOLEAN), 1L, 2L)), constant(2L, BIGINT));
 
-        FunctionHandle bigintEquals = functionManager.resolveOperator(EQUAL, fromTypes(BIGINT, BIGINT));
+        FunctionHandle bigintEquals = functionManager.lookupOperator(EQUAL, fromTypes(BIGINT, BIGINT));
         RowExpression condition = new CallExpression(EQUAL.name(), bigintEquals, BOOLEAN, ImmutableList.of(constant(3L, BIGINT), constant(3L, BIGINT)));
         assertEquals(optimizer.optimize(ifExpression(condition, 1L, 2L)), constant(1L, BIGINT));
     }

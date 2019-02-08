@@ -138,7 +138,7 @@ public class TestScanFilterAndProjectOperator
 
         RowExpression filter = new CallExpression(
                 EQUAL.name(),
-                metadata.getFunctionManager().resolveOperator(EQUAL, fromTypes(BIGINT, BIGINT)),
+                metadata.getFunctionManager().lookupOperator(EQUAL, fromTypes(BIGINT, BIGINT)),
                 BOOLEAN,
                 ImmutableList.of(field(0, BIGINT), constant(10L, BIGINT)));
         List<RowExpression> projections = ImmutableList.of(field(0, BIGINT));

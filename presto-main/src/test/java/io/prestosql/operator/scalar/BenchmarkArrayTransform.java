@@ -119,7 +119,7 @@ public class BenchmarkArrayTransform
                 FunctionHandle functionHandle = functionManager.lookupFunction(
                         QualifiedName.of("transform"),
                         fromTypeSignatures(arrayType.getTypeSignature(), parseTypeSignature("function(bigint,boolean)")));
-                FunctionHandle greaterThan = functionManager.resolveOperator(GREATER_THAN, fromTypes(BIGINT, BIGINT));
+                FunctionHandle greaterThan = functionManager.lookupOperator(GREATER_THAN, fromTypes(BIGINT, BIGINT));
                 projectionsBuilder.add(new CallExpression("transform", functionHandle, returnType, ImmutableList.of(
                         new InputReferenceExpression(0, arrayType),
                         new LambdaDefinitionExpression(

@@ -139,7 +139,7 @@ public class BenchmarkTransformValue
                     fromTypeSignatures(
                             mapType.getTypeSignature(),
                             parseTypeSignature(format("function(%s, %s, boolean)", type, type))));
-            FunctionHandle greaterThan = functionManager.resolveOperator(GREATER_THAN, fromTypes(elementType, elementType));
+            FunctionHandle greaterThan = functionManager.lookupOperator(GREATER_THAN, fromTypes(elementType, elementType));
             projectionsBuilder.add(new CallExpression(name, functionHandle, returnType, ImmutableList.of(
                     field(0, mapType),
                     new LambdaDefinitionExpression(

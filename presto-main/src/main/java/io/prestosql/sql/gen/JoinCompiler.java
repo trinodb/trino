@@ -707,7 +707,7 @@ public class JoinCompiler
                         continue;
                 }
             }
-            ScalarFunctionImplementation operator = registry.getScalarFunctionImplementation(registry.resolveOperator(OperatorType.IS_DISTINCT_FROM, fromTypes(type, type)));
+            ScalarFunctionImplementation operator = registry.getScalarFunctionImplementation(registry.lookupOperator(OperatorType.IS_DISTINCT_FROM, fromTypes(type, type)));
             Binding binding = callSiteBinder.bind(operator.getMethodHandle());
             List<BytecodeNode> argumentsBytecode = new ArrayList<>();
             argumentsBytecode.add(generateInputReference(callSiteBinder, scope, type, leftBlock, leftBlockPosition));

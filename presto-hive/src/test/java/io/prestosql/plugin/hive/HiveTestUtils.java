@@ -168,7 +168,7 @@ public final class HiveTestUtils
 
     public static MethodHandle distinctFromOperator(Type type)
     {
-        FunctionHandle functionHandle = FUNCTION_REGISTRY.resolveOperator(IS_DISTINCT_FROM, fromTypes(type, type));
+        FunctionHandle functionHandle = FUNCTION_REGISTRY.lookupOperator(IS_DISTINCT_FROM, fromTypes(type, type));
         return FUNCTION_REGISTRY.getScalarFunctionImplementation(functionHandle).getMethodHandle();
     }
 

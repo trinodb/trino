@@ -267,16 +267,16 @@ public class TestTypeRegistry
     {
         for (Type type : typeRegistry.getTypes()) {
             if (type.isComparable()) {
-                functionManager.resolveOperator(EQUAL, fromTypes(type, type));
-                functionManager.resolveOperator(NOT_EQUAL, fromTypes(type, type));
-                functionManager.resolveOperator(IS_DISTINCT_FROM, fromTypes(type, type));
-                functionManager.resolveOperator(HASH_CODE, fromTypes(type));
+                functionManager.lookupOperator(EQUAL, fromTypes(type, type));
+                functionManager.lookupOperator(NOT_EQUAL, fromTypes(type, type));
+                functionManager.lookupOperator(IS_DISTINCT_FROM, fromTypes(type, type));
+                functionManager.lookupOperator(HASH_CODE, fromTypes(type));
             }
             if (type.isOrderable()) {
-                functionManager.resolveOperator(LESS_THAN, fromTypes(type, type));
-                functionManager.resolveOperator(LESS_THAN_OR_EQUAL, fromTypes(type, type));
-                functionManager.resolveOperator(GREATER_THAN_OR_EQUAL, fromTypes(type, type));
-                functionManager.resolveOperator(GREATER_THAN, fromTypes(type, type));
+                functionManager.lookupOperator(LESS_THAN, fromTypes(type, type));
+                functionManager.lookupOperator(LESS_THAN_OR_EQUAL, fromTypes(type, type));
+                functionManager.lookupOperator(GREATER_THAN_OR_EQUAL, fromTypes(type, type));
+                functionManager.lookupOperator(GREATER_THAN, fromTypes(type, type));
             }
         }
     }

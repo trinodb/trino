@@ -49,7 +49,7 @@ public abstract class RowComparisonOperator
     {
         ImmutableList.Builder<MethodHandle> argumentMethods = ImmutableList.builder();
         for (Type parameterType : type.getTypeParameters()) {
-            FunctionHandle functionHandle = functionManager.resolveOperator(operatorType, fromTypes(parameterType, parameterType));
+            FunctionHandle functionHandle = functionManager.lookupOperator(operatorType, fromTypes(parameterType, parameterType));
             argumentMethods.add(functionManager.getScalarFunctionImplementation(functionHandle).getMethodHandle());
         }
         return argumentMethods.build();

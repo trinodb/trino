@@ -120,9 +120,9 @@ public class InCodeGenerator
 
         SwitchGenerationCase switchGenerationCase = checkSwitchGenerationCase(type, values);
 
-        FunctionHandle hashCodeHandle = generatorContext.getRegistry().resolveOperator(HASH_CODE, fromTypes(type));
+        FunctionHandle hashCodeHandle = generatorContext.getRegistry().lookupOperator(HASH_CODE, fromTypes(type));
         MethodHandle hashCodeFunction = generatorContext.getRegistry().getScalarFunctionImplementation(hashCodeHandle).getMethodHandle();
-        FunctionHandle isIndeterminateHandle = generatorContext.getRegistry().resolveOperator(INDETERMINATE, fromTypes(type));
+        FunctionHandle isIndeterminateHandle = generatorContext.getRegistry().lookupOperator(INDETERMINATE, fromTypes(type));
         ScalarFunctionImplementation isIndeterminateFunction = generatorContext.getRegistry().getScalarFunctionImplementation(isIndeterminateHandle);
 
         ImmutableListMultimap.Builder<Integer, BytecodeNode> hashBucketsBuilder = ImmutableListMultimap.builder();
@@ -328,7 +328,7 @@ public class InCodeGenerator
 
         elseBlock.gotoLabel(noMatchLabel);
 
-        FunctionHandle equalsHandle = generatorContext.getRegistry().resolveOperator(EQUAL, fromTypes(type, type));
+        FunctionHandle equalsHandle = generatorContext.getRegistry().lookupOperator(EQUAL, fromTypes(type, type));
         ScalarFunctionImplementation equalsFunction = generatorContext.getRegistry().getScalarFunctionImplementation(equalsHandle);
 
         BytecodeNode elseNode = elseBlock;

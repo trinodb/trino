@@ -75,7 +75,7 @@ public class SimplePagesHashStrategy
         ImmutableList.Builder<MethodHandle> distinctFromMethodHandlesBuilder = ImmutableList.builder();
         for (Type type : types) {
             distinctFromMethodHandlesBuilder.add(
-                    functionManager.getScalarFunctionImplementation(functionManager.resolveOperator(IS_DISTINCT_FROM, fromTypes(type, type))).getMethodHandle());
+                    functionManager.getScalarFunctionImplementation(functionManager.lookupOperator(IS_DISTINCT_FROM, fromTypes(type, type))).getMethodHandle());
         }
         distinctFromMethodHandles = distinctFromMethodHandlesBuilder.build();
     }

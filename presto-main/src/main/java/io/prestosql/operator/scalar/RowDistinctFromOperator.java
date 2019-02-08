@@ -65,7 +65,7 @@ public class RowDistinctFromOperator
         ImmutableList.Builder<MethodHandle> argumentMethods = ImmutableList.builder();
         Type type = boundVariables.getTypeVariable("T");
         for (Type parameterType : type.getTypeParameters()) {
-            FunctionHandle functionHandle = functionManager.resolveOperator(IS_DISTINCT_FROM, fromTypes(parameterType, parameterType));
+            FunctionHandle functionHandle = functionManager.lookupOperator(IS_DISTINCT_FROM, fromTypes(parameterType, parameterType));
             FunctionInvoker functionInvoker = functionManager.getFunctionInvokerProvider().createFunctionInvoker(
                     functionHandle,
                     Optional.of(new InvocationConvention(

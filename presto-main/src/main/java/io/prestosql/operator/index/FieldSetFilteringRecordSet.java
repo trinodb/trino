@@ -53,7 +53,7 @@ public class FieldSetFilteringRecordSet
         for (Set<Integer> fieldSet : requireNonNull(fieldSets, "fieldSets is null")) {
             ImmutableSet.Builder<Field> fieldSetBuilder = ImmutableSet.builder();
             for (int field : fieldSet) {
-                FunctionHandle functionHandle = functionManager.resolveOperator(OperatorType.EQUAL, fromTypes(columnTypes.get(field), columnTypes.get(field)));
+                FunctionHandle functionHandle = functionManager.lookupOperator(OperatorType.EQUAL, fromTypes(columnTypes.get(field), columnTypes.get(field)));
                 MethodHandle methodHandle = functionManager.getScalarFunctionImplementation(functionHandle).getMethodHandle();
                 fieldSetBuilder.add(new Field(field, methodHandle));
             }

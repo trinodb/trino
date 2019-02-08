@@ -195,7 +195,7 @@ public class BenchmarkPageProcessor
                 BOOLEAN,
                 new CallExpression(
                         GREATER_THAN_OR_EQUAL.name(),
-                        functionManager.resolveOperator(GREATER_THAN_OR_EQUAL, fromTypes(VARCHAR, VARCHAR)),
+                        functionManager.lookupOperator(GREATER_THAN_OR_EQUAL, fromTypes(VARCHAR, VARCHAR)),
                         BOOLEAN,
                         ImmutableList.of(field(SHIP_DATE, VARCHAR), constant(MIN_SHIP_DATE, VARCHAR))),
                 new SpecialForm(
@@ -203,7 +203,7 @@ public class BenchmarkPageProcessor
                         BOOLEAN,
                         new CallExpression(
                                 LESS_THAN.name(),
-                                functionManager.resolveOperator(LESS_THAN, fromTypes(VARCHAR, VARCHAR)),
+                                functionManager.lookupOperator(LESS_THAN, fromTypes(VARCHAR, VARCHAR)),
                                 BOOLEAN,
                                 ImmutableList.of(field(SHIP_DATE, VARCHAR), constant(MAX_SHIP_DATE, VARCHAR))),
                         new SpecialForm(
@@ -211,7 +211,7 @@ public class BenchmarkPageProcessor
                                 BOOLEAN,
                                 new CallExpression(
                                         GREATER_THAN_OR_EQUAL.name(),
-                                        functionManager.resolveOperator(GREATER_THAN_OR_EQUAL, fromTypes(DOUBLE, DOUBLE)),
+                                        functionManager.lookupOperator(GREATER_THAN_OR_EQUAL, fromTypes(DOUBLE, DOUBLE)),
                                         BOOLEAN,
                                         ImmutableList.of(field(DISCOUNT, DOUBLE), constant(0.05, DOUBLE))),
                                 new SpecialForm(
@@ -219,12 +219,12 @@ public class BenchmarkPageProcessor
                                         BOOLEAN,
                                         new CallExpression(
                                                 LESS_THAN_OR_EQUAL.name(),
-                                                functionManager.resolveOperator(LESS_THAN_OR_EQUAL, fromTypes(DOUBLE, DOUBLE)),
+                                                functionManager.lookupOperator(LESS_THAN_OR_EQUAL, fromTypes(DOUBLE, DOUBLE)),
                                                 BOOLEAN,
                                                 ImmutableList.of(field(DISCOUNT, DOUBLE), constant(0.07, DOUBLE))),
                                         new CallExpression(
                                                 LESS_THAN.name(),
-                                                functionManager.resolveOperator(LESS_THAN, fromTypes(DOUBLE, DOUBLE)),
+                                                functionManager.lookupOperator(LESS_THAN, fromTypes(DOUBLE, DOUBLE)),
                                                 BOOLEAN,
                                                 ImmutableList.of(field(QUANTITY, DOUBLE), constant(24.0, DOUBLE)))))));
     }
@@ -233,7 +233,7 @@ public class BenchmarkPageProcessor
     {
         return new CallExpression(
                 MULTIPLY.name(),
-                functionManager.resolveOperator(MULTIPLY, fromTypes(DOUBLE, DOUBLE)),
+                functionManager.lookupOperator(MULTIPLY, fromTypes(DOUBLE, DOUBLE)),
                 DOUBLE,
                 ImmutableList.of(field(EXTENDED_PRICE, DOUBLE), field(DISCOUNT, DOUBLE)));
     }

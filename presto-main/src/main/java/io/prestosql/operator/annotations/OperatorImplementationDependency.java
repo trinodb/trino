@@ -60,7 +60,7 @@ public final class OperatorImplementationDependency
     protected FunctionHandle getFunctionHandle(BoundVariables boundVariables, FunctionManager functionManager)
     {
         List<TypeSignature> argumentTypes = applyBoundVariables(this.argumentTypes, boundVariables);
-        return functionManager.resolveOperator(operator, fromTypeSignatures(argumentTypes));
+        return functionManager.lookupOperator(operator, fromTypeSignatures(argumentTypes));
     }
 
     @Override
