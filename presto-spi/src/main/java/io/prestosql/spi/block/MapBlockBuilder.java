@@ -30,6 +30,7 @@ import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.block.BlockUtil.calculateBlockResetSize;
 import static io.prestosql.spi.block.MapBlock.createMapBlockInternal;
 import static java.lang.String.format;
+import static java.lang.System.arraycopy;
 import static java.util.Objects.requireNonNull;
 
 public class MapBlockBuilder
@@ -250,9 +251,7 @@ public class MapBlockBuilder
         // Directly copy instead of building hashtable
         int hashTableOffset = offsets[positionCount - 1] * HASH_MULTIPLIER;
         int hashTableSize = (offsets[positionCount] - offsets[positionCount - 1]) * HASH_MULTIPLIER;
-        for (int i = 0; i < hashTableSize; i++) {
-            hashTables[hashTableOffset + i] = providedHashTable[providedHashTableOffset + i];
-        }
+        arraycopy(providedHashTable, providedHashTableOffset, hashTables, hashTableOffset, hashTableSize);
 
         return this;
     }
