@@ -89,12 +89,14 @@ public class InformationSchemaMetadata
                     .column("data_type", createUnboundedVarcharType())
                     .column("comment", createUnboundedVarcharType())
                     .column("extra_info", createUnboundedVarcharType())
+                    .hiddenColumn("column_comment", createUnboundedVarcharType()) // MySQL compatible
                     .build())
             .table(tableMetadataBuilder(TABLE_TABLES)
                     .column("table_catalog", createUnboundedVarcharType())
                     .column("table_schema", createUnboundedVarcharType())
                     .column("table_name", createUnboundedVarcharType())
                     .column("table_type", createUnboundedVarcharType())
+                    .hiddenColumn("table_comment", createUnboundedVarcharType()) // MySQL compatible
                     .build())
             .table(tableMetadataBuilder(TABLE_VIEWS)
                     .column("table_catalog", createUnboundedVarcharType())

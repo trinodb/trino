@@ -247,6 +247,12 @@ public final class MetadataUtil
             return this;
         }
 
+        public TableMetadataBuilder hiddenColumn(String columnName, Type type)
+        {
+            columns.add(new ColumnMetadata(columnName, type, null, true));
+            return this;
+        }
+
         public TableMetadataBuilder property(String name, Object value)
         {
             properties.put(name, value);

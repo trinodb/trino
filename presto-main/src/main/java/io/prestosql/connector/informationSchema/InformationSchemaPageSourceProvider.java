@@ -160,7 +160,8 @@ public class InformationSchemaPageSourceProvider
                             "YES",
                             column.getType().getDisplayName(),
                             column.getComment(),
-                            column.getExtraInfo());
+                            column.getExtraInfo(),
+                            column.getComment());
                     ordinalPosition++;
                 }
             }
@@ -182,7 +183,8 @@ public class InformationSchemaPageSourceProvider
                         prefix.getCatalogName(),
                         name.getSchemaName(),
                         name.getTableName(),
-                        type);
+                        type,
+                        null);
             }
         }
         return table.build();

@@ -142,4 +142,14 @@ public class TestLocalQueries
                 jsonCodec(IoPlan.class).fromJson((String) getOnlyElement(result.getOnlyColumnAsSet())),
                 new IoPlan(ImmutableSet.of(input), Optional.empty()));
     }
+
+    @Test
+    public void testHueQueries()
+    {
+        // https://github.com/cloudera/hue/blob/b49e98c1250c502be596667ce1f0fe118983b432/desktop/libs/notebook/src/notebook/connectors/jdbc.py#L205
+        assertQuerySucceeds(getSession(), "SELECT table_name, table_comment FROM information_schema.tables WHERE table_schema='nation'");
+
+        // https://github.com/cloudera/hue/blob/b49e98c1250c502be596667ce1f0fe118983b432/desktop/libs/notebook/src/notebook/connectors/jdbc.py#L213
+        assertQuerySucceeds(getSession(), "SELECT column_name, data_type, column_comment FROM information_schema.columns WHERE table_schema='local' AND TABLE_NAME='nation'");
+    }
 }
