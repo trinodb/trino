@@ -1246,7 +1246,7 @@ public class ThriftHiveMetastore
         try {
             return retry()
                     .stopOnIllegalExceptions()
-                    .run("getListPrivileges", stats.getListPrivileges().wrap(() -> {
+                    .run("listTablePrivileges", stats.getListTablePrivileges().wrap(() -> {
                         try (HiveMetastoreClient client = clientProvider.createMetastoreClient()) {
                             Table table = client.getTable(databaseName, tableName);
                             ImmutableSet.Builder<HivePrivilegeInfo> privileges = ImmutableSet.builder();
