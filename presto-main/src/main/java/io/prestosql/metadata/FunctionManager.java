@@ -17,6 +17,7 @@ import io.prestosql.Session;
 import io.prestosql.operator.aggregation.InternalAggregationFunction;
 import io.prestosql.operator.scalar.ScalarFunctionImplementation;
 import io.prestosql.operator.window.WindowFunctionSupplier;
+import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.BlockEncodingSerde;
 import io.prestosql.spi.function.OperatorType;
 import io.prestosql.spi.type.TypeManager;
@@ -50,6 +51,9 @@ public class FunctionManager
         return functionInvokerProvider;
     }
 
+    /**
+     * Adds new global functions.
+     */
     public void addFunctions(List<? extends SqlFunction> functions)
     {
         functionRegistry.addFunctions(functions);
@@ -60,11 +64,19 @@ public class FunctionManager
         return functionRegistry.list();
     }
 
+    /**
+     * Lookup up a function with a fully qualified name and fully bound types.
+     * @throws PrestoException if function could not be found
+     */
     public FunctionHandle lookupFunction(QualifiedName name, List<TypeSignatureProvider> parameterTypes)
     {
         return functionRegistry.resolveFunction(name, parameterTypes);
     }
 
+    /**
+     * Resolves a function using the SQL path, and implicit type coercions.
+     * @throws PrestoException if there are no matches or multiple matches
+     */
     public FunctionHandle resolveFunction(Session session, QualifiedName name, List<TypeSignatureProvider> parameterTypes)
     {
         return functionRegistry.resolveFunction(name, parameterTypes);
@@ -85,16 +97,28 @@ public class FunctionManager
         return functionRegistry.getScalarFunctionImplementation(functionHandle);
     }
 
+    /**
+     * Is the named function an aggregation function?  This does not need type parameters
+     * because overloads between aggregation and other function types are not allowed.
+     */
     public boolean isAggregationFunction(QualifiedName name)
     {
         return functionRegistry.isAggregationFunction(name);
     }
 
+    /**
+     * Lookup up an operator with fully bound types.
+     * @throws PrestoException if operator could not be found
+     */
     public FunctionHandle lookupOperator(OperatorType operatorType, List<TypeSignatureProvider> argumentTypes)
     {
         return functionRegistry.resolveOperator(operatorType, argumentTypes);
     }
 
+    /**
+     * Resolves an operator using implicit type coercions.
+     * @throws PrestoException if there are no matches or multiple matches
+     */
     public FunctionHandle resolveOperator(OperatorType operatorType, List<TypeSignatureProvider> argumentTypes)
     {
         return functionRegistry.resolveOperator(operatorType, argumentTypes);
