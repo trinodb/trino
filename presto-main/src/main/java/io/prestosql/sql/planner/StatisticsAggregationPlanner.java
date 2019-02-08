@@ -83,7 +83,7 @@ public class StatisticsAggregationPlanner
             QualifiedName count = QualifiedName.of("count");
             AggregationNode.Aggregation aggregation = new AggregationNode.Aggregation(
                     new FunctionCall(count, ImmutableList.of()),
-                    functionManager.resolveFunction(session, count, ImmutableList.of()),
+                    functionManager.lookupFunction(count, ImmutableList.of()),
                     Optional.empty());
             Symbol symbol = symbolAllocator.newSymbol("rowCount", BIGINT);
             aggregations.put(symbol, aggregation);
@@ -132,7 +132,7 @@ public class StatisticsAggregationPlanner
     private ColumnStatisticsAggregation createAggregation(QualifiedName functionName, SymbolReference input, Type inputType, Type outputType)
     {
         FunctionManager functionManager = metadata.getFunctionManager();
-        FunctionHandle functionHandle = functionManager.resolveFunction(session, functionName, fromTypes(inputType));
+        FunctionHandle functionHandle = functionManager.lookupFunction(functionName, fromTypes(inputType));
         Type resolvedType = getOnlyElement(functionManager.getFunctionMetadata(functionHandle).getArgumentTypes());
         verify(resolvedType.equals(inputType), "resolved function input type does not match the input type: %s != %s", resolvedType, inputType);
         return new ColumnStatisticsAggregation(

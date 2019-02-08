@@ -26,7 +26,6 @@ import java.util.Arrays;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static io.prestosql.SessionTestUtils.TEST_SESSION;
 import static io.prestosql.block.BlockAssertions.createArrayBigintBlock;
 import static io.prestosql.block.BlockAssertions.createBooleansBlock;
 import static io.prestosql.block.BlockAssertions.createDoublesBlock;
@@ -53,7 +52,7 @@ public class TestArbitraryAggregation
         Set<Type> allTypes = metadata.getTypeManager().getTypes().stream().collect(toImmutableSet());
 
         for (Type valueType : allTypes) {
-            FunctionHandle resolveFunction = functionManager.resolveFunction(TEST_SESSION, QualifiedName.of("arbitrary"), fromTypes(valueType));
+            FunctionHandle resolveFunction = functionManager.lookupFunction(QualifiedName.of("arbitrary"), fromTypes(valueType));
             assertNotNull(functionManager.getAggregateFunctionImplementation(resolveFunction));
         }
     }
@@ -61,7 +60,7 @@ public class TestArbitraryAggregation
     @Test
     public void testNullBoolean()
     {
-        FunctionHandle functionHandle = functionManager.resolveFunction(TEST_SESSION, QualifiedName.of("arbitrary"), fromTypes(BOOLEAN));
+        FunctionHandle functionHandle = functionManager.lookupFunction(QualifiedName.of("arbitrary"), fromTypes(BOOLEAN));
         InternalAggregationFunction booleanAgg = functionManager.getAggregateFunctionImplementation(functionHandle);
         assertAggregation(
                 booleanAgg,
@@ -72,7 +71,7 @@ public class TestArbitraryAggregation
     @Test
     public void testValidBoolean()
     {
-        FunctionHandle functionHandle = functionManager.resolveFunction(TEST_SESSION, QualifiedName.of("arbitrary"), fromTypes(BOOLEAN));
+        FunctionHandle functionHandle = functionManager.lookupFunction(QualifiedName.of("arbitrary"), fromTypes(BOOLEAN));
         InternalAggregationFunction booleanAgg = functionManager.getAggregateFunctionImplementation(functionHandle);
         assertAggregation(
                 booleanAgg,
@@ -83,7 +82,7 @@ public class TestArbitraryAggregation
     @Test
     public void testNullLong()
     {
-        FunctionHandle functionHandle = functionManager.resolveFunction(TEST_SESSION, QualifiedName.of("arbitrary"), fromTypes(BIGINT));
+        FunctionHandle functionHandle = functionManager.lookupFunction(QualifiedName.of("arbitrary"), fromTypes(BIGINT));
         InternalAggregationFunction longAgg = functionManager.getAggregateFunctionImplementation(functionHandle);
         assertAggregation(
                 longAgg,
@@ -94,7 +93,7 @@ public class TestArbitraryAggregation
     @Test
     public void testValidLong()
     {
-        FunctionHandle functionHandle = functionManager.resolveFunction(TEST_SESSION, QualifiedName.of("arbitrary"), fromTypes(BIGINT));
+        FunctionHandle functionHandle = functionManager.lookupFunction(QualifiedName.of("arbitrary"), fromTypes(BIGINT));
         InternalAggregationFunction longAgg = functionManager.getAggregateFunctionImplementation(functionHandle);
         assertAggregation(
                 longAgg,
@@ -105,7 +104,7 @@ public class TestArbitraryAggregation
     @Test
     public void testNullDouble()
     {
-        FunctionHandle functionHandle = functionManager.resolveFunction(TEST_SESSION, QualifiedName.of("arbitrary"), fromTypes(DOUBLE));
+        FunctionHandle functionHandle = functionManager.lookupFunction(QualifiedName.of("arbitrary"), fromTypes(DOUBLE));
         InternalAggregationFunction doubleAgg = functionManager.getAggregateFunctionImplementation(functionHandle);
         assertAggregation(
                 doubleAgg,
@@ -116,7 +115,7 @@ public class TestArbitraryAggregation
     @Test
     public void testValidDouble()
     {
-        FunctionHandle functionHandle = functionManager.resolveFunction(TEST_SESSION, QualifiedName.of("arbitrary"), fromTypes(DOUBLE));
+        FunctionHandle functionHandle = functionManager.lookupFunction(QualifiedName.of("arbitrary"), fromTypes(DOUBLE));
         InternalAggregationFunction doubleAgg = functionManager.getAggregateFunctionImplementation(functionHandle);
         assertAggregation(
                 doubleAgg,
@@ -127,7 +126,7 @@ public class TestArbitraryAggregation
     @Test
     public void testNullString()
     {
-        FunctionHandle functionHandle = functionManager.resolveFunction(TEST_SESSION, QualifiedName.of("arbitrary"), fromTypes(VARCHAR));
+        FunctionHandle functionHandle = functionManager.lookupFunction(QualifiedName.of("arbitrary"), fromTypes(VARCHAR));
         InternalAggregationFunction stringAgg = functionManager.getAggregateFunctionImplementation(functionHandle);
         assertAggregation(
                 stringAgg,
@@ -138,7 +137,7 @@ public class TestArbitraryAggregation
     @Test
     public void testValidString()
     {
-        FunctionHandle functionHandle = functionManager.resolveFunction(TEST_SESSION, QualifiedName.of("arbitrary"), fromTypes(VARCHAR));
+        FunctionHandle functionHandle = functionManager.lookupFunction(QualifiedName.of("arbitrary"), fromTypes(VARCHAR));
         InternalAggregationFunction stringAgg = functionManager.getAggregateFunctionImplementation(functionHandle);
         assertAggregation(
                 stringAgg,
@@ -149,7 +148,7 @@ public class TestArbitraryAggregation
     @Test
     public void testNullArray()
     {
-        FunctionHandle functionHandle = functionManager.resolveFunction(TEST_SESSION, QualifiedName.of("arbitrary"), fromTypes(new ArrayType(BIGINT)));
+        FunctionHandle functionHandle = functionManager.lookupFunction(QualifiedName.of("arbitrary"), fromTypes(new ArrayType(BIGINT)));
         InternalAggregationFunction arrayAgg = functionManager.getAggregateFunctionImplementation(functionHandle);
         assertAggregation(
                 arrayAgg,
@@ -160,7 +159,7 @@ public class TestArbitraryAggregation
     @Test
     public void testValidArray()
     {
-        FunctionHandle functionHandle = functionManager.resolveFunction(TEST_SESSION, QualifiedName.of("arbitrary"), fromTypes(new ArrayType(BIGINT)));
+        FunctionHandle functionHandle = functionManager.lookupFunction(QualifiedName.of("arbitrary"), fromTypes(new ArrayType(BIGINT)));
         InternalAggregationFunction arrayAgg = functionManager.getAggregateFunctionImplementation(functionHandle);
         assertAggregation(
                 arrayAgg,
@@ -171,7 +170,7 @@ public class TestArbitraryAggregation
     @Test
     public void testValidInt()
     {
-        FunctionHandle functionHandle = functionManager.resolveFunction(TEST_SESSION, QualifiedName.of("arbitrary"), fromTypes(INTEGER));
+        FunctionHandle functionHandle = functionManager.lookupFunction(QualifiedName.of("arbitrary"), fromTypes(INTEGER));
         InternalAggregationFunction arrayAgg = functionManager.getAggregateFunctionImplementation(functionHandle);
         assertAggregation(
                 arrayAgg,

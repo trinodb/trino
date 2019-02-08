@@ -21,7 +21,6 @@ import io.prestosql.sql.tree.QualifiedName;
 
 import java.util.concurrent.ThreadLocalRandom;
 
-import static io.prestosql.SessionTestUtils.TEST_SESSION;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.prestosql.type.IpAddressType.IPADDRESS;
@@ -33,7 +32,7 @@ public class TestApproximateCountDistinctIpAddress
     public InternalAggregationFunction getAggregationFunction()
     {
         FunctionManager functionManager = metadata.getFunctionManager();
-        FunctionHandle functionHandle = functionManager.resolveFunction(TEST_SESSION, QualifiedName.of("approx_distinct"), fromTypes(IPADDRESS, DOUBLE));
+        FunctionHandle functionHandle = functionManager.lookupFunction(QualifiedName.of("approx_distinct"), fromTypes(IPADDRESS, DOUBLE));
         return functionManager.getAggregateFunctionImplementation(functionHandle);
     }
 

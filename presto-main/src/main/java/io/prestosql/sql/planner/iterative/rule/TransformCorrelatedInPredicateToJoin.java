@@ -16,7 +16,6 @@ package io.prestosql.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.Session;
 import io.prestosql.matching.Captures;
 import io.prestosql.matching.Pattern;
 import io.prestosql.metadata.FunctionHandle;
@@ -126,11 +125,10 @@ public class TransformCorrelatedInPredicateToJoin
         InPredicate inPredicate = (InPredicate) assignmentExpression;
         Symbol inPredicateOutputSymbol = getOnlyElement(subqueryAssignments.getSymbols());
 
-        return apply(context.getSession(), apply, inPredicate, inPredicateOutputSymbol, context.getLookup(), context.getIdAllocator(), context.getSymbolAllocator());
+        return apply(apply, inPredicate, inPredicateOutputSymbol, context.getLookup(), context.getIdAllocator(), context.getSymbolAllocator());
     }
 
     private Result apply(
-            Session session,
             ApplyNode apply,
             InPredicate inPredicate,
             Symbol inPredicateOutputSymbol,
@@ -146,7 +144,6 @@ public class TransformCorrelatedInPredicateToJoin
         }
 
         PlanNode projection = buildInPredicateEquivalent(
-                session,
                 apply,
                 inPredicate,
                 inPredicateOutputSymbol,
@@ -158,7 +155,6 @@ public class TransformCorrelatedInPredicateToJoin
     }
 
     private PlanNode buildInPredicateEquivalent(
-            Session session,
             ApplyNode apply,
             InPredicate inPredicate,
             Symbol inPredicateOutputSymbol,
@@ -210,8 +206,8 @@ public class TransformCorrelatedInPredicateToJoin
                 idAllocator.getNextId(),
                 leftOuterJoin,
                 ImmutableMap.<Symbol, AggregationNode.Aggregation>builder()
-                        .put(countMatchesSymbol, countWithFilter(session, matchCondition))
-                        .put(countNullMatchesSymbol, countWithFilter(session, nullMatchCondition))
+                        .put(countMatchesSymbol, countWithFilter(matchCondition))
+                        .put(countNullMatchesSymbol, countWithFilter(nullMatchCondition))
                         .build(),
                 singleGroupingSet(probeSide.getOutputSymbols()),
                 ImmutableList.of(),
@@ -252,7 +248,7 @@ public class TransformCorrelatedInPredicateToJoin
                 Optional.empty());
     }
 
-    private AggregationNode.Aggregation countWithFilter(Session session, Expression condition)
+    private AggregationNode.Aggregation countWithFilter(Expression condition)
     {
         FunctionCall countCall = new FunctionCall(
                 QualifiedName.of("count"),
@@ -262,7 +258,7 @@ public class TransformCorrelatedInPredicateToJoin
                 false,
                 ImmutableList.<Expression>of()); /* arguments */
 
-        FunctionHandle functionHandle = functionManager.resolveFunction(session, QualifiedName.of("count"), ImmutableList.of());
+        FunctionHandle functionHandle = functionManager.lookupFunction(QualifiedName.of("count"), ImmutableList.of());
         return new AggregationNode.Aggregation(
                 countCall,
                 functionHandle,

@@ -28,7 +28,6 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 
-import static io.prestosql.SessionTestUtils.TEST_SESSION;
 import static io.prestosql.block.BlockAssertions.createBlockOfReals;
 import static io.prestosql.operator.aggregation.AggregationTestUtils.assertAggregation;
 import static io.prestosql.spi.type.RealType.REAL;
@@ -45,7 +44,7 @@ public class TestRealAverageAggregation
     public void setUp()
     {
         FunctionManager functionManager = MetadataManager.createTestMetadataManager().getFunctionManager();
-        FunctionHandle functionHandle = functionManager.resolveFunction(TEST_SESSION, QualifiedName.of("avg"), fromTypes(REAL));
+        FunctionHandle functionHandle = functionManager.lookupFunction(QualifiedName.of("avg"), fromTypes(REAL));
         avgFunction = functionManager.getAggregateFunctionImplementation(functionHandle);
     }
 

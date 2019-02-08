@@ -72,7 +72,6 @@ import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.prestosql.SessionTestUtils.TEST_SESSION;
 import static io.prestosql.cost.PlanNodeCostEstimate.cpuCost;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.plugin.tpch.TpchTransactionHandle.INSTANCE;
@@ -659,7 +658,7 @@ public class TestCostCalculator
     {
         AggregationNode.Aggregation aggregation = new AggregationNode.Aggregation(
                 new FunctionCall(QualifiedName.of("count"), ImmutableList.of()),
-                metadata.getFunctionManager().resolveFunction(TEST_SESSION, QualifiedName.of("count"), fromTypes()),
+                metadata.getFunctionManager().lookupFunction(QualifiedName.of("count"), fromTypes()),
                 Optional.empty());
 
         return new AggregationNode(

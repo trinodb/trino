@@ -72,7 +72,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
-import static io.prestosql.SessionTestUtils.TEST_SESSION;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.sql.ExpressionUtils.and;
 import static io.prestosql.sql.ExpressionUtils.combineConjuncts;
@@ -139,7 +138,7 @@ public class TestEffectivePredicateExtractor
     @Test
     public void testAggregation()
     {
-        FunctionHandle aggregationFunction = metadata.getFunctionManager().resolveFunction(TEST_SESSION, QualifiedName.of("count"), ImmutableList.of());
+        FunctionHandle aggregationFunction = metadata.getFunctionManager().lookupFunction(QualifiedName.of("count"), ImmutableList.of());
         PlanNode node = new AggregationNode(newId(),
                 filter(baseTableScan,
                         and(

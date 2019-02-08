@@ -78,7 +78,7 @@ public abstract class AbstractTestAggregationFunction
     protected final InternalAggregationFunction getFunction()
     {
         List<TypeSignatureProvider> parameterTypes = fromTypeSignatures(Lists.transform(getFunctionParameterTypes(), TypeSignature::parseTypeSignature));
-        FunctionHandle functionHandle = functionManager.resolveFunction(session, QualifiedName.of(getFunctionName()), parameterTypes);
+        FunctionHandle functionHandle = functionManager.lookupFunction(QualifiedName.of(getFunctionName()), parameterTypes);
         return functionManager.getAggregateFunctionImplementation(functionHandle);
     }
 

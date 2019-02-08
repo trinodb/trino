@@ -42,7 +42,6 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.math.DoubleMath.roundToInt;
-import static io.prestosql.SessionTestUtils.TEST_SESSION;
 import static io.prestosql.geospatial.KdbTree.buildKdbTree;
 import static io.prestosql.geospatial.serde.GeometrySerde.serialize;
 import static io.prestosql.operator.aggregation.AggregationTestUtils.createGroupByIdBlock;
@@ -99,7 +98,7 @@ public class TestSpatialPartitioningInternalAggregation
     private InternalAggregationFunction getFunction()
     {
         FunctionManager functionManager = functionAssertions.getMetadata().getFunctionManager();
-        FunctionHandle functionHandle = functionManager.resolveFunction(TEST_SESSION, QualifiedName.of("spatial_partitioning"), fromTypes(GEOMETRY, IntegerType.INTEGER));
+        FunctionHandle functionHandle = functionManager.lookupFunction(QualifiedName.of("spatial_partitioning"), fromTypes(GEOMETRY, IntegerType.INTEGER));
         return functionManager.getAggregateFunctionImplementation(functionHandle);
     }
 

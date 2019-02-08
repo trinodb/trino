@@ -27,7 +27,6 @@ import java.util.HashMap;
 import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.prestosql.SessionTestUtils.TEST_SESSION;
 import static io.prestosql.operator.aggregation.AggregationTestUtils.assertAggregation;
 import static io.prestosql.operator.aggregation.MapUnionAggregation.NAME;
 import static io.prestosql.spi.type.BigintType.BIGINT;
@@ -47,7 +46,7 @@ public class TestMapUnionAggregation
     public void testSimpleWithDuplicates()
     {
         MapType mapType = mapType(DOUBLE, VARCHAR);
-        FunctionHandle functionHandle = functionManager.resolveFunction(TEST_SESSION, QualifiedName.of(NAME), fromTypes(mapType));
+        FunctionHandle functionHandle = functionManager.lookupFunction(QualifiedName.of(NAME), fromTypes(mapType));
         InternalAggregationFunction aggFunc = functionManager.getAggregateFunctionImplementation(functionHandle);
         assertAggregation(
                 aggFunc,
@@ -58,7 +57,7 @@ public class TestMapUnionAggregation
                         mapBlockOf(DOUBLE, VARCHAR, ImmutableMap.of(43.0, "ccc", 53.0, "ddd", 13.0, "eee"))));
 
         mapType = mapType(DOUBLE, BIGINT);
-        functionHandle = functionManager.resolveFunction(TEST_SESSION, QualifiedName.of(NAME), fromTypes(mapType));
+        functionHandle = functionManager.lookupFunction(QualifiedName.of(NAME), fromTypes(mapType));
         aggFunc = functionManager.getAggregateFunctionImplementation(functionHandle);
         assertAggregation(
                 aggFunc,
@@ -69,7 +68,7 @@ public class TestMapUnionAggregation
                         mapBlockOf(DOUBLE, BIGINT, ImmutableMap.of(1.0, 44L, 2.0, 44L, 4.0, 44L))));
 
         mapType = mapType(BOOLEAN, BIGINT);
-        functionHandle = functionManager.resolveFunction(TEST_SESSION, QualifiedName.of(NAME), fromTypes(mapType));
+        functionHandle = functionManager.lookupFunction(QualifiedName.of(NAME), fromTypes(mapType));
         aggFunc = functionManager.getAggregateFunctionImplementation(functionHandle);
         assertAggregation(
                 aggFunc,
@@ -84,7 +83,7 @@ public class TestMapUnionAggregation
     public void testSimpleWithNulls()
     {
         MapType mapType = mapType(DOUBLE, VARCHAR);
-        FunctionHandle functionHandle = functionManager.resolveFunction(TEST_SESSION, QualifiedName.of(NAME), fromTypes(mapType));
+        FunctionHandle functionHandle = functionManager.lookupFunction(QualifiedName.of(NAME), fromTypes(mapType));
         InternalAggregationFunction aggFunc = functionManager.getAggregateFunctionImplementation(functionHandle);
 
         Map<Object, Object> expected = mapOf(23.0, "aaa", 33.0, null, 43.0, "ccc", 53.0, "ddd");
@@ -103,7 +102,7 @@ public class TestMapUnionAggregation
     public void testStructural()
     {
         MapType mapType = mapType(DOUBLE, new ArrayType(VARCHAR));
-        FunctionHandle functionHandle = functionManager.resolveFunction(TEST_SESSION, QualifiedName.of(NAME), fromTypes(mapType));
+        FunctionHandle functionHandle = functionManager.lookupFunction(QualifiedName.of(NAME), fromTypes(mapType));
         InternalAggregationFunction aggFunc = functionManager.getAggregateFunctionImplementation(functionHandle);
         assertAggregation(
                 aggFunc,
@@ -136,7 +135,7 @@ public class TestMapUnionAggregation
                                         ImmutableList.of("w", "z")))));
 
         mapType = mapType(DOUBLE, mapType(VARCHAR, VARCHAR));
-        functionHandle = functionManager.resolveFunction(TEST_SESSION, QualifiedName.of(NAME), fromTypes(mapType));
+        functionHandle = functionManager.lookupFunction(QualifiedName.of(NAME), fromTypes(mapType));
         aggFunc = functionManager.getAggregateFunctionImplementation(functionHandle);
         assertAggregation(
                 aggFunc,
@@ -162,7 +161,7 @@ public class TestMapUnionAggregation
                                         ImmutableMap.of("e", "f")))));
 
         mapType = mapType(new ArrayType(VARCHAR), DOUBLE);
-        functionHandle = functionManager.resolveFunction(TEST_SESSION, QualifiedName.of(NAME), fromTypes(mapType));
+        functionHandle = functionManager.lookupFunction(QualifiedName.of(NAME), fromTypes(mapType));
         aggFunc = functionManager.getAggregateFunctionImplementation(functionHandle);
         assertAggregation(
                 aggFunc,

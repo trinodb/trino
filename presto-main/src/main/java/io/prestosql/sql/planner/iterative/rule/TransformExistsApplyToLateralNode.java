@@ -153,7 +153,7 @@ public class TransformExistsApplyToLateralNode
         Symbol count = context.getSymbolAllocator().newSymbol(COUNT.toString(), BIGINT);
         Symbol exists = getOnlyElement(parent.getSubqueryAssignments().getSymbols());
 
-        FunctionHandle countSignature = functionManager.resolveFunction(context.getSession(), COUNT, ImmutableList.of());
+        FunctionHandle countSignature = functionManager.lookupFunction(COUNT, ImmutableList.of());
         return new LateralJoinNode(
                 parent.getId(),
                 parent.getInput(),

@@ -35,7 +35,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Random;
 
-import static io.prestosql.SessionTestUtils.TEST_SESSION;
 import static io.prestosql.block.BlockAssertions.createArrayBigintBlock;
 import static io.prestosql.block.BlockAssertions.createBooleansBlock;
 import static io.prestosql.block.BlockAssertions.createLongsBlock;
@@ -56,7 +55,7 @@ public class TestArrayAggregation
     @Test
     public void testEmpty()
     {
-        FunctionHandle functionHandle = functionManager.resolveFunction(TEST_SESSION, QualifiedName.of("array_agg"), fromTypes(BIGINT));
+        FunctionHandle functionHandle = functionManager.lookupFunction(QualifiedName.of("array_agg"), fromTypes(BIGINT));
         InternalAggregationFunction bigIntAgg = functionManager.getAggregateFunctionImplementation(functionHandle);
         assertAggregation(
                 bigIntAgg,
@@ -67,7 +66,7 @@ public class TestArrayAggregation
     @Test
     public void testNullOnly()
     {
-        FunctionHandle functionHandle = functionManager.resolveFunction(TEST_SESSION, QualifiedName.of("array_agg"), fromTypes(BIGINT));
+        FunctionHandle functionHandle = functionManager.lookupFunction(QualifiedName.of("array_agg"), fromTypes(BIGINT));
         InternalAggregationFunction bigIntAgg = functionManager.getAggregateFunctionImplementation(functionHandle);
         assertAggregation(
                 bigIntAgg,
@@ -78,7 +77,7 @@ public class TestArrayAggregation
     @Test
     public void testNullPartial()
     {
-        FunctionHandle functionHandle = functionManager.resolveFunction(TEST_SESSION, QualifiedName.of("array_agg"), fromTypes(BIGINT));
+        FunctionHandle functionHandle = functionManager.lookupFunction(QualifiedName.of("array_agg"), fromTypes(BIGINT));
         InternalAggregationFunction bigIntAgg = functionManager.getAggregateFunctionImplementation(functionHandle);
         assertAggregation(
                 bigIntAgg,
@@ -89,7 +88,7 @@ public class TestArrayAggregation
     @Test
     public void testBoolean()
     {
-        FunctionHandle functionHandle = functionManager.resolveFunction(TEST_SESSION, QualifiedName.of("array_agg"), fromTypes(BOOLEAN));
+        FunctionHandle functionHandle = functionManager.lookupFunction(QualifiedName.of("array_agg"), fromTypes(BOOLEAN));
         InternalAggregationFunction booleanAgg = functionManager.getAggregateFunctionImplementation(functionHandle);
         assertAggregation(
                 booleanAgg,
@@ -100,7 +99,7 @@ public class TestArrayAggregation
     @Test
     public void testBigInt()
     {
-        FunctionHandle functionHandle = functionManager.resolveFunction(TEST_SESSION, QualifiedName.of("array_agg"), fromTypes(BIGINT));
+        FunctionHandle functionHandle = functionManager.lookupFunction(QualifiedName.of("array_agg"), fromTypes(BIGINT));
         InternalAggregationFunction bigIntAgg = functionManager.getAggregateFunctionImplementation(functionHandle);
         assertAggregation(
                 bigIntAgg,
@@ -111,7 +110,7 @@ public class TestArrayAggregation
     @Test
     public void testVarchar()
     {
-        FunctionHandle functionHandle = functionManager.resolveFunction(TEST_SESSION, QualifiedName.of("array_agg"), fromTypes(VARCHAR));
+        FunctionHandle functionHandle = functionManager.lookupFunction(QualifiedName.of("array_agg"), fromTypes(VARCHAR));
         InternalAggregationFunction varcharAgg = functionManager.getAggregateFunctionImplementation(functionHandle);
         assertAggregation(
                 varcharAgg,
@@ -122,7 +121,7 @@ public class TestArrayAggregation
     @Test
     public void testDate()
     {
-        FunctionHandle functionHandle = functionManager.resolveFunction(TEST_SESSION, QualifiedName.of("array_agg"), fromTypes(DATE));
+        FunctionHandle functionHandle = functionManager.lookupFunction(QualifiedName.of("array_agg"), fromTypes(DATE));
         InternalAggregationFunction varcharAgg = functionManager.getAggregateFunctionImplementation(functionHandle);
         assertAggregation(
                 varcharAgg,
@@ -133,7 +132,7 @@ public class TestArrayAggregation
     @Test
     public void testArray()
     {
-        FunctionHandle functionHandle = functionManager.resolveFunction(TEST_SESSION, QualifiedName.of("array_agg"), fromTypes(new ArrayType(BIGINT)));
+        FunctionHandle functionHandle = functionManager.lookupFunction(QualifiedName.of("array_agg"), fromTypes(new ArrayType(BIGINT)));
         InternalAggregationFunction varcharAgg = functionManager.getAggregateFunctionImplementation(functionHandle);
 
         assertAggregation(
@@ -145,7 +144,7 @@ public class TestArrayAggregation
     @Test
     public void testEmptyStateOutputsNull()
     {
-        FunctionHandle functionHandle = functionManager.resolveFunction(TEST_SESSION, QualifiedName.of("array_agg"), fromTypes(BIGINT));
+        FunctionHandle functionHandle = functionManager.lookupFunction(QualifiedName.of("array_agg"), fromTypes(BIGINT));
         InternalAggregationFunction bigIntAgg = functionManager.getAggregateFunctionImplementation(functionHandle);
         GroupedAccumulator groupedAccumulator = bigIntAgg.bind(Ints.asList(new int[] {}), Optional.empty())
                 .createGroupedAccumulator();
@@ -158,7 +157,7 @@ public class TestArrayAggregation
     @Test
     public void testWithMultiplePages()
     {
-        FunctionHandle functionHandle = functionManager.resolveFunction(TEST_SESSION, QualifiedName.of("array_agg"), fromTypes(VARCHAR));
+        FunctionHandle functionHandle = functionManager.lookupFunction(QualifiedName.of("array_agg"), fromTypes(VARCHAR));
         InternalAggregationFunction varcharAgg = functionManager.getAggregateFunctionImplementation(functionHandle);
 
         AggregationTestInputBuilder testInputBuilder = new AggregationTestInputBuilder(
@@ -174,7 +173,7 @@ public class TestArrayAggregation
     @Test
     public void testMultipleGroupsWithMultiplePages()
     {
-        FunctionHandle functionHandle = functionManager.resolveFunction(TEST_SESSION, QualifiedName.of("array_agg"), fromTypes(VARCHAR));
+        FunctionHandle functionHandle = functionManager.lookupFunction(QualifiedName.of("array_agg"), fromTypes(VARCHAR));
         InternalAggregationFunction varcharAgg = functionManager.getAggregateFunctionImplementation(functionHandle);
 
         Block block1 = createStringsBlock("a", "b", "c", "d", "e");
@@ -200,7 +199,7 @@ public class TestArrayAggregation
     public void testManyValues()
     {
         // Test many values so multiple BlockBuilders will be used to store group state.
-        FunctionHandle functionHandle = functionManager.resolveFunction(TEST_SESSION, QualifiedName.of("array_agg"), fromTypes(VARCHAR));
+        FunctionHandle functionHandle = functionManager.lookupFunction(QualifiedName.of("array_agg"), fromTypes(VARCHAR));
         InternalAggregationFunction varcharAgg = functionManager.getAggregateFunctionImplementation(functionHandle);
 
         int numGroups = 50000;

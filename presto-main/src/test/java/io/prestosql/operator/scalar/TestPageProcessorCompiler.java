@@ -40,7 +40,6 @@ import org.testng.annotations.Test;
 import java.util.Optional;
 
 import static com.google.common.collect.Iterators.getOnlyElement;
-import static io.prestosql.SessionTestUtils.TEST_SESSION;
 import static io.prestosql.block.BlockAssertions.createLongDictionaryBlock;
 import static io.prestosql.block.BlockAssertions.createRLEBlock;
 import static io.prestosql.block.BlockAssertions.createSlicesBlock;
@@ -84,7 +83,7 @@ public class TestPageProcessorCompiler
         ImmutableList.Builder<RowExpression> projectionsBuilder = ImmutableList.builder();
         ArrayType arrayType = new ArrayType(VARCHAR);
         FunctionManager functionManager = createTestMetadataManager().getFunctionManager();
-        FunctionHandle functionHandle = functionManager.resolveFunction(TEST_SESSION, QualifiedName.of("concat"), fromTypes(arrayType, arrayType));
+        FunctionHandle functionHandle = functionManager.lookupFunction(QualifiedName.of("concat"), fromTypes(arrayType, arrayType));
         projectionsBuilder.add(new CallExpression("concat", functionHandle, arrayType, ImmutableList.of(field(0, arrayType), field(1, arrayType))));
 
         ImmutableList<RowExpression> projections = projectionsBuilder.build();
@@ -123,7 +122,7 @@ public class TestPageProcessorCompiler
     public void testSanityFilterOnDictionary()
     {
         FunctionManager functionManager = createTestMetadataManager().getFunctionManager();
-        FunctionHandle functionHandle = functionManager.resolveFunction(TEST_SESSION, QualifiedName.of("length"), fromTypes(VARCHAR));
+        FunctionHandle functionHandle = functionManager.lookupFunction(QualifiedName.of("length"), fromTypes(VARCHAR));
         CallExpression lengthVarchar = new CallExpression("length", functionHandle, BIGINT, ImmutableList.of(field(0, VARCHAR)));
         FunctionHandle lessThan = functionManager.resolveOperator(LESS_THAN, fromTypes(BIGINT, BIGINT));
         CallExpression filter = new CallExpression(LESS_THAN.name(), lessThan, BOOLEAN, ImmutableList.of(lengthVarchar, constant(10L, BIGINT)));
@@ -213,7 +212,7 @@ public class TestPageProcessorCompiler
         FunctionHandle lessThan = functionManager.resolveOperator(LESS_THAN, fromTypes(BIGINT, BIGINT));
         CallExpression random = new CallExpression(
                 "random",
-                functionManager.resolveFunction(TEST_SESSION, QualifiedName.of("random"), fromTypes(BIGINT)),
+                functionManager.lookupFunction(QualifiedName.of("random"), fromTypes(BIGINT)),
                 BIGINT,
                 singletonList(constant(10L, BIGINT)));
         InputReferenceExpression col0 = field(0, BIGINT);

@@ -48,7 +48,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-import static io.prestosql.SessionTestUtils.TEST_SESSION;
 import static io.prestosql.block.BlockAssertions.createStringsBlock;
 import static io.prestosql.operator.aggregation.histogram.Histogram.NAME;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
@@ -158,7 +157,7 @@ public class BenchmarkGroupedTypedHistogram
     private static InternalAggregationFunction getInternalAggregationFunctionVarChar(HistogramGroupImplementation groupMode)
     {
         FunctionManager functionManager = getMetadata(groupMode).getFunctionManager();
-        FunctionHandle functionHandle = functionManager.resolveFunction(TEST_SESSION, QualifiedName.of(NAME), fromTypes(VARCHAR));
+        FunctionHandle functionHandle = functionManager.lookupFunction(QualifiedName.of(NAME), fromTypes(VARCHAR));
         return functionManager.getAggregateFunctionImplementation(functionHandle);
     }
 

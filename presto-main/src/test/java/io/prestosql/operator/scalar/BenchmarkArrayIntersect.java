@@ -53,7 +53,6 @@ import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
-import static io.prestosql.SessionTestUtils.TEST_SESSION;
 import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.spi.type.BigintType.BIGINT;
@@ -124,7 +123,7 @@ public class BenchmarkArrayIntersect
 
             ArrayType arrayType = new ArrayType(elementType);
             FunctionManager functionManager = createTestMetadataManager().getFunctionManager();
-            FunctionHandle functionHandle = functionManager.resolveFunction(TEST_SESSION, QualifiedName.of(name), fromTypes(arrayType, arrayType));
+            FunctionHandle functionHandle = functionManager.lookupFunction(QualifiedName.of(name), fromTypes(arrayType, arrayType));
             ImmutableList<RowExpression> projections = ImmutableList.of(
                     new CallExpression(name, functionHandle, arrayType, ImmutableList.of(field(0, arrayType), field(1, arrayType))));
 

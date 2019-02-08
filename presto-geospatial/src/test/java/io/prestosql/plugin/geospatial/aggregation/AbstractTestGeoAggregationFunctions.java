@@ -33,7 +33,6 @@ import java.util.List;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 
-import static io.prestosql.SessionTestUtils.TEST_SESSION;
 import static io.prestosql.metadata.FunctionExtractor.extractFunctions;
 import static io.prestosql.operator.aggregation.AggregationTestUtils.assertAggregation;
 import static io.prestosql.plugin.geospatial.GeometryType.GEOMETRY;
@@ -53,7 +52,7 @@ public abstract class AbstractTestGeoAggregationFunctions
         }
         functionAssertions.getMetadata().addFunctions(extractFunctions(plugin.getFunctions()));
         FunctionManager functionManager = functionAssertions.getMetadata().getFunctionManager();
-        FunctionHandle functionHandle = functionManager.resolveFunction(TEST_SESSION, QualifiedName.of(getFunctionName()), fromTypes(GEOMETRY));
+        FunctionHandle functionHandle = functionManager.lookupFunction(QualifiedName.of(getFunctionName()), fromTypes(GEOMETRY));
         function = functionManager.getAggregateFunctionImplementation(functionHandle);
     }
 

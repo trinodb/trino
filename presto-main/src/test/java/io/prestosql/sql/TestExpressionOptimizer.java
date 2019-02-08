@@ -102,7 +102,7 @@ public class TestExpressionOptimizer
     @Test
     public void testCastWithJsonParseOptimization()
     {
-        FunctionHandle jsonParseFunction = functionManager.resolveFunction(TEST_SESSION, QualifiedName.of(JSON_PARSE), fromTypes(VARCHAR));
+        FunctionHandle jsonParseFunction = functionManager.lookupFunction(QualifiedName.of(JSON_PARSE), fromTypes(VARCHAR));
 
         // constant
         FunctionHandle jsonCastSignature = functionManager.lookupCast(JSON.getTypeSignature(), parseTypeSignature("array(integer)"));

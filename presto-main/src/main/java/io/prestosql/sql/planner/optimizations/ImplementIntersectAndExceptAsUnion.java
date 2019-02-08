@@ -120,21 +120,19 @@ public class ImplementIntersectAndExceptAsUnion
         requireNonNull(symbolAllocator, "symbolAllocator is null");
         requireNonNull(idAllocator, "idAllocator is null");
 
-        return SimplePlanRewriter.rewriteWith(new Rewriter(session, functionManager, idAllocator, symbolAllocator), plan);
+        return SimplePlanRewriter.rewriteWith(new Rewriter(functionManager, idAllocator, symbolAllocator), plan);
     }
 
     private static class Rewriter
             extends SimplePlanRewriter<Void>
     {
         private static final String MARKER = "marker";
-        private final Session session;
         private final FunctionManager functionManager;
         private final PlanNodeIdAllocator idAllocator;
         private final SymbolAllocator symbolAllocator;
 
-        private Rewriter(Session session, FunctionManager functionManager, PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator)
+        private Rewriter(FunctionManager functionManager, PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator)
         {
-            this.session = requireNonNull(session, "session is null");
             this.functionManager = requireNonNull(functionManager, "functionManager is null");
             this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
             this.symbolAllocator = requireNonNull(symbolAllocator, "symbolAllocator is null");
@@ -246,7 +244,7 @@ public class ImplementIntersectAndExceptAsUnion
                 Symbol output = aggregationOutputs.get(i);
                 aggregations.put(output, new Aggregation(
                         new FunctionCall(QualifiedName.of("count"), ImmutableList.of(markers.get(i).toSymbolReference())),
-                        functionManager.resolveFunction(session, QualifiedName.of("count"), fromTypes(BOOLEAN)),
+                        functionManager.lookupFunction(QualifiedName.of("count"), fromTypes(BOOLEAN)),
                         Optional.empty()));
             }
 

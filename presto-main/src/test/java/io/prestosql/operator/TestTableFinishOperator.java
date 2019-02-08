@@ -45,7 +45,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.prestosql.RowPagesBuilder.rowPagesBuilder;
-import static io.prestosql.SessionTestUtils.TEST_SESSION;
 import static io.prestosql.block.BlockAssertions.assertBlockEquals;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.operator.PageAssertions.assertPageEquals;
@@ -67,7 +66,7 @@ public class TestTableFinishOperator
 {
     private static final FunctionManager FUNCTION_MANAGER = createTestMetadataManager().getFunctionManager();
     private static final InternalAggregationFunction LONG_MAX = FUNCTION_MANAGER.getAggregateFunctionImplementation(
-            FUNCTION_MANAGER.resolveFunction(TEST_SESSION, QualifiedName.of("max"), fromTypes(BIGINT)));
+            FUNCTION_MANAGER.lookupFunction(QualifiedName.of("max"), fromTypes(BIGINT)));
 
     private ScheduledExecutorService scheduledExecutor;
 

@@ -109,7 +109,7 @@ public class BenchmarkEqualsOperator
     {
         return new CallExpression(
                 "OR",
-                functionManager.resolveFunction(TEST_SESSION, QualifiedName.of("OR"), fromTypes(BOOLEAN, BOOLEAN)),
+                functionManager.lookupFunction(QualifiedName.of("OR"), fromTypes(BOOLEAN, BOOLEAN)),
                 BOOLEAN,
                 ImmutableList.of(left, right));
     }

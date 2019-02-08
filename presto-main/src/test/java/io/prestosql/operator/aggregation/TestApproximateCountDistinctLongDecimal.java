@@ -21,7 +21,6 @@ import io.prestosql.sql.tree.QualifiedName;
 
 import java.util.concurrent.ThreadLocalRandom;
 
-import static io.prestosql.SessionTestUtils.TEST_SESSION;
 import static io.prestosql.spi.type.DecimalType.createDecimalType;
 import static io.prestosql.spi.type.Decimals.MAX_PRECISION;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
@@ -36,7 +35,7 @@ public class TestApproximateCountDistinctLongDecimal
     public InternalAggregationFunction getAggregationFunction()
     {
         FunctionManager functionManager = metadata.getFunctionManager();
-        FunctionHandle functionHandle = functionManager.resolveFunction(TEST_SESSION, QualifiedName.of("approx_distinct"), fromTypes(LONG_DECIMAL, DOUBLE));
+        FunctionHandle functionHandle = functionManager.lookupFunction(QualifiedName.of("approx_distinct"), fromTypes(LONG_DECIMAL, DOUBLE));
         return functionManager.getAggregateFunctionImplementation(functionHandle);
     }
 

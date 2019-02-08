@@ -42,7 +42,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
-import static io.prestosql.SessionTestUtils.TEST_SESSION;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
@@ -93,7 +92,7 @@ public class TestWindowNode
     {
         Symbol windowSymbol = symbolAllocator.newSymbol("sum", BIGINT);
         FunctionManager functionManager = createTestMetadataManager().getFunctionManager();
-        FunctionHandle functionHandle = functionManager.resolveFunction(TEST_SESSION, QualifiedName.of("sum"), fromTypes(BIGINT));
+        FunctionHandle functionHandle = functionManager.lookupFunction(QualifiedName.of("sum"), fromTypes(BIGINT));
         FunctionCall functionCall = new FunctionCall(QualifiedName.of("sum"), ImmutableList.of(columnC.toSymbolReference()));
         WindowNode.Frame frame = new WindowNode.Frame(
                 WindowFrame.Type.RANGE,

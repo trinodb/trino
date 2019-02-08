@@ -13,7 +13,6 @@
  */
 package io.prestosql.sql.relational;
 
-import io.prestosql.Session;
 import io.prestosql.metadata.FunctionHandle;
 import io.prestosql.metadata.FunctionManager;
 import io.prestosql.spi.function.OperatorType;
@@ -47,40 +46,33 @@ import static java.util.Objects.requireNonNull;
 
 public final class StandardFunctionResolution
 {
-    private final Session session;
     private final FunctionManager functionManager;
 
-    public StandardFunctionResolution(Session session, FunctionManager functionManager)
+    public StandardFunctionResolution(FunctionManager functionManager)
     {
-        this.session = requireNonNull(session, "session is null");
         this.functionManager = requireNonNull(functionManager, "functionManager is null");
     }
 
     public FunctionHandle notFunction()
     {
-        return functionManager.resolveFunction(session, QualifiedName.of("not"), fromTypes(BOOLEAN));
+        return functionManager.lookupFunction(QualifiedName.of("not"), fromTypes(BOOLEAN));
     }
 
     public FunctionHandle likeVarcharSignature()
     {
-        return functionManager.resolveFunction(session, QualifiedName.of("LIKE"), fromTypes(VARCHAR, LIKE_PATTERN));
+        return functionManager.lookupFunction(QualifiedName.of("LIKE"), fromTypes(VARCHAR, LIKE_PATTERN));
     }
 
     public FunctionHandle likeCharFunction(Type valueType)
     {
         checkArgument(valueType instanceof CharType, "Expected CHAR value type");
-        return functionManager.resolveFunction(session, QualifiedName.of("LIKE"), fromTypes(valueType, LIKE_PATTERN));
+        return functionManager.lookupFunction(QualifiedName.of("LIKE"), fromTypes(valueType, LIKE_PATTERN));
     }
 
     public FunctionHandle likePatternFunction()
     {
-        return functionManager.resolveFunction(session, QualifiedName.of("LIKE_PATTERN"), fromTypes(VARCHAR, VARCHAR));
+        return functionManager.lookupFunction(QualifiedName.of("LIKE_PATTERN"), fromTypes(VARCHAR, VARCHAR));
     }
-
-//    public FunctionHandle tryCastFunction(Type returnType, Type valueType)
-//    {
-//        return internalScalarFunction("TRY_CAST", returnType.getTypeSignature(), valueType.getTypeSignature());
-//    }
 
     public FunctionHandle arithmeticFunction(ArithmeticBinaryExpression.Operator operator, Type leftType, Type rightType)
     {
@@ -109,7 +101,7 @@ public final class StandardFunctionResolution
 
     public FunctionHandle arrayConstructor(List<? extends Type> argumentTypes)
     {
-        return functionManager.resolveFunction(session, QualifiedName.of(ARRAY_CONSTRUCTOR), fromTypes(argumentTypes));
+        return functionManager.lookupFunction(QualifiedName.of(ARRAY_CONSTRUCTOR), fromTypes(argumentTypes));
     }
 
     public FunctionHandle comparisonFunction(ComparisonExpression.Operator operator, Type leftType, Type rightType)
@@ -146,6 +138,6 @@ public final class StandardFunctionResolution
 
     public FunctionHandle tryFunction(Type returnType)
     {
-        return functionManager.resolveFunction(session, QualifiedName.of("TRY"), fromTypes(returnType));
+        return functionManager.lookupFunction(QualifiedName.of("TRY"), fromTypes(returnType));
     }
 }

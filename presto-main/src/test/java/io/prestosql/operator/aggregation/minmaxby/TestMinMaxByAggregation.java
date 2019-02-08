@@ -30,7 +30,6 @@ import java.util.List;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static io.prestosql.SessionTestUtils.TEST_SESSION;
 import static io.prestosql.block.BlockAssertions.createArrayBigintBlock;
 import static io.prestosql.block.BlockAssertions.createBooleansBlock;
 import static io.prestosql.block.BlockAssertions.createDoublesBlock;
@@ -576,7 +575,7 @@ public class TestMinMaxByAggregation
 
     private static InternalAggregationFunction getInternalAggregationFunction(String name, Type... argumentTypes)
     {
-        FunctionHandle functionHandle = FUNCTION_MANAGER.resolveFunction(TEST_SESSION, QualifiedName.of(name), fromTypes(argumentTypes));
+        FunctionHandle functionHandle = FUNCTION_MANAGER.lookupFunction(QualifiedName.of(name), fromTypes(argumentTypes));
         return FUNCTION_MANAGER.getAggregateFunctionImplementation(functionHandle);
     }
 }

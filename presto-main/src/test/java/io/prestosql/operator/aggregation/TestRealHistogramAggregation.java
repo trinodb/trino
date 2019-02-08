@@ -31,7 +31,6 @@ import org.testng.annotations.Test;
 import java.util.Map;
 import java.util.Optional;
 
-import static io.prestosql.SessionTestUtils.TEST_SESSION;
 import static io.prestosql.operator.aggregation.AggregationTestUtils.getFinalBlock;
 import static io.prestosql.operator.aggregation.AggregationTestUtils.getIntermediateBlock;
 import static io.prestosql.spi.type.BigintType.BIGINT;
@@ -51,7 +50,7 @@ public class TestRealHistogramAggregation
     {
         TypeRegistry typeRegistry = new TypeRegistry();
         FunctionManager functionManager = new FunctionManager(typeRegistry, new BlockEncodingManager(typeRegistry), new FeaturesConfig());
-        FunctionHandle functionHandle = functionManager.resolveFunction(TEST_SESSION, QualifiedName.of("numeric_histogram"), fromTypes(BIGINT, REAL, DOUBLE));
+        FunctionHandle functionHandle = functionManager.lookupFunction(QualifiedName.of("numeric_histogram"), fromTypes(BIGINT, REAL, DOUBLE));
         InternalAggregationFunction function = functionManager.getAggregateFunctionImplementation(functionHandle);
         factory = function.bind(ImmutableList.of(0, 1, 2), Optional.empty());
 

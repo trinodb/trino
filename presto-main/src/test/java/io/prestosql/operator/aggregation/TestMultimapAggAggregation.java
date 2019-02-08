@@ -42,7 +42,6 @@ import java.util.Optional;
 import java.util.Random;
 
 import static com.google.common.base.Preconditions.checkState;
-import static io.prestosql.SessionTestUtils.TEST_SESSION;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.operator.aggregation.AggregationTestUtils.assertAggregation;
 import static io.prestosql.operator.aggregation.multimapagg.MultimapAggregationFunction.NAME;
@@ -186,7 +185,7 @@ public class TestMultimapAggAggregation
     private static InternalAggregationFunction getInternalAggregationFunction(Type keyType, Type valueType)
     {
         FunctionManager functionManager = metadata.getFunctionManager();
-        FunctionHandle functionHandle = functionManager.resolveFunction(TEST_SESSION, QualifiedName.of(NAME), fromTypes(keyType, valueType));
+        FunctionHandle functionHandle = functionManager.lookupFunction(QualifiedName.of(NAME), fromTypes(keyType, valueType));
         return functionManager.getAggregateFunctionImplementation(functionHandle);
     }
 

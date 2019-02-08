@@ -35,7 +35,6 @@ import java.util.stream.Collectors;
 import java.util.stream.LongStream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.prestosql.SessionTestUtils.TEST_SESSION;
 import static io.prestosql.block.BlockAssertions.createBlockOfReals;
 import static io.prestosql.block.BlockAssertions.createDoubleSequenceBlock;
 import static io.prestosql.block.BlockAssertions.createDoublesBlock;
@@ -169,7 +168,7 @@ public class TestQuantileDigestAggregationFunction
     private InternalAggregationFunction getAggregationFunction(Type... types)
     {
         FunctionManager functionManager = METADATA.getFunctionManager();
-        FunctionHandle functionHandle = functionManager.resolveFunction(TEST_SESSION, QualifiedName.of("qdigest_agg"), fromTypes(types));
+        FunctionHandle functionHandle = functionManager.lookupFunction(QualifiedName.of("qdigest_agg"), fromTypes(types));
         return functionManager.getAggregateFunctionImplementation(functionHandle);
     }
 

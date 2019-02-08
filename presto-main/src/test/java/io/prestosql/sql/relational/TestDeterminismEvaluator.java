@@ -19,7 +19,6 @@ import io.prestosql.metadata.FunctionManager;
 import io.prestosql.sql.tree.QualifiedName;
 import org.testng.annotations.Test;
 
-import static io.prestosql.SessionTestUtils.TEST_SESSION;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.spi.function.OperatorType.LESS_THAN;
 import static io.prestosql.spi.type.BigintType.BIGINT;
@@ -39,7 +38,7 @@ public class TestDeterminismEvaluator
         FunctionManager functionManager = createTestMetadataManager().getFunctionManager();
         DeterminismEvaluator determinismEvaluator = new DeterminismEvaluator(functionManager);
 
-        FunctionHandle functionHandle = functionManager.resolveFunction(TEST_SESSION, QualifiedName.of("random"), fromTypes(BIGINT));
+        FunctionHandle functionHandle = functionManager.lookupFunction(QualifiedName.of("random"), fromTypes(BIGINT));
         CallExpression random = new CallExpression(
                 "random",
                 functionHandle,

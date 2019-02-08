@@ -30,7 +30,6 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.Optional;
 
-import static io.prestosql.SessionTestUtils.TEST_SESSION;
 import static io.prestosql.metadata.FunctionExtractor.extractFunctions;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
@@ -45,7 +44,7 @@ public class TestEvaluateClassifierPredictions
     public void testEvaluateClassifierPredictions()
     {
         metadata.addFunctions(extractFunctions(new MLPlugin().getFunctions()));
-        FunctionHandle functionHandle = metadata.getFunctionManager().resolveFunction(TEST_SESSION, QualifiedName.of("evaluate_classifier_predictions"), fromTypes(BIGINT, BIGINT));
+        FunctionHandle functionHandle = metadata.getFunctionManager().lookupFunction(QualifiedName.of("evaluate_classifier_predictions"), fromTypes(BIGINT, BIGINT));
         InternalAggregationFunction aggregation = metadata.getFunctionManager().getAggregateFunctionImplementation(functionHandle);
         Accumulator accumulator = aggregation.bind(ImmutableList.of(0, 1), Optional.empty()).createAccumulator();
         accumulator.addInput(getPage());

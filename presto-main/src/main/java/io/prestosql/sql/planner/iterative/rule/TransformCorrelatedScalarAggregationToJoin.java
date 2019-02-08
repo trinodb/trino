@@ -97,7 +97,6 @@ public class TransformCorrelatedScalarAggregationToJoin
         }
 
         ScalarAggregationToJoinRewriter rewriter = new ScalarAggregationToJoinRewriter(
-                context.getSession(),
                 functionManager,
                 context.getSymbolAllocator(),
                 context.getIdAllocator(),

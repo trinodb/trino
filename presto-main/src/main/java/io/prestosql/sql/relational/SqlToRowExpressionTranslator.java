@@ -181,7 +181,7 @@ public final class SqlToRowExpressionTranslator
             this.timeZoneKey = session.getTimeZoneKey();
             this.legacyRowFieldOrdinalAccess = isLegacyRowFieldOrdinalAccessEnabled(session);
             this.isLegacyTimestamp = SystemSessionProperties.isLegacyTimestamp(session);
-            standardFunctionResolution = new StandardFunctionResolution(session, functionManager);
+            standardFunctionResolution = new StandardFunctionResolution(functionManager);
         }
 
         private Type getType(Expression node)
@@ -258,7 +258,7 @@ public final class SqlToRowExpressionTranslator
         {
             Type type = getType(node);
             if (JSON.equals(type)) {
-                FunctionHandle functionHandle = functionManager.resolveFunction(session, QualifiedName.of("json_parse"), fromTypes(VARCHAR));
+                FunctionHandle functionHandle = functionManager.lookupFunction(QualifiedName.of("json_parse"), fromTypes(VARCHAR));
                 return new CallExpression("json_parse", functionHandle, type, ImmutableList.of(constant(utf8Slice(node.getValue()), VARCHAR)));
             }
 
@@ -340,7 +340,7 @@ public final class SqlToRowExpressionTranslator
                     .map(TypeSignatureProvider::new)
                     .collect(toImmutableList());
 
-            FunctionHandle functionHandle = functionManager.resolveFunction(session, node.getName(), argumentTypes);
+            FunctionHandle functionHandle = functionManager.lookupFunction(node.getName(), argumentTypes);
 
             return new CallExpression(node.getName().getSuffix(), functionHandle, getType(node), arguments);
         }

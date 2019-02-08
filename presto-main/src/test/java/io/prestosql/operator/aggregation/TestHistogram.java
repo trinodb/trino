@@ -48,7 +48,6 @@ import java.util.Random;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-import static io.prestosql.SessionTestUtils.TEST_SESSION;
 import static io.prestosql.block.BlockAssertions.createBooleansBlock;
 import static io.prestosql.block.BlockAssertions.createDoublesBlock;
 import static io.prestosql.block.BlockAssertions.createLongsBlock;
@@ -85,19 +84,19 @@ public class TestHistogram
                 ImmutableMap.of("a", 1L, "b", 1L, "c", 1L),
                 createStringsBlock("a", "b", "c"));
 
-        aggregationFunction = getFunctionManager().getAggregateFunctionImplementation(getFunctionManager().resolveFunction(TEST_SESSION, QualifiedName.of(NAME), fromTypes(BIGINT)));
+        aggregationFunction = getFunctionManager().getAggregateFunctionImplementation(getFunctionManager().lookupFunction(QualifiedName.of(NAME), fromTypes(BIGINT)));
         assertAggregation(
                 aggregationFunction,
                 ImmutableMap.of(100L, 1L, 200L, 1L, 300L, 1L),
                 createLongsBlock(100L, 200L, 300L));
 
-        aggregationFunction = getFunctionManager().getAggregateFunctionImplementation(getFunctionManager().resolveFunction(TEST_SESSION, QualifiedName.of(NAME), fromTypes(DOUBLE)));
+        aggregationFunction = getFunctionManager().getAggregateFunctionImplementation(getFunctionManager().lookupFunction(QualifiedName.of(NAME), fromTypes(DOUBLE)));
         assertAggregation(
                 aggregationFunction,
                 ImmutableMap.of(0.1, 1L, 0.3, 1L, 0.2, 1L),
                 createDoublesBlock(0.1, 0.3, 0.2));
 
-        aggregationFunction = getFunctionManager().getAggregateFunctionImplementation(getFunctionManager().resolveFunction(TEST_SESSION, QualifiedName.of(NAME), fromTypes(BOOLEAN)));
+        aggregationFunction = getFunctionManager().getAggregateFunctionImplementation(getFunctionManager().lookupFunction(QualifiedName.of(NAME), fromTypes(BOOLEAN)));
         assertAggregation(
                 aggregationFunction,
                 ImmutableMap.of(true, 1L, false, 1L),
@@ -141,7 +140,7 @@ public class TestHistogram
                 ImmutableMap.of("a", 2L, "b", 1L),
                 createStringsBlock("a", "b", "a"));
 
-        aggregationFunction = getFunctionManager().getAggregateFunctionImplementation(getFunctionManager().resolveFunction(TEST_SESSION, QualifiedName.of(NAME), fromTypes(TIMESTAMP_WITH_TIME_ZONE)));
+        aggregationFunction = getFunctionManager().getAggregateFunctionImplementation(getFunctionManager().lookupFunction(QualifiedName.of(NAME), fromTypes(TIMESTAMP_WITH_TIME_ZONE)));
         long timestampWithTimeZone1 = packDateTimeWithZone(new DateTime(1970, 1, 1, 0, 0, 0, 0, DATE_TIME_ZONE).getMillis(), TIME_ZONE_KEY);
         long timestampWithTimeZone2 = packDateTimeWithZone(new DateTime(2015, 1, 1, 0, 0, 0, 0, DATE_TIME_ZONE).getMillis(), TIME_ZONE_KEY);
         assertAggregation(
@@ -159,7 +158,7 @@ public class TestHistogram
                 ImmutableMap.of(1L, 1L, 2L, 1L),
                 createLongsBlock(2L, null, 1L));
 
-        aggregationFunction = getFunctionManager().getAggregateFunctionImplementation(getFunctionManager().resolveFunction(TEST_SESSION, QualifiedName.of(NAME), fromTypes(BIGINT)));
+        aggregationFunction = getFunctionManager().getAggregateFunctionImplementation(getFunctionManager().lookupFunction(QualifiedName.of(NAME), fromTypes(BIGINT)));
         assertAggregation(
                 aggregationFunction,
                 null,
@@ -394,7 +393,7 @@ public class TestHistogram
     private InternalAggregationFunction getAggregation(Type... arguments)
     {
         FunctionManager functionManager = getFunctionManager(NEW);
-        FunctionHandle functionHandle = functionManager.resolveFunction(TEST_SESSION, QualifiedName.of(NAME), fromTypes(arguments));
+        FunctionHandle functionHandle = functionManager.lookupFunction(QualifiedName.of(NAME), fromTypes(arguments));
         return functionManager.getAggregateFunctionImplementation(functionHandle);
     }
 

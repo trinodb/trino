@@ -49,7 +49,6 @@ import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
-import static io.prestosql.SessionTestUtils.TEST_SESSION;
 import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.spi.type.BigintType.BIGINT;
@@ -93,7 +92,7 @@ public class BenchmarkArrayJoin
         public void setup()
         {
             FunctionManager functionManager = createTestMetadataManager().getFunctionManager();
-            FunctionHandle functionHandle = functionManager.resolveFunction(TEST_SESSION, QualifiedName.of("array_join"), fromTypes(new ArrayType(BIGINT), VARCHAR));
+            FunctionHandle functionHandle = functionManager.lookupFunction(QualifiedName.of("array_join"), fromTypes(new ArrayType(BIGINT), VARCHAR));
 
             List<RowExpression> projections = ImmutableList.of(
                     new CallExpression("array_join", functionHandle, VARCHAR, ImmutableList.of(

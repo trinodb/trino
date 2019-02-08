@@ -29,7 +29,6 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 
-import static io.prestosql.SessionTestUtils.TEST_SESSION;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
@@ -59,7 +58,7 @@ public class TestSwapAdjacentWindowsBySpecifications
                 Optional.empty());
 
         FunctionManager functionManager = createTestMetadataManager().getFunctionManager();
-        functionHandle = functionManager.resolveFunction(TEST_SESSION, QualifiedName.of("avg"), fromTypes(BIGINT));
+        functionHandle = functionManager.lookupFunction(QualifiedName.of("avg"), fromTypes(BIGINT));
     }
 
     @Test

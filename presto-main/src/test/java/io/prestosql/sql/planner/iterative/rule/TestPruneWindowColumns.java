@@ -42,7 +42,6 @@ import java.util.function.Predicate;
 
 import static com.google.common.base.Predicates.alwaysTrue;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.prestosql.SessionTestUtils.TEST_SESSION;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
@@ -59,7 +58,7 @@ public class TestPruneWindowColumns
         extends BaseRuleTest
 {
     private static final FunctionManager FUNCTION_MANAGER = createTestMetadataManager().getFunctionManager();
-    private static final FunctionHandle FUNCTION_HANDLE = FUNCTION_MANAGER.resolveFunction(TEST_SESSION, QualifiedName.of("min"), fromTypes(BIGINT));
+    private static final FunctionHandle FUNCTION_HANDLE = FUNCTION_MANAGER.lookupFunction(QualifiedName.of("min"), fromTypes(BIGINT));
 
     private static final List<String> inputSymbolNameList =
             ImmutableList.of("orderKey", "partitionKey", "hash", "startValue1", "startValue2", "endValue1", "endValue2", "input1", "input2", "unused");

@@ -34,7 +34,6 @@ import java.util.Arrays;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-import static io.prestosql.SessionTestUtils.TEST_SESSION;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
@@ -61,7 +60,7 @@ public class TestMergeAdjacentWindows
             Optional.empty());
 
     private static final FunctionManager FUNCTION_MANAGER = createTestMetadataManager().getFunctionManager();
-    private static final FunctionHandle FUNCTION_HANDLE = FUNCTION_MANAGER.resolveFunction(TEST_SESSION, QualifiedName.of("avg"), fromTypes(DOUBLE));
+    private static final FunctionHandle FUNCTION_HANDLE = FUNCTION_MANAGER.lookupFunction(QualifiedName.of("avg"), fromTypes(DOUBLE));
     private static final String columnAAlias = "ALIAS_A";
     private static final ExpectedValueProvider<WindowNode.Specification> specificationA =
             specification(ImmutableList.of(columnAAlias), ImmutableList.of(), ImmutableMap.of());

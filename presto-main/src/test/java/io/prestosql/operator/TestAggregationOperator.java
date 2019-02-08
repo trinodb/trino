@@ -58,15 +58,15 @@ public class TestAggregationOperator
     private static final FunctionManager FUNCTION_MANAGER = MetadataManager.createTestMetadataManager().getFunctionManager();
 
     private static final InternalAggregationFunction LONG_AVERAGE = FUNCTION_MANAGER.getAggregateFunctionImplementation(
-            FUNCTION_MANAGER.resolveFunction(TEST_SESSION, QualifiedName.of("avg"), fromTypes(BIGINT)));
+            FUNCTION_MANAGER.lookupFunction(QualifiedName.of("avg"), fromTypes(BIGINT)));
     private static final InternalAggregationFunction DOUBLE_SUM = FUNCTION_MANAGER.getAggregateFunctionImplementation(
-            FUNCTION_MANAGER.resolveFunction(TEST_SESSION, QualifiedName.of("sum"), fromTypes(DOUBLE)));
+            FUNCTION_MANAGER.lookupFunction(QualifiedName.of("sum"), fromTypes(DOUBLE)));
     private static final InternalAggregationFunction LONG_SUM = FUNCTION_MANAGER.getAggregateFunctionImplementation(
-            FUNCTION_MANAGER.resolveFunction(TEST_SESSION, QualifiedName.of("sum"), fromTypes(BIGINT)));
+            FUNCTION_MANAGER.lookupFunction(QualifiedName.of("sum"), fromTypes(BIGINT)));
     private static final InternalAggregationFunction REAL_SUM = FUNCTION_MANAGER.getAggregateFunctionImplementation(
-            FUNCTION_MANAGER.resolveFunction(TEST_SESSION, QualifiedName.of("sum"), fromTypes(REAL)));
+            FUNCTION_MANAGER.lookupFunction(QualifiedName.of("sum"), fromTypes(REAL)));
     private static final InternalAggregationFunction COUNT = FUNCTION_MANAGER.getAggregateFunctionImplementation(
-            FUNCTION_MANAGER.resolveFunction(TEST_SESSION, QualifiedName.of("count"), fromTypes()));
+            FUNCTION_MANAGER.lookupFunction(QualifiedName.of("count"), fromTypes()));
 
     private ExecutorService executor;
     private ScheduledExecutorService scheduledExecutor;
@@ -89,9 +89,9 @@ public class TestAggregationOperator
     public void testAggregation()
     {
         InternalAggregationFunction countVarcharColumn = FUNCTION_MANAGER.getAggregateFunctionImplementation(
-                FUNCTION_MANAGER.resolveFunction(TEST_SESSION, QualifiedName.of("count"), fromTypes(VARCHAR)));
+                FUNCTION_MANAGER.lookupFunction(QualifiedName.of("count"), fromTypes(VARCHAR)));
         InternalAggregationFunction maxVarcharColumn = FUNCTION_MANAGER.getAggregateFunctionImplementation(
-                FUNCTION_MANAGER.resolveFunction(TEST_SESSION, QualifiedName.of("max"), fromTypes(VARCHAR)));
+                FUNCTION_MANAGER.lookupFunction(QualifiedName.of("max"), fromTypes(VARCHAR)));
         List<Page> input = rowPagesBuilder(VARCHAR, BIGINT, VARCHAR, BIGINT, REAL, DOUBLE, VARCHAR)
                 .addSequencePage(100, 0, 0, 300, 500, 400, 500, 500)
                 .build();

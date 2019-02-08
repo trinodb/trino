@@ -45,7 +45,6 @@ import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
-import static io.prestosql.SessionTestUtils.TEST_SESSION;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
@@ -106,7 +105,7 @@ public class BenchmarkArrayAggregation
                     throw new UnsupportedOperationException();
             }
             FunctionManager functionManager = metadata.getFunctionManager();
-            FunctionHandle functionHandle = functionManager.resolveFunction(TEST_SESSION, QualifiedName.of(name), fromTypes(elementType));
+            FunctionHandle functionHandle = functionManager.lookupFunction(QualifiedName.of(name), fromTypes(elementType));
             InternalAggregationFunction function = functionManager.getAggregateFunctionImplementation(functionHandle);
             accumulator = function.bind(ImmutableList.of(0), Optional.empty()).createAccumulator();
 

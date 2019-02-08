@@ -61,13 +61,13 @@ public class HandTpchQuery1
 
         FunctionManager functionManager = localQueryRunner.getMetadata().getFunctionManager();
         longAverage = functionManager.getAggregateFunctionImplementation(
-                functionManager.resolveFunction(session, QualifiedName.of("avg"), fromTypes(BIGINT)));
+                functionManager.lookupFunction(QualifiedName.of("avg"), fromTypes(BIGINT)));
         doubleAverage = functionManager.getAggregateFunctionImplementation(
-                functionManager.resolveFunction(session, QualifiedName.of("avg"), fromTypes(DOUBLE)));
+                functionManager.lookupFunction(QualifiedName.of("avg"), fromTypes(DOUBLE)));
         doubleSum = functionManager.getAggregateFunctionImplementation(
-                functionManager.resolveFunction(session, QualifiedName.of("sum"), fromTypes(DOUBLE)));
+                functionManager.lookupFunction(QualifiedName.of("sum"), fromTypes(DOUBLE)));
         countFunction = functionManager.getAggregateFunctionImplementation(
-                functionManager.resolveFunction(session, QualifiedName.of("count"), ImmutableList.of()));
+                functionManager.lookupFunction(QualifiedName.of("count"), ImmutableList.of()));
     }
 
     @Override

@@ -54,9 +54,9 @@ public class TestStreamingAggregationOperator
     private static final FunctionManager FUNCTION_MANAGER = MetadataManager.createTestMetadataManager().getFunctionManager();
 
     private static final InternalAggregationFunction LONG_SUM = FUNCTION_MANAGER.getAggregateFunctionImplementation(
-            FUNCTION_MANAGER.resolveFunction(TEST_SESSION, QualifiedName.of("sum"), fromTypes(BIGINT)));
+            FUNCTION_MANAGER.lookupFunction(QualifiedName.of("sum"), fromTypes(BIGINT)));
     private static final InternalAggregationFunction COUNT = FUNCTION_MANAGER.getAggregateFunctionImplementation(
-            FUNCTION_MANAGER.resolveFunction(TEST_SESSION, QualifiedName.of("count"), fromTypes()));
+            FUNCTION_MANAGER.lookupFunction(QualifiedName.of("count"), fromTypes()));
 
     private ExecutorService executor;
     private ScheduledExecutorService scheduledExecutor;

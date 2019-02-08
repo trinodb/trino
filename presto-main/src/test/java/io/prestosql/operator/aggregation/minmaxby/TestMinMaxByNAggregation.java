@@ -26,7 +26,6 @@ import org.testng.annotations.Test;
 
 import java.util.Arrays;
 
-import static io.prestosql.SessionTestUtils.TEST_SESSION;
 import static io.prestosql.block.BlockAssertions.createArrayBigintBlock;
 import static io.prestosql.block.BlockAssertions.createDoublesBlock;
 import static io.prestosql.block.BlockAssertions.createLongsBlock;
@@ -47,7 +46,7 @@ public class TestMinMaxByNAggregation
     @Test
     public void testMaxDoubleDouble()
     {
-        FunctionHandle functionHandle = functionManager.resolveFunction(TEST_SESSION, QualifiedName.of("max_by"), fromTypes(DOUBLE, DOUBLE, BIGINT));
+        FunctionHandle functionHandle = functionManager.lookupFunction(QualifiedName.of("max_by"), fromTypes(DOUBLE, DOUBLE, BIGINT));
         InternalAggregationFunction function = functionManager.getAggregateFunctionImplementation(functionHandle);
         assertAggregation(
                 function,
@@ -102,7 +101,7 @@ public class TestMinMaxByNAggregation
     @Test
     public void testMinDoubleDouble()
     {
-        FunctionHandle functionHandle = functionManager.resolveFunction(TEST_SESSION, QualifiedName.of("min_by"), fromTypes(DOUBLE, DOUBLE, BIGINT));
+        FunctionHandle functionHandle = functionManager.lookupFunction(QualifiedName.of("min_by"), fromTypes(DOUBLE, DOUBLE, BIGINT));
         InternalAggregationFunction function = functionManager.getAggregateFunctionImplementation(functionHandle);
         assertAggregation(
                 function,
@@ -136,7 +135,7 @@ public class TestMinMaxByNAggregation
     @Test
     public void testMinDoubleVarchar()
     {
-        FunctionHandle functionHandle = functionManager.resolveFunction(TEST_SESSION, QualifiedName.of("min_by"), fromTypes(VARCHAR, DOUBLE, BIGINT));
+        FunctionHandle functionHandle = functionManager.lookupFunction(QualifiedName.of("min_by"), fromTypes(VARCHAR, DOUBLE, BIGINT));
         InternalAggregationFunction function = functionManager.getAggregateFunctionImplementation(functionHandle);
         assertAggregation(
                 function,
@@ -163,7 +162,7 @@ public class TestMinMaxByNAggregation
     @Test
     public void testMaxDoubleVarchar()
     {
-        FunctionHandle functionHandle = functionManager.resolveFunction(TEST_SESSION, QualifiedName.of("max_by"), fromTypes(VARCHAR, DOUBLE, BIGINT));
+        FunctionHandle functionHandle = functionManager.lookupFunction(QualifiedName.of("max_by"), fromTypes(VARCHAR, DOUBLE, BIGINT));
         InternalAggregationFunction function = functionManager.getAggregateFunctionImplementation(functionHandle);
         assertAggregation(
                 function,
@@ -190,7 +189,7 @@ public class TestMinMaxByNAggregation
     @Test
     public void testMinVarcharDouble()
     {
-        FunctionHandle functionHandle = functionManager.resolveFunction(TEST_SESSION, QualifiedName.of("min_by"), fromTypes(DOUBLE, VARCHAR, BIGINT));
+        FunctionHandle functionHandle = functionManager.lookupFunction(QualifiedName.of("min_by"), fromTypes(DOUBLE, VARCHAR, BIGINT));
         InternalAggregationFunction function = functionManager.getAggregateFunctionImplementation(functionHandle);
         assertAggregation(
                 function,
@@ -217,7 +216,7 @@ public class TestMinMaxByNAggregation
     @Test
     public void testMaxVarcharDouble()
     {
-        FunctionHandle functionHandle = functionManager.resolveFunction(TEST_SESSION, QualifiedName.of("max_by"), fromTypes(DOUBLE, VARCHAR, BIGINT));
+        FunctionHandle functionHandle = functionManager.lookupFunction(QualifiedName.of("max_by"), fromTypes(DOUBLE, VARCHAR, BIGINT));
         InternalAggregationFunction function = functionManager.getAggregateFunctionImplementation(functionHandle);
         assertAggregation(
                 function,
@@ -244,7 +243,7 @@ public class TestMinMaxByNAggregation
     @Test
     public void testMinVarcharArray()
     {
-        FunctionHandle functionHandle = functionManager.resolveFunction(TEST_SESSION, QualifiedName.of("min_by"), fromTypes(new ArrayType(BIGINT), VARCHAR, BIGINT));
+        FunctionHandle functionHandle = functionManager.lookupFunction(QualifiedName.of("min_by"), fromTypes(new ArrayType(BIGINT), VARCHAR, BIGINT));
         InternalAggregationFunction function = functionManager.getAggregateFunctionImplementation(functionHandle);
         assertAggregation(
                 function,
@@ -257,7 +256,7 @@ public class TestMinMaxByNAggregation
     @Test
     public void testMaxVarcharArray()
     {
-        FunctionHandle functionHandle = functionManager.resolveFunction(TEST_SESSION, QualifiedName.of("max_by"), fromTypes(new ArrayType(BIGINT), VARCHAR, BIGINT));
+        FunctionHandle functionHandle = functionManager.lookupFunction(QualifiedName.of("max_by"), fromTypes(new ArrayType(BIGINT), VARCHAR, BIGINT));
         InternalAggregationFunction function = functionManager.getAggregateFunctionImplementation(functionHandle);
         assertAggregation(
                 function,
@@ -270,7 +269,7 @@ public class TestMinMaxByNAggregation
     @Test
     public void testMinArrayVarchar()
     {
-        FunctionHandle functionHandle = functionManager.resolveFunction(TEST_SESSION, QualifiedName.of("min_by"), fromTypes(VARCHAR, new ArrayType(BIGINT), BIGINT));
+        FunctionHandle functionHandle = functionManager.lookupFunction(QualifiedName.of("min_by"), fromTypes(VARCHAR, new ArrayType(BIGINT), BIGINT));
         InternalAggregationFunction function = functionManager.getAggregateFunctionImplementation(functionHandle);
         assertAggregation(
                 function,
@@ -283,7 +282,7 @@ public class TestMinMaxByNAggregation
     @Test
     public void testMaxArrayVarchar()
     {
-        FunctionHandle functionHandle = functionManager.resolveFunction(TEST_SESSION, QualifiedName.of("max_by"), fromTypes(VARCHAR, new ArrayType(BIGINT), BIGINT));
+        FunctionHandle functionHandle = functionManager.lookupFunction(QualifiedName.of("max_by"), fromTypes(VARCHAR, new ArrayType(BIGINT), BIGINT));
         InternalAggregationFunction function = functionManager.getAggregateFunctionImplementation(functionHandle);
         assertAggregation(
                 function,
@@ -296,7 +295,7 @@ public class TestMinMaxByNAggregation
     @Test
     public void testOutOfBound()
     {
-        FunctionHandle functionHandle = functionManager.resolveFunction(TEST_SESSION, QualifiedName.of("max_by"), fromTypes(VARCHAR, BIGINT, BIGINT));
+        FunctionHandle functionHandle = functionManager.lookupFunction(QualifiedName.of("max_by"), fromTypes(VARCHAR, BIGINT, BIGINT));
         InternalAggregationFunction function = functionManager.getAggregateFunctionImplementation(functionHandle);
         try {
             groupedAggregation(function, new Page(createStringsBlock("z"), createLongsBlock(0), createLongsBlock(10001)));

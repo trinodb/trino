@@ -45,7 +45,7 @@ public class HashAggregationBenchmark
 
         FunctionManager functionManager = localQueryRunner.getMetadata().getFunctionManager();
         doubleSum = functionManager.getAggregateFunctionImplementation(
-                functionManager.resolveFunction(session, QualifiedName.of("sum"), fromTypes(DOUBLE)));
+                functionManager.lookupFunction(QualifiedName.of("sum"), fromTypes(DOUBLE)));
     }
 
     @Override

@@ -99,11 +99,11 @@ public class TestHashAggregationOperator
     private static final FunctionManager FUNCTION_MANAGER = MetadataManager.createTestMetadataManager().getFunctionManager();
 
     private static final InternalAggregationFunction LONG_AVERAGE = FUNCTION_MANAGER.getAggregateFunctionImplementation(
-            FUNCTION_MANAGER.resolveFunction(TEST_SESSION, QualifiedName.of("avg"), fromTypes(BIGINT)));
+            FUNCTION_MANAGER.lookupFunction(QualifiedName.of("avg"), fromTypes(BIGINT)));
     private static final InternalAggregationFunction LONG_SUM = FUNCTION_MANAGER.getAggregateFunctionImplementation(
-            FUNCTION_MANAGER.resolveFunction(TEST_SESSION, QualifiedName.of("sum"), fromTypes(BIGINT)));
+            FUNCTION_MANAGER.lookupFunction(QualifiedName.of("sum"), fromTypes(BIGINT)));
     private static final InternalAggregationFunction COUNT = FUNCTION_MANAGER.getAggregateFunctionImplementation(
-            FUNCTION_MANAGER.resolveFunction(TEST_SESSION, QualifiedName.of("count"), fromTypes()));
+            FUNCTION_MANAGER.lookupFunction(QualifiedName.of("count"), fromTypes()));
 
     private static final int MAX_BLOCK_SIZE_IN_BYTES = 64 * 1024;
 
@@ -161,11 +161,11 @@ public class TestHashAggregationOperator
         // make operator produce multiple pages during finish phase
         int numberOfRows = 40_000;
         InternalAggregationFunction countVarcharColumn = FUNCTION_MANAGER.getAggregateFunctionImplementation(
-                FUNCTION_MANAGER.resolveFunction(TEST_SESSION, QualifiedName.of("count"), fromTypes(VARCHAR)));
+                FUNCTION_MANAGER.lookupFunction(QualifiedName.of("count"), fromTypes(VARCHAR)));
         InternalAggregationFunction countBooleanColumn = FUNCTION_MANAGER.getAggregateFunctionImplementation(
-                FUNCTION_MANAGER.resolveFunction(TEST_SESSION, QualifiedName.of("count"), fromTypes(BOOLEAN)));
+                FUNCTION_MANAGER.lookupFunction(QualifiedName.of("count"), fromTypes(BOOLEAN)));
         InternalAggregationFunction maxVarcharColumn = FUNCTION_MANAGER.getAggregateFunctionImplementation(
-                FUNCTION_MANAGER.resolveFunction(TEST_SESSION, QualifiedName.of("max"), fromTypes(VARCHAR)));
+                FUNCTION_MANAGER.lookupFunction(QualifiedName.of("max"), fromTypes(VARCHAR)));
         List<Integer> hashChannels = Ints.asList(1);
         RowPagesBuilder rowPagesBuilder = rowPagesBuilder(hashEnabled, hashChannels, VARCHAR, VARCHAR, VARCHAR, BIGINT, BOOLEAN);
         List<Page> input = rowPagesBuilder
@@ -218,11 +218,11 @@ public class TestHashAggregationOperator
     public void testHashAggregationWithGlobals(boolean hashEnabled, boolean spillEnabled, boolean revokeMemoryWhenAddingPages, long memoryLimitForMerge, long memoryLimitForMergeWithMemory)
     {
         InternalAggregationFunction countVarcharColumn = FUNCTION_MANAGER.getAggregateFunctionImplementation(
-                FUNCTION_MANAGER.resolveFunction(TEST_SESSION, QualifiedName.of("count"), fromTypes(VARCHAR)));
+                FUNCTION_MANAGER.lookupFunction(QualifiedName.of("count"), fromTypes(VARCHAR)));
         InternalAggregationFunction countBooleanColumn = FUNCTION_MANAGER.getAggregateFunctionImplementation(
-                FUNCTION_MANAGER.resolveFunction(TEST_SESSION, QualifiedName.of("count"), fromTypes(BOOLEAN)));
+                FUNCTION_MANAGER.lookupFunction(QualifiedName.of("count"), fromTypes(BOOLEAN)));
         InternalAggregationFunction maxVarcharColumn = FUNCTION_MANAGER.getAggregateFunctionImplementation(
-                FUNCTION_MANAGER.resolveFunction(TEST_SESSION, QualifiedName.of("max"), fromTypes(VARCHAR)));
+                FUNCTION_MANAGER.lookupFunction(QualifiedName.of("max"), fromTypes(VARCHAR)));
 
         Optional<Integer> groupIdChannel = Optional.of(1);
         List<Integer> groupByChannels = Ints.asList(1, 2);
@@ -268,7 +268,7 @@ public class TestHashAggregationOperator
     public void testHashAggregationMemoryReservation(boolean hashEnabled, boolean spillEnabled, boolean revokeMemoryWhenAddingPages, long memoryLimitForMerge, long memoryLimitForMergeWithMemory)
     {
         InternalAggregationFunction arrayAggColumn = FUNCTION_MANAGER.getAggregateFunctionImplementation(
-                FUNCTION_MANAGER.resolveFunction(TEST_SESSION, QualifiedName.of("array_agg"), fromTypes(BIGINT)));
+                FUNCTION_MANAGER.lookupFunction(QualifiedName.of("array_agg"), fromTypes(BIGINT)));
 
         List<Integer> hashChannels = Ints.asList(1);
         RowPagesBuilder rowPagesBuilder = rowPagesBuilder(hashEnabled, hashChannels, BIGINT, BIGINT);
@@ -311,7 +311,7 @@ public class TestHashAggregationOperator
     public void testMemoryLimit(boolean hashEnabled)
     {
         InternalAggregationFunction maxVarcharColumn = FUNCTION_MANAGER.getAggregateFunctionImplementation(
-                FUNCTION_MANAGER.resolveFunction(TEST_SESSION, QualifiedName.of("max"), fromTypes(VARCHAR)));
+                FUNCTION_MANAGER.lookupFunction(QualifiedName.of("max"), fromTypes(VARCHAR)));
 
         List<Integer> hashChannels = Ints.asList(1);
         RowPagesBuilder rowPagesBuilder = rowPagesBuilder(hashEnabled, hashChannels, VARCHAR, BIGINT, VARCHAR, BIGINT);
@@ -622,7 +622,7 @@ public class TestHashAggregationOperator
     public void testSpillerFailure()
     {
         InternalAggregationFunction maxVarcharColumn = FUNCTION_MANAGER.getAggregateFunctionImplementation(
-                FUNCTION_MANAGER.resolveFunction(TEST_SESSION, QualifiedName.of("max"), fromTypes(VARCHAR)));
+                FUNCTION_MANAGER.lookupFunction(QualifiedName.of("max"), fromTypes(VARCHAR)));
 
         List<Integer> hashChannels = Ints.asList(1);
         ImmutableList<Type> types = ImmutableList.of(VARCHAR, BIGINT, VARCHAR, BIGINT);

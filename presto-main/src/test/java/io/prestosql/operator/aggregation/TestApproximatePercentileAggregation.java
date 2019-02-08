@@ -22,7 +22,6 @@ import io.prestosql.spi.type.ArrayType;
 import io.prestosql.sql.tree.QualifiedName;
 import org.testng.annotations.Test;
 
-import static io.prestosql.SessionTestUtils.TEST_SESSION;
 import static io.prestosql.block.BlockAssertions.createBlockOfReals;
 import static io.prestosql.block.BlockAssertions.createDoubleSequenceBlock;
 import static io.prestosql.block.BlockAssertions.createDoublesBlock;
@@ -41,49 +40,49 @@ public class TestApproximatePercentileAggregation
     private static final FunctionManager functionManager = MetadataManager.createTestMetadataManager().getFunctionManager();
 
     private static final InternalAggregationFunction DOUBLE_APPROXIMATE_PERCENTILE_AGGREGATION = functionManager.getAggregateFunctionImplementation(
-            functionManager.resolveFunction(TEST_SESSION, QualifiedName.of("approx_percentile"), fromTypes(DOUBLE, DOUBLE)));
+            functionManager.lookupFunction(QualifiedName.of("approx_percentile"), fromTypes(DOUBLE, DOUBLE)));
 
     private static final InternalAggregationFunction DOUBLE_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION = functionManager.getAggregateFunctionImplementation(
-            functionManager.resolveFunction(TEST_SESSION, QualifiedName.of("approx_percentile"), fromTypes(DOUBLE, BIGINT, DOUBLE)));
+            functionManager.lookupFunction(QualifiedName.of("approx_percentile"), fromTypes(DOUBLE, BIGINT, DOUBLE)));
 
     private static final InternalAggregationFunction DOUBLE_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION_WITH_ACCURACY = functionManager.getAggregateFunctionImplementation(
-            functionManager.resolveFunction(TEST_SESSION, QualifiedName.of("approx_percentile"), fromTypes(DOUBLE, BIGINT, DOUBLE, DOUBLE)));
+            functionManager.lookupFunction(QualifiedName.of("approx_percentile"), fromTypes(DOUBLE, BIGINT, DOUBLE, DOUBLE)));
 
     private static final InternalAggregationFunction LONG_APPROXIMATE_PERCENTILE_AGGREGATION = functionManager.getAggregateFunctionImplementation(
-            functionManager.resolveFunction(TEST_SESSION, QualifiedName.of("approx_percentile"), fromTypes(BIGINT, DOUBLE)));
+            functionManager.lookupFunction(QualifiedName.of("approx_percentile"), fromTypes(BIGINT, DOUBLE)));
 
     private static final InternalAggregationFunction LONG_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION = functionManager.getAggregateFunctionImplementation(
-            functionManager.resolveFunction(TEST_SESSION, QualifiedName.of("approx_percentile"), fromTypes(BIGINT, BIGINT, DOUBLE)));
+            functionManager.lookupFunction(QualifiedName.of("approx_percentile"), fromTypes(BIGINT, BIGINT, DOUBLE)));
 
     private static final InternalAggregationFunction LONG_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION_WITH_ACCURACY = functionManager.getAggregateFunctionImplementation(
-            functionManager.resolveFunction(TEST_SESSION, QualifiedName.of("approx_percentile"), fromTypes(BIGINT, BIGINT, DOUBLE, DOUBLE)));
+            functionManager.lookupFunction(QualifiedName.of("approx_percentile"), fromTypes(BIGINT, BIGINT, DOUBLE, DOUBLE)));
 
     private static final InternalAggregationFunction DOUBLE_APPROXIMATE_PERCENTILE_ARRAY_AGGREGATION = functionManager.getAggregateFunctionImplementation(
-            functionManager.resolveFunction(TEST_SESSION, QualifiedName.of("approx_percentile"), fromTypes(DOUBLE, new ArrayType(DOUBLE))));
+            functionManager.lookupFunction(QualifiedName.of("approx_percentile"), fromTypes(DOUBLE, new ArrayType(DOUBLE))));
 
     private static final InternalAggregationFunction DOUBLE_APPROXIMATE_PERCENTILE_ARRAY_WEIGHTED_AGGREGATION = functionManager.getAggregateFunctionImplementation(
-            functionManager.resolveFunction(TEST_SESSION, QualifiedName.of("approx_percentile"), fromTypes(DOUBLE, BIGINT, new ArrayType(DOUBLE))));
+            functionManager.lookupFunction(QualifiedName.of("approx_percentile"), fromTypes(DOUBLE, BIGINT, new ArrayType(DOUBLE))));
 
     private static final InternalAggregationFunction LONG_APPROXIMATE_PERCENTILE_ARRAY_AGGREGATION = functionManager.getAggregateFunctionImplementation(
-            functionManager.resolveFunction(TEST_SESSION, QualifiedName.of("approx_percentile"), fromTypes(BIGINT, new ArrayType(DOUBLE))));
+            functionManager.lookupFunction(QualifiedName.of("approx_percentile"), fromTypes(BIGINT, new ArrayType(DOUBLE))));
 
     private static final InternalAggregationFunction LONG_APPROXIMATE_PERCENTILE_ARRAY_WEIGHTED_AGGREGATION = functionManager.getAggregateFunctionImplementation(
-            functionManager.resolveFunction(TEST_SESSION, QualifiedName.of("approx_percentile"), fromTypes(BIGINT, BIGINT, new ArrayType(DOUBLE))));
+            functionManager.lookupFunction(QualifiedName.of("approx_percentile"), fromTypes(BIGINT, BIGINT, new ArrayType(DOUBLE))));
 
     private static final InternalAggregationFunction FLOAT_APPROXIMATE_PERCENTILE_AGGREGATION = functionManager.getAggregateFunctionImplementation(
-            functionManager.resolveFunction(TEST_SESSION, QualifiedName.of("approx_percentile"), fromTypes(REAL, DOUBLE)));
+            functionManager.lookupFunction(QualifiedName.of("approx_percentile"), fromTypes(REAL, DOUBLE)));
 
     private static final InternalAggregationFunction FLOAT_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION = functionManager.getAggregateFunctionImplementation(
-            functionManager.resolveFunction(TEST_SESSION, QualifiedName.of("approx_percentile"), fromTypes(REAL, BIGINT, DOUBLE)));
+            functionManager.lookupFunction(QualifiedName.of("approx_percentile"), fromTypes(REAL, BIGINT, DOUBLE)));
 
     private static final InternalAggregationFunction FLOAT_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION_WITH_ACCURACY = functionManager.getAggregateFunctionImplementation(
-            functionManager.resolveFunction(TEST_SESSION, QualifiedName.of("approx_percentile"), fromTypes(REAL, BIGINT, DOUBLE, DOUBLE)));
+            functionManager.lookupFunction(QualifiedName.of("approx_percentile"), fromTypes(REAL, BIGINT, DOUBLE, DOUBLE)));
 
     private static final InternalAggregationFunction FLOAT_APPROXIMATE_PERCENTILE_ARRAY_AGGREGATION = functionManager.getAggregateFunctionImplementation(
-            functionManager.resolveFunction(TEST_SESSION, QualifiedName.of("approx_percentile"), fromTypes(REAL, new ArrayType(DOUBLE))));
+            functionManager.lookupFunction(QualifiedName.of("approx_percentile"), fromTypes(REAL, new ArrayType(DOUBLE))));
 
     private static final InternalAggregationFunction FLOAT_APPROXIMATE_PERCENTILE_ARRAY_WEIGHTED_AGGREGATION = functionManager.getAggregateFunctionImplementation(
-            functionManager.resolveFunction(TEST_SESSION, QualifiedName.of("approx_percentile"), fromTypes(REAL, BIGINT, new ArrayType(DOUBLE))));
+            functionManager.lookupFunction(QualifiedName.of("approx_percentile"), fromTypes(REAL, BIGINT, new ArrayType(DOUBLE))));
 
     @Test
     public void testLongPartialStep()

@@ -77,7 +77,7 @@ public class TestTableWriterOperator
     private static final ConnectorId CONNECTOR_ID = new ConnectorId("testConnectorId");
     private static final FunctionManager FUNCTION_MANAGER = createTestMetadataManager().getFunctionManager();
     private static final InternalAggregationFunction LONG_MAX = FUNCTION_MANAGER.getAggregateFunctionImplementation(
-            FUNCTION_MANAGER.resolveFunction(TEST_SESSION, QualifiedName.of("max"), fromTypes(BIGINT)));
+            FUNCTION_MANAGER.lookupFunction(QualifiedName.of("max"), fromTypes(BIGINT)));
     private ExecutorService executor;
     private ScheduledExecutorService scheduledExecutor;
 

@@ -28,7 +28,6 @@ import org.testng.annotations.Test;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-import static io.prestosql.SessionTestUtils.TEST_SESSION;
 import static io.prestosql.block.BlockAssertions.createBooleansBlock;
 import static io.prestosql.block.BlockAssertions.createDoublesBlock;
 import static io.prestosql.block.BlockAssertions.createStringArraysBlock;
@@ -52,7 +51,7 @@ public class TestMapAggAggregation
     @Test
     public void testDuplicateKeysValues()
     {
-        FunctionHandle functionHandle = functionManager.resolveFunction(TEST_SESSION, QualifiedName.of(NAME), fromTypes(DOUBLE, VARCHAR));
+        FunctionHandle functionHandle = functionManager.lookupFunction(QualifiedName.of(NAME), fromTypes(DOUBLE, VARCHAR));
         InternalAggregationFunction aggFunc = functionManager.getAggregateFunctionImplementation(functionHandle);
         assertAggregation(
                 aggFunc,
@@ -60,7 +59,7 @@ public class TestMapAggAggregation
                 createDoublesBlock(1.0, 1.0, 1.0),
                 createStringsBlock("a", "b", "c"));
 
-        functionHandle = functionManager.resolveFunction(TEST_SESSION, QualifiedName.of(NAME), fromTypes(DOUBLE, INTEGER));
+        functionHandle = functionManager.lookupFunction(QualifiedName.of(NAME), fromTypes(DOUBLE, INTEGER));
         aggFunc = functionManager.getAggregateFunctionImplementation(functionHandle);
         assertAggregation(
                 aggFunc,
@@ -72,7 +71,7 @@ public class TestMapAggAggregation
     @Test
     public void testSimpleMaps()
     {
-        FunctionHandle functionHandle = functionManager.resolveFunction(TEST_SESSION, QualifiedName.of(NAME), fromTypes(DOUBLE, VARCHAR));
+        FunctionHandle functionHandle = functionManager.lookupFunction(QualifiedName.of(NAME), fromTypes(DOUBLE, VARCHAR));
         InternalAggregationFunction aggFunc = functionManager.getAggregateFunctionImplementation(functionHandle);
         assertAggregation(
                 aggFunc,
@@ -80,7 +79,7 @@ public class TestMapAggAggregation
                 createDoublesBlock(1.0, 2.0, 3.0),
                 createStringsBlock("a", "b", "c"));
 
-        functionHandle = functionManager.resolveFunction(TEST_SESSION, QualifiedName.of(NAME), fromTypes(DOUBLE, INTEGER));
+        functionHandle = functionManager.lookupFunction(QualifiedName.of(NAME), fromTypes(DOUBLE, INTEGER));
         aggFunc = functionManager.getAggregateFunctionImplementation(functionHandle);
         assertAggregation(
                 aggFunc,
@@ -88,7 +87,7 @@ public class TestMapAggAggregation
                 createDoublesBlock(1.0, 2.0, 3.0),
                 createTypedLongsBlock(INTEGER, ImmutableList.of(3L, 2L, 1L)));
 
-        functionHandle = functionManager.resolveFunction(TEST_SESSION, QualifiedName.of(NAME), fromTypes(DOUBLE, BOOLEAN));
+        functionHandle = functionManager.lookupFunction(QualifiedName.of(NAME), fromTypes(DOUBLE, BOOLEAN));
         aggFunc = functionManager.getAggregateFunctionImplementation(functionHandle);
         assertAggregation(
                 aggFunc,
@@ -100,7 +99,7 @@ public class TestMapAggAggregation
     @Test
     public void testNull()
     {
-        FunctionHandle functionHandle = functionManager.resolveFunction(TEST_SESSION, QualifiedName.of(NAME), fromTypes(DOUBLE, DOUBLE));
+        FunctionHandle functionHandle = functionManager.lookupFunction(QualifiedName.of(NAME), fromTypes(DOUBLE, DOUBLE));
         InternalAggregationFunction doubleDouble = functionManager.getAggregateFunctionImplementation(functionHandle);
         assertAggregation(
                 doubleDouble,
@@ -129,7 +128,7 @@ public class TestMapAggAggregation
     public void testDoubleArrayMap()
     {
         ArrayType arrayType = new ArrayType(VARCHAR);
-        FunctionHandle functionHandle = functionManager.resolveFunction(TEST_SESSION, QualifiedName.of(NAME), fromTypes(DOUBLE, arrayType));
+        FunctionHandle functionHandle = functionManager.lookupFunction(QualifiedName.of(NAME), fromTypes(DOUBLE, arrayType));
         InternalAggregationFunction aggFunc = functionManager.getAggregateFunctionImplementation(functionHandle);
 
         assertAggregation(
@@ -145,7 +144,7 @@ public class TestMapAggAggregation
     public void testDoubleMapMap()
     {
         MapType innerMapType = mapType(VARCHAR, VARCHAR);
-        FunctionHandle functionHandle = functionManager.resolveFunction(TEST_SESSION, QualifiedName.of(NAME), fromTypes(DOUBLE, innerMapType));
+        FunctionHandle functionHandle = functionManager.lookupFunction(QualifiedName.of(NAME), fromTypes(DOUBLE, innerMapType));
         InternalAggregationFunction aggFunc = functionManager.getAggregateFunctionImplementation(functionHandle);
 
         BlockBuilder builder = innerMapType.createBlockBuilder(null, 3);
@@ -168,7 +167,7 @@ public class TestMapAggAggregation
         RowType innerRowType = RowType.from(ImmutableList.of(
                 RowType.field("f1", INTEGER),
                 RowType.field("f2", DOUBLE)));
-        FunctionHandle functionHandle = functionManager.resolveFunction(TEST_SESSION, QualifiedName.of(NAME), fromTypes(DOUBLE, innerRowType));
+        FunctionHandle functionHandle = functionManager.lookupFunction(QualifiedName.of(NAME), fromTypes(DOUBLE, innerRowType));
         InternalAggregationFunction aggFunc = functionManager.getAggregateFunctionImplementation(functionHandle);
 
         BlockBuilder builder = innerRowType.createBlockBuilder(null, 3);
@@ -189,7 +188,7 @@ public class TestMapAggAggregation
     public void testArrayDoubleMap()
     {
         ArrayType arrayType = new ArrayType(VARCHAR);
-        FunctionHandle functionHandle = functionManager.resolveFunction(TEST_SESSION, QualifiedName.of(NAME), fromTypes(arrayType, DOUBLE));
+        FunctionHandle functionHandle = functionManager.lookupFunction(QualifiedName.of(NAME), fromTypes(arrayType, DOUBLE));
         InternalAggregationFunction aggFunc = functionManager.getAggregateFunctionImplementation(functionHandle);
 
         assertAggregation(
