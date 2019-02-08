@@ -135,23 +135,23 @@ public class MetastoreUtil
 
         schema.setProperty(SERIALIZATION_DDL, toThriftDdl(tableName, dataColumns));
 
-        String partString = "";
+        StringBuilder partString = new StringBuilder();
         String partStringSep = "";
-        String partTypesString = "";
+        StringBuilder partTypesString = new StringBuilder();
         String partTypesStringSep = "";
         for (Column partKey : partitionKeys) {
-            partString += partStringSep;
-            partString += partKey.getName();
-            partTypesString += partTypesStringSep;
-            partTypesString += partKey.getType().getHiveTypeName().toString();
+            partString.append(partStringSep);
+            partString.append(partKey.getName());
+            partTypesString.append(partTypesStringSep);
+            partTypesString.append(partKey.getType().getHiveTypeName().toString());
             if (partStringSep.length() == 0) {
                 partStringSep = "/";
                 partTypesStringSep = ":";
             }
         }
         if (partString.length() > 0) {
-            schema.setProperty(META_TABLE_PARTITION_COLUMNS, partString);
-            schema.setProperty(META_TABLE_PARTITION_COLUMN_TYPES, partTypesString);
+            schema.setProperty(META_TABLE_PARTITION_COLUMNS, partString.toString());
+            schema.setProperty(META_TABLE_PARTITION_COLUMN_TYPES, partTypesString.toString());
         }
 
         if (parameters != null) {
