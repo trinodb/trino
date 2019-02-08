@@ -71,7 +71,7 @@ public class TestStringFunctions
 
     public static String padRight(String s, int n)
     {
-        return String.format("%1$-" + n + "s", s);
+        return s + repeat(" ", n - s.codePointCount(0, s.length()));
     }
 
     @Test
