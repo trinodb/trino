@@ -32,6 +32,7 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import static java.util.Arrays.asList;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -88,9 +89,7 @@ public final class SortedRangeSet
     {
         List<Range> rangeList = new ArrayList<>(rest.length + 1);
         rangeList.add(first);
-        for (Range range : rest) {
-            rangeList.add(range);
-        }
+        rangeList.addAll(asList(rest));
         return copyOf(first.getType(), rangeList);
     }
 
