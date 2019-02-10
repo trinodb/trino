@@ -416,7 +416,7 @@
             <dependency>
                 <groupId>io.prestosql.hive</groupId>
                 <artifactId>hive-apache</artifactId>
-                <version>2.3.4-1</version>
+                <version>3.0.0-1</version>
             </dependency>
 
             <dependency>

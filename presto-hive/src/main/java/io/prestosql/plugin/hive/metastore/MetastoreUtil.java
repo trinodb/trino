@@ -13,6 +13,7 @@
  */
 package io.prestosql.plugin.hive.metastore;
 
+import com.google.common.base.Joiner;
 import io.prestosql.plugin.hive.PartitionOfflineException;
 import io.prestosql.plugin.hive.TableOfflineException;
 import io.prestosql.spi.PrestoException;
@@ -32,7 +33,7 @@ import static com.google.common.base.Strings.isNullOrEmpty;
 import static io.prestosql.plugin.hive.HiveSplitManager.PRESTO_OFFLINE;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.util.stream.Collectors.toList;
-import static org.apache.hadoop.hive.metastore.MetaStoreUtils.typeToThriftType;
+import static org.apache.hadoop.hive.metastore.ColumnType.typeToThriftType;
 import static org.apache.hadoop.hive.metastore.ProtectMode.getProtectModeFromString;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.BUCKET_COUNT;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.BUCKET_FIELD_NAME;
@@ -100,7 +101,7 @@ public class MetastoreUtil
         schema.setProperty(META_TABLE_LOCATION, sd.getLocation());
 
         if (sd.getBucketProperty().isPresent()) {
-            schema.setProperty(BUCKET_FIELD_NAME, sd.getBucketProperty().get().getBucketedBy().get(0));
+            schema.setProperty(BUCKET_FIELD_NAME, Joiner.on(",").join(sd.getBucketProperty().get().getBucketedBy()));
             schema.setProperty(BUCKET_COUNT, Integer.toString(sd.getBucketProperty().get().getBucketCount()));
         }
         else {
