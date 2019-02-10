@@ -1213,12 +1213,8 @@
             <plugin>
                 <groupId>io.prestosql</groupId>
                 <artifactId>presto-maven-plugin</artifactId>
-                <version>5</version>
+                <version>6</version>
                 <extensions>true</extensions>
-                <configuration>
-                    <spiGroupId>io.prestosql</spiGroupId>
-                    <pluginClassName>io.prestosql.spi.Plugin</pluginClassName>
-                </configuration>
             </plugin>
 
             <plugin>
