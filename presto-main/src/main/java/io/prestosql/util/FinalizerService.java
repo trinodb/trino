@@ -13,7 +13,6 @@
  */
 package io.prestosql.util;
 
-import com.google.common.collect.Sets;
 import io.airlift.log.Logger;
 
 import javax.annotation.PostConstruct;
@@ -23,7 +22,6 @@ import javax.annotation.concurrent.ThreadSafe;
 
 import java.lang.ref.PhantomReference;
 import java.lang.ref.ReferenceQueue;
-import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -37,7 +35,6 @@ public class FinalizerService
 {
     private static final Logger log = Logger.get(FinalizerService.class);
 
-    private final Set<FinalizerReference> finalizers = Sets.newConcurrentHashSet();
     private final ReferenceQueue<Object> finalizerQueue = new ReferenceQueue<>();
     @GuardedBy("this")
     private ExecutorService executor;
@@ -82,7 +79,7 @@ public class FinalizerService
     {
         requireNonNull(referent, "referent is null");
         requireNonNull(cleanup, "cleanup is null");
-        finalizers.add(new FinalizerReference(referent, finalizerQueue, cleanup));
+        new FinalizerReference(referent, finalizerQueue, cleanup);
     }
 
     private void processFinalizerQueue()
@@ -90,7 +87,6 @@ public class FinalizerService
         while (!Thread.currentThread().isInterrupted()) {
             try {
                 FinalizerReference finalizer = (FinalizerReference) finalizerQueue.remove();
-                finalizers.remove(finalizer);
                 finalizer.cleanup();
             }
             catch (InterruptedException e) {
