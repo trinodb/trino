@@ -17,6 +17,8 @@ package io.prestosql.cost;
 import io.prestosql.Session;
 import io.prestosql.sql.planner.TypeProvider;
 import io.prestosql.sql.planner.iterative.GroupReference;
+import io.prestosql.sql.planner.iterative.rule.DetermineJoinDistributionType;
+import io.prestosql.sql.planner.iterative.rule.ReorderJoins;
 import io.prestosql.sql.planner.plan.AggregationNode;
 import io.prestosql.sql.planner.plan.JoinNode;
 import io.prestosql.sql.planner.plan.PlanNode;
@@ -36,18 +38,11 @@ import static io.prestosql.cost.PlanNodeCostEstimate.networkCost;
 import static java.util.Objects.requireNonNull;
 
 /**
- * HACK!
+ * A wrapper around CostCalculator that estimates ExchangeNodes cost.
  * <p>
- * This is a wrapper class around CostCalculator that estimates ExchangeNodes cost.
- * <p>
- * The ReorderJoins and DetermineJoinDistributionType rules are run before exchanges
- * are introduced. This cost calculator adds the implied costs for the exchanges that
- * will be added later. It is needed to account for the differences in exchange costs
- * for different types of joins.
- * <p>
- * Ideally the optimizer would produce different variations of a plan with all the
- * exchanges already introduced, so that the cost could be computed on the whole plan
- * and this class would not be needed.
+ * Certain rules (e.g. {@link ReorderJoins} and {@link DetermineJoinDistributionType}) are run before exchanges
+ * are added to a plan. This cost calculator adds the implied costs for the exchanges that will be added later.
+ * It is needed to account for the differences in exchange costs for different types of joins.
  */
 @ThreadSafe
 public class CostCalculatorWithEstimatedExchanges
