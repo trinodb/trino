@@ -1162,7 +1162,7 @@ public final class MathFunctions
         checkCondition(isFinite(bound2), INVALID_FUNCTION_ARGUMENT, "second bound must be finite");
         checkCondition(bound1 != bound2, INVALID_FUNCTION_ARGUMENT, "bounds cannot equal each other");
 
-        long result = 0;
+        long result;
 
         double lower = Math.min(bound1, bound2);
         double upper = Math.max(bound1, bound2);
