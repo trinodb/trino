@@ -31,6 +31,7 @@ import io.prestosql.spi.transaction.IsolationLevel;
 import io.prestosql.spi.type.TimeZoneKey;
 import io.prestosql.sql.SqlPath;
 
+import java.time.Instant;
 import java.util.Optional;
 
 import static io.prestosql.connector.ConnectorId.createInformationSchemaConnectorId;
@@ -40,6 +41,7 @@ import static java.util.Locale.ENGLISH;
 public final class TestingSession
 {
     public static final String TESTING_CATALOG = "testing_catalog";
+    public static final Instant SESSION_START_TIME = Instant.parse("2007-12-03T10:15:30.00Z");
     private static final QueryIdGenerator queryIdGenerator = new QueryIdGenerator();
 
     /*
@@ -61,6 +63,7 @@ public final class TestingSession
     public static SessionBuilder testSessionBuilder(SessionPropertyManager sessionPropertyManager)
     {
         return Session.builder(sessionPropertyManager)
+                .setStartTime(SESSION_START_TIME.toEpochMilli())
                 .setQueryId(queryIdGenerator.createNextQueryId())
                 .setIdentity(new Identity("user", Optional.empty()))
                 .setSource("test")
