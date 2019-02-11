@@ -65,7 +65,7 @@ public final class JoniRegexpReplaceLambdaFunction
 
         int groupCount = pattern.numberOfCaptures();
         int appendPosition = 0;
-        int nextStart = 0;
+        int nextStart;
 
         do {
             // nextStart is the same as the last appendPosition, unless the last match was zero-width.

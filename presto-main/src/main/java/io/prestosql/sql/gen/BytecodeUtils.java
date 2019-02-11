@@ -96,7 +96,7 @@ public final class BytecodeUtils
         }
 
         isNull.pushJavaDefault(returnType);
-        String loadDefaultComment = null;
+        String loadDefaultComment;
         loadDefaultComment = format("loadJavaDefault(%s)", returnType.getName());
 
         isNull.gotoLabel(label);
