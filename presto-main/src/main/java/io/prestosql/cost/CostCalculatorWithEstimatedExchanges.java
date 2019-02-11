@@ -33,8 +33,6 @@ import javax.inject.Inject;
 import java.util.Objects;
 import java.util.Optional;
 
-import static io.prestosql.cost.PlanCostEstimate.cpuCost;
-import static io.prestosql.cost.PlanCostEstimate.networkCost;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -62,12 +60,12 @@ public class CostCalculatorWithEstimatedExchanges
     public PlanCostEstimate calculateCost(PlanNode node, StatsProvider stats, Session session, TypeProvider types)
     {
         ExchangeCostEstimator exchangeCostEstimator = new ExchangeCostEstimator(stats, types, taskCountEstimator);
-        PlanCostEstimate estimatedExchangeCost = node.accept(exchangeCostEstimator, null);
-        return costCalculator.calculateCost(node, stats, session, types).add(estimatedExchangeCost);
+        PlanNodeLocalCostEstimate estimatedExchangeCost = node.accept(exchangeCostEstimator, null);
+        return estimatedExchangeCost.add(costCalculator.calculateCost(node, stats, session, types));
     }
 
     private static class ExchangeCostEstimator
-            extends PlanVisitor<PlanCostEstimate, Void>
+            extends PlanVisitor<PlanNodeLocalCostEstimate, Void>
     {
         private final StatsProvider stats;
         private final TypeProvider types;
@@ -81,33 +79,33 @@ public class CostCalculatorWithEstimatedExchanges
         }
 
         @Override
-        protected PlanCostEstimate visitPlan(PlanNode node, Void context)
+        protected PlanNodeLocalCostEstimate visitPlan(PlanNode node, Void context)
         {
-            // TODO implement logic for other node types and return PlanCostEstimate.unknown() here (or throw)
-            return PlanCostEstimate.zero();
+            // TODO implement logic for other node types and return PlanNodeLocalCostEstimate.unknown() here (or throw)
+            return PlanNodeLocalCostEstimate.zero();
         }
 
         @Override
-        public PlanCostEstimate visitGroupReference(GroupReference node, Void context)
+        public PlanNodeLocalCostEstimate visitGroupReference(GroupReference node, Void context)
         {
             throw new UnsupportedOperationException();
         }
 
         @Override
-        public PlanCostEstimate visitAggregation(AggregationNode node, Void context)
+        public PlanNodeLocalCostEstimate visitAggregation(AggregationNode node, Void context)
         {
             PlanNode source = node.getSource();
             double inputSizeInBytes = getStats(source).getOutputSizeInBytes(source.getOutputSymbols(), types);
 
-            PlanCostEstimate remoteRepartitionCost = calculateRemoteRepartitionCost(inputSizeInBytes);
-            PlanCostEstimate localRepartitionCost = calculateLocalRepartitionCost(inputSizeInBytes);
+            PlanNodeLocalCostEstimate remoteRepartitionCost = calculateRemoteRepartitionCost(inputSizeInBytes);
+            PlanNodeLocalCostEstimate localRepartitionCost = calculateLocalRepartitionCost(inputSizeInBytes);
 
             // TODO consider cost of aggregation itself, not only exchanges, based on aggregation's properties
             return remoteRepartitionCost.add(localRepartitionCost);
         }
 
         @Override
-        public PlanCostEstimate visitJoin(JoinNode node, Void context)
+        public PlanNodeLocalCostEstimate visitJoin(JoinNode node, Void context)
         {
             return calculateJoinExchangeCost(
                     node.getLeft(),
@@ -119,7 +117,7 @@ public class CostCalculatorWithEstimatedExchanges
         }
 
         @Override
-        public PlanCostEstimate visitSemiJoin(SemiJoinNode node, Void context)
+        public PlanNodeLocalCostEstimate visitSemiJoin(SemiJoinNode node, Void context)
         {
             return calculateJoinExchangeCost(
                     node.getSource(),
@@ -131,7 +129,7 @@ public class CostCalculatorWithEstimatedExchanges
         }
 
         @Override
-        public PlanCostEstimate visitSpatialJoin(SpatialJoinNode node, Void context)
+        public PlanNodeLocalCostEstimate visitSpatialJoin(SpatialJoinNode node, Void context)
         {
             return calculateJoinExchangeCost(
                     node.getLeft(),
@@ -143,7 +141,7 @@ public class CostCalculatorWithEstimatedExchanges
         }
 
         @Override
-        public PlanCostEstimate visitUnion(UnionNode node, Void context)
+        public PlanNodeLocalCostEstimate visitUnion(UnionNode node, Void context)
         {
             // this assumes that all union inputs will be gathered over the network
             // that is not aways true
@@ -159,27 +157,27 @@ public class CostCalculatorWithEstimatedExchanges
         }
     }
 
-    public static PlanCostEstimate calculateRemoteGatherCost(double inputSizeInBytes)
+    public static PlanNodeLocalCostEstimate calculateRemoteGatherCost(double inputSizeInBytes)
     {
-        return networkCost(inputSizeInBytes);
+        return PlanNodeLocalCostEstimate.ofNetwork(inputSizeInBytes);
     }
 
-    public static PlanCostEstimate calculateRemoteRepartitionCost(double inputSizeInBytes)
+    public static PlanNodeLocalCostEstimate calculateRemoteRepartitionCost(double inputSizeInBytes)
     {
-        return new PlanCostEstimate(inputSizeInBytes, 0, inputSizeInBytes);
+        return PlanNodeLocalCostEstimate.of(inputSizeInBytes, 0, inputSizeInBytes);
     }
 
-    public static PlanCostEstimate calculateLocalRepartitionCost(double inputSizeInBytes)
+    public static PlanNodeLocalCostEstimate calculateLocalRepartitionCost(double inputSizeInBytes)
     {
-        return cpuCost(inputSizeInBytes);
+        return PlanNodeLocalCostEstimate.ofCpu(inputSizeInBytes);
     }
 
-    public static PlanCostEstimate calculateRemoteReplicateCost(double inputSizeInBytes, int destinationTaskCount)
+    public static PlanNodeLocalCostEstimate calculateRemoteReplicateCost(double inputSizeInBytes, int destinationTaskCount)
     {
-        return networkCost(inputSizeInBytes * destinationTaskCount);
+        return PlanNodeLocalCostEstimate.ofNetwork(inputSizeInBytes * destinationTaskCount);
     }
 
-    public static PlanCostEstimate calculateJoinCostWithoutOutput(
+    public static PlanNodeLocalCostEstimate calculateJoinCostWithoutOutput(
             PlanNode probe,
             PlanNode build,
             StatsProvider stats,
@@ -187,14 +185,14 @@ public class CostCalculatorWithEstimatedExchanges
             boolean replicated,
             int estimatedSourceDistributedTaskCount)
     {
-        PlanCostEstimate exchangesCost = calculateJoinExchangeCost(
+        PlanNodeLocalCostEstimate exchangesCost = calculateJoinExchangeCost(
                 probe,
                 build,
                 stats,
                 types,
                 replicated,
                 estimatedSourceDistributedTaskCount);
-        PlanCostEstimate inputCost = calculateJoinInputCost(
+        PlanNodeLocalCostEstimate inputCost = calculateJoinInputCost(
                 probe,
                 build,
                 stats,
@@ -204,7 +202,7 @@ public class CostCalculatorWithEstimatedExchanges
         return exchangesCost.add(inputCost);
     }
 
-    private static PlanCostEstimate calculateJoinExchangeCost(
+    private static PlanNodeLocalCostEstimate calculateJoinExchangeCost(
             PlanNode probe,
             PlanNode build,
             StatsProvider stats,
@@ -216,22 +214,22 @@ public class CostCalculatorWithEstimatedExchanges
         double buildSizeInBytes = stats.getStats(build).getOutputSizeInBytes(build.getOutputSymbols(), types);
         if (replicated) {
             // assuming the probe side of a replicated join is always source distributed
-            PlanCostEstimate replicateCost = calculateRemoteReplicateCost(buildSizeInBytes, estimatedSourceDistributedTaskCount);
+            PlanNodeLocalCostEstimate replicateCost = calculateRemoteReplicateCost(buildSizeInBytes, estimatedSourceDistributedTaskCount);
             // cost of the copies repartitioning is added in CostCalculatorUsingExchanges#calculateJoinCost
-            PlanCostEstimate localRepartitionCost = calculateLocalRepartitionCost(buildSizeInBytes);
+            PlanNodeLocalCostEstimate localRepartitionCost = calculateLocalRepartitionCost(buildSizeInBytes);
             return replicateCost.add(localRepartitionCost);
         }
         else {
-            PlanCostEstimate probeCost = calculateRemoteRepartitionCost(probeSizeInBytes);
-            PlanCostEstimate buildRemoteRepartitionCost = calculateRemoteRepartitionCost(buildSizeInBytes);
-            PlanCostEstimate buildLocalRepartitionCost = calculateLocalRepartitionCost(buildSizeInBytes);
+            PlanNodeLocalCostEstimate probeCost = calculateRemoteRepartitionCost(probeSizeInBytes);
+            PlanNodeLocalCostEstimate buildRemoteRepartitionCost = calculateRemoteRepartitionCost(buildSizeInBytes);
+            PlanNodeLocalCostEstimate buildLocalRepartitionCost = calculateLocalRepartitionCost(buildSizeInBytes);
             return probeCost
                     .add(buildRemoteRepartitionCost)
                     .add(buildLocalRepartitionCost);
         }
     }
 
-    public static PlanCostEstimate calculateJoinInputCost(
+    public static PlanNodeLocalCostEstimate calculateJoinInputCost(
             PlanNode probe,
             PlanNode build,
             StatsProvider stats,
@@ -267,6 +265,6 @@ public class CostCalculatorWithEstimatedExchanges
 
         double memoryCost = buildSideSize * buildSizeMultiplier;
 
-        return new PlanCostEstimate(cpuCost, memoryCost, 0);
+        return PlanNodeLocalCostEstimate.of(cpuCost, memoryCost, 0);
     }
 }

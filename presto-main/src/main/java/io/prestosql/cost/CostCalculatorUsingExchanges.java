@@ -176,7 +176,7 @@ public class CostCalculatorUsingExchanges
 
         private PlanCostEstimate calculateJoinCost(PlanNode join, PlanNode probe, PlanNode build, boolean replicated)
         {
-            PlanCostEstimate joinInputCost = calculateJoinInputCost(
+            PlanNodeLocalCostEstimate joinInputCost = calculateJoinInputCost(
                     probe,
                     build,
                     stats,
@@ -197,16 +197,21 @@ public class CostCalculatorUsingExchanges
         @Override
         public PlanCostEstimate visitExchange(ExchangeNode node, Void context)
         {
+            return exchangeCost(node).toPlanCost();
+        }
+
+        private PlanNodeLocalCostEstimate exchangeCost(ExchangeNode node)
+        {
             double inputSizeInBytes = getStats(node).getOutputSizeInBytes(node.getOutputSymbols(), types);
             switch (node.getScope()) {
                 case LOCAL:
                     switch (node.getType()) {
                         case GATHER:
-                            return PlanCostEstimate.zero();
+                            return PlanNodeLocalCostEstimate.zero();
                         case REPARTITION:
                             return calculateLocalRepartitionCost(inputSizeInBytes);
                         case REPLICATE:
-                            return PlanCostEstimate.zero();
+                            return PlanNodeLocalCostEstimate.zero();
                         default:
                             throw new IllegalArgumentException("Unexpected type: " + node.getType());
                     }
