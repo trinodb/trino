@@ -74,7 +74,6 @@ import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.prestosql.cost.PlanCostEstimate.cpuCost;
 import static io.prestosql.metadata.FunctionKind.AGGREGATE;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.plugin.tpch.TpchTransactionHandle.INSTANCE;
@@ -470,16 +469,7 @@ public class TestCostCalculator
             if (costs.containsKey(node.getId().toString())) {
                 return costs.get(node.getId().toString());
             }
-            return calculateCumulativeCost(node);
-        }
-
-        private PlanCostEstimate calculateCumulativeCost(PlanNode node)
-        {
-            PlanCostEstimate sourcesCost = node.getSources().stream()
-                    .map(this::getCumulativeCost)
-                    .reduce(PlanCostEstimate.zero(), PlanCostEstimate::add);
-
-            return costCalculator.calculateCost(node, statsProvider, session, types).add(sourcesCost);
+            return costCalculator.calculateCost(node, statsProvider, this, session, types);
         }
     }
 
@@ -538,17 +528,13 @@ public class TestCostCalculator
             Function<PlanNode, PlanNodeStatsEstimate> stats,
             Map<String, Type> types)
     {
-        PlanCostEstimate localCost = costCalculator.calculateCost(
+        return costCalculator.calculateCost(
                 node,
                 planNode -> requireNonNull(stats.apply(planNode), "no stats for node"),
+                source -> requireNonNull(costs.apply(source), format("no cost for source: %s", source.getId())),
                 session,
                 TypeProvider.copyOf(types.entrySet().stream()
                         .collect(ImmutableMap.toImmutableMap(entry -> new Symbol(entry.getKey()), Map.Entry::getValue))));
-
-        PlanCostEstimate sourcesCost = node.getSources().stream()
-                .map(source -> requireNonNull(costs.apply(source), format("no cost for source: %s", source.getId())))
-                .reduce(PlanCostEstimate.zero(), PlanCostEstimate::add);
-        return sourcesCost.add(localCost);
     }
 
     private PlanCostEstimate calculateCumulativeCost(PlanNode node, CostCalculator costCalculator, StatsCalculator statsCalculator, Map<String, Type> types)
@@ -718,5 +704,10 @@ public class TestCostCalculator
                     session.getCatalog().ifPresent(catalog -> metadata.getCatalogHandle(session, catalog));
                     return transactionSessionConsumer.apply(session);
                 });
+    }
+
+    private static PlanCostEstimate cpuCost(double cpuCost)
+    {
+        return new PlanCostEstimate(cpuCost, 0, 0);
     }
 }
