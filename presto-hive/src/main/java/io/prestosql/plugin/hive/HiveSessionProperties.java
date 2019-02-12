@@ -93,7 +93,7 @@ public final class HiveSessionProperties
         {
             InsertExistingPartitionsBehavior enumValue = valueOf(value.toUpperCase(ENGLISH));
             if (immutablePartition) {
-                checkArgument(enumValue != APPEND, format("Presto is configured to treat Hive partitions as immutable. %s is not allowed to be set to %s", INSERT_EXISTING_PARTITIONS_BEHAVIOR, APPEND));
+                checkArgument(enumValue != APPEND, "Presto is configured to treat Hive partitions as immutable. %s is not allowed to be set to %s", INSERT_EXISTING_PARTITIONS_BEHAVIOR, APPEND);
             }
 
             return enumValue;

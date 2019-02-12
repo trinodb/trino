@@ -1190,7 +1190,7 @@ public class LocalExecutionPlanner
             // SYSTEM sampling is performed in the coordinator by dropping some random splits so the SamplingNode can be skipped here.
             else if (sourceNode instanceof SampleNode) {
                 SampleNode sampleNode = (SampleNode) sourceNode;
-                checkArgument(sampleNode.getSampleType() == SampleNode.Type.SYSTEM, format("%s sampling is not supported", sampleNode.getSampleType()));
+                checkArgument(sampleNode.getSampleType() == SampleNode.Type.SYSTEM, "%s sampling is not supported", sampleNode.getSampleType());
                 return visitScanFilterAndProject(context,
                         planNodeId,
                         sampleNode.getSource(),

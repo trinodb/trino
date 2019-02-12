@@ -473,7 +473,7 @@ public class ParametricScalarImplementation
                     .collect(toImmutableSet());
 
             SqlType returnType = method.getAnnotation(SqlType.class);
-            checkArgument(returnType != null, format("Method [%s] is missing @SqlType annotation", method));
+            checkArgument(returnType != null, "Method [%s] is missing @SqlType annotation", method);
             this.returnType = parseTypeSignature(returnType.value(), literalParameters);
 
             Class<?> actualReturnType = method.getReturnType();

@@ -38,7 +38,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static io.prestosql.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static io.prestosql.spi.session.PropertyMetadata.booleanProperty;
 import static io.prestosql.spi.session.PropertyMetadata.stringProperty;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -146,7 +145,7 @@ public final class AccumuloTableProperties
         ImmutableMap.Builder<String, Pair<String, String>> mapping = ImmutableMap.builder();
         for (String m : COMMA_SPLITTER.split(strMapping)) {
             String[] tokens = Iterables.toArray(COLON_SPLITTER.split(m), String.class);
-            checkState(tokens.length == 3, format("Mapping of %s contains %d tokens instead of 3", m, tokens.length));
+            checkState(tokens.length == 3, "Mapping of %s contains %d tokens instead of 3", m, tokens.length);
             mapping.put(tokens[0], Pair.of(tokens[1], tokens[2]));
         }
 
