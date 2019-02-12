@@ -188,7 +188,7 @@ public class Row
             for (String element : Splitter.on(',').split(str)) {
                 ImmutableList.Builder<String> builder = ImmutableList.builder();
                 List<String> keyValue = builder.addAll(Splitter.on("->").split(element)).build();
-                checkArgument(keyValue.size() == 2, "Map element %s has %d entries, not 2", element, keyValue.size());
+                checkArgument(keyValue.size() == 2, "Map element %s has %s entries, not 2", element, keyValue.size());
 
                 mapBuilder.put(valueFromString(keyValue.get(0), keyType), valueFromString(keyValue.get(1), valueType));
             }

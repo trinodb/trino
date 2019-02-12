@@ -119,12 +119,12 @@ public class AggregationFromAnnotationsParser
             return Optional.empty();
         }
 
-        checkArgument(stateSerializerFactories.size() == 1,
-                format(
-                        "Expect at most 1 @AggregationStateSerializerFactory(%s.class) annotation, found %s in %s",
-                        stateClass.toGenericString(),
-                        stateSerializerFactories.size(),
-                        aggregationDefinition.toGenericString()));
+        checkArgument(
+                stateSerializerFactories.size() == 1,
+                "Expect at most 1 @AggregationStateSerializerFactory(%s.class) annotation, found %s in %s",
+                stateClass.toGenericString(),
+                stateSerializerFactories.size(),
+                aggregationDefinition.toGenericString());
         return Optional.of(getOnlyElement(stateSerializerFactories));
     }
 

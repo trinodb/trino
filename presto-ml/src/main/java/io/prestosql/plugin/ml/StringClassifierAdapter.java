@@ -96,7 +96,7 @@ public class StringClassifierAdapter
     public String classify(FeatureVector features)
     {
         int prediction = classifier.classify(features);
-        checkState(labelEnumeration.containsKey(prediction), "classifier predicted an unknown class %d", prediction);
+        checkState(labelEnumeration.containsKey(prediction), "classifier predicted an unknown class %s", prediction);
         return labelEnumeration.get(prediction);
     }
 
