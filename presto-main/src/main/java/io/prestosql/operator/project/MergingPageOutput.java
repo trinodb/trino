@@ -81,7 +81,7 @@ public class MergingPageOutput
         checkArgument(minRowCount >= 0, "minRowCount must be greater or equal than zero");
         checkArgument(maxPageSizeInBytes > 0, "maxPageSizeInBytes must be greater than zero");
         checkArgument(maxPageSizeInBytes >= minPageSizeInBytes, "maxPageSizeInBytes must be greater or equal than minPageSizeInBytes");
-        checkArgument(minPageSizeInBytes <= MAX_MIN_PAGE_SIZE, "minPageSizeInBytes must be less or equal than %d", MAX_MIN_PAGE_SIZE);
+        checkArgument(minPageSizeInBytes <= MAX_MIN_PAGE_SIZE, "minPageSizeInBytes must be less or equal than %s", MAX_MIN_PAGE_SIZE);
         this.minPageSizeInBytes = minPageSizeInBytes;
         this.minRowCount = minRowCount;
         pageBuilder = PageBuilder.withMaxPageSize(maxPageSizeInBytes, this.types);

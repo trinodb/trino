@@ -82,7 +82,7 @@ public class CassandraPageSink
         }
         for (int i = 0; i < columnNames.size(); i++) {
             String columnName = columnNames.get(i);
-            checkArgument(columnName != null, "columnName is null at position: %d", i);
+            checkArgument(columnName != null, "columnName is null at position: %s", i);
             insert.value(columnName, bindMarker());
         }
         this.insert = cassandraSession.prepare(insert);

@@ -114,7 +114,7 @@ public final class TimeZoneKey
     @JsonCreator
     public static TimeZoneKey getTimeZoneKey(short timeZoneKey)
     {
-        checkArgument(timeZoneKey < TIME_ZONE_KEYS.length && TIME_ZONE_KEYS[timeZoneKey] != null, "Invalid time zone key %d", timeZoneKey);
+        checkArgument(timeZoneKey < TIME_ZONE_KEYS.length && TIME_ZONE_KEYS[timeZoneKey] != null, "Invalid time zone key %s", timeZoneKey);
         return TIME_ZONE_KEYS[timeZoneKey];
     }
 
