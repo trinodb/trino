@@ -15,7 +15,6 @@ package io.prestosql.orc.reader;
 
 import io.prestosql.memory.context.AggregatedMemoryContext;
 import io.prestosql.orc.StreamDescriptor;
-import org.joda.time.DateTimeZone;
 
 public final class StreamReaders
 {
@@ -23,10 +22,7 @@ public final class StreamReaders
     {
     }
 
-    public static StreamReader createStreamReader(
-            StreamDescriptor streamDescriptor,
-            DateTimeZone hiveStorageTimeZone,
-            AggregatedMemoryContext systemMemoryContext)
+    public static StreamReader createStreamReader(StreamDescriptor streamDescriptor, AggregatedMemoryContext systemMemoryContext)
     {
         switch (streamDescriptor.getStreamType()) {
             case BOOLEAN:
@@ -48,13 +44,13 @@ public final class StreamReaders
             case CHAR:
                 return new SliceStreamReader(streamDescriptor, systemMemoryContext);
             case TIMESTAMP:
-                return new TimestampStreamReader(streamDescriptor, hiveStorageTimeZone, systemMemoryContext.newLocalMemoryContext(StreamReaders.class.getSimpleName()));
+                return new TimestampStreamReader(streamDescriptor, systemMemoryContext.newLocalMemoryContext(StreamReaders.class.getSimpleName()));
             case LIST:
-                return new ListStreamReader(streamDescriptor, hiveStorageTimeZone, systemMemoryContext);
+                return new ListStreamReader(streamDescriptor, systemMemoryContext);
             case STRUCT:
-                return new StructStreamReader(streamDescriptor, hiveStorageTimeZone, systemMemoryContext);
+                return new StructStreamReader(streamDescriptor, systemMemoryContext);
             case MAP:
-                return new MapStreamReader(streamDescriptor, hiveStorageTimeZone, systemMemoryContext);
+                return new MapStreamReader(streamDescriptor, systemMemoryContext);
             case DECIMAL:
                 return new DecimalStreamReader(streamDescriptor, systemMemoryContext.newLocalMemoryContext(StreamReaders.class.getSimpleName()));
             case UNION:

@@ -50,6 +50,7 @@ import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.VarcharType;
 import org.openjdk.jol.info.ClassLayout;
 
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -102,6 +103,7 @@ public class OrcWriteValidation
     private final OrcEncoding orcEncoding;
     private final List<Integer> version;
     private final CompressionKind compression;
+    private final ZoneId timeZone;
     private final int rowGroupMaxRowCount;
     private final List<String> columnNames;
     private final Map<String, Slice> metadata;
@@ -115,6 +117,7 @@ public class OrcWriteValidation
             OrcEncoding orcEncoding,
             List<Integer> version,
             CompressionKind compression,
+            ZoneId timeZone,
             int rowGroupMaxRowCount,
             List<String> columnNames,
             Map<String, Slice> metadata,
@@ -127,6 +130,7 @@ public class OrcWriteValidation
         this.orcEncoding = orcEncoding;
         this.version = version;
         this.compression = compression;
+        this.timeZone = timeZone;
         this.rowGroupMaxRowCount = rowGroupMaxRowCount;
         this.columnNames = columnNames;
         this.metadata = metadata;
@@ -155,6 +159,20 @@ public class OrcWriteValidation
     public CompressionKind getCompression()
     {
         return compression;
+    }
+
+    public ZoneId getTimeZone()
+    {
+        return timeZone;
+    }
+
+    public void validateTimeZone(OrcDataSourceId orcDataSourceId, ZoneId actualTimeZone)
+            throws OrcCorruptionException
+    {
+        // DWRF does not store the writer time zone
+        if (!isDwrf() && !timeZone.equals(actualTimeZone)) {
+            throw new OrcCorruptionException(orcDataSourceId, "Unexpected time zone");
+        }
     }
 
     public int getRowGroupMaxRowCount()
@@ -852,6 +870,7 @@ public class OrcWriteValidation
 
         private List<Integer> version;
         private CompressionKind compression;
+        private ZoneId timeZone;
         private int rowGroupMaxRowCount;
         private int stringStatisticsLimitInBytes;
         private List<String> columnNames;
@@ -884,6 +903,11 @@ public class OrcWriteValidation
         public void setCompression(CompressionKind compression)
         {
             this.compression = compression;
+        }
+
+        public void setTimeZone(ZoneId timeZone)
+        {
+            this.timeZone = timeZone;
         }
 
         public void setRowGroupMaxRowCount(int rowGroupMaxRowCount)
@@ -952,6 +976,7 @@ public class OrcWriteValidation
                     orcEncoding,
                     version,
                     compression,
+                    timeZone,
                     rowGroupMaxRowCount,
                     columnNames,
                     metadata,

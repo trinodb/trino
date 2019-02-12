@@ -25,13 +25,13 @@ import io.prestosql.orc.stream.LongInputStream;
 import io.prestosql.spi.block.ArrayBlock;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.type.Type;
-import org.joda.time.DateTimeZone;
 import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 
@@ -65,10 +65,10 @@ public class ListStreamReader
 
     private boolean rowGroupOpen;
 
-    public ListStreamReader(StreamDescriptor streamDescriptor, DateTimeZone hiveStorageTimeZone, AggregatedMemoryContext systemMemoryContext)
+    public ListStreamReader(StreamDescriptor streamDescriptor, AggregatedMemoryContext systemMemoryContext)
     {
         this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
-        this.elementStreamReader = createStreamReader(streamDescriptor.getNestedStreams().get(0), hiveStorageTimeZone, systemMemoryContext);
+        this.elementStreamReader = createStreamReader(streamDescriptor.getNestedStreams().get(0), systemMemoryContext);
     }
 
     @Override
@@ -160,7 +160,7 @@ public class ListStreamReader
     }
 
     @Override
-    public void startStripe(InputStreamSources dictionaryStreamSources, List<ColumnEncoding> encoding)
+    public void startStripe(ZoneId timeZone, InputStreamSources dictionaryStreamSources, List<ColumnEncoding> encoding)
             throws IOException
     {
         presentStreamSource = missingStreamSource(BooleanInputStream.class);
@@ -174,7 +174,7 @@ public class ListStreamReader
 
         rowGroupOpen = false;
 
-        elementStreamReader.startStripe(dictionaryStreamSources, encoding);
+        elementStreamReader.startStripe(timeZone, dictionaryStreamSources, encoding);
     }
 
     @Override

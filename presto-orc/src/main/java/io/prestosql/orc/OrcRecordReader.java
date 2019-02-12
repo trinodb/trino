@@ -45,6 +45,7 @@ import org.openjdk.jol.info.ClassLayout;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -227,6 +228,7 @@ public class OrcRecordReader
 
         stripeReader = new StripeReader(
                 orcDataSource,
+                hiveStorageTimeZone.toTimeZone().toZoneId(),
                 decompressor,
                 types,
                 this.presentColumns,
@@ -236,7 +238,7 @@ public class OrcRecordReader
                 metadataReader,
                 writeValidation);
 
-        streamReaders = createStreamReaders(orcDataSource, types, hiveStorageTimeZone, presentColumnsAndTypes.build(), streamReadersSystemMemoryContext);
+        streamReaders = createStreamReaders(orcDataSource, types, presentColumnsAndTypes.build(), streamReadersSystemMemoryContext);
         maxBytesPerCell = new long[streamReaders.length];
         nextBatchSize = initialBatchSize;
     }
@@ -511,9 +513,10 @@ public class OrcRecordReader
             // Give readers access to dictionary streams
             InputStreamSources dictionaryStreamSources = stripe.getDictionaryStreamSources();
             List<ColumnEncoding> columnEncodings = stripe.getColumnEncodings();
+            ZoneId timeZone = stripe.getTimeZone();
             for (StreamReader column : streamReaders) {
                 if (column != null) {
-                    column.startStripe(dictionaryStreamSources, columnEncodings);
+                    column.startStripe(timeZone, dictionaryStreamSources, columnEncodings);
                 }
             }
 
@@ -553,7 +556,6 @@ public class OrcRecordReader
     private static StreamReader[] createStreamReaders(
             OrcDataSource orcDataSource,
             List<OrcType> types,
-            DateTimeZone hiveStorageTimeZone,
             Map<Integer, Type> includedColumns,
             AggregatedMemoryContext systemMemoryContext)
     {
@@ -564,7 +566,7 @@ public class OrcRecordReader
         for (int columnId = 0; columnId < rowType.getFieldCount(); columnId++) {
             if (includedColumns.containsKey(columnId)) {
                 StreamDescriptor streamDescriptor = streamDescriptors.get(columnId);
-                streamReaders[columnId] = StreamReaders.createStreamReader(streamDescriptor, hiveStorageTimeZone, systemMemoryContext);
+                streamReaders[columnId] = StreamReaders.createStreamReader(streamDescriptor, systemMemoryContext);
             }
         }
         return streamReaders;

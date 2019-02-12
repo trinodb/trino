@@ -26,13 +26,13 @@ import io.prestosql.spi.block.Block;
 import io.prestosql.spi.type.MapType;
 import io.prestosql.spi.type.Type;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
-import org.joda.time.DateTimeZone;
 import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 
@@ -67,11 +67,11 @@ public class MapDirectStreamReader
 
     private boolean rowGroupOpen;
 
-    public MapDirectStreamReader(StreamDescriptor streamDescriptor, DateTimeZone hiveStorageTimeZone, AggregatedMemoryContext systemMemoryContext)
+    public MapDirectStreamReader(StreamDescriptor streamDescriptor, AggregatedMemoryContext systemMemoryContext)
     {
         this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
-        this.keyStreamReader = createStreamReader(streamDescriptor.getNestedStreams().get(0), hiveStorageTimeZone, systemMemoryContext);
-        this.valueStreamReader = createStreamReader(streamDescriptor.getNestedStreams().get(1), hiveStorageTimeZone, systemMemoryContext);
+        this.keyStreamReader = createStreamReader(streamDescriptor.getNestedStreams().get(0), systemMemoryContext);
+        this.valueStreamReader = createStreamReader(streamDescriptor.getNestedStreams().get(1), systemMemoryContext);
     }
 
     @Override
@@ -219,7 +219,7 @@ public class MapDirectStreamReader
     }
 
     @Override
-    public void startStripe(InputStreamSources dictionaryStreamSources, List<ColumnEncoding> encoding)
+    public void startStripe(ZoneId timeZone, InputStreamSources dictionaryStreamSources, List<ColumnEncoding> encoding)
             throws IOException
     {
         presentStreamSource = missingStreamSource(BooleanInputStream.class);
@@ -233,8 +233,8 @@ public class MapDirectStreamReader
 
         rowGroupOpen = false;
 
-        keyStreamReader.startStripe(dictionaryStreamSources, encoding);
-        valueStreamReader.startStripe(dictionaryStreamSources, encoding);
+        keyStreamReader.startStripe(timeZone, dictionaryStreamSources, encoding);
+        valueStreamReader.startStripe(timeZone, dictionaryStreamSources, encoding);
     }
 
     @Override
