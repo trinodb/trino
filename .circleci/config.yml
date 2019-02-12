@@ -1,0 +1,61 @@
+version: 2
+jobs:
+  build_and_deploy:
+    working_directory: /home/presto/presto
+    environment:
+      - PLAZMA_ENV: circle_test
+      - RUN_SUBTREE_TEST: true
+      - MAVEN_OPTS: -Xmx4g -Xms4g
+      - _JAVA_OPTIONS: -Xmx4g -Xms4g -XX:ReservedCodeCacheSize=300M -XX:MaxPermSize=300M -XX:InitiatingHeapOccupancyPercent=30
+      - RUBY_VERSION: 2.4.1
+      - MAVEN_USER_HOME: /home/presto/.m2
+    docker:
+      - image: 523683666290.dkr.ecr.us-east-1.amazonaws.com/td-build:2018-11-27
+        aws_auth:
+          aws_access_key_id: $AWS_ACCESS_KEY_ID
+          aws_secret_access_key: $AWS_SECRET_ACCESS_KEY
+    resource_class: xlarge
+    steps:
+      - checkout
+      - run:
+          name: Setup non-priviledged user (presto)
+          command: |
+            apt-get update
+            apt-get install -y sudo
+            useradd -m presto
+            chown -R presto /home/presto/presto
+            mkdir /home/presto/.m2
+            chown -R presto /home/presto/.m2
+
+      - restore_cache:
+          key: presto-{{ checksum "pom.xml" }}
+
+      - run:
+          name: Build presto
+          command: |
+            # Assign a unique version number to the modules
+            rake update-pom
+            # Run mvn test-compile here to cache the compile-time dependencies
+            rake compile
+
+      - save_cache:
+          paths:
+            - /home/presto/.m2
+            - /root/.m2
+          key: presto-{{ checksum "pom.xml" }}
+
+      - run:
+          name: deploy
+          command: |
+            rake deploy
+
+workflows:
+  version: 2
+  build_and_integration:
+    jobs:
+      - build_and_deploy:
+          filters:
+            tags:
+              only: /.*/
+
+
