@@ -131,7 +131,7 @@ public final class OrcWriter
             OrcWriteValidationMode validationMode,
             OrcWriterStats stats)
     {
-        this.validationBuilder = validate ? new OrcWriteValidationBuilder(validationMode, types)
+        this.validationBuilder = validate ? new OrcWriteValidationBuilder(validationMode, orcEncoding, types)
                 .setStringStatisticsLimitInBytes(toIntExact(options.getMaxStringStatisticsLimit().toBytes())) : null;
 
         this.orcDataSink = requireNonNull(orcDataSink, "orcDataSink is null");
