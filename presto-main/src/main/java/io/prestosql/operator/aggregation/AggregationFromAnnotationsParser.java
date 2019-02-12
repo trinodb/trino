@@ -40,6 +40,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.prestosql.operator.aggregation.AggregationImplementation.Parser.parseImplementation;
 import static io.prestosql.operator.annotations.FunctionsParserHelper.parseDescription;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class AggregationFromAnnotationsParser
@@ -61,7 +62,7 @@ public class AggregationFromAnnotationsParser
                 return aggregation;
             }
         }
-        throw new IllegalArgumentException(String.format("No method with return type %s and arguments %s", returnType, argumentTypes));
+        throw new IllegalArgumentException(format("No method with return type %s and arguments %s", returnType, argumentTypes));
     }
 
     public static List<ParametricAggregation> parseFunctionDefinitions(Class<?> aggregationDefinition)
@@ -119,7 +120,7 @@ public class AggregationFromAnnotationsParser
         }
 
         checkArgument(stateSerializerFactories.size() == 1,
-                String.format(
+                format(
                         "Expect at most 1 @AggregationStateSerializerFactory(%s.class) annotation, found %s in %s",
                         stateClass.toGenericString(),
                         stateSerializerFactories.size(),
@@ -179,7 +180,7 @@ public class AggregationFromAnnotationsParser
                 .filter(method -> method.getParameterTypes()[AggregationImplementation.Parser.findAggregationStateParamId(method, 1)] == stateClass)
                 .collect(toImmutableList());
 
-        checkArgument(combineFunctions.size() == 1, String.format("There must be exactly one @CombineFunction in class %s for the @AggregationState %s ", clazz.toGenericString(), stateClass.toGenericString()));
+        checkArgument(combineFunctions.size() == 1, "There must be exactly one @CombineFunction in class %s for the @AggregationState %s", clazz.toGenericString(), stateClass.toGenericString());
         return getOnlyElement(combineFunctions);
     }
 

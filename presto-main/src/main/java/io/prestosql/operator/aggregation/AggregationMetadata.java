@@ -34,6 +34,7 @@ import static io.prestosql.operator.aggregation.AggregationMetadata.ParameterMet
 import static io.prestosql.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.NULLABLE_BLOCK_INPUT_CHANNEL;
 import static io.prestosql.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
 import static io.prestosql.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.inputChannelParameterType;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class AggregationMetadata
@@ -147,7 +148,7 @@ public class AggregationMetadata
             ParameterMetadata metadata = dataChannelMetadata.get(i);
             switch (metadata.getParameterType()) {
                 case STATE:
-                    checkArgument(stateDescriptors.get(stateIndex).getStateInterface() == parameters[i], String.format("State argument must be of type %s", stateDescriptors.get(stateIndex).getStateInterface()));
+                    checkArgument(stateDescriptors.get(stateIndex).getStateInterface() == parameters[i], "State argument must be of type %s", stateDescriptors.get(stateIndex).getStateInterface());
                     stateIndex++;
                     break;
                 case BLOCK_INPUT_CHANNEL:
@@ -165,7 +166,7 @@ public class AggregationMetadata
                     throw new IllegalArgumentException("Unsupported parameter: " + metadata.getParameterType());
             }
         }
-        checkArgument(stateIndex == stateDescriptors.size(), String.format("Input function only has %d states, expected: %d.", stateIndex, stateDescriptors.size()));
+        checkArgument(stateIndex == stateDescriptors.size(), "Input function only has %d states, expected: %d", stateIndex, stateDescriptors.size());
 
         // verify lambda channels
         for (int i = 0; i < lambdaInterfaces.size(); i++) {
@@ -183,7 +184,7 @@ public class AggregationMetadata
         for (int i = 0; i < stateDescriptors.size() * 2; i++) {
             checkArgument(
                     parameterTypes[i].equals(stateDescriptors.get(i % stateDescriptors.size()).getStateInterface()),
-                    String.format("Type for Parameter index %d is unexpected. Arguments for combine function must appear in the order of state1, state2, ..., otherState1, otherState2, ...", i));
+                    format("Type for Parameter index %d is unexpected. Arguments for combine function must appear in the order of state1, state2, ..., otherState1, otherState2, ...", i));
         }
 
         for (int i = 0; i < lambdaInterfaces.size(); i++) {
@@ -199,7 +200,7 @@ public class AggregationMetadata
         Class<?>[] parameterTypes = method.type().parameterArray();
         checkArgument(parameterTypes.length == stateDescriptors.size() + 1, "Number of arguments for combine function must be exactly one plus than number of states.");
         for (int i = 0; i < stateDescriptors.size(); i++) {
-            checkArgument(parameterTypes[i].equals(stateDescriptors.get(i).getStateInterface()), String.format("Type for Parameter index %d is unexpected", i));
+            checkArgument(parameterTypes[i].equals(stateDescriptors.get(i).getStateInterface()), "Type for Parameter index %d is unexpected", i);
         }
         checkArgument(Arrays.stream(parameterTypes).filter(type -> type.equals(BlockBuilder.class)).count() == 1, "Output function must take exactly one BlockBuilder parameter");
     }
