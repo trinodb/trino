@@ -13,6 +13,8 @@
  */
 package io.prestosql.server;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.Request;
 import io.airlift.http.client.ResponseHandler;
@@ -29,6 +31,7 @@ import javax.ws.rs.core.Response;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.HashSet;
 import java.util.Set;
 
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
@@ -64,6 +67,44 @@ public class WorkerResource
     public Response getThreads(@PathParam("nodeId") String nodeId)
     {
         return proxyJsonResponse(nodeId, "v1/thread");
+    }
+
+    @GET
+    public Response getWorkerList()
+    {
+        Set<Node> nodes = nodeManager.getAllNodes().getActiveNodes();
+        Set<JsonNodeInfo> jsonNodes = new HashSet<>();
+        for (Node node : nodes) {
+            JsonNodeInfo jsonNode = new JsonNodeInfo(node.getNodeIdentifier(), node.getHostAndPort().getHostText());
+            jsonNodes.add(jsonNode);
+        }
+        return Response.ok().entity(jsonNodes).build();
+    }
+
+    public static class JsonNodeInfo
+    {
+        private final String nodeId;
+        private final String nodeIp;
+
+        @JsonCreator
+        public JsonNodeInfo(@JsonProperty("nodeId") String nodeId,
+                @JsonProperty("nodeIp") String nodeIp)
+        {
+            this.nodeId = nodeId;
+            this.nodeIp = nodeIp;
+        }
+
+        @JsonProperty
+        public String getNodeId()
+        {
+            return nodeId;
+        }
+
+        @JsonProperty
+        public String getNodeIp()
+        {
+            return nodeIp;
+        }
     }
 
     private Response proxyJsonResponse(String nodeId, String workerPath)

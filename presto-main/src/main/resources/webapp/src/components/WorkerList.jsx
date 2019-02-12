@@ -45,7 +45,7 @@ export class WorkerList extends React.Component {
     refreshLoop() {
         clearTimeout(this.timeoutId); // to stop multiple series of refreshLoop from going on simultaneously
         // const nodeId = getFirstParameter(window.location.search);
-        $.get('/v1/cluster/workerList', function (workerInfo) {
+        $.get('/v1/worker', function (workerInfo) {
             this.setState({
                 initialized: true,
                 workerInfo: workerInfo
@@ -94,7 +94,6 @@ export class WorkerList extends React.Component {
             for (var i  in workerid) {
                 trs.push(
                     <tr>
-                        <td className="info-text wrap-text">{i}</td>
                         <td className="info-text wrap-text"><a href={"worker.html?" + workerid[i]} className="font-light" target="_blank">{workerid[i]}</a></td>
                         <td className="info-text wrap-text"><a href={"worker.html?" + workerid[i]} className="font-light" target="_blank">{workerip[i]}</a></td>
                     </tr>
@@ -112,7 +111,6 @@ export class WorkerList extends React.Component {
                         <table className="table">
                             <tbody>
                             <tr>
-                                <td className="info-title stage-table-stat-text">ID</td>
                                 <td className="info-title stage-table-stat-text">Node ID</td>
                                 <td className="info-title stage-table-stat-text">Node IP</td>
                             </tr>
