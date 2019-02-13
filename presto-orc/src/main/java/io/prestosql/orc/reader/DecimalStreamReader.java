@@ -25,6 +25,7 @@ import io.prestosql.orc.stream.InputStreamSources;
 import io.prestosql.orc.stream.LongInputStream;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.block.RunLengthEncodedBlock;
 import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.Decimals;
 import io.prestosql.spi.type.Type;
@@ -102,6 +103,16 @@ public class DecimalStreamReader
 
         seekToOffset();
 
+        if (decimalStream == null && scaleStream == null && presentStream != null) {
+            presentStream.skip(nextBatchSize);
+            Block nullValueBlock = new RunLengthEncodedBlock(
+                    type.createBlockBuilder(null, 1).appendNull().build(),
+                    nextBatchSize);
+            readOffset = 0;
+            nextBatchSize = 0;
+            return nullValueBlock;
+        }
+
         BlockBuilder builder = decimalType.createBlockBuilder(null, nextBatchSize);
 
         if (presentStream == null) {
@@ -129,11 +140,11 @@ public class DecimalStreamReader
             }
         }
         else {
+            verify(decimalStream != null);
+            verify(scaleStream != null);
             for (int i = 0; i < nextBatchSize; i++) {
                 if (presentStream.nextBit()) {
                     // The current row is not null
-                    verify(decimalStream != null);
-                    verify(scaleStream != null);
                     long sourceScale = scaleStream.next();
                     if (decimalType.isShort()) {
                         long rescaledDecimal = Decimals.rescale(decimalStream.nextLong(), (int) sourceScale, decimalType.getScale());
