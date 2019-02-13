@@ -559,6 +559,14 @@ Procedures
 
     Create an empty partition in the specified table.
 
+* ``system.sync_partition_metadata(schema_name, table_name, mode)``
+
+    Check and update partitions list in metastore. There are three modes available:
+
+    * ``ADD`` : add any partitions that exist on the file system but not in the metastore.
+    * ``DROP``: drop any partitions that exist in the metastore but not on the file system.
+    * ``FULL``: perform both ``ADD`` and ``DROP``.
+
 Examples
 --------
 
