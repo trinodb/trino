@@ -1,0 +1,37 @@
+<profile>
+  <id>td</id>
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>com.ning.maven.plugins</groupId>
+        <artifactId>maven-dependency-versions-check-plugin</artifactId>
+        <configuration>
+          <skip>true</skip>
+        </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <version>3.2</version>
+        <configuration>
+          <useIncrementalCompilation>false</useIncrementalCompilation>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
+  <properties>
+    <air.test.jvmsize>4g</air.test.jvmsize>
+  </properties>
+  <distributionManagement>
+    <repository>
+      <id>treasuredata</id>
+      <name>treasuredata-releases</name>
+      <url>https://treasuredata.jfrog.io/treasuredata/libs-release-local</url>
+    </repository>
+    <snapshotRepository>
+      <id>treasuredata</id>
+      <name>treasuredata-snapshots</name>
+      <url>https://treasuredata.jfrog.io/treasuredata/libs-snapshot-local</url>
+    </snapshotRepository>
+  </distributionManagement>
+</profile>
