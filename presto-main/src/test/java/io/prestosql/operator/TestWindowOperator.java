@@ -30,6 +30,7 @@ import io.prestosql.operator.window.RowNumberFunction;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.block.SortOrder;
 import io.prestosql.spi.type.Type;
+import io.prestosql.sql.gen.OrderingCompiler;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 import io.prestosql.testing.MaterializedResult;
 import org.testng.annotations.AfterMethod;
@@ -718,6 +719,7 @@ public class TestWindowOperator
                 10,
                 new PagesIndex.TestingFactory(false),
                 spillEnabled,
-                new DummySpillerFactory());
+                new DummySpillerFactory(),
+                new OrderingCompiler());
     }
 }

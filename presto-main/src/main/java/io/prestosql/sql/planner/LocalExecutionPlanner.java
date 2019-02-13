@@ -944,7 +944,8 @@ public class LocalExecutionPlanner
                     10_000,
                     pagesIndexFactory,
                     isSpillEnabled(session) && isSpillWindowOperator(session),
-                    spillerFactory);
+                    spillerFactory,
+                    orderingCompiler);
 
             return new PhysicalOperation(operatorFactory, outputMappings.build(), context, source);
         }
