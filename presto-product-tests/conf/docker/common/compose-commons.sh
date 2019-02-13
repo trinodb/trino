@@ -58,4 +58,5 @@ if [[ -z "${PRESTO_JDBC_DRIVER_JAR:-}" ]]; then
 fi
 export_canonical_path PRESTO_JDBC_DRIVER_JAR
 
+export PRESTO_JDBC_DRIVER_JAR_DIR="$(dirname "${PRESTO_JDBC_DRIVER_JAR}")"
 export PRESTO_JDBC_DRIVER_CLASS=${PRESTO_JDBC_DRIVER_CLASS:-"io.prestosql.jdbc.PrestoDriver"}
