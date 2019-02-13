@@ -21,7 +21,6 @@ import com.google.common.base.Verify;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableMap.Builder;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -725,7 +724,7 @@ public class HiveMetadata
 
     private Map<String, String> getEmptyTableProperties(ConnectorTableMetadata tableMetadata, boolean partitioned, HdfsContext hdfsContext)
     {
-        Builder<String, String> tableProperties = ImmutableMap.builder();
+        ImmutableMap.Builder<String, String> tableProperties = ImmutableMap.builder();
 
         // Hook point for extended versions of the Hive Plugin
         tableProperties.putAll(tableParameterCodec.encode(tableMetadata.getProperties()));
