@@ -19,7 +19,6 @@ import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableMap.Builder;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
@@ -27,7 +26,6 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.SetMultimap;
 import com.google.common.primitives.Ints;
-import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.prestosql.Session;
 import io.prestosql.SystemSessionProperties;
@@ -285,8 +283,6 @@ import static java.util.stream.IntStream.range;
 
 public class LocalExecutionPlanner
 {
-    private static final Logger log = Logger.get(LocalExecutionPlanner.class);
-
     private final Metadata metadata;
     private final SqlParser sqlParser;
     private final Optional<ExplainAnalyzeContext> explainAnalyzeContext;
@@ -1281,7 +1277,7 @@ public class LocalExecutionPlanner
 
         private Map<Integer, Type> getInputTypes(Map<Symbol, Integer> layout, List<Type> types)
         {
-            Builder<Integer, Type> inputTypes = ImmutableMap.builder();
+            ImmutableMap.Builder<Integer, Type> inputTypes = ImmutableMap.builder();
             for (Integer input : ImmutableSet.copyOf(layout.values())) {
                 Type type = types.get(input);
                 inputTypes.put(input, type);
@@ -1392,7 +1388,7 @@ public class LocalExecutionPlanner
 
         private ImmutableMap<Symbol, Integer> makeLayoutFromOutputSymbols(List<Symbol> outputSymbols)
         {
-            Builder<Symbol, Integer> outputMappings = ImmutableMap.builder();
+            ImmutableMap.Builder<Symbol, Integer> outputMappings = ImmutableMap.builder();
             int channel = 0;
             for (Symbol symbol : outputSymbols) {
                 outputMappings.put(symbol, channel);
@@ -2121,7 +2117,7 @@ public class LocalExecutionPlanner
 
         private Map<Symbol, Integer> createJoinSourcesLayout(Map<Symbol, Integer> lookupSourceLayout, Map<Symbol, Integer> probeSourceLayout)
         {
-            Builder<Symbol, Integer> joinSourcesLayout = ImmutableMap.builder();
+            ImmutableMap.Builder<Symbol, Integer> joinSourcesLayout = ImmutableMap.builder();
             joinSourcesLayout.putAll(lookupSourceLayout);
             for (Map.Entry<Symbol, Integer> probeLayoutEntry : probeSourceLayout.entrySet()) {
                 joinSourcesLayout.put(probeLayoutEntry.getKey(), probeLayoutEntry.getValue() + lookupSourceLayout.size());

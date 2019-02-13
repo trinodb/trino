@@ -18,7 +18,6 @@ import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ContiguousSet;
 import com.google.common.collect.DiscreteDomain;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableList.Builder;
 import com.google.common.collect.Range;
 import io.prestosql.spi.type.CharType;
 import io.prestosql.spi.type.DecimalType;
@@ -457,7 +456,7 @@ public abstract class AbstractTestOrcReader
 
     private static List<Float> floatSequence(float start, float step, int items)
     {
-        Builder<Float> values = ImmutableList.builder();
+        ImmutableList.Builder<Float> values = ImmutableList.builder();
         float nextValue = start;
         for (int i = 0; i < items; i++) {
             values.add(nextValue);

@@ -32,7 +32,6 @@ import static io.prestosql.execution.TestQueryRunnerUtil.createQuery;
 import static io.prestosql.execution.TestQueryRunnerUtil.waitForQueryState;
 import static io.prestosql.spi.StandardErrorCode.EXCEEDED_CPU_LIMIT;
 import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
-import static io.prestosql.tests.tpch.TpchQueryRunnerBuilder.builder;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.fail;
@@ -93,7 +92,7 @@ public class TestQueryManager
     public void testQueryCpuLimit()
             throws Exception
     {
-        try (DistributedQueryRunner queryRunner = builder().setSingleExtraProperty("query.max-cpu-time", "1ms").build()) {
+        try (DistributedQueryRunner queryRunner = TpchQueryRunnerBuilder.builder().setSingleExtraProperty("query.max-cpu-time", "1ms").build()) {
             QueryId queryId = createQuery(queryRunner, TEST_SESSION, "SELECT COUNT(*) FROM lineitem");
             waitForQueryState(queryRunner, queryId, FAILED);
             QueryManager queryManager = queryRunner.getCoordinator().getQueryManager();

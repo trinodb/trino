@@ -15,7 +15,6 @@ package io.prestosql.plugin.jmx;
 
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableList.Builder;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
@@ -199,7 +198,7 @@ public class JmxMetadata
 
     private List<SchemaTableName> listJmxTables()
     {
-        Builder<SchemaTableName> tableNames = ImmutableList.builder();
+        ImmutableList.Builder<SchemaTableName> tableNames = ImmutableList.builder();
         for (ObjectName objectName : mbeanServer.queryNames(WILDCARD, null)) {
             // todo remove lower case when presto supports mixed case names
             tableNames.add(new SchemaTableName(JMX_SCHEMA_NAME, objectName.getCanonicalName().toLowerCase(ENGLISH)));
