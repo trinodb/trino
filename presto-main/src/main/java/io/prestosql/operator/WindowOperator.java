@@ -34,6 +34,7 @@ import io.prestosql.spi.block.SortOrder;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spiller.Spiller;
 import io.prestosql.spiller.SpillerFactory;
+import io.prestosql.sql.gen.OrderingCompiler;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 
 import javax.annotation.Nullable;
@@ -81,6 +82,7 @@ public class WindowOperator
         private final PagesIndex.Factory pagesIndexFactory;
         private final boolean spillEnabled;
         private final SpillerFactory spillerFactory;
+        private final OrderingCompiler orderingCompiler;
 
         public WindowOperatorFactory(
                 int operatorId,
@@ -96,7 +98,8 @@ public class WindowOperator
                 int expectedPositions,
                 PagesIndex.Factory pagesIndexFactory,
                 boolean spillEnabled,
-                SpillerFactory spillerFactory)
+                SpillerFactory spillerFactory,
+                OrderingCompiler orderingCompiler)
         {
             requireNonNull(sourceTypes, "sourceTypes is null");
             requireNonNull(planNodeId, "planNodeId is null");
@@ -109,6 +112,7 @@ public class WindowOperator
             requireNonNull(sortOrder, "sortOrder is null");
             requireNonNull(pagesIndexFactory, "pagesIndexFactory is null");
             requireNonNull(spillerFactory, "spillerFactory is null");
+            requireNonNull(orderingCompiler, "orderingCompiler is null");
             checkArgument(sortChannels.size() == sortOrder.size(), "Must have same number of sort channels as sort orders");
             checkArgument(preSortedChannelPrefix <= sortChannels.size(), "Cannot have more pre-sorted channels than specified sorted channels");
             checkArgument(preSortedChannelPrefix == 0 || ImmutableSet.copyOf(preGroupedChannels).equals(ImmutableSet.copyOf(partitionChannels)), "preSortedChannelPrefix can only be greater than zero if all partition channels are pre-grouped");
@@ -127,6 +131,7 @@ public class WindowOperator
             this.expectedPositions = expectedPositions;
             this.spillEnabled = spillEnabled;
             this.spillerFactory = spillerFactory;
+            this.orderingCompiler = orderingCompiler;
         }
 
         @Override
@@ -148,7 +153,8 @@ public class WindowOperator
                     expectedPositions,
                     pagesIndexFactory,
                     spillEnabled,
-                    spillerFactory);
+                    spillerFactory,
+                    orderingCompiler);
         }
 
         @Override
@@ -174,7 +180,8 @@ public class WindowOperator
                     expectedPositions,
                     pagesIndexFactory,
                     spillEnabled,
-                    spillerFactory);
+                    spillerFactory,
+                    orderingCompiler);
         }
     }
 
@@ -205,7 +212,8 @@ public class WindowOperator
             int expectedPositions,
             PagesIndex.Factory pagesIndexFactory,
             boolean spillEnabled,
-            SpillerFactory spillerFactory)
+            SpillerFactory spillerFactory,
+            OrderingCompiler orderingCompiler)
     {
         requireNonNull(operatorContext, "operatorContext is null");
         requireNonNull(outputChannels, "outputChannels is null");
@@ -285,8 +293,7 @@ public class WindowOperator
                     orderChannels,
                     ordering,
                     spillerFactory,
-                    // TODO use compiled comparator
-                    new SimplePageWithPositionComparator(sourceTypes, unGroupedOrderChannels, unGroupedOrdering)));
+                    orderingCompiler.compilePageWithPositionComparator(sourceTypes, unGroupedOrderChannels, unGroupedOrdering)));
 
             this.outputPages = WorkProcessor.create(new PagesSource())
                     .flatTransform(spillablePagesToPagesIndexes.get())
