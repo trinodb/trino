@@ -41,7 +41,6 @@ import io.prestosql.spi.type.SqlDate;
 import io.prestosql.spi.type.SqlDecimal;
 import io.prestosql.spi.type.SqlTimestamp;
 import io.prestosql.spi.type.SqlVarbinary;
-import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeManager;
 import io.prestosql.spi.type.TypeSignatureParameter;
@@ -159,6 +158,7 @@ import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.testing.TestingConnectorSession.SESSION;
 import static java.lang.Math.toIntExact;
+import static java.util.Collections.nCopies;
 import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.META_TABLE_COLUMNS;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.META_TABLE_COLUMN_TYPES;
@@ -525,7 +525,8 @@ public class RcFileTester
 
             List<Entry<?, ?>> expectedEntries = new ArrayList<>(expectedMap.entrySet());
             for (Entry<?, ?> actualEntry : actualMap.entrySet()) {
-                for (Iterator<Entry<?, ?>> iterator = expectedEntries.iterator(); iterator.hasNext(); ) {
+                Iterator<Entry<?, ?>> iterator = expectedEntries.iterator();
+                while (iterator.hasNext()) {
                     Entry<?, ?> expectedEntry = iterator.next();
                     try {
                         assertColumnValueEquals(keyType, actualEntry.getKey(), expectedEntry.getKey());
@@ -579,7 +580,7 @@ public class RcFileTester
 
     private static List<Long> getSyncPositionsBruteForce(RcFileReader recordReader, File file)
     {
-        Slice slice = Slices.allocate((int) file.length());
+        Slice slice = Slices.allocate(toIntExact(file.length()));
         try (InputStream in = new FileInputStream(file)) {
             slice.setBytes(0, in, slice.length());
         }
@@ -594,7 +595,7 @@ public class RcFileTester
 
         long syncPosition = 0;
         while (syncPosition >= 0) {
-            syncPosition = slice.indexOf(sync, (int) syncPosition);
+            syncPosition = slice.indexOf(sync, toIntExact(syncPosition));
             if (syncPosition > 0) {
                 syncPositionsBruteForce.add(syncPosition);
                 syncPosition++;
@@ -952,49 +953,49 @@ public class RcFileTester
         if (type.equals(BOOLEAN)) {
             return javaBooleanObjectInspector;
         }
-        else if (type.equals(BIGINT)) {
+        if (type.equals(BIGINT)) {
             return javaLongObjectInspector;
         }
-        else if (type.equals(INTEGER)) {
+        if (type.equals(INTEGER)) {
             return javaIntObjectInspector;
         }
-        else if (type.equals(SMALLINT)) {
+        if (type.equals(SMALLINT)) {
             return javaShortObjectInspector;
         }
-        else if (type.equals(TINYINT)) {
+        if (type.equals(TINYINT)) {
             return javaByteObjectInspector;
         }
-        else if (type.equals(REAL)) {
+        if (type.equals(REAL)) {
             return javaFloatObjectInspector;
         }
-        else if (type.equals(DOUBLE)) {
+        if (type.equals(DOUBLE)) {
             return javaDoubleObjectInspector;
         }
-        else if (type instanceof VarcharType) {
+        if (type instanceof VarcharType) {
             return javaStringObjectInspector;
         }
-        else if (type.equals(VARBINARY)) {
+        if (type.equals(VARBINARY)) {
             return javaByteArrayObjectInspector;
         }
-        else if (type.equals(DATE)) {
+        if (type.equals(DATE)) {
             return javaDateObjectInspector;
         }
-        else if (type.equals(TIMESTAMP)) {
+        if (type.equals(TIMESTAMP)) {
             return javaTimestampObjectInspector;
         }
-        else if (type instanceof DecimalType) {
+        if (type instanceof DecimalType) {
             DecimalType decimalType = (DecimalType) type;
             return getPrimitiveJavaObjectInspector(new DecimalTypeInfo(decimalType.getPrecision(), decimalType.getScale()));
         }
-        else if (type.getTypeSignature().getBase().equals(ARRAY)) {
+        if (type.getTypeSignature().getBase().equals(ARRAY)) {
             return ObjectInspectorFactory.getStandardListObjectInspector(getJavaObjectInspector(type.getTypeParameters().get(0)));
         }
-        else if (type.getTypeSignature().getBase().equals(MAP)) {
+        if (type.getTypeSignature().getBase().equals(MAP)) {
             ObjectInspector keyObjectInspector = getJavaObjectInspector(type.getTypeParameters().get(0));
             ObjectInspector valueObjectInspector = getJavaObjectInspector(type.getTypeParameters().get(1));
             return ObjectInspectorFactory.getStandardMapObjectInspector(keyObjectInspector, valueObjectInspector);
         }
-        else if (type.getTypeSignature().getBase().equals(ROW)) {
+        if (type.getTypeSignature().getBase().equals(ROW)) {
             return getStandardStructObjectInspector(
                     type.getTypeSignature().getParameters().stream()
                             .map(parameter -> parameter.getNamedTypeSignature().getName().get())
@@ -1015,31 +1016,31 @@ public class RcFileTester
         if (type.equals(BOOLEAN)) {
             return value;
         }
-        else if (type.equals(TINYINT)) {
+        if (type.equals(TINYINT)) {
             return ((Number) value).byteValue();
         }
-        else if (type.equals(SMALLINT)) {
+        if (type.equals(SMALLINT)) {
             return ((Number) value).shortValue();
         }
-        else if (type.equals(INTEGER)) {
+        if (type.equals(INTEGER)) {
             return ((Number) value).intValue();
         }
-        else if (type.equals(BIGINT)) {
+        if (type.equals(BIGINT)) {
             return ((Number) value).longValue();
         }
-        else if (type.equals(REAL)) {
+        if (type.equals(REAL)) {
             return ((Number) value).floatValue();
         }
-        else if (type.equals(DOUBLE)) {
+        if (type.equals(DOUBLE)) {
             return ((Number) value).doubleValue();
         }
-        else if (type instanceof VarcharType) {
+        if (type instanceof VarcharType) {
             return value;
         }
-        else if (type.equals(VARBINARY)) {
+        if (type.equals(VARBINARY)) {
             return ((SqlVarbinary) value).getBytes();
         }
-        else if (type.equals(DATE)) {
+        if (type.equals(DATE)) {
             int days = ((SqlDate) value).getDays();
             LocalDate localDate = LocalDate.ofEpochDay(days);
             ZonedDateTime zonedDateTime = localDate.atStartOfDay(ZoneId.systemDefault());
@@ -1050,20 +1051,20 @@ public class RcFileTester
             date.setTime(millis);
             return date;
         }
-        else if (type.equals(TIMESTAMP)) {
+        if (type.equals(TIMESTAMP)) {
             long millisUtc = (int) ((SqlTimestamp) value).getMillisUtc();
             return new Timestamp(millisUtc);
         }
-        else if (type instanceof DecimalType) {
+        if (type instanceof DecimalType) {
             return HiveDecimal.create(((SqlDecimal) value).toBigDecimal());
         }
-        else if (type.getTypeSignature().getBase().equals(ARRAY)) {
+        if (type.getTypeSignature().getBase().equals(ARRAY)) {
             Type elementType = type.getTypeParameters().get(0);
             return ((List<?>) value).stream()
                     .map(element -> preprocessWriteValueOld(elementType, element))
                     .collect(toList());
         }
-        else if (type.getTypeSignature().getBase().equals(MAP)) {
+        if (type.getTypeSignature().getBase().equals(MAP)) {
             Type keyType = type.getTypeParameters().get(0);
             Type valueType = type.getTypeParameters().get(1);
             Map<Object, Object> newMap = new HashMap<>();
@@ -1072,7 +1073,7 @@ public class RcFileTester
             }
             return newMap;
         }
-        else if (type.getTypeSignature().getBase().equals(ROW)) {
+        if (type.getTypeSignature().getBase().equals(ROW)) {
             List<?> fieldValues = (List<?>) value;
             List<Type> fieldTypes = type.getTypeParameters();
             List<Object> newStruct = new ArrayList<>();
@@ -1105,7 +1106,6 @@ public class RcFileTester
         return getStandardStructObjectInspector(ImmutableList.of(name), ImmutableList.of(objectInspector));
     }
 
-    @SuppressWarnings("SpellCheckingInspection")
     private static Properties createTableProperties(String name, String type)
     {
         Properties orderTableProperties = new Properties();
@@ -1124,7 +1124,6 @@ public class RcFileTester
         private TempFile()
         {
             tempDir = createTempDir();
-            tempDir.mkdirs();
             file = new File(tempDir, "data.rcfile");
         }
 
@@ -1186,7 +1185,7 @@ public class RcFileTester
 
     private static MapType createMapType(Type type)
     {
-        return (MapType) TYPE_MANAGER.getParameterizedType(StandardTypes.MAP, ImmutableList.of(
+        return (MapType) TYPE_MANAGER.getParameterizedType(MAP, ImmutableList.of(
                 TypeSignatureParameter.of(type.getTypeSignature()),
                 TypeSignatureParameter.of(type.getTypeSignature())));
     }
@@ -1211,10 +1210,6 @@ public class RcFileTester
 
     private static Object toHiveList(Object input)
     {
-        ArrayList<Object> list = new ArrayList<>(4);
-        for (int i = 0; i < 4; i++) {
-            list.add(input);
-        }
-        return list;
+        return nCopies(4, input);
     }
 }

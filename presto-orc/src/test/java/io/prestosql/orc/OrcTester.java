@@ -23,7 +23,6 @@ import com.google.common.collect.Lists;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
-import io.airlift.units.DataSize.Unit;
 import io.prestosql.block.BlockEncodingManager;
 import io.prestosql.metadata.FunctionRegistry;
 import io.prestosql.orc.metadata.CompressionKind;
@@ -59,6 +58,7 @@ import org.apache.hadoop.hive.ql.io.orc.OrcSerde;
 import org.apache.hadoop.hive.ql.io.orc.OrcStruct;
 import org.apache.hadoop.hive.ql.io.orc.OrcUtil;
 import org.apache.hadoop.hive.ql.io.orc.Reader;
+import org.apache.hadoop.hive.ql.io.orc.RecordReader;
 import org.apache.hadoop.hive.serde2.Serializer;
 import org.apache.hadoop.hive.serde2.io.DateWritable;
 import org.apache.hadoop.hive.serde2.io.HiveCharWritable;
@@ -173,7 +173,7 @@ import static org.testng.Assert.assertTrue;
 
 public class OrcTester
 {
-    public static final DataSize MAX_BLOCK_SIZE = new DataSize(1, Unit.MEGABYTE);
+    public static final DataSize MAX_BLOCK_SIZE = new DataSize(1, MEGABYTE);
     public static final DateTimeZone HIVE_STORAGE_TIME_ZONE = DateTimeZone.forID("America/Bahia_Banderas");
 
     private static final TypeManager TYPE_MANAGER = new TypeRegistry();
@@ -358,11 +358,11 @@ public class OrcTester
             Type readType = rowType(type, type, type, type, type, type);
             Type writeType = rowType(type, type, type);
 
-            List writeValues = values.stream()
+            List<?> writeValues = values.stream()
                     .map(OrcTester::toHiveStruct)
                     .collect(toList());
 
-            List readValues = values.stream()
+            List<?> readValues = values.stream()
                     .map(OrcTester::toHiveStructWithNull)
                     .collect(toList());
 
@@ -590,7 +590,8 @@ public class OrcTester
 
             List<Entry<?, ?>> expectedEntries = new ArrayList<>(expectedMap.entrySet());
             for (Entry<?, ?> actualEntry : actualMap.entrySet()) {
-                for (Iterator<Entry<?, ?>> iterator = expectedEntries.iterator(); iterator.hasNext(); ) {
+                Iterator<Entry<?, ?>> iterator = expectedEntries.iterator();
+                while (iterator.hasNext()) {
                     Entry<?, ?> expectedEntry = iterator.next();
                     try {
                         assertColumnValueEquals(keyType, actualEntry.getKey(), expectedEntry.getKey());
@@ -652,8 +653,7 @@ public class OrcTester
         metadata.put("columns", "test");
         metadata.put("columns.types", createSettableStructObjectInspector("test", type).getTypeName());
 
-        OrcWriter writer;
-        writer = new OrcWriter(
+        OrcWriter writer = new OrcWriter(
                 new OutputStreamOrcDataSink(new FileOutputStream(outputFile)),
                 ImmutableList.of("test"),
                 ImmutableList.of(type),
@@ -788,7 +788,7 @@ public class OrcTester
         Reader reader = OrcFile.createReader(
                 new Path(tempFile.getFile().getAbsolutePath()),
                 new ReaderOptions(configuration));
-        org.apache.hadoop.hive.ql.io.orc.RecordReader recordReader = reader.rows();
+        RecordReader recordReader = reader.rows();
 
         StructObjectInspector rowInspector = (StructObjectInspector) reader.getObjectInspector();
         StructField field = rowInspector.getStructFieldRef("test");
@@ -1070,34 +1070,34 @@ public class OrcTester
         if (type.equals(BOOLEAN)) {
             return value;
         }
-        else if (type.equals(TINYINT)) {
+        if (type.equals(TINYINT)) {
             return ((Number) value).byteValue();
         }
-        else if (type.equals(SMALLINT)) {
+        if (type.equals(SMALLINT)) {
             return ((Number) value).shortValue();
         }
-        else if (type.equals(INTEGER)) {
+        if (type.equals(INTEGER)) {
             return ((Number) value).intValue();
         }
-        else if (type.equals(BIGINT)) {
+        if (type.equals(BIGINT)) {
             return ((Number) value).longValue();
         }
-        else if (type.equals(REAL)) {
+        if (type.equals(REAL)) {
             return ((Number) value).floatValue();
         }
-        else if (type.equals(DOUBLE)) {
+        if (type.equals(DOUBLE)) {
             return ((Number) value).doubleValue();
         }
-        else if (type instanceof VarcharType) {
+        if (type instanceof VarcharType) {
             return value;
         }
-        else if (type instanceof CharType) {
+        if (type instanceof CharType) {
             return new HiveChar((String) value, ((CharType) type).getLength());
         }
-        else if (type.equals(VARBINARY)) {
+        if (type.equals(VARBINARY)) {
             return ((SqlVarbinary) value).getBytes();
         }
-        else if (type.equals(DATE)) {
+        if (type.equals(DATE)) {
             int days = ((SqlDate) value).getDays();
             LocalDate localDate = LocalDate.ofEpochDay(days);
             ZonedDateTime zonedDateTime = localDate.atStartOfDay(ZoneId.systemDefault());
@@ -1108,20 +1108,20 @@ public class OrcTester
             date.setTime(millis);
             return date;
         }
-        else if (type.equals(TIMESTAMP)) {
+        if (type.equals(TIMESTAMP)) {
             long millisUtc = (int) ((SqlTimestamp) value).getMillisUtc();
             return new Timestamp(millisUtc);
         }
-        else if (type instanceof DecimalType) {
+        if (type instanceof DecimalType) {
             return HiveDecimal.create(((SqlDecimal) value).toBigDecimal());
         }
-        else if (type.getTypeSignature().getBase().equals(StandardTypes.ARRAY)) {
+        if (type.getTypeSignature().getBase().equals(StandardTypes.ARRAY)) {
             Type elementType = type.getTypeParameters().get(0);
             return ((List<?>) value).stream()
                     .map(element -> preprocessWriteValueHive(elementType, element))
                     .collect(toList());
         }
-        else if (type.getTypeSignature().getBase().equals(StandardTypes.MAP)) {
+        if (type.getTypeSignature().getBase().equals(StandardTypes.MAP)) {
             Type keyType = type.getTypeParameters().get(0);
             Type valueType = type.getTypeParameters().get(1);
             Map<Object, Object> newMap = new HashMap<>();
@@ -1130,7 +1130,7 @@ public class OrcTester
             }
             return newMap;
         }
-        else if (type.getTypeSignature().getBase().equals(StandardTypes.ROW)) {
+        if (type.getTypeSignature().getBase().equals(StandardTypes.ROW)) {
             List<?> fieldValues = (List<?>) value;
             List<Type> fieldTypes = type.getTypeParameters();
             List<Object> newStruct = new ArrayList<>();

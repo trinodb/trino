@@ -13,7 +13,6 @@
  */
 package io.prestosql.plugin.hive.parquet;
 
-import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
@@ -57,7 +56,6 @@ import org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.SettableStructObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.StructField;
 import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
-import org.apache.hadoop.hive.serde2.typeinfo.TypeInfoUtils;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.mapred.JobConf;
@@ -80,10 +78,11 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.Set;
+import java.util.function.Function;
 
 import static com.google.common.base.Functions.constant;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.transform;
-import static io.airlift.units.DataSize.succinctBytes;
 import static io.prestosql.plugin.hive.AbstractTestHiveFileFormats.getFieldFromCursor;
 import static io.prestosql.plugin.hive.HiveSessionProperties.getParquetMaxReadBlockSize;
 import static io.prestosql.plugin.hive.HiveTestUtils.createTestHdfsEnvironment;
@@ -97,6 +96,7 @@ import static io.prestosql.spi.type.Varchars.isVarcharType;
 import static java.util.Arrays.stream;
 import static java.util.Collections.singletonList;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.getStandardStructObjectInspector;
+import static org.apache.hadoop.hive.serde2.typeinfo.TypeInfoUtils.getTypeInfosFromTypeString;
 import static org.apache.parquet.column.ParquetProperties.WriterVersion.PARQUET_1_0;
 import static org.apache.parquet.hadoop.ParquetOutputFormat.COMPRESSION;
 import static org.apache.parquet.hadoop.ParquetOutputFormat.ENABLE_DICTIONARY;
@@ -152,13 +152,13 @@ public class ParquetTester
     public <W, R> void testRoundTrip(PrimitiveObjectInspector columnObjectInspector, Iterable<W> writeValues, Function<W, R> readTransform, Type parameterType)
             throws Exception
     {
-        testRoundTrip(columnObjectInspector, writeValues, transform(writeValues, readTransform), parameterType);
+        testRoundTrip(columnObjectInspector, writeValues, transform(writeValues, readTransform::apply), parameterType);
     }
 
     public void testSingleLevelArraySchemaRoundTrip(ObjectInspector objectInspector, Iterable<?> writeValues, Iterable<?> readValues, Type type)
             throws Exception
     {
-        ArrayList<TypeInfo> typeInfos = TypeInfoUtils.getTypeInfosFromTypeString(objectInspector.getTypeName());
+        List<TypeInfo> typeInfos = getTypeInfosFromTypeString(objectInspector.getTypeName());
         MessageType schema = SingleLevelArraySchemaConverter.convert(TEST_COLUMN, typeInfos);
         testSingleLevelArrayRoundTrip(objectInspector, writeValues, readValues, type, Optional.of(schema));
         if (objectInspector.getTypeName().contains("map<")) {
@@ -178,7 +178,7 @@ public class ParquetTester
         assertRoundTrip(singletonList(objectInspector), new Iterable<?>[] {transform(writeValues, constant(null))},
                 new Iterable<?>[] {transform(writeValues, constant(null))}, TEST_COLUMN, singletonList(type), Optional.empty());
         if (objectInspector.getTypeName().contains("map<")) {
-            ArrayList<TypeInfo> typeInfos = TypeInfoUtils.getTypeInfosFromTypeString(objectInspector.getTypeName());
+            List<TypeInfo> typeInfos = getTypeInfosFromTypeString(objectInspector.getTypeName());
             MessageType schema = MapKeyValuesSchemaConverter.convert(TEST_COLUMN, typeInfos);
             // just the values
             testRoundTripType(singletonList(objectInspector), new Iterable<?>[] {writeValues}, new Iterable<?>[] {
@@ -312,7 +312,7 @@ public class ParquetTester
         }
     }
 
-    void testMaxReadBytes(ObjectInspector objectInspector, Iterable<?> writeValues, Iterable<?> readValues, Type type, DataSize maxReadBlockSize)
+    static void testMaxReadBytes(ObjectInspector objectInspector, Iterable<?> writeValues, Iterable<?> readValues, Type type, DataSize maxReadBlockSize)
             throws Exception
     {
         assertMaxReadBytes(
@@ -325,7 +325,7 @@ public class ParquetTester
                 maxReadBlockSize);
     }
 
-    void assertMaxReadBytes(
+    static void assertMaxReadBytes(
             List<ObjectInspector> objectInspectors,
             Iterable<?>[] writeValues,
             Iterable<?>[] readValues,
@@ -335,7 +335,6 @@ public class ParquetTester
             DataSize maxReadBlockSize)
             throws Exception
     {
-        WriterVersion version = PARQUET_1_0;
         CompressionCodecName compressionCodecName = UNCOMPRESSED;
         HiveClientConfig config = new HiveClientConfig()
                 .setHiveStorageFormat(HiveStorageFormat.PARQUET)
@@ -347,7 +346,7 @@ public class ParquetTester
             JobConf jobConf = new JobConf();
             jobConf.setEnum(COMPRESSION, compressionCodecName);
             jobConf.setBoolean(ENABLE_DICTIONARY, true);
-            jobConf.setEnum(WRITER_VERSION, version);
+            jobConf.setEnum(WRITER_VERSION, PARQUET_1_0);
             writeParquetColumn(
                     jobConf,
                     tempFile.getFile(),
@@ -406,11 +405,14 @@ public class ParquetTester
 
     private static void assertPageSource(List<Type> types, Iterator<?>[] valuesByField, ConnectorPageSource pageSource, Optional<Long> maxReadBlockSize)
     {
-        Page page;
-        while ((page = pageSource.getNextPage()) != null) {
-            if (maxReadBlockSize.isPresent()) {
-                assertTrue(page.getPositionCount() == 1 || page.getSizeInBytes() <= maxReadBlockSize.get());
+        while (!pageSource.isFinished()) {
+            Page page = pageSource.getNextPage();
+            if (page == null) {
+                continue;
             }
+
+            maxReadBlockSize.ifPresent(max ->
+                    assertTrue(page.getPositionCount() == 1 || page.getSizeInBytes() <= max));
 
             for (int field = 0; field < page.getChannelCount(); field++) {
                 Block block = page.getBlock(field);
@@ -448,11 +450,11 @@ public class ParquetTester
                 Type elementType = ((ArrayType) type).getElementType();
                 return toArrayValue(block, elementType);
             }
-            else if (isMapType(type)) {
+            if (isMapType(type)) {
                 MapType mapType = (MapType) type;
                 return toMapValue(block, mapType.getKeyType(), mapType.getValueType());
             }
-            else if (isRowType(type)) {
+            if (isRowType(type)) {
                 return toRowValue(block, type.getTypeParameters());
             }
         }
@@ -475,7 +477,7 @@ public class ParquetTester
         return fieldFromCursor;
     }
 
-    private static Map toMapValue(Block mapBlock, Type keyType, Type valueType)
+    private static Map<?, ?> toMapValue(Block mapBlock, Type keyType, Type valueType)
     {
         Map<Object, Object> map = new HashMap<>(mapBlock.getPositionCount() * 2);
         for (int i = 0; i < mapBlock.getPositionCount(); i += 2) {
@@ -484,7 +486,7 @@ public class ParquetTester
         return Collections.unmodifiableMap(map);
     }
 
-    private static List toArrayValue(Block arrayBlock, Type elementType)
+    private static List<?> toArrayValue(Block arrayBlock, Type elementType)
     {
         List<Object> values = new ArrayList<>();
         for (int position = 0; position < arrayBlock.getPositionCount(); position++) {
@@ -493,7 +495,7 @@ public class ParquetTester
         return Collections.unmodifiableList(values);
     }
 
-    private static List toRowValue(Block rowBlock, List<Type> fieldTypes)
+    private static List<?> toRowValue(Block rowBlock, List<Type> fieldTypes)
     {
         List<Object> values = new ArrayList<>(rowBlock.getPositionCount());
         for (int i = 0; i < rowBlock.getPositionCount(); i++) {
@@ -515,7 +517,7 @@ public class ParquetTester
         return OPTIMIZED ? FileFormat.PRESTO_PARQUET : FileFormat.HIVE_PARQUET;
     }
 
-    private static DataSize writeParquetColumn(
+    private static void writeParquetColumn(
             JobConf jobConf,
             File outputFile,
             CompressionCodecName compressionCodecName,
@@ -547,7 +549,6 @@ public class ParquetTester
             recordWriter.write(record);
         }
         recordWriter.close(false);
-        return succinctBytes(outputFile.length());
     }
 
     private static Properties createTableProperties(List<String> columnNames, List<ObjectInspector> objectInspectors)
@@ -558,7 +559,7 @@ public class ParquetTester
         return orderTableProperties;
     }
 
-    static class TempFile
+    private static class TempFile
             implements Closeable
     {
         private final File file;
@@ -567,7 +568,7 @@ public class ParquetTester
         {
             try {
                 file = File.createTempFile(prefix, suffix);
-                file.delete();
+                verify(file.delete());
             }
             catch (IOException e) {
                 throw new UncheckedIOException(e);
@@ -582,20 +583,24 @@ public class ParquetTester
         @Override
         public void close()
         {
-            file.delete();
+            if (!file.delete()) {
+                verify(!file.exists());
+            }
         }
     }
 
-    private Iterator<?>[] getIterators(Iterable<?>[] values)
+    private static Iterator<?>[] getIterators(Iterable<?>[] values)
     {
-        return stream(values).map(Iterable::iterator).toArray(size -> new Iterator<?>[size]);
+        return stream(values)
+                .map(Iterable::iterator)
+                .toArray(Iterator<?>[]::new);
     }
 
     private Iterable<?>[] transformToNulls(Iterable<?>[] values)
     {
         return stream(values)
                 .map(v -> transform(v, constant(null)))
-                .toArray(size -> new Iterable<?>[size]);
+                .toArray(Iterable<?>[]::new);
     }
 
     private static Iterable<?>[] reverse(Iterable<?>[] iterables)
@@ -603,14 +608,14 @@ public class ParquetTester
         return stream(iterables)
                 .map(ImmutableList::copyOf)
                 .map(Lists::reverse)
-                .toArray(size -> new Iterable<?>[size]);
+                .toArray(Iterable<?>[]::new);
     }
 
-    static Iterable<?>[] insertNullEvery(int n, Iterable<?>[] iterables)
+    private static Iterable<?>[] insertNullEvery(int n, Iterable<?>[] iterables)
     {
         return stream(iterables)
                 .map(itr -> insertNullEvery(n, itr))
-                .toArray(size -> new Iterable<?>[size]);
+                .toArray(Iterable<?>[]::new);
     }
 
     static <T> Iterable<T> insertNullEvery(int n, Iterable<T> iterable)

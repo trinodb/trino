@@ -30,7 +30,6 @@ class TempFile
     public TempFile()
     {
         tempDir = createTempDir();
-        tempDir.mkdirs();
         file = new File(tempDir, "data.orc");
     }
 
