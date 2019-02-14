@@ -84,7 +84,7 @@ public interface Metadata
      * the original partitioning handle associated with the provided table layout handle,
      * as promised by {@link #getCommonPartitioning}.
      */
-    TableLayoutHandle getAlternativeLayoutHandle(Session session, TableLayoutHandle tableLayoutHandle, PartitioningHandle partitioningHandle);
+    TableLayoutHandle makeCompatiblePartitioning(Session session, TableLayoutHandle tableLayoutHandle, PartitioningHandle partitioningHandle);
 
     /**
      * Return a partitioning handle which the connector can transparently convert both {@code left} and {@code right} into.
