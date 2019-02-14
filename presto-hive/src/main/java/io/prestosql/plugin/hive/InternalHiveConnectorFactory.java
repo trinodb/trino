@@ -27,6 +27,7 @@ import io.prestosql.plugin.base.classloader.ClassLoaderSafeConnectorSplitManager
 import io.prestosql.plugin.base.classloader.ClassLoaderSafeNodePartitioningProvider;
 import io.prestosql.plugin.base.jmx.MBeanServerModule;
 import io.prestosql.plugin.hive.authentication.HiveAuthenticationModule;
+import io.prestosql.plugin.hive.azure.HiveAzureModule;
 import io.prestosql.plugin.hive.gcs.HiveGcsModule;
 import io.prestosql.plugin.hive.metastore.HiveMetastore;
 import io.prestosql.plugin.hive.metastore.HiveMetastoreModule;
@@ -74,6 +75,7 @@ public final class InternalHiveConnectorFactory
                     new HiveModule(),
                     new HiveS3Module(),
                     new HiveGcsModule(),
+                    new HiveAzureModule(),
                     new HiveMetastoreModule(metastore),
                     new HiveSecurityModule(),
                     new HiveAuthenticationModule(),
