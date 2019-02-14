@@ -16,6 +16,7 @@ package io.prestosql.plugin.hive.azure;
 import io.prestosql.plugin.hive.ConfigurationInitializer;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.adl.AdlFileSystem;
+import org.apache.hadoop.fs.azurebfs.AzureBlobFileSystem;
 
 import javax.inject.Inject;
 
@@ -32,6 +33,8 @@ public class PrestoAzureConfigurationInitializer
     private final Optional<String> adlClientId;
     private final Optional<String> adlCredential;
     private final Optional<String> adlRefreshUrl;
+    private final Optional<String> abfsAccessKey;
+    private final Optional<String> abfsStorageAccount;
 
     @Inject
     public PrestoAzureConfigurationInitializer(HiveAzureConfig hiveAzureConfig)
@@ -46,6 +49,18 @@ public class PrestoAzureConfigurationInitializer
                     wasbStorageAccount.isPresent() && !wasbStorageAccount.get().isEmpty(),
                     "hive.azure.wasb-access-key is set, but hive.azure.wasb-storage-account is not");
         }
+
+        this.abfsAccessKey = hiveAzureConfig.getAbfsAccessKey();
+        this.abfsStorageAccount = hiveAzureConfig.getAbfsStorageAccount();
+        if (abfsAccessKey.isPresent() || abfsStorageAccount.isPresent()) {
+            checkArgument(
+                    abfsAccessKey.isPresent() && !abfsAccessKey.get().isEmpty(),
+                    "hive.azure.abfs-storage-account is set, but hive.azure.abfs-access-key is not");
+            checkArgument(
+                    abfsStorageAccount.isPresent() && !abfsStorageAccount.get().isEmpty(),
+                    "hive.azure.abfs-access-key is set, but hive.azure.abfs-storage-account is not");
+        }
+
         this.adlClientId = hiveAzureConfig.getAdlClientId();
         this.adlCredential = hiveAzureConfig.getAdlCredential();
         this.adlRefreshUrl = hiveAzureConfig.getAdlRefreshUrl();
@@ -64,6 +79,11 @@ public class PrestoAzureConfigurationInitializer
             config.set(format("fs.azure.account.key.%s.blob.core.windows.net", wasbStorageAccount.get()), wasbAccessKey.get());
         }
 
+        if (abfsAccessKey.isPresent() && abfsStorageAccount.isPresent()) {
+            config.set(format("fs.azure.account.key.%s.dfs.core.windows.net", abfsStorageAccount.get()), abfsAccessKey.get());
+            config.set("fs.abfs.impl", AzureBlobFileSystem.class.getName());
+        }
+
         if (adlClientId.isPresent() && adlCredential.isPresent() && adlRefreshUrl.isPresent()) {
             config.set("fs.adl.oauth2.access.token.provider.type", "ClientCredential");
             config.set("fs.adl.oauth2.client.id", adlClientId.get());
@@ -71,5 +91,7 @@ public class PrestoAzureConfigurationInitializer
             config.set("fs.adl.oauth2.refresh.url", adlRefreshUrl.get());
             config.set("fs.adl.impl", AdlFileSystem.class.getName());
         }
+        // do not rely on information returned from local system about users and groups
+        config.set("fs.azure.skipUserGroupMetadataDuringInitialization", "true");
     }
 }
