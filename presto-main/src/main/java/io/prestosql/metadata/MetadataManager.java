@@ -404,7 +404,7 @@ public class MetadataManager
     }
 
     @Override
-    public TableLayoutHandle getAlternativeLayoutHandle(Session session, TableLayoutHandle tableLayoutHandle, PartitioningHandle partitioningHandle)
+    public TableLayoutHandle makeCompatiblePartitioning(Session session, TableLayoutHandle tableLayoutHandle, PartitioningHandle partitioningHandle)
     {
         checkArgument(partitioningHandle.getConnectorId().isPresent(), "Expect partitioning handle from connector, got system partitioning handle");
         ConnectorId connectorId = partitioningHandle.getConnectorId().get();
@@ -412,7 +412,7 @@ public class MetadataManager
         CatalogMetadata catalogMetadata = getCatalogMetadata(session, connectorId);
         ConnectorMetadata metadata = catalogMetadata.getMetadataFor(connectorId);
         ConnectorTransactionHandle transaction = catalogMetadata.getTransactionHandleFor(connectorId);
-        ConnectorTableLayoutHandle newTableLayoutHandle = metadata.getAlternativeLayoutHandle(session.toConnectorSession(connectorId), tableLayoutHandle.getConnectorHandle(), partitioningHandle.getConnectorHandle());
+        ConnectorTableLayoutHandle newTableLayoutHandle = metadata.makeCompatiblePartitioning(session.toConnectorSession(connectorId), tableLayoutHandle.getConnectorHandle(), partitioningHandle.getConnectorHandle());
         return new TableLayoutHandle(connectorId, transaction, newTableLayoutHandle);
     }
 
