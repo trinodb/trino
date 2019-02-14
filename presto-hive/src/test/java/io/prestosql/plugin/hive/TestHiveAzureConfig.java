@@ -30,7 +30,10 @@ public class TestHiveAzureConfig
     {
         assertRecordedDefaults(recordDefaults(HiveAzureConfig.class)
                 .setWasbAccessKey(null)
-                .setWasbStorageAccount(null));
+                .setWasbStorageAccount(null)
+                .setAdlClientId(null)
+                .setAdlCredential(null)
+                .setAdlRefreshUrl(null));
     }
 
     @Test
@@ -39,11 +42,17 @@ public class TestHiveAzureConfig
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("hive.azure.wasb-storage-account", "testwasbstorage")
                 .put("hive.azure.wasb-access-key", "secret")
+                .put("hive.azure.adl-client-id", "adlclientid")
+                .put("hive.azure.adl-credential", "adlcredential")
+                .put("hive.azure.adl-refresh-url", "adlrefreshurl")
                 .build();
 
         HiveAzureConfig expected = new HiveAzureConfig()
                 .setWasbStorageAccount("testwasbstorage")
-                .setWasbAccessKey("secret");
+                .setWasbAccessKey("secret")
+                .setAdlClientId("adlclientid")
+                .setAdlCredential("adlcredential")
+                .setAdlRefreshUrl("adlrefreshurl");
 
         assertFullMapping(properties, expected);
     }

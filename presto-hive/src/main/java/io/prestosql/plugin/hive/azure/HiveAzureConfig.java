@@ -22,6 +22,9 @@ public class HiveAzureConfig
 {
     private String wasbStorageAccount;
     private String wasbAccessKey;
+    private String adlClientId;
+    private String adlCredential;
+    private String adlRefreshUrl;
 
     public Optional<String> getWasbStorageAccount()
     {
@@ -46,6 +49,45 @@ public class HiveAzureConfig
     public HiveAzureConfig setWasbAccessKey(String wasbAccessKey)
     {
         this.wasbAccessKey = wasbAccessKey;
+        return this;
+    }
+
+    @ConfigSecuritySensitive
+    @Config("hive.azure.adl-client-id")
+    public HiveAzureConfig setAdlClientId(String adlClientId)
+    {
+        this.adlClientId = adlClientId;
+        return this;
+    }
+
+    public Optional<String> getAdlClientId()
+    {
+        return Optional.ofNullable(adlClientId);
+    }
+
+    @ConfigSecuritySensitive
+    @Config("hive.azure.adl-credential")
+    public HiveAzureConfig setAdlCredential(String adlCredential)
+    {
+        this.adlCredential = adlCredential;
+        return this;
+    }
+
+    public Optional<String> getAdlCredential()
+    {
+        return Optional.ofNullable(adlCredential);
+    }
+
+    public Optional<String> getAdlRefreshUrl()
+    {
+        return Optional.ofNullable(adlRefreshUrl);
+    }
+
+    @ConfigSecuritySensitive
+    @Config("hive.azure.adl-refresh-url")
+    public HiveAzureConfig setAdlRefreshUrl(String adlRefreshUrl)
+    {
+        this.adlRefreshUrl = adlRefreshUrl;
         return this;
     }
 }
