@@ -45,11 +45,11 @@ public class TestSessionFunctions
         }
 
         Session emptyPathSession = testSessionBuilder()
-                .setPath(new SqlPath(Optional.of("\"\"")))
+                .setPath(new SqlPath(Optional.empty()))
                 .build();
 
         try (QueryAssertions queryAssertions = new QueryAssertions(emptyPathSession)) {
-            queryAssertions.assertQuery("SELECT CURRENT_PATH", "SELECT CAST('" + emptyPathSession.getPath().toString() + "' AS VARCHAR)");
+            queryAssertions.assertQuery("SELECT CURRENT_PATH", "VALUES VARCHAR ''");
         }
     }
 }
