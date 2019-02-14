@@ -117,7 +117,16 @@ public class TestSqlParserErrorHandling
                         "line 1:19: mismatched input 'x'. Expecting: '(', ',', 'CROSS', 'EXCEPT', 'FULL', 'GROUP', 'HAVING', 'INNER', 'INTERSECT', 'JOIN', 'LEFT', 'LIMIT', 'NATURAL', 'ORDER', " +
                                 "'RIGHT', 'TABLESAMPLE', 'UNION', 'WHERE', <EOF>"},
                 {"SELECT * FROM t WHERE EXISTS (",
-                        "line 1:31: mismatched input '<EOF>'. Expecting: <query>"}};
+                        "line 1:31: mismatched input '<EOF>'. Expecting: <query>"},
+                {"SELECT \"\" FROM t",
+                        "line 1:8: Zero-length delimited identifier not allowed"},
+                {"SELECT a FROM \"\"",
+                        "line 1:15: Zero-length delimited identifier not allowed"},
+                {"SELECT a FROM \"\".t",
+                        "line 1:15: Zero-length delimited identifier not allowed"},
+                {"SELECT a FROM \"\".s.t",
+                        "line 1:15: Zero-length delimited identifier not allowed"},
+        };
     }
 
     @Test(dataProvider = "statements")
