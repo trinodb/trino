@@ -53,7 +53,7 @@ import static io.prestosql.tempto.query.QueryExecutor.query;
 import static io.prestosql.tests.TestGroups.HIVE_COERCION;
 import static io.prestosql.tests.TestGroups.JDBC;
 import static io.prestosql.tests.utils.JdbcDriverUtils.usingPrestoJdbcDriver;
-import static io.prestosql.tests.utils.JdbcDriverUtils.usingTeradataJdbcDriver;
+import static io.prestosql.tests.utils.JdbcDriverUtils.usingSimbaJdbcDriver;
 import static io.prestosql.tests.utils.QueryExecutors.onHive;
 import static java.lang.String.format;
 import static java.sql.JDBCType.ARRAY;
@@ -342,7 +342,7 @@ public class TestHiveCoercion
                             ImmutableMap.of(-2, asMap("ti2bi", null, "int2bi", -2323L, "float2double", -1.5, "add", null)),
                             1));
         }
-        else if (usingTeradataJdbcDriver(connection)) {
+        else if (usingSimbaJdbcDriver(connection)) {
             expectedRows = ImmutableList.of(
                     row(
                             -1,
@@ -399,7 +399,7 @@ public class TestHiveCoercion
         if (usingPrestoJdbcDriver(connection)) {
             assertEqualsIgnoreOrder(extract(queryResult.column(19)), column(expectedRows, 19), "list_to_list field is not equal");
         }
-        else if (usingTeradataJdbcDriver(connection)) {
+        else if (usingSimbaJdbcDriver(connection)) {
             assertEqualsIgnoreOrder(queryResult.column(19), column(expectedRows, 19), "list_to_list field is not equal");
         }
         else {
@@ -465,7 +465,7 @@ public class TestHiveCoercion
                     JAVA_OBJECT,
                     BIGINT);
         }
-        else if (usingTeradataJdbcDriver(connection)) {
+        else if (usingSimbaJdbcDriver(connection)) {
             assertThat(queryResult).hasColumns(
                     SMALLINT,
                     INTEGER,
