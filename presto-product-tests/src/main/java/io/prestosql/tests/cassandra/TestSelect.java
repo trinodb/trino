@@ -314,6 +314,113 @@ public class TestSelect
     }
 
     @Test(groups = CASSANDRA)
+    public void testSelectUserDefinedType()
+    {
+        String udtName = "type_user_defined";
+        String tableName = "user_defined_type_table";
+
+        onCassandra(format("DROP TABLE IF EXISTS %s.%s", KEY_SPACE, tableName));
+        onCassandra(format("DROP TYPE IF EXISTS %s.%s", KEY_SPACE, udtName));
+
+        onCassandra(format("" +
+                "CREATE TYPE %s.%s (" +
+                "t text, " +
+                "u uuid, " +
+                "integer int, " +
+                "b bigint, " +
+                "bl blob, " +
+                "ts timestamp, " +
+                "a ascii, " +
+                "bo boolean, " +
+                "d decimal, " +
+                "do double, " +
+                "f float, " +
+                "i inet, " +
+                "v varchar, " +
+                "vari varint, " +
+                "tu timeuuid, " +
+                "l frozen <list<text>>, " +
+                "m frozen <map<varchar, bigint>>, " +
+                "s frozen <set<boolean>> " +
+                ")", KEY_SPACE, udtName));
+
+        onCassandra(format("" +
+                "CREATE TABLE %s.%s (" +
+                "key text PRIMARY KEY, " +
+                "typeudt frozen <%s>, " +
+                ")", KEY_SPACE, tableName, udtName));
+
+        onCassandra(format("" +
+                "INSERT INTO %s.%s (key, typeudt) VALUES (" +
+                "'key'," +
+                "{ " +
+                "t: 'text', " +
+                "u: 01234567-0123-0123-0123-0123456789ab, " +
+                "integer: -2147483648, " +
+                "b:  -9223372036854775808," +
+                "bl: 0x3031323334, " +
+                "ts: '1970-01-01 13:30:00.000', " +
+                "a: 'ansi', " +
+                "bo: true, " +
+                "d: 99999999999999997748809823456034029568, " +
+                "do: 4.9407e-324, " +
+                "f: 1.4013e-45, " +
+                "i: '0.0.0.0', " +
+                "v: 'varchar', " +
+                "vari: -9223372036854775808, " +
+                "tu: d2177dd0-eaa2-11de-a572-001b779c76e3, " +
+                "l: ['list'], " +
+                "m: {'map': 1}, " +
+                "s: {true} " +
+                "}" +
+                ")", KEY_SPACE, tableName));
+
+        QueryResult queryResult = onPresto().executeQuery(format("" +
+                "SELECT " +
+                "typeudt.t, " +
+                "typeudt.u, " +
+                "typeudt.integer, " +
+                "typeudt.b, " +
+                "typeudt.bl, " +
+                "typeudt.ts, " +
+                "typeudt.a, " +
+                "typeudt.bo, " +
+                "typeudt.d, " +
+                "typeudt.do, " +
+                "typeudt.f, " +
+                "typeudt.i, " +
+                "typeudt.v, " +
+                "typeudt.vari, " +
+                "typeudt.tu, " +
+                "typeudt.l, " +
+                "typeudt.m, " +
+                "typeudt.s " +
+                "FROM %s.%s.%s", CONNECTOR_NAME, KEY_SPACE, tableName));
+        assertThat(queryResult).containsOnly(row(
+                "text",
+                "01234567-0123-0123-0123-0123456789ab",
+                -2147483648,
+                -9223372036854775808L,
+                "01234".getBytes(),
+                Timestamp.valueOf(LocalDateTime.of(1970, 1, 1, 1, 0)),
+                "ansi",
+                true,
+                99999999999999997748809823456034029568D,
+                4.9407e-324,
+                1.4E-45f,
+                "0.0.0.0",
+                "varchar",
+                "-9223372036854775808",
+                "d2177dd0-eaa2-11de-a572-001b779c76e3",
+                "[\"list\"]",
+                "{\"map\":1}",
+                "[true]"));
+
+        onCassandra(format("DROP TABLE IF EXISTS %s.%s", KEY_SPACE, tableName));
+        onCassandra(format("DROP TYPE IF EXISTS %s.%s", KEY_SPACE, udtName));
+    }
+
+    @Test(groups = CASSANDRA)
     public void testProtocolVersion()
     {
         QueryResult queryResult = onPresto()

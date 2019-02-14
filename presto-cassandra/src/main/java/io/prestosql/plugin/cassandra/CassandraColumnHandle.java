@@ -102,12 +102,12 @@ public class CassandraColumnHandle
 
     public ColumnMetadata getColumnMetadata()
     {
-        return new ColumnMetadata(CassandraCqlUtils.cqlNameToSqlName(name), cassandraType.getNativeType(), null, hidden);
+        return new ColumnMetadata(CassandraCqlUtils.cqlNameToSqlName(name), cassandraType.getNativeType().get(), null, hidden);
     }
 
     public Type getType()
     {
-        return cassandraType.getNativeType();
+        return cassandraType.getNativeType().get();
     }
 
     @Override

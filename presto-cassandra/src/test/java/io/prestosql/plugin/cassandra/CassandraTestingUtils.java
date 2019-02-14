@@ -36,6 +36,7 @@ public class CassandraTestingUtils
     public static final String TABLE_ALL_TYPES = "table_all_types";
     public static final String TABLE_ALL_TYPES_INSERT = "table_all_types_insert";
     public static final String TABLE_ALL_TYPES_PARTITION_KEY = "table_all_types_partition_key";
+    public static final String TABLE_USER_DEFINED_TYPE = "table_user_defined_type";
     public static final String TABLE_CLUSTERING_KEYS = "table_clustering_keys";
     public static final String TABLE_CLUSTERING_KEYS_LARGE = "table_clustering_keys_large";
     public static final String TABLE_MULTI_PARTITION_CLUSTERING_KEYS = "table_multi_partition_clustering_keys";
@@ -49,6 +50,7 @@ public class CassandraTestingUtils
         createTableAllTypes(cassandraSession, new SchemaTableName(keyspace, TABLE_ALL_TYPES), date, 9);
         createTableAllTypes(cassandraSession, new SchemaTableName(keyspace, TABLE_ALL_TYPES_INSERT), date, 0);
         createTableAllTypesPartitionKey(cassandraSession, new SchemaTableName(keyspace, TABLE_ALL_TYPES_PARTITION_KEY), date);
+        createTableUserDefinedType(cassandraSession, new SchemaTableName(keyspace, TABLE_USER_DEFINED_TYPE));
         createTableClusteringKeys(cassandraSession, new SchemaTableName(keyspace, TABLE_CLUSTERING_KEYS), 9);
         createTableClusteringKeys(cassandraSession, new SchemaTableName(keyspace, TABLE_CLUSTERING_KEYS_LARGE), 1000);
         createTableMultiPartitionClusteringKeys(cassandraSession, new SchemaTableName(keyspace, TABLE_MULTI_PARTITION_CLUSTERING_KEYS));
@@ -247,5 +249,65 @@ public class CassandraTestingUtils
             session.execute(insert);
         }
         assertEquals(session.execute("SELECT COUNT(*) FROM " + table).all().get(0).getLong(0), rowsCount);
+    }
+
+    private static void createTableUserDefinedType(CassandraSession session, SchemaTableName table)
+    {
+        String typeName = "type_user_defined";
+
+        session.execute("DROP TABLE IF EXISTS " + table);
+        session.execute(format("DROP TYPE IF EXISTS %s.%s", table.getSchemaName(), typeName));
+
+        session.execute(format("CREATE TYPE %s.%s (" +
+                "typetext text, " +
+                "typeuuid uuid, " +
+                "typeinteger int, " +
+                "typelong bigint, " +
+                "typebytes blob, " +
+                "typetimestamp timestamp, " +
+                "typeansi ascii, " +
+                "typeboolean boolean, " +
+                "typedecimal decimal, " +
+                "typedouble double, " +
+                "typefloat float, " +
+                "typeinet inet, " +
+                "typevarchar varchar, " +
+                "typevarint varint, " +
+                "typetimeuuid timeuuid, " +
+                "typelist frozen <list<text>>, " +
+                "typemap frozen <map<varchar, bigint>>, " +
+                "typeset frozen <set<boolean>> " +
+                ")", table.getSchemaName(), typeName));
+
+        session.execute(format("CREATE TABLE %s (" +
+                "key text PRIMARY KEY, " +
+                "typeudt frozen <%s>, " +
+                ")", table, typeName, typeName, typeName, typeName));
+
+        session.execute(format("INSERT INTO %s (key, typeudt) VALUES (" +
+                "'key'," +
+                "{ " +
+                "typetext: 'text', " +
+                "typeuuid: 01234567-0123-0123-0123-0123456789ab, " +
+                "typeinteger: -2147483648, " +
+                "typelong:  -9223372036854775808," +
+                "typebytes: 0x3031323334, " +
+                "typetimestamp: '1970-01-01 08:00:00', " +
+                "typeansi: 'ansi', " +
+                "typeboolean: true, " +
+                "typedecimal: 99999999999999997748809823456034029568, " +
+                "typedouble: 4.9407e-324, " +
+                "typefloat: 1.4013e-45, " +
+                "typeinet: '0.0.0.0', " +
+                "typevarchar: 'varchar', " +
+                "typevarint: -9223372036854775808, " +
+                "typetimeuuid: d2177dd0-eaa2-11de-a572-001b779c76e3, " +
+                "typelist: ['list'], " +
+                "typemap: {'map': 1}, " +
+                "typeset: {true} " +
+                "}" +
+                ");", table));
+
+        assertEquals(session.execute("SELECT COUNT(*) FROM " + table).all().get(0).getLong(0), 1);
     }
 }

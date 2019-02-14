@@ -13,6 +13,7 @@
  */
 package io.prestosql.plugin.cassandra;
 
+import com.datastax.driver.core.DataType;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
@@ -23,12 +24,16 @@ import org.testng.annotations.Test;
 import java.util.Map;
 
 import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
+import static io.prestosql.plugin.cassandra.CassandraDataType.toCassandraDataType;
+import static io.prestosql.plugin.cassandra.CassandraType.BIGINT;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
 @Test
 public class TestJsonCassandraHandles
 {
+    private static final CassandraType SET = new CassandraType(toCassandraDataType(DataType.set(DataType.varchar())));
+
     private static final Map<String, Object> TABLE_HANDLE_AS_MAP = ImmutableMap.of(
             "schemaName", "cassandra_schema",
             "tableName", "cassandra_table");
@@ -36,7 +41,7 @@ public class TestJsonCassandraHandles
     private static final Map<String, Object> COLUMN_HANDLE_AS_MAP = ImmutableMap.<String, Object>builder()
             .put("name", "column")
             .put("ordinalPosition", 42)
-            .put("cassandraType", "BIGINT")
+            .put("cassandraType", BIGINT)
             .put("partitionKey", false)
             .put("clusteringKey", true)
             .put("indexed", false)
@@ -46,7 +51,7 @@ public class TestJsonCassandraHandles
     private static final Map<String, Object> COLUMN2_HANDLE_AS_MAP = ImmutableMap.<String, Object>builder()
             .put("name", "column2")
             .put("ordinalPosition", 0)
-            .put("cassandraType", "SET")
+            .put("cassandraType", SET)
             .put("partitionKey", false)
             .put("clusteringKey", false)
             .put("indexed", false)
@@ -80,35 +85,6 @@ public class TestJsonCassandraHandles
     }
 
     @Test
-    public void testColumnHandleSerialize()
-            throws Exception
-    {
-        CassandraColumnHandle columnHandle = new CassandraColumnHandle("column", 42, CassandraType.BIGINT, false, true, false, false);
-
-        assertTrue(objectMapper.canSerialize(CassandraColumnHandle.class));
-        String json = objectMapper.writeValueAsString(columnHandle);
-        testJsonEquals(json, COLUMN_HANDLE_AS_MAP);
-    }
-
-    @Test
-    public void testColumn2HandleSerialize()
-            throws Exception
-    {
-        CassandraColumnHandle columnHandle = new CassandraColumnHandle(
-                "column2",
-                0,
-                CassandraType.SET,
-                false,
-                false,
-                false,
-                false);
-
-        assertTrue(objectMapper.canSerialize(CassandraColumnHandle.class));
-        String json = objectMapper.writeValueAsString(columnHandle);
-        testJsonEquals(json, COLUMN2_HANDLE_AS_MAP);
-    }
-
-    @Test
     public void testColumnHandleDeserialize()
             throws Exception
     {
@@ -133,7 +109,7 @@ public class TestJsonCassandraHandles
 
         assertEquals(columnHandle.getName(), "column2");
         assertEquals(columnHandle.getOrdinalPosition(), 0);
-        assertEquals(columnHandle.getCassandraType(), CassandraType.SET);
+        assertEquals(columnHandle.getCassandraType(), SET);
         assertEquals(columnHandle.isPartitionKey(), false);
         assertEquals(columnHandle.isClusteringKey(), false);
     }

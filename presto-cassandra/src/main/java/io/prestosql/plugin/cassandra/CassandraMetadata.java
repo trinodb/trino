@@ -293,7 +293,7 @@ public class CassandraMetadata
             queryBuilder.append(", ")
                     .append(name)
                     .append(" ")
-                    .append(toCassandraType(type, cassandraSession.getProtocolVersion()).name().toLowerCase(ENGLISH));
+                    .append(toCassandraType(type, cassandraSession.getProtocolVersion()).getDataType().getField().getTypeName().name().toLowerCase(ENGLISH));
         }
         queryBuilder.append(") ");
 

@@ -212,12 +212,13 @@ TIMEUUID          VARCHAR
 TINYINT           TINYINT
 VARCHAR           VARCHAR
 VARIANT           VARCHAR
+UDT               ROW
 ================  ======
 
 Any collection (LIST/MAP/SET) can be designated as FROZEN, and the value is
 mapped to VARCHAR. Additionally, blobs have the limitation that they cannot be empty.
 
-Types not mentioned in the table above are not supported (e.g. tuple or UDT).
+Types not mentioned in the table above are not supported (e.g. tuple).
 
 Partition keys can only be of the following types:
 | ASCII

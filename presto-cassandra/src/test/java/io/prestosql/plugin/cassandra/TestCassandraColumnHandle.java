@@ -13,6 +13,7 @@
  */
 package io.prestosql.plugin.cassandra;
 
+import com.datastax.driver.core.DataType;
 import io.airlift.json.JsonCodec;
 import org.testng.annotations.Test;
 
@@ -21,6 +22,7 @@ import static org.testng.Assert.assertEquals;
 
 public class TestCassandraColumnHandle
 {
+    private static final CassandraType MAP = new CassandraType(CassandraDataType.toCassandraDataType(DataType.map(DataType.varchar(), DataType.cint())));
     private final JsonCodec<CassandraColumnHandle> codec = jsonCodec(CassandraColumnHandle.class);
 
     @Test
@@ -44,7 +46,7 @@ public class TestCassandraColumnHandle
         CassandraColumnHandle expected = new CassandraColumnHandle(
                 "name2",
                 1,
-                CassandraType.MAP,
+                MAP,
                 false,
                 true,
                 false,

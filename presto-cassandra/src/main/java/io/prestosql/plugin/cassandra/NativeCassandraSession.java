@@ -77,7 +77,6 @@ import static com.google.common.collect.Iterables.filter;
 import static com.google.common.collect.Iterables.transform;
 import static io.prestosql.plugin.cassandra.CassandraErrorCode.CASSANDRA_VERSION_ERROR;
 import static io.prestosql.plugin.cassandra.CassandraType.isFullySupported;
-import static io.prestosql.plugin.cassandra.CassandraType.toCassandraType;
 import static io.prestosql.plugin.cassandra.util.CassandraCqlUtils.validSchemaName;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
@@ -330,8 +329,8 @@ public class NativeCassandraSession
 
     private Optional<CassandraColumnHandle> buildColumnHandle(AbstractTableMetadata tableMetadata, ColumnMetadata columnMeta, boolean partitionKey, boolean clusteringKey, int ordinalPosition, boolean hidden)
     {
-        Optional<CassandraType> cassandraType = toCassandraType(columnMeta.getType().getName());
-        if (!cassandraType.isPresent()) {
+        CassandraType cassandraType = new CassandraType(CassandraDataType.toCassandraDataType(columnMeta.getType()));
+        if (!cassandraType.getNativeType().isPresent()) {
             log.debug("Unsupported column type: %s", columnMeta.getType().getName());
             return Optional.empty();
         }
@@ -354,7 +353,7 @@ public class NativeCassandraSession
                 }
             }
         }
-        return Optional.of(new CassandraColumnHandle(columnMeta.getName(), ordinalPosition, cassandraType.get(), partitionKey, clusteringKey, indexed, hidden));
+        return Optional.of(new CassandraColumnHandle(columnMeta.getName(), ordinalPosition, cassandraType, partitionKey, clusteringKey, indexed, hidden));
     }
 
     @Override

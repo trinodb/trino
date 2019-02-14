@@ -16,6 +16,7 @@ package io.prestosql.plugin.cassandra;
 import com.datastax.driver.core.ResultSet;
 import com.datastax.driver.core.Row;
 import io.airlift.slice.Slice;
+import io.prestosql.spi.block.AbstractSingleRowBlock;
 import io.prestosql.spi.connector.RecordCursor;
 import io.prestosql.spi.predicate.NullableValue;
 import io.prestosql.spi.type.Type;
@@ -77,7 +78,7 @@ public class CassandraRecordCursor
     @Override
     public double getDouble(int i)
     {
-        switch (getCassandraType(i)) {
+        switch (getCassandraType(i).getDataType().getField().getTypeName()) {
             case DOUBLE:
                 return currentRow.getDouble(i);
             case FLOAT:
@@ -92,7 +93,7 @@ public class CassandraRecordCursor
     @Override
     public long getLong(int i)
     {
-        switch (getCassandraType(i)) {
+        switch (getCassandraType(i).getDataType().getField().getTypeName()) {
             case INT:
                 return currentRow.getInt(i);
             case SMALLINT:
@@ -131,13 +132,14 @@ public class CassandraRecordCursor
     @Override
     public Object getObject(int field)
     {
-        throw new UnsupportedOperationException();
+        NullableValue value = CassandraType.getColumnValue(currentRow, field, cassandraTypes.get(field));
+        return (AbstractSingleRowBlock) value.getValue();
     }
 
     @Override
     public Type getType(int i)
     {
-        return getCassandraType(i).getNativeType();
+        return getCassandraType(i).getNativeType().get();
     }
 
     @Override
