@@ -44,11 +44,6 @@ public class TableLayout
         this.layout = layout;
     }
 
-    public ConnectorId getConnectorId()
-    {
-        return handle.getConnectorId();
-    }
-
     public Optional<List<ColumnHandle>> getColumns()
     {
         return layout.getColumns();
