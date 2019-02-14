@@ -40,15 +40,15 @@ public class LdapSimbaJdbcTests
     private static final String JDBC_URL_FORMAT = "jdbc:presto://%s;AuthenticationType=LDAP Authentication;" +
             "SSLTrustStorePath=%s;SSLTrustStorePwd=%s;AllowSelfSignedServerCert=1;AllowHostNameCNMismatch=1";
     private static final String SSL_CERTIFICATE_ERROR =
-            "[Teradata][Presto](100140) SSL certificate error: Keystore was tampered with, or password was incorrect.";
+            "[Simba][Presto](100140) SSL certificate error: Keystore was tampered with, or password was incorrect.";
     private static final String INVALID_CREDENTIALS_ERROR =
-            "[Teradata][Presto](100240) Authentication failed: Invalid credentials.";
+            "[Simba][Presto](100240) Authentication failed: Invalid credentials.";
     private static final String MALFORMED_CREDENTIALS_ERROR =
-            "[Teradata][Presto](100240) Authentication failed: Malformed decoded credentials.";
+            "[Simba][Presto](100240) Authentication failed: Malformed decoded credentials.";
     private static final String UNAUTHORIZED_USER_ERROR =
-            "[Teradata][Presto](100240) Authentication failed: Unauthorized user.";
+            "[Simba][Presto](100240) Authentication failed: Unauthorized user.";
     private static final String INVALID_SSL_PROPERTY =
-            "[Teradata][Presto](100200) Connection string is invalid: SSL value is not valid for given AuthenticationType.";
+            "[Simba][Presto](100200) Connection string is invalid: SSL value is not valid for given AuthenticationType.";
 
     @Override
     protected String getLdapUrlFormat()

@@ -70,7 +70,7 @@ public final class JdbcDriverUtils
             PrestoConnection prestoConnection = connection.unwrap(PrestoConnection.class);
             prestoConnection.setSessionProperty(key, value);
         }
-        else if (usingTeradataJdbcDriver(connection)) {
+        else if (usingSimbaJdbcDriver(connection)) {
             try (Statement statement = connection.createStatement()) {
                 if (shouldValueBeQuoted(value)) {
                     value = "'" + value + "'";
@@ -110,7 +110,7 @@ public final class JdbcDriverUtils
         if (usingPrestoJdbcDriver(connection)) {
             setSessionProperty(connection, key, getSessionPropertyDefault(connection, key));
         }
-        else if (usingTeradataJdbcDriver(connection)) {
+        else if (usingSimbaJdbcDriver(connection)) {
             try (Statement statement = connection.createStatement()) {
                 statement.execute("RESET SESSION " + key);
             }
@@ -125,14 +125,9 @@ public final class JdbcDriverUtils
         return getClassNameForJdbcDriver(connection).equals("io.prestosql.jdbc.PrestoConnection");
     }
 
-    public static boolean usingTeradataJdbcDriver(Connection connection)
+    public static boolean usingSimbaJdbcDriver(Connection connection)
     {
-        return getClassNameForJdbcDriver(connection).startsWith("com.teradata.presto.");
-    }
-
-    public static boolean usingTeradataJdbc4Driver(Connection connection)
-    {
-        return getClassNameForJdbcDriver(connection).startsWith("com.teradata.presto.jdbc.jdbc4.");
+        return getClassNameForJdbcDriver(connection).startsWith("com.simba.presto.");
     }
 
     private static String getClassNameForJdbcDriver(Connection connection)

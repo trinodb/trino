@@ -42,7 +42,7 @@ import static io.prestosql.tempto.query.QueryExecutor.query;
 import static io.prestosql.tests.TestGroups.JDBC;
 import static io.prestosql.tests.TestGroups.SIMBA_JDBC;
 import static io.prestosql.tests.hive.AllSimpleTypesTableDefinitions.ALL_HIVE_SIMPLE_TYPES_TEXTFILE;
-import static io.prestosql.tests.utils.JdbcDriverUtils.usingTeradataJdbcDriver;
+import static io.prestosql.tests.utils.JdbcDriverUtils.usingSimbaJdbcDriver;
 import static java.lang.String.format;
 import static java.sql.JDBCType.BIGINT;
 import static java.sql.JDBCType.BOOLEAN;
@@ -92,7 +92,7 @@ public class PreparedStatements
     @Requires(ImmutableAllTypesTable.class)
     public void preparedSelectApi()
     {
-        if (usingTeradataJdbcDriver(connection())) {
+        if (usingSimbaJdbcDriver(connection())) {
             String selectSql = "SELECT c_int FROM " + TABLE_NAME + " WHERE c_int = ?";
             final int testValue = 2147483647;
 
@@ -112,7 +112,7 @@ public class PreparedStatements
     public void preparedSelectSql()
             throws SQLException
     {
-        if (usingTeradataJdbcDriver(connection())) {
+        if (usingSimbaJdbcDriver(connection())) {
             String prepareSql = "PREPARE ps1 from SELECT c_int FROM " + TABLE_NAME + " WHERE c_int = ?";
             final int testValue = 2147483647;
             String executeSql = "EXECUTE ps1 using ";
@@ -136,7 +136,7 @@ public class PreparedStatements
     @Requires(MutableAllTypesTable.class)
     public void preparedInsertVarbinaryApi()
     {
-        if (usingTeradataJdbcDriver(connection())) {
+        if (usingSimbaJdbcDriver(connection())) {
             String tableNameInDatabase = mutableTablesState().get(TABLE_NAME_MUTABLE).getNameInDatabase();
             String insertSqlWithTable = format(INSERT_SQL, tableNameInDatabase);
             String selectSqlWithTable = format(SELECT_STAR_SQL, tableNameInDatabase);
@@ -174,7 +174,7 @@ public class PreparedStatements
     @Requires(MutableAllTypesTable.class)
     public void preparedInsertApi()
     {
-        if (usingTeradataJdbcDriver(connection())) {
+        if (usingSimbaJdbcDriver(connection())) {
             String tableNameInDatabase = mutableTablesState().get(TABLE_NAME_MUTABLE).getNameInDatabase();
             String insertSqlWithTable = format(INSERT_SQL, tableNameInDatabase);
             String selectSqlWithTable = format(SELECT_STAR_SQL, tableNameInDatabase);
@@ -280,7 +280,7 @@ public class PreparedStatements
     public void preparedInsertSql()
             throws SQLException
     {
-        if (usingTeradataJdbcDriver(connection())) {
+        if (usingSimbaJdbcDriver(connection())) {
             String tableNameInDatabase = mutableTablesState().get(TABLE_NAME_MUTABLE).getNameInDatabase();
             String insertSqlWithTable = "PREPARE ps1 from " + format(INSERT_SQL, tableNameInDatabase);
             String selectSqlWithTable = format(SELECT_STAR_SQL, tableNameInDatabase);
@@ -386,7 +386,7 @@ public class PreparedStatements
     public void preparedInsertVarbinarySql()
             throws SQLException
     {
-        if (usingTeradataJdbcDriver(connection())) {
+        if (usingSimbaJdbcDriver(connection())) {
             String tableNameInDatabase = mutableTablesState().get(TABLE_NAME_MUTABLE).getNameInDatabase();
             String insertSqlWithTable = "PREPARE ps1 from " + format(INSERT_SQL, tableNameInDatabase);
             String selectSqlWithTable = format(SELECT_STAR_SQL, tableNameInDatabase);

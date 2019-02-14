@@ -56,8 +56,7 @@ import static io.prestosql.tests.utils.JdbcDriverUtils.getSessionProperty;
 import static io.prestosql.tests.utils.JdbcDriverUtils.resetSessionProperty;
 import static io.prestosql.tests.utils.JdbcDriverUtils.setSessionProperty;
 import static io.prestosql.tests.utils.JdbcDriverUtils.usingPrestoJdbcDriver;
-import static io.prestosql.tests.utils.JdbcDriverUtils.usingTeradataJdbc4Driver;
-import static io.prestosql.tests.utils.JdbcDriverUtils.usingTeradataJdbcDriver;
+import static io.prestosql.tests.utils.JdbcDriverUtils.usingSimbaJdbcDriver;
 import static java.util.Locale.CHINESE;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -120,16 +119,11 @@ public class JdbcTests
     public void shouldExecuteQueryWithSelectedCatalogAndSchema()
             throws SQLException
     {
-        if (usingTeradataJdbc4Driver(connection())) {
-            LOGGER.warn("connection().setSchema() is not supported in JDBC 4");
-        }
-        else {
-            connection().setCatalog("hive");
-            connection().setSchema("default");
-            try (Statement statement = connection().createStatement()) {
-                QueryResult result = queryResult(statement, "select * from nation");
-                assertThat(result).matches(PRESTO_NATION_RESULT);
-            }
+        connection().setCatalog("hive");
+        connection().setSchema("default");
+        try (Statement statement = connection().createStatement()) {
+            QueryResult result = queryResult(statement, "select * from nation");
+            assertThat(result).matches(PRESTO_NATION_RESULT);
         }
     }
 
@@ -209,10 +203,7 @@ public class JdbcTests
         if (usingPrestoJdbcDriver(connection())) {
             assertThat(result).matches(sqlResultDescriptorForResource("io/prestosql/tests/jdbc/get_nation_columns.result"));
         }
-        else if (usingTeradataJdbc4Driver(connection())) {
-            assertThat(result).matches(sqlResultDescriptorForResource("io/prestosql/tests/jdbc/get_nation_columns_simba4.result"));
-        }
-        else if (usingTeradataJdbcDriver(connection())) {
+        else if (usingSimbaJdbcDriver(connection())) {
             assertThat(result).matches(sqlResultDescriptorForResource("io/prestosql/tests/jdbc/get_nation_columns_simba.result"));
         }
         else {
@@ -232,7 +223,7 @@ public class JdbcTests
     @Test(groups = {JDBC, SIMBA_JDBC})
     public void testSqlEscapeFunctions()
     {
-        if (usingTeradataJdbcDriver(connection())) {
+        if (usingSimbaJdbcDriver(connection())) {
             // These functions, which are defined in the ODBC standard, are implemented within
             // the Simba JDBC and ODBC drivers.  The drivers translate them into equivalent Presto syntax.
             // The translated SQL is executed by Presto.  These tests do not make use of edge-case values or null
