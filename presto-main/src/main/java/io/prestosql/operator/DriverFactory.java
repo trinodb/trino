@@ -107,7 +107,7 @@ public class DriverFactory
     {
         checkState(!closed, "DriverFactory is already closed");
         requireNonNull(driverContext, "driverContext is null");
-        checkState(!closedLifespans.contains(driverContext.getLifespan()), "DriverFatory is already closed for driver group %s", driverContext.getLifespan());
+        checkState(!closedLifespans.contains(driverContext.getLifespan()), "DriverFactory is already closed for driver group %s", driverContext.getLifespan());
         encounteredLifespans.add(driverContext.getLifespan());
         ImmutableList.Builder<Operator> operators = ImmutableList.builder();
         for (OperatorFactory operatorFactory : operatorFactories) {
