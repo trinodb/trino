@@ -360,9 +360,8 @@ public class PrestoS3FileSystem
     public FSDataOutputStream create(Path path, FsPermission permission, boolean overwrite, int bufferSize, short replication, long blockSize, Progressable progress)
             throws IOException
     {
-        if ((!overwrite) && exists(path)) {
-            throw new IOException("File already exists:" + path);
-        }
+        // Ignore the overwrite flag, since Presto always writes to unique file names.
+        // Checking for file existence can break read-after-write consistency.
 
         if (!stagingDirectory.exists()) {
             createDirectories(stagingDirectory.toPath());
