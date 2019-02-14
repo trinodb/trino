@@ -15,6 +15,7 @@ package io.prestosql.plugin.hive.azure;
 
 import io.prestosql.plugin.hive.ConfigurationInitializer;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.adl.AdlFileSystem;
 
 import javax.inject.Inject;
 
@@ -28,6 +29,9 @@ public class PrestoAzureConfigurationInitializer
 {
     private final Optional<String> wasbAccessKey;
     private final Optional<String> wasbStorageAccount;
+    private final Optional<String> adlClientId;
+    private final Optional<String> adlCredential;
+    private final Optional<String> adlRefreshUrl;
 
     @Inject
     public PrestoAzureConfigurationInitializer(HiveAzureConfig hiveAzureConfig)
@@ -42,6 +46,15 @@ public class PrestoAzureConfigurationInitializer
                     wasbStorageAccount.isPresent() && !wasbStorageAccount.get().isEmpty(),
                     "hive.azure.wasb-access-key is set, but hive.azure.wasb-storage-account is not");
         }
+        this.adlClientId = hiveAzureConfig.getAdlClientId();
+        this.adlCredential = hiveAzureConfig.getAdlCredential();
+        this.adlRefreshUrl = hiveAzureConfig.getAdlRefreshUrl();
+        if (adlClientId.isPresent() || adlCredential.isPresent() || adlRefreshUrl.isPresent()) {
+            checkArgument(adlClientId.isPresent() && !adlClientId.get().isEmpty() &&
+                            adlCredential.isPresent() && !adlCredential.get().isEmpty() &&
+                            adlRefreshUrl.isPresent() && !adlRefreshUrl.get().isEmpty(),
+                    "If one of adlClientId, adlCredential, adlRefreshUrl is set, all must be set");
+        }
     }
 
     @Override
@@ -49,6 +62,14 @@ public class PrestoAzureConfigurationInitializer
     {
         if (wasbAccessKey.isPresent() && wasbStorageAccount.isPresent()) {
             config.set(format("fs.azure.account.key.%s.blob.core.windows.net", wasbStorageAccount.get()), wasbAccessKey.get());
+        }
+
+        if (adlClientId.isPresent() && adlCredential.isPresent() && adlRefreshUrl.isPresent()) {
+            config.set("fs.adl.oauth2.access.token.provider.type", "ClientCredential");
+            config.set("fs.adl.oauth2.client.id", adlClientId.get());
+            config.set("fs.adl.oauth2.credential", adlCredential.get());
+            config.set("fs.adl.oauth2.refresh.url", adlRefreshUrl.get());
+            config.set("fs.adl.impl", AdlFileSystem.class.getName());
         }
     }
 }
