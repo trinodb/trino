@@ -31,7 +31,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -183,8 +182,6 @@ public class QueryBuilder
 
     private String toPredicate(String columnName, Domain domain, JdbcColumnHandle column, List<TypeAndValue> accumulator)
     {
-        checkArgument(domain.getType().isOrderable(), "Domain type must be orderable");
-
         if (domain.getValues().isNone()) {
             return domain.isNullAllowed() ? quote(columnName) + " IS NULL" : ALWAYS_FALSE;
         }
