@@ -22,6 +22,8 @@ public class HiveAzureConfig
 {
     private String wasbStorageAccount;
     private String wasbAccessKey;
+    private String abfsStorageAccount;
+    private String abfsAccessKey;
     private String adlClientId;
     private String adlCredential;
     private String adlRefreshUrl;
@@ -49,6 +51,32 @@ public class HiveAzureConfig
     public HiveAzureConfig setWasbAccessKey(String wasbAccessKey)
     {
         this.wasbAccessKey = wasbAccessKey;
+        return this;
+    }
+
+    public Optional<String> getAbfsStorageAccount()
+    {
+        return Optional.ofNullable(abfsStorageAccount);
+    }
+
+    @ConfigSecuritySensitive
+    @Config("hive.azure.abfs-storage-account")
+    public HiveAzureConfig setAbfsStorageAccount(String abfsStorageAccount)
+    {
+        this.abfsStorageAccount = abfsStorageAccount;
+        return this;
+    }
+
+    public Optional<String> getAbfsAccessKey()
+    {
+        return Optional.ofNullable(abfsAccessKey);
+    }
+
+    @ConfigSecuritySensitive
+    @Config("hive.azure.abfs-access-key")
+    public HiveAzureConfig setAbfsAccessKey(String abfsAccessKey)
+    {
+        this.abfsAccessKey = abfsAccessKey;
         return this;
     }
 
