@@ -21,6 +21,7 @@ import java.util.Optional;
 import java.util.regex.Pattern;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static java.util.Objects.requireNonNull;
 
 public class Identifier
         extends Expression
@@ -48,9 +49,10 @@ public class Identifier
     private Identifier(Optional<NodeLocation> location, String value, boolean delimited)
     {
         super(location);
-        this.value = value;
+        this.value = requireNonNull(value, "value is null");
         this.delimited = delimited;
 
+        checkArgument(!value.isEmpty(), "value is empty");
         checkArgument(delimited || NAME_PATTERN.matcher(value).matches(), "value contains illegal characters: %s", value);
     }
 
