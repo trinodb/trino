@@ -22,6 +22,8 @@ import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.operator.PagesIndex;
 import io.prestosql.plugin.hive.authentication.NoHdfsAuthentication;
+import io.prestosql.plugin.hive.azure.HiveAzureConfig;
+import io.prestosql.plugin.hive.azure.PrestoAzureConfigurationInitializer;
 import io.prestosql.plugin.hive.gcs.GoogleGcsConfigurationInitializer;
 import io.prestosql.plugin.hive.gcs.HiveGcsConfig;
 import io.prestosql.plugin.hive.orc.OrcFileWriterFactory;
@@ -160,7 +162,8 @@ public final class HiveTestUtils
                         new HdfsConfig(),
                         ImmutableSet.of(
                                 new PrestoS3ConfigurationInitializer(new HiveS3Config()),
-                                new GoogleGcsConfigurationInitializer(new HiveGcsConfig()))),
+                                new GoogleGcsConfigurationInitializer(new HiveGcsConfig()),
+                                new PrestoAzureConfigurationInitializer(new HiveAzureConfig()))),
                 ImmutableSet.of());
         return new HdfsEnvironment(hdfsConfig, new HdfsConfig(), new NoHdfsAuthentication());
     }
