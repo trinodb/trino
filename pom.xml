@@ -133,6 +133,7 @@
         <module>presto-proxy</module>
         <module>presto-kudu</module>
         <module>presto-elasticsearch</module>
+        <module>presto-ranger-plugin</module>
     </modules>
 
     <dependencyManagement>
