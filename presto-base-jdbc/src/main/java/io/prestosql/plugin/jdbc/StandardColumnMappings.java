@@ -16,7 +16,6 @@ package io.prestosql.plugin.jdbc;
 import com.google.common.base.CharMatcher;
 import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;
-import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.type.CharType;
 import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.Decimals;
@@ -38,6 +37,7 @@ import java.util.Optional;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
+import static io.prestosql.plugin.jdbc.ColumnMapping.DISABLE_PUSHDOWN;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.CharType.createCharType;
@@ -213,7 +213,7 @@ public final class StandardColumnMappings
                 VARBINARY,
                 (resultSet, columnIndex) -> wrappedBuffer(resultSet.getBytes(columnIndex)),
                 varbinaryWriteFunction(),
-                domain -> Domain.all(domain.getType()));
+                DISABLE_PUSHDOWN);
     }
 
     public static SliceWriteFunction varbinaryWriteFunction()

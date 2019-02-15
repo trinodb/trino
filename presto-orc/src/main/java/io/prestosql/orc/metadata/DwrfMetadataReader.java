@@ -129,7 +129,7 @@ public class DwrfMetadataReader
     {
         CodedInputStream input = CodedInputStream.newInstance(inputStream);
         DwrfProto.StripeFooter stripeFooter = DwrfProto.StripeFooter.parseFrom(input);
-        return new StripeFooter(toStream(stripeFooter.getStreamsList()), toColumnEncoding(types, stripeFooter.getColumnsList()));
+        return new StripeFooter(toStream(stripeFooter.getStreamsList()), toColumnEncoding(types, stripeFooter.getColumnsList()), Optional.empty());
     }
 
     private static Stream toStream(DwrfProto.Stream stream)

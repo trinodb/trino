@@ -72,7 +72,7 @@ public class ColumnReference
 
         Optional<ColumnHandle> columnHandle = getColumnHandle(tableHandle, session, metadata);
 
-        checkState(columnHandle.isPresent(), format("Table %s doesn't have column %s. Typo in test?", tableName, columnName));
+        checkState(columnHandle.isPresent(), "Table %s doesn't have column %s. Typo in test?", tableName, columnName);
 
         return getAssignedSymbol(assignments, columnHandle.get());
     }

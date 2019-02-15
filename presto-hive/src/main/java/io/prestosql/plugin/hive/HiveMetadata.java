@@ -21,7 +21,6 @@ import com.google.common.base.Verify;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableMap.Builder;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -422,6 +421,21 @@ public class HiveMetadata
 
     private ConnectorTableMetadata getTableMetadata(SchemaTableName tableName)
     {
+        try {
+            return doGetTableMetadata(tableName);
+        }
+        catch (PrestoException e) {
+            throw e;
+        }
+        catch (RuntimeException e) {
+            // Errors related to invalid or unsupported information in the Metastore should be handled explicitly (eg. as PrestoException(HIVE_INVALID_METADATA)).
+            // This is just a catch-all solution so that we have any actionable information when eg. SELECT * FROM information_schema.columns fails.
+            throw new RuntimeException("Failed to construct table metadata for table " + tableName, e);
+        }
+    }
+
+    private ConnectorTableMetadata doGetTableMetadata(SchemaTableName tableName)
+    {
         Optional<Table> table = metastore.getTable(tableName.getSchemaName(), tableName.getTableName());
         if (!table.isPresent() || table.get().getTableType().equals(TableType.VIRTUAL_VIEW.name())) {
             throw new TableNotFoundException(tableName);
@@ -474,7 +488,7 @@ public class HiveMetadata
             properties.put(ORC_BLOOM_FILTER_FPP, Double.parseDouble(orcBloomFilterFfp));
         }
 
-        // Avro specfic property
+        // Avro specific property
         String avroSchemaUrl = table.get().getParameters().get(AVRO_SCHEMA_URL_KEY);
         if (avroSchemaUrl != null) {
             properties.put(AVRO_SCHEMA_URL, avroSchemaUrl);
@@ -725,7 +739,7 @@ public class HiveMetadata
 
     private Map<String, String> getEmptyTableProperties(ConnectorTableMetadata tableMetadata, boolean partitioned, HdfsContext hdfsContext)
     {
-        Builder<String, String> tableProperties = ImmutableMap.builder();
+        ImmutableMap.Builder<String, String> tableProperties = ImmutableMap.builder();
 
         // Hook point for extended versions of the Hive Plugin
         tableProperties.putAll(tableParameterCodec.encode(tableMetadata.getProperties()));

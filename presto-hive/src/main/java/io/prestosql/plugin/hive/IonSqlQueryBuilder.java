@@ -14,6 +14,7 @@
 package io.prestosql.plugin.hive;
 
 import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.Range;
@@ -30,8 +31,6 @@ import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.collect.ImmutableList.Builder;
-import static com.google.common.collect.ImmutableList.builder;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
@@ -89,7 +88,7 @@ public class IonSqlQueryBuilder
 
     private List<String> toConjuncts(List<HiveColumnHandle> columns, TupleDomain<HiveColumnHandle> tupleDomain)
     {
-        Builder<String> builder = builder();
+        ImmutableList.Builder<String> builder = ImmutableList.builder();
         for (HiveColumnHandle column : columns) {
             Type type = column.getHiveType().getType(typeManager);
             if (tupleDomain.getDomains().isPresent() && isSupported(type)) {

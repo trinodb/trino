@@ -16,7 +16,6 @@ package io.prestosql.sql.planner;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableList.Builder;
 import com.google.common.collect.ImmutableSet;
 import io.prestosql.cost.StatsAndCosts;
 import io.prestosql.operator.StageExecutionDescriptor;
@@ -194,7 +193,7 @@ public class PlanFragment
         }
     }
 
-    private static void findRemoteSourceNodes(PlanNode node, Builder<RemoteSourceNode> builder)
+    private static void findRemoteSourceNodes(PlanNode node, ImmutableList.Builder<RemoteSourceNode> builder)
     {
         for (PlanNode source : node.getSources()) {
             findRemoteSourceNodes(source, builder);

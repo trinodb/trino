@@ -37,7 +37,6 @@ import java.util.List;
 import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.ImmutableMap.builder;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.SessionTestUtils.TEST_SESSION;
 import static io.prestosql.spi.function.OperatorType.HASH_CODE;
@@ -379,7 +378,7 @@ public class TestMapOperators
 
         assertFunction("CAST(JSON '{\"k1\": 5, \"k2\": 3.14, \"k3\":[1, 2, 3], \"k4\":\"e\", \"k5\":{\"a\": \"b\"}, \"k6\":null, \"k7\":\"null\", \"k8\":[null]}' AS MAP<VARCHAR, JSON>)",
                 mapType(VARCHAR, JSON),
-                builder()
+                ImmutableMap.builder()
                         .put("k1", "5")
                         .put("k2", "3.14")
                         .put("k3", "[1,2,3]")

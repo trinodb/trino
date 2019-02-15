@@ -77,11 +77,11 @@ public class PartitionUpdate
         this.writePath = requireNonNull(writePath, "writePath is null");
         this.targetPath = requireNonNull(targetPath, "targetPath is null");
         this.fileNames = ImmutableList.copyOf(requireNonNull(fileNames, "fileNames is null"));
-        checkArgument(rowCount >= 0, "rowCount is negative: %d", rowCount);
+        checkArgument(rowCount >= 0, "rowCount is negative: %s", rowCount);
         this.rowCount = rowCount;
-        checkArgument(inMemoryDataSizeInBytes >= 0, "inMemoryDataSizeInBytes is negative: %d", inMemoryDataSizeInBytes);
+        checkArgument(inMemoryDataSizeInBytes >= 0, "inMemoryDataSizeInBytes is negative: %s", inMemoryDataSizeInBytes);
         this.inMemoryDataSizeInBytes = inMemoryDataSizeInBytes;
-        checkArgument(onDiskDataSizeInBytes >= 0, "onDiskDataSizeInBytes is negative: %d", onDiskDataSizeInBytes);
+        checkArgument(onDiskDataSizeInBytes >= 0, "onDiskDataSizeInBytes is negative: %s", onDiskDataSizeInBytes);
         this.onDiskDataSizeInBytes = onDiskDataSizeInBytes;
     }
 

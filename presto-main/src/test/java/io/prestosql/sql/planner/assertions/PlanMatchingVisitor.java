@@ -30,7 +30,6 @@ import java.util.List;
 import static com.google.common.base.Preconditions.checkState;
 import static io.prestosql.sql.planner.assertions.MatchResult.NO_MATCH;
 import static io.prestosql.sql.planner.assertions.MatchResult.match;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 final class PlanMatchingVisitor
@@ -123,7 +122,7 @@ final class PlanMatchingVisitor
             SymbolAliases allSourceAliases = sourcesMatch.getAliases();
             MatchResult matchResult = pattern.detailMatches(node, statsProvider, session, metadata, allSourceAliases);
             if (matchResult.isMatch()) {
-                checkState(result == NO_MATCH, format("Ambiguous match on node %s", node));
+                checkState(result == NO_MATCH, "Ambiguous match on node %s", node);
                 result = match(allSourceAliases.withNewAliases(matchResult.getAliases()));
             }
         }
@@ -148,7 +147,7 @@ final class PlanMatchingVisitor
              */
             MatchResult matchResult = pattern.detailMatches(node, statsProvider, session, metadata, new SymbolAliases());
             if (matchResult.isMatch()) {
-                checkState(result == NO_MATCH, format("Ambiguous match on leaf node %s", node));
+                checkState(result == NO_MATCH, "Ambiguous match on leaf node %s", node);
                 result = matchResult;
             }
         }

@@ -83,7 +83,7 @@ public class ExceptionWrappingMetadataReader
         try {
             return delegate.readStripeFooter(types, inputStream);
         }
-        catch (IOException e) {
+        catch (IOException | RuntimeException e) {
             throw propagate(e, "Invalid stripe footer");
         }
     }

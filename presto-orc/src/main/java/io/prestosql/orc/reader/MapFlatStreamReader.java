@@ -34,13 +34,13 @@ import io.prestosql.spi.type.MapType;
 import io.prestosql.spi.type.SmallintType;
 import io.prestosql.spi.type.TinyintType;
 import io.prestosql.spi.type.Type;
-import org.joda.time.DateTimeZone;
 import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -70,7 +70,6 @@ public class MapFlatStreamReader
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(MapFlatStreamReader.class).instanceSize();
 
     private final StreamDescriptor streamDescriptor;
-    private final DateTimeZone hiveStorageTimeZone;
     private final AggregatedMemoryContext systemMemoryContext;
 
     // This is the StreamDescriptor for the value stream with sequence ID 0, it is used to derive StreamDescriptors for the
@@ -93,10 +92,9 @@ public class MapFlatStreamReader
 
     private boolean rowGroupOpen;
 
-    public MapFlatStreamReader(StreamDescriptor streamDescriptor, DateTimeZone hiveStorageTimeZone, AggregatedMemoryContext systemMemoryContext)
+    public MapFlatStreamReader(StreamDescriptor streamDescriptor, AggregatedMemoryContext systemMemoryContext)
     {
         this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
-        this.hiveStorageTimeZone = requireNonNull(hiveStorageTimeZone, "hiveStorageTimeZone is null");
         this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
         this.keyOrcType = streamDescriptor.getNestedStreams().get(0).getStreamType();
         this.baseValueStreamDescriptor = streamDescriptor.getNestedStreams().get(1);
@@ -223,7 +221,7 @@ public class MapFlatStreamReader
     }
 
     @Override
-    public void startStripe(InputStreamSources dictionaryStreamSources, List<ColumnEncoding> encodings)
+    public void startStripe(ZoneId timeZone, InputStreamSources dictionaryStreamSources, List<ColumnEncoding> encodings)
             throws IOException
     {
         presentStreamSource = missingStreamSource(BooleanInputStream.class);
@@ -242,8 +240,8 @@ public class MapFlatStreamReader
             StreamDescriptor valueStreamDescriptor = copyStreamDescriptorWithSequence(baseValueStreamDescriptor, sequence);
             valueStreamDescriptors.add(valueStreamDescriptor);
 
-            StreamReader valueStreamReader = StreamReaders.createStreamReader(valueStreamDescriptor, hiveStorageTimeZone, systemMemoryContext);
-            valueStreamReader.startStripe(dictionaryStreamSources, encodings);
+            StreamReader valueStreamReader = StreamReaders.createStreamReader(valueStreamDescriptor, systemMemoryContext);
+            valueStreamReader.startStripe(timeZone, dictionaryStreamSources, encodings);
             valueStreamReaders.add(valueStreamReader);
         }
 

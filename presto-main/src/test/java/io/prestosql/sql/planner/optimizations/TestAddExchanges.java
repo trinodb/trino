@@ -41,6 +41,10 @@ import static io.prestosql.sql.planner.optimizations.ActualProperties.builder;
 import static io.prestosql.sql.planner.optimizations.AddExchanges.streamingExecutionPreference;
 import static org.testng.Assert.assertEquals;
 
+/**
+ * These are unit test for the internal logic in AddExchanges.
+ * For plan tests see {@link TestAddExchangesPlans}
+ */
 public class TestAddExchanges
 {
     @Test

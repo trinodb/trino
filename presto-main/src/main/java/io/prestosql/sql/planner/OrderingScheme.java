@@ -27,7 +27,6 @@ import java.util.Objects;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class OrderingScheme
@@ -67,7 +66,7 @@ public class OrderingScheme
 
     public SortOrder getOrdering(Symbol symbol)
     {
-        checkArgument(orderings.containsKey(symbol), format("No ordering for symbol: %s", symbol));
+        checkArgument(orderings.containsKey(symbol), "No ordering for symbol: %s", symbol);
         return orderings.get(symbol);
     }
 

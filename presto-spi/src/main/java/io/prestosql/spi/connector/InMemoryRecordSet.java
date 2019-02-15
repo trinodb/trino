@@ -212,17 +212,17 @@ public class InMemoryRecordSet
 
                 Type type = types.get(i);
                 if (BOOLEAN.equals(type)) {
-                    checkArgument(value instanceof Boolean, "Expected value %d to be an instance of Boolean, but is a %s", i, value.getClass().getSimpleName());
+                    checkArgument(value instanceof Boolean, "Expected value %s to be an instance of Boolean, but is a %s", i, value.getClass().getSimpleName());
                 }
                 else if (INTEGER.equals(type)) {
-                    checkArgument(value instanceof Integer, "Expected value %d to be an instance of Integer, but is a %s", i, value.getClass().getSimpleName());
+                    checkArgument(value instanceof Integer, "Expected value %s to be an instance of Integer, but is a %s", i, value.getClass().getSimpleName());
                 }
                 else if (BIGINT.equals(type) || DATE.equals(type) || TIMESTAMP.equals(type) || TIMESTAMP_WITH_TIME_ZONE.equals(type)) {
                     checkArgument(value instanceof Integer || value instanceof Long,
                             "Expected value %d to be an instance of Integer or Long, but is a %s", i, value.getClass().getSimpleName());
                 }
                 else if (DOUBLE.equals(type)) {
-                    checkArgument(value instanceof Double, "Expected value %d to be an instance of Double, but is a %s", i, value.getClass().getSimpleName());
+                    checkArgument(value instanceof Double, "Expected value %s to be an instance of Double, but is a %s", i, value.getClass().getSimpleName());
                 }
                 else if (VARCHAR.equals(type)) {
                     checkArgument(value instanceof String || value instanceof byte[],

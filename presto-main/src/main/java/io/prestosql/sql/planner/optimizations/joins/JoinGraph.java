@@ -37,7 +37,6 @@ import java.util.Optional;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.sql.planner.plan.JoinNode.Type.INNER;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -184,7 +183,7 @@ public class JoinGraph
     private JoinGraph joinWith(JoinGraph other, List<JoinNode.EquiJoinClause> joinClauses, Context context, PlanNodeId newRoot)
     {
         for (PlanNode node : other.nodes) {
-            checkState(!edges.containsKey(node.getId()), format("Node [%s] appeared in two JoinGraphs", node));
+            checkState(!edges.containsKey(node.getId()), "Node [%s] appeared in two JoinGraphs", node);
         }
 
         List<PlanNode> nodes = ImmutableList.<PlanNode>builder()

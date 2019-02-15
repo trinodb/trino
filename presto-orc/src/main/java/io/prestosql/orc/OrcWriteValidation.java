@@ -50,6 +50,7 @@ import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.VarcharType;
 import org.openjdk.jol.info.ClassLayout;
 
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -99,8 +100,10 @@ public class OrcWriteValidation
         HASHED, DETAILED, BOTH
     }
 
+    private final OrcEncoding orcEncoding;
     private final List<Integer> version;
     private final CompressionKind compression;
+    private final ZoneId timeZone;
     private final int rowGroupMaxRowCount;
     private final List<String> columnNames;
     private final Map<String, Slice> metadata;
@@ -111,8 +114,10 @@ public class OrcWriteValidation
     private final int stringStatisticsLimitInBytes;
 
     private OrcWriteValidation(
+            OrcEncoding orcEncoding,
             List<Integer> version,
             CompressionKind compression,
+            ZoneId timeZone,
             int rowGroupMaxRowCount,
             List<String> columnNames,
             Map<String, Slice> metadata,
@@ -122,8 +127,10 @@ public class OrcWriteValidation
             List<ColumnStatistics> fileStatistics,
             int stringStatisticsLimitInBytes)
     {
+        this.orcEncoding = orcEncoding;
         this.version = version;
         this.compression = compression;
+        this.timeZone = timeZone;
         this.rowGroupMaxRowCount = rowGroupMaxRowCount;
         this.columnNames = columnNames;
         this.metadata = metadata;
@@ -134,6 +141,16 @@ public class OrcWriteValidation
         this.stringStatisticsLimitInBytes = stringStatisticsLimitInBytes;
     }
 
+    public OrcEncoding getOrcEncoding()
+    {
+        return orcEncoding;
+    }
+
+    public boolean isDwrf()
+    {
+        return orcEncoding == OrcEncoding.DWRF;
+    }
+
     public List<Integer> getVersion()
     {
         return version;
@@ -142,6 +159,20 @@ public class OrcWriteValidation
     public CompressionKind getCompression()
     {
         return compression;
+    }
+
+    public ZoneId getTimeZone()
+    {
+        return timeZone;
+    }
+
+    public void validateTimeZone(OrcDataSourceId orcDataSourceId, ZoneId actualTimeZone)
+            throws OrcCorruptionException
+    {
+        // DWRF does not store the writer time zone
+        if (!isDwrf() && !timeZone.equals(actualTimeZone)) {
+            throw new OrcCorruptionException(orcDataSourceId, "Unexpected time zone");
+        }
     }
 
     public int getRowGroupMaxRowCount()
@@ -162,12 +193,14 @@ public class OrcWriteValidation
     public void validateMetadata(OrcDataSourceId orcDataSourceId, Map<String, Slice> actualMetadata)
             throws OrcCorruptionException
     {
-        // Filter out metadata value statically added by the DWRF writer
-        Map<String, Slice> filteredMetadata = actualMetadata.entrySet().stream()
-                .filter(entry -> !STATIC_METADATA.containsKey(entry.getKey()))
-                .collect(toImmutableMap(Entry::getKey, Entry::getValue));
+        if (isDwrf()) {
+            // Filter out metadata value statically added by the DWRF writer
+            actualMetadata = actualMetadata.entrySet().stream()
+                    .filter(entry -> !STATIC_METADATA.containsKey(entry.getKey()))
+                    .collect(toImmutableMap(Entry::getKey, Entry::getValue));
+        }
 
-        if (!metadata.equals(filteredMetadata)) {
+        if (!metadata.equals(actualMetadata)) {
             throw new OrcCorruptionException(orcDataSourceId, "Unexpected metadata");
         }
     }
@@ -180,7 +213,7 @@ public class OrcWriteValidation
     public void validateFileStatistics(OrcDataSourceId orcDataSourceId, List<ColumnStatistics> actualFileStatistics)
             throws OrcCorruptionException
     {
-        if (actualFileStatistics.isEmpty()) {
+        if (isDwrf()) {
             // DWRF file statistics are disabled
             return;
         }
@@ -193,7 +226,7 @@ public class OrcWriteValidation
         requireNonNull(actualStripes, "actualStripes is null");
         requireNonNull(actualStripeStatistics, "actualStripeStatistics is null");
 
-        if (actualStripeStatistics.isEmpty()) {
+        if (isDwrf()) {
             // DWRF does not have stripe statistics
             return;
         }
@@ -833,9 +866,11 @@ public class OrcWriteValidation
         private static final int INSTANCE_SIZE = ClassLayout.parseClass(OrcWriteValidationBuilder.class).instanceSize();
 
         private final OrcWriteValidationMode validationMode;
+        private final OrcEncoding orcEncoding;
 
         private List<Integer> version;
         private CompressionKind compression;
+        private ZoneId timeZone;
         private int rowGroupMaxRowCount;
         private int stringStatisticsLimitInBytes;
         private List<String> columnNames;
@@ -847,9 +882,10 @@ public class OrcWriteValidation
         private List<ColumnStatistics> fileStatistics;
         private long retainedSize = INSTANCE_SIZE;
 
-        public OrcWriteValidationBuilder(OrcWriteValidationMode validationMode, List<Type> types)
+        public OrcWriteValidationBuilder(OrcWriteValidationMode validationMode, OrcEncoding orcEncoding, List<Type> types)
         {
             this.validationMode = validationMode;
+            this.orcEncoding = orcEncoding;
             this.checksum = new WriteChecksumBuilder(types);
         }
 
@@ -867,6 +903,11 @@ public class OrcWriteValidation
         public void setCompression(CompressionKind compression)
         {
             this.compression = compression;
+        }
+
+        public void setTimeZone(ZoneId timeZone)
+        {
+            this.timeZone = timeZone;
         }
 
         public void setRowGroupMaxRowCount(int rowGroupMaxRowCount)
@@ -932,8 +973,10 @@ public class OrcWriteValidation
         public OrcWriteValidation build()
         {
             return new OrcWriteValidation(
+                    orcEncoding,
                     version,
                     compression,
+                    timeZone,
                     rowGroupMaxRowCount,
                     columnNames,
                     metadata,

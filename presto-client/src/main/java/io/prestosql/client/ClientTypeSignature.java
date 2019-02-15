@@ -75,7 +75,7 @@ public class ClientTypeSignature
                 checkArgument(typeArguments.size() == literalArguments.size());
                 for (int i = 0; i < typeArguments.size(); i++) {
                     Object value = literalArguments.get(i);
-                    checkArgument(value instanceof String, "Expected literalArgument %d in %s to be a string", i, literalArguments);
+                    checkArgument(value instanceof String, "Expected literalArgument %s in %s to be a string", i, literalArguments);
                     convertedArguments.add(ClientTypeSignatureParameter.ofNamedType(new NamedClientTypeSignature(
                             Optional.of(new RowFieldName((String) value, false)),
                             typeArguments.get(i))));

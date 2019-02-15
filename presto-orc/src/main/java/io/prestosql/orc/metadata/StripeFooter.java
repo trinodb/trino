@@ -15,7 +15,9 @@ package io.prestosql.orc.metadata;
 
 import com.google.common.collect.ImmutableList;
 
+import java.time.ZoneId;
 import java.util.List;
+import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
@@ -23,11 +25,13 @@ public class StripeFooter
 {
     private final List<Stream> streams;
     private final List<ColumnEncoding> columnEncodings;
+    private final Optional<ZoneId> timeZone;
 
-    public StripeFooter(List<Stream> streams, List<ColumnEncoding> columnEncodings)
+    public StripeFooter(List<Stream> streams, List<ColumnEncoding> columnEncodings, Optional<ZoneId> timeZone)
     {
         this.streams = ImmutableList.copyOf(requireNonNull(streams, "streams is null"));
         this.columnEncodings = ImmutableList.copyOf(requireNonNull(columnEncodings, "columnEncodings is null"));
+        this.timeZone = requireNonNull(timeZone, "timeZone is null");
     }
 
     public List<ColumnEncoding> getColumnEncodings()
@@ -38,5 +42,10 @@ public class StripeFooter
     public List<Stream> getStreams()
     {
         return streams;
+    }
+
+    public Optional<ZoneId> getTimeZone()
+    {
+        return timeZone;
     }
 }
