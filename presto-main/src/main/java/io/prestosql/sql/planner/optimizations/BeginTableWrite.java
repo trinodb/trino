@@ -41,12 +41,10 @@ import io.prestosql.sql.planner.plan.TableScanNode;
 import io.prestosql.sql.planner.plan.TableWriterNode;
 import io.prestosql.sql.planner.plan.UnionNode;
 
-import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.base.Verify.verify;
 import static io.prestosql.metadata.TableLayoutResult.computeEnforced;
 import static io.prestosql.sql.planner.optimizations.QueryCardinalityUtil.isAtMostScalar;
 import static io.prestosql.sql.planner.plan.ChildReplacer.replaceChildren;
@@ -197,22 +195,20 @@ public class BeginTableWrite
                 TableScanNode scan = (TableScanNode) node;
                 TupleDomain<ColumnHandle> originalEnforcedConstraint = scan.getEnforcedConstraint();
 
-                List<TableLayoutResult> layouts = metadata.getLayouts(
+                Optional<TableLayoutResult> layout = metadata.getLayout(
                         session,
                         handle,
                         new Constraint<>(originalEnforcedConstraint),
                         Optional.of(ImmutableSet.copyOf(scan.getAssignments().values())));
-                verify(layouts.size() == 1, "Expected exactly one layout for delete");
-                TableLayoutResult layoutResult = Iterables.getOnlyElement(layouts);
 
                 return new TableScanNode(
                         scan.getId(),
                         handle,
                         scan.getOutputSymbols(),
                         scan.getAssignments(),
-                        Optional.of(layoutResult.getLayout().getHandle()),
-                        layoutResult.getLayout().getPredicate(),
-                        computeEnforced(originalEnforcedConstraint, layoutResult.getUnenforcedConstraint()));
+                        Optional.of(layout.get().getLayout().getHandle()),
+                        layout.get().getLayout().getPredicate(),
+                        computeEnforced(originalEnforcedConstraint, layout.get().getUnenforcedConstraint()));
             }
 
             if (node instanceof FilterNode) {
