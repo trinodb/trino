@@ -15,7 +15,7 @@ package io.prestosql.sql.planner.iterative;
 
 import com.google.common.collect.HashMultiset;
 import com.google.common.collect.Multiset;
-import io.prestosql.cost.PlanNodeCostEstimate;
+import io.prestosql.cost.PlanCostEstimate;
 import io.prestosql.cost.PlanNodeStatsEstimate;
 import io.prestosql.sql.planner.PlanNodeIdAllocator;
 import io.prestosql.sql.planner.plan.PlanNode;
@@ -160,12 +160,12 @@ public class Memo
         group.stats = requireNonNull(stats, "stats is null");
     }
 
-    public Optional<PlanNodeCostEstimate> getCumulativeCost(int group)
+    public Optional<PlanCostEstimate> getCumulativeCost(int group)
     {
         return Optional.ofNullable(getGroup(group).cumulativeCost);
     }
 
-    public void storeCumulativeCost(int group, PlanNodeCostEstimate cost)
+    public void storeCumulativeCost(int group, PlanCostEstimate cost)
     {
         getGroup(group).cumulativeCost = requireNonNull(cost, "cost is null");
     }
@@ -256,7 +256,7 @@ public class Memo
         @Nullable
         private PlanNodeStatsEstimate stats;
         @Nullable
-        private PlanNodeCostEstimate cumulativeCost;
+        private PlanCostEstimate cumulativeCost;
 
         private Group(PlanNode member)
         {
