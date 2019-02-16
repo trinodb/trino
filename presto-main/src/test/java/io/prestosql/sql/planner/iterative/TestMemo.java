@@ -14,7 +14,7 @@
 package io.prestosql.sql.planner.iterative;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.cost.PlanNodeCostEstimate;
+import io.prestosql.cost.PlanCostEstimate;
 import io.prestosql.cost.PlanNodeStatsEstimate;
 import io.prestosql.sql.planner.PlanNodeIdAllocator;
 import io.prestosql.sql.planner.Symbol;
@@ -238,8 +238,8 @@ public class TestMemo
         Memo memo = new Memo(idAllocator, x);
         int xGroup = memo.getRootGroup();
         int yGroup = getChildGroup(memo, memo.getRootGroup());
-        PlanNodeCostEstimate yCost = PlanNodeCostEstimate.cpuCost(42);
-        PlanNodeCostEstimate xCost = yCost.add(PlanNodeCostEstimate.networkCost(37));
+        PlanCostEstimate yCost = PlanCostEstimate.cpuCost(42);
+        PlanCostEstimate xCost = yCost.add(PlanCostEstimate.networkCost(37));
 
         memo.storeCumulativeCost(yGroup, yCost);
         memo.storeCumulativeCost(xGroup, xCost);

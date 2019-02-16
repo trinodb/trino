@@ -17,7 +17,7 @@ package io.prestosql.sql.planner.iterative.rule;
 import com.google.common.collect.Ordering;
 import io.airlift.units.DataSize;
 import io.prestosql.cost.CostComparator;
-import io.prestosql.cost.PlanNodeCostEstimate;
+import io.prestosql.cost.PlanCostEstimate;
 import io.prestosql.cost.PlanNodeStatsEstimate;
 import io.prestosql.cost.StatsProvider;
 import io.prestosql.cost.TaskCountEstimator;
@@ -179,7 +179,7 @@ public class DetermineJoinDistributionType
          *   the hash table scales with the number of nodes where the build side is replicated.
          */
         int estimatedSourceDistributedTaskCount = taskCountEstimator.estimateSourceDistributedTaskCount();
-        PlanNodeCostEstimate cost = calculateJoinCostWithoutOutput(
+        PlanCostEstimate cost = calculateJoinCostWithoutOutput(
                 possibleJoinNode.getLeft(),
                 possibleJoinNode.getRight(),
                 stats,

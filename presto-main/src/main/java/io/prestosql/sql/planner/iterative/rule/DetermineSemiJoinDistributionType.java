@@ -30,7 +30,7 @@ package io.prestosql.sql.planner.iterative.rule;
 import com.google.common.collect.Ordering;
 import io.airlift.units.DataSize;
 import io.prestosql.cost.CostComparator;
-import io.prestosql.cost.PlanNodeCostEstimate;
+import io.prestosql.cost.PlanCostEstimate;
 import io.prestosql.cost.PlanNodeStatsEstimate;
 import io.prestosql.cost.StatsProvider;
 import io.prestosql.cost.TaskCountEstimator;
@@ -150,7 +150,7 @@ public class DetermineSemiJoinDistributionType
          */
 
         int estimatedSourceDistributedTaskCount = taskCountEstimator.estimateSourceDistributedTaskCount();
-        PlanNodeCostEstimate cost = calculateJoinCostWithoutOutput(
+        PlanCostEstimate cost = calculateJoinCostWithoutOutput(
                 possibleJoinNode.getSource(),
                 possibleJoinNode.getFilteringSource(),
                 stats,
