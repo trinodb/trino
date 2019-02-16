@@ -14,18 +14,13 @@
 package io.prestosql.metadata;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.TupleDomain;
-import io.prestosql.sql.planner.plan.TableScanNode;
 
-import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 public class TableLayoutResult
@@ -47,19 +42,6 @@ public class TableLayoutResult
     public TupleDomain<ColumnHandle> getUnenforcedConstraint()
     {
         return unenforcedConstraint;
-    }
-
-    public boolean hasAllOutputs(TableScanNode node)
-    {
-        if (!layout.getColumns().isPresent()) {
-            return true;
-        }
-        Set<ColumnHandle> columns = ImmutableSet.copyOf(layout.getColumns().get());
-        List<ColumnHandle> nodeColumnHandles = node.getOutputSymbols().stream()
-                .map(node.getAssignments()::get)
-                .collect(toImmutableList());
-
-        return columns.containsAll(nodeColumnHandles);
     }
 
     public static TupleDomain<ColumnHandle> computeEnforced(TupleDomain<ColumnHandle> predicate, TupleDomain<ColumnHandle> unenforced)
