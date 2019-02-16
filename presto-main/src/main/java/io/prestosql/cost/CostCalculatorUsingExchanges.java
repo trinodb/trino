@@ -49,7 +49,7 @@ import static io.prestosql.cost.CostCalculatorWithEstimatedExchanges.calculateLo
 import static io.prestosql.cost.CostCalculatorWithEstimatedExchanges.calculateRemoteGatherCost;
 import static io.prestosql.cost.CostCalculatorWithEstimatedExchanges.calculateRemoteRepartitionCost;
 import static io.prestosql.cost.CostCalculatorWithEstimatedExchanges.calculateRemoteReplicateCost;
-import static io.prestosql.cost.PlanCostEstimate.cpuCost;
+import static io.prestosql.cost.LocalCostEstimate.addPartialComponents;
 import static io.prestosql.sql.planner.plan.AggregationNode.Step.FINAL;
 import static io.prestosql.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static java.util.Objects.requireNonNull;
@@ -73,11 +73,11 @@ public class CostCalculatorUsingExchanges
     public PlanCostEstimate calculateCost(PlanNode node, StatsProvider stats, Session session, TypeProvider types)
     {
         CostEstimator costEstimator = new CostEstimator(stats, types, taskCountEstimator);
-        return node.accept(costEstimator, null);
+        return node.accept(costEstimator, null).toPlanCost();
     }
 
     private static class CostEstimator
-            extends PlanVisitor<PlanCostEstimate, Void>
+            extends PlanVisitor<LocalCostEstimate, Void>
     {
         private final StatsProvider stats;
         private final TypeProvider types;
@@ -91,25 +91,25 @@ public class CostCalculatorUsingExchanges
         }
 
         @Override
-        protected PlanCostEstimate visitPlan(PlanNode node, Void context)
+        protected LocalCostEstimate visitPlan(PlanNode node, Void context)
         {
-            return PlanCostEstimate.unknown();
+            return LocalCostEstimate.unknown();
         }
 
         @Override
-        public PlanCostEstimate visitGroupReference(GroupReference node, Void context)
+        public LocalCostEstimate visitGroupReference(GroupReference node, Void context)
         {
             throw new UnsupportedOperationException();
         }
 
         @Override
-        public PlanCostEstimate visitAssignUniqueId(AssignUniqueId node, Void context)
+        public LocalCostEstimate visitAssignUniqueId(AssignUniqueId node, Void context)
         {
-            return cpuCost(getStats(node).getOutputSizeInBytes(ImmutableList.of(node.getIdColumn()), types));
+            return LocalCostEstimate.ofCpu(getStats(node).getOutputSizeInBytes(ImmutableList.of(node.getIdColumn()), types));
         }
 
         @Override
-        public PlanCostEstimate visitRowNumber(RowNumberNode node, Void context)
+        public LocalCostEstimate visitRowNumber(RowNumberNode node, Void context)
         {
             List<Symbol> symbols = node.getOutputSymbols();
             // when maxRowCountPerPartition is set, the RowNumberOperator
@@ -123,49 +123,49 @@ public class CostCalculatorUsingExchanges
             PlanNodeStatsEstimate stats = getStats(node);
             double cpuCost = stats.getOutputSizeInBytes(symbols, types);
             double memoryCost = node.getPartitionBy().isEmpty() ? 0 : stats.getOutputSizeInBytes(node.getSource().getOutputSymbols(), types);
-            return new PlanCostEstimate(cpuCost, memoryCost, 0);
+            return LocalCostEstimate.of(cpuCost, memoryCost, 0);
         }
 
         @Override
-        public PlanCostEstimate visitOutput(OutputNode node, Void context)
+        public LocalCostEstimate visitOutput(OutputNode node, Void context)
         {
-            return PlanCostEstimate.zero();
+            return LocalCostEstimate.zero();
         }
 
         @Override
-        public PlanCostEstimate visitTableScan(TableScanNode node, Void context)
+        public LocalCostEstimate visitTableScan(TableScanNode node, Void context)
         {
             // TODO: add network cost, based on input size in bytes? Or let connector provide this cost?
-            return cpuCost(getStats(node).getOutputSizeInBytes(node.getOutputSymbols(), types));
+            return LocalCostEstimate.ofCpu(getStats(node).getOutputSizeInBytes(node.getOutputSymbols(), types));
         }
 
         @Override
-        public PlanCostEstimate visitFilter(FilterNode node, Void context)
+        public LocalCostEstimate visitFilter(FilterNode node, Void context)
         {
-            return cpuCost(getStats(node.getSource()).getOutputSizeInBytes(node.getOutputSymbols(), types));
+            return LocalCostEstimate.ofCpu(getStats(node.getSource()).getOutputSizeInBytes(node.getOutputSymbols(), types));
         }
 
         @Override
-        public PlanCostEstimate visitProject(ProjectNode node, Void context)
+        public LocalCostEstimate visitProject(ProjectNode node, Void context)
         {
-            return cpuCost(getStats(node).getOutputSizeInBytes(node.getOutputSymbols(), types));
+            return LocalCostEstimate.ofCpu(getStats(node).getOutputSizeInBytes(node.getOutputSymbols(), types));
         }
 
         @Override
-        public PlanCostEstimate visitAggregation(AggregationNode node, Void context)
+        public LocalCostEstimate visitAggregation(AggregationNode node, Void context)
         {
             if (node.getStep() != FINAL && node.getStep() != SINGLE) {
-                return PlanCostEstimate.unknown();
+                return LocalCostEstimate.unknown();
             }
             PlanNodeStatsEstimate aggregationStats = getStats(node);
             PlanNodeStatsEstimate sourceStats = getStats(node.getSource());
             double cpuCost = sourceStats.getOutputSizeInBytes(node.getSource().getOutputSymbols(), types);
             double memoryCost = aggregationStats.getOutputSizeInBytes(node.getOutputSymbols(), types);
-            return new PlanCostEstimate(cpuCost, memoryCost, 0);
+            return LocalCostEstimate.of(cpuCost, memoryCost, 0);
         }
 
         @Override
-        public PlanCostEstimate visitJoin(JoinNode node, Void context)
+        public LocalCostEstimate visitJoin(JoinNode node, Void context)
         {
             return calculateJoinCost(
                     node,
@@ -174,7 +174,7 @@ public class CostCalculatorUsingExchanges
                     Objects.equals(node.getDistributionType(), Optional.of(JoinNode.DistributionType.REPLICATED)));
         }
 
-        private PlanCostEstimate calculateJoinCost(PlanNode join, PlanNode probe, PlanNode build, boolean replicated)
+        private LocalCostEstimate calculateJoinCost(PlanNode join, PlanNode probe, PlanNode build, boolean replicated)
         {
             LocalCostEstimate joinInputCost = calculateJoinInputCost(
                     probe,
@@ -183,27 +183,19 @@ public class CostCalculatorUsingExchanges
                     types,
                     replicated,
                     taskCountEstimator.estimateSourceDistributedTaskCount());
-            PlanCostEstimate joinOutputCost = calculateJoinOutputCost(join);
-            return new PlanCostEstimate(
-                    joinOutputCost.getCpuCost() + joinInputCost.getCpuCost(),
-                    joinOutputCost.getMemoryCost() + joinInputCost.getMaxMemory(),
-                    joinOutputCost.getNetworkCost() + joinInputCost.getNetworkCost());
+            LocalCostEstimate joinOutputCost = calculateJoinOutputCost(join);
+            return addPartialComponents(joinInputCost, joinOutputCost);
         }
 
-        private PlanCostEstimate calculateJoinOutputCost(PlanNode join)
+        private LocalCostEstimate calculateJoinOutputCost(PlanNode join)
         {
             PlanNodeStatsEstimate outputStats = getStats(join);
             double joinOutputSize = outputStats.getOutputSizeInBytes(join.getOutputSymbols(), types);
-            return cpuCost(joinOutputSize);
+            return LocalCostEstimate.ofCpu(joinOutputSize);
         }
 
         @Override
-        public PlanCostEstimate visitExchange(ExchangeNode node, Void context)
-        {
-            return exchangeCost(node).toPlanCost();
-        }
-
-        private LocalCostEstimate exchangeCost(ExchangeNode node)
+        public LocalCostEstimate visitExchange(ExchangeNode node, Void context)
         {
             double inputSizeInBytes = getStats(node).getOutputSizeInBytes(node.getOutputSymbols(), types);
             switch (node.getScope()) {
@@ -238,7 +230,7 @@ public class CostCalculatorUsingExchanges
         }
 
         @Override
-        public PlanCostEstimate visitSemiJoin(SemiJoinNode node, Void context)
+        public LocalCostEstimate visitSemiJoin(SemiJoinNode node, Void context)
         {
             return calculateJoinCost(
                     node,
@@ -248,7 +240,7 @@ public class CostCalculatorUsingExchanges
         }
 
         @Override
-        public PlanCostEstimate visitSpatialJoin(SpatialJoinNode node, Void context)
+        public LocalCostEstimate visitSpatialJoin(SpatialJoinNode node, Void context)
         {
             return calculateJoinCost(
                     node,
@@ -258,34 +250,34 @@ public class CostCalculatorUsingExchanges
         }
 
         @Override
-        public PlanCostEstimate visitValues(ValuesNode node, Void context)
+        public LocalCostEstimate visitValues(ValuesNode node, Void context)
         {
-            return PlanCostEstimate.zero();
+            return LocalCostEstimate.zero();
         }
 
         @Override
-        public PlanCostEstimate visitEnforceSingleRow(EnforceSingleRowNode node, Void context)
+        public LocalCostEstimate visitEnforceSingleRow(EnforceSingleRowNode node, Void context)
         {
-            return PlanCostEstimate.zero();
+            return LocalCostEstimate.zero();
         }
 
         @Override
-        public PlanCostEstimate visitLimit(LimitNode node, Void context)
+        public LocalCostEstimate visitLimit(LimitNode node, Void context)
         {
             // This is just a wild guess. First of all, LimitNode is rather rare except as a top node of a query plan,
             // so proper cost estimation is not that important. Second, since LimitNode can lead to incomplete evaluation
             // of the source, true cost estimation should be implemented as a "constraint" enforced on a sub-tree and
             // evaluated in context of actual source node type (and their sources).
-            return cpuCost(getStats(node).getOutputSizeInBytes(node.getOutputSymbols(), types));
+            return LocalCostEstimate.ofCpu(getStats(node).getOutputSizeInBytes(node.getOutputSymbols(), types));
         }
 
         @Override
-        public PlanCostEstimate visitUnion(UnionNode node, Void context)
+        public LocalCostEstimate visitUnion(UnionNode node, Void context)
         {
             // Cost will be accounted either in CostCalculatorUsingExchanges#CostEstimator#visitExchanged
             // or in CostCalculatorWithEstimatedExchanges#CostEstimator#visitUnion
             // This stub is needed just to avoid the cumulative cost being set to unknown
-            return PlanCostEstimate.zero();
+            return LocalCostEstimate.zero();
         }
 
         private PlanNodeStatsEstimate getStats(PlanNode node)
