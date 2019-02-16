@@ -411,7 +411,7 @@ public class ReorderJoins
 
         private JoinEnumerationResult createJoinEnumerationResult(PlanNode planNode)
         {
-            return JoinEnumerationResult.createJoinEnumerationResult(Optional.of(planNode), costProvider.getCumulativeCost(planNode));
+            return JoinEnumerationResult.createJoinEnumerationResult(Optional.of(planNode), costProvider.getCost(planNode));
         }
     }
 
