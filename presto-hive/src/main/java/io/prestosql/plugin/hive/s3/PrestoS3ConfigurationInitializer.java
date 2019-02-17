@@ -38,6 +38,7 @@ import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_PATH_STYLE_ACCES
 import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_PIN_CLIENT_TO_CURRENT_REGION;
 import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_SECRET_KEY;
 import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_SIGNER_TYPE;
+import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_SKIP_GLACIER_OBJECTS;
 import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_SOCKET_TIMEOUT;
 import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_SSE_ENABLED;
 import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_SSE_KMS_KEY_ID;
@@ -75,6 +76,7 @@ public class PrestoS3ConfigurationInitializer
     private final boolean pinClientToCurrentRegion;
     private final String userAgentPrefix;
     private final PrestoS3AclType aclType;
+    private boolean skipGlacierObjects;
 
     @Inject
     public PrestoS3ConfigurationInitializer(HiveS3Config config)
@@ -104,6 +106,7 @@ public class PrestoS3ConfigurationInitializer
         this.pinClientToCurrentRegion = config.isPinS3ClientToCurrentRegion();
         this.userAgentPrefix = config.getS3UserAgentPrefix();
         this.aclType = config.getS3AclType();
+        this.skipGlacierObjects = config.isSkipGlacierObjects();
     }
 
     @Override
@@ -153,5 +156,6 @@ public class PrestoS3ConfigurationInitializer
         config.setBoolean(S3_PIN_CLIENT_TO_CURRENT_REGION, pinClientToCurrentRegion);
         config.set(S3_USER_AGENT_PREFIX, userAgentPrefix);
         config.set(S3_ACL_TYPE, aclType.name());
+        config.setBoolean(S3_SKIP_GLACIER_OBJECTS, skipGlacierObjects);
     }
 }
