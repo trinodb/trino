@@ -93,7 +93,7 @@ public class CassandraTokenSplitManager
 
             double tokenRangeRingFraction = tokenRing.get().getRingFraction(tokenRange.getStart().toString(), tokenRange.getEnd().toString());
             long partitionsCountEstimate = round(totalPartitionsCount * tokenRangeRingFraction);
-            checkState(partitionsCountEstimate >= 0, "unexpected partitions count estimate: %d", partitionsCountEstimate);
+            checkState(partitionsCountEstimate >= 0, "unexpected partitions count estimate: %s", partitionsCountEstimate);
             int subSplitCount = max(toIntExact(partitionsCountEstimate / splitSize), 1);
             List<TokenRange> subRanges = tokenRange.splitEvenly(subSplitCount);
 

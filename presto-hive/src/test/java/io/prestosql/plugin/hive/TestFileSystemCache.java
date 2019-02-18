@@ -13,6 +13,7 @@
  */
 package io.prestosql.plugin.hive;
 
+import com.google.common.collect.ImmutableSet;
 import io.prestosql.plugin.hive.authentication.ImpersonatingHdfsAuthentication;
 import io.prestosql.plugin.hive.authentication.SimpleHadoopAuthentication;
 import org.apache.hadoop.conf.Configuration;
@@ -34,7 +35,7 @@ public class TestFileSystemCache
         ImpersonatingHdfsAuthentication auth = new ImpersonatingHdfsAuthentication(new SimpleHadoopAuthentication());
         HdfsEnvironment environment =
                 new HdfsEnvironment(
-                        new HiveHdfsConfiguration(new HdfsConfigurationUpdater(new HiveClientConfig())),
+                        new HiveHdfsConfiguration(new HdfsConfigurationInitializer(new HiveClientConfig()), ImmutableSet.of()),
                         new HiveClientConfig(),
                         auth);
         FileSystem fs1 = getFileSystem(environment, "user");

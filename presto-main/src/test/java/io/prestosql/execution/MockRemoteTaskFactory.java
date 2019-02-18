@@ -31,12 +31,11 @@ import io.prestosql.execution.NodeTaskMap.PartitionedSplitCountTracker;
 import io.prestosql.execution.buffer.LazyOutputBuffer;
 import io.prestosql.execution.buffer.OutputBuffer;
 import io.prestosql.execution.buffer.OutputBuffers;
-import io.prestosql.memory.DefaultQueryContext;
 import io.prestosql.memory.MemoryPool;
+import io.prestosql.memory.QueryContext;
 import io.prestosql.memory.context.SimpleLocalMemoryContext;
 import io.prestosql.metadata.Split;
 import io.prestosql.metadata.TableHandle;
-import io.prestosql.operator.StageExecutionStrategy;
 import io.prestosql.operator.TaskContext;
 import io.prestosql.operator.TaskStats;
 import io.prestosql.spi.Node;
@@ -64,6 +63,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
 import java.util.concurrent.Executor;
@@ -81,6 +81,7 @@ import static io.prestosql.execution.StateMachine.StateChangeListener;
 import static io.prestosql.execution.buffer.OutputBuffers.BufferType.BROADCAST;
 import static io.prestosql.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
 import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static io.prestosql.operator.StageExecutionDescriptor.ungroupedExecution;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.prestosql.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
@@ -116,8 +117,9 @@ public class MockRemoteTaskFactory
                 SOURCE_DISTRIBUTION,
                 ImmutableList.of(sourceId),
                 new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(symbol)),
-                StageExecutionStrategy.ungroupedExecution(),
-                StatsAndCosts.empty());
+                ungroupedExecution(),
+                StatsAndCosts.empty(),
+                Optional.empty());
 
         ImmutableMultimap.Builder<PlanNodeId, Split> initialSplits = ImmutableMultimap.builder();
         for (Split sourceSplit : splits) {
@@ -181,7 +183,7 @@ public class MockRemoteTaskFactory
 
             MemoryPool memoryPool = new MemoryPool(new MemoryPoolId("test"), new DataSize(1, GIGABYTE));
             SpillSpaceTracker spillSpaceTracker = new SpillSpaceTracker(new DataSize(1, GIGABYTE));
-            DefaultQueryContext queryContext = new DefaultQueryContext(taskId.getQueryId(),
+            QueryContext queryContext = new QueryContext(taskId.getQueryId(),
                     new DataSize(1, MEGABYTE),
                     new DataSize(2, MEGABYTE),
                     memoryPool,

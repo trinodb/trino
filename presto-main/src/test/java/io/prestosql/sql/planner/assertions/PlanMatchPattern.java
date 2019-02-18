@@ -264,11 +264,25 @@ public final class PlanMatchPattern
                 endValue.map(SymbolAlias::new));
     }
 
-    public static PlanMatchPattern window(Consumer<WindowMatcher.Builder> windowMatcherBuilderConsumer, PlanMatchPattern source)
+    public static PlanMatchPattern window(Consumer<WindowMatcher.Builder> handler, PlanMatchPattern source)
     {
-        WindowMatcher.Builder windowMatcherBuilder = new WindowMatcher.Builder(source);
-        windowMatcherBuilderConsumer.accept(windowMatcherBuilder);
-        return windowMatcherBuilder.build();
+        WindowMatcher.Builder builder = new WindowMatcher.Builder(source);
+        handler.accept(builder);
+        return builder.build();
+    }
+
+    public static PlanMatchPattern rowNumber(Consumer<RowNumberMatcher.Builder> handler, PlanMatchPattern source)
+    {
+        RowNumberMatcher.Builder builder = new RowNumberMatcher.Builder(source);
+        handler.accept(builder);
+        return builder.build();
+    }
+
+    public static PlanMatchPattern topNRowNumber(Consumer<TopNRowNumberMatcher.Builder> handler, PlanMatchPattern source)
+    {
+        TopNRowNumberMatcher.Builder builder = new TopNRowNumberMatcher.Builder(source);
+        handler.accept(builder);
+        return builder.build();
     }
 
     public static PlanMatchPattern sort(PlanMatchPattern source)
@@ -330,7 +344,12 @@ public final class PlanMatchPattern
 
     public static PlanMatchPattern semiJoin(String sourceSymbolAlias, String filteringSymbolAlias, String outputAlias, PlanMatchPattern source, PlanMatchPattern filtering)
     {
-        return node(SemiJoinNode.class, source, filtering).with(new SemiJoinMatcher(sourceSymbolAlias, filteringSymbolAlias, outputAlias));
+        return semiJoin(sourceSymbolAlias, filteringSymbolAlias, outputAlias, Optional.empty(), source, filtering);
+    }
+
+    public static PlanMatchPattern semiJoin(String sourceSymbolAlias, String filteringSymbolAlias, String outputAlias, Optional<SemiJoinNode.DistributionType> distributionType, PlanMatchPattern source, PlanMatchPattern filtering)
+    {
+        return node(SemiJoinNode.class, source, filtering).with(new SemiJoinMatcher(sourceSymbolAlias, filteringSymbolAlias, outputAlias, distributionType));
     }
 
     public static PlanMatchPattern join(JoinNode.Type joinType, List<ExpectedValueProvider<JoinNode.EquiJoinClause>> expectedEquiCriteria, PlanMatchPattern left, PlanMatchPattern right)
@@ -490,7 +509,12 @@ public final class PlanMatchPattern
 
     public static PlanMatchPattern limit(long limit, PlanMatchPattern source)
     {
-        return node(LimitNode.class, source).with(new LimitMatcher(limit));
+        return limit(limit, false, source);
+    }
+
+    public static PlanMatchPattern limit(long limit, boolean partial, PlanMatchPattern source)
+    {
+        return node(LimitNode.class, source).with(new LimitMatcher(limit, partial));
     }
 
     public static PlanMatchPattern enforceSingleRow(PlanMatchPattern source)

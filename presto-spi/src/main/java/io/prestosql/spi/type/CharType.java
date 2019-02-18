@@ -22,6 +22,7 @@ import io.prestosql.spi.connector.ConnectorSession;
 
 import java.util.Objects;
 
+import static io.airlift.slice.SliceUtf8.countCodePoints;
 import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.prestosql.spi.type.Chars.compareChars;
 import static java.lang.String.format;
@@ -78,9 +79,9 @@ public final class CharType
         }
 
         StringBuilder builder = new StringBuilder(length);
-        String value = block.getSlice(position, 0, block.getSliceLength(position)).toStringUtf8();
-        builder.append(value);
-        for (int i = value.length(); i < length; i++) {
+        Slice slice = block.getSlice(position, 0, block.getSliceLength(position));
+        builder.append(slice.toStringUtf8());
+        for (int i = countCodePoints(slice); i < length; i++) {
             builder.append(' ');
         }
 

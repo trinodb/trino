@@ -51,7 +51,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.plugin.cassandra.CassandraType.toCassandraType;
@@ -66,7 +65,6 @@ import static java.util.stream.Collectors.toList;
 public class CassandraMetadata
         implements ConnectorMetadata
 {
-    private final String connectorId;
     private final CassandraSession cassandraSession;
     private final CassandraPartitionManager partitionManager;
     private final boolean allowDropTable;
@@ -75,13 +73,11 @@ public class CassandraMetadata
 
     @Inject
     public CassandraMetadata(
-            CassandraConnectorId connectorId,
             CassandraSession cassandraSession,
             CassandraPartitionManager partitionManager,
             JsonCodec<List<ExtraColumnMetadata>> extraColumnMetadataCodec,
             CassandraClientConfig config)
     {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
         this.partitionManager = requireNonNull(partitionManager, "partitionManager is null");
         this.cassandraSession = requireNonNull(cassandraSession, "cassandraSession is null");
         this.allowDropTable = requireNonNull(config, "config is null").getAllowDropTable();
@@ -131,10 +127,11 @@ public class CassandraMetadata
     }
 
     @Override
-    public List<SchemaTableName> listTables(ConnectorSession session, String schemaNameOrNull)
+    public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName1)
     {
         ImmutableList.Builder<SchemaTableName> tableNames = ImmutableList.builder();
-        for (String schemaName : listSchemas(session, schemaNameOrNull)) {
+        List<String> schemaNames = listSchemas(session, schemaName1);
+        for (String schemaName : schemaNames) {
             try {
                 for (String tableName : cassandraSession.getCaseSensitiveTableNames(schemaName)) {
                     tableNames.add(new SchemaTableName(schemaName, tableName.toLowerCase(ENGLISH)));
@@ -147,12 +144,10 @@ public class CassandraMetadata
         return tableNames.build();
     }
 
-    private List<String> listSchemas(ConnectorSession session, String schemaNameOrNull)
+    private List<String> listSchemas(ConnectorSession session, Optional<String> schemaName)
     {
-        if (schemaNameOrNull == null) {
-            return listSchemaNames(session);
-        }
-        return ImmutableList.of(schemaNameOrNull);
+        return schemaName.map(ImmutableList::of)
+                .orElseGet(() -> (ImmutableList<String>) listSchemaNames(session));
     }
 
     @Override
@@ -186,8 +181,8 @@ public class CassandraMetadata
 
     private List<SchemaTableName> listTables(ConnectorSession session, SchemaTablePrefix prefix)
     {
-        if (prefix.getTableName() == null) {
-            return listTables(session, prefix.getSchemaName());
+        if (!prefix.getTable().isPresent()) {
+            return listTables(session, prefix.getSchema());
         }
         return ImmutableList.of(prefix.toSchemaTableName());
     }
@@ -229,14 +224,6 @@ public class CassandraMetadata
     public ConnectorTableLayout getTableLayout(ConnectorSession session, ConnectorTableLayoutHandle handle)
     {
         return new ConnectorTableLayout(handle);
-    }
-
-    @Override
-    public String toString()
-    {
-        return toStringHelper(this)
-                .add("connectorId", connectorId)
-                .toString();
     }
 
     @Override
@@ -305,7 +292,6 @@ public class CassandraMetadata
         // We need to create the Cassandra table before commit because the record needs to be written to the table.
         cassandraSession.execute(queryBuilder.toString());
         return new CassandraOutputTableHandle(
-                connectorId,
                 schemaName,
                 tableName,
                 columnNames.build(),
@@ -332,7 +318,6 @@ public class CassandraMetadata
         List<Type> columnTypes = columns.stream().map(CassandraColumnHandle::getType).collect(Collectors.toList());
 
         return new CassandraInsertTableHandle(
-                connectorId,
                 validSchemaName(table.getSchemaName()),
                 validTableName(table.getTableName()),
                 columnNames,

@@ -15,6 +15,7 @@ package io.prestosql.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.DynamicClassLoader;
+import io.prestosql.annotation.UsedByGeneratedCode;
 import io.prestosql.metadata.BoundVariables;
 import io.prestosql.metadata.FunctionRegistry;
 import io.prestosql.metadata.SqlAggregationFunction;
@@ -171,21 +172,25 @@ public abstract class AbstractMinMaxAggregationFunction
         }
     }
 
+    @UsedByGeneratedCode
     public static void input(MethodHandle methodHandle, NullableDoubleState state, double value)
     {
         compareAndUpdateState(methodHandle, state, value);
     }
 
+    @UsedByGeneratedCode
     public static void input(MethodHandle methodHandle, NullableLongState state, long value)
     {
         compareAndUpdateState(methodHandle, state, value);
     }
 
+    @UsedByGeneratedCode
     public static void input(MethodHandle methodHandle, NullableBooleanState state, boolean value)
     {
         compareAndUpdateState(methodHandle, state, value);
     }
 
+    @UsedByGeneratedCode
     public static void minInput(Type type, BlockPositionState state, Block block, int position)
     {
         if (state.getBlock() == null || type.compareTo(block, position, state.getBlock(), state.getPosition()) < 0) {
@@ -194,6 +199,7 @@ public abstract class AbstractMinMaxAggregationFunction
         }
     }
 
+    @UsedByGeneratedCode
     public static void maxInput(Type type, BlockPositionState state, Block block, int position)
     {
         if (state.getBlock() == null || type.compareTo(block, position, state.getBlock(), state.getPosition()) > 0) {
@@ -202,21 +208,25 @@ public abstract class AbstractMinMaxAggregationFunction
         }
     }
 
+    @UsedByGeneratedCode
     public static void combine(MethodHandle methodHandle, NullableLongState state, NullableLongState otherState)
     {
         compareAndUpdateState(methodHandle, state, otherState.getLong());
     }
 
+    @UsedByGeneratedCode
     public static void combine(MethodHandle methodHandle, NullableDoubleState state, NullableDoubleState otherState)
     {
         compareAndUpdateState(methodHandle, state, otherState.getDouble());
     }
 
+    @UsedByGeneratedCode
     public static void combine(MethodHandle methodHandle, NullableBooleanState state, NullableBooleanState otherState)
     {
         compareAndUpdateState(methodHandle, state, otherState.getBoolean());
     }
 
+    @UsedByGeneratedCode
     public static void minCombine(Type type, BlockPositionState state, BlockPositionState otherState)
     {
         if (state.getBlock() == null || type.compareTo(otherState.getBlock(), otherState.getPosition(), state.getBlock(), state.getPosition()) < 0) {
@@ -225,6 +235,7 @@ public abstract class AbstractMinMaxAggregationFunction
         }
     }
 
+    @UsedByGeneratedCode
     public static void maxCombine(Type type, BlockPositionState state, BlockPositionState otherState)
     {
         if (state.getBlock() == null || type.compareTo(otherState.getBlock(), otherState.getPosition(), state.getBlock(), state.getPosition()) > 0) {

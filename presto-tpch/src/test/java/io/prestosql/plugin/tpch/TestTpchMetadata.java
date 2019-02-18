@@ -79,7 +79,7 @@ public class TestTpchMetadata
 
     private static final List<String> SUPPORTED_SCHEMAS = ImmutableList.of("tiny", "sf1");
 
-    private final TpchMetadata tpchMetadata = new TpchMetadata("tpch");
+    private final TpchMetadata tpchMetadata = new TpchMetadata();
     private final ConnectorSession session = null;
 
     @Test

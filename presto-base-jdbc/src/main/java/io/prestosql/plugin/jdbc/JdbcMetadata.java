@@ -107,9 +107,9 @@ public class JdbcMetadata
     }
 
     @Override
-    public List<SchemaTableName> listTables(ConnectorSession session, String schemaNameOrNull)
+    public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
     {
-        return jdbcClient.getTableNames(schemaNameOrNull);
+        return jdbcClient.getTableNames(schemaName.orElse(null));
     }
 
     @Override
@@ -128,13 +128,9 @@ public class JdbcMetadata
     public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
     {
         ImmutableMap.Builder<SchemaTableName, List<ColumnMetadata>> columns = ImmutableMap.builder();
-        List<SchemaTableName> tables;
-        if (prefix.getTableName() != null) {
-            tables = ImmutableList.of(prefix.toSchemaTableName());
-        }
-        else {
-            tables = listTables(session, prefix.getSchemaName());
-        }
+        List<SchemaTableName> tables = prefix.toOptionalSchemaTableName()
+                .<List<SchemaTableName>>map(ImmutableList::of)
+                .orElseGet(() -> listTables(session, prefix.getSchema()));
         for (SchemaTableName tableName : tables) {
             try {
                 JdbcTableHandle tableHandle = jdbcClient.getTableHandle(tableName);

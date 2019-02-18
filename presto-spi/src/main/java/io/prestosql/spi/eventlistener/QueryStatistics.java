@@ -30,6 +30,7 @@ public class QueryStatistics
     private final long peakUserMemoryBytes;
     // peak of user + system memory
     private final long peakTotalNonRevocableMemoryBytes;
+    private final long peakTaskUserMemory;
     private final long peakTaskTotalMemory;
     private final long physicalInputBytes;
     private final long physicalInputRows;
@@ -57,7 +58,7 @@ public class QueryStatistics
      */
     private final List<String> operatorSummaries;
     /**
-     * Plan node stats and costs summaries serialized to JSON. Serialization format and structure
+     * Plan node stats and costs serialized to JSON. Serialization format and structure
      * can change without preserving backward compatibility.
      */
     private final Optional<String> planNodeStatsAndCosts;
@@ -70,6 +71,7 @@ public class QueryStatistics
             Optional<Duration> distributedPlanningTime,
             long peakUserMemoryBytes,
             long peakTotalNonRevocableMemoryBytes,
+            long peakTaskUserMemory,
             long peakTaskTotalMemory,
             long physicalInputBytes,
             long physicalInputRows,
@@ -96,6 +98,7 @@ public class QueryStatistics
         this.distributedPlanningTime = requireNonNull(distributedPlanningTime, "distributedPlanningTime is null");
         this.peakUserMemoryBytes = peakUserMemoryBytes;
         this.peakTotalNonRevocableMemoryBytes = peakTotalNonRevocableMemoryBytes;
+        this.peakTaskUserMemory = peakTaskUserMemory;
         this.peakTaskTotalMemory = peakTaskTotalMemory;
         this.physicalInputBytes = physicalInputBytes;
         this.physicalInputRows = physicalInputRows;
@@ -151,7 +154,12 @@ public class QueryStatistics
         return peakTotalNonRevocableMemoryBytes;
     }
 
-    public long peakTaskTotalMemory()
+    public long getPeakTaskUserMemory()
+    {
+        return peakTaskUserMemory;
+    }
+
+    public long getPeakTaskTotalMemory()
     {
         return peakTaskTotalMemory;
     }

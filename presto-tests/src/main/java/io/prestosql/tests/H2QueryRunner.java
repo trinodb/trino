@@ -93,7 +93,7 @@ public class H2QueryRunner
     public H2QueryRunner()
     {
         handle = Jdbi.open("jdbc:h2:mem:test" + System.nanoTime());
-        TpchMetadata tpchMetadata = new TpchMetadata("");
+        TpchMetadata tpchMetadata = new TpchMetadata();
 
         handle.execute("CREATE TABLE orders (\n" +
                 "  orderkey BIGINT PRIMARY KEY,\n" +

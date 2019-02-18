@@ -28,7 +28,6 @@ import io.prestosql.execution.buffer.OutputBuffers.OutputBufferId;
 import io.prestosql.execution.executor.TaskExecutor;
 import io.prestosql.memory.LocalMemoryManager;
 import io.prestosql.memory.NodeMemoryConfig;
-import io.prestosql.memory.ReservedSystemMemoryConfig;
 import io.prestosql.memory.context.LocalMemoryContext;
 import io.prestosql.operator.ExchangeClient;
 import io.prestosql.operator.ExchangeClientSupplier;
@@ -72,7 +71,7 @@ public class TestSqlTaskManager
 
     public TestSqlTaskManager()
     {
-        localMemoryManager = new LocalMemoryManager(new NodeMemoryConfig(), new ReservedSystemMemoryConfig());
+        localMemoryManager = new LocalMemoryManager(new NodeMemoryConfig());
         localSpillManager = new LocalSpillManager(new NodeSpillConfig());
         taskExecutor = new TaskExecutor(8, 16, 3, 4, Ticker.systemTicker());
         taskExecutor.start();

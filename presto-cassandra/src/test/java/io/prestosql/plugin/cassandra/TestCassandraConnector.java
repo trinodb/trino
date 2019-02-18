@@ -145,7 +145,7 @@ public class TestCassandraConnector
     @Test
     public void testGetTableNames()
     {
-        List<SchemaTableName> tables = metadata.listTables(SESSION, database);
+        List<SchemaTableName> tables = metadata.listTables(SESSION, Optional.of(database));
         assertTrue(tables.contains(table));
     }
 
@@ -153,14 +153,14 @@ public class TestCassandraConnector
     @Test(enabled = false, expectedExceptions = SchemaNotFoundException.class)
     public void testGetTableNamesException()
     {
-        metadata.listTables(SESSION, INVALID_DATABASE);
+        metadata.listTables(SESSION, Optional.of(INVALID_DATABASE));
     }
 
     @Test
     public void testListUnknownSchema()
     {
         assertNull(metadata.getTableHandle(SESSION, new SchemaTableName("totally_invalid_database_name", "dual")));
-        assertEquals(metadata.listTables(SESSION, "totally_invalid_database_name"), ImmutableList.of());
+        assertEquals(metadata.listTables(SESSION, Optional.of("totally_invalid_database_name")), ImmutableList.of());
         assertEquals(metadata.listTableColumns(SESSION, new SchemaTablePrefix("totally_invalid_database_name", "dual")), ImmutableMap.of());
     }
 

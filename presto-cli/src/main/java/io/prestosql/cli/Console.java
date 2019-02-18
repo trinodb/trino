@@ -141,7 +141,7 @@ public class Console
                 Optional.ofNullable(clientOptions.krb5CredentialCachePath),
                 !clientOptions.krb5DisableRemoteServiceHostnameCanonicalization)) {
             if (hasQuery) {
-                return executeCommand(queryRunner, query, clientOptions.outputFormat, clientOptions.ignoreErrors);
+                return executeCommand(queryRunner, query, clientOptions.outputFormat, clientOptions.ignoreErrors, clientOptions.progress);
             }
 
             runConsole(queryRunner, exiting);
@@ -254,7 +254,7 @@ public class Console
                         outputFormat = OutputFormat.VERTICAL;
                     }
 
-                    process(queryRunner, split.statement(), outputFormat, tableNameCompleter::populateCache, true);
+                    process(queryRunner, split.statement(), outputFormat, tableNameCompleter::populateCache, true, true, System.out, System.out);
                     reader.getHistory().add(squeezeStatement(split.statement()) + split.terminator());
                 }
 
@@ -271,13 +271,13 @@ public class Console
         }
     }
 
-    private static boolean executeCommand(QueryRunner queryRunner, String query, OutputFormat outputFormat, boolean ignoreErrors)
+    private static boolean executeCommand(QueryRunner queryRunner, String query, OutputFormat outputFormat, boolean ignoreErrors, boolean showProgress)
     {
         boolean success = true;
         StatementSplitter splitter = new StatementSplitter(query);
         for (Statement split : splitter.getCompleteStatements()) {
             if (!isEmptyStatement(split.statement())) {
-                if (!process(queryRunner, split.statement(), outputFormat, () -> {}, false)) {
+                if (!process(queryRunner, split.statement(), outputFormat, () -> {}, false, showProgress, System.out, System.err)) {
                     if (!ignoreErrors) {
                         return false;
                     }
@@ -292,7 +292,15 @@ public class Console
         return success;
     }
 
-    private static boolean process(QueryRunner queryRunner, String sql, OutputFormat outputFormat, Runnable schemaChanged, boolean interactive)
+    private static boolean process(
+            QueryRunner queryRunner,
+            String sql,
+            OutputFormat outputFormat,
+            Runnable schemaChanged,
+            boolean usePager,
+            boolean showProgress,
+            PrintStream out,
+            PrintStream errorChannel)
     {
         String finalSql;
         try {
@@ -310,7 +318,7 @@ public class Console
         }
 
         try (Query query = queryRunner.startQuery(finalSql)) {
-            boolean success = query.renderOutput(System.out, outputFormat, interactive);
+            boolean success = query.renderOutput(out, errorChannel, outputFormat, usePager, showProgress);
 
             ClientSession session = queryRunner.getSession();
 

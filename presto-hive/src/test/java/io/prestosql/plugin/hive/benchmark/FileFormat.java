@@ -66,7 +66,7 @@ import java.util.Properties;
 import static io.prestosql.orc.OrcEncoding.DWRF;
 import static io.prestosql.orc.OrcEncoding.ORC;
 import static io.prestosql.orc.OrcWriteValidation.OrcWriteValidationMode.BOTH;
-import static io.prestosql.plugin.hive.HdfsConfigurationUpdater.configureCompression;
+import static io.prestosql.plugin.hive.HdfsConfigurationInitializer.configureCompression;
 import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.prestosql.plugin.hive.HiveTestUtils.TYPE_MANAGER;
 import static io.prestosql.plugin.hive.HiveType.toHiveType;

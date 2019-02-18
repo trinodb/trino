@@ -19,8 +19,8 @@ import io.airlift.units.DataSize;
 import io.prestosql.Session;
 import io.prestosql.execution.TaskId;
 import io.prestosql.execution.TaskStateMachine;
-import io.prestosql.memory.DefaultQueryContext;
 import io.prestosql.memory.MemoryPool;
+import io.prestosql.memory.QueryContext;
 import io.prestosql.operator.TaskContext;
 import io.prestosql.spi.QueryId;
 import io.prestosql.spi.memory.MemoryPoolId;
@@ -59,12 +59,12 @@ public final class TestingTaskContext
                 .build();
     }
 
-    public static TaskContext createTaskContext(DefaultQueryContext queryContext, Executor executor, Session session)
+    public static TaskContext createTaskContext(QueryContext queryContext, Executor executor, Session session)
     {
         return createTaskContext(queryContext, session, new TaskStateMachine(new TaskId("query", 0, 0), executor));
     }
 
-    private static TaskContext createTaskContext(DefaultQueryContext queryContext, Session session, TaskStateMachine taskStateMachine)
+    private static TaskContext createTaskContext(QueryContext queryContext, Session session, TaskStateMachine taskStateMachine)
     {
         return queryContext.addTaskContext(
                 taskStateMachine,
@@ -140,7 +140,7 @@ public final class TestingTaskContext
         {
             MemoryPool memoryPool = new MemoryPool(new MemoryPoolId("test"), memoryPoolSize);
             SpillSpaceTracker spillSpaceTracker = new SpillSpaceTracker(maxSpillSize);
-            DefaultQueryContext queryContext = new DefaultQueryContext(
+            QueryContext queryContext = new QueryContext(
                     queryId,
                     queryMaxMemory,
                     queryMaxTotalMemory,

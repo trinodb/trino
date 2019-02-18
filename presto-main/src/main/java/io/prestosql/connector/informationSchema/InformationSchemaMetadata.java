@@ -89,12 +89,14 @@ public class InformationSchemaMetadata
                     .column("data_type", createUnboundedVarcharType())
                     .column("comment", createUnboundedVarcharType())
                     .column("extra_info", createUnboundedVarcharType())
+                    .hiddenColumn("column_comment", createUnboundedVarcharType()) // MySQL compatible
                     .build())
             .table(tableMetadataBuilder(TABLE_TABLES)
                     .column("table_catalog", createUnboundedVarcharType())
                     .column("table_schema", createUnboundedVarcharType())
                     .column("table_name", createUnboundedVarcharType())
                     .column("table_type", createUnboundedVarcharType())
+                    .hiddenColumn("table_comment", createUnboundedVarcharType()) // MySQL compatible
                     .build())
             .table(tableMetadataBuilder(TABLE_VIEWS)
                     .column("table_catalog", createUnboundedVarcharType())
@@ -178,14 +180,14 @@ public class InformationSchemaMetadata
     }
 
     @Override
-    public List<SchemaTableName> listTables(ConnectorSession session, String schemaNameOrNull)
+    public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
     {
-        if (schemaNameOrNull == null) {
+        if (!schemaName.isPresent()) {
             return ImmutableList.copyOf(TABLES.keySet());
         }
 
         return TABLES.keySet().stream()
-                .filter(compose(schemaNameOrNull::equals, SchemaTableName::getSchemaName))
+                .filter(compose(schemaName.get()::equals, SchemaTableName::getSchemaName))
                 .collect(toImmutableList());
     }
 
@@ -348,12 +350,6 @@ public class InformationSchemaMetadata
     public ConnectorTableLayout getTableLayout(ConnectorSession session, ConnectorTableLayoutHandle handle)
     {
         return new ConnectorTableLayout(handle);
-    }
-
-    static List<ColumnMetadata> informationSchemaTableColumns(SchemaTableName tableName)
-    {
-        checkArgument(TABLES.containsKey(tableName), "table does not exist: %s", tableName);
-        return TABLES.get(tableName).getColumns();
     }
 
     private boolean isLowerCase(String value)

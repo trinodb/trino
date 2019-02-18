@@ -25,6 +25,7 @@ import org.openjdk.jol.info.ClassLayout;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.time.ZoneId;
 import java.util.List;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -65,7 +66,7 @@ public class LongStreamReader
     }
 
     @Override
-    public void startStripe(InputStreamSources dictionaryStreamSources, List<ColumnEncoding> encoding)
+    public void startStripe(ZoneId timeZone, InputStreamSources dictionaryStreamSources, List<ColumnEncoding> encoding)
             throws IOException
     {
         ColumnEncodingKind kind = encoding.get(streamDescriptor.getStreamId())
@@ -81,7 +82,7 @@ public class LongStreamReader
             throw new IllegalArgumentException("Unsupported encoding " + kind);
         }
 
-        currentReader.startStripe(dictionaryStreamSources, encoding);
+        currentReader.startStripe(timeZone, dictionaryStreamSources, encoding);
     }
 
     @Override

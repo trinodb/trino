@@ -872,7 +872,7 @@ class StatementAnalyzer
                 // are implicitly coercible to the declared view types.
                 List<Field> outputFields = view.getColumns().stream()
                         .map(column -> Field.newQualified(
-                                QualifiedName.of(name.getObjectName()),
+                                table.getName(),
                                 Optional.of(column.getName()),
                                 column.getType(),
                                 false,
@@ -1025,7 +1025,7 @@ class StatementAnalyzer
             node.getHaving().ifPresent(sourceExpressions::add);
 
             analyzeGroupingOperations(node, sourceExpressions, orderByExpressions);
-            List<FunctionCall> aggregations = analyzeAggregations(node, sourceScope, orderByScope, groupByExpressions, sourceExpressions, orderByExpressions);
+            analyzeAggregations(node, sourceScope, orderByScope, groupByExpressions, sourceExpressions, orderByExpressions);
             analyzeWindowFunctions(node, outputExpressions, orderByExpressions);
 
             if (analysis.isAggregation(node) && node.getOrderBy().isPresent()) {
@@ -1840,7 +1840,7 @@ class StatementAnalyzer
             analysis.setGroupingOperations(node, groupingOperations);
         }
 
-        private List<FunctionCall> analyzeAggregations(
+        private void analyzeAggregations(
                 QuerySpecification node,
                 Scope sourceScope,
                 Optional<Scope> orderByScope,
@@ -1871,8 +1871,6 @@ class StatementAnalyzer
                     verifyOrderByAggregations(distinctGroupingColumns, sourceScope, orderByScope.get(), expression, metadata, analysis);
                 }
             }
-
-            return aggregates;
         }
 
         private boolean hasAggregates(QuerySpecification node)

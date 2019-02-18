@@ -46,12 +46,14 @@ import javax.annotation.Nullable;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
@@ -131,7 +133,7 @@ public final class OrcWriter
             OrcWriteValidationMode validationMode,
             OrcWriterStats stats)
     {
-        this.validationBuilder = validate ? new OrcWriteValidationBuilder(validationMode, types)
+        this.validationBuilder = validate ? new OrcWriteValidationBuilder(validationMode, orcEncoding, types)
                 .setStringStatisticsLimitInBytes(toIntExact(options.getMaxStringStatisticsLimit().toBytes())) : null;
 
         this.orcDataSink = requireNonNull(orcDataSink, "orcDataSink is null");
@@ -139,6 +141,7 @@ public final class OrcWriter
         this.orcEncoding = requireNonNull(orcEncoding, "orcEncoding is null");
         this.compression = requireNonNull(compression, "compression is null");
         recordValidation(validation -> validation.setCompression(compression));
+        recordValidation(validation -> validation.setTimeZone(hiveStorageTimeZone.toTimeZone().toZoneId()));
 
         requireNonNull(options, "options is null");
         checkArgument(options.getStripeMaxSize().compareTo(options.getStripeMinSize()) >= 0, "stripeMaxSize must be greater than stripeMinSize");
@@ -411,7 +414,8 @@ public final class OrcWriter
         columnStatistics.put(0, new ColumnStatistics((long) stripeRowCount, 0, null, null, null, null, null, null, null, null));
 
         // add footer
-        StripeFooter stripeFooter = new StripeFooter(allStreams, toDenseList(columnEncodings, orcTypes.size()));
+        Optional<ZoneId> timeZone = Optional.of(hiveStorageTimeZone.toTimeZone().toZoneId());
+        StripeFooter stripeFooter = new StripeFooter(allStreams, toDenseList(columnEncodings, orcTypes.size()), timeZone);
         Slice footer = metadataWriter.writeStripeFooter(stripeFooter);
         outputData.add(createDataOutput(footer));
 

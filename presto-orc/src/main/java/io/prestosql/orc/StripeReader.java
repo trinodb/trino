@@ -45,6 +45,7 @@ import io.prestosql.orc.stream.ValueStreams;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
@@ -75,6 +76,7 @@ import static java.util.Objects.requireNonNull;
 public class StripeReader
 {
     private final OrcDataSource orcDataSource;
+    private final ZoneId defaultTimeZone;
     private final Optional<OrcDecompressor> decompressor;
     private final List<OrcType> types;
     private final HiveWriterVersion hiveWriterVersion;
@@ -85,6 +87,7 @@ public class StripeReader
     private final Optional<OrcWriteValidation> writeValidation;
 
     public StripeReader(OrcDataSource orcDataSource,
+            ZoneId defaultTimeZone,
             Optional<OrcDecompressor> decompressor,
             List<OrcType> types,
             Set<Integer> includedColumns,
@@ -95,6 +98,7 @@ public class StripeReader
             Optional<OrcWriteValidation> writeValidation)
     {
         this.orcDataSource = requireNonNull(orcDataSource, "orcDataSource is null");
+        this.defaultTimeZone = requireNonNull(defaultTimeZone, "defaultTimeZone is null");
         this.decompressor = requireNonNull(decompressor, "decompressor is null");
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
         this.includedOrcColumns = getIncludedOrcColumns(types, requireNonNull(includedColumns, "includedColumns is null"));
@@ -111,6 +115,10 @@ public class StripeReader
         // read the stripe footer
         StripeFooter stripeFooter = readStripeFooter(stripe, systemMemoryUsage);
         List<ColumnEncoding> columnEncodings = stripeFooter.getColumnEncodings();
+        if (writeValidation.isPresent()) {
+            writeValidation.get().validateTimeZone(orcDataSource.getId(), stripeFooter.getTimeZone().orElse(null));
+        }
+        ZoneId timeZone = stripeFooter.getTimeZone().orElse(defaultTimeZone);
 
         // get streams for selected columns
         Map<StreamId, Stream> streams = new HashMap<>();
@@ -182,7 +190,7 @@ public class StripeReader
                         selectedRowGroups,
                         columnEncodings);
 
-                return new Stripe(stripe.getNumberOfRows(), columnEncodings, rowGroups, dictionaryStreamSources);
+                return new Stripe(stripe.getNumberOfRows(), timeZone, columnEncodings, rowGroups, dictionaryStreamSources);
             }
             catch (InvalidCheckpointException e) {
                 // The ORC file contains a corrupt checkpoint stream
@@ -241,7 +249,7 @@ public class StripeReader
         }
         RowGroup rowGroup = new RowGroup(0, 0, stripe.getNumberOfRows(), minAverageRowBytes, new InputStreamSources(builder.build()));
 
-        return new Stripe(stripe.getNumberOfRows(), columnEncodings, ImmutableList.of(rowGroup), dictionaryStreamSources);
+        return new Stripe(stripe.getNumberOfRows(), timeZone, columnEncodings, ImmutableList.of(rowGroup), dictionaryStreamSources);
     }
 
     public Map<StreamId, OrcInputStream> readDiskRanges(long stripeOffset, Map<StreamId, DiskRange> diskRanges, AggregatedMemoryContext systemMemoryUsage)

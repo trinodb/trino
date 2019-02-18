@@ -57,6 +57,7 @@ import static io.prestosql.client.PrestoHeaders.PRESTO_CLIENT_CAPABILITIES;
 import static io.prestosql.client.PrestoHeaders.PRESTO_CLIENT_INFO;
 import static io.prestosql.client.PrestoHeaders.PRESTO_CLIENT_TAGS;
 import static io.prestosql.client.PrestoHeaders.PRESTO_DEALLOCATED_PREPARE;
+import static io.prestosql.client.PrestoHeaders.PRESTO_EXTRA_CREDENTIAL;
 import static io.prestosql.client.PrestoHeaders.PRESTO_LANGUAGE;
 import static io.prestosql.client.PrestoHeaders.PRESTO_PATH;
 import static io.prestosql.client.PrestoHeaders.PRESTO_PREPARED_STATEMENT;
@@ -187,6 +188,11 @@ class StatementClientV1
         Map<String, ClientSelectedRole> roles = session.getRoles();
         for (Entry<String, ClientSelectedRole> entry : roles.entrySet()) {
             builder.addHeader(PrestoHeaders.PRESTO_ROLE, entry.getKey() + '=' + urlEncode(entry.getValue().toString()));
+        }
+
+        Map<String, String> extraCredentials = session.getExtraCredentials();
+        for (Entry<String, String> entry : extraCredentials.entrySet()) {
+            builder.addHeader(PRESTO_EXTRA_CREDENTIAL, entry.getKey() + "=" + entry.getValue());
         }
 
         Map<String, String> statements = session.getPreparedStatements();

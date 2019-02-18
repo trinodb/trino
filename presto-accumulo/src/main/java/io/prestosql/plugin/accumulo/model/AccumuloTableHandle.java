@@ -34,7 +34,6 @@ public final class AccumuloTableHandle
         implements ConnectorInsertTableHandle, ConnectorOutputTableHandle, ConnectorTableHandle
 {
     private final boolean external;
-    private final String connectorId;
     private final String rowId;
     private final Optional<String> scanAuthorizations;
     private final String schema;
@@ -43,7 +42,6 @@ public final class AccumuloTableHandle
 
     @JsonCreator
     public AccumuloTableHandle(
-            @JsonProperty("connectorId") String connectorId,
             @JsonProperty("schema") String schema,
             @JsonProperty("table") String table,
             @JsonProperty("rowId") String rowId,
@@ -51,19 +49,12 @@ public final class AccumuloTableHandle
             @JsonProperty("serializerClassName") String serializerClassName,
             @JsonProperty("scanAuthorizations") Optional<String> scanAuthorizations)
     {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.external = requireNonNull(external, "external is null");
         this.rowId = requireNonNull(rowId, "rowId is null");
         this.scanAuthorizations = scanAuthorizations;
         this.schema = requireNonNull(schema, "schema is null");
         this.serializerClassName = requireNonNull(serializerClassName, "serializerClassName is null");
         this.table = requireNonNull(table, "table is null");
-    }
-
-    @JsonProperty
-    public String getConnectorId()
-    {
-        return connectorId;
     }
 
     @JsonProperty
@@ -121,7 +112,7 @@ public final class AccumuloTableHandle
     @Override
     public int hashCode()
     {
-        return Objects.hash(connectorId, schema, table, rowId, external, serializerClassName);
+        return Objects.hash(schema, table, rowId, external, serializerClassName);
     }
 
     @Override
@@ -136,8 +127,7 @@ public final class AccumuloTableHandle
         }
 
         AccumuloTableHandle other = (AccumuloTableHandle) obj;
-        return Objects.equals(this.connectorId, other.connectorId)
-                && Objects.equals(this.schema, other.schema)
+        return Objects.equals(this.schema, other.schema)
                 && Objects.equals(this.table, other.table)
                 && Objects.equals(this.rowId, other.rowId)
                 && Objects.equals(this.external, other.external)
@@ -149,7 +139,6 @@ public final class AccumuloTableHandle
     public String toString()
     {
         return toStringHelper(this)
-                .add("connectorId", connectorId)
                 .add("schema", schema)
                 .add("table", table)
                 .add("rowId", rowId)

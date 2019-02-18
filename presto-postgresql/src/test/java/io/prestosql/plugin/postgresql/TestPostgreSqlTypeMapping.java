@@ -264,7 +264,7 @@ public class TestPostgreSqlTypeMapping
     @Test
     public void testTimestamp()
     {
-        // TODO timestamp is not correctly read (see comment in StandardReadMappings.timestampReadMapping)
+        // TODO timestamp is not correctly read (see comment in StandardColumnMappings.timestampColumnMapping)
         // testing this is hard because of https://github.com/prestodb/presto/issues/7122
     }
 

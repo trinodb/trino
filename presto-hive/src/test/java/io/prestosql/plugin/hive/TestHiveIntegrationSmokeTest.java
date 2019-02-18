@@ -38,12 +38,12 @@ import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.sql.planner.Plan;
 import io.prestosql.sql.planner.plan.ExchangeNode;
-import io.prestosql.sql.planner.planPrinter.IOPlanPrinter.ColumnConstraint;
-import io.prestosql.sql.planner.planPrinter.IOPlanPrinter.FormattedDomain;
-import io.prestosql.sql.planner.planPrinter.IOPlanPrinter.FormattedMarker;
-import io.prestosql.sql.planner.planPrinter.IOPlanPrinter.FormattedRange;
-import io.prestosql.sql.planner.planPrinter.IOPlanPrinter.IOPlan;
-import io.prestosql.sql.planner.planPrinter.IOPlanPrinter.IOPlan.TableColumnInfo;
+import io.prestosql.sql.planner.planPrinter.IoPlanPrinter.ColumnConstraint;
+import io.prestosql.sql.planner.planPrinter.IoPlanPrinter.FormattedDomain;
+import io.prestosql.sql.planner.planPrinter.IoPlanPrinter.FormattedMarker;
+import io.prestosql.sql.planner.planPrinter.IoPlanPrinter.FormattedRange;
+import io.prestosql.sql.planner.planPrinter.IoPlanPrinter.IoPlan;
+import io.prestosql.sql.planner.planPrinter.IoPlanPrinter.IoPlan.TableColumnInfo;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.MaterializedRow;
 import io.prestosql.tests.AbstractTestIntegrationSmokeTest;
@@ -78,7 +78,7 @@ import static io.airlift.tpch.TpchTable.ORDERS;
 import static io.prestosql.SystemSessionProperties.COLOCATED_JOIN;
 import static io.prestosql.SystemSessionProperties.CONCURRENT_LIFESPANS_PER_NODE;
 import static io.prestosql.SystemSessionProperties.DYNAMIC_SCHEDULE_FOR_GROUPED_EXECUTION;
-import static io.prestosql.SystemSessionProperties.GROUPED_EXECUTION_FOR_AGGREGATION;
+import static io.prestosql.SystemSessionProperties.GROUPED_EXECUTION;
 import static io.prestosql.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.prestosql.plugin.hive.HiveColumnHandle.BUCKET_COLUMN_NAME;
 import static io.prestosql.plugin.hive.HiveColumnHandle.PATH_COLUMN_NAME;
@@ -97,6 +97,7 @@ import static io.prestosql.plugin.hive.HiveUtil.columnExtraInfo;
 import static io.prestosql.spi.predicate.Marker.Bound.EXACTLY;
 import static io.prestosql.spi.security.SelectedRole.Type.ROLE;
 import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.CharType.createCharType;
 import static io.prestosql.spi.type.DecimalType.createDecimalType;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
@@ -175,12 +176,12 @@ public class TestHiveIntegrationSmokeTest
     public void testIOExplain()
     {
         // Test IO explain with small number of discrete components.
-        computeActual("CREATE TABLE test_orders WITH (partitioned_by = ARRAY['orderkey']) AS select custkey, orderkey FROM orders where orderkey < 3");
+        computeActual("CREATE TABLE test_orders WITH (partitioned_by = ARRAY['orderkey', 'processing']) AS select custkey, orderkey, orderstatus = 'P' processing FROM orders where orderkey < 3");
 
-        MaterializedResult result = computeActual("EXPLAIN (TYPE IO, FORMAT JSON) INSERT INTO test_orders SELECT custkey, orderkey FROM test_orders where custkey <= 10");
+        MaterializedResult result = computeActual("EXPLAIN (TYPE IO, FORMAT JSON) INSERT INTO test_orders SELECT custkey, orderkey, processing FROM test_orders where custkey <= 10");
         assertEquals(
-                jsonCodec(IOPlan.class).fromJson((String) getOnlyElement(result.getOnlyColumnAsSet())),
-                new IOPlan(
+                jsonCodec(IoPlan.class).fromJson((String) getOnlyElement(result.getOnlyColumnAsSet())),
+                new IoPlan(
                         ImmutableSet.of(new TableColumnInfo(
                                 new CatalogSchemaTableName(catalog, "tpch", "test_orders"),
                                 ImmutableSet.of(
@@ -195,7 +196,16 @@ public class TestHiveIntegrationSmokeTest
                                                                         new FormattedMarker(Optional.of("1"), EXACTLY)),
                                                                 new FormattedRange(
                                                                         new FormattedMarker(Optional.of("2"), EXACTLY),
-                                                                        new FormattedMarker(Optional.of("2"), EXACTLY)))))))),
+                                                                        new FormattedMarker(Optional.of("2"), EXACTLY))))),
+                                        new ColumnConstraint(
+                                                "processing",
+                                                BOOLEAN.getTypeSignature(),
+                                                new FormattedDomain(
+                                                        false,
+                                                        ImmutableSet.of(
+                                                                new FormattedRange(
+                                                                        new FormattedMarker(Optional.of("false"), EXACTLY),
+                                                                        new FormattedMarker(Optional.of("false"), EXACTLY)))))))),
                         Optional.of(new CatalogSchemaTableName(catalog, "tpch", "test_orders"))));
 
         assertUpdate("DROP TABLE test_orders");
@@ -205,8 +215,8 @@ public class TestHiveIntegrationSmokeTest
 
         result = computeActual("EXPLAIN (TYPE IO, FORMAT JSON) INSERT INTO test_orders SELECT custkey, orderkey + 10 FROM test_orders where custkey <= 10");
         assertEquals(
-                jsonCodec(IOPlan.class).fromJson((String) getOnlyElement(result.getOnlyColumnAsSet())),
-                new IOPlan(
+                jsonCodec(IoPlan.class).fromJson((String) getOnlyElement(result.getOnlyColumnAsSet())),
+                new IoPlan(
                         ImmutableSet.of(new TableColumnInfo(
                                 new CatalogSchemaTableName(catalog, "tpch", "test_orders"),
                                 ImmutableSet.of(
@@ -222,6 +232,22 @@ public class TestHiveIntegrationSmokeTest
                         Optional.of(new CatalogSchemaTableName(catalog, "tpch", "test_orders"))));
 
         assertUpdate("DROP TABLE test_orders");
+    }
+
+    @Test
+    public void testReadNoColumns()
+    {
+        testWithAllStorageFormats(this::testReadNoColumns);
+    }
+
+    private void testReadNoColumns(Session session, HiveStorageFormat storageFormat)
+    {
+        if (!insertOperationsSupported(storageFormat)) {
+            return;
+        }
+        assertUpdate(session, format("CREATE TABLE test_read_no_columns WITH (format = '%s') AS SELECT 0 x", storageFormat), 1);
+        assertQuery(session, "SELECT count(*) FROM test_read_no_columns", "SELECT 1");
+        assertUpdate(session, "DROP TABLE test_read_no_columns");
     }
 
     @Test
@@ -2398,37 +2424,42 @@ public class TestHiveIntegrationSmokeTest
                             "WITH (bucket_count = 13, bucketed_by = ARRAY['keyD']) AS\n" +
                             "SELECT orderkey keyD, comment valueD FROM orders CROSS JOIN UNNEST(repeat(NULL, 2))",
                     30000);
+            assertUpdate(
+                    "CREATE TABLE test_grouped_window\n" +
+                            "WITH (bucket_count = 5, bucketed_by = ARRAY['key']) AS\n" +
+                            "SELECT custkey key, orderkey value FROM orders WHERE custkey <= 5 ORDER BY orderkey LIMIT 10",
+                    10);
 
             // NOT grouped execution; default
             Session notColocated = Session.builder(getSession())
                     .setSystemProperty(COLOCATED_JOIN, "false")
-                    .setSystemProperty(GROUPED_EXECUTION_FOR_AGGREGATION, "false")
+                    .setSystemProperty(GROUPED_EXECUTION, "false")
                     .build();
             // Co-located JOIN with all groups at once, fixed schedule
             Session colocatedAllGroupsAtOnce = Session.builder(getSession())
                     .setSystemProperty(COLOCATED_JOIN, "true")
-                    .setSystemProperty(GROUPED_EXECUTION_FOR_AGGREGATION, "true")
+                    .setSystemProperty(GROUPED_EXECUTION, "true")
                     .setSystemProperty(CONCURRENT_LIFESPANS_PER_NODE, "0")
                     .setSystemProperty(DYNAMIC_SCHEDULE_FOR_GROUPED_EXECUTION, "false")
                     .build();
             // Co-located JOIN, 1 group per worker at a time, fixed schedule
             Session colocatedOneGroupAtATime = Session.builder(getSession())
                     .setSystemProperty(COLOCATED_JOIN, "true")
-                    .setSystemProperty(GROUPED_EXECUTION_FOR_AGGREGATION, "true")
+                    .setSystemProperty(GROUPED_EXECUTION, "true")
                     .setSystemProperty(CONCURRENT_LIFESPANS_PER_NODE, "1")
                     .setSystemProperty(DYNAMIC_SCHEDULE_FOR_GROUPED_EXECUTION, "false")
                     .build();
             // Co-located JOIN with all groups at once, dynamic schedule
             Session colocatedAllGroupsAtOnceDynamic = Session.builder(getSession())
                     .setSystemProperty(COLOCATED_JOIN, "true")
-                    .setSystemProperty(GROUPED_EXECUTION_FOR_AGGREGATION, "true")
+                    .setSystemProperty(GROUPED_EXECUTION, "true")
                     .setSystemProperty(CONCURRENT_LIFESPANS_PER_NODE, "0")
                     .setSystemProperty(DYNAMIC_SCHEDULE_FOR_GROUPED_EXECUTION, "true")
                     .build();
             // Co-located JOIN, 1 group per worker at a time, dynamic schedule
             Session colocatedOneGroupAtATimeDynamic = Session.builder(getSession())
                     .setSystemProperty(COLOCATED_JOIN, "true")
-                    .setSystemProperty(GROUPED_EXECUTION_FOR_AGGREGATION, "true")
+                    .setSystemProperty(GROUPED_EXECUTION, "true")
                     .setSystemProperty(CONCURRENT_LIFESPANS_PER_NODE, "1")
                     .setSystemProperty(DYNAMIC_SCHEDULE_FOR_GROUPED_EXECUTION, "true")
                     .build();
@@ -2436,7 +2467,7 @@ public class TestHiveIntegrationSmokeTest
             Session broadcastOneGroupAtATime = Session.builder(getSession())
                     .setSystemProperty(JOIN_DISTRIBUTION_TYPE, BROADCAST.name())
                     .setSystemProperty(COLOCATED_JOIN, "true")
-                    .setSystemProperty(GROUPED_EXECUTION_FOR_AGGREGATION, "true")
+                    .setSystemProperty(GROUPED_EXECUTION, "true")
                     .setSystemProperty(CONCURRENT_LIFESPANS_PER_NODE, "1")
                     .build();
 
@@ -2753,6 +2784,54 @@ public class TestHiveIntegrationSmokeTest
             assertQuery(colocatedOneGroupAtATimeDynamic, chainedSharedBuildOuterJoin, expectedChainedOuterJoinResult, assertRemoteExchangesCount(2));
 
             //
+            // Window function
+            // ===============
+            assertQuery(
+                    colocatedOneGroupAtATime,
+                    "SELECT key, count(*) OVER (PARTITION BY key ORDER BY value) FROM test_grouped_window",
+                    "VALUES\n" +
+                            "(1, 1),\n" +
+                            "(2, 1),\n" +
+                            "(2, 2),\n" +
+                            "(4, 1),\n" +
+                            "(4, 2),\n" +
+                            "(4, 3),\n" +
+                            "(4, 4),\n" +
+                            "(4, 5),\n" +
+                            "(5, 1),\n" +
+                            "(5, 2)",
+                    assertRemoteExchangesCount(1));
+
+            assertQuery(
+                    colocatedOneGroupAtATime,
+                    "SELECT key, row_number() OVER (PARTITION BY key ORDER BY value) FROM test_grouped_window",
+                    "VALUES\n" +
+                            "(1, 1),\n" +
+                            "(2, 1),\n" +
+                            "(2, 2),\n" +
+                            "(4, 1),\n" +
+                            "(4, 2),\n" +
+                            "(4, 3),\n" +
+                            "(4, 4),\n" +
+                            "(4, 5),\n" +
+                            "(5, 1),\n" +
+                            "(5, 2)",
+                    assertRemoteExchangesCount(1));
+
+            assertQuery(
+                    colocatedOneGroupAtATime,
+                    "SELECT key, n FROM (SELECT key, row_number() OVER (PARTITION BY key ORDER BY value) AS n FROM test_grouped_window) WHERE n <= 2",
+                    "VALUES\n" +
+                            "(1, 1),\n" +
+                            "(2, 1),\n" +
+                            "(2, 2),\n" +
+                            "(4, 1),\n" +
+                            "(4, 2),\n" +
+                            "(5, 1),\n" +
+                            "(5, 2)",
+                    assertRemoteExchangesCount(1));
+
+            //
             // Filter out all or majority of splits
             // ====================================
             @Language("SQL") String noSplits =
@@ -2795,6 +2874,7 @@ public class TestHiveIntegrationSmokeTest
             assertUpdate("DROP TABLE IF EXISTS test_grouped_join3");
             assertUpdate("DROP TABLE IF EXISTS test_grouped_joinN");
             assertUpdate("DROP TABLE IF EXISTS test_grouped_joinDual");
+            assertUpdate("DROP TABLE IF EXISTS test_grouped_window");
         }
     }
 

@@ -61,14 +61,10 @@ import static java.util.Objects.requireNonNull;
 public class AccumuloModule
         implements Module
 {
-    private final String connectorId;
     private final TypeManager typeManager;
 
-    public AccumuloModule(
-            String connectorId,
-            TypeManager typeManager)
+    public AccumuloModule(TypeManager typeManager)
     {
-        this.connectorId = requireNonNull(connectorId, "connector id is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
     }
 
@@ -85,7 +81,6 @@ public class AccumuloModule
         binder.bind(TypeManager.class).toInstance(typeManager);
 
         binder.bind(AccumuloConnector.class).in(Scopes.SINGLETON);
-        binder.bind(AccumuloConnectorId.class).toInstance(new AccumuloConnectorId(connectorId));
         binder.bind(AccumuloMetadata.class).in(Scopes.SINGLETON);
         binder.bind(AccumuloMetadataFactory.class).in(Scopes.SINGLETON);
         binder.bind(AccumuloClient.class).in(Scopes.SINGLETON);

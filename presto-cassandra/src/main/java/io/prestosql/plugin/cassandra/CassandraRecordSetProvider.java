@@ -26,7 +26,6 @@ import javax.inject.Inject;
 
 import java.util.List;
 
-import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
@@ -35,13 +34,11 @@ public class CassandraRecordSetProvider
 {
     private static final Logger log = Logger.get(CassandraRecordSetProvider.class);
 
-    private final String connectorId;
     private final CassandraSession cassandraSession;
 
     @Inject
-    public CassandraRecordSetProvider(CassandraConnectorId connectorId, CassandraSession cassandraSession)
+    public CassandraRecordSetProvider(CassandraSession cassandraSession)
     {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
         this.cassandraSession = requireNonNull(cassandraSession, "cassandraSession is null");
     }
 
@@ -64,13 +61,5 @@ public class CassandraRecordSetProvider
         log.debug("Creating record set: %s", cql);
 
         return new CassandraRecordSet(cassandraSession, cql, cassandraColumns);
-    }
-
-    @Override
-    public String toString()
-    {
-        return toStringHelper(this)
-                .add("connectorId", connectorId)
-                .toString();
     }
 }

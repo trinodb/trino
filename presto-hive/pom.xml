@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.prestosql</groupId>
         <artifactId>presto-root</artifactId>
-        <version>302-SNAPSHOT</version>
+        <version>304-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-hive</artifactId>
@@ -163,6 +163,26 @@
         <dependency>
             <groupId>com.amazonaws</groupId>
             <artifactId>aws-java-sdk-s3</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.google.cloud.bigdataoss</groupId>
+            <artifactId>util</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.google.cloud.bigdataoss</groupId>
+            <artifactId>gcsio</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.google.cloud.bigdataoss</groupId>
+            <artifactId>util-hadoop</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.google.cloud.bigdataoss</groupId>
+            <artifactId>gcs-connector</artifactId>
         </dependency>
 
         <dependency>

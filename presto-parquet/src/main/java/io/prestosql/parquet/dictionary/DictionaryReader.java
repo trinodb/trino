@@ -13,16 +13,16 @@
  */
 package io.prestosql.parquet.dictionary;
 
+import org.apache.parquet.bytes.ByteBufferInputStream;
 import org.apache.parquet.bytes.BytesUtils;
 import org.apache.parquet.column.values.ValuesReader;
 import org.apache.parquet.column.values.rle.RunLengthBitPackingHybridDecoder;
 import org.apache.parquet.io.ParquetDecodingException;
 import org.apache.parquet.io.api.Binary;
 
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
-
-import static com.google.common.base.Preconditions.checkArgument;
+import java.io.InputStream;
+import java.nio.ByteBuffer;
 
 public class DictionaryReader
         extends ValuesReader
@@ -36,11 +36,10 @@ public class DictionaryReader
     }
 
     @Override
-    public void initFromPage(int valueCount, byte[] page, int offset)
+    public void initFromPage(int valueCount, ByteBuffer page, int offset)
             throws IOException
     {
-        checkArgument(page.length > offset, "Attempt to read offset not in the  page");
-        ByteArrayInputStream in = new ByteArrayInputStream(page, offset, page.length - offset);
+        InputStream in = new ByteBufferInputStream(page, offset, page.limit() - offset);
         int bitWidth = BytesUtils.readIntLittleEndianOnOneByte(in);
         decoder = new RunLengthBitPackingHybridDecoder(bitWidth, in);
     }

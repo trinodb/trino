@@ -60,13 +60,11 @@ import static java.util.Objects.requireNonNull;
 public class KuduMetadata
         implements ConnectorMetadata
 {
-    private final String connectorId;
     private final KuduClientSession clientSession;
 
     @Inject
-    public KuduMetadata(KuduConnectorId connectorId, KuduClientSession clientSession)
+    public KuduMetadata(KuduClientSession clientSession)
     {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
         this.clientSession = requireNonNull(clientSession, "clientSession is null");
     }
 
@@ -88,11 +86,11 @@ public class KuduMetadata
         requireNonNull(prefix, "SchemaTablePrefix is null");
 
         List<SchemaTableName> tables;
-        if (prefix.getTableName() == null) {
-            tables = listTables(session, prefix.getSchemaName());
+        if (!prefix.getTable().isPresent()) {
+            tables = listTables(session, prefix.getSchema());
         }
         else {
-            tables = ImmutableList.of(new SchemaTableName(prefix.getSchemaName(), prefix.getTableName()));
+            tables = ImmutableList.of(prefix.toSchemaTableName());
         }
 
         ImmutableMap.Builder<SchemaTableName, List<ColumnMetadata>> columns = ImmutableMap.builder();
@@ -185,7 +183,7 @@ public class KuduMetadata
     {
         try {
             KuduTable table = clientSession.openTable(schemaTableName);
-            return new KuduTableHandle(connectorId, schemaTableName, table);
+            return new KuduTableHandle(schemaTableName, table);
         }
         catch (NotFoundException e) {
             return null;
@@ -285,7 +283,6 @@ public class KuduMetadata
                 .map(TypeHelper::fromKuduColumn).collect(toImmutableList());
 
         return new KuduInsertTableHandle(
-                connectorId,
                 tableHandle.getSchemaTableName(),
                 columnTypes,
                 table);
@@ -333,7 +330,6 @@ public class KuduMetadata
                 .map(ColumnMetadata::getType).collect(toImmutableList());
 
         return new KuduOutputTableHandle(
-                connectorId,
                 finalTableMetadata.getTable(),
                 columnOriginalTypes,
                 columnTypes,

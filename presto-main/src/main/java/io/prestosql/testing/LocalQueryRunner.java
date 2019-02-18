@@ -94,7 +94,7 @@ import io.prestosql.operator.LookupJoinOperators;
 import io.prestosql.operator.OperatorContext;
 import io.prestosql.operator.OutputFactory;
 import io.prestosql.operator.PagesIndex;
-import io.prestosql.operator.StageExecutionStrategy;
+import io.prestosql.operator.StageExecutionDescriptor;
 import io.prestosql.operator.TaskContext;
 import io.prestosql.operator.index.IndexJoinLookupStats;
 import io.prestosql.server.PluginManager;
@@ -715,10 +715,10 @@ public class LocalQueryRunner
                 new OrderingCompiler());
 
         // plan query
-        StageExecutionStrategy stageExecutionStrategy = subplan.getFragment().getStageExecutionStrategy();
+        StageExecutionDescriptor stageExecutionDescriptor = subplan.getFragment().getStageExecutionDescriptor();
         LocalExecutionPlan localExecutionPlan = executionPlanner.plan(
                 taskContext,
-                stageExecutionStrategy,
+                stageExecutionDescriptor,
                 subplan.getFragment().getRoot(),
                 subplan.getFragment().getPartitioningScheme().getOutputLayout(),
                 plan.getTypes(),
@@ -734,7 +734,7 @@ public class LocalQueryRunner
             SplitSource splitSource = splitManager.getSplits(
                     session,
                     layout,
-                    stageExecutionStrategy.isGroupedExecution(tableScan.getId()) ? GROUPED_SCHEDULING : UNGROUPED_SCHEDULING);
+                    stageExecutionDescriptor.isScanGroupedExecution(tableScan.getId()) ? GROUPED_SCHEDULING : UNGROUPED_SCHEDULING);
 
             ImmutableSet.Builder<ScheduledSplit> scheduledSplits = ImmutableSet.builder();
             while (!splitSource.isFinished()) {

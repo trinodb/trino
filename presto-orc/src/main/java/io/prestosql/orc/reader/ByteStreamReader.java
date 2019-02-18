@@ -29,6 +29,7 @@ import org.openjdk.jol.info.ClassLayout;
 import javax.annotation.Nullable;
 
 import java.io.IOException;
+import java.time.ZoneId;
 import java.util.List;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -132,7 +133,7 @@ public class ByteStreamReader
     }
 
     @Override
-    public void startStripe(InputStreamSources dictionaryStreamSources, List<ColumnEncoding> encoding)
+    public void startStripe(ZoneId timeZone, InputStreamSources dictionaryStreamSources, List<ColumnEncoding> encoding)
     {
         presentStreamSource = missingStreamSource(BooleanInputStream.class);
         dataStreamSource = missingStreamSource(ByteInputStream.class);

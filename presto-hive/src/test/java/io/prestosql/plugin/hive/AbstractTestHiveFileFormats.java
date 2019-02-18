@@ -88,7 +88,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterables.filter;
 import static com.google.common.collect.Iterables.transform;
-import static io.prestosql.plugin.hive.HdfsConfigurationUpdater.configureCompression;
+import static io.prestosql.plugin.hive.HdfsConfigurationInitializer.configureCompression;
 import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
 import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.prestosql.plugin.hive.HivePartitionKey.HIVE_DEFAULT_DYNAMIC_PARTITION;

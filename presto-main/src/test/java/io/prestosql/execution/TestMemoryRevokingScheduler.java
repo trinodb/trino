@@ -24,8 +24,8 @@ import io.airlift.stats.TestingGcMonitor;
 import io.airlift.units.DataSize;
 import io.prestosql.Session;
 import io.prestosql.execution.executor.TaskExecutor;
-import io.prestosql.memory.DefaultQueryContext;
 import io.prestosql.memory.MemoryPool;
+import io.prestosql.memory.QueryContext;
 import io.prestosql.memory.context.LocalMemoryContext;
 import io.prestosql.operator.DriverContext;
 import io.prestosql.operator.OperatorContext;
@@ -293,7 +293,7 @@ public class TestMemoryRevokingScheduler
                 taskId,
                 location,
                 "fake",
-                new DefaultQueryContext(new QueryId("query"),
+                new QueryContext(new QueryId("query"),
                         new DataSize(1, MEGABYTE),
                         new DataSize(2, MEGABYTE),
                         memoryPool,

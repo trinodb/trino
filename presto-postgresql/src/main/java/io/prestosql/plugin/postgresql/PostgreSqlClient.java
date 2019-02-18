@@ -15,9 +15,13 @@ package io.prestosql.plugin.postgresql;
 
 import io.prestosql.plugin.jdbc.BaseJdbcClient;
 import io.prestosql.plugin.jdbc.BaseJdbcConfig;
+import io.prestosql.plugin.jdbc.ColumnMapping;
 import io.prestosql.plugin.jdbc.DriverConnectionFactory;
 import io.prestosql.plugin.jdbc.JdbcConnectorId;
 import io.prestosql.plugin.jdbc.JdbcOutputTableHandle;
+import io.prestosql.plugin.jdbc.JdbcTypeHandle;
+import io.prestosql.plugin.jdbc.WriteMapping;
+import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.type.Type;
 import org.postgresql.Driver;
 
@@ -28,7 +32,9 @@ import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.Optional;
 
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.varbinaryWriteFunction;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static java.lang.String.format;
 
@@ -82,12 +88,19 @@ public class PostgreSqlClient
     }
 
     @Override
-    protected String toSqlType(Type type)
+    public Optional<ColumnMapping> toPrestoType(ConnectorSession session, JdbcTypeHandle typeHandle)
+    {
+        // TODO support PostgreSQL's TIMESTAMP WITH TIME ZONE and TIME WITH TIME ZONE explicitly, otherwise predicate pushdown for these types may be incorrect
+        return super.toPrestoType(session, typeHandle);
+    }
+
+    @Override
+    public WriteMapping toWriteMapping(Type type)
     {
         if (VARBINARY.equals(type)) {
-            return "bytea";
+            return WriteMapping.sliceMapping("bytea", varbinaryWriteFunction());
         }
 
-        return super.toSqlType(type);
+        return super.toWriteMapping(type);
     }
 }

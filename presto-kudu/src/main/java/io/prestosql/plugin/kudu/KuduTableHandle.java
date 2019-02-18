@@ -21,30 +21,22 @@ import org.apache.kudu.client.KuduTable;
 
 import java.util.Objects;
 
-import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public class KuduTableHandle
         implements ConnectorTableHandle
 {
-    private final String connectorId;
     private final SchemaTableName schemaTableName;
     private transient KuduTable table;
 
     @JsonCreator
-    public KuduTableHandle(
-            @JsonProperty("connectorId") String connectorId,
-            @JsonProperty("schemaTableName") SchemaTableName schemaTableName)
+    public KuduTableHandle(@JsonProperty("schemaTableName") SchemaTableName schemaTableName)
     {
-        this(connectorId, schemaTableName, null);
+        this(schemaTableName, null);
     }
 
-    public KuduTableHandle(
-            String connectorId,
-            SchemaTableName schemaTableName,
-            KuduTable table)
+    public KuduTableHandle(SchemaTableName schemaTableName, KuduTable table)
     {
-        this.connectorId = requireNonNull(connectorId.toLowerCase(ENGLISH), "connectorId is null");
         this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
         this.table = table;
     }
@@ -58,12 +50,6 @@ public class KuduTableHandle
     }
 
     @JsonProperty
-    public String getConnectorId()
-    {
-        return connectorId;
-    }
-
-    @JsonProperty
     public SchemaTableName getSchemaTableName()
     {
         return schemaTableName;
@@ -72,7 +58,7 @@ public class KuduTableHandle
     @Override
     public int hashCode()
     {
-        return Objects.hash(connectorId, schemaTableName);
+        return Objects.hash(schemaTableName);
     }
 
     @Override
@@ -86,13 +72,12 @@ public class KuduTableHandle
         }
 
         KuduTableHandle other = (KuduTableHandle) obj;
-        return Objects.equals(this.connectorId, other.connectorId) && this.schemaTableName
-                .equals(other.getSchemaTableName());
+        return this.schemaTableName.equals(other.getSchemaTableName());
     }
 
     @Override
     public String toString()
     {
-        return connectorId + ":" + schemaTableName;
+        return schemaTableName.toString();
     }
 }

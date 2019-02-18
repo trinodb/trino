@@ -31,20 +31,18 @@ public class KuduInsertTableHandle
 
     @JsonCreator
     public KuduInsertTableHandle(
-            @JsonProperty("connectorId") String connectorId,
             @JsonProperty("schemaTableName") SchemaTableName schemaTableName,
             @JsonProperty("columnTypes") List<Type> columnTypes)
     {
-        this(connectorId, schemaTableName, columnTypes, null);
+        this(schemaTableName, columnTypes, null);
     }
 
     public KuduInsertTableHandle(
-            String connectorId,
             SchemaTableName schemaTableName,
             List<Type> columnTypes,
             KuduTable table)
     {
-        super(connectorId, schemaTableName, table);
+        super(schemaTableName, table);
         this.columnTypes = ImmutableList.copyOf(columnTypes);
     }
 

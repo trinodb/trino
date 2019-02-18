@@ -36,9 +36,11 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
+import static io.prestosql.operator.Operator.NOT_BLOCKED;
 import static java.lang.Math.max;
 
 public class SpillableHashAggregationBuilder
@@ -68,6 +70,7 @@ public class SpillableHashAggregationBuilder
 
     private long hashCollisions;
     private double expectedHashCollisions;
+    private boolean producingOutput;
 
     public SpillableHashAggregationBuilder(
             List<AccumulatorFactory> accumulatorFactories,
@@ -112,8 +115,15 @@ public class SpillableHashAggregationBuilder
     public void updateMemory()
     {
         checkState(spillInProgress.isDone());
-        localUserMemoryContext.setBytes(emptyHashAggregationBuilderSize);
-        localRevocableMemoryContext.setBytes(hashAggregationBuilder.getSizeInMemory() - emptyHashAggregationBuilderSize);
+
+        if (producingOutput) {
+            localRevocableMemoryContext.setBytes(0);
+            localUserMemoryContext.setBytes(hashAggregationBuilder.getSizeInMemory());
+        }
+        else {
+            localUserMemoryContext.setBytes(emptyHashAggregationBuilderSize);
+            localRevocableMemoryContext.setBytes(hashAggregationBuilder.getSizeInMemory() - emptyHashAggregationBuilderSize);
+        }
     }
 
     public long getSizeInMemory()
@@ -154,9 +164,13 @@ public class SpillableHashAggregationBuilder
     @Override
     public ListenableFuture<?> startMemoryRevoke()
     {
-        checkState(spillInProgress.isDone());
-        spillToDisk();
-        return spillInProgress;
+        if (producingOutput) {
+            // all revocable memory has been released in buildResult method
+            verify(localRevocableMemoryContext.getBytes() == 0);
+            return NOT_BLOCKED;
+        }
+
+        return spillToDisk();
     }
 
     @Override
@@ -174,6 +188,22 @@ public class SpillableHashAggregationBuilder
     public WorkProcessor<Page> buildResult()
     {
         checkState(hasPreviousSpillCompletedSuccessfully(), "Previous spill hasn't yet finished");
+        producingOutput = true;
+
+        // Convert revocable memory to user memory as returned WorkProcessor holds on to memory so we no longer can revoke.
+        if (localRevocableMemoryContext.getBytes() > 0) {
+            long currentRevocableBytes = localRevocableMemoryContext.getBytes();
+            localRevocableMemoryContext.setBytes(0);
+            if (!localUserMemoryContext.trySetBytes(localUserMemoryContext.getBytes() + currentRevocableBytes)) {
+                // TODO: this might fail (even though we have just released memory), but we don't
+                // have a proper way to atomically convert memory reservations
+                localRevocableMemoryContext.setBytes(currentRevocableBytes);
+                // spill since revocable memory could not be converted to user memory immediately
+                // TODO: this should be asynchronous
+                getFutureValue(spillToDisk());
+                updateMemory();
+            }
+        }
 
         if (!spiller.isPresent()) {
             return hashAggregationBuilder.buildResult();

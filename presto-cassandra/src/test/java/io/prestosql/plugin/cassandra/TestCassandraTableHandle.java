@@ -25,12 +25,11 @@ public class TestCassandraTableHandle
     @Test
     public void testRoundTrip()
     {
-        CassandraTableHandle expected = new CassandraTableHandle("client", "schema", "table");
+        CassandraTableHandle expected = new CassandraTableHandle("schema", "table");
 
         String json = codec.toJson(expected);
         CassandraTableHandle actual = codec.fromJson(json);
 
-        assertEquals(actual.getConnectorId(), expected.getConnectorId());
         assertEquals(actual.getSchemaTableName(), expected.getSchemaTableName());
     }
 }

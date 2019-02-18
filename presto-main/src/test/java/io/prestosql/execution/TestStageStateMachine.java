@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.cost.StatsAndCosts;
 import io.prestosql.execution.scheduler.SplitSchedulerStats;
-import io.prestosql.operator.StageExecutionStrategy;
 import io.prestosql.sql.planner.Partitioning;
 import io.prestosql.sql.planner.PartitioningScheme;
 import io.prestosql.sql.planner.PlanFragment;
@@ -32,9 +31,11 @@ import org.testng.annotations.Test;
 import java.io.IOException;
 import java.net.URI;
 import java.sql.SQLException;
+import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 
 import static io.prestosql.SessionTestUtils.TEST_SESSION;
+import static io.prestosql.operator.StageExecutionDescriptor.ungroupedExecution;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.prestosql.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
@@ -331,8 +332,9 @@ public class TestStageStateMachine
                 SOURCE_DISTRIBUTION,
                 ImmutableList.of(valuesNodeId),
                 new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(symbol)),
-                StageExecutionStrategy.ungroupedExecution(),
-                StatsAndCosts.empty());
+                ungroupedExecution(),
+                StatsAndCosts.empty(),
+                Optional.empty());
 
         return planFragment;
     }

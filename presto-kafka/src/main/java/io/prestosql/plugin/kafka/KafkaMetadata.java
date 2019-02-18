@@ -111,11 +111,11 @@ public class KafkaMetadata
     }
 
     @Override
-    public List<SchemaTableName> listTables(ConnectorSession session, String schemaNameOrNull)
+    public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
     {
         ImmutableList.Builder<SchemaTableName> builder = ImmutableList.builder();
         for (SchemaTableName tableName : tableDescriptions.keySet()) {
-            if (schemaNameOrNull == null || tableName.getSchemaName().equals(schemaNameOrNull)) {
+            if (schemaName.map(tableName.getSchemaName()::equals).orElse(true)) {
                 builder.add(tableName);
             }
         }
@@ -173,8 +173,8 @@ public class KafkaMetadata
         ImmutableMap.Builder<SchemaTableName, List<ColumnMetadata>> columns = ImmutableMap.builder();
 
         List<SchemaTableName> tableNames;
-        if (prefix.getTableName() == null) {
-            tableNames = listTables(session, prefix.getSchemaName());
+        if (!prefix.getTable().isPresent()) {
+            tableNames = listTables(session, prefix.getSchema());
         }
         else {
             tableNames = ImmutableList.of(prefix.toSchemaTableName());

@@ -127,7 +127,7 @@ public final class ModelUtils
     public static Model deserialize(Slice slice)
     {
         int version = slice.getInt(VERSION_OFFSET);
-        checkArgument(version == CURRENT_FORMAT_VERSION, format("Unsupported version: %d", version));
+        checkArgument(version == CURRENT_FORMAT_VERSION, "Unsupported version: %s", version);
 
         byte[] modelHashBytes = slice.getBytes(HASH_OFFSET, 32);
         HashCode expectedHash = HashCode.fromBytes(modelHashBytes);

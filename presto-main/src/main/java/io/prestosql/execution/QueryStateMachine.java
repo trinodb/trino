@@ -111,6 +111,7 @@ public class QueryStateMachine
     private final AtomicLong currentTotalMemory = new AtomicLong();
     private final AtomicLong peakTotalMemory = new AtomicLong();
 
+    private final AtomicLong peakTaskUserMemory = new AtomicLong();
     private final AtomicLong peakTaskTotalMemory = new AtomicLong();
 
     private final QueryStateTimer queryStateTimer;
@@ -252,6 +253,11 @@ public class QueryStateMachine
         return peakTotalMemory.get();
     }
 
+    public long getPeakTaskUserMemory()
+    {
+        return peakTaskUserMemory.get();
+    }
+
     public long getPeakTaskTotalMemory()
     {
         return peakTaskTotalMemory.get();
@@ -262,12 +268,13 @@ public class QueryStateMachine
         return warningCollector;
     }
 
-    public void updateMemoryUsage(long deltaUserMemoryInBytes, long deltaTotalMemoryInBytes, long taskTotalMemoryInBytes)
+    public void updateMemoryUsage(long deltaUserMemoryInBytes, long deltaTotalMemoryInBytes, long taskUserMemoryInBytes, long taskTotalMemoryInBytes)
     {
         currentUserMemory.addAndGet(deltaUserMemoryInBytes);
         currentTotalMemory.addAndGet(deltaTotalMemoryInBytes);
         peakUserMemory.updateAndGet(currentPeakValue -> Math.max(currentUserMemory.get(), currentPeakValue));
         peakTotalMemory.updateAndGet(currentPeakValue -> Math.max(currentTotalMemory.get(), currentPeakValue));
+        peakTaskUserMemory.accumulateAndGet(taskUserMemoryInBytes, Math::max);
         peakTaskTotalMemory.accumulateAndGet(taskTotalMemoryInBytes, Math::max);
     }
 
@@ -515,6 +522,7 @@ public class QueryStateMachine
                 succinctBytes(totalMemoryReservation),
                 succinctBytes(getPeakUserMemoryInBytes()),
                 succinctBytes(getPeakTotalMemoryInBytes()),
+                succinctBytes(getPeakTaskUserMemory()),
                 succinctBytes(getPeakTaskTotalMemory()),
 
                 isScheduled,
@@ -997,6 +1005,7 @@ public class QueryStateMachine
                 queryStats.getTotalMemoryReservation(),
                 queryStats.getPeakUserMemoryReservation(),
                 queryStats.getPeakTotalMemoryReservation(),
+                queryStats.getPeakTaskUserMemory(),
                 queryStats.getPeakTaskTotalMemory(),
                 queryStats.isScheduled(),
                 queryStats.getTotalScheduledTime(),

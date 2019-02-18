@@ -41,27 +41,9 @@ public class SchemaTablePrefix
         this.tableName = Optional.of(checkNotEmpty(tableName, "tableName"));
     }
 
-    /**
-     * @deprecated replaced by {@link #getSchema()}
-     */
-    @Deprecated
-    public String getSchemaName()
-    {
-        return schemaName.orElse(null);
-    }
-
     public Optional<String> getSchema()
     {
         return schemaName;
-    }
-
-    /**
-     * @deprecated replaced by {@link #getTable()}
-     */
-    @Deprecated
-    public String getTableName()
-    {
-        return tableName.orElse(null);
     }
 
     public Optional<String> getTable()
@@ -72,7 +54,7 @@ public class SchemaTablePrefix
     public boolean matches(SchemaTableName schemaTableName)
     {
         // empty prefix matches everything
-        if (!schemaName.isPresent()) {
+        if (isEmpty()) {
             return true;
         }
 
@@ -83,12 +65,23 @@ public class SchemaTablePrefix
         return !tableName.isPresent() || tableName.get().equals(schemaTableName.getTableName());
     }
 
+    public boolean isEmpty()
+    {
+        return !schemaName.isPresent();
+    }
+
     public SchemaTableName toSchemaTableName()
     {
+        return toOptionalSchemaTableName()
+                .orElseThrow(() -> new IllegalStateException("both schemaName and tableName must be set"));
+    }
+
+    public Optional<SchemaTableName> toOptionalSchemaTableName()
+    {
         if (schemaName.isPresent() && tableName.isPresent()) {
-            return new SchemaTableName(schemaName.get(), tableName.get());
+            return Optional.of(new SchemaTableName(schemaName.get(), tableName.get()));
         }
-        throw new IllegalStateException("both schemaName and tableName must be set");
+        return Optional.empty();
     }
 
     @Override

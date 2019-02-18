@@ -24,7 +24,6 @@ import org.apache.parquet.bytes.BytesUtils;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.column.values.ValuesReader;
 import org.apache.parquet.column.values.bitpacking.ByteBitPackingValuesReader;
-import org.apache.parquet.column.values.boundedint.ZeroIntegerValuesReader;
 import org.apache.parquet.column.values.delta.DeltaBinaryPackingValuesReader;
 import org.apache.parquet.column.values.deltalengthbytearray.DeltaLengthByteArrayValuesReader;
 import org.apache.parquet.column.values.deltastrings.DeltaByteArrayReader;
@@ -36,6 +35,7 @@ import org.apache.parquet.column.values.plain.PlainValuesReader.FloatPlainValues
 import org.apache.parquet.column.values.plain.PlainValuesReader.IntegerPlainValuesReader;
 import org.apache.parquet.column.values.plain.PlainValuesReader.LongPlainValuesReader;
 import org.apache.parquet.column.values.rle.RunLengthBitPackingHybridValuesReader;
+import org.apache.parquet.column.values.rle.ZeroIntegerValuesReader;
 import org.apache.parquet.io.ParquetDecodingException;
 
 import java.io.IOException;

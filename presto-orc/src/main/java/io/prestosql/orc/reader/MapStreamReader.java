@@ -21,11 +21,11 @@ import io.prestosql.orc.metadata.ColumnEncoding.ColumnEncodingKind;
 import io.prestosql.orc.stream.InputStreamSources;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.type.Type;
-import org.joda.time.DateTimeZone;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.time.ZoneId;
 import java.util.List;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -45,11 +45,11 @@ public class MapStreamReader
     private final MapFlatStreamReader flatReader;
     private StreamReader currentReader;
 
-    public MapStreamReader(StreamDescriptor streamDescriptor, DateTimeZone hiveStorageTimeZone, AggregatedMemoryContext systemMemoryContext)
+    public MapStreamReader(StreamDescriptor streamDescriptor, AggregatedMemoryContext systemMemoryContext)
     {
         this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
-        directReader = new MapDirectStreamReader(streamDescriptor, hiveStorageTimeZone, systemMemoryContext);
-        flatReader = new MapFlatStreamReader(streamDescriptor, hiveStorageTimeZone, systemMemoryContext);
+        directReader = new MapDirectStreamReader(streamDescriptor, systemMemoryContext);
+        flatReader = new MapFlatStreamReader(streamDescriptor, systemMemoryContext);
     }
 
     @Override
@@ -66,7 +66,7 @@ public class MapStreamReader
     }
 
     @Override
-    public void startStripe(InputStreamSources dictionaryStreamSources, List<ColumnEncoding> encoding)
+    public void startStripe(ZoneId timeZone, InputStreamSources dictionaryStreamSources, List<ColumnEncoding> encoding)
             throws IOException
     {
         ColumnEncodingKind kind = encoding.get(streamDescriptor.getStreamId())
@@ -82,7 +82,7 @@ public class MapStreamReader
             throw new IllegalArgumentException("Unsupported encoding " + kind);
         }
 
-        currentReader.startStripe(dictionaryStreamSources, encoding);
+        currentReader.startStripe(timeZone, dictionaryStreamSources, encoding);
     }
 
     @Override

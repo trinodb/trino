@@ -156,11 +156,11 @@ public class RedisMetadata
     }
 
     @Override
-    public List<SchemaTableName> listTables(ConnectorSession session, String schemaNameOrNull)
+    public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
     {
         ImmutableList.Builder<SchemaTableName> builder = ImmutableList.builder();
         for (SchemaTableName tableName : getDefinedTables().keySet()) {
-            if (schemaNameOrNull == null || tableName.getSchemaName().equals(schemaNameOrNull)) {
+            if (schemaName.map(tableName.getSchemaName()::equals).orElse(true)) {
                 builder.add(tableName);
             }
         }
@@ -219,8 +219,8 @@ public class RedisMetadata
         ImmutableMap.Builder<SchemaTableName, List<ColumnMetadata>> columns = ImmutableMap.builder();
 
         List<SchemaTableName> tableNames;
-        if (prefix.getTableName() == null) {
-            tableNames = listTables(session, prefix.getSchemaName());
+        if (!prefix.getTable().isPresent()) {
+            tableNames = listTables(session, prefix.getSchema());
         }
         else {
             tableNames = ImmutableList.of(prefix.toSchemaTableName());

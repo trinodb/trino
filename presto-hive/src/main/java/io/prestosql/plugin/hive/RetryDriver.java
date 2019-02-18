@@ -27,14 +27,15 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class RetryDriver
 {
     private static final Logger log = Logger.get(RetryDriver.class);
-    private static final int DEFAULT_RETRY_ATTEMPTS = 10;
-    private static final Duration DEFAULT_SLEEP_TIME = Duration.valueOf("1s");
-    private static final Duration DEFAULT_MAX_RETRY_TIME = Duration.valueOf("30s");
-    private static final double DEFAULT_SCALE_FACTOR = 2.0;
+    public static final int DEFAULT_MAX_ATTEMPTS = 10;
+    public static final Duration DEFAULT_SLEEP_TIME = new Duration(1, SECONDS);
+    public static final Duration DEFAULT_MAX_RETRY_TIME = new Duration(30, SECONDS);
+    public static final double DEFAULT_SCALE_FACTOR = 2.0;
 
     private final int maxAttempts;
     private final Duration minSleepTime;
@@ -67,7 +68,7 @@ public class RetryDriver
 
     private RetryDriver()
     {
-        this(DEFAULT_RETRY_ATTEMPTS,
+        this(DEFAULT_MAX_ATTEMPTS,
                 DEFAULT_SLEEP_TIME,
                 DEFAULT_SLEEP_TIME,
                 DEFAULT_SCALE_FACTOR,

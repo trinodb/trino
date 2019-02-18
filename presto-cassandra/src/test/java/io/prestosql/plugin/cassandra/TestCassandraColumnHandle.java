@@ -27,12 +27,11 @@ public class TestCassandraColumnHandle
     @Test
     public void testRoundTrip()
     {
-        CassandraColumnHandle expected = new CassandraColumnHandle("connector", "name", 42, CassandraType.FLOAT, null, true, false, false, false);
+        CassandraColumnHandle expected = new CassandraColumnHandle("name", 42, CassandraType.FLOAT, null, true, false, false, false);
 
         String json = codec.toJson(expected);
         CassandraColumnHandle actual = codec.fromJson(json);
 
-        assertEquals(actual.getConnectorId(), expected.getConnectorId());
         assertEquals(actual.getName(), expected.getName());
         assertEquals(actual.getOrdinalPosition(), expected.getOrdinalPosition());
         assertEquals(actual.getCassandraType(), expected.getCassandraType());
@@ -44,7 +43,6 @@ public class TestCassandraColumnHandle
     public void testRoundTrip2()
     {
         CassandraColumnHandle expected = new CassandraColumnHandle(
-                "connector",
                 "name2",
                 1,
                 CassandraType.MAP,
@@ -57,7 +55,6 @@ public class TestCassandraColumnHandle
         String json = codec.toJson(expected);
         CassandraColumnHandle actual = codec.fromJson(json);
 
-        assertEquals(actual.getConnectorId(), expected.getConnectorId());
         assertEquals(actual.getName(), expected.getName());
         assertEquals(actual.getOrdinalPosition(), expected.getOrdinalPosition());
         assertEquals(actual.getCassandraType(), expected.getCassandraType());

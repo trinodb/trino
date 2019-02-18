@@ -22,6 +22,8 @@ import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
 import io.prestosql.operator.PagesIndex;
 import io.prestosql.plugin.hive.authentication.NoHdfsAuthentication;
+import io.prestosql.plugin.hive.gcs.GoogleGcsConfigurationInitializer;
+import io.prestosql.plugin.hive.gcs.HiveGcsConfig;
 import io.prestosql.plugin.hive.orc.DwrfPageSourceFactory;
 import io.prestosql.plugin.hive.orc.OrcPageSourceFactory;
 import io.prestosql.plugin.hive.parquet.ParquetPageSourceFactory;
@@ -121,7 +123,12 @@ public final class HiveTestUtils
 
     public static HdfsEnvironment createTestHdfsEnvironment(HiveClientConfig config)
     {
-        HdfsConfiguration hdfsConfig = new HiveHdfsConfiguration(new HdfsConfigurationUpdater(config, new PrestoS3ConfigurationUpdater(new HiveS3Config())));
+        HdfsConfiguration hdfsConfig = new HiveHdfsConfiguration(
+                new HdfsConfigurationInitializer(
+                        config,
+                        new PrestoS3ConfigurationUpdater(new HiveS3Config()),
+                        new GoogleGcsConfigurationInitializer(new HiveGcsConfig())),
+                ImmutableSet.of());
         return new HdfsEnvironment(hdfsConfig, config, new NoHdfsAuthentication());
     }
 

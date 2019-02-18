@@ -119,26 +119,24 @@ public class TpchMetadata
             .map(value -> new NullableValue(getPrestoType(PartColumn.CONTAINER), value))
             .collect(toSet());
 
-    private final String connectorId;
     private final Set<String> tableNames;
     private final ColumnNaming columnNaming;
     private final StatisticsEstimator statisticsEstimator;
     private final boolean predicatePushdownEnabled;
     private final boolean partitioningEnabled;
 
-    public TpchMetadata(String connectorId)
+    public TpchMetadata()
     {
-        this(connectorId, ColumnNaming.SIMPLIFIED, true, true);
+        this(ColumnNaming.SIMPLIFIED, true, true);
     }
 
-    public TpchMetadata(String connectorId, ColumnNaming columnNaming, boolean predicatePushdownEnabled, boolean partitioningEnabled)
+    public TpchMetadata(ColumnNaming columnNaming, boolean predicatePushdownEnabled, boolean partitioningEnabled)
     {
         ImmutableSet.Builder<String> tableNames = ImmutableSet.builder();
         for (TpchTable<?> tpchTable : TpchTable.getTables()) {
             tableNames.add(tpchTable.getTableName());
         }
         this.tableNames = tableNames.build();
-        this.connectorId = connectorId;
         this.columnNaming = columnNaming;
         this.predicatePushdownEnabled = predicatePushdownEnabled;
         this.partitioningEnabled = partitioningEnabled;
@@ -310,7 +308,7 @@ public class TpchMetadata
         ImmutableMap.Builder<SchemaTableName, List<ColumnMetadata>> tableColumns = ImmutableMap.builder();
         for (String schemaName : getSchemaNames(session, prefix.getSchema())) {
             for (TpchTable<?> tpchTable : TpchTable.getTables()) {
-                if (prefix.getTableName() == null || tpchTable.getTableName().equals(prefix.getTableName())) {
+                if (prefix.getTable().map(tpchTable.getTableName()::equals).orElse(true)) {
                     ConnectorTableMetadata tableMetadata = getTableMetadata(schemaName, tpchTable, columnNaming);
                     tableColumns.put(new SchemaTableName(schemaName, tpchTable.getTableName()), tableMetadata.getColumns());
                 }

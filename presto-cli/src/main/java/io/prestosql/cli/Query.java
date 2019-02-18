@@ -115,7 +115,7 @@ public class Query
         return client.isClearTransactionId();
     }
 
-    public boolean renderOutput(PrintStream out, OutputFormat outputFormat, boolean interactive)
+    public boolean renderOutput(PrintStream out, PrintStream errorChannel, OutputFormat outputFormat, boolean usePager, boolean showProgress)
     {
         Thread clientThread = Thread.currentThread();
         SignalHandler oldHandler = Signal.handle(SIGINT, signal -> {
@@ -126,7 +126,7 @@ public class Query
             clientThread.interrupt();
         });
         try {
-            return renderQueryOutput(out, outputFormat, interactive);
+            return renderQueryOutput(out, errorChannel, outputFormat, usePager, showProgress);
         }
         finally {
             Signal.handle(SIGINT, oldHandler);
@@ -134,15 +134,13 @@ public class Query
         }
     }
 
-    private boolean renderQueryOutput(PrintStream out, OutputFormat outputFormat, boolean interactive)
+    private boolean renderQueryOutput(PrintStream out, PrintStream errorChannel, OutputFormat outputFormat, boolean usePager, boolean showProgress)
     {
         StatusPrinter statusPrinter = null;
-        @SuppressWarnings("resource")
-        PrintStream errorChannel = interactive ? out : System.err;
-        WarningsPrinter warningsPrinter = new PrintStreamWarningsPrinter(System.err);
+        WarningsPrinter warningsPrinter = new PrintStreamWarningsPrinter(errorChannel);
 
-        if (interactive) {
-            statusPrinter = new StatusPrinter(client, out, debug);
+        if (showProgress) {
+            statusPrinter = new StatusPrinter(client, errorChannel, debug);
             statusPrinter.printInitialStatusUpdates();
         }
         else {
@@ -160,20 +158,16 @@ public class Query
                 return false;
             }
             else {
-                renderResults(out, outputFormat, interactive, results.getColumns());
+                renderResults(out, outputFormat, usePager, results.getColumns());
             }
         }
 
         checkState(!client.isRunning());
 
-        if (statusPrinter != null) {
-            // Print all warnings at the end of the query
-            new PrintStreamWarningsPrinter(System.err).print(client.finalStatusInfo().getWarnings(), true, true);
+        warningsPrinter.print(client.finalStatusInfo().getWarnings(), true, true);
+
+        if (showProgress) {
             statusPrinter.printFinalInfo();
-        }
-        else {
-            // Print remaining warnings separated
-            warningsPrinter.print(client.finalStatusInfo().getWarnings(), true, true);
         }
 
         if (client.isClientAborted()) {

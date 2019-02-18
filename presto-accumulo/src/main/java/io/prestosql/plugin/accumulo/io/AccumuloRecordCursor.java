@@ -75,8 +75,6 @@ public class AccumuloRecordCursor
     private final AccumuloRowSerializer serializer;
 
     private long bytesRead;
-    private long nanoStart;
-    private long nanoEnd;
 
     public AccumuloRecordCursor(
             AccumuloRowSerializer serializer,
@@ -147,7 +145,7 @@ public class AccumuloRecordCursor
     @Override
     public long getReadTimeNanos()
     {
-        return nanoStart > 0L ? (nanoEnd == 0 ? System.nanoTime() : nanoEnd) - nanoStart : 0L;
+        return 0;
     }
 
     @Override
@@ -160,10 +158,6 @@ public class AccumuloRecordCursor
     @Override
     public boolean advanceNextPosition()
     {
-        if (nanoStart == 0) {
-            nanoStart = System.nanoTime();
-        }
-
         try {
             if (iterator.hasNext()) {
                 serializer.reset();
@@ -270,7 +264,6 @@ public class AccumuloRecordCursor
     public void close()
     {
         scanner.close();
-        nanoEnd = System.nanoTime();
     }
 
     /**

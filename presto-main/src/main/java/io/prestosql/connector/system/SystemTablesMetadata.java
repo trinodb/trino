@@ -98,12 +98,12 @@ public class SystemTablesMetadata
     }
 
     @Override
-    public List<SchemaTableName> listTables(ConnectorSession session, String schemaNameOrNull)
+    public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
     {
         return tables.listSystemTables(session).stream()
                 .map(SystemTable::getTableMetadata)
                 .map(ConnectorTableMetadata::getTable)
-                .filter(table -> schemaNameOrNull == null || table.getSchemaName().equals(schemaNameOrNull))
+                .filter(table -> !schemaName.isPresent() || table.getSchemaName().equals(schemaName.get()))
                 .collect(toImmutableList());
     }
 
@@ -139,7 +139,7 @@ public class SystemTablesMetadata
     {
         requireNonNull(prefix, "prefix is null");
 
-        if (prefix.getTableName() != null) {
+        if (prefix.getTable().isPresent()) {
             // if table is concrete we just use tables.getSystemTable to support tables which are not listable
             SchemaTableName tableName = prefix.toSchemaTableName();
             return tables.getSystemTable(session, tableName)

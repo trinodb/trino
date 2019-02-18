@@ -77,6 +77,7 @@ import static io.prestosql.plugin.hive.HiveUtil.isPrestoView;
 import static io.prestosql.plugin.hive.HiveUtil.toPartitionValues;
 import static io.prestosql.plugin.hive.HiveWriteUtils.createDirectory;
 import static io.prestosql.plugin.hive.HiveWriteUtils.pathExists;
+import static io.prestosql.plugin.hive.LocationHandle.WriteMode.DIRECT_TO_TARGET_NEW_DIRECTORY;
 import static io.prestosql.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege.OWNERSHIP;
 import static io.prestosql.plugin.hive.util.Statistics.ReduceOperator.SUBTRACT;
 import static io.prestosql.plugin.hive.util.Statistics.merge;
@@ -99,6 +100,7 @@ public class SemiTransactionalHiveMetastore
     private final HdfsEnvironment hdfsEnvironment;
     private final Executor renameExecutor;
     private final boolean skipDeletionForAlter;
+    private final boolean skipTargetCleanupOnRollback;
 
     @GuardedBy("this")
     private final Map<SchemaTableName, Action<TableAndMore>> tableActions = new HashMap<>();
@@ -112,12 +114,13 @@ public class SemiTransactionalHiveMetastore
     private State state = State.EMPTY;
     private boolean throwOnCleanupFailure;
 
-    public SemiTransactionalHiveMetastore(HdfsEnvironment hdfsEnvironment, ExtendedHiveMetastore delegate, Executor renameExecutor, boolean skipDeletionForAlter)
+    public SemiTransactionalHiveMetastore(HdfsEnvironment hdfsEnvironment, ExtendedHiveMetastore delegate, Executor renameExecutor, boolean skipDeletionForAlter, boolean skipTargetCleanupOnRollback)
     {
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.delegate = requireNonNull(delegate, "delegate is null");
         this.renameExecutor = requireNonNull(renameExecutor, "renameExecutor is null");
-        this.skipDeletionForAlter = requireNonNull(skipDeletionForAlter, "skipDeletionForAlter is null");
+        this.skipDeletionForAlter = skipDeletionForAlter;
+        this.skipTargetCleanupOnRollback = skipTargetCleanupOnRollback;
     }
 
     public synchronized List<String> getAllDatabases()
@@ -1482,8 +1485,12 @@ public class SemiTransactionalHiveMetastore
             switch (declaredIntentionToWrite.getMode()) {
                 case STAGE_AND_MOVE_TO_TARGET_DIRECTORY:
                 case DIRECT_TO_TARGET_NEW_DIRECTORY: {
-                    // Note: there is no need to cleanup the target directory as it will only be written
-                    // to during the commit call and the commit call cleans up after failures.
+                    // For STAGE_AND_MOVE_TO_TARGET_DIRECTORY, there is no need to cleanup the target directory as
+                    // it will only be written to during the commit call and the commit call cleans up after failures.
+                    if ((declaredIntentionToWrite.getMode() == DIRECT_TO_TARGET_NEW_DIRECTORY) && skipTargetCleanupOnRollback) {
+                        break;
+                    }
+
                     Path rootPath = declaredIntentionToWrite.getRootPath();
 
                     // In the case of DIRECT_TO_TARGET_NEW_DIRECTORY, if the directory is not guaranteed to be unique

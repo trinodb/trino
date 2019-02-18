@@ -43,7 +43,9 @@ import java.util.List;
 import java.util.Map.Entry;
 import java.util.Set;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Sets.union;
+import static io.prestosql.connector.informationSchema.InformationSchemaMetadata.TABLES;
 import static io.prestosql.connector.informationSchema.InformationSchemaMetadata.TABLE_APPLICABLE_ROLES;
 import static io.prestosql.connector.informationSchema.InformationSchemaMetadata.TABLE_COLUMNS;
 import static io.prestosql.connector.informationSchema.InformationSchemaMetadata.TABLE_ENABLED_ROLES;
@@ -52,7 +54,6 @@ import static io.prestosql.connector.informationSchema.InformationSchemaMetadata
 import static io.prestosql.connector.informationSchema.InformationSchemaMetadata.TABLE_TABLES;
 import static io.prestosql.connector.informationSchema.InformationSchemaMetadata.TABLE_TABLE_PRIVILEGES;
 import static io.prestosql.connector.informationSchema.InformationSchemaMetadata.TABLE_VIEWS;
-import static io.prestosql.connector.informationSchema.InformationSchemaMetadata.informationSchemaTableColumns;
 import static io.prestosql.metadata.MetadataListing.listSchemas;
 import static io.prestosql.metadata.MetadataListing.listTableColumns;
 import static io.prestosql.metadata.MetadataListing.listTablePrivileges;
@@ -77,7 +78,7 @@ public class InformationSchemaPageSourceProvider
     @Override
     public ConnectorPageSource createPageSource(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorSplit split, List<ColumnHandle> columns)
     {
-        InternalTable table = getInternalTable(session, split, columns);
+        InternalTable table = getInternalTable(session, split);
 
         List<Integer> channels = new ArrayList<>();
         for (ColumnHandle column : columns) {
@@ -97,12 +98,10 @@ public class InformationSchemaPageSourceProvider
         return new FixedPageSource(pages.build());
     }
 
-    private InternalTable getInternalTable(ConnectorSession connectorSession, ConnectorSplit connectorSplit, List<ColumnHandle> columns)
+    private InternalTable getInternalTable(ConnectorSession connectorSession, ConnectorSplit connectorSplit)
     {
         Session session = ((FullConnectorSession) connectorSession).getSession();
         InformationSchemaSplit split = (InformationSchemaSplit) connectorSplit;
-
-        requireNonNull(columns, "columns is null");
 
         InformationSchemaTableHandle handle = split.getTableHandle();
         Set<QualifiedTablePrefix> prefixes = split.getPrefixes();
@@ -161,7 +160,8 @@ public class InformationSchemaPageSourceProvider
                             "YES",
                             column.getType().getDisplayName(),
                             column.getComment(),
-                            column.getExtraInfo());
+                            column.getExtraInfo(),
+                            column.getComment());
                     ordinalPosition++;
                 }
             }
@@ -183,7 +183,8 @@ public class InformationSchemaPageSourceProvider
                         prefix.getCatalogName(),
                         name.getSchemaName(),
                         name.getTableName(),
-                        type);
+                        type,
+                        null);
             }
         }
         return table.build();
@@ -273,5 +274,11 @@ public class InformationSchemaPageSourceProvider
             table.add(role);
         }
         return table.build();
+    }
+
+    private static List<ColumnMetadata> informationSchemaTableColumns(SchemaTableName tableName)
+    {
+        checkArgument(TABLES.containsKey(tableName), "table does not exist: %s", tableName);
+        return TABLES.get(tableName).getColumns();
     }
 }

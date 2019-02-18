@@ -71,6 +71,7 @@ public class QueryStats
     private final DataSize peakUserMemoryReservation;
     private final DataSize peakTotalMemoryReservation;
     private final DataSize peakTaskTotalMemory;
+    private final DataSize peakTaskUserMemory;
 
     private final boolean scheduled;
     private final Duration totalScheduledTime;
@@ -131,6 +132,7 @@ public class QueryStats
             @JsonProperty("totalMemoryReservation") DataSize totalMemoryReservation,
             @JsonProperty("peakUserMemoryReservation") DataSize peakUserMemoryReservation,
             @JsonProperty("peakTotalMemoryReservation") DataSize peakTotalMemoryReservation,
+            @JsonProperty("peakTaskUserMemory") DataSize peakTaskUserMemory,
             @JsonProperty("peakTaskTotalMemory") DataSize peakTaskTotalMemory,
 
             @JsonProperty("scheduled") boolean scheduled,
@@ -199,6 +201,7 @@ public class QueryStats
         this.peakUserMemoryReservation = requireNonNull(peakUserMemoryReservation, "peakUserMemoryReservation is null");
         this.peakTotalMemoryReservation = requireNonNull(peakTotalMemoryReservation, "peakTotalMemoryReservation is null");
         this.peakTaskTotalMemory = requireNonNull(peakTaskTotalMemory, "peakTaskTotalMemory is null");
+        this.peakTaskUserMemory = requireNonNull(peakTaskUserMemory, "peakTaskUserMemory is null");
         this.scheduled = scheduled;
         this.totalScheduledTime = requireNonNull(totalScheduledTime, "totalScheduledTime is null");
         this.totalCpuTime = requireNonNull(totalCpuTime, "totalCpuTime is null");
@@ -258,6 +261,7 @@ public class QueryStats
                 0,
                 0,
                 0,
+                new DataSize(0, BYTE),
                 new DataSize(0, BYTE),
                 new DataSize(0, BYTE),
                 new DataSize(0, BYTE),
@@ -442,6 +446,12 @@ public class QueryStats
     }
 
     @JsonProperty
+    public DataSize getPeakTaskUserMemory()
+    {
+        return peakTaskUserMemory;
+    }
+
+    @JsonProperty
     public boolean isScheduled()
     {
         return scheduled;
@@ -581,5 +591,13 @@ public class QueryStats
             return OptionalDouble.empty();
         }
         return OptionalDouble.of(min(100, (completedDrivers * 100.0) / totalDrivers));
+    }
+
+    @JsonProperty
+    public DataSize getSpilledDataSize()
+    {
+        return succinctBytes(operatorSummaries.stream()
+                .mapToLong(stats -> stats.getSpilledDataSize().toBytes())
+                .sum());
     }
 }

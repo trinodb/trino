@@ -151,7 +151,7 @@ public class ParquetReader
             throws IOException
     {
         List<Type> parameters = field.getType().getTypeParameters();
-        checkArgument(parameters.size() == 1, "Arrays must have a single type parameter, found %d", parameters.size());
+        checkArgument(parameters.size() == 1, "Arrays must have a single type parameter, found %s", parameters.size());
         Field elementField = field.getChildren().get(0).get();
         ColumnChunk columnChunk = readColumnChunk(elementField);
         IntList offsets = new IntArrayList();
@@ -166,7 +166,7 @@ public class ParquetReader
             throws IOException
     {
         List<Type> parameters = field.getType().getTypeParameters();
-        checkArgument(parameters.size() == 2, "Maps must have two type parameters, found %d", parameters.size());
+        checkArgument(parameters.size() == 2, "Maps must have two type parameters, found %s", parameters.size());
         Block[] blocks = new Block[parameters.size()];
 
         ColumnChunk columnChunk = readColumnChunk(field.getChildren().get(0).get());

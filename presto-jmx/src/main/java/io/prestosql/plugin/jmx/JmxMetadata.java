@@ -15,7 +15,6 @@ package io.prestosql.plugin.jmx;
 
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableList.Builder;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
@@ -179,15 +178,10 @@ public class JmxMetadata
     }
 
     @Override
-    public List<SchemaTableName> listTables(ConnectorSession session, String schemaNameOrNull)
+    public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
     {
-        Set<String> schemaNames;
-        if (schemaNameOrNull != null) {
-            schemaNames = ImmutableSet.of(schemaNameOrNull);
-        }
-        else {
-            schemaNames = ImmutableSet.copyOf(listSchemaNames(session));
-        }
+        Set<String> schemaNames = schemaName.map(ImmutableSet::of)
+                .orElseGet(() -> ImmutableSet.copyOf(listSchemaNames(session)));
         ImmutableList.Builder<SchemaTableName> schemaTableNames = ImmutableList.builder();
         for (String schema : schemaNames) {
             if (JMX_SCHEMA_NAME.equals(schema)) {
@@ -204,7 +198,7 @@ public class JmxMetadata
 
     private List<SchemaTableName> listJmxTables()
     {
-        Builder<SchemaTableName> tableNames = ImmutableList.builder();
+        ImmutableList.Builder<SchemaTableName> tableNames = ImmutableList.builder();
         for (ObjectName objectName : mbeanServer.queryNames(WILDCARD, null)) {
             // todo remove lower case when presto supports mixed case names
             tableNames.add(new SchemaTableName(JMX_SCHEMA_NAME, objectName.getCanonicalName().toLowerCase(ENGLISH)));
@@ -229,15 +223,15 @@ public class JmxMetadata
     public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
     {
         requireNonNull(prefix, "prefix is null");
-        if (prefix.getSchemaName() != null &&
-                !prefix.getSchemaName().equals(JMX_SCHEMA_NAME) &&
-                !prefix.getSchemaName().equals(HISTORY_SCHEMA_NAME)) {
+        if (prefix.getSchema().isPresent() &&
+                !prefix.getSchema().get().equals(JMX_SCHEMA_NAME) &&
+                !prefix.getSchema().get().equals(HISTORY_SCHEMA_NAME)) {
             return ImmutableMap.of();
         }
 
         List<SchemaTableName> tableNames;
-        if (prefix.getTableName() == null) {
-            tableNames = listTables(session, prefix.getSchemaName());
+        if (!prefix.getTable().isPresent()) {
+            tableNames = listTables(session, prefix.getSchema());
         }
         else {
             tableNames = ImmutableList.of(prefix.toSchemaTableName());

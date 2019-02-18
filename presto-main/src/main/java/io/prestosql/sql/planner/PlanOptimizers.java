@@ -40,6 +40,7 @@ import io.prestosql.sql.planner.iterative.rule.DesugarCurrentUser;
 import io.prestosql.sql.planner.iterative.rule.DesugarLambdaExpression;
 import io.prestosql.sql.planner.iterative.rule.DesugarTryExpression;
 import io.prestosql.sql.planner.iterative.rule.DetermineJoinDistributionType;
+import io.prestosql.sql.planner.iterative.rule.DetermineSemiJoinDistributionType;
 import io.prestosql.sql.planner.iterative.rule.EliminateCrossJoins;
 import io.prestosql.sql.planner.iterative.rule.EvaluateZeroLimit;
 import io.prestosql.sql.planner.iterative.rule.EvaluateZeroSample;
@@ -76,6 +77,7 @@ import io.prestosql.sql.planner.iterative.rule.PruneValuesColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneWindowColumns;
 import io.prestosql.sql.planner.iterative.rule.PushAggregationThroughOuterJoin;
 import io.prestosql.sql.planner.iterative.rule.PushLimitThroughMarkDistinct;
+import io.prestosql.sql.planner.iterative.rule.PushLimitThroughOuterJoin;
 import io.prestosql.sql.planner.iterative.rule.PushLimitThroughProject;
 import io.prestosql.sql.planner.iterative.rule.PushLimitThroughSemiJoin;
 import io.prestosql.sql.planner.iterative.rule.PushPartialAggregationThroughExchange;
@@ -108,7 +110,6 @@ import io.prestosql.sql.planner.optimizations.AddExchanges;
 import io.prestosql.sql.planner.optimizations.AddLocalExchanges;
 import io.prestosql.sql.planner.optimizations.BeginTableWrite;
 import io.prestosql.sql.planner.optimizations.CheckSubqueryNodesAreRewritten;
-import io.prestosql.sql.planner.optimizations.DetermineSemiJoinDistributionType;
 import io.prestosql.sql.planner.optimizations.HashGenerationOptimizer;
 import io.prestosql.sql.planner.optimizations.ImplementIntersectAndExceptAsUnion;
 import io.prestosql.sql.planner.optimizations.IndexJoinOptimizer;
@@ -119,6 +120,7 @@ import io.prestosql.sql.planner.optimizations.OptimizeMixedDistinctAggregations;
 import io.prestosql.sql.planner.optimizations.PlanOptimizer;
 import io.prestosql.sql.planner.optimizations.PredicatePushDown;
 import io.prestosql.sql.planner.optimizations.PruneUnreferencedOutputs;
+import io.prestosql.sql.planner.optimizations.ReplicateSemiJoinInDelete;
 import io.prestosql.sql.planner.optimizations.SetFlatteningOptimizer;
 import io.prestosql.sql.planner.optimizations.StatsRecordingPlanOptimizer;
 import io.prestosql.sql.planner.optimizations.TransformQuantifiedComparisonApplyToLateralJoin;
@@ -286,6 +288,7 @@ public class PlanOptimizers
                                         new MergeLimitWithSort(),
                                         new MergeLimitWithTopN(),
                                         new PushLimitThroughMarkDistinct(),
+                                        new PushLimitThroughOuterJoin(),
                                         new PushLimitThroughSemiJoin(),
                                         new RemoveTrivialFilters(),
                                         new ImplementFilteredAggregations(),
@@ -437,17 +440,21 @@ public class PlanOptimizers
                 costCalculator,
                 ImmutableSet.<Rule<?>>builder()
                         .add(new RemoveRedundantIdentityProjections())
-                        .addAll(new ExtractSpatialJoins(metadata, splitManager, pageSourceManager).rules())
+                        .addAll(new ExtractSpatialJoins(metadata, splitManager, pageSourceManager, sqlParser).rules())
                         .add(new InlineProjections())
                         .build()));
 
         if (!forceSingleNode) {
+            builder.add(new ReplicateSemiJoinInDelete()); // Must run before AddExchanges
             builder.add((new IterativeOptimizer(
                     ruleStats,
                     statsCalculator,
                     estimatedExchangesCostCalculator,
-                    ImmutableSet.of(new DetermineJoinDistributionType(costComparator, taskCountEstimator))))); // Must run before AddExchanges
-            builder.add(new DetermineSemiJoinDistributionType()); // Must run before AddExchanges
+                    ImmutableSet.of(
+                            new DetermineJoinDistributionType(costComparator, taskCountEstimator), // Must run before AddExchanges
+                            // Must run before AddExchanges and after ReplicateSemiJoinInDelete
+                            // to avoid temporarily having an invalid plan
+                            new DetermineSemiJoinDistributionType(costComparator, taskCountEstimator)))));
             builder.add(
                     new IterativeOptimizer(
                             ruleStats,

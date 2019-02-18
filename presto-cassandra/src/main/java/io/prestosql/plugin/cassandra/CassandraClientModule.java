@@ -44,17 +44,9 @@ import static java.util.Objects.requireNonNull;
 public class CassandraClientModule
         implements Module
 {
-    private final String connectorId;
-
-    public CassandraClientModule(String connectorId)
-    {
-        this.connectorId = connectorId;
-    }
-
     @Override
     public void configure(Binder binder)
     {
-        binder.bind(CassandraConnectorId.class).toInstance(new CassandraConnectorId(connectorId));
         binder.bind(CassandraConnector.class).in(Scopes.SINGLETON);
         binder.bind(CassandraMetadata.class).in(Scopes.SINGLETON);
         binder.bind(CassandraSplitManager.class).in(Scopes.SINGLETON);
@@ -71,10 +63,7 @@ public class CassandraClientModule
 
     @Singleton
     @Provides
-    public static CassandraSession createCassandraSession(
-            CassandraConnectorId connectorId,
-            CassandraClientConfig config,
-            JsonCodec<List<ExtraColumnMetadata>> extraColumnMetadataCodec)
+    public static CassandraSession createCassandraSession(CassandraClientConfig config, JsonCodec<List<ExtraColumnMetadata>> extraColumnMetadataCodec)
     {
         requireNonNull(config, "config is null");
         requireNonNull(extraColumnMetadataCodec, "extraColumnMetadataCodec is null");
@@ -142,7 +131,6 @@ public class CassandraClientModule
         }
 
         return new NativeCassandraSession(
-                connectorId.toString(),
                 extraColumnMetadataCodec,
                 new ReopeningCluster(() -> {
                     contactPoints.forEach(clusterBuilder::addContactPoint);

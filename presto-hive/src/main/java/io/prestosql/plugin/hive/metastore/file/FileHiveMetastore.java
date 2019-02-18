@@ -19,7 +19,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.io.ByteStreams;
 import io.airlift.json.JsonCodec;
 import io.prestosql.plugin.hive.HdfsConfiguration;
-import io.prestosql.plugin.hive.HdfsConfigurationUpdater;
+import io.prestosql.plugin.hive.HdfsConfigurationInitializer;
 import io.prestosql.plugin.hive.HdfsEnvironment;
 import io.prestosql.plugin.hive.HdfsEnvironment.HdfsContext;
 import io.prestosql.plugin.hive.HiveBasicStatistics;
@@ -129,7 +129,7 @@ public class FileHiveMetastore
     public static FileHiveMetastore createTestingFileHiveMetastore(File catalogDirectory)
     {
         HiveClientConfig hiveClientConfig = new HiveClientConfig();
-        HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(new HdfsConfigurationUpdater(hiveClientConfig));
+        HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(new HdfsConfigurationInitializer(hiveClientConfig), ImmutableSet.of());
         HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, hiveClientConfig, new NoHdfsAuthentication());
         return new FileHiveMetastore(hdfsEnvironment, catalogDirectory.toURI().toString(), "test");
     }

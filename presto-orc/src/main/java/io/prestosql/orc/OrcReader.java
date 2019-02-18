@@ -101,6 +101,8 @@ public class OrcReader
 
         this.writeValidation = requireNonNull(writeValidation, "writeValidation is null");
 
+        validateWrite(validation -> validation.getOrcEncoding() == orcEncoding, "Unexpected ORC encoding");
+
         //
         // Read the file tail:
         //

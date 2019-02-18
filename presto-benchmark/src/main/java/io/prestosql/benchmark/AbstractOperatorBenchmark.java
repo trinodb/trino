@@ -23,8 +23,8 @@ import io.prestosql.Session;
 import io.prestosql.execution.Lifespan;
 import io.prestosql.execution.TaskId;
 import io.prestosql.execution.TaskStateMachine;
-import io.prestosql.memory.DefaultQueryContext;
 import io.prestosql.memory.MemoryPool;
+import io.prestosql.memory.QueryContext;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.metadata.Split;
@@ -278,7 +278,7 @@ public abstract class AbstractOperatorBenchmark
         MemoryPool memoryPool = new MemoryPool(new MemoryPoolId("test"), new DataSize(1, GIGABYTE));
         SpillSpaceTracker spillSpaceTracker = new SpillSpaceTracker(new DataSize(1, GIGABYTE));
 
-        TaskContext taskContext = new DefaultQueryContext(
+        TaskContext taskContext = new QueryContext(
                 new QueryId("test"),
                 new DataSize(256, MEGABYTE),
                 new DataSize(512, MEGABYTE),

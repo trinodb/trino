@@ -26,11 +26,14 @@ import com.amazonaws.services.s3.model.AmazonS3Exception;
 import com.amazonaws.services.s3.model.CannedAccessControlList;
 import com.amazonaws.services.s3.model.EncryptionMaterials;
 import com.amazonaws.services.s3.model.EncryptionMaterialsProvider;
+import com.amazonaws.services.s3.model.GetObjectMetadataRequest;
+import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.google.common.base.VerifyException;
 import io.prestosql.plugin.hive.s3.PrestoS3FileSystem.UnrecoverableS3OperationException;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FSDataOutputStream;
+import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.Path;
 import org.testng.SkipException;
 import org.testng.annotations.Test;
@@ -48,6 +51,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.airlift.testing.Assertions.assertInstanceOf;
+import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_DIRECTORY_OBJECT_CONTENT_TYPE;
 import static io.prestosql.plugin.hive.s3.S3ConfigurationUpdater.S3_ACCESS_KEY;
 import static io.prestosql.plugin.hive.s3.S3ConfigurationUpdater.S3_ACL_TYPE;
 import static io.prestosql.plugin.hive.s3.S3ConfigurationUpdater.S3_CREDENTIALS_PROVIDER;
@@ -228,7 +232,7 @@ public class TestPrestoS3FileSystem
     }
 
     @SuppressWarnings("ResultOfMethodCallIgnored")
-    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = ".*Failing getObject call with " + HTTP_NOT_FOUND + ".*")
+    @Test(expectedExceptions = IOException.class, expectedExceptionsMessageRegExp = ".*Failing getObject call with " + HTTP_NOT_FOUND + ".*")
     public void testReadNotFound()
             throws Exception
     {
@@ -244,7 +248,7 @@ public class TestPrestoS3FileSystem
     }
 
     @SuppressWarnings("ResultOfMethodCallIgnored")
-    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = ".*Failing getObject call with " + HTTP_FORBIDDEN + ".*")
+    @Test(expectedExceptions = IOException.class, expectedExceptionsMessageRegExp = ".*Failing getObject call with " + HTTP_FORBIDDEN + ".*")
     public void testReadForbidden()
             throws Exception
     {
@@ -352,7 +356,7 @@ public class TestPrestoS3FileSystem
         }
     }
 
-    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = ".*Failing getObjectMetadata call with " + HTTP_FORBIDDEN + ".*")
+    @Test(expectedExceptions = IOException.class, expectedExceptionsMessageRegExp = ".*Failing getObjectMetadata call with " + HTTP_FORBIDDEN + ".*")
     public void testGetMetadataForbidden()
             throws Exception
     {
@@ -406,6 +410,7 @@ public class TestPrestoS3FileSystem
 
     @Test(expectedExceptions = UnrecoverableS3OperationException.class, expectedExceptionsMessageRegExp = ".*\\Q (Path: /tmp/test/path)\\E")
     public void testUnrecoverableS3ExceptionMessage()
+            throws Exception
     {
         throw new UnrecoverableS3OperationException(new Path("/tmp/test/path"), new IOException("test io exception"));
     }
@@ -569,6 +574,35 @@ public class TestPrestoS3FileSystem
                 // initiate an upload by creating a stream & closing it immediately
             }
             assertEquals(CannedAccessControlList.BucketOwnerFullControl, s3.getAcl());
+        }
+    }
+
+    @Test
+    public void testEmptyDirectory()
+            throws Exception
+    {
+        try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
+            MockAmazonS3 s3 = new MockAmazonS3()
+            {
+                @Override
+                public ObjectMetadata getObjectMetadata(GetObjectMetadataRequest getObjectMetadataRequest)
+                {
+                    if (getObjectMetadataRequest.getKey().equals("empty-dir/")) {
+                        ObjectMetadata objectMetadata = new ObjectMetadata();
+                        objectMetadata.setContentType(S3_DIRECTORY_OBJECT_CONTENT_TYPE);
+                        return objectMetadata;
+                    }
+                    return super.getObjectMetadata(getObjectMetadataRequest);
+                }
+            };
+            fs.initialize(new URI("s3n://test-bucket/"), new Configuration());
+            fs.setS3Client(s3);
+
+            FileStatus fileStatus = fs.getFileStatus(new Path("s3n://test-bucket/empty-dir/"));
+            assertTrue(fileStatus.isDirectory());
+
+            fileStatus = fs.getFileStatus(new Path("s3n://test-bucket/empty-dir"));
+            assertTrue(fileStatus.isDirectory());
         }
     }
 }

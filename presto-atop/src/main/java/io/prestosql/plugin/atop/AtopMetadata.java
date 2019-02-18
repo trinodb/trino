@@ -127,18 +127,18 @@ public class AtopMetadata
     }
 
     @Override
-    public List<SchemaTableName> listTables(ConnectorSession session, String schemaNameOrNull)
+    public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
     {
-        if (schemaNameOrNull == null) {
+        if (!schemaName.isPresent()) {
             return Stream.of(AtopTable.values())
                     .map(table -> new SchemaTableName(environment, table.getName()))
                     .collect(Collectors.toList());
         }
-        if (!listSchemaNames(session).contains(schemaNameOrNull)) {
+        if (!listSchemaNames(session).contains(schemaName.get())) {
             return ImmutableList.of();
         }
         return Stream.of(AtopTable.values())
-                .map(table -> new SchemaTableName(schemaNameOrNull, table.getName()))
+                .map(table -> new SchemaTableName(schemaName.get(), table.getName()))
                 .collect(Collectors.toList());
     }
 
@@ -157,7 +157,7 @@ public class AtopMetadata
     public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
     {
         ImmutableMap.Builder<SchemaTableName, List<ColumnMetadata>> columns = ImmutableMap.builder();
-        for (SchemaTableName tableName : listTables(session, prefix.getSchemaName())) {
+        for (SchemaTableName tableName : listTables(session, prefix.getSchema())) {
             ConnectorTableMetadata tableMetadata = getTableMetadata(session, getTableHandle(session, tableName));
             columns.put(tableName, tableMetadata.getColumns());
         }

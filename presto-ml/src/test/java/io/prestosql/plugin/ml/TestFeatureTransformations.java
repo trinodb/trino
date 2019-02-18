@@ -67,9 +67,7 @@ public class TestFeatureTransformations
         transformation.train(dataset);
         Set<Double> featureValues = new HashSet<>();
         for (FeatureVector vector : transformation.transform(dataset).getDatapoints()) {
-            for (double value : vector.getFeatures().values()) {
-                featureValues.add(value);
-            }
+            featureValues.addAll(vector.getFeatures().values());
         }
         assertEquals(featureValues, ImmutableSet.of(0.0, 0.5, 1.0));
     }

@@ -14,6 +14,7 @@
 package io.prestosql.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
+import io.prestosql.annotation.UsedByGeneratedCode;
 import io.prestosql.metadata.BoundVariables;
 import io.prestosql.metadata.FunctionKind;
 import io.prestosql.metadata.FunctionRegistry;
@@ -90,6 +91,7 @@ public final class ApplyFunction
                 isDeterministic());
     }
 
+    @UsedByGeneratedCode
     public static Object apply(Object input, UnaryFunctionInterface function)
     {
         return function.apply(input);

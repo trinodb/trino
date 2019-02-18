@@ -45,9 +45,7 @@ public class AccumuloConnectorFactory
         requireNonNull(context, "context is null");
 
         try {
-            // A plugin is not required to use Guice; it is just very convenient
-            // Unless you don't really know how to Guice, then it is less convenient
-            Bootstrap app = new Bootstrap(new JsonModule(), new AccumuloModule(catalogName, context.getTypeManager()));
+            Bootstrap app = new Bootstrap(new JsonModule(), new AccumuloModule(context.getTypeManager()));
             Injector injector = app
                     .strictConfig()
                     .doNotInitializeLogging()

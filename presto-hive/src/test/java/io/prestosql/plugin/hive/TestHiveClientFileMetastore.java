@@ -13,6 +13,7 @@
  */
 package io.prestosql.plugin.hive;
 
+import com.google.common.collect.ImmutableSet;
 import io.prestosql.plugin.hive.authentication.NoHdfsAuthentication;
 import io.prestosql.plugin.hive.metastore.ExtendedHiveMetastore;
 import io.prestosql.plugin.hive.metastore.file.FileHiveMetastore;
@@ -28,8 +29,8 @@ public class TestHiveClientFileMetastore
     {
         File baseDir = new File(tempDir, "metastore");
         HiveClientConfig hiveConfig = new HiveClientConfig();
-        HdfsConfigurationUpdater updator = new HdfsConfigurationUpdater(hiveConfig);
-        HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(updator);
+        HdfsConfigurationInitializer updator = new HdfsConfigurationInitializer(hiveConfig);
+        HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(updator, ImmutableSet.of());
         HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, hiveConfig, new NoHdfsAuthentication());
         return new FileHiveMetastore(hdfsEnvironment, baseDir.toURI().toString(), "test");
     }

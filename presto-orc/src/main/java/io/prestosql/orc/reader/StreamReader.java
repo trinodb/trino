@@ -19,6 +19,7 @@ import io.prestosql.spi.block.Block;
 import io.prestosql.spi.type.Type;
 
 import java.io.IOException;
+import java.time.ZoneId;
 import java.util.List;
 
 public interface StreamReader
@@ -28,7 +29,7 @@ public interface StreamReader
 
     void prepareNextRead(int batchSize);
 
-    void startStripe(InputStreamSources dictionaryStreamSources, List<ColumnEncoding> encoding)
+    void startStripe(ZoneId timeZone, InputStreamSources dictionaryStreamSources, List<ColumnEncoding> encoding)
             throws IOException;
 
     void startRowGroup(InputStreamSources dataStreamSources)

@@ -19,7 +19,6 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.common.util.concurrent.Uninterruptibles;
 import io.airlift.units.Duration;
-import io.prestosql.Session;
 import io.prestosql.connector.ConnectorId;
 import io.prestosql.execution.ScheduledSplit;
 import io.prestosql.execution.TaskSource;
@@ -29,7 +28,6 @@ import io.prestosql.spi.HostAddress;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ColumnHandle;
-import io.prestosql.spi.connector.ConnectorPageSource;
 import io.prestosql.spi.connector.ConnectorSplit;
 import io.prestosql.spi.connector.FixedPageSource;
 import io.prestosql.spi.type.Type;
@@ -169,16 +167,9 @@ public class TestDriver
         final List<Type> types = ImmutableList.of(VARCHAR, BIGINT, BIGINT);
         TableScanOperator source = new TableScanOperator(driverContext.addOperatorContext(99, new PlanNodeId("test"), "values"),
                 sourceId,
-                new PageSourceProvider()
-                {
-                    @Override
-                    public ConnectorPageSource createPageSource(Session session, Split split, List<ColumnHandle> columns)
-                    {
-                        return new FixedPageSource(rowPagesBuilder(types)
-                                .addSequencePage(10, 20, 30, 40)
-                                .build());
-                    }
-                },
+                (session, split, columns) -> new FixedPageSource(rowPagesBuilder(types)
+                        .addSequencePage(10, 20, 30, 40)
+                        .build()),
                 ImmutableList.of());
 
         PageConsumerOperator sink = createSinkOperator(types);
@@ -267,16 +258,9 @@ public class TestDriver
         List<Type> types = ImmutableList.of(VARCHAR, BIGINT, BIGINT);
         TableScanOperator source = new AlwaysBlockedMemoryRevokingTableScanOperator(driverContext.addOperatorContext(99, new PlanNodeId("test"), "scan"),
                 new PlanNodeId("source"),
-                new PageSourceProvider()
-                {
-                    @Override
-                    public ConnectorPageSource createPageSource(Session session, Split split, List<ColumnHandle> columns)
-                    {
-                        return new FixedPageSource(rowPagesBuilder(types)
-                                .addSequencePage(10, 20, 30, 40)
-                                .build());
-                    }
-                },
+                (session, split, columns) -> new FixedPageSource(rowPagesBuilder(types)
+                        .addSequencePage(10, 20, 30, 40)
+                        .build()),
                 ImmutableList.of());
 
         Driver driver = Driver.createDriver(driverContext, source, createSinkOperator(types));
@@ -295,16 +279,9 @@ public class TestDriver
         // create a table scan operator that does not block, which will cause the driver loop to busy wait
         TableScanOperator source = new NotBlockedTableScanOperator(driverContext.addOperatorContext(99, new PlanNodeId("test"), "values"),
                 sourceId,
-                new PageSourceProvider()
-                {
-                    @Override
-                    public ConnectorPageSource createPageSource(Session session, Split split, List<ColumnHandle> columns)
-                    {
-                        return new FixedPageSource(rowPagesBuilder(types)
-                                .addSequencePage(10, 20, 30, 40)
-                                .build());
-                    }
-                },
+                (session, split, columns) -> new FixedPageSource(rowPagesBuilder(types)
+                        .addSequencePage(10, 20, 30, 40)
+                        .build()),
                 ImmutableList.of());
 
         BrokenOperator brokenOperator = new BrokenOperator(driverContext.addOperatorContext(0, new PlanNodeId("test"), "source"));

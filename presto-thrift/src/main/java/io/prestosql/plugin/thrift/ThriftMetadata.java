@@ -140,10 +140,10 @@ public class ThriftMetadata
     }
 
     @Override
-    public List<SchemaTableName> listTables(ConnectorSession session, String schemaNameOrNull)
+    public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
     {
         try {
-            return client.get(thriftHeaderProvider.getHeaders(session)).listTables(new PrestoThriftNullableSchemaName(schemaNameOrNull)).stream()
+            return client.get(thriftHeaderProvider.getHeaders(session)).listTables(new PrestoThriftNullableSchemaName(schemaName.orElse(null))).stream()
                     .map(PrestoThriftSchemaTableName::toSchemaTableName)
                     .collect(toImmutableList());
         }
@@ -167,7 +167,7 @@ public class ThriftMetadata
     @Override
     public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
     {
-        return listTables(session, prefix.getSchemaName()).stream().collect(toImmutableMap(identity(), schemaTableName -> getRequiredTableMetadata(schemaTableName).getColumns()));
+        return listTables(session, prefix.getSchema()).stream().collect(toImmutableMap(identity(), schemaTableName -> getRequiredTableMetadata(schemaTableName).getColumns()));
     }
 
     @Override

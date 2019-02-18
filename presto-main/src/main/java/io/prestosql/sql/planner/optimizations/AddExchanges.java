@@ -300,7 +300,8 @@ public class AddExchanges
                     PreferredProperties.partitionedWithLocal(ImmutableSet.copyOf(node.getPartitionBy()), desiredProperties)
                             .mergeWithParent(preferredProperties));
 
-            if (!child.getProperties().isStreamPartitionedOn(node.getPartitionBy())) {
+            if (!child.getProperties().isStreamPartitionedOn(node.getPartitionBy()) &&
+                    !child.getProperties().isNodePartitionedOn(node.getPartitionBy())) {
                 if (node.getPartitionBy().isEmpty()) {
                     child = withDerivedProperties(
                             gatheringExchange(idAllocator.getNextId(), REMOTE, child.getNode()),
@@ -337,7 +338,8 @@ public class AddExchanges
                             .mergeWithParent(preferredProperties));
 
             // TODO: add config option/session property to force parallel plan if child is unpartitioned and window has a PARTITION BY clause
-            if (!child.getProperties().isStreamPartitionedOn(node.getPartitionBy())) {
+            if (!child.getProperties().isStreamPartitionedOn(node.getPartitionBy())
+                    && !child.getProperties().isNodePartitionedOn(node.getPartitionBy())) {
                 child = withDerivedProperties(
                         partitionedExchange(
                                 idAllocator.getNextId(),
@@ -370,7 +372,8 @@ public class AddExchanges
             }
 
             PlanWithProperties child = planChild(node, preferredChildProperties);
-            if (!child.getProperties().isStreamPartitionedOn(node.getPartitionBy())) {
+            if (!child.getProperties().isStreamPartitionedOn(node.getPartitionBy())
+                    && !child.getProperties().isNodePartitionedOn(node.getPartitionBy())) {
                 // add exchange + push function to child
                 child = withDerivedProperties(
                         new TopNRowNumberNode(
@@ -974,7 +977,7 @@ public class AddExchanges
             return symbol -> Optional.of(node.getSymbolMapping().get(symbol).get(sourceIndex));
         }
 
-        private Partitioning selectUnionPartitioning(UnionNode node, PreferredProperties preferredProperties, PreferredProperties.PartitioningProperties parentPreference)
+        private Partitioning selectUnionPartitioning(UnionNode node, PreferredProperties.PartitioningProperties parentPreference)
         {
             // Use the parent's requested partitioning if available
             if (parentPreference.getPartitioning().isPresent()) {
@@ -989,7 +992,10 @@ public class AddExchanges
                         .global(PreferredProperties.Global.distributed(childPartitioning.withNullsAndAnyReplicated(nullsAndAnyReplicated)))
                         .build();
                 PlanWithProperties child = node.getSources().get(sourceIndex).accept(this, childPreferred);
-                if (child.getProperties().isNodePartitionedOn(childPartitioning.getPartitioningColumns(), nullsAndAnyReplicated)) {
+                // Don't select a single node partitioning so that we maintain query parallelism
+                // Theoretically, if all children are single partitioned on the same node we could choose a single
+                // partitioning, but as this only applies to a union of two values nodes, it isn't worth the added complexity
+                if (child.getProperties().isNodePartitionedOn(childPartitioning.getPartitioningColumns(), nullsAndAnyReplicated) && !child.getProperties().isSingleNode()) {
                     Function<Symbol, Optional<Symbol>> childToParent = createTranslator(createMapping(node.sourceOutputLayout(sourceIndex), node.getOutputSymbols()));
                     return child.getProperties().translate(childToParent).getNodePartitioning().get();
                 }
@@ -1006,7 +1012,7 @@ public class AddExchanges
             if (parentGlobal.isPresent() && parentGlobal.get().isDistributed() && parentGlobal.get().getPartitioningProperties().isPresent()) {
                 PreferredProperties.PartitioningProperties parentPartitioningPreference = parentGlobal.get().getPartitioningProperties().get();
                 boolean nullsAndAnyReplicated = parentPartitioningPreference.isNullsAndAnyReplicated();
-                Partitioning desiredParentPartitioning = selectUnionPartitioning(node, parentPreference, parentPartitioningPreference);
+                Partitioning desiredParentPartitioning = selectUnionPartitioning(node, parentPartitioningPreference);
 
                 ImmutableList.Builder<PlanNode> partitionedSources = ImmutableList.builder();
                 ImmutableListMultimap.Builder<Symbol, Symbol> outputToSourcesMapping = ImmutableListMultimap.builder();
@@ -1061,11 +1067,8 @@ public class AddExchanges
             List<PlanNode> partitionedChildren = new ArrayList<>();
             List<List<Symbol>> partitionedOutputLayouts = new ArrayList<>();
 
-            List<PlanWithProperties> plannedChildren = new ArrayList<>();
-
             for (int i = 0; i < node.getSources().size(); i++) {
                 PlanWithProperties child = node.getSources().get(i).accept(this, PreferredProperties.any());
-                plannedChildren.add(child);
                 if (child.getProperties().isSingleNode()) {
                     unpartitionedChildren.add(child.getNode());
                     unpartitionedOutputLayouts.add(node.sourceOutputLayout(i));
@@ -1083,7 +1086,7 @@ public class AddExchanges
                 // children partitioning and don't GATHER partitioned inputs
                 // TODO: add FIXED_ARBITRARY_DISTRIBUTION support on non empty unpartitionedChildren
                 if (!parentGlobal.isPresent() || parentGlobal.get().isDistributed()) {
-                    return arbitraryDistributeUnion(node, plannedChildren, partitionedChildren, partitionedOutputLayouts);
+                    return arbitraryDistributeUnion(node, partitionedChildren, partitionedOutputLayouts);
                 }
 
                 // add a gathering exchange above partitioned inputs
@@ -1141,7 +1144,6 @@ public class AddExchanges
 
         private PlanWithProperties arbitraryDistributeUnion(
                 UnionNode node,
-                List<PlanWithProperties> plannedChildren,
                 List<PlanNode> partitionedChildren,
                 List<List<Symbol>> partitionedOutputLayouts)
         {
@@ -1150,10 +1152,7 @@ public class AddExchanges
                 // No source distributed child, we can use insert LOCAL exchange
                 // TODO: if all children have the same partitioning, pass this partitioning to the parent
                 // instead of "arbitraryPartition".
-                return new PlanWithProperties(node.replaceChildren(
-                        plannedChildren.stream()
-                                .map(PlanWithProperties::getNode)
-                                .collect(toList())));
+                return new PlanWithProperties(node.replaceChildren(partitionedChildren));
             }
             else {
                 // Presto currently can not execute stage that has multiple table scans, so in that case

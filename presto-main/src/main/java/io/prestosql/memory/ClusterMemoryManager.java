@@ -77,7 +77,6 @@ import static io.prestosql.SystemSessionProperties.getQueryMaxTotalMemory;
 import static io.prestosql.SystemSessionProperties.resourceOvercommit;
 import static io.prestosql.memory.LocalMemoryManager.GENERAL_POOL;
 import static io.prestosql.memory.LocalMemoryManager.RESERVED_POOL;
-import static io.prestosql.memory.LocalMemoryManager.SYSTEM_POOL;
 import static io.prestosql.spi.NodeState.ACTIVE;
 import static io.prestosql.spi.NodeState.SHUTTING_DOWN;
 import static io.prestosql.spi.StandardErrorCode.CLUSTER_OUT_OF_MEMORY;
@@ -114,9 +113,6 @@ public class ClusterMemoryManager
 
     @GuardedBy("this")
     private final Map<String, RemoteNodeMemory> nodes = new HashMap<>();
-
-    //TODO remove when the system pool is completely removed
-    private final boolean isLegacySystemPoolEnabled;
 
     @GuardedBy("this")
     private final Map<MemoryPoolId, List<Consumer<MemoryPoolInfo>>> changeListeners = new HashMap<>();
@@ -161,22 +157,18 @@ public class ClusterMemoryManager
         this.coordinatorId = queryIdGenerator.getCoordinatorId();
         this.enabled = serverConfig.isCoordinator();
         this.killOnOutOfMemoryDelay = config.getKillOnOutOfMemoryDelay();
-        this.isLegacySystemPoolEnabled = nodeMemoryConfig.isLegacySystemPoolEnabled();
         this.isWorkScheduledOnCoordinator = schedulerConfig.isIncludeCoordinator();
 
         verify(maxQueryMemory.toBytes() <= maxQueryTotalMemory.toBytes(),
                 "maxQueryMemory cannot be greater than maxQueryTotalMemory");
 
-        this.pools = createClusterMemoryPools(nodeMemoryConfig.isLegacySystemPoolEnabled(), nodeMemoryConfig.isReservedPoolEnabled());
+        this.pools = createClusterMemoryPools(nodeMemoryConfig.isReservedPoolEnabled());
     }
 
-    private Map<MemoryPoolId, ClusterMemoryPool> createClusterMemoryPools(boolean systemPoolEnabled, boolean reservedPoolEnabled)
+    private Map<MemoryPoolId, ClusterMemoryPool> createClusterMemoryPools(boolean reservedPoolEnabled)
     {
         Set<MemoryPoolId> memoryPools = new HashSet<>();
         memoryPools.add(GENERAL_POOL);
-        if (systemPoolEnabled) {
-            memoryPools.add(SYSTEM_POOL);
-        }
         if (reservedPoolEnabled) {
             memoryPools.add(RESERVED_POOL);
         }
@@ -245,9 +237,8 @@ public class ClusterMemoryManager
                     queryKilled = true;
                 }
 
-                // enforce global total memory limit if system pool is disabled
                 long totalMemoryLimit = min(maxQueryTotalMemory.toBytes(), getQueryMaxTotalMemory(query.getSession()).toBytes());
-                if (!isLegacySystemPoolEnabled && totalMemoryReservation > totalMemoryLimit) {
+                if (totalMemoryReservation > totalMemoryLimit) {
                     query.fail(exceededGlobalTotalLimit(succinctBytes(totalMemoryLimit)));
                     queryKilled = true;
                 }
@@ -432,19 +423,11 @@ public class ClusterMemoryManager
 
     private QueryMemoryInfo createQueryMemoryInfo(QueryExecution query)
     {
-        // when the legacy system pool is enabled we use the user memory instead of the total memory
-        if (isLegacySystemPoolEnabled) {
-            return new QueryMemoryInfo(query.getQueryId(), query.getMemoryPool().getId(), query.getUserMemoryReservation().toBytes());
-        }
         return new QueryMemoryInfo(query.getQueryId(), query.getMemoryPool().getId(), query.getTotalMemoryReservation().toBytes());
     }
 
     private long getQueryMemoryReservation(QueryExecution query)
     {
-        // when the legacy system pool is enabled we use the user memory instead of the total memory
-        if (isLegacySystemPoolEnabled) {
-            return query.getUserMemoryReservation().toBytes();
-        }
         return query.getTotalMemoryReservation().toBytes();
     }
 

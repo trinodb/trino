@@ -16,10 +16,9 @@ package io.prestosql.sql.planner;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableList.Builder;
 import com.google.common.collect.ImmutableSet;
 import io.prestosql.cost.StatsAndCosts;
-import io.prestosql.operator.StageExecutionStrategy;
+import io.prestosql.operator.StageExecutionDescriptor;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.planner.plan.PlanFragmentId;
 import io.prestosql.sql.planner.plan.PlanNode;
@@ -36,6 +35,7 @@ import java.util.Set;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.prestosql.operator.StageExecutionDescriptor.groupedExecution;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -51,8 +51,9 @@ public class PlanFragment
     private final Set<PlanNode> partitionedSourceNodes;
     private final List<RemoteSourceNode> remoteSourceNodes;
     private final PartitioningScheme partitioningScheme;
-    private final StageExecutionStrategy stageExecutionStrategy;
+    private final StageExecutionDescriptor stageExecutionDescriptor;
     private final StatsAndCosts statsAndCosts;
+    private final Optional<String> jsonRepresentation;
 
     @JsonCreator
     public PlanFragment(
@@ -62,8 +63,9 @@ public class PlanFragment
             @JsonProperty("partitioning") PartitioningHandle partitioning,
             @JsonProperty("partitionedSources") List<PlanNodeId> partitionedSources,
             @JsonProperty("partitioningScheme") PartitioningScheme partitioningScheme,
-            @JsonProperty("stageExecutionStrategy") StageExecutionStrategy stageExecutionStrategy,
-            @JsonProperty("statsAndCosts") StatsAndCosts statsAndCosts)
+            @JsonProperty("stageExecutionDescriptor") StageExecutionDescriptor stageExecutionDescriptor,
+            @JsonProperty("statsAndCosts") StatsAndCosts statsAndCosts,
+            @JsonProperty("jsonRepresentation") Optional<String> jsonRepresentation)
     {
         this.id = requireNonNull(id, "id is null");
         this.root = requireNonNull(root, "root is null");
@@ -71,8 +73,9 @@ public class PlanFragment
         this.partitioning = requireNonNull(partitioning, "partitioning is null");
         this.partitionedSources = ImmutableList.copyOf(requireNonNull(partitionedSources, "partitionedSources is null"));
         this.partitionedSourcesSet = ImmutableSet.copyOf(partitionedSources);
-        this.stageExecutionStrategy = requireNonNull(stageExecutionStrategy, "stageExecutionStrategy is null");
+        this.stageExecutionDescriptor = requireNonNull(stageExecutionDescriptor, "stageExecutionDescriptor is null");
         this.statsAndCosts = requireNonNull(statsAndCosts, "statsAndCosts is null");
+        this.jsonRepresentation = requireNonNull(jsonRepresentation, "jsonRepresentation is null");
 
         checkArgument(partitionedSourcesSet.size() == partitionedSources.size(), "partitionedSources contains duplicates");
         checkArgument(ImmutableSet.copyOf(root.getOutputSymbols()).containsAll(partitioningScheme.getOutputLayout()),
@@ -133,15 +136,23 @@ public class PlanFragment
     }
 
     @JsonProperty
-    public StageExecutionStrategy getStageExecutionStrategy()
+    public StageExecutionDescriptor getStageExecutionDescriptor()
     {
-        return stageExecutionStrategy;
+        return stageExecutionDescriptor;
     }
 
     @JsonProperty
     public StatsAndCosts getStatsAndCosts()
     {
         return statsAndCosts;
+    }
+
+    @JsonProperty
+    public Optional<String> getJsonRepresentation()
+    {
+        // @reviewer: I believe this should be a json raw value, but that would make this class have a different deserialization constructor.
+        // workers don't need this, so that should be OK, but it's worth thinking about.
+        return jsonRepresentation;
     }
 
     public List<Type> getTypes()
@@ -182,7 +193,7 @@ public class PlanFragment
         }
     }
 
-    private static void findRemoteSourceNodes(PlanNode node, Builder<RemoteSourceNode> builder)
+    private static void findRemoteSourceNodes(PlanNode node, ImmutableList.Builder<RemoteSourceNode> builder)
     {
         for (PlanNode source : node.getSources()) {
             findRemoteSourceNodes(source, builder);
@@ -195,12 +206,12 @@ public class PlanFragment
 
     public PlanFragment withBucketToPartition(Optional<int[]> bucketToPartition)
     {
-        return new PlanFragment(id, root, symbols, partitioning, partitionedSources, partitioningScheme.withBucketToPartition(bucketToPartition), stageExecutionStrategy, statsAndCosts);
+        return new PlanFragment(id, root, symbols, partitioning, partitionedSources, partitioningScheme.withBucketToPartition(bucketToPartition), stageExecutionDescriptor, statsAndCosts, jsonRepresentation);
     }
 
     public PlanFragment withGroupedExecution(List<PlanNodeId> capableTableScanNodes)
     {
-        return new PlanFragment(id, root, symbols, partitioning, partitionedSources, partitioningScheme, StageExecutionStrategy.groupedExecution(capableTableScanNodes), statsAndCosts);
+        return new PlanFragment(id, root, symbols, partitioning, partitionedSources, partitioningScheme, groupedExecution(capableTableScanNodes), statsAndCosts, jsonRepresentation);
     }
 
     @Override

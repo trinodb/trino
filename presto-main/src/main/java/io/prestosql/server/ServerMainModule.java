@@ -65,7 +65,6 @@ import io.prestosql.memory.MemoryManagerConfig;
 import io.prestosql.memory.MemoryPoolAssignmentsRequest;
 import io.prestosql.memory.MemoryResource;
 import io.prestosql.memory.NodeMemoryConfig;
-import io.prestosql.memory.ReservedSystemMemoryConfig;
 import io.prestosql.metadata.AnalyzePropertyManager;
 import io.prestosql.metadata.CatalogManager;
 import io.prestosql.metadata.ColumnPropertyManager;
@@ -273,7 +272,6 @@ public class ServerMainModule
 
         configBinder(binder).bindConfig(MemoryManagerConfig.class);
         configBinder(binder).bindConfig(NodeMemoryConfig.class);
-        configBinder(binder).bindConfig(ReservedSystemMemoryConfig.class);
         binder.bind(LocalMemoryManager.class).in(Scopes.SINGLETON);
         binder.bind(LocalMemoryManagerExporter.class).in(Scopes.SINGLETON);
         binder.bind(EmbedVersion.class).in(Scopes.SINGLETON);

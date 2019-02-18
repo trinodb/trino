@@ -24,10 +24,10 @@ import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.TableLayout;
 import io.prestosql.metadata.TableLayout.TablePartitioning;
 import io.prestosql.metadata.TableLayoutHandle;
-import io.prestosql.operator.StageExecutionStrategy;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ConnectorPartitionHandle;
 import io.prestosql.spi.connector.ConnectorPartitioningHandle;
+import io.prestosql.spi.type.Type;
 import io.prestosql.sql.planner.plan.AggregationNode;
 import io.prestosql.sql.planner.plan.ExchangeNode;
 import io.prestosql.sql.planner.plan.ExplainAnalyzeNode;
@@ -39,18 +39,22 @@ import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 import io.prestosql.sql.planner.plan.PlanVisitor;
 import io.prestosql.sql.planner.plan.RemoteSourceNode;
+import io.prestosql.sql.planner.plan.RowNumberNode;
 import io.prestosql.sql.planner.plan.SimplePlanRewriter;
 import io.prestosql.sql.planner.plan.StatisticsWriterNode;
 import io.prestosql.sql.planner.plan.TableFinishNode;
 import io.prestosql.sql.planner.plan.TableScanNode;
 import io.prestosql.sql.planner.plan.TableWriterNode;
+import io.prestosql.sql.planner.plan.TopNRowNumberNode;
 import io.prestosql.sql.planner.plan.ValuesNode;
+import io.prestosql.sql.planner.plan.WindowNode;
 
 import javax.inject.Inject;
 
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -58,8 +62,10 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.in;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.prestosql.SystemSessionProperties.getQueryMaxStageCount;
 import static io.prestosql.SystemSessionProperties.isForceSingleNodeOutput;
+import static io.prestosql.operator.StageExecutionDescriptor.ungroupedExecution;
 import static io.prestosql.spi.StandardErrorCode.QUERY_HAS_TOO_MANY_STAGES;
 import static io.prestosql.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static io.prestosql.sql.planner.SchedulingOrderVisitor.scheduleOrder;
@@ -67,6 +73,7 @@ import static io.prestosql.sql.planner.SystemPartitioningHandle.COORDINATOR_DIST
 import static io.prestosql.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.prestosql.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
 import static io.prestosql.sql.planner.plan.ExchangeNode.Scope.REMOTE;
+import static io.prestosql.sql.planner.planPrinter.PlanPrinter.jsonFragmentPlan;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -167,8 +174,9 @@ public class PlanFragmenter
                         outputPartitioningScheme.getHashColumn(),
                         outputPartitioningScheme.isReplicateNullsAndAny(),
                         outputPartitioningScheme.getBucketToPartition()),
-                fragment.getStageExecutionStrategy(),
-                fragment.getStatsAndCosts());
+                fragment.getStageExecutionDescriptor(),
+                fragment.getStatsAndCosts(),
+                fragment.getJsonRepresentation());
 
         ImmutableList.Builder<SubPlan> childrenBuilder = ImmutableList.builder();
         for (SubPlan child : subPlan.getChildren()) {
@@ -214,15 +222,18 @@ public class PlanFragmenter
             boolean equals = properties.getPartitionedSources().equals(ImmutableSet.copyOf(schedulingOrder));
             checkArgument(equals, "Expected scheduling order (%s) to contain an entry for all partitioned sources (%s)", schedulingOrder, properties.getPartitionedSources());
 
+            Map<Symbol, Type> symbols = Maps.filterKeys(types.allTypes(), in(dependencies));
+
             PlanFragment fragment = new PlanFragment(
                     fragmentId,
                     root,
-                    Maps.filterKeys(types.allTypes(), in(dependencies)),
+                    symbols,
                     properties.getPartitioningHandle(),
                     schedulingOrder,
                     properties.getPartitioningScheme(),
-                    StageExecutionStrategy.ungroupedExecution(),
-                    statsAndCosts.getForSubplan(root));
+                    ungroupedExecution(),
+                    statsAndCosts.getForSubplan(root),
+                    Optional.of(jsonFragmentPlan(root, symbols, metadata.getFunctionRegistry(), session)));
 
             return new SubPlan(fragment, properties.getChildren());
         }
@@ -503,14 +514,14 @@ public class PlanFragmenter
         private final Session session;
         private final Metadata metadata;
         private final NodePartitioningManager nodePartitioningManager;
-        private final boolean groupedExecutionForAggregation;
+        private final boolean groupedExecutionEnabled;
 
         public GroupedExecutionTagger(Session session, Metadata metadata, NodePartitioningManager nodePartitioningManager)
         {
             this.session = requireNonNull(session, "session is null");
             this.metadata = requireNonNull(metadata, "metadata is null");
             this.nodePartitioningManager = requireNonNull(nodePartitioningManager, "nodePartitioningManager is null");
-            this.groupedExecutionForAggregation = SystemSessionProperties.isGroupedExecutionForAggregationEnabled(session);
+            this.groupedExecutionEnabled = SystemSessionProperties.isGroupedExecutionEnabled(session);
         }
 
         @Override
@@ -591,7 +602,7 @@ public class PlanFragmenter
         public GroupedExecutionProperties visitAggregation(AggregationNode node, Void context)
         {
             GroupedExecutionProperties properties = node.getSource().accept(this, null);
-            if (groupedExecutionForAggregation && properties.isCurrentNodeCapable()) {
+            if (groupedExecutionEnabled && properties.isCurrentNodeCapable()) {
                 switch (node.getStep()) {
                     case SINGLE:
                     case FINAL:
@@ -600,6 +611,33 @@ public class PlanFragmenter
                     case INTERMEDIATE:
                         return properties;
                 }
+            }
+            return GroupedExecutionProperties.notCapable();
+        }
+
+        @Override
+        public GroupedExecutionProperties visitWindow(WindowNode node, Void context)
+        {
+            return processWindowFunction(node);
+        }
+
+        @Override
+        public GroupedExecutionProperties visitRowNumber(RowNumberNode node, Void context)
+        {
+            return processWindowFunction(node);
+        }
+
+        @Override
+        public GroupedExecutionProperties visitTopNRowNumber(TopNRowNumberNode node, Void context)
+        {
+            return processWindowFunction(node);
+        }
+
+        private GroupedExecutionProperties processWindowFunction(PlanNode node)
+        {
+            GroupedExecutionProperties properties = getOnlyElement(node.getSources()).accept(this, null);
+            if (groupedExecutionEnabled && properties.isCurrentNodeCapable()) {
+                return new GroupedExecutionProperties(true, true, properties.capableTableScanNodes);
             }
             return GroupedExecutionProperties.notCapable();
         }

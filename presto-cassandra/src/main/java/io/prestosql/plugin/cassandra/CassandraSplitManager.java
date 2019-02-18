@@ -35,26 +35,22 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.prestosql.plugin.cassandra.CassandraSessionProperties.getSplitsPerNode;
 import static java.util.Objects.requireNonNull;
 
 public class CassandraSplitManager
         implements ConnectorSplitManager
 {
-    private final String connectorId;
     private final CassandraSession cassandraSession;
     private final int partitionSizeForBatchSelect;
     private final CassandraTokenSplitManager tokenSplitMgr;
 
     @Inject
     public CassandraSplitManager(
-            CassandraConnectorId connectorId,
             CassandraClientConfig cassandraClientConfig,
             CassandraSession cassandraSession,
             CassandraTokenSplitManager tokenSplitMgr)
     {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
         this.cassandraSession = requireNonNull(cassandraSession, "cassandraSession is null");
         this.partitionSizeForBatchSelect = cassandraClientConfig.getPartitionSizeForBatchSelect();
         this.tokenSplitMgr = tokenSplitMgr;
@@ -95,7 +91,7 @@ public class CassandraSplitManager
         for (CassandraTokenSplitManager.TokenSplit tokenSplit : tokenSplits) {
             String condition = buildTokenCondition(tokenExpression, tokenSplit.getStartToken(), tokenSplit.getEndToken());
             List<HostAddress> addresses = new HostAddressFactory().AddressNamesToHostAddressList(tokenSplit.getHosts());
-            CassandraSplit split = new CassandraSplit(connectorId, schema, tableName, partitionId, condition, addresses);
+            CassandraSplit split = new CassandraSplit(schema, tableName, partitionId, condition, addresses);
             builder.add(split);
         }
 
@@ -190,17 +186,9 @@ public class CassandraSplitManager
         String table = tableHandle.getTableName();
 
         if (clusteringPredicates.isEmpty()) {
-            return new CassandraSplit(connectorId, schema, table, partitionId, null, hosts);
+            return new CassandraSplit(schema, table, partitionId, null, hosts);
         }
 
-        return new CassandraSplit(connectorId, schema, table, partitionId, clusteringPredicates, hosts);
-    }
-
-    @Override
-    public String toString()
-    {
-        return toStringHelper(this)
-                .add("clientId", connectorId)
-                .toString();
+        return new CassandraSplit(schema, table, partitionId, clusteringPredicates, hosts);
     }
 }

@@ -87,6 +87,7 @@ public class PrestoConnection
     private final URI jdbcUri;
     private final URI httpUri;
     private final String user;
+    private final Map<String, String> extraCredentials;
     private final Optional<String> applicationNamePrefix;
     private final Map<String, String> clientInfo = new ConcurrentHashMap<>();
     private final Map<String, String> sessionProperties = new ConcurrentHashMap<>();
@@ -106,7 +107,7 @@ public class PrestoConnection
         this.catalog.set(uri.getCatalog());
         this.user = uri.getUser();
         this.applicationNamePrefix = uri.getApplicationNamePrefix();
-
+        this.extraCredentials = uri.getExtraCredentials();
         this.queryExecutor = requireNonNull(queryExecutor, "queryExecutor is null");
 
         timeZoneId.set(ZoneId.systemDefault());
@@ -627,6 +628,12 @@ public class PrestoConnection
         return user;
     }
 
+    @VisibleForTesting
+    Map<String, String> getExtraCredentials()
+    {
+        return ImmutableMap.copyOf(extraCredentials);
+    }
+
     ServerInfo getServerInfo()
             throws SQLException
     {
@@ -700,6 +707,7 @@ public class PrestoConnection
                                 new ClientSelectedRole(
                                         ClientSelectedRole.Type.valueOf(entry.getValue().getType().toString()),
                                         entry.getValue().getRole()))),
+                extraCredentials,
                 transactionId.get(),
                 timeout);
 

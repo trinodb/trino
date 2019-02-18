@@ -26,7 +26,7 @@ import io.prestosql.execution.scheduler.group.DynamicLifespanScheduler;
 import io.prestosql.execution.scheduler.group.FixedLifespanScheduler;
 import io.prestosql.execution.scheduler.group.LifespanScheduler;
 import io.prestosql.metadata.Split;
-import io.prestosql.operator.StageExecutionStrategy;
+import io.prestosql.operator.StageExecutionDescriptor;
 import io.prestosql.spi.Node;
 import io.prestosql.spi.connector.ConnectorPartitionHandle;
 import io.prestosql.split.SplitSource;
@@ -66,7 +66,7 @@ public class FixedSourcePartitionedScheduler
     public FixedSourcePartitionedScheduler(
             SqlStageExecution stage,
             Map<PlanNodeId, SplitSource> splitSources,
-            StageExecutionStrategy stageExecutionStrategy,
+            StageExecutionDescriptor stageExecutionDescriptor,
             List<PlanNodeId> schedulingOrder,
             List<Node> nodes,
             BucketNodeMap bucketNodeMap,
@@ -91,7 +91,7 @@ public class FixedSourcePartitionedScheduler
 
         ArrayList<SourceScheduler> sourceSchedulers = new ArrayList<>();
         checkArgument(
-                partitionHandles.equals(ImmutableList.of(NOT_PARTITIONED)) != stageExecutionStrategy.isAnyScanGroupedExecution(),
+                partitionHandles.equals(ImmutableList.of(NOT_PARTITIONED)) != stageExecutionDescriptor.isStageGroupedExecution(),
                 "PartitionHandles should be [NOT_PARTITIONED] if and only if all scan nodes use ungrouped execution strategy");
         int nodeCount = nodes.size();
         int concurrentLifespans;
@@ -106,7 +106,7 @@ public class FixedSourcePartitionedScheduler
         Optional<LifespanScheduler> groupedLifespanScheduler = Optional.empty();
         for (PlanNodeId planNodeId : schedulingOrder) {
             SplitSource splitSource = splitSources.get(planNodeId);
-            boolean groupedExecutionForScanNode = stageExecutionStrategy.isGroupedExecution(planNodeId);
+            boolean groupedExecutionForScanNode = stageExecutionDescriptor.isScanGroupedExecution(planNodeId);
             SourceScheduler sourceScheduler = newSourcePartitionedSchedulerAsSourceScheduler(
                     stage,
                     planNodeId,
@@ -115,14 +115,14 @@ public class FixedSourcePartitionedScheduler
                     Math.max(splitBatchSize / concurrentLifespans, 1),
                     groupedExecutionForScanNode);
 
-            if (stageExecutionStrategy.isAnyScanGroupedExecution() && !groupedExecutionForScanNode) {
+            if (stageExecutionDescriptor.isStageGroupedExecution() && !groupedExecutionForScanNode) {
                 sourceScheduler = new AsGroupedSourceScheduler(sourceScheduler);
             }
             sourceSchedulers.add(sourceScheduler);
 
             if (firstPlanNode) {
                 firstPlanNode = false;
-                if (!stageExecutionStrategy.isAnyScanGroupedExecution()) {
+                if (!stageExecutionDescriptor.isStageGroupedExecution()) {
                     sourceScheduler.startLifespan(Lifespan.taskWide(), NOT_PARTITIONED);
                     sourceScheduler.noMoreLifespans();
                 }

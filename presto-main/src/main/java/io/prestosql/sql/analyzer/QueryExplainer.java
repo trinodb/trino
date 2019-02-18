@@ -30,7 +30,7 @@ import io.prestosql.sql.planner.PlanNodeIdAllocator;
 import io.prestosql.sql.planner.PlanOptimizers;
 import io.prestosql.sql.planner.SubPlan;
 import io.prestosql.sql.planner.optimizations.PlanOptimizer;
-import io.prestosql.sql.planner.planPrinter.IOPlanPrinter;
+import io.prestosql.sql.planner.planPrinter.IoPlanPrinter;
 import io.prestosql.sql.planner.planPrinter.PlanPrinter;
 import io.prestosql.sql.tree.ExplainType.Type;
 import io.prestosql.sql.tree.Expression;
@@ -43,7 +43,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
-import static io.prestosql.sql.planner.planPrinter.IOPlanPrinter.textIOPlan;
+import static io.prestosql.sql.planner.planPrinter.IoPlanPrinter.textIoPlan;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -121,7 +121,7 @@ public class QueryExplainer
                 SubPlan subPlan = getDistributedPlan(session, statement, parameters, warningCollector);
                 return PlanPrinter.textDistributedPlan(subPlan, metadata.getFunctionRegistry(), session, false);
             case IO:
-                return IOPlanPrinter.textIOPlan(getLogicalPlan(session, statement, parameters, warningCollector).getRoot(), metadata, session);
+                return IoPlanPrinter.textIoPlan(getLogicalPlan(session, statement, parameters, warningCollector).getRoot(), metadata, session);
         }
         throw new IllegalArgumentException("Unhandled plan type: " + planType);
     }
@@ -161,7 +161,7 @@ public class QueryExplainer
         switch (planType) {
             case IO:
                 Plan plan = getLogicalPlan(session, statement, parameters, warningCollector);
-                return textIOPlan(plan.getRoot(), metadata, session);
+                return textIoPlan(plan.getRoot(), metadata, session);
             default:
                 throw new PrestoException(NOT_SUPPORTED, format("Unsupported explain plan type %s for JSON format", planType));
         }

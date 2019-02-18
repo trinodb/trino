@@ -44,8 +44,10 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.TimeZone;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Strings.emptyToNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.SliceUtf8.lengthOfCodePoint;
 import static io.airlift.slice.SliceUtf8.tryGetCodePointAt;
@@ -159,7 +161,11 @@ public class OrcMetadataReader
     {
         CodedInputStream input = CodedInputStream.newInstance(inputStream);
         OrcProto.StripeFooter stripeFooter = OrcProto.StripeFooter.parseFrom(input);
-        return new StripeFooter(toStream(stripeFooter.getStreamsList()), toColumnEncoding(stripeFooter.getColumnsList()));
+        return new StripeFooter(
+                toStream(stripeFooter.getStreamsList()),
+                toColumnEncoding(stripeFooter.getColumnsList()),
+                Optional.ofNullable(emptyToNull(stripeFooter.getWriterTimezone()))
+                        .map(zone -> TimeZone.getTimeZone(zone).toZoneId()));
     }
 
     private static Stream toStream(OrcProto.Stream stream)

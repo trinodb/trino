@@ -113,6 +113,9 @@ public class ClientOptions
     @Option(name = "--debug", title = "debug", description = "Enable debug information")
     public boolean debug;
 
+    @Option(name = "--progress", title = "progress", description = "Show query progress in batch mode")
+    public boolean progress;
+
     @Option(name = "--log-levels-file", title = "log levels file", description = "Configure log levels for debugging using this file")
     public String logLevelsFile;
 
@@ -127,6 +130,9 @@ public class ClientOptions
 
     @Option(name = "--session", title = "session", description = "Session property (property can be used multiple times; format is key=value; use 'SHOW SESSION' to see available properties)")
     public final List<ClientSessionProperty> sessionProperties = new ArrayList<>();
+
+    @Option(name = "--extra-credential", title = "extra-credential", description = "Extra credentials (property can be used multiple times; format is key=value)")
+    public final List<ClientExtraCredential> extraCredentials = new ArrayList<>();
 
     @Option(name = "--socks-proxy", title = "socks-proxy", description = "SOCKS proxy to use for server connections")
     public HostAndPort socksProxy;
@@ -169,6 +175,7 @@ public class ClientOptions
                 toProperties(sessionProperties),
                 emptyMap(),
                 emptyMap(),
+                toExtraCredentials(extraCredentials),
                 null,
                 clientRequestTimeout);
     }
@@ -213,6 +220,15 @@ public class ClientOptions
         ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
         for (ClientResourceEstimate estimate : estimates) {
             builder.put(estimate.getResource(), estimate.getEstimate());
+        }
+        return builder.build();
+    }
+
+    public static Map<String, String> toExtraCredentials(List<ClientExtraCredential> extraCredentials)
+    {
+        ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
+        for (ClientExtraCredential credential : extraCredentials) {
+            builder.put(credential.getName(), credential.getValue());
         }
         return builder.build();
     }
@@ -367,6 +383,67 @@ public class ClientOptions
             return Objects.equals(this.catalog, other.catalog) &&
                     Objects.equals(this.name, other.name) &&
                     Objects.equals(this.value, other.value);
+        }
+    }
+
+    public static final class ClientExtraCredential
+    {
+        private final String name;
+        private final String value;
+
+        public ClientExtraCredential(String extraCredential)
+        {
+            List<String> nameValue = NAME_VALUE_SPLITTER.splitToList(extraCredential);
+            checkArgument(nameValue.size() == 2, "Extra credential: %s", extraCredential);
+
+            this.name = nameValue.get(0);
+            this.value = nameValue.get(1);
+            checkArgument(!name.isEmpty(), "Credential name is empty");
+            checkArgument(!value.isEmpty(), "Credential value is empty");
+            checkArgument(PRINTABLE_ASCII.matchesAllOf(name), "Credential name contains spaces or is not US_ASCII: %s", name);
+            checkArgument(name.indexOf('=') < 0, "Credential name must not contain '=': %s", name);
+            checkArgument(PRINTABLE_ASCII.matchesAllOf(value), "Credential value contains space or is not US_ASCII: %s", name);
+        }
+
+        public ClientExtraCredential(String name, String value)
+        {
+            this.name = requireNonNull(name, "name is null");
+            this.value = value;
+        }
+
+        public String getName()
+        {
+            return name;
+        }
+
+        public String getValue()
+        {
+            return value;
+        }
+
+        @Override
+        public String toString()
+        {
+            return name + '=' + value;
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            ClientExtraCredential other = (ClientExtraCredential) o;
+            return Objects.equals(name, other.name) && Objects.equals(value, other.value);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(name, value);
         }
     }
 }
