@@ -46,6 +46,7 @@ import io.prestosql.plugin.hive.metastore.thrift.BridgingHiveMetastore;
 import io.prestosql.plugin.hive.metastore.thrift.HiveCluster;
 import io.prestosql.plugin.hive.metastore.thrift.TestingHiveCluster;
 import io.prestosql.plugin.hive.metastore.thrift.ThriftHiveMetastore;
+import io.prestosql.plugin.hive.metastore.thrift.ThriftHiveMetastoreConfig;
 import io.prestosql.plugin.hive.orc.OrcPageSource;
 import io.prestosql.plugin.hive.parquet.ParquetPageSource;
 import io.prestosql.plugin.hive.rcfile.RcFilePageSource;
@@ -711,7 +712,7 @@ public abstract class AbstractTestHiveClient
 
         HiveCluster hiveCluster = new TestingHiveCluster(hiveClientConfig, host, port);
         ExtendedHiveMetastore metastore = new CachingHiveMetastore(
-                new BridgingHiveMetastore(new ThriftHiveMetastore(hiveCluster)),
+                new BridgingHiveMetastore(new ThriftHiveMetastore(hiveCluster, new ThriftHiveMetastoreConfig())),
                 executor,
                 Duration.valueOf("1m"),
                 Duration.valueOf("15s"),
