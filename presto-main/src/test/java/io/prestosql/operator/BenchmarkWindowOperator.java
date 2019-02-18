@@ -30,6 +30,7 @@ import org.openjdk.jmh.annotations.OutputTimeUnit;
 import org.openjdk.jmh.annotations.Param;
 import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
+import org.openjdk.jmh.annotations.TearDown;
 import org.openjdk.jmh.annotations.Warmup;
 import org.openjdk.jmh.runner.Runner;
 import org.openjdk.jmh.runner.RunnerException;
@@ -99,6 +100,13 @@ public class BenchmarkWindowOperator
             scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed("test-scheduledExecutor-%s"));
 
             createOperatorFactoryAndGenerateTestData(numberOfPregroupedColumns);
+        }
+
+        @TearDown
+        public void cleanup()
+        {
+            executor.shutdownNow();
+            scheduledExecutor.shutdownNow();
         }
 
         private void createOperatorFactoryAndGenerateTestData(int numberOfPreGroupedColumns)
@@ -315,6 +323,8 @@ public class BenchmarkWindowOperator
         }
 
         benchmark(context);
+
+        context.cleanup();
     }
 
     public static void main(String[] args)

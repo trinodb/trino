@@ -33,6 +33,7 @@ import io.prestosql.sql.gen.ExpressionProfiler;
 import io.prestosql.sql.gen.PageFunctionCompiler;
 import io.prestosql.sql.relational.CallExpression;
 import org.openjdk.jol.info.ClassLayout;
+import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
@@ -79,6 +80,12 @@ import static org.testng.Assert.assertTrue;
 public class TestPageProcessor
 {
     private final ScheduledExecutorService executor = newSingleThreadScheduledExecutor(daemonThreadsNamed("test-%s"));
+
+    @AfterClass(alwaysRun = true)
+    public void tearDown()
+    {
+        executor.shutdownNow();
+    }
 
     @Test
     public void testProjectNoColumns()
