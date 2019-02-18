@@ -134,6 +134,8 @@ Property Name                                      Description                  
                                                    ignored. This is equivalent to the
                                                    ``hive.mapred.supports.subdirectories`` property in Hive.
 
+``hive.allow-drop-table``                          Allow Presto to drop tables.                                 ``false``
+
 ``hive.storage-format``                            The default file format used when creating new tables.       ``ORC``
 
 ``hive.compression-codec``                         The compression codec to use when writing files.             ``GZIP``
