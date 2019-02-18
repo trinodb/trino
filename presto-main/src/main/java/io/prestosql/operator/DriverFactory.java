@@ -59,7 +59,7 @@ public class DriverFactory
                 .map(SourceOperatorFactory.class::cast)
                 .map(SourceOperatorFactory::getSourceId)
                 .collect(toImmutableList());
-        checkArgument(sourceIds.size() <= 1, "Expected at most one source operator in driver facotry, but found %s", sourceIds);
+        checkArgument(sourceIds.size() <= 1, "Expected at most one source operator in driver factory, but found %s", sourceIds);
         this.sourceId = sourceIds.isEmpty() ? Optional.empty() : Optional.of(sourceIds.get(0));
     }
 
