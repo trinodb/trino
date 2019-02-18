@@ -37,6 +37,7 @@ import org.openjdk.jmh.annotations.OutputTimeUnit;
 import org.openjdk.jmh.annotations.Param;
 import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
+import org.openjdk.jmh.annotations.TearDown;
 import org.openjdk.jmh.annotations.Warmup;
 import org.openjdk.jmh.runner.Runner;
 import org.openjdk.jmh.runner.RunnerException;
@@ -131,6 +132,13 @@ public class BenchmarkHashAndStreamingAggregationOperators
             else {
                 operatorFactory = createStreamingAggregationOperatorFactory();
             }
+        }
+
+        @TearDown
+        public void cleanup()
+        {
+            executor.shutdownNow();
+            scheduledExecutor.shutdownNow();
         }
 
         private OperatorFactory createStreamingAggregationOperatorFactory()
@@ -258,6 +266,8 @@ public class BenchmarkHashAndStreamingAggregationOperators
 
         List<Page> outputPages = benchmark(context);
         assertEquals(TOTAL_PAGES * ROWS_PER_PAGE / rowsPerGroup, outputPages.stream().mapToInt(Page::getPositionCount).sum());
+
+        context.cleanup();
     }
 
     public static void main(String[] args)
