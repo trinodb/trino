@@ -20,6 +20,7 @@ import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.airlift.http.server.HttpServerConfig;
 import io.airlift.slice.Slice;
 import io.airlift.stats.GcMonitor;
 import io.airlift.stats.JmxGcMonitor;
@@ -184,6 +185,10 @@ public class ServerMainModule
         else {
             install(new WorkerModule());
         }
+
+        configBinder(binder).bindConfigDefaults(HttpServerConfig.class, httpServerConfig -> {
+            httpServerConfig.setAdminEnabled(false);
+        });
 
         install(new InternalCommunicationModule());
 
