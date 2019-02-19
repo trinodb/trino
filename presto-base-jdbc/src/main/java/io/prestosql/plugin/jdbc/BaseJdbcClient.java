@@ -281,18 +281,18 @@ public class BaseJdbcClient
     }
 
     @Override
-    public JdbcOutputTableHandle beginCreateTable(ConnectorTableMetadata tableMetadata)
+    public JdbcOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
-        return beginWriteTable(tableMetadata);
+        return beginWriteTable(session, tableMetadata);
     }
 
     @Override
-    public JdbcOutputTableHandle beginInsertTable(ConnectorTableMetadata tableMetadata)
+    public JdbcOutputTableHandle beginInsertTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
-        return beginWriteTable(tableMetadata);
+        return beginWriteTable(session, tableMetadata);
     }
 
-    private JdbcOutputTableHandle beginWriteTable(ConnectorTableMetadata tableMetadata)
+    private JdbcOutputTableHandle beginWriteTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
         SchemaTableName schemaTableName = tableMetadata.getTable();
         String schema = schemaTableName.getSchemaName();
@@ -323,7 +323,7 @@ public class BaseJdbcClient
                 columnNames.add(columnName);
                 columnTypes.add(column.getType());
                 // TODO in INSERT case, we should reuse original column type and, ideally, constraints (then JdbcPageSink must get writer from toPrestoType())
-                columnList.add(format("%s %s", quoted(columnName), toWriteMapping(column.getType()).getDataType()));
+                columnList.add(format("%s %s", quoted(columnName), toWriteMapping(session, column.getType()).getDataType()));
             }
 
             String sql = format(
@@ -473,7 +473,7 @@ public class BaseJdbcClient
     }
 
     @Override
-    public WriteMapping toWriteMapping(Type type)
+    public WriteMapping toWriteMapping(ConnectorSession session, Type type)
     {
         if (isVarcharType(type)) {
             VarcharType varcharType = (VarcharType) type;
