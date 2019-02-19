@@ -495,7 +495,7 @@ public class BaseJdbcClient
             else {
                 dataType = "char(" + charType.getLength() + ")";
             }
-            return WriteMapping.sliceMapping(dataType, charWriteFunction(charType));
+            return WriteMapping.sliceMapping(dataType, charWriteFunction());
         }
         if (type instanceof DecimalType) {
             DecimalType decimalType = (DecimalType) type;
