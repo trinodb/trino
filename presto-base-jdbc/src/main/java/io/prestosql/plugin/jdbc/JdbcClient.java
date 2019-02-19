@@ -49,7 +49,7 @@ public interface JdbcClient
 
     Optional<ColumnMapping> toPrestoType(ConnectorSession session, JdbcTypeHandle typeHandle);
 
-    WriteMapping toWriteMapping(Type type);
+    WriteMapping toWriteMapping(ConnectorSession session, Type type);
 
     ConnectorSplitSource getSplits(JdbcTableLayoutHandle layoutHandle);
 
@@ -65,11 +65,11 @@ public interface JdbcClient
     PreparedStatement buildSql(ConnectorSession session, Connection connection, JdbcSplit split, List<JdbcColumnHandle> columnHandles)
             throws SQLException;
 
-    JdbcOutputTableHandle beginCreateTable(ConnectorTableMetadata tableMetadata);
+    JdbcOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata);
 
     void commitCreateTable(JdbcOutputTableHandle handle);
 
-    JdbcOutputTableHandle beginInsertTable(ConnectorTableMetadata tableMetadata);
+    JdbcOutputTableHandle beginInsertTable(ConnectorSession session, ConnectorTableMetadata tableMetadata);
 
     void finishInsertTable(JdbcOutputTableHandle handle);
 

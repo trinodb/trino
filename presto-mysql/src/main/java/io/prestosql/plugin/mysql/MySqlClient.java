@@ -23,6 +23,7 @@ import io.prestosql.plugin.jdbc.DriverConnectionFactory;
 import io.prestosql.plugin.jdbc.JdbcConnectorId;
 import io.prestosql.plugin.jdbc.WriteMapping;
 import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.VarcharType;
@@ -148,7 +149,7 @@ public class MySqlClient
     }
 
     @Override
-    public WriteMapping toWriteMapping(Type type)
+    public WriteMapping toWriteMapping(ConnectorSession session, Type type)
     {
         if (REAL.equals(type)) {
             return WriteMapping.longMapping("float", realWriteFunction());
@@ -183,6 +184,6 @@ public class MySqlClient
             return WriteMapping.sliceMapping(dataType, varcharWriteFunction());
         }
 
-        return super.toWriteMapping(type);
+        return super.toWriteMapping(session, type);
     }
 }

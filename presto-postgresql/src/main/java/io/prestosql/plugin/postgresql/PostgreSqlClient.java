@@ -95,12 +95,12 @@ public class PostgreSqlClient
     }
 
     @Override
-    public WriteMapping toWriteMapping(Type type)
+    public WriteMapping toWriteMapping(ConnectorSession session, Type type)
     {
         if (VARBINARY.equals(type)) {
             return WriteMapping.sliceMapping("bytea", varbinaryWriteFunction());
         }
 
-        return super.toWriteMapping(type);
+        return super.toWriteMapping(session, type);
     }
 }
