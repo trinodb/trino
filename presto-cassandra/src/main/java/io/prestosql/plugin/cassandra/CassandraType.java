@@ -173,15 +173,15 @@ public enum CassandraType
         }
     }
 
-    public static NullableValue getColumnValue(Row row, int i, FullCassandraType fullCassandraType)
+    public static NullableValue getColumnValue(Row row, int position, FullCassandraType fullCassandraType)
     {
-        return getColumnValue(row, i, fullCassandraType.getCassandraType(), fullCassandraType.getTypeArguments());
+        return getColumnValue(row, position, fullCassandraType.getCassandraType(), fullCassandraType.getTypeArguments());
     }
 
-    public static NullableValue getColumnValue(Row row, int i, CassandraType cassandraType, List<CassandraType> typeArguments)
+    public static NullableValue getColumnValue(Row row, int position, CassandraType cassandraType, List<CassandraType> typeArguments)
     {
         Type nativeType = cassandraType.getNativeType();
-        if (row.isNull(i)) {
+        if (row.isNull(position)) {
             return NullableValue.asNull(nativeType);
         }
         else {
@@ -189,47 +189,47 @@ public enum CassandraType
                 case ASCII:
                 case TEXT:
                 case VARCHAR:
-                    return NullableValue.of(nativeType, utf8Slice(row.getString(i)));
+                    return NullableValue.of(nativeType, utf8Slice(row.getString(position)));
                 case INT:
-                    return NullableValue.of(nativeType, (long) row.getInt(i));
+                    return NullableValue.of(nativeType, (long) row.getInt(position));
                 case SMALLINT:
-                    return NullableValue.of(nativeType, (long) row.getShort(i));
+                    return NullableValue.of(nativeType, (long) row.getShort(position));
                 case TINYINT:
-                    return NullableValue.of(nativeType, (long) row.getByte(i));
+                    return NullableValue.of(nativeType, (long) row.getByte(position));
                 case BIGINT:
                 case COUNTER:
-                    return NullableValue.of(nativeType, row.getLong(i));
+                    return NullableValue.of(nativeType, row.getLong(position));
                 case BOOLEAN:
-                    return NullableValue.of(nativeType, row.getBool(i));
+                    return NullableValue.of(nativeType, row.getBool(position));
                 case DOUBLE:
-                    return NullableValue.of(nativeType, row.getDouble(i));
+                    return NullableValue.of(nativeType, row.getDouble(position));
                 case FLOAT:
-                    return NullableValue.of(nativeType, (long) floatToRawIntBits(row.getFloat(i)));
+                    return NullableValue.of(nativeType, (long) floatToRawIntBits(row.getFloat(position)));
                 case DECIMAL:
-                    return NullableValue.of(nativeType, row.getDecimal(i).doubleValue());
+                    return NullableValue.of(nativeType, row.getDecimal(position).doubleValue());
                 case UUID:
                 case TIMEUUID:
-                    return NullableValue.of(nativeType, utf8Slice(row.getUUID(i).toString()));
+                    return NullableValue.of(nativeType, utf8Slice(row.getUUID(position).toString()));
                 case TIMESTAMP:
-                    return NullableValue.of(nativeType, row.getTimestamp(i).getTime());
+                    return NullableValue.of(nativeType, row.getTimestamp(position).getTime());
                 case DATE:
-                    return NullableValue.of(nativeType, (long) row.getDate(i).getDaysSinceEpoch());
+                    return NullableValue.of(nativeType, (long) row.getDate(position).getDaysSinceEpoch());
                 case INET:
-                    return NullableValue.of(nativeType, utf8Slice(toAddrString(row.getInet(i))));
+                    return NullableValue.of(nativeType, utf8Slice(toAddrString(row.getInet(position))));
                 case VARINT:
-                    return NullableValue.of(nativeType, utf8Slice(row.getVarint(i).toString()));
+                    return NullableValue.of(nativeType, utf8Slice(row.getVarint(position).toString()));
                 case BLOB:
                 case CUSTOM:
-                    return NullableValue.of(nativeType, wrappedBuffer(row.getBytesUnsafe(i)));
+                    return NullableValue.of(nativeType, wrappedBuffer(row.getBytesUnsafe(position)));
                 case SET:
                     checkTypeArguments(cassandraType, 1, typeArguments);
-                    return NullableValue.of(nativeType, utf8Slice(buildSetValue(row, i, typeArguments.get(0))));
+                    return NullableValue.of(nativeType, utf8Slice(buildSetValue(row, position, typeArguments.get(0))));
                 case LIST:
                     checkTypeArguments(cassandraType, 1, typeArguments);
-                    return NullableValue.of(nativeType, utf8Slice(buildListValue(row, i, typeArguments.get(0))));
+                    return NullableValue.of(nativeType, utf8Slice(buildListValue(row, position, typeArguments.get(0))));
                 case MAP:
                     checkTypeArguments(cassandraType, 2, typeArguments);
-                    return NullableValue.of(nativeType, utf8Slice(buildMapValue(row, i, typeArguments.get(0), typeArguments.get(1))));
+                    return NullableValue.of(nativeType, utf8Slice(buildMapValue(row, position, typeArguments.get(0), typeArguments.get(1))));
                 default:
                     throw new IllegalStateException("Handling of type " + cassandraType
                             + " is not implemented");
@@ -237,40 +237,40 @@ public enum CassandraType
         }
     }
 
-    public static NullableValue getColumnValueForPartitionKey(Row row, int i, CassandraType cassandraType, List<CassandraType> typeArguments)
+    public static NullableValue getColumnValueForPartitionKey(Row row, int position, CassandraType cassandraType, List<CassandraType> typeArguments)
     {
         Type nativeType = cassandraType.getNativeType();
-        if (row.isNull(i)) {
+        if (row.isNull(position)) {
             return NullableValue.asNull(nativeType);
         }
         switch (cassandraType) {
             case ASCII:
             case TEXT:
             case VARCHAR:
-                return NullableValue.of(nativeType, utf8Slice(row.getString(i)));
+                return NullableValue.of(nativeType, utf8Slice(row.getString(position)));
             case UUID:
             case TIMEUUID:
-                return NullableValue.of(nativeType, utf8Slice(row.getUUID(i).toString()));
+                return NullableValue.of(nativeType, utf8Slice(row.getUUID(position).toString()));
             default:
-                return getColumnValue(row, i, cassandraType, typeArguments);
+                return getColumnValue(row, position, cassandraType, typeArguments);
         }
     }
 
-    private static String buildSetValue(Row row, int i, CassandraType elemType)
+    private static String buildSetValue(Row row, int position, CassandraType elemType)
     {
-        return buildArrayValue(row.getSet(i, elemType.javaType), elemType);
+        return buildArrayValue(row.getSet(position, elemType.javaType), elemType);
     }
 
-    private static String buildListValue(Row row, int i, CassandraType elemType)
+    private static String buildListValue(Row row, int position, CassandraType elemType)
     {
-        return buildArrayValue(row.getList(i, elemType.javaType), elemType);
+        return buildArrayValue(row.getList(position, elemType.javaType), elemType);
     }
 
-    private static String buildMapValue(Row row, int i, CassandraType keyType, CassandraType valueType)
+    private static String buildMapValue(Row row, int position, CassandraType keyType, CassandraType valueType)
     {
         StringBuilder sb = new StringBuilder();
         sb.append("{");
-        for (Map.Entry<?, ?> entry : row.getMap(i, keyType.javaType, valueType.javaType).entrySet()) {
+        for (Map.Entry<?, ?> entry : row.getMap(position, keyType.javaType, valueType.javaType).entrySet()) {
             if (sb.length() > 1) {
                 sb.append(",");
             }
@@ -305,9 +305,9 @@ public enum CassandraType
         }
     }
 
-    public static String getColumnValueForCql(Row row, int i, CassandraType cassandraType)
+    public static String getColumnValueForCql(Row row, int position, CassandraType cassandraType)
     {
-        if (row.isNull(i)) {
+        if (row.isNull(position)) {
             return null;
         }
         else {
@@ -315,38 +315,38 @@ public enum CassandraType
                 case ASCII:
                 case TEXT:
                 case VARCHAR:
-                    return CassandraCqlUtils.quoteStringLiteral(row.getString(i));
+                    return CassandraCqlUtils.quoteStringLiteral(row.getString(position));
                 case INT:
-                    return Integer.toString(row.getInt(i));
+                    return Integer.toString(row.getInt(position));
                 case SMALLINT:
-                    return Short.toString(row.getShort(i));
+                    return Short.toString(row.getShort(position));
                 case TINYINT:
-                    return Byte.toString(row.getByte(i));
+                    return Byte.toString(row.getByte(position));
                 case BIGINT:
                 case COUNTER:
-                    return Long.toString(row.getLong(i));
+                    return Long.toString(row.getLong(position));
                 case BOOLEAN:
-                    return Boolean.toString(row.getBool(i));
+                    return Boolean.toString(row.getBool(position));
                 case DOUBLE:
-                    return Double.toString(row.getDouble(i));
+                    return Double.toString(row.getDouble(position));
                 case FLOAT:
-                    return Float.toString(row.getFloat(i));
+                    return Float.toString(row.getFloat(position));
                 case DECIMAL:
-                    return row.getDecimal(i).toString();
+                    return row.getDecimal(position).toString();
                 case UUID:
                 case TIMEUUID:
-                    return row.getUUID(i).toString();
+                    return row.getUUID(position).toString();
                 case TIMESTAMP:
-                    return Long.toString(row.getTimestamp(i).getTime());
+                    return Long.toString(row.getTimestamp(position).getTime());
                 case DATE:
-                    return row.getDate(i).toString();
+                    return row.getDate(position).toString();
                 case INET:
-                    return CassandraCqlUtils.quoteStringLiteral(toAddrString(row.getInet(i)));
+                    return CassandraCqlUtils.quoteStringLiteral(toAddrString(row.getInet(position)));
                 case VARINT:
-                    return row.getVarint(i).toString();
+                    return row.getVarint(position).toString();
                 case BLOB:
                 case CUSTOM:
-                    return Bytes.toHexString(row.getBytesUnsafe(i));
+                    return Bytes.toHexString(row.getBytesUnsafe(position));
                 default:
                     throw new IllegalStateException("Handling of type " + cassandraType
                             + " is not implemented");
