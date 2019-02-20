@@ -1304,18 +1304,18 @@ export class QueryDetail extends React.Component {
                                     </tr>
                                     <tr>
                                         <td className="info-title">
-                                            Raw Input Rows
+                                            Physical Input Rows
                                         </td>
                                         <td className="info-text">
-                                            {formatCount(query.queryStats.rawInputPositions)}
+                                            {formatCount(query.queryStats.physicalInputPositions)}
                                         </td>
                                     </tr>
                                     <tr>
                                         <td className="info-title">
-                                            Raw Input Data
+                                            Physical Input Data
                                         </td>
                                         <td className="info-text">
-                                            {query.queryStats.rawInputDataSize}
+                                            {query.queryStats.physicalInputDataSize}
                                         </td>
                                     </tr>
                                     <tr>
