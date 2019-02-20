@@ -307,12 +307,6 @@ public class QueryStateMachine
                 stageStats.getRunningDrivers(),
                 stageStats.getCompletedDrivers(),
 
-                stageStats.getPhysicalInputDataSize(),
-                stageStats.getPhysicalInputPositions(),
-
-                stageStats.getInternalNetworkInputDataSize(),
-                stageStats.getInternalNetworkInputPositions(),
-
                 stageStats.getRawInputDataSize(),
                 stageStats.getRawInputPositions(),
 
