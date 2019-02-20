@@ -39,8 +39,8 @@ import static com.amazonaws.client.builder.AwsClientBuilder.EndpointConfiguratio
 import static com.amazonaws.regions.Regions.US_EAST_1;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Verify.verify;
-import static io.prestosql.plugin.hive.s3.S3ConfigurationUpdater.S3_ENDPOINT;
-import static io.prestosql.plugin.hive.s3.S3ConfigurationUpdater.S3_PIN_CLIENT_TO_CURRENT_REGION;
+import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_ENDPOINT;
+import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_PIN_CLIENT_TO_CURRENT_REGION;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 
