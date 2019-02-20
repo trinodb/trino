@@ -45,7 +45,9 @@ public class TestOperatorStats
             new Duration(3, NANOSECONDS),
             new Duration(4, NANOSECONDS),
             new DataSize(51, BYTE),
+            511,
             new DataSize(52, BYTE),
+            522,
             new DataSize(5, BYTE),
             new DataSize(6, BYTE),
             7,
@@ -88,7 +90,9 @@ public class TestOperatorStats
             new Duration(3, NANOSECONDS),
             new Duration(4, NANOSECONDS),
             new DataSize(51, BYTE),
+            511,
             new DataSize(52, BYTE),
+            522,
             new DataSize(5, BYTE),
             new DataSize(6, BYTE),
             7,
@@ -140,7 +144,9 @@ public class TestOperatorStats
         assertEquals(actual.getAddInputWall(), new Duration(3, NANOSECONDS));
         assertEquals(actual.getAddInputCpu(), new Duration(4, NANOSECONDS));
         assertEquals(actual.getPhysicalInputDataSize(), new DataSize(51, BYTE));
+        assertEquals(actual.getPhysicalInputPositions(), 511);
         assertEquals(actual.getInternalNetworkInputDataSize(), new DataSize(52, BYTE));
+        assertEquals(actual.getInternalNetworkInputPositions(), 522);
         assertEquals(actual.getRawInputDataSize(), new DataSize(5, BYTE));
         assertEquals(actual.getInputDataSize(), new DataSize(6, BYTE));
         assertEquals(actual.getInputPositions(), 7);
@@ -185,7 +191,9 @@ public class TestOperatorStats
         assertEquals(actual.getAddInputWall(), new Duration(3 * 3, NANOSECONDS));
         assertEquals(actual.getAddInputCpu(), new Duration(3 * 4, NANOSECONDS));
         assertEquals(actual.getPhysicalInputDataSize(), new DataSize(3 * 51, BYTE));
+        assertEquals(actual.getPhysicalInputPositions(), 3 * 511);
         assertEquals(actual.getInternalNetworkInputDataSize(), new DataSize(3 * 52, BYTE));
+        assertEquals(actual.getInternalNetworkInputPositions(), 3 * 522);
         assertEquals(actual.getRawInputDataSize(), new DataSize(3 * 5, BYTE));
         assertEquals(actual.getInputDataSize(), new DataSize(3 * 6, BYTE));
         assertEquals(actual.getInputPositions(), 3 * 7);
@@ -228,7 +236,9 @@ public class TestOperatorStats
         assertEquals(actual.getAddInputWall(), new Duration(3 * 3, NANOSECONDS));
         assertEquals(actual.getAddInputCpu(), new Duration(3 * 4, NANOSECONDS));
         assertEquals(actual.getPhysicalInputDataSize(), new DataSize(3 * 51, BYTE));
+        assertEquals(actual.getPhysicalInputPositions(), 3 * 511);
         assertEquals(actual.getInternalNetworkInputDataSize(), new DataSize(3 * 52, BYTE));
+        assertEquals(actual.getInternalNetworkInputPositions(), 3 * 522);
         assertEquals(actual.getRawInputDataSize(), new DataSize(3 * 5, BYTE));
         assertEquals(actual.getInputDataSize(), new DataSize(3 * 6, BYTE));
         assertEquals(actual.getInputPositions(), 3 * 7);

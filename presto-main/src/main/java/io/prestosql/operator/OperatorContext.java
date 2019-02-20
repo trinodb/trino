@@ -62,7 +62,10 @@ public class OperatorContext
     private final Executor executor;
 
     private final CounterStat physicalInputDataSize = new CounterStat();
+    private final CounterStat physicalInputPositions = new CounterStat();
+
     private final CounterStat internalNetworkInputDataSize = new CounterStat();
+    private final CounterStat internalNetworkPositions = new CounterStat();
 
     private final OperationTiming addInputTiming = new OperationTiming();
     private final CounterStat inputDataSize = new CounterStat();
@@ -158,9 +161,10 @@ public class OperatorContext
      * Record the amount of physical bytes that were read by an operator and
      * the time it took to read the data. This metric is valid only for source operators.
      */
-    public void recordPhysicalInputWithTiming(long sizeInBytes, long readNanos)
+    public void recordPhysicalInputWithTiming(long sizeInBytes, long positions, long readNanos)
     {
         physicalInputDataSize.update(sizeInBytes);
+        physicalInputPositions.update(positions);
         addInputTiming.record(readNanos, 0);
     }
 
@@ -168,9 +172,10 @@ public class OperatorContext
      * Record the amount of network bytes that were read by an operator.
      * This metric is valid only for source operators.
      */
-    public void recordNetworkInput(long sizeInBytes)
+    public void recordNetworkInput(long sizeInBytes, long positions)
     {
         internalNetworkInputDataSize.update(sizeInBytes);
+        internalNetworkPositions.update(positions);
     }
 
     /**
@@ -458,7 +463,9 @@ public class OperatorContext
                 new Duration(addInputTiming.getWallNanos(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(addInputTiming.getCpuNanos(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 succinctBytes(physicalInputDataSize.getTotalCount()),
+                physicalInputPositions.getTotalCount(),
                 succinctBytes(internalNetworkInputDataSize.getTotalCount()),
+                internalNetworkPositions.getTotalCount(),
                 succinctBytes(physicalInputDataSize.getTotalCount() + internalNetworkInputDataSize.getTotalCount()),
                 succinctBytes(inputDataSize.getTotalCount()),
                 inputPositionsCount,

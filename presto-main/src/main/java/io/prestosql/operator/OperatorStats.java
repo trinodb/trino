@@ -47,7 +47,9 @@ public class OperatorStats
     private final Duration addInputWall;
     private final Duration addInputCpu;
     private final DataSize physicalInputDataSize;
+    private final long physicalInputPositions;
     private final DataSize internalNetworkInputDataSize;
+    private final long internalNetworkInputPositions;
     private final DataSize rawInputDataSize;
     private final DataSize inputDataSize;
     private final long inputPositions;
@@ -94,7 +96,9 @@ public class OperatorStats
             @JsonProperty("addInputWall") Duration addInputWall,
             @JsonProperty("addInputCpu") Duration addInputCpu,
             @JsonProperty("physicalInputDataSize") DataSize physicalInputDataSize,
+            @JsonProperty("physicalInputPositions") long physicalInputPositions,
             @JsonProperty("internalNetworkInputDataSize") DataSize internalNetworkInputDataSize,
+            @JsonProperty("internalNetworkInputPositions") long internalNetworkInputPositions,
             @JsonProperty("rawInputDataSize") DataSize rawInputDataSize,
             @JsonProperty("inputDataSize") DataSize inputDataSize,
             @JsonProperty("inputPositions") long inputPositions,
@@ -141,7 +145,9 @@ public class OperatorStats
         this.addInputWall = requireNonNull(addInputWall, "addInputWall is null");
         this.addInputCpu = requireNonNull(addInputCpu, "addInputCpu is null");
         this.physicalInputDataSize = requireNonNull(physicalInputDataSize, "physicalInputDataSize is null");
+        this.physicalInputPositions = requireNonNull(physicalInputPositions, "physicalInputPositions is null");
         this.internalNetworkInputDataSize = requireNonNull(internalNetworkInputDataSize, "internalNetworkInputDataSize is null");
+        this.internalNetworkInputPositions = requireNonNull(internalNetworkInputPositions, "internalNetworkInputPositions is null");
         this.rawInputDataSize = requireNonNull(rawInputDataSize, "rawInputDataSize is null");
         this.inputDataSize = requireNonNull(inputDataSize, "inputDataSize is null");
         checkArgument(inputPositions >= 0, "inputPositions is negative");
@@ -239,9 +245,21 @@ public class OperatorStats
     }
 
     @JsonProperty
+    public long getPhysicalInputPositions()
+    {
+        return physicalInputPositions;
+    }
+
+    @JsonProperty
     public DataSize getInternalNetworkInputDataSize()
     {
         return internalNetworkInputDataSize;
+    }
+
+    @JsonProperty
+    public long getInternalNetworkInputPositions()
+    {
+        return internalNetworkInputPositions;
     }
 
     @JsonProperty
@@ -396,7 +414,9 @@ public class OperatorStats
         long addInputWall = this.addInputWall.roundTo(NANOSECONDS);
         long addInputCpu = this.addInputCpu.roundTo(NANOSECONDS);
         long physicalInputDataSize = this.physicalInputDataSize.toBytes();
+        long physicalInputPositions = this.physicalInputPositions;
         long internalNetworkInputDataSize = this.internalNetworkInputDataSize.toBytes();
+        long internalNetworkInputPositions = this.internalNetworkInputPositions;
         long rawInputDataSize = this.rawInputDataSize.toBytes();
         long inputDataSize = this.inputDataSize.toBytes();
         long inputPositions = this.inputPositions;
@@ -437,7 +457,9 @@ public class OperatorStats
             addInputWall += operator.getAddInputWall().roundTo(NANOSECONDS);
             addInputCpu += operator.getAddInputCpu().roundTo(NANOSECONDS);
             physicalInputDataSize += operator.getPhysicalInputDataSize().toBytes();
+            physicalInputPositions += operator.getPhysicalInputPositions();
             internalNetworkInputDataSize += operator.getInternalNetworkInputDataSize().toBytes();
+            internalNetworkInputPositions += operator.getInternalNetworkInputPositions();
             rawInputDataSize += operator.getRawInputDataSize().toBytes();
             inputDataSize += operator.getInputDataSize().toBytes();
             inputPositions += operator.getInputPositions();
@@ -490,7 +512,9 @@ public class OperatorStats
                 new Duration(addInputWall, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(addInputCpu, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 succinctBytes(physicalInputDataSize),
+                physicalInputPositions,
                 succinctBytes(internalNetworkInputDataSize),
+                internalNetworkInputPositions,
                 succinctBytes(rawInputDataSize),
                 succinctBytes(inputDataSize),
                 inputPositions,
@@ -553,7 +577,9 @@ public class OperatorStats
                 addInputWall,
                 addInputCpu,
                 physicalInputDataSize,
+                physicalInputPositions,
                 internalNetworkInputDataSize,
+                internalNetworkInputPositions,
                 rawInputDataSize,
                 inputDataSize,
                 inputPositions,
