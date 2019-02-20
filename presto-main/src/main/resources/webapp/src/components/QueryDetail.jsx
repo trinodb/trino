@@ -1320,6 +1320,22 @@ export class QueryDetail extends React.Component {
                                     </tr>
                                     <tr>
                                         <td className="info-title">
+                                            Internal Network Data
+                                        </td>
+                                        <td className="info-text">
+                                            {query.queryStats.internalNetworkInputDataSize}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td className="info-title">
+                                            Internal Network Rows
+                                        </td>
+                                        <td className="info-text">
+                                            {formatCount(query.queryStats.internalNetworkInputPositions)}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td className="info-title">
                                             Peak User Memory
                                         </td>
                                         <td className="info-text">
