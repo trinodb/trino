@@ -304,13 +304,13 @@ public class StageStateMachine
                 blockedReasons.addAll(taskStats.getBlockedReasons());
             }
 
+            physicalInputDataSize += taskStats.getPhysicalInputDataSize().toBytes();
+            physicalInputPositions += taskStats.getPhysicalInputPositions();
+
+            internalNetworkInputDataSize += taskStats.getInternalNetworkInputDataSize().toBytes();
+            internalNetworkInputPositions += taskStats.getInternalNetworkInputPositions();
+
             if (fragment.getPartitionedSourceNodes().stream().anyMatch(TableScanNode.class::isInstance)) {
-                physicalInputDataSize += taskStats.getPhysicalInputDataSize().toBytes();
-                physicalInputPositions += taskStats.getPhysicalInputPositions();
-
-                internalNetworkInputDataSize += taskStats.getInternalNetworkInputDataSize().toBytes();
-                internalNetworkInputPositions += taskStats.getInternalNetworkInputPositions();
-
                 rawInputDataSize += taskStats.getRawInputDataSize().toBytes();
                 rawInputPositions += taskStats.getRawInputPositions();
             }
