@@ -25,6 +25,7 @@ import io.prestosql.plugin.jdbc.BaseJdbcConfig;
 import io.prestosql.plugin.jdbc.ColumnMapping;
 import io.prestosql.plugin.jdbc.DriverConnectionFactory;
 import io.prestosql.plugin.jdbc.JdbcConnectorId;
+import io.prestosql.plugin.jdbc.JdbcIdentity;
 import io.prestosql.plugin.jdbc.JdbcOutputTableHandle;
 import io.prestosql.plugin.jdbc.JdbcTypeHandle;
 import io.prestosql.plugin.jdbc.SliceWriteFunction;
@@ -73,7 +74,7 @@ public class PostgreSqlClient
     }
 
     @Override
-    public void commitCreateTable(JdbcOutputTableHandle handle)
+    public void commitCreateTable(JdbcIdentity identity, JdbcOutputTableHandle handle)
     {
         // PostgreSQL does not allow qualifying the target of a rename
         String sql = format(
@@ -81,7 +82,7 @@ public class PostgreSqlClient
                 quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTemporaryTableName()),
                 quoted(handle.getTableName()));
 
-        try (Connection connection = getConnection(handle)) {
+        try (Connection connection = getConnection(identity, handle)) {
             execute(connection, sql);
         }
         catch (SQLException e) {

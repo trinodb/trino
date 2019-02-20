@@ -38,6 +38,6 @@ public class JdbcSplitManager
     public ConnectorSplitSource getSplits(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorTableLayoutHandle layout, SplitSchedulingStrategy splitSchedulingStrategy)
     {
         JdbcTableLayoutHandle layoutHandle = (JdbcTableLayoutHandle) layout;
-        return jdbcClient.getSplits(layoutHandle);
+        return jdbcClient.getSplits(JdbcIdentity.from(session), layoutHandle);
     }
 }

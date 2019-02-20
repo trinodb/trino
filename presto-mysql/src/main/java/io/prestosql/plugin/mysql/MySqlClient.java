@@ -21,6 +21,7 @@ import io.prestosql.plugin.jdbc.BaseJdbcConfig;
 import io.prestosql.plugin.jdbc.ConnectionFactory;
 import io.prestosql.plugin.jdbc.DriverConnectionFactory;
 import io.prestosql.plugin.jdbc.JdbcConnectorId;
+import io.prestosql.plugin.jdbc.JdbcIdentity;
 import io.prestosql.plugin.jdbc.WriteMapping;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ConnectorSession;
@@ -84,10 +85,10 @@ public class MySqlClient
     }
 
     @Override
-    public Set<String> getSchemaNames()
+    public Set<String> getSchemaNames(JdbcIdentity identity)
     {
         // for MySQL, we need to list catalogs instead of schemas
-        try (Connection connection = connectionFactory.openConnection();
+        try (Connection connection = connectionFactory.openConnection(identity);
                 ResultSet resultSet = connection.getMetaData().getCatalogs()) {
             ImmutableSet.Builder<String> schemaNames = ImmutableSet.builder();
             while (resultSet.next()) {
