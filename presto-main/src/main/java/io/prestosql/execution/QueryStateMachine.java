@@ -455,14 +455,14 @@ public class QueryStateMachine
                 blockedReasons.addAll(stageStats.getBlockedReasons());
             }
 
+            physicalInputDataSize += stageStats.getPhysicalInputDataSize().toBytes();
+            physicalInputPositions += stageStats.getPhysicalInputPositions();
+
+            internalNetworkInputDataSize += stageStats.getInternalNetworkInputDataSize().toBytes();
+            internalNetworkInputPositions += stageStats.getInternalNetworkInputPositions();
+
             PlanFragment plan = stageInfo.getPlan();
             if (plan != null && plan.getPartitionedSourceNodes().stream().anyMatch(TableScanNode.class::isInstance)) {
-                physicalInputDataSize += stageStats.getPhysicalInputDataSize().toBytes();
-                physicalInputPositions += stageStats.getPhysicalInputPositions();
-
-                internalNetworkInputDataSize += stageStats.getInternalNetworkInputDataSize().toBytes();
-                internalNetworkInputPositions += stageStats.getInternalNetworkInputPositions();
-
                 rawInputDataSize += stageStats.getRawInputDataSize().toBytes();
                 rawInputPositions += stageStats.getRawInputPositions();
 
