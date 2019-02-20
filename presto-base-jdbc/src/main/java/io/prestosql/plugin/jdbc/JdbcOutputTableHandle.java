@@ -32,7 +32,6 @@ import static java.util.Objects.requireNonNull;
 public class JdbcOutputTableHandle
         implements ConnectorOutputTableHandle, ConnectorInsertTableHandle
 {
-    private final String connectorId;
     private final String catalogName;
     private final String schemaName;
     private final String tableName;
@@ -42,7 +41,6 @@ public class JdbcOutputTableHandle
 
     @JsonCreator
     public JdbcOutputTableHandle(
-            @JsonProperty("connectorId") String connectorId,
             @JsonProperty("catalogName") @Nullable String catalogName,
             @JsonProperty("schemaName") @Nullable String schemaName,
             @JsonProperty("tableName") String tableName,
@@ -50,7 +48,6 @@ public class JdbcOutputTableHandle
             @JsonProperty("columnTypes") List<Type> columnTypes,
             @JsonProperty("temporaryTableName") String temporaryTableName)
     {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.catalogName = catalogName;
         this.schemaName = schemaName;
         this.tableName = requireNonNull(tableName, "tableName is null");
@@ -61,12 +58,6 @@ public class JdbcOutputTableHandle
         checkArgument(columnNames.size() == columnTypes.size(), "columnNames and columnTypes sizes don't match");
         this.columnNames = ImmutableList.copyOf(columnNames);
         this.columnTypes = ImmutableList.copyOf(columnTypes);
-    }
-
-    @JsonProperty
-    public String getConnectorId()
-    {
-        return connectorId;
     }
 
     @JsonProperty
@@ -117,7 +108,6 @@ public class JdbcOutputTableHandle
     public int hashCode()
     {
         return Objects.hash(
-                connectorId,
                 catalogName,
                 schemaName,
                 tableName,
@@ -136,8 +126,7 @@ public class JdbcOutputTableHandle
             return false;
         }
         JdbcOutputTableHandle other = (JdbcOutputTableHandle) obj;
-        return Objects.equals(this.connectorId, other.connectorId) &&
-                Objects.equals(this.catalogName, other.catalogName) &&
+        return Objects.equals(this.catalogName, other.catalogName) &&
                 Objects.equals(this.schemaName, other.schemaName) &&
                 Objects.equals(this.tableName, other.tableName) &&
                 Objects.equals(this.columnNames, other.columnNames) &&

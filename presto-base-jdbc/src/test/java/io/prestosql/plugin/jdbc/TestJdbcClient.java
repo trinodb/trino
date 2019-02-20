@@ -23,7 +23,6 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 
-import static io.prestosql.plugin.jdbc.TestingDatabase.CONNECTOR_ID;
 import static io.prestosql.plugin.jdbc.TestingJdbcTypeHandle.JDBC_BIGINT;
 import static io.prestosql.plugin.jdbc.TestingJdbcTypeHandle.JDBC_DOUBLE;
 import static io.prestosql.plugin.jdbc.TestingJdbcTypeHandle.JDBC_REAL;
@@ -84,9 +83,9 @@ public class TestJdbcClient
         assertEquals(table.get().getTableName(), "NUMBERS");
         assertEquals(table.get().getSchemaTableName(), schemaTableName);
         assertEquals(jdbcClient.getColumns(session, table.orElse(null)), ImmutableList.of(
-                new JdbcColumnHandle(CONNECTOR_ID, "TEXT", JDBC_VARCHAR, VARCHAR),
-                new JdbcColumnHandle(CONNECTOR_ID, "TEXT_SHORT", JDBC_VARCHAR, createVarcharType(32)),
-                new JdbcColumnHandle(CONNECTOR_ID, "VALUE", JDBC_BIGINT, BIGINT)));
+                new JdbcColumnHandle("TEXT", JDBC_VARCHAR, VARCHAR),
+                new JdbcColumnHandle("TEXT_SHORT", JDBC_VARCHAR, createVarcharType(32)),
+                new JdbcColumnHandle("VALUE", JDBC_BIGINT, BIGINT)));
     }
 
     @Test
@@ -96,8 +95,8 @@ public class TestJdbcClient
         Optional<JdbcTableHandle> table = jdbcClient.getTableHandle(JdbcIdentity.from(session), schemaTableName);
         assertTrue(table.isPresent(), "table is missing");
         assertEquals(jdbcClient.getColumns(session, table.get()), ImmutableList.of(
-                new JdbcColumnHandle(CONNECTOR_ID, "TE_T", JDBC_VARCHAR, VARCHAR),
-                new JdbcColumnHandle(CONNECTOR_ID, "VA%UE", JDBC_BIGINT, BIGINT)));
+                new JdbcColumnHandle("TE_T", JDBC_VARCHAR, VARCHAR),
+                new JdbcColumnHandle("VA%UE", JDBC_BIGINT, BIGINT)));
     }
 
     @Test
@@ -107,9 +106,9 @@ public class TestJdbcClient
         Optional<JdbcTableHandle> table = jdbcClient.getTableHandle(JdbcIdentity.from(session), schemaTableName);
         assertTrue(table.isPresent(), "table is missing");
         assertEquals(jdbcClient.getColumns(session, table.get()), ImmutableList.of(
-                new JdbcColumnHandle(CONNECTOR_ID, "COL1", JDBC_BIGINT, BIGINT),
-                new JdbcColumnHandle(CONNECTOR_ID, "COL2", JDBC_DOUBLE, DOUBLE),
-                new JdbcColumnHandle(CONNECTOR_ID, "COL3", JDBC_DOUBLE, DOUBLE),
-                new JdbcColumnHandle(CONNECTOR_ID, "COL4", JDBC_REAL, REAL)));
+                new JdbcColumnHandle("COL1", JDBC_BIGINT, BIGINT),
+                new JdbcColumnHandle("COL2", JDBC_DOUBLE, DOUBLE),
+                new JdbcColumnHandle("COL3", JDBC_DOUBLE, DOUBLE),
+                new JdbcColumnHandle("COL4", JDBC_REAL, REAL)));
     }
 }

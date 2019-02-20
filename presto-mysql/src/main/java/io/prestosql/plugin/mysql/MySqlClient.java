@@ -20,7 +20,6 @@ import io.prestosql.plugin.jdbc.BaseJdbcClient;
 import io.prestosql.plugin.jdbc.BaseJdbcConfig;
 import io.prestosql.plugin.jdbc.ConnectionFactory;
 import io.prestosql.plugin.jdbc.DriverConnectionFactory;
-import io.prestosql.plugin.jdbc.JdbcConnectorId;
 import io.prestosql.plugin.jdbc.JdbcIdentity;
 import io.prestosql.plugin.jdbc.WriteMapping;
 import io.prestosql.spi.PrestoException;
@@ -59,10 +58,10 @@ public class MySqlClient
         extends BaseJdbcClient
 {
     @Inject
-    public MySqlClient(JdbcConnectorId connectorId, BaseJdbcConfig config, MySqlConfig mySqlConfig)
+    public MySqlClient(BaseJdbcConfig config, MySqlConfig mySqlConfig)
             throws SQLException
     {
-        super(connectorId, config, "`", connectionFactory(config, mySqlConfig));
+        super(config, "`", connectionFactory(config, mySqlConfig));
     }
 
     private static ConnectionFactory connectionFactory(BaseJdbcConfig config, MySqlConfig mySqlConfig)

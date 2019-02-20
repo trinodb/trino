@@ -16,7 +16,6 @@ package io.prestosql.plugin.redshift;
 import io.prestosql.plugin.jdbc.BaseJdbcClient;
 import io.prestosql.plugin.jdbc.BaseJdbcConfig;
 import io.prestosql.plugin.jdbc.DriverConnectionFactory;
-import io.prestosql.plugin.jdbc.JdbcConnectorId;
 import io.prestosql.plugin.jdbc.JdbcIdentity;
 import io.prestosql.plugin.jdbc.JdbcOutputTableHandle;
 import io.prestosql.spi.PrestoException;
@@ -35,9 +34,9 @@ public class RedshiftClient
         extends BaseJdbcClient
 {
     @Inject
-    public RedshiftClient(JdbcConnectorId connectorId, BaseJdbcConfig config)
+    public RedshiftClient(BaseJdbcConfig config)
     {
-        super(connectorId, config, "\"", new DriverConnectionFactory(new Driver(), config));
+        super(config, "\"", new DriverConnectionFactory(new Driver(), config));
     }
 
     @Override

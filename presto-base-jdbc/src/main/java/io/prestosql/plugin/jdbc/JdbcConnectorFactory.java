@@ -65,7 +65,7 @@ public class JdbcConnectorFactory
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             Bootstrap app = new Bootstrap(
                     binder -> binder.bind(TypeManager.class).toInstance(context.getTypeManager()),
-                    new JdbcModule(catalogName),
+                    new JdbcModule(),
                     module);
 
             Injector injector = app

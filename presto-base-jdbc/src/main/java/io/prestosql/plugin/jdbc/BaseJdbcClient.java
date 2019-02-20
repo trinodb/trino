@@ -101,13 +101,11 @@ public class BaseJdbcClient
             .put(DATE, WriteMapping.longMapping("date", dateWriteFunction()))
             .build();
 
-    protected final String connectorId;
     protected final ConnectionFactory connectionFactory;
     protected final String identifierQuote;
 
-    public BaseJdbcClient(JdbcConnectorId connectorId, BaseJdbcConfig config, String identifierQuote, ConnectionFactory connectionFactory)
+    public BaseJdbcClient(BaseJdbcConfig config, String identifierQuote, ConnectionFactory connectionFactory)
     {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
         requireNonNull(config, "config is null"); // currently unused, retained as parameter for future extensions
         this.identifierQuote = requireNonNull(identifierQuote, "identifierQuote is null");
         this.connectionFactory = requireNonNull(connectionFactory, "connectionFactory is null");
@@ -176,7 +174,6 @@ public class BaseJdbcClient
                 List<JdbcTableHandle> tableHandles = new ArrayList<>();
                 while (resultSet.next()) {
                     tableHandles.add(new JdbcTableHandle(
-                            connectorId,
                             schemaTableName,
                             resultSet.getString("TABLE_CAT"),
                             resultSet.getString("TABLE_SCHEM"),
@@ -212,7 +209,7 @@ public class BaseJdbcClient
                     // skip unsupported column types
                     if (columnMapping.isPresent()) {
                         String columnName = resultSet.getString("COLUMN_NAME");
-                        columns.add(new JdbcColumnHandle(connectorId, columnName, typeHandle, columnMapping.get().getType()));
+                        columns.add(new JdbcColumnHandle(columnName, typeHandle, columnMapping.get().getType()));
                     }
                 }
                 if (columns.isEmpty()) {
@@ -238,7 +235,6 @@ public class BaseJdbcClient
     {
         JdbcTableHandle tableHandle = layoutHandle.getTable();
         JdbcSplit jdbcSplit = new JdbcSplit(
-                connectorId,
                 tableHandle.getCatalogName(),
                 tableHandle.getSchemaName(),
                 tableHandle.getTableName(),
@@ -332,7 +328,6 @@ public class BaseJdbcClient
             execute(connection, sql);
 
             return new JdbcOutputTableHandle(
-                    connectorId,
                     catalog,
                     schema,
                     table,
@@ -406,7 +401,6 @@ public class BaseJdbcClient
     public void rollbackCreateTable(JdbcIdentity identity, JdbcOutputTableHandle handle)
     {
         dropTable(identity, new JdbcTableHandle(
-                handle.getConnectorId(),
                 new SchemaTableName(handle.getSchemaName(), handle.getTemporaryTableName()),
                 handle.getCatalogName(),
                 handle.getSchemaName(),

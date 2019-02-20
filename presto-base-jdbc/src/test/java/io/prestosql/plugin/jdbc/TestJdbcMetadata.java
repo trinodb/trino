@@ -27,7 +27,6 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 
-import static io.prestosql.plugin.jdbc.TestingDatabase.CONNECTOR_ID;
 import static io.prestosql.plugin.jdbc.TestingJdbcTypeHandle.JDBC_BIGINT;
 import static io.prestosql.plugin.jdbc.TestingJdbcTypeHandle.JDBC_VARCHAR;
 import static io.prestosql.spi.StandardErrorCode.NOT_FOUND;
@@ -85,13 +84,13 @@ public class TestJdbcMetadata
     {
         // known table
         assertEquals(metadata.getColumnHandles(SESSION, tableHandle), ImmutableMap.of(
-                "text", new JdbcColumnHandle(CONNECTOR_ID, "TEXT", JDBC_VARCHAR, VARCHAR),
-                "text_short", new JdbcColumnHandle(CONNECTOR_ID, "TEXT_SHORT", JDBC_VARCHAR, createVarcharType(32)),
-                "value", new JdbcColumnHandle(CONNECTOR_ID, "VALUE", JDBC_BIGINT, BIGINT)));
+                "text", new JdbcColumnHandle("TEXT", JDBC_VARCHAR, VARCHAR),
+                "text_short", new JdbcColumnHandle("TEXT_SHORT", JDBC_VARCHAR, createVarcharType(32)),
+                "value", new JdbcColumnHandle("VALUE", JDBC_BIGINT, BIGINT)));
 
         // unknown table
-        unknownTableColumnHandle(new JdbcTableHandle(CONNECTOR_ID, new SchemaTableName("unknown", "unknown"), "unknown", "unknown", "unknown"));
-        unknownTableColumnHandle(new JdbcTableHandle(CONNECTOR_ID, new SchemaTableName("example", "numbers"), null, "example", "unknown"));
+        unknownTableColumnHandle(new JdbcTableHandle(new SchemaTableName("unknown", "unknown"), "unknown", "unknown", "unknown"));
+        unknownTableColumnHandle(new JdbcTableHandle(new SchemaTableName("example", "numbers"), null, "example", "unknown"));
     }
 
     private void unknownTableColumnHandle(JdbcTableHandle tableHandle)
@@ -124,9 +123,9 @@ public class TestJdbcMetadata
                 new ColumnMetadata("va%ue", BIGINT)));
 
         // unknown tables should produce null
-        unknownTableMetadata(new JdbcTableHandle(CONNECTOR_ID, new SchemaTableName("u", "numbers"), null, "unknown", "unknown"));
-        unknownTableMetadata(new JdbcTableHandle(CONNECTOR_ID, new SchemaTableName("example", "numbers"), null, "example", "unknown"));
-        unknownTableMetadata(new JdbcTableHandle(CONNECTOR_ID, new SchemaTableName("example", "numbers"), null, "unknown", "numbers"));
+        unknownTableMetadata(new JdbcTableHandle(new SchemaTableName("u", "numbers"), null, "unknown", "unknown"));
+        unknownTableMetadata(new JdbcTableHandle(new SchemaTableName("example", "numbers"), null, "example", "unknown"));
+        unknownTableMetadata(new JdbcTableHandle(new SchemaTableName("example", "numbers"), null, "unknown", "numbers"));
     }
 
     private void unknownTableMetadata(JdbcTableHandle tableHandle)
@@ -172,7 +171,7 @@ public class TestJdbcMetadata
     public void getColumnMetadata()
     {
         assertEquals(
-                metadata.getColumnMetadata(SESSION, tableHandle, new JdbcColumnHandle(CONNECTOR_ID, "text", JDBC_VARCHAR, VARCHAR)),
+                metadata.getColumnMetadata(SESSION, tableHandle, new JdbcColumnHandle("text", JDBC_VARCHAR, VARCHAR)),
                 new ColumnMetadata("text", VARCHAR));
     }
 

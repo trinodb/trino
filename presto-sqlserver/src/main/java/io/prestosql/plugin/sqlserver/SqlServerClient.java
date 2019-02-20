@@ -17,7 +17,6 @@ import com.microsoft.sqlserver.jdbc.SQLServerDriver;
 import io.prestosql.plugin.jdbc.BaseJdbcClient;
 import io.prestosql.plugin.jdbc.BaseJdbcConfig;
 import io.prestosql.plugin.jdbc.DriverConnectionFactory;
-import io.prestosql.plugin.jdbc.JdbcConnectorId;
 import io.prestosql.plugin.jdbc.JdbcIdentity;
 import io.prestosql.plugin.jdbc.JdbcOutputTableHandle;
 import io.prestosql.spi.PrestoException;
@@ -34,9 +33,9 @@ public class SqlServerClient
         extends BaseJdbcClient
 {
     @Inject
-    public SqlServerClient(JdbcConnectorId connectorId, BaseJdbcConfig config)
+    public SqlServerClient(BaseJdbcConfig config)
     {
-        super(connectorId, config, "\"", new DriverConnectionFactory(new SQLServerDriver(), config));
+        super(config, "\"", new DriverConnectionFactory(new SQLServerDriver(), config));
     }
 
     @Override

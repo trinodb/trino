@@ -24,7 +24,6 @@ import io.prestosql.plugin.jdbc.BaseJdbcClient;
 import io.prestosql.plugin.jdbc.BaseJdbcConfig;
 import io.prestosql.plugin.jdbc.ColumnMapping;
 import io.prestosql.plugin.jdbc.DriverConnectionFactory;
-import io.prestosql.plugin.jdbc.JdbcConnectorId;
 import io.prestosql.plugin.jdbc.JdbcIdentity;
 import io.prestosql.plugin.jdbc.JdbcOutputTableHandle;
 import io.prestosql.plugin.jdbc.JdbcTypeHandle;
@@ -67,9 +66,9 @@ public class PostgreSqlClient
     protected final Type jsonType;
 
     @Inject
-    public PostgreSqlClient(JdbcConnectorId connectorId, BaseJdbcConfig config, TypeManager typeManager)
+    public PostgreSqlClient(BaseJdbcConfig config, TypeManager typeManager)
     {
-        super(connectorId, config, "\"", new DriverConnectionFactory(new Driver(), config));
+        super(config, "\"", new DriverConnectionFactory(new Driver(), config));
         this.jsonType = typeManager.getType(new TypeSignature(StandardTypes.JSON));
     }
 
