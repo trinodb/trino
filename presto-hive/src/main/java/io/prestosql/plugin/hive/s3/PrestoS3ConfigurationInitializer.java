@@ -47,8 +47,8 @@ import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_STAGING_DIRECTOR
 import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_USER_AGENT_PREFIX;
 import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_USE_INSTANCE_CREDENTIALS;
 
-public class PrestoS3ConfigurationUpdater
-        implements S3ConfigurationUpdater
+public class PrestoS3ConfigurationInitializer
+        implements ConfigurationInitializer
 {
     private final String awsAccessKey;
     private final String awsSecretKey;
@@ -77,7 +77,7 @@ public class PrestoS3ConfigurationUpdater
     private final PrestoS3AclType aclType;
 
     @Inject
-    public PrestoS3ConfigurationUpdater(HiveS3Config config)
+    public PrestoS3ConfigurationInitializer(HiveS3Config config)
     {
         this.awsAccessKey = config.getS3AwsAccessKey();
         this.awsSecretKey = config.getS3AwsSecretKey();
@@ -107,7 +107,7 @@ public class PrestoS3ConfigurationUpdater
     }
 
     @Override
-    public void updateConfiguration(Configuration config)
+    public void initializeConfiguration(Configuration config)
     {
         // re-map filesystem schemes to match Amazon Elastic MapReduce
         config.set("fs.s3.impl", PrestoS3FileSystem.class.getName());

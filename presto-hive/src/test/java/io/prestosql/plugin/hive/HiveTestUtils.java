@@ -29,7 +29,7 @@ import io.prestosql.plugin.hive.orc.OrcPageSourceFactory;
 import io.prestosql.plugin.hive.parquet.ParquetPageSourceFactory;
 import io.prestosql.plugin.hive.rcfile.RcFilePageSourceFactory;
 import io.prestosql.plugin.hive.s3.HiveS3Config;
-import io.prestosql.plugin.hive.s3.PrestoS3ConfigurationUpdater;
+import io.prestosql.plugin.hive.s3.PrestoS3ConfigurationInitializer;
 import io.prestosql.spi.PageSorter;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.connector.ColumnHandle;
@@ -126,8 +126,9 @@ public final class HiveTestUtils
         HdfsConfiguration hdfsConfig = new HiveHdfsConfiguration(
                 new HdfsConfigurationInitializer(
                         config,
-                        new PrestoS3ConfigurationUpdater(new HiveS3Config()),
-                        new GoogleGcsConfigurationInitializer(new HiveGcsConfig())),
+                        ImmutableSet.of(
+                                new PrestoS3ConfigurationInitializer(new HiveS3Config()),
+                                new GoogleGcsConfigurationInitializer(new HiveGcsConfig()))),
                 ImmutableSet.of());
         return new HdfsEnvironment(hdfsConfig, config, new NoHdfsAuthentication());
     }
