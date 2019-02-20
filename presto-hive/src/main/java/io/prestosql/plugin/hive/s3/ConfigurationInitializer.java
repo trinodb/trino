@@ -15,7 +15,7 @@ package io.prestosql.plugin.hive.s3;
 
 import org.apache.hadoop.conf.Configuration;
 
-public interface S3ConfigurationUpdater
+public interface ConfigurationInitializer
 {
-    void updateConfiguration(Configuration config);
+    void initializeConfiguration(Configuration config);
 }
