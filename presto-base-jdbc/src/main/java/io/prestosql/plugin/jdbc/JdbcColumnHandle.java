@@ -27,28 +27,19 @@ import static java.util.Objects.requireNonNull;
 public final class JdbcColumnHandle
         implements ColumnHandle
 {
-    private final String connectorId;
     private final String columnName;
     private final JdbcTypeHandle jdbcTypeHandle;
     private final Type columnType;
 
     @JsonCreator
     public JdbcColumnHandle(
-            @JsonProperty("connectorId") String connectorId,
             @JsonProperty("columnName") String columnName,
             @JsonProperty("jdbcTypeHandle") JdbcTypeHandle jdbcTypeHandle,
             @JsonProperty("columnType") Type columnType)
     {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.columnName = requireNonNull(columnName, "columnName is null");
         this.jdbcTypeHandle = requireNonNull(jdbcTypeHandle, "jdbcTypeHandle is null");
         this.columnType = requireNonNull(columnType, "columnType is null");
-    }
-
-    @JsonProperty
-    public String getConnectorId()
-    {
-        return connectorId;
     }
 
     @JsonProperty
@@ -84,21 +75,19 @@ public final class JdbcColumnHandle
             return false;
         }
         JdbcColumnHandle o = (JdbcColumnHandle) obj;
-        return Objects.equals(this.connectorId, o.connectorId) &&
-                Objects.equals(this.columnName, o.columnName);
+        return Objects.equals(this.columnName, o.columnName);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(connectorId, columnName);
+        return Objects.hash(columnName);
     }
 
     @Override
     public String toString()
     {
         return toStringHelper(this)
-                .add("connectorId", connectorId)
                 .add("columnName", columnName)
                 .add("jdbcTypeHandle", jdbcTypeHandle)
                 .add("columnType", columnType)

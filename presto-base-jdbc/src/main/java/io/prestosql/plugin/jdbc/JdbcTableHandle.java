@@ -28,7 +28,6 @@ import static java.util.Objects.requireNonNull;
 public final class JdbcTableHandle
         implements ConnectorTableHandle
 {
-    private final String connectorId;
     private final SchemaTableName schemaTableName;
     private final String catalogName;
     private final String schemaName;
@@ -36,23 +35,15 @@ public final class JdbcTableHandle
 
     @JsonCreator
     public JdbcTableHandle(
-            @JsonProperty("connectorId") String connectorId,
             @JsonProperty("schemaTableName") SchemaTableName schemaTableName,
             @JsonProperty("catalogName") @Nullable String catalogName,
             @JsonProperty("schemaName") @Nullable String schemaName,
             @JsonProperty("tableName") String tableName)
     {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
         this.catalogName = catalogName;
         this.schemaName = schemaName;
         this.tableName = requireNonNull(tableName, "tableName is null");
-    }
-
-    @JsonProperty
-    public String getConnectorId()
-    {
-        return connectorId;
     }
 
     @JsonProperty
@@ -91,19 +82,18 @@ public final class JdbcTableHandle
             return false;
         }
         JdbcTableHandle o = (JdbcTableHandle) obj;
-        return Objects.equals(this.connectorId, o.connectorId) &&
-                Objects.equals(this.schemaTableName, o.schemaTableName);
+        return Objects.equals(this.schemaTableName, o.schemaTableName);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(connectorId, schemaTableName);
+        return Objects.hash(schemaTableName);
     }
 
     @Override
     public String toString()
     {
-        return Joiner.on(":").useForNull("null").join(connectorId, schemaTableName, catalogName, schemaName, tableName);
+        return Joiner.on(":").useForNull("null").join(schemaTableName, catalogName, schemaName, tableName);
     }
 }

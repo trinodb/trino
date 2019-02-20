@@ -28,7 +28,7 @@ public class TestJdbcColumnHandle
     @Test
     public void testJsonRoundTrip()
     {
-        assertJsonRoundTrip(COLUMN_CODEC, new JdbcColumnHandle("connectorId", "columnName", JDBC_VARCHAR, VARCHAR));
+        assertJsonRoundTrip(COLUMN_CODEC, new JdbcColumnHandle("columnName", JDBC_VARCHAR, VARCHAR));
     }
 
     @Test
@@ -36,20 +36,15 @@ public class TestJdbcColumnHandle
     {
         EquivalenceTester.equivalenceTester()
                 .addEquivalentGroup(
-                        new JdbcColumnHandle("connectorId", "columnName", JDBC_VARCHAR, VARCHAR),
-                        new JdbcColumnHandle("connectorId", "columnName", JDBC_VARCHAR, VARCHAR),
-                        new JdbcColumnHandle("connectorId", "columnName", JDBC_BIGINT, BIGINT),
-                        new JdbcColumnHandle("connectorId", "columnName", JDBC_VARCHAR, VARCHAR))
+                        new JdbcColumnHandle("columnName", JDBC_VARCHAR, VARCHAR),
+                        new JdbcColumnHandle("columnName", JDBC_VARCHAR, VARCHAR),
+                        new JdbcColumnHandle("columnName", JDBC_BIGINT, BIGINT),
+                        new JdbcColumnHandle("columnName", JDBC_VARCHAR, VARCHAR))
                 .addEquivalentGroup(
-                        new JdbcColumnHandle("connectorIdX", "columnName", JDBC_VARCHAR, VARCHAR),
-                        new JdbcColumnHandle("connectorIdX", "columnName", JDBC_VARCHAR, VARCHAR),
-                        new JdbcColumnHandle("connectorIdX", "columnName", JDBC_BIGINT, BIGINT),
-                        new JdbcColumnHandle("connectorIdX", "columnName", JDBC_VARCHAR, VARCHAR))
-                .addEquivalentGroup(
-                        new JdbcColumnHandle("connectorId", "columnNameX", JDBC_VARCHAR, VARCHAR),
-                        new JdbcColumnHandle("connectorId", "columnNameX", JDBC_VARCHAR, VARCHAR),
-                        new JdbcColumnHandle("connectorId", "columnNameX", JDBC_BIGINT, BIGINT),
-                        new JdbcColumnHandle("connectorId", "columnNameX", JDBC_VARCHAR, VARCHAR))
+                        new JdbcColumnHandle("columnNameX", JDBC_VARCHAR, VARCHAR),
+                        new JdbcColumnHandle("columnNameX", JDBC_VARCHAR, VARCHAR),
+                        new JdbcColumnHandle("columnNameX", JDBC_BIGINT, BIGINT),
+                        new JdbcColumnHandle("columnNameX", JDBC_VARCHAR, VARCHAR))
                 .check();
     }
 }

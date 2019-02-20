@@ -22,24 +22,15 @@ import io.prestosql.spi.procedure.Procedure;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
-import static java.util.Objects.requireNonNull;
 
 public class JdbcModule
         implements Module
 {
-    private final String connectorId;
-
-    public JdbcModule(String connectorId)
-    {
-        this.connectorId = requireNonNull(connectorId, "connector id is null");
-    }
-
     @Override
     public void configure(Binder binder)
     {
         newOptionalBinder(binder, ConnectorAccessControl.class);
         newSetBinder(binder, Procedure.class);
-        binder.bind(JdbcConnectorId.class).toInstance(new JdbcConnectorId(connectorId));
         binder.bind(JdbcMetadataFactory.class).in(Scopes.SINGLETON);
         binder.bind(JdbcSplitManager.class).in(Scopes.SINGLETON);
         binder.bind(JdbcRecordSetProvider.class).in(Scopes.SINGLETON);

@@ -36,7 +36,6 @@ import static io.prestosql.testing.TestingSession.testSessionBuilder;
 final class TestingDatabase
         implements AutoCloseable
 {
-    public static final String CONNECTOR_ID = "test";
     private static final ConnectorSession session = testSessionBuilder().build().toConnectorSession();
 
     private final Connection connection;
@@ -47,7 +46,6 @@ final class TestingDatabase
     {
         String connectionUrl = "jdbc:h2:mem:test" + System.nanoTime();
         jdbcClient = new BaseJdbcClient(
-                new JdbcConnectorId(CONNECTOR_ID),
                 new BaseJdbcConfig(),
                 "\"",
                 new DriverConnectionFactory(new Driver(), connectionUrl, new Properties()));
