@@ -36,6 +36,7 @@ public class GoogleGcsConfigurationInitializer
         this.jsonKeyFilePath = config.getJsonKeyFilePath();
     }
 
+    @Override
     public void updateConfiguration(Configuration config)
     {
         config.set("fs.gs.impl", GoogleHadoopFileSystem.class.getName());
