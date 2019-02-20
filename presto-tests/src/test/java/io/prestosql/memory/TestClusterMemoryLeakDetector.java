@@ -46,7 +46,7 @@ public class TestClusterMemoryLeakDetector
         QueryId testQuery = new QueryId("test");
         ClusterMemoryLeakDetector leakDetector = new ClusterMemoryLeakDetector();
 
-        leakDetector.checkForMemoryLeaks(() -> ImmutableList.of(), ImmutableMap.of());
+        leakDetector.checkForMemoryLeaks(ImmutableList::of, ImmutableMap.of());
         assertEquals(leakDetector.getNumberOfLeakedQueries(), 0);
 
         // the leak detector should report no leaked queries as the query is still running
@@ -62,7 +62,7 @@ public class TestClusterMemoryLeakDetector
         assertEquals(leakDetector.getNumberOfLeakedQueries(), 0);
 
         // the leak detector should report exactly one leaked query since the coordinator doesn't know of any query
-        leakDetector.checkForMemoryLeaks(() -> ImmutableList.of(), ImmutableMap.of(testQuery, 1L));
+        leakDetector.checkForMemoryLeaks(ImmutableList::of, ImmutableMap.of(testQuery, 1L));
         assertEquals(leakDetector.getNumberOfLeakedQueries(), 1);
     }
 
