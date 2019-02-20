@@ -33,17 +33,17 @@ import java.util.Set;
 
 public interface JdbcClient
 {
-    default boolean schemaExists(String schema)
+    default boolean schemaExists(JdbcIdentity identity, String schema)
     {
-        return getSchemaNames().contains(schema);
+        return getSchemaNames(identity).contains(schema);
     }
 
-    Set<String> getSchemaNames();
+    Set<String> getSchemaNames(JdbcIdentity identity);
 
-    List<SchemaTableName> getTableNames(@Nullable String schema);
+    List<SchemaTableName> getTableNames(JdbcIdentity identity, @Nullable String schema);
 
     @Nullable
-    JdbcTableHandle getTableHandle(SchemaTableName schemaTableName);
+    JdbcTableHandle getTableHandle(JdbcIdentity identity, SchemaTableName schemaTableName);
 
     List<JdbcColumnHandle> getColumns(ConnectorSession session, JdbcTableHandle tableHandle);
 
@@ -51,9 +51,9 @@ public interface JdbcClient
 
     WriteMapping toWriteMapping(ConnectorSession session, Type type);
 
-    ConnectorSplitSource getSplits(JdbcTableLayoutHandle layoutHandle);
+    ConnectorSplitSource getSplits(JdbcIdentity identity, JdbcTableLayoutHandle layoutHandle);
 
-    Connection getConnection(JdbcSplit split)
+    Connection getConnection(JdbcIdentity identity, JdbcSplit split)
             throws SQLException;
 
     default void abortReadConnection(Connection connection)
@@ -67,19 +67,19 @@ public interface JdbcClient
 
     JdbcOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata);
 
-    void commitCreateTable(JdbcOutputTableHandle handle);
+    void commitCreateTable(JdbcIdentity identity, JdbcOutputTableHandle handle);
 
     JdbcOutputTableHandle beginInsertTable(ConnectorSession session, ConnectorTableMetadata tableMetadata);
 
-    void finishInsertTable(JdbcOutputTableHandle handle);
+    void finishInsertTable(JdbcIdentity identity, JdbcOutputTableHandle handle);
 
-    void dropTable(JdbcTableHandle jdbcTableHandle);
+    void dropTable(JdbcIdentity identity, JdbcTableHandle jdbcTableHandle);
 
-    void rollbackCreateTable(JdbcOutputTableHandle handle);
+    void rollbackCreateTable(JdbcIdentity identity, JdbcOutputTableHandle handle);
 
     String buildInsertSql(JdbcOutputTableHandle handle);
 
-    Connection getConnection(JdbcOutputTableHandle handle)
+    Connection getConnection(JdbcIdentity identity, JdbcOutputTableHandle handle)
             throws SQLException;
 
     PreparedStatement getPreparedStatement(Connection connection, String sql)
