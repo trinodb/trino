@@ -112,4 +112,69 @@ public class TestFullOuterJoinWithCoalesce
                                                                 anyTree(values(ImmutableList.of("l"))),
                                                                 anyTree(values(ImmutableList.of("r"))))))))));
     }
+
+    @Test
+    public void testCoalesceWithManyArguments()
+    {
+        // ensure that properties are derived correctly when the arguments to coalesce are a
+        // superset of the guarantees provided by full outer join
+
+        assertDistributedPlan(
+                "SELECT coalesce(l.a, m.a, r.a) " +
+                        "FROM (VALUES 1, 2, 3) l(a) " +
+                        "FULL OUTER JOIN (VALUES 1, 4) m(a) ON l.a = m.a " +
+                        "FULL OUTER JOIN (VALUES 2, 5) r(a) ON l.a = r.a " +
+                        "GROUP BY 1",
+                anyTree(
+                        exchange(
+                                REMOTE,
+                                REPARTITION,
+                                aggregation(
+                                        ImmutableMap.of(),
+                                        PARTIAL,
+                                        anyTree(
+                                                project(
+                                                        ImmutableMap.of("expr", expression("coalesce(l, m, r)")),
+                                                        join(
+                                                                FULL,
+                                                                ImmutableList.of(equiJoinClause("l", "r")),
+                                                                anyTree(
+                                                                        join(
+                                                                                FULL,
+                                                                                ImmutableList.of(equiJoinClause("l", "m")),
+                                                                                anyTree(values(ImmutableList.of("l"))),
+                                                                                anyTree(values(ImmutableList.of("m"))))),
+                                                                anyTree(values(ImmutableList.of("r"))))))))));
+    }
+
+    @Test
+    public void testComplexArgumentToCoalesce()
+    {
+        assertDistributedPlan(
+                "SELECT coalesce(l.a, m.a + 1, r.a) " +
+                        "FROM (VALUES 1, 2, 3) l(a) " +
+                        "FULL OUTER JOIN (VALUES 1, 4) m(a) ON l.a = m.a " +
+                        "FULL OUTER JOIN (VALUES 2, 5) r(a) ON l.a = r.a " +
+                        "GROUP BY 1",
+                anyTree(
+                        exchange(
+                                REMOTE,
+                                REPARTITION,
+                                aggregation(
+                                        ImmutableMap.of(),
+                                        PARTIAL,
+                                        anyTree(
+                                                project(
+                                                        ImmutableMap.of("expr", expression("coalesce(l, m + 1, r)")),
+                                                        join(
+                                                                FULL,
+                                                                ImmutableList.of(equiJoinClause("l", "r")),
+                                                                anyTree(
+                                                                        join(
+                                                                                FULL,
+                                                                                ImmutableList.of(equiJoinClause("l", "m")),
+                                                                                anyTree(values(ImmutableList.of("l"))),
+                                                                                anyTree(values(ImmutableList.of("m"))))),
+                                                                anyTree(values(ImmutableList.of("r"))))))))));
+    }
 }

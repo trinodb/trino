@@ -2022,6 +2022,17 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testFullJoinWithCoalesce()
+    {
+        assertQuery(
+                "SELECT coalesce(t.a, u.a, if(t.b is null, 100, t.b)), count(*) " +
+                        "FROM (VALUES (1, 10), (2, 20), (3, 30), (null, 40), (100, 50)) t(a, b) " +
+                        "FULL OUTER JOIN (VALUES 1, 4, null) u(a) ON t.a = u.a " +
+                        "GROUP BY 1",
+                "VALUES (1, 1), (2, 1), (3, 1), (4, 1), (40, 1), (100, 2)");
+    }
+
+    @Test
     public void testJoinOnMultipleFields()
     {
         assertQuery("SELECT COUNT(*) FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey AND lineitem.shipdate = orders.orderdate");
