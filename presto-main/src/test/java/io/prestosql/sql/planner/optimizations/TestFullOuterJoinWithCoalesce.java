@@ -37,13 +37,14 @@ public class TestFullOuterJoinWithCoalesce
     @Test
     public void testFullOuterJoinWithCoalesce()
     {
-        assertDistributedPlan("SELECT coalesce(ts.a, r.a) " +
-                "FROM (" +
-                "   SELECT coalesce(t.a, s.a) AS a " +
-                "   FROM (VALUES 1, 2, 3) t(a) " +
-                "   FULL OUTER JOIN (VALUES 1, 4) s(a)" +
-                "   ON t.a = s.a) ts " +
-                "FULL OUTER JOIN (VALUES 2, 5) r(a) on ts.a = r.a",
+        assertDistributedPlan(
+                "SELECT coalesce(ts.a, r.a) " +
+                        "FROM (" +
+                        "   SELECT coalesce(t.a, s.a) AS a " +
+                        "   FROM (VALUES 1, 2, 3) t(a) " +
+                        "   FULL OUTER JOIN (VALUES 1, 4) s(a)" +
+                        "   ON t.a = s.a) ts " +
+                        "FULL OUTER JOIN (VALUES 2, 5) r(a) on ts.a = r.a",
                 anyTree(
                         project(
                                 ImmutableMap.of("expr", expression("coalesce(ts, r)")),
