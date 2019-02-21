@@ -101,7 +101,7 @@ public class PostgreSqlClient
     }
 
     @Override
-    protected ResultSet getTables(Connection connection, String schemaName, String tableName)
+    protected ResultSet getTables(Connection connection, @Nullable String schemaName, @Nullable String tableName)
             throws SQLException
     {
         DatabaseMetaData metadata = connection.getMetaData();

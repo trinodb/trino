@@ -438,7 +438,7 @@ public class BaseJdbcClient
         return connection.prepareStatement(sql);
     }
 
-    protected ResultSet getTables(Connection connection, String schemaName, String tableName)
+    protected ResultSet getTables(Connection connection, @Nullable String schemaName, @Nullable String tableName)
             throws SQLException
     {
         DatabaseMetaData metadata = connection.getMetaData();
@@ -533,7 +533,7 @@ public class BaseJdbcClient
         return sb.toString();
     }
 
-    protected static String escapeNamePattern(String name, String escape)
+    protected static String escapeNamePattern(@Nullable String name, @Nullable String escape)
     {
         if ((name == null) || (escape == null)) {
             return name;

@@ -29,6 +29,7 @@ import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.VarcharType;
 
+import javax.annotation.Nullable;
 import javax.inject.Inject;
 
 import java.sql.Connection;
@@ -126,7 +127,7 @@ public class MySqlClient
     }
 
     @Override
-    protected ResultSet getTables(Connection connection, String schemaName, String tableName)
+    protected ResultSet getTables(Connection connection, @Nullable String schemaName, @Nullable String tableName)
             throws SQLException
     {
         // MySQL maps their "database" to SQL catalogs and does not have schemas
