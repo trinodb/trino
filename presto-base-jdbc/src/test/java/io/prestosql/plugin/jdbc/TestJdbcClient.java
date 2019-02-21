@@ -34,7 +34,6 @@ import static io.prestosql.spi.type.VarcharType.createVarcharType;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static java.util.Locale.ENGLISH;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
 @Test
@@ -76,13 +75,13 @@ public class TestJdbcClient
                 new SchemaTableName("tpch", "orders")));
 
         SchemaTableName schemaTableName = new SchemaTableName("example", "numbers");
-        JdbcTableHandle table = jdbcClient.getTableHandle(identity, schemaTableName);
-        assertNotNull(table, "table is null");
-        assertEquals(table.getCatalogName(), catalogName.toUpperCase(ENGLISH));
-        assertEquals(table.getSchemaName(), "EXAMPLE");
-        assertEquals(table.getTableName(), "NUMBERS");
-        assertEquals(table.getSchemaTableName(), schemaTableName);
-        assertEquals(jdbcClient.getColumns(session, table), ImmutableList.of(
+        Optional<JdbcTableHandle> table = jdbcClient.getTableHandle(identity, schemaTableName);
+        assertTrue(table.isPresent(), "table is missing");
+        assertEquals(table.get().getCatalogName(), catalogName.toUpperCase(ENGLISH));
+        assertEquals(table.get().getSchemaName(), "EXAMPLE");
+        assertEquals(table.get().getTableName(), "NUMBERS");
+        assertEquals(table.get().getSchemaTableName(), schemaTableName);
+        assertEquals(jdbcClient.getColumns(session, table.orElse(null)), ImmutableList.of(
                 new JdbcColumnHandle(CONNECTOR_ID, "TEXT", JDBC_VARCHAR, VARCHAR),
                 new JdbcColumnHandle(CONNECTOR_ID, "TEXT_SHORT", JDBC_VARCHAR, createVarcharType(32)),
                 new JdbcColumnHandle(CONNECTOR_ID, "VALUE", JDBC_BIGINT, BIGINT)));
@@ -92,9 +91,9 @@ public class TestJdbcClient
     public void testMetadataWithSchemaPattern()
     {
         SchemaTableName schemaTableName = new SchemaTableName("exa_ple", "num_ers");
-        JdbcTableHandle table = jdbcClient.getTableHandle(JdbcIdentity.from(session), schemaTableName);
-        assertNotNull(table, "table is null");
-        assertEquals(jdbcClient.getColumns(session, table), ImmutableList.of(
+        Optional<JdbcTableHandle> table = jdbcClient.getTableHandle(JdbcIdentity.from(session), schemaTableName);
+        assertTrue(table.isPresent(), "table is missing");
+        assertEquals(jdbcClient.getColumns(session, table.get()), ImmutableList.of(
                 new JdbcColumnHandle(CONNECTOR_ID, "TE_T", JDBC_VARCHAR, VARCHAR),
                 new JdbcColumnHandle(CONNECTOR_ID, "VA%UE", JDBC_BIGINT, BIGINT)));
     }
@@ -103,9 +102,9 @@ public class TestJdbcClient
     public void testMetadataWithFloatAndDoubleCol()
     {
         SchemaTableName schemaTableName = new SchemaTableName("exa_ple", "table_with_float_col");
-        JdbcTableHandle table = jdbcClient.getTableHandle(JdbcIdentity.from(session), schemaTableName);
-        assertNotNull(table, "table is null");
-        assertEquals(jdbcClient.getColumns(session, table), ImmutableList.of(
+        Optional<JdbcTableHandle> table = jdbcClient.getTableHandle(JdbcIdentity.from(session), schemaTableName);
+        assertTrue(table.isPresent(), "table is missing");
+        assertEquals(jdbcClient.getColumns(session, table.get()), ImmutableList.of(
                 new JdbcColumnHandle(CONNECTOR_ID, "COL1", JDBC_BIGINT, BIGINT),
                 new JdbcColumnHandle(CONNECTOR_ID, "COL2", JDBC_DOUBLE, DOUBLE),
                 new JdbcColumnHandle(CONNECTOR_ID, "COL3", JDBC_DOUBLE, DOUBLE),

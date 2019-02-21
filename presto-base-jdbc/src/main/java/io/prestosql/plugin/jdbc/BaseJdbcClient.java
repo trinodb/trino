@@ -162,9 +162,8 @@ public class BaseJdbcClient
         }
     }
 
-    @Nullable
     @Override
-    public JdbcTableHandle getTableHandle(JdbcIdentity identity, SchemaTableName schemaTableName)
+    public Optional<JdbcTableHandle> getTableHandle(JdbcIdentity identity, SchemaTableName schemaTableName)
     {
         try (Connection connection = connectionFactory.openConnection(identity)) {
             DatabaseMetaData metadata = connection.getMetaData();
@@ -185,12 +184,12 @@ public class BaseJdbcClient
                             resultSet.getString("TABLE_NAME")));
                 }
                 if (tableHandles.isEmpty()) {
-                    return null;
+                    return Optional.empty();
                 }
                 if (tableHandles.size() > 1) {
                     throw new PrestoException(NOT_SUPPORTED, "Multiple tables matched: " + schemaTableName);
                 }
-                return getOnlyElement(tableHandles);
+                return Optional.of(getOnlyElement(tableHandles));
             }
         }
         catch (SQLException e) {

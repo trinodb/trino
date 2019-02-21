@@ -66,7 +66,8 @@ public class TestJdbcRecordSetProvider
         jdbcClient = database.getJdbcClient();
         split = database.getSplit("example", "numbers");
 
-        table = jdbcClient.getTableHandle(IDENTITY, new SchemaTableName("example", "numbers"));
+        table = jdbcClient.getTableHandle(IDENTITY, new SchemaTableName("example", "numbers"))
+                .orElseThrow(AssertionError::new);
 
         Map<String, JdbcColumnHandle> columns = database.getColumnHandles("example", "numbers");
         textColumn = columns.get("text");
