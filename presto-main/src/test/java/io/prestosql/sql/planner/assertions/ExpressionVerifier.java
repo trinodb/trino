@@ -34,6 +34,7 @@ import io.prestosql.sql.tree.LongLiteral;
 import io.prestosql.sql.tree.Node;
 import io.prestosql.sql.tree.NotExpression;
 import io.prestosql.sql.tree.NullLiteral;
+import io.prestosql.sql.tree.SearchedCaseExpression;
 import io.prestosql.sql.tree.SimpleCaseExpression;
 import io.prestosql.sql.tree.StringLiteral;
 import io.prestosql.sql.tree.SymbolReference;
@@ -350,6 +351,22 @@ final class ExpressionVerifier
         }
 
         return process(actual.getDefaultValue(), expectedCase.getDefaultValue());
+    }
+
+    @Override
+    protected Boolean visitSearchedCaseExpression(SearchedCaseExpression actual, Node expected)
+    {
+        if (!(expected instanceof SearchedCaseExpression)) {
+            return false;
+        }
+        SearchedCaseExpression expectedCase = (SearchedCaseExpression) expected;
+        if (!process(actual.getWhenClauses(), expectedCase.getWhenClauses())) {
+            return false;
+        }
+        if (!process(actual.getDefaultValue(), expectedCase.getDefaultValue())) {
+            return false;
+        }
+        return true;
     }
 
     @Override

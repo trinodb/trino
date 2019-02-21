@@ -23,6 +23,7 @@ import static io.prestosql.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.exchange;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.expression;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.functionCall;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.join;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.project;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.values;
@@ -123,5 +124,28 @@ public class TestFullOuterJoinWithCoalesce
                                                                         exchange(REMOTE, REPARTITION, anyTree(values(ImmutableList.of("t")))),
                                                                         exchange(LOCAL, GATHER, anyTree(values(ImmutableList.of("s")))))),
                                                         exchange(LOCAL, GATHER, anyTree(values(ImmutableList.of("r")))))))))));
+    }
+
+    @Test
+    public void testFullOuterJoinWithCoalesceOnIfExpressionAndCountAggregation()
+    {
+        assertDistributedPlan("SELECT coalesce(t.a, u.a, if(t.b is null, 100, t.b)), count(*) " +
+                        "FROM (VALUES (1, 10), (2, 20), (3, 30), (null, 40), (100, 50)) t(a, b) " +
+                        "FULL OUTER JOIN (VALUES 1, 4, null) u(a) ON t.a = u.a " +
+                        "GROUP BY 1",
+                anyTree(exchange(
+                        REMOTE,
+                        REPARTITION,
+                        aggregation(
+                                ImmutableMap.of("count", functionCall("count", ImmutableList.of())),
+                                PARTIAL,
+                                project(
+                                        project(
+                                                ImmutableMap.of("expr", expression("coalesce(ta, ua, (CASE WHEN (tb IS NULL) THEN 100 ELSE tb END))")),
+                                                join(
+                                                        FULL,
+                                                        ImmutableList.of(equiJoinClause("ta", "ua")),
+                                                        exchange(REMOTE, REPARTITION, anyTree(values(ImmutableList.of("ta", "tb")))),
+                                                        exchange(LOCAL, GATHER, anyTree(values(ImmutableList.of("ua")))))))))));
     }
 }
