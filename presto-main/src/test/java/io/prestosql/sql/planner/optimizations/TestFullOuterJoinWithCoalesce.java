@@ -42,10 +42,10 @@ public class TestFullOuterJoinWithCoalesce
         assertDistributedPlan("SELECT coalesce(ts.a, r.a) " +
                 "FROM (" +
                 "   SELECT coalesce(t.a, s.a) AS a " +
-                "   FROM (VALUES (1), (2), (3)) t(a) " +
-                "   FULL OUTER JOIN (VALUES (1), (4)) s(a)" +
+                "   FROM (VALUES 1, 2, 3) t(a) " +
+                "   FULL OUTER JOIN (VALUES 1, 4) s(a)" +
                 "   ON t.a = s.a) ts " +
-                "FULL OUTER JOIN (VALUES (2), (5)) r(a) on ts.a = r.a",
+                "FULL OUTER JOIN (VALUES 2, 5) r(a) on ts.a = r.a",
                 anyTree(
                         project(
                                 ImmutableMap.of("expr", expression("coalesce(ts, r)")),
@@ -67,10 +67,10 @@ public class TestFullOuterJoinWithCoalesce
     public void testFullOuterJoinWithCoalesceAndGroupBy()
     {
         assertDistributedPlan("SELECT coalesce(t.a, s.a, r.a) " +
-                        "FROM (VALUES (1), (2), (3)) t(a) " +
-                        "FULL OUTER JOIN (VALUES (1), (4)) s(a) " +
+                        "FROM (VALUES 1, 2, 3) t(a) " +
+                        "FULL OUTER JOIN (VALUES 1, 4) s(a) " +
                         "ON t.a = s.a " +
-                        "FULL OUTER JOIN (VALUES (2), (5)) r(a) " +
+                        "FULL OUTER JOIN (VALUES 2, 5) r(a) " +
                         "ON t.a = r.a " +
                         "GROUP BY 1",
                 anyTree(exchange(
@@ -98,10 +98,10 @@ public class TestFullOuterJoinWithCoalesce
     public void testFullOuterJoinWithCoalesceNonSymbol()
     {
         assertDistributedPlan("SELECT coalesce(t.a, s.a + 1, r.a) " +
-                        "FROM (VALUES (1), (2), (3)) t(a) " +
-                        "FULL OUTER JOIN (VALUES (1), (4)) s(a) " +
+                        "FROM (VALUES 1, 2, 3) t(a) " +
+                        "FULL OUTER JOIN (VALUES 1, 4) s(a) " +
                         "ON t.a = s.a " +
-                        "FULL OUTER JOIN (VALUES (2), (5)) r(a) " +
+                        "FULL OUTER JOIN (VALUES 2, 5) r(a) " +
                         "ON t.a = r.a " +
                         "GROUP BY 1",
                 anyTree(exchange(
