@@ -29,7 +29,6 @@ import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.VarcharType;
 
-import javax.annotation.Nullable;
 import javax.inject.Inject;
 
 import java.sql.Connection;
@@ -37,6 +36,7 @@ import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.Optional;
 import java.util.Properties;
 import java.util.Set;
 
@@ -127,16 +127,16 @@ public class MySqlClient
     }
 
     @Override
-    protected ResultSet getTables(Connection connection, @Nullable String schemaName, @Nullable String tableName)
+    protected ResultSet getTables(Connection connection, Optional<String> schemaName, Optional<String> tableName)
             throws SQLException
     {
         // MySQL maps their "database" to SQL catalogs and does not have schemas
         DatabaseMetaData metadata = connection.getMetaData();
-        String escape = metadata.getSearchStringEscape();
+        Optional<String> escape = Optional.ofNullable(metadata.getSearchStringEscape());
         return metadata.getTables(
-                schemaName,
+                schemaName.orElse(null),
                 null,
-                escapeNamePattern(tableName, escape),
+                escapeNamePattern(tableName, escape).orElse(null),
                 new String[] {"TABLE", "VIEW"});
     }
 

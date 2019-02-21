@@ -21,6 +21,8 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.util.Optional;
+
 import static io.prestosql.plugin.jdbc.TestingDatabase.CONNECTOR_ID;
 import static io.prestosql.plugin.jdbc.TestingJdbcTypeHandle.JDBC_BIGINT;
 import static io.prestosql.plugin.jdbc.TestingJdbcTypeHandle.JDBC_DOUBLE;
@@ -66,11 +68,11 @@ public class TestJdbcClient
     {
         JdbcIdentity identity = JdbcIdentity.from(session);
         assertTrue(jdbcClient.getSchemaNames(identity).containsAll(ImmutableSet.of("example", "tpch")));
-        assertEquals(jdbcClient.getTableNames(identity, "example"), ImmutableList.of(
+        assertEquals(jdbcClient.getTableNames(identity, Optional.of("example")), ImmutableList.of(
                 new SchemaTableName("example", "numbers"),
                 new SchemaTableName("example", "view_source"),
                 new SchemaTableName("example", "view")));
-        assertEquals(jdbcClient.getTableNames(identity, "tpch"), ImmutableList.of(
+        assertEquals(jdbcClient.getTableNames(identity, Optional.of("tpch")), ImmutableList.of(
                 new SchemaTableName("tpch", "lineitem"),
                 new SchemaTableName("tpch", "orders")));
 

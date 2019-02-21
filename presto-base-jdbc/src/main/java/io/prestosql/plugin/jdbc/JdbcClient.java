@@ -22,8 +22,6 @@ import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.statistics.TableStatistics;
 import io.prestosql.spi.type.Type;
 
-import javax.annotation.Nullable;
-
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
@@ -40,7 +38,7 @@ public interface JdbcClient
 
     Set<String> getSchemaNames(JdbcIdentity identity);
 
-    List<SchemaTableName> getTableNames(JdbcIdentity identity, @Nullable String schema);
+    List<SchemaTableName> getTableNames(JdbcIdentity identity, Optional<String> schema);
 
     Optional<JdbcTableHandle> getTableHandle(JdbcIdentity identity, SchemaTableName schemaTableName);
 
