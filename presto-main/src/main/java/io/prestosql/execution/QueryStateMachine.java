@@ -337,6 +337,7 @@ public class QueryStateMachine
                 stageStats.getUserMemoryReservation(),
                 stageStats.getTotalMemoryReservation(),
                 succinctBytes(getPeakUserMemoryInBytes()),
+                succinctBytes(getPeakTotalMemoryInBytes()),
 
                 stageStats.getTotalCpuTime(),
                 stageStats.getTotalScheduledTime(),

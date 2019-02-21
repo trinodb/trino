@@ -56,6 +56,7 @@ public class BasicQueryStats
     private final DataSize userMemoryReservation;
     private final DataSize totalMemoryReservation;
     private final DataSize peakUserMemoryReservation;
+    private final DataSize peakTotalMemoryReservation;
     private final Duration totalCpuTime;
     private final Duration totalScheduledTime;
 
@@ -81,6 +82,7 @@ public class BasicQueryStats
             @JsonProperty("userMemoryReservation") DataSize userMemoryReservation,
             @JsonProperty("totalMemoryReservation") DataSize totalMemoryReservation,
             @JsonProperty("peakUserMemoryReservation") DataSize peakUserMemoryReservation,
+            @JsonProperty("peakTotalMemoryReservation") DataSize peakTotalMemoryReservation,
             @JsonProperty("totalCpuTime") Duration totalCpuTime,
             @JsonProperty("totalScheduledTime") Duration totalScheduledTime,
             @JsonProperty("fullyBlocked") boolean fullyBlocked,
@@ -110,6 +112,7 @@ public class BasicQueryStats
         this.userMemoryReservation = userMemoryReservation;
         this.totalMemoryReservation = totalMemoryReservation;
         this.peakUserMemoryReservation = peakUserMemoryReservation;
+        this.peakTotalMemoryReservation = peakTotalMemoryReservation;
         this.totalCpuTime = totalCpuTime;
         this.totalScheduledTime = totalScheduledTime;
 
@@ -136,6 +139,7 @@ public class BasicQueryStats
                 queryStats.getUserMemoryReservation(),
                 queryStats.getTotalMemoryReservation(),
                 queryStats.getPeakUserMemoryReservation(),
+                queryStats.getPeakTotalMemoryReservation(),
                 queryStats.getTotalCpuTime(),
                 queryStats.getTotalScheduledTime(),
                 queryStats.isFullyBlocked(),
@@ -231,6 +235,12 @@ public class BasicQueryStats
     public DataSize getPeakUserMemoryReservation()
     {
         return peakUserMemoryReservation;
+    }
+
+    @JsonProperty
+    public DataSize getPeakTotalMemoryReservation()
+    {
+        return peakTotalMemoryReservation;
     }
 
     @JsonProperty
