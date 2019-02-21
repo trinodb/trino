@@ -1342,6 +1342,16 @@ export class QueryDetail extends React.Component {
                                             {query.queryStats.peakUserMemoryReservation}
                                         </td>
                                     </tr>
+                                    {parseDataSize(query.queryStats.peakRevocableMemoryReservation) > 0 &&
+                                    <tr>
+                                        <td className="info-title">
+                                            Peak Revocable Memory
+                                        </td>
+                                        <td className="info-text">
+                                            {query.queryStats.peakRevocableMemoryReservation}
+                                        </td>
+                                    </tr>
+                                    }
                                     <tr>
                                         <td className="info-title">
                                             Peak Total Memory
