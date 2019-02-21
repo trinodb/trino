@@ -13,30 +13,32 @@
  */
 package io.prestosql.elasticsearch;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.spi.Plugin;
 import io.prestosql.spi.connector.ConnectorFactory;
 
-import java.util.Optional;
+import static java.util.Objects.requireNonNull;
 
 public class ElasticsearchPlugin
         implements Plugin
 {
-    private Optional<ConnectorFactory> connectorFactory;
+    private final ConnectorFactory connectorFactory;
 
     public ElasticsearchPlugin()
     {
-        connectorFactory = Optional.of(new ElasticsearchConnectorFactory());
+        connectorFactory = new ElasticsearchConnectorFactory();
     }
 
-    public void setConnectorFactory(ConnectorFactory factory)
+    @VisibleForTesting
+    ElasticsearchPlugin(ElasticsearchConnectorFactory factory)
     {
-        connectorFactory = Optional.of(factory);
+        connectorFactory = requireNonNull(factory, "factory is null");
     }
 
     @Override
     public synchronized Iterable<ConnectorFactory> getConnectorFactories()
     {
-        return ImmutableList.of(connectorFactory.get());
+        return ImmutableList.of(connectorFactory);
     }
 }
