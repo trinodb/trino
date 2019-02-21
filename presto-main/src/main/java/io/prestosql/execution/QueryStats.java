@@ -67,11 +67,14 @@ public class QueryStats
 
     private final double cumulativeUserMemory;
     private final DataSize userMemoryReservation;
+    private final DataSize revocableMemoryReservation;
     private final DataSize totalMemoryReservation;
     private final DataSize peakUserMemoryReservation;
+    private final DataSize peakRevocableMemoryReservation;
     private final DataSize peakTotalMemoryReservation;
-    private final DataSize peakTaskTotalMemory;
     private final DataSize peakTaskUserMemory;
+    private final DataSize peakTaskRevocableMemory;
+    private final DataSize peakTaskTotalMemory;
 
     private final boolean scheduled;
     private final Duration totalScheduledTime;
@@ -129,10 +132,13 @@ public class QueryStats
 
             @JsonProperty("cumulativeUserMemory") double cumulativeUserMemory,
             @JsonProperty("userMemoryReservation") DataSize userMemoryReservation,
+            @JsonProperty("revocableMemoryReservation") DataSize revocableMemoryReservation,
             @JsonProperty("totalMemoryReservation") DataSize totalMemoryReservation,
             @JsonProperty("peakUserMemoryReservation") DataSize peakUserMemoryReservation,
+            @JsonProperty("peakRevocableMemoryReservation") DataSize peakRevocableMemoryReservation,
             @JsonProperty("peakTotalMemoryReservation") DataSize peakTotalMemoryReservation,
             @JsonProperty("peakTaskUserMemory") DataSize peakTaskUserMemory,
+            @JsonProperty("peakTaskRevocableMemory") DataSize peakTaskRevocableMemory,
             @JsonProperty("peakTaskTotalMemory") DataSize peakTaskTotalMemory,
 
             @JsonProperty("scheduled") boolean scheduled,
@@ -197,11 +203,14 @@ public class QueryStats
         checkArgument(cumulativeUserMemory >= 0, "cumulativeUserMemory is negative");
         this.cumulativeUserMemory = cumulativeUserMemory;
         this.userMemoryReservation = requireNonNull(userMemoryReservation, "userMemoryReservation is null");
+        this.revocableMemoryReservation = requireNonNull(revocableMemoryReservation, "revocableMemoryReservation is null");
         this.totalMemoryReservation = requireNonNull(totalMemoryReservation, "totalMemoryReservation is null");
         this.peakUserMemoryReservation = requireNonNull(peakUserMemoryReservation, "peakUserMemoryReservation is null");
+        this.peakRevocableMemoryReservation = requireNonNull(peakRevocableMemoryReservation, "peakRevocableMemoryReservation is null");
         this.peakTotalMemoryReservation = requireNonNull(peakTotalMemoryReservation, "peakTotalMemoryReservation is null");
-        this.peakTaskTotalMemory = requireNonNull(peakTaskTotalMemory, "peakTaskTotalMemory is null");
         this.peakTaskUserMemory = requireNonNull(peakTaskUserMemory, "peakTaskUserMemory is null");
+        this.peakTaskRevocableMemory = requireNonNull(peakTaskRevocableMemory, "peakTaskRevocableMemory is null");
+        this.peakTaskTotalMemory = requireNonNull(peakTaskTotalMemory, "peakTaskTotalMemory is null");
         this.scheduled = scheduled;
         this.totalScheduledTime = requireNonNull(totalScheduledTime, "totalScheduledTime is null");
         this.totalCpuTime = requireNonNull(totalCpuTime, "totalCpuTime is null");
@@ -261,6 +270,9 @@ public class QueryStats
                 0,
                 0,
                 0,
+                new DataSize(0, BYTE),
+                new DataSize(0, BYTE),
+                new DataSize(0, BYTE),
                 new DataSize(0, BYTE),
                 new DataSize(0, BYTE),
                 new DataSize(0, BYTE),
@@ -422,6 +434,12 @@ public class QueryStats
     }
 
     @JsonProperty
+    public DataSize getRevocableMemoryReservation()
+    {
+        return revocableMemoryReservation;
+    }
+
+    @JsonProperty
     public DataSize getTotalMemoryReservation()
     {
         return totalMemoryReservation;
@@ -434,21 +452,33 @@ public class QueryStats
     }
 
     @JsonProperty
+    public DataSize getPeakRevocableMemoryReservation()
+    {
+        return peakRevocableMemoryReservation;
+    }
+
+    @JsonProperty
     public DataSize getPeakTotalMemoryReservation()
     {
         return peakTotalMemoryReservation;
     }
 
     @JsonProperty
-    public DataSize getPeakTaskTotalMemory()
-    {
-        return peakTaskTotalMemory;
-    }
-
-    @JsonProperty
     public DataSize getPeakTaskUserMemory()
     {
         return peakTaskUserMemory;
+    }
+
+    @JsonProperty
+    public DataSize getPeakTaskRevocableMemory()
+    {
+        return peakTaskRevocableMemory;
+    }
+
+    @JsonProperty
+    public DataSize getPeakTaskTotalMemory()
+    {
+        return peakTaskTotalMemory;
     }
 
     @JsonProperty

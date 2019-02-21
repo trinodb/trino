@@ -325,29 +325,37 @@ public class TestQueryStateMachine
     {
         QueryStateMachine stateMachine = createQueryStateMachine();
 
-        stateMachine.updateMemoryUsage(5, 10, 1, 3);
+        stateMachine.updateMemoryUsage(5, 15, 10, 1, 5, 3);
         assertEquals(stateMachine.getPeakUserMemoryInBytes(), 5);
         assertEquals(stateMachine.getPeakTotalMemoryInBytes(), 10);
+        assertEquals(stateMachine.getPeakRevocableMemoryInBytes(), 15);
         assertEquals(stateMachine.getPeakTaskUserMemory(), 1);
         assertEquals(stateMachine.getPeakTaskTotalMemory(), 3);
+        assertEquals(stateMachine.getPeakTaskRevocableMemory(), 5);
 
-        stateMachine.updateMemoryUsage(0, 0, 2, 2);
+        stateMachine.updateMemoryUsage(0, 0, 0, 2, 2, 2);
         assertEquals(stateMachine.getPeakUserMemoryInBytes(), 5);
         assertEquals(stateMachine.getPeakTotalMemoryInBytes(), 10);
+        assertEquals(stateMachine.getPeakRevocableMemoryInBytes(), 15);
         assertEquals(stateMachine.getPeakTaskUserMemory(), 2);
         assertEquals(stateMachine.getPeakTaskTotalMemory(), 3);
+        assertEquals(stateMachine.getPeakTaskRevocableMemory(), 5);
 
-        stateMachine.updateMemoryUsage(1, 1, 1, 5);
+        stateMachine.updateMemoryUsage(1, 1, 1, 1, 10, 5);
         assertEquals(stateMachine.getPeakUserMemoryInBytes(), 6);
         assertEquals(stateMachine.getPeakTotalMemoryInBytes(), 11);
+        assertEquals(stateMachine.getPeakRevocableMemoryInBytes(), 16);
         assertEquals(stateMachine.getPeakTaskUserMemory(), 2);
         assertEquals(stateMachine.getPeakTaskTotalMemory(), 5);
+        assertEquals(stateMachine.getPeakTaskRevocableMemory(), 10);
 
-        stateMachine.updateMemoryUsage(3, 3, 5, 2);
+        stateMachine.updateMemoryUsage(3, 3, 3, 5, 1, 2);
         assertEquals(stateMachine.getPeakUserMemoryInBytes(), 9);
         assertEquals(stateMachine.getPeakTotalMemoryInBytes(), 14);
+        assertEquals(stateMachine.getPeakRevocableMemoryInBytes(), 19);
         assertEquals(stateMachine.getPeakTaskUserMemory(), 5);
         assertEquals(stateMachine.getPeakTaskTotalMemory(), 5);
+        assertEquals(stateMachine.getPeakTaskRevocableMemory(), 10);
     }
 
     private static void assertFinalState(QueryStateMachine stateMachine, QueryState expectedState)

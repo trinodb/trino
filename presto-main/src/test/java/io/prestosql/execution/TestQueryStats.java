@@ -182,6 +182,9 @@ public class TestQueryStats
             new DataSize(21, BYTE),
             new DataSize(22, BYTE),
             new DataSize(23, BYTE),
+            new DataSize(24, BYTE),
+            new DataSize(25, BYTE),
+            new DataSize(26, BYTE),
 
             true,
             new Duration(20, NANOSECONDS),
@@ -257,11 +260,14 @@ public class TestQueryStats
 
         assertEquals(actual.getCumulativeUserMemory(), 17.0);
         assertEquals(actual.getUserMemoryReservation(), new DataSize(18, BYTE));
-        assertEquals(actual.getTotalMemoryReservation(), new DataSize(19, BYTE));
-        assertEquals(actual.getPeakUserMemoryReservation(), new DataSize(20, BYTE));
-        assertEquals(actual.getPeakTotalMemoryReservation(), new DataSize(21, BYTE));
-        assertEquals(actual.getPeakTaskUserMemory(), new DataSize(22, BYTE));
-        assertEquals(actual.getPeakTaskTotalMemory(), new DataSize(23, BYTE));
+        assertEquals(actual.getRevocableMemoryReservation(), new DataSize(19, BYTE));
+        assertEquals(actual.getTotalMemoryReservation(), new DataSize(20, BYTE));
+        assertEquals(actual.getPeakUserMemoryReservation(), new DataSize(21, BYTE));
+        assertEquals(actual.getPeakRevocableMemoryReservation(), new DataSize(22, BYTE));
+        assertEquals(actual.getPeakTotalMemoryReservation(), new DataSize(23, BYTE));
+        assertEquals(actual.getPeakTaskUserMemory(), new DataSize(24, BYTE));
+        assertEquals(actual.getPeakTaskRevocableMemory(), new DataSize(25, BYTE));
+        assertEquals(actual.getPeakTaskTotalMemory(), new DataSize(26, BYTE));
         assertEquals(actual.getSpilledDataSize(), new DataSize(690, BYTE));
 
         assertEquals(actual.getTotalScheduledTime(), new Duration(20, NANOSECONDS));
