@@ -33,7 +33,6 @@ import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.VarcharType;
 
-import javax.annotation.Nullable;
 import javax.annotation.PreDestroy;
 
 import java.sql.Connection;
@@ -142,14 +141,14 @@ public class BaseJdbcClient
     }
 
     @Override
-    public List<SchemaTableName> getTableNames(JdbcIdentity identity, @Nullable String schema)
+    public List<SchemaTableName> getTableNames(JdbcIdentity identity, Optional<String> schema)
     {
         try (Connection connection = connectionFactory.openConnection(identity)) {
             DatabaseMetaData metadata = connection.getMetaData();
-            if (metadata.storesUpperCaseIdentifiers() && (schema != null)) {
-                schema = schema.toUpperCase(ENGLISH);
+            if (metadata.storesUpperCaseIdentifiers()) {
+                schema = schema.map(schemaName -> schemaName.toUpperCase(ENGLISH));
             }
-            try (ResultSet resultSet = getTables(connection, schema, null)) {
+            try (ResultSet resultSet = getTables(connection, schema, Optional.empty())) {
                 ImmutableList.Builder<SchemaTableName> list = ImmutableList.builder();
                 while (resultSet.next()) {
                     list.add(getSchemaTableName(resultSet));
@@ -173,7 +172,7 @@ public class BaseJdbcClient
                 jdbcSchemaName = jdbcSchemaName.toUpperCase(ENGLISH);
                 jdbcTableName = jdbcTableName.toUpperCase(ENGLISH);
             }
-            try (ResultSet resultSet = getTables(connection, jdbcSchemaName, jdbcTableName)) {
+            try (ResultSet resultSet = getTables(connection, Optional.of(jdbcSchemaName), Optional.of(jdbcTableName))) {
                 List<JdbcTableHandle> tableHandles = new ArrayList<>();
                 while (resultSet.next()) {
                     tableHandles.add(new JdbcTableHandle(
@@ -437,15 +436,15 @@ public class BaseJdbcClient
         return connection.prepareStatement(sql);
     }
 
-    protected ResultSet getTables(Connection connection, @Nullable String schemaName, @Nullable String tableName)
+    protected ResultSet getTables(Connection connection, Optional<String> schemaName, Optional<String> tableName)
             throws SQLException
     {
         DatabaseMetaData metadata = connection.getMetaData();
-        String escape = metadata.getSearchStringEscape();
+        Optional<String> escape = Optional.ofNullable(metadata.getSearchStringEscape());
         return metadata.getTables(
                 connection.getCatalog(),
-                escapeNamePattern(schemaName, escape),
-                escapeNamePattern(tableName, escape),
+                escapeNamePattern(schemaName, escape).orElse(null),
+                escapeNamePattern(tableName, escape).orElse(null),
                 new String[] {"TABLE", "VIEW"});
     }
 
@@ -532,11 +531,18 @@ public class BaseJdbcClient
         return sb.toString();
     }
 
-    protected static String escapeNamePattern(@Nullable String name, @Nullable String escape)
+    protected static Optional<String> escapeNamePattern(Optional<String> name, Optional<String> escape)
     {
-        if ((name == null) || (escape == null)) {
+        if (!name.isPresent() || !escape.isPresent()) {
             return name;
         }
+        return Optional.of(escapeNamePattern(name.get(), escape.get()));
+    }
+
+    private static String escapeNamePattern(String name, String escape)
+    {
+        requireNonNull(name, "name is null");
+        requireNonNull(escape, "escape is null");
         checkArgument(!escape.equals("_"), "Escape string must not be '_'");
         checkArgument(!escape.equals("%"), "Escape string must not be '%'");
         name = name.replace(escape, escape + escape);
@@ -548,11 +554,11 @@ public class BaseJdbcClient
     private static ResultSet getColumns(JdbcTableHandle tableHandle, DatabaseMetaData metadata)
             throws SQLException
     {
-        String escape = metadata.getSearchStringEscape();
+        Optional<String> escape = Optional.ofNullable(metadata.getSearchStringEscape());
         return metadata.getColumns(
                 tableHandle.getCatalogName(),
-                escapeNamePattern(tableHandle.getSchemaName(), escape),
-                escapeNamePattern(tableHandle.getTableName(), escape),
+                escapeNamePattern(Optional.ofNullable(tableHandle.getSchemaName()), escape).orElse(null),
+                escapeNamePattern(Optional.ofNullable(tableHandle.getTableName()), escape).orElse(null),
                 null);
     }
 }
