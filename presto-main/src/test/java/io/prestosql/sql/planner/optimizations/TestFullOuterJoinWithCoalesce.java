@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import io.prestosql.sql.planner.assertions.BasePlanTest;
 import org.testng.annotations.Test;
 
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.exchange;
@@ -25,6 +26,7 @@ import static io.prestosql.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.join;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.project;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.values;
+import static io.prestosql.sql.planner.plan.AggregationNode.Step.PARTIAL;
 import static io.prestosql.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static io.prestosql.sql.planner.plan.ExchangeNode.Scope.REMOTE;
 import static io.prestosql.sql.planner.plan.ExchangeNode.Type.GATHER;
@@ -60,5 +62,54 @@ public class TestFullOuterJoinWithCoalesce
                                                                 exchange(REMOTE, REPARTITION, anyTree(values(ImmutableList.of("t")))),
                                                                 exchange(LOCAL, GATHER, anyTree(values(ImmutableList.of("s"))))))),
                                         exchange(LOCAL, GATHER, anyTree(values(ImmutableList.of("r"))))))));
+    }
+
+    @Test
+    public void testArgumentsInDifferentOrder()
+    {
+        // ensure properties for full outer join are derived properly regardless of the order of arguments to coalesce, since they
+        // are semantically equivalent
+
+        assertDistributedPlan(
+                "SELECT coalesce(l.a, r.a) " +
+                        "FROM (VALUES 1, 2, 3) l(a) " +
+                        "FULL OUTER JOIN (VALUES 1, 4) r(a) ON l.a = r.a " +
+                        "GROUP BY 1",
+                anyTree(
+                        exchange(
+                                LOCAL,
+                                GATHER,
+                                aggregation(
+                                        ImmutableMap.of(),
+                                        PARTIAL,
+                                        anyTree(
+                                                project(
+                                                        ImmutableMap.of("expr", expression("coalesce(l, r)")),
+                                                        join(
+                                                                FULL,
+                                                                ImmutableList.of(equiJoinClause("l", "r")),
+                                                                anyTree(values(ImmutableList.of("l"))),
+                                                                anyTree(values(ImmutableList.of("r"))))))))));
+
+        assertDistributedPlan(
+                "SELECT coalesce(r.a, l.a) " +
+                        "FROM (VALUES 1, 2, 3) l(a) " +
+                        "FULL OUTER JOIN (VALUES 1, 4) r(a) ON l.a = r.a " +
+                        "GROUP BY 1",
+                anyTree(
+                        exchange(
+                                LOCAL,
+                                GATHER,
+                                aggregation(
+                                        ImmutableMap.of(),
+                                        PARTIAL,
+                                        anyTree(
+                                                project(
+                                                        ImmutableMap.of("expr", expression("coalesce(r, l)")),
+                                                        join(
+                                                                FULL,
+                                                                ImmutableList.of(equiJoinClause("l", "r")),
+                                                                anyTree(values(ImmutableList.of("l"))),
+                                                                anyTree(values(ImmutableList.of("r"))))))))));
     }
 }
