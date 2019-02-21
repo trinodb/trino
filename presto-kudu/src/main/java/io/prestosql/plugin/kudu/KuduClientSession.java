@@ -347,9 +347,6 @@ public class KuduClientSession
             }
             client.alterTable(rawName, alterOptions);
         }
-        catch (PrestoException e) {
-            throw e;
-        }
         catch (KuduException e) {
             throw new PrestoException(GENERIC_INTERNAL_ERROR, e);
         }
