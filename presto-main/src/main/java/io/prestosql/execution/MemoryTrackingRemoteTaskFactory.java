@@ -70,6 +70,7 @@ public class MemoryTrackingRemoteTaskFactory
         private final QueryStateMachine stateMachine;
         private long previousUserMemory;
         private long previousSystemMemory;
+        private long previousRevocableMemory;
 
         public UpdatePeakMemory(QueryStateMachine stateMachine)
         {
@@ -81,12 +82,15 @@ public class MemoryTrackingRemoteTaskFactory
         {
             long currentUserMemory = newStatus.getMemoryReservation().toBytes();
             long currentSystemMemory = newStatus.getSystemMemoryReservation().toBytes();
+            long currentRevocableMemory = newStatus.getRevocableMemoryReservation().toBytes();
             long currentTotalMemory = currentUserMemory + currentSystemMemory;
             long deltaUserMemoryInBytes = currentUserMemory - previousUserMemory;
+            long deltaRevocableMemoryInBytes = currentRevocableMemory - previousRevocableMemory;
             long deltaTotalMemoryInBytes = currentTotalMemory - (previousUserMemory + previousSystemMemory);
             previousUserMemory = currentUserMemory;
             previousSystemMemory = currentSystemMemory;
-            stateMachine.updateMemoryUsage(deltaUserMemoryInBytes, deltaTotalMemoryInBytes, currentUserMemory, currentTotalMemory);
+            previousRevocableMemory = currentRevocableMemory;
+            stateMachine.updateMemoryUsage(deltaUserMemoryInBytes, deltaRevocableMemoryInBytes, deltaTotalMemoryInBytes, currentUserMemory, currentRevocableMemory, currentTotalMemory);
         }
     }
 }

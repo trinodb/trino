@@ -65,6 +65,7 @@ public class TaskStatus
     private final DataSize physicalWrittenDataSize;
     private final DataSize memoryReservation;
     private final DataSize systemMemoryReservation;
+    private final DataSize revocableMemoryReservation;
 
     private final long fullGcCount;
     private final Duration fullGcTime;
@@ -87,6 +88,7 @@ public class TaskStatus
             @JsonProperty("physicalWrittenDataSize") DataSize physicalWrittenDataSize,
             @JsonProperty("memoryReservation") DataSize memoryReservation,
             @JsonProperty("systemMemoryReservation") DataSize systemMemoryReservation,
+            @JsonProperty("revocableMemoryReservation") DataSize revocableMemoryReservation,
             @JsonProperty("fullGcCount") long fullGcCount,
             @JsonProperty("fullGcTime") Duration fullGcTime)
     {
@@ -112,6 +114,7 @@ public class TaskStatus
 
         this.memoryReservation = requireNonNull(memoryReservation, "memoryReservation is null");
         this.systemMemoryReservation = requireNonNull(systemMemoryReservation, "systemMemoryReservation is null");
+        this.revocableMemoryReservation = requireNonNull(revocableMemoryReservation, "revocableMemoryReservation is null");
         this.failures = ImmutableList.copyOf(requireNonNull(failures, "failures is null"));
 
         checkArgument(fullGcCount >= 0, "fullGcCount is negative");
@@ -204,6 +207,12 @@ public class TaskStatus
     }
 
     @JsonProperty
+    public DataSize getRevocableMemoryReservation()
+    {
+        return revocableMemoryReservation;
+    }
+
+    @JsonProperty
     public long getFullGcCount()
     {
         return fullGcCount;
@@ -241,6 +250,7 @@ public class TaskStatus
                 new DataSize(0, BYTE),
                 new DataSize(0, BYTE),
                 new DataSize(0, BYTE),
+                new DataSize(0, BYTE),
                 0,
                 new Duration(0, MILLISECONDS));
     }
@@ -262,6 +272,7 @@ public class TaskStatus
                 taskStatus.getPhysicalWrittenDataSize(),
                 taskStatus.getMemoryReservation(),
                 taskStatus.getSystemMemoryReservation(),
+                taskStatus.getRevocableMemoryReservation(),
                 taskStatus.getFullGcCount(),
                 taskStatus.getFullGcTime());
     }
