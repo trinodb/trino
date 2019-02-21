@@ -145,9 +145,9 @@ public class OperatorStats
         this.addInputWall = requireNonNull(addInputWall, "addInputWall is null");
         this.addInputCpu = requireNonNull(addInputCpu, "addInputCpu is null");
         this.physicalInputDataSize = requireNonNull(physicalInputDataSize, "physicalInputDataSize is null");
-        this.physicalInputPositions = requireNonNull(physicalInputPositions, "physicalInputPositions is null");
+        this.physicalInputPositions = physicalInputPositions;
         this.internalNetworkInputDataSize = requireNonNull(internalNetworkInputDataSize, "internalNetworkInputDataSize is null");
-        this.internalNetworkInputPositions = requireNonNull(internalNetworkInputPositions, "internalNetworkInputPositions is null");
+        this.internalNetworkInputPositions = internalNetworkInputPositions;
         this.rawInputDataSize = requireNonNull(rawInputDataSize, "rawInputDataSize is null");
         this.inputDataSize = requireNonNull(inputDataSize, "inputDataSize is null");
         checkArgument(inputPositions >= 0, "inputPositions is negative");
