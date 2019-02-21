@@ -49,7 +49,7 @@ public final class AccumuloTableHandle
             @JsonProperty("serializerClassName") String serializerClassName,
             @JsonProperty("scanAuthorizations") Optional<String> scanAuthorizations)
     {
-        this.external = requireNonNull(external, "external is null");
+        this.external = external;
         this.rowId = requireNonNull(rowId, "rowId is null");
         this.scanAuthorizations = scanAuthorizations;
         this.schema = requireNonNull(schema, "schema is null");

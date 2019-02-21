@@ -52,11 +52,11 @@ public final class AccumuloColumnHandle
         this.family = requireNonNull(family, "family is null");
         this.qualifier = requireNonNull(qualifier, "qualifier is null");
         this.type = requireNonNull(type, "type is null");
-        this.ordinal = requireNonNull(ordinal, "type is null");
         checkArgument(ordinal >= 0, "ordinal must be >= zero");
+        this.ordinal = ordinal;
 
         this.comment = requireNonNull(comment, "comment is null");
-        this.indexed = requireNonNull(indexed, "indexed is null");
+        this.indexed = indexed;
     }
 
     @JsonProperty
