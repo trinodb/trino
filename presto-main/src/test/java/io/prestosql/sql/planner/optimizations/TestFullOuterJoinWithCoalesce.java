@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import io.prestosql.sql.planner.assertions.BasePlanTest;
 import org.testng.annotations.Test;
 
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.exchange;
@@ -25,6 +26,7 @@ import static io.prestosql.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.join;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.project;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.values;
+import static io.prestosql.sql.planner.plan.AggregationNode.Step.PARTIAL;
 import static io.prestosql.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static io.prestosql.sql.planner.plan.ExchangeNode.Scope.REMOTE;
 import static io.prestosql.sql.planner.plan.ExchangeNode.Type.GATHER;
@@ -50,7 +52,7 @@ public class TestFullOuterJoinWithCoalesce
                                 join(
                                         FULL,
                                         ImmutableList.of(equiJoinClause("ts", "r")),
-                                        anyTree(
+                                        project(
                                                 project(
                                                         ImmutableMap.of("ts", expression("coalesce(t, s)")),
                                                         join(
@@ -59,5 +61,67 @@ public class TestFullOuterJoinWithCoalesce
                                                                 exchange(REMOTE, REPARTITION, anyTree(values(ImmutableList.of("t")))),
                                                                 exchange(LOCAL, GATHER, anyTree(values(ImmutableList.of("s"))))))),
                                         exchange(LOCAL, GATHER, anyTree(values(ImmutableList.of("r"))))))));
+    }
+
+    @Test
+    public void testFullOuterJoinWithCoalesceAndGroupBy()
+    {
+        assertDistributedPlan("SELECT coalesce(t.a, s.a, r.a) " +
+                        "FROM (VALUES (1), (2), (3)) t(a) " +
+                        "FULL OUTER JOIN (VALUES (1), (4)) s(a) " +
+                        "ON t.a = s.a " +
+                        "FULL OUTER JOIN (VALUES (2), (5)) r(a) " +
+                        "ON t.a = r.a " +
+                        "GROUP BY 1",
+                anyTree(exchange(
+                        REMOTE,
+                        REPARTITION,
+                        aggregation(
+                                ImmutableMap.of(),
+                                PARTIAL,
+                                project(
+                                        project(
+                                                ImmutableMap.of("expr", expression("coalesce(t, s, r)")),
+                                                join(
+                                                        FULL,
+                                                        ImmutableList.of(equiJoinClause("t", "r")),
+                                                        anyTree(
+                                                                join(
+                                                                        FULL,
+                                                                        ImmutableList.of(equiJoinClause("t", "s")),
+                                                                        exchange(REMOTE, REPARTITION, anyTree(values(ImmutableList.of("t")))),
+                                                                        exchange(LOCAL, GATHER, anyTree(values(ImmutableList.of("s")))))),
+                                                        exchange(LOCAL, GATHER, anyTree(values(ImmutableList.of("r")))))))))));
+    }
+
+    @Test
+    public void testFullOuterJoinWithCoalesceNonSymbol()
+    {
+        assertDistributedPlan("SELECT coalesce(t.a, s.a + 1, r.a) " +
+                        "FROM (VALUES (1), (2), (3)) t(a) " +
+                        "FULL OUTER JOIN (VALUES (1), (4)) s(a) " +
+                        "ON t.a = s.a " +
+                        "FULL OUTER JOIN (VALUES (2), (5)) r(a) " +
+                        "ON t.a = r.a " +
+                        "GROUP BY 1",
+                anyTree(exchange(
+                        REMOTE,
+                        REPARTITION,
+                        aggregation(
+                                ImmutableMap.of(),
+                                PARTIAL,
+                                project(
+                                        project(
+                                                ImmutableMap.of("expr", expression("coalesce(t, s + 1, r)")),
+                                                join(
+                                                        FULL,
+                                                        ImmutableList.of(equiJoinClause("t", "r")),
+                                                        anyTree(
+                                                                join(
+                                                                        FULL,
+                                                                        ImmutableList.of(equiJoinClause("t", "s")),
+                                                                        exchange(REMOTE, REPARTITION, anyTree(values(ImmutableList.of("t")))),
+                                                                        exchange(LOCAL, GATHER, anyTree(values(ImmutableList.of("s")))))),
+                                                        exchange(LOCAL, GATHER, anyTree(values(ImmutableList.of("r")))))))))));
     }
 }
