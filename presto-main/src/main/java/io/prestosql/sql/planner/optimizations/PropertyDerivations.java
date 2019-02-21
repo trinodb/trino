@@ -850,7 +850,7 @@ public class PropertyDerivations
         return Optional.empty();
     }
 
-    public static Optional<Symbol> rewriteExpression(Map<Symbol, Expression> assignments, Expression expression)
+    private static Optional<Symbol> rewriteExpression(Map<Symbol, Expression> assignments, Expression expression)
     {
         checkArgument(expression instanceof CoalesceExpression, "The rewrite can only handle CoalesceExpression");
         // We are using the property that the result of coalesce from full outer join keys would not be null despite of the order
