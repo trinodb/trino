@@ -298,8 +298,9 @@ public class StageStateMachine
 
             long taskUserMemory = taskStats.getUserMemoryReservation().toBytes();
             long taskSystemMemory = taskStats.getSystemMemoryReservation().toBytes();
+            long taskRevocableMemory = taskStats.getRevocableMemoryReservation().toBytes();
             userMemoryReservation += taskUserMemory;
-            totalMemoryReservation += taskUserMemory + taskSystemMemory;
+            totalMemoryReservation += taskUserMemory + taskSystemMemory + taskRevocableMemory;
 
             totalScheduledTime += taskStats.getTotalScheduledTime().roundTo(NANOSECONDS);
             totalCpuTime += taskStats.getTotalCpuTime().roundTo(NANOSECONDS);
@@ -440,9 +441,10 @@ public class StageStateMachine
 
             long taskUserMemory = taskStats.getUserMemoryReservation().toBytes();
             long taskSystemMemory = taskStats.getSystemMemoryReservation().toBytes();
+            long taskRevocableMemory = taskStats.getRevocableMemoryReservation().toBytes();
             userMemoryReservation += taskUserMemory;
-            revocableMemoryReservation += taskStats.getRevocableMemoryReservation().toBytes();
-            totalMemoryReservation += taskUserMemory + taskSystemMemory;
+            revocableMemoryReservation += taskRevocableMemory;
+            totalMemoryReservation += taskUserMemory + taskSystemMemory + taskRevocableMemory;
 
             totalScheduledTime += taskStats.getTotalScheduledTime().roundTo(NANOSECONDS);
             totalCpuTime += taskStats.getTotalCpuTime().roundTo(NANOSECONDS);

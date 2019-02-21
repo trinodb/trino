@@ -579,7 +579,7 @@ public final class SqlStageExecution
             long currentRevocableMemory = taskStatus.getRevocableMemoryReservation().toBytes();
             long deltaUserMemoryInBytes = currentUserMemory - previousUserMemory;
             long deltaRevocableMemoryInBytes = currentRevocableMemory - previousRevocableMemory;
-            long deltaTotalMemoryInBytes = (currentUserMemory + currentSystemMemory) - (previousUserMemory + previousSystemMemory);
+            long deltaTotalMemoryInBytes = (currentUserMemory + currentSystemMemory + currentRevocableMemory) - (previousUserMemory + previousSystemMemory + previousRevocableMemory);
             previousUserMemory = currentUserMemory;
             previousSystemMemory = currentSystemMemory;
             previousRevocableMemory = currentRevocableMemory;

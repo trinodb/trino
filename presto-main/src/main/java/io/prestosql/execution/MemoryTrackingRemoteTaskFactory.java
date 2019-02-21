@@ -83,10 +83,10 @@ public class MemoryTrackingRemoteTaskFactory
             long currentUserMemory = newStatus.getMemoryReservation().toBytes();
             long currentSystemMemory = newStatus.getSystemMemoryReservation().toBytes();
             long currentRevocableMemory = newStatus.getRevocableMemoryReservation().toBytes();
-            long currentTotalMemory = currentUserMemory + currentSystemMemory;
+            long currentTotalMemory = currentUserMemory + currentSystemMemory + currentRevocableMemory;
             long deltaUserMemoryInBytes = currentUserMemory - previousUserMemory;
             long deltaRevocableMemoryInBytes = currentRevocableMemory - previousRevocableMemory;
-            long deltaTotalMemoryInBytes = currentTotalMemory - (previousUserMemory + previousSystemMemory);
+            long deltaTotalMemoryInBytes = currentTotalMemory - (previousUserMemory + previousSystemMemory + previousRevocableMemory);
             previousUserMemory = currentUserMemory;
             previousSystemMemory = currentSystemMemory;
             previousRevocableMemory = currentRevocableMemory;
