@@ -15,7 +15,6 @@ package io.prestosql.metadata;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.prestosql.spi.type.Type;
 
 import javax.annotation.Nullable;
 
@@ -63,20 +62,6 @@ public class TypeVariableConstraint
     public String getVariadicBound()
     {
         return variadicBound;
-    }
-
-    public boolean canBind(Type type)
-    {
-        if (comparableRequired && !type.isComparable()) {
-            return false;
-        }
-        if (orderableRequired && !type.isOrderable()) {
-            return false;
-        }
-        if (variadicBound != null && !type.getTypeSignature().getBase().equals(variadicBound)) {
-            return false;
-        }
-        return true;
     }
 
     @Override
