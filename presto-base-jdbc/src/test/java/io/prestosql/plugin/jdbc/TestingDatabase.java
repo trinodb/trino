@@ -25,6 +25,7 @@ import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Properties;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -97,7 +98,9 @@ final class TestingDatabase
     public JdbcSplit getSplit(String schemaName, String tableName)
     {
         JdbcIdentity identity = JdbcIdentity.from(session);
-        JdbcTableHandle jdbcTableHandle = jdbcClient.getTableHandle(identity, new SchemaTableName(schemaName, tableName));
+        SchemaTableName table = new SchemaTableName(schemaName, tableName);
+        JdbcTableHandle jdbcTableHandle = jdbcClient.getTableHandle(identity, table)
+                .orElseThrow(() -> new IllegalArgumentException("table not found: " + table));
         JdbcTableLayoutHandle jdbcLayoutHandle = new JdbcTableLayoutHandle(jdbcTableHandle, TupleDomain.all());
         ConnectorSplitSource splits = jdbcClient.getSplits(identity, jdbcLayoutHandle);
         return (JdbcSplit) getOnlyElement(getFutureValue(splits.getNextBatch(NOT_PARTITIONED, 1000)).getSplits());
@@ -105,8 +108,8 @@ final class TestingDatabase
 
     public Map<String, JdbcColumnHandle> getColumnHandles(String schemaName, String tableName)
     {
-        JdbcTableHandle tableHandle = jdbcClient.getTableHandle(JdbcIdentity.from(session), new SchemaTableName(schemaName, tableName));
-        List<JdbcColumnHandle> columns = jdbcClient.getColumns(session, tableHandle);
+        Optional<JdbcTableHandle> tableHandle = jdbcClient.getTableHandle(JdbcIdentity.from(session), new SchemaTableName(schemaName, tableName));
+        List<JdbcColumnHandle> columns = jdbcClient.getColumns(session, tableHandle.orElse(null));
         checkArgument(columns != null, "table not found: %s.%s", schemaName, tableName);
 
         ImmutableMap.Builder<String, JdbcColumnHandle> columnHandles = ImmutableMap.builder();

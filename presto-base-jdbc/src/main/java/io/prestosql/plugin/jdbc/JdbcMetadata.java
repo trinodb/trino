@@ -77,7 +77,8 @@ public class JdbcMetadata
     @Override
     public JdbcTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
     {
-        return jdbcClient.getTableHandle(JdbcIdentity.from(session), tableName);
+        return jdbcClient.getTableHandle(JdbcIdentity.from(session), tableName)
+                .orElse(null);
     }
 
     @Override
@@ -133,11 +134,8 @@ public class JdbcMetadata
                 .orElseGet(() -> listTables(session, prefix.getSchema()));
         for (SchemaTableName tableName : tables) {
             try {
-                JdbcTableHandle tableHandle = jdbcClient.getTableHandle(JdbcIdentity.from(session), tableName);
-                if (tableHandle == null) {
-                    continue;
-                }
-                columns.put(tableName, getTableMetadata(session, tableHandle).getColumns());
+                jdbcClient.getTableHandle(JdbcIdentity.from(session), tableName)
+                        .ifPresent(tableHandle -> columns.put(tableName, getTableMetadata(session, tableHandle).getColumns()));
             }
             catch (TableNotFoundException e) {
                 // table disappeared during listing operation
