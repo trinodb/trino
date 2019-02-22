@@ -15,6 +15,8 @@ package io.prestosql.execution.scheduler;
 
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -22,6 +24,7 @@ import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.airlift.log.Logger;
 import io.airlift.stats.CounterStat;
 import io.prestosql.connector.CatalogName;
 import io.prestosql.execution.NodeTaskMap;
@@ -58,6 +61,12 @@ import static java.util.Objects.requireNonNull;
 
 public class NodeScheduler
 {
+    private static final Logger LOG = Logger.get(NodeScheduler.class);
+
+    private final Cache<InternalNode, Boolean> inaccessibleNodeLogCache = CacheBuilder.newBuilder()
+            .expireAfterWrite(30, TimeUnit.SECONDS)
+            .build();
+
     private final NetworkLocationCache networkLocationCache;
     private final List<CounterStat> topologicalSplitCounters;
     private final List<String> networkLocationSegmentNames;
@@ -155,7 +164,10 @@ public class NodeScheduler
                     byHost.put(host, node);
                 }
                 catch (UnknownHostException e) {
-                    // ignore
+                    if (inaccessibleNodeLogCache.getIfPresent(node) == null) {
+                        inaccessibleNodeLogCache.put(node, true);
+                        LOG.warn(e, "Unable to resolve host name for node: %s", node);
+                    }
                 }
             }
 
