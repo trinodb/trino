@@ -11,10 +11,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.spi.classloader;
+package io.prestosql.spi.connector.classloader;
 
 import io.airlift.slice.Slice;
 import io.prestosql.spi.Page;
+import io.prestosql.spi.classloader.ThreadContextClassLoader;
 import io.prestosql.spi.connector.ConnectorPageSink;
 
 import java.util.Collection;
