@@ -13,6 +13,7 @@
  */
 package io.prestosql.operator.exchange;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 import io.prestosql.execution.Lifespan;
@@ -156,7 +157,8 @@ public class LocalExchange
         return result;
     }
 
-    public LocalExchangeSource getSource(int partitionIndex)
+    @VisibleForTesting
+    LocalExchangeSource getSource(int partitionIndex)
     {
         return sources.get(partitionIndex);
     }
