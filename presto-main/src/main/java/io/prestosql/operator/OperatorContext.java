@@ -89,6 +89,7 @@ public class OperatorContext
 
     private final AtomicLong peakUserMemoryReservation = new AtomicLong();
     private final AtomicLong peakSystemMemoryReservation = new AtomicLong();
+    private final AtomicLong peakRevocableMemoryReservation = new AtomicLong();
     private final AtomicLong peakTotalMemoryReservation = new AtomicLong();
 
     @GuardedBy("this")
@@ -285,9 +286,11 @@ public class OperatorContext
     {
         long userMemory = operatorMemoryContext.getUserMemory();
         long systemMemory = operatorMemoryContext.getSystemMemory();
+        long revocableMemory = operatorMemoryContext.getRevocableMemory();
         long totalMemory = userMemory + systemMemory;
         peakUserMemoryReservation.accumulateAndGet(userMemory, Math::max);
         peakSystemMemoryReservation.accumulateAndGet(systemMemory, Math::max);
+        peakRevocableMemoryReservation.accumulateAndGet(revocableMemory, Math::max);
         peakTotalMemoryReservation.accumulateAndGet(totalMemory, Math::max);
     }
 
@@ -491,6 +494,7 @@ public class OperatorContext
 
                 succinctBytes(peakUserMemoryReservation.get()),
                 succinctBytes(peakSystemMemoryReservation.get()),
+                succinctBytes(peakRevocableMemoryReservation.get()),
                 succinctBytes(peakTotalMemoryReservation.get()),
 
                 succinctBytes(spillContext.getSpilledBytes()),
