@@ -34,6 +34,7 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.function.Function;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.io.BaseEncoding.base16;
@@ -42,6 +43,7 @@ import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.tests.datatype.DataType.bigintDataType;
 import static io.prestosql.tests.datatype.DataType.booleanDataType;
+import static io.prestosql.tests.datatype.DataType.dataType;
 import static io.prestosql.tests.datatype.DataType.dateDataType;
 import static io.prestosql.tests.datatype.DataType.decimalDataType;
 import static io.prestosql.tests.datatype.DataType.doubleDataType;
@@ -50,10 +52,12 @@ import static io.prestosql.tests.datatype.DataType.realDataType;
 import static io.prestosql.tests.datatype.DataType.smallintDataType;
 import static io.prestosql.tests.datatype.DataType.varbinaryDataType;
 import static io.prestosql.tests.datatype.DataType.varcharDataType;
+import static io.prestosql.type.JsonType.JSON;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_16LE;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Collections.emptyList;
+import static java.util.function.Function.identity;
 
 @Test
 public class TestPostgreSqlTypeMapping
@@ -268,13 +272,50 @@ public class TestPostgreSqlTypeMapping
         // testing this is hard because of https://github.com/prestodb/presto/issues/7122
     }
 
+    @Test
+    public void jsonDataTypeTest()
+    {
+        DataTypeTest dataTypeTest = DataTypeTest.create()
+                .addRoundTrip(jsonDataType(), "{}")
+                .addRoundTrip(jsonDataType(), null)
+                .addRoundTrip(jsonDataType(), "null")
+                .addRoundTrip(jsonDataType(), "123.4")
+                .addRoundTrip(jsonDataType(), "\"abc\"")
+                .addRoundTrip(jsonDataType(), "\"\"")
+                .addRoundTrip(jsonDataType(), "{\"a\":1,\"b\":2}")
+                .addRoundTrip(jsonDataType(), "{\"a\":[1,2,3],\"b\":{\"aa\":11,\"bb\":[{\"a\":1,\"b\":2},{\"a\":0}]}}")
+                .addRoundTrip(jsonDataType(), "[]");
+
+        dataTypeTest.execute(getQueryRunner(), prestoCreateAsSelect("presto_test_json"));
+        dataTypeTest.execute(getQueryRunner(), postgresCreateAndInsert("tpch.postgresql_test_json"));
+    }
+
+    @Test
+    public void testJson()
+    {
+        JdbcSqlExecutor jdbcSqlExecutor = new JdbcSqlExecutor(postgreSqlServer.getJdbcUrl());
+        jdbcSqlExecutor.execute("CREATE TABLE tpch.test_json(key varchar(5), json_column json, jsonb_column jsonb)");
+        try {
+            assertQuery(
+                    "SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'tpch' AND table_name = 'test_json'",
+                    "VALUES ('key','varchar(5)'),('json_column','json'),('jsonb_column','json')");
+            assertUpdate("INSERT INTO tpch.test_json VALUES ('1', json'{\"x\":123}',json'{\"x\": 123}' )", 1);
+            assertQuery("SELECT * FROM tpch.test_json", "SELECT '1' \"key\", '{\"x\":   123}' json_column, '{\"x\":123}' jsonb_column");
+            assertQuery("SELECT * FROM test_json WHERE json_column = json'{\"x\":123}'", "SELECT '1' \"key\", '{\"x\":   123}' json_column, '{\"x\":123}' jsonb_column");
+            assertUpdate("INSERT INTO test_json VALUES ('1', json'{\"x\":123}',json'{\"x\": 123}' )", 1);
+        }
+        finally {
+            jdbcSqlExecutor.execute("DROP TABLE tpch.test_json");
+        }
+    }
+
     private void testUnsupportedDataType(String databaseDataType)
     {
         JdbcSqlExecutor jdbcSqlExecutor = new JdbcSqlExecutor(postgreSqlServer.getJdbcUrl());
         jdbcSqlExecutor.execute(format("CREATE TABLE tpch.test_unsupported_data_type(key varchar(5), unsupported_column %s)", databaseDataType));
         try {
             assertQuery(
-                    "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = 'tpch' AND TABLE_NAME = 'test_unsupported_data_type'",
+                    "SELECT column_name FROM information_schema.columns WHERE table_schema = 'tpch' AND table_name = 'test_unsupported_data_type'",
                     "VALUES 'key'"); // no 'unsupported_column'
         }
         finally {
@@ -284,11 +325,23 @@ public class TestPostgreSqlTypeMapping
 
     private static DataType<byte[]> byteaDataType()
     {
-        return DataType.dataType(
+        return dataType(
                 "bytea",
                 VARBINARY,
                 bytes -> format("bytea E'\\\\x%s'", base16().encode(bytes)),
-                Function.identity());
+                identity());
+    }
+
+    private static DataType<String> jsonDataType()
+    {
+        return dataType(
+                "json",
+                JSON,
+                value -> {
+                    checkArgument(!value.contains("'"));
+                    return format("JSON '%s'", value);
+                },
+                identity());
     }
 
     private DataSetup prestoCreateAsSelect(String tableNamePrefix)
