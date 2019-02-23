@@ -71,6 +71,7 @@ import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.testing.MaterializedResult.DEFAULT_PRECISION;
 import static io.prestosql.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static io.prestosql.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
+import static io.prestosql.type.JsonType.JSON;
 import static java.util.stream.Collectors.toList;
 
 public class TestingPrestoClient
@@ -233,6 +234,9 @@ public class TestingPrestoClient
             return new BigDecimal((String) value);
         }
         else if (type.getTypeSignature().getBase().equals("ObjectId")) {
+            return value;
+        }
+        else if (JSON.equals(type)) {
             return value;
         }
         else {
