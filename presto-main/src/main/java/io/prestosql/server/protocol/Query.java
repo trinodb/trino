@@ -53,8 +53,6 @@ import io.prestosql.spi.QueryId;
 import io.prestosql.spi.WarningCode;
 import io.prestosql.spi.block.BlockEncodingSerde;
 import io.prestosql.spi.security.SelectedRole;
-import io.prestosql.spi.type.BooleanType;
-import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.spi.type.TypeSignatureParameter;
@@ -86,7 +84,11 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.addTimeout;
 import static io.prestosql.SystemSessionProperties.isExchangeCompressionEnabled;
 import static io.prestosql.execution.QueryState.FAILED;
+import static io.prestosql.execution.QueryState.FINISHED;
+import static io.prestosql.execution.QueryState.QUEUED;
 import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static io.prestosql.spi.type.BooleanType.BOOLEAN;
+import static io.prestosql.spi.type.StandardTypes.BIGINT;
 import static io.prestosql.util.Failures.toFailure;
 import static io.prestosql.util.MoreLists.mappedCopy;
 import static java.lang.String.format;
@@ -398,7 +400,7 @@ public class Query
         // TODO: figure out a better way to do this
         // grab the update count for non-queries
         if ((data != null) && (queryInfo.getUpdateType() != null) && (updateCount == null) &&
-                (columns.size() == 1) && (columns.get(0).getType().equals(StandardTypes.BIGINT))) {
+                (columns.size() == 1) && (columns.get(0).getType().equals(BIGINT))) {
             Iterator<List<Object>> iterator = data.iterator();
             if (iterator.hasNext()) {
                 Number number = (Number) iterator.next().get(0);
@@ -411,8 +413,8 @@ public class Query
         closeExchangeClientIfNecessary(queryInfo);
 
         // for queries with no output, return a fake result for clients that require it
-        if ((queryInfo.getState() == QueryState.FINISHED) && !queryInfo.getOutputStage().isPresent()) {
-            columns = ImmutableList.of(createColumn("result", BooleanType.BOOLEAN));
+        if ((queryInfo.getState() == FINISHED) && !queryInfo.getOutputStage().isPresent()) {
+            columns = ImmutableList.of(createColumn("result", BOOLEAN));
             data = ImmutableSet.of(ImmutableList.of(true));
         }
 
@@ -421,7 +423,7 @@ public class Query
         //   OR
         // (2)there is more data to send (due to buffering)
         URI nextResultsUri = null;
-        if (!queryInfo.isFinalQueryInfo() && !queryInfo.getState().equals(QueryState.FAILED)
+        if (!queryInfo.isFinalQueryInfo() && queryInfo.getState() != FAILED
                 || !exchangeClient.isClosed()) {
             nextResultsUri = createNextResultsUri(scheme, uriInfo);
         }
@@ -561,7 +563,7 @@ public class Query
 
         return StatementStats.builder()
                 .setState(queryInfo.getState().toString())
-                .setQueued(queryInfo.getState() == QueryState.QUEUED)
+                .setQueued(queryInfo.getState() == QUEUED)
                 .setScheduled(queryInfo.isScheduled())
                 .setNodes(globalUniqueNodes(outputStage).size())
                 .setTotalSplits(queryStats.getTotalDrivers())
