@@ -85,47 +85,11 @@ SELECT * FROM presto_test_types_textfile
 ;
 
 
--- Parquet is missing TIMESTAMP and BINARY.
-CREATE TABLE presto_test_types_parquet (
-  t_string STRING
-, t_varchar VARCHAR(50)
-, t_tinyint TINYINT
-, t_smallint SMALLINT
-, t_int INT
-, t_bigint BIGINT
-, t_float FLOAT
-, t_double DOUBLE
-, t_boolean BOOLEAN
-, t_timestamp TIMESTAMP
-, t_binary BINARY
-, t_map MAP<STRING, STRING>
-, t_array_string ARRAY<STRING>
-, t_array_struct ARRAY<STRUCT<s_string: STRING, s_double:DOUBLE>>
-, t_struct STRUCT<s_string: STRING, s_double:DOUBLE>
-, t_complex MAP<INT, ARRAY<STRUCT<s_string: STRING, s_double:DOUBLE>>>
-)
-STORED AS PARQUET
-;
+CREATE TABLE presto_test_types_parquet LIKE presto_test_types_textfile;
+ALTER TABLE presto_test_types_parquet SET FILEFORMAT PARQUET;
 
 INSERT INTO TABLE presto_test_types_parquet
-SELECT
-  t_string
-, t_varchar
-, t_tinyint
-, t_smallint
-, t_int
-, t_bigint
-, t_float
-, t_double
-, t_boolean
-, t_timestamp
-, t_binary
-, t_map
-, t_array_string
-, t_array_struct
-, t_struct
-, t_complex
-FROM presto_test_types_textfile
+SELECT * FROM presto_test_types_textfile
 ;
 
 
