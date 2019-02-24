@@ -9,7 +9,6 @@ start_docker_containers
 
 # generate test data
 exec_in_hadoop_master_container su hive -s /usr/bin/hive -f /files/sql/create-test.sql
-exec_in_hadoop_master_container su hive -s /usr/bin/hive -f /files/sql/create-test-hive13.sql
 
 stop_unnecessary_hadoop_services
 
