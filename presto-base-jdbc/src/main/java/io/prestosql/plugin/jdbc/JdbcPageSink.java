@@ -134,6 +134,9 @@ public class JdbcPageSink
         else if (javaType == Slice.class) {
             ((SliceWriteFunction) writeFunction).set(statement, parameterIndex, type.getSlice(block, position));
         }
+        else if (javaType == Block.class) {
+            ((BlockWriteFunction) writeFunction).set(statement, parameterIndex, (Block) type.getObject(block, position));
+        }
         else {
             throw new VerifyException(format("Unexpected type %s with java type %s", type, javaType.getName()));
         }

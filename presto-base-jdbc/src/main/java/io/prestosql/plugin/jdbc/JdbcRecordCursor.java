@@ -17,6 +17,7 @@ import com.google.common.base.VerifyException;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.block.Block;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.RecordCursor;
 import io.prestosql.spi.type.Type;
@@ -44,6 +45,7 @@ public class JdbcRecordCursor
     private final DoubleReadFunction[] doubleReadFunctions;
     private final LongReadFunction[] longReadFunctions;
     private final SliceReadFunction[] sliceReadFunctions;
+    private final BlockReadFunction[] blockReadFunctions;
 
     private final JdbcClient jdbcClient;
     private final Connection connection;
@@ -61,6 +63,7 @@ public class JdbcRecordCursor
         doubleReadFunctions = new DoubleReadFunction[columnHandles.size()];
         longReadFunctions = new LongReadFunction[columnHandles.size()];
         sliceReadFunctions = new SliceReadFunction[columnHandles.size()];
+        blockReadFunctions = new BlockReadFunction[columnHandles.size()];
 
         for (int i = 0; i < this.columnHandles.length; i++) {
             ColumnMapping columnMapping = jdbcClient.toPrestoType(session, columnHandles.get(i).getJdbcTypeHandle())
@@ -79,6 +82,9 @@ public class JdbcRecordCursor
             }
             else if (javaType == Slice.class) {
                 sliceReadFunctions[i] = (SliceReadFunction) readFunction;
+            }
+            else if (javaType == Block.class) {
+                blockReadFunctions[i] = (BlockReadFunction) readFunction;
             }
             else {
                 throw new IllegalStateException(format("Unsupported java type %s", javaType));
@@ -180,7 +186,13 @@ public class JdbcRecordCursor
     @Override
     public Object getObject(int field)
     {
-        throw new UnsupportedOperationException();
+        checkState(!closed, "cursor is closed");
+        try {
+            return blockReadFunctions[field].readBlock(resultSet, field + 1);
+        }
+        catch (SQLException | RuntimeException e) {
+            throw handleSqlException(e);
+        }
     }
 
     @Override
