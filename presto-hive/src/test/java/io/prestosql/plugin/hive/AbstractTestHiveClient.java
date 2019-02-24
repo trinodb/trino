@@ -1967,14 +1967,14 @@ public abstract class AbstractTestHiveClient
     public void testTypesOrc()
             throws Exception
     {
-        assertGetRecordsOptional("presto_test_types_orc", ORC);
+        assertGetRecords("presto_test_types_orc", ORC);
     }
 
     @Test
     public void testTypesParquet()
             throws Exception
     {
-        assertGetRecordsOptional("presto_test_types_parquet", PARQUET);
+        assertGetRecords("presto_test_types_parquet", PARQUET);
     }
 
     @Test
@@ -3720,17 +3720,6 @@ public abstract class AbstractTestHiveClient
             // verify table directory is empty
             Set<String> filesAfterDelete = listAllDataFiles(transaction, tableName.getSchemaName(), tableName.getTableName());
             assertTrue(filesAfterDelete.isEmpty());
-        }
-    }
-
-    protected void assertGetRecordsOptional(String tableName, HiveStorageFormat hiveStorageFormat)
-            throws Exception
-    {
-        try (Transaction transaction = newTransaction()) {
-            ConnectorMetadata metadata = transaction.getMetadata();
-            if (metadata.getTableHandle(newSession(), new SchemaTableName(database, tableName)) != null) {
-                assertGetRecords(tableName, hiveStorageFormat);
-            }
         }
     }
 
