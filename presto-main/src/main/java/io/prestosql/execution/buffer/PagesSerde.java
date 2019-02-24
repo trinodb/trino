@@ -42,14 +42,13 @@ public class PagesSerde
 
     private final BlockEncodingSerde blockEncodingSerde;
     private final Optional<Compressor> compressor;
-    private final Optional<Decompressor> decompressor;
+    private final Decompressor decompressor;
 
-    public PagesSerde(BlockEncodingSerde blockEncodingSerde, Optional<Compressor> compressor, Optional<Decompressor> decompressor)
+    public PagesSerde(BlockEncodingSerde blockEncodingSerde, Optional<Compressor> compressor, Decompressor decompressor)
     {
         this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
         this.compressor = requireNonNull(compressor, "compressor is null");
         this.decompressor = requireNonNull(decompressor, "decompressor is null");
-        checkArgument(compressor.isPresent() == decompressor.isPresent(), "compressor and decompressor must both be present or both be absent");
     }
 
     public SerializedPage serialize(Page page)
@@ -80,13 +79,13 @@ public class PagesSerde
     {
         checkArgument(serializedPage != null, "serializedPage is null");
 
-        if (!decompressor.isPresent() || serializedPage.getCompression() == UNCOMPRESSED) {
+        if (serializedPage.getCompression() == UNCOMPRESSED) {
             return readRawPage(serializedPage.getPositionCount(), serializedPage.getSlice().getInput(), blockEncodingSerde);
         }
 
         int uncompressedSize = serializedPage.getUncompressedSizeInBytes();
         byte[] decompressed = new byte[uncompressedSize];
-        int actualUncompressedSize = decompressor.get().decompress(serializedPage.getSlice().getBytes(), 0, serializedPage.getSlice().length(), decompressed, 0, uncompressedSize);
+        int actualUncompressedSize = decompressor.decompress(serializedPage.getSlice().getBytes(), 0, serializedPage.getSlice().length(), decompressed, 0, uncompressedSize);
         checkState(uncompressedSize == actualUncompressedSize);
 
         return readRawPage(serializedPage.getPositionCount(), Slices.wrappedBuffer(decompressed, 0, uncompressedSize).getInput(), blockEncodingSerde);

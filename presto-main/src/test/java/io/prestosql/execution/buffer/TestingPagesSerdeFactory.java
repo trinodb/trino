@@ -38,13 +38,13 @@ public class TestingPagesSerdeFactory
         return new SynchronizedPagesSerde(
                 new BlockEncodingManager(new TestingTypeManager()),
                 Optional.of(new Lz4Compressor()),
-                Optional.of(new Lz4Decompressor()));
+                new Lz4Decompressor());
     }
 
     private static class SynchronizedPagesSerde
             extends PagesSerde
     {
-        public SynchronizedPagesSerde(BlockEncodingSerde blockEncodingSerde, Optional<Compressor> compressor, Optional<Decompressor> decompressor)
+        public SynchronizedPagesSerde(BlockEncodingSerde blockEncodingSerde, Optional<Compressor> compressor, Decompressor decompressor)
         {
             super(blockEncodingSerde, compressor, decompressor);
         }

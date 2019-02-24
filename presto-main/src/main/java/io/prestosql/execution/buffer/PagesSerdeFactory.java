@@ -35,9 +35,9 @@ public class PagesSerdeFactory
     public PagesSerde createPagesSerde()
     {
         if (compressionEnabled) {
-            return new PagesSerde(blockEncodingSerde, Optional.of(new Lz4Compressor()), Optional.of(new Lz4Decompressor()));
+            return new PagesSerde(blockEncodingSerde, Optional.of(new Lz4Compressor()), new Lz4Decompressor());
         }
 
-        return new PagesSerde(blockEncodingSerde, Optional.empty(), Optional.empty());
+        return new PagesSerde(blockEncodingSerde, Optional.empty(), new Lz4Decompressor());
     }
 }
