@@ -66,6 +66,16 @@ public final class ColumnMapping
         return new ColumnMapping(prestoType, readFunction, writeFunction, pushdownConverter);
     }
 
+    public static ColumnMapping blockMapping(Type prestoType, BlockReadFunction readFunction, BlockWriteFunction writeFunction)
+    {
+        return blockMapping(prestoType, readFunction, writeFunction, UnaryOperator.identity());
+    }
+
+    public static ColumnMapping blockMapping(Type prestoType, BlockReadFunction readFunction, BlockWriteFunction writeFunction, UnaryOperator<Domain> pushdownConverter)
+    {
+        return new ColumnMapping(prestoType, readFunction, writeFunction, pushdownConverter);
+    }
+
     private final Type type;
     private final ReadFunction readFunction;
     private final WriteFunction writeFunction;
