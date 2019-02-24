@@ -19,12 +19,12 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-import io.prestosql.client.QueryResults;
 import io.prestosql.execution.QueryManager;
 import io.prestosql.memory.context.SimpleLocalMemoryContext;
 import io.prestosql.operator.ExchangeClient;
 import io.prestosql.operator.ExchangeClientSupplier;
 import io.prestosql.server.ForStatementResource;
+import io.prestosql.server.protocol.Query.QueryResponse;
 import io.prestosql.spi.QueryId;
 import io.prestosql.spi.block.BlockEncodingSerde;
 
@@ -178,51 +178,51 @@ public class ExecutingStatementResource
         else {
             targetResultSize = Ordering.natural().min(targetResultSize, MAX_TARGET_RESULT_SIZE);
         }
-        ListenableFuture<QueryResults> queryResultsFuture = query.waitForResults(token, uriInfo, scheme, wait, targetResultSize);
+        ListenableFuture<QueryResponse> queryResultsFuture = query.waitForResults(token, uriInfo, scheme, wait, targetResultSize);
 
-        ListenableFuture<Response> response = Futures.transform(queryResultsFuture, queryResults -> toResponse(query, queryResults), directExecutor());
+        ListenableFuture<Response> response = Futures.transform(queryResultsFuture, ExecutingStatementResource::toResponse, directExecutor());
 
         bindAsyncResponse(asyncResponse, response, responseExecutor);
     }
 
-    private static Response toResponse(Query query, QueryResults queryResults)
+    private static Response toResponse(QueryResponse queryResponse)
     {
-        ResponseBuilder response = Response.ok(queryResults);
+        ResponseBuilder response = Response.ok(queryResponse.getQueryResults());
 
-        query.getSetCatalog().ifPresent(catalog -> response.header(PRESTO_SET_CATALOG, catalog));
-        query.getSetSchema().ifPresent(schema -> response.header(PRESTO_SET_SCHEMA, schema));
-        query.getSetPath().ifPresent(path -> response.header(PRESTO_SET_PATH, path));
+        queryResponse.getSetCatalog().ifPresent(catalog -> response.header(PRESTO_SET_CATALOG, catalog));
+        queryResponse.getSetSchema().ifPresent(schema -> response.header(PRESTO_SET_SCHEMA, schema));
+        queryResponse.getSetPath().ifPresent(path -> response.header(PRESTO_SET_PATH, path));
 
         // add set session properties
-        query.getSetSessionProperties()
+        queryResponse.getSetSessionProperties()
                 .forEach((key, value) -> response.header(PRESTO_SET_SESSION, key + '=' + urlEncode(value)));
 
         // add clear session properties
-        query.getResetSessionProperties()
+        queryResponse.getResetSessionProperties()
                 .forEach(name -> response.header(PRESTO_CLEAR_SESSION, name));
 
         // add set roles
-        query.getSetRoles()
+        queryResponse.getSetRoles()
                 .forEach((key, value) -> response.header(PRESTO_SET_ROLE, key + '=' + urlEncode(value.toString())));
 
         // add added prepare statements
-        for (Entry<String, String> entry : query.getAddedPreparedStatements().entrySet()) {
+        for (Entry<String, String> entry : queryResponse.getAddedPreparedStatements().entrySet()) {
             String encodedKey = urlEncode(entry.getKey());
             String encodedValue = urlEncode(entry.getValue());
             response.header(PRESTO_ADDED_PREPARE, encodedKey + '=' + encodedValue);
         }
 
         // add deallocated prepare statements
-        for (String name : query.getDeallocatedPreparedStatements()) {
+        for (String name : queryResponse.getDeallocatedPreparedStatements()) {
             response.header(PRESTO_DEALLOCATED_PREPARE, urlEncode(name));
         }
 
         // add new transaction ID
-        query.getStartedTransactionId()
+        queryResponse.getStartedTransactionId()
                 .ifPresent(transactionId -> response.header(PRESTO_STARTED_TRANSACTION_ID, transactionId));
 
         // add clear transaction ID directive
-        if (query.isClearTransactionId()) {
+        if (queryResponse.isClearTransactionId()) {
             response.header(PRESTO_CLEAR_TRANSACTION_ID, true);
         }
 

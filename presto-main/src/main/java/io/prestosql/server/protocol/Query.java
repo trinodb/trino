@@ -14,7 +14,6 @@
 package io.prestosql.server.protocol;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
@@ -113,7 +112,7 @@ public class Query
     private final AtomicLong resultId = new AtomicLong();
 
     @GuardedBy("this")
-    private QueryResults lastResult;
+    private QueryResponse lastResult;
 
     @GuardedBy("this")
     private String lastResultPath;
@@ -123,36 +122,6 @@ public class Query
 
     @GuardedBy("this")
     private List<Type> types;
-
-    @GuardedBy("this")
-    private Optional<String> setCatalog = Optional.empty();
-
-    @GuardedBy("this")
-    private Optional<String> setSchema = Optional.empty();
-
-    @GuardedBy("this")
-    private Optional<String> setPath = Optional.empty();
-
-    @GuardedBy("this")
-    private Map<String, String> setSessionProperties = ImmutableMap.of();
-
-    @GuardedBy("this")
-    private Set<String> resetSessionProperties = ImmutableSet.of();
-
-    @GuardedBy("this")
-    private Map<String, SelectedRole> setRoles = ImmutableMap.of();
-
-    @GuardedBy("this")
-    private Map<String, String> addedPreparedStatements = ImmutableMap.of();
-
-    @GuardedBy("this")
-    private Set<String> deallocatedPreparedStatements = ImmutableSet.of();
-
-    @GuardedBy("this")
-    private Optional<TransactionId> startedTransactionId = Optional.empty();
-
-    @GuardedBy("this")
-    private boolean clearTransactionId;
 
     @GuardedBy("this")
     private Long updateCount;
@@ -211,12 +180,9 @@ public class Query
     public void cancel()
     {
         queryManager.cancelQuery(queryId);
-        dispose();
-    }
-
-    public synchronized void dispose()
-    {
-        exchangeClient.close();
+        synchronized (this) {
+            exchangeClient.close();
+        }
     }
 
     public String getSlug()
@@ -224,61 +190,11 @@ public class Query
         return slug;
     }
 
-    public synchronized Optional<String> getSetCatalog()
-    {
-        return setCatalog;
-    }
-
-    public synchronized Optional<String> getSetSchema()
-    {
-        return setSchema;
-    }
-
-    public synchronized Optional<String> getSetPath()
-    {
-        return setPath;
-    }
-
-    public synchronized Map<String, String> getSetSessionProperties()
-    {
-        return setSessionProperties;
-    }
-
-    public synchronized Set<String> getResetSessionProperties()
-    {
-        return resetSessionProperties;
-    }
-
-    public synchronized Map<String, SelectedRole> getSetRoles()
-    {
-        return setRoles;
-    }
-
-    public synchronized Map<String, String> getAddedPreparedStatements()
-    {
-        return addedPreparedStatements;
-    }
-
-    public synchronized Set<String> getDeallocatedPreparedStatements()
-    {
-        return deallocatedPreparedStatements;
-    }
-
-    public synchronized Optional<TransactionId> getStartedTransactionId()
-    {
-        return startedTransactionId;
-    }
-
-    public synchronized boolean isClearTransactionId()
-    {
-        return clearTransactionId;
-    }
-
-    public synchronized ListenableFuture<QueryResults> waitForResults(long token, UriInfo uriInfo, String scheme, Duration wait, DataSize targetResultSize)
+    public synchronized ListenableFuture<QueryResponse> waitForResults(long token, UriInfo uriInfo, String scheme, Duration wait, DataSize targetResultSize)
     {
         // before waiting, check if this request has already been processed and cached
         String requestedPath = uriInfo.getAbsolutePath().getPath();
-        Optional<QueryResults> cachedResult = getCachedResult(token, requestedPath);
+        Optional<QueryResponse> cachedResult = getCachedResult(token, requestedPath);
         if (cachedResult.isPresent()) {
             return immediateFuture(cachedResult.get());
         }
@@ -291,7 +207,7 @@ public class Query
                 timeoutExecutor);
 
         // when state changes, fetch the next result
-        return Futures.transform(futureStateChange, ignored -> getNextResult(token, uriInfo, scheme, targetResultSize), resultsProcessorExecutor);
+        return Futures.transform(futureStateChange, ignored -> getNextResponse(token, uriInfo, scheme, targetResultSize), resultsProcessorExecutor);
     }
 
     private synchronized ListenableFuture<?> getFutureStateChange()
@@ -311,7 +227,7 @@ public class Query
         }
     }
 
-    private synchronized Optional<QueryResults> getCachedResult(long token, String requestedPath)
+    private synchronized Optional<QueryResponse> getCachedResult(long token, String requestedPath)
     {
         // is this the first request?
         if (lastResult == null) {
@@ -330,7 +246,7 @@ public class Query
         }
 
         // if this is not a request for the next results, return not found
-        if (lastResult.getNextUri() == null || !requestedPath.equals(lastResult.getNextUri().getPath())) {
+        if (lastResult.getQueryResults().getNextUri() == null || !requestedPath.equals(lastResult.getQueryResults().getNextUri().getPath())) {
             // unknown token
             throw new WebApplicationException(Response.Status.NOT_FOUND);
         }
@@ -338,13 +254,13 @@ public class Query
         return Optional.empty();
     }
 
-    private synchronized QueryResults getNextResult(long token, UriInfo uriInfo, String scheme, DataSize targetResultSize)
+    private synchronized QueryResponse getNextResponse(long token, UriInfo uriInfo, String scheme, DataSize targetResultSize)
     {
         // check if the result for the token have already been created
         String requestedPath = uriInfo.getAbsolutePath().getPath();
-        Optional<QueryResults> cachedResult = getCachedResult(token, requestedPath);
-        if (cachedResult.isPresent()) {
-            return cachedResult.get();
+        Optional<QueryResponse> cachedResponse = getCachedResult(token, requestedPath);
+        if (cachedResponse.isPresent()) {
+            return cachedResponse.get();
         }
 
         URI queryHtmlUri = uriInfo.getRequestUriBuilder()
@@ -421,26 +337,6 @@ public class Query
             nextResultsUri = createNextResultsUri(scheme, uriInfo);
         }
 
-        // update catalog, schema, and path
-        setCatalog = queryInfo.getSetCatalog();
-        setSchema = queryInfo.getSetSchema();
-        setPath = queryInfo.getSetPath();
-
-        // update setSessionProperties
-        setSessionProperties = queryInfo.getSetSessionProperties();
-        resetSessionProperties = queryInfo.getResetSessionProperties();
-
-        // update setRoles
-        setRoles = queryInfo.getSetRoles();
-
-        // update preparedStatements
-        addedPreparedStatements = queryInfo.getAddedPreparedStatements();
-        deallocatedPreparedStatements = queryInfo.getDeallocatedPreparedStatements();
-
-        // update startedTransactionId
-        startedTransactionId = queryInfo.getStartedTransactionId();
-        clearTransactionId = queryInfo.isClearTransactionId();
-
         // first time through, self is null
         QueryResults queryResults = new QueryResults(
                 queryId.toString(),
@@ -455,14 +351,26 @@ public class Query
                 queryInfo.getUpdateType(),
                 updateCount);
 
-        cacheLastResults(queryResults, requestedPath);
-        return queryResults;
+        QueryResponse queryResponse = new QueryResponse(
+                queryInfo.getSetCatalog(),
+                queryInfo.getSetSchema(),
+                queryInfo.getSetPath(),
+                queryInfo.getSetSessionProperties(),
+                queryInfo.getResetSessionProperties(),
+                queryInfo.getSetRoles(),
+                queryInfo.getAddedPreparedStatements(),
+                queryInfo.getDeallocatedPreparedStatements(),
+                queryInfo.getStartedTransactionId(),
+                queryInfo.isClearTransactionId(),
+                queryResults);
+        cacheLastResponse(queryResponse, requestedPath);
+        return queryResponse;
     }
 
-    private synchronized void cacheLastResults(QueryResults queryResults, String requestedPath)
+    private synchronized void cacheLastResponse(QueryResponse queryResponse, String requestedPath)
     {
         lastResultPath = requestedPath;
-        lastResult = queryResults;
+        lastResult = queryResponse;
     }
 
     private synchronized void closeExchangeClientIfNecessary(QueryInfo queryInfo)
@@ -694,5 +602,101 @@ public class Query
     {
         WarningCode code = warning.getWarningCode();
         return new Warning(new Warning.Code(code.getCode(), code.getName()), warning.getMessage());
+    }
+
+    public static final class QueryResponse
+    {
+        private final Optional<String> setCatalog;
+        private final Optional<String> setSchema;
+        private final Optional<String> setPath;
+        private final Map<String, String> setSessionProperties;
+        private final Set<String> resetSessionProperties;
+        private final Map<String, SelectedRole> setRoles;
+        private final Map<String, String> addedPreparedStatements;
+        private final Set<String> deallocatedPreparedStatements;
+        private final Optional<TransactionId> startedTransactionId;
+        private final boolean clearTransactionId;
+        private final QueryResults queryResults;
+
+        public QueryResponse(
+                Optional<String> setCatalog,
+                Optional<String> setSchema,
+                Optional<String> setPath,
+                Map<String, String> setSessionProperties,
+                Set<String> resetSessionProperties,
+                Map<String, SelectedRole> setRoles,
+                Map<String, String> addedPreparedStatements,
+                Set<String> deallocatedPreparedStatements,
+                Optional<TransactionId> startedTransactionId,
+                boolean clearTransactionId,
+                QueryResults queryResults)
+        {
+            this.setCatalog = setCatalog;
+            this.setSchema = setSchema;
+            this.setPath = setPath;
+            this.setSessionProperties = setSessionProperties;
+            this.resetSessionProperties = resetSessionProperties;
+            this.setRoles = setRoles;
+            this.addedPreparedStatements = addedPreparedStatements;
+            this.deallocatedPreparedStatements = deallocatedPreparedStatements;
+            this.startedTransactionId = startedTransactionId;
+            this.clearTransactionId = clearTransactionId;
+            this.queryResults = queryResults;
+        }
+
+        public Optional<String> getSetCatalog()
+        {
+            return setCatalog;
+        }
+
+        public Optional<String> getSetSchema()
+        {
+            return setSchema;
+        }
+
+        public Optional<String> getSetPath()
+        {
+            return setPath;
+        }
+
+        public Map<String, String> getSetSessionProperties()
+        {
+            return setSessionProperties;
+        }
+
+        public Set<String> getResetSessionProperties()
+        {
+            return resetSessionProperties;
+        }
+
+        public Map<String, SelectedRole> getSetRoles()
+        {
+            return setRoles;
+        }
+
+        public Map<String, String> getAddedPreparedStatements()
+        {
+            return addedPreparedStatements;
+        }
+
+        public Set<String> getDeallocatedPreparedStatements()
+        {
+            return deallocatedPreparedStatements;
+        }
+
+        public Optional<TransactionId> getStartedTransactionId()
+        {
+            return startedTransactionId;
+        }
+
+        public boolean isClearTransactionId()
+        {
+            return clearTransactionId;
+        }
+
+        public QueryResults getQueryResults()
+        {
+            return queryResults;
+        }
     }
 }
