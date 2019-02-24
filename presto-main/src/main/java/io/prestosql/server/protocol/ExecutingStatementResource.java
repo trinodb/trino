@@ -19,7 +19,6 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-import io.prestosql.Session;
 import io.prestosql.client.QueryResults;
 import io.prestosql.execution.QueryManager;
 import io.prestosql.memory.context.SimpleLocalMemoryContext;
@@ -140,12 +139,10 @@ public class ExecutingStatementResource
         }
 
         // this is the first time the query has been accessed on this coordinator
-        Session session;
         try {
             if (!queryManager.isQuerySlugValid(queryId, slug)) {
                 throw badRequest(NOT_FOUND, "Query not found");
             }
-            session = queryManager.getQuerySession(queryId);
         }
         catch (NoSuchElementException e) {
             throw badRequest(NOT_FOUND, "Query not found");
@@ -154,7 +151,7 @@ public class ExecutingStatementResource
         query = queries.computeIfAbsent(queryId, id -> {
             ExchangeClient exchangeClient = exchangeClientSupplier.get(new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), ExecutingStatementResource.class.getSimpleName()));
             return Query.create(
-                    session,
+                    queryId,
                     slug,
                     queryManager,
                     exchangeClient,

@@ -23,7 +23,6 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-import io.prestosql.Session;
 import io.prestosql.client.ClientTypeSignature;
 import io.prestosql.client.ClientTypeSignatureParameter;
 import io.prestosql.client.Column;
@@ -52,6 +51,7 @@ import io.prestosql.spi.PrestoWarning;
 import io.prestosql.spi.QueryId;
 import io.prestosql.spi.WarningCode;
 import io.prestosql.spi.block.BlockEncodingSerde;
+import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.security.SelectedRole;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignature;
@@ -82,7 +82,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.addTimeout;
-import static io.prestosql.SystemSessionProperties.isExchangeCompressionEnabled;
 import static io.prestosql.execution.QueryState.FAILED;
 import static io.prestosql.execution.QueryState.FINISHED;
 import static io.prestosql.execution.QueryState.QUEUED;
@@ -101,7 +100,6 @@ public class Query
 
     private final QueryManager queryManager;
     private final QueryId queryId;
-    private final Session session;
     private final String slug;
 
     @GuardedBy("this")
@@ -160,7 +158,7 @@ public class Query
     private Long updateCount;
 
     public static Query create(
-            Session session,
+            QueryId queryId,
             String slug,
             QueryManager queryManager,
             ExchangeClient exchangeClient,
@@ -168,13 +166,13 @@ public class Query
             ScheduledExecutorService timeoutExecutor,
             BlockEncodingSerde blockEncodingSerde)
     {
-        Query result = new Query(session, slug, queryManager, exchangeClient, dataProcessorExecutor, timeoutExecutor, blockEncodingSerde);
+        Query result = new Query(queryId, slug, queryManager, exchangeClient, dataProcessorExecutor, timeoutExecutor, blockEncodingSerde);
 
-        result.queryManager.addOutputInfoListener(result.getQueryId(), result::setQueryOutputInfo);
+        result.queryManager.addOutputInfoListener(queryId, result::setQueryOutputInfo);
 
-        result.queryManager.addStateChangeListener(result.getQueryId(), state -> {
+        result.queryManager.addStateChangeListener(queryId, state -> {
             if (state.isDone()) {
-                QueryInfo queryInfo = queryManager.getFullQueryInfo(result.getQueryId());
+                QueryInfo queryInfo = queryManager.getFullQueryInfo(queryId);
                 result.closeExchangeClientIfNecessary(queryInfo);
             }
         });
@@ -183,7 +181,7 @@ public class Query
     }
 
     private Query(
-            Session session,
+            QueryId queryId,
             String slug,
             QueryManager queryManager,
             ExchangeClient exchangeClient,
@@ -191,7 +189,7 @@ public class Query
             ScheduledExecutorService timeoutExecutor,
             BlockEncodingSerde blockEncodingSerde)
     {
-        requireNonNull(session, "session is null");
+        requireNonNull(queryId, "queryId is null");
         requireNonNull(slug, "slug is null");
         requireNonNull(queryManager, "queryManager is null");
         requireNonNull(exchangeClient, "exchangeClient is null");
@@ -201,14 +199,13 @@ public class Query
 
         this.queryManager = queryManager;
 
-        this.queryId = session.getQueryId();
-        this.session = session;
+        this.queryId = queryId;
         this.slug = slug;
         this.exchangeClient = exchangeClient;
         this.resultsProcessorExecutor = resultsProcessorExecutor;
         this.timeoutExecutor = timeoutExecutor;
 
-        serde = new PagesSerdeFactory(blockEncodingSerde, isExchangeCompressionEnabled(session)).createPagesSerde();
+        serde = new PagesSerdeFactory(blockEncodingSerde, false).createPagesSerde();
     }
 
     public void cancel()
@@ -220,11 +217,6 @@ public class Query
     public synchronized void dispose()
     {
         exchangeClient.close();
-    }
-
-    public QueryId getQueryId()
-    {
-        return queryId;
     }
 
     public String getSlug()
@@ -366,6 +358,7 @@ public class Query
         // client while holding the lock because the query may transition to the finished state when the
         // last page is removed.  If another thread observes this state before the response is cached
         // the pages will be lost.
+        ConnectorSession session = queryManager.getQuerySession(queryId).toConnectorSession();
         Iterable<List<Object>> data = null;
         try {
             ImmutableList.Builder<RowIterable> pages = ImmutableList.builder();
@@ -381,7 +374,7 @@ public class Query
                 Page page = serde.deserialize(serializedPage);
                 bytes += page.getLogicalSizeInBytes();
                 rows += page.getPositionCount();
-                pages.add(new RowIterable(session.toConnectorSession(), types, page));
+                pages.add(new RowIterable(session, types, page));
             }
             if (rows > 0) {
                 // client implementations do not properly handle empty list of data
