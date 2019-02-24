@@ -2,7 +2,6 @@ CREATE TABLE presto_test_sequence (
   n INT
 )
 COMMENT 'Presto test data'
-TBLPROPERTIES ('RETENTION'='-1')
 ;
 
 CREATE TABLE presto_test_partition_format (
@@ -17,7 +16,6 @@ CREATE TABLE presto_test_partition_format (
 )
 COMMENT 'Presto test data'
 PARTITIONED BY (ds STRING, file_format STRING, dummy INT)
-TBLPROPERTIES ('RETENTION'='-1')
 ;
 
 CREATE TABLE presto_test_unpartitioned (
@@ -26,7 +24,6 @@ CREATE TABLE presto_test_unpartitioned (
 )
 COMMENT 'Presto test data'
 STORED AS TEXTFILE
-TBLPROPERTIES ('RETENTION'='-1')
 ;
 
 CREATE TABLE presto_test_offline (
@@ -34,7 +31,7 @@ CREATE TABLE presto_test_offline (
 )
 COMMENT 'Presto test data'
 PARTITIONED BY (ds STRING)
-TBLPROPERTIES ('RETENTION'='-1', 'PROTECT_MODE'='OFFLINE')
+TBLPROPERTIES ('PROTECT_MODE'='OFFLINE')
 ;
 
 CREATE TABLE presto_test_offline_partition (
@@ -42,7 +39,6 @@ CREATE TABLE presto_test_offline_partition (
 )
 COMMENT 'Presto test data'
 PARTITIONED BY (ds STRING)
-TBLPROPERTIES ('RETENTION'='-1')
 ;
 
 CREATE TABLE presto_test_not_readable (
@@ -50,7 +46,7 @@ CREATE TABLE presto_test_not_readable (
 )
 COMMENT 'Presto test data'
 PARTITIONED BY (ds STRING)
-TBLPROPERTIES ('RETENTION'='-1', 'object_not_readable'='reason for not readable')
+TBLPROPERTIES ('object_not_readable'='reason for not readable')
 ;
 
 CREATE TABLE presto_test_bucketed_by_string_int (
@@ -67,7 +63,6 @@ COMMENT 'Presto test bucketed table'
 PARTITIONED BY (ds STRING)
 CLUSTERED BY (t_string, t_int) INTO 32 BUCKETS
 STORED AS RCFILE
-TBLPROPERTIES ('RETENTION'='-1')
 ;
 
 CREATE TABLE presto_test_bucketed_by_bigint_boolean (
@@ -84,7 +79,6 @@ COMMENT 'Presto test bucketed table'
 PARTITIONED BY (ds STRING)
 CLUSTERED BY (t_bigint, t_boolean) INTO 32 BUCKETS
 STORED AS RCFILE
-TBLPROPERTIES ('RETENTION'='-1')
 ;
 
 CREATE TABLE presto_test_bucketed_by_double_float (
@@ -101,7 +95,6 @@ COMMENT 'Presto test bucketed table'
 PARTITIONED BY (ds STRING)
 CLUSTERED BY (t_double, t_float) INTO 32 BUCKETS
 STORED AS RCFILE
-TBLPROPERTIES ('RETENTION'='-1')
 ;
 
 CREATE TABLE presto_test_partition_schema_change (
@@ -111,7 +104,6 @@ CREATE TABLE presto_test_partition_schema_change (
 COMMENT 'Presto test partition schema change'
 PARTITIONED BY (ds STRING)
 STORED AS TEXTFILE
-TBLPROPERTIES ('RETENTION'='-1')
 ;
 
 CREATE TABLE presto_test_partition_schema_change_non_canonical (
@@ -119,12 +111,10 @@ CREATE TABLE presto_test_partition_schema_change_non_canonical (
 )
 COMMENT 'Presto test non-canonical boolean partition table'
 PARTITIONED BY (t_boolean BOOLEAN)
-TBLPROPERTIES ('RETENTION'='-1')
 ;
 
 CREATE VIEW presto_test_view
 COMMENT 'Presto test view'
-TBLPROPERTIES ('RETENTION'='-1')
 AS SELECT * FROM presto_test_unpartitioned
 ;
 
