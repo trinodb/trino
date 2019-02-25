@@ -96,7 +96,9 @@ import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.prestosql.util.Failures.toFailure;
 import static io.prestosql.util.MoreLists.mappedCopy;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
+import static java.util.UUID.randomUUID;
 
 @ThreadSafe
 class Query
@@ -105,6 +107,7 @@ class Query
 
     private final QueryManager queryManager;
     private final QueryId queryId;
+    private final String slug = "x" + randomUUID().toString().toLowerCase(ENGLISH).replace("-", "");
 
     @GuardedBy("this")
     private final ExchangeClient exchangeClient;
@@ -251,6 +254,11 @@ class Query
     public QueryId getQueryId()
     {
         return queryId;
+    }
+
+    public boolean isSlugValid(String slug)
+    {
+        return this.slug.equals(slug);
     }
 
     public synchronized Optional<String> getSetCatalog()
@@ -584,6 +592,7 @@ class Query
                 .scheme(scheme)
                 .replacePath("/v1/statement")
                 .path(queryId.toString())
+                .path(slug)
                 .path(String.valueOf(resultId.incrementAndGet()))
                 .replaceQuery("")
                 .build();
