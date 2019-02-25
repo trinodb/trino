@@ -13,7 +13,6 @@
  */
 package io.prestosql.operator;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -26,7 +25,6 @@ import io.prestosql.Session;
 import io.prestosql.execution.Lifespan;
 import io.prestosql.execution.TaskId;
 import io.prestosql.memory.QueryContextVisitor;
-import io.prestosql.memory.context.LocalMemoryContext;
 import io.prestosql.memory.context.MemoryTrackingContext;
 import org.joda.time.DateTime;
 
@@ -259,11 +257,6 @@ public class PipelineContext
     {
         checkArgument(bytes >= 0, "bytes is negative");
         taskContext.freeSpill(bytes);
-    }
-
-    public LocalMemoryContext localSystemMemoryContext()
-    {
-        return pipelineMemoryContext.localSystemMemoryContext();
     }
 
     public void moreMemoryAvailable()
@@ -504,12 +497,6 @@ public class PipelineContext
         }
 
         return map.replace(key, oldValue, newValue);
-    }
-
-    @VisibleForTesting
-    public MemoryTrackingContext getPipelineMemoryContext()
-    {
-        return pipelineMemoryContext;
     }
 
     private static PipelineStatus getPipelineStatus(Iterator<DriverContext> driverContextsIterator, int totalSplits, int completedDrivers, boolean partitioned)

@@ -162,34 +162,16 @@ public class TestMemoryTracking
     @Test
     public void testLocalSystemAllocations()
     {
-        long pipelineLocalAllocation = 1_000_000;
         long taskLocalAllocation = 10_000_000;
-        LocalMemoryContext pipelineLocalSystemMemoryContext = pipelineContext.localSystemMemoryContext();
-        pipelineLocalSystemMemoryContext.setBytes(pipelineLocalAllocation);
-        assertLocalMemoryAllocations(pipelineContext.getPipelineMemoryContext(),
-                pipelineLocalAllocation,
-                0,
-                pipelineLocalAllocation);
         LocalMemoryContext taskLocalSystemMemoryContext = taskContext.localSystemMemoryContext();
         taskLocalSystemMemoryContext.setBytes(taskLocalAllocation);
         assertLocalMemoryAllocations(
                 taskContext.getTaskMemoryContext(),
-                pipelineLocalAllocation + taskLocalAllocation,
-                0,
-                taskLocalAllocation);
-        assertEquals(pipelineContext.getPipelineStats().getSystemMemoryReservation().toBytes(),
-                pipelineLocalAllocation,
-                "task level allocations should not be visible at the pipeline level");
-        pipelineLocalSystemMemoryContext.setBytes(pipelineLocalSystemMemoryContext.getBytes() - pipelineLocalAllocation);
-        assertLocalMemoryAllocations(
-                pipelineContext.getPipelineMemoryContext(),
                 taskLocalAllocation,
-                0,
-                0);
+                taskLocalAllocation);
         taskLocalSystemMemoryContext.setBytes(taskLocalSystemMemoryContext.getBytes() - taskLocalAllocation);
         assertLocalMemoryAllocations(
                 taskContext.getTaskMemoryContext(),
-                0,
                 0,
                 0);
     }
@@ -408,10 +390,8 @@ public class TestMemoryTracking
     private void assertLocalMemoryAllocations(
             MemoryTrackingContext memoryTrackingContext,
             long expectedPoolMemory,
-            long expectedContextUserMemory,
             long expectedContextSystemMemory)
     {
-        assertEquals(memoryTrackingContext.getUserMemory(), expectedContextUserMemory, "User memory verification failed");
         assertEquals(memoryPool.getReservedBytes(), expectedPoolMemory, "Memory pool verification failed");
         assertEquals(memoryTrackingContext.localSystemMemoryContext().getBytes(), expectedContextSystemMemory, "Local system memory verification failed");
     }
