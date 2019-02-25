@@ -26,6 +26,7 @@ import org.apache.parquet.format.RowGroup;
 import org.apache.parquet.format.SchemaElement;
 import org.apache.parquet.format.Statistics;
 import org.apache.parquet.format.Type;
+import org.apache.parquet.format.converter.ParquetMetadataConverter;
 import org.apache.parquet.hadoop.metadata.BlockMetaData;
 import org.apache.parquet.hadoop.metadata.ColumnChunkMetaData;
 import org.apache.parquet.hadoop.metadata.ColumnPath;
@@ -60,6 +61,7 @@ public final class MetadataReader
 {
     private static final int PARQUET_METADATA_LENGTH = 4;
     private static final byte[] MAGIC = "PAR1".getBytes(US_ASCII);
+    private static final ParquetMetadataConverter PARQUET_METADATA_CONVERTER = new ParquetMetadataConverter();
 
     private MetadataReader() {}
 
@@ -130,6 +132,7 @@ public final class MetadataReader
                             columnPath,
                             primitiveTypeName,
                             CompressionCodecName.fromParquet(metaData.codec),
+                            PARQUET_METADATA_CONVERTER.convertEncodingStats(metaData.encoding_stats),
                             readEncodings(metaData.encodings),
                             readStats(metaData.statistics, primitiveTypeName),
                             metaData.data_page_offset,
