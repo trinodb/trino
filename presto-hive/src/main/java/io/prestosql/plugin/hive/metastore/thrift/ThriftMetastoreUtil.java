@@ -210,7 +210,7 @@ public final class ThriftMetastoreUtil
                 privilegeInfo.isGrantOption());
     }
 
-    public static org.apache.hadoop.hive.metastore.api.PrincipalType toMetastoreApiPrincipalType(PrincipalType principalType)
+    private static org.apache.hadoop.hive.metastore.api.PrincipalType toMetastoreApiPrincipalType(PrincipalType principalType)
     {
         switch (principalType) {
             case USER:
@@ -549,7 +549,7 @@ public final class ThriftMetastoreUtil
         }
     }
 
-    public static Optional<LocalDate> fromMetastoreDate(Date date)
+    private static Optional<LocalDate> fromMetastoreDate(Date date)
     {
         if (date == null) {
             return Optional.empty();
@@ -562,7 +562,7 @@ public final class ThriftMetastoreUtil
      *
      * @see <a href="https://issues.apache.org/jira/browse/IMPALA-7497">IMPALA-7497</a>
      */
-    public static OptionalLong fromMetastoreNullsCount(long nullsCount)
+    private static OptionalLong fromMetastoreNullsCount(long nullsCount)
     {
         if (nullsCount == -1L) {
             return OptionalLong.empty();
@@ -570,7 +570,7 @@ public final class ThriftMetastoreUtil
         return OptionalLong.of(nullsCount);
     }
 
-    public static Optional<BigDecimal> fromMetastoreDecimal(@Nullable Decimal decimal)
+    private static Optional<BigDecimal> fromMetastoreDecimal(@Nullable Decimal decimal)
     {
         if (decimal == null) {
             return Optional.empty();
@@ -578,7 +578,7 @@ public final class ThriftMetastoreUtil
         return Optional.of(new BigDecimal(new BigInteger(decimal.getUnscaled()), decimal.getScale()));
     }
 
-    public static OptionalLong getTotalSizeInBytes(OptionalDouble averageColumnLength, OptionalLong rowCount, OptionalLong nullsCount)
+    private static OptionalLong getTotalSizeInBytes(OptionalDouble averageColumnLength, OptionalLong rowCount, OptionalLong nullsCount)
     {
         if (averageColumnLength.isPresent() && rowCount.isPresent() && nullsCount.isPresent()) {
             long nonNullsCount = rowCount.getAsLong() - nullsCount.getAsLong();
@@ -625,7 +625,7 @@ public final class ThriftMetastoreUtil
         return ImmutableSet.copyOf(grants.stream().map(ThriftMetastoreUtil::fromRolePrincipalGrant).collect(toList()));
     }
 
-    public static RoleGrant fromRolePrincipalGrant(RolePrincipalGrant grant)
+    private static RoleGrant fromRolePrincipalGrant(RolePrincipalGrant grant)
     {
         return new RoleGrant(
                 new PrestoPrincipal(fromMetastoreApiPrincipalType(grant.getPrincipalType()), grant.getPrincipalName()),
@@ -658,17 +658,17 @@ public final class ThriftMetastoreUtil
         }
     }
 
-    public static FieldSchema toMetastoreApiFieldSchema(Column column)
+    private static FieldSchema toMetastoreApiFieldSchema(Column column)
     {
         return new FieldSchema(column.getName(), column.getType().getHiveTypeName().toString(), column.getComment().orElse(null));
     }
 
-    public static Column fromMetastoreApiFieldSchema(FieldSchema fieldSchema)
+    private static Column fromMetastoreApiFieldSchema(FieldSchema fieldSchema)
     {
         return new Column(fieldSchema.getName(), HiveType.valueOf(fieldSchema.getType()), Optional.ofNullable(emptyToNull(fieldSchema.getComment())));
     }
 
-    public static void fromMetastoreApiStorageDescriptor(StorageDescriptor storageDescriptor, Storage.Builder builder, String tablePartitionName)
+    private static void fromMetastoreApiStorageDescriptor(StorageDescriptor storageDescriptor, Storage.Builder builder, String tablePartitionName)
     {
         SerDeInfo serdeInfo = storageDescriptor.getSerdeInfo();
         if (serdeInfo == null) {
@@ -890,7 +890,7 @@ public final class ThriftMetastoreUtil
         return new ColumnStatisticsObj(columnName, columnType.toString(), decimalStats(data));
     }
 
-    public static Date toMetastoreDate(LocalDate date)
+    private static Date toMetastoreDate(LocalDate date)
     {
         return new Date(date.toEpochDay());
     }
