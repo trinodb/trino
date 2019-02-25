@@ -28,13 +28,13 @@ import io.prestosql.plugin.hive.SchemaAlreadyExistsException;
 import io.prestosql.plugin.hive.TableAlreadyExistsException;
 import io.prestosql.plugin.hive.metastore.Column;
 import io.prestosql.plugin.hive.metastore.HiveColumnStatistics;
+import io.prestosql.plugin.hive.metastore.HivePrincipal;
 import io.prestosql.plugin.hive.metastore.HivePrivilegeInfo;
 import io.prestosql.plugin.hive.metastore.PartitionWithStatistics;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.SchemaNotFoundException;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.TableNotFoundException;
-import io.prestosql.spi.security.PrestoPrincipal;
 import io.prestosql.spi.security.RoleGrant;
 import io.prestosql.spi.statistics.ColumnStatisticType;
 import io.prestosql.spi.type.Type;
@@ -634,9 +634,9 @@ public class ThriftHiveMetastore
     }
 
     @Override
-    public void grantRoles(Set<String> roles, Set<PrestoPrincipal> grantees, boolean withAdminOption, PrestoPrincipal grantor)
+    public void grantRoles(Set<String> roles, Set<HivePrincipal> grantees, boolean withAdminOption, HivePrincipal grantor)
     {
-        for (PrestoPrincipal grantee : grantees) {
+        for (HivePrincipal grantee : grantees) {
             for (String role : roles) {
                 grantRole(
                         role,
@@ -669,9 +669,9 @@ public class ThriftHiveMetastore
     }
 
     @Override
-    public void revokeRoles(Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOptionFor, PrestoPrincipal grantor)
+    public void revokeRoles(Set<String> roles, Set<HivePrincipal> grantees, boolean adminOptionFor, HivePrincipal grantor)
     {
-        for (PrestoPrincipal grantee : grantees) {
+        for (HivePrincipal grantee : grantees) {
             for (String role : roles) {
                 revokeRole(
                         role,
@@ -703,7 +703,7 @@ public class ThriftHiveMetastore
     }
 
     @Override
-    public Set<RoleGrant> listRoleGrants(PrestoPrincipal principal)
+    public Set<RoleGrant> listRoleGrants(HivePrincipal principal)
     {
         try {
             return retry()
@@ -1163,7 +1163,7 @@ public class ThriftHiveMetastore
     }
 
     @Override
-    public void grantTablePrivileges(String databaseName, String tableName, PrestoPrincipal grantee, Set<HivePrivilegeInfo> privileges)
+    public void grantTablePrivileges(String databaseName, String tableName, HivePrincipal grantee, Set<HivePrivilegeInfo> privileges)
     {
         Set<PrivilegeGrantInfo> requestedPrivileges = privileges.stream()
                 .map(ThriftMetastoreUtil::toMetastoreApiPrivilegeGrantInfo)
@@ -1214,7 +1214,7 @@ public class ThriftHiveMetastore
     }
 
     @Override
-    public void revokeTablePrivileges(String databaseName, String tableName, PrestoPrincipal grantee, Set<HivePrivilegeInfo> privileges)
+    public void revokeTablePrivileges(String databaseName, String tableName, HivePrincipal grantee, Set<HivePrivilegeInfo> privileges)
     {
         Set<PrivilegeGrantInfo> requestedPrivileges = privileges.stream()
                 .map(ThriftMetastoreUtil::toMetastoreApiPrivilegeGrantInfo)
@@ -1252,7 +1252,7 @@ public class ThriftHiveMetastore
     }
 
     @Override
-    public Set<HivePrivilegeInfo> listTablePrivileges(String databaseName, String tableName, PrestoPrincipal principal)
+    public Set<HivePrivilegeInfo> listTablePrivileges(String databaseName, String tableName, HivePrincipal principal)
     {
         try {
             return retry()
@@ -1279,7 +1279,7 @@ public class ThriftHiveMetastore
                                         new HiveObjectRef(TABLE, databaseName, tableName, null, null));
                             }
                             for (HiveObjectPrivilege hiveObjectPrivilege : hiveObjectPrivilegeList) {
-                                PrestoPrincipal grantee = new PrestoPrincipal(fromMetastoreApiPrincipalType(hiveObjectPrivilege.getPrincipalType()), hiveObjectPrivilege.getPrincipalName());
+                                HivePrincipal grantee = new HivePrincipal(fromMetastoreApiPrincipalType(hiveObjectPrivilege.getPrincipalType()), hiveObjectPrivilege.getPrincipalName());
                                 privileges.addAll(parsePrivilege(hiveObjectPrivilege.getGrantInfo(), Optional.of(grantee)));
                             }
                             return privileges.build();
@@ -1297,7 +1297,7 @@ public class ThriftHiveMetastore
     private PrivilegeBag buildPrivilegeBag(
             String databaseName,
             String tableName,
-            PrestoPrincipal grantee,
+            HivePrincipal grantee,
             Set<PrivilegeGrantInfo> privilegeGrantInfos)
     {
         ImmutableList.Builder<HiveObjectPrivilege> privilegeBagBuilder = ImmutableList.builder();

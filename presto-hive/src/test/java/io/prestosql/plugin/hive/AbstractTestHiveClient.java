@@ -33,6 +33,7 @@ import io.prestosql.plugin.hive.metastore.CachingHiveMetastore;
 import io.prestosql.plugin.hive.metastore.Column;
 import io.prestosql.plugin.hive.metastore.ExtendedHiveMetastore;
 import io.prestosql.plugin.hive.metastore.HiveColumnStatistics;
+import io.prestosql.plugin.hive.metastore.HivePrincipal;
 import io.prestosql.plugin.hive.metastore.HivePrivilegeInfo;
 import io.prestosql.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege;
 import io.prestosql.plugin.hive.metastore.Partition;
@@ -86,7 +87,6 @@ import io.prestosql.spi.predicate.NullableValue;
 import io.prestosql.spi.predicate.Range;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.predicate.ValueSet;
-import io.prestosql.spi.security.PrestoPrincipal;
 import io.prestosql.spi.statistics.ColumnStatistics;
 import io.prestosql.spi.statistics.TableStatistics;
 import io.prestosql.spi.type.ArrayType;
@@ -4322,10 +4322,10 @@ public abstract class AbstractTestHiveClient
     {
         return new PrincipalPrivileges(
                 ImmutableMultimap.<String, HivePrivilegeInfo>builder()
-                        .put(tableOwner, new HivePrivilegeInfo(HivePrivilege.SELECT, true, new PrestoPrincipal(USER, grantor), new PrestoPrincipal(USER, grantor)))
-                        .put(tableOwner, new HivePrivilegeInfo(HivePrivilege.INSERT, true, new PrestoPrincipal(USER, grantor), new PrestoPrincipal(USER, grantor)))
-                        .put(tableOwner, new HivePrivilegeInfo(HivePrivilege.UPDATE, true, new PrestoPrincipal(USER, grantor), new PrestoPrincipal(USER, grantor)))
-                        .put(tableOwner, new HivePrivilegeInfo(HivePrivilege.DELETE, true, new PrestoPrincipal(USER, grantor), new PrestoPrincipal(USER, grantor)))
+                        .put(tableOwner, new HivePrivilegeInfo(HivePrivilege.SELECT, true, new HivePrincipal(USER, grantor), new HivePrincipal(USER, grantor)))
+                        .put(tableOwner, new HivePrivilegeInfo(HivePrivilege.INSERT, true, new HivePrincipal(USER, grantor), new HivePrincipal(USER, grantor)))
+                        .put(tableOwner, new HivePrivilegeInfo(HivePrivilege.UPDATE, true, new HivePrincipal(USER, grantor), new HivePrincipal(USER, grantor)))
+                        .put(tableOwner, new HivePrivilegeInfo(HivePrivilege.DELETE, true, new HivePrincipal(USER, grantor), new HivePrincipal(USER, grantor)))
                         .build(),
                 ImmutableMultimap.of());
     }

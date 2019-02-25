@@ -33,6 +33,7 @@ import io.prestosql.plugin.hive.LocationService.WriteInfo;
 import io.prestosql.plugin.hive.metastore.Column;
 import io.prestosql.plugin.hive.metastore.Database;
 import io.prestosql.plugin.hive.metastore.HiveColumnStatistics;
+import io.prestosql.plugin.hive.metastore.HivePrincipal;
 import io.prestosql.plugin.hive.metastore.HivePrivilegeInfo;
 import io.prestosql.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege;
 import io.prestosql.plugin.hive.metastore.Partition;
@@ -880,7 +881,7 @@ public class HiveMetadata
 
     private static PrincipalPrivileges buildInitialPrivilegeSet(String tableOwner)
     {
-        PrestoPrincipal owner = new PrestoPrincipal(USER, tableOwner);
+        HivePrincipal owner = new HivePrincipal(USER, tableOwner);
         return new PrincipalPrivileges(
                 ImmutableMultimap.<String, HivePrivilegeInfo>builder()
                         .put(tableOwner, new HivePrivilegeInfo(HivePrivilege.SELECT, true, owner, owner))
@@ -1948,25 +1949,25 @@ public class HiveMetadata
     @Override
     public Set<RoleGrant> listRoleGrants(ConnectorSession session, PrestoPrincipal principal)
     {
-        return ImmutableSet.copyOf(metastore.listRoleGrants(principal));
+        return ImmutableSet.copyOf(metastore.listRoleGrants(HivePrincipal.from(principal)));
     }
 
     @Override
     public void grantRoles(ConnectorSession session, Set<String> roles, Set<PrestoPrincipal> grantees, boolean withAdminOption, Optional<PrestoPrincipal> grantor)
     {
-        metastore.grantRoles(roles, grantees, withAdminOption, grantor.orElse(new PrestoPrincipal(USER, session.getUser())));
+        metastore.grantRoles(roles, HivePrincipal.from(grantees), withAdminOption, grantor.map(HivePrincipal::from).orElse(new HivePrincipal(USER, session.getUser())));
     }
 
     @Override
     public void revokeRoles(ConnectorSession session, Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOptionFor, Optional<PrestoPrincipal> grantor)
     {
-        metastore.revokeRoles(roles, grantees, adminOptionFor, grantor.orElse(new PrestoPrincipal(USER, session.getUser())));
+        metastore.revokeRoles(roles, HivePrincipal.from(grantees), adminOptionFor, grantor.map(HivePrincipal::from).orElse(new HivePrincipal(USER, session.getUser())));
     }
 
     @Override
     public Set<RoleGrant> listApplicableRoles(ConnectorSession session, PrestoPrincipal principal)
     {
-        return ThriftMetastoreUtil.listApplicableRoles(principal, metastore::listRoleGrants)
+        return ThriftMetastoreUtil.listApplicableRoles(HivePrincipal.from(principal), metastore::listRoleGrants)
                 .collect(toImmutableSet());
     }
 
@@ -1984,10 +1985,10 @@ public class HiveMetadata
         String tableName = schemaTableName.getTableName();
 
         Set<HivePrivilegeInfo> hivePrivilegeInfos = privileges.stream()
-                .map(privilege -> new HivePrivilegeInfo(toHivePrivilege(privilege), grantOption, new PrestoPrincipal(USER, session.getUser()), new PrestoPrincipal(USER, session.getUser())))
+                .map(privilege -> new HivePrivilegeInfo(toHivePrivilege(privilege), grantOption, new HivePrincipal(USER, session.getUser()), new HivePrincipal(USER, session.getUser())))
                 .collect(toSet());
 
-        metastore.grantTablePrivileges(schemaName, tableName, grantee, hivePrivilegeInfos);
+        metastore.grantTablePrivileges(schemaName, tableName, HivePrincipal.from(grantee), hivePrivilegeInfos);
     }
 
     @Override
@@ -1997,16 +1998,16 @@ public class HiveMetadata
         String tableName = schemaTableName.getTableName();
 
         Set<HivePrivilegeInfo> hivePrivilegeInfos = privileges.stream()
-                .map(privilege -> new HivePrivilegeInfo(toHivePrivilege(privilege), grantOption, new PrestoPrincipal(USER, session.getUser()), new PrestoPrincipal(USER, session.getUser())))
+                .map(privilege -> new HivePrivilegeInfo(toHivePrivilege(privilege), grantOption, new HivePrincipal(USER, session.getUser()), new HivePrincipal(USER, session.getUser())))
                 .collect(toSet());
 
-        metastore.revokeTablePrivileges(schemaName, tableName, grantee, hivePrivilegeInfos);
+        metastore.revokeTablePrivileges(schemaName, tableName, HivePrincipal.from(grantee), hivePrivilegeInfos);
     }
 
     @Override
     public List<GrantInfo> listTablePrivileges(ConnectorSession session, SchemaTablePrefix schemaTablePrefix)
     {
-        Set<PrestoPrincipal> principals = listEnabledPrincipals(metastore, session.getIdentity())
+        Set<HivePrincipal> principals = listEnabledPrincipals(metastore, session.getIdentity())
                 .collect(toImmutableSet());
         boolean isAdminRoleSet = hasAdminRole(principals);
         ImmutableList.Builder<GrantInfo> result = ImmutableList.builder();
@@ -2015,7 +2016,7 @@ public class HiveMetadata
                 result.addAll(buildGrants(tableName, null));
             }
             else {
-                for (PrestoPrincipal grantee : principals) {
+                for (HivePrincipal grantee : principals) {
                     result.addAll(buildGrants(tableName, grantee));
                 }
             }
@@ -2023,7 +2024,7 @@ public class HiveMetadata
         return result.build();
     }
 
-    private List<GrantInfo> buildGrants(SchemaTableName tableName, PrestoPrincipal principal)
+    private List<GrantInfo> buildGrants(SchemaTableName tableName, HivePrincipal principal)
     {
         ImmutableList.Builder<GrantInfo> result = ImmutableList.builder();
         Set<HivePrivilegeInfo> hivePrivileges = metastore.listTablePrivileges(tableName.getSchemaName(), tableName.getTableName(), principal);
@@ -2032,9 +2033,9 @@ public class HiveMetadata
             for (PrivilegeInfo prestoPrivilege : prestoPrivileges) {
                 GrantInfo grant = new GrantInfo(
                         prestoPrivilege,
-                        hivePrivilege.getGrantee(),
+                        hivePrivilege.getGrantee().toPrestoPrincipal(),
                         tableName,
-                        Optional.of(hivePrivilege.getGrantor()),
+                        Optional.of(hivePrivilege.getGrantor().toPrestoPrincipal()),
                         Optional.empty());
                 result.add(grant);
             }
@@ -2042,7 +2043,7 @@ public class HiveMetadata
         return result.build();
     }
 
-    private static boolean hasAdminRole(Set<PrestoPrincipal> roles)
+    private static boolean hasAdminRole(Set<HivePrincipal> roles)
     {
         return roles.stream().anyMatch(principal -> principal.getName().equalsIgnoreCase(ADMIN_ROLE_NAME));
     }

@@ -27,7 +27,6 @@ import io.prestosql.plugin.hive.HiveClientConfig;
 import io.prestosql.plugin.hive.HiveType;
 import io.prestosql.plugin.hive.PartitionStatistics;
 import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.security.PrestoPrincipal;
 import io.prestosql.spi.security.RoleGrant;
 import io.prestosql.spi.statistics.ColumnStatisticType;
 import io.prestosql.spi.type.Type;
@@ -85,7 +84,7 @@ public class CachingHiveMetastore
     private final LoadingCache<HiveTableName, Optional<List<String>>> partitionNamesCache;
     private final LoadingCache<UserTableKey, Set<HivePrivilegeInfo>> tablePrivilegesCache;
     private final LoadingCache<String, Set<String>> rolesCache;
-    private final LoadingCache<PrestoPrincipal, Set<RoleGrant>> roleGrantsCache;
+    private final LoadingCache<HivePrincipal, Set<RoleGrant>> roleGrantsCache;
 
     @Inject
     public CachingHiveMetastore(@ForCachingHiveMetastore ExtendedHiveMetastore delegate, @ForCachingHiveMetastore ExecutorService executor, HiveClientConfig hiveClientConfig)
@@ -653,7 +652,7 @@ public class CachingHiveMetastore
     }
 
     @Override
-    public void grantRoles(Set<String> roles, Set<PrestoPrincipal> grantees, boolean withAdminOption, PrestoPrincipal grantor)
+    public void grantRoles(Set<String> roles, Set<HivePrincipal> grantees, boolean withAdminOption, HivePrincipal grantor)
     {
         try {
             delegate.grantRoles(roles, grantees, withAdminOption, grantor);
@@ -664,7 +663,7 @@ public class CachingHiveMetastore
     }
 
     @Override
-    public void revokeRoles(Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOptionFor, PrestoPrincipal grantor)
+    public void revokeRoles(Set<String> roles, Set<HivePrincipal> grantees, boolean adminOptionFor, HivePrincipal grantor)
     {
         try {
             delegate.revokeRoles(roles, grantees, adminOptionFor, grantor);
@@ -675,12 +674,12 @@ public class CachingHiveMetastore
     }
 
     @Override
-    public Set<RoleGrant> listRoleGrants(PrestoPrincipal principal)
+    public Set<RoleGrant> listRoleGrants(HivePrincipal principal)
     {
         return get(roleGrantsCache, principal);
     }
 
-    private Set<RoleGrant> loadRoleGrants(PrestoPrincipal principal)
+    private Set<RoleGrant> loadRoleGrants(HivePrincipal principal)
     {
         return delegate.listRoleGrants(principal);
     }
@@ -701,7 +700,7 @@ public class CachingHiveMetastore
     }
 
     @Override
-    public void grantTablePrivileges(String databaseName, String tableName, PrestoPrincipal grantee, Set<HivePrivilegeInfo> privileges)
+    public void grantTablePrivileges(String databaseName, String tableName, HivePrincipal grantee, Set<HivePrivilegeInfo> privileges)
     {
         try {
             delegate.grantTablePrivileges(databaseName, tableName, grantee, privileges);
@@ -712,7 +711,7 @@ public class CachingHiveMetastore
     }
 
     @Override
-    public void revokeTablePrivileges(String databaseName, String tableName, PrestoPrincipal grantee, Set<HivePrivilegeInfo> privileges)
+    public void revokeTablePrivileges(String databaseName, String tableName, HivePrincipal grantee, Set<HivePrivilegeInfo> privileges)
     {
         try {
             delegate.revokeTablePrivileges(databaseName, tableName, grantee, privileges);
@@ -723,12 +722,12 @@ public class CachingHiveMetastore
     }
 
     @Override
-    public Set<HivePrivilegeInfo> listTablePrivileges(String databaseName, String tableName, PrestoPrincipal principal)
+    public Set<HivePrivilegeInfo> listTablePrivileges(String databaseName, String tableName, HivePrincipal principal)
     {
         return get(tablePrivilegesCache, new UserTableKey(principal, databaseName, tableName));
     }
 
-    public Set<HivePrivilegeInfo> loadTablePrivileges(String databaseName, String tableName, PrestoPrincipal principal)
+    public Set<HivePrivilegeInfo> loadTablePrivileges(String databaseName, String tableName, HivePrincipal principal)
     {
         return delegate.listTablePrivileges(databaseName, tableName, principal);
     }

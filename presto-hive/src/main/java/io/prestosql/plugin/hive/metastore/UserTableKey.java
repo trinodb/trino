@@ -15,7 +15,6 @@ package io.prestosql.plugin.hive.metastore;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.prestosql.spi.security.PrestoPrincipal;
 
 import javax.annotation.concurrent.Immutable;
 
@@ -27,12 +26,12 @@ import static java.util.Objects.requireNonNull;
 @Immutable
 public class UserTableKey
 {
-    private final PrestoPrincipal principal;
+    private final HivePrincipal principal;
     private final String database;
     private final String table;
 
     @JsonCreator
-    public UserTableKey(@JsonProperty("principal") PrestoPrincipal principal, @JsonProperty("database") String database, @JsonProperty("table") String table)
+    public UserTableKey(@JsonProperty("principal") HivePrincipal principal, @JsonProperty("database") String database, @JsonProperty("table") String table)
     {
         // principal can be null when we want to list all privileges for admins
         this.principal = principal;
@@ -41,7 +40,7 @@ public class UserTableKey
     }
 
     @JsonProperty
-    public PrestoPrincipal getPrincipal()
+    public HivePrincipal getPrincipal()
     {
         return principal;
     }

@@ -35,6 +35,7 @@ import io.prestosql.plugin.hive.metastore.Column;
 import io.prestosql.plugin.hive.metastore.Database;
 import io.prestosql.plugin.hive.metastore.ExtendedHiveMetastore;
 import io.prestosql.plugin.hive.metastore.HiveColumnStatistics;
+import io.prestosql.plugin.hive.metastore.HivePrincipal;
 import io.prestosql.plugin.hive.metastore.HivePrivilegeInfo;
 import io.prestosql.plugin.hive.metastore.Partition;
 import io.prestosql.plugin.hive.metastore.PartitionWithStatistics;
@@ -47,7 +48,6 @@ import io.prestosql.spi.connector.SchemaNotFoundException;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.TableNotFoundException;
 import io.prestosql.spi.security.ConnectorIdentity;
-import io.prestosql.spi.security.PrestoPrincipal;
 import io.prestosql.spi.security.RoleGrant;
 import io.prestosql.spi.statistics.ColumnStatisticType;
 import io.prestosql.spi.type.Type;
@@ -270,10 +270,10 @@ public class FileHiveMetastore
         writeSchemaFile("table", tableMetadataDirectory, tableCodec, new TableMetadata(table), false);
 
         for (Entry<String, Collection<HivePrivilegeInfo>> entry : principalPrivileges.getUserPrivileges().asMap().entrySet()) {
-            setTablePrivileges(new PrestoPrincipal(USER, entry.getKey()), table.getDatabaseName(), table.getTableName(), entry.getValue());
+            setTablePrivileges(new HivePrincipal(USER, entry.getKey()), table.getDatabaseName(), table.getTableName(), entry.getValue());
         }
         for (Entry<String, Collection<HivePrivilegeInfo>> entry : principalPrivileges.getRolePrivileges().asMap().entrySet()) {
-            setTablePrivileges(new PrestoPrincipal(ROLE, entry.getKey()), table.getDatabaseName(), table.getTableName(), entry.getValue());
+            setTablePrivileges(new HivePrincipal(ROLE, entry.getKey()), table.getDatabaseName(), table.getTableName(), entry.getValue());
         }
     }
 
@@ -448,10 +448,10 @@ public class FileHiveMetastore
         deleteTablePrivileges(table);
 
         for (Entry<String, Collection<HivePrivilegeInfo>> entry : principalPrivileges.getUserPrivileges().asMap().entrySet()) {
-            setTablePrivileges(new PrestoPrincipal(USER, entry.getKey()), table.getDatabaseName(), table.getTableName(), entry.getValue());
+            setTablePrivileges(new HivePrincipal(USER, entry.getKey()), table.getDatabaseName(), table.getTableName(), entry.getValue());
         }
         for (Entry<String, Collection<HivePrivilegeInfo>> entry : principalPrivileges.getRolePrivileges().asMap().entrySet()) {
-            setTablePrivileges(new PrestoPrincipal(ROLE, entry.getKey()), table.getDatabaseName(), table.getTableName(), entry.getValue());
+            setTablePrivileges(new HivePrincipal(ROLE, entry.getKey()), table.getDatabaseName(), table.getTableName(), entry.getValue());
         }
     }
 
@@ -705,20 +705,20 @@ public class FileHiveMetastore
     }
 
     @Override
-    public synchronized void grantRoles(Set<String> roles, Set<PrestoPrincipal> grantees, boolean withAdminOption, PrestoPrincipal grantor)
+    public synchronized void grantRoles(Set<String> roles, Set<HivePrincipal> grantees, boolean withAdminOption, HivePrincipal grantor)
     {
         Set<String> existingRoles = listRoles();
         Set<RoleGrant> existingGrants = listRoleGrantsSanitized();
         Set<RoleGrant> modifiedGrants = new HashSet<>(existingGrants);
-        for (PrestoPrincipal grantee : grantees) {
+        for (HivePrincipal grantee : grantees) {
             for (String role : roles) {
                 checkArgument(existingRoles.contains(role), "Role does not exist: %s", role);
                 if (grantee.getType() == ROLE) {
                     checkArgument(existingRoles.contains(grantee.getName()), "Role does not exist: %s", grantee.getName());
                 }
 
-                RoleGrant grantWithAdminOption = new RoleGrant(grantee, role, true);
-                RoleGrant grantWithoutAdminOption = new RoleGrant(grantee, role, false);
+                RoleGrant grantWithAdminOption = new RoleGrant(grantee.toPrestoPrincipal(), role, true);
+                RoleGrant grantWithoutAdminOption = new RoleGrant(grantee.toPrestoPrincipal(), role, false);
 
                 if (withAdminOption) {
                     modifiedGrants.remove(grantWithoutAdminOption);
@@ -737,14 +737,14 @@ public class FileHiveMetastore
     }
 
     @Override
-    public synchronized void revokeRoles(Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOptionFor, PrestoPrincipal grantor)
+    public synchronized void revokeRoles(Set<String> roles, Set<HivePrincipal> grantees, boolean adminOptionFor, HivePrincipal grantor)
     {
         Set<RoleGrant> existingGrants = listRoleGrantsSanitized();
         Set<RoleGrant> modifiedGrants = new HashSet<>(existingGrants);
-        for (PrestoPrincipal grantee : grantees) {
+        for (HivePrincipal grantee : grantees) {
             for (String role : roles) {
-                RoleGrant grantWithAdminOption = new RoleGrant(grantee, role, true);
-                RoleGrant grantWithoutAdminOption = new RoleGrant(grantee, role, false);
+                RoleGrant grantWithAdminOption = new RoleGrant(grantee.toPrestoPrincipal(), role, true);
+                RoleGrant grantWithoutAdminOption = new RoleGrant(grantee.toPrestoPrincipal(), role, false);
 
                 if (modifiedGrants.contains(grantWithAdminOption) || modifiedGrants.contains(grantWithoutAdminOption)) {
                     if (adminOptionFor) {
@@ -765,17 +765,17 @@ public class FileHiveMetastore
     }
 
     @Override
-    public synchronized Set<RoleGrant> listRoleGrants(PrestoPrincipal principal)
+    public synchronized Set<RoleGrant> listRoleGrants(HivePrincipal principal)
     {
         ImmutableSet.Builder<RoleGrant> result = ImmutableSet.builder();
         if (principal.getType() == USER) {
-            result.add(new RoleGrant(principal, PUBLIC_ROLE_NAME, false));
+            result.add(new RoleGrant(principal.toPrestoPrincipal(), PUBLIC_ROLE_NAME, false));
             if (ADMIN_USERS.contains(principal.getName())) {
-                result.add(new RoleGrant(principal, ADMIN_ROLE_NAME, true));
+                result.add(new RoleGrant(principal.toPrestoPrincipal(), ADMIN_ROLE_NAME, true));
             }
         }
         result.addAll(listRoleGrantsSanitized().stream()
-                .filter(grant -> grant.getGrantee().equals(principal))
+                .filter(grant -> HivePrincipal.from(grant.getGrantee()).equals(principal))
                 .collect(toSet()));
         return result.build();
     }
@@ -791,7 +791,7 @@ public class FileHiveMetastore
     {
         Map<RoleGranteeTuple, RoleGrant> map = new HashMap<>();
         for (RoleGrant grant : grants) {
-            RoleGranteeTuple tuple = new RoleGranteeTuple(grant.getRoleName(), grant.getGrantee());
+            RoleGranteeTuple tuple = new RoleGranteeTuple(grant.getRoleName(), HivePrincipal.from(grant.getGrantee()));
             map.merge(tuple, grant, (first, second) -> first.isGrantable() ? first : second);
         }
         return ImmutableSet.copyOf(map.values());
@@ -804,7 +804,7 @@ public class FileHiveMetastore
             if (!existingRoles.contains(grant.getRoleName())) {
                 continue;
             }
-            PrestoPrincipal grantee = grant.getGrantee();
+            HivePrincipal grantee = HivePrincipal.from(grant.getGrantee());
             if (grantee.getType() == ROLE && !existingRoles.contains(grantee.getName())) {
                 continue;
             }
@@ -939,7 +939,7 @@ public class FileHiveMetastore
     }
 
     @Override
-    public synchronized Set<HivePrivilegeInfo> listTablePrivileges(String databaseName, String tableName, PrestoPrincipal principal)
+    public synchronized Set<HivePrivilegeInfo> listTablePrivileges(String databaseName, String tableName, HivePrincipal principal)
     {
         ImmutableSet.Builder<HivePrivilegeInfo> result = ImmutableSet.builder();
         Table table = getRequiredTable(databaseName, tableName);
@@ -954,13 +954,13 @@ public class FileHiveMetastore
     }
 
     @Override
-    public synchronized void grantTablePrivileges(String databaseName, String tableName, PrestoPrincipal grantee, Set<HivePrivilegeInfo> privileges)
+    public synchronized void grantTablePrivileges(String databaseName, String tableName, HivePrincipal grantee, Set<HivePrivilegeInfo> privileges)
     {
         setTablePrivileges(grantee, databaseName, tableName, privileges);
     }
 
     @Override
-    public synchronized void revokeTablePrivileges(String databaseName, String tableName, PrestoPrincipal grantee, Set<HivePrivilegeInfo> privileges)
+    public synchronized void revokeTablePrivileges(String databaseName, String tableName, HivePrincipal grantee, Set<HivePrivilegeInfo> privileges)
     {
         Set<HivePrivilegeInfo> currentPrivileges = listTablePrivileges(databaseName, tableName, grantee);
         currentPrivileges.removeAll(privileges);
@@ -969,7 +969,7 @@ public class FileHiveMetastore
     }
 
     private synchronized void setTablePrivileges(
-            PrestoPrincipal grantee,
+            HivePrincipal grantee,
             String databaseName,
             String tableName,
             Collection<HivePrivilegeInfo> privileges)
@@ -1043,7 +1043,7 @@ public class FileHiveMetastore
         return new Path(getTableMetadataDirectory(table), PRESTO_PERMISSIONS_DIRECTORY_NAME);
     }
 
-    private static Path getPermissionsPath(Path permissionsDirectory, PrestoPrincipal grantee)
+    private static Path getPermissionsPath(Path permissionsDirectory, HivePrincipal grantee)
     {
         return new Path(permissionsDirectory, grantee.getType().toString().toLowerCase(Locale.US) + "_" + grantee.getName());
     }
@@ -1181,9 +1181,9 @@ public class FileHiveMetastore
     private static class RoleGranteeTuple
     {
         private final String role;
-        private final PrestoPrincipal grantee;
+        private final HivePrincipal grantee;
 
-        private RoleGranteeTuple(String role, PrestoPrincipal grantee)
+        private RoleGranteeTuple(String role, HivePrincipal grantee)
         {
             this.role = requireNonNull(role, "role is null");
             this.grantee = requireNonNull(grantee, "grantee is null");
@@ -1194,7 +1194,7 @@ public class FileHiveMetastore
             return role;
         }
 
-        public PrestoPrincipal getGrantee()
+        public HivePrincipal getGrantee()
         {
             return grantee;
         }

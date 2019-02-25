@@ -15,9 +15,9 @@ package io.prestosql.plugin.hive.metastore.file;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.prestosql.plugin.hive.metastore.HivePrincipal;
 import io.prestosql.plugin.hive.metastore.HivePrivilegeInfo;
 import io.prestosql.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege;
-import io.prestosql.spi.security.PrestoPrincipal;
 
 import static io.prestosql.spi.security.PrincipalType.USER;
 import static java.util.Objects.requireNonNull;
@@ -56,6 +56,6 @@ public class PermissionMetadata
 
     public HivePrivilegeInfo toHivePrivilegeInfo()
     {
-        return new HivePrivilegeInfo(permission, grantOption, new PrestoPrincipal(USER, "admin"), new PrestoPrincipal(USER, "admin"));
+        return new HivePrivilegeInfo(permission, grantOption, new HivePrincipal(USER, "admin"), new HivePrincipal(USER, "admin"));
     }
 }

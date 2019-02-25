@@ -16,6 +16,7 @@ package io.prestosql.plugin.hive.security;
 import io.prestosql.plugin.hive.HiveConnectorId;
 import io.prestosql.plugin.hive.HiveTransactionHandle;
 import io.prestosql.plugin.hive.metastore.Database;
+import io.prestosql.plugin.hive.metastore.HivePrincipal;
 import io.prestosql.plugin.hive.metastore.SemiTransactionalHiveMetastore;
 import io.prestosql.spi.connector.ConnectorAccessControl;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
@@ -318,7 +319,7 @@ public class SqlStandardAccessControl
     public void checkCanSetRole(ConnectorTransactionHandle transaction, ConnectorIdentity identity, String role, String catalogName)
     {
         SemiTransactionalHiveMetastore metastore = metastoreProvider.apply(((HiveTransactionHandle) transaction));
-        if (!isRoleApplicable(metastore, new PrestoPrincipal(USER, identity.getUser()), role)) {
+        if (!isRoleApplicable(metastore, new HivePrincipal(USER, identity.getUser()), role)) {
             denySetRole(role);
         }
     }
@@ -428,7 +429,7 @@ public class SqlStandardAccessControl
         }
 
         SemiTransactionalHiveMetastore metastore = metastoreProvider.apply(((HiveTransactionHandle) transaction));
-        Set<String> rolesWithGrantOption = listApplicableRoles(new PrestoPrincipal(USER, identity.getUser()), metastore::listRoleGrants)
+        Set<String> rolesWithGrantOption = listApplicableRoles(new HivePrincipal(USER, identity.getUser()), metastore::listRoleGrants)
                 .filter(RoleGrant::isGrantable)
                 .map(RoleGrant::getRoleName)
                 .collect(toSet());

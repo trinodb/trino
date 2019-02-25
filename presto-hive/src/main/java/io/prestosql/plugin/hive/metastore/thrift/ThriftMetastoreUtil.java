@@ -25,6 +25,7 @@ import io.prestosql.plugin.hive.HiveType;
 import io.prestosql.plugin.hive.metastore.Column;
 import io.prestosql.plugin.hive.metastore.Database;
 import io.prestosql.plugin.hive.metastore.HiveColumnStatistics;
+import io.prestosql.plugin.hive.metastore.HivePrincipal;
 import io.prestosql.plugin.hive.metastore.HivePrivilegeInfo;
 import io.prestosql.plugin.hive.metastore.Partition;
 import io.prestosql.plugin.hive.metastore.PartitionWithStatistics;
@@ -222,9 +223,9 @@ public final class ThriftMetastoreUtil
         }
     }
 
-    public static Stream<RoleGrant> listApplicableRoles(PrestoPrincipal principal, Function<PrestoPrincipal, Set<RoleGrant>> listRoleGrants)
+    public static Stream<RoleGrant> listApplicableRoles(HivePrincipal principal, Function<HivePrincipal, Set<RoleGrant>> listRoleGrants)
     {
-        Queue<PrestoPrincipal> queue = new ArrayDeque<>();
+        Queue<HivePrincipal> queue = new ArrayDeque<>();
         queue.add(principal);
         Queue<RoleGrant> output = new ArrayDeque<>();
         Set<RoleGrant> seenRoles = new HashSet<>();
@@ -246,7 +247,7 @@ public final class ThriftMetastoreUtil
                         for (RoleGrant grant : grants) {
                             if (seenRoles.add(grant)) {
                                 output.add(grant);
-                                queue.add(new PrestoPrincipal(ROLE, grant.getRoleName()));
+                                queue.add(new HivePrincipal(ROLE, grant.getRoleName()));
                             }
                         }
                         break;
@@ -260,7 +261,7 @@ public final class ThriftMetastoreUtil
         });
     }
 
-    public static boolean isRoleApplicable(SemiTransactionalHiveMetastore metastore, PrestoPrincipal principal, String role)
+    public static boolean isRoleApplicable(SemiTransactionalHiveMetastore metastore, HivePrincipal principal, String role)
     {
         if (principal.getType() == ROLE && principal.getName().equals(role)) {
             return true;
@@ -269,18 +270,18 @@ public final class ThriftMetastoreUtil
                 .anyMatch(role::equals);
     }
 
-    public static Stream<String> listApplicableRoles(SemiTransactionalHiveMetastore metastore, PrestoPrincipal principal)
+    public static Stream<String> listApplicableRoles(SemiTransactionalHiveMetastore metastore, HivePrincipal principal)
     {
         return listApplicableRoles(principal, metastore::listRoleGrants)
                 .map(RoleGrant::getRoleName);
     }
 
-    public static Stream<PrestoPrincipal> listEnabledPrincipals(SemiTransactionalHiveMetastore metastore, ConnectorIdentity identity)
+    public static Stream<HivePrincipal> listEnabledPrincipals(SemiTransactionalHiveMetastore metastore, ConnectorIdentity identity)
     {
         return Stream.concat(
-                Stream.of(new PrestoPrincipal(USER, identity.getUser())),
+                Stream.of(new HivePrincipal(USER, identity.getUser())),
                 listEnabledRoles(identity, metastore::listRoleGrants)
-                        .map(role -> new PrestoPrincipal(ROLE, role)));
+                        .map(role -> new HivePrincipal(ROLE, role)));
     }
 
     public static Stream<HivePrivilegeInfo> listEnabledTablePrivileges(SemiTransactionalHiveMetastore metastore, String databaseName, String tableName, ConnectorIdentity identity)
@@ -290,20 +291,20 @@ public final class ThriftMetastoreUtil
 
     public static Stream<HivePrivilegeInfo> listApplicableTablePrivileges(SemiTransactionalHiveMetastore metastore, String databaseName, String tableName, String user)
     {
-        PrestoPrincipal userPrincipal = new PrestoPrincipal(USER, user);
-        Stream<PrestoPrincipal> principals = Stream.concat(
+        HivePrincipal userPrincipal = new HivePrincipal(USER, user);
+        Stream<HivePrincipal> principals = Stream.concat(
                 Stream.of(userPrincipal),
                 listApplicableRoles(metastore, userPrincipal)
-                .map(role -> new PrestoPrincipal(ROLE, role)));
+                .map(role -> new HivePrincipal(ROLE, role)));
         return listTablePrivileges(metastore, databaseName, tableName, principals);
     }
 
-    private static Stream<HivePrivilegeInfo> listTablePrivileges(SemiTransactionalHiveMetastore metastore, String databaseName, String tableName, Stream<PrestoPrincipal> principals)
+    private static Stream<HivePrivilegeInfo> listTablePrivileges(SemiTransactionalHiveMetastore metastore, String databaseName, String tableName, Stream<HivePrincipal> principals)
     {
         return principals.flatMap(principal -> metastore.listTablePrivileges(databaseName, tableName, principal).stream());
     }
 
-    public static boolean isRoleEnabled(ConnectorIdentity identity, Function<PrestoPrincipal, Set<RoleGrant>> listRoleGrants, String role)
+    public static boolean isRoleEnabled(ConnectorIdentity identity, Function<HivePrincipal, Set<RoleGrant>> listRoleGrants, String role)
     {
         if (role.equals(PUBLIC_ROLE_NAME)) {
             return true;
@@ -313,12 +314,12 @@ public final class ThriftMetastoreUtil
             return false;
         }
 
-        PrestoPrincipal principal;
+        HivePrincipal principal;
         if (!identity.getRole().isPresent() || identity.getRole().get().getType() == SelectedRole.Type.ALL) {
-            principal = new PrestoPrincipal(USER, identity.getUser());
+            principal = new HivePrincipal(USER, identity.getUser());
         }
         else {
-            principal = new PrestoPrincipal(ROLE, identity.getRole().get().getRole().get());
+            principal = new HivePrincipal(ROLE, identity.getRole().get().getRole().get());
         }
 
         if (principal.getType() == ROLE && principal.getName().equals(role)) {
@@ -335,18 +336,18 @@ public final class ThriftMetastoreUtil
                 .anyMatch(role::equals);
     }
 
-    public static Stream<String> listEnabledRoles(ConnectorIdentity identity, Function<PrestoPrincipal, Set<RoleGrant>> listRoleGrants)
+    public static Stream<String> listEnabledRoles(ConnectorIdentity identity, Function<HivePrincipal, Set<RoleGrant>> listRoleGrants)
     {
         Optional<SelectedRole> role = identity.getRole();
         if (role.isPresent() && role.get().getType() == SelectedRole.Type.NONE) {
             return Stream.of(PUBLIC_ROLE_NAME);
         }
-        PrestoPrincipal principal;
+        HivePrincipal principal;
         if (!role.isPresent() || role.get().getType() == SelectedRole.Type.ALL) {
-            principal = new PrestoPrincipal(USER, identity.getUser());
+            principal = new HivePrincipal(USER, identity.getUser());
         }
         else {
-            principal = new PrestoPrincipal(ROLE, role.get().getRole().get());
+            principal = new HivePrincipal(ROLE, role.get().getRole().get());
         }
 
         Stream<String> roles = Stream.of(PUBLIC_ROLE_NAME);
@@ -716,11 +717,11 @@ public final class ThriftMetastoreUtil
         return sd;
     }
 
-    public static Set<HivePrivilegeInfo> parsePrivilege(PrivilegeGrantInfo userGrant, Optional<PrestoPrincipal> grantee)
+    public static Set<HivePrivilegeInfo> parsePrivilege(PrivilegeGrantInfo userGrant, Optional<HivePrincipal> grantee)
     {
         boolean withGrantOption = userGrant.isGrantOption();
         String name = userGrant.getPrivilege().toUpperCase(ENGLISH);
-        PrestoPrincipal grantor = new PrestoPrincipal(fromMetastoreApiPrincipalType(userGrant.getGrantorType()), userGrant.getGrantor());
+        HivePrincipal grantor = new HivePrincipal(fromMetastoreApiPrincipalType(userGrant.getGrantorType()), userGrant.getGrantor());
         switch (name) {
             case "ALL":
                 return Arrays.stream(HivePrivilegeInfo.HivePrivilege.values())
