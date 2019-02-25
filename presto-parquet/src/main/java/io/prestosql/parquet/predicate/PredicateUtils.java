@@ -161,7 +161,7 @@ public final class PredicateUtils
 
     @VisibleForTesting
     @SuppressWarnings("deprecation")
-    public static boolean isOnlyDictionaryEncodingPages(Set<Encoding> encodings)
+    static boolean isOnlyDictionaryEncodingPages(Set<Encoding> encodings)
     {
         // TODO: update to use EncodingStats in ColumnChunkMetaData when available
         if (encodings.contains(PLAIN_DICTIONARY)) {
