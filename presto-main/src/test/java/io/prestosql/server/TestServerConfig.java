@@ -32,7 +32,6 @@ public class TestServerConfig
         assertRecordedDefaults(ConfigAssertions.recordDefaults(ServerConfig.class)
                 .setCoordinator(true)
                 .setPrestoVersion(null)
-                .setDataSources(null)
                 .setIncludeExceptionInResponse(true)
                 .setGracePeriod(new Duration(2, MINUTES))
                 .setEnhancedErrorReporting(true));
@@ -44,7 +43,6 @@ public class TestServerConfig
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("coordinator", "false")
                 .put("presto.version", "test")
-                .put("datasources", "jmx")
                 .put("http.include-exception-in-response", "false")
                 .put("shutdown.grace-period", "5m")
                 .put("sql.parser.enhanced-error-reporting", "false")
@@ -53,7 +51,6 @@ public class TestServerConfig
         ServerConfig expected = new ServerConfig()
                 .setCoordinator(false)
                 .setPrestoVersion("test")
-                .setDataSources("jmx")
                 .setIncludeExceptionInResponse(false)
                 .setGracePeriod(new Duration(5, MINUTES))
                 .setEnhancedErrorReporting(false);
