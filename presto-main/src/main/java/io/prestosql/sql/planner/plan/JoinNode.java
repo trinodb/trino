@@ -57,6 +57,7 @@ public class JoinNode
     private final Optional<Symbol> leftHashSymbol;
     private final Optional<Symbol> rightHashSymbol;
     private final Optional<DistributionType> distributionType;
+    private final Optional<Boolean> spillable;
 
     @JsonCreator
     public JoinNode(@JsonProperty("id") PlanNodeId id,
@@ -68,7 +69,8 @@ public class JoinNode
             @JsonProperty("filter") Optional<Expression> filter,
             @JsonProperty("leftHashSymbol") Optional<Symbol> leftHashSymbol,
             @JsonProperty("rightHashSymbol") Optional<Symbol> rightHashSymbol,
-            @JsonProperty("distributionType") Optional<DistributionType> distributionType)
+            @JsonProperty("distributionType") Optional<DistributionType> distributionType,
+            @JsonProperty("spillable") Optional<Boolean> spillable)
     {
         super(id);
         requireNonNull(type, "type is null");
@@ -80,6 +82,7 @@ public class JoinNode
         requireNonNull(leftHashSymbol, "leftHashSymbol is null");
         requireNonNull(rightHashSymbol, "rightHashSymbol is null");
         requireNonNull(distributionType, "distributionType is null");
+        requireNonNull(spillable, "spillable is null");
 
         this.type = type;
         this.left = left;
@@ -90,6 +93,7 @@ public class JoinNode
         this.leftHashSymbol = leftHashSymbol;
         this.rightHashSymbol = rightHashSymbol;
         this.distributionType = distributionType;
+        this.spillable = spillable;
 
         Set<Symbol> inputSymbols = ImmutableSet.<Symbol>builder()
                 .addAll(left.getOutputSymbols())
@@ -129,7 +133,8 @@ public class JoinNode
                 filter,
                 rightHashSymbol,
                 leftHashSymbol,
-                distributionType);
+                distributionType,
+                spillable);
     }
 
     private static Type flipType(Type type)
@@ -281,6 +286,12 @@ public class JoinNode
         return distributionType;
     }
 
+    @JsonProperty("spillable")
+    public Optional<Boolean> isSpillable()
+    {
+        return spillable;
+    }
+
     @Override
     public <R, C> R accept(PlanVisitor<R, C> visitor, C context)
     {
@@ -291,12 +302,12 @@ public class JoinNode
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
         checkArgument(newChildren.size() == 2, "expected newChildren to contain 2 nodes");
-        return new JoinNode(getId(), type, newChildren.get(0), newChildren.get(1), criteria, outputSymbols, filter, leftHashSymbol, rightHashSymbol, distributionType);
+        return new JoinNode(getId(), type, newChildren.get(0), newChildren.get(1), criteria, outputSymbols, filter, leftHashSymbol, rightHashSymbol, distributionType, spillable);
     }
 
     public JoinNode withDistributionType(DistributionType distributionType)
     {
-        return new JoinNode(getId(), type, left, right, criteria, outputSymbols, filter, leftHashSymbol, rightHashSymbol, Optional.of(distributionType));
+        return new JoinNode(getId(), type, left, right, criteria, outputSymbols, filter, leftHashSymbol, rightHashSymbol, Optional.of(distributionType), spillable);
     }
 
     public boolean isCrossJoin()

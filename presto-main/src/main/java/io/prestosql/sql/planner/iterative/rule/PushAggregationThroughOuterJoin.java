@@ -152,7 +152,8 @@ public class PushAggregationThroughOuterJoin
                     join.getFilter(),
                     join.getLeftHashSymbol(),
                     join.getRightHashSymbol(),
-                    join.getDistributionType());
+                    join.getDistributionType(),
+                    join.isSpillable());
         }
         else {
             rewrittenJoin = new JoinNode(
@@ -168,7 +169,8 @@ public class PushAggregationThroughOuterJoin
                     join.getFilter(),
                     join.getLeftHashSymbol(),
                     join.getRightHashSymbol(),
-                    join.getDistributionType());
+                    join.getDistributionType(),
+                    join.isSpillable());
         }
 
         Optional<PlanNode> resultNode = coalesceWithNullAggregation(rewrittenAggregation, rewrittenJoin, context.getSymbolAllocator(), context.getIdAllocator(), context.getLookup());
@@ -244,6 +246,7 @@ public class PushAggregationThroughOuterJoin
                         .addAll(outerJoin.getOutputSymbols())
                         .addAll(aggregationOverNull.getOutputSymbols())
                         .build(),
+                Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),

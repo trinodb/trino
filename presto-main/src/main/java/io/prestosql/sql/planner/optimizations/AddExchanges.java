@@ -762,7 +762,8 @@ public class AddExchanges
                     node.getFilter(),
                     node.getLeftHashSymbol(),
                     node.getRightHashSymbol(),
-                    Optional.of(newDistributionType));
+                    Optional.of(newDistributionType),
+                    node.isSpillable());
 
             return new PlanWithProperties(result, deriveProperties(result, ImmutableList.of(newLeft.getProperties(), newRight.getProperties())));
         }
