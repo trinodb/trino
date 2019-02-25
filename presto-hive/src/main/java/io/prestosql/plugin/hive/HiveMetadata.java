@@ -393,7 +393,7 @@ public class HiveMetadata
                 Iterable<List<Object>> records = () ->
                         stream(partitionManager.getPartitions(metastore, sourceTableHandle, targetConstraint).getPartitions())
                                 .map(hivePartition ->
-                                        (List<Object>) IntStream.range(0, partitionColumns.size())
+                                        IntStream.range(0, partitionColumns.size())
                                                 .mapToObj(fieldIdToColumnHandle::get)
                                                 .map(columnHandle -> hivePartition.getKeys().get(columnHandle).getValue())
                                                 .collect(toList()))
@@ -685,7 +685,7 @@ public class HiveMetadata
 
         List<HiveColumnHandle> columnHandles = getColumnHandles(tableMetadata, ImmutableSet.copyOf(partitionedBy), typeTranslator);
         HiveStorageFormat hiveStorageFormat = getHiveStorageFormat(tableMetadata.getProperties());
-        Map<String, String> tableProperties = getEmptyTableProperties(tableMetadata, !partitionedBy.isEmpty(), new HdfsContext(session, schemaName, tableName));
+        Map<String, String> tableProperties = getEmptyTableProperties(tableMetadata, new HdfsContext(session, schemaName, tableName));
 
         hiveStorageFormat.validateColumns(columnHandles);
 
@@ -737,7 +737,7 @@ public class HiveMetadata
                 new PartitionStatistics(basicStatistics, ImmutableMap.of()));
     }
 
-    private Map<String, String> getEmptyTableProperties(ConnectorTableMetadata tableMetadata, boolean partitioned, HdfsContext hdfsContext)
+    private Map<String, String> getEmptyTableProperties(ConnectorTableMetadata tableMetadata, HdfsContext hdfsContext)
     {
         ImmutableMap.Builder<String, String> tableProperties = ImmutableMap.builder();
 
@@ -1048,7 +1048,7 @@ public class HiveMetadata
         String schemaName = schemaTableName.getSchemaName();
         String tableName = schemaTableName.getTableName();
 
-        Map<String, String> tableProperties = getEmptyTableProperties(tableMetadata, !partitionedBy.isEmpty(), new HdfsContext(session, schemaName, tableName));
+        Map<String, String> tableProperties = getEmptyTableProperties(tableMetadata, new HdfsContext(session, schemaName, tableName));
         List<HiveColumnHandle> columnHandles = getColumnHandles(tableMetadata, ImmutableSet.copyOf(partitionedBy), typeTranslator);
         HiveStorageFormat partitionStorageFormat = isRespectTableFormat(session) ? tableStorageFormat : getHiveStorageFormat(session);
 

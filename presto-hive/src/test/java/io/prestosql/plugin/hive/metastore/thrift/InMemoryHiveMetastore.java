@@ -559,13 +559,6 @@ public class InMemoryHiveMetastore
                     this.tableName.equals(tableName);
         }
 
-        public boolean matches(String schemaName, String tableName, String partitionName)
-        {
-            return this.schemaName.equals(schemaName) &&
-                    this.tableName.equals(tableName) &&
-                    this.partitionName.equals(partitionName);
-        }
-
         public PartitionName withSchemaName(String schemaName)
         {
             return new PartitionName(schemaName, tableName, partitionValues, partitionName);
