@@ -805,6 +805,8 @@ public class PropertyDerivations
         switch (joinType) {
             case INNER:
             case LEFT:
+                // Even though join might not have "spillable" property set yet
+                // it might still be set as spillable later on by AddLocalExchanges.
                 return true;
             case RIGHT:
             case FULL:
