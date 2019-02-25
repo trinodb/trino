@@ -1929,10 +1929,11 @@ public class LocalExecutionPlanner
             PhysicalOperation probeSource = probeNode.accept(this, context);
 
             // Plan build
+            boolean spillEnabled = isSpillEnabled(session) && node.isSpillable().orElseThrow(() -> new IllegalArgumentException("spillable not yet set"));
             JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactory =
-                    createLookupSourceFactory(node, buildNode, buildSymbols, buildHashSymbol, probeSource, context);
+                    createLookupSourceFactory(node, buildNode, buildSymbols, buildHashSymbol, probeSource, context, spillEnabled);
 
-            OperatorFactory operator = createLookupJoin(node, probeSource, probeSymbols, probeHashSymbol, lookupSourceFactory, context);
+            OperatorFactory operator = createLookupJoin(node, probeSource, probeSymbols, probeHashSymbol, lookupSourceFactory, context, spillEnabled);
 
             ImmutableMap.Builder<Symbol, Integer> outputMappings = ImmutableMap.builder();
             List<Symbol> outputSymbols = node.getOutputSymbols();
@@ -1950,7 +1951,8 @@ public class LocalExecutionPlanner
                 List<Symbol> buildSymbols,
                 Optional<Symbol> buildHashSymbol,
                 PhysicalOperation probeSource,
-                LocalExecutionPlanContext context)
+                LocalExecutionPlanContext context,
+                boolean spillEnabled)
         {
             LocalExecutionPlanContext buildContext = context.createSubContext();
             PhysicalOperation buildSource = buildNode.accept(this, buildContext);
@@ -1969,7 +1971,6 @@ public class LocalExecutionPlanner
             OptionalInt buildHashChannel = buildHashSymbol.map(channelGetter(buildSource))
                     .map(OptionalInt::of).orElse(OptionalInt.empty());
 
-            boolean spillEnabled = isSpillEnabled(context.getSession());
             boolean buildOuter = node.getType() == RIGHT || node.getType() == FULL;
             int partitionCount = buildContext.getDriverInstanceCount().orElse(1);
 
@@ -2090,7 +2091,8 @@ public class LocalExecutionPlanner
                 List<Symbol> probeSymbols,
                 Optional<Symbol> probeHashSymbol,
                 JoinBridgeManager<? extends LookupSourceFactory> lookupSourceFactoryManager,
-                LocalExecutionPlanContext context)
+                LocalExecutionPlanContext context,
+                boolean spillEnabled)
         {
             List<Type> probeTypes = probeSource.getTypes();
             List<Symbol> probeOutputSymbols = node.getOutputSymbols().stream()
@@ -2100,7 +2102,8 @@ public class LocalExecutionPlanner
             List<Integer> probeJoinChannels = ImmutableList.copyOf(getChannelsForSymbols(probeSymbols, probeSource.getLayout()));
             OptionalInt probeHashChannel = probeHashSymbol.map(channelGetter(probeSource))
                     .map(OptionalInt::of).orElse(OptionalInt.empty());
-            OptionalInt totalOperatorsCount = getJoinOperatorsCountForSpill(context, session);
+            OptionalInt totalOperatorsCount = context.getDriverInstanceCount();
+            checkState(!spillEnabled || totalOperatorsCount.isPresent(), "A fixed distribution is required for JOIN when spilling is enabled");
 
             switch (node.getType()) {
                 case INNER:

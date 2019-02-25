@@ -16,23 +16,60 @@ package io.prestosql.sql.planner.optimizations;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.Session;
+import io.prestosql.plugin.tpch.TpchConnectorFactory;
+import io.prestosql.sql.analyzer.FeaturesConfig;
+import io.prestosql.sql.analyzer.FeaturesConfig.JoinDistributionType;
 import io.prestosql.sql.planner.assertions.BasePlanTest;
+import io.prestosql.sql.planner.plan.ExchangeNode;
+import io.prestosql.sql.planner.plan.JoinNode.DistributionType;
+import io.prestosql.testing.LocalQueryRunner;
 import org.testng.annotations.Test;
 
+import java.util.Optional;
+
+import static io.prestosql.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
+import static io.prestosql.SystemSessionProperties.SPILL_ENABLED;
+import static io.prestosql.SystemSessionProperties.TASK_CONCURRENCY;
+import static io.prestosql.sql.analyzer.FeaturesConfig.JoinDistributionType.BROADCAST;
+import static io.prestosql.sql.analyzer.FeaturesConfig.JoinDistributionType.PARTITIONED;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.aggregation;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.anyNot;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.exchange;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.join;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.values;
+import static io.prestosql.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static io.prestosql.sql.planner.plan.ExchangeNode.Scope.REMOTE;
 import static io.prestosql.sql.planner.plan.ExchangeNode.Type.REPARTITION;
+import static io.prestosql.sql.planner.plan.ExchangeNode.Type.REPLICATE;
+import static io.prestosql.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
 import static io.prestosql.sql.planner.plan.JoinNode.Type.INNER;
+import static io.prestosql.testing.TestingSession.testSessionBuilder;
 
 public class TestAddExchangesPlans
         extends BasePlanTest
 {
+    public TestAddExchangesPlans()
+    {
+        super(TestAddExchangesPlans::createQueryRunner);
+    }
+
+    private static LocalQueryRunner createQueryRunner()
+    {
+        Session session = testSessionBuilder()
+                .setCatalog("tpch")
+                .setSchema("tiny")
+                .build();
+        FeaturesConfig featuresConfig = new FeaturesConfig()
+                .setSpillerSpillPaths("/tmp/test_spill_path");
+        LocalQueryRunner queryRunner = new LocalQueryRunner(session, featuresConfig);
+        queryRunner.createCatalog("tpch", new TpchConnectorFactory(1), ImmutableMap.of());
+        return queryRunner;
+    }
+
     @Test
     public void testRepartitionForUnionWithAnyTableScans()
     {
@@ -94,5 +131,43 @@ public class TestAddExchangesPlans
                                         exchange(REMOTE, REPARTITION,
                                                 anyTree(
                                                         tableScan("region", ImmutableMap.of("regionkey", "regionkey"))))))));
+    }
+
+    @Test
+    public void testNonSpillableBroadcastJoinAboveTableScan()
+    {
+        assertDistributedPlan(
+                "SELECT * FROM nation n join region r on n.nationkey = r.regionkey",
+                spillEnabledWithJoinDistributionType(BROADCAST),
+                anyTree(
+                        join(INNER, ImmutableList.of(equiJoinClause("nationkey", "regionkey")), Optional.empty(), Optional.of(REPLICATED), Optional.of(false),
+                                anyNot(ExchangeNode.class,
+                                        tableScan("nation", ImmutableMap.of("nationkey", "nationkey"))),
+                                anyTree(
+                                        exchange(REMOTE, REPLICATE,
+                                                anyTree(
+                                                        tableScan("region", ImmutableMap.of("regionkey", "regionkey"))))))));
+
+        assertDistributedPlan(
+                "SELECT * FROM nation n join region r on n.nationkey = r.regionkey",
+                spillEnabledWithJoinDistributionType(PARTITIONED),
+                anyTree(
+                        join(INNER, ImmutableList.of(equiJoinClause("nationkey", "regionkey")), Optional.empty(), Optional.of(DistributionType.PARTITIONED), Optional.empty(),
+                                exchange(REMOTE, REPARTITION,
+                                        anyTree(
+                                                tableScan("nation", ImmutableMap.of("nationkey", "nationkey")))),
+                                exchange(LOCAL, REPARTITION,
+                                        exchange(REMOTE, REPARTITION,
+                                                anyTree(
+                                                        tableScan("region", ImmutableMap.of("regionkey", "regionkey"))))))));
+    }
+
+    private Session spillEnabledWithJoinDistributionType(JoinDistributionType joinDistributionType)
+    {
+        return Session.builder(getQueryRunner().getDefaultSession())
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, joinDistributionType.toString())
+                .setSystemProperty(SPILL_ENABLED, "true")
+                .setSystemProperty(TASK_CONCURRENCY, "16")
+                .build();
     }
 }
