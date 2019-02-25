@@ -168,6 +168,10 @@
                                     <includes>
                                         <include>*</include>
                                     </includes>
+                                    <directives>
+                                        <directive>config</directive>
+                                        <directive>noreplace</directive>
+                                    </directives>
                                 </rule>
 
                                 <rule>
