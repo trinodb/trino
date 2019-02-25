@@ -26,7 +26,6 @@ import io.prestosql.execution.QueryInfo;
 import io.prestosql.execution.QueryManager;
 import io.prestosql.server.BasicQueryInfo;
 import io.prestosql.spi.security.Identity;
-import io.prestosql.sql.analyzer.FeaturesConfig.JoinDistributionType;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.MaterializedRow;
 import io.prestosql.testing.TestingSession;
@@ -958,25 +957,6 @@ public abstract class AbstractTestDistributedQueries
         assertAccessAllowed(nestedViewOwnerSession, "DROP VIEW test_nested_view_access");
         assertAccessAllowed(viewOwnerSession, "DROP VIEW test_view_access");
         assertAccessAllowed(viewOwnerSession, "DROP VIEW test_invoker_view_access");
-    }
-
-    @Test
-    public void testJoinWithStatefulFilterFunction()
-    {
-        super.testJoinWithStatefulFilterFunction();
-
-        // Stateful function is placed in LEFT JOIN's ON clause and involves left & right symbols to prevent any kind of push down/pull down.
-        Session session = Session.builder(getSession())
-                // With broadcast join, lineitem would be source-distributed and not executed concurrently.
-                .setSystemProperty(SystemSessionProperties.JOIN_DISTRIBUTION_TYPE, JoinDistributionType.PARTITIONED.toString())
-                .build();
-        long joinOutputRowCount = 60175;
-        assertQuery(
-                session,
-                format(
-                        "SELECT count(*) FROM lineitem l LEFT OUTER JOIN orders o ON l.orderkey = o.orderkey AND stateful_sleeping_sum(%s, 100, l.linenumber, o.shippriority) > 0",
-                        10 * 1. / joinOutputRowCount),
-                format("VALUES %s", joinOutputRowCount));
     }
 
     @Test
