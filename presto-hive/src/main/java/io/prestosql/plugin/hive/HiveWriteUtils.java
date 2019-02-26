@@ -344,13 +344,13 @@ public final class HiveWriteUtils
             return type.getLong(block, position);
         }
         if (IntegerType.INTEGER.equals(type)) {
-            return (int) type.getLong(block, position);
+            return toIntExact(type.getLong(block, position));
         }
         if (SmallintType.SMALLINT.equals(type)) {
-            return (short) type.getLong(block, position);
+            return Shorts.checkedCast(type.getLong(block, position));
         }
         if (TinyintType.TINYINT.equals(type)) {
-            return (byte) type.getLong(block, position);
+            return SignedBytes.checkedCast(type.getLong(block, position));
         }
         if (RealType.REAL.equals(type)) {
             return intBitsToFloat((int) type.getLong(block, position));

@@ -13,6 +13,7 @@
  */
 package io.prestosql.spi.type;
 
+import com.google.common.primitives.UnsignedBytes;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
@@ -21,7 +22,6 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.Objects;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.spi.type.DecimalType.createDecimalType;
 import static io.prestosql.spi.type.Decimals.encodeScaledValue;
 import static io.prestosql.spi.type.Decimals.encodeShortScaledValue;
@@ -166,15 +166,9 @@ public class TestDecimals
     {
         byte[] buffer = new byte[bytes.length];
         for (int i = 0; i < bytes.length; i++) {
-            buffer[i] = toByteExact(bytes[i]);
+            buffer[i] = UnsignedBytes.checkedCast(bytes[i]);
         }
         return Slices.wrappedBuffer(buffer);
-    }
-
-    private static byte toByteExact(int value)
-    {
-        checkArgument(0 <= value && value <= 0xff);
-        return (byte) value;
     }
 
     private void assertParseResult(String value, Object expectedObject, int expectedPrecision, int expectedScale)

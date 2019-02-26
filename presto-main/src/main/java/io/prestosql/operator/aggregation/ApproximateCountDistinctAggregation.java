@@ -124,7 +124,9 @@ public final class ApproximateCountDistinctAggregation
     @InputFunction
     public static void input(BooleanDistinctState state, @SqlType(StandardTypes.BOOLEAN) boolean value, @SqlType(StandardTypes.DOUBLE) double maxStandardError)
     {
-        state.setByte((byte) (state.getByte() | (value ? 1 : 2)));
+        @SuppressWarnings("NumericCastThatLosesPrecision")
+        byte newState = (byte) (state.getByte() | (value ? 1 : 2));
+        state.setByte(newState);
     }
 
     private static HyperLogLog getOrCreateHyperLogLog(HyperLogLogState state, double maxStandardError)

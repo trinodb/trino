@@ -14,6 +14,8 @@
 package io.prestosql.plugin.kudu;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.primitives.Shorts;
+import com.google.common.primitives.SignedBytes;
 import io.airlift.slice.Slice;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.block.Block;
@@ -52,6 +54,7 @@ import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.Varchars.isVarcharType;
 import static java.lang.Float.intBitsToFloat;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 
@@ -140,19 +143,19 @@ public class KuduPageSink
             row.addLong(destChannel, type.getLong(block, position) * 1000);
         }
         else if (REAL.equals(type)) {
-            row.addFloat(destChannel, intBitsToFloat((int) type.getLong(block, position)));
+            row.addFloat(destChannel, intBitsToFloat(toIntExact(type.getLong(block, position))));
         }
         else if (BIGINT.equals(type)) {
             row.addLong(destChannel, type.getLong(block, position));
         }
         else if (INTEGER.equals(type)) {
-            row.addInt(destChannel, (int) type.getLong(block, position));
+            row.addInt(destChannel, toIntExact(type.getLong(block, position)));
         }
         else if (SMALLINT.equals(type)) {
-            row.addShort(destChannel, (short) type.getLong(block, position));
+            row.addShort(destChannel, Shorts.checkedCast(type.getLong(block, position)));
         }
         else if (TINYINT.equals(type)) {
-            row.addByte(destChannel, (byte) type.getLong(block, position));
+            row.addByte(destChannel, SignedBytes.checkedCast(type.getLong(block, position)));
         }
         else if (BOOLEAN.equals(type)) {
             row.addBoolean(destChannel, type.getBoolean(block, position));

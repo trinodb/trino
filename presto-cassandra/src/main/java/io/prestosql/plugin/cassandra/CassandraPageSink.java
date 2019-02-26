@@ -18,6 +18,7 @@ import com.datastax.driver.core.PreparedStatement;
 import com.datastax.driver.core.ProtocolVersion;
 import com.datastax.driver.core.querybuilder.Insert;
 import com.google.common.collect.ImmutableList;
+import com.google.common.primitives.SignedBytes;
 import io.airlift.slice.Slice;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.PrestoException;
@@ -141,7 +142,7 @@ public class CassandraPageSink
             values.add(checkedCast(type.getLong(block, position)));
         }
         else if (TINYINT.equals(type)) {
-            values.add((byte) type.getLong(block, position));
+            values.add(SignedBytes.checkedCast(type.getLong(block, position)));
         }
         else if (DOUBLE.equals(type)) {
             values.add(type.getDouble(block, position));
