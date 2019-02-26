@@ -28,7 +28,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.prestosql.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
@@ -110,8 +109,6 @@ final class TestingDatabase
     {
         Optional<JdbcTableHandle> tableHandle = jdbcClient.getTableHandle(JdbcIdentity.from(session), new SchemaTableName(schemaName, tableName));
         List<JdbcColumnHandle> columns = jdbcClient.getColumns(session, tableHandle.orElse(null));
-        checkArgument(columns != null, "table not found: %s.%s", schemaName, tableName);
-
         ImmutableMap.Builder<String, JdbcColumnHandle> columnHandles = ImmutableMap.builder();
         for (JdbcColumnHandle column : columns) {
             columnHandles.put(column.getColumnMetadata().getName(), column);
