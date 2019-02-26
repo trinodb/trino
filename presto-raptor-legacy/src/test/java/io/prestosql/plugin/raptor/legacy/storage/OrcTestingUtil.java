@@ -14,6 +14,7 @@
 package io.prestosql.plugin.raptor.legacy.storage;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.primitives.UnsignedBytes;
 import io.airlift.units.DataSize;
 import io.prestosql.orc.FileOrcDataSource;
 import io.prestosql.orc.OrcDataSource;
@@ -30,7 +31,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.prestosql.orc.OrcEncoding.ORC;
@@ -85,15 +85,8 @@ final class OrcTestingUtil
     {
         byte[] bytes = new byte[values.length];
         for (int i = 0; i < bytes.length; i++) {
-            bytes[i] = octet(values[i]);
+            bytes[i] = UnsignedBytes.checkedCast(values[i]);
         }
         return bytes;
-    }
-
-    @SuppressWarnings("NumericCastThatLosesPrecision")
-    public static byte octet(int b)
-    {
-        checkArgument((b >= 0) && (b <= 0xFF), "octet not in range: %s", b);
-        return (byte) b;
     }
 }

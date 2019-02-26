@@ -1714,7 +1714,7 @@ public abstract class AbstractTestParquetReader
         if (input == null) {
             return null;
         }
-        return input.byteValue();
+        return (byte) (input & 0xFF);
     }
 
     private static Short intToShort(Integer input)

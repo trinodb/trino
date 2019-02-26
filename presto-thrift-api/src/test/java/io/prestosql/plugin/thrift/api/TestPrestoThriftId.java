@@ -13,6 +13,7 @@
  */
 package io.prestosql.plugin.thrift.api;
 
+import com.google.common.primitives.UnsignedBytes;
 import org.testng.annotations.Test;
 
 import static io.prestosql.plugin.thrift.api.PrestoThriftId.summarize;
@@ -37,7 +38,7 @@ public class TestPrestoThriftId
         int length = values.length;
         byte[] result = new byte[length];
         for (int i = 0; i < length; i++) {
-            result[i] = (byte) values[i];
+            result[i] = UnsignedBytes.checkedCast(values[i]);
         }
         return result;
     }
