@@ -98,7 +98,6 @@ public class SqlQueryManager
     private final ResourceGroupManager<?> resourceGroupManager;
     private final ClusterMemoryManager memoryManager;
 
-    private final Optional<String> path;
     private final int maxQueryLength;
     private final Duration maxQueryCpuTime;
 
@@ -172,7 +171,6 @@ public class SqlQueryManager
 
         this.clusterSizeMonitor = requireNonNull(clusterSizeMonitor, "clusterSizeMonitor is null");
 
-        this.path = sqlEnvironmentConfig.getPath();
         this.maxQueryLength = queryManagerConfig.getMaxQueryLength();
         this.maxQueryCpuTime = queryManagerConfig.getQueryMaxCpuTime();
 
