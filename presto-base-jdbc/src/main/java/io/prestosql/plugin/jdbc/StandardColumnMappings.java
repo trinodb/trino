@@ -41,6 +41,7 @@ import static io.prestosql.plugin.jdbc.ColumnMapping.DISABLE_PUSHDOWN;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.CharType.createCharType;
+import static io.prestosql.spi.type.Chars.padSpaces;
 import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.DecimalType.createDecimalType;
 import static io.prestosql.spi.type.Decimals.decodeUnscaledValue;
@@ -186,13 +187,16 @@ public final class StandardColumnMappings
         return ColumnMapping.sliceMapping(
                 charType,
                 (resultSet, columnIndex) -> utf8Slice(CharMatcher.is(' ').trimTrailingFrom(resultSet.getString(columnIndex))),
-                charWriteFunction());
+                charWriteFunction(charType));
     }
 
-    public static SliceWriteFunction charWriteFunction()
+    public static SliceWriteFunction charWriteFunction(CharType charType)
     {
+        requireNonNull(charType, "charType is null");
         return (statement, index, value) -> {
-            statement.setString(index, value.toStringUtf8());
+            // In case of predicate pushdown, target database may infers type of the constant from the value.
+            // For example in Oracle, if the value is not padded, this affects comparisons with a CHAR column.
+            statement.setString(index, padSpaces(value, charType).toStringUtf8());
         };
     }
 
