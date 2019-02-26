@@ -252,7 +252,7 @@ public class HivePartitionManager
                 }
                 else if (type instanceof CharType) {
                     Slice slice = (Slice) value;
-                    filter.add(padSpaces(slice, type).toStringUtf8());
+                    filter.add(padSpaces(slice, (CharType) type).toStringUtf8());
                 }
                 else if (type instanceof VarcharType) {
                     Slice slice = (Slice) value;

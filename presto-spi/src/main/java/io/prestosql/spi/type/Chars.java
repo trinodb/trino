@@ -30,15 +30,6 @@ public final class Chars
         return type instanceof CharType;
     }
 
-    public static Slice padSpaces(Slice slice, Type type)
-    {
-        requireNonNull(type, "type is null");
-        if (!isCharType(type)) {
-            throw new IllegalArgumentException("type must be the instance of CharType");
-        }
-        return padSpaces(slice, CharType.class.cast(type));
-    }
-
     public static Slice padSpaces(Slice slice, CharType charType)
     {
         requireNonNull(charType, "charType is null");
