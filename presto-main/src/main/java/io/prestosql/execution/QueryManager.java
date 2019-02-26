@@ -27,6 +27,8 @@ public interface QueryManager
 {
     List<BasicQueryInfo> getQueries();
 
+    boolean isQueryRegistered(QueryId queryId);
+
     /**
      * Add a listener that fires once the query output locations are known.
      *
@@ -69,11 +71,6 @@ public interface QueryManager
      * @throws NoSuchElementException if query does not exist
      */
     Session getQuerySession(QueryId queryId);
-
-    /**
-     * @throws NoSuchElementException if query does not exist
-     */
-    boolean isQuerySlugValid(QueryId queryId, String slug);
 
     /**
      * @throws NoSuchElementException if query does not exist

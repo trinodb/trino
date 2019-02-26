@@ -140,6 +140,12 @@ public class SqlQueryManager
     }
 
     @Override
+    public boolean isQueryRegistered(QueryId queryId)
+    {
+        return queryTracker.tryGetQuery(queryId).isPresent();
+    }
+
+    @Override
     public void addOutputInfoListener(QueryId queryId, Consumer<QueryOutputInfo> listener)
     {
         requireNonNull(listener, "listener is null");
@@ -181,12 +187,6 @@ public class SqlQueryManager
             throws NoSuchElementException
     {
         return queryTracker.getQuery(queryId).getSession();
-    }
-
-    @Override
-    public boolean isQuerySlugValid(QueryId queryId, String slug)
-    {
-        return queryTracker.getQuery(queryId).getSlug().equals(slug);
     }
 
     public Plan getQueryPlan(QueryId queryId)

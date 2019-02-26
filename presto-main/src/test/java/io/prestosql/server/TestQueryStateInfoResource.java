@@ -19,12 +19,15 @@ import io.airlift.http.client.UnexpectedResponseException;
 import io.airlift.http.client.jetty.JettyHttpClient;
 import io.airlift.json.JsonCodec;
 import io.prestosql.client.QueryResults;
+import io.prestosql.execution.QueryState;
 import io.prestosql.plugin.tpch.TpchPlugin;
 import io.prestosql.server.testing.TestingPrestoServer;
+import io.prestosql.spi.QueryId;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.net.URI;
 import java.util.List;
 
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
@@ -48,9 +51,9 @@ public class TestQueryStateInfoResource
     private static final String LONG_LASTING_QUERY = "SELECT * FROM tpch.sf1.lineitem";
     private static final JsonCodec<QueryResults> QUERY_RESULTS_JSON_CODEC = jsonCodec(QueryResults.class);
 
-    private TestingPrestoServer server;
-    private HttpClient client;
-    private QueryResults queryResults;
+    private final TestingPrestoServer server;
+    private final HttpClient client;
+    private QueryId queryId;
 
     TestQueryStateInfoResource()
             throws Exception
@@ -69,8 +72,9 @@ public class TestQueryStateInfoResource
                 .setBodyGenerator(createStaticBodyGenerator(LONG_LASTING_QUERY, UTF_8))
                 .setHeader(PRESTO_USER, "user1")
                 .build();
-        queryResults = client.execute(request1, createJsonResponseHandler(QUERY_RESULTS_JSON_CODEC));
-        client.execute(prepareGet().setUri(queryResults.getNextUri()).build(), createJsonResponseHandler(QUERY_RESULTS_JSON_CODEC));
+        QueryResults queryResults = client.execute(request1, createJsonResponseHandler(QUERY_RESULTS_JSON_CODEC));
+        queryId = new QueryId(queryResults.getId());
+        waitForRunning(queryResults.getNextUri());
 
         Request request2 = preparePost()
                 .setUri(uriBuilderFrom(server.getBaseUrl()).replacePath("/v1/statement").build())
@@ -78,7 +82,7 @@ public class TestQueryStateInfoResource
                 .setHeader(PRESTO_USER, "user2")
                 .build();
         QueryResults queryResults2 = client.execute(request2, createJsonResponseHandler(jsonCodec(QueryResults.class)));
-        client.execute(prepareGet().setUri(queryResults2.getNextUri()).build(), createJsonResponseHandler(QUERY_RESULTS_JSON_CODEC));
+        waitForRunning(queryResults2.getNextUri());
 
         // queries are started in the background, so they may not all be immediately visible
         while (true) {
@@ -88,6 +92,17 @@ public class TestQueryStateInfoResource
             if ((queryInfos.size() == 2) && queryInfos.stream().allMatch(info -> info.getState() == RUNNING)) {
                 break;
             }
+        }
+    }
+
+    private void waitForRunning(URI nextUri)
+    {
+        while (true) {
+            QueryResults queryResults = client.execute(prepareGet().setUri(nextUri).build(), createJsonResponseHandler(QUERY_RESULTS_JSON_CODEC));
+            if (queryResults.getNextUri() == null || QueryState.valueOf(queryResults.getStats().getState()).ordinal() >= QueryState.PLANNING.ordinal()) {
+                return;
+            }
+            nextUri = queryResults.getNextUri();
         }
     }
 
@@ -132,13 +147,13 @@ public class TestQueryStateInfoResource
     public void testGetQueryStateInfo()
     {
         QueryStateInfo info = client.execute(
-                prepareGet().setUri(server.resolve("/v1/queryState/" + queryResults.getId())).build(),
+                prepareGet().setUri(server.resolve("/v1/queryState/" + queryId)).build(),
                 createJsonResponseHandler(jsonCodec(QueryStateInfo.class)));
 
         assertNotNull(info);
     }
 
-    @Test(expectedExceptions = {UnexpectedResponseException.class}, expectedExceptionsMessageRegExp = ".*404: Not Found")
+    @Test(expectedExceptions = UnexpectedResponseException.class, expectedExceptionsMessageRegExp = ".*404: Not Found")
     public void testGetQueryStateInfoNo()
     {
         client.execute(

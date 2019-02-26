@@ -100,6 +100,7 @@ import io.prestosql.memory.TotalReservationLowMemoryKiller;
 import io.prestosql.memory.TotalReservationOnBlockedNodesLowMemoryKiller;
 import io.prestosql.metadata.CatalogManager;
 import io.prestosql.operator.ForScheduler;
+import io.prestosql.server.protocol.QuerySubmissionManager;
 import io.prestosql.server.remotetask.RemoteTaskStats;
 import io.prestosql.spi.memory.ClusterMemoryPoolManager;
 import io.prestosql.spi.resourcegroups.QueryType;
@@ -194,6 +195,7 @@ public class CoordinatorModule
         jaxrsBinder(binder).bind(io.prestosql.server.protocol.ExecutingStatementResource.class);
         binder.bind(StatementHttpExecutionMBean.class).in(Scopes.SINGLETON);
         newExporter(binder).export(StatementHttpExecutionMBean.class).withGeneratedName();
+        binder.bind(QuerySubmissionManager.class).in(Scopes.SINGLETON);
 
         // resource for serving static content
         jaxrsBinder(binder).bind(WebUiResource.class);

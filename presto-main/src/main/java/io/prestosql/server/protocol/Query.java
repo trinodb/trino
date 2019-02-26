@@ -13,7 +13,9 @@
  */
 package io.prestosql.server.protocol;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
@@ -72,15 +74,21 @@ import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Function;
+import java.util.function.Supplier;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static com.google.common.util.concurrent.Futures.transformAsync;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static io.airlift.concurrent.MoreFutures.addSuccessCallback;
 import static io.airlift.concurrent.MoreFutures.addTimeout;
+import static io.prestosql.execution.QueryState.DISPATCHING;
 import static io.prestosql.execution.QueryState.FAILED;
 import static io.prestosql.execution.QueryState.FINISHED;
 import static io.prestosql.execution.QueryState.QUEUED;
@@ -91,15 +99,18 @@ import static io.prestosql.util.Failures.toFailure;
 import static io.prestosql.util.MoreLists.mappedCopy;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 @ThreadSafe
 public class Query
 {
     private static final Logger log = Logger.get(Query.class);
 
-    private final QueryManager queryManager;
     private final QueryId queryId;
     private final String slug;
+    private final long queryCreateNanoTime;
+    private final Duration queryQueueDuration;
+    private final QueryManager queryManager;
 
     @GuardedBy("this")
     private final ExchangeClient exchangeClient;
@@ -126,72 +137,130 @@ public class Query
     @GuardedBy("this")
     private Long updateCount;
 
-    public static Query create(
+    private final FutureCreatedQuery futureCreatedQuery;
+
+    public static Query createQuery(
             QueryId queryId,
             String slug,
+            Duration queryElapsedTime,
+            Duration queryQueueDuration,
             QueryManager queryManager,
+            Supplier<QueryExecution> queryExecutionCallable,
+            Function<Throwable, QueryExecution> failedQueryExecutionFactory,
             ExchangeClient exchangeClient,
-            Executor dataProcessorExecutor,
+            ExecutorService queryCreationExecutor,
+            Executor resultsProcessorExecutor,
             ScheduledExecutorService timeoutExecutor,
             BlockEncodingSerde blockEncodingSerde)
     {
-        Query result = new Query(queryId, slug, queryManager, exchangeClient, dataProcessorExecutor, timeoutExecutor, blockEncodingSerde);
-
-        result.queryManager.addOutputInfoListener(queryId, result::setQueryOutputInfo);
-
-        result.queryManager.addStateChangeListener(queryId, state -> {
-            if (state.isDone()) {
-                QueryInfo queryInfo = queryManager.getFullQueryInfo(queryId);
-                result.closeExchangeClientIfNecessary(queryInfo);
-            }
-        });
-
-        return result;
+        Query query = new Query(
+                queryId,
+                slug,
+                queryElapsedTime,
+                queryQueueDuration,
+                queryManager,
+                queryExecutionCallable,
+                failedQueryExecutionFactory,
+                exchangeClient,
+                queryCreationExecutor,
+                resultsProcessorExecutor,
+                timeoutExecutor,
+                blockEncodingSerde);
+        query.start();
+        return query;
     }
 
     private Query(
             QueryId queryId,
             String slug,
+            Duration queryElapsedTime,
+            Duration queryQueueDuration,
             QueryManager queryManager,
+            Supplier<QueryExecution> queryExecutionCallable,
+            Function<Throwable, QueryExecution> failedQueryExecutionFactory,
             ExchangeClient exchangeClient,
+            ExecutorService queryCreationExecutor,
             Executor resultsProcessorExecutor,
             ScheduledExecutorService timeoutExecutor,
             BlockEncodingSerde blockEncodingSerde)
     {
-        requireNonNull(queryId, "queryId is null");
-        requireNonNull(slug, "slug is null");
-        requireNonNull(queryManager, "queryManager is null");
-        requireNonNull(exchangeClient, "exchangeClient is null");
-        requireNonNull(resultsProcessorExecutor, "resultsProcessorExecutor is null");
-        requireNonNull(timeoutExecutor, "timeoutExecutor is null");
-        requireNonNull(blockEncodingSerde, "serde is null");
+        this.queryManager = requireNonNull(queryManager, "queryManager is null");
 
-        this.queryManager = queryManager;
+        this.queryId = requireNonNull(queryId, "queryId is null");
+        this.slug = requireNonNull(slug, "slug is null");
+        requireNonNull(queryElapsedTime, "queryElapsedTime is null");
+        this.queryCreateNanoTime = System.nanoTime() - queryElapsedTime.roundTo(NANOSECONDS);
+        this.queryQueueDuration = requireNonNull(queryQueueDuration, "queryQueueDuration is null");
+        this.exchangeClient = requireNonNull(exchangeClient, "exchangeClient is null");
+        this.resultsProcessorExecutor = requireNonNull(resultsProcessorExecutor, "resultsProcessorExecutor is null");
+        this.timeoutExecutor = requireNonNull(timeoutExecutor, "timeoutExecutor is null");
 
-        this.queryId = queryId;
-        this.slug = slug;
-        this.exchangeClient = exchangeClient;
-        this.resultsProcessorExecutor = resultsProcessorExecutor;
-        this.timeoutExecutor = timeoutExecutor;
+        serde = new PagesSerdeFactory(requireNonNull(blockEncodingSerde, "blockEncodingSerde is null"), false).createPagesSerde();
+        futureCreatedQuery = new FutureCreatedQuery(
+                queryId,
+                requireNonNull(queryCreationExecutor, "queryCreationExecutor is null"),
+                requireNonNull(queryExecutionCallable, "queryExecutionCallable is null"),
+                requireNonNull(failedQueryExecutionFactory, "failedQueryExecutionFactory is null"));
+    }
 
-        serde = new PagesSerdeFactory(blockEncodingSerde, false).createPagesSerde();
+    private void start()
+    {
+        // when query creation finishes, register callbacks with the query manager
+        addSuccessCallback(futureCreatedQuery.createNewListener(), () -> {
+            // there may have been an error registering the query
+            if (!queryManager.isQueryRegistered(queryId)) {
+                return;
+            }
+
+            queryManager.addOutputInfoListener(queryId, this::setQueryOutputInfo);
+
+            queryManager.addStateChangeListener(queryId, state -> {
+                if (state.isDone()) {
+                    QueryInfo queryInfo = queryManager.getFullQueryInfo(queryId);
+                    closeExchangeClientIfNecessary(queryInfo);
+                }
+            });
+        });
+    }
+
+    public QueryId getQueryId()
+    {
+        return queryId;
+    }
+
+    public boolean isQueryCreated()
+    {
+        return futureCreatedQuery.isQueryCreated();
+    }
+
+    public void failIfAbandoned()
+    {
+        futureCreatedQuery.failIfAbandoned();
     }
 
     public void cancel()
     {
-        queryManager.cancelQuery(queryId);
+        futureCreatedQuery.startQueryCreation();
+        if (futureCreatedQuery.isQueryCreated()) {
+            queryManager.cancelQuery(queryId);
+        }
+        else {
+            addSuccessCallback(futureCreatedQuery.createNewListener(), () -> queryManager.cancelQuery(queryId));
+        }
         synchronized (this) {
             exchangeClient.close();
         }
     }
 
-    public String getSlug()
+    public boolean isSlugValid(String slug)
     {
-        return slug;
+        return this.slug.equals(slug);
     }
 
     public synchronized ListenableFuture<QueryResponse> waitForResults(long token, UriInfo uriInfo, String scheme, Duration wait, DataSize targetResultSize)
     {
+        futureCreatedQuery.startQueryCreation();
+
         // before waiting, check if this request has already been processed and cached
         String requestedPath = uriInfo.getAbsolutePath().getPath();
         Optional<QueryResponse> cachedResult = getCachedResult(token, requestedPath);
@@ -210,8 +279,19 @@ public class Query
         return Futures.transform(futureStateChange, ignored -> getNextResponse(token, uriInfo, scheme, targetResultSize), resultsProcessorExecutor);
     }
 
+    @VisibleForTesting
+    public void startQueryCreation()
+    {
+        futureCreatedQuery.startQueryCreation();
+    }
+
     private synchronized ListenableFuture<?> getFutureStateChange()
     {
+        // if query has not been created, wait for the query to be created, and then call back into this method
+        if (!futureCreatedQuery.isQueryCreated()) {
+            return transformAsync(futureCreatedQuery.createNewListener(), ignored -> getFutureStateChange(), resultsProcessorExecutor);
+        }
+
         // if the exchange client is open, wait for data
         if (!exchangeClient.isClosed()) {
             return exchangeClient.isBlocked();
@@ -268,6 +348,42 @@ public class Query
                 .replacePath("ui/query.html")
                 .replaceQuery(queryId.toString())
                 .build();
+
+        if (!futureCreatedQuery.isQueryCreated()) {
+            QueryResults queryResults = new QueryResults(
+                    queryId.toString(),
+                    queryHtmlUri,
+                    null,
+                    createNextResultsUri(scheme, uriInfo),
+                    null,
+                    null,
+                    StatementStats.builder()
+                            .setState(DISPATCHING.toString())
+                            .setQueued(false)
+                            .setElapsedTimeMillis(NANOSECONDS.toMillis(System.nanoTime() - queryCreateNanoTime))
+                            .setQueuedTimeMillis(queryQueueDuration.toMillis())
+                            .build(),
+                    null,
+                    ImmutableList.of(),
+                    null,
+                    null);
+
+            QueryResponse queryResponse = new QueryResponse(
+                    Optional.empty(),
+                    Optional.empty(),
+                    Optional.empty(),
+                    ImmutableMap.of(),
+                    ImmutableSet.of(),
+                    ImmutableMap.of(),
+                    ImmutableMap.of(),
+                    ImmutableSet.of(),
+                    Optional.empty(),
+                    false,
+                    queryResults);
+
+            cacheLastResponse(queryResponse, requestedPath);
+            return queryResponse;
+        }
 
         // Remove as many pages as possible from the exchange until just greater than DESIRED_RESULT_BYTES
         // NOTE: it is critical that query results are created for the pages removed from the exchange
@@ -413,10 +529,10 @@ public class Query
         if (currentState.isDone()) {
             return immediateFuture(null);
         }
-        return Futures.transformAsync(queryManager.getStateChange(queryId, currentState), this::queryDoneFuture, directExecutor());
+        return transformAsync(queryManager.getStateChange(queryId, currentState), this::queryDoneFuture, directExecutor());
     }
 
-    private synchronized URI createNextResultsUri(String scheme, UriInfo uriInfo)
+    private URI createNextResultsUri(String scheme, UriInfo uriInfo)
     {
         return uriInfo.getBaseUriBuilder()
                 .scheme(scheme)

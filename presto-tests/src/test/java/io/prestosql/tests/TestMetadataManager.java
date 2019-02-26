@@ -20,6 +20,7 @@ import io.prestosql.dispatcher.DispatchManager;
 import io.prestosql.execution.TestingSessionContext;
 import io.prestosql.metadata.MetadataManager;
 import io.prestosql.server.BasicQueryInfo;
+import io.prestosql.server.protocol.Query;
 import io.prestosql.spi.Plugin;
 import io.prestosql.spi.QueryId;
 import io.prestosql.spi.connector.ConnectorFactory;
@@ -33,6 +34,7 @@ import org.testng.annotations.Test;
 import java.util.List;
 
 import static io.prestosql.SessionTestUtils.TEST_SESSION;
+import static io.prestosql.execution.QueryState.DISPATCHING;
 import static io.prestosql.execution.QueryState.FAILED;
 import static io.prestosql.execution.QueryState.RUNNING;
 import static org.testng.Assert.assertEquals;
@@ -119,7 +121,7 @@ public class TestMetadataManager
                 queryId,
                 "slug",
                 new TestingSessionContext(TEST_SESSION),
-                "SELECT * FROM lineitem")
+                "SELECT * FROM sf10000.lineitem")
                 .get();
 
         // wait until query starts running
@@ -132,11 +134,25 @@ public class TestMetadataManager
             if (queryInfo.getState() == RUNNING) {
                 break;
             }
+            if (queryInfo.getState() == DISPATCHING) {
+                queryRunner.getCoordinator().getSubmissionManager().getQuery(queryId)
+                        .ifPresent(Query::startQueryCreation);
+            }
             Thread.sleep(100);
         }
 
         // cancel query
         dispatchManager.cancelQuery(queryId);
+
+        // wait until query cancel completes
+        while (true) {
+            BasicQueryInfo queryInfo = dispatchManager.getQueryInfo(queryId);
+            if (queryInfo.getState().isDone()) {
+                break;
+            }
+            Thread.sleep(100);
+        }
+
         assertEquals(metadataManager.getCatalogsByQueryId().size(), 0);
     }
 

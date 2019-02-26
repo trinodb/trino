@@ -19,6 +19,7 @@ import io.prestosql.execution.QueryManager;
 import io.prestosql.execution.QueryState;
 import io.prestosql.execution.TestingSessionContext;
 import io.prestosql.server.BasicQueryInfo;
+import io.prestosql.server.protocol.Query;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.QueryId;
 import io.prestosql.tests.tpch.TpchQueryRunnerBuilder;
@@ -27,6 +28,7 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import static io.prestosql.SessionTestUtils.TEST_SESSION;
+import static io.prestosql.execution.QueryState.DISPATCHING;
 import static io.prestosql.execution.QueryState.FAILED;
 import static io.prestosql.execution.QueryState.RUNNING;
 import static io.prestosql.execution.TestQueryRunnerUtil.createQuery;
@@ -66,7 +68,7 @@ public class TestQueryManager
                 queryId,
                 "slug",
                 new TestingSessionContext(TEST_SESSION),
-                "SELECT * FROM lineitem")
+                "SELECT * FROM sf10000.lineitem")
                 .get();
 
         // wait until query starts running
@@ -77,6 +79,10 @@ public class TestQueryManager
             }
             if (state == RUNNING) {
                 break;
+            }
+            if (state == DISPATCHING) {
+                queryRunner.getCoordinator().getSubmissionManager().getQuery(queryId)
+                        .ifPresent(Query::startQueryCreation);
             }
             Thread.sleep(100);
         }
@@ -96,7 +102,7 @@ public class TestQueryManager
             throws Exception
     {
         try (DistributedQueryRunner queryRunner = TpchQueryRunnerBuilder.builder().setSingleExtraProperty("query.max-cpu-time", "1ms").build()) {
-            QueryId queryId = createQuery(queryRunner, TEST_SESSION, "SELECT COUNT(*) FROM lineitem");
+            QueryId queryId = createQuery(queryRunner, TEST_SESSION, "SELECT COUNT(*) FROM sf1000.lineitem");
             waitForQueryState(queryRunner, queryId, FAILED);
             QueryManager queryManager = queryRunner.getCoordinator().getQueryManager();
             BasicQueryInfo queryInfo = queryManager.getQueryInfo(queryId);

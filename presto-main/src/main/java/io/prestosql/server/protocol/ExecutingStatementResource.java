@@ -19,14 +19,9 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-import io.prestosql.execution.QueryManager;
-import io.prestosql.memory.context.SimpleLocalMemoryContext;
-import io.prestosql.operator.ExchangeClient;
-import io.prestosql.operator.ExchangeClientSupplier;
 import io.prestosql.server.ForStatementResource;
 import io.prestosql.server.protocol.Query.QueryResponse;
 import io.prestosql.spi.QueryId;
-import io.prestosql.spi.block.BlockEncodingSerde;
 
 import javax.inject.Inject;
 import javax.ws.rs.DELETE;
@@ -49,10 +44,7 @@ import javax.ws.rs.core.UriInfo;
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
 import java.util.Map.Entry;
-import java.util.NoSuchElementException;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.ScheduledExecutorService;
+import java.util.Optional;
 
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.net.HttpHeaders.X_FORWARDED_PROTO;
@@ -69,7 +61,6 @@ import static io.prestosql.client.PrestoHeaders.PRESTO_SET_ROLE;
 import static io.prestosql.client.PrestoHeaders.PRESTO_SET_SCHEMA;
 import static io.prestosql.client.PrestoHeaders.PRESTO_SET_SESSION;
 import static io.prestosql.client.PrestoHeaders.PRESTO_STARTED_TRANSACTION_ID;
-import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static javax.ws.rs.core.MediaType.TEXT_PLAIN_TYPE;
@@ -84,27 +75,16 @@ public class ExecutingStatementResource
     private static final DataSize DEFAULT_TARGET_RESULT_SIZE = new DataSize(1, MEGABYTE);
     private static final DataSize MAX_TARGET_RESULT_SIZE = new DataSize(128, MEGABYTE);
 
-    private final QueryManager queryManager;
-    private final ExchangeClientSupplier exchangeClientSupplier;
-    private final BlockEncodingSerde blockEncodingSerde;
     private final BoundedExecutor responseExecutor;
-    private final ScheduledExecutorService timeoutExecutor;
-
-    private final ConcurrentMap<QueryId, Query> queries = new ConcurrentHashMap<>();
+    private final QuerySubmissionManager querySubmissionManager;
 
     @Inject
     public ExecutingStatementResource(
-            QueryManager queryManager,
-            ExchangeClientSupplier exchangeClientSupplier,
-            BlockEncodingSerde blockEncodingSerde,
             @ForStatementResource BoundedExecutor responseExecutor,
-            @ForStatementResource ScheduledExecutorService timeoutExecutor)
+            QuerySubmissionManager querySubmissionManager)
     {
-        this.queryManager = requireNonNull(queryManager, "queryManager is null");
-        this.exchangeClientSupplier = requireNonNull(exchangeClientSupplier, "exchangeClientSupplier is null");
-        this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
         this.responseExecutor = requireNonNull(responseExecutor, "responseExecutor is null");
-        this.timeoutExecutor = requireNonNull(timeoutExecutor, "timeoutExecutor is null");
+        this.querySubmissionManager = requireNonNull(querySubmissionManager, "querySubmissionManager is null");
     }
 
     @GET
@@ -124,42 +104,7 @@ public class ExecutingStatementResource
         if (isNullOrEmpty(proto)) {
             proto = uriInfo.getRequestUri().getScheme();
         }
-
         asyncQueryResults(query, token, maxWait, targetResultSize, uriInfo, proto, asyncResponse);
-    }
-
-    protected Query getQuery(QueryId queryId, String slug)
-    {
-        Query query = queries.get(queryId);
-        if (query != null) {
-            if (!query.getSlug().equals(slug)) {
-                throw badRequest(NOT_FOUND, "Query not found");
-            }
-            return query;
-        }
-
-        // this is the first time the query has been accessed on this coordinator
-        try {
-            if (!queryManager.isQuerySlugValid(queryId, slug)) {
-                throw badRequest(NOT_FOUND, "Query not found");
-            }
-        }
-        catch (NoSuchElementException e) {
-            throw badRequest(NOT_FOUND, "Query not found");
-        }
-
-        query = queries.computeIfAbsent(queryId, id -> {
-            ExchangeClient exchangeClient = exchangeClientSupplier.get(new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), ExecutingStatementResource.class.getSimpleName()));
-            return Query.create(
-                    queryId,
-                    slug,
-                    queryManager,
-                    exchangeClient,
-                    responseExecutor,
-                    timeoutExecutor,
-                    blockEncodingSerde);
-        });
-        return query;
     }
 
     private void asyncQueryResults(
@@ -237,26 +182,18 @@ public class ExecutingStatementResource
             @PathParam("slug") String slug,
             @PathParam("token") long token)
     {
-        Query query = queries.get(queryId);
-        if (query != null) {
-            if (!query.getSlug().equals(slug)) {
-                throw badRequest(NOT_FOUND, "Query not found");
-            }
-            query.cancel();
-            return Response.noContent().build();
-        }
+        Query query = getQuery(queryId, slug);
+        query.cancel();
+        return Response.noContent().build();
+    }
 
-        // cancel the query execution directly instead of creating the statement client
-        try {
-            if (!queryManager.isQuerySlugValid(queryId, slug)) {
-                throw badRequest(NOT_FOUND, "Query not found");
-            }
-            queryManager.cancelQuery(queryId);
-            return Response.noContent().build();
+    private Query getQuery(QueryId queryId, String slug)
+    {
+        Optional<Query> query = querySubmissionManager.getQuery(queryId);
+        if (query.map(q -> q.isSlugValid(slug)).orElse(false)) {
+            return query.get();
         }
-        catch (NoSuchElementException e) {
-            throw badRequest(NOT_FOUND, "Query not found");
-        }
+        throw badRequest(NOT_FOUND, "Query not found");
     }
 
     private static WebApplicationException badRequest(Status status, String message)

@@ -21,7 +21,6 @@ import io.prestosql.execution.ClusterSizeMonitor;
 import io.prestosql.execution.LocationFactory;
 import io.prestosql.execution.QueryExecution;
 import io.prestosql.execution.QueryExecution.QueryExecutionFactory;
-import io.prestosql.execution.QueryManager;
 import io.prestosql.execution.QueryPreparer.PreparedQuery;
 import io.prestosql.execution.QueryStateMachine;
 import io.prestosql.execution.warnings.WarningCollector;
@@ -29,6 +28,8 @@ import io.prestosql.execution.warnings.WarningCollectorFactory;
 import io.prestosql.metadata.InternalNodeManager;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.security.AccessControl;
+import io.prestosql.server.BasicQueryInfo;
+import io.prestosql.server.protocol.QuerySubmissionManager;
 import io.prestosql.spi.Node;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.resourcegroups.ResourceGroupId;
@@ -47,7 +48,7 @@ import static java.util.Objects.requireNonNull;
 public class LocalDispatchQueryFactory
         implements DispatchQueryFactory
 {
-    private final QueryManager queryManager;
+    private final QuerySubmissionManager querySubmissionManager;
     private final TransactionManager transactionManager;
     private final AccessControl accessControl;
     private final Metadata metadata;
@@ -63,7 +64,7 @@ public class LocalDispatchQueryFactory
 
     @Inject
     public LocalDispatchQueryFactory(
-            QueryManager queryManager,
+            QuerySubmissionManager querySubmissionManager,
             TransactionManager transactionManager,
             AccessControl accessControl,
             Metadata metadata,
@@ -75,7 +76,7 @@ public class LocalDispatchQueryFactory
             ClusterSizeMonitor clusterSizeMonitor,
             DispatchExecutor dispatchExecutor)
     {
-        this.queryManager = requireNonNull(queryManager, "queryManager is null");
+        this.querySubmissionManager = requireNonNull(querySubmissionManager, "querySubmissionManager is null");
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
@@ -112,7 +113,8 @@ public class LocalDispatchQueryFactory
                 metadata,
                 warningCollector);
 
-        queryMonitor.queryCreatedEvent(stateMachine.getBasicQueryInfo(Optional.empty()));
+        BasicQueryInfo basicQueryInfo = stateMachine.getBasicQueryInfo(Optional.empty());
+        queryMonitor.queryCreatedEvent(basicQueryInfo);
 
         ListenableFuture<QueryExecution> queryExecutionFuture = executor.submit(() -> {
             QueryExecutionFactory<?> queryExecutionFactory = executionFactories.get(preparedQuery.getStatement().getClass());
@@ -120,7 +122,7 @@ public class LocalDispatchQueryFactory
                 throw new PrestoException(NOT_SUPPORTED, "Unsupported statement type: " + preparedQuery.getStatement().getClass().getSimpleName());
             }
 
-            return queryExecutionFactory.createQueryExecution(preparedQuery, stateMachine, slug, warningCollector);
+            return queryExecutionFactory.createQueryExecution(preparedQuery, stateMachine, warningCollector);
         });
 
         return new LocalDispatchQuery(
@@ -129,6 +131,10 @@ public class LocalDispatchQueryFactory
                 coordinatorLocation,
                 clusterSizeMonitor,
                 executor,
-                queryManager::createQuery);
+                queryExecution -> querySubmissionManager.submitQuery(
+                        queryExecution,
+                        slug,
+                        basicQueryInfo.getQueryStats().getElapsedTime(),
+                        basicQueryInfo.getQueryStats().getQueuedTime()));
     }
 }

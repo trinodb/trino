@@ -97,7 +97,6 @@ public class SqlQueryExecution
     private static final OutputBufferId OUTPUT_BUFFER_ID = new OutputBufferId(0);
 
     private final QueryStateMachine stateMachine;
-    private final String slug;
     private final Metadata metadata;
     private final SqlParser sqlParser;
     private final SplitManager splitManager;
@@ -124,7 +123,6 @@ public class SqlQueryExecution
     private SqlQueryExecution(
             PreparedQuery preparedQuery,
             QueryStateMachine stateMachine,
-            String slug,
             Metadata metadata,
             AccessControl accessControl,
             SqlParser sqlParser,
@@ -148,7 +146,6 @@ public class SqlQueryExecution
             WarningCollector warningCollector)
     {
         try (SetThreadName ignored = new SetThreadName("Query-%s", stateMachine.getQueryId())) {
-            this.slug = requireNonNull(slug, "slug is null");
             this.metadata = requireNonNull(metadata, "metadata is null");
             this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
             this.splitManager = requireNonNull(splitManager, "splitManager is null");
@@ -201,12 +198,6 @@ public class SqlQueryExecution
 
             this.remoteTaskFactory = new MemoryTrackingRemoteTaskFactory(requireNonNull(remoteTaskFactory, "remoteTaskFactory is null"), stateMachine);
         }
-    }
-
-    @Override
-    public String getSlug()
-    {
-        return slug;
     }
 
     @Override
@@ -697,7 +688,6 @@ public class SqlQueryExecution
         public QueryExecution createQueryExecution(
                 PreparedQuery preparedQuery,
                 QueryStateMachine stateMachine,
-                String slug,
                 WarningCollector warningCollector)
         {
             String executionPolicyName = SystemSessionProperties.getExecutionPolicy(stateMachine.getSession());
@@ -707,7 +697,6 @@ public class SqlQueryExecution
             SqlQueryExecution execution = new SqlQueryExecution(
                     preparedQuery,
                     stateMachine,
-                    slug,
                     metadata,
                     accessControl,
                     sqlParser,

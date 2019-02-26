@@ -51,8 +51,6 @@ public interface QueryExecution
 
     QueryInfo getQueryInfo();
 
-    String getSlug();
-
     Duration getTotalCpuTime();
 
     DataSize getUserMemoryReservation();
@@ -80,7 +78,7 @@ public interface QueryExecution
 
     interface QueryExecutionFactory<T extends QueryExecution>
     {
-        T createQueryExecution(PreparedQuery preparedQuery, QueryStateMachine stateMachine, String slug, WarningCollector warningCollector);
+        T createQueryExecution(PreparedQuery preparedQuery, QueryStateMachine stateMachine, WarningCollector warningCollector);
     }
 
     /**

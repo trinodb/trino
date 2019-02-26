@@ -19,6 +19,7 @@ import io.prestosql.Session;
 import io.prestosql.dispatcher.DispatchManager;
 import io.prestosql.plugin.tpch.TpchPlugin;
 import io.prestosql.server.BasicQueryInfo;
+import io.prestosql.server.protocol.Query;
 import io.prestosql.spi.QueryId;
 import io.prestosql.tests.DistributedQueryRunner;
 
@@ -26,7 +27,7 @@ import java.util.Map;
 import java.util.Set;
 
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
-import static io.prestosql.execution.QueryState.RUNNING;
+import static io.prestosql.execution.QueryState.DISPATCHING;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -59,8 +60,12 @@ public final class TestQueryRunnerUtil
         do {
             // Heartbeat all the running queries, so they don't die while we're waiting
             for (BasicQueryInfo queryInfo : dispatchManager.getQueries()) {
-                if (queryInfo.getState() == RUNNING) {
+                if (!queryInfo.getState().isDone()) {
                     dispatchManager.getQueryInfo(queryInfo.getQueryId());
+                }
+                if (queryInfo.getState() == DISPATCHING) {
+                    queryRunner.getCoordinator().getSubmissionManager().getQuery(queryId)
+                            .ifPresent(Query::startQueryCreation);
                 }
             }
             MILLISECONDS.sleep(500);

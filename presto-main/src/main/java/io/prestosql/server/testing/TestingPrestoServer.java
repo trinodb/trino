@@ -60,6 +60,7 @@ import io.prestosql.server.GracefulShutdownHandler;
 import io.prestosql.server.PluginManager;
 import io.prestosql.server.ServerMainModule;
 import io.prestosql.server.ShutdownAction;
+import io.prestosql.server.protocol.QuerySubmissionManager;
 import io.prestosql.server.security.ServerSecurityModule;
 import io.prestosql.spi.Node;
 import io.prestosql.spi.Plugin;
@@ -131,6 +132,7 @@ public class TestingPrestoServer
     private final Announcer announcer;
     private final DispatchManager dispatchManager;
     private final SqlQueryManager queryManager;
+    private final QuerySubmissionManager submissionManager;
     private final TaskManager taskManager;
     private final GracefulShutdownHandler gracefulShutdownHandler;
     private final ShutdownAction shutdownAction;
@@ -283,6 +285,7 @@ public class TestingPrestoServer
         if (coordinator) {
             dispatchManager = injector.getInstance(DispatchManager.class);
             queryManager = (SqlQueryManager) injector.getInstance(QueryManager.class);
+            submissionManager = injector.getInstance(QuerySubmissionManager.class);
             resourceGroupManager = Optional.of(injector.getInstance(InternalResourceGroupManager.class));
             nodePartitioningManager = injector.getInstance(NodePartitioningManager.class);
             clusterMemoryManager = injector.getInstance(ClusterMemoryManager.class);
@@ -291,6 +294,7 @@ public class TestingPrestoServer
         else {
             dispatchManager = null;
             queryManager = null;
+            submissionManager = null;
             resourceGroupManager = Optional.empty();
             nodePartitioningManager = null;
             clusterMemoryManager = null;
@@ -342,6 +346,11 @@ public class TestingPrestoServer
     public QueryManager getQueryManager()
     {
         return queryManager;
+    }
+
+    public QuerySubmissionManager getSubmissionManager()
+    {
+        return submissionManager;
     }
 
     public Plan getQueryPlan(QueryId queryId)
