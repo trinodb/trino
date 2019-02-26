@@ -22,9 +22,9 @@ import io.prestosql.spi.connector.ConnectorSession;
 
 import java.util.Objects;
 
-import static io.airlift.slice.SliceUtf8.countCodePoints;
 import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.prestosql.spi.type.Chars.compareChars;
+import static io.prestosql.spi.type.Chars.padSpaces;
 import static java.lang.String.format;
 import static java.util.Collections.singletonList;
 
@@ -78,14 +78,8 @@ public final class CharType
             return null;
         }
 
-        StringBuilder builder = new StringBuilder(length);
         Slice slice = block.getSlice(position, 0, block.getSliceLength(position));
-        builder.append(slice.toStringUtf8());
-        for (int i = countCodePoints(slice); i < length; i++) {
-            builder.append(' ');
-        }
-
-        return builder.toString();
+        return padSpaces(slice, length).toStringUtf8();
     }
 
     @Override
