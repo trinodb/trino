@@ -683,7 +683,7 @@ public final class SqlFormatter
         {
             builder.append("SHOW STATS FOR ");
             process(node.getRelation(), 0);
-            builder.append("");
+
             return null;
         }
 
