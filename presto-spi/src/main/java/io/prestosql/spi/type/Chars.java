@@ -49,24 +49,19 @@ public final class Chars
     {
         int textLength = countCodePoints(slice);
 
-        // if our string is bigger than requested then truncate
         if (textLength > length) {
             throw new IllegalArgumentException("pad length is smaller than slice length");
         }
 
-        // if our target length is the same as our string then return our string
         if (textLength == length) {
             return slice;
         }
 
-        // preallocate the result
         int bufferSize = slice.length() + length - textLength;
         Slice buffer = Slices.allocate(bufferSize);
 
-        // fill in the existing string
         buffer.setBytes(0, slice);
 
-        // fill padding spaces
         for (int i = slice.length(); i < bufferSize; ++i) {
             buffer.setByte(i, ' ');
         }
