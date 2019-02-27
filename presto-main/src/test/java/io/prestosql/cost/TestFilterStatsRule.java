@@ -32,7 +32,7 @@ public class TestFilterStatsRule
     {
         defaultFilterTester = new StatsCalculatorTester(
                 testSessionBuilder()
-                        .setSystemProperty("default_filter_factor_enabled", "true")
+                        .setSystemProperty("default_filter_factor_enabled", "false")
                         .build());
     }
 
@@ -46,7 +46,7 @@ public class TestFilterStatsRule
     @Test
     public void testEstimatableFilter()
     {
-        tester().assertStatsFor(pb -> pb
+        defaultFilterTester.assertStatsFor(pb -> pb
                 .filter(expression("i1 = 5"),
                         pb.values(pb.symbol("i1"), pb.symbol("i2"), pb.symbol("i3"))))
                 .withSourceStats(0, PlanNodeStatsEstimate.builder()
@@ -91,7 +91,7 @@ public class TestFilterStatsRule
                                 .distinctValuesCount(1.9)
                                 .nullsFraction(0.05)));
 
-        defaultFilterTester.assertStatsFor(pb -> pb
+        tester().assertStatsFor(pb -> pb
                 .filter(expression("i1 = 5"),
                         pb.values(pb.symbol("i1"), pb.symbol("i2"), pb.symbol("i3"))))
                 .withSourceStats(0, PlanNodeStatsEstimate.builder()
@@ -141,7 +141,7 @@ public class TestFilterStatsRule
     public void testUnestimatableFunction()
     {
         // can't estimate function and default filter factor is turned off
-        tester()
+        defaultFilterTester
                 .assertStatsFor(pb -> pb
                         .filter(expression("sin(i1) = 1"),
                                 pb.values(pb.symbol("i1"), pb.symbol("i2"), pb.symbol("i3"))))
@@ -169,7 +169,7 @@ public class TestFilterStatsRule
                 .check(check -> check.outputRowsCountUnknown());
 
         // can't estimate function, but default filter factor is turned on
-        defaultFilterTester.assertStatsFor(pb -> pb
+        tester().assertStatsFor(pb -> pb
                 .filter(expression("sin(i1) = 1"),
                         pb.values(pb.symbol("i1"), pb.symbol("i2"), pb.symbol("i3"))))
                 .withSourceStats(0, PlanNodeStatsEstimate.builder()

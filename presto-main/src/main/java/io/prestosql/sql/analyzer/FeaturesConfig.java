@@ -109,7 +109,7 @@ public class FeaturesConfig
     private boolean iterativeOptimizerEnabled = true;
     private boolean enableStatsCalculator = true;
     private boolean ignoreStatsCalculatorFailures = true;
-    private boolean defaultFilterFactorEnabled;
+    private boolean defaultFilterFactorEnabled = true;
     private boolean enableForcedExchangeBelowGroupId = true;
     private boolean pushAggregationThroughJoin = true;
     private double memoryRevokingTarget = 0.5;

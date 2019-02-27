@@ -87,7 +87,7 @@ public class TestFeaturesConfig
                 .setIterativeOptimizerTimeout(new Duration(3, MINUTES))
                 .setEnableStatsCalculator(true)
                 .setIgnoreStatsCalculatorFailures(true)
-                .setDefaultFilterFactorEnabled(false)
+                .setDefaultFilterFactorEnabled(true)
                 .setEnableForcedExchangeBelowGroupId(true)
                 .setExchangeCompressionEnabled(false)
                 .setLegacyTimestamp(true)
@@ -122,7 +122,7 @@ public class TestFeaturesConfig
                 .put("experimental.iterative-optimizer-timeout", "10s")
                 .put("experimental.enable-stats-calculator", "false")
                 .put("optimizer.ignore-stats-calculator-failures", "false")
-                .put("optimizer.default-filter-factor-enabled", "true")
+                .put("optimizer.default-filter-factor-enabled", "false")
                 .put("enable-forced-exchange-below-group-id", "false")
                 .put("deprecated.group-by-uses-equal", "true")
                 .put("deprecated.legacy-map-subscript", "true")
@@ -241,7 +241,7 @@ public class TestFeaturesConfig
                 .setDistributedSortEnabled(false)
                 .setMaxGroupingSets(2047)
                 .setLegacyUnnestArrayRows(true)
-                .setDefaultFilterFactorEnabled(true);
+                .setDefaultFilterFactorEnabled(false);
         assertFullMapping(properties, expected);
     }
 
