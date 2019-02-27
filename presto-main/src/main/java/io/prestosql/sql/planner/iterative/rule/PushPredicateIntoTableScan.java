@@ -73,13 +73,13 @@ import static java.util.Objects.requireNonNull;
  * These rules should not be run after AddExchanges so as not to overwrite the TableLayout
  * chosen by AddExchanges
  */
-public class PickTableLayout
+public class PushPredicateIntoTableScan
 {
     private final Metadata metadata;
     private final SqlParser parser;
     private final DomainTranslator domainTranslator;
 
-    public PickTableLayout(Metadata metadata, SqlParser parser)
+    public PushPredicateIntoTableScan(Metadata metadata, SqlParser parser)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.parser = requireNonNull(parser, "parser is null");
@@ -88,20 +88,12 @@ public class PickTableLayout
 
     public Set<Rule<?>> rules()
     {
-        return ImmutableSet.of(
-                checkRulesAreFiredBeforeAddExchangesRule(),
-                pickTableLayoutForPredicate(),
-                pickTableLayoutWithoutPredicate());
+        return ImmutableSet.of(pickTableLayoutForPredicate());
     }
 
     public PickTableLayoutForPredicate pickTableLayoutForPredicate()
     {
         return new PickTableLayoutForPredicate(metadata, parser, domainTranslator);
-    }
-
-    public PickTableLayoutWithoutPredicate pickTableLayoutWithoutPredicate()
-    {
-        return new PickTableLayoutWithoutPredicate(metadata);
     }
 
     private static final class PickTableLayoutForPredicate
@@ -175,66 +167,8 @@ public class PickTableLayout
 
             TableScanNode rewrittenTableScan = (TableScanNode) rewrittenFilter.getSource();
 
-            if (!tableScan.getLayout().isPresent() && rewrittenTableScan.getLayout().isPresent()) {
-                return false;
-            }
-
             return Objects.equals(tableScan.getCurrentConstraint(), rewrittenTableScan.getCurrentConstraint())
                     && Objects.equals(tableScan.getEnforcedConstraint(), rewrittenTableScan.getEnforcedConstraint());
-        }
-    }
-
-    private static final class PickTableLayoutWithoutPredicate
-            implements Rule<TableScanNode>
-    {
-        private final Metadata metadata;
-
-        private PickTableLayoutWithoutPredicate(Metadata metadata)
-        {
-            this.metadata = requireNonNull(metadata, "metadata is null");
-        }
-
-        private static final Pattern<TableScanNode> PATTERN = tableScan();
-
-        @Override
-        public Pattern<TableScanNode> getPattern()
-        {
-            return PATTERN;
-        }
-
-        @Override
-        public boolean isEnabled(Session session)
-        {
-            return isNewOptimizerEnabled(session);
-        }
-
-        @Override
-        public Result apply(TableScanNode tableScanNode, Captures captures, Context context)
-        {
-            if (tableScanNode.getLayout().isPresent()) {
-                return Result.empty();
-            }
-
-            Optional<TableLayoutResult> layout = metadata.getLayout(
-                    context.getSession(),
-                    tableScanNode.getTable(),
-                    Constraint.alwaysTrue(),
-                    Optional.of(tableScanNode.getOutputSymbols().stream()
-                            .map(tableScanNode.getAssignments()::get)
-                            .collect(toImmutableSet())));
-
-            if (!layout.isPresent() || layout.get().getLayout().getPredicate().isNone()) {
-                return Result.ofPlanNode(new ValuesNode(context.getIdAllocator().getNextId(), tableScanNode.getOutputSymbols(), ImmutableList.of()));
-            }
-
-            return Result.ofPlanNode(new TableScanNode(
-                    tableScanNode.getId(),
-                    tableScanNode.getTable(),
-                    tableScanNode.getOutputSymbols(),
-                    tableScanNode.getAssignments(),
-                    Optional.of(layout.get().getLayout().getHandle()),
-                    TupleDomain.all(),
-                    TupleDomain.all()));
         }
     }
 
@@ -299,10 +233,9 @@ public class PickTableLayout
 
         TableScanNode tableScan = new TableScanNode(
                 node.getId(),
-                node.getTable(),
+                layout.get().getNewTableHandle(),
                 node.getOutputSymbols(),
                 node.getAssignments(),
-                Optional.of(layout.get().getLayout().getHandle()),
                 layout.get().getLayout().getPredicate(),
                 computeEnforced(newDomain, layout.get().getUnenforcedConstraint()));
 

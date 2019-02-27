@@ -16,14 +16,18 @@ package io.prestosql.split;
 import io.prestosql.Session;
 import io.prestosql.connector.ConnectorId;
 import io.prestosql.execution.QueryManagerConfig;
-import io.prestosql.metadata.TableLayoutHandle;
+import io.prestosql.metadata.Metadata;
+import io.prestosql.metadata.TableHandle;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorSplitManager;
 import io.prestosql.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy;
 import io.prestosql.spi.connector.ConnectorSplitSource;
+import io.prestosql.spi.connector.ConnectorTableLayoutHandle;
+import io.prestosql.spi.connector.Constraint;
 
 import javax.inject.Inject;
 
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
@@ -36,10 +40,15 @@ public class SplitManager
     private final ConcurrentMap<ConnectorId, ConnectorSplitManager> splitManagers = new ConcurrentHashMap<>();
     private final int minScheduleSplitBatchSize;
 
+    // This is used to fetch a table layout if the TableHandle doesn't have one set
+    // It's a temporary measure until we get rid of TableLayouts from the SPI
+    private final Metadata metadata;
+
     @Inject
-    public SplitManager(QueryManagerConfig config)
+    public SplitManager(QueryManagerConfig config, Metadata metadata)
     {
         this.minScheduleSplitBatchSize = config.getMinScheduleSplitBatchSize();
+        this.metadata = metadata;
     }
 
     public void addConnectorSplitManager(ConnectorId connectorId, ConnectorSplitManager connectorSplitManager)
@@ -54,20 +63,27 @@ public class SplitManager
         splitManagers.remove(connectorId);
     }
 
-    public SplitSource getSplits(Session session, TableLayoutHandle layout, SplitSchedulingStrategy splitSchedulingStrategy)
+    public SplitSource getSplits(Session session, TableHandle table, SplitSchedulingStrategy splitSchedulingStrategy)
     {
-        ConnectorId connectorId = layout.getConnectorId();
+        ConnectorId connectorId = table.getConnectorId();
         ConnectorSplitManager splitManager = getConnectorSplitManager(connectorId);
 
         ConnectorSession connectorSession = session.toConnectorSession(connectorId);
 
+        ConnectorTableLayoutHandle layout = table.getLayout()
+                .orElseGet(() -> metadata.getLayout(session, table, Constraint.alwaysTrue(), Optional.empty())
+                        .get()
+                        .getNewTableHandle()
+                        .getLayout()
+                        .get());
+
         ConnectorSplitSource source = splitManager.getSplits(
-                layout.getTransactionHandle(),
+                table.getTransaction(),
                 connectorSession,
-                layout.getConnectorHandle(),
+                layout,
                 splitSchedulingStrategy);
 
-        SplitSource splitSource = new ConnectorAwareSplitSource(connectorId, layout.getTransactionHandle(), source);
+        SplitSource splitSource = new ConnectorAwareSplitSource(connectorId, table.getTransaction(), source);
         if (minScheduleSplitBatchSize > 1) {
             splitSource = new BufferingSplitSource(splitSource, minScheduleSplitBatchSize);
         }

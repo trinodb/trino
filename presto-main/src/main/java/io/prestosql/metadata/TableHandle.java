@@ -17,8 +17,10 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.prestosql.connector.ConnectorId;
 import io.prestosql.spi.connector.ConnectorTableHandle;
+import io.prestosql.spi.connector.ConnectorTableLayoutHandle;
+import io.prestosql.spi.connector.ConnectorTransactionHandle;
 
-import java.util.Objects;
+import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
@@ -26,14 +28,23 @@ public final class TableHandle
 {
     private final ConnectorId connectorId;
     private final ConnectorTableHandle connectorHandle;
+    private final ConnectorTransactionHandle transaction;
+
+    // Table layouts are deprecated, but we keep this here to hide the notion of layouts
+    // from the engine. TODO: it should be removed once table layouts are finally deleted
+    private final Optional<ConnectorTableLayoutHandle> layout;
 
     @JsonCreator
     public TableHandle(
             @JsonProperty("connectorId") ConnectorId connectorId,
-            @JsonProperty("connectorHandle") ConnectorTableHandle connectorHandle)
+            @JsonProperty("connectorHandle") ConnectorTableHandle connectorHandle,
+            @JsonProperty("transaction") ConnectorTransactionHandle transaction,
+            @JsonProperty("layout") Optional<ConnectorTableLayoutHandle> layout)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.connectorHandle = requireNonNull(connectorHandle, "connectorHandle is null");
+        this.transaction = requireNonNull(transaction, "transaction is null");
+        this.layout = requireNonNull(layout, "layout is null");
     }
 
     @JsonProperty
@@ -48,24 +59,16 @@ public final class TableHandle
         return connectorHandle;
     }
 
-    @Override
-    public int hashCode()
+    @JsonProperty
+    public Optional<ConnectorTableLayoutHandle> getLayout()
     {
-        return Objects.hash(connectorId, connectorHandle);
+        return layout;
     }
 
-    @Override
-    public boolean equals(Object obj)
+    @JsonProperty
+    public ConnectorTransactionHandle getTransaction()
     {
-        if (this == obj) {
-            return true;
-        }
-        if (obj == null || getClass() != obj.getClass()) {
-            return false;
-        }
-        final TableHandle other = (TableHandle) obj;
-        return Objects.equals(this.connectorId, other.connectorId) &&
-                Objects.equals(this.connectorHandle, other.connectorHandle);
+        return transaction;
     }
 
     @Override

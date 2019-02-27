@@ -20,14 +20,12 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.prestosql.metadata.IndexHandle;
 import io.prestosql.metadata.TableHandle;
-import io.prestosql.metadata.TableLayoutHandle;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.sql.planner.Symbol;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -38,7 +36,6 @@ public class IndexSourceNode
 {
     private final IndexHandle indexHandle;
     private final TableHandle tableHandle;
-    private final Optional<TableLayoutHandle> tableLayout; // only necessary for event listeners
     private final Set<Symbol> lookupSymbols;
     private final List<Symbol> outputSymbols;
     private final Map<Symbol, ColumnHandle> assignments; // symbol -> column
@@ -49,7 +46,6 @@ public class IndexSourceNode
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("indexHandle") IndexHandle indexHandle,
             @JsonProperty("tableHandle") TableHandle tableHandle,
-            @JsonProperty("tableLayout") Optional<TableLayoutHandle> tableLayout,
             @JsonProperty("lookupSymbols") Set<Symbol> lookupSymbols,
             @JsonProperty("outputSymbols") List<Symbol> outputSymbols,
             @JsonProperty("assignments") Map<Symbol, ColumnHandle> assignments,
@@ -58,7 +54,6 @@ public class IndexSourceNode
         super(id);
         this.indexHandle = requireNonNull(indexHandle, "indexHandle is null");
         this.tableHandle = requireNonNull(tableHandle, "tableHandle is null");
-        this.tableLayout = requireNonNull(tableLayout, "tableLayout is null");
         this.lookupSymbols = ImmutableSet.copyOf(requireNonNull(lookupSymbols, "lookupSymbols is null"));
         this.outputSymbols = ImmutableList.copyOf(requireNonNull(outputSymbols, "outputSymbols is null"));
         this.assignments = ImmutableMap.copyOf(requireNonNull(assignments, "assignments is null"));
@@ -79,12 +74,6 @@ public class IndexSourceNode
     public TableHandle getTableHandle()
     {
         return tableHandle;
-    }
-
-    @JsonProperty
-    public Optional<TableLayoutHandle> getLayout()
-    {
-        return tableLayout;
     }
 
     @JsonProperty

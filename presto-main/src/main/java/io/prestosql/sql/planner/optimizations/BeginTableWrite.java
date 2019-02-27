@@ -14,16 +14,11 @@
 package io.prestosql.sql.planner.optimizations;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import io.prestosql.Session;
 import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.TableHandle;
-import io.prestosql.metadata.TableLayoutResult;
-import io.prestosql.spi.connector.ColumnHandle;
-import io.prestosql.spi.connector.Constraint;
-import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.sql.planner.PlanNodeIdAllocator;
 import io.prestosql.sql.planner.SymbolAllocator;
 import io.prestosql.sql.planner.TypeProvider;
@@ -45,7 +40,6 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkState;
-import static io.prestosql.metadata.TableLayoutResult.computeEnforced;
 import static io.prestosql.sql.planner.optimizations.QueryCardinalityUtil.isAtMostScalar;
 import static io.prestosql.sql.planner.plan.ChildReplacer.replaceChildren;
 import static java.util.stream.Collectors.toSet;
@@ -193,22 +187,13 @@ public class BeginTableWrite
         {
             if (node instanceof TableScanNode) {
                 TableScanNode scan = (TableScanNode) node;
-                TupleDomain<ColumnHandle> originalEnforcedConstraint = scan.getEnforcedConstraint();
-
-                Optional<TableLayoutResult> layout = metadata.getLayout(
-                        session,
-                        handle,
-                        new Constraint<>(originalEnforcedConstraint),
-                        Optional.of(ImmutableSet.copyOf(scan.getAssignments().values())));
-
                 return new TableScanNode(
                         scan.getId(),
                         handle,
                         scan.getOutputSymbols(),
                         scan.getAssignments(),
-                        Optional.of(layout.get().getLayout().getHandle()),
-                        layout.get().getLayout().getPredicate(),
-                        computeEnforced(originalEnforcedConstraint, layout.get().getUnenforcedConstraint()));
+                        scan.getCurrentConstraint(),
+                        scan.getEnforcedConstraint());
             }
 
             if (node instanceof FilterNode) {

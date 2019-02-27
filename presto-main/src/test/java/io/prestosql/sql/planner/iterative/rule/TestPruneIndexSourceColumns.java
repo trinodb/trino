@@ -21,6 +21,7 @@ import io.prestosql.connector.ConnectorId;
 import io.prestosql.metadata.TableHandle;
 import io.prestosql.plugin.tpch.TpchColumnHandle;
 import io.prestosql.plugin.tpch.TpchTableHandle;
+import io.prestosql.plugin.tpch.TpchTransactionHandle;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.TupleDomain;
@@ -31,6 +32,7 @@ import io.prestosql.sql.planner.plan.Assignments;
 import io.prestosql.sql.planner.plan.PlanNode;
 import org.testng.annotations.Test;
 
+import java.util.Optional;
 import java.util.function.Predicate;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -77,6 +79,7 @@ public class TestPruneIndexSourceColumns
         ColumnHandle orderkeyHandle = new TpchColumnHandle(orderkey.getName(), INTEGER);
         ColumnHandle custkeyHandle = new TpchColumnHandle(custkey.getName(), INTEGER);
         ColumnHandle totalpriceHandle = new TpchColumnHandle(totalprice.getName(), DOUBLE);
+
         return p.project(
                 Assignments.identity(
                         ImmutableList.of(orderkey, custkey, totalprice).stream()
@@ -85,7 +88,9 @@ public class TestPruneIndexSourceColumns
                 p.indexSource(
                         new TableHandle(
                                 new ConnectorId("local"),
-                                new TpchTableHandle("orders", TINY_SCALE_FACTOR)),
+                                new TpchTableHandle("orders", TINY_SCALE_FACTOR),
+                                TpchTransactionHandle.INSTANCE,
+                                Optional.empty()),
                         ImmutableSet.of(orderkey, custkey),
                         ImmutableList.of(orderkey, custkey, totalprice),
                         ImmutableMap.of(

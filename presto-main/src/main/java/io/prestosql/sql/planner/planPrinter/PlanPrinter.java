@@ -36,7 +36,6 @@ import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.TableHandle;
 import io.prestosql.operator.StageExecutionDescriptor;
 import io.prestosql.spi.connector.ColumnHandle;
-import io.prestosql.spi.connector.ConnectorTableLayoutHandle;
 import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.Marker;
 import io.prestosql.spi.predicate.NullableValue;
@@ -758,16 +757,6 @@ public class PlanPrinter
 
         private void printTableScanInfo(NodeRepresentation nodeOutput, TableScanNode node)
         {
-            TableHandle table = node.getTable();
-
-            if (node.getLayout().isPresent()) {
-                // TODO: find a better way to do this
-                ConnectorTableLayoutHandle layout = node.getLayout().get().getConnectorHandle();
-                if (!table.getConnectorHandle().toString().equals(layout.toString())) {
-                    nodeOutput.appendDetailsLine("LAYOUT: %s", layout);
-                }
-            }
-
             TupleDomain<ColumnHandle> predicate = node.getCurrentConstraint();
             if (predicate.isNone()) {
                 nodeOutput.appendDetailsLine(":: NONE");

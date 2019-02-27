@@ -32,15 +32,18 @@ import static java.util.Objects.requireNonNull;
 
 public class TableLayout
 {
-    private final TableLayoutHandle handle;
     private final ConnectorTableLayout layout;
+    private final ConnectorId connectorId;
+    private final ConnectorTransactionHandle transaction;
 
-    public TableLayout(TableLayoutHandle handle, ConnectorTableLayout layout)
+    public TableLayout(ConnectorId connectorId, ConnectorTransactionHandle transaction, ConnectorTableLayout layout)
     {
-        requireNonNull(handle, "handle is null");
+        requireNonNull(connectorId, "connectorId is null");
+        requireNonNull(transaction, "transaction is null");
         requireNonNull(layout, "layout is null");
 
-        this.handle = handle;
+        this.connectorId = connectorId;
+        this.transaction = transaction;
         this.layout = layout;
     }
 
@@ -59,18 +62,13 @@ public class TableLayout
         return layout.getLocalProperties();
     }
 
-    public TableLayoutHandle getHandle()
-    {
-        return handle;
-    }
-
     public Optional<TablePartitioning> getTablePartitioning()
     {
         return layout.getTablePartitioning()
                 .map(nodePartitioning -> new TablePartitioning(
                         new PartitioningHandle(
-                                Optional.of(handle.getConnectorId()),
-                                Optional.of(handle.getTransactionHandle()),
+                                Optional.of(connectorId),
+                                Optional.of(transaction),
                                 nodePartitioning.getPartitioningHandle()),
                         nodePartitioning.getPartitioningColumns()));
     }
@@ -83,11 +81,6 @@ public class TableLayout
     public Optional<DiscretePredicates> getDiscretePredicates()
     {
         return layout.getDiscretePredicates();
-    }
-
-    public static TableLayout fromConnectorLayout(ConnectorId connectorId, ConnectorTransactionHandle transactionHandle, ConnectorTableLayout layout)
-    {
-        return new TableLayout(new TableLayoutHandle(connectorId, transactionHandle, layout.getHandle()), layout);
     }
 
     public static class TablePartitioning
