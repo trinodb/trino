@@ -18,7 +18,7 @@ General Changes
 Server RPM Changes
 ------------------
 
-* Preserve modified configuration files when the RPM is uninstalled. (:issue:`304`)
+* Preserve modified configuration files when the RPM is uninstalled. (:issue:`267`)
 
 Web UI Changes
 --------------
