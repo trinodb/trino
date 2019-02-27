@@ -35,7 +35,7 @@ import io.prestosql.sql.planner.PlanNodeIdAllocator;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.SymbolAllocator;
 import io.prestosql.sql.planner.TypeProvider;
-import io.prestosql.sql.planner.iterative.rule.PickTableLayout;
+import io.prestosql.sql.planner.iterative.rule.PushPredicateIntoTableScan;
 import io.prestosql.sql.planner.plan.AggregationNode;
 import io.prestosql.sql.planner.plan.ApplyNode;
 import io.prestosql.sql.planner.plan.Assignments;
@@ -532,7 +532,7 @@ public class AddExchanges
 
         private PlanWithProperties planTableScan(TableScanNode node, Expression predicate)
         {
-            PlanNode plan = PickTableLayout.pushFilterIntoTableScan(node, predicate, true, session, types, idAllocator, metadata, parser, domainTranslator);
+            PlanNode plan = PushPredicateIntoTableScan.pushFilterIntoTableScan(node, predicate, true, session, types, idAllocator, metadata, parser, domainTranslator);
             return new PlanWithProperties(plan, derivePropertiesRecursively(plan));
         }
 

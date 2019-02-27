@@ -75,23 +75,23 @@ public interface Metadata
 
     Optional<TableLayoutResult> getLayout(Session session, TableHandle tableHandle, Constraint<ColumnHandle> constraint, Optional<Set<ColumnHandle>> desiredColumns);
 
-    TableLayout getLayout(Session session, TableLayoutHandle handle);
+    TableLayout getLayout(Session session, TableHandle handle);
 
     /**
-     * Return a table layout handle whose partitioning is converted to the provided partitioning handle,
-     * but otherwise identical to the provided table layout handle.
-     * The provided table layout handle must be one that the connector can transparently convert to from
-     * the original partitioning handle associated with the provided table layout handle,
+     * Return a table handle whose partitioning is converted to the provided partitioning handle,
+     * but otherwise identical to the provided table handle.
+     * The provided table handle must be one that the connector can transparently convert to from
+     * the original partitioning handle associated with the provided table handle,
      * as promised by {@link #getCommonPartitioning}.
      */
-    TableLayoutHandle makeCompatiblePartitioning(Session session, TableLayoutHandle tableLayoutHandle, PartitioningHandle partitioningHandle);
+    TableHandle makeCompatiblePartitioning(Session session, TableHandle table, PartitioningHandle partitioningHandle);
 
     /**
      * Return a partitioning handle which the connector can transparently convert both {@code left} and {@code right} into.
      */
     Optional<PartitioningHandle> getCommonPartitioning(Session session, PartitioningHandle left, PartitioningHandle right);
 
-    Optional<Object> getInfo(Session session, TableLayoutHandle handle);
+    Optional<Object> getInfo(Session session, TableHandle handle);
 
     /**
      * Return the metadata for the specified table handle.
@@ -241,14 +241,14 @@ public interface Metadata
     /**
      * @return whether delete without table scan is supported
      */
-    boolean supportsMetadataDelete(Session session, TableHandle tableHandle, TableLayoutHandle tableLayoutHandle);
+    boolean supportsMetadataDelete(Session session, TableHandle tableHandle);
 
     /**
      * Delete the provide table layout
      *
      * @return number of rows deleted, or empty for unknown
      */
-    OptionalLong metadataDelete(Session session, TableHandle tableHandle, TableLayoutHandle tableLayoutHandle);
+    OptionalLong metadataDelete(Session session, TableHandle tableHandle);
 
     /**
      * Begin delete query

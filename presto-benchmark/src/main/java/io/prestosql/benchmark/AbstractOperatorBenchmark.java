@@ -29,8 +29,6 @@ import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.metadata.Split;
 import io.prestosql.metadata.TableHandle;
-import io.prestosql.metadata.TableLayoutHandle;
-import io.prestosql.metadata.TableLayoutResult;
 import io.prestosql.operator.Driver;
 import io.prestosql.operator.DriverContext;
 import io.prestosql.operator.FilterAndProjectOperator;
@@ -48,7 +46,6 @@ import io.prestosql.security.AllowAllAccessControl;
 import io.prestosql.spi.QueryId;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorPageSource;
-import io.prestosql.spi.connector.Constraint;
 import io.prestosql.spi.memory.MemoryPoolId;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spiller.SpillSpaceTracker;
@@ -170,8 +167,7 @@ public abstract class AbstractOperatorBenchmark
         List<ColumnHandle> columnHandles = columnHandlesBuilder.build();
 
         // get the split for this table
-        Optional<TableLayoutResult> layout = metadata.getLayout(session, tableHandle, Constraint.alwaysTrue(), Optional.empty());
-        Split split = getLocalQuerySplit(session, layout.get().getLayout().getHandle());
+        Split split = getLocalQuerySplit(session, tableHandle);
 
         return new OperatorFactory()
         {
@@ -196,7 +192,7 @@ public abstract class AbstractOperatorBenchmark
         };
     }
 
-    private Split getLocalQuerySplit(Session session, TableLayoutHandle handle)
+    private Split getLocalQuerySplit(Session session, TableHandle handle)
     {
         SplitSource splitSource = localQueryRunner.getSplitManager().getSplits(session, handle, UNGROUPED_SCHEDULING);
         List<Split> splits = new ArrayList<>();

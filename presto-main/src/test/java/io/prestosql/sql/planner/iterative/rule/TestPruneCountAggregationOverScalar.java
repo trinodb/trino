@@ -19,6 +19,7 @@ import io.prestosql.connector.ConnectorId;
 import io.prestosql.metadata.TableHandle;
 import io.prestosql.plugin.tpch.TpchColumnHandle;
 import io.prestosql.plugin.tpch.TpchTableHandle;
+import io.prestosql.plugin.tpch.TpchTransactionHandle;
 import io.prestosql.spi.type.BigintType;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.iterative.rule.test.BaseRuleTest;
@@ -28,6 +29,8 @@ import io.prestosql.sql.tree.FunctionCall;
 import io.prestosql.sql.tree.QualifiedName;
 import io.prestosql.sql.tree.SymbolReference;
 import org.testng.annotations.Test;
+
+import java.util.Optional;
 
 import static io.prestosql.plugin.tpch.TpchMetadata.TINY_SCALE_FACTOR;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
@@ -143,7 +146,9 @@ public class TestPruneCountAggregationOverScalar
                                             p.tableScan(
                                                     new TableHandle(
                                                             new ConnectorId("local"),
-                                                            new TpchTableHandle("orders", TINY_SCALE_FACTOR)),
+                                                            new TpchTableHandle("orders", TINY_SCALE_FACTOR),
+                                                            TpchTransactionHandle.INSTANCE,
+                                                            Optional.empty()),
                                                     ImmutableList.of(totalPrice),
                                                     ImmutableMap.of(totalPrice, new TpchColumnHandle(totalPrice.getName(), DOUBLE))))));
 

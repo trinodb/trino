@@ -16,7 +16,6 @@ package io.prestosql.sql.planner.plan;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
-import io.prestosql.metadata.TableLayoutHandle;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.plan.TableWriterNode.DeleteHandle;
 
@@ -32,20 +31,17 @@ public class MetadataDeleteNode
 {
     private final DeleteHandle target;
     private final Symbol output;
-    private final TableLayoutHandle tableLayout;
 
     @JsonCreator
     public MetadataDeleteNode(
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("target") DeleteHandle target,
-            @JsonProperty("output") Symbol output,
-            @JsonProperty("tableLayout") TableLayoutHandle tableLayout)
+            @JsonProperty("output") Symbol output)
     {
         super(id);
 
         this.target = requireNonNull(target, "target is null");
         this.output = requireNonNull(output, "output is null");
-        this.tableLayout = requireNonNull(tableLayout, "tableLayout is null");
     }
 
     @JsonProperty
@@ -66,12 +62,6 @@ public class MetadataDeleteNode
         return ImmutableList.of(output);
     }
 
-    @JsonProperty
-    public TableLayoutHandle getTableLayout()
-    {
-        return tableLayout;
-    }
-
     @Override
     public List<PlanNode> getSources()
     {
@@ -87,6 +77,6 @@ public class MetadataDeleteNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new MetadataDeleteNode(getId(), target, output, tableLayout);
+        return new MetadataDeleteNode(getId(), target, output);
     }
 }
