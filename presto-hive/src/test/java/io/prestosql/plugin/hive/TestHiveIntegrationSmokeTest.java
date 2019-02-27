@@ -24,12 +24,12 @@ import io.prestosql.metadata.InsertTableHandle;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.metadata.TableHandle;
-import io.prestosql.metadata.TableLayout;
 import io.prestosql.metadata.TableMetadata;
 import io.prestosql.plugin.hive.HiveSessionProperties.InsertExistingPartitionsBehavior;
 import io.prestosql.spi.connector.CatalogSchemaTableName;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.connector.ConnectorTableLayoutHandle;
 import io.prestosql.spi.connector.Constraint;
 import io.prestosql.spi.security.Identity;
 import io.prestosql.spi.security.SelectedRole;
@@ -1672,10 +1672,13 @@ public class TestHiveIntegrationSmokeTest
                     Optional<TableHandle> tableHandle = metadata.getTableHandle(transactionSession, new QualifiedObjectName(catalog, TPCH_SCHEMA, tableName));
                     assertTrue(tableHandle.isPresent());
 
-                    TableLayout layout = metadata.getLayout(transactionSession, tableHandle.get(), Constraint.alwaysTrue(), Optional.empty())
+                    ConnectorTableLayoutHandle connectorLayout = metadata.getLayout(transactionSession, tableHandle.get(), Constraint.alwaysTrue(), Optional.empty())
                             .get()
-                            .getLayout();
-                    return propertyGetter.apply((HiveTableLayoutHandle) layout.getHandle().getConnectorHandle());
+                            .getNewTableHandle()
+                            .getLayout()
+                            .get();
+
+                    return propertyGetter.apply((HiveTableLayoutHandle) connectorLayout);
                 });
     }
 

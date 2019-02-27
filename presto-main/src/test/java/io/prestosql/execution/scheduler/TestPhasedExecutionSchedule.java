@@ -32,8 +32,10 @@ import io.prestosql.sql.planner.plan.PlanNodeId;
 import io.prestosql.sql.planner.plan.RemoteSourceNode;
 import io.prestosql.sql.planner.plan.TableScanNode;
 import io.prestosql.sql.planner.plan.UnionNode;
+import io.prestosql.testing.TestingHandle;
 import io.prestosql.testing.TestingMetadata.TestingColumnHandle;
 import io.prestosql.testing.TestingMetadata.TestingTableHandle;
+import io.prestosql.testing.TestingTransactionHandle;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -179,9 +181,9 @@ public class TestPhasedExecutionSchedule
     private static PlanFragment createBroadcastJoinPlanFragment(String name, PlanFragment buildFragment)
     {
         Symbol symbol = new Symbol("column");
-        PlanNode tableScan = new TableScanNode(
+        PlanNode tableScan = TableScanNode.newInstance(
                 new PlanNodeId(name),
-                new TableHandle(new ConnectorId("test"), new TestingTableHandle()),
+                new TableHandle(new ConnectorId("test"), new TestingTableHandle(), TestingTransactionHandle.create(), Optional.empty()),
                 ImmutableList.of(symbol),
                 ImmutableMap.of(symbol, new TestingColumnHandle("column")));
 
@@ -231,9 +233,9 @@ public class TestPhasedExecutionSchedule
     private static PlanFragment createTableScanPlanFragment(String name)
     {
         Symbol symbol = new Symbol("column");
-        PlanNode planNode = new TableScanNode(
+        PlanNode planNode = TableScanNode.newInstance(
                 new PlanNodeId(name),
-                new TableHandle(new ConnectorId("test"), new TestingTableHandle()),
+                new TableHandle(new ConnectorId("test"), new TestingTableHandle(), TestingTransactionHandle.create(), Optional.of(TestingHandle.INSTANCE)),
                 ImmutableList.of(symbol),
                 ImmutableMap.of(symbol, new TestingColumnHandle("column")));
 

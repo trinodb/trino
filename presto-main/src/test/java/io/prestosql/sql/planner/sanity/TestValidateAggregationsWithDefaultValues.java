@@ -20,11 +20,8 @@ import io.prestosql.connector.ConnectorId;
 import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.TableHandle;
-import io.prestosql.metadata.TableLayoutHandle;
 import io.prestosql.plugin.tpch.TpchColumnHandle;
 import io.prestosql.plugin.tpch.TpchTableHandle;
-import io.prestosql.plugin.tpch.TpchTableLayoutHandle;
-import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.sql.parser.SqlParser;
 import io.prestosql.sql.planner.PlanNodeIdAllocator;
 import io.prestosql.sql.planner.Symbol;
@@ -66,13 +63,12 @@ public class TestValidateAggregationsWithDefaultValues
         ConnectorId connectorId = getCurrentConnectorId();
         TableHandle nationTableHandle = new TableHandle(
                 connectorId,
-                new TpchTableHandle("nation", 1.0));
-        TableLayoutHandle nationTableLayoutHandle = new TableLayoutHandle(connectorId,
+                new TpchTableHandle("nation", 1.0),
                 TestingTransactionHandle.create(),
-                new TpchTableLayoutHandle((TpchTableHandle) nationTableHandle.getConnectorHandle(), TupleDomain.all()));
+                Optional.empty());
         TpchColumnHandle nationkeyColumnHandle = new TpchColumnHandle("nationkey", BIGINT);
         symbol = new Symbol("nationkey");
-        tableScanNode = builder.tableScan(nationTableHandle, ImmutableList.of(symbol), ImmutableMap.of(symbol, nationkeyColumnHandle), Optional.of(nationTableLayoutHandle));
+        tableScanNode = builder.tableScan(nationTableHandle, ImmutableList.of(symbol), ImmutableMap.of(symbol, nationkeyColumnHandle));
     }
 
     @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Final aggregation with default value not separated from partial aggregation by remote hash exchange")

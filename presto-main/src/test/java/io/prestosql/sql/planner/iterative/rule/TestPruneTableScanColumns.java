@@ -19,12 +19,15 @@ import io.prestosql.connector.ConnectorId;
 import io.prestosql.metadata.TableHandle;
 import io.prestosql.plugin.tpch.TpchColumnHandle;
 import io.prestosql.plugin.tpch.TpchTableHandle;
+import io.prestosql.plugin.tpch.TpchTransactionHandle;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.assertions.PlanMatchPattern;
 import io.prestosql.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.prestosql.sql.planner.plan.Assignments;
 import io.prestosql.testing.TestingMetadata.TestingColumnHandle;
 import org.testng.annotations.Test;
+
+import java.util.Optional;
 
 import static io.prestosql.plugin.tpch.TpchMetadata.TINY_SCALE_FACTOR;
 import static io.prestosql.spi.type.DateType.DATE;
@@ -49,7 +52,9 @@ public class TestPruneTableScanColumns
                             p.tableScan(
                                     new TableHandle(
                                             new ConnectorId("local"),
-                                            new TpchTableHandle("orders", TINY_SCALE_FACTOR)),
+                                            new TpchTableHandle("orders", TINY_SCALE_FACTOR),
+                                            TpchTransactionHandle.INSTANCE,
+                                            Optional.empty()),
                                     ImmutableList.of(orderdate, totalprice),
                                     ImmutableMap.of(
                                             orderdate, new TpchColumnHandle(orderdate.getName(), DATE),

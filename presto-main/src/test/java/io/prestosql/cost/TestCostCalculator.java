@@ -29,7 +29,6 @@ import io.prestosql.metadata.InMemoryNodeManager;
 import io.prestosql.metadata.MetadataManager;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.TableHandle;
-import io.prestosql.metadata.TableLayoutHandle;
 import io.prestosql.plugin.tpch.TpchColumnHandle;
 import io.prestosql.plugin.tpch.TpchTableHandle;
 import io.prestosql.plugin.tpch.TpchTableLayoutHandle;
@@ -747,10 +746,9 @@ public class TestCostCalculator
         TpchTableHandle tableHandle = new TpchTableHandle("orders", 1.0);
         return new TableScanNode(
                 new PlanNodeId(id),
-                new TableHandle(new ConnectorId("tpch"), new TpchTableHandle("orders", 1.0)),
+                new TableHandle(new ConnectorId("tpch"), tableHandle, INSTANCE, Optional.of(new TpchTableLayoutHandle(tableHandle, TupleDomain.all()))),
                 symbolsList,
                 assignments.build(),
-                Optional.of(new TableLayoutHandle(new ConnectorId("tpch"), INSTANCE, new TpchTableLayoutHandle(tableHandle, TupleDomain.all()))),
                 TupleDomain.all(),
                 TupleDomain.all());
     }

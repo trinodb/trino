@@ -19,18 +19,15 @@ import io.prestosql.connector.ConnectorId;
 import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.TableHandle;
-import io.prestosql.metadata.TableLayoutHandle;
 import io.prestosql.plugin.tpch.TpchColumnHandle;
 import io.prestosql.plugin.tpch.TpchTableHandle;
-import io.prestosql.plugin.tpch.TpchTableLayoutHandle;
-import io.prestosql.spi.predicate.TupleDomain;
+import io.prestosql.plugin.tpch.TpchTransactionHandle;
 import io.prestosql.sql.parser.SqlParser;
 import io.prestosql.sql.planner.PlanNodeIdAllocator;
 import io.prestosql.sql.planner.TypeProvider;
 import io.prestosql.sql.planner.assertions.BasePlanTest;
 import io.prestosql.sql.planner.iterative.rule.test.PlanBuilder;
 import io.prestosql.sql.planner.plan.PlanNode;
-import io.prestosql.testing.TestingTransactionHandle;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -47,7 +44,6 @@ public class TestValidateStreamingAggregations
     private SqlParser sqlParser;
     private PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
     private TableHandle nationTableHandle;
-    private TableLayoutHandle nationTableLayoutHandle;
 
     @BeforeClass
     public void setup()
@@ -58,11 +54,9 @@ public class TestValidateStreamingAggregations
         ConnectorId connectorId = getCurrentConnectorId();
         nationTableHandle = new TableHandle(
                 connectorId,
-                new TpchTableHandle("nation", 1.0));
-
-        nationTableLayoutHandle = new TableLayoutHandle(connectorId,
-                TestingTransactionHandle.create(),
-                new TpchTableLayoutHandle((TpchTableHandle) nationTableHandle.getConnectorHandle(), TupleDomain.all()));
+                new TpchTableHandle("nation", 1.0),
+                TpchTransactionHandle.INSTANCE,
+                Optional.empty());
     }
 
     @Test
@@ -76,8 +70,7 @@ public class TestValidateStreamingAggregations
                                         p.tableScan(
                                                 nationTableHandle,
                                                 ImmutableList.of(p.symbol("nationkey", BIGINT)),
-                                                ImmutableMap.of(p.symbol("nationkey", BIGINT), new TpchColumnHandle("nationkey", BIGINT)),
-                                                Optional.of(nationTableLayoutHandle)))));
+                                                ImmutableMap.of(p.symbol("nationkey", BIGINT), new TpchColumnHandle("nationkey", BIGINT))))));
 
         validatePlan(
                 p -> p.aggregation(
@@ -89,8 +82,7 @@ public class TestValidateStreamingAggregations
                                                 p.tableScan(
                                                         nationTableHandle,
                                                         ImmutableList.of(p.symbol("nationkey", BIGINT)),
-                                                        ImmutableMap.of(p.symbol("nationkey", BIGINT), new TpchColumnHandle("nationkey", BIGINT)),
-                                                        Optional.of(nationTableLayoutHandle))))));
+                                                        ImmutableMap.of(p.symbol("nationkey", BIGINT), new TpchColumnHandle("nationkey", BIGINT)))))));
     }
 
     @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Streaming aggregation with input not grouped on the grouping keys")
@@ -105,8 +97,7 @@ public class TestValidateStreamingAggregations
                                         p.tableScan(
                                                 nationTableHandle,
                                                 ImmutableList.of(p.symbol("nationkey", BIGINT)),
-                                                ImmutableMap.of(p.symbol("nationkey", BIGINT), new TpchColumnHandle("nationkey", BIGINT)),
-                                                Optional.of(nationTableLayoutHandle)))));
+                                                ImmutableMap.of(p.symbol("nationkey", BIGINT), new TpchColumnHandle("nationkey", BIGINT))))));
     }
 
     private void validatePlan(Function<PlanBuilder, PlanNode> planProvider)

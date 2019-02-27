@@ -55,6 +55,7 @@ import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.plan.PlanFragmentId;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 import io.prestosql.sql.planner.plan.TableScanNode;
+import io.prestosql.testing.TestingHandle;
 import io.prestosql.testing.TestingMetadata.TestingColumnHandle;
 import io.prestosql.testing.TestingMetadata.TestingTableHandle;
 import io.prestosql.testing.TestingSplit;
@@ -92,9 +93,9 @@ public final class TaskTestUtils
 
     public static final PlanFragment PLAN_FRAGMENT = new PlanFragment(
             new PlanFragmentId("fragment"),
-            new TableScanNode(
+            TableScanNode.newInstance(
                     TABLE_SCAN_NODE_ID,
-                    new TableHandle(CONNECTOR_ID, new TestingTableHandle()),
+                    new TableHandle(CONNECTOR_ID, new TestingTableHandle(), TRANSACTION_HANDLE, Optional.of(TestingHandle.INSTANCE)),
                     ImmutableList.of(SYMBOL),
                     ImmutableMap.of(SYMBOL, new TestingColumnHandle("column", 0, BIGINT))),
             ImmutableMap.of(SYMBOL, VARCHAR),

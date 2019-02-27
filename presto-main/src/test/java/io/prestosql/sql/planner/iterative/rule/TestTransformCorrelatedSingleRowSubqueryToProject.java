@@ -19,10 +19,13 @@ import io.prestosql.connector.ConnectorId;
 import io.prestosql.metadata.TableHandle;
 import io.prestosql.plugin.tpch.TpchColumnHandle;
 import io.prestosql.plugin.tpch.TpchTableHandle;
+import io.prestosql.plugin.tpch.TpchTransactionHandle;
 import io.prestosql.sql.planner.assertions.PlanMatchPattern;
 import io.prestosql.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.prestosql.sql.planner.plan.Assignments;
 import org.testng.annotations.Test;
+
+import java.util.Optional;
 
 import static io.prestosql.plugin.tpch.TpchMetadata.TINY_SCALE_FACTOR;
 import static io.prestosql.spi.type.BigintType.BIGINT;
@@ -48,9 +51,13 @@ public class TestTransformCorrelatedSingleRowSubqueryToProject
                 .on(p ->
                         p.lateral(
                                 ImmutableList.of(p.symbol("l_nationkey")),
-                                p.tableScan(new TableHandle(
+                                p.tableScan(
+                                        new TableHandle(
                                                 new ConnectorId("local"),
-                                                new TpchTableHandle("nation", TINY_SCALE_FACTOR)), ImmutableList.of(p.symbol("l_nationkey")),
+                                                new TpchTableHandle("nation", TINY_SCALE_FACTOR),
+                                                TpchTransactionHandle.INSTANCE,
+                                                Optional.empty()),
+                                        ImmutableList.of(p.symbol("l_nationkey")),
                                         ImmutableMap.of(p.symbol("l_nationkey"), new TpchColumnHandle("nationkey",
                                                 BIGINT))),
                                 p.project(

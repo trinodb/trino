@@ -44,8 +44,10 @@ import io.prestosql.sql.tree.FrameBound;
 import io.prestosql.sql.tree.FunctionCall;
 import io.prestosql.sql.tree.QualifiedName;
 import io.prestosql.sql.tree.WindowFrame;
+import io.prestosql.testing.TestingHandle;
 import io.prestosql.testing.TestingMetadata.TestingColumnHandle;
 import io.prestosql.testing.TestingMetadata.TestingTableHandle;
+import io.prestosql.testing.TestingTransactionHandle;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -66,7 +68,7 @@ import static io.prestosql.sql.planner.plan.AggregationNode.singleGroupingSet;
 @Test(singleThreaded = true)
 public class TestTypeValidator
 {
-    private static final TableHandle TEST_TABLE_HANDLE = new TableHandle(new ConnectorId("test"), new TestingTableHandle());
+    private static final TableHandle TEST_TABLE_HANDLE = new TableHandle(new ConnectorId("test"), new TestingTableHandle(), TestingTransactionHandle.create(), Optional.of(TestingHandle.INSTANCE));
     private static final SqlParser SQL_PARSER = new SqlParser();
     private static final TypeValidator TYPE_VALIDATOR = new TypeValidator();
 
@@ -101,7 +103,6 @@ public class TestTypeValidator
                 TEST_TABLE_HANDLE,
                 ImmutableList.copyOf(assignments.keySet()),
                 assignments,
-                Optional.empty(),
                 TupleDomain.all(),
                 TupleDomain.all());
     }
