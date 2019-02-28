@@ -32,7 +32,6 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.prestosql.orc.metadata.ColumnEncoding.ColumnEncodingKind.DICTIONARY;
 import static io.prestosql.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT;
 import static io.prestosql.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT_V2;
-import static io.prestosql.orc.metadata.ColumnEncoding.ColumnEncodingKind.DWRF_DIRECT;
 import static java.util.Objects.requireNonNull;
 
 public class LongStreamReader
@@ -69,10 +68,8 @@ public class LongStreamReader
     public void startStripe(ZoneId timeZone, InputStreamSources dictionaryStreamSources, List<ColumnEncoding> encoding)
             throws IOException
     {
-        ColumnEncodingKind kind = encoding.get(streamDescriptor.getStreamId())
-                .getColumnEncoding(streamDescriptor.getSequence())
-                .getColumnEncodingKind();
-        if (kind == DIRECT || kind == DIRECT_V2 || kind == DWRF_DIRECT) {
+        ColumnEncodingKind kind = encoding.get(streamDescriptor.getStreamId()).getColumnEncodingKind();
+        if (kind == DIRECT || kind == DIRECT_V2) {
             currentReader = directReader;
         }
         else if (kind == DICTIONARY) {

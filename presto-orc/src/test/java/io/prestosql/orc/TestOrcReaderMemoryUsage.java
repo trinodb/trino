@@ -39,7 +39,6 @@ import java.lang.invoke.MethodHandle;
 import java.util.HashMap;
 
 import static io.airlift.testing.Assertions.assertGreaterThan;
-import static io.prestosql.orc.OrcEncoding.ORC;
 import static io.prestosql.orc.OrcReader.INITIAL_BATCH_SIZE;
 import static io.prestosql.orc.OrcReader.MAX_BATCH_SIZE;
 import static io.prestosql.orc.OrcTester.Format.ORC_12;
@@ -69,7 +68,7 @@ public class TestOrcReaderMemoryUsage
         int rows = 5000;
         OrcRecordReader reader = null;
         try (TempFile tempFile = createSingleColumnVarcharFile(rows, 10)) {
-            reader = createCustomOrcRecordReader(tempFile, ORC, OrcPredicate.TRUE, VARCHAR, INITIAL_BATCH_SIZE);
+            reader = createCustomOrcRecordReader(tempFile, OrcPredicate.TRUE, VARCHAR, INITIAL_BATCH_SIZE);
             assertInitialRetainedSizes(reader, rows);
 
             long stripeReaderRetainedSize = reader.getCurrentStripeRetainedSizeInBytes();
@@ -116,7 +115,7 @@ public class TestOrcReaderMemoryUsage
         int rows = 10000;
         OrcRecordReader reader = null;
         try (TempFile tempFile = createSingleColumnFileWithNullValues(rows)) {
-            reader = createCustomOrcRecordReader(tempFile, ORC, OrcPredicate.TRUE, BIGINT, INITIAL_BATCH_SIZE);
+            reader = createCustomOrcRecordReader(tempFile, OrcPredicate.TRUE, BIGINT, INITIAL_BATCH_SIZE);
             assertInitialRetainedSizes(reader, rows);
 
             long stripeReaderRetainedSize = reader.getCurrentStripeRetainedSizeInBytes();
@@ -180,7 +179,7 @@ public class TestOrcReaderMemoryUsage
         int rows = 10000;
         OrcRecordReader reader = null;
         try (TempFile tempFile = createSingleColumnMapFileWithNullValues(mapType, rows)) {
-            reader = createCustomOrcRecordReader(tempFile, ORC, OrcPredicate.TRUE, mapType, INITIAL_BATCH_SIZE);
+            reader = createCustomOrcRecordReader(tempFile, OrcPredicate.TRUE, mapType, INITIAL_BATCH_SIZE);
             assertInitialRetainedSizes(reader, rows);
 
             long stripeReaderRetainedSize = reader.getCurrentStripeRetainedSizeInBytes();

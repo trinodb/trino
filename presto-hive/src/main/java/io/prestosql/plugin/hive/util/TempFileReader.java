@@ -33,7 +33,6 @@ import java.util.Map;
 
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static io.prestosql.orc.OrcEncoding.ORC;
 import static io.prestosql.orc.OrcReader.INITIAL_BATCH_SIZE;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_WRITER_DATA_ERROR;
 import static java.util.Objects.requireNonNull;
@@ -52,7 +51,6 @@ public class TempFileReader
         try {
             OrcReader orcReader = new OrcReader(
                     dataSource,
-                    ORC,
                     new DataSize(1, MEGABYTE),
                     new DataSize(8, MEGABYTE),
                     new DataSize(8, MEGABYTE),

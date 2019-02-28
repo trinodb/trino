@@ -19,6 +19,7 @@ import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
 import io.prestosql.orc.OrcWriteValidation.OrcWriteValidationMode;
 import io.prestosql.orc.metadata.Footer;
+import io.prestosql.orc.metadata.OrcMetadataReader;
 import io.prestosql.orc.metadata.Stream;
 import io.prestosql.orc.metadata.StripeFooter;
 import io.prestosql.orc.metadata.StripeInformation;
@@ -36,7 +37,6 @@ import java.util.Optional;
 import static io.airlift.testing.Assertions.assertGreaterThanOrEqual;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static io.prestosql.orc.OrcEncoding.ORC;
 import static io.prestosql.orc.OrcTester.HIVE_STORAGE_TIME_ZONE;
 import static io.prestosql.orc.StripeReader.isIndexStream;
 import static io.prestosql.orc.TestingOrcPredicate.ORC_ROW_GROUP_SIZE;
@@ -58,7 +58,6 @@ public class TestOrcWriter
                     new OutputStreamOrcDataSink(new FileOutputStream(tempFile.getFile())),
                     ImmutableList.of("test1", "test2", "test3", "test4", "test5"),
                     ImmutableList.of(VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR),
-                    ORC,
                     NONE,
                     new OrcWriterOptions()
                             .withStripeMinSize(new DataSize(0, MEGABYTE))
@@ -95,14 +94,14 @@ public class TestOrcWriter
             // read the footer and verify the streams are ordered by size
             DataSize dataSize = new DataSize(1, MEGABYTE);
             OrcDataSource orcDataSource = new FileOrcDataSource(tempFile.getFile(), dataSize, dataSize, dataSize, true);
-            Footer footer = new OrcReader(orcDataSource, ORC, dataSize, dataSize, dataSize, dataSize).getFooter();
+            Footer footer = new OrcReader(orcDataSource, dataSize, dataSize, dataSize, dataSize).getFooter();
 
             for (StripeInformation stripe : footer.getStripes()) {
                 // read the footer
                 byte[] tailBuffer = new byte[toIntExact(stripe.getFooterLength())];
                 orcDataSource.readFully(stripe.getOffset() + stripe.getIndexLength() + stripe.getDataLength(), tailBuffer);
                 try (InputStream inputStream = new OrcInputStream(orcDataSource.getId(), Slices.wrappedBuffer(tailBuffer).getInput(), Optional.empty(), newSimpleAggregatedMemoryContext(), tailBuffer.length)) {
-                    StripeFooter stripeFooter = ORC.createMetadataReader().readStripeFooter(footer.getTypes(), inputStream);
+                    StripeFooter stripeFooter = new OrcMetadataReader().readStripeFooter(footer.getTypes(), inputStream);
 
                     int size = 0;
                     boolean dataStreamStarted = false;

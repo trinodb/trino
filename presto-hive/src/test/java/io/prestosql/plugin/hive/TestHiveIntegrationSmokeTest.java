@@ -242,9 +242,6 @@ public class TestHiveIntegrationSmokeTest
 
     private void testReadNoColumns(Session session, HiveStorageFormat storageFormat)
     {
-        if (!insertOperationsSupported(storageFormat)) {
-            return;
-        }
         assertUpdate(session, format("CREATE TABLE test_read_no_columns WITH (format = '%s') AS SELECT 0 x", storageFormat), 1);
         assertQuery(session, "SELECT count(*) FROM test_read_no_columns", "SELECT 1");
         assertUpdate(session, "DROP TABLE test_read_no_columns");
@@ -297,10 +294,6 @@ public class TestHiveIntegrationSmokeTest
 
     private void testCreatePartitionedTable(Session session, HiveStorageFormat storageFormat)
     {
-        if (!insertOperationsSupported(storageFormat)) {
-            return;
-        }
-
         @Language("SQL") String createTable = "" +
                 "CREATE TABLE test_partitioned_table (" +
                 "  _string VARCHAR" +
@@ -545,10 +538,6 @@ public class TestHiveIntegrationSmokeTest
 
     private void testCreateTableAs(Session session, HiveStorageFormat storageFormat)
     {
-        if (!insertOperationsSupported(storageFormat)) {
-            return;
-        }
-
         @Language("SQL") String select = "SELECT" +
                 " 'foo' _varchar" +
                 ", CAST('bar' AS CHAR(10)) _char" +
@@ -1122,9 +1111,6 @@ public class TestHiveIntegrationSmokeTest
 
     private void testInsert(Session session, HiveStorageFormat storageFormat)
     {
-        if (!insertOperationsSupported(storageFormat)) {
-            return;
-        }
         @Language("SQL") String createTable = "" +
                 "CREATE TABLE test_insert_format_table " +
                 "(" +
@@ -1404,7 +1390,7 @@ public class TestHiveIntegrationSmokeTest
     @Test
     public void testPartitionPerScanLimit()
     {
-        TestingHiveStorageFormat storageFormat = new TestingHiveStorageFormat(getSession(), HiveStorageFormat.DWRF);
+        TestingHiveStorageFormat storageFormat = new TestingHiveStorageFormat(getSession(), HiveStorageFormat.ORC);
         testWithStorageFormat(storageFormat, this::testPartitionPerScanLimit);
     }
 
@@ -3685,7 +3671,7 @@ public class TestHiveIntegrationSmokeTest
 
     private boolean insertOperationsSupported(HiveStorageFormat storageFormat)
     {
-        return storageFormat != HiveStorageFormat.DWRF;
+        return true;
     }
 
     private Type canonicalizeType(Type type)
@@ -3776,9 +3762,6 @@ public class TestHiveIntegrationSmokeTest
         formats.add(new TestingHiveStorageFormat(
                 Session.builder(session).setCatalogSessionProperty(session.getCatalog().get(), "orc_optimized_writer_enabled", "true").build(),
                 HiveStorageFormat.ORC));
-        formats.add(new TestingHiveStorageFormat(
-                Session.builder(session).setCatalogSessionProperty(session.getCatalog().get(), "orc_optimized_writer_enabled", "true").build(),
-                HiveStorageFormat.DWRF));
         return formats.build();
     }
 

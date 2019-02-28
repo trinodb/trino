@@ -46,7 +46,6 @@ import java.util.Optional;
 
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static io.prestosql.orc.OrcEncoding.ORC;
 import static io.prestosql.orc.OrcTester.HIVE_STORAGE_TIME_ZONE;
 import static io.prestosql.orc.OrcWriteValidation.OrcWriteValidationMode.BOTH;
 import static io.prestosql.orc.TestingOrcPredicate.ORC_ROW_GROUP_SIZE;
@@ -222,7 +221,6 @@ public class TestStructStreamReader
                 new OutputStreamOrcDataSink(new FileOutputStream(tempFile.getFile())),
                 ImmutableList.of(STRUCT_COL_NAME),
                 ImmutableList.of(writerType),
-                ORC,
                 NONE,
                 new OrcWriterOptions()
                         .withStripeMinSize(new DataSize(0, MEGABYTE))
@@ -263,7 +261,7 @@ public class TestStructStreamReader
     {
         DataSize dataSize = new DataSize(1, MEGABYTE);
         OrcDataSource orcDataSource = new FileOrcDataSource(tempFile.getFile(), dataSize, dataSize, dataSize, true);
-        OrcReader orcReader = new OrcReader(orcDataSource, ORC, dataSize, dataSize, dataSize, dataSize);
+        OrcReader orcReader = new OrcReader(orcDataSource, dataSize, dataSize, dataSize, dataSize);
 
         Map<Integer, Type> includedColumns = new HashMap<>();
         includedColumns.put(0, readerType);

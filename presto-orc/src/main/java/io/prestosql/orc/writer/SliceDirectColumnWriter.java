@@ -16,7 +16,6 @@ package io.prestosql.orc.writer;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
-import io.prestosql.orc.OrcEncoding;
 import io.prestosql.orc.checkpoint.BooleanStreamCheckpoint;
 import io.prestosql.orc.checkpoint.ByteArrayStreamCheckpoint;
 import io.prestosql.orc.checkpoint.LongStreamCheckpoint;
@@ -45,8 +44,6 @@ import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static io.prestosql.orc.OrcEncoding.DWRF;
-import static io.prestosql.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT;
 import static io.prestosql.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT_V2;
 import static io.prestosql.orc.metadata.CompressionKind.NONE;
 import static io.prestosql.orc.stream.LongOutputStream.createLengthOutputStream;
@@ -71,14 +68,14 @@ public class SliceDirectColumnWriter
 
     private boolean closed;
 
-    public SliceDirectColumnWriter(int column, Type type, CompressionKind compression, int bufferSize, OrcEncoding orcEncoding, Supplier<SliceColumnStatisticsBuilder> statisticsBuilderSupplier)
+    public SliceDirectColumnWriter(int column, Type type, CompressionKind compression, int bufferSize, Supplier<SliceColumnStatisticsBuilder> statisticsBuilderSupplier)
     {
         checkArgument(column >= 0, "column is negative");
         this.column = column;
         this.type = requireNonNull(type, "type is null");
         this.compressed = requireNonNull(compression, "compression is null") != NONE;
-        this.columnEncoding = new ColumnEncoding(orcEncoding == DWRF ? DIRECT : DIRECT_V2, 0);
-        this.lengthStream = createLengthOutputStream(compression, bufferSize, orcEncoding);
+        this.columnEncoding = new ColumnEncoding(DIRECT_V2, 0);
+        this.lengthStream = createLengthOutputStream(compression, bufferSize);
         this.dataStream = new ByteArrayOutputStream(compression, bufferSize);
         this.presentStream = new PresentOutputStream(compression, bufferSize);
         this.statisticsBuilderSupplier = statisticsBuilderSupplier;

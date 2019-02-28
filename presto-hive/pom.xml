@@ -23,11 +23,6 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.hive</groupId>
-            <artifactId>hive-dwrf</artifactId>
-        </dependency>
-
-        <dependency>
             <groupId>io.prestosql</groupId>
             <artifactId>presto-orc</artifactId>
         </dependency>

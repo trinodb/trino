@@ -179,7 +179,6 @@ import static io.prestosql.plugin.hive.HiveMetadata.PRESTO_QUERY_ID_NAME;
 import static io.prestosql.plugin.hive.HiveMetadata.PRESTO_VERSION_NAME;
 import static io.prestosql.plugin.hive.HiveMetadata.convertToPredicate;
 import static io.prestosql.plugin.hive.HiveStorageFormat.AVRO;
-import static io.prestosql.plugin.hive.HiveStorageFormat.DWRF;
 import static io.prestosql.plugin.hive.HiveStorageFormat.JSON;
 import static io.prestosql.plugin.hive.HiveStorageFormat.ORC;
 import static io.prestosql.plugin.hive.HiveStorageFormat.PARQUET;
@@ -2012,13 +2011,6 @@ public abstract class AbstractTestHiveClient
         assertEmptyFile(ORC);
     }
 
-    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "ORC file is empty: .*")
-    public void testEmptyDwrfFile()
-            throws Exception
-    {
-        assertEmptyFile(DWRF);
-    }
-
     private void assertEmptyFile(HiveStorageFormat format)
             throws Exception
     {
@@ -2788,13 +2780,13 @@ public abstract class AbstractTestHiveClient
             // alter the partition into one with other stats
             Partition modifiedPartition = Partition.builder(partition)
                     .withStorage(storage -> storage
-                            .setStorageFormat(fromHiveStorageFormat(DWRF))
+                            .setStorageFormat(fromHiveStorageFormat(RCBINARY))
                             .setLocation(partitionTargetPath(tableName, partitionName)))
                     .build();
             metastoreClient.alterPartition(tableName.getSchemaName(), tableName.getTableName(), new PartitionWithStatistics(modifiedPartition, partitionName, statsForAllColumns2));
             assertEquals(
                     metastoreClient.getPartition(tableName.getSchemaName(), tableName.getTableName(), partitionValues).get().getStorage().getStorageFormat(),
-                    fromHiveStorageFormat(DWRF));
+                    fromHiveStorageFormat(RCBINARY));
             assertThat(metastoreClient.getPartitionStatistics(tableName.getSchemaName(), tableName.getTableName(), ImmutableSet.of(partitionName)))
                     .isEqualTo(ImmutableMap.of(partitionName, statsForAllColumns2));
 
@@ -4107,7 +4099,6 @@ public abstract class AbstractTestHiveClient
             case RCBINARY:
                 return RcFilePageSource.class;
             case ORC:
-            case DWRF:
                 return OrcPageSource.class;
             case PARQUET:
                 return ParquetPageSource.class;

@@ -19,7 +19,6 @@ import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import io.prestosql.array.IntBigArray;
 import io.prestosql.orc.DictionaryCompressionOptimizer.DictionaryColumn;
-import io.prestosql.orc.OrcEncoding;
 import io.prestosql.orc.checkpoint.BooleanStreamCheckpoint;
 import io.prestosql.orc.checkpoint.LongStreamCheckpoint;
 import io.prestosql.orc.metadata.ColumnEncoding;
@@ -32,7 +31,6 @@ import io.prestosql.orc.metadata.statistics.ColumnStatistics;
 import io.prestosql.orc.metadata.statistics.StringStatisticsBuilder;
 import io.prestosql.orc.stream.ByteArrayOutputStream;
 import io.prestosql.orc.stream.LongOutputStream;
-import io.prestosql.orc.stream.LongOutputStreamV1;
 import io.prestosql.orc.stream.LongOutputStreamV2;
 import io.prestosql.orc.stream.PresentOutputStream;
 import io.prestosql.orc.stream.StreamDataOutput;
@@ -54,8 +52,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.prestosql.orc.DictionaryCompressionOptimizer.estimateIndexBytesPerValue;
-import static io.prestosql.orc.OrcEncoding.DWRF;
-import static io.prestosql.orc.metadata.ColumnEncoding.ColumnEncodingKind.DICTIONARY;
 import static io.prestosql.orc.metadata.ColumnEncoding.ColumnEncodingKind.DICTIONARY_V2;
 import static io.prestosql.orc.metadata.CompressionKind.NONE;
 import static io.prestosql.orc.metadata.Stream.StreamKind.DATA;
@@ -74,7 +70,6 @@ public class SliceDictionaryColumnWriter
     private final Type type;
     private final CompressionKind compression;
     private final int bufferSize;
-    private final OrcEncoding orcEncoding;
     private final int stringStatisticsLimitInBytes;
 
     private final LongOutputStream dataStream;
@@ -101,26 +96,18 @@ public class SliceDictionaryColumnWriter
     private boolean directEncoded;
     private SliceDirectColumnWriter directColumnWriter;
 
-    public SliceDictionaryColumnWriter(int column, Type type, CompressionKind compression, int bufferSize, OrcEncoding orcEncoding, DataSize stringStatisticsLimit)
+    public SliceDictionaryColumnWriter(int column, Type type, CompressionKind compression, int bufferSize, DataSize stringStatisticsLimit)
     {
         checkArgument(column >= 0, "column is negative");
         this.column = column;
         this.type = requireNonNull(type, "type is null");
         this.compression = requireNonNull(compression, "compression is null");
         this.bufferSize = bufferSize;
-        this.orcEncoding = requireNonNull(orcEncoding, "orcEncoding is null");
         this.stringStatisticsLimitInBytes = toIntExact(requireNonNull(stringStatisticsLimit, "stringStatisticsLimit is null").toBytes());
-        LongOutputStream result;
-        if (orcEncoding == DWRF) {
-            result = new LongOutputStreamV1(compression, bufferSize, false, DATA);
-        }
-        else {
-            result = new LongOutputStreamV2(compression, bufferSize, false, DATA);
-        }
-        this.dataStream = result;
+        this.dataStream = new LongOutputStreamV2(compression, bufferSize, false, DATA);
         this.presentStream = new PresentOutputStream(compression, bufferSize);
         this.dictionaryDataStream = new ByteArrayOutputStream(compression, bufferSize, StreamKind.DICTIONARY_DATA);
-        this.dictionaryLengthStream = createLengthOutputStream(compression, bufferSize, orcEncoding);
+        this.dictionaryLengthStream = createLengthOutputStream(compression, bufferSize);
         values = new IntBigArray();
         this.statisticsBuilder = newStringStatisticsBuilder();
     }
@@ -173,7 +160,7 @@ public class SliceDictionaryColumnWriter
         checkState(!closed);
         checkState(!directEncoded);
         if (directColumnWriter == null) {
-            directColumnWriter = new SliceDirectColumnWriter(column, type, compression, bufferSize, orcEncoding, this::newStringStatisticsBuilder);
+            directColumnWriter = new SliceDirectColumnWriter(column, type, compression, bufferSize, this::newStringStatisticsBuilder);
         }
         checkState(directColumnWriter.getBufferedBytes() == 0);
 
@@ -371,7 +358,7 @@ public class SliceDictionaryColumnWriter
                 dictionaryDataStream.writeSlice(value);
             }
         }
-        columnEncoding = new ColumnEncoding(orcEncoding == DWRF ? DICTIONARY : DICTIONARY_V2, dictionaryElements.getPositionCount() - 1);
+        columnEncoding = new ColumnEncoding(DICTIONARY_V2, dictionaryElements.getPositionCount() - 1);
 
         // build index from original dictionary index to new sorted position
         int[] originalDictionaryToSortedIndex = new int[sortedDictionaryIndexes.length];
