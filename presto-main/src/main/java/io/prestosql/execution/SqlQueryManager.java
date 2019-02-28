@@ -304,6 +304,9 @@ public class SqlQueryManager
     private void enforceCpuLimits()
     {
         for (QueryExecution query : queryTracker.getAllQueries()) {
+            if (query.getState().isDone()) {
+                continue;
+            }
             Duration cpuTime = query.getTotalCpuTime();
             Duration sessionLimit = getQueryMaxCpuTime(query.getSession());
             Duration limit = Ordering.natural().min(maxQueryCpuTime, sessionLimit);
