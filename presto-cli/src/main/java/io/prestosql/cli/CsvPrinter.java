@@ -31,13 +31,31 @@ public class CsvPrinter
 
     private boolean needHeader;
 
-    public CsvPrinter(List<String> fieldNames, Writer writer, boolean header)
+    public enum CsvOutputFormat
+    {
+        STANDARD(true),
+        NO_HEADER(false);
+
+        private boolean header;
+
+        CsvOutputFormat(boolean header)
+        {
+            this.header = header;
+        }
+
+        public boolean showHeader()
+        {
+            return header;
+        }
+    }
+
+    public CsvPrinter(List<String> fieldNames, Writer writer, CsvOutputFormat csvOutputFormat)
     {
         requireNonNull(fieldNames, "fieldNames is null");
         requireNonNull(writer, "writer is null");
         this.fieldNames = ImmutableList.copyOf(fieldNames);
         this.writer = new CSVWriter(writer);
-        this.needHeader = header;
+        this.needHeader = csvOutputFormat.showHeader();
     }
 
     @Override

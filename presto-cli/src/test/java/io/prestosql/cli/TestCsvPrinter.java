@@ -20,6 +20,8 @@ import java.io.IOException;
 import java.io.StringWriter;
 import java.util.List;
 
+import static io.prestosql.cli.CsvPrinter.CsvOutputFormat.NO_HEADER;
+import static io.prestosql.cli.CsvPrinter.CsvOutputFormat.STANDARD;
 import static io.prestosql.cli.TestAlignedTablePrinter.row;
 import static io.prestosql.cli.TestAlignedTablePrinter.rows;
 import static org.testng.Assert.assertEquals;
@@ -32,7 +34,7 @@ public class TestCsvPrinter
     {
         StringWriter writer = new StringWriter();
         List<String> fieldNames = ImmutableList.of("first", "last", "quantity");
-        OutputPrinter printer = new CsvPrinter(fieldNames, writer, true);
+        OutputPrinter printer = new CsvPrinter(fieldNames, writer, STANDARD);
 
         printer.printRows(rows(
                 row("hello", "world", 123),
@@ -63,7 +65,7 @@ public class TestCsvPrinter
     {
         StringWriter writer = new StringWriter();
         List<String> fieldNames = ImmutableList.of("first", "last");
-        OutputPrinter printer = new CsvPrinter(fieldNames, writer, true);
+        OutputPrinter printer = new CsvPrinter(fieldNames, writer, STANDARD);
 
         printer.finish();
 
@@ -76,7 +78,7 @@ public class TestCsvPrinter
     {
         StringWriter writer = new StringWriter();
         List<String> fieldNames = ImmutableList.of("first", "last", "quantity");
-        OutputPrinter printer = new CsvPrinter(fieldNames, writer, false);
+        OutputPrinter printer = new CsvPrinter(fieldNames, writer, NO_HEADER);
 
         printer.printRows(rows(
                 row("hello", "world", 123),
@@ -97,7 +99,7 @@ public class TestCsvPrinter
     {
         StringWriter writer = new StringWriter();
         List<String> fieldNames = ImmutableList.of("first", "last", "quantity");
-        OutputPrinter printer = new CsvPrinter(fieldNames, writer, false);
+        OutputPrinter printer = new CsvPrinter(fieldNames, writer, NO_HEADER);
 
         printer.printRows(rows(row("hello".getBytes(), null, 123)), true);
         printer.finish();
