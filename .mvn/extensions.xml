@@ -2,7 +2,7 @@
 <extensions>
     <extension>
         <groupId>io.takari.aether</groupId>
-        <artifactId>takari-concurrent-localrepo</artifactId>
+        <artifactId>takari-local-repository</artifactId>
         <version>0.11.2</version>
     </extension>
 </extensions>
