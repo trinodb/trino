@@ -168,7 +168,7 @@ public final class SystemSessionProperties
                         VARCHAR,
                         DataSize.class,
                         featuresConfig.getJoinMaxBroadcastTableSize(),
-                        true,
+                        false,
                         value -> DataSize.valueOf((String) value),
                         DataSize::toString),
                 booleanProperty(
