@@ -36,12 +36,12 @@ public class TestCsvPrinter
         List<String> fieldNames = ImmutableList.of("first", "last", "quantity");
         OutputPrinter printer = new CsvPrinter(fieldNames, writer, STANDARD);
 
-        printer.printRows(rows(
+        printRows(
+                printer,
                 row("hello", "world", 123),
                 row("a", null, 4.5),
                 row("some long\ntext that\ndoes not\nfit on\none line", "more\ntext", 4567),
-                row("bye", "done", -15)),
-                true);
+                row("bye", "done", -15));
         printer.finish();
 
         String expected = "" +
@@ -80,10 +80,10 @@ public class TestCsvPrinter
         List<String> fieldNames = ImmutableList.of("first", "last", "quantity");
         OutputPrinter printer = new CsvPrinter(fieldNames, writer, NO_HEADER);
 
-        printer.printRows(rows(
+        printRows(
+                printer,
                 row("hello", "world", 123),
-                row("a", null, 4.5)),
-                true);
+                row("a", null, 4.5));
         printer.finish();
 
         String expected = "" +
@@ -101,11 +101,17 @@ public class TestCsvPrinter
         List<String> fieldNames = ImmutableList.of("first", "last", "quantity");
         OutputPrinter printer = new CsvPrinter(fieldNames, writer, NO_HEADER);
 
-        printer.printRows(rows(row("hello".getBytes(), null, 123)), true);
+        printRows(printer, row("hello".getBytes(), null, 123));
         printer.finish();
 
         String expected = "\"68 65 6c 6c 6f\",\"\",\"123\"\n";
 
         assertEquals(writer.getBuffer().toString(), expected);
+    }
+
+    private static void printRows(OutputPrinter printer, List<?>... rows)
+            throws IOException
+    {
+        printer.printRows(rows(rows), true);
     }
 }
