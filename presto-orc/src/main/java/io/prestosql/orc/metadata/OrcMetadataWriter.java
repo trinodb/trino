@@ -37,7 +37,6 @@ import java.util.List;
 import java.util.Map.Entry;
 import java.util.TimeZone;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Math.toIntExact;
 import static java.util.stream.Collectors.toList;
 
@@ -317,10 +316,6 @@ public class OrcMetadataWriter
 
     private static OrcProto.ColumnEncoding toColumnEncoding(ColumnEncoding columnEncodings)
     {
-        checkArgument(
-                !columnEncodings.getAdditionalSequenceEncodings().isPresent(),
-                "Writing columns with non-zero sequence IDs is not supported in ORC: " + columnEncodings);
-
         return OrcProto.ColumnEncoding.newBuilder()
                 .setKind(toColumnEncoding(columnEncodings.getColumnEncodingKind()))
                 .setDictionarySize(columnEncodings.getDictionarySize())

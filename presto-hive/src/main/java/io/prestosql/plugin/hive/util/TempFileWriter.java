@@ -32,7 +32,6 @@ import java.util.stream.IntStream;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
-import static io.prestosql.orc.OrcEncoding.ORC;
 import static io.prestosql.orc.metadata.CompressionKind.LZ4;
 import static org.joda.time.DateTimeZone.UTC;
 
@@ -78,7 +77,6 @@ public class TempFileWriter
                 sink,
                 columnNames,
                 types,
-                ORC,
                 LZ4,
                 new OrcWriterOptions()
                         .withMaxStringStatisticsLimit(new DataSize(0, BYTE))

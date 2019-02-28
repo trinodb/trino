@@ -21,18 +21,13 @@ import static io.prestosql.orc.metadata.ColumnEncoding.ColumnEncodingKind.DICTIO
 import static io.prestosql.orc.metadata.ColumnEncoding.ColumnEncodingKind.DICTIONARY_V2;
 import static io.prestosql.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT;
 import static io.prestosql.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT_V2;
-import static io.prestosql.orc.metadata.ColumnEncoding.ColumnEncodingKind.DWRF_DIRECT;
 import static io.prestosql.orc.metadata.OrcType.OrcTypeKind.DECIMAL;
 import static io.prestosql.orc.metadata.OrcType.OrcTypeKind.INT;
 import static io.prestosql.orc.metadata.OrcType.OrcTypeKind.TIMESTAMP;
 import static io.prestosql.orc.metadata.Stream.StreamKind.DATA;
 import static io.prestosql.orc.metadata.Stream.StreamKind.DICTIONARY_DATA;
-import static io.prestosql.orc.metadata.Stream.StreamKind.IN_DICTIONARY;
-import static io.prestosql.orc.metadata.Stream.StreamKind.IN_MAP;
 import static io.prestosql.orc.metadata.Stream.StreamKind.LENGTH;
 import static io.prestosql.orc.metadata.Stream.StreamKind.PRESENT;
-import static io.prestosql.orc.metadata.Stream.StreamKind.ROW_GROUP_DICTIONARY;
-import static io.prestosql.orc.metadata.Stream.StreamKind.ROW_GROUP_DICTIONARY_LENGTH;
 import static io.prestosql.orc.metadata.Stream.StreamKind.SECONDARY;
 import static java.lang.String.format;
 
@@ -49,7 +44,7 @@ public final class ValueStreams
             ColumnEncodingKind encoding,
             boolean usesVInt)
     {
-        if (streamId.getStreamKind() == PRESENT || streamId.getStreamKind() == IN_MAP) {
+        if (streamId.getStreamKind() == PRESENT) {
             return new BooleanInputStream(inputStream);
         }
 
@@ -98,33 +93,6 @@ public final class ValueStreams
             }
         }
 
-        // length stream of a the row group dictionary
-        if (streamId.getStreamKind() == ROW_GROUP_DICTIONARY_LENGTH) {
-            switch (type) {
-                case STRING:
-                case VARCHAR:
-                case CHAR:
-                case BINARY:
-                    return new RowGroupDictionaryLengthInputStream(inputStream, false);
-            }
-        }
-
-        // row group dictionary
-        if (streamId.getStreamKind() == ROW_GROUP_DICTIONARY) {
-            switch (type) {
-                case STRING:
-                case VARCHAR:
-                case CHAR:
-                case BINARY:
-                    return new ByteArrayInputStream(inputStream);
-            }
-        }
-
-        // row group dictionary
-        if (streamId.getStreamKind() == IN_DICTIONARY) {
-            return new BooleanInputStream(inputStream);
-        }
-
         // length (nanos) of a timestamp column
         if (type == TIMESTAMP && streamId.getStreamKind() == SECONDARY) {
             return createLongStream(inputStream, encoding, type, false, usesVInt);
@@ -140,10 +108,6 @@ public final class ValueStreams
 
         if (streamId.getStreamKind() == DICTIONARY_DATA) {
             switch (type) {
-                case SHORT:
-                case INT:
-                case LONG:
-                    return createLongStream(inputStream, DWRF_DIRECT, INT, true, usesVInt);
                 case STRING:
                 case VARCHAR:
                 case CHAR:
@@ -167,9 +131,6 @@ public final class ValueStreams
         }
         else if (encoding == DIRECT || encoding == DICTIONARY) {
             return new LongInputStreamV1(inputStream, signed);
-        }
-        else if (encoding == DWRF_DIRECT) {
-            return new LongInputStreamDwrf(inputStream, type, signed, usesVInt);
         }
         else {
             throw new IllegalArgumentException("Unsupported encoding for long stream: " + encoding);

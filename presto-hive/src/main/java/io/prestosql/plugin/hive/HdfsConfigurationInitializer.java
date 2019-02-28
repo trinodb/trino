@@ -34,7 +34,6 @@ import javax.net.SocketFactory;
 import java.util.List;
 import java.util.Set;
 
-import static com.facebook.hive.orc.OrcConf.ConfVars.HIVE_ORC_COMPRESSION;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.plugin.hive.util.ConfigurationUtils.copy;
 import static java.lang.Math.toIntExact;
@@ -154,8 +153,6 @@ public class HdfsConfigurationInitializer
         config.setBoolean(COMPRESSRESULT.varname, compression);
         config.setBoolean("mapred.output.compress", compression);
         config.setBoolean(FileOutputFormat.COMPRESS, compression);
-        // For DWRF
-        com.facebook.hive.orc.OrcConf.setVar(config, HIVE_ORC_COMPRESSION, compressionCodec.getOrcCompressionKind().name());
         // For ORC
         OrcConf.COMPRESS.setString(config, compressionCodec.getOrcCompressionKind().name());
         // For RCFile and Text

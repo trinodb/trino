@@ -21,7 +21,6 @@ import com.google.common.collect.Lists;
 import io.airlift.compress.lzo.LzoCodec;
 import io.airlift.compress.lzo.LzopCodec;
 import io.prestosql.orc.OrcWriterOptions;
-import io.prestosql.plugin.hive.orc.DwrfPageSourceFactory;
 import io.prestosql.plugin.hive.orc.OrcPageSourceFactory;
 import io.prestosql.plugin.hive.parquet.ParquetPageSourceFactory;
 import io.prestosql.plugin.hive.rcfile.RcFilePageSourceFactory;
@@ -55,7 +54,6 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Properties;
 import java.util.TimeZone;
-import java.util.stream.Collectors;
 
 import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -63,7 +61,6 @@ import static com.google.common.collect.Iterables.filter;
 import static com.google.common.collect.Iterables.transform;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.plugin.hive.HiveStorageFormat.AVRO;
-import static io.prestosql.plugin.hive.HiveStorageFormat.DWRF;
 import static io.prestosql.plugin.hive.HiveStorageFormat.JSON;
 import static io.prestosql.plugin.hive.HiveStorageFormat.ORC;
 import static io.prestosql.plugin.hive.HiveStorageFormat.PARQUET;
@@ -394,47 +391,6 @@ public class TestHiveFileFormats
                         !hasType(column.getObjectInspector(), PrimitiveCategory.SHORT) &&
                         !hasType(column.getObjectInspector(), PrimitiveCategory.BYTE))
                 .collect(toList());
-    }
-
-    @Test(dataProvider = "rowCount")
-    public void testDwrf(int rowCount)
-            throws Exception
-    {
-        List<TestColumn> testColumns = TEST_COLUMNS.stream()
-                .filter(testColumn -> !hasType(testColumn.getObjectInspector(), PrimitiveCategory.DATE, PrimitiveCategory.VARCHAR, PrimitiveCategory.CHAR, PrimitiveCategory.DECIMAL))
-                .collect(Collectors.toList());
-        assertThatFileFormat(DWRF)
-                .withColumns(testColumns)
-                .withRowsCount(rowCount)
-                .isReadableByPageSource(new DwrfPageSourceFactory(TYPE_MANAGER, HDFS_ENVIRONMENT, STATS));
-    }
-
-    @Test(dataProvider = "rowCount")
-    public void testDwrfOptimizedWriter(int rowCount)
-            throws Exception
-    {
-        TestingConnectorSession session = new TestingConnectorSession(
-                new HiveSessionProperties(
-                        new HiveClientConfig()
-                                .setOrcOptimizedWriterEnabled(true)
-                                .setOrcWriterValidationPercentage(100.0),
-                        new OrcFileWriterConfig(),
-                        new ParquetFileWriterConfig()).getSessionProperties());
-
-        // DWRF does not support modern Hive types
-        // A Presto page can not contain a map with null keys, so a page based writer can not write null keys
-        List<TestColumn> testColumns = TEST_COLUMNS.stream()
-                .filter(testColumn -> !hasType(testColumn.getObjectInspector(), PrimitiveCategory.DATE, PrimitiveCategory.VARCHAR, PrimitiveCategory.CHAR, PrimitiveCategory.DECIMAL))
-                .filter(testColumn -> !testColumn.getName().equals("t_map_null_key") && !testColumn.getName().equals("t_map_null_key_complex_value") && !testColumn.getName().equals("t_map_null_key_complex_key_value"))
-                .collect(toList());
-
-        assertThatFileFormat(DWRF)
-                .withColumns(testColumns)
-                .withRowsCount(rowCount)
-                .withSession(session)
-                .withFileWriterFactory(new OrcFileWriterFactory(HDFS_ENVIRONMENT, TYPE_MANAGER, new NodeVersion("test"), HIVE_STORAGE_TIME_ZONE, STATS, new OrcWriterOptions()))
-                .isReadableByRecordCursor(new GenericHiveRecordCursorProvider(HDFS_ENVIRONMENT))
-                .isReadableByPageSource(new DwrfPageSourceFactory(TYPE_MANAGER, HDFS_ENVIRONMENT, STATS));
     }
 
     @Test

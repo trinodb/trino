@@ -16,7 +16,6 @@ package io.prestosql.plugin.hive;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.orc.OrcDataSink;
 import io.prestosql.orc.OrcDataSource;
-import io.prestosql.orc.OrcEncoding;
 import io.prestosql.orc.OrcWriteValidation.OrcWriteValidationMode;
 import io.prestosql.orc.OrcWriter;
 import io.prestosql.orc.OrcWriterOptions;
@@ -64,7 +63,6 @@ public class OrcFileWriter
     public OrcFileWriter(
             OrcDataSink orcDataSink,
             Callable<Void> rollbackAction,
-            OrcEncoding orcEncoding,
             List<String> columnNames,
             List<Type> fileColumnTypes,
             CompressionKind compression,
@@ -82,7 +80,6 @@ public class OrcFileWriter
                 orcDataSink,
                 columnNames,
                 fileColumnTypes,
-                orcEncoding,
                 compression,
                 options,
                 metadata,

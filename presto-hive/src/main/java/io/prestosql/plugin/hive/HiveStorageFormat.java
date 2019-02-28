@@ -54,11 +54,6 @@ public enum HiveStorageFormat
             OrcInputFormat.class.getName(),
             OrcOutputFormat.class.getName(),
             new DataSize(256, Unit.MEGABYTE)),
-    DWRF(
-            com.facebook.hive.orc.OrcSerde.class.getName(),
-            com.facebook.hive.orc.OrcInputFormat.class.getName(),
-            com.facebook.hive.orc.OrcOutputFormat.class.getName(),
-            new DataSize(256, Unit.MEGABYTE)),
     PARQUET(
             ParquetHiveSerDe.class.getName(),
             MapredParquetInputFormat.class.getName(),

@@ -13,24 +13,17 @@
  */
 package io.prestosql.orc.stream;
 
-import io.prestosql.orc.OrcEncoding;
 import io.prestosql.orc.checkpoint.LongStreamCheckpoint;
 import io.prestosql.orc.metadata.CompressionKind;
 
-import static io.prestosql.orc.OrcEncoding.DWRF;
 import static io.prestosql.orc.metadata.Stream.StreamKind.LENGTH;
 
 public interface LongOutputStream
         extends ValueOutputStream<LongStreamCheckpoint>
 {
-    static LongOutputStream createLengthOutputStream(CompressionKind compression, int bufferSize, OrcEncoding orcEncoding)
+    static LongOutputStream createLengthOutputStream(CompressionKind compression, int bufferSize)
     {
-        if (orcEncoding == DWRF) {
-            return new LongOutputStreamV1(compression, bufferSize, false, LENGTH);
-        }
-        else {
-            return new LongOutputStreamV2(compression, bufferSize, false, LENGTH);
-        }
+        return new LongOutputStreamV2(compression, bufferSize, false, LENGTH);
     }
 
     void writeLong(long value);

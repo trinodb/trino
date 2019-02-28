@@ -358,38 +358,6 @@ public abstract class AbstractTestOrcReader
         tester.testRoundTrip(VARBINARY, nCopies(30_000, new SqlVarbinary(new byte[0])));
     }
 
-    @Test
-    public void testDwrfInvalidCheckpointsForRowGroupDictionary()
-            throws Exception
-    {
-        List<Integer> values = newArrayList(limit(
-                cycle(concat(
-                        ImmutableList.of(1), nCopies(9999, 123),
-                        ImmutableList.of(2), nCopies(9999, 123),
-                        ImmutableList.of(3), nCopies(9999, 123),
-                        nCopies(1_000_000, null))),
-                200_000));
-
-        tester.assertRoundTrip(INTEGER, values, false);
-
-        tester.assertRoundTrip(
-                VARCHAR,
-                newArrayList(values).stream()
-                        .map(value -> value == null ? null : String.valueOf(value))
-                        .collect(toList()));
-    }
-
-    @Test
-    public void testDwrfInvalidCheckpointsForStripeDictionary()
-            throws Exception
-    {
-        tester.testRoundTrip(
-                VARCHAR,
-                newArrayList(limit(cycle(ImmutableList.of(1, 3, 5, 7, 11, 13, 17)), 200_000)).stream()
-                        .map(Object::toString)
-                        .collect(toList()));
-    }
-
     private static <T> Iterable<T> skipEvery(int n, Iterable<T> iterable)
     {
         return () -> new AbstractIterator<T>()

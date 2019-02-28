@@ -16,7 +16,6 @@ package io.prestosql.orc.writer;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
-import io.prestosql.orc.OrcEncoding;
 import io.prestosql.orc.checkpoint.BooleanStreamCheckpoint;
 import io.prestosql.orc.checkpoint.LongStreamCheckpoint;
 import io.prestosql.orc.metadata.ColumnEncoding;
@@ -28,7 +27,6 @@ import io.prestosql.orc.metadata.Stream.StreamKind;
 import io.prestosql.orc.metadata.statistics.ColumnStatistics;
 import io.prestosql.orc.metadata.statistics.LongValueStatisticsBuilder;
 import io.prestosql.orc.stream.LongOutputStream;
-import io.prestosql.orc.stream.LongOutputStreamDwrf;
 import io.prestosql.orc.stream.LongOutputStreamV2;
 import io.prestosql.orc.stream.PresentOutputStream;
 import io.prestosql.orc.stream.StreamDataOutput;
@@ -45,8 +43,6 @@ import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static io.prestosql.orc.OrcEncoding.DWRF;
-import static io.prestosql.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT;
 import static io.prestosql.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT_V2;
 import static io.prestosql.orc.metadata.CompressionKind.NONE;
 import static io.prestosql.orc.metadata.Stream.StreamKind.DATA;
@@ -70,20 +66,14 @@ public class LongColumnWriter
 
     private boolean closed;
 
-    public LongColumnWriter(int column, Type type, CompressionKind compression, int bufferSize, OrcEncoding orcEncoding, Supplier<LongValueStatisticsBuilder> statisticsBuilderSupplier)
+    public LongColumnWriter(int column, Type type, CompressionKind compression, int bufferSize, Supplier<LongValueStatisticsBuilder> statisticsBuilderSupplier)
     {
         checkArgument(column >= 0, "column is negative");
         this.column = column;
         this.type = requireNonNull(type, "type is null");
         this.compressed = requireNonNull(compression, "compression is null") != NONE;
-        if (orcEncoding == DWRF) {
-            this.columnEncoding = new ColumnEncoding(DIRECT, 0);
-            this.dataStream = new LongOutputStreamDwrf(compression, bufferSize, true, DATA);
-        }
-        else {
-            this.columnEncoding = new ColumnEncoding(DIRECT_V2, 0);
-            this.dataStream = new LongOutputStreamV2(compression, bufferSize, true, DATA);
-        }
+        this.columnEncoding = new ColumnEncoding(DIRECT_V2, 0);
+        this.dataStream = new LongOutputStreamV2(compression, bufferSize, true, DATA);
         this.presentStream = new PresentOutputStream(compression, bufferSize);
         this.statisticsBuilderSupplier = requireNonNull(statisticsBuilderSupplier, "statisticsBuilderSupplier is null");
         this.statisticsBuilder = statisticsBuilderSupplier.get();

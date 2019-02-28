@@ -16,7 +16,6 @@ package io.prestosql.orc.writer;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
-import io.prestosql.orc.OrcEncoding;
 import io.prestosql.orc.checkpoint.BooleanStreamCheckpoint;
 import io.prestosql.orc.checkpoint.DecimalStreamCheckpoint;
 import io.prestosql.orc.checkpoint.LongStreamCheckpoint;
@@ -49,7 +48,6 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static io.prestosql.orc.OrcEncoding.DWRF;
 import static io.prestosql.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT_V2;
 import static io.prestosql.orc.metadata.CompressionKind.NONE;
 import static io.prestosql.orc.metadata.Stream.StreamKind.SECONDARY;
@@ -74,10 +72,9 @@ public class DecimalColumnWriter
 
     private boolean closed;
 
-    public DecimalColumnWriter(int column, Type type, CompressionKind compression, int bufferSize, OrcEncoding orcEncoding)
+    public DecimalColumnWriter(int column, Type type, CompressionKind compression, int bufferSize)
     {
         checkArgument(column >= 0, "column is negative");
-        checkArgument(orcEncoding != DWRF, "DWRF does not support %s type", type);
         this.column = column;
         this.type = (DecimalType) requireNonNull(type, "type is null");
         this.compressed = requireNonNull(compression, "compression is null") != NONE;
