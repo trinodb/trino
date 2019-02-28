@@ -276,6 +276,7 @@ public class FeaturesConfig
     }
 
     @Config("join-max-broadcast-table-size")
+    @ConfigDescription("Maximum estimated size of a table that can be broadcast when using automatic join type selection")
     public FeaturesConfig setJoinMaxBroadcastTableSize(DataSize joinMaxBroadcastTableSize)
     {
         this.joinMaxBroadcastTableSize = joinMaxBroadcastTableSize;
