@@ -47,7 +47,10 @@ import static java.util.concurrent.TimeUnit.MINUTES;
         "hive.max-global-split-iterator-threads",
         "hive.max-sort-files-per-bucket",
         "hive.bucket-writing",
-        "hive.optimized-reader.enabled"})
+        "hive.optimized-reader.enabled",
+        "hive.orc.optimized-writer.enabled",
+        "hive.rcfile-optimized-writer.enabled",
+})
 public class HiveClientConfig
 {
     private String timeZone = TimeZone.getDefault().getID();
@@ -115,11 +118,9 @@ public class HiveClientConfig
     private DataSize orcStreamBufferSize = new DataSize(8, MEGABYTE);
     private DataSize orcMaxReadBlockSize = new DataSize(16, MEGABYTE);
     private boolean orcLazyReadSmallRanges = true;
-    private boolean orcOptimizedWriterEnabled = true;
     private double orcWriterValidationPercentage;
     private OrcWriteValidationMode orcWriterValidationMode = OrcWriteValidationMode.BOTH;
 
-    private boolean rcfileOptimizedWriterEnabled = true;
     private boolean rcfileWriterValidate;
 
     private HiveMetastoreAuthenticationType hiveMetastoreAuthenticationType = HiveMetastoreAuthenticationType.NONE;
@@ -800,20 +801,6 @@ public class HiveClientConfig
         return this;
     }
 
-    @Deprecated
-    public boolean isOrcOptimizedWriterEnabled()
-    {
-        return orcOptimizedWriterEnabled;
-    }
-
-    @Deprecated
-    @Config("hive.orc.optimized-writer.enabled")
-    public HiveClientConfig setOrcOptimizedWriterEnabled(boolean orcOptimizedWriterEnabled)
-    {
-        this.orcOptimizedWriterEnabled = orcOptimizedWriterEnabled;
-        return this;
-    }
-
     @DecimalMin("0.0")
     @DecimalMax("100.0")
     public double getOrcWriterValidationPercentage()
@@ -840,20 +827,6 @@ public class HiveClientConfig
     public HiveClientConfig setOrcWriterValidationMode(OrcWriteValidationMode orcWriterValidationMode)
     {
         this.orcWriterValidationMode = orcWriterValidationMode;
-        return this;
-    }
-
-    @Deprecated
-    public boolean isRcfileOptimizedWriterEnabled()
-    {
-        return rcfileOptimizedWriterEnabled;
-    }
-
-    @Deprecated
-    @Config("hive.rcfile-optimized-writer.enabled")
-    public HiveClientConfig setRcfileOptimizedWriterEnabled(boolean rcfileOptimizedWriterEnabled)
-    {
-        this.rcfileOptimizedWriterEnabled = rcfileOptimizedWriterEnabled;
         return this;
     }
 
