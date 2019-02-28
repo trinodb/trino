@@ -19,7 +19,6 @@ import com.google.common.net.HostAndPort;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.DefunctConfig;
-import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.airlift.units.MaxDataSize;
@@ -43,6 +42,7 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
 @DefunctConfig({
+        "dfs.domain-socket-path",
         "hive.file-system-cache-ttl",
         "hive.max-global-split-iterator-threads",
         "hive.max-sort-files-per-bucket",
@@ -649,7 +649,6 @@ public class HiveClientConfig
     }
 
     @Config("hive.dfs.domain-socket-path")
-    @LegacyConfig("dfs.domain-socket-path")
     public HiveClientConfig setDomainSocketPath(String domainSocketPath)
     {
         this.domainSocketPath = domainSocketPath;
