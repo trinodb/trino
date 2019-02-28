@@ -14,18 +14,18 @@
 package io.prestosql.tests.hive;
 
 import com.google.inject.Inject;
-import io.prestodb.tempto.ProductTest;
-import io.prestodb.tempto.assertions.QueryAssert;
-import io.prestodb.tempto.fulfillment.table.hive.HiveDataSource;
-import io.prestodb.tempto.hadoop.hdfs.HdfsClient;
-import io.prestodb.tempto.internal.hadoop.hdfs.HdfsDataSourceWriter;
-import io.prestodb.tempto.query.QueryResult;
+import io.prestosql.tempto.ProductTest;
+import io.prestosql.tempto.assertions.QueryAssert;
+import io.prestosql.tempto.fulfillment.table.hive.HiveDataSource;
+import io.prestosql.tempto.hadoop.hdfs.HdfsClient;
+import io.prestosql.tempto.internal.hadoop.hdfs.HdfsDataSourceWriter;
+import io.prestosql.tempto.query.QueryResult;
 import org.testng.annotations.Test;
 
-import static io.prestodb.tempto.assertions.QueryAssert.Row.row;
-import static io.prestodb.tempto.assertions.QueryAssert.assertThat;
-import static io.prestodb.tempto.fulfillment.table.hive.InlineDataSource.createResourceDataSource;
-import static io.prestodb.tempto.query.QueryExecutor.query;
+import static io.prestosql.tempto.assertions.QueryAssert.Row.row;
+import static io.prestosql.tempto.assertions.QueryAssert.assertThat;
+import static io.prestosql.tempto.fulfillment.table.hive.InlineDataSource.createResourceDataSource;
+import static io.prestosql.tempto.query.QueryExecutor.query;
 import static io.prestosql.tests.TestGroups.HIVE_PARTITIONING;
 import static io.prestosql.tests.TestGroups.SMOKE;
 

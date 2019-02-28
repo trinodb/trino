@@ -14,25 +14,25 @@
 package io.prestosql.tests.cassandra;
 
 import io.airlift.units.Duration;
-import io.prestodb.tempto.ProductTest;
-import io.prestodb.tempto.Requirement;
-import io.prestodb.tempto.RequirementsProvider;
-import io.prestodb.tempto.configuration.Configuration;
-import io.prestodb.tempto.internal.fulfillment.table.TableName;
-import io.prestodb.tempto.internal.query.CassandraQueryExecutor;
-import io.prestodb.tempto.query.QueryResult;
+import io.prestosql.tempto.ProductTest;
+import io.prestosql.tempto.Requirement;
+import io.prestosql.tempto.RequirementsProvider;
+import io.prestosql.tempto.configuration.Configuration;
+import io.prestosql.tempto.internal.fulfillment.table.TableName;
+import io.prestosql.tempto.internal.query.CassandraQueryExecutor;
+import io.prestosql.tempto.query.QueryResult;
 import org.testng.annotations.Test;
 
 import java.sql.Date;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
 
-import static io.prestodb.tempto.assertions.QueryAssert.Row.row;
-import static io.prestodb.tempto.assertions.QueryAssert.assertThat;
-import static io.prestodb.tempto.fulfillment.table.MutableTableRequirement.State.CREATED;
-import static io.prestodb.tempto.fulfillment.table.MutableTablesState.mutableTablesState;
-import static io.prestodb.tempto.fulfillment.table.TableRequirements.mutableTable;
-import static io.prestodb.tempto.query.QueryExecutor.query;
+import static io.prestosql.tempto.assertions.QueryAssert.Row.row;
+import static io.prestosql.tempto.assertions.QueryAssert.assertThat;
+import static io.prestosql.tempto.fulfillment.table.MutableTableRequirement.State.CREATED;
+import static io.prestosql.tempto.fulfillment.table.MutableTablesState.mutableTablesState;
+import static io.prestosql.tempto.fulfillment.table.TableRequirements.mutableTable;
+import static io.prestosql.tempto.query.QueryExecutor.query;
 import static io.prestosql.tests.TestGroups.CASSANDRA;
 import static io.prestosql.tests.cassandra.DataTypesTableDefinition.CASSANDRA_ALL_TYPES;
 import static io.prestosql.tests.cassandra.TestConstants.CONNECTOR_NAME;

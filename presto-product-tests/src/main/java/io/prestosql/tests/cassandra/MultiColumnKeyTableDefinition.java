@@ -14,8 +14,8 @@
 package io.prestosql.tests.cassandra;
 
 import com.google.common.collect.ImmutableList;
-import io.prestodb.tempto.fulfillment.table.jdbc.RelationalDataSource;
-import io.prestodb.tempto.internal.fulfillment.table.cassandra.CassandraTableDefinition;
+import io.prestosql.tempto.fulfillment.table.jdbc.RelationalDataSource;
+import io.prestosql.tempto.internal.fulfillment.table.cassandra.CassandraTableDefinition;
 
 import java.sql.Timestamp;
 import java.util.List;

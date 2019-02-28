@@ -13,17 +13,17 @@
  */
 package io.prestosql.tests.hive;
 
-import io.prestodb.tempto.BeforeTestWithContext;
-import io.prestodb.tempto.ProductTest;
-import io.prestodb.tempto.query.QueryResult;
 import io.prestosql.jdbc.PrestoResultSet;
+import io.prestosql.tempto.BeforeTestWithContext;
+import io.prestosql.tempto.ProductTest;
+import io.prestosql.tempto.query.QueryResult;
 import io.prestosql.tests.querystats.QueryStatsClient;
 
 import javax.inject.Inject;
 
 import java.sql.SQLException;
 
-import static io.prestodb.tempto.query.QueryExecutor.query;
+import static io.prestosql.tempto.query.QueryExecutor.query;
 import static java.lang.String.format;
 
 public abstract class HivePartitioningTest

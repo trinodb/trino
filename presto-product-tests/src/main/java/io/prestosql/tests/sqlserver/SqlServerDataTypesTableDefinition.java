@@ -14,8 +14,8 @@
 package io.prestosql.tests.sqlserver;
 
 import com.google.common.collect.ImmutableList;
-import io.prestodb.tempto.fulfillment.table.jdbc.RelationalDataSource;
-import io.prestodb.tempto.fulfillment.table.jdbc.RelationalTableDefinition;
+import io.prestosql.tempto.fulfillment.table.jdbc.RelationalDataSource;
+import io.prestosql.tempto.fulfillment.table.jdbc.RelationalTableDefinition;
 
 import java.sql.Date;
 import java.sql.Timestamp;

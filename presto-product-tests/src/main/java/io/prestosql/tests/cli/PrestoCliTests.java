@@ -18,20 +18,20 @@ import com.google.common.io.Files;
 import com.google.inject.Inject;
 import com.google.inject.name.Named;
 import io.airlift.testing.TempFile;
-import io.prestodb.tempto.AfterTestWithContext;
-import io.prestodb.tempto.Requirement;
-import io.prestodb.tempto.RequirementsProvider;
-import io.prestodb.tempto.configuration.Configuration;
-import io.prestodb.tempto.fulfillment.table.ImmutableTableRequirement;
 import io.prestosql.cli.Presto;
+import io.prestosql.tempto.AfterTestWithContext;
+import io.prestosql.tempto.Requirement;
+import io.prestosql.tempto.RequirementsProvider;
+import io.prestosql.tempto.configuration.Configuration;
+import io.prestosql.tempto.fulfillment.table.ImmutableTableRequirement;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
 import java.util.List;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
-import static io.prestodb.tempto.fulfillment.table.hive.tpch.TpchTableDefinitions.NATION;
-import static io.prestodb.tempto.process.CliProcess.trimLines;
+import static io.prestosql.tempto.fulfillment.table.hive.tpch.TpchTableDefinitions.NATION;
+import static io.prestosql.tempto.process.CliProcess.trimLines;
 import static io.prestosql.tests.TestGroups.AUTHORIZATION;
 import static io.prestosql.tests.TestGroups.CLI;
 import static io.prestosql.tests.TestGroups.PROFILE_SPECIFIC_TESTS;

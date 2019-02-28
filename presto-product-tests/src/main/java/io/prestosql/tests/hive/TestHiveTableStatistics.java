@@ -14,27 +14,27 @@
 package io.prestosql.tests.hive;
 
 import com.google.common.collect.ImmutableList;
-import io.prestodb.tempto.ProductTest;
-import io.prestodb.tempto.Requirement;
-import io.prestodb.tempto.Requirements;
-import io.prestodb.tempto.RequirementsProvider;
-import io.prestodb.tempto.Requires;
-import io.prestodb.tempto.assertions.QueryAssert.Row;
-import io.prestodb.tempto.configuration.Configuration;
-import io.prestodb.tempto.fulfillment.table.MutableTableRequirement;
-import io.prestodb.tempto.fulfillment.table.hive.HiveTableDefinition;
-import io.prestodb.tempto.fulfillment.table.hive.InlineDataSource;
+import io.prestosql.tempto.ProductTest;
+import io.prestosql.tempto.Requirement;
+import io.prestosql.tempto.Requirements;
+import io.prestosql.tempto.RequirementsProvider;
+import io.prestosql.tempto.Requires;
+import io.prestosql.tempto.assertions.QueryAssert.Row;
+import io.prestosql.tempto.configuration.Configuration;
+import io.prestosql.tempto.fulfillment.table.MutableTableRequirement;
+import io.prestosql.tempto.fulfillment.table.hive.HiveTableDefinition;
+import io.prestosql.tempto.fulfillment.table.hive.InlineDataSource;
 import org.testng.annotations.Test;
 
 import java.util.List;
 
-import static io.prestodb.tempto.assertions.QueryAssert.Row.row;
-import static io.prestodb.tempto.assertions.QueryAssert.anyOf;
-import static io.prestodb.tempto.assertions.QueryAssert.assertThat;
-import static io.prestodb.tempto.fulfillment.table.MutableTablesState.mutableTablesState;
-import static io.prestodb.tempto.fulfillment.table.TableRequirements.mutableTable;
-import static io.prestodb.tempto.fulfillment.table.hive.tpch.TpchTableDefinitions.NATION;
-import static io.prestodb.tempto.query.QueryExecutor.query;
+import static io.prestosql.tempto.assertions.QueryAssert.Row.row;
+import static io.prestosql.tempto.assertions.QueryAssert.anyOf;
+import static io.prestosql.tempto.assertions.QueryAssert.assertThat;
+import static io.prestosql.tempto.fulfillment.table.MutableTablesState.mutableTablesState;
+import static io.prestosql.tempto.fulfillment.table.TableRequirements.mutableTable;
+import static io.prestosql.tempto.fulfillment.table.hive.tpch.TpchTableDefinitions.NATION;
+import static io.prestosql.tempto.query.QueryExecutor.query;
 import static io.prestosql.tests.TestGroups.SKIP_ON_CDH;
 import static io.prestosql.tests.hive.AllSimpleTypesTableDefinitions.ALL_HIVE_SIMPLE_TYPES_TEXTFILE;
 import static io.prestosql.tests.hive.HiveTableDefinitions.NATION_PARTITIONED_BY_BIGINT_REGIONKEY;

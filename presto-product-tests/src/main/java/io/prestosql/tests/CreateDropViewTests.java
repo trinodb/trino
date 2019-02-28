@@ -13,15 +13,15 @@
  */
 package io.prestosql.tests;
 
-import io.prestodb.tempto.ProductTest;
-import io.prestodb.tempto.Requires;
-import io.prestodb.tempto.fulfillment.table.hive.tpch.ImmutableTpchTablesRequirements.ImmutableNationTable;
+import io.prestosql.tempto.ProductTest;
+import io.prestosql.tempto.Requires;
+import io.prestosql.tempto.fulfillment.table.hive.tpch.ImmutableTpchTablesRequirements.ImmutableNationTable;
 import org.testng.annotations.Test;
 
-import static io.prestodb.tempto.assertions.QueryAssert.assertThat;
-import static io.prestodb.tempto.context.ContextDsl.executeWith;
-import static io.prestodb.tempto.query.QueryExecutor.query;
-import static io.prestodb.tempto.sql.SqlContexts.createViewAs;
+import static io.prestosql.tempto.assertions.QueryAssert.assertThat;
+import static io.prestosql.tempto.context.ContextDsl.executeWith;
+import static io.prestosql.tempto.query.QueryExecutor.query;
+import static io.prestosql.tempto.sql.SqlContexts.createViewAs;
 import static io.prestosql.tests.TestGroups.CREATE_DROP_VIEW;
 import static io.prestosql.tests.TestGroups.SMOKE;
 import static java.lang.String.format;

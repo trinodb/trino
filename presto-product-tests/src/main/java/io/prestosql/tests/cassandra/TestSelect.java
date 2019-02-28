@@ -15,23 +15,23 @@ package io.prestosql.tests.cassandra;
 
 import com.datastax.driver.core.utils.Bytes;
 import io.airlift.units.Duration;
-import io.prestodb.tempto.ProductTest;
-import io.prestodb.tempto.Requirement;
-import io.prestodb.tempto.RequirementsProvider;
-import io.prestodb.tempto.configuration.Configuration;
-import io.prestodb.tempto.internal.query.CassandraQueryExecutor;
-import io.prestodb.tempto.query.QueryResult;
+import io.prestosql.tempto.ProductTest;
+import io.prestosql.tempto.Requirement;
+import io.prestosql.tempto.RequirementsProvider;
+import io.prestosql.tempto.configuration.Configuration;
+import io.prestosql.tempto.internal.query.CassandraQueryExecutor;
+import io.prestosql.tempto.query.QueryResult;
 import org.testng.annotations.Test;
 
 import java.sql.Date;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
 
-import static io.prestodb.tempto.Requirements.compose;
-import static io.prestodb.tempto.assertions.QueryAssert.Row.row;
-import static io.prestodb.tempto.assertions.QueryAssert.assertThat;
-import static io.prestodb.tempto.fulfillment.table.TableRequirements.immutableTable;
-import static io.prestodb.tempto.query.QueryExecutor.query;
+import static io.prestosql.tempto.Requirements.compose;
+import static io.prestosql.tempto.assertions.QueryAssert.Row.row;
+import static io.prestosql.tempto.assertions.QueryAssert.assertThat;
+import static io.prestosql.tempto.fulfillment.table.TableRequirements.immutableTable;
+import static io.prestosql.tempto.query.QueryExecutor.query;
 import static io.prestosql.tests.TestGroups.CASSANDRA;
 import static io.prestosql.tests.TpchTableResults.PRESTO_NATION_RESULT;
 import static io.prestosql.tests.cassandra.CassandraTpchTableDefinitions.CASSANDRA_NATION;

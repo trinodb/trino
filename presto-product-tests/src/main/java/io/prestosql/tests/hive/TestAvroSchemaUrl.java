@@ -15,17 +15,17 @@ package io.prestosql.tests.hive;
 
 import com.google.common.io.Resources;
 import com.google.inject.Inject;
-import io.prestodb.tempto.AfterTestWithContext;
-import io.prestodb.tempto.BeforeTestWithContext;
-import io.prestodb.tempto.ProductTest;
-import io.prestodb.tempto.hadoop.hdfs.HdfsClient;
+import io.prestosql.tempto.AfterTestWithContext;
+import io.prestosql.tempto.BeforeTestWithContext;
+import io.prestosql.tempto.ProductTest;
+import io.prestosql.tempto.hadoop.hdfs.HdfsClient;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.io.InputStream;
 
-import static io.prestodb.tempto.assertions.QueryAssert.Row.row;
-import static io.prestodb.tempto.assertions.QueryAssert.assertThat;
+import static io.prestosql.tempto.assertions.QueryAssert.Row.row;
+import static io.prestosql.tempto.assertions.QueryAssert.assertThat;
 import static io.prestosql.tests.TestGroups.AVRO;
 import static io.prestosql.tests.utils.QueryExecutors.onHive;
 import static io.prestosql.tests.utils.QueryExecutors.onPresto;
