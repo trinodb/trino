@@ -46,6 +46,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static io.prestosql.cli.ConsolePrinter.REAL_TERMINAL;
+import static io.prestosql.cli.CsvPrinter.CsvOutputFormat.NO_HEADER;
+import static io.prestosql.cli.CsvPrinter.CsvOutputFormat.STANDARD;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
@@ -298,9 +300,9 @@ public class Query
             case VERTICAL:
                 return new VerticalRecordPrinter(fieldNames, writer);
             case CSV:
-                return new CsvPrinter(fieldNames, writer, false);
+                return new CsvPrinter(fieldNames, writer, NO_HEADER);
             case CSV_HEADER:
-                return new CsvPrinter(fieldNames, writer, true);
+                return new CsvPrinter(fieldNames, writer, STANDARD);
             case TSV:
                 return new TsvPrinter(fieldNames, writer, false);
             case TSV_HEADER:
