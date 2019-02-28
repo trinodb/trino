@@ -261,4 +261,14 @@ public interface AccessControl
      * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
     void checkCanShowRoleGrants(TransactionId transactionId, Identity identity, String catalogName);
+
+    /**
+     * Construct the inline view for the table
+     *
+     * @return {@link io.prestosql.sql.tree.Query} as string. Null if no column filters or masks present
+     */
+    default String applyTableInlineView(TransactionId transactionId, Identity identity, QualifiedObjectName tableName, Optional<Set<String>> columnNames)
+    {
+        return null;
+    }
 }

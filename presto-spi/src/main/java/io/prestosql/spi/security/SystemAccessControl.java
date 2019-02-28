@@ -312,4 +312,14 @@ public interface SystemAccessControl
     {
         denyShowRoles(catalogName);
     }
+
+    /**
+     * Construct the inline view for the table
+     *
+     * @return io.prestosql.sql.tree.Query as string. Null if no column filters or masks present
+     */
+    default String applyTableInlineView(Identity identity, CatalogSchemaTableName tableName, Optional<Set<String>> columnNames)
+    {
+        return null;
+    }
 }

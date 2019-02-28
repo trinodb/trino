@@ -543,6 +543,28 @@ public class AccessControlManager
     }
 
     @Override
+    public String applyTableInlineView(TransactionId transactionId, Identity identity, QualifiedObjectName tableName, Optional<Set<String>> columnNames)
+    {
+        requireNonNull(identity, "identity is null");
+        requireNonNull(tableName, "tableName is null");
+
+        String catalogName = tableName.getCatalogName();
+        authenticationCheck(() -> checkCanAccessCatalog(identity, catalogName));
+        final String query = systemAccessControl.get().applyTableInlineView(identity, tableName.asCatalogSchemaTableName(), columnNames);
+
+        // Giving priority to system access control
+        if (query != null) {
+            return query;
+        }
+
+        CatalogAccessControlEntry entry = getConnectorAccessControl(transactionId, tableName.getCatalogName());
+        if (entry == null) {
+            return null;
+        }
+        return entry.getAccessControl().applyTableInlineView(entry.getTransactionHandle(transactionId), identity.toConnectorIdentity(catalogName), tableName.asSchemaTableName(), columnNames);
+    }
+
+    @Override
     public void checkCanCreateRole(TransactionId transactionId, Identity identity, String role, Optional<PrestoPrincipal> grantor, String catalogName)
     {
         requireNonNull(identity, "identity is null");

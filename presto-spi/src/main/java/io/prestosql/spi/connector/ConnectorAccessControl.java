@@ -330,4 +330,14 @@ public interface ConnectorAccessControl
     {
         denyShowRoleGrants(catalogName);
     }
+
+    /**
+     * Construct the inline view for the table
+     *
+     * @return io.prestosql.presto.sql.tree.Query as string. Null if no column filters or masks present
+     */
+    default String applyTableInlineView(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, SchemaTableName tableName, Optional<Set<String>> columnNames)
+    {
+        return null;
+    }
 }
