@@ -126,10 +126,6 @@ public class OrcFileWriterFactory
             JobConf configuration,
             ConnectorSession session)
     {
-        if (!HiveSessionProperties.isOrcOptimizedWriterEnabled(session)) {
-            return Optional.empty();
-        }
-
         if (!OrcOutputFormat.class.getName().equals(storageFormat.getOutputFormat())) {
             return Optional.empty();
         }

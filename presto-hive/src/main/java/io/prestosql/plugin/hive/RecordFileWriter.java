@@ -28,8 +28,6 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.ql.exec.FileSinkOperator.RecordWriter;
 import org.apache.hadoop.hive.serde2.SerDeException;
 import org.apache.hadoop.hive.serde2.Serializer;
-import org.apache.hadoop.hive.serde2.columnar.LazyBinaryColumnarSerDe;
-import org.apache.hadoop.hive.serde2.columnar.OptimizedLazyBinaryColumnarSerde;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.SettableStructObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.StructField;
@@ -95,9 +93,6 @@ public class RecordFileWriter
         fieldCount = fileColumnNames.size();
 
         String serDe = storageFormat.getSerDe();
-        if (serDe.equals(LazyBinaryColumnarSerDe.class.getName())) {
-            serDe = OptimizedLazyBinaryColumnarSerde.class.getName();
-        }
         serializer = initializeSerializer(conf, schema, serDe);
         recordWriter = createRecordWriter(path, conf, schema, storageFormat.getOutputFormat(), session);
 

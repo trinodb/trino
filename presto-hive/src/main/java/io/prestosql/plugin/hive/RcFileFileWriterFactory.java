@@ -95,10 +95,6 @@ public class RcFileFileWriterFactory
             JobConf configuration,
             ConnectorSession session)
     {
-        if (!HiveSessionProperties.isRcfileOptimizedWriterEnabled(session)) {
-            return Optional.empty();
-        }
-
         if (!RCFileOutputFormat.class.getName().equals(storageFormat.getOutputFormat())) {
             return Optional.empty();
         }

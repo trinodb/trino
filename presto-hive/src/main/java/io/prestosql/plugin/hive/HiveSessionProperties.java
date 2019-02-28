@@ -51,7 +51,6 @@ public final class HiveSessionProperties
     private static final String ORC_MAX_READ_BLOCK_SIZE = "orc_max_read_block_size";
     private static final String ORC_LAZY_READ_SMALL_RANGES = "orc_lazy_read_small_ranges";
     private static final String ORC_STRING_STATISTICS_LIMIT = "orc_string_statistics_limit";
-    private static final String ORC_OPTIMIZED_WRITER_ENABLED = "orc_optimized_writer_enabled";
     private static final String ORC_OPTIMIZED_WRITER_VALIDATE = "orc_optimized_writer_validate";
     private static final String ORC_OPTIMIZED_WRITER_VALIDATE_PERCENTAGE = "orc_optimized_writer_validate_percentage";
     private static final String ORC_OPTIMIZED_WRITER_VALIDATE_MODE = "orc_optimized_writer_validate_mode";
@@ -68,7 +67,6 @@ public final class HiveSessionProperties
     private static final String PARQUET_WRITER_PAGE_SIZE = "parquet_writer_page_size";
     private static final String MAX_SPLIT_SIZE = "max_split_size";
     private static final String MAX_INITIAL_SPLIT_SIZE = "max_initial_split_size";
-    public static final String RCFILE_OPTIMIZED_WRITER_ENABLED = "rcfile_optimized_writer_enabled";
     private static final String RCFILE_OPTIMIZED_WRITER_VALIDATE = "rcfile_optimized_writer_validate";
     private static final String SORTED_WRITING_ENABLED = "sorted_writing_enabled";
     private static final String STATISTICS_ENABLED = "statistics_enabled";
@@ -164,11 +162,6 @@ public final class HiveSessionProperties
                         orcFileWriterConfig.getStringStatisticsLimit(),
                         false),
                 booleanProperty(
-                        ORC_OPTIMIZED_WRITER_ENABLED,
-                        "Experimental: ORC: Enable optimized writer",
-                        hiveClientConfig.isOrcOptimizedWriterEnabled(),
-                        false),
-                booleanProperty(
                         ORC_OPTIMIZED_WRITER_VALIDATE,
                         "Experimental: ORC: Force all validation for files",
                         hiveClientConfig.getOrcWriterValidationPercentage() > 0.0,
@@ -260,11 +253,6 @@ public final class HiveSessionProperties
                         "Max initial split size",
                         hiveClientConfig.getMaxInitialSplitSize(),
                         true),
-                booleanProperty(
-                        RCFILE_OPTIMIZED_WRITER_ENABLED,
-                        "Experimental: RCFile: Enable optimized writer",
-                        hiveClientConfig.isRcfileOptimizedWriterEnabled(),
-                        false),
                 booleanProperty(
                         RCFILE_OPTIMIZED_WRITER_VALIDATE,
                         "Experimental: RCFile: Validate writer files",
@@ -377,11 +365,6 @@ public final class HiveSessionProperties
         return session.getProperty(ORC_STRING_STATISTICS_LIMIT, DataSize.class);
     }
 
-    public static boolean isOrcOptimizedWriterEnabled(ConnectorSession session)
-    {
-        return session.getProperty(ORC_OPTIMIZED_WRITER_ENABLED, Boolean.class);
-    }
-
     public static boolean isOrcOptimizedWriterValidate(ConnectorSession session)
     {
         boolean validate = session.getProperty(ORC_OPTIMIZED_WRITER_VALIDATE, Boolean.class);
@@ -467,11 +450,6 @@ public final class HiveSessionProperties
     public static DataSize getMaxInitialSplitSize(ConnectorSession session)
     {
         return session.getProperty(MAX_INITIAL_SPLIT_SIZE, DataSize.class);
-    }
-
-    public static boolean isRcfileOptimizedWriterEnabled(ConnectorSession session)
-    {
-        return session.getProperty(RCFILE_OPTIMIZED_WRITER_ENABLED, Boolean.class);
     }
 
     public static boolean isRcfileOptimizedWriterValidate(ConnectorSession session)
