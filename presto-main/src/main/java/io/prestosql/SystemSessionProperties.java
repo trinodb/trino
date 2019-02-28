@@ -164,7 +164,7 @@ public final class SystemSessionProperties
                         JoinDistributionType::name),
                 new PropertyMetadata<>(
                         JOIN_MAX_BROADCAST_TABLE_SIZE,
-                        "Maximum estimated size of a table that can be broadcast for JOIN.",
+                        "Maximum estimated size of a table that can be broadcast when using automatic join type selection",
                         VARCHAR,
                         DataSize.class,
                         featuresConfig.getJoinMaxBroadcastTableSize(),
