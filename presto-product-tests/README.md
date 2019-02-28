@@ -383,7 +383,7 @@ section.
     note that execution of the product test will be suspended until a
     debugger is attached.
 
-3. Set a breakpoint at the beginning of the `io.prestodb.tempto.internal.convention.ConventionBasedTestFactory#createTestCases`
+3. Set a breakpoint at the beginning of the `io.prestosql.tempto.internal.convention.ConventionBasedTestFactory#createTestCases`
 method. This is the main entry point for the convention based tests. When
 opening the `ConventionBasedTestFactory` class for the first time, IntelliJ
 will display a de-compiled version because `ConventionBasedTestFactory` is

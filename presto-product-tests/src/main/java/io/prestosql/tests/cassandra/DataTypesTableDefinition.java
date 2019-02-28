@@ -18,8 +18,8 @@ import com.datastax.driver.core.utils.Bytes;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.prestodb.tempto.fulfillment.table.jdbc.RelationalDataSource;
-import io.prestodb.tempto.internal.fulfillment.table.cassandra.CassandraTableDefinition;
+import io.prestosql.tempto.fulfillment.table.jdbc.RelationalDataSource;
+import io.prestosql.tempto.internal.fulfillment.table.cassandra.CassandraTableDefinition;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;

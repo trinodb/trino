@@ -45,19 +45,19 @@
             </exclusions>
         </dependency>
         <dependency>
-            <groupId>io.prestodb.tempto</groupId>
+            <groupId>io.prestosql.tempto</groupId>
             <artifactId>tempto-core</artifactId>
         </dependency>
         <dependency>
-            <groupId>io.prestodb.tempto</groupId>
+            <groupId>io.prestosql.tempto</groupId>
             <artifactId>tempto-ldap</artifactId>
         </dependency>
         <dependency>
-            <groupId>io.prestodb.tempto</groupId>
+            <groupId>io.prestosql.tempto</groupId>
             <artifactId>tempto-kafka</artifactId>
         </dependency>
         <dependency>
-            <groupId>io.prestodb.tempto</groupId>
+            <groupId>io.prestosql.tempto</groupId>
             <artifactId>tempto-runner</artifactId>
         </dependency>
         <dependency>

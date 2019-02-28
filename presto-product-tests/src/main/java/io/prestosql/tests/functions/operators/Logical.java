@@ -13,12 +13,12 @@
  */
 package io.prestosql.tests.functions.operators;
 
-import io.prestodb.tempto.ProductTest;
+import io.prestosql.tempto.ProductTest;
 import org.testng.annotations.Test;
 
-import static io.prestodb.tempto.assertions.QueryAssert.Row.row;
-import static io.prestodb.tempto.assertions.QueryAssert.assertThat;
-import static io.prestodb.tempto.query.QueryExecutor.query;
+import static io.prestosql.tempto.assertions.QueryAssert.Row.row;
+import static io.prestosql.tempto.assertions.QueryAssert.assertThat;
+import static io.prestosql.tempto.query.QueryExecutor.query;
 import static io.prestosql.tests.TestGroups.LOGICAL;
 import static io.prestosql.tests.TestGroups.QUERY_ENGINE;
 

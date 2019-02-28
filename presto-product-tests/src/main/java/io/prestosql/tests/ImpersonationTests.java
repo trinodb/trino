@@ -15,12 +15,12 @@ package io.prestosql.tests;
 
 import com.google.inject.Inject;
 import com.google.inject.name.Named;
-import io.prestodb.tempto.BeforeTestWithContext;
-import io.prestodb.tempto.ProductTest;
-import io.prestodb.tempto.Requires;
-import io.prestodb.tempto.fulfillment.table.hive.tpch.ImmutableTpchTablesRequirements.ImmutableNationTable;
-import io.prestodb.tempto.hadoop.hdfs.HdfsClient;
-import io.prestodb.tempto.query.QueryExecutor;
+import io.prestosql.tempto.BeforeTestWithContext;
+import io.prestosql.tempto.ProductTest;
+import io.prestosql.tempto.Requires;
+import io.prestosql.tempto.fulfillment.table.hive.tpch.ImmutableTpchTablesRequirements.ImmutableNationTable;
+import io.prestosql.tempto.hadoop.hdfs.HdfsClient;
+import io.prestosql.tempto.query.QueryExecutor;
 import org.testng.annotations.Test;
 
 import static io.prestosql.tests.TestGroups.HDFS_IMPERSONATION;

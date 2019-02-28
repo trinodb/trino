@@ -16,7 +16,7 @@ package io.prestosql.tests.utils;
 import com.google.common.base.Joiner;
 import com.google.common.collect.Iterables;
 import io.airlift.units.Duration;
-import io.prestodb.tempto.query.QueryResult;
+import io.prestosql.tempto.query.QueryResult;
 
 import java.util.function.Supplier;
 

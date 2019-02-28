@@ -13,9 +13,9 @@
  */
 package io.prestosql.tests.utils;
 
-import io.prestodb.tempto.query.QueryExecutor;
+import io.prestosql.tempto.query.QueryExecutor;
 
-import static io.prestodb.tempto.context.ThreadLocalTestContextHolder.testContext;
+import static io.prestosql.tempto.context.ThreadLocalTestContextHolder.testContext;
 
 public class QueryExecutors
 {

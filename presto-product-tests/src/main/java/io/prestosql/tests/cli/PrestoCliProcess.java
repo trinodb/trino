@@ -13,7 +13,7 @@
  */
 package io.prestosql.tests.cli;
 
-import io.prestodb.tempto.process.LocalCliProcess;
+import io.prestosql.tempto.process.LocalCliProcess;
 
 import java.util.ArrayList;
 import java.util.List;
