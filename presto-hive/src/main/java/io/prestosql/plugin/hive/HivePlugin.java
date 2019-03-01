@@ -45,15 +45,6 @@ public class HivePlugin
     @Override
     public Iterable<ConnectorFactory> getConnectorFactories()
     {
-        return ImmutableList.of(new HiveConnectorFactory(name, getClassLoader(), metastore));
-    }
-
-    private static ClassLoader getClassLoader()
-    {
-        ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
-        if (classLoader == null) {
-            classLoader = HivePlugin.class.getClassLoader();
-        }
-        return classLoader;
+        return ImmutableList.of(new HiveConnectorFactory(name, HivePlugin.class.getClassLoader(), metastore));
     }
 }
