@@ -29,7 +29,7 @@ Resource Group Properties
 * ``maxQueued`` (required): maximum number of queued queries. Once this limit is reached
   new queries will be rejected.
 
-* ``hardConcurrencyLimit`` (required): maximum number of running queries.
+* ``hardConcurrencyLimit`` (optional): maximum number of running queries.
 
 * ``softMemoryLimit`` (required): maximum amount of distributed memory this
   group may use before new queries become queued. May be specified as

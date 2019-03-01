@@ -41,7 +41,7 @@ public class ResourceGroupSpec
     private final Optional<Double> softMemoryLimitFraction;
     private final int maxQueued;
     private final Optional<Integer> softConcurrencyLimit;
-    private final int hardConcurrencyLimit;
+    private final Optional<Integer> hardConcurrencyLimit;
     private final Optional<SchedulingPolicy> schedulingPolicy;
     private final Optional<Integer> schedulingWeight;
     private final List<ResourceGroupSpec> subGroups;
@@ -55,7 +55,7 @@ public class ResourceGroupSpec
             @JsonProperty("softMemoryLimit") String softMemoryLimit,
             @JsonProperty("maxQueued") int maxQueued,
             @JsonProperty("softConcurrencyLimit") Optional<Integer> softConcurrencyLimit,
-            @JsonProperty("hardConcurrencyLimit") int hardConcurrencyLimit,
+            @JsonProperty("hardConcurrencyLimit") Optional<Integer> hardConcurrencyLimit,
             @JsonProperty("schedulingPolicy") Optional<String> schedulingPolicy,
             @JsonProperty("schedulingWeight") Optional<Integer> schedulingWeight,
             @JsonProperty("subGroups") Optional<List<ResourceGroupSpec>> subGroups,
@@ -69,12 +69,13 @@ public class ResourceGroupSpec
         this.name = requireNonNull(name, "name is null");
         checkArgument(maxQueued >= 0, "maxQueued is negative");
         this.maxQueued = maxQueued;
-        this.softConcurrencyLimit = softConcurrencyLimit;
-        this.hardConcurrencyLimit = hardConcurrencyLimit;
-        checkArgument(this.hardConcurrencyLimit >= 0, "hardConcurrencyLimit is negative");
-
+        this.softConcurrencyLimit = requireNonNull(softConcurrencyLimit, "softConcurrencyLimit is null");
+        this.hardConcurrencyLimit = requireNonNull(hardConcurrencyLimit, "hardConcurrencyLimit is null");
+        hardConcurrencyLimit.ifPresent(hard -> checkArgument(hard >= 0, "hardConcurrencyLimit is negative"));
         softConcurrencyLimit.ifPresent(soft -> checkArgument(soft >= 0, "softConcurrencyLimit is negative"));
-        softConcurrencyLimit.ifPresent(soft -> checkArgument(this.hardConcurrencyLimit >= soft, "hardConcurrencyLimit must be greater than or equal to softConcurrencyLimit"));
+        if (softConcurrencyLimit.isPresent() && hardConcurrencyLimit.isPresent()) {
+            checkArgument(hardConcurrencyLimit.get() >= softConcurrencyLimit.get(), "hardConcurrencyLimit must be greater than or equal to softConcurrencyLimit");
+        }
         this.schedulingPolicy = requireNonNull(schedulingPolicy, "schedulingPolicy is null").map(value -> SchedulingPolicy.valueOf(value.toUpperCase()));
         this.schedulingWeight = requireNonNull(schedulingWeight, "schedulingWeight is null");
 
@@ -121,7 +122,7 @@ public class ResourceGroupSpec
         return softConcurrencyLimit;
     }
 
-    public int getHardConcurrencyLimit()
+    public Optional<Integer> getHardConcurrencyLimit()
     {
         return hardConcurrencyLimit;
     }

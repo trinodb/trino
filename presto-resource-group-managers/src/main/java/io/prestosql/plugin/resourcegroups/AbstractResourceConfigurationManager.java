@@ -203,8 +203,9 @@ public abstract class AbstractResourceConfigurationManager
             }
         }
         group.setMaxQueuedQueries(match.getMaxQueued());
-        group.setSoftConcurrencyLimit(match.getSoftConcurrencyLimit().orElse(match.getHardConcurrencyLimit()));
-        group.setHardConcurrencyLimit(match.getHardConcurrencyLimit());
+        int hardConcurrencyLimit = match.getHardConcurrencyLimit().orElse(Integer.MAX_VALUE);
+        group.setSoftConcurrencyLimit(match.getSoftConcurrencyLimit().orElse(hardConcurrencyLimit));
+        group.setHardConcurrencyLimit(hardConcurrencyLimit);
         match.getSchedulingPolicy().ifPresent(group::setSchedulingPolicy);
         match.getSchedulingWeight().ifPresent(group::setSchedulingWeight);
         match.getJmxExport().filter(isEqual(group.getJmxExport()).negate()).ifPresent(group::setJmxExport);
