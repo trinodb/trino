@@ -17,19 +17,12 @@ import com.google.common.collect.ImmutableList;
 import io.prestosql.spi.Plugin;
 import io.prestosql.spi.connector.ConnectorFactory;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
-
 public class AtopPlugin
         implements Plugin
 {
     @Override
     public Iterable<ConnectorFactory> getConnectorFactories()
     {
-        return ImmutableList.of(new AtopConnectorFactory(AtopProcessFactory.class, getClassLoader()));
-    }
-
-    private static ClassLoader getClassLoader()
-    {
-        return firstNonNull(Thread.currentThread().getContextClassLoader(), AtopPlugin.class.getClassLoader());
+        return ImmutableList.of(new AtopConnectorFactory(AtopProcessFactory.class, AtopPlugin.class.getClassLoader()));
     }
 }

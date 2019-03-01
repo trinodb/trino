@@ -17,8 +17,6 @@ import com.google.common.collect.ImmutableList;
 import io.prestosql.spi.Plugin;
 import io.prestosql.spi.resourcegroups.ResourceGroupConfigurationManagerFactory;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
-
 public class H2ResourceGroupManagerPlugin
         implements Plugin
 {
@@ -26,11 +24,6 @@ public class H2ResourceGroupManagerPlugin
     public Iterable<ResourceGroupConfigurationManagerFactory> getResourceGroupConfigurationManagerFactories()
     {
         return ImmutableList.of(
-                new H2ResourceGroupConfigurationManagerFactory(getClassLoader()));
-    }
-
-    private static ClassLoader getClassLoader()
-    {
-        return firstNonNull(Thread.currentThread().getContextClassLoader(), H2ResourceGroupManagerPlugin.class.getClassLoader());
+                new H2ResourceGroupConfigurationManagerFactory(H2ResourceGroupManagerPlugin.class.getClassLoader()));
     }
 }
