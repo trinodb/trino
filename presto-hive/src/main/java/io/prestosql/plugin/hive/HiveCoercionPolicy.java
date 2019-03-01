@@ -13,6 +13,7 @@
  */
 package io.prestosql.plugin.hive;
 
+import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeManager;
 import io.prestosql.spi.type.VarcharType;
@@ -68,6 +69,9 @@ public class HiveCoercionPolicy
         }
         if (fromHiveType.equals(HIVE_FLOAT)) {
             return toHiveType.equals(HIVE_DOUBLE);
+        }
+        if (fromType instanceof DecimalType) {
+            return toType instanceof DecimalType;
         }
 
         return canCoerceForList(fromHiveType, toHiveType) || canCoerceForMap(fromHiveType, toHiveType) || canCoerceForStruct(fromHiveType, toHiveType);
