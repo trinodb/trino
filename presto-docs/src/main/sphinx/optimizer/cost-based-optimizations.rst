@@ -80,7 +80,7 @@ In such case it is possible to cap the maximum size of replicated table via
 or via ``join_max_broadcast_table_size`` session property (e.g. ``set session join_max_broadcast_table_size='100MB';``)
 This allows to improve cluster concurrency and to prevent bad plans when CBO misestimates size of joined tables.
 
-By default replicated table size is not capped.
+By default replicated table size is capped to 100MB.
 
 Connector Implementations
 -------------------------
