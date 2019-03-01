@@ -4,6 +4,7 @@
       "name": "global",
       "softMemoryLimit": "1MB",
       "hardConcurrencyLimit": 100,
+      "maxQueued": 100,
       "maxFoo": 99
     }
   ],

@@ -49,7 +49,7 @@ public class TestFileResourceGroupConfigurationManager
         assertFails("resource_groups_config_bad_sub_group.json", "Duplicated sub group: sub");
         assertFails("resource_groups_config_bad_group_id.json", "Invalid resource group name. 'glo.bal' contains a '.'");
         assertFails("resource_groups_config_bad_weighted_scheduling_policy.json", "Must specify scheduling weight for all sub-groups of 'requests' or none of them");
-        assertFails("resource_groups_config_unused_field.json", "Unknown property at line 8:6: maxFoo");
+        assertFails("resource_groups_config_unused_field.json", "Unknown property at line 9:6: maxFoo");
         assertFails("resource_groups_config_bad_query_priority_scheduling_policy.json",
                 "Must use 'weighted' or 'weighted_fair' scheduling policy if specifying scheduling weight for 'requests'");
         assertFails("resource_groups_config_bad_extract_variable.json", "Invalid resource group name.*");
@@ -137,18 +137,6 @@ public class TestFileResourceGroupConfigurationManager
         manager.configure(child, new SelectionContext<>(childId, variableMap));
 
         assertEquals(child.getHardConcurrencyLimit(), 3);
-    }
-
-    @Test
-    public void testLegacyConfiguration()
-    {
-        ResourceGroupConfigurationManager<VariableMap> manager = parse("resource_groups_config_legacy.json");
-        ResourceGroupId globalId = new ResourceGroupId("global");
-        ResourceGroup global = new TestingResourceGroup(globalId);
-        manager.configure(global, new SelectionContext<>(globalId, new VariableMap(ImmutableMap.of("USER", "user"))));
-        assertEquals(global.getSoftMemoryLimit(), new DataSize(3, MEGABYTE));
-        assertEquals(global.getMaxQueuedQueries(), 99);
-        assertEquals(global.getHardConcurrencyLimit(), 42);
     }
 
     @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Selector refers to nonexistent group: a.b.c.X")
