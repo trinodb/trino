@@ -13,6 +13,7 @@
  */
 package io.prestosql.plugin.hive;
 
+import io.airlift.slice.Slice;
 import io.prestosql.plugin.hive.HivePageSourceProvider.BucketAdaptation;
 import io.prestosql.plugin.hive.HivePageSourceProvider.ColumnMapping;
 import io.prestosql.spi.Page;
@@ -30,9 +31,11 @@ import io.prestosql.spi.block.RowBlock;
 import io.prestosql.spi.block.RunLengthEncodedBlock;
 import io.prestosql.spi.connector.ConnectorPageSource;
 import io.prestosql.spi.type.DecimalType;
+import io.prestosql.spi.type.Decimals;
 import io.prestosql.spi.type.MapType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeManager;
+import io.prestosql.spi.type.UnscaledDecimal128Arithmetic;
 import io.prestosql.spi.type.VarcharType;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import org.apache.hadoop.hive.serde2.typeinfo.ListTypeInfo;
@@ -42,6 +45,7 @@ import org.joda.time.DateTimeZone;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -77,6 +81,7 @@ import static io.prestosql.plugin.hive.HiveUtil.smallintPartitionKey;
 import static io.prestosql.plugin.hive.HiveUtil.timestampPartitionKey;
 import static io.prestosql.plugin.hive.HiveUtil.tinyintPartitionKey;
 import static io.prestosql.plugin.hive.HiveUtil.varcharPartitionKey;
+import static io.prestosql.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.block.ColumnarArray.toColumnarArray;
 import static io.prestosql.spi.block.ColumnarMap.toColumnarMap;
@@ -87,12 +92,18 @@ import static io.prestosql.spi.type.Chars.isCharType;
 import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.Decimals.isLongDecimal;
 import static io.prestosql.spi.type.Decimals.isShortDecimal;
+import static io.prestosql.spi.type.Decimals.longTenToNth;
+import static io.prestosql.spi.type.Decimals.overflows;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
+import static io.prestosql.spi.type.UnscaledDecimal128Arithmetic.rescale;
+import static io.prestosql.spi.type.UnscaledDecimal128Arithmetic.unscaledDecimal;
+import static io.prestosql.spi.type.UnscaledDecimal128Arithmetic.unscaledDecimalToBigInteger;
+import static io.prestosql.spi.type.UnscaledDecimal128Arithmetic.unscaledDecimalToUnscaledLongUnsafe;
 import static io.prestosql.spi.type.Varchars.isVarcharType;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.String.format;
@@ -339,6 +350,9 @@ public class HivePageSource
         if (fromHiveType.equals(HIVE_FLOAT) && toHiveType.equals(HIVE_DOUBLE)) {
             return new FloatToDoubleCoercer();
         }
+        if (fromType instanceof DecimalType && toType instanceof DecimalType) {
+            return createDecimalToDecimalCoercer((DecimalType) fromType, (DecimalType) toType);
+        }
         if (isArrayType(fromType) && isArrayType(toType)) {
             return new ListCoercer(typeManager, fromHiveType, toHiveType);
         }
@@ -483,6 +497,243 @@ public class HivePageSource
             }
             return blockBuilder.build();
         }
+    }
+
+    private static Function<Block, Block> createDecimalToDecimalCoercer(DecimalType fromType, DecimalType toType)
+    {
+        if (fromType.isShort()) {
+            if (toType.isShort()) {
+                return new ShortDecimalToShortDecimalCoercer(fromType, toType);
+            }
+            else {
+                return new ShortDecimalToLongDecimalCoercer(fromType, toType);
+            }
+        }
+        else {
+            if (toType.isShort()) {
+                return new LongDecimalToShortDecimalCoercer(fromType, toType);
+            }
+            else {
+                return new LongDecimalToLongDecimalCoercer(fromType, toType);
+            }
+        }
+    }
+
+    private static class ShortDecimalToShortDecimalCoercer
+            implements Function<Block, Block>
+    {
+        private final DecimalType fromType;
+        private final DecimalType toType;
+        private final long rescale;
+
+        public ShortDecimalToShortDecimalCoercer(DecimalType fromType, DecimalType toType)
+        {
+            this.fromType = requireNonNull(fromType, "fromType is null");
+            this.toType = requireNonNull(toType, "toType is null");
+            rescale = longTenToNth(Math.abs(toType.getScale() - fromType.getScale()));
+        }
+
+        @Override
+        public Block apply(Block block)
+        {
+            BlockBuilder blockBuilder = toType.createBlockBuilder(null, block.getPositionCount());
+            for (int i = 0; i < block.getPositionCount(); i++) {
+                if (block.isNull(i)) {
+                    blockBuilder.appendNull();
+                    continue;
+                }
+                long returnValue = shortToShortCast(fromType.getLong(block, i),
+                        fromType.getPrecision(),
+                        fromType.getScale(),
+                        toType.getPrecision(),
+                        toType.getScale(),
+                        rescale,
+                        rescale / 2);
+                toType.writeLong(blockBuilder, returnValue);
+            }
+            return blockBuilder.build();
+        }
+    }
+
+    private static class ShortDecimalToLongDecimalCoercer
+            implements Function<Block, Block>
+    {
+        private final DecimalType fromType;
+        private final DecimalType toType;
+
+        public ShortDecimalToLongDecimalCoercer(DecimalType fromType, DecimalType toType)
+        {
+            this.fromType = requireNonNull(fromType, "fromType is null");
+            this.toType = requireNonNull(toType, "toType is null");
+        }
+
+        @Override
+        public Block apply(Block block)
+        {
+            BlockBuilder blockBuilder = toType.createBlockBuilder(null, block.getPositionCount());
+            for (int i = 0; i < block.getPositionCount(); i++) {
+                if (block.isNull(i)) {
+                    blockBuilder.appendNull();
+                    continue;
+                }
+                Slice coercedValue = shortToLongCast(fromType.getLong(block, i),
+                        fromType.getPrecision(),
+                        fromType.getScale(),
+                        toType.getPrecision(),
+                        toType.getScale());
+                toType.writeSlice(blockBuilder, coercedValue);
+            }
+            return blockBuilder.build();
+        }
+    }
+
+    private static class LongDecimalToShortDecimalCoercer
+            implements Function<Block, Block>
+    {
+        private final DecimalType fromType;
+        private final DecimalType toType;
+
+        public LongDecimalToShortDecimalCoercer(DecimalType fromType, DecimalType toType)
+        {
+            this.fromType = requireNonNull(fromType, "fromType is null");
+            this.toType = requireNonNull(toType, "toType is null");
+        }
+
+        @Override
+        public Block apply(Block block)
+        {
+            BlockBuilder blockBuilder = toType.createBlockBuilder(null, block.getPositionCount());
+            for (int i = 0; i < block.getPositionCount(); i++) {
+                if (block.isNull(i)) {
+                    blockBuilder.appendNull();
+                    continue;
+                }
+                long returnValue = longToShortCast(fromType.getSlice(block, i),
+                        fromType.getPrecision(),
+                        fromType.getScale(),
+                        toType.getPrecision(),
+                        toType.getScale());
+                toType.writeLong(blockBuilder, returnValue);
+            }
+            return blockBuilder.build();
+        }
+    }
+
+    private static class LongDecimalToLongDecimalCoercer
+            implements Function<Block, Block>
+    {
+        private final DecimalType fromType;
+        private final DecimalType toType;
+
+        public LongDecimalToLongDecimalCoercer(DecimalType fromType, DecimalType toType)
+        {
+            this.fromType = requireNonNull(fromType, "fromType is null");
+            this.toType = requireNonNull(toType, "toType is null");
+        }
+
+        @Override
+        public Block apply(Block block)
+        {
+            BlockBuilder blockBuilder = toType.createBlockBuilder(null, block.getPositionCount());
+            for (int i = 0; i < block.getPositionCount(); i++) {
+                if (block.isNull(i)) {
+                    blockBuilder.appendNull();
+                    continue;
+                }
+                Slice coercedValue = longToLongCast(fromType.getSlice(block, i),
+                        fromType.getPrecision(),
+                        fromType.getScale(),
+                        toType.getPrecision(),
+                        toType.getScale());
+                toType.writeSlice(blockBuilder, coercedValue);
+            }
+            return blockBuilder.build();
+        }
+    }
+
+    private static long shortToShortCast(
+            long value,
+            long sourcePrecision,
+            long sourceScale,
+            long resultPrecision,
+            long resultScale,
+            long scalingFactor,
+            long halfOfScalingFactor)
+    {
+        long returnValue;
+        if (resultScale >= sourceScale) {
+            returnValue = value * scalingFactor;
+        }
+        else {
+            returnValue = value / scalingFactor;
+            if (value >= 0) {
+                if (value % scalingFactor >= halfOfScalingFactor) {
+                    returnValue++;
+                }
+            }
+            else {
+                if (value % scalingFactor <= -halfOfScalingFactor) {
+                    returnValue--;
+                }
+            }
+        }
+        if (overflows(returnValue, (int) resultPrecision)) {
+            throw throwCastException(value, sourcePrecision, sourceScale, resultPrecision, resultScale);
+        }
+        return returnValue;
+    }
+
+    private static Slice shortToLongCast(
+            long value,
+            long sourcePrecision,
+            long sourceScale,
+            long resultPrecision,
+            long resultScale)
+    {
+        return longToLongCast(unscaledDecimal(value), sourcePrecision, sourceScale, resultPrecision, resultScale);
+    }
+
+    private static long longToShortCast(
+            Slice value,
+            long sourcePrecision,
+            long sourceScale,
+            long resultPrecision,
+            long resultScale)
+    {
+        return unscaledDecimalToUnscaledLongUnsafe(longToLongCast(value, sourcePrecision, sourceScale, resultPrecision, resultScale));
+    }
+
+    private static Slice longToLongCast(
+            Slice value,
+            long sourcePrecision,
+            long sourceScale,
+            long resultPrecision,
+            long resultScale)
+    {
+        try {
+            Slice result = rescale(value, (int) (resultScale - sourceScale));
+            if (UnscaledDecimal128Arithmetic.overflows(result, (int) resultPrecision)) {
+                throw throwCastException(unscaledDecimalToBigInteger(value), sourcePrecision, sourceScale, resultPrecision, resultScale);
+            }
+            return result;
+        }
+        catch (ArithmeticException e) {
+            throw throwCastException(unscaledDecimalToBigInteger(value), sourcePrecision, sourceScale, resultPrecision, resultScale);
+        }
+    }
+
+    private static PrestoException throwCastException(long value, long sourcePrecision, long sourceScale, long resultPrecision, long resultScale)
+    {
+        return new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast DECIMAL '%s' to DECIMAL(%d, %d)",
+                Decimals.toString(value, (int) sourceScale),
+                resultPrecision, resultScale));
+    }
+
+    private static PrestoException throwCastException(BigInteger value, long sourcePrecision, long sourceScale, long resultPrecision, long resultScale)
+    {
+        return new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast DECIMAL '%s' to DECIMAL(%d, %d)",
+                Decimals.toString(value, (int) sourceScale),
+                resultPrecision, resultScale));
     }
 
     private static class ListCoercer
