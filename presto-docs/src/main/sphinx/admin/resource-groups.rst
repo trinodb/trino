@@ -89,12 +89,12 @@ Selector Rules
 
 * ``group`` (required): the group these queries will run in.
 
+Selectors are processed sequentially and the first one that matches will be used.
+
 Global Properties
 -----------------
 
 * ``cpuQuotaPeriod`` (optional): the period in which cpu quotas are enforced.
-
-Selectors are processed sequentially and the first one that matches will be used.
 
 Providing Selector Properties
 -----------------------------
