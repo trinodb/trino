@@ -26,7 +26,6 @@ import static java.util.Objects.requireNonNull;
 public class ConnectorTableLayout
 {
     private final ConnectorTableLayoutHandle handle;
-    private final Optional<List<ColumnHandle>> columns;
     private final TupleDomain<ColumnHandle> predicate;
     private final Optional<ConnectorTablePartitioning> tablePartitioning;
     private final Optional<Set<ColumnHandle>> streamPartitioningColumns;
@@ -36,7 +35,6 @@ public class ConnectorTableLayout
     public ConnectorTableLayout(ConnectorTableLayoutHandle handle)
     {
         this(handle,
-                Optional.empty(),
                 TupleDomain.all(),
                 Optional.empty(),
                 Optional.empty(),
@@ -44,9 +42,21 @@ public class ConnectorTableLayout
                 emptyList());
     }
 
+    @Deprecated
     public ConnectorTableLayout(
             ConnectorTableLayoutHandle handle,
-            Optional<List<ColumnHandle>> columns,
+            Optional<List<ColumnHandle>> columns, // for backward compatibility with existing connectors
+            TupleDomain<ColumnHandle> predicate,
+            Optional<ConnectorTablePartitioning> tablePartitioning,
+            Optional<Set<ColumnHandle>> streamPartitioningColumns,
+            Optional<DiscretePredicates> discretePredicates,
+            List<LocalProperty<ColumnHandle>> localProperties)
+    {
+        this(handle, predicate, tablePartitioning, streamPartitioningColumns, discretePredicates, localProperties);
+    }
+
+    public ConnectorTableLayout(
+            ConnectorTableLayoutHandle handle,
             TupleDomain<ColumnHandle> predicate,
             Optional<ConnectorTablePartitioning> tablePartitioning,
             Optional<Set<ColumnHandle>> streamPartitioningColumns,
@@ -54,7 +64,6 @@ public class ConnectorTableLayout
             List<LocalProperty<ColumnHandle>> localProperties)
     {
         requireNonNull(handle, "handle is null");
-        requireNonNull(columns, "columns is null");
         requireNonNull(streamPartitioningColumns, "partitioningColumns is null");
         requireNonNull(tablePartitioning, "tablePartitioning is null");
         requireNonNull(predicate, "predicate is null");
@@ -62,7 +71,6 @@ public class ConnectorTableLayout
         requireNonNull(localProperties, "localProperties is null");
 
         this.handle = handle;
-        this.columns = columns;
         this.tablePartitioning = tablePartitioning;
         this.streamPartitioningColumns = streamPartitioningColumns;
         this.predicate = predicate;
@@ -73,14 +81,6 @@ public class ConnectorTableLayout
     public ConnectorTableLayoutHandle getHandle()
     {
         return handle;
-    }
-
-    /**
-     * The columns from the original table provided by this layout. A layout may provide only a subset of columns.
-     */
-    public Optional<List<ColumnHandle>> getColumns()
-    {
-        return columns;
     }
 
     /**
@@ -141,7 +141,7 @@ public class ConnectorTableLayout
     @Override
     public int hashCode()
     {
-        return Objects.hash(handle, columns, predicate, discretePredicates, streamPartitioningColumns, tablePartitioning, localProperties);
+        return Objects.hash(handle, predicate, discretePredicates, streamPartitioningColumns, tablePartitioning, localProperties);
     }
 
     @Override
@@ -155,7 +155,6 @@ public class ConnectorTableLayout
         }
         ConnectorTableLayout other = (ConnectorTableLayout) obj;
         return Objects.equals(this.handle, other.handle)
-                && Objects.equals(this.columns, other.columns)
                 && Objects.equals(this.predicate, other.predicate)
                 && Objects.equals(this.discretePredicates, other.discretePredicates)
                 && Objects.equals(this.streamPartitioningColumns, other.streamPartitioningColumns)

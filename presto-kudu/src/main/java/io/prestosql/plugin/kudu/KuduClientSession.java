@@ -60,9 +60,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
@@ -148,31 +145,6 @@ public class KuduClientSession
         TupleDomain<ColumnHandle> constraintSummary = layoutHandle.getConstraintSummary();
         if (!addConstraintPredicates(table, builder, constraintSummary)) {
             return ImmutableList.of();
-        }
-
-        Optional<Set<ColumnHandle>> desiredColumns = layoutHandle.getDesiredColumns();
-        if (desiredColumns.isPresent()) {
-            if (desiredColumns.get().contains(KuduColumnHandle.ROW_ID_HANDLE)) {
-                List<Integer> columnIndexes = IntStream
-                        .range(0, primaryKeyColumnCount)
-                        .boxed().collect(Collectors.toList());
-                for (ColumnHandle columnHandle : desiredColumns.get()) {
-                    if (columnHandle instanceof KuduColumnHandle) {
-                        KuduColumnHandle k = (KuduColumnHandle) columnHandle;
-                        int index = k.getOrdinalPosition();
-                        if (index >= primaryKeyColumnCount) {
-                            columnIndexes.add(index);
-                        }
-                    }
-                }
-                builder.setProjectedColumnIndexes(columnIndexes);
-            }
-            else {
-                List<Integer> columnIndexes = desiredColumns.get().stream()
-                        .map(handle -> ((KuduColumnHandle) handle).getOrdinalPosition())
-                        .collect(toImmutableList());
-                builder.setProjectedColumnIndexes(columnIndexes);
-            }
         }
 
         List<KuduScanToken> tokens = builder.build();

@@ -44,11 +44,6 @@ public class TableLayout
         this.layout = layout;
     }
 
-    public Optional<List<ColumnHandle>> getColumns()
-    {
-        return layout.getColumns();
-    }
-
     public TupleDomain<ColumnHandle> getPredicate()
     {
         return layout.getPredicate();

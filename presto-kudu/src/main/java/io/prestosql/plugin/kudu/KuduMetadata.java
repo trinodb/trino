@@ -198,7 +198,7 @@ public class KuduMetadata
     {
         KuduTableHandle handle = (KuduTableHandle) tableHandle;
         ConnectorTableLayout layout = new ConnectorTableLayout(
-                new KuduTableLayoutHandle(handle, constraint.getSummary(), desiredColumns));
+                new KuduTableLayoutHandle(handle, constraint.getSummary()));
         return ImmutableList.of(new ConnectorTableLayoutResult(layout, constraint.getSummary()));
     }
 

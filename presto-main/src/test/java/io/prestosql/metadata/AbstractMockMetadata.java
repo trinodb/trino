@@ -114,7 +114,7 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public List<TableLayoutResult> getLayouts(Session session, TableHandle tableHandle, Constraint<ColumnHandle> constraint, Optional<Set<ColumnHandle>> desiredColumns)
+    public List<TableLayoutResult> getLayouts(Session session, TableHandle tableHandle, Constraint<ColumnHandle> constraint)
     {
         throw new UnsupportedOperationException();
     }

@@ -20,8 +20,6 @@ import io.prestosql.spi.connector.ConnectorTableLayoutHandle;
 import io.prestosql.spi.predicate.TupleDomain;
 
 import java.util.Objects;
-import java.util.Optional;
-import java.util.Set;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -31,16 +29,13 @@ public class KuduTableLayoutHandle
 {
     private final KuduTableHandle tableHandle;
     private final TupleDomain<ColumnHandle> constraintSummary;
-    private final Optional<Set<ColumnHandle>> desiredColumns;
 
     @JsonCreator
     public KuduTableLayoutHandle(@JsonProperty("tableHandle") KuduTableHandle tableHandle,
-            @JsonProperty("constraintSummary") TupleDomain<ColumnHandle> constraintSummary,
-            @JsonProperty("desiredColumns") Optional<Set<ColumnHandle>> desiredColumns)
+            @JsonProperty("constraintSummary") TupleDomain<ColumnHandle> constraintSummary)
     {
         this.tableHandle = requireNonNull(tableHandle, "table is null");
         this.constraintSummary = constraintSummary;
-        this.desiredColumns = desiredColumns;
     }
 
     @JsonProperty
@@ -53,12 +48,6 @@ public class KuduTableLayoutHandle
     public TupleDomain<ColumnHandle> getConstraintSummary()
     {
         return constraintSummary;
-    }
-
-    @JsonProperty
-    public Optional<Set<ColumnHandle>> getDesiredColumns()
-    {
-        return desiredColumns;
     }
 
     @Override
@@ -74,16 +63,14 @@ public class KuduTableLayoutHandle
 
         KuduTableLayoutHandle other = (KuduTableLayoutHandle) obj;
         return Objects.equals(tableHandle, other.tableHandle)
-                && Objects.equals(constraintSummary, other.constraintSummary)
-                && Objects.equals(desiredColumns, other.desiredColumns);
+                && Objects.equals(constraintSummary, other.constraintSummary);
     }
 
     @Override
     public int hashCode()
     {
         return Objects.hash(tableHandle,
-                constraintSummary,
-                desiredColumns);
+                constraintSummary);
     }
 
     @Override
@@ -92,7 +79,6 @@ public class KuduTableLayoutHandle
         return toStringHelper(this)
                 .add("tableHandle", tableHandle)
                 .add("constraintSummary", constraintSummary)
-                .add("desiredColumns", desiredColumns)
                 .toString();
     }
 }

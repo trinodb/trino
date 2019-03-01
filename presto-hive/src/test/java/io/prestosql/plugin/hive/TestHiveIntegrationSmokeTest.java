@@ -1691,7 +1691,7 @@ public class TestHiveIntegrationSmokeTest
                     Optional<TableHandle> tableHandle = metadata.getTableHandle(transactionSession, new QualifiedObjectName(catalog, TPCH_SCHEMA, tableName));
                     assertTrue(tableHandle.isPresent());
 
-                    List<TableLayoutResult> layouts = metadata.getLayouts(transactionSession, tableHandle.get(), Constraint.alwaysTrue(), Optional.empty());
+                    List<TableLayoutResult> layouts = metadata.getLayouts(transactionSession, tableHandle.get(), Constraint.alwaysTrue());
                     TableLayout layout = getOnlyElement(layouts).getLayout();
                     return propertyGetter.apply((HiveTableLayoutHandle) layout.getHandle().getConnectorHandle());
                 });

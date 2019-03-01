@@ -14,7 +14,6 @@
 package io.prestosql.sql.planner.optimizations;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import io.prestosql.Session;
 import io.prestosql.execution.warnings.WarningCollector;
@@ -200,8 +199,7 @@ public class BeginTableWrite
                 List<TableLayoutResult> layouts = metadata.getLayouts(
                         session,
                         handle,
-                        new Constraint<>(originalEnforcedConstraint),
-                        Optional.of(ImmutableSet.copyOf(scan.getAssignments().values())));
+                        new Constraint<>(originalEnforcedConstraint));
                 verify(layouts.size() == 1, "Expected exactly one layout for delete");
                 TableLayoutResult layoutResult = Iterables.getOnlyElement(layouts);
 

@@ -468,7 +468,7 @@ public class ExtractSpatialJoins
 
         ColumnHandle kdbTreeColumn = Iterables.getOnlyElement(visibleColumnHandles);
 
-        List<TableLayoutResult> layouts = metadata.getLayouts(session, tableHandle, Constraint.alwaysTrue(), Optional.of(ImmutableSet.of(kdbTreeColumn)));
+        List<TableLayoutResult> layouts = metadata.getLayouts(session, tableHandle, Constraint.alwaysTrue());
         checkSpatialPartitioningTable(!layouts.isEmpty(), "Table is empty: %s", name);
 
         Optional<KdbTree> kdbTree = Optional.empty();

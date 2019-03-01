@@ -53,7 +53,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Sets.intersection;
@@ -71,7 +70,6 @@ import static io.prestosql.sql.planner.plan.Patterns.tableScan;
 import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.toList;
 
 /**
  * These rules should not be run after AddExchanges so as not to overwrite the TableLayout
@@ -292,20 +290,11 @@ public class PickTableLayout
         List<TableLayoutResult> layouts = metadata.getLayouts(
                 session,
                 node.getTable(),
-                constraint,
-                Optional.of(node.getOutputSymbols().stream()
-                        .map(node.getAssignments()::get)
-                        .collect(toImmutableSet())));
+                constraint);
 
         if (layouts.isEmpty()) {
             return ImmutableList.of(new ValuesNode(idAllocator.getNextId(), node.getOutputSymbols(), ImmutableList.of()));
         }
-
-        // Filter out layouts that cannot supply all the required columns
-        layouts = layouts.stream()
-                .filter(layout -> layout.hasAllOutputs(node))
-                .collect(toList());
-        checkState(!layouts.isEmpty(), "No usable layouts for %s", node);
 
         if (layouts.stream().anyMatch(layout -> layout.getLayout().getPredicate().isNone())) {
             return ImmutableList.of(new ValuesNode(idAllocator.getNextId(), node.getOutputSymbols(), ImmutableList.of()));
