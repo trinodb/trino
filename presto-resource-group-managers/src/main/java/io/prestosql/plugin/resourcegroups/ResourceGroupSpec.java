@@ -55,8 +55,7 @@ public class ResourceGroupSpec
             @JsonProperty("softMemoryLimit") String softMemoryLimit,
             @JsonProperty("maxQueued") int maxQueued,
             @JsonProperty("softConcurrencyLimit") Optional<Integer> softConcurrencyLimit,
-            @JsonProperty("hardConcurrencyLimit") Optional<Integer> hardConcurrencyLimit,
-            @JsonProperty("maxRunning") Optional<Integer> maxRunning,
+            @JsonProperty("hardConcurrencyLimit") int hardConcurrencyLimit,
             @JsonProperty("schedulingPolicy") Optional<String> schedulingPolicy,
             @JsonProperty("schedulingWeight") Optional<Integer> schedulingWeight,
             @JsonProperty("subGroups") Optional<List<ResourceGroupSpec>> subGroups,
@@ -71,9 +70,7 @@ public class ResourceGroupSpec
         checkArgument(maxQueued >= 0, "maxQueued is negative");
         this.maxQueued = maxQueued;
         this.softConcurrencyLimit = softConcurrencyLimit;
-
-        checkArgument(hardConcurrencyLimit.isPresent() || maxRunning.isPresent(), "Missing required property: hardConcurrencyLimit");
-        this.hardConcurrencyLimit = hardConcurrencyLimit.orElseGet(maxRunning::get);
+        this.hardConcurrencyLimit = hardConcurrencyLimit;
         checkArgument(this.hardConcurrencyLimit >= 0, "hardConcurrencyLimit is negative");
 
         softConcurrencyLimit.ifPresent(soft -> checkArgument(soft >= 0, "softConcurrencyLimit is negative"));

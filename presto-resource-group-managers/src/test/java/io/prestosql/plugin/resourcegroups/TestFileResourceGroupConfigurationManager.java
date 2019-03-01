@@ -139,18 +139,6 @@ public class TestFileResourceGroupConfigurationManager
         assertEquals(child.getHardConcurrencyLimit(), 3);
     }
 
-    @Test
-    public void testLegacyConfiguration()
-    {
-        ResourceGroupConfigurationManager<VariableMap> manager = parse("resource_groups_config_legacy.json");
-        ResourceGroupId globalId = new ResourceGroupId("global");
-        ResourceGroup global = new TestingResourceGroup(globalId);
-        manager.configure(global, new SelectionContext<>(globalId, new VariableMap(ImmutableMap.of("USER", "user"))));
-        assertEquals(global.getSoftMemoryLimit(), new DataSize(3, MEGABYTE));
-        assertEquals(global.getMaxQueuedQueries(), 99);
-        assertEquals(global.getHardConcurrencyLimit(), 42);
-    }
-
     @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Selector refers to nonexistent group: a.b.c.X")
     public void testNonExistentGroup()
     {
