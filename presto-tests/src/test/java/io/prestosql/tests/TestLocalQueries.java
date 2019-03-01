@@ -14,32 +14,18 @@
 package io.prestosql.tests;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import io.prestosql.Session;
 import io.prestosql.connector.ConnectorId;
 import io.prestosql.metadata.SessionPropertyManager;
 import io.prestosql.plugin.tpch.TpchConnectorFactory;
-import io.prestosql.spi.connector.CatalogSchemaTableName;
-import io.prestosql.sql.planner.planPrinter.IoPlanPrinter.ColumnConstraint;
-import io.prestosql.sql.planner.planPrinter.IoPlanPrinter.FormattedDomain;
-import io.prestosql.sql.planner.planPrinter.IoPlanPrinter.FormattedMarker;
-import io.prestosql.sql.planner.planPrinter.IoPlanPrinter.FormattedRange;
-import io.prestosql.sql.planner.planPrinter.IoPlanPrinter.IoPlan;
-import io.prestosql.sql.planner.planPrinter.IoPlanPrinter.IoPlan.TableColumnInfo;
 import io.prestosql.testing.LocalQueryRunner;
 import io.prestosql.testing.MaterializedResult;
 import org.testng.annotations.Test;
 
-import java.util.Optional;
-
-import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.prestosql.SystemSessionProperties.PUSH_PARTIAL_AGGREGATION_THROUGH_JOIN;
 import static io.prestosql.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
-import static io.prestosql.spi.predicate.Marker.Bound.EXACTLY;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
-import static io.prestosql.spi.type.VarcharType.createVarcharType;
 import static io.prestosql.testing.MaterializedResult.resultBuilder;
 import static io.prestosql.testing.TestingSession.TESTING_CATALOG;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
@@ -113,34 +99,6 @@ public class TestLocalQueries
         assertQuery("SELECT 1.0", "SELECT CAST('1.0' AS DECIMAL)");
         assertQuery("SELECT 1.", "SELECT CAST('1.0' AS DECIMAL)");
         assertQuery("SELECT 0.1", "SELECT CAST('0.1' AS DECIMAL)");
-    }
-
-    @Test
-    public void testIOExplain()
-    {
-        String query = "SELECT * FROM orders";
-        MaterializedResult result = computeActual("EXPLAIN (TYPE IO, FORMAT JSON) " + query);
-        TableColumnInfo input = new TableColumnInfo(
-                new CatalogSchemaTableName("local", "sf0.01", "orders"),
-                ImmutableSet.of(
-                        new ColumnConstraint(
-                                "orderstatus",
-                                createVarcharType(1).getTypeSignature(),
-                                new FormattedDomain(
-                                        false,
-                                        ImmutableSet.of(
-                                                new FormattedRange(
-                                                        new FormattedMarker(Optional.of("F"), EXACTLY),
-                                                        new FormattedMarker(Optional.of("F"), EXACTLY)),
-                                                new FormattedRange(
-                                                        new FormattedMarker(Optional.of("O"), EXACTLY),
-                                                        new FormattedMarker(Optional.of("O"), EXACTLY)),
-                                                new FormattedRange(
-                                                        new FormattedMarker(Optional.of("P"), EXACTLY),
-                                                        new FormattedMarker(Optional.of("P"), EXACTLY)))))));
-        assertEquals(
-                jsonCodec(IoPlan.class).fromJson((String) getOnlyElement(result.getOnlyColumnAsSet())),
-                new IoPlan(ImmutableSet.of(input), Optional.empty()));
     }
 
     @Test
