@@ -38,7 +38,6 @@ import org.apache.hadoop.hive.metastore.api.TableStatsRequest;
 import org.apache.hadoop.hive.metastore.api.ThriftHiveMetastore;
 import org.apache.thrift.TException;
 import org.apache.thrift.protocol.TBinaryProtocol;
-import org.apache.thrift.protocol.TProtocol;
 import org.apache.thrift.transport.TTransport;
 
 import java.util.ArrayList;
@@ -57,12 +56,6 @@ public class ThriftHiveMetastoreClient
     {
         this.transport = requireNonNull(transport, "transport is null");
         this.client = new ThriftHiveMetastore.Client(new TBinaryProtocol(transport));
-    }
-
-    public ThriftHiveMetastoreClient(TProtocol protocol)
-    {
-        this.transport = protocol.getTransport();
-        this.client = new ThriftHiveMetastore.Client(protocol);
     }
 
     @Override
