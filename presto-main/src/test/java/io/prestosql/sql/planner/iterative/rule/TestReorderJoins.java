@@ -125,6 +125,7 @@ public class TestReorderJoins
     {
         Type symbolType = createUnboundedVarcharType(); // variable width so that average row size is respected
         assertReorderJoins()
+                .setSystemProperty(JOIN_MAX_BROADCAST_TABLE_SIZE, "1PB")
                 .on(p -> {
                     Symbol a1 = p.symbol("A1", symbolType);
                     Symbol b1 = p.symbol("B1", symbolType);

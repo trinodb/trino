@@ -31,7 +31,6 @@ import io.prestosql.sql.planner.plan.PlanNode;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 
 import static io.prestosql.SystemSessionProperties.getJoinDistributionType;
 import static io.prestosql.SystemSessionProperties.getJoinMaxBroadcastTableSize;
@@ -84,15 +83,12 @@ public class DetermineJoinDistributionType
             return false;
         }
 
-        Optional<DataSize> joinMaxBroadcastTableSize = getJoinMaxBroadcastTableSize(context.getSession());
-        if (!joinMaxBroadcastTableSize.isPresent()) {
-            return true;
-        }
+        DataSize joinMaxBroadcastTableSize = getJoinMaxBroadcastTableSize(context.getSession());
 
         PlanNode buildSide = joinNode.getRight();
         PlanNodeStatsEstimate buildSideStatsEstimate = context.getStatsProvider().getStats(buildSide);
         double buildSideSizeInBytes = buildSideStatsEstimate.getOutputSizeInBytes(buildSide.getOutputSymbols(), context.getSymbolAllocator().getTypes());
-        return buildSideSizeInBytes <= joinMaxBroadcastTableSize.get().toBytes();
+        return buildSideSizeInBytes <= joinMaxBroadcastTableSize.toBytes();
     }
 
     private PlanNode getCostBasedJoin(JoinNode joinNode, Context context)
