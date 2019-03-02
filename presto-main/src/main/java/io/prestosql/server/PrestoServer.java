@@ -47,6 +47,7 @@ import io.prestosql.server.security.ServerSecurityModule;
 import io.prestosql.sql.parser.SqlParserOptions;
 import org.weakref.jmx.guice.MBeanModule;
 
+import java.nio.file.Paths;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -112,6 +113,9 @@ public class PrestoServer
         Bootstrap app = new Bootstrap(modules.build());
 
         try {
+            log.info("Working directory: %s", Paths.get(".").toAbsolutePath().toRealPath());
+            log.info("Etc directory: %s", Paths.get("etc").toAbsolutePath().toRealPath());
+
             Injector injector = app.strictConfig().initialize();
 
             injector.getInstance(PluginManager.class).loadPlugins();
