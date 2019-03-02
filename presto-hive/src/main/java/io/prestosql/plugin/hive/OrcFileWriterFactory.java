@@ -75,6 +75,7 @@ public class OrcFileWriterFactory
     private final FileFormatDataSourceStats readStats;
     private final OrcWriterStats stats = new OrcWriterStats();
     private final OrcWriterOptions orcWriterOptions;
+    private final boolean writeLegacyVersion;
 
     @Inject
     public OrcFileWriterFactory(
@@ -90,6 +91,7 @@ public class OrcFileWriterFactory
                 typeManager,
                 nodeVersion,
                 requireNonNull(hiveClientConfig, "hiveClientConfig is null").getDateTimeZone(),
+                hiveClientConfig.isOrcWriteLegacyVersion(),
                 readStats,
                 requireNonNull(config, "config is null").toOrcWriterOptions());
     }
@@ -99,6 +101,7 @@ public class OrcFileWriterFactory
             TypeManager typeManager,
             NodeVersion nodeVersion,
             DateTimeZone hiveStorageTimeZone,
+            boolean writeLegacyVersion,
             FileFormatDataSourceStats readStats,
             OrcWriterOptions orcWriterOptions)
     {
@@ -106,6 +109,7 @@ public class OrcFileWriterFactory
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.nodeVersion = requireNonNull(nodeVersion, "nodeVersion is null");
         this.hiveStorageTimeZone = requireNonNull(hiveStorageTimeZone, "hiveStorageTimeZone is null");
+        this.writeLegacyVersion = writeLegacyVersion;
         this.readStats = requireNonNull(readStats, "stats is null");
         this.orcWriterOptions = requireNonNull(orcWriterOptions, "orcWriterOptions is null");
     }
@@ -184,6 +188,7 @@ public class OrcFileWriterFactory
                             .withStripeMaxRowCount(getOrcOptimizedWriterMaxStripeRows(session))
                             .withDictionaryMaxMemory(getOrcOptimizedWriterMaxDictionaryMemory(session))
                             .withMaxStringStatisticsLimit(getOrcStringStatisticsLimit(session)),
+                    writeLegacyVersion,
                     fileInputColumnIndexes,
                     ImmutableMap.<String, String>builder()
                             .put(HiveMetadata.PRESTO_VERSION_NAME, nodeVersion.toString())

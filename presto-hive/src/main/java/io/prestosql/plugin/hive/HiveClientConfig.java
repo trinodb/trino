@@ -118,6 +118,7 @@ public class HiveClientConfig
     private DataSize orcStreamBufferSize = new DataSize(8, MEGABYTE);
     private DataSize orcMaxReadBlockSize = new DataSize(16, MEGABYTE);
     private boolean orcLazyReadSmallRanges = true;
+    private boolean orcWriteLegacyVersion;
     private double orcWriterValidationPercentage;
     private OrcWriteValidationMode orcWriterValidationMode = OrcWriteValidationMode.BOTH;
 
@@ -797,6 +798,19 @@ public class HiveClientConfig
     public HiveClientConfig setOrcDefaultBloomFilterFpp(double orcDefaultBloomFilterFpp)
     {
         this.orcDefaultBloomFilterFpp = orcDefaultBloomFilterFpp;
+        return this;
+    }
+
+    public boolean isOrcWriteLegacyVersion()
+    {
+        return orcWriteLegacyVersion;
+    }
+
+    @Config("hive.orc.writer.use-legacy-version-number")
+    @ConfigDescription("Write ORC files with a version number that is readable by Hive 2.0.0 to 2.2.0")
+    public HiveClientConfig setOrcWriteLegacyVersion(boolean orcWriteLegacyVersion)
+    {
+        this.orcWriteLegacyVersion = orcWriteLegacyVersion;
         return this;
     }
 

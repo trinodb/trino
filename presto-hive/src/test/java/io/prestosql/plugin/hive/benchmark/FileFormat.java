@@ -449,6 +449,7 @@ public enum FileFormat
                     types,
                     compressionCodec.getOrcCompressionKind(),
                     new OrcWriterOptions(),
+                    false,
                     ImmutableMap.of(),
                     hiveStorageTimeZone,
                     false,

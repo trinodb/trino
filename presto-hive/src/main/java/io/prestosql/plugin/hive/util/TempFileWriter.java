@@ -82,6 +82,7 @@ public class TempFileWriter
                         .withMaxStringStatisticsLimit(new DataSize(0, BYTE))
                         .withStripeMinSize(new DataSize(64, MEGABYTE))
                         .withDictionaryMaxMemory(new DataSize(1, MEGABYTE)),
+                false,
                 ImmutableMap.of(),
                 UTC,
                 false,

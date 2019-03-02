@@ -228,6 +228,7 @@ public class TestStructStreamReader
                         .withStripeMaxRowCount(ORC_STRIPE_SIZE)
                         .withRowGroupMaxRowCount(ORC_ROW_GROUP_SIZE)
                         .withDictionaryMaxMemory(new DataSize(32, MEGABYTE)),
+                false,
                 ImmutableMap.of(),
                 HIVE_STORAGE_TIME_ZONE,
                 true,
