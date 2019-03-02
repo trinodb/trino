@@ -33,19 +33,28 @@ public class CsvPrinter
 
     public enum CsvOutputFormat
     {
-        STANDARD(true),
-        NO_HEADER(false);
+        STANDARD(true, true),
+        NO_HEADER(false, true),
+        NO_QUOTES(true, false),
+        NO_HEADER_AND_QUOTES(false, false);
 
         private boolean header;
+        private boolean quote;
 
-        CsvOutputFormat(boolean header)
+        CsvOutputFormat(boolean header, boolean quote)
         {
             this.header = header;
+            this.quote = quote;
         }
 
         public boolean showHeader()
         {
             return header;
+        }
+
+        public boolean isQuoted()
+        {
+            return quote;
         }
     }
 
@@ -54,7 +63,7 @@ public class CsvPrinter
         requireNonNull(fieldNames, "fieldNames is null");
         requireNonNull(writer, "writer is null");
         this.fieldNames = ImmutableList.copyOf(fieldNames);
-        this.writer = new CSVWriter(writer);
+        this.writer = csvOutputFormat.isQuoted() ? new CSVWriter(writer) : new CSVWriter(writer, CSVWriter.DEFAULT_SEPARATOR, CSVWriter.NO_QUOTE_CHARACTER);
         this.needHeader = csvOutputFormat.showHeader();
     }
 

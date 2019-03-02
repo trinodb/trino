@@ -21,6 +21,8 @@ import java.io.StringWriter;
 import java.util.List;
 
 import static io.prestosql.cli.CsvPrinter.CsvOutputFormat.NO_HEADER;
+import static io.prestosql.cli.CsvPrinter.CsvOutputFormat.NO_HEADER_AND_QUOTES;
+import static io.prestosql.cli.CsvPrinter.CsvOutputFormat.NO_QUOTES;
 import static io.prestosql.cli.CsvPrinter.CsvOutputFormat.STANDARD;
 import static io.prestosql.cli.TestAlignedTablePrinter.row;
 import static io.prestosql.cli.TestAlignedTablePrinter.rows;
@@ -89,6 +91,77 @@ public class TestCsvPrinter
         String expected = "" +
                 "\"hello\",\"world\",\"123\"\n" +
                 "\"a\",\"\",\"4.5\"\n";
+
+        assertEquals(writer.getBuffer().toString(), expected);
+    }
+
+    @Test
+    public void testCsvPrintingWithoutQuotes()
+            throws Exception
+    {
+        StringWriter writer = new StringWriter();
+        List<String> fieldNames = ImmutableList.of("first", "last", "quantity");
+        OutputPrinter printer = new CsvPrinter(fieldNames, writer, NO_QUOTES);
+
+        printRows(
+                printer,
+                row("hello", "world", 123),
+                row("a", null, 4.5));
+        printer.finish();
+
+        String expected = "" +
+                "first,last,quantity\n" +
+                "hello,world,123\n" +
+                "a,,4.5\n";
+
+        assertEquals(writer.getBuffer().toString(), expected);
+    }
+
+    @Test
+    public void testCsvPrintingNoRowsWithoutQuotes()
+            throws Exception
+    {
+        StringWriter writer = new StringWriter();
+        List<String> fieldNames = ImmutableList.of("first", "last");
+        OutputPrinter printer = new CsvPrinter(fieldNames, writer, NO_QUOTES);
+
+        printer.finish();
+
+        assertEquals(writer.getBuffer().toString(), "first,last\n");
+    }
+
+    @Test
+    public void testCsvPrintingNoHeaderWithoutQuotes()
+            throws Exception
+    {
+        StringWriter writer = new StringWriter();
+        List<String> fieldNames = ImmutableList.of("first", "last", "quantity");
+        OutputPrinter printer = new CsvPrinter(fieldNames, writer, NO_HEADER_AND_QUOTES);
+
+        printRows(
+                printer,
+                row("hello", "world", 123),
+                row("a", null, 4.5));
+        printer.finish();
+
+        String expected = "" +
+                "hello,world,123\n" +
+                "a,,4.5\n";
+
+        assertEquals(writer.getBuffer().toString(), expected);
+    }
+
+    @Test
+    public void testCsvPrintingNoRowsWithNoHeaderAndWithoutQuotes()
+            throws Exception
+    {
+        StringWriter writer = new StringWriter();
+        List<String> fieldNames = ImmutableList.of("first", "last", "quantity");
+        OutputPrinter printer = new CsvPrinter(fieldNames, writer, NO_HEADER_AND_QUOTES);
+
+        printer.finish();
+
+        String expected = "";
 
         assertEquals(writer.getBuffer().toString(), expected);
     }

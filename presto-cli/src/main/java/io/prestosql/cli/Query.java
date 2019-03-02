@@ -47,6 +47,8 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static io.prestosql.cli.ConsolePrinter.REAL_TERMINAL;
 import static io.prestosql.cli.CsvPrinter.CsvOutputFormat.NO_HEADER;
+import static io.prestosql.cli.CsvPrinter.CsvOutputFormat.NO_HEADER_AND_QUOTES;
+import static io.prestosql.cli.CsvPrinter.CsvOutputFormat.NO_QUOTES;
 import static io.prestosql.cli.CsvPrinter.CsvOutputFormat.STANDARD;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -303,6 +305,10 @@ public class Query
                 return new CsvPrinter(fieldNames, writer, NO_HEADER);
             case CSV_HEADER:
                 return new CsvPrinter(fieldNames, writer, STANDARD);
+            case CSV_UNQUOTED:
+                return new CsvPrinter(fieldNames, writer, NO_HEADER_AND_QUOTES);
+            case CSV_HEADER_UNQUOTED:
+                return new CsvPrinter(fieldNames, writer, NO_QUOTES);
             case TSV:
                 return new TsvPrinter(fieldNames, writer, false);
             case TSV_HEADER:
