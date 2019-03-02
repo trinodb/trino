@@ -592,6 +592,7 @@ public class OrcTester
                 ImmutableList.of(type),
                 compression,
                 new OrcWriterOptions(),
+                false,
                 ImmutableMap.of(),
                 HIVE_STORAGE_TIME_ZONE,
                 true,

@@ -46,8 +46,17 @@ public class OrcMetadataWriter
     // see https://github.com/prestosql/orc-protobuf/blob/master/src/main/protobuf/orc_proto.proto
     private static final int PRESTO_WRITER_ID = 2;
     // in order to change this value, the master Apache ORC proto file must be updated
-    private static final int ORC_WRITER_VERSION = 6;
+    private static final int PRESTO_WRITER_VERSION = 6;
+    // maximum version readable by Hive 2.x before the ORC-125 fix
+    private static final int HIVE_LEGACY_WRITER_VERSION = 4;
     private static final List<Integer> ORC_METADATA_VERSION = ImmutableList.of(0, 12);
+
+    private final boolean useLegacyVersion;
+
+    public OrcMetadataWriter(boolean useLegacyVersion)
+    {
+        this.useLegacyVersion = useLegacyVersion;
+    }
 
     @Override
     public List<Integer> getOrcMetadataVersion()
@@ -65,7 +74,7 @@ public class OrcMetadataWriter
                 .setMetadataLength(metadataLength)
                 .setCompression(toCompression(compression))
                 .setCompressionBlockSize(compressionBlockSize)
-                .setWriterVersion(ORC_WRITER_VERSION)
+                .setWriterVersion(useLegacyVersion ? HIVE_LEGACY_WRITER_VERSION : PRESTO_WRITER_VERSION)
                 .build();
 
         return writeProtobufObject(output, postScriptProtobuf);
@@ -97,8 +106,7 @@ public class OrcMetadataWriter
     public int writeFooter(SliceOutput output, Footer footer)
             throws IOException
     {
-        OrcProto.Footer footerProtobuf = OrcProto.Footer.newBuilder()
-                .setWriter(PRESTO_WRITER_ID)
+        OrcProto.Footer.Builder builder = OrcProto.Footer.newBuilder()
                 .setNumberOfRows(footer.getNumberOfRows())
                 .setRowIndexStride(footer.getRowsInRowGroup())
                 .addAllStripes(footer.getStripes().stream()
@@ -112,10 +120,13 @@ public class OrcMetadataWriter
                         .collect(toList()))
                 .addAllMetadata(footer.getUserMetadata().entrySet().stream()
                         .map(OrcMetadataWriter::toUserMetadata)
-                        .collect(toList()))
-                .build();
+                        .collect(toList()));
 
-        return writeProtobufObject(output, footerProtobuf);
+        if (!useLegacyVersion) {
+            builder.setWriter(PRESTO_WRITER_ID);
+        }
+
+        return writeProtobufObject(output, builder.build());
     }
 
     private static OrcProto.StripeInformation toStripeInformation(StripeInformation stripe)
