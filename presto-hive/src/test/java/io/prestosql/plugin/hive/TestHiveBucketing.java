@@ -23,14 +23,9 @@ import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.Type;
 import org.apache.hadoop.hive.common.type.HiveVarchar;
-import org.apache.hadoop.hive.ql.io.DefaultHivePartitioner;
-import org.apache.hadoop.hive.ql.io.HiveKey;
-import org.apache.hadoop.hive.ql.metadata.HiveException;
-import org.apache.hadoop.hive.ql.udf.generic.GenericUDF;
-import org.apache.hadoop.hive.ql.udf.generic.GenericUDFHash;
 import org.apache.hadoop.hive.serde2.io.DateWritable;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
-import org.apache.hadoop.hive.serde2.objectinspector.primitive.IntObjectInspector;
+import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorUtils;
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.JavaHiveVarcharObjectInspector;
 import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.TypeInfoUtils;
@@ -57,7 +52,6 @@ public class TestHiveBucketing
 {
     @Test
     public void testHashingCompare()
-            throws Exception
     {
         assertBucketEquals("boolean", null);
         assertBucketEquals("boolean", true);
@@ -129,14 +123,12 @@ public class TestHiveBucketing
     }
 
     private static void assertBucketEquals(String hiveTypeStrings, Object hiveValues)
-            throws HiveException
     {
         // Use asList to allow nulls
         assertBucketEquals(ImmutableList.of(hiveTypeStrings), asList(hiveValues));
     }
 
     private static void assertBucketEquals(List<String> hiveTypeStrings, List<Object> hiveValues)
-            throws HiveException
     {
         List<HiveType> hiveTypes = hiveTypeStrings.stream()
                 .map(HiveType::valueOf)
@@ -153,7 +145,6 @@ public class TestHiveBucketing
     }
 
     private static int computeExpected(List<String> hiveTypeStrings, List<Object> hiveValues, int bucketCount, List<TypeInfo> hiveTypeInfos)
-            throws HiveException
     {
         ImmutableList.Builder<Entry<ObjectInspector, Object>> columnBindingsBuilder = ImmutableList.builder();
         for (int i = 0; i < hiveTypeStrings.size(); i++) {
@@ -192,33 +183,30 @@ public class TestHiveBucketing
     }
 
     public static int getHiveBucket(List<Entry<ObjectInspector, Object>> columnBindings, int bucketCount)
-            throws HiveException
     {
-        GenericUDFHash udf = new GenericUDFHash();
         ObjectInspector[] objectInspectors = new ObjectInspector[columnBindings.size()];
-        GenericUDF.DeferredObject[] deferredObjects = new GenericUDF.DeferredObject[columnBindings.size()];
+        Object[] objects = new Object[columnBindings.size()];
 
         int i = 0;
         for (Entry<ObjectInspector, Object> entry : columnBindings) {
             objectInspectors[i] = entry.getKey();
             if (entry.getValue() != null && entry.getKey() instanceof JavaHiveVarcharObjectInspector) {
                 JavaHiveVarcharObjectInspector varcharObjectInspector = (JavaHiveVarcharObjectInspector) entry.getKey();
-                deferredObjects[i] = new GenericUDF.DeferredJavaObject(new HiveVarchar(((String) entry.getValue()), varcharObjectInspector.getMaxLength()));
+                objects[i] = new HiveVarchar(((String) entry.getValue()), varcharObjectInspector.getMaxLength());
             }
             else {
-                deferredObjects[i] = new GenericUDF.DeferredJavaObject(entry.getValue());
+                objects[i] = entry.getValue();
             }
             i++;
         }
 
-        ObjectInspector udfInspector = udf.initialize(objectInspectors);
-        IntObjectInspector inspector = (IntObjectInspector) udfInspector;
+        return getHiveBucketNumberV1(objects, objectInspectors, bucketCount);
+    }
 
-        Object result = udf.evaluate(deferredObjects);
-        HiveKey hiveKey = new HiveKey();
-        hiveKey.setHashCode(inspector.get(result));
-
-        return new DefaultHivePartitioner<>().getBucket(hiveKey, null, bucketCount);
+    @SuppressWarnings("deprecation")
+    private static int getHiveBucketNumberV1(Object[] objects, ObjectInspector[] inspectors, int bucketCount)
+    {
+        return ObjectInspectorUtils.getBucketNumberOld(objects, inspectors, bucketCount);
     }
 
     private static Object toNativeContainerValue(Type type, Object hiveValue)
