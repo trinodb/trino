@@ -70,12 +70,17 @@ final class HiveBucketing
 
     public static int getHiveBucket(int bucketCount, List<TypeInfo> types, Page page, int position)
     {
-        return (getBucketHashCode(types, page, position) & Integer.MAX_VALUE) % bucketCount;
+        return getBucketNumber(getBucketHashCode(types, page, position), bucketCount);
     }
 
     public static int getHiveBucket(int bucketCount, List<TypeInfo> types, Object[] values)
     {
-        return (getBucketHashCode(types, values) & Integer.MAX_VALUE) % bucketCount;
+        return getBucketNumber(getBucketHashCode(types, values), bucketCount);
+    }
+
+    private static int getBucketNumber(int hashCode, int bucketCount)
+    {
+        return (hashCode & Integer.MAX_VALUE) % bucketCount;
     }
 
     private static int getBucketHashCode(List<TypeInfo> types, Page page, int position)
