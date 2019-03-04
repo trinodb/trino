@@ -53,82 +53,84 @@ public class TestHiveBucketing
     @Test
     public void testHashingCompare()
     {
-        assertBucketEquals("boolean", null);
-        assertBucketEquals("boolean", true);
-        assertBucketEquals("boolean", false);
-        assertBucketEquals("tinyint", null);
-        assertBucketEquals("tinyint", (byte) 5);
-        assertBucketEquals("tinyint", Byte.MIN_VALUE);
-        assertBucketEquals("tinyint", Byte.MAX_VALUE);
-        assertBucketEquals("smallint", null);
-        assertBucketEquals("smallint", (short) 300);
-        assertBucketEquals("smallint", Short.MIN_VALUE);
-        assertBucketEquals("smallint", Short.MAX_VALUE);
-        assertBucketEquals("int", null);
-        assertBucketEquals("int", 300_000);
-        assertBucketEquals("int", Integer.MIN_VALUE);
-        assertBucketEquals("int", Integer.MAX_VALUE);
-        assertBucketEquals("bigint", null);
-        assertBucketEquals("bigint", 300_000_000_000L);
-        assertBucketEquals("bigint", Long.MIN_VALUE);
-        assertBucketEquals("bigint", Long.MAX_VALUE);
-        assertBucketEquals("float", null);
-        assertBucketEquals("float", 12.34F);
-        assertBucketEquals("float", -Float.MAX_VALUE);
-        assertBucketEquals("float", Float.MIN_VALUE);
-        assertBucketEquals("float", Float.POSITIVE_INFINITY);
-        assertBucketEquals("float", Float.NEGATIVE_INFINITY);
-        assertBucketEquals("double", null);
-        assertBucketEquals("double", 12.34);
-        assertBucketEquals("double", -Double.MAX_VALUE);
-        assertBucketEquals("double", Double.MIN_VALUE);
-        assertBucketEquals("double", Double.POSITIVE_INFINITY);
-        assertBucketEquals("double", Double.NEGATIVE_INFINITY);
-        assertBucketEquals("varchar(15)", null);
-        assertBucketEquals("varchar(15)", "");
-        assertBucketEquals("varchar(15)", "test string");
-        assertBucketEquals("varchar(15)", "\u5f3a\u5927\u7684Presto\u5f15\u64ce"); // 3-byte UTF-8 sequences (in Basic Plane, i.e. Plane 0)
-        assertBucketEquals("varchar(15)", "\uD843\uDFFC\uD843\uDFFD\uD843\uDFFE\uD843\uDFFF"); // 4 code points: 20FFC - 20FFF. 4-byte UTF-8 sequences in Supplementary Plane 2
-        assertBucketEquals("string", null);
-        assertBucketEquals("string", "");
-        assertBucketEquals("string", "test string");
-        assertBucketEquals("string", "\u5f3a\u5927\u7684Presto\u5f15\u64ce"); // 3-byte UTF-8 sequences (in Basic Plane, i.e. Plane 0)
-        assertBucketEquals("string", "\uD843\uDFFC\uD843\uDFFD\uD843\uDFFE\uD843\uDFFF"); // 4 code points: 20FFC - 20FFF. 4-byte UTF-8 sequences in Supplementary Plane 2
-        assertBucketEquals("date", null);
-        assertBucketEquals("date", new DateWritable(toIntExact(LocalDate.of(1970, 1, 1).toEpochDay())).get());
-        assertBucketEquals("date", new DateWritable(toIntExact(LocalDate.of(2015, 11, 19).toEpochDay())).get());
-        assertBucketEquals("date", new DateWritable(toIntExact(LocalDate.of(1950, 11, 19).toEpochDay())).get());
-        assertBucketEquals("timestamp", null);
-        assertBucketEquals("timestamp", new Timestamp(1000 * LocalDateTime.of(1970, 1, 1, 0, 0, 0, 0).toEpochSecond(ZoneOffset.UTC)));
-        assertBucketEquals("timestamp", new Timestamp(1000 * LocalDateTime.of(1969, 12, 31, 23, 59, 59, 999_000_000).toEpochSecond(ZoneOffset.UTC)));
-        assertBucketEquals("timestamp", new Timestamp(1000 * LocalDateTime.of(1950, 11, 19, 12, 34, 56, 789_000_000).toEpochSecond(ZoneOffset.UTC)));
-        assertBucketEquals("timestamp", new Timestamp(1000 * LocalDateTime.of(2015, 11, 19, 7, 6, 5, 432_000_000).toEpochSecond(ZoneOffset.UTC)));
-        assertBucketEquals("array<double>", null);
-        assertBucketEquals("array<boolean>", ImmutableList.of());
-        assertBucketEquals("array<smallint>", ImmutableList.of((short) 5, (short) 8, (short) 13));
-        assertBucketEquals("array<string>", ImmutableList.of("test1", "test2", "test3", "test4"));
-        assertBucketEquals("map<float,date>", null);
-        assertBucketEquals("map<double,timestamp>", ImmutableMap.of());
-        assertBucketEquals("map<string,bigint>", ImmutableMap.of("key", 123L, "key2", 123456789L, "key3", -123456L));
-        assertBucketEquals("array<array<bigint>>", ImmutableList.of(ImmutableList.of(10L, 20L), ImmutableList.of(-10L, -20L), asList((Object) null)));
-        assertBucketEquals("map<array<double>,map<int,timestamp>>", ImmutableMap.of(ImmutableList.of(12.3, 45.7), ImmutableMap.of(123, new Timestamp(1_234_567_890_000L))));
+        assertBucketEquals("boolean", null, 0);
+        assertBucketEquals("boolean", true, 1);
+        assertBucketEquals("boolean", false, 0);
+        assertBucketEquals("tinyint", null, 0);
+        assertBucketEquals("tinyint", (byte) 5, 5);
+        assertBucketEquals("tinyint", Byte.MIN_VALUE, -128);
+        assertBucketEquals("tinyint", Byte.MAX_VALUE, 127);
+        assertBucketEquals("smallint", null, 0);
+        assertBucketEquals("smallint", (short) 300, 300);
+        assertBucketEquals("smallint", Short.MIN_VALUE, -32768);
+        assertBucketEquals("smallint", Short.MAX_VALUE, 32767);
+        assertBucketEquals("int", null, 0);
+        assertBucketEquals("int", 300_000, 300000);
+        assertBucketEquals("int", Integer.MIN_VALUE, -2147483648);
+        assertBucketEquals("int", Integer.MAX_VALUE, 2147483647);
+        assertBucketEquals("bigint", null, 0);
+        assertBucketEquals("bigint", 300_000_000_000L, -647710651);
+        assertBucketEquals("bigint", Long.MIN_VALUE, -2147483648);
+        assertBucketEquals("bigint", Long.MAX_VALUE, -2147483648);
+        assertBucketEquals("float", null, 0);
+        assertBucketEquals("float", 12.34F, 1095069860);
+        assertBucketEquals("float", -Float.MAX_VALUE, -8388609);
+        assertBucketEquals("float", Float.MIN_VALUE, 1);
+        assertBucketEquals("float", Float.POSITIVE_INFINITY, 2139095040);
+        assertBucketEquals("float", Float.NEGATIVE_INFINITY, -8388608);
+        assertBucketEquals("double", null, 0);
+        assertBucketEquals("double", 12.34, 986311098);
+        assertBucketEquals("double", -Double.MAX_VALUE, 1048576);
+        assertBucketEquals("double", Double.MIN_VALUE, 1);
+        assertBucketEquals("double", Double.POSITIVE_INFINITY, 2146435072);
+        assertBucketEquals("double", Double.NEGATIVE_INFINITY, -1048576);
+        assertBucketEquals("varchar(15)", null, 0);
+        assertBucketEquals("varchar(15)", "", 1);
+        assertBucketEquals("varchar(15)", "test string", -189841218);
+        assertBucketEquals("varchar(15)", "\u5f3a\u5927\u7684Presto\u5f15\u64ce", 2136288313); // 3-byte UTF-8 sequences (in Basic Plane, i.e. Plane 0)
+        assertBucketEquals("varchar(15)", "\uD843\uDFFC\uD843\uDFFD\uD843\uDFFE\uD843\uDFFF", -457487557); // 4 code points: 20FFC - 20FFF. 4-byte UTF-8 sequences in Supplementary Plane 2
+        assertBucketEquals("string", null, 0);
+        assertBucketEquals("string", "", 0);
+        assertBucketEquals("string", "test string", -318923937);
+        assertBucketEquals("string", "\u5f3a\u5927\u7684Presto\u5f15\u64ce", -120622694); // 3-byte UTF-8 sequences (in Basic Plane, i.e. Plane 0)
+        assertBucketEquals("string", "\uD843\uDFFC\uD843\uDFFD\uD843\uDFFE\uD843\uDFFF", -1810797254); // 4 code points: 20FFC - 20FFF. 4-byte UTF-8 sequences in Supplementary Plane 2
+        assertBucketEquals("date", null, 0);
+        assertBucketEquals("date", new DateWritable(toIntExact(LocalDate.of(1970, 1, 1).toEpochDay())).get(), 0);
+        assertBucketEquals("date", new DateWritable(toIntExact(LocalDate.of(2015, 11, 19).toEpochDay())).get(), 16758);
+        assertBucketEquals("date", new DateWritable(toIntExact(LocalDate.of(1950, 11, 19).toEpochDay())).get(), -6983);
+        assertBucketEquals("timestamp", null, 0);
+        assertBucketEquals("timestamp", new Timestamp(1000 * LocalDateTime.of(1970, 1, 1, 0, 0, 0, 0).toEpochSecond(ZoneOffset.UTC)), 0);
+        assertBucketEquals("timestamp", new Timestamp(1000 * LocalDateTime.of(1969, 12, 31, 23, 59, 59, 999_000_000).toEpochSecond(ZoneOffset.UTC)), 1073741823);
+        assertBucketEquals("timestamp", new Timestamp(1000 * LocalDateTime.of(1950, 11, 19, 12, 34, 56, 789_000_000).toEpochSecond(ZoneOffset.UTC)), -150821476);
+        assertBucketEquals("timestamp", new Timestamp(1000 * LocalDateTime.of(2015, 11, 19, 7, 6, 5, 432_000_000).toEpochSecond(ZoneOffset.UTC)), 1435721015);
+        assertBucketEquals("array<double>", null, 0);
+        assertBucketEquals("array<boolean>", ImmutableList.of(), 0);
+        assertBucketEquals("array<smallint>", ImmutableList.of((short) 5, (short) 8, (short) 13), 5066);
+        assertBucketEquals("array<string>", ImmutableList.of("test1", "test2", "test3", "test4"), 957612994);
+        assertBucketEquals("map<float,date>", null, 0);
+        assertBucketEquals("map<double,timestamp>", ImmutableMap.of(), 0);
+        assertBucketEquals("map<string,bigint>", ImmutableMap.of("key", 123L, "key2", 123456789L, "key3", -123456L), 127880789);
+        assertBucketEquals("array<array<bigint>>", ImmutableList.of(ImmutableList.of(10L, 20L), ImmutableList.of(-10L, -20L), asList((Object) null)), 326368);
+        assertBucketEquals("map<array<double>,map<int,timestamp>>", ImmutableMap.of(ImmutableList.of(12.3, 45.7), ImmutableMap.of(123, new Timestamp(1_234_567_890_000L))), -1540636497);
 
         // multiple bucketing columns
         assertBucketEquals(
                 ImmutableList.of("float", "array<smallint>", "map<string,bigint>"),
-                ImmutableList.of(12.34F, ImmutableList.of((short) 5, (short) 8, (short) 13), ImmutableMap.of("key", 123L)));
+                ImmutableList.of(12.34F, ImmutableList.of((short) 5, (short) 8, (short) 13), ImmutableMap.of("key", 123L)),
+                95411006);
         assertBucketEquals(
                 ImmutableList.of("double", "array<smallint>", "boolean", "map<string,bigint>", "tinyint"),
-                asList(null, ImmutableList.of((short) 5, (short) 8, (short) 13), null, ImmutableMap.of("key", 123L), null));
+                asList(null, ImmutableList.of((short) 5, (short) 8, (short) 13), null, ImmutableMap.of("key", 123L), null),
+                154207826);
     }
 
-    private static void assertBucketEquals(String hiveTypeStrings, Object hiveValues)
+    private static void assertBucketEquals(String hiveTypeString, Object hiveValue, int expectedHashCode)
     {
         // Use asList to allow nulls
-        assertBucketEquals(ImmutableList.of(hiveTypeStrings), asList(hiveValues));
+        assertBucketEquals(ImmutableList.of(hiveTypeString), asList(hiveValue), expectedHashCode);
     }
 
-    private static void assertBucketEquals(List<String> hiveTypeStrings, List<Object> hiveValues)
+    private static void assertBucketEquals(List<String> hiveTypeStrings, List<Object> hiveValues, int expectedHashCode)
     {
         List<HiveType> hiveTypes = hiveTypeStrings.stream()
                 .map(HiveType::valueOf)
@@ -137,14 +139,17 @@ public class TestHiveBucketing
                 .map(HiveType::getTypeInfo)
                 .collect(toImmutableList());
 
+        assertEquals(computePresto(hiveTypeStrings, hiveValues, hiveTypes, hiveTypeInfos), expectedHashCode);
+        assertEquals(computeHive(hiveTypeStrings, hiveValues, hiveTypeInfos), expectedHashCode);
+
         for (int bucketCount : new int[] {1, 2, 500, 997}) {
-            int actual = computeActual(hiveTypeStrings, hiveValues, bucketCount, hiveTypes, hiveTypeInfos);
-            int expected = computeExpected(hiveTypeStrings, hiveValues, bucketCount, hiveTypeInfos);
-            assertEquals(actual, expected);
+            int actual = HiveBucketing.getBucketNumber(expectedHashCode, bucketCount);
+            int expected = ObjectInspectorUtils.getBucketNumber(expectedHashCode, bucketCount);
+            assertEquals(actual, expected, "bucketCount " + bucketCount);
         }
     }
 
-    private static int computeExpected(List<String> hiveTypeStrings, List<Object> hiveValues, int bucketCount, List<TypeInfo> hiveTypeInfos)
+    private static int computeHive(List<String> hiveTypeStrings, List<Object> hiveValues, List<TypeInfo> hiveTypeInfos)
     {
         ImmutableList.Builder<Entry<ObjectInspector, Object>> columnBindingsBuilder = ImmutableList.builder();
         for (int i = 0; i < hiveTypeStrings.size(); i++) {
@@ -154,10 +159,10 @@ public class TestHiveBucketing
                     TypeInfoUtils.getStandardJavaObjectInspectorFromTypeInfo(hiveTypeInfos.get(i)),
                     javaValue));
         }
-        return getHiveBucket(columnBindingsBuilder.build(), bucketCount);
+        return getHiveBucketHashCode(columnBindingsBuilder.build());
     }
 
-    private static int computeActual(List<String> hiveTypeStrings, List<Object> hiveValues, int bucketCount, List<HiveType> hiveTypes, List<TypeInfo> hiveTypeInfos)
+    private static int computePresto(List<String> hiveTypeStrings, List<Object> hiveValues, List<HiveType> hiveTypes, List<TypeInfo> hiveTypeInfos)
     {
         ImmutableList.Builder<Block> blockListBuilder = ImmutableList.builder();
         Object[] nativeContainerValues = new Object[hiveValues.size()];
@@ -176,13 +181,13 @@ public class TestHiveBucketing
             nativeContainerValues[i] = toNativeContainerValue(type, hiveValue);
         }
         ImmutableList<Block> blockList = blockListBuilder.build();
-        int result1 = HiveBucketing.getHiveBucket(bucketCount, hiveTypeInfos, new Page(blockList.toArray(new Block[blockList.size()])), 2);
-        int result2 = HiveBucketing.getHiveBucket(bucketCount, hiveTypeInfos, nativeContainerValues);
-        assertEquals(result1, result2, "Overloads of getHiveBucket produced different result");
+        int result1 = HiveBucketing.getBucketHashCode(hiveTypeInfos, new Page(blockList.toArray(new Block[blockList.size()])), 2);
+        int result2 = HiveBucketing.getBucketHashCode(hiveTypeInfos, nativeContainerValues);
+        assertEquals(result1, result2, "overloads of getBucketHashCode produced different result");
         return result1;
     }
 
-    public static int getHiveBucket(List<Entry<ObjectInspector, Object>> columnBindings, int bucketCount)
+    public static int getHiveBucketHashCode(List<Entry<ObjectInspector, Object>> columnBindings)
     {
         ObjectInspector[] objectInspectors = new ObjectInspector[columnBindings.size()];
         Object[] objects = new Object[columnBindings.size()];
@@ -200,13 +205,13 @@ public class TestHiveBucketing
             i++;
         }
 
-        return getHiveBucketNumberV1(objects, objectInspectors, bucketCount);
+        return getHiveBucketHashCodeV1(objects, objectInspectors);
     }
 
     @SuppressWarnings("deprecation")
-    private static int getHiveBucketNumberV1(Object[] objects, ObjectInspector[] inspectors, int bucketCount)
+    private static int getHiveBucketHashCodeV1(Object[] objects, ObjectInspector[] inspectors)
     {
-        return ObjectInspectorUtils.getBucketNumberOld(objects, inspectors, bucketCount);
+        return ObjectInspectorUtils.getBucketHashCodeOld(objects, inspectors);
     }
 
     private static Object toNativeContainerValue(Type type, Object hiveValue)
