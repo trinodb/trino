@@ -132,9 +132,9 @@ There are four selectors that define which queries run in which resource group:
     dynamically-created per-user pipeline group under the ``global.pipeline`` group.
 
   * The fourth selector matches queries that come from BI tools (which have a source matching the regular
-    expression ``"jdbc#(?<tool_name>.*)"``), and have client provided tags that are a superset of "hi-pri".
+    expression ``"jdbc#(?<toolname>.*)"``), and have client provided tags that are a superset of "hi-pri".
     These are placed in a dynamically-created sub-group under the ``global.pipeline.tools`` group. The dynamic
-    sub-group will be created based on the named variable ``tool_name``, which is extracted from the in the
+    sub-group will be created based on the named variable ``toolname``, which is extracted from the in the
     regular expression for source. Consider a query with a source "jdbc#powerfulbi", user "kayla", and
     client tags "hipri" and "fast". This query would be routed to the ``global.pipeline.bi-powerfulbi.kayla``
     resource group.
