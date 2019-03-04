@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.execution.resourceGroups.db;
+package io.prestosql.execution.resourcegroups.db;
 
 import io.prestosql.plugin.resourcegroups.db.H2ResourceGroupsDao;
 import io.prestosql.spi.QueryId;
@@ -22,12 +22,12 @@ import static io.prestosql.execution.QueryState.FAILED;
 import static io.prestosql.execution.QueryState.RUNNING;
 import static io.prestosql.execution.TestQueryRunnerUtil.createQuery;
 import static io.prestosql.execution.TestQueryRunnerUtil.waitForQueryState;
-import static io.prestosql.execution.resourceGroups.db.H2TestUtil.TEST_ENVIRONMENT;
-import static io.prestosql.execution.resourceGroups.db.H2TestUtil.TEST_ENVIRONMENT_2;
-import static io.prestosql.execution.resourceGroups.db.H2TestUtil.adhocSession;
-import static io.prestosql.execution.resourceGroups.db.H2TestUtil.createQueryRunner;
-import static io.prestosql.execution.resourceGroups.db.H2TestUtil.getDao;
-import static io.prestosql.execution.resourceGroups.db.H2TestUtil.getDbConfigUrl;
+import static io.prestosql.execution.resourcegroups.db.H2TestUtil.TEST_ENVIRONMENT;
+import static io.prestosql.execution.resourcegroups.db.H2TestUtil.TEST_ENVIRONMENT_2;
+import static io.prestosql.execution.resourcegroups.db.H2TestUtil.adhocSession;
+import static io.prestosql.execution.resourcegroups.db.H2TestUtil.createQueryRunner;
+import static io.prestosql.execution.resourcegroups.db.H2TestUtil.getDao;
+import static io.prestosql.execution.resourcegroups.db.H2TestUtil.getDbConfigUrl;
 
 @Test(singleThreaded = true)
 public class TestEnvironments

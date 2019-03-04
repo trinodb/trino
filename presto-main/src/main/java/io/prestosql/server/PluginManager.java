@@ -22,7 +22,7 @@ import io.airlift.resolver.DefaultArtifact;
 import io.prestosql.block.BlockEncodingManager;
 import io.prestosql.connector.ConnectorManager;
 import io.prestosql.eventlistener.EventListenerManager;
-import io.prestosql.execution.resourceGroups.ResourceGroupManager;
+import io.prestosql.execution.resourcegroups.ResourceGroupManager;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.security.AccessControlManager;
 import io.prestosql.server.security.PasswordAuthenticatorManager;

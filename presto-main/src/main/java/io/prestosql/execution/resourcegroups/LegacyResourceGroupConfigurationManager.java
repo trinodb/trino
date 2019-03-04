@@ -11,10 +11,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.execution.resourceGroups;
+package io.prestosql.execution.resourcegroups;
 
 import io.prestosql.execution.QueryManagerConfig;
-import io.prestosql.execution.resourceGroups.LegacyResourceGroupConfigurationManager.VoidContext;
+import io.prestosql.execution.resourcegroups.LegacyResourceGroupConfigurationManager.VoidContext;
 import io.prestosql.spi.resourcegroups.ResourceGroup;
 import io.prestosql.spi.resourcegroups.ResourceGroupConfigurationManager;
 import io.prestosql.spi.resourcegroups.ResourceGroupId;

@@ -11,14 +11,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.execution.resourceGroups;
+package io.prestosql.execution.resourcegroups;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.stats.CounterStat;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.prestosql.execution.ManagedQueryExecution;
-import io.prestosql.execution.resourceGroups.WeightedFairQueue.Usage;
+import io.prestosql.execution.resourcegroups.WeightedFairQueue.Usage;
 import io.prestosql.server.QueryStateInfo;
 import io.prestosql.server.ResourceGroupInfo;
 import io.prestosql.spi.PrestoException;

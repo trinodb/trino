@@ -11,9 +11,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.execution.resourceGroups;
+package io.prestosql.execution.resourcegroups;
 
-import io.prestosql.execution.resourceGroups.WeightedFairQueue.Usage;
+import io.prestosql.execution.resourcegroups.WeightedFairQueue.Usage;
 import org.testng.annotations.Test;
 
 import static org.testng.Assert.assertEquals;

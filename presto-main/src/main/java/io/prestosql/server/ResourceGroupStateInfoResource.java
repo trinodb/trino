@@ -13,7 +13,7 @@
  */
 package io.prestosql.server;
 
-import io.prestosql.execution.resourceGroups.ResourceGroupManager;
+import io.prestosql.execution.resourcegroups.ResourceGroupManager;
 import io.prestosql.spi.resourcegroups.ResourceGroupId;
 
 import javax.inject.Inject;

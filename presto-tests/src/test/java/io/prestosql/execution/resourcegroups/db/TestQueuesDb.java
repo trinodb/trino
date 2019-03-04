@@ -11,13 +11,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.execution.resourceGroups.db;
+package io.prestosql.execution.resourcegroups.db;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.prestosql.Session;
 import io.prestosql.execution.QueryManager;
-import io.prestosql.execution.resourceGroups.InternalResourceGroupManager;
+import io.prestosql.execution.resourcegroups.InternalResourceGroupManager;
 import io.prestosql.plugin.resourcegroups.db.DbResourceGroupConfigurationManager;
 import io.prestosql.plugin.resourcegroups.db.H2ResourceGroupsDao;
 import io.prestosql.server.ResourceGroupInfo;
@@ -43,16 +43,16 @@ import static io.prestosql.execution.TestQueryRunnerUtil.cancelQuery;
 import static io.prestosql.execution.TestQueryRunnerUtil.createQuery;
 import static io.prestosql.execution.TestQueryRunnerUtil.waitForQueryState;
 import static io.prestosql.execution.TestQueues.createResourceGroupId;
-import static io.prestosql.execution.resourceGroups.db.H2TestUtil.TEST_ENVIRONMENT;
-import static io.prestosql.execution.resourceGroups.db.H2TestUtil.adhocSession;
-import static io.prestosql.execution.resourceGroups.db.H2TestUtil.createQueryRunner;
-import static io.prestosql.execution.resourceGroups.db.H2TestUtil.dashboardSession;
-import static io.prestosql.execution.resourceGroups.db.H2TestUtil.getDao;
-import static io.prestosql.execution.resourceGroups.db.H2TestUtil.getDbConfigUrl;
-import static io.prestosql.execution.resourceGroups.db.H2TestUtil.getSelectors;
-import static io.prestosql.execution.resourceGroups.db.H2TestUtil.rejectingSession;
-import static io.prestosql.execution.resourceGroups.db.H2TestUtil.waitForCompleteQueryCount;
-import static io.prestosql.execution.resourceGroups.db.H2TestUtil.waitForRunningQueryCount;
+import static io.prestosql.execution.resourcegroups.db.H2TestUtil.TEST_ENVIRONMENT;
+import static io.prestosql.execution.resourcegroups.db.H2TestUtil.adhocSession;
+import static io.prestosql.execution.resourcegroups.db.H2TestUtil.createQueryRunner;
+import static io.prestosql.execution.resourcegroups.db.H2TestUtil.dashboardSession;
+import static io.prestosql.execution.resourcegroups.db.H2TestUtil.getDao;
+import static io.prestosql.execution.resourcegroups.db.H2TestUtil.getDbConfigUrl;
+import static io.prestosql.execution.resourcegroups.db.H2TestUtil.getSelectors;
+import static io.prestosql.execution.resourcegroups.db.H2TestUtil.rejectingSession;
+import static io.prestosql.execution.resourcegroups.db.H2TestUtil.waitForCompleteQueryCount;
+import static io.prestosql.execution.resourcegroups.db.H2TestUtil.waitForRunningQueryCount;
 import static io.prestosql.spi.StandardErrorCode.EXCEEDED_TIME_LIMIT;
 import static io.prestosql.spi.StandardErrorCode.INVALID_RESOURCE_GROUP;
 import static io.prestosql.spi.StandardErrorCode.QUERY_REJECTED;
