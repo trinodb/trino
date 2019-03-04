@@ -15,7 +15,6 @@ package io.prestosql.plugin.resourcegroups;
 
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.exc.UnrecognizedPropertyException;
-import com.google.common.annotations.VisibleForTesting;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.ObjectMapperProvider;
@@ -116,11 +115,5 @@ public class FileResourceGroupConfigurationManager
                 .filter(Optional::isPresent)
                 .map(Optional::get)
                 .findFirst();
-    }
-
-    @VisibleForTesting
-    public List<ResourceGroupSelector> getSelectors()
-    {
-        return selectors;
     }
 }

@@ -24,7 +24,6 @@ import io.prestosql.spi.resourcegroups.SelectionCriteria;
 import io.prestosql.spi.session.ResourceEstimates;
 import org.testng.annotations.Test;
 
-import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.io.Resources.getResource;
@@ -62,14 +61,13 @@ public class TestFileResourceGroupConfigurationManager
     public void testQueryTypeConfiguration()
     {
         FileResourceGroupConfigurationManager manager = parse("resource_groups_config_query_type.json");
-        List<ResourceGroupSelector> selectors = manager.getSelectors();
-        assertMatch(selectors, queryTypeSelectionCriteria("select"), "global.select");
-        assertMatch(selectors, queryTypeSelectionCriteria("explain"), "global.explain");
-        assertMatch(selectors, queryTypeSelectionCriteria("insert"), "global.insert");
-        assertMatch(selectors, queryTypeSelectionCriteria("delete"), "global.delete");
-        assertMatch(selectors, queryTypeSelectionCriteria("describe"), "global.describe");
-        assertMatch(selectors, queryTypeSelectionCriteria("data_definition"), "global.data_definition");
-        assertMatch(selectors, queryTypeSelectionCriteria("sth_else"), "global.other");
+        assertMatch(manager, queryTypeSelectionCriteria("select"), "global.select");
+        assertMatch(manager, queryTypeSelectionCriteria("explain"), "global.explain");
+        assertMatch(manager, queryTypeSelectionCriteria("insert"), "global.insert");
+        assertMatch(manager, queryTypeSelectionCriteria("delete"), "global.delete");
+        assertMatch(manager, queryTypeSelectionCriteria("describe"), "global.describe");
+        assertMatch(manager, queryTypeSelectionCriteria("data_definition"), "global.data_definition");
+        assertMatch(manager, queryTypeSelectionCriteria("sth_else"), "global.other");
     }
 
     @Test
@@ -129,21 +127,12 @@ public class TestFileResourceGroupConfigurationManager
         assertEquals(global.getHardConcurrencyLimit(), 42);
     }
 
-    private static void assertMatch(List<ResourceGroupSelector> selectors, SelectionCriteria context, String expectedResourceGroup)
+    private static void assertMatch(FileResourceGroupConfigurationManager manager, SelectionCriteria context, String expectedResourceGroup)
     {
-        Optional<ResourceGroupId> group = tryMatch(selectors, context);
+        Optional<ResourceGroupId> group = manager.match(context)
+                .map(SelectionContext::getResourceGroupId);
         assertTrue(group.isPresent(), "match expected");
         assertEquals(group.get().toString(), expectedResourceGroup, format("Expected: '%s' resource group, found: %s", expectedResourceGroup, group.get()));
-    }
-
-    private static Optional<ResourceGroupId> tryMatch(List<ResourceGroupSelector> selectors, SelectionCriteria context)
-    {
-        return selectors.stream()
-                .map(selector -> selector.match(context))
-                .filter(Optional::isPresent)
-                .map(Optional::get)
-                .findFirst()
-                .map(SelectionContext::getResourceGroupId);
     }
 
     private static void assertFails(String fileName, String expectedPattern)
