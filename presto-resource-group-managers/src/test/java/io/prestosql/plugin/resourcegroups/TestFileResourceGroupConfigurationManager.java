@@ -78,7 +78,7 @@ public class TestFileResourceGroupConfigurationManager
         FileResourceGroupConfigurationManager manager = parse("resource_groups_config.json");
         ResourceGroupId globalId = new ResourceGroupId("global");
         ResourceGroup global = new TestingResourceGroup(globalId);
-        manager.configure(global, new SelectionContext<>(globalId, new VariableMap(ImmutableMap.of("USER", "user"))));
+        manager.configure(global, new SelectionContext<>(globalId, new ResourceGroupIdTemplate("global")));
         assertEquals(global.getSoftMemoryLimit(), new DataSize(1, MEGABYTE));
         assertEquals(global.getSoftCpuLimit(), new Duration(1, HOURS));
         assertEquals(global.getHardCpuLimit(), new Duration(1, DAYS));
@@ -91,7 +91,7 @@ public class TestFileResourceGroupConfigurationManager
 
         ResourceGroupId subId = new ResourceGroupId(globalId, "sub");
         ResourceGroup sub = new TestingResourceGroup(subId);
-        manager.configure(sub, new SelectionContext<>(subId, new VariableMap(ImmutableMap.of("USER", "user"))));
+        manager.configure(sub, new SelectionContext<>(subId, new ResourceGroupIdTemplate("global.sub")));
         assertEquals(sub.getSoftMemoryLimit(), new DataSize(2, MEGABYTE));
         assertEquals(sub.getHardConcurrencyLimit(), 3);
         assertEquals(sub.getMaxQueuedQueries(), 4);
@@ -104,11 +104,18 @@ public class TestFileResourceGroupConfigurationManager
     public void testExtractVariableConfiguration()
     {
         FileResourceGroupConfigurationManager manager = parse("resource_groups_config_extract_variable.json");
-        SelectionContext<VariableMap> selectionContext = match(manager, userAndSourceSelectionCriteria("someuser@presto.io", "scheduler.us_east.12"));
+
+        SelectionContext<ResourceGroupIdTemplate> selectionContext = match(manager, userAndSourceSelectionCriteria("someuser@presto.io", "scheduler.us_east.12"));
         assertEquals(selectionContext.getResourceGroupId().toString(), "global.presto:us_east:12");
         TestingResourceGroup resourceGroup = new TestingResourceGroup(selectionContext.getResourceGroupId());
         manager.configure(resourceGroup, selectionContext);
         assertEquals(resourceGroup.getHardConcurrencyLimit(), 3);
+
+        selectionContext = match(manager, userAndSourceSelectionCriteria("nobody", "rg-abcdefghijkl"));
+        assertEquals(selectionContext.getResourceGroupId().toString(), "global.abcdefghijkl");
+        resourceGroup = new TestingResourceGroup(selectionContext.getResourceGroupId());
+        manager.configure(resourceGroup, selectionContext);
+        assertEquals(resourceGroup.getHardConcurrencyLimit(), 115);
     }
 
     @Test
@@ -125,7 +132,7 @@ public class TestFileResourceGroupConfigurationManager
                         // TODO: figure out a better way to validate documentation
                         .setConfigFile("../presto-docs/src/main/sphinx/admin/resource-groups-example.json"));
 
-        SelectionContext<VariableMap> selectionContext = match(manager, new SelectionCriteria(
+        SelectionContext<ResourceGroupIdTemplate> selectionContext = match(manager, new SelectionCriteria(
                 true,
                 "Alice",
                 Optional.of("jdbc#powerfulbi"),
@@ -146,7 +153,7 @@ public class TestFileResourceGroupConfigurationManager
         FileResourceGroupConfigurationManager manager = parse("resource_groups_config_legacy.json");
         ResourceGroupId globalId = new ResourceGroupId("global");
         ResourceGroup global = new TestingResourceGroup(globalId);
-        manager.configure(global, new SelectionContext<>(globalId, new VariableMap(ImmutableMap.of("USER", "user"))));
+        manager.configure(global, new SelectionContext<>(globalId, new ResourceGroupIdTemplate("global")));
         assertEquals(global.getSoftMemoryLimit(), new DataSize(3, MEGABYTE));
         assertEquals(global.getMaxQueuedQueries(), 99);
         assertEquals(global.getHardConcurrencyLimit(), 42);
@@ -158,7 +165,7 @@ public class TestFileResourceGroupConfigurationManager
         assertEquals(resourceGroupId.toString(), expectedResourceGroup, format("Expected: '%s' resource group, found: %s", expectedResourceGroup, resourceGroupId));
     }
 
-    private static SelectionContext<VariableMap> match(FileResourceGroupConfigurationManager manager, SelectionCriteria criteria)
+    private static SelectionContext<ResourceGroupIdTemplate> match(FileResourceGroupConfigurationManager manager, SelectionCriteria criteria)
     {
         return manager.match(criteria)
                 .orElseThrow(() -> new IllegalStateException("No match"));

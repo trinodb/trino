@@ -16,7 +16,6 @@ package io.prestosql.plugin.resourcegroups.db;
 import com.google.inject.Injector;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.json.JsonModule;
-import io.prestosql.plugin.resourcegroups.VariableMap;
 import io.prestosql.spi.memory.ClusterMemoryPoolManager;
 import io.prestosql.spi.resourcegroups.ResourceGroupConfigurationManager;
 import io.prestosql.spi.resourcegroups.ResourceGroupConfigurationManagerContext;
@@ -36,7 +35,7 @@ public class DbResourceGroupConfigurationManagerFactory
     }
 
     @Override
-    public ResourceGroupConfigurationManager<VariableMap> create(Map<String, String> config, ResourceGroupConfigurationManagerContext context)
+    public ResourceGroupConfigurationManager<?> create(Map<String, String> config, ResourceGroupConfigurationManagerContext context)
     {
         try {
             Bootstrap app = new Bootstrap(

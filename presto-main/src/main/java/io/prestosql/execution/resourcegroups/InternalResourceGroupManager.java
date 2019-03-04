@@ -219,7 +219,7 @@ public final class InternalResourceGroupManager<C>
         if (!groups.containsKey(id)) {
             InternalResourceGroup group;
             if (id.getParent().isPresent()) {
-                createGroupIfNecessary(new SelectionContext<>(id.getParent().get(), context.getContext()), executor);
+                createGroupIfNecessary(configurationManager.get().parentGroupContext(context), executor);
                 InternalResourceGroup parent = groups.get(id.getParent().get());
                 requireNonNull(parent, "parent is null");
                 group = parent.getOrCreateSubGroup(id.getLastSegment());
