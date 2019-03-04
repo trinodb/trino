@@ -107,10 +107,8 @@ public abstract class AbstractResourceConfigurationManager
     private void validateSelectors(List<ResourceGroupSpec> groups, SelectorSpec spec)
     {
         spec.getQueryType().ifPresent(this::validateQueryType);
-        List<ResourceGroupNameTemplate> selectorGroups = spec.getGroup().getSegments();
         StringBuilder fullyQualifiedGroupName = new StringBuilder();
-        while (!selectorGroups.isEmpty()) {
-            ResourceGroupNameTemplate groupName = selectorGroups.get(0);
+        for (ResourceGroupNameTemplate groupName : spec.getGroup().getSegments()) {
             fullyQualifiedGroupName.append(groupName);
             Optional<ResourceGroupSpec> match = groups
                     .stream()
@@ -121,7 +119,6 @@ public abstract class AbstractResourceConfigurationManager
             }
             fullyQualifiedGroupName.append(".");
             groups = match.get().getSubGroups();
-            selectorGroups = selectorGroups.subList(1, selectorGroups.size());
         }
     }
 
