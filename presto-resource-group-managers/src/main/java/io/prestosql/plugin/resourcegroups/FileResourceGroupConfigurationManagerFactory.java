@@ -35,7 +35,7 @@ public class FileResourceGroupConfigurationManagerFactory
     }
 
     @Override
-    public ResourceGroupConfigurationManager<VariableMap> create(Map<String, String> config, ResourceGroupConfigurationManagerContext context)
+    public ResourceGroupConfigurationManager<?> create(Map<String, String> config, ResourceGroupConfigurationManagerContext context)
     {
         try {
             Bootstrap app = new Bootstrap(

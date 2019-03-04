@@ -17,7 +17,6 @@ import com.google.inject.Injector;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.json.JsonModule;
 import io.airlift.node.NodeModule;
-import io.prestosql.plugin.resourcegroups.VariableMap;
 import io.prestosql.plugin.resourcegroups.db.DbResourceGroupConfigurationManager;
 import io.prestosql.spi.classloader.ThreadContextClassLoader;
 import io.prestosql.spi.memory.ClusterMemoryPoolManager;
@@ -47,7 +46,7 @@ public class H2ResourceGroupConfigurationManagerFactory
     }
 
     @Override
-    public ResourceGroupConfigurationManager<VariableMap> create(Map<String, String> config, ResourceGroupConfigurationManagerContext context)
+    public ResourceGroupConfigurationManager<?> create(Map<String, String> config, ResourceGroupConfigurationManagerContext context)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             Bootstrap app = new Bootstrap(

@@ -74,7 +74,7 @@ public class StaticSelector
     }
 
     @Override
-    public Optional<SelectionContext<VariableMap>> match(SelectionCriteria criteria)
+    public Optional<SelectionContext<ResourceGroupIdTemplate>> match(SelectionCriteria criteria)
     {
         Map<String, String> variables = new HashMap<>();
 
@@ -116,10 +116,8 @@ public class StaticSelector
         // Special handling for source, which is an optional field that is part of the standard variables
         variables.putIfAbsent(SOURCE_VARIABLE, criteria.getSource().orElse(""));
 
-        VariableMap map = new VariableMap(variables);
-        ResourceGroupId id = group.expandTemplate(map);
-
-        return Optional.of(new SelectionContext<>(id, map));
+        ResourceGroupId id = group.expandTemplate(new VariableMap(variables));
+        return Optional.of(new SelectionContext<>(id, group));
     }
 
     private static void addNamedGroups(Pattern pattern, HashSet<String> variables)

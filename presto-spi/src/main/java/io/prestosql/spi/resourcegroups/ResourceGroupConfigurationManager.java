@@ -41,4 +41,14 @@ public interface ResourceGroupConfigurationManager<C>
      * This method is called for every query that is submitted, so it should be fast.
      */
     Optional<SelectionContext<C>> match(SelectionCriteria criteria);
+
+    /**
+     * This method is called when parent group of the one specified by {@link #match(SelectionCriteria)}'s
+     * {@link SelectionContext#getResourceGroupId()} does not exist yet. It should return a {@link SelectionContext}
+     * appropriate for {@link #configure(ResourceGroup, SelectionContext) configuration} of the parent group.
+     *
+     * @param context a selection context returned from {@link #match(SelectionCriteria)}
+     * @return a selection context suitable for {@link #configure(ResourceGroup, SelectionContext)} for the parent group
+     */
+    SelectionContext<C> parentGroupContext(SelectionContext<C> context);
 }

@@ -60,4 +60,12 @@ public class LegacyResourceGroupConfigurationManager
     {
         return Optional.of(new SelectionContext<>(GLOBAL, VoidContext.NONE));
     }
+
+    @Override
+    public SelectionContext<VoidContext> parentGroupContext(SelectionContext<VoidContext> context)
+    {
+        return new SelectionContext<>(
+                context.getResourceGroupId().getParent().orElseThrow(() -> new IllegalArgumentException("Group has no parent group: " + context.getResourceGroupId())),
+                VoidContext.NONE);
+    }
 }

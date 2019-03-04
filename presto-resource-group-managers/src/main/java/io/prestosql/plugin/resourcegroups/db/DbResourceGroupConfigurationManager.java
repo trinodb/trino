@@ -26,7 +26,6 @@ import io.prestosql.plugin.resourcegroups.ResourceGroupIdTemplate;
 import io.prestosql.plugin.resourcegroups.ResourceGroupSelector;
 import io.prestosql.plugin.resourcegroups.ResourceGroupSpec;
 import io.prestosql.plugin.resourcegroups.SelectorSpec;
-import io.prestosql.plugin.resourcegroups.VariableMap;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.memory.ClusterMemoryPoolManager;
 import io.prestosql.spi.resourcegroups.ResourceGroup;
@@ -141,20 +140,20 @@ public class DbResourceGroupConfigurationManager
     }
 
     @Override
-    public void configure(ResourceGroup group, SelectionContext<VariableMap> criteria)
+    public void configure(ResourceGroup group, SelectionContext<ResourceGroupIdTemplate> criteria)
     {
-        Map.Entry<ResourceGroupIdTemplate, ResourceGroupSpec> entry = getMatchingSpec(group, criteria);
+        ResourceGroupSpec groupSpec = getMatchingSpec(group, criteria);
         if (groups.putIfAbsent(group.getId(), group) == null) {
             // If a new spec replaces the spec returned from getMatchingSpec the group will be reconfigured on the next run of load().
-            configuredGroups.computeIfAbsent(entry.getKey(), v -> new LinkedList<>()).add(group.getId());
+            configuredGroups.computeIfAbsent(criteria.getContext(), v -> new LinkedList<>()).add(group.getId());
         }
         synchronized (getRootGroup(group.getId())) {
-            configureGroup(group, entry.getValue());
+            configureGroup(group, groupSpec);
         }
     }
 
     @Override
-    public Optional<SelectionContext<VariableMap>> match(SelectionCriteria criteria)
+    public Optional<SelectionContext<ResourceGroupIdTemplate>> match(SelectionCriteria criteria)
     {
         if (lastRefresh.get() == 0) {
             throw new PrestoException(CONFIGURATION_UNAVAILABLE, "Selectors cannot be fetched from database");

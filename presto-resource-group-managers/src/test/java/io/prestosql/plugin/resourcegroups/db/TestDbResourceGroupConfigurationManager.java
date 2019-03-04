@@ -13,15 +13,14 @@
  */
 package io.prestosql.plugin.resourcegroups.db;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.prestosql.execution.resourcegroups.InternalResourceGroup;
+import io.prestosql.plugin.resourcegroups.ResourceGroupIdTemplate;
 import io.prestosql.plugin.resourcegroups.ResourceGroupSelector;
 import io.prestosql.plugin.resourcegroups.ResourceGroupSpec;
 import io.prestosql.plugin.resourcegroups.StaticSelector;
-import io.prestosql.plugin.resourcegroups.VariableMap;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.resourcegroups.ResourceGroupId;
 import io.prestosql.spi.resourcegroups.SchedulingPolicy;
@@ -85,7 +84,7 @@ public class TestDbResourceGroupConfigurationManager
         List<ResourceGroupSpec> groups = manager.getRootGroups();
         assertEquals(groups.size(), 1);
         InternalResourceGroup prodGlobal = new InternalResourceGroup.RootInternalResourceGroup("prod_global", (group, export) -> {}, directExecutor());
-        manager.configure(prodGlobal, new SelectionContext<>(prodGlobal.getId(), new VariableMap(ImmutableMap.of("USER", "user"))));
+        manager.configure(prodGlobal, new SelectionContext<>(prodGlobal.getId(), new ResourceGroupIdTemplate("prod_global")));
         assertEqualsResourceGroup(prodGlobal, "10MB", 1000, 100, 100, WEIGHTED, DEFAULT_WEIGHT, true, new Duration(1, HOURS), new Duration(1, DAYS));
         assertEquals(manager.getSelectors().size(), 1);
         ResourceGroupSelector prodSelector = manager.getSelectors().get(0);
@@ -96,7 +95,7 @@ public class TestDbResourceGroupConfigurationManager
         manager = new DbResourceGroupConfigurationManager((poolId, listener) -> {}, new DbResourceGroupConfig(), daoProvider.get(), devEnvironment);
         assertEquals(groups.size(), 1);
         InternalResourceGroup devGlobal = new InternalResourceGroup.RootInternalResourceGroup("dev_global", (group, export) -> {}, directExecutor());
-        manager.configure(devGlobal, new SelectionContext<>(prodGlobal.getId(), new VariableMap(ImmutableMap.of("USER", "user"))));
+        manager.configure(devGlobal, new SelectionContext<>(prodGlobal.getId(), new ResourceGroupIdTemplate("dev_global")));
         assertEqualsResourceGroup(devGlobal, "1MB", 1000, 100, 100, WEIGHTED, DEFAULT_WEIGHT, true, new Duration(1, HOURS), new Duration(1, DAYS));
         assertEquals(manager.getSelectors().size(), 1);
         ResourceGroupSelector devSelector = manager.getSelectors().get(0);
@@ -119,11 +118,11 @@ public class TestDbResourceGroupConfigurationManager
         DbResourceGroupConfigurationManager manager = new DbResourceGroupConfigurationManager((poolId, listener) -> {}, new DbResourceGroupConfig(), daoProvider.get(), ENVIRONMENT);
         AtomicBoolean exported = new AtomicBoolean();
         InternalResourceGroup global = new InternalResourceGroup.RootInternalResourceGroup("global", (group, export) -> exported.set(export), directExecutor());
-        manager.configure(global, new SelectionContext<>(global.getId(), new VariableMap(ImmutableMap.of("USER", "user"))));
+        manager.configure(global, new SelectionContext<>(global.getId(), new ResourceGroupIdTemplate("global")));
         assertEqualsResourceGroup(global, "1MB", 1000, 100, 100, WEIGHTED, DEFAULT_WEIGHT, true, new Duration(1, HOURS), new Duration(1, DAYS));
         exported.set(false);
         InternalResourceGroup sub = global.getOrCreateSubGroup("sub");
-        manager.configure(sub, new SelectionContext<>(sub.getId(), new VariableMap(ImmutableMap.of("USER", "user"))));
+        manager.configure(sub, new SelectionContext<>(sub.getId(), new ResourceGroupIdTemplate("global.sub")));
         assertEqualsResourceGroup(sub, "2MB", 4, 3, 3, FAIR, 5, false, new Duration(Long.MAX_VALUE, MILLISECONDS), new Duration(Long.MAX_VALUE, MILLISECONDS));
     }
 
@@ -180,9 +179,9 @@ public class TestDbResourceGroupConfigurationManager
         DbResourceGroupConfigurationManager manager = new DbResourceGroupConfigurationManager((poolId, listener) -> {}, new DbResourceGroupConfig(), daoProvider.get(), ENVIRONMENT);
         InternalResourceGroup missing = new InternalResourceGroup.RootInternalResourceGroup("missing", (group, export) -> {}, directExecutor());
 
-        assertThatThrownBy(() -> manager.configure(missing, new SelectionContext<>(missing.getId(), new VariableMap(ImmutableMap.of("USER", "user")))))
+        assertThatThrownBy(() -> manager.configure(missing, new SelectionContext<>(missing.getId(), new ResourceGroupIdTemplate("missing"))))
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessage("No matching configuration found for: missing");
+                .hasMessage("No matching configuration found for [missing] using [missing]");
     }
 
     @Test(timeOut = 60_000)
@@ -202,9 +201,9 @@ public class TestDbResourceGroupConfigurationManager
         manager.start();
         AtomicBoolean exported = new AtomicBoolean();
         InternalResourceGroup global = new InternalResourceGroup.RootInternalResourceGroup("global", (group, export) -> exported.set(export), directExecutor());
-        manager.configure(global, new SelectionContext<>(global.getId(), new VariableMap(ImmutableMap.of("USER", "user"))));
+        manager.configure(global, new SelectionContext<>(global.getId(), new ResourceGroupIdTemplate("global")));
         InternalResourceGroup globalSub = global.getOrCreateSubGroup("sub");
-        manager.configure(globalSub, new SelectionContext<>(globalSub.getId(), new VariableMap(ImmutableMap.of("USER", "user"))));
+        manager.configure(globalSub, new SelectionContext<>(globalSub.getId(), new ResourceGroupIdTemplate("global.sub")));
         // Verify record exists
         assertEqualsResourceGroup(globalSub, "2MB", 4, 3, 3, FAIR, 5, false, new Duration(Long.MAX_VALUE, MILLISECONDS), new Duration(Long.MAX_VALUE, MILLISECONDS));
         dao.updateResourceGroup(2, "sub", "3MB", 2, 1, 1, "weighted", 6, true, "1h", "1d", 1L, ENVIRONMENT);

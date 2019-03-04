@@ -31,7 +31,6 @@ import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 import static com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES;
@@ -101,14 +100,13 @@ public class FileResourceGroupConfigurationManager
     }
 
     @Override
-    public void configure(ResourceGroup group, SelectionContext<VariableMap> context)
+    public void configure(ResourceGroup group, SelectionContext<ResourceGroupIdTemplate> context)
     {
-        Map.Entry<ResourceGroupIdTemplate, ResourceGroupSpec> entry = getMatchingSpec(group, context);
-        configureGroup(group, entry.getValue());
+        configureGroup(group, getMatchingSpec(group, context));
     }
 
     @Override
-    public Optional<SelectionContext<VariableMap>> match(SelectionCriteria criteria)
+    public Optional<SelectionContext<ResourceGroupIdTemplate>> match(SelectionCriteria criteria)
     {
         return selectors.stream()
                 .map(s -> s.match(criteria))

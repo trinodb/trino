@@ -16,16 +16,17 @@ package io.prestosql.plugin.resourcegroups;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.memory.ClusterMemoryPoolManager;
 import io.prestosql.spi.memory.MemoryPoolId;
 import io.prestosql.spi.resourcegroups.QueryType;
 import io.prestosql.spi.resourcegroups.ResourceGroup;
 import io.prestosql.spi.resourcegroups.ResourceGroupConfigurationManager;
+import io.prestosql.spi.resourcegroups.ResourceGroupId;
 import io.prestosql.spi.resourcegroups.SelectionContext;
 
 import javax.annotation.concurrent.GuardedBy;
 
-import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedList;
@@ -36,12 +37,14 @@ import java.util.Queue;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
 import static io.airlift.units.DataSize.Unit.BYTE;
+import static io.prestosql.spi.StandardErrorCode.INVALID_RESOURCE_GROUP;
 import static java.lang.String.format;
 import static java.util.function.Predicate.isEqual;
 
 public abstract class AbstractResourceConfigurationManager
-        implements ResourceGroupConfigurationManager<VariableMap>
+        implements ResourceGroupConfigurationManager<ResourceGroupIdTemplate>
 {
     @GuardedBy("generalPoolMemoryFraction")
     private final Map<ResourceGroup, Double> generalPoolMemoryFraction = new HashMap<>();
@@ -150,41 +153,43 @@ public abstract class AbstractResourceConfigurationManager
         });
     }
 
-    protected Map.Entry<ResourceGroupIdTemplate, ResourceGroupSpec> getMatchingSpec(ResourceGroup group, SelectionContext<VariableMap> context)
+    @Override
+    public SelectionContext<ResourceGroupIdTemplate> parentGroupContext(SelectionContext<ResourceGroupIdTemplate> context)
+    {
+        ResourceGroupId parentGroupId = context.getResourceGroupId().getParent().orElseThrow(() -> new IllegalArgumentException("Group has no parent group: " + context.getResourceGroupId()));
+        List<ResourceGroupNameTemplate> parentGroupIdTemplate = new ArrayList<>(context.getContext().getSegments());
+        parentGroupIdTemplate.remove(parentGroupIdTemplate.size() - 1);
+        return new SelectionContext<>(parentGroupId, ResourceGroupIdTemplate.fromSegments(parentGroupIdTemplate));
+    }
+
+    protected ResourceGroupSpec getMatchingSpec(ResourceGroup group, SelectionContext<ResourceGroupIdTemplate> context)
     {
         List<ResourceGroupSpec> candidates = getRootGroups();
-        List<String> segments = group.getId().getSegments();
+        ResourceGroupIdTemplate groupIdTemplate = context.getContext();
         ResourceGroupSpec match = null;
-        List<ResourceGroupNameTemplate> templateId = new ArrayList<>();
-        for (int i = 0; i < segments.size(); i++) {
-            List<ResourceGroupSpec> nextCandidates = null;
-            ResourceGroupSpec nextCandidatesParent = null;
+
+        for (ResourceGroupNameTemplate segment : groupIdTemplate.getSegments()) {
+            match = null;
             for (ResourceGroupSpec candidate : candidates) {
-                if (candidate.getName().expandTemplate(context.getContext()).equals(segments.get(i))) {
-                    templateId.add(candidate.getName());
-                    if (i == segments.size() - 1) {
-                        if (match != null) {
-                            throw new IllegalStateException(format("Ambiguous configuration for %s. Matches %s and %s", group.getId(), match.getName(), candidate.getName()));
-                        }
-                        match = candidate;
+                if (candidate.getName().equals(segment)) {
+                    if (match != null) {
+                        throw new PrestoException(INVALID_RESOURCE_GROUP, format(
+                                "Ambiguous configuration for [%s] using [%s]. Matches [%s] and [%s]",
+                                group.getId(),
+                                groupIdTemplate,
+                                match.getName(),
+                                candidate.getName()));
                     }
-                    else {
-                        if (nextCandidatesParent != null) {
-                            throw new IllegalStateException(format("Ambiguous configuration for %s. Matches %s and %s", group.getId(), nextCandidatesParent.getName(), candidate.getName()));
-                        }
-                        nextCandidates = candidate.getSubGroups();
-                        nextCandidatesParent = candidate;
-                    }
+                    match = candidate;
                 }
             }
-            if (nextCandidates == null) {
-                break;
-            }
-            candidates = nextCandidates;
-        }
-        checkState(match != null, "No matching configuration found for: %s", group.getId());
 
-        return new AbstractMap.SimpleImmutableEntry<>(ResourceGroupIdTemplate.fromSegments(templateId), match);
+            checkState(match != null, "No matching configuration found for [%s] using [%s]", group.getId(), groupIdTemplate);
+            candidates = match.getSubGroups();
+        }
+
+        verify(match != null, "match is null");
+        return match;
     }
 
     protected void configureGroup(ResourceGroup group, ResourceGroupSpec match)

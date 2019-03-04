@@ -20,5 +20,5 @@ import java.util.Optional;
 
 public interface ResourceGroupSelector
 {
-    Optional<SelectionContext<VariableMap>> match(SelectionCriteria criteria);
+    Optional<SelectionContext<ResourceGroupIdTemplate>> match(SelectionCriteria criteria);
 }
