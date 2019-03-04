@@ -34,16 +34,12 @@ import org.testng.annotations.Test;
 import java.sql.Date;
 import java.sql.Timestamp;
 import java.time.Instant;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.plugin.hive.HiveTestUtils.TYPE_MANAGER;
 import static io.prestosql.spi.type.TypeUtils.writeNativeValue;
-import static java.lang.Math.toIntExact;
 import static java.util.Arrays.asList;
 import static java.util.Map.Entry;
 import static org.testng.Assert.assertEquals;
@@ -95,14 +91,14 @@ public class TestHiveBucketing
         assertBucketEquals("string", "\u5f3a\u5927\u7684Presto\u5f15\u64ce", -120622694); // 3-byte UTF-8 sequences (in Basic Plane, i.e. Plane 0)
         assertBucketEquals("string", "\uD843\uDFFC\uD843\uDFFD\uD843\uDFFE\uD843\uDFFF", -1810797254); // 4 code points: 20FFC - 20FFF. 4-byte UTF-8 sequences in Supplementary Plane 2
         assertBucketEquals("date", null, 0);
-        assertBucketEquals("date", new DateWritable(toIntExact(LocalDate.of(1970, 1, 1).toEpochDay())).get(), 0);
-        assertBucketEquals("date", new DateWritable(toIntExact(LocalDate.of(2015, 11, 19).toEpochDay())).get(), 16758);
-        assertBucketEquals("date", new DateWritable(toIntExact(LocalDate.of(1950, 11, 19).toEpochDay())).get(), -6983);
+        assertBucketEquals("date", Date.valueOf("1970-01-01"), 0);
+        assertBucketEquals("date", Date.valueOf("2015-11-19"), 16758);
+        assertBucketEquals("date", Date.valueOf("1950-11-19"), -6983);
         assertBucketEquals("timestamp", null, 0);
-        assertBucketEquals("timestamp", new Timestamp(1000 * LocalDateTime.of(1970, 1, 1, 0, 0, 0, 0).toEpochSecond(ZoneOffset.UTC)), 0);
-        assertBucketEquals("timestamp", new Timestamp(1000 * LocalDateTime.of(1969, 12, 31, 23, 59, 59, 999_000_000).toEpochSecond(ZoneOffset.UTC)), 1073741823);
-        assertBucketEquals("timestamp", new Timestamp(1000 * LocalDateTime.of(1950, 11, 19, 12, 34, 56, 789_000_000).toEpochSecond(ZoneOffset.UTC)), -150821476);
-        assertBucketEquals("timestamp", new Timestamp(1000 * LocalDateTime.of(2015, 11, 19, 7, 6, 5, 432_000_000).toEpochSecond(ZoneOffset.UTC)), 1435721015);
+        assertBucketEquals("timestamp", Timestamp.valueOf("1970-01-01 00:00:00.000"), 7200);
+        assertBucketEquals("timestamp", Timestamp.valueOf("1969-12-31 23:59:59.999"), -74736673);
+        assertBucketEquals("timestamp", Timestamp.valueOf("1950-11-19 12:34:56.789"), -670699780);
+        assertBucketEquals("timestamp", Timestamp.valueOf("2015-11-19 07:06:05.432"), 1278000719);
         assertBucketEquals("array<double>", null, 0);
         assertBucketEquals("array<boolean>", ImmutableList.of(), 0);
         assertBucketEquals("array<smallint>", ImmutableList.of((short) 5, (short) 8, (short) 13), 5066);
@@ -111,7 +107,7 @@ public class TestHiveBucketing
         assertBucketEquals("map<double,timestamp>", ImmutableMap.of(), 0);
         assertBucketEquals("map<string,bigint>", ImmutableMap.of("key", 123L, "key2", 123456789L, "key3", -123456L), 127880789);
         assertBucketEquals("array<array<bigint>>", ImmutableList.of(ImmutableList.of(10L, 20L), ImmutableList.of(-10L, -20L), asList((Object) null)), 326368);
-        assertBucketEquals("map<array<double>,map<int,timestamp>>", ImmutableMap.of(ImmutableList.of(12.3, 45.7), ImmutableMap.of(123, new Timestamp(1_234_567_890_000L))), -1540636497);
+        assertBucketEquals("map<array<double>,map<int,string>>", ImmutableMap.of(ImmutableList.of(12.3, 45.7), ImmutableMap.of(123, "test99")), -34001111);
 
         // multiple bucketing columns
         assertBucketEquals(
