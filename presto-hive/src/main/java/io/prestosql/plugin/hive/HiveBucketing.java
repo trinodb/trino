@@ -152,10 +152,7 @@ final class HiveBucketing
                         long days = prestoType.getLong(block, position);
                         return toIntExact(days);
                     case TIMESTAMP:
-                        long millisSinceEpoch = prestoType.getLong(block, position);
-                        // seconds << 30 + nanoseconds
-                        long secondsAndNanos = (Math.floorDiv(millisSinceEpoch, 1000L) << 30) + Math.floorMod(millisSinceEpoch, 1000);
-                        return (int) ((secondsAndNanos >>> 32) ^ secondsAndNanos);
+                        return hashTimestamp(prestoType.getLong(block, position));
                     default:
                         throw new UnsupportedOperationException("Computation of Hive bucket hashCode is not supported for Hive primitive category: " + primitiveCategory.toString() + ".");
                 }
@@ -211,10 +208,7 @@ final class HiveBucketing
                         long days = (long) value;
                         return toIntExact(days);
                     case TIMESTAMP:
-                        long millisSinceEpoch = (long) value;
-                        // seconds << 30 + nanoseconds
-                        long secondsAndNanos = (Math.floorDiv(millisSinceEpoch, 1000L) << 30) + Math.floorMod(millisSinceEpoch, 1000);
-                        return (int) ((secondsAndNanos >>> 32) ^ secondsAndNanos);
+                        return hashTimestamp((long) value);
                     default:
                         throw new UnsupportedOperationException("Computation of Hive bucket hashCode is not supported for Hive primitive category: " + primitiveCategory.toString() + ".");
                 }
@@ -229,6 +223,15 @@ final class HiveBucketing
                 // TODO: support more types, e.g. ROW
                 throw new UnsupportedOperationException("Computation of Hive bucket hashCode is not supported for Hive category: " + type.getCategory().toString() + ".");
         }
+    }
+
+    @SuppressWarnings("NumericCastThatLosesPrecision")
+    private static int hashTimestamp(long epochMillis)
+    {
+        long seconds = (Math.floorDiv(epochMillis, 1000L) << 30);
+        long nanos = Math.floorMod(epochMillis, 1000) * 1_000_000L;
+        long secondsAndNanos = seconds | nanos;
+        return (int) ((secondsAndNanos >>> 32) ^ secondsAndNanos);
     }
 
     private static int hashOfMap(MapTypeInfo type, Block singleMapBlock)
