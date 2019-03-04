@@ -76,14 +76,14 @@ Constructors
 
     Returns a LineString formed from an array of points. If there are fewer than
     two non-empty points in the input array, an empty LineString will be returned.
-    Throws an exception if any element in the array is `null` or empty or same as the previous one.
+    Throws an exception if any element in the array is ``NULL`` or empty or same as the previous one.
     The returned geometry may not be simple, e.g. may self-intersect or may contain
     duplicate vertexes depending on the input.
 
 .. function:: ST_MultiPoint(array(Point)) -> MultiPoint
 
-    Returns a MultiPoint geometry object formed from the specified points. Return `null` if input array is empty.
-    Throws an exception if any element in the array is `null` or empty.
+    Returns a MultiPoint geometry object formed from the specified points. Return ``NULL`` if input array is empty.
+    Throws an exception if any element in the array is ``NULL`` or empty.
     The returned geometry may not be simple and may contain duplicate points if input array has duplicates.
 
 .. function:: ST_Point(double, double) -> Point
@@ -367,7 +367,7 @@ Accessors
     Returns a float between 0 and 1 representing the location of the closest point on
     the LineString to the given Point, as a fraction of total 2d line length.
 
-    Returns ``null`` if a LineString or a Point is empty or ``null``.
+    Returns ``NULL`` if a LineString or a Point is empty or ``NULL``.
 
 .. function:: geometry_invalid_reason(Geometry) -> varchar
 
