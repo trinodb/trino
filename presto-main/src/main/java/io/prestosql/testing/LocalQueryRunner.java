@@ -26,6 +26,7 @@ import io.prestosql.SystemSessionProperties;
 import io.prestosql.block.BlockEncodingManager;
 import io.prestosql.connector.ConnectorId;
 import io.prestosql.connector.ConnectorManager;
+import io.prestosql.connector.system.AnalyzePropertiesSystemTable;
 import io.prestosql.connector.system.CatalogSystemTable;
 import io.prestosql.connector.system.ColumnPropertiesSystemTable;
 import io.prestosql.connector.system.GlobalSystemConnector;
@@ -349,6 +350,7 @@ public class LocalQueryRunner
                 new SchemaPropertiesSystemTable(transactionManager, metadata),
                 new TablePropertiesSystemTable(transactionManager, metadata),
                 new ColumnPropertiesSystemTable(transactionManager, metadata),
+                new AnalyzePropertiesSystemTable(transactionManager, metadata),
                 new TransactionsSystemTable(typeRegistry, transactionManager)),
                 ImmutableSet.of());
 
