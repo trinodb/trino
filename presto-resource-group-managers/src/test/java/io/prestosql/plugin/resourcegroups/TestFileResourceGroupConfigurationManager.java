@@ -102,17 +102,11 @@ public class TestFileResourceGroupConfigurationManager
     public void testExtractVariableConfiguration()
     {
         FileResourceGroupConfigurationManager manager = parse("resource_groups_config_extract_variable.json");
-
-        VariableMap variableMap = new VariableMap(ImmutableMap.of("USER", "user", "domain", "presto", "region", "us_east", "cluster", "12"));
-
-        ResourceGroupId globalId = new ResourceGroupId("global");
-        manager.configure(new TestingResourceGroup(globalId), new SelectionContext<>(globalId, variableMap));
-
-        ResourceGroupId childId = new ResourceGroupId(new ResourceGroupId("global"), "presto:us_east:12");
-        TestingResourceGroup child = new TestingResourceGroup(childId);
-        manager.configure(child, new SelectionContext<>(childId, variableMap));
-
-        assertEquals(child.getHardConcurrencyLimit(), 3);
+        SelectionContext<VariableMap> selectionContext = match(manager, userAndSourceSelectionCriteria("someuser@presto.io", "scheduler.us_east.12"));
+        assertEquals(selectionContext.getResourceGroupId().toString(), "global.presto:us_east:12");
+        TestingResourceGroup resourceGroup = new TestingResourceGroup(selectionContext.getResourceGroupId());
+        manager.configure(resourceGroup, selectionContext);
+        assertEquals(resourceGroup.getHardConcurrencyLimit(), 3);
     }
 
     @Test
@@ -127,12 +121,16 @@ public class TestFileResourceGroupConfigurationManager
         assertEquals(global.getHardConcurrencyLimit(), 42);
     }
 
-    private static void assertMatch(FileResourceGroupConfigurationManager manager, SelectionCriteria context, String expectedResourceGroup)
+    private static void assertMatch(FileResourceGroupConfigurationManager manager, SelectionCriteria criteria, String expectedResourceGroup)
     {
-        Optional<ResourceGroupId> group = manager.match(context)
-                .map(SelectionContext::getResourceGroupId);
-        assertTrue(group.isPresent(), "match expected");
-        assertEquals(group.get().toString(), expectedResourceGroup, format("Expected: '%s' resource group, found: %s", expectedResourceGroup, group.get()));
+        ResourceGroupId resourceGroupId = match(manager, criteria).getResourceGroupId();
+        assertEquals(resourceGroupId.toString(), expectedResourceGroup, format("Expected: '%s' resource group, found: %s", expectedResourceGroup, resourceGroupId));
+    }
+
+    private static SelectionContext<VariableMap> match(FileResourceGroupConfigurationManager manager, SelectionCriteria criteria)
+    {
+        return manager.match(criteria)
+                .orElseThrow(() -> new IllegalStateException("No match"));
     }
 
     private static void assertFails(String fileName, String expectedPattern)
@@ -145,6 +143,11 @@ public class TestFileResourceGroupConfigurationManager
         FileResourceGroupConfig config = new FileResourceGroupConfig();
         config.setConfigFile(getResource(fileName).getPath());
         return new FileResourceGroupConfigurationManager((poolId, listener) -> {}, config);
+    }
+
+    private static SelectionCriteria userAndSourceSelectionCriteria(String user, String source)
+    {
+        return new SelectionCriteria(true, user, Optional.of(source), ImmutableSet.of(), EMPTY_RESOURCE_ESTIMATES, Optional.empty());
     }
 
     private static SelectionCriteria queryTypeSelectionCriteria(String queryType)
