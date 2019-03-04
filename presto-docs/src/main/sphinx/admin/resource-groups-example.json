@@ -39,12 +39,12 @@
               ]
             },
             {
-              "name": "bi-${tool_name}",
+              "name": "bi-${toolname}",
               "softMemoryLimit": "10%",
               "hardConcurrencyLimit": 10,
               "maxQueued": 100,
               "schedulingWeight": 10,
-              "schedulingPolicy": "weighted_fair"
+              "schedulingPolicy": "weighted_fair",
               "subGroups": [
                 {
                   "name": "${USER}",
@@ -68,7 +68,7 @@
               "name": "pipeline_${USER}",
               "softMemoryLimit": "50%",
               "hardConcurrencyLimit": 5,
-              "maxQueued": 100,
+              "maxQueued": 100
             }
           ]
         }
@@ -98,9 +98,9 @@
       "group": "global.pipeline.pipeline_${USER}"
     },
     {
-      "source": "jdbc#(?<tool_name>.*)",
+      "source": "jdbc#(?<toolname>.*)",
       "clientTags": ["hipri"],
-      "group": "global.adhoc.bi-${tool_name}.${USER}"
+      "group": "global.adhoc.bi-${toolname}.${USER}"
     },
     {
       "group": "global.adhoc.other.${USER}"

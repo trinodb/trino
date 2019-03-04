@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.prestosql.spi.memory.MemoryPoolInfo;
 import io.prestosql.spi.resourcegroups.ResourceGroup;
 import io.prestosql.spi.resourcegroups.ResourceGroupId;
 import io.prestosql.spi.resourcegroups.SelectionContext;
@@ -28,6 +29,7 @@ import java.util.Optional;
 
 import static com.google.common.io.Resources.getResource;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static io.prestosql.memory.LocalMemoryManager.GENERAL_POOL;
 import static io.prestosql.spi.resourcegroups.SchedulingPolicy.WEIGHTED;
 import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.DAYS;
@@ -107,6 +109,35 @@ public class TestFileResourceGroupConfigurationManager
         TestingResourceGroup resourceGroup = new TestingResourceGroup(selectionContext.getResourceGroupId());
         manager.configure(resourceGroup, selectionContext);
         assertEquals(resourceGroup.getHardConcurrencyLimit(), 3);
+    }
+
+    @Test
+    public void testDocsExample()
+    {
+        long generalPoolSize = 31415926535900L; // arbitrary uneven value for testing
+        FileResourceGroupConfigurationManager manager = new FileResourceGroupConfigurationManager(
+                (poolId, listener) -> {
+                    if (poolId.equals(GENERAL_POOL)) {
+                        listener.accept(new MemoryPoolInfo(generalPoolSize, 0, 0, ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of()));
+                    }
+                },
+                new FileResourceGroupConfig()
+                        // TODO: figure out a better way to validate documentation
+                        .setConfigFile("../presto-docs/src/main/sphinx/admin/resource-groups-example.json"));
+
+        SelectionContext<VariableMap> selectionContext = match(manager, new SelectionCriteria(
+                true,
+                "Alice",
+                Optional.of("jdbc#powerfulbi"),
+                ImmutableSet.of("hipri"),
+                EMPTY_RESOURCE_ESTIMATES,
+                Optional.of("select")));
+        assertEquals(selectionContext.getResourceGroupId().toString(), "global.adhoc.bi-powerfulbi.Alice");
+        TestingResourceGroup resourceGroup = new TestingResourceGroup(selectionContext.getResourceGroupId());
+        manager.configure(resourceGroup, selectionContext);
+        assertEquals(resourceGroup.getHardConcurrencyLimit(), 3);
+        assertEquals(resourceGroup.getMaxQueuedQueries(), 10);
+        assertEquals(resourceGroup.getSoftMemoryLimit().toBytes(), generalPoolSize / 10);
     }
 
     @Test
