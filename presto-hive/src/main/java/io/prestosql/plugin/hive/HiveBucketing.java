@@ -15,6 +15,7 @@ package io.prestosql.plugin.hive;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Shorts;
@@ -78,12 +79,14 @@ final class HiveBucketing
         return getBucketNumber(getBucketHashCode(types, values), bucketCount);
     }
 
-    private static int getBucketNumber(int hashCode, int bucketCount)
+    @VisibleForTesting
+    static int getBucketNumber(int hashCode, int bucketCount)
     {
         return (hashCode & Integer.MAX_VALUE) % bucketCount;
     }
 
-    private static int getBucketHashCode(List<TypeInfo> types, Page page, int position)
+    @VisibleForTesting
+    static int getBucketHashCode(List<TypeInfo> types, Page page, int position)
     {
         checkArgument(types.size() == page.getChannelCount());
         int result = 0;
@@ -94,7 +97,8 @@ final class HiveBucketing
         return result;
     }
 
-    private static int getBucketHashCode(List<TypeInfo> types, Object[] values)
+    @VisibleForTesting
+    static int getBucketHashCode(List<TypeInfo> types, Object[] values)
     {
         checkArgument(types.size() == values.length);
         int result = 0;
