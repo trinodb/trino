@@ -75,8 +75,7 @@ public final class LocalMemoryManager
         this.pools = builder.build();
     }
 
-    @VisibleForTesting
-    static void validateHeapHeadroom(NodeMemoryConfig config, long availableMemory)
+    private void validateHeapHeadroom(NodeMemoryConfig config, long availableMemory)
     {
         long maxQueryTotalMemoryPerNode = config.getMaxQueryTotalMemoryPerNode().toBytes();
         long heapHeadroom = config.getHeapHeadroom().toBytes();

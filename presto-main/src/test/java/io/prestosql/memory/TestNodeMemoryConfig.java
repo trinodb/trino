@@ -23,7 +23,6 @@ import java.util.Map;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
-import static io.prestosql.memory.LocalMemoryManager.validateHeapHeadroom;
 import static io.prestosql.memory.NodeMemoryConfig.AVAILABLE_HEAP_MEMORY;
 
 public class TestNodeMemoryConfig
@@ -55,16 +54,5 @@ public class TestNodeMemoryConfig
                 .setReservedPoolEnabled(false);
 
         assertFullMapping(properties, expected);
-    }
-
-    @Test(expectedExceptions = IllegalArgumentException.class)
-    public void testInvalidValues()
-    {
-        NodeMemoryConfig config = new NodeMemoryConfig();
-        config.setMaxQueryTotalMemoryPerNode(new DataSize(1, GIGABYTE));
-        config.setHeapHeadroom(new DataSize(3.1, GIGABYTE));
-        // In this case we have 4GB - 1GB = 3GB available memory for the general pool
-        // and the heap headroom and the config is more than that.
-        validateHeapHeadroom(config, new DataSize(4, GIGABYTE).toBytes());
     }
 }
