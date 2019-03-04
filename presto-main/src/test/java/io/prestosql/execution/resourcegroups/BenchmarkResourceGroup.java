@@ -11,11 +11,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.execution.resourceGroups;
+package io.prestosql.execution.resourcegroups;
 
 import io.airlift.units.DataSize;
 import io.prestosql.execution.MockQueryExecution;
-import io.prestosql.execution.resourceGroups.InternalResourceGroup.RootInternalResourceGroup;
+import io.prestosql.execution.resourcegroups.InternalResourceGroup.RootInternalResourceGroup;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;

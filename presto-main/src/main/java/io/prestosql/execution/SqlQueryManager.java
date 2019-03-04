@@ -26,7 +26,7 @@ import io.prestosql.execution.QueryExecution.QueryExecutionFactory;
 import io.prestosql.execution.QueryExecution.QueryOutputInfo;
 import io.prestosql.execution.QueryPreparer.PreparedQuery;
 import io.prestosql.execution.StateMachine.StateChangeListener;
-import io.prestosql.execution.resourceGroups.ResourceGroupManager;
+import io.prestosql.execution.resourcegroups.ResourceGroupManager;
 import io.prestosql.execution.scheduler.NodeSchedulerConfig;
 import io.prestosql.execution.warnings.WarningCollectorFactory;
 import io.prestosql.memory.ClusterMemoryManager;

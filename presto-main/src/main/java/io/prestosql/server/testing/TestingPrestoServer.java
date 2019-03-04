@@ -46,7 +46,7 @@ import io.prestosql.execution.QueryManager;
 import io.prestosql.execution.SqlQueryManager;
 import io.prestosql.execution.StateMachine.StateChangeListener;
 import io.prestosql.execution.TaskManager;
-import io.prestosql.execution.resourceGroups.InternalResourceGroupManager;
+import io.prestosql.execution.resourcegroups.InternalResourceGroupManager;
 import io.prestosql.memory.ClusterMemoryManager;
 import io.prestosql.memory.LocalMemoryManager;
 import io.prestosql.metadata.AllNodes;

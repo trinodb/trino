@@ -11,13 +11,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.execution.resourceGroups.db;
+package io.prestosql.execution.resourcegroups.db;
 
 import io.prestosql.tests.DistributedQueryRunner;
 import org.testng.annotations.Test;
 
-import static io.prestosql.execution.resourceGroups.TestResourceGroupIntegration.waitForGlobalResourceGroup;
-import static io.prestosql.execution.resourceGroups.db.H2TestUtil.getSimpleQueryRunner;
+import static io.prestosql.execution.resourcegroups.TestResourceGroupIntegration.waitForGlobalResourceGroup;
+import static io.prestosql.execution.resourcegroups.db.H2TestUtil.getSimpleQueryRunner;
 
 public class TestResourceGroupDbIntegration
 {

@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-import io.prestosql.execution.resourceGroups.InternalResourceGroup;
+import io.prestosql.execution.resourcegroups.InternalResourceGroup;
 import io.prestosql.plugin.resourcegroups.ResourceGroupSelector;
 import io.prestosql.plugin.resourcegroups.ResourceGroupSpec;
 import io.prestosql.plugin.resourcegroups.StaticSelector;
@@ -40,7 +40,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Pattern;
 
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
-import static io.prestosql.execution.resourceGroups.InternalResourceGroup.DEFAULT_WEIGHT;
+import static io.prestosql.execution.resourcegroups.InternalResourceGroup.DEFAULT_WEIGHT;
 import static io.prestosql.spi.resourcegroups.SchedulingPolicy.FAIR;
 import static io.prestosql.spi.resourcegroups.SchedulingPolicy.WEIGHTED;
 import static java.util.concurrent.TimeUnit.DAYS;

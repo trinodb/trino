@@ -14,7 +14,7 @@
 package io.prestosql.server;
 
 import io.prestosql.execution.QueryManager;
-import io.prestosql.execution.resourceGroups.ResourceGroupManager;
+import io.prestosql.execution.resourcegroups.ResourceGroupManager;
 import io.prestosql.spi.QueryId;
 import io.prestosql.spi.resourcegroups.ResourceGroupId;
 

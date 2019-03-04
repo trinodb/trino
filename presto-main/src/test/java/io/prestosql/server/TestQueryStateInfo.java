@@ -21,7 +21,7 @@ import io.airlift.units.Duration;
 import io.prestosql.execution.QueryInfo;
 import io.prestosql.execution.QueryState;
 import io.prestosql.execution.QueryStats;
-import io.prestosql.execution.resourceGroups.InternalResourceGroup;
+import io.prestosql.execution.resourcegroups.InternalResourceGroup;
 import io.prestosql.spi.QueryId;
 import io.prestosql.spi.memory.MemoryPoolId;
 import org.joda.time.DateTime;

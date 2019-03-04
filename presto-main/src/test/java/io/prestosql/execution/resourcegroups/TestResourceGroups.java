@@ -11,13 +11,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.execution.resourceGroups;
+package io.prestosql.execution.resourcegroups;
 
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.prestosql.execution.MockQueryExecution;
-import io.prestosql.execution.resourceGroups.InternalResourceGroup.RootInternalResourceGroup;
+import io.prestosql.execution.resourcegroups.InternalResourceGroup.RootInternalResourceGroup;
 import io.prestosql.server.QueryStateInfo;
 import io.prestosql.server.ResourceGroupInfo;
 import org.apache.commons.math3.distribution.BinomialDistribution;
