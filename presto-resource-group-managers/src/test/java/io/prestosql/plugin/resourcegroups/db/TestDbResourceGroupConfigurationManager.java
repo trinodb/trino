@@ -46,6 +46,7 @@ import static io.prestosql.spi.resourcegroups.SchedulingPolicy.WEIGHTED;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.HOURS;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -164,7 +165,7 @@ public class TestDbResourceGroupConfigurationManager
         dao.insertSelector(2, 2, null, null, null, null, null);
     }
 
-    @Test(expectedExceptions = IllegalStateException.class, expectedExceptionsMessageRegExp = "No matching configuration found for: missing")
+    @Test
     public void testMissing()
     {
         H2DaoProvider daoProvider = setup("test_missing");
@@ -178,7 +179,10 @@ public class TestDbResourceGroupConfigurationManager
         dao.insertSelector(2, 1, null, null, null, null, null);
         DbResourceGroupConfigurationManager manager = new DbResourceGroupConfigurationManager((poolId, listener) -> {}, new DbResourceGroupConfig(), daoProvider.get(), ENVIRONMENT);
         InternalResourceGroup missing = new InternalResourceGroup.RootInternalResourceGroup("missing", (group, export) -> {}, directExecutor());
-        manager.configure(missing, new SelectionContext<>(missing.getId(), new VariableMap(ImmutableMap.of("USER", "user"))));
+
+        assertThatThrownBy(() -> manager.configure(missing, new SelectionContext<>(missing.getId(), new VariableMap(ImmutableMap.of("USER", "user")))))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("No matching configuration found for: missing");
     }
 
     @Test(timeOut = 60_000)
@@ -288,7 +292,7 @@ public class TestDbResourceGroupConfigurationManager
         }
     }
 
-    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "No selectors are configured")
+    @Test
     public void testInvalidConfiguration()
     {
         H2DaoProvider daoProvider = setup("selectors");
@@ -303,7 +307,9 @@ public class TestDbResourceGroupConfigurationManager
                 daoProvider.get(),
                 ENVIRONMENT);
 
-        manager.getSelectors();
+        assertThatThrownBy(manager::getSelectors)
+                .isInstanceOf(PrestoException.class)
+                .hasMessage("No selectors are configured");
     }
 
     @Test
