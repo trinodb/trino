@@ -73,7 +73,8 @@ public class TestLocalMemoryManager
                 .setMaxQueryMemoryPerNode(new DataSize(20, GIGABYTE))
                 .setMaxQueryTotalMemoryPerNode(new DataSize(20, GIGABYTE));
 
-        assertThatThrownBy(() -> new LocalMemoryManager(config, new DataSize(10, GIGABYTE).toBytes()))
+        // 25 GB heap is not sufficient for 10 GB heap headroom and 20 GB query.max-total-memory-per-node
+        assertThatThrownBy(() -> new LocalMemoryManager(config, new DataSize(25, GIGABYTE).toBytes()))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageMatching("Invalid memory configuration\\. The sum of max total query memory per node .* and heap headroom .*" +
                         "cannot be larger than the available heap memory .*");
