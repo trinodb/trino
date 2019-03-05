@@ -253,6 +253,7 @@ CREATE TABLE presto_test_types_textfile (
 , t_char CHAR(25)
 , t_map MAP<STRING, STRING>
 , t_array_string ARRAY<STRING>
+, t_array_timestamp ARRAY<TIMESTAMP>
 , t_array_struct ARRAY<STRUCT<s_string: STRING, s_double:DOUBLE>>
 , t_struct STRUCT<s_string: STRING, s_double:DOUBLE>
 , t_complex MAP<INT, ARRAY<STRUCT<s_string: STRING, s_double:DOUBLE>>>
@@ -277,6 +278,7 @@ SELECT
 , CASE n % 41 WHEN 0 THEN NULL WHEN 1 THEN '' ELSE 'test char' END
 , CASE WHEN n % 27 = 0 THEN NULL ELSE map('test key', 'test value') END
 , CASE WHEN n % 29 = 0 THEN NULL ELSE array('abc', 'xyz', 'data') END
+, CASE WHEN n % 43 = 0 THEN NULL ELSE array(timestamp '2011-05-06 07:08:09.1234567') END
 , CASE WHEN n % 31 = 0 THEN NULL ELSE
      array(named_struct('s_string', 'test abc', 's_double', 0.1),
            named_struct('s_string' , 'test xyz', 's_double', 0.2)) END
