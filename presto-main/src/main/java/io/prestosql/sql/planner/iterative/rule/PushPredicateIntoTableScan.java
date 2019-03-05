@@ -15,7 +15,6 @@ package io.prestosql.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import io.prestosql.Session;
 import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.matching.Capture;
@@ -61,7 +60,6 @@ import static io.prestosql.sql.ExpressionUtils.combineConjuncts;
 import static io.prestosql.sql.ExpressionUtils.filterDeterministicConjuncts;
 import static io.prestosql.sql.ExpressionUtils.filterNonDeterministicConjuncts;
 import static io.prestosql.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
-import static io.prestosql.sql.planner.iterative.rule.PreconditionRules.checkRulesAreFiredBeforeAddExchangesRule;
 import static io.prestosql.sql.planner.plan.Patterns.filter;
 import static io.prestosql.sql.planner.plan.Patterns.source;
 import static io.prestosql.sql.planner.plan.Patterns.tableScan;
@@ -74,7 +72,13 @@ import static java.util.Objects.requireNonNull;
  * chosen by AddExchanges
  */
 public class PushPredicateIntoTableScan
+        implements Rule<FilterNode>
 {
+    private static final Capture<TableScanNode> TABLE_SCAN = newCapture();
+
+    private static final Pattern<FilterNode> PATTERN = filter().with(source().matching(
+            tableScan().capturedAs(TABLE_SCAN)));
+
     private final Metadata metadata;
     private final SqlParser parser;
     private final DomainTranslator domainTranslator;
@@ -86,90 +90,60 @@ public class PushPredicateIntoTableScan
         this.domainTranslator = new DomainTranslator(new LiteralEncoder(metadata.getBlockEncodingSerde()));
     }
 
-    public Set<Rule<?>> rules()
+    @Override
+    public Pattern<FilterNode> getPattern()
     {
-        return ImmutableSet.of(pickTableLayoutForPredicate());
+        return PATTERN;
     }
 
-    public PickTableLayoutForPredicate pickTableLayoutForPredicate()
+    @Override
+    public boolean isEnabled(Session session)
     {
-        return new PickTableLayoutForPredicate(metadata, parser, domainTranslator);
+        return isNewOptimizerEnabled(session);
     }
 
-    private static final class PickTableLayoutForPredicate
-            implements Rule<FilterNode>
+    @Override
+    public Result apply(FilterNode filterNode, Captures captures, Context context)
     {
-        private final Metadata metadata;
-        private final SqlParser parser;
-        private final DomainTranslator domainTranslator;
+        TableScanNode tableScan = captures.get(TABLE_SCAN);
 
-        private PickTableLayoutForPredicate(Metadata metadata, SqlParser parser, DomainTranslator domainTranslator)
-        {
-            this.metadata = requireNonNull(metadata, "metadata is null");
-            this.parser = requireNonNull(parser, "parser is null");
-            this.domainTranslator = requireNonNull(domainTranslator, "domainTranslator is null");
+        PlanNode rewritten = pushFilterIntoTableScan(
+                tableScan,
+                filterNode.getPredicate(),
+                false,
+                context.getSession(),
+                context.getSymbolAllocator().getTypes(),
+                context.getIdAllocator(),
+                metadata,
+                parser,
+                domainTranslator);
+
+        if (arePlansSame(filterNode, tableScan, rewritten)) {
+            return Result.empty();
         }
 
-        private static final Capture<TableScanNode> TABLE_SCAN = newCapture();
+        return Result.ofPlanNode(rewritten);
+    }
 
-        private static final Pattern<FilterNode> PATTERN = filter().with(source().matching(
-                tableScan().capturedAs(TABLE_SCAN)));
-
-        @Override
-        public Pattern<FilterNode> getPattern()
-        {
-            return PATTERN;
+    private boolean arePlansSame(FilterNode filter, TableScanNode tableScan, PlanNode rewritten)
+    {
+        if (!(rewritten instanceof FilterNode)) {
+            return false;
         }
 
-        @Override
-        public boolean isEnabled(Session session)
-        {
-            return isNewOptimizerEnabled(session);
+        FilterNode rewrittenFilter = (FilterNode) rewritten;
+        if (!Objects.equals(filter.getPredicate(), rewrittenFilter.getPredicate())) {
+            return false;
         }
 
-        @Override
-        public Result apply(FilterNode filterNode, Captures captures, Context context)
-        {
-            TableScanNode tableScan = captures.get(TABLE_SCAN);
-
-            PlanNode rewritten = pushFilterIntoTableScan(
-                    tableScan,
-                    filterNode.getPredicate(),
-                    false,
-                    context.getSession(),
-                    context.getSymbolAllocator().getTypes(),
-                    context.getIdAllocator(),
-                    metadata,
-                    parser,
-                    domainTranslator);
-
-            if (arePlansSame(filterNode, tableScan, rewritten)) {
-                return Result.empty();
-            }
-
-            return Result.ofPlanNode(rewritten);
+        if (!(rewrittenFilter.getSource() instanceof TableScanNode)) {
+            return false;
         }
 
-        private boolean arePlansSame(FilterNode filter, TableScanNode tableScan, PlanNode rewritten)
-        {
-            if (!(rewritten instanceof FilterNode)) {
-                return false;
-            }
+        TableScanNode rewrittenTableScan = (TableScanNode) rewrittenFilter.getSource();
 
-            FilterNode rewrittenFilter = (FilterNode) rewritten;
-            if (!Objects.equals(filter.getPredicate(), rewrittenFilter.getPredicate())) {
-                return false;
-            }
-
-            if (!(rewrittenFilter.getSource() instanceof TableScanNode)) {
-                return false;
-            }
-
-            TableScanNode rewrittenTableScan = (TableScanNode) rewrittenFilter.getSource();
-
-            return Objects.equals(tableScan.getCurrentConstraint(), rewrittenTableScan.getCurrentConstraint())
-                    && Objects.equals(tableScan.getEnforcedConstraint(), rewrittenTableScan.getEnforcedConstraint());
-        }
+        return Objects.equals(tableScan.getCurrentConstraint(), rewrittenTableScan.getCurrentConstraint())
+                && Objects.equals(tableScan.getEnforcedConstraint(), rewrittenTableScan.getEnforcedConstraint());
     }
 
     public static PlanNode pushFilterIntoTableScan(
