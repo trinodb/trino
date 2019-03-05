@@ -41,6 +41,7 @@ import javax.annotation.concurrent.GuardedBy;
 import javax.inject.Inject;
 
 import java.util.AbstractMap;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -62,6 +63,7 @@ import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.units.Duration.succinctNanos;
 import static io.prestosql.spi.StandardErrorCode.CONFIGURATION_INVALID;
 import static io.prestosql.spi.StandardErrorCode.CONFIGURATION_UNAVAILABLE;
+import static java.util.Collections.synchronizedList;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 
@@ -145,7 +147,7 @@ public class DbResourceGroupConfigurationManager
         ResourceGroupSpec groupSpec = getMatchingSpec(group, criteria);
         if (groups.putIfAbsent(group.getId(), group) == null) {
             // If a new spec replaces the spec returned from getMatchingSpec the group will be reconfigured on the next run of load().
-            configuredGroups.computeIfAbsent(criteria.getContext(), v -> new LinkedList<>()).add(group.getId());
+            configuredGroups.computeIfAbsent(criteria.getContext(), v -> synchronizedList(new ArrayList<>())).add(group.getId());
         }
         synchronized (getRootGroup(group.getId())) {
             configureGroup(group, groupSpec);
@@ -331,7 +333,7 @@ public class DbResourceGroupConfigurationManager
     private synchronized void configureChangedGroups(Set<ResourceGroupIdTemplate> changedSpecs)
     {
         for (ResourceGroupIdTemplate resourceGroupIdTemplate : changedSpecs) {
-            for (ResourceGroupId resourceGroupId : configuredGroups.getOrDefault(resourceGroupIdTemplate, ImmutableList.of())) {
+            for (ResourceGroupId resourceGroupId : configuredGroups(resourceGroupIdTemplate)) {
                 synchronized (getRootGroup(resourceGroupId)) {
                     configureGroup(groups.get(resourceGroupId), resourceGroupSpecs.get(resourceGroupIdTemplate));
                 }
@@ -342,9 +344,20 @@ public class DbResourceGroupConfigurationManager
     private synchronized void disableDeletedGroups(Set<ResourceGroupIdTemplate> deletedSpecs)
     {
         for (ResourceGroupIdTemplate resourceGroupIdTemplate : deletedSpecs) {
-            for (ResourceGroupId resourceGroupId : configuredGroups.getOrDefault(resourceGroupIdTemplate, ImmutableList.of())) {
+            for (ResourceGroupId resourceGroupId : configuredGroups(resourceGroupIdTemplate)) {
                 disableGroup(groups.get(resourceGroupId));
             }
+        }
+    }
+
+    private List<ResourceGroupId> configuredGroups(ResourceGroupIdTemplate idTemplate)
+    {
+        List<ResourceGroupId> groups = configuredGroups.get(idTemplate);
+        if (groups == null) {
+            return ImmutableList.of();
+        }
+        synchronized (groups) { // configuredGroups values are synchronized lists
+            return ImmutableList.copyOf(groups);
         }
     }
 
