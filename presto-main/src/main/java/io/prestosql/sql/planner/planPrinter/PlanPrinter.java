@@ -99,6 +99,7 @@ import io.prestosql.sql.planner.plan.UnionNode;
 import io.prestosql.sql.planner.plan.UnnestNode;
 import io.prestosql.sql.planner.plan.ValuesNode;
 import io.prestosql.sql.planner.plan.WindowNode;
+import io.prestosql.sql.planner.planPrinter.NodeRepresentation.TypedSymbol;
 import io.prestosql.sql.tree.ComparisonExpression;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.FunctionCall;
@@ -1178,7 +1179,9 @@ public class PlanPrinter
                     name,
                     rootNode.getClass().getSimpleName(),
                     identifier,
-                    rootNode.getOutputSymbols(),
+                    rootNode.getOutputSymbols().stream()
+                            .map(s -> new TypedSymbol(s, types.get(s).getDisplayName()))
+                            .collect(toImmutableList()),
                     stats.map(s -> s.get(rootNode.getId())),
                     estimatedStats,
                     estimatedCosts,
