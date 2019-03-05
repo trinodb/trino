@@ -21,12 +21,15 @@ import io.prestosql.sql.planner.plan.LateralJoinNode;
 import io.prestosql.sql.planner.plan.PlanNode;
 
 import static io.prestosql.sql.planner.optimizations.QueryCardinalityUtil.isScalar;
+import static io.prestosql.sql.planner.plan.Patterns.LateralJoin.filter;
 import static io.prestosql.sql.planner.plan.Patterns.lateralJoin;
+import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
 
 public class RemoveUnreferencedScalarLateralNodes
         implements Rule<LateralJoinNode>
 {
-    private static final Pattern<LateralJoinNode> PATTERN = lateralJoin();
+    private static final Pattern<LateralJoinNode> PATTERN = lateralJoin()
+            .with(filter().equalTo(TRUE_LITERAL));
 
     @Override
     public Pattern<LateralJoinNode> getPattern()

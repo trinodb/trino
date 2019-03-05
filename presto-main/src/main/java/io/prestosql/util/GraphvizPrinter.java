@@ -72,6 +72,7 @@ import java.util.stream.Collectors;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Maps.immutableEnumMap;
 import static io.prestosql.sql.planner.plan.ExchangeNode.Type.REPARTITION;
+import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static java.lang.String.format;
 
 public final class GraphvizPrinter
@@ -514,8 +515,13 @@ public final class GraphvizPrinter
         @Override
         public Void visitLateralJoin(LateralJoinNode node, Void context)
         {
-            String parameters = Joiner.on(",").join(node.getCorrelation());
-            printNode(node, "LateralJoin", parameters, NODE_COLORS.get(NodeType.JOIN));
+            String correlationSymbols = Joiner.on(",").join(node.getCorrelation());
+            String filterExpression = "";
+            if (!node.getFilter().equals(TRUE_LITERAL)) {
+                filterExpression = " " + node.getFilter().toString();
+            }
+
+            printNode(node, "LateralJoin", correlationSymbols + filterExpression, NODE_COLORS.get(NodeType.JOIN));
 
             node.getInput().accept(this, context);
             node.getSubquery().accept(this, context);

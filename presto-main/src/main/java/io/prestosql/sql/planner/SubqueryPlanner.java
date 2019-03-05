@@ -227,10 +227,10 @@ class SubqueryPlanner
         }
 
         // The subquery's EnforceSingleRowNode always produces a row, so the join is effectively INNER
-        return appendLateralJoin(subPlan, subqueryPlan, scalarSubquery.getQuery(), correlationAllowed, LateralJoinNode.Type.INNER);
+        return appendLateralJoin(subPlan, subqueryPlan, scalarSubquery.getQuery(), correlationAllowed, LateralJoinNode.Type.INNER, TRUE_LITERAL);
     }
 
-    public PlanBuilder appendLateralJoin(PlanBuilder subPlan, PlanBuilder subqueryPlan, Query query, boolean correlationAllowed, LateralJoinNode.Type type)
+    public PlanBuilder appendLateralJoin(PlanBuilder subPlan, PlanBuilder subqueryPlan, Query query, boolean correlationAllowed, LateralJoinNode.Type type, Expression filterCondition)
     {
         PlanNode subqueryNode = subqueryPlan.getRoot();
         Map<Expression, Expression> correlation = extractCorrelation(subPlan, subqueryNode);
@@ -247,6 +247,7 @@ class SubqueryPlanner
                         subqueryNode,
                         ImmutableList.copyOf(SymbolsExtractor.extractUnique(correlation.values())),
                         type,
+                        filterCondition,
                         query),
                 analysis.getParameters());
     }

@@ -129,6 +129,7 @@ import static io.prestosql.sql.planner.planprinter.PlanNodeStatsSummarizer.aggre
 import static io.prestosql.sql.planner.planprinter.TextRenderer.formatDouble;
 import static io.prestosql.sql.planner.planprinter.TextRenderer.formatPositions;
 import static io.prestosql.sql.planner.planprinter.TextRenderer.indentString;
+import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static java.lang.String.format;
 import static java.util.Arrays.stream;
 import static java.util.Objects.requireNonNull;
@@ -1053,7 +1054,11 @@ public class PlanPrinter
         @Override
         public Void visitLateralJoin(LateralJoinNode node, Void context)
         {
-            addNode(node, "Lateral", format("[%s]", node.getCorrelation()));
+            addNode(node,
+                    "Lateral",
+                    format("[%s%s]",
+                            node.getCorrelation(),
+                            node.getFilter().equals(TRUE_LITERAL) ? "" : " " + node.getFilter()));
 
             return processChildren(node, context);
         }
