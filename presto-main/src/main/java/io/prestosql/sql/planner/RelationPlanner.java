@@ -59,9 +59,11 @@ import io.prestosql.sql.tree.Identifier;
 import io.prestosql.sql.tree.InPredicate;
 import io.prestosql.sql.tree.Intersect;
 import io.prestosql.sql.tree.Join;
+import io.prestosql.sql.tree.JoinCriteria;
 import io.prestosql.sql.tree.JoinUsing;
 import io.prestosql.sql.tree.LambdaArgumentDeclaration;
 import io.prestosql.sql.tree.Lateral;
+import io.prestosql.sql.tree.NaturalJoin;
 import io.prestosql.sql.tree.NodeRef;
 import io.prestosql.sql.tree.QualifiedName;
 import io.prestosql.sql.tree.Query;
@@ -89,8 +91,10 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.prestosql.sql.analyzer.SemanticExceptions.notSupportedException;
 import static io.prestosql.sql.planner.plan.AggregationNode.singleGroupingSet;
+import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.prestosql.sql.tree.Join.Type.INNER;
 import static java.util.Objects.requireNonNull;
 
@@ -219,9 +223,6 @@ class RelationPlanner
 
         Optional<Lateral> lateral = getLateral(node.getRight());
         if (lateral.isPresent()) {
-            if (node.getType() != Join.Type.CROSS && node.getType() != Join.Type.IMPLICIT) {
-                throw notSupportedException(lateral.get(), "LATERAL on other than the right side of CROSS JOIN");
-            }
             return planLateralJoin(node, leftPlan, lateral.get());
         }
 
@@ -537,7 +538,47 @@ class RelationPlanner
         PlanBuilder leftPlanBuilder = initializePlanBuilder(leftPlan);
         PlanBuilder rightPlanBuilder = initializePlanBuilder(rightPlan);
 
-        PlanBuilder planBuilder = subqueryPlanner.appendLateralJoin(leftPlanBuilder, rightPlanBuilder, lateral.getQuery(), true, LateralJoinNode.Type.INNER);
+        Expression filterExpression;
+        if (!join.getCriteria().isPresent()) {
+            filterExpression = TRUE_LITERAL;
+        }
+        else {
+            JoinCriteria criteria = join.getCriteria().get();
+            if (criteria instanceof JoinUsing || criteria instanceof NaturalJoin) {
+                throw notSupportedException(join, "Lateral join with criteria other than ON");
+            }
+            filterExpression = (Expression) getOnlyElement(criteria.getNodes());
+        }
+
+        List<Symbol> rewriterOutputSymbols = ImmutableList.<Symbol>builder()
+                .addAll(leftPlan.getFieldMappings())
+                .addAll(rightPlan.getFieldMappings())
+                .build();
+
+        // this node is not used in the plan. It is only used for creating the TranslationMap.
+        PlanNode dummy = new ValuesNode(
+                idAllocator.getNextId(),
+                ImmutableList.<Symbol>builder()
+                        .addAll(leftPlanBuilder.getRoot().getOutputSymbols())
+                        .addAll(rightPlanBuilder.getRoot().getOutputSymbols())
+                        .build(),
+                ImmutableList.of());
+
+        RelationPlan intermediateRelationPlan = new RelationPlan(dummy, analysis.getScope(join), rewriterOutputSymbols);
+        TranslationMap translationMap = new TranslationMap(intermediateRelationPlan, analysis, lambdaDeclarationToSymbolMap);
+        translationMap.setFieldMappings(rewriterOutputSymbols);
+        translationMap.putExpressionMappingsFrom(leftPlanBuilder.getTranslations());
+        translationMap.putExpressionMappingsFrom(rightPlanBuilder.getTranslations());
+
+        Expression rewrittenFilterCondition = translationMap.rewrite(filterExpression);
+
+        PlanBuilder planBuilder = subqueryPlanner.appendLateralJoin(
+                leftPlanBuilder,
+                rightPlanBuilder,
+                lateral.getQuery(),
+                true,
+                LateralJoinNode.Type.typeConvert(join.getType()),
+                rewrittenFilterCondition);
 
         List<Symbol> outputSymbols = ImmutableList.<Symbol>builder()
                 .addAll(leftPlan.getRoot().getOutputSymbols())

@@ -232,6 +232,11 @@ public class Patterns
         {
             return property("subquery", LateralJoinNode::getSubquery);
         }
+
+        public static Property<LateralJoinNode, Lookup, Expression> filter()
+        {
+            return property("filter", LateralJoinNode::getFilter);
+        }
     }
 
     public static class Limit

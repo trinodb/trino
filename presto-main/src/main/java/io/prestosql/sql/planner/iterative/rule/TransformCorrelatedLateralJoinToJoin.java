@@ -22,12 +22,15 @@ import io.prestosql.sql.planner.optimizations.PlanNodeDecorrelator.DecorrelatedN
 import io.prestosql.sql.planner.plan.JoinNode;
 import io.prestosql.sql.planner.plan.LateralJoinNode;
 import io.prestosql.sql.planner.plan.PlanNode;
+import io.prestosql.sql.tree.Expression;
 
 import java.util.Optional;
 
 import static io.prestosql.matching.Pattern.nonEmpty;
+import static io.prestosql.sql.ExpressionUtils.combineConjuncts;
 import static io.prestosql.sql.planner.plan.Patterns.LateralJoin.correlation;
 import static io.prestosql.sql.planner.plan.Patterns.lateralJoin;
+import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
 
 /**
  * Tries to decorrelate subquery and rewrite it using normal join.
@@ -53,18 +56,24 @@ public class TransformCorrelatedLateralJoinToJoin
         PlanNodeDecorrelator planNodeDecorrelator = new PlanNodeDecorrelator(context.getIdAllocator(), context.getLookup());
         Optional<DecorrelatedNode> decorrelatedNodeOptional = planNodeDecorrelator.decorrelateFilters(subquery, lateralJoinNode.getCorrelation());
 
-        return decorrelatedNodeOptional.map(decorrelatedNode ->
-                Result.ofPlanNode(new JoinNode(
-                        context.getIdAllocator().getNextId(),
-                        lateralJoinNode.getType().toJoinNodeType(),
-                        lateralJoinNode.getInput(),
-                        decorrelatedNode.getNode(),
-                        ImmutableList.of(),
-                        lateralJoinNode.getOutputSymbols(),
-                        decorrelatedNode.getCorrelatedPredicates(),
-                        Optional.empty(),
-                        Optional.empty(),
-                        Optional.empty(),
-                        Optional.empty()))).orElseGet(Result::empty);
+        return decorrelatedNodeOptional
+                .map(decorrelatedNode -> {
+                    Expression joinFilter = combineConjuncts(
+                            decorrelatedNode.getCorrelatedPredicates().orElse(TRUE_LITERAL),
+                            lateralJoinNode.getFilter());
+                    return Result.ofPlanNode(new JoinNode(
+                            context.getIdAllocator().getNextId(),
+                            lateralJoinNode.getType().toJoinNodeType(),
+                            lateralJoinNode.getInput(),
+                            decorrelatedNode.getNode(),
+                            ImmutableList.of(),
+                            lateralJoinNode.getOutputSymbols(),
+                            joinFilter.equals(TRUE_LITERAL) ? Optional.empty() : Optional.of(joinFilter),
+                            Optional.empty(),
+                            Optional.empty(),
+                            Optional.empty(),
+                            Optional.empty()));
+                })
+                .orElseGet(Result::empty);
     }
 }

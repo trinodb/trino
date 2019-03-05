@@ -46,6 +46,7 @@ import static io.prestosql.sql.planner.optimizations.PlanNodeSearcher.searchFrom
 import static io.prestosql.sql.planner.optimizations.QueryCardinalityUtil.extractCardinality;
 import static io.prestosql.sql.planner.plan.LateralJoinNode.Type.LEFT;
 import static io.prestosql.sql.planner.plan.Patterns.LateralJoin.correlation;
+import static io.prestosql.sql.planner.plan.Patterns.LateralJoin.filter;
 import static io.prestosql.sql.planner.plan.Patterns.lateralJoin;
 import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
 
@@ -81,7 +82,8 @@ public class TransformCorrelatedScalarSubquery
         implements Rule<LateralJoinNode>
 {
     private static final Pattern<LateralJoinNode> PATTERN = lateralJoin()
-            .with(nonEmpty(correlation()));
+            .with(nonEmpty(correlation()))
+            .with(filter().equalTo(TRUE_LITERAL));
 
     @Override
     public Pattern getPattern()
@@ -116,6 +118,7 @@ public class TransformCorrelatedScalarSubquery
                     rewrittenSubquery,
                     lateralJoinNode.getCorrelation(),
                     producesSingleRow ? lateralJoinNode.getType() : LEFT,
+                    lateralJoinNode.getFilter(),
                     lateralJoinNode.getOriginSubquery()));
         }
 
@@ -130,6 +133,7 @@ public class TransformCorrelatedScalarSubquery
                 rewrittenSubquery,
                 lateralJoinNode.getCorrelation(),
                 LEFT,
+                lateralJoinNode.getFilter(),
                 lateralJoinNode.getOriginSubquery());
 
         Symbol isDistinct = context.getSymbolAllocator().newSymbol("is_distinct", BooleanType.BOOLEAN);
