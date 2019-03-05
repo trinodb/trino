@@ -68,6 +68,7 @@ import static io.prestosql.spi.type.Varchars.isVarcharType;
 import static java.lang.Math.toIntExact;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Collections.unmodifiableMap;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 
 public class MongoPageSink
@@ -90,7 +91,7 @@ public class MongoPageSink
         this.session = session;
         this.schemaTableName = schemaTableName;
         this.columns = columns;
-        this.implicitPrefix = config.getImplicitRowFieldPrefix();
+        this.implicitPrefix = requireNonNull(config.getImplicitRowFieldPrefix(), "config.getImplicitRowFieldPrefix() is null");
     }
 
     @Override

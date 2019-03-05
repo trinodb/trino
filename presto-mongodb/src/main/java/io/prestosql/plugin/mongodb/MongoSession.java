@@ -112,9 +112,9 @@ public class MongoSession
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.client = requireNonNull(client, "client is null");
-        this.schemaCollection = config.getSchemaCollection();
+        this.schemaCollection = requireNonNull(config.getSchemaCollection(), "config.getSchemaCollection() is null");
         this.cursorBatchSize = config.getCursorBatchSize();
-        this.implicitPrefix = config.getImplicitRowFieldPrefix();
+        this.implicitPrefix = requireNonNull(config.getImplicitRowFieldPrefix(), "config.getImplicitRowFieldPrefix() is null");
 
         this.tableCache = CacheBuilder.newBuilder()
                 .expireAfterWrite(1, HOURS)  // TODO: Configure
