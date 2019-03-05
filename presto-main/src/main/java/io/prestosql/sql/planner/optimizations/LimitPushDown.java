@@ -168,16 +168,24 @@ public class LimitPushDown
         public PlanNode visitTopN(TopNNode node, RewriteContext<LimitContext> context)
         {
             LimitContext limit = context.get();
+            long count = node.getCount();
+
+            if (limit != null) {
+                count = Math.min(count, limit.getCount());
+            }
+
+            // return empty ValuesNode in case of limit 0
+            if (count == 0) {
+                return new ValuesNode(idAllocator.getNextId(),
+                        node.getOutputSymbols(),
+                        ImmutableList.of());
+            }
 
             PlanNode rewrittenSource = context.rewrite(node.getSource());
             if (rewrittenSource == node.getSource() && limit == null) {
                 return node;
             }
 
-            long count = node.getCount();
-            if (limit != null) {
-                count = Math.min(count, limit.getCount());
-            }
             return new TopNNode(node.getId(), rewrittenSource, count, node.getOrderingScheme(), node.getStep());
         }
 
