@@ -357,7 +357,7 @@ public class PlanOptimizers
                         ruleStats,
                         statsCalculator,
                         estimatedExchangesCostCalculator,
-                        new PushPredicateIntoTableScan(metadata, sqlParser).rules()),
+                        ImmutableSet.of(new PushPredicateIntoTableScan(metadata, sqlParser))),
                 new PruneUnreferencedOutputs(),
                 new IterativeOptimizer(
                         ruleStats,
@@ -407,7 +407,7 @@ public class PlanOptimizers
                         ruleStats,
                         statsCalculator,
                         estimatedExchangesCostCalculator,
-                        new PushPredicateIntoTableScan(metadata, sqlParser).rules()),
+                        ImmutableSet.of(new PushPredicateIntoTableScan(metadata, sqlParser))),
                 projectionPushDown,
                 new PruneUnreferencedOutputs(),
                 new IterativeOptimizer(

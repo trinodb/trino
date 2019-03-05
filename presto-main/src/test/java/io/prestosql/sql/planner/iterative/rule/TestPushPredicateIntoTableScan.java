@@ -26,7 +26,6 @@ import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.parser.SqlParser;
-import io.prestosql.sql.planner.iterative.Rule;
 import io.prestosql.sql.planner.iterative.rule.test.BaseRuleTest;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -76,17 +75,15 @@ public class TestPushPredicateIntoTableScan
     @Test
     public void doesNotFireIfNoTableScan()
     {
-        for (Rule<?> rule : pushPredicateIntoTableScan.rules()) {
-            tester().assertThat(rule)
-                    .on(p -> p.values(p.symbol("a", BIGINT)))
-                    .doesNotFire();
-        }
+        tester().assertThat(pushPredicateIntoTableScan)
+                .on(p -> p.values(p.symbol("a", BIGINT)))
+                .doesNotFire();
     }
 
     @Test
     public void eliminateTableScanWhenNoLayoutExist()
     {
-        tester().assertThat(pushPredicateIntoTableScan.pickTableLayoutForPredicate())
+        tester().assertThat(pushPredicateIntoTableScan)
                 .on(p -> p.filter(expression("orderstatus = 'G'"),
                         p.tableScan(
                                 ordersTableHandle,
@@ -99,7 +96,7 @@ public class TestPushPredicateIntoTableScan
     public void replaceWithExistsWhenNoLayoutExist()
     {
         ColumnHandle columnHandle = new TpchColumnHandle("nationkey", BIGINT);
-        tester().assertThat(pushPredicateIntoTableScan.pickTableLayoutForPredicate())
+        tester().assertThat(pushPredicateIntoTableScan)
                 .on(p -> p.filter(expression("nationkey = BIGINT '44'"),
                         p.tableScan(
                                 nationTableHandle,
@@ -113,7 +110,7 @@ public class TestPushPredicateIntoTableScan
     @Test
     public void doesNotFireIfRuleNotChangePlan()
     {
-        tester().assertThat(pushPredicateIntoTableScan.pickTableLayoutForPredicate())
+        tester().assertThat(pushPredicateIntoTableScan)
                 .on(p -> p.filter(expression("nationkey % 17 =  BIGINT '44' AND nationkey % 15 =  BIGINT '43'"),
                         p.tableScan(
                                 nationTableHandle,
@@ -130,7 +127,7 @@ public class TestPushPredicateIntoTableScan
         Map<String, Domain> filterConstraint = ImmutableMap.<String, Domain>builder()
                 .put("orderstatus", singleValue(createVarcharType(1), utf8Slice("F")))
                 .build();
-        tester().assertThat(pushPredicateIntoTableScan.pickTableLayoutForPredicate())
+        tester().assertThat(pushPredicateIntoTableScan)
                 .on(p -> p.filter(expression("orderstatus = CAST ('F' AS VARCHAR(1))"),
                         p.tableScan(
                                 ordersTableHandle,
@@ -143,7 +140,7 @@ public class TestPushPredicateIntoTableScan
     @Test
     public void ruleAddedNewTableLayoutIfTableScanHasEmptyConstraint()
     {
-        tester().assertThat(pushPredicateIntoTableScan.pickTableLayoutForPredicate())
+        tester().assertThat(pushPredicateIntoTableScan)
                 .on(p -> p.filter(expression("orderstatus = 'F'"),
                         p.tableScan(
                                 ordersTableHandle,
@@ -160,7 +157,7 @@ public class TestPushPredicateIntoTableScan
     public void ruleWithPushdownableToTableLayoutPredicate()
     {
         Type orderStatusType = createVarcharType(1);
-        tester().assertThat(pushPredicateIntoTableScan.pickTableLayoutForPredicate())
+        tester().assertThat(pushPredicateIntoTableScan)
                 .on(p -> p.filter(expression("orderstatus = 'O'"),
                         p.tableScan(
                                 ordersTableHandle,
@@ -176,7 +173,7 @@ public class TestPushPredicateIntoTableScan
     public void nonDeterministicPredicate()
     {
         Type orderStatusType = createVarcharType(1);
-        tester().assertThat(pushPredicateIntoTableScan.pickTableLayoutForPredicate())
+        tester().assertThat(pushPredicateIntoTableScan)
                 .on(p -> p.filter(expression("orderstatus = 'O' AND rand() = 0"),
                         p.tableScan(
                                 ordersTableHandle,
