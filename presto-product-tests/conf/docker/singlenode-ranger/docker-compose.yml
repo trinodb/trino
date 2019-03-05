@@ -1,0 +1,7 @@
+version: '2'
+services:
+  presto-master:
+    volumes:
+      - ../../../conf/presto/etc/environment-specific-catalogs/singlenode-ranger/access-control.properties:/docker/volumes/conf/presto/etc/access-control.properties
+      - ../../../conf/presto/etc/environment-specific-catalogs/singlenode-ranger/ranger:/docker/volumes/conf/presto/ranger
+

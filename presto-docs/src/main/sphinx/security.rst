@@ -10,4 +10,5 @@ Security
     security/ldap
     security/tls
     security/built-in-system-access-control
+    security/ranger
     security/internal-communication

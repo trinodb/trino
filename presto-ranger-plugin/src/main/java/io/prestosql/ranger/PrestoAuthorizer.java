@@ -13,6 +13,7 @@
  */
 package io.prestosql.ranger;
 
+import io.prestosql.ranger.groups.UserGroups;
 import io.prestosql.spi.security.Identity;
 import org.apache.commons.lang.StringUtils;
 import org.apache.ranger.plugin.model.RangerPolicy;

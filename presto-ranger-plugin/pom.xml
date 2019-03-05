@@ -21,7 +21,6 @@
         <dependency>
             <groupId>io.prestosql</groupId>
             <artifactId>presto-spi</artifactId>
-            <scope>provided</scope>
         </dependency>
 
         <dependency>
@@ -82,10 +81,10 @@
                     <groupId>org.apache.httpcomponents</groupId>
                     <artifactId>httpclient</artifactId>
                 </exclusion>
-                <exclusion>
-                    <groupId>asm</groupId>
-                    <artifactId>asm</artifactId>
-                </exclusion>
+                <!--<exclusion>-->
+                    <!--<groupId>asm</groupId>-->
+                    <!--<artifactId>asm</artifactId>-->
+                <!--</exclusion>-->
             </exclusions>
         </dependency>
         <dependency>
@@ -197,6 +196,7 @@
         <dependency>
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
+            <version>19.0</version>
         </dependency>
 
         <dependency>
@@ -241,6 +241,22 @@
                         </dependency>
                     </ignoredDependencies>
                 </configuration>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-enforcer-plugin</artifactId>
+                <configuration>
+                    <rules>
+                        <requireUpperBoundDeps>
+                            <excludes combine.children="append">
+
+                                <exclude>com.google.guava:guava</exclude>
+                            </excludes>
+                        </requireUpperBoundDeps>
+                    </rules>
+                </configuration>
+
             </plugin>
 
             <plugin>

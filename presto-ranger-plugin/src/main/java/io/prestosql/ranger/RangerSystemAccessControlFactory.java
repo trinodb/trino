@@ -15,6 +15,9 @@ package io.prestosql.ranger;
 
 import com.google.common.base.Strings;
 import io.airlift.log.Logger;
+import io.prestosql.ranger.groups.EmptyUserGroups;
+import io.prestosql.ranger.groups.UserGroups;
+import io.prestosql.ranger.groups.UserGroupsRangerClient;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.StandardErrorCode;
 import io.prestosql.spi.security.SystemAccessControl;
@@ -38,6 +41,7 @@ public class RangerSystemAccessControlFactory
         implements SystemAccessControlFactory
 {
     protected static final String RANGER_ACCESS_CONTROL = "ranger-access-control";
+    protected static final String RANGER_GROUP_FETCH = "ranger-groups-fetch";
     private static final Logger log = Logger.get(RangerSystemAccessControlFactory.class);
 
     @Override
@@ -146,7 +150,14 @@ public class RangerSystemAccessControlFactory
                 }
             }
         });
-        UserGroups userGroups = new UserGroups(configuration);
+
+        UserGroups userGroups;
+        if (Boolean.parseBoolean(configuration.getOrDefault(RANGER_GROUP_FETCH, "true")) == true) {
+            userGroups = new UserGroupsRangerClient(configuration);
+        }
+        else {
+            userGroups = new EmptyUserGroups();
+        }
         return new PrestoAuthorizer(userGroups, plugins);
     }
 }

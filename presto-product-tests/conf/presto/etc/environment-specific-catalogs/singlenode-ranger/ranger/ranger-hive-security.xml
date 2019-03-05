@@ -1,0 +1,32 @@
+<configuration>
+
+    <property>
+        <name>ranger.plugin.hive.policy.rest.url</name>
+        <value>http://localhost:6080</value>
+    </property>
+
+    <property>
+        <name>ranger.service.store.rest.url</name>
+        <value>http://localhost:6080</value>
+    </property>
+
+    <property>
+        <name>ranger.plugin.hive.policy.source.impl</name>
+        <value>io.prestosql.ranger.product.RangerProductTestClient</value>
+    </property>
+
+    <property>
+        <name>ranger.plugin.hive.service.name</name>
+        <value>hive</value>
+    </property>
+
+    <property>
+        <name>ranger.plugin.hive.urlauth.filesystem.schemes</name>
+        <value>hdfs:,file:,wasb:,adl:</value>
+    </property>
+
+    <property>
+        <name>xasecure.hive.update.xapolicies.on.grant.revoke</name>
+        <value>true</value>
+    </property>
+</configuration>

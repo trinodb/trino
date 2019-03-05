@@ -27,7 +27,7 @@ import javax.xml.bind.annotation.XmlRootElement;
 @JsonIgnoreProperties(ignoreUnknown = true)
 @XmlRootElement
 @XmlAccessorType(XmlAccessType.FIELD)
-class RangerUserInfo
+public class RangerUserInfo
 {
     private Integer id;
     private String firstName;

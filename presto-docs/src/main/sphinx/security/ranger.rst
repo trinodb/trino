@@ -24,18 +24,22 @@ installation (see :doc:`/installation/deployment`). Also it assumes ranger is al
 
 
 Step 1: Set Ranger configurations
-----------------------------
+---------------------------------
 
-You need to change the ranger-hive-security.xml with the appropriate ranger url. Either you can copy the ranger-hive-security.xml from your setup or you can checkout src/test/resources for a sample.
-Change the property <name>ranger.plugin.hive.policy.rest.url</name> with the appropriate urls.
-Change the property <name>ranger.service.store.rest.url</name> with the appropriate url.
-Change the property <name>ranger.plugin.hive.service.name</name> with the name hive service is registered in the ranger service. Its visible in the ranger UI.
+You need to change the ranger-hive-security.xml with the appropriate ranger url. Either you can copy the ranger-hive-security.xml from your setup or you can
+checkout src/test/resources for a sample.
+.. note::
+
+    Change the property <name>ranger.plugin.hive.policy.rest.url</name> with the appropriate urls.
+    Change the property <name>ranger.service.store.rest.url</name> with the appropriate url.
+    Change the property <name>ranger.plugin.hive.service.name</name> with the name hive service is registered in the ranger service. Its visible in the ranger UI.
+
 
 You can tweak the ranger audit xml later.
 
 
 Step 2: Set access control properties
------------------
+-------------------------------------
 
 In your Presto installation, add a access control properties file
 ``etc/access-control.properties`` for the Ranger Plugin.
@@ -61,8 +65,6 @@ Now start Presto:
 
     $ bin/launcher start
 
-
-Start the :doc:`Presto CLI </installation/cli>`:
 
 .. code-block:: none
 

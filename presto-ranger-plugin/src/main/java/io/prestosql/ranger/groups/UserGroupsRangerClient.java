@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.ranger;
+package io.prestosql.ranger.groups;
 
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
@@ -21,6 +21,9 @@ import com.sun.jersey.api.client.ClientResponse;
 import com.sun.jersey.api.client.WebResource;
 import com.sun.jersey.api.uri.UriComponent;
 import io.airlift.log.Logger;
+import io.prestosql.ranger.RangerGroup;
+import io.prestosql.ranger.RangerUserGroups;
+import io.prestosql.ranger.RangerUserInfo;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.StandardErrorCode;
 import org.apache.hadoop.security.UserGroupInformation;
@@ -41,9 +44,10 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
-public class UserGroups
+public class UserGroupsRangerClient
+        implements UserGroups
 {
-    private static final Logger log = Logger.get(UserGroups.class);
+    private static final Logger log = Logger.get(UserGroupsRangerClient.class);
     private static final String GET_USER_INFO = "/service/xusers/users/userName/%s";
     private static final String GET_USER_GROUPS = "/service/xusers/%d/groups";
     private static final String KERBEROS = "kerberos";
@@ -51,7 +55,7 @@ public class UserGroups
     private final LoadingCache<String, Set<String>> userGroupCache;
     private final boolean isKerberos;
 
-    public UserGroups(Map<String, String> configuration)
+    public UserGroupsRangerClient(Map<String, String> configuration)
     {
         this.restClient = new RangerRESTClient();
         this.isKerberos =
@@ -70,6 +74,7 @@ public class UserGroups
                 });
     }
 
+    @Override
     public Set<String> getUserGroups(String username)
     {
         try {
