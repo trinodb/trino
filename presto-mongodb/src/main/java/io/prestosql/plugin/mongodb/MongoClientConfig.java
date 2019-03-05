@@ -91,7 +91,6 @@ public class MongoClientConfig
     }
 
     @NotNull
-    @Size(min = 0)
     public List<MongoCredential> getCredentials()
     {
         return credentials;
@@ -214,6 +213,7 @@ public class MongoClientConfig
         return this;
     }
 
+    @NotNull
     public ReadPreferenceType getReadPreference()
     {
         return readPreference;
@@ -226,6 +226,7 @@ public class MongoClientConfig
         return this;
     }
 
+    @NotNull
     public WriteConcernType getWriteConcern()
     {
         return writeConcern;
@@ -262,6 +263,7 @@ public class MongoClientConfig
         return this;
     }
 
+    @NotNull
     public String getImplicitRowFieldPrefix()
     {
         return implicitRowFieldPrefix;
