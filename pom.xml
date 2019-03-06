@@ -410,7 +410,7 @@
             <dependency>
                 <groupId>io.prestosql.hadoop</groupId>
                 <artifactId>hadoop-apache</artifactId>
-                <version>2.7.4-7</version>
+                <version>2.7.4-8</version>
             </dependency>
 
             <dependency>
