@@ -171,7 +171,7 @@ class RelationPlanner
         List<Symbol> mappings = subPlan.getFieldMappings();
 
         if (node.getColumnNames() != null) {
-            ImmutableList.Builder<Symbol> newMappings = ImmutableList.<Symbol>builder();
+            ImmutableList.Builder<Symbol> newMappings = ImmutableList.builder();
             Assignments.Builder assignments = Assignments.builder();
 
             // project only the visible columns from the underlying relation

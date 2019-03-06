@@ -28,7 +28,6 @@ import java.net.UnknownHostException;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.util.Arrays;
-import java.util.List;
 import java.util.UUID;
 
 import static io.prestosql.tests.cassandra.TestConstants.CONNECTOR_NAME;
@@ -51,7 +50,7 @@ public class DataTypesTableDefinition
     static {
         RelationalDataSource dataSource = () -> {
             try {
-                return ImmutableList.<List<Object>>of(
+                return ImmutableList.of(
                         ImmutableList.of("\0", Long.MIN_VALUE, Bytes.fromHexString("0x00"), false,
                                 BigDecimal.ZERO, Double.MIN_VALUE, LocalDate.fromYearMonthDay(1970, 1, 2), Float.MIN_VALUE, ImmutableSet.of(0),
                                 Inet4Address.getByName("0.0.0.0"), Integer.MIN_VALUE, ImmutableList.of(0),

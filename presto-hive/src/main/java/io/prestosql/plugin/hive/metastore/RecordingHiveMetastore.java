@@ -129,11 +129,11 @@ public class RecordingHiveMetastore
     private static <K, V> Cache<K, V> createCache(HiveClientConfig hiveClientConfig)
     {
         if (hiveClientConfig.isReplay()) {
-            return CacheBuilder.<K, V>newBuilder()
+            return CacheBuilder.newBuilder()
                     .build();
         }
 
-        return CacheBuilder.<K, V>newBuilder()
+        return CacheBuilder.newBuilder()
                 .expireAfterWrite(hiveClientConfig.getRecordingDuration().toMillis(), MILLISECONDS)
                 .build();
     }
