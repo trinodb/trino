@@ -261,6 +261,11 @@ public class Patterns
         {
             return property("step", TopNNode::getStep);
         }
+
+        public static Property<TopNNode, Lookup, Long> count()
+        {
+            return property("count", TopNNode::getCount);
+        }
     }
 
     public static class Values
