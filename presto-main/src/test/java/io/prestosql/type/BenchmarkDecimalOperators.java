@@ -614,7 +614,7 @@ public class BenchmarkDecimalOperators
             Expression expression = createExpression(value, metadata, TypeProvider.copyOf(symbolTypes));
 
             Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(TEST_SESSION, metadata, SQL_PARSER, TypeProvider.copyOf(symbolTypes), expression, emptyList(), WarningCollector.NOOP);
-            return SqlToRowExpressionTranslator.translate(expression, SCALAR, expressionTypes, metadata.getFunctionRegistry(), metadata.getTypeManager(), TEST_SESSION, true, sourceLayout);
+            return SqlToRowExpressionTranslator.translate(expression, SCALAR, expressionTypes, sourceLayout, metadata.getFunctionRegistry(), metadata.getTypeManager(), TEST_SESSION, true);
         }
 
         private Object generateRandomValue(Type type)

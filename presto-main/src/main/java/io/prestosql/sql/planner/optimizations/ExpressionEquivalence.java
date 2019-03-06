@@ -106,7 +106,7 @@ public class ExpressionEquivalence
                 WarningCollector.NOOP);
 
         // convert to row expression
-        return translate(expression, SCALAR, expressionTypes, metadata.getFunctionRegistry(), metadata.getTypeManager(), session, false, symbolInput);
+        return translate(expression, SCALAR, expressionTypes, symbolInput, metadata.getFunctionRegistry(), metadata.getTypeManager(), session, false);
     }
 
     private static class CanonicalizationVisitor
