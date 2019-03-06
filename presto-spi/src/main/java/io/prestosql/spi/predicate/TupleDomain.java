@@ -83,7 +83,7 @@ public final class TupleDomain<T>
 
     public static <T> TupleDomain<T> all()
     {
-        return withColumnDomains(Collections.<T, Domain>emptyMap());
+        return withColumnDomains(Collections.emptyMap());
     }
 
     /**

@@ -50,7 +50,7 @@ class Histogram<K extends Comparable<K>>
     public static <D> Histogram<Long> fromContinuous(Collection<D> initialData, Function<D, Long> keyFunction)
     {
         if (initialData.isEmpty()) {
-            return new Histogram<>(ImmutableList.<Long>of(), false);
+            return new Histogram<Long>(ImmutableList.of(), false);
         }
 
         int numBuckets = Math.min(10, (int) Math.sqrt(initialData.size()));

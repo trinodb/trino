@@ -29,12 +29,12 @@ public class Constraint<T>
 
     public static <V> Constraint<V> alwaysTrue()
     {
-        return new Constraint<>(TupleDomain.<V>all(), Optional.empty());
+        return new Constraint<>(TupleDomain.all(), Optional.empty());
     }
 
     public static <V> Constraint<V> alwaysFalse()
     {
-        return new Constraint<>(TupleDomain.<V>none(), Optional.of(bindings -> false));
+        return new Constraint<>(TupleDomain.none(), Optional.of(bindings -> false));
     }
 
     public Constraint(TupleDomain<T> summary)
