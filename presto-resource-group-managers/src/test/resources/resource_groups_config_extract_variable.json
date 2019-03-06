@@ -22,7 +22,7 @@
   ],
   "selectors": [
     {
-      "source": "scheduler.(?<region>(.*)).(?<cluster>[0-9]*)",
+      "source": "scheduler\\.(?<region>(.*))\\.(?<cluster>[0-9]*)",
       "user": ".*@(?<domain>(.*)).io",
       "group": "global.${domain}:${region}:${cluster}"
     }

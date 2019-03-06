@@ -359,17 +359,30 @@ public final class PlanMatchPattern
 
     public static PlanMatchPattern join(JoinNode.Type joinType, List<ExpectedValueProvider<JoinNode.EquiJoinClause>> expectedEquiCriteria, Optional<String> expectedFilter, PlanMatchPattern left, PlanMatchPattern right)
     {
-        return join(joinType, expectedEquiCriteria, expectedFilter, Optional.empty(), left, right);
+        return join(joinType, expectedEquiCriteria, expectedFilter, Optional.empty(), Optional.empty(), left, right);
     }
 
     public static PlanMatchPattern join(JoinNode.Type joinType, List<ExpectedValueProvider<JoinNode.EquiJoinClause>> expectedEquiCriteria, Optional<String> expectedFilter, Optional<JoinNode.DistributionType> expectedDistributionType, PlanMatchPattern left, PlanMatchPattern right)
+    {
+        return join(joinType, expectedEquiCriteria, expectedFilter, expectedDistributionType, Optional.empty(), left, right);
+    }
+
+    public static PlanMatchPattern join(
+            JoinNode.Type joinType,
+            List<ExpectedValueProvider<JoinNode.EquiJoinClause>> expectedEquiCriteria,
+            Optional<String> expectedFilter,
+            Optional<JoinNode.DistributionType> expectedDistributionType,
+            Optional<Boolean> expectedSpillable,
+            PlanMatchPattern left,
+            PlanMatchPattern right)
     {
         return node(JoinNode.class, left, right).with(
                 new JoinMatcher(
                         joinType,
                         expectedEquiCriteria,
                         expectedFilter.map(predicate -> rewriteIdentifiersToSymbolReferences(new SqlParser().createExpression(predicate))),
-                        expectedDistributionType));
+                        expectedDistributionType,
+                        expectedSpillable));
     }
 
     public static PlanMatchPattern spatialJoin(String expectedFilter, PlanMatchPattern left, PlanMatchPattern right)

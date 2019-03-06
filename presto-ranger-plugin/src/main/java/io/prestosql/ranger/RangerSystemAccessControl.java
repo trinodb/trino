@@ -40,6 +40,7 @@ import static io.prestosql.spi.security.AccessDeniedException.denyCreateSchema;
 import static io.prestosql.spi.security.AccessDeniedException.denyCreateTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyCreateView;
 import static io.prestosql.spi.security.AccessDeniedException.denyDeleteTable;
+import static io.prestosql.spi.security.AccessDeniedException.denyDropColumn;
 import static io.prestosql.spi.security.AccessDeniedException.denyDropSchema;
 import static io.prestosql.spi.security.AccessDeniedException.denyDropTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyDropView;
@@ -100,22 +101,27 @@ public class RangerSystemAccessControl
         return new RangerPrestoResource(catalogName, Optional.of(schemaName), Optional.of(tableName));
     }
 
+    private static RangerPrestoResource createResource(String catalogName, String schemaName, final String tableName, final Optional<String> column)
+    {
+        return new RangerPrestoResource(catalogName, Optional.of(schemaName), Optional.of(tableName), column);
+    }
+
     private static List<RangerPrestoResource> createResource(CatalogSchemaTableName table, Set<String> columns)
     {
         List<RangerPrestoResource> colRequests = new ArrayList<>();
 
         if (columns.size() > 0) {
             for (String column : columns) {
-                RangerPrestoResource rangerPrestoResource = new RangerPrestoResource(table.getCatalogName(),
-                        Optional.of(table.getSchemaTableName().getSchemaName()),
-                        Optional.of(table.getSchemaTableName().getTableName()), Optional.of(column));
+                RangerPrestoResource rangerPrestoResource = createResource(table.getCatalogName(),
+                        table.getSchemaTableName().getSchemaName(),
+                        table.getSchemaTableName().getTableName(), Optional.of(column));
                 colRequests.add(rangerPrestoResource);
             }
         }
         else {
-            colRequests.add(new RangerPrestoResource(table.getCatalogName(),
-                    Optional.of(table.getSchemaTableName().getSchemaName()),
-                    Optional.of(table.getSchemaTableName().getTableName()), Optional.empty()));
+            colRequests.add(createResource(table.getCatalogName(),
+                    table.getSchemaTableName().getSchemaName(),
+                    table.getSchemaTableName().getTableName(), Optional.empty()));
         }
         return colRequests;
     }
@@ -156,7 +162,9 @@ public class RangerSystemAccessControl
     @Override
     public void checkCanDropColumn(Identity identity, CatalogSchemaTableName table)
     {
-        denySetSystemSessionProperty("");
+        if (!authorizer.canDropResource(createResource(table), identity)) {
+            denyDropColumn(table.getSchemaTableName().getTableName());
+        }
     }
 
     @Override
@@ -268,7 +276,7 @@ public class RangerSystemAccessControl
     @Override
     public void checkCanDropSchema(Identity identity, CatalogSchemaName schema)
     {
-        if (!authorizer.canCreateResource(createResource(schema), identity)) {
+        if (!authorizer.canDropResource(createResource(schema), identity)) {
             denyDropSchema(schema.getSchemaName());
         }
     }
@@ -319,7 +327,7 @@ public class RangerSystemAccessControl
     @Override
     public void checkCanRenameColumn(Identity identity, CatalogSchemaTableName table)
     {
-        if (!authorizer.canUpdateResource(createResource(table), identity)) {
+        if (!authorizer.canDropResource(createResource(table), identity)) {
             denyRenameColumn(table.getSchemaTableName().getTableName());
         }
     }

@@ -199,7 +199,8 @@ public class TestPhasedExecutionSchedule
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                Optional.of(REPLICATED));
+                Optional.of(REPLICATED),
+                Optional.empty());
 
         return createFragment(join);
     }
@@ -218,6 +219,7 @@ public class TestPhasedExecutionSchedule
                         .addAll(probe.getOutputSymbols())
                         .addAll(build.getOutputSymbols())
                         .build(),
+                Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),

@@ -79,6 +79,7 @@ import static io.prestosql.sql.planner.optimizations.StreamPreferredProperties.d
 import static io.prestosql.sql.planner.optimizations.StreamPreferredProperties.exactlyPartitionedOn;
 import static io.prestosql.sql.planner.optimizations.StreamPreferredProperties.fixedParallelism;
 import static io.prestosql.sql.planner.optimizations.StreamPreferredProperties.singleStream;
+import static io.prestosql.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties.StreamDistribution.FIXED;
 import static io.prestosql.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties.StreamDistribution.SINGLE;
 import static io.prestosql.sql.planner.optimizations.StreamPropertyDerivations.derivePropertiesRecursively;
 import static io.prestosql.sql.planner.plan.ChildReplacer.replaceChildren;
@@ -576,18 +577,21 @@ public class AddLocalExchanges
         @Override
         public PlanWithProperties visitJoin(JoinNode node, StreamPreferredProperties parentPreferences)
         {
-            PlanWithProperties probe;
+            PlanWithProperties probe = planAndEnforce(
+                    node.getLeft(),
+                    defaultParallelism(session),
+                    parentPreferences.constrainTo(node.getLeft().getOutputSymbols()).withDefaultParallelism(session));
+
             if (isSpillEnabled(session)) {
-                probe = planAndEnforce(
-                        node.getLeft(),
-                        fixedParallelism(),
-                        parentPreferences.constrainTo(node.getLeft().getOutputSymbols()).withFixedParallelism());
-            }
-            else {
-                probe = planAndEnforce(
-                        node.getLeft(),
-                        defaultParallelism(session),
-                        parentPreferences.constrainTo(node.getLeft().getOutputSymbols()).withDefaultParallelism(session));
+                if (probe.getProperties().getDistribution() != FIXED) {
+                    // Disable spill for joins over non-fixed streams as otherwise we would need to insert local exchange.
+                    // Such local exchanges can hurt performance when spill is not triggered.
+                    // When spill is not triggered it should not induce performance penalty.
+                    node = node.withSpillable(false);
+                }
+                else {
+                    node = node.withSpillable(true);
+                }
             }
 
             // this build consumes the input completely, so we do not pass through parent preferences

@@ -195,6 +195,7 @@ ASCII             VARCHAR
 BIGINT            BIGINT
 BLOB              VARBINARY
 BOOLEAN           BOOLEAN
+DATE              DATE
 DECIMAL           DOUBLE
 DOUBLE            DOUBLE
 FLOAT             DOUBLE
@@ -203,9 +204,11 @@ INT               INTEGER
 LIST<?>           VARCHAR
 MAP<?, ?>         VARCHAR
 SET<?>            VARCHAR
+SMALLINT          SMALLINT
 TEXT              VARCHAR
 TIMESTAMP         TIMESTAMP
 TIMEUUID          VARCHAR
+TINYINT           TINYINT
 VARCHAR           VARCHAR
 VARIANT           VARCHAR
 ================  ======

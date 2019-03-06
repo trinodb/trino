@@ -760,7 +760,7 @@ public class PlanFragmenter
                 return node;
             }
 
-            TableLayoutHandle newTableLayoutHandle = metadata.getAlternativeLayoutHandle(session, node.getLayout().get(), fragmentPartitioningHandle);
+            TableLayoutHandle newTableLayoutHandle = metadata.makeCompatiblePartitioning(session, node.getLayout().get(), fragmentPartitioningHandle);
             return new TableScanNode(
                     node.getId(),
                     node.getTable(),

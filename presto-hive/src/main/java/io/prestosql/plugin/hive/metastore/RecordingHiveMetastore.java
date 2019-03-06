@@ -26,7 +26,6 @@ import io.prestosql.plugin.hive.HiveClientConfig;
 import io.prestosql.plugin.hive.HiveType;
 import io.prestosql.plugin.hive.PartitionStatistics;
 import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.security.PrestoPrincipal;
 import io.prestosql.spi.security.RoleGrant;
 import io.prestosql.spi.statistics.ColumnStatisticType;
 import io.prestosql.spi.type.Type;
@@ -74,7 +73,7 @@ public class RecordingHiveMetastore
     private final Cache<PartitionFilter, Optional<List<String>>> partitionNamesByPartsCache;
     private final Cache<Set<HivePartitionName>, Map<String, Optional<Partition>>> partitionsByNamesCache;
     private final Cache<UserTableKey, Set<HivePrivilegeInfo>> tablePrivilegesCache;
-    private final Cache<PrestoPrincipal, Set<RoleGrant>> roleGrantsCache;
+    private final Cache<HivePrincipal, Set<RoleGrant>> roleGrantsCache;
 
     @Inject
     public RecordingHiveMetastore(@ForRecordingHiveMetastore ExtendedHiveMetastore delegate, HiveClientConfig hiveClientConfig)
@@ -383,7 +382,7 @@ public class RecordingHiveMetastore
     }
 
     @Override
-    public Set<HivePrivilegeInfo> listTablePrivileges(String databaseName, String tableName, PrestoPrincipal principal)
+    public Set<HivePrivilegeInfo> listTablePrivileges(String databaseName, String tableName, HivePrincipal principal)
     {
         return loadValue(
                 tablePrivilegesCache,
@@ -392,14 +391,14 @@ public class RecordingHiveMetastore
     }
 
     @Override
-    public void grantTablePrivileges(String databaseName, String tableName, PrestoPrincipal grantee, Set<HivePrivilegeInfo> privileges)
+    public void grantTablePrivileges(String databaseName, String tableName, HivePrincipal grantee, Set<HivePrivilegeInfo> privileges)
     {
         verifyRecordingMode();
         delegate.grantTablePrivileges(databaseName, tableName, grantee, privileges);
     }
 
     @Override
-    public void revokeTablePrivileges(String databaseName, String tableName, PrestoPrincipal grantee, Set<HivePrivilegeInfo> privileges)
+    public void revokeTablePrivileges(String databaseName, String tableName, HivePrincipal grantee, Set<HivePrivilegeInfo> privileges)
     {
         verifyRecordingMode();
         delegate.revokeTablePrivileges(databaseName, tableName, grantee, privileges);
@@ -439,21 +438,21 @@ public class RecordingHiveMetastore
     }
 
     @Override
-    public void grantRoles(Set<String> roles, Set<PrestoPrincipal> grantees, boolean withAdminOption, PrestoPrincipal grantor)
+    public void grantRoles(Set<String> roles, Set<HivePrincipal> grantees, boolean withAdminOption, HivePrincipal grantor)
     {
         verifyRecordingMode();
         delegate.grantRoles(roles, grantees, withAdminOption, grantor);
     }
 
     @Override
-    public void revokeRoles(Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOptionFor, PrestoPrincipal grantor)
+    public void revokeRoles(Set<String> roles, Set<HivePrincipal> grantees, boolean adminOptionFor, HivePrincipal grantor)
     {
         verifyRecordingMode();
         delegate.revokeRoles(roles, grantees, adminOptionFor, grantor);
     }
 
     @Override
-    public Set<RoleGrant> listRoleGrants(PrestoPrincipal principal)
+    public Set<RoleGrant> listRoleGrants(HivePrincipal principal)
     {
         return loadValue(
                 roleGrantsCache,
@@ -497,7 +496,7 @@ public class RecordingHiveMetastore
         private final List<Pair<PartitionFilter, Optional<List<String>>>> partitionNamesByParts;
         private final List<Pair<Set<HivePartitionName>, Map<String, Optional<Partition>>>> partitionsByNames;
         private final List<Pair<UserTableKey, Set<HivePrivilegeInfo>>> tablePrivileges;
-        private final List<Pair<PrestoPrincipal, Set<RoleGrant>>> roleGrants;
+        private final List<Pair<HivePrincipal, Set<RoleGrant>>> roleGrants;
 
         @JsonCreator
         public Recording(
@@ -515,7 +514,7 @@ public class RecordingHiveMetastore
                 @JsonProperty("partitionNamesByParts") List<Pair<PartitionFilter, Optional<List<String>>>> partitionNamesByParts,
                 @JsonProperty("partitionsByNames") List<Pair<Set<HivePartitionName>, Map<String, Optional<Partition>>>> partitionsByNames,
                 @JsonProperty("tablePrivileges") List<Pair<UserTableKey, Set<HivePrivilegeInfo>>> tablePrivileges,
-                @JsonProperty("roleGrants") List<Pair<PrestoPrincipal, Set<RoleGrant>>> roleGrants)
+                @JsonProperty("roleGrants") List<Pair<HivePrincipal, Set<RoleGrant>>> roleGrants)
         {
             this.allDatabases = allDatabases;
             this.allRoles = allRoles;
@@ -619,7 +618,7 @@ public class RecordingHiveMetastore
         }
 
         @JsonProperty
-        public List<Pair<PrestoPrincipal, Set<RoleGrant>>> getRoleGrants()
+        public List<Pair<HivePrincipal, Set<RoleGrant>>> getRoleGrants()
         {
             return roleGrants;
         }

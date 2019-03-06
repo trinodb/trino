@@ -33,6 +33,7 @@ import io.prestosql.plugin.hive.metastore.CachingHiveMetastore;
 import io.prestosql.plugin.hive.metastore.Column;
 import io.prestosql.plugin.hive.metastore.ExtendedHiveMetastore;
 import io.prestosql.plugin.hive.metastore.HiveColumnStatistics;
+import io.prestosql.plugin.hive.metastore.HivePrincipal;
 import io.prestosql.plugin.hive.metastore.HivePrivilegeInfo;
 import io.prestosql.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege;
 import io.prestosql.plugin.hive.metastore.Partition;
@@ -46,6 +47,7 @@ import io.prestosql.plugin.hive.metastore.thrift.BridgingHiveMetastore;
 import io.prestosql.plugin.hive.metastore.thrift.HiveCluster;
 import io.prestosql.plugin.hive.metastore.thrift.TestingHiveCluster;
 import io.prestosql.plugin.hive.metastore.thrift.ThriftHiveMetastore;
+import io.prestosql.plugin.hive.metastore.thrift.ThriftHiveMetastoreConfig;
 import io.prestosql.plugin.hive.orc.OrcPageSource;
 import io.prestosql.plugin.hive.parquet.ParquetPageSource;
 import io.prestosql.plugin.hive.rcfile.RcFilePageSource;
@@ -85,7 +87,6 @@ import io.prestosql.spi.predicate.NullableValue;
 import io.prestosql.spi.predicate.Range;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.predicate.ValueSet;
-import io.prestosql.spi.security.PrestoPrincipal;
 import io.prestosql.spi.statistics.ColumnStatistics;
 import io.prestosql.spi.statistics.TableStatistics;
 import io.prestosql.spi.type.ArrayType;
@@ -178,7 +179,6 @@ import static io.prestosql.plugin.hive.HiveMetadata.PRESTO_QUERY_ID_NAME;
 import static io.prestosql.plugin.hive.HiveMetadata.PRESTO_VERSION_NAME;
 import static io.prestosql.plugin.hive.HiveMetadata.convertToPredicate;
 import static io.prestosql.plugin.hive.HiveStorageFormat.AVRO;
-import static io.prestosql.plugin.hive.HiveStorageFormat.DWRF;
 import static io.prestosql.plugin.hive.HiveStorageFormat.JSON;
 import static io.prestosql.plugin.hive.HiveStorageFormat.ORC;
 import static io.prestosql.plugin.hive.HiveStorageFormat.PARQUET;
@@ -711,7 +711,7 @@ public abstract class AbstractTestHiveClient
 
         HiveCluster hiveCluster = new TestingHiveCluster(hiveClientConfig, host, port);
         ExtendedHiveMetastore metastore = new CachingHiveMetastore(
-                new BridgingHiveMetastore(new ThriftHiveMetastore(hiveCluster)),
+                new BridgingHiveMetastore(new ThriftHiveMetastore(hiveCluster, new ThriftHiveMetastoreConfig())),
                 executor,
                 Duration.valueOf("1m"),
                 Duration.valueOf("15s"),
@@ -1966,14 +1966,14 @@ public abstract class AbstractTestHiveClient
     public void testTypesOrc()
             throws Exception
     {
-        assertGetRecordsOptional("presto_test_types_orc", ORC);
+        assertGetRecords("presto_test_types_orc", ORC);
     }
 
     @Test
     public void testTypesParquet()
             throws Exception
     {
-        assertGetRecordsOptional("presto_test_types_parquet", PARQUET);
+        assertGetRecords("presto_test_types_parquet", PARQUET);
     }
 
     @Test
@@ -2009,13 +2009,6 @@ public abstract class AbstractTestHiveClient
             throws Exception
     {
         assertEmptyFile(ORC);
-    }
-
-    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "ORC file is empty: .*")
-    public void testEmptyDwrfFile()
-            throws Exception
-    {
-        assertEmptyFile(DWRF);
     }
 
     private void assertEmptyFile(HiveStorageFormat format)
@@ -2787,13 +2780,13 @@ public abstract class AbstractTestHiveClient
             // alter the partition into one with other stats
             Partition modifiedPartition = Partition.builder(partition)
                     .withStorage(storage -> storage
-                            .setStorageFormat(fromHiveStorageFormat(DWRF))
+                            .setStorageFormat(fromHiveStorageFormat(RCBINARY))
                             .setLocation(partitionTargetPath(tableName, partitionName)))
                     .build();
             metastoreClient.alterPartition(tableName.getSchemaName(), tableName.getTableName(), new PartitionWithStatistics(modifiedPartition, partitionName, statsForAllColumns2));
             assertEquals(
                     metastoreClient.getPartition(tableName.getSchemaName(), tableName.getTableName(), partitionValues).get().getStorage().getStorageFormat(),
-                    fromHiveStorageFormat(DWRF));
+                    fromHiveStorageFormat(RCBINARY));
             assertThat(metastoreClient.getPartitionStatistics(tableName.getSchemaName(), tableName.getTableName(), ImmutableSet.of(partitionName)))
                     .isEqualTo(ImmutableMap.of(partitionName, statsForAllColumns2));
 
@@ -3722,17 +3715,6 @@ public abstract class AbstractTestHiveClient
         }
     }
 
-    protected void assertGetRecordsOptional(String tableName, HiveStorageFormat hiveStorageFormat)
-            throws Exception
-    {
-        try (Transaction transaction = newTransaction()) {
-            ConnectorMetadata metadata = transaction.getMetadata();
-            if (metadata.getTableHandle(newSession(), new SchemaTableName(database, tableName)) != null) {
-                assertGetRecords(tableName, hiveStorageFormat);
-            }
-        }
-    }
-
     protected void assertGetRecords(String tableName, HiveStorageFormat hiveStorageFormat)
             throws Exception
     {
@@ -4117,7 +4099,6 @@ public abstract class AbstractTestHiveClient
             case RCBINARY:
                 return RcFilePageSource.class;
             case ORC:
-            case DWRF:
                 return OrcPageSource.class;
             case PARQUET:
                 return ParquetPageSource.class;
@@ -4332,10 +4313,10 @@ public abstract class AbstractTestHiveClient
     {
         return new PrincipalPrivileges(
                 ImmutableMultimap.<String, HivePrivilegeInfo>builder()
-                        .put(tableOwner, new HivePrivilegeInfo(HivePrivilege.SELECT, true, new PrestoPrincipal(USER, grantor), new PrestoPrincipal(USER, grantor)))
-                        .put(tableOwner, new HivePrivilegeInfo(HivePrivilege.INSERT, true, new PrestoPrincipal(USER, grantor), new PrestoPrincipal(USER, grantor)))
-                        .put(tableOwner, new HivePrivilegeInfo(HivePrivilege.UPDATE, true, new PrestoPrincipal(USER, grantor), new PrestoPrincipal(USER, grantor)))
-                        .put(tableOwner, new HivePrivilegeInfo(HivePrivilege.DELETE, true, new PrestoPrincipal(USER, grantor), new PrestoPrincipal(USER, grantor)))
+                        .put(tableOwner, new HivePrivilegeInfo(HivePrivilege.SELECT, true, new HivePrincipal(USER, grantor), new HivePrincipal(USER, grantor)))
+                        .put(tableOwner, new HivePrivilegeInfo(HivePrivilege.INSERT, true, new HivePrincipal(USER, grantor), new HivePrincipal(USER, grantor)))
+                        .put(tableOwner, new HivePrivilegeInfo(HivePrivilege.UPDATE, true, new HivePrincipal(USER, grantor), new HivePrincipal(USER, grantor)))
+                        .put(tableOwner, new HivePrivilegeInfo(HivePrivilege.DELETE, true, new HivePrincipal(USER, grantor), new HivePrincipal(USER, grantor)))
                         .build(),
                 ImmutableMultimap.of());
     }

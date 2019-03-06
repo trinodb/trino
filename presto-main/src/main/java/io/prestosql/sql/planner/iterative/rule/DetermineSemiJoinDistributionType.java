@@ -30,7 +30,7 @@ package io.prestosql.sql.planner.iterative.rule;
 import com.google.common.collect.Ordering;
 import io.airlift.units.DataSize;
 import io.prestosql.cost.CostComparator;
-import io.prestosql.cost.PlanNodeCostEstimate;
+import io.prestosql.cost.LocalCostEstimate;
 import io.prestosql.cost.PlanNodeStatsEstimate;
 import io.prestosql.cost.StatsProvider;
 import io.prestosql.cost.TaskCountEstimator;
@@ -147,16 +147,18 @@ public class DetermineSemiJoinDistributionType
          *
          *   However assuming the cost of SEMI-JOIN output is always the same, we can still make
          *   cost based decisions based on the input cost for different types of SEMI-JOINs.
+         *
+         *   TODO Decision about the distribution should be based on LocalCostEstimate only when PlanCostEstimate cannot be calculated. Otherwise cost comparator cannot take query.max-memory into account.
          */
 
         int estimatedSourceDistributedTaskCount = taskCountEstimator.estimateSourceDistributedTaskCount();
-        PlanNodeCostEstimate cost = calculateJoinCostWithoutOutput(
+        LocalCostEstimate cost = calculateJoinCostWithoutOutput(
                 possibleJoinNode.getSource(),
                 possibleJoinNode.getFilteringSource(),
                 stats,
                 types,
                 replicated,
                 estimatedSourceDistributedTaskCount);
-        return new PlanNodeWithCost(cost, possibleJoinNode);
+        return new PlanNodeWithCost(cost.toPlanCost(), possibleJoinNode);
     }
 }

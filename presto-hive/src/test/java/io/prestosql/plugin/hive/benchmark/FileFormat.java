@@ -33,7 +33,6 @@ import io.prestosql.plugin.hive.HiveTypeTranslator;
 import io.prestosql.plugin.hive.RecordFileWriter;
 import io.prestosql.plugin.hive.TypeTranslator;
 import io.prestosql.plugin.hive.benchmark.HiveFileFormatBenchmark.TestData;
-import io.prestosql.plugin.hive.orc.DwrfPageSourceFactory;
 import io.prestosql.plugin.hive.orc.OrcPageSourceFactory;
 import io.prestosql.plugin.hive.parquet.ParquetPageSourceFactory;
 import io.prestosql.plugin.hive.rcfile.RcFilePageSourceFactory;
@@ -63,8 +62,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Properties;
 
-import static io.prestosql.orc.OrcEncoding.DWRF;
-import static io.prestosql.orc.OrcEncoding.ORC;
 import static io.prestosql.orc.OrcWriteValidation.OrcWriteValidationMode.BOTH;
 import static io.prestosql.plugin.hive.HdfsConfigurationInitializer.configureCompression;
 import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
@@ -155,38 +152,6 @@ public enum FileFormat
         }
     },
 
-    PRESTO_DWRF {
-        @Override
-        public ConnectorPageSource createFileFormatReader(ConnectorSession session, HdfsEnvironment hdfsEnvironment, File targetFile, List<String> columnNames, List<Type> columnTypes)
-        {
-            HivePageSourceFactory pageSourceFactory = new DwrfPageSourceFactory(TYPE_MANAGER, hdfsEnvironment, new FileFormatDataSourceStats());
-            return createPageSource(pageSourceFactory, session, targetFile, columnNames, columnTypes, HiveStorageFormat.DWRF);
-        }
-
-        @Override
-        public FormatWriter createFileFormatWriter(
-                ConnectorSession session,
-                File targetFile,
-                List<String> columnNames,
-                List<Type> columnTypes,
-                HiveCompressionCodec compressionCodec)
-                throws IOException
-        {
-            return new PrestoDwrfFormatWriter(
-                    targetFile,
-                    columnNames,
-                    columnTypes,
-                    DateTimeZone.forID(session.getTimeZoneKey().getId()),
-                    compressionCodec);
-        }
-
-        @Override
-        public boolean supportsDate()
-        {
-            return false;
-        }
-    },
-
     PRESTO_PARQUET {
         @Override
         public ConnectorPageSource createFileFormatReader(ConnectorSession session, HdfsEnvironment hdfsEnvironment, File targetFile, List<String> columnNames, List<Type> columnTypes)
@@ -264,32 +229,6 @@ public enum FileFormat
                 HiveCompressionCodec compressionCodec)
         {
             return new RecordFormatWriter(targetFile, columnNames, columnTypes, compressionCodec, HiveStorageFormat.ORC, session);
-        }
-    },
-
-    HIVE_DWRF {
-        @Override
-        public ConnectorPageSource createFileFormatReader(ConnectorSession session, HdfsEnvironment hdfsEnvironment, File targetFile, List<String> columnNames, List<Type> columnTypes)
-        {
-            HiveRecordCursorProvider cursorProvider = new GenericHiveRecordCursorProvider(hdfsEnvironment);
-            return createPageSource(cursorProvider, session, targetFile, columnNames, columnTypes, HiveStorageFormat.DWRF);
-        }
-
-        @Override
-        public FormatWriter createFileFormatWriter(
-                ConnectorSession session,
-                File targetFile,
-                List<String> columnNames,
-                List<Type> columnTypes,
-                HiveCompressionCodec compressionCodec)
-        {
-            return new RecordFormatWriter(targetFile, columnNames, columnTypes, compressionCodec, HiveStorageFormat.DWRF, session);
-        }
-
-        @Override
-        public boolean supportsDate()
-        {
-            return false;
         }
     },
 
@@ -508,46 +447,9 @@ public enum FileFormat
                     new OutputStreamOrcDataSink(new FileOutputStream(targetFile)),
                     columnNames,
                     types,
-                    ORC,
                     compressionCodec.getOrcCompressionKind(),
                     new OrcWriterOptions(),
-                    ImmutableMap.of(),
-                    hiveStorageTimeZone,
                     false,
-                    BOTH,
-                    new OrcWriterStats());
-        }
-
-        @Override
-        public void writePage(Page page)
-                throws IOException
-        {
-            writer.write(page);
-        }
-
-        @Override
-        public void close()
-                throws IOException
-        {
-            writer.close();
-        }
-    }
-
-    private static class PrestoDwrfFormatWriter
-            implements FormatWriter
-    {
-        private final OrcWriter writer;
-
-        public PrestoDwrfFormatWriter(File targetFile, List<String> columnNames, List<Type> types, DateTimeZone hiveStorageTimeZone, HiveCompressionCodec compressionCodec)
-                throws IOException
-        {
-            writer = new OrcWriter(
-                    new OutputStreamOrcDataSink(new FileOutputStream(targetFile)),
-                    columnNames,
-                    types,
-                    DWRF,
-                    compressionCodec.getOrcCompressionKind(),
-                    new OrcWriterOptions(),
                     ImmutableMap.of(),
                     hiveStorageTimeZone,
                     false,

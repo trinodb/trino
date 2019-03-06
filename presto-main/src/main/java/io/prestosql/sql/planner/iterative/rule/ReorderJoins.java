@@ -23,7 +23,7 @@ import io.airlift.log.Logger;
 import io.prestosql.Session;
 import io.prestosql.cost.CostComparator;
 import io.prestosql.cost.CostProvider;
-import io.prestosql.cost.PlanNodeCostEstimate;
+import io.prestosql.cost.PlanCostEstimate;
 import io.prestosql.matching.Captures;
 import io.prestosql.matching.Pattern;
 import io.prestosql.sql.analyzer.FeaturesConfig.JoinDistributionType;
@@ -299,6 +299,7 @@ public class ReorderJoins
                     joinFilters.isEmpty() ? Optional.empty() : Optional.of(and(joinFilters)),
                     Optional.empty(),
                     Optional.empty(),
+                    Optional.empty(),
                     Optional.empty()));
         }
 
@@ -411,7 +412,7 @@ public class ReorderJoins
 
         private JoinEnumerationResult createJoinEnumerationResult(PlanNode planNode)
         {
-            return JoinEnumerationResult.createJoinEnumerationResult(Optional.of(planNode), costProvider.getCumulativeCost(planNode));
+            return JoinEnumerationResult.createJoinEnumerationResult(Optional.of(planNode), costProvider.getCost(planNode));
         }
     }
 
@@ -567,18 +568,18 @@ public class ReorderJoins
     @VisibleForTesting
     static class JoinEnumerationResult
     {
-        public static final JoinEnumerationResult UNKNOWN_COST_RESULT = new JoinEnumerationResult(Optional.empty(), PlanNodeCostEstimate.unknown());
-        public static final JoinEnumerationResult INFINITE_COST_RESULT = new JoinEnumerationResult(Optional.empty(), PlanNodeCostEstimate.infinite());
+        public static final JoinEnumerationResult UNKNOWN_COST_RESULT = new JoinEnumerationResult(Optional.empty(), PlanCostEstimate.unknown());
+        public static final JoinEnumerationResult INFINITE_COST_RESULT = new JoinEnumerationResult(Optional.empty(), PlanCostEstimate.infinite());
 
         private final Optional<PlanNode> planNode;
-        private final PlanNodeCostEstimate cost;
+        private final PlanCostEstimate cost;
 
-        private JoinEnumerationResult(Optional<PlanNode> planNode, PlanNodeCostEstimate cost)
+        private JoinEnumerationResult(Optional<PlanNode> planNode, PlanCostEstimate cost)
         {
             this.planNode = requireNonNull(planNode, "planNode is null");
             this.cost = requireNonNull(cost, "cost is null");
-            checkArgument((cost.hasUnknownComponents() || cost.equals(PlanNodeCostEstimate.infinite())) && !planNode.isPresent()
-                            || (!cost.hasUnknownComponents() || !cost.equals(PlanNodeCostEstimate.infinite())) && planNode.isPresent(),
+            checkArgument((cost.hasUnknownComponents() || cost.equals(PlanCostEstimate.infinite())) && !planNode.isPresent()
+                            || (!cost.hasUnknownComponents() || !cost.equals(PlanCostEstimate.infinite())) && planNode.isPresent(),
                     "planNode should be present if and only if cost is known");
         }
 
@@ -587,17 +588,17 @@ public class ReorderJoins
             return planNode;
         }
 
-        public PlanNodeCostEstimate getCost()
+        public PlanCostEstimate getCost()
         {
             return cost;
         }
 
-        static JoinEnumerationResult createJoinEnumerationResult(Optional<PlanNode> planNode, PlanNodeCostEstimate cost)
+        static JoinEnumerationResult createJoinEnumerationResult(Optional<PlanNode> planNode, PlanCostEstimate cost)
         {
             if (cost.hasUnknownComponents()) {
                 return UNKNOWN_COST_RESULT;
             }
-            if (cost.equals(PlanNodeCostEstimate.infinite())) {
+            if (cost.equals(PlanCostEstimate.infinite())) {
                 return INFINITE_COST_RESULT;
             }
             return new JoinEnumerationResult(planNode, cost);

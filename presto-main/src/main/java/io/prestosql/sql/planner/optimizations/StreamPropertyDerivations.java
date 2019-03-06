@@ -83,6 +83,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.prestosql.SystemSessionProperties.isSpillEnabled;
 import static io.prestosql.spi.predicate.TupleDomain.extractFixedValues;
 import static io.prestosql.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
 import static io.prestosql.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties.StreamDistribution.FIXED;
@@ -171,7 +172,7 @@ public final class StreamPropertyDerivations
         public StreamProperties visitJoin(JoinNode node, List<StreamProperties> inputProperties)
         {
             StreamProperties leftProperties = inputProperties.get(0);
-            boolean unordered = PropertyDerivations.spillPossible(session, node.getType());
+            boolean unordered = spillPossible(session, node);
 
             switch (node.getType()) {
                 case INNER:
@@ -201,6 +202,11 @@ public final class StreamPropertyDerivations
                 default:
                     throw new UnsupportedOperationException("Unsupported join type: " + node.getType());
             }
+        }
+
+        private static boolean spillPossible(Session session, JoinNode node)
+        {
+            return isSpillEnabled(session) && node.isSpillable().orElseThrow(() -> new IllegalArgumentException("spillable not yet set"));
         }
 
         @Override

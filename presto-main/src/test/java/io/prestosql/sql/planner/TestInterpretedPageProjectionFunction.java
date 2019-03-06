@@ -26,6 +26,7 @@ import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.parser.SqlParser;
 import io.prestosql.sql.tree.ArithmeticBinaryExpression;
+import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import javax.annotation.Nullable;
@@ -55,6 +56,12 @@ public class TestInterpretedPageProjectionFunction
     private static final SqlParser SQL_PARSER = new SqlParser();
     private static final Metadata METADATA = MetadataManager.createTestMetadataManager();
     private static final ScheduledExecutorService executor = newSingleThreadScheduledExecutor(daemonThreadsNamed("test-%s"));
+
+    @AfterClass(alwaysRun = true)
+    public void tearDown()
+    {
+        executor.shutdownNow();
+    }
 
     @Test
     public void testBooleanExpression()

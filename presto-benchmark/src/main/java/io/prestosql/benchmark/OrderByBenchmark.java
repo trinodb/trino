@@ -19,10 +19,12 @@ import io.prestosql.operator.OperatorFactory;
 import io.prestosql.operator.OrderByOperator.OrderByOperatorFactory;
 import io.prestosql.operator.PagesIndex;
 import io.prestosql.spi.type.Type;
+import io.prestosql.sql.gen.OrderingCompiler;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 import io.prestosql.testing.LocalQueryRunner;
 
 import java.util.List;
+import java.util.Optional;
 
 import static io.prestosql.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
 import static io.prestosql.spi.block.SortOrder.ASC_NULLS_LAST;
@@ -53,7 +55,10 @@ public class OrderByBenchmark
                 ROWS,
                 ImmutableList.of(0),
                 ImmutableList.of(ASC_NULLS_LAST),
-                new PagesIndex.TestingFactory(false));
+                new PagesIndex.TestingFactory(false),
+                false,
+                Optional.empty(),
+                new OrderingCompiler());
 
         return ImmutableList.of(tableScanOperator, limitOperator, orderByOperator);
     }

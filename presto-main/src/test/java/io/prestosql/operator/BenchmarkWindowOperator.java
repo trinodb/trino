@@ -30,6 +30,7 @@ import org.openjdk.jmh.annotations.OutputTimeUnit;
 import org.openjdk.jmh.annotations.Param;
 import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
+import org.openjdk.jmh.annotations.TearDown;
 import org.openjdk.jmh.annotations.Warmup;
 import org.openjdk.jmh.runner.Runner;
 import org.openjdk.jmh.runner.RunnerException;
@@ -101,6 +102,13 @@ public class BenchmarkWindowOperator
             createOperatorFactoryAndGenerateTestData(numberOfPregroupedColumns);
         }
 
+        @TearDown
+        public void cleanup()
+        {
+            executor.shutdownNow();
+            scheduledExecutor.shutdownNow();
+        }
+
         private void createOperatorFactoryAndGenerateTestData(int numberOfPreGroupedColumns)
         {
             pages = generateTestData();
@@ -115,7 +123,9 @@ public class BenchmarkWindowOperator
                         Ints.asList(),
                         Ints.asList(3),
                         ImmutableList.of(SortOrder.ASC_NULLS_LAST),
-                        0);
+                        0,
+                        new DummySpillerFactory(),
+                        false);
             }
             else if (numberOfPreGroupedColumns < NUMBER_OF_GROUP_COLUMNS) {
                 // Partially grouped
@@ -127,7 +137,9 @@ public class BenchmarkWindowOperator
                         Ints.asList(1),
                         Ints.asList(3),
                         ImmutableList.of(SortOrder.ASC_NULLS_LAST),
-                        0);
+                        0,
+                        new DummySpillerFactory(),
+                        false);
             }
             else {
                 // Fully grouped and (potentially) sorted
@@ -139,7 +151,9 @@ public class BenchmarkWindowOperator
                         Ints.asList(0, 1),
                         Ints.asList(3),
                         ImmutableList.of(SortOrder.ASC_NULLS_LAST),
-                        (numberOfPreGroupedColumns - NUMBER_OF_GROUP_COLUMNS));
+                        (numberOfPreGroupedColumns - NUMBER_OF_GROUP_COLUMNS),
+                        new DummySpillerFactory(),
+                        false);
             }
         }
 
@@ -315,6 +329,8 @@ public class BenchmarkWindowOperator
         }
 
         benchmark(context);
+
+        context.cleanup();
     }
 
     public static void main(String[] args)

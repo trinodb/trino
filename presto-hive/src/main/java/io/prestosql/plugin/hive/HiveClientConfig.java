@@ -19,7 +19,6 @@ import com.google.common.net.HostAndPort;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.DefunctConfig;
-import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.airlift.units.MaxDataSize;
@@ -43,11 +42,15 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
 @DefunctConfig({
+        "dfs.domain-socket-path",
         "hive.file-system-cache-ttl",
         "hive.max-global-split-iterator-threads",
         "hive.max-sort-files-per-bucket",
         "hive.bucket-writing",
-        "hive.optimized-reader.enabled"})
+        "hive.optimized-reader.enabled",
+        "hive.orc.optimized-writer.enabled",
+        "hive.rcfile-optimized-writer.enabled",
+})
 public class HiveClientConfig
 {
     private String timeZone = TimeZone.getDefault().getID();
@@ -115,11 +118,10 @@ public class HiveClientConfig
     private DataSize orcStreamBufferSize = new DataSize(8, MEGABYTE);
     private DataSize orcMaxReadBlockSize = new DataSize(16, MEGABYTE);
     private boolean orcLazyReadSmallRanges = true;
-    private boolean orcOptimizedWriterEnabled = true;
+    private boolean orcWriteLegacyVersion;
     private double orcWriterValidationPercentage;
     private OrcWriteValidationMode orcWriterValidationMode = OrcWriteValidationMode.BOTH;
 
-    private boolean rcfileOptimizedWriterEnabled = true;
     private boolean rcfileWriterValidate;
 
     private HiveMetastoreAuthenticationType hiveMetastoreAuthenticationType = HiveMetastoreAuthenticationType.NONE;
@@ -649,7 +651,6 @@ public class HiveClientConfig
     }
 
     @Config("hive.dfs.domain-socket-path")
-    @LegacyConfig("dfs.domain-socket-path")
     public HiveClientConfig setDomainSocketPath(String domainSocketPath)
     {
         this.domainSocketPath = domainSocketPath;
@@ -800,17 +801,16 @@ public class HiveClientConfig
         return this;
     }
 
-    @Deprecated
-    public boolean isOrcOptimizedWriterEnabled()
+    public boolean isOrcWriteLegacyVersion()
     {
-        return orcOptimizedWriterEnabled;
+        return orcWriteLegacyVersion;
     }
 
-    @Deprecated
-    @Config("hive.orc.optimized-writer.enabled")
-    public HiveClientConfig setOrcOptimizedWriterEnabled(boolean orcOptimizedWriterEnabled)
+    @Config("hive.orc.writer.use-legacy-version-number")
+    @ConfigDescription("Write ORC files with a version number that is readable by Hive 2.0.0 to 2.2.0")
+    public HiveClientConfig setOrcWriteLegacyVersion(boolean orcWriteLegacyVersion)
     {
-        this.orcOptimizedWriterEnabled = orcOptimizedWriterEnabled;
+        this.orcWriteLegacyVersion = orcWriteLegacyVersion;
         return this;
     }
 
@@ -840,20 +840,6 @@ public class HiveClientConfig
     public HiveClientConfig setOrcWriterValidationMode(OrcWriteValidationMode orcWriterValidationMode)
     {
         this.orcWriterValidationMode = orcWriterValidationMode;
-        return this;
-    }
-
-    @Deprecated
-    public boolean isRcfileOptimizedWriterEnabled()
-    {
-        return rcfileOptimizedWriterEnabled;
-    }
-
-    @Deprecated
-    @Config("hive.rcfile-optimized-writer.enabled")
-    public HiveClientConfig setRcfileOptimizedWriterEnabled(boolean rcfileOptimizedWriterEnabled)
-    {
-        this.rcfileOptimizedWriterEnabled = rcfileOptimizedWriterEnabled;
         return this;
     }
 

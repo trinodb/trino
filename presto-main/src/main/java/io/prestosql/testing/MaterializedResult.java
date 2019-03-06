@@ -79,6 +79,7 @@ import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
+import static io.prestosql.type.JsonType.JSON;
 import static java.lang.Float.floatToRawIntBits;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -260,6 +261,9 @@ public class MaterializedResult
         }
         else if (BOOLEAN.equals(type)) {
             type.writeBoolean(blockBuilder, (Boolean) value);
+        }
+        else if (JSON.equals(type)) {
+            type.writeSlice(blockBuilder, Slices.utf8Slice((String) value));
         }
         else if (type instanceof VarcharType) {
             type.writeSlice(blockBuilder, Slices.utf8Slice((String) value));

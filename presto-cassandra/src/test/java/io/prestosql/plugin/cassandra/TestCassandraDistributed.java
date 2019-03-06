@@ -39,12 +39,6 @@ public class TestCassandraDistributed
     }
 
     @Override
-    public void testJoinWithLessThanOnDatesInJoinClause()
-    {
-        // Cassandra does not support DATE
-    }
-
-    @Override
     public void testRenameTable()
     {
         // Cassandra does not support renaming tables

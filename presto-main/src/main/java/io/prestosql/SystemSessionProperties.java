@@ -91,6 +91,8 @@ public final class SystemSessionProperties
     public static final String FAST_INEQUALITY_JOINS = "fast_inequality_joins";
     public static final String QUERY_PRIORITY = "query_priority";
     public static final String SPILL_ENABLED = "spill_enabled";
+    public static final String SPILL_ORDER_BY = "spill_order_by";
+    public static final String SPILL_WINDOW_OPERATOR = "spill_window_operator";
     public static final String AGGREGATION_OPERATOR_UNSPILL_MEMORY_LIMIT = "aggregation_operator_unspill_memory_limit";
     public static final String OPTIMIZE_DISTINCT_AGGREGATIONS = "optimize_mixed_distinct_aggregations";
     public static final String LEGACY_ROW_FIELD_ORDINAL_ACCESS = "legacy_row_field_ordinal_access";
@@ -162,11 +164,11 @@ public final class SystemSessionProperties
                         JoinDistributionType::name),
                 new PropertyMetadata<>(
                         JOIN_MAX_BROADCAST_TABLE_SIZE,
-                        "Maximum estimated size of a table that can be broadcast for JOIN.",
+                        "Maximum estimated size of a table that can be broadcast when using automatic join type selection",
                         VARCHAR,
                         DataSize.class,
                         featuresConfig.getJoinMaxBroadcastTableSize(),
-                        true,
+                        false,
                         value -> DataSize.valueOf((String) value),
                         DataSize::toString),
                 booleanProperty(
@@ -404,6 +406,16 @@ public final class SystemSessionProperties
                             return spillEnabled;
                         },
                         value -> value),
+                booleanProperty(
+                        SPILL_ORDER_BY,
+                        "Spill in OrderBy if spill_enabled is also set",
+                        featuresConfig.isSpillOrderBy(),
+                        false),
+                booleanProperty(
+                        SPILL_WINDOW_OPERATOR,
+                        "Spill in WindowOperator if spill_enabled is also set",
+                        featuresConfig.isSpillWindowOperator(),
+                        false),
                 new PropertyMetadata<>(
                         AGGREGATION_OPERATOR_UNSPILL_MEMORY_LIMIT,
                         "Experimental: How much memory can should be allocated per aggragation operator in unspilling process",
@@ -765,6 +777,16 @@ public final class SystemSessionProperties
     public static boolean isSpillEnabled(Session session)
     {
         return session.getSystemProperty(SPILL_ENABLED, Boolean.class);
+    }
+
+    public static boolean isSpillOrderBy(Session session)
+    {
+        return session.getSystemProperty(SPILL_ORDER_BY, Boolean.class);
+    }
+
+    public static boolean isSpillWindowOperator(Session session)
+    {
+        return session.getSystemProperty(SPILL_WINDOW_OPERATOR, Boolean.class);
     }
 
     public static DataSize getAggregationOperatorUnspillMemoryLimit(Session session)

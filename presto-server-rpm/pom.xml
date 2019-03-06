@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.prestosql</groupId>
         <artifactId>presto-root</artifactId>
-        <version>304-SNAPSHOT</version>
+        <version>305-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-server-rpm</artifactId>
@@ -168,6 +168,10 @@
                                     <includes>
                                         <include>*</include>
                                     </includes>
+                                    <directives>
+                                        <directive>config</directive>
+                                        <directive>noreplace</directive>
+                                    </directives>
                                 </rule>
 
                                 <rule>

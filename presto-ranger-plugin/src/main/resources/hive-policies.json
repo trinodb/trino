@@ -1398,7 +1398,7 @@
                 "isAllowed": true
               }
             ],
-            "users": [],
+            "users": ["charlie"],
             "groups": [
               "public"
             ],
@@ -1444,7 +1444,7 @@
                 "isAllowed": true
               }
             ],
-            "users": [],
+            "users": ["charlie"],
             "groups": [
               "dev"
             ],

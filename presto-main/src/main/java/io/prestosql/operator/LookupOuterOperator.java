@@ -35,11 +35,6 @@ public class LookupOuterOperator
     public static class LookupOuterOperatorFactory
             implements OperatorFactory
     {
-        private enum State
-        {
-            NOT_CREATED, CREATED, CLOSED
-        }
-
         private final int operatorId;
         private final PlanNodeId planNodeId;
         private final List<Type> probeOutputTypes;

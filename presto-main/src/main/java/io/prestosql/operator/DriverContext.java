@@ -327,11 +327,11 @@ public class DriverContext
         long outputPositions;
         if (inputOperator != null) {
             physicalInputDataSize = inputOperator.getPhysicalInputDataSize();
-            physicalInputPositions = inputOperator.getInputPositions();
+            physicalInputPositions = inputOperator.getPhysicalInputPositions();
             physicalInputReadTime = inputOperator.getAddInputWall();
 
             internalNetworkInputDataSize = inputOperator.getInternalNetworkInputDataSize();
-            internalNetworkInputPositions = inputOperator.getInputPositions();
+            internalNetworkInputPositions = inputOperator.getInternalNetworkInputPositions();
             internalNetworkInputReadTime = inputOperator.getAddInputWall();
 
             rawInputDataSize = inputOperator.getRawInputDataSize();

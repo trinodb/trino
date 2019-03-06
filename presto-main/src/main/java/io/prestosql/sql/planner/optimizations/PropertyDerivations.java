@@ -430,7 +430,7 @@ public class PropertyDerivations
 
                     return ActualProperties.builderFrom(buildProperties.translate(column -> filterIfMissing(node.getOutputSymbols(), column)))
                             .local(ImmutableList.of())
-                            .unordered(unordered)
+                            .unordered(true)
                             .build();
                 case FULL:
                     if (probeProperties.getNodePartitioning().isPresent()) {
@@ -446,12 +446,10 @@ public class PropertyDerivations
 
                         return ActualProperties.builder()
                                 .global(partitionedOn(Partitioning.createWithExpressions(nodePartitioning.getHandle(), coalesceExpressions.build()), Optional.empty()))
-                                .unordered(unordered)
                                 .build();
                     }
                     return ActualProperties.builder()
                             .global(probeProperties.isSingleNode() ? singleStreamPartition() : arbitraryPartition())
-                            .unordered(unordered)
                             .build();
                 default:
                     throw new UnsupportedOperationException("Unsupported join type: " + node.getType());
@@ -807,6 +805,8 @@ public class PropertyDerivations
         switch (joinType) {
             case INNER:
             case LEFT:
+                // Even though join might not have "spillable" property set yet
+                // it might still be set as spillable later on by AddLocalExchanges.
                 return true;
             case RIGHT:
             case FULL:
@@ -850,23 +850,29 @@ public class PropertyDerivations
         return Optional.empty();
     }
 
-    public static Optional<Symbol> rewriteExpression(Map<Symbol, Expression> assignments, Expression expression)
+    private static Optional<Symbol> rewriteExpression(Map<Symbol, Expression> assignments, Expression expression)
     {
-        checkArgument(expression instanceof CoalesceExpression, "The rewrite can only handle CoalesceExpression");
+        // Only simple coalesce expressions supported currently
+        if (!(expression instanceof CoalesceExpression)) {
+            return Optional.empty();
+        }
+
+        Set<Expression> arguments = ImmutableSet.copyOf(((CoalesceExpression) expression).getOperands());
+        if (!arguments.stream().allMatch(SymbolReference.class::isInstance)) {
+            return Optional.empty();
+        }
+
         // We are using the property that the result of coalesce from full outer join keys would not be null despite of the order
         // of the arguments. Thus we extract and compare the symbols of the CoalesceExpression as a set rather than compare the
         // CoalesceExpression directly.
         for (Map.Entry<Symbol, Expression> entry : assignments.entrySet()) {
             if (entry.getValue() instanceof CoalesceExpression) {
-                Set<Symbol> symbolsInAssignment = ((CoalesceExpression) entry.getValue()).getOperands().stream()
-                        .filter(SymbolReference.class::isInstance)
-                        .map(Symbol::from)
-                        .collect(toImmutableSet());
-                Set<Symbol> symbolInExpression = ((CoalesceExpression) expression).getOperands().stream()
-                        .filter(SymbolReference.class::isInstance)
-                        .map(Symbol::from)
-                        .collect(toImmutableSet());
-                if (symbolsInAssignment.containsAll(symbolInExpression)) {
+                Set<Expression> candidateArguments = ImmutableSet.copyOf(((CoalesceExpression) entry.getValue()).getOperands());
+                if (!candidateArguments.stream().allMatch(SymbolReference.class::isInstance)) {
+                    return Optional.empty();
+                }
+
+                if (candidateArguments.equals(arguments)) {
                     return Optional.of(entry.getKey());
                 }
             }

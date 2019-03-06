@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.prestosql</groupId>
         <artifactId>presto-root</artifactId>
-        <version>304-SNAPSHOT</version>
+        <version>305-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-orc</artifactId>
@@ -150,12 +150,6 @@
         <dependency>
             <groupId>io.prestosql.hadoop</groupId>
             <artifactId>hadoop-apache</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>com.facebook.hive</groupId>
-            <artifactId>hive-dwrf</artifactId>
             <scope>test</scope>
         </dependency>
 

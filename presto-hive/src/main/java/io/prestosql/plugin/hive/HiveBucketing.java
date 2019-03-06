@@ -15,6 +15,7 @@ package io.prestosql.plugin.hive;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Shorts;
@@ -70,15 +71,22 @@ final class HiveBucketing
 
     public static int getHiveBucket(int bucketCount, List<TypeInfo> types, Page page, int position)
     {
-        return (getBucketHashCode(types, page, position) & Integer.MAX_VALUE) % bucketCount;
+        return getBucketNumber(getBucketHashCode(types, page, position), bucketCount);
     }
 
     public static int getHiveBucket(int bucketCount, List<TypeInfo> types, Object[] values)
     {
-        return (getBucketHashCode(types, values) & Integer.MAX_VALUE) % bucketCount;
+        return getBucketNumber(getBucketHashCode(types, values), bucketCount);
     }
 
-    private static int getBucketHashCode(List<TypeInfo> types, Page page, int position)
+    @VisibleForTesting
+    static int getBucketNumber(int hashCode, int bucketCount)
+    {
+        return (hashCode & Integer.MAX_VALUE) % bucketCount;
+    }
+
+    @VisibleForTesting
+    static int getBucketHashCode(List<TypeInfo> types, Page page, int position)
     {
         checkArgument(types.size() == page.getChannelCount());
         int result = 0;
@@ -89,7 +97,8 @@ final class HiveBucketing
         return result;
     }
 
-    private static int getBucketHashCode(List<TypeInfo> types, Object[] values)
+    @VisibleForTesting
+    static int getBucketHashCode(List<TypeInfo> types, Object[] values)
     {
         checkArgument(types.size() == values.length);
         int result = 0;
@@ -143,10 +152,7 @@ final class HiveBucketing
                         long days = prestoType.getLong(block, position);
                         return toIntExact(days);
                     case TIMESTAMP:
-                        long millisSinceEpoch = prestoType.getLong(block, position);
-                        // seconds << 30 + nanoseconds
-                        long secondsAndNanos = (Math.floorDiv(millisSinceEpoch, 1000L) << 30) + Math.floorMod(millisSinceEpoch, 1000);
-                        return (int) ((secondsAndNanos >>> 32) ^ secondsAndNanos);
+                        return hashTimestamp(prestoType.getLong(block, position));
                     default:
                         throw new UnsupportedOperationException("Computation of Hive bucket hashCode is not supported for Hive primitive category: " + primitiveCategory.toString() + ".");
                 }
@@ -202,10 +208,7 @@ final class HiveBucketing
                         long days = (long) value;
                         return toIntExact(days);
                     case TIMESTAMP:
-                        long millisSinceEpoch = (long) value;
-                        // seconds << 30 + nanoseconds
-                        long secondsAndNanos = (Math.floorDiv(millisSinceEpoch, 1000L) << 30) + Math.floorMod(millisSinceEpoch, 1000);
-                        return (int) ((secondsAndNanos >>> 32) ^ secondsAndNanos);
+                        return hashTimestamp((long) value);
                     default:
                         throw new UnsupportedOperationException("Computation of Hive bucket hashCode is not supported for Hive primitive category: " + primitiveCategory.toString() + ".");
                 }
@@ -220,6 +223,15 @@ final class HiveBucketing
                 // TODO: support more types, e.g. ROW
                 throw new UnsupportedOperationException("Computation of Hive bucket hashCode is not supported for Hive category: " + type.getCategory().toString() + ".");
         }
+    }
+
+    @SuppressWarnings("NumericCastThatLosesPrecision")
+    private static int hashTimestamp(long epochMillis)
+    {
+        long seconds = (Math.floorDiv(epochMillis, 1000L) << 30);
+        long nanos = Math.floorMod(epochMillis, 1000) * 1_000_000L;
+        long secondsAndNanos = seconds | nanos;
+        return (int) ((secondsAndNanos >>> 32) ^ secondsAndNanos);
     }
 
     private static int hashOfMap(MapTypeInfo type, Block singleMapBlock)

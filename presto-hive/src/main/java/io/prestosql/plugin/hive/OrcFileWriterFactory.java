@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableMap;
 import io.prestosql.orc.OrcDataSink;
 import io.prestosql.orc.OrcDataSource;
 import io.prestosql.orc.OrcDataSourceId;
-import io.prestosql.orc.OrcEncoding;
 import io.prestosql.orc.OrcWriterOptions;
 import io.prestosql.orc.OrcWriterStats;
 import io.prestosql.orc.OutputStreamOrcDataSink;
@@ -47,8 +46,6 @@ import java.util.Properties;
 import java.util.concurrent.Callable;
 import java.util.function.Supplier;
 
-import static io.prestosql.orc.OrcEncoding.DWRF;
-import static io.prestosql.orc.OrcEncoding.ORC;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_WRITER_OPEN_ERROR;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_WRITE_VALIDATION_FAILED;
@@ -78,6 +75,7 @@ public class OrcFileWriterFactory
     private final FileFormatDataSourceStats readStats;
     private final OrcWriterStats stats = new OrcWriterStats();
     private final OrcWriterOptions orcWriterOptions;
+    private final boolean writeLegacyVersion;
 
     @Inject
     public OrcFileWriterFactory(
@@ -93,6 +91,7 @@ public class OrcFileWriterFactory
                 typeManager,
                 nodeVersion,
                 requireNonNull(hiveClientConfig, "hiveClientConfig is null").getDateTimeZone(),
+                hiveClientConfig.isOrcWriteLegacyVersion(),
                 readStats,
                 requireNonNull(config, "config is null").toOrcWriterOptions());
     }
@@ -102,6 +101,7 @@ public class OrcFileWriterFactory
             TypeManager typeManager,
             NodeVersion nodeVersion,
             DateTimeZone hiveStorageTimeZone,
+            boolean writeLegacyVersion,
             FileFormatDataSourceStats readStats,
             OrcWriterOptions orcWriterOptions)
     {
@@ -109,6 +109,7 @@ public class OrcFileWriterFactory
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.nodeVersion = requireNonNull(nodeVersion, "nodeVersion is null");
         this.hiveStorageTimeZone = requireNonNull(hiveStorageTimeZone, "hiveStorageTimeZone is null");
+        this.writeLegacyVersion = writeLegacyVersion;
         this.readStats = requireNonNull(readStats, "stats is null");
         this.orcWriterOptions = requireNonNull(orcWriterOptions, "orcWriterOptions is null");
     }
@@ -129,22 +130,11 @@ public class OrcFileWriterFactory
             JobConf configuration,
             ConnectorSession session)
     {
-        if (!HiveSessionProperties.isOrcOptimizedWriterEnabled(session)) {
+        if (!OrcOutputFormat.class.getName().equals(storageFormat.getOutputFormat())) {
             return Optional.empty();
         }
 
-        OrcEncoding orcEncoding;
-        if (OrcOutputFormat.class.getName().equals(storageFormat.getOutputFormat())) {
-            orcEncoding = ORC;
-        }
-        else if (com.facebook.hive.orc.OrcOutputFormat.class.getName().equals(storageFormat.getOutputFormat())) {
-            orcEncoding = DWRF;
-        }
-        else {
-            return Optional.empty();
-        }
-
-        CompressionKind compression = getCompression(schema, configuration, orcEncoding);
+        CompressionKind compression = getCompression(schema, configuration);
 
         // existing tables and partitions may have columns in a different order than the writer is providing, so build
         // an index to rearrange columns in the proper order
@@ -189,7 +179,6 @@ public class OrcFileWriterFactory
             return Optional.of(new OrcFileWriter(
                     orcDataSink,
                     rollbackAction,
-                    orcEncoding,
                     fileColumnNames,
                     fileColumnTypes,
                     compression,
@@ -199,6 +188,7 @@ public class OrcFileWriterFactory
                             .withStripeMaxRowCount(getOrcOptimizedWriterMaxStripeRows(session))
                             .withDictionaryMaxMemory(getOrcOptimizedWriterMaxDictionaryMemory(session))
                             .withMaxStringStatisticsLimit(getOrcStringStatisticsLimit(session)),
+                    writeLegacyVersion,
                     fileInputColumnIndexes,
                     ImmutableMap.<String, String>builder()
                             .put(HiveMetadata.PRESTO_VERSION_NAME, nodeVersion.toString())
@@ -210,7 +200,7 @@ public class OrcFileWriterFactory
                     stats));
         }
         catch (IOException e) {
-            throw new PrestoException(HIVE_WRITER_OPEN_ERROR, "Error creating " + orcEncoding + " file", e);
+            throw new PrestoException(HIVE_WRITER_OPEN_ERROR, "Error creating ORC file", e);
         }
     }
 
@@ -223,7 +213,7 @@ public class OrcFileWriterFactory
         return new OutputStreamOrcDataSink(fileSystem.create(path));
     }
 
-    private static CompressionKind getCompression(Properties schema, JobConf configuration, OrcEncoding orcEncoding)
+    private static CompressionKind getCompression(Properties schema, JobConf configuration)
     {
         String compressionName = OrcConf.COMPRESS.getString(schema, configuration);
         if (compressionName == null) {
@@ -235,7 +225,7 @@ public class OrcFileWriterFactory
             compression = CompressionKind.valueOf(compressionName.toUpperCase(ENGLISH));
         }
         catch (IllegalArgumentException e) {
-            throw new PrestoException(HIVE_UNSUPPORTED_FORMAT, "Unknown " + orcEncoding + " compression type " + compressionName);
+            throw new PrestoException(HIVE_UNSUPPORTED_FORMAT, "Unknown ORC compression type " + compressionName);
         }
         return compression;
     }

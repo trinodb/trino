@@ -47,7 +47,9 @@ public class OperatorStats
     private final Duration addInputWall;
     private final Duration addInputCpu;
     private final DataSize physicalInputDataSize;
+    private final long physicalInputPositions;
     private final DataSize internalNetworkInputDataSize;
+    private final long internalNetworkInputPositions;
     private final DataSize rawInputDataSize;
     private final DataSize inputDataSize;
     private final long inputPositions;
@@ -72,6 +74,7 @@ public class OperatorStats
     private final DataSize systemMemoryReservation;
     private final DataSize peakUserMemoryReservation;
     private final DataSize peakSystemMemoryReservation;
+    private final DataSize peakRevocableMemoryReservation;
     private final DataSize peakTotalMemoryReservation;
 
     private final DataSize spilledDataSize;
@@ -94,7 +97,9 @@ public class OperatorStats
             @JsonProperty("addInputWall") Duration addInputWall,
             @JsonProperty("addInputCpu") Duration addInputCpu,
             @JsonProperty("physicalInputDataSize") DataSize physicalInputDataSize,
+            @JsonProperty("physicalInputPositions") long physicalInputPositions,
             @JsonProperty("internalNetworkInputDataSize") DataSize internalNetworkInputDataSize,
+            @JsonProperty("internalNetworkInputPositions") long internalNetworkInputPositions,
             @JsonProperty("rawInputDataSize") DataSize rawInputDataSize,
             @JsonProperty("inputDataSize") DataSize inputDataSize,
             @JsonProperty("inputPositions") long inputPositions,
@@ -119,6 +124,7 @@ public class OperatorStats
             @JsonProperty("systemMemoryReservation") DataSize systemMemoryReservation,
             @JsonProperty("peakUserMemoryReservation") DataSize peakUserMemoryReservation,
             @JsonProperty("peakSystemMemoryReservation") DataSize peakSystemMemoryReservation,
+            @JsonProperty("peakRevocableMemoryReservation") DataSize peakRevocableMemoryReservation,
             @JsonProperty("peakTotalMemoryReservation") DataSize peakTotalMemoryReservation,
 
             @JsonProperty("spilledDataSize") DataSize spilledDataSize,
@@ -141,7 +147,9 @@ public class OperatorStats
         this.addInputWall = requireNonNull(addInputWall, "addInputWall is null");
         this.addInputCpu = requireNonNull(addInputCpu, "addInputCpu is null");
         this.physicalInputDataSize = requireNonNull(physicalInputDataSize, "physicalInputDataSize is null");
+        this.physicalInputPositions = physicalInputPositions;
         this.internalNetworkInputDataSize = requireNonNull(internalNetworkInputDataSize, "internalNetworkInputDataSize is null");
+        this.internalNetworkInputPositions = internalNetworkInputPositions;
         this.rawInputDataSize = requireNonNull(rawInputDataSize, "rawInputDataSize is null");
         this.inputDataSize = requireNonNull(inputDataSize, "inputDataSize is null");
         checkArgument(inputPositions >= 0, "inputPositions is negative");
@@ -169,6 +177,7 @@ public class OperatorStats
 
         this.peakUserMemoryReservation = requireNonNull(peakUserMemoryReservation, "peakUserMemoryReservation is null");
         this.peakSystemMemoryReservation = requireNonNull(peakSystemMemoryReservation, "peakSystemMemoryReservation is null");
+        this.peakRevocableMemoryReservation = requireNonNull(peakRevocableMemoryReservation, "peakRevocableMemoryReservation is null");
         this.peakTotalMemoryReservation = requireNonNull(peakTotalMemoryReservation, "peakTotalMemoryReservation is null");
 
         this.spilledDataSize = requireNonNull(spilledDataSize, "spilledDataSize is null");
@@ -239,9 +248,21 @@ public class OperatorStats
     }
 
     @JsonProperty
+    public long getPhysicalInputPositions()
+    {
+        return physicalInputPositions;
+    }
+
+    @JsonProperty
     public DataSize getInternalNetworkInputDataSize()
     {
         return internalNetworkInputDataSize;
+    }
+
+    @JsonProperty
+    public long getInternalNetworkInputPositions()
+    {
+        return internalNetworkInputPositions;
     }
 
     @JsonProperty
@@ -353,6 +374,12 @@ public class OperatorStats
     }
 
     @JsonProperty
+    public DataSize getPeakRevocableMemoryReservation()
+    {
+        return peakRevocableMemoryReservation;
+    }
+
+    @JsonProperty
     public DataSize getPeakSystemMemoryReservation()
     {
         return peakSystemMemoryReservation;
@@ -396,7 +423,9 @@ public class OperatorStats
         long addInputWall = this.addInputWall.roundTo(NANOSECONDS);
         long addInputCpu = this.addInputCpu.roundTo(NANOSECONDS);
         long physicalInputDataSize = this.physicalInputDataSize.toBytes();
+        long physicalInputPositions = this.physicalInputPositions;
         long internalNetworkInputDataSize = this.internalNetworkInputDataSize.toBytes();
+        long internalNetworkInputPositions = this.internalNetworkInputPositions;
         long rawInputDataSize = this.rawInputDataSize.toBytes();
         long inputDataSize = this.inputDataSize.toBytes();
         long inputPositions = this.inputPositions;
@@ -421,6 +450,7 @@ public class OperatorStats
         long systemMemoryReservation = this.systemMemoryReservation.toBytes();
         long peakUserMemory = this.peakUserMemoryReservation.toBytes();
         long peakSystemMemory = this.peakSystemMemoryReservation.toBytes();
+        long peakRevocableMemory = this.peakRevocableMemoryReservation.toBytes();
         long peakTotalMemory = this.peakTotalMemoryReservation.toBytes();
 
         long spilledDataSize = this.spilledDataSize.toBytes();
@@ -437,7 +467,9 @@ public class OperatorStats
             addInputWall += operator.getAddInputWall().roundTo(NANOSECONDS);
             addInputCpu += operator.getAddInputCpu().roundTo(NANOSECONDS);
             physicalInputDataSize += operator.getPhysicalInputDataSize().toBytes();
+            physicalInputPositions += operator.getPhysicalInputPositions();
             internalNetworkInputDataSize += operator.getInternalNetworkInputDataSize().toBytes();
+            internalNetworkInputPositions += operator.getInternalNetworkInputPositions();
             rawInputDataSize += operator.getRawInputDataSize().toBytes();
             inputDataSize += operator.getInputDataSize().toBytes();
             inputPositions += operator.getInputPositions();
@@ -463,6 +495,7 @@ public class OperatorStats
 
             peakUserMemory = max(peakUserMemory, operator.getPeakUserMemoryReservation().toBytes());
             peakSystemMemory = max(peakSystemMemory, operator.getPeakSystemMemoryReservation().toBytes());
+            peakRevocableMemory = max(peakRevocableMemory, operator.getPeakRevocableMemoryReservation().toBytes());
             peakTotalMemory = max(peakTotalMemory, operator.getPeakTotalMemoryReservation().toBytes());
 
             spilledDataSize += operator.getSpilledDataSize().toBytes();
@@ -490,7 +523,9 @@ public class OperatorStats
                 new Duration(addInputWall, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(addInputCpu, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 succinctBytes(physicalInputDataSize),
+                physicalInputPositions,
                 succinctBytes(internalNetworkInputDataSize),
+                internalNetworkInputPositions,
                 succinctBytes(rawInputDataSize),
                 succinctBytes(inputDataSize),
                 inputPositions,
@@ -515,6 +550,7 @@ public class OperatorStats
                 succinctBytes(systemMemoryReservation),
                 succinctBytes(peakUserMemory),
                 succinctBytes(peakSystemMemory),
+                succinctBytes(peakRevocableMemory),
                 succinctBytes(peakTotalMemory),
 
                 succinctBytes(spilledDataSize),
@@ -553,7 +589,9 @@ public class OperatorStats
                 addInputWall,
                 addInputCpu,
                 physicalInputDataSize,
+                physicalInputPositions,
                 internalNetworkInputDataSize,
+                internalNetworkInputPositions,
                 rawInputDataSize,
                 inputDataSize,
                 inputPositions,
@@ -573,6 +611,7 @@ public class OperatorStats
                 systemMemoryReservation,
                 peakUserMemoryReservation,
                 peakSystemMemoryReservation,
+                peakRevocableMemoryReservation,
                 peakTotalMemoryReservation,
                 spilledDataSize,
                 blockedReason,

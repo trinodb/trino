@@ -13,7 +13,7 @@
  */
 package io.prestosql.sql.planner.planPrinter;
 
-import io.prestosql.cost.PlanNodeCostEstimate;
+import io.prestosql.cost.PlanCostEstimate;
 import io.prestosql.cost.PlanNodeStatsEstimate;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.plan.PlanFragmentId;
@@ -37,7 +37,7 @@ public class NodeRepresentation
     private final List<PlanFragmentId> remoteSources;
     private final Optional<PlanNodeStats> stats;
     private final List<PlanNodeStatsEstimate> estimatedStats;
-    private final List<PlanNodeCostEstimate> estimatedCost;
+    private final List<PlanCostEstimate> estimatedCost;
 
     private final StringBuilder details = new StringBuilder();
 
@@ -49,7 +49,7 @@ public class NodeRepresentation
             List<Symbol> outputs,
             Optional<PlanNodeStats> stats,
             List<PlanNodeStatsEstimate> estimatedStats,
-            List<PlanNodeCostEstimate> estimatedCost,
+            List<PlanCostEstimate> estimatedCost,
             List<PlanNodeId> children,
             List<PlanFragmentId> remoteSources)
     {
@@ -133,7 +133,7 @@ public class NodeRepresentation
         return estimatedStats;
     }
 
-    public List<PlanNodeCostEstimate> getEstimatedCost()
+    public List<PlanCostEstimate> getEstimatedCost()
     {
         return estimatedCost;
     }

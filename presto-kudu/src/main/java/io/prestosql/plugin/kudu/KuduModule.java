@@ -17,7 +17,6 @@ import com.google.inject.AbstractModule;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.multibindings.Multibinder;
-import com.google.inject.multibindings.MultibindingsScanner;
 import com.google.inject.multibindings.ProvidesIntoSet;
 import io.prestosql.plugin.kudu.procedures.RangePartitionProcedures;
 import io.prestosql.plugin.kudu.properties.KuduTableProperties;
@@ -50,8 +49,6 @@ public class KuduModule
     @Override
     protected void configure()
     {
-        install(MultibindingsScanner.asModule());
-
         bind(TypeManager.class).toInstance(typeManager);
 
         bind(KuduConnector.class).in(Scopes.SINGLETON);

@@ -258,8 +258,7 @@ public final class StandaloneQueryRunner
         ImmutableMap.Builder<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("query.client.timeout", "10m")
                 .put("exchange.http-client.idle-timeout", "1h")
-                .put("node-scheduler.min-candidates", "1")
-                .put("datasources", "system");
+                .put("node-scheduler.min-candidates", "1");
 
         return new TestingPrestoServer(true, properties.build(), null, null, new SqlParserOptions(), ImmutableList.of());
     }

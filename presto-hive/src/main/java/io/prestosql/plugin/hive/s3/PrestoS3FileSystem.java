@@ -94,6 +94,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import static com.amazonaws.regions.Regions.US_EAST_1;
 import static com.amazonaws.services.s3.Headers.SERVER_SIDE_ENCRYPTION;
 import static com.amazonaws.services.s3.Headers.UNENCRYPTED_CONTENT_LENGTH;
+import static com.amazonaws.services.s3.model.StorageClass.Glacier;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkPositionIndexes;
 import static com.google.common.base.Strings.isNullOrEmpty;
@@ -104,33 +105,6 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.toArray;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.prestosql.plugin.hive.RetryDriver.retry;
-import static io.prestosql.plugin.hive.s3.S3ConfigurationUpdater.S3_ACCESS_KEY;
-import static io.prestosql.plugin.hive.s3.S3ConfigurationUpdater.S3_ACL_TYPE;
-import static io.prestosql.plugin.hive.s3.S3ConfigurationUpdater.S3_CONNECT_TIMEOUT;
-import static io.prestosql.plugin.hive.s3.S3ConfigurationUpdater.S3_CREDENTIALS_PROVIDER;
-import static io.prestosql.plugin.hive.s3.S3ConfigurationUpdater.S3_ENCRYPTION_MATERIALS_PROVIDER;
-import static io.prestosql.plugin.hive.s3.S3ConfigurationUpdater.S3_ENDPOINT;
-import static io.prestosql.plugin.hive.s3.S3ConfigurationUpdater.S3_KMS_KEY_ID;
-import static io.prestosql.plugin.hive.s3.S3ConfigurationUpdater.S3_MAX_BACKOFF_TIME;
-import static io.prestosql.plugin.hive.s3.S3ConfigurationUpdater.S3_MAX_CLIENT_RETRIES;
-import static io.prestosql.plugin.hive.s3.S3ConfigurationUpdater.S3_MAX_CONNECTIONS;
-import static io.prestosql.plugin.hive.s3.S3ConfigurationUpdater.S3_MAX_ERROR_RETRIES;
-import static io.prestosql.plugin.hive.s3.S3ConfigurationUpdater.S3_MAX_RETRY_TIME;
-import static io.prestosql.plugin.hive.s3.S3ConfigurationUpdater.S3_MULTIPART_MIN_FILE_SIZE;
-import static io.prestosql.plugin.hive.s3.S3ConfigurationUpdater.S3_MULTIPART_MIN_PART_SIZE;
-import static io.prestosql.plugin.hive.s3.S3ConfigurationUpdater.S3_PATH_STYLE_ACCESS;
-import static io.prestosql.plugin.hive.s3.S3ConfigurationUpdater.S3_PIN_CLIENT_TO_CURRENT_REGION;
-import static io.prestosql.plugin.hive.s3.S3ConfigurationUpdater.S3_SECRET_KEY;
-import static io.prestosql.plugin.hive.s3.S3ConfigurationUpdater.S3_SIGNER_TYPE;
-import static io.prestosql.plugin.hive.s3.S3ConfigurationUpdater.S3_SOCKET_TIMEOUT;
-import static io.prestosql.plugin.hive.s3.S3ConfigurationUpdater.S3_SSE_ENABLED;
-import static io.prestosql.plugin.hive.s3.S3ConfigurationUpdater.S3_SSE_KMS_KEY_ID;
-import static io.prestosql.plugin.hive.s3.S3ConfigurationUpdater.S3_SSE_TYPE;
-import static io.prestosql.plugin.hive.s3.S3ConfigurationUpdater.S3_SSL_ENABLED;
-import static io.prestosql.plugin.hive.s3.S3ConfigurationUpdater.S3_STAGING_DIRECTORY;
-import static io.prestosql.plugin.hive.s3.S3ConfigurationUpdater.S3_USER_AGENT_PREFIX;
-import static io.prestosql.plugin.hive.s3.S3ConfigurationUpdater.S3_USER_AGENT_SUFFIX;
-import static io.prestosql.plugin.hive.s3.S3ConfigurationUpdater.S3_USE_INSTANCE_CREDENTIALS;
 import static java.lang.Math.max;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
@@ -148,6 +122,35 @@ import static org.apache.hadoop.fs.FSExceptionMessages.STREAM_IS_CLOSED;
 public class PrestoS3FileSystem
         extends FileSystem
 {
+    public static final String S3_USER_AGENT_SUFFIX = "presto";
+    public static final String S3_USER_AGENT_PREFIX = "presto.s3.user-agent-prefix";
+    public static final String S3_CREDENTIALS_PROVIDER = "presto.s3.credentials-provider";
+    public static final String S3_SSE_TYPE = "presto.s3.sse.type";
+    public static final String S3_SSE_ENABLED = "presto.s3.sse.enabled";
+    public static final String S3_SSE_KMS_KEY_ID = "presto.s3.sse.kms-key-id";
+    public static final String S3_KMS_KEY_ID = "presto.s3.kms-key-id";
+    public static final String S3_ENCRYPTION_MATERIALS_PROVIDER = "presto.s3.encryption-materials-provider";
+    public static final String S3_PIN_CLIENT_TO_CURRENT_REGION = "presto.s3.pin-client-to-current-region";
+    public static final String S3_USE_INSTANCE_CREDENTIALS = "presto.s3.use-instance-credentials";
+    public static final String S3_MULTIPART_MIN_PART_SIZE = "presto.s3.multipart.min-part-size";
+    public static final String S3_MULTIPART_MIN_FILE_SIZE = "presto.s3.multipart.min-file-size";
+    public static final String S3_STAGING_DIRECTORY = "presto.s3.staging-directory";
+    public static final String S3_MAX_CONNECTIONS = "presto.s3.max-connections";
+    public static final String S3_SOCKET_TIMEOUT = "presto.s3.socket-timeout";
+    public static final String S3_CONNECT_TIMEOUT = "presto.s3.connect-timeout";
+    public static final String S3_MAX_RETRY_TIME = "presto.s3.max-retry-time";
+    public static final String S3_MAX_BACKOFF_TIME = "presto.s3.max-backoff-time";
+    public static final String S3_MAX_CLIENT_RETRIES = "presto.s3.max-client-retries";
+    public static final String S3_MAX_ERROR_RETRIES = "presto.s3.max-error-retries";
+    public static final String S3_SSL_ENABLED = "presto.s3.ssl.enabled";
+    public static final String S3_PATH_STYLE_ACCESS = "presto.s3.path-style-access";
+    public static final String S3_SIGNER_TYPE = "presto.s3.signer-type";
+    public static final String S3_ENDPOINT = "presto.s3.endpoint";
+    public static final String S3_SECRET_KEY = "presto.s3.secret-key";
+    public static final String S3_ACCESS_KEY = "presto.s3.access-key";
+    public static final String S3_ACL_TYPE = "presto.s3.upload-acl-type";
+    public static final String S3_SKIP_GLACIER_OBJECTS = "presto.s3.skip-glacier-objects";
+
     static final String S3_DIRECTORY_OBJECT_CONTENT_TYPE = "application/x-directory";
 
     private static final Logger log = Logger.get(PrestoS3FileSystem.class);
@@ -177,6 +180,7 @@ public class PrestoS3FileSystem
     private long multiPartUploadMinFileSize;
     private long multiPartUploadMinPartSize;
     private PrestoS3AclType s3AclType;
+    private boolean skipGlacierObjects;
 
     @Override
     public void initialize(URI uri, Configuration conf)
@@ -212,6 +216,7 @@ public class PrestoS3FileSystem
         this.sseKmsKeyId = conf.get(S3_SSE_KMS_KEY_ID, defaults.getS3SseKmsKeyId());
         this.s3AclType = PrestoS3AclType.valueOf(conf.get(S3_ACL_TYPE, defaults.getS3AclType().name()));
         String userAgentPrefix = conf.get(S3_USER_AGENT_PREFIX, defaults.getS3UserAgentPrefix());
+        this.skipGlacierObjects = conf.getBoolean(S3_SKIP_GLACIER_OBJECTS, defaults.isSkipGlacierObjects());
 
         ClientConfiguration configuration = new ClientConfiguration()
                 .withMaxErrorRetry(maxErrorRetries)
@@ -360,9 +365,8 @@ public class PrestoS3FileSystem
     public FSDataOutputStream create(Path path, FsPermission permission, boolean overwrite, int bufferSize, short replication, long blockSize, Progressable progress)
             throws IOException
     {
-        if ((!overwrite) && exists(path)) {
-            throw new IOException("File already exists:" + path);
-        }
+        // Ignore the overwrite flag, since Presto always writes to unique file names.
+        // Checking for file existence can break read-after-write consistency.
 
         if (!stagingDirectory.exists()) {
             createDirectories(stagingDirectory.toPath());
@@ -528,6 +532,7 @@ public class PrestoS3FileSystem
         // user metadata, and in this case it doesn't matter.
         return objects.stream()
                 .filter(object -> !object.getKey().endsWith(PATH_SEPARATOR))
+                .filter(object -> !skipGlacierObjects || !isGlacierObject(object))
                 .map(object -> new FileStatus(
                         object.getSize(),
                         false,
@@ -537,6 +542,11 @@ public class PrestoS3FileSystem
                         qualifiedPath(new Path(PATH_SEPARATOR + object.getKey()))))
                 .map(this::createLocatedFileStatus)
                 .iterator();
+    }
+
+    private boolean isGlacierObject(S3ObjectSummary object)
+    {
+        return Glacier.toString().equals(object.getStorageClass());
     }
 
     /**

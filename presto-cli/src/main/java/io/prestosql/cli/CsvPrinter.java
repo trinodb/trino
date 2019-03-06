@@ -31,13 +31,40 @@ public class CsvPrinter
 
     private boolean needHeader;
 
-    public CsvPrinter(List<String> fieldNames, Writer writer, boolean header)
+    public enum CsvOutputFormat
+    {
+        STANDARD(true, true),
+        NO_HEADER(false, true),
+        NO_QUOTES(true, false),
+        NO_HEADER_AND_QUOTES(false, false);
+
+        private boolean header;
+        private boolean quote;
+
+        CsvOutputFormat(boolean header, boolean quote)
+        {
+            this.header = header;
+            this.quote = quote;
+        }
+
+        public boolean showHeader()
+        {
+            return header;
+        }
+
+        public boolean isQuoted()
+        {
+            return quote;
+        }
+    }
+
+    public CsvPrinter(List<String> fieldNames, Writer writer, CsvOutputFormat csvOutputFormat)
     {
         requireNonNull(fieldNames, "fieldNames is null");
         requireNonNull(writer, "writer is null");
         this.fieldNames = ImmutableList.copyOf(fieldNames);
-        this.writer = new CSVWriter(writer);
-        this.needHeader = header;
+        this.writer = csvOutputFormat.isQuoted() ? new CSVWriter(writer) : new CSVWriter(writer, CSVWriter.DEFAULT_SEPARATOR, CSVWriter.NO_QUOTE_CHARACTER);
+        this.needHeader = csvOutputFormat.showHeader();
     }
 
     @Override

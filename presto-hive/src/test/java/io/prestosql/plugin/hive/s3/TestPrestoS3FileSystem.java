@@ -51,24 +51,25 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.airlift.testing.Assertions.assertInstanceOf;
+import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_ACCESS_KEY;
+import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_ACL_TYPE;
+import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_CREDENTIALS_PROVIDER;
 import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_DIRECTORY_OBJECT_CONTENT_TYPE;
-import static io.prestosql.plugin.hive.s3.S3ConfigurationUpdater.S3_ACCESS_KEY;
-import static io.prestosql.plugin.hive.s3.S3ConfigurationUpdater.S3_ACL_TYPE;
-import static io.prestosql.plugin.hive.s3.S3ConfigurationUpdater.S3_CREDENTIALS_PROVIDER;
-import static io.prestosql.plugin.hive.s3.S3ConfigurationUpdater.S3_ENCRYPTION_MATERIALS_PROVIDER;
-import static io.prestosql.plugin.hive.s3.S3ConfigurationUpdater.S3_ENDPOINT;
-import static io.prestosql.plugin.hive.s3.S3ConfigurationUpdater.S3_KMS_KEY_ID;
-import static io.prestosql.plugin.hive.s3.S3ConfigurationUpdater.S3_MAX_BACKOFF_TIME;
-import static io.prestosql.plugin.hive.s3.S3ConfigurationUpdater.S3_MAX_CLIENT_RETRIES;
-import static io.prestosql.plugin.hive.s3.S3ConfigurationUpdater.S3_MAX_RETRY_TIME;
-import static io.prestosql.plugin.hive.s3.S3ConfigurationUpdater.S3_PATH_STYLE_ACCESS;
-import static io.prestosql.plugin.hive.s3.S3ConfigurationUpdater.S3_PIN_CLIENT_TO_CURRENT_REGION;
-import static io.prestosql.plugin.hive.s3.S3ConfigurationUpdater.S3_SECRET_KEY;
-import static io.prestosql.plugin.hive.s3.S3ConfigurationUpdater.S3_SIGNER_TYPE;
-import static io.prestosql.plugin.hive.s3.S3ConfigurationUpdater.S3_STAGING_DIRECTORY;
-import static io.prestosql.plugin.hive.s3.S3ConfigurationUpdater.S3_USER_AGENT_PREFIX;
-import static io.prestosql.plugin.hive.s3.S3ConfigurationUpdater.S3_USER_AGENT_SUFFIX;
-import static io.prestosql.plugin.hive.s3.S3ConfigurationUpdater.S3_USE_INSTANCE_CREDENTIALS;
+import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_ENCRYPTION_MATERIALS_PROVIDER;
+import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_ENDPOINT;
+import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_KMS_KEY_ID;
+import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_MAX_BACKOFF_TIME;
+import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_MAX_CLIENT_RETRIES;
+import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_MAX_RETRY_TIME;
+import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_PATH_STYLE_ACCESS;
+import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_PIN_CLIENT_TO_CURRENT_REGION;
+import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_SECRET_KEY;
+import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_SIGNER_TYPE;
+import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_SKIP_GLACIER_OBJECTS;
+import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_STAGING_DIRECTORY;
+import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_USER_AGENT_PREFIX;
+import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_USER_AGENT_SUFFIX;
+import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_USE_INSTANCE_CREDENTIALS;
 import static java.net.HttpURLConnection.HTTP_FORBIDDEN;
 import static java.net.HttpURLConnection.HTTP_INTERNAL_ERROR;
 import static java.net.HttpURLConnection.HTTP_NOT_FOUND;
@@ -469,6 +470,30 @@ public class TestPrestoS3FileSystem
             assertEquals(config.getMaxConnections(), defaults.getS3MaxConnections());
             assertEquals(config.getUserAgentSuffix(), S3_USER_AGENT_SUFFIX);
             assertEquals(config.getUserAgentPrefix(), "");
+        }
+    }
+
+    @Test
+    public void testSkipGlacierObjectsEnabled()
+            throws Exception
+    {
+        assertSkipGlacierObjects(true);
+        assertSkipGlacierObjects(false);
+    }
+
+    private static void assertSkipGlacierObjects(boolean skipGlacierObjects)
+            throws Exception
+    {
+        Configuration config = new Configuration();
+        config.set(S3_SKIP_GLACIER_OBJECTS, String.valueOf(skipGlacierObjects));
+
+        try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
+            MockAmazonS3 s3 = new MockAmazonS3();
+            s3.setHasGlacierObjects(true);
+            fs.initialize(new URI("s3n://test-bucket/"), config);
+            fs.setS3Client(s3);
+            FileStatus[] statuses = fs.listStatus(new Path("s3n://test-bucket/test"));
+            assertEquals(statuses.length, skipGlacierObjects ? 1 : 2);
         }
     }
 

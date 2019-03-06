@@ -14,6 +14,8 @@
 package io.prestosql.plugin.mongodb;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.primitives.Shorts;
+import com.google.common.primitives.SignedBytes;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.model.InsertManyOptions;
 import io.airlift.slice.Slice;
@@ -63,8 +65,10 @@ import static io.prestosql.plugin.mongodb.TypeUtils.isRowType;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.prestosql.spi.type.Varchars.isVarcharType;
+import static java.lang.Math.toIntExact;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Collections.unmodifiableMap;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 
 public class MongoPageSink
@@ -87,7 +91,7 @@ public class MongoPageSink
         this.session = session;
         this.schemaTableName = schemaTableName;
         this.columns = columns;
-        this.implicitPrefix = config.getImplicitRowFieldPrefix();
+        this.implicitPrefix = requireNonNull(config.getImplicitRowFieldPrefix(), "config.getImplicitRowFieldPrefix() is null");
     }
 
     @Override
@@ -129,13 +133,13 @@ public class MongoPageSink
             return type.getLong(block, position);
         }
         if (type.equals(IntegerType.INTEGER)) {
-            return (int) type.getLong(block, position);
+            return toIntExact(type.getLong(block, position));
         }
         if (type.equals(SmallintType.SMALLINT)) {
-            return (short) type.getLong(block, position);
+            return Shorts.checkedCast(type.getLong(block, position));
         }
         if (type.equals(TinyintType.TINYINT)) {
-            return (byte) type.getLong(block, position);
+            return SignedBytes.checkedCast(type.getLong(block, position));
         }
         if (type.equals(DoubleType.DOUBLE)) {
             return type.getDouble(block, position);

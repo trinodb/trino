@@ -64,7 +64,7 @@ import io.prestosql.execution.SetSessionTask;
 import io.prestosql.execution.StartTransactionTask;
 import io.prestosql.execution.TaskManagerConfig;
 import io.prestosql.execution.TaskSource;
-import io.prestosql.execution.resourceGroups.NoOpResourceGroupManager;
+import io.prestosql.execution.resourcegroups.NoOpResourceGroupManager;
 import io.prestosql.execution.scheduler.LegacyNetworkTopology;
 import io.prestosql.execution.scheduler.NodeScheduler;
 import io.prestosql.execution.scheduler.NodeSchedulerConfig;

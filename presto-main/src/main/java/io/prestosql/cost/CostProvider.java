@@ -17,5 +17,5 @@ import io.prestosql.sql.planner.plan.PlanNode;
 
 public interface CostProvider
 {
-    PlanNodeCostEstimate getCumulativeCost(PlanNode node);
+    PlanCostEstimate getCost(PlanNode node);
 }

@@ -20,6 +20,7 @@ import io.prestosql.plugin.hive.HiveClientConfig;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hive.common.JavaUtils;
 
+import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
@@ -33,7 +34,7 @@ public class HiveS3Module
     {
         S3FileSystemType type = buildConfigObject(HiveClientConfig.class).getS3FileSystemType();
         if (type == S3FileSystemType.PRESTO) {
-            binder.bind(S3ConfigurationUpdater.class).to(PrestoS3ConfigurationUpdater.class).in(Scopes.SINGLETON);
+            newSetBinder(binder, ConfigurationInitializer.class).addBinding().to(PrestoS3ConfigurationInitializer.class).in(Scopes.SINGLETON);
             configBinder(binder).bindConfig(HiveS3Config.class);
 
             binder.bind(PrestoS3FileSystemStats.class).toInstance(PrestoS3FileSystem.getFileSystemStats());
@@ -42,7 +43,7 @@ public class HiveS3Module
         }
         else if (type == S3FileSystemType.EMRFS) {
             validateEmrFsClass();
-            binder.bind(S3ConfigurationUpdater.class).to(EmrFsS3ConfigurationUpdater.class).in(Scopes.SINGLETON);
+            newSetBinder(binder, ConfigurationInitializer.class).addBinding().to(EmrFsS3ConfigurationInitializer.class).in(Scopes.SINGLETON);
         }
         else {
             throw new RuntimeException("Unknown file system type: " + type);
@@ -60,11 +61,11 @@ public class HiveS3Module
         }
     }
 
-    public static class EmrFsS3ConfigurationUpdater
-            implements S3ConfigurationUpdater
+    public static class EmrFsS3ConfigurationInitializer
+            implements ConfigurationInitializer
     {
         @Override
-        public void updateConfiguration(Configuration config)
+        public void initializeConfiguration(Configuration config)
         {
             // re-map filesystem schemes to use the Amazon EMR file system
             config.set("fs.s3.impl", EMR_FS_CLASS_NAME);

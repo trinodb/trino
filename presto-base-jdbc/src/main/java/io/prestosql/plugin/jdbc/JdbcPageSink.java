@@ -20,6 +20,7 @@ import io.prestosql.spi.Page;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.connector.ConnectorPageSink;
+import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.type.Type;
 
 import java.sql.Connection;
@@ -47,10 +48,10 @@ public class JdbcPageSink
     private final List<WriteFunction> columnWriters;
     private int batchSize;
 
-    public JdbcPageSink(JdbcOutputTableHandle handle, JdbcClient jdbcClient)
+    public JdbcPageSink(ConnectorSession session, JdbcOutputTableHandle handle, JdbcClient jdbcClient)
     {
         try {
-            connection = jdbcClient.getConnection(handle);
+            connection = jdbcClient.getConnection(JdbcIdentity.from(session), handle);
         }
         catch (SQLException e) {
             throw new PrestoException(JDBC_ERROR, e);
@@ -69,7 +70,7 @@ public class JdbcPageSink
 
         columnWriters = columnTypes.stream()
                 .map(type -> {
-                    WriteFunction writeFunction = jdbcClient.toWriteMapping(type).getWriteFunction();
+                    WriteFunction writeFunction = jdbcClient.toWriteMapping(session, type).getWriteFunction();
                     verify(
                             type.getJavaType() == writeFunction.getJavaType(),
                             "Presto type %s is not compatible with write function %s accepting %s",

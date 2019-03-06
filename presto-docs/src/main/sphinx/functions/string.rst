@@ -201,6 +201,6 @@ Unicode Functions
 .. function:: from_utf8(binary, replace) -> varchar
 
     Decodes a UTF-8 encoded string from ``binary``. Invalid UTF-8 sequences
-    are replaced with `replace`. The replacement string `replace` must either
+    are replaced with ``replace``. The replacement string ``replace`` must either
     be a single character or empty (in which case invalid characters are
     removed).

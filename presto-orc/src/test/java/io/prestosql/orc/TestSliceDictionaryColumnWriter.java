@@ -40,7 +40,6 @@ public class TestSliceDictionaryColumnWriter
                 VARCHAR,
                 CompressionKind.NONE,
                 toIntExact(DEFAULT_MAX_COMPRESSION_BUFFER_SIZE.toBytes()),
-                OrcEncoding.ORC,
                 DEFAULT_MAX_STRING_STATISTICS_LIMIT);
 
         // a single row group exceeds 2G after direct conversion

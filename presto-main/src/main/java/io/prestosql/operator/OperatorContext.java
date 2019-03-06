@@ -62,7 +62,10 @@ public class OperatorContext
     private final Executor executor;
 
     private final CounterStat physicalInputDataSize = new CounterStat();
+    private final CounterStat physicalInputPositions = new CounterStat();
+
     private final CounterStat internalNetworkInputDataSize = new CounterStat();
+    private final CounterStat internalNetworkPositions = new CounterStat();
 
     private final OperationTiming addInputTiming = new OperationTiming();
     private final CounterStat inputDataSize = new CounterStat();
@@ -86,6 +89,7 @@ public class OperatorContext
 
     private final AtomicLong peakUserMemoryReservation = new AtomicLong();
     private final AtomicLong peakSystemMemoryReservation = new AtomicLong();
+    private final AtomicLong peakRevocableMemoryReservation = new AtomicLong();
     private final AtomicLong peakTotalMemoryReservation = new AtomicLong();
 
     @GuardedBy("this")
@@ -158,9 +162,10 @@ public class OperatorContext
      * Record the amount of physical bytes that were read by an operator and
      * the time it took to read the data. This metric is valid only for source operators.
      */
-    public void recordPhysicalInputWithTiming(long sizeInBytes, long readNanos)
+    public void recordPhysicalInputWithTiming(long sizeInBytes, long positions, long readNanos)
     {
         physicalInputDataSize.update(sizeInBytes);
+        physicalInputPositions.update(positions);
         addInputTiming.record(readNanos, 0);
     }
 
@@ -168,9 +173,10 @@ public class OperatorContext
      * Record the amount of network bytes that were read by an operator.
      * This metric is valid only for source operators.
      */
-    public void recordNetworkInput(long sizeInBytes)
+    public void recordNetworkInput(long sizeInBytes, long positions)
     {
         internalNetworkInputDataSize.update(sizeInBytes);
+        internalNetworkPositions.update(positions);
     }
 
     /**
@@ -263,6 +269,12 @@ public class OperatorContext
         return new InternalAggregatedMemoryContext(operatorMemoryContext.aggregateUserMemoryContext(), memoryFuture, this::updatePeakMemoryReservations, false);
     }
 
+    // caller shouldn't close this context as it's managed by the OperatorContext
+    public AggregatedMemoryContext aggregateRevocableMemoryContext()
+    {
+        return new InternalAggregatedMemoryContext(operatorMemoryContext.aggregateRevocableMemoryContext(), memoryFuture, () -> {}, false);
+    }
+
     // caller should close this context as it's a new context
     public AggregatedMemoryContext newAggregateSystemMemoryContext()
     {
@@ -274,9 +286,11 @@ public class OperatorContext
     {
         long userMemory = operatorMemoryContext.getUserMemory();
         long systemMemory = operatorMemoryContext.getSystemMemory();
+        long revocableMemory = operatorMemoryContext.getRevocableMemory();
         long totalMemory = userMemory + systemMemory;
         peakUserMemoryReservation.accumulateAndGet(userMemory, Math::max);
         peakSystemMemoryReservation.accumulateAndGet(systemMemory, Math::max);
+        peakRevocableMemoryReservation.accumulateAndGet(revocableMemory, Math::max);
         peakTotalMemoryReservation.accumulateAndGet(totalMemory, Math::max);
     }
 
@@ -452,7 +466,9 @@ public class OperatorContext
                 new Duration(addInputTiming.getWallNanos(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(addInputTiming.getCpuNanos(), NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 succinctBytes(physicalInputDataSize.getTotalCount()),
+                physicalInputPositions.getTotalCount(),
                 succinctBytes(internalNetworkInputDataSize.getTotalCount()),
+                internalNetworkPositions.getTotalCount(),
                 succinctBytes(physicalInputDataSize.getTotalCount() + internalNetworkInputDataSize.getTotalCount()),
                 succinctBytes(inputDataSize.getTotalCount()),
                 inputPositionsCount,
@@ -478,6 +494,7 @@ public class OperatorContext
 
                 succinctBytes(peakUserMemoryReservation.get()),
                 succinctBytes(peakSystemMemoryReservation.get()),
+                succinctBytes(peakRevocableMemoryReservation.get()),
                 succinctBytes(peakTotalMemoryReservation.get()),
 
                 succinctBytes(spillContext.getSpilledBytes()),

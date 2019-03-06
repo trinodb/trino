@@ -82,13 +82,14 @@ public class StageStateMachine
     private final StateMachine<StageState> stageState;
     private final StateMachine<Optional<StageInfo>> finalStageInfo;
     private final AtomicReference<ExecutionFailureInfo> failureCause = new AtomicReference<>();
-    private final AtomicReference<Optional<String>> renderedPlan = new AtomicReference<>(Optional.empty());
 
     private final AtomicReference<DateTime> schedulingComplete = new AtomicReference<>();
     private final Distribution getSplitDistribution = new Distribution();
 
     private final AtomicLong peakUserMemory = new AtomicLong();
+    private final AtomicLong peakRevocableMemory = new AtomicLong();
     private final AtomicLong currentUserMemory = new AtomicLong();
+    private final AtomicLong currentRevocableMemory = new AtomicLong();
     private final AtomicLong currentTotalMemory = new AtomicLong();
 
     public StageStateMachine(
@@ -233,11 +234,13 @@ public class StageStateMachine
         return currentTotalMemory.get();
     }
 
-    public void updateMemoryUsage(long deltaUserMemoryInBytes, long deltaTotalMemoryInBytes)
+    public void updateMemoryUsage(long deltaUserMemoryInBytes, long deltaRevocableMemoryInBytes, long deltaTotalMemoryInBytes)
     {
-        currentTotalMemory.addAndGet(deltaTotalMemoryInBytes);
         currentUserMemory.addAndGet(deltaUserMemoryInBytes);
+        currentRevocableMemory.addAndGet(deltaRevocableMemoryInBytes);
+        currentTotalMemory.addAndGet(deltaTotalMemoryInBytes);
         peakUserMemory.updateAndGet(currentPeakValue -> max(currentUserMemory.get(), currentPeakValue));
+        peakRevocableMemory.updateAndGet(currentPeakValue -> max(currentRevocableMemory.get(), currentPeakValue));
     }
 
     public BasicStageStats getBasicStageStats(Supplier<Iterable<TaskInfo>> taskInfosSupplier)
@@ -295,8 +298,9 @@ public class StageStateMachine
 
             long taskUserMemory = taskStats.getUserMemoryReservation().toBytes();
             long taskSystemMemory = taskStats.getSystemMemoryReservation().toBytes();
+            long taskRevocableMemory = taskStats.getRevocableMemoryReservation().toBytes();
             userMemoryReservation += taskUserMemory;
-            totalMemoryReservation += taskUserMemory + taskSystemMemory;
+            totalMemoryReservation += taskUserMemory + taskSystemMemory + taskRevocableMemory;
 
             totalScheduledTime += taskStats.getTotalScheduledTime().roundTo(NANOSECONDS);
             totalCpuTime += taskStats.getTotalCpuTime().roundTo(NANOSECONDS);
@@ -305,13 +309,13 @@ public class StageStateMachine
                 blockedReasons.addAll(taskStats.getBlockedReasons());
             }
 
+            physicalInputDataSize += taskStats.getPhysicalInputDataSize().toBytes();
+            physicalInputPositions += taskStats.getPhysicalInputPositions();
+
+            internalNetworkInputDataSize += taskStats.getInternalNetworkInputDataSize().toBytes();
+            internalNetworkInputPositions += taskStats.getInternalNetworkInputPositions();
+
             if (fragment.getPartitionedSourceNodes().stream().anyMatch(TableScanNode.class::isInstance)) {
-                physicalInputDataSize += taskStats.getPhysicalInputDataSize().toBytes();
-                physicalInputPositions += taskStats.getPhysicalInputPositions();
-
-                internalNetworkInputDataSize += taskStats.getInternalNetworkInputDataSize().toBytes();
-                internalNetworkInputPositions += taskStats.getInternalNetworkInputPositions();
-
                 rawInputDataSize += taskStats.getRawInputDataSize().toBytes();
                 rawInputPositions += taskStats.getRawInputPositions();
             }
@@ -379,8 +383,10 @@ public class StageStateMachine
 
         long cumulativeUserMemory = 0;
         long userMemoryReservation = 0;
+        long revocableMemoryReservation = 0;
         long totalMemoryReservation = 0;
         long peakUserMemoryReservation = peakUserMemory.get();
+        long peakRevocableMemoryReservation = peakRevocableMemory.get();
 
         long totalScheduledTime = 0;
         long totalCpuTime = 0;
@@ -435,8 +441,10 @@ public class StageStateMachine
 
             long taskUserMemory = taskStats.getUserMemoryReservation().toBytes();
             long taskSystemMemory = taskStats.getSystemMemoryReservation().toBytes();
+            long taskRevocableMemory = taskStats.getRevocableMemoryReservation().toBytes();
             userMemoryReservation += taskUserMemory;
-            totalMemoryReservation += taskUserMemory + taskSystemMemory;
+            revocableMemoryReservation += taskRevocableMemory;
+            totalMemoryReservation += taskUserMemory + taskSystemMemory + taskRevocableMemory;
 
             totalScheduledTime += taskStats.getTotalScheduledTime().roundTo(NANOSECONDS);
             totalCpuTime += taskStats.getTotalCpuTime().roundTo(NANOSECONDS);
@@ -496,8 +504,10 @@ public class StageStateMachine
 
                 cumulativeUserMemory,
                 succinctBytes(userMemoryReservation),
+                succinctBytes(revocableMemoryReservation),
                 succinctBytes(totalMemoryReservation),
                 succinctBytes(peakUserMemoryReservation),
+                succinctBytes(peakRevocableMemoryReservation),
                 succinctDuration(totalScheduledTime, NANOSECONDS),
                 succinctDuration(totalCpuTime, NANOSECONDS),
                 succinctDuration(totalBlockedTime, NANOSECONDS),

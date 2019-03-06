@@ -15,7 +15,7 @@ package io.prestosql.tests;
 
 import com.google.inject.Inject;
 import com.google.inject.name.Named;
-import io.prestodb.tempto.query.QueryResult;
+import io.prestosql.tempto.query.QueryResult;
 import org.testng.annotations.Test;
 
 import java.io.IOException;

@@ -557,6 +557,7 @@ public final class SqlStageExecution
     {
         private long previousUserMemory;
         private long previousSystemMemory;
+        private long previousRevocableMemory;
         private final Set<Lifespan> completedDriverGroups = new HashSet<>();
 
         @Override
@@ -575,11 +576,14 @@ public final class SqlStageExecution
         {
             long currentUserMemory = taskStatus.getMemoryReservation().toBytes();
             long currentSystemMemory = taskStatus.getSystemMemoryReservation().toBytes();
+            long currentRevocableMemory = taskStatus.getRevocableMemoryReservation().toBytes();
             long deltaUserMemoryInBytes = currentUserMemory - previousUserMemory;
-            long deltaTotalMemoryInBytes = (currentUserMemory + currentSystemMemory) - (previousUserMemory + previousSystemMemory);
+            long deltaRevocableMemoryInBytes = currentRevocableMemory - previousRevocableMemory;
+            long deltaTotalMemoryInBytes = (currentUserMemory + currentSystemMemory + currentRevocableMemory) - (previousUserMemory + previousSystemMemory + previousRevocableMemory);
             previousUserMemory = currentUserMemory;
             previousSystemMemory = currentSystemMemory;
-            stateMachine.updateMemoryUsage(deltaUserMemoryInBytes, deltaTotalMemoryInBytes);
+            previousRevocableMemory = currentRevocableMemory;
+            stateMachine.updateMemoryUsage(deltaUserMemoryInBytes, deltaRevocableMemoryInBytes, deltaTotalMemoryInBytes);
         }
 
         private synchronized void updateCompletedDriverGroups(TaskStatus taskStatus)

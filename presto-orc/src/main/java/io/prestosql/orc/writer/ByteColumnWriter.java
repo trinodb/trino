@@ -15,6 +15,7 @@ package io.prestosql.orc.writer;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.primitives.SignedBytes;
 import io.airlift.slice.Slice;
 import io.prestosql.orc.checkpoint.BooleanStreamCheckpoint;
 import io.prestosql.orc.checkpoint.ByteStreamCheckpoint;
@@ -99,7 +100,7 @@ public class ByteColumnWriter
         // record values
         for (int position = 0; position < block.getPositionCount(); position++) {
             if (!block.isNull(position)) {
-                dataStream.writeByte((byte) type.getLong(block, position));
+                dataStream.writeByte(SignedBytes.checkedCast(type.getLong(block, position)));
                 nonNullValueCount++;
             }
         }

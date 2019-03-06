@@ -18,14 +18,12 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.prestosql.spi.resourcegroups.ResourceGroup;
-import io.prestosql.spi.resourcegroups.ResourceGroupConfigurationManager;
 import io.prestosql.spi.resourcegroups.ResourceGroupId;
 import io.prestosql.spi.resourcegroups.SelectionContext;
 import io.prestosql.spi.resourcegroups.SelectionCriteria;
 import io.prestosql.spi.session.ResourceEstimates;
 import org.testng.annotations.Test;
 
-import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.io.Resources.getResource;
@@ -36,6 +34,8 @@ import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.HOURS;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
 public class TestFileResourceGroupConfigurationManager
@@ -53,51 +53,27 @@ public class TestFileResourceGroupConfigurationManager
         assertFails("resource_groups_config_bad_query_priority_scheduling_policy.json",
                 "Must use 'weighted' or 'weighted_fair' scheduling policy if specifying scheduling weight for 'requests'");
         assertFails("resource_groups_config_bad_extract_variable.json", "Invalid resource group name.*");
+        assertFails("resource_groups_config_bad_query_type.json", "Selector specifies an invalid query type: invalid_query_type");
+        assertFails("resource_groups_config_bad_selector.json", "Selector refers to nonexistent group: a.b.c.X");
     }
 
     @Test
     public void testQueryTypeConfiguration()
     {
         FileResourceGroupConfigurationManager manager = parse("resource_groups_config_query_type.json");
-        List<ResourceGroupSelector> selectors = manager.getSelectors();
-        assertMatch(selectors, new SelectionCriteria(true, "test_user", Optional.empty(), ImmutableSet.of(), EMPTY_RESOURCE_ESTIMATES, Optional.of("select")), "global.select");
-        assertMatch(selectors, new SelectionCriteria(true, "test_user", Optional.empty(), ImmutableSet.of(), EMPTY_RESOURCE_ESTIMATES, Optional.of("explain")), "global.explain");
-        assertMatch(selectors, new SelectionCriteria(true, "test_user", Optional.empty(), ImmutableSet.of(), EMPTY_RESOURCE_ESTIMATES, Optional.of("insert")), "global.insert");
-        assertMatch(selectors, new SelectionCriteria(true, "test_user", Optional.empty(), ImmutableSet.of(), EMPTY_RESOURCE_ESTIMATES, Optional.of("delete")), "global.delete");
-        assertMatch(selectors, new SelectionCriteria(true, "test_user", Optional.empty(), ImmutableSet.of(), EMPTY_RESOURCE_ESTIMATES, Optional.of("describe")), "global.describe");
-        assertMatch(selectors, new SelectionCriteria(true, "test_user", Optional.empty(), ImmutableSet.of(), EMPTY_RESOURCE_ESTIMATES, Optional.of("data_definition")), "global.data_definition");
-        assertMatch(selectors, new SelectionCriteria(true, "test_user", Optional.empty(), ImmutableSet.of(), EMPTY_RESOURCE_ESTIMATES, Optional.of("sth_else")), "global.other");
+        assertMatch(manager, queryTypeSelectionCriteria("select"), "global.select");
+        assertMatch(manager, queryTypeSelectionCriteria("explain"), "global.explain");
+        assertMatch(manager, queryTypeSelectionCriteria("insert"), "global.insert");
+        assertMatch(manager, queryTypeSelectionCriteria("delete"), "global.delete");
+        assertMatch(manager, queryTypeSelectionCriteria("describe"), "global.describe");
+        assertMatch(manager, queryTypeSelectionCriteria("data_definition"), "global.data_definition");
+        assertMatch(manager, queryTypeSelectionCriteria("sth_else"), "global.other");
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Selector specifies an invalid query type: invalid_query_type")
-    public void testInvalidQueryTypeConfiguration()
-    {
-        parse("resource_groups_config_bad_query_type.json");
-    }
-
-    private static void assertMatch(List<ResourceGroupSelector> selectors, SelectionCriteria context, String expectedResourceGroup)
-    {
-        Optional<ResourceGroupId> group = tryMatch(selectors, context);
-        assertTrue(group.isPresent(), "match expected");
-        assertEquals(group.get().toString(), expectedResourceGroup, format("Expected: '%s' resource group, found: %s", expectedResourceGroup, group.get()));
-    }
-
-    private static Optional<ResourceGroupId> tryMatch(List<ResourceGroupSelector> selectors, SelectionCriteria context)
-    {
-        for (ResourceGroupSelector selector : selectors) {
-            Optional<SelectionContext<VariableMap>> group = selector.match(context);
-            if (group.isPresent()) {
-                return group.map(SelectionContext::getResourceGroupId);
-            }
-        }
-        return Optional.empty();
-    }
-
-    @SuppressWarnings("SimplifiedTestNGAssertion")
     @Test
     public void testConfiguration()
     {
-        ResourceGroupConfigurationManager<VariableMap> manager = parse("resource_groups_config.json");
+        FileResourceGroupConfigurationManager manager = parse("resource_groups_config.json");
         ResourceGroupId globalId = new ResourceGroupId("global");
         ResourceGroup global = new TestingResourceGroup(globalId);
         manager.configure(global, new SelectionContext<>(globalId, new VariableMap(ImmutableMap.of("USER", "user"))));
@@ -109,7 +85,7 @@ public class TestFileResourceGroupConfigurationManager
         assertEquals(global.getHardConcurrencyLimit(), 100);
         assertEquals(global.getSchedulingPolicy(), WEIGHTED);
         assertEquals(global.getSchedulingWeight(), 0);
-        assertEquals(global.getJmxExport(), true);
+        assertTrue(global.getJmxExport());
 
         ResourceGroupId subId = new ResourceGroupId(globalId, "sub");
         ResourceGroup sub = new TestingResourceGroup(subId);
@@ -117,32 +93,26 @@ public class TestFileResourceGroupConfigurationManager
         assertEquals(sub.getSoftMemoryLimit(), new DataSize(2, MEGABYTE));
         assertEquals(sub.getHardConcurrencyLimit(), 3);
         assertEquals(sub.getMaxQueuedQueries(), 4);
-        assertEquals(sub.getSchedulingPolicy(), null);
+        assertNull(sub.getSchedulingPolicy());
         assertEquals(sub.getSchedulingWeight(), 5);
-        assertEquals(sub.getJmxExport(), false);
+        assertFalse(sub.getJmxExport());
     }
 
     @Test
     public void testExtractVariableConfiguration()
     {
-        ResourceGroupConfigurationManager<VariableMap> manager = parse("resource_groups_config_extract_variable.json");
-
-        VariableMap variableMap = new VariableMap(ImmutableMap.of("USER", "user", "domain", "presto", "region", "us_east", "cluster", "12"));
-
-        ResourceGroupId globalId = new ResourceGroupId("global");
-        manager.configure(new TestingResourceGroup(globalId), new SelectionContext<>(globalId, variableMap));
-
-        ResourceGroupId childId = new ResourceGroupId(new ResourceGroupId("global"), "presto:us_east:12");
-        TestingResourceGroup child = new TestingResourceGroup(childId);
-        manager.configure(child, new SelectionContext<>(childId, variableMap));
-
-        assertEquals(child.getHardConcurrencyLimit(), 3);
+        FileResourceGroupConfigurationManager manager = parse("resource_groups_config_extract_variable.json");
+        SelectionContext<VariableMap> selectionContext = match(manager, userAndSourceSelectionCriteria("someuser@presto.io", "scheduler.us_east.12"));
+        assertEquals(selectionContext.getResourceGroupId().toString(), "global.presto:us_east:12");
+        TestingResourceGroup resourceGroup = new TestingResourceGroup(selectionContext.getResourceGroupId());
+        manager.configure(resourceGroup, selectionContext);
+        assertEquals(resourceGroup.getHardConcurrencyLimit(), 3);
     }
 
     @Test
     public void testLegacyConfiguration()
     {
-        ResourceGroupConfigurationManager<VariableMap> manager = parse("resource_groups_config_legacy.json");
+        FileResourceGroupConfigurationManager manager = parse("resource_groups_config_legacy.json");
         ResourceGroupId globalId = new ResourceGroupId("global");
         ResourceGroup global = new TestingResourceGroup(globalId);
         manager.configure(global, new SelectionContext<>(globalId, new VariableMap(ImmutableMap.of("USER", "user"))));
@@ -151,10 +121,21 @@ public class TestFileResourceGroupConfigurationManager
         assertEquals(global.getHardConcurrencyLimit(), 42);
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Selector refers to nonexistent group: a.b.c.X")
-    public void testNonExistentGroup()
+    private static void assertMatch(FileResourceGroupConfigurationManager manager, SelectionCriteria criteria, String expectedResourceGroup)
     {
-        parse("resource_groups_config_bad_selector.json");
+        ResourceGroupId resourceGroupId = match(manager, criteria).getResourceGroupId();
+        assertEquals(resourceGroupId.toString(), expectedResourceGroup, format("Expected: '%s' resource group, found: %s", expectedResourceGroup, resourceGroupId));
+    }
+
+    private static SelectionContext<VariableMap> match(FileResourceGroupConfigurationManager manager, SelectionCriteria criteria)
+    {
+        return manager.match(criteria)
+                .orElseThrow(() -> new IllegalStateException("No match"));
+    }
+
+    private static void assertFails(String fileName, String expectedPattern)
+    {
+        assertThatThrownBy(() -> parse(fileName)).hasMessageMatching(expectedPattern);
     }
 
     private static FileResourceGroupConfigurationManager parse(String fileName)
@@ -164,8 +145,13 @@ public class TestFileResourceGroupConfigurationManager
         return new FileResourceGroupConfigurationManager((poolId, listener) -> {}, config);
     }
 
-    private static void assertFails(String fileName, String expectedPattern)
+    private static SelectionCriteria userAndSourceSelectionCriteria(String user, String source)
     {
-        assertThatThrownBy(() -> parse(fileName)).hasMessageMatching(expectedPattern);
+        return new SelectionCriteria(true, user, Optional.of(source), ImmutableSet.of(), EMPTY_RESOURCE_ESTIMATES, Optional.empty());
+    }
+
+    private static SelectionCriteria queryTypeSelectionCriteria(String queryType)
+    {
+        return new SelectionCriteria(true, "test_user", Optional.empty(), ImmutableSet.of(), EMPTY_RESOURCE_ESTIMATES, Optional.of(queryType));
     }
 }

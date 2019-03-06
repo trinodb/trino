@@ -39,13 +39,20 @@ final class JoinMatcher
     private final List<ExpectedValueProvider<JoinNode.EquiJoinClause>> equiCriteria;
     private final Optional<Expression> filter;
     private final Optional<DistributionType> distributionType;
+    private final Optional<Boolean> spillable;
 
-    JoinMatcher(JoinNode.Type joinType, List<ExpectedValueProvider<JoinNode.EquiJoinClause>> equiCriteria, Optional<Expression> filter, Optional<DistributionType> distributionType)
+    JoinMatcher(
+            JoinNode.Type joinType,
+            List<ExpectedValueProvider<JoinNode.EquiJoinClause>> equiCriteria,
+            Optional<Expression> filter,
+            Optional<DistributionType> distributionType,
+            Optional<Boolean> spillable)
     {
         this.joinType = requireNonNull(joinType, "joinType is null");
         this.equiCriteria = requireNonNull(equiCriteria, "equiCriteria is null");
         this.filter = requireNonNull(filter, "filter can not be null");
         this.distributionType = requireNonNull(distributionType, "distributionType is null");
+        this.spillable = requireNonNull(spillable, "spillable is null");
     }
 
     @Override
@@ -85,6 +92,10 @@ final class JoinMatcher
         }
 
         if (distributionType.isPresent() && !distributionType.equals(joinNode.getDistributionType())) {
+            return NO_MATCH;
+        }
+
+        if (spillable.isPresent() && !spillable.equals(joinNode.isSpillable())) {
             return NO_MATCH;
         }
 

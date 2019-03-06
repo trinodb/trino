@@ -237,6 +237,7 @@ public class SqlTask
         DataSize physicalWrittenDataSize = new DataSize(0, BYTE);
         DataSize userMemoryReservation = new DataSize(0, BYTE);
         DataSize systemMemoryReservation = new DataSize(0, BYTE);
+        DataSize revocableMemoryReservation = new DataSize(0, BYTE);
         // TODO: add a mechanism to avoid sending the whole completedDriverGroups set over the wire for every task status reply
         Set<Lifespan> completedDriverGroups = ImmutableSet.of();
         long fullGcCount = 0;
@@ -248,6 +249,7 @@ public class SqlTask
             physicalWrittenDataSize = taskStats.getPhysicalWrittenDataSize();
             userMemoryReservation = taskStats.getUserMemoryReservation();
             systemMemoryReservation = taskStats.getSystemMemoryReservation();
+            revocableMemoryReservation = taskStats.getRevocableMemoryReservation();
             fullGcCount = taskStats.getFullGcCount();
             fullGcTime = taskStats.getFullGcTime();
         }
@@ -263,6 +265,7 @@ public class SqlTask
             physicalWrittenDataSize = succinctBytes(physicalWrittenBytes);
             userMemoryReservation = taskContext.getMemoryReservation();
             systemMemoryReservation = taskContext.getSystemMemoryReservation();
+            revocableMemoryReservation = taskContext.getRevocableMemoryReservation();
             completedDriverGroups = taskContext.getCompletedDriverGroups();
             fullGcCount = taskContext.getFullGcCount();
             fullGcTime = taskContext.getFullGcTime();
@@ -282,6 +285,7 @@ public class SqlTask
                 physicalWrittenDataSize,
                 userMemoryReservation,
                 systemMemoryReservation,
+                revocableMemoryReservation,
                 fullGcCount,
                 fullGcTime);
     }

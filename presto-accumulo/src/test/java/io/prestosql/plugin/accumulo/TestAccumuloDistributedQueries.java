@@ -152,63 +152,6 @@ public class TestAccumuloDistributedQueries
     }
 
     @Override
-    public void testBuildFilteredLeftJoin()
-    {
-        // Override because of extra UUID column in lineitem table, cannot SELECT *
-        assertQuery("SELECT "
-                + "lineitem.orderkey, partkey, suppkey, linenumber, quantity, "
-                + "extendedprice, discount, tax, returnflag, linestatus, "
-                + "shipdate, commitdate, receiptdate, shipinstruct, shipmode, lineitem.comment "
-                + "FROM lineitem LEFT JOIN (SELECT * FROM orders WHERE orderkey % 2 = 0) a ON lineitem.orderkey = a.orderkey");
-    }
-
-    @Override
-    @Test
-    public void testJoinWithAlias()
-    {
-        // Override because of extra UUID column in lineitem table, cannot SELECT *
-        // Cannot munge test to pass due to aliased data set 'x' containing duplicate orderkey and comment columns
-    }
-
-    @Override
-    public void testProbeFilteredLeftJoin()
-    {
-        // Override because of extra UUID column in lineitem table, cannot SELECT *
-        assertQuery("SELECT "
-                + "a.orderkey, partkey, suppkey, linenumber, quantity, "
-                + "extendedprice, discount, tax, returnflag, linestatus, "
-                + "shipdate, commitdate, receiptdate, shipinstruct, shipmode, a.comment "
-                + "FROM (SELECT * FROM lineitem WHERE orderkey % 2 = 0) a LEFT JOIN orders ON a.orderkey = orders.orderkey");
-    }
-
-    @Override
-    public void testLeftJoinWithEmptyInnerTable()
-    {
-        // Override because of extra UUID column in lineitem table, cannot SELECT *
-        // Use orderkey = rand() to create an empty relation
-        assertQuery("SELECT a.orderkey, partkey, suppkey, linenumber, quantity, "
-                + "extendedprice, discount, tax, returnflag, linestatus, "
-                + "shipdate, commitdate, receiptdate, shipinstruct, shipmode, a.comment " +
-                "FROM lineitem a LEFT JOIN(SELECT * FROM orders WHERE orderkey = rand())b ON a.orderkey = b.orderkey");
-        assertQuery("SELECT a.orderkey, partkey, suppkey, linenumber, quantity, "
-                + "extendedprice, discount, tax, returnflag, linestatus, "
-                + "shipdate, commitdate, receiptdate, shipinstruct, shipmode, a.comment " +
-                "FROM lineitem a LEFT JOIN (SELECT * FROM orders WHERE orderkey = rand()) b ON a.orderkey > b.orderkey");
-        assertQuery("SELECT a.orderkey, partkey, suppkey, linenumber, quantity, "
-                + "extendedprice, discount, tax, returnflag, linestatus, "
-                + "shipdate, commitdate, receiptdate, shipinstruct, shipmode, a.comment " +
-                " FROM lineitem a LEFT JOIN (SELECT * FROM orders WHERE orderkey = rand()) b ON 1 = 1");
-        assertQuery("SELECT a.orderkey, partkey, suppkey, linenumber, quantity, "
-                + "extendedprice, discount, tax, returnflag, linestatus, "
-                + "shipdate, commitdate, receiptdate, shipinstruct, shipmode, a.comment " +
-                "FROM lineitem a LEFT JOIN (SELECT * FROM orders WHERE orderkey = rand()) b ON b.orderkey > 1");
-        assertQuery("SELECT a.orderkey, partkey, suppkey, linenumber, quantity, "
-                + "extendedprice, discount, tax, returnflag, linestatus, "
-                + "shipdate, commitdate, receiptdate, shipinstruct, shipmode, a.comment " +
-                "FROM lineitem a LEFT JOIN (SELECT * FROM orders WHERE orderkey = rand()) b ON b.orderkey > b.totalprice");
-    }
-
-    @Override
     public void testScalarSubquery()
     {
         // Override because of extra UUID column in lineitem table, cannot SELECT *

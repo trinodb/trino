@@ -14,24 +14,25 @@
 package io.prestosql.tests.cassandra;
 
 import io.airlift.units.Duration;
-import io.prestodb.tempto.ProductTest;
-import io.prestodb.tempto.Requirement;
-import io.prestodb.tempto.RequirementsProvider;
-import io.prestodb.tempto.configuration.Configuration;
-import io.prestodb.tempto.internal.fulfillment.table.TableName;
-import io.prestodb.tempto.internal.query.CassandraQueryExecutor;
-import io.prestodb.tempto.query.QueryResult;
+import io.prestosql.tempto.ProductTest;
+import io.prestosql.tempto.Requirement;
+import io.prestosql.tempto.RequirementsProvider;
+import io.prestosql.tempto.configuration.Configuration;
+import io.prestosql.tempto.internal.fulfillment.table.TableName;
+import io.prestosql.tempto.internal.query.CassandraQueryExecutor;
+import io.prestosql.tempto.query.QueryResult;
 import org.testng.annotations.Test;
 
+import java.sql.Date;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
 
-import static io.prestodb.tempto.assertions.QueryAssert.Row.row;
-import static io.prestodb.tempto.assertions.QueryAssert.assertThat;
-import static io.prestodb.tempto.fulfillment.table.MutableTableRequirement.State.CREATED;
-import static io.prestodb.tempto.fulfillment.table.MutableTablesState.mutableTablesState;
-import static io.prestodb.tempto.fulfillment.table.TableRequirements.mutableTable;
-import static io.prestodb.tempto.query.QueryExecutor.query;
+import static io.prestosql.tempto.assertions.QueryAssert.Row.row;
+import static io.prestosql.tempto.assertions.QueryAssert.assertThat;
+import static io.prestosql.tempto.fulfillment.table.MutableTableRequirement.State.CREATED;
+import static io.prestosql.tempto.fulfillment.table.MutableTablesState.mutableTablesState;
+import static io.prestosql.tempto.fulfillment.table.TableRequirements.mutableTable;
+import static io.prestosql.tempto.query.QueryExecutor.query;
 import static io.prestosql.tests.TestGroups.CASSANDRA;
 import static io.prestosql.tests.cassandra.DataTypesTableDefinition.CASSANDRA_ALL_TYPES;
 import static io.prestosql.tests.cassandra.TestConstants.CONNECTOR_NAME;
@@ -72,16 +73,19 @@ public class TestInsertIntoCassandraTable
         // TODO Following types are not supported now. We need to change null into the value after fixing it
         // blob, frozen<set<type>>, inet, list<type>, map<type,type>, set<type>, timeuuid, decimal, uuid, varint
         query("INSERT INTO " + tableNameInDatabase +
-                "(a, b, bl, bo, d, do, f, fr, i, integer, l, m, s, t, ti, tu, u, v, vari) VALUES (" +
+                "(a, b, bl, bo, d, do, dt, f, fr, i, ti, si, integer, l, m, s, t, ts, tu, u, v, vari) VALUES (" +
                 "'ascii value', " +
                 "BIGINT '99999', " +
                 "null, " +
                 "true, " +
                 "null, " +
                 "123.456789, " +
+                "DATE '9999-12-31'," +
                 "REAL '123.45678', " +
                 "null, " +
                 "null, " +
+                "TINYINT '-128', " +
+                "SMALLINT '-32768', " +
                 "123, " +
                 "null, " +
                 "null, " +
@@ -101,6 +105,7 @@ public class TestInsertIntoCassandraTable
                         true,
                         null,
                         123.456789,
+                        Date.valueOf("9999-12-31"),
                         123.45678,
                         null,
                         null,
@@ -108,7 +113,9 @@ public class TestInsertIntoCassandraTable
                         null,
                         null,
                         null,
+                        -32768,
                         "text value",
+                        -128,
                         Timestamp.valueOf(LocalDateTime.of(9999, 12, 31, 23, 59, 59)),
                         null,
                         null,
@@ -117,15 +124,15 @@ public class TestInsertIntoCassandraTable
 
         // insert null for all datatypes
         query("INSERT INTO " + tableNameInDatabase +
-                "(a, b, bl, bo, d, do, f, fr, i, integer, l, m, s, t, ti, tu, u, v, vari) VALUES (" +
-                "'key 1', null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null) ");
+                "(a, b, bl, bo, d, do, dt, f, fr, i, ti, si, integer, l, m, s, t, ts, tu, u, v, vari) VALUES (" +
+                "'key 1', null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null) ");
         assertThat(query(format("SELECT * FROM %s WHERE a = 'key 1'", tableNameInDatabase))).containsOnly(
-                row("key 1", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null));
+                row("key 1", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null));
 
         // insert into only a subset of columns
         query(format("INSERT INTO %s (a, bo, integer, t) VALUES ('key 2', false, 999, 'text 2')", tableNameInDatabase));
         assertThat(query(format("SELECT * FROM %s WHERE a = 'key 2'", tableNameInDatabase))).containsOnly(
-                row("key 2", null, null, false, null, null, null, null, null, 999, null, null, null, "text 2", null, null, null, null, null));
+                row("key 2", null, null, false, null, null, null, null, null, null, 999, null, null, null, null, "text 2", null, null, null, null, null, null));
 
         // negative test: failed to insert null to primary key
         assertThat(() -> query(format("INSERT INTO %s (a) VALUES (null) ", tableNameInDatabase)))

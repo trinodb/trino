@@ -24,14 +24,12 @@ import io.prestosql.orc.checkpoint.InvalidCheckpointException;
 import io.prestosql.orc.checkpoint.StreamCheckpoint;
 import io.prestosql.orc.metadata.ColumnEncoding;
 import io.prestosql.orc.metadata.ColumnEncoding.ColumnEncodingKind;
-import io.prestosql.orc.metadata.DwrfSequenceEncoding;
 import io.prestosql.orc.metadata.MetadataReader;
 import io.prestosql.orc.metadata.OrcType;
 import io.prestosql.orc.metadata.OrcType.OrcTypeKind;
 import io.prestosql.orc.metadata.PostScript.HiveWriterVersion;
 import io.prestosql.orc.metadata.RowGroupIndex;
 import io.prestosql.orc.metadata.Stream;
-import io.prestosql.orc.metadata.Stream.StreamKind;
 import io.prestosql.orc.metadata.StripeFooter;
 import io.prestosql.orc.metadata.StripeInformation;
 import io.prestosql.orc.metadata.statistics.ColumnStatistics;
@@ -46,7 +44,6 @@ import io.prestosql.orc.stream.ValueStreams;
 import java.io.IOException;
 import java.io.InputStream;
 import java.time.ZoneId;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -57,7 +54,7 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.prestosql.orc.checkpoint.Checkpoints.getDictionaryStreamCheckpoint;
 import static io.prestosql.orc.checkpoint.Checkpoints.getStreamCheckpoints;
 import static io.prestosql.orc.metadata.ColumnEncoding.ColumnEncodingKind.DICTIONARY;
@@ -68,7 +65,6 @@ import static io.prestosql.orc.metadata.Stream.StreamKind.DICTIONARY_COUNT;
 import static io.prestosql.orc.metadata.Stream.StreamKind.DICTIONARY_DATA;
 import static io.prestosql.orc.metadata.Stream.StreamKind.LENGTH;
 import static io.prestosql.orc.metadata.Stream.StreamKind.ROW_INDEX;
-import static io.prestosql.orc.metadata.statistics.ColumnStatistics.mergeColumnStatistics;
 import static io.prestosql.orc.stream.CheckpointInputStreamSource.createCheckpointStreamSource;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
@@ -126,28 +122,12 @@ public class StripeReader
         for (Stream stream : stripeFooter.getStreams()) {
             if (includedOrcColumns.contains(stream.getColumn())) {
                 streams.put(new StreamId(stream), stream);
-
-                if (stream.getStreamKind() == StreamKind.IN_DICTIONARY) {
-                    ColumnEncoding columnEncoding = columnEncodings.get(stream.getColumn());
-
-                    if (columnEncoding.getColumnEncodingKind() == DICTIONARY) {
-                        hasRowGroupDictionary = true;
-                    }
-
-                    Optional<List<DwrfSequenceEncoding>> additionalSequenceEncodings = columnEncoding.getAdditionalSequenceEncodings();
-                    if (additionalSequenceEncodings.isPresent()
-                            && additionalSequenceEncodings.get().stream()
-                            .map(DwrfSequenceEncoding::getValueEncoding)
-                            .anyMatch(encoding -> encoding.getColumnEncodingKind() == DICTIONARY)) {
-                        hasRowGroupDictionary = true;
-                    }
-                }
             }
         }
 
-        // handle stripes with more than one row group or a dictionary
+        // handle stripes with more than one row group
         boolean invalidCheckPoint = false;
-        if ((stripe.getNumberOfRows() > rowsInRowGroup) || hasRowGroupDictionary) {
+        if (stripe.getNumberOfRows() > rowsInRowGroup) {
             // determine ranges of the stripe to read
             Map<StreamId, DiskRange> diskRanges = getDiskRanges(stripeFooter.getStreams());
             diskRanges = Maps.filterKeys(diskRanges, Predicates.in(streams.keySet()));
@@ -203,7 +183,7 @@ public class StripeReader
             }
         }
 
-        // stripe only has one row group and no dictionary
+        // stripe only has one row group
         ImmutableMap.Builder<StreamId, DiskRange> diskRangesBuilder = ImmutableMap.builder();
         for (Entry<StreamId, DiskRange> entry : getDiskRanges(stripeFooter.getStreams()).entrySet()) {
             StreamId streamId = entry.getKey();
@@ -285,9 +265,7 @@ public class StripeReader
         for (Entry<StreamId, Stream> entry : streams.entrySet()) {
             StreamId streamId = entry.getKey();
             Stream stream = entry.getValue();
-            ColumnEncodingKind columnEncoding = columnEncodings.get(stream.getColumn())
-                    .getColumnEncoding(stream.getSequence())
-                    .getColumnEncodingKind();
+            ColumnEncodingKind columnEncoding = columnEncodings.get(stream.getColumn()).getColumnEncodingKind();
 
             // skip index and empty streams
             if (isIndexStream(stream) || stream.getLength() == 0) {
@@ -311,9 +289,7 @@ public class StripeReader
             int column = stream.getColumn();
 
             // only process dictionary streams
-            ColumnEncodingKind columnEncoding = columnEncodings.get(column)
-                    .getColumnEncoding(stream.getSequence())
-                    .getColumnEncodingKind();
+            ColumnEncodingKind columnEncoding = columnEncodings.get(column).getColumnEncodingKind();
             if (!isDictionary(stream, columnEncoding)) {
                 continue;
             }
@@ -466,24 +442,14 @@ public class StripeReader
         requireNonNull(columnIndexes, "columnIndexes is null");
         checkArgument(rowGroup >= 0, "rowGroup is negative");
 
-        Map<Integer, List<ColumnStatistics>> groupedColumnStatistics = new HashMap<>();
-        for (Entry<StreamId, List<RowGroupIndex>> entry : columnIndexes.entrySet()) {
-            groupedColumnStatistics.computeIfAbsent(entry.getKey().getColumn(), key -> new ArrayList<>())
-                    .add(entry.getValue().get(rowGroup).getColumnStatistics());
-        }
+        Map<Integer, List<RowGroupIndex>> columnIndexesByField = columnIndexes.entrySet().stream()
+                .collect(toImmutableMap(entry -> entry.getKey().getColumn(), Entry::getValue));
 
         ImmutableMap.Builder<Integer, ColumnStatistics> statistics = ImmutableMap.builder();
         for (int ordinal = 0; ordinal < rootStructType.getFieldCount(); ordinal++) {
-            List<ColumnStatistics> columnStatistics = groupedColumnStatistics.get(rootStructType.getFieldTypeIndex(ordinal));
-            if (columnStatistics != null) {
-                if (columnStatistics.size() == 1) {
-                    statistics.put(ordinal, getOnlyElement(columnStatistics));
-                }
-                else {
-                    // Merge statistics from different streams
-                    // This can happen if map is represented as struct (DWRF only)
-                    statistics.put(ordinal, mergeColumnStatistics(columnStatistics));
-                }
+            List<RowGroupIndex> rowGroupIndexes = columnIndexesByField.get(rootStructType.getFieldTypeIndex(ordinal));
+            if (rowGroupIndexes != null) {
+                statistics.put(ordinal, rowGroupIndexes.get(rowGroup).getColumnStatistics());
             }
         }
         return statistics.build();

@@ -14,6 +14,7 @@
 package io.prestosql.plugin.hive.gcs;
 
 import com.google.cloud.hadoop.fs.gcs.GoogleHadoopFileSystem;
+import io.prestosql.plugin.hive.s3.ConfigurationInitializer;
 import org.apache.hadoop.conf.Configuration;
 
 import javax.inject.Inject;
@@ -24,7 +25,7 @@ import static com.google.cloud.hadoop.util.AccessTokenProviderClassFromConfigFac
 import static com.google.cloud.hadoop.util.EntriesCredentialConfiguration.JSON_KEYFILE_SUFFIX;
 
 public class GoogleGcsConfigurationInitializer
-        implements GcsConfigurationInitializer
+        implements ConfigurationInitializer
 {
     private final boolean useGcsAccessToken;
     private final String jsonKeyFilePath;
@@ -36,7 +37,8 @@ public class GoogleGcsConfigurationInitializer
         this.jsonKeyFilePath = config.getJsonKeyFilePath();
     }
 
-    public void updateConfiguration(Configuration config)
+    @Override
+    public void initializeConfiguration(Configuration config)
     {
         config.set("fs.gs.impl", GoogleHadoopFileSystem.class.getName());
 

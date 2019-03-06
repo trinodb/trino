@@ -13,9 +13,6 @@
  */
 package io.prestosql.rcfile;
 
-import org.testng.annotations.Test;
-
-@Test(groups = "ci")
 public class TestFullRcFileReader
         extends AbstractTestRcFileReader
 {

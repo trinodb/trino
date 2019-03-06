@@ -10,7 +10,7 @@
 
     <groupId>io.prestosql</groupId>
     <artifactId>presto-root</artifactId>
-    <version>304-SNAPSHOT</version>
+    <version>305-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <name>presto-root</name>
@@ -52,7 +52,7 @@
         <dep.jdbi3.version>3.4.0</dep.jdbi3.version>
         <dep.drift.version>1.14</dep.drift.version>
         <dep.joda.version>2.10</dep.joda.version>
-        <dep.tempto.version>1.50</dep.tempto.version>
+        <dep.tempto.version>163</dep.tempto.version>
         <dep.testng.version>6.10</dep.testng.version>
         <dep.assertj-core.version>3.8.0</dep.assertj-core.version>
         <dep.logback.version>1.2.3</dep.logback.version>
@@ -115,6 +115,7 @@
         <module>presto-jdbc</module>
         <module>presto-cli</module>
         <module>presto-benchmark-driver</module>
+        <module>presto-ranger-plugin</module>
         <module>presto-server</module>
         <module>presto-server-rpm</module>
         <module>presto-docs</module>
@@ -133,7 +134,6 @@
         <module>presto-proxy</module>
         <module>presto-kudu</module>
         <module>presto-elasticsearch</module>
-        <module>presto-ranger-plugin</module>
     </modules>
 
     <dependencyManagement>
@@ -423,7 +423,7 @@
             <dependency>
                 <groupId>io.prestosql.orc</groupId>
                 <artifactId>orc-protobuf</artifactId>
-                <version>8</version>
+                <version>9</version>
             </dependency>
 
             <dependency>
@@ -450,12 +450,6 @@
                 <artifactId>presto-thrift</artifactId>
                 <version>${project.version}</version>
                 <type>zip</type>
-            </dependency>
-
-            <dependency>
-                <groupId>com.facebook.hive</groupId>
-                <artifactId>hive-dwrf</artifactId>
-                <version>0.8.2</version>
             </dependency>
 
             <dependency>
@@ -599,7 +593,7 @@
             <dependency>
                 <groupId>io.airlift</groupId>
                 <artifactId>joni</artifactId>
-                <version>2.1.5.1</version>
+                <version>2.1.5.2</version>
             </dependency>
 
             <dependency>
@@ -979,7 +973,7 @@
             </dependency>
 
             <dependency>
-                <groupId>io.prestodb.tempto</groupId>
+                <groupId>io.prestosql.tempto</groupId>
                 <artifactId>tempto-core</artifactId>
                 <version>${dep.tempto.version}</version>
                 <exclusions>
@@ -995,7 +989,7 @@
             </dependency>
 
             <dependency>
-                <groupId>io.prestodb.tempto</groupId>
+                <groupId>io.prestosql.tempto</groupId>
                 <artifactId>tempto-ldap</artifactId>
                 <version>${dep.tempto.version}</version>
                 <exclusions>
@@ -1007,7 +1001,7 @@
             </dependency>
 
             <dependency>
-                <groupId>io.prestodb.tempto</groupId>
+                <groupId>io.prestosql.tempto</groupId>
                 <artifactId>tempto-kafka</artifactId>
                 <version>${dep.tempto.version}</version>
                 <exclusions>
@@ -1023,7 +1017,7 @@
             </dependency>
 
             <dependency>
-                <groupId>io.prestodb.tempto</groupId>
+                <groupId>io.prestosql.tempto</groupId>
                 <artifactId>tempto-runner</artifactId>
                 <version>${dep.tempto.version}</version>
                 <exclusions>

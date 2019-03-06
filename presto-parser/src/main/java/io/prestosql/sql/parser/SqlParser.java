@@ -186,6 +186,15 @@ public class SqlParser
         }
 
         @Override
+        public void exitQuotedIdentifier(SqlBaseParser.QuotedIdentifierContext context)
+        {
+            Token token = context.QUOTED_IDENTIFIER().getSymbol();
+            if (token.getText().length() == 2) { // empty identifier
+                throw new ParsingException("Zero-length delimited identifier not allowed", null, token.getLine(), token.getCharPositionInLine());
+            }
+        }
+
+        @Override
         public void exitUnquotedIdentifier(SqlBaseParser.UnquotedIdentifierContext context)
         {
             String identifier = context.IDENTIFIER().getText();

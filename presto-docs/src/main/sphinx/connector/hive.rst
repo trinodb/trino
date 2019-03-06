@@ -260,6 +260,10 @@ Property Name                                Description
 
 ``hive.s3.upload-acl-type``                  Canned ACL to use while uploading files to S3 (defaults
                                              to ``Private``).
+
+``hive.s3.skip-glacier-objects``             Ignore Glacier objects rather than failing the query. This
+                                             will skip data that may be expected to be part of the table
+                                             or partition. Defaults to ``false``.
 ============================================ =================================================================
 
 S3 Credentials
@@ -558,6 +562,14 @@ Procedures
 * ``system.create_empty_partition(schema_name, table_name, partition_columns, partition_values)``
 
     Create an empty partition in the specified table.
+
+* ``system.sync_partition_metadata(schema_name, table_name, mode)``
+
+    Check and update partitions list in metastore. There are three modes available:
+
+    * ``ADD`` : add any partitions that exist on the file system but not in the metastore.
+    * ``DROP``: drop any partitions that exist in the metastore but not on the file system.
+    * ``FULL``: perform both ``ADD`` and ``DROP``.
 
 Examples
 --------

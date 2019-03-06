@@ -65,17 +65,18 @@ public class TestJdbcClient
     @Test
     public void testMetadata()
     {
-        assertTrue(jdbcClient.getSchemaNames().containsAll(ImmutableSet.of("example", "tpch")));
-        assertEquals(jdbcClient.getTableNames("example"), ImmutableList.of(
+        JdbcIdentity identity = JdbcIdentity.from(session);
+        assertTrue(jdbcClient.getSchemaNames(identity).containsAll(ImmutableSet.of("example", "tpch")));
+        assertEquals(jdbcClient.getTableNames(identity, "example"), ImmutableList.of(
                 new SchemaTableName("example", "numbers"),
                 new SchemaTableName("example", "view_source"),
                 new SchemaTableName("example", "view")));
-        assertEquals(jdbcClient.getTableNames("tpch"), ImmutableList.of(
+        assertEquals(jdbcClient.getTableNames(identity, "tpch"), ImmutableList.of(
                 new SchemaTableName("tpch", "lineitem"),
                 new SchemaTableName("tpch", "orders")));
 
         SchemaTableName schemaTableName = new SchemaTableName("example", "numbers");
-        JdbcTableHandle table = jdbcClient.getTableHandle(schemaTableName);
+        JdbcTableHandle table = jdbcClient.getTableHandle(identity, schemaTableName);
         assertNotNull(table, "table is null");
         assertEquals(table.getCatalogName(), catalogName.toUpperCase(ENGLISH));
         assertEquals(table.getSchemaName(), "EXAMPLE");
@@ -91,7 +92,7 @@ public class TestJdbcClient
     public void testMetadataWithSchemaPattern()
     {
         SchemaTableName schemaTableName = new SchemaTableName("exa_ple", "num_ers");
-        JdbcTableHandle table = jdbcClient.getTableHandle(schemaTableName);
+        JdbcTableHandle table = jdbcClient.getTableHandle(JdbcIdentity.from(session), schemaTableName);
         assertNotNull(table, "table is null");
         assertEquals(jdbcClient.getColumns(session, table), ImmutableList.of(
                 new JdbcColumnHandle(CONNECTOR_ID, "TE_T", JDBC_VARCHAR, VARCHAR),
@@ -102,7 +103,7 @@ public class TestJdbcClient
     public void testMetadataWithFloatAndDoubleCol()
     {
         SchemaTableName schemaTableName = new SchemaTableName("exa_ple", "table_with_float_col");
-        JdbcTableHandle table = jdbcClient.getTableHandle(schemaTableName);
+        JdbcTableHandle table = jdbcClient.getTableHandle(JdbcIdentity.from(session), schemaTableName);
         assertNotNull(table, "table is null");
         assertEquals(jdbcClient.getColumns(session, table), ImmutableList.of(
                 new JdbcColumnHandle(CONNECTOR_ID, "COL1", JDBC_BIGINT, BIGINT),

@@ -15,7 +15,7 @@ package io.prestosql.sql.planner.planPrinter;
 
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.cost.PlanNodeCostEstimate;
+import io.prestosql.cost.PlanCostEstimate;
 import io.prestosql.cost.PlanNodeStatsEstimate;
 
 import java.util.List;
@@ -203,7 +203,7 @@ public class TextRenderer
     private String printEstimates(PlanRepresentation plan, NodeRepresentation node)
     {
         if (node.getEstimatedStats().stream().allMatch(PlanNodeStatsEstimate::isOutputRowCountUnknown) &&
-                node.getEstimatedCost().stream().allMatch(c -> c.equals(PlanNodeCostEstimate.unknown()))) {
+                node.getEstimatedCost().stream().allMatch(c -> c.equals(PlanCostEstimate.unknown()))) {
             return "";
         }
 
@@ -213,13 +213,13 @@ public class TextRenderer
         output.append("Estimates: ");
         for (int i = 0; i < estimateCount; i++) {
             PlanNodeStatsEstimate stats = node.getEstimatedStats().get(i);
-            PlanNodeCostEstimate cost = node.getEstimatedCost().get(i);
+            PlanCostEstimate cost = node.getEstimatedCost().get(i);
 
             output.append(format("{rows: %s (%s), cpu: %s, memory: %s, network: %s}",
                     formatAsLong(stats.getOutputRowCount()),
                     formatEstimateAsDataSize(stats.getOutputSizeInBytes(node.getOutputs(), plan.getTypes())),
                     formatDouble(cost.getCpuCost()),
-                    formatDouble(cost.getMemoryCost()),
+                    formatDouble(cost.getMaxMemory()),
                     formatDouble(cost.getNetworkCost())));
 
             if (i < estimateCount - 1) {

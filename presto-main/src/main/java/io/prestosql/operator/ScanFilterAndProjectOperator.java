@@ -244,7 +244,7 @@ public class ScanFilterAndProjectOperator
 
             long bytesProcessed = cursor.getCompletedBytes() - completedBytes;
             long elapsedNanos = cursor.getReadTimeNanos() - readTimeNanos;
-            operatorContext.recordPhysicalInputWithTiming(bytesProcessed, elapsedNanos);
+            operatorContext.recordPhysicalInputWithTiming(bytesProcessed, output.getProcessedRows(), elapsedNanos);
             // TODO: derive better values for cursors
             operatorContext.recordProcessedInput(bytesProcessed, output.getProcessedRows());
             completedBytes = cursor.getCompletedBytes();
@@ -280,7 +280,7 @@ public class ScanFilterAndProjectOperator
                 // update operator stats
                 long endCompletedBytes = pageSource.getCompletedBytes();
                 long endReadTimeNanos = pageSource.getReadTimeNanos();
-                operatorContext.recordPhysicalInputWithTiming(endCompletedBytes - completedBytes, endReadTimeNanos - readTimeNanos);
+                operatorContext.recordPhysicalInputWithTiming(endCompletedBytes - completedBytes, page.getPositionCount(), endReadTimeNanos - readTimeNanos);
                 completedBytes = endCompletedBytes;
                 readTimeNanos = endReadTimeNanos;
 

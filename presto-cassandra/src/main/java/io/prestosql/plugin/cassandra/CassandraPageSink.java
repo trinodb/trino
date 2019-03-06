@@ -13,9 +13,12 @@
  */
 package io.prestosql.plugin.cassandra;
 
+import com.datastax.driver.core.LocalDate;
 import com.datastax.driver.core.PreparedStatement;
+import com.datastax.driver.core.ProtocolVersion;
 import com.datastax.driver.core.querybuilder.Insert;
 import com.google.common.collect.ImmutableList;
+import com.google.common.primitives.SignedBytes;
 import io.airlift.slice.Slice;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.PrestoException;
@@ -32,10 +35,12 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 
 import static com.datastax.driver.core.querybuilder.QueryBuilder.bindMarker;
 import static com.datastax.driver.core.querybuilder.QueryBuilder.insertInto;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.primitives.Shorts.checkedCast;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
@@ -43,7 +48,9 @@ import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
+import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.Varchars.isVarcharType;
 import static java.lang.Float.intBitsToFloat;
@@ -60,9 +67,11 @@ public class CassandraPageSink
     private final PreparedStatement insert;
     private final List<Type> columnTypes;
     private final boolean generateUUID;
+    private final Function<Long, Object> toCassandraDate;
 
     public CassandraPageSink(
             CassandraSession cassandraSession,
+            ProtocolVersion protocolVersion,
             String schemaName,
             String tableName,
             List<String> columnNames,
@@ -75,6 +84,13 @@ public class CassandraPageSink
         requireNonNull(columnNames, "columnNames is null");
         this.columnTypes = ImmutableList.copyOf(requireNonNull(columnTypes, "columnTypes is null"));
         this.generateUUID = generateUUID;
+
+        if (protocolVersion.toInt() <= ProtocolVersion.V3.toInt()) {
+            this.toCassandraDate = value -> DATE_FORMATTER.print(TimeUnit.DAYS.toMillis(value));
+        }
+        else {
+            this.toCassandraDate = value -> LocalDate.fromDaysSinceEpoch(toIntExact(value));
+        }
 
         Insert insert = insertInto(schemaName, tableName);
         if (generateUUID) {
@@ -122,6 +138,12 @@ public class CassandraPageSink
         else if (INTEGER.equals(type)) {
             values.add(toIntExact(type.getLong(block, position)));
         }
+        else if (SMALLINT.equals(type)) {
+            values.add(checkedCast(type.getLong(block, position)));
+        }
+        else if (TINYINT.equals(type)) {
+            values.add(SignedBytes.checkedCast(type.getLong(block, position)));
+        }
         else if (DOUBLE.equals(type)) {
             values.add(type.getDouble(block, position));
         }
@@ -129,7 +151,7 @@ public class CassandraPageSink
             values.add(intBitsToFloat(toIntExact(type.getLong(block, position))));
         }
         else if (DATE.equals(type)) {
-            values.add(DATE_FORMATTER.print(TimeUnit.DAYS.toMillis(type.getLong(block, position))));
+            values.add(toCassandraDate.apply(type.getLong(block, position)));
         }
         else if (TIMESTAMP.equals(type)) {
             values.add(new Timestamp(type.getLong(block, position)));

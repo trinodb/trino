@@ -13,11 +13,11 @@
  */
 package io.prestosql.tests.ranger;
 
-import io.prestodb.tempto.ProductTest;
-import io.prestodb.tempto.query.QueryExecutionException;
-import io.prestodb.tempto.query.QueryExecutor;
-import io.prestodb.tempto.query.QueryResult;
 import io.prestosql.spi.security.AccessDeniedException;
+import io.prestosql.tempto.ProductTest;
+import io.prestosql.tempto.query.QueryExecutionException;
+import io.prestosql.tempto.query.QueryExecutor;
+import io.prestosql.tempto.query.QueryResult;
 import io.prestosql.testing.assertions.Assert;
 import org.testng.annotations.Test;
 
@@ -26,8 +26,8 @@ import java.io.InputStreamReader;
 import java.sql.SQLException;
 
 import static com.google.common.io.Resources.getResource;
-import static io.prestodb.tempto.assertions.QueryAssert.Row.row;
-import static io.prestodb.tempto.assertions.QueryAssert.assertThat;
+import static io.prestosql.tempto.assertions.QueryAssert.Row.row;
+import static io.prestosql.tempto.assertions.QueryAssert.assertThat;
 import static io.prestosql.tests.TestGroups.RANGER;
 import static io.prestosql.tests.utils.QueryExecutors.connectToPresto;
 
@@ -46,10 +46,8 @@ public class RangerTestCases
     final String selectCount = "SELECT count FROM " + words + " where word = 'Mr.'";
     final String insertQuery = "insert into " + words + " ( word, count) values ('newword', 5)";
     final String newWordSelect = "SELECT * FROM " + words + " where word = 'newword'";
-    private static final String useRangerSchema = "use " + schema;
 
     //@BeforeTestWithContext
-    // @Requires(RangerTableRequirements.class)
     @Test(groups = {RANGER}, testName = "setup")
     public void setup()
             throws Exception
@@ -70,12 +68,10 @@ public class RangerTestCases
         StringBuilder stringBuilder = new StringBuilder();
 
         new BufferedReader(new InputStreamReader(getResource(WORDCOUNT).openStream())).lines().filter(str -> str.contains(" ")).forEach(str -> {
-            System.out.println(str);
             String[] splitArr = str.split(" ", 2);
             stringBuilder.append("( '" + splitArr[0] + "' , " + splitArr[1] + " ) ,");
         });
 
-        System.out.println(stringBuilder.toString());
         adminExecutor.executeQuery("insert into " + words + " values " + stringBuilder.substring(0, stringBuilder.length() - 1));
 
         // Just test to make sure it's working
@@ -100,21 +96,12 @@ public class RangerTestCases
     @Test(groups = {RANGER}, dependsOnMethods = "setup")
     public void testHiveSelectAllAsAlice()
     {
-        try {
-            aliceExecutor.executeQuery(selectStar);
-            Assert.fail("Failure expected on an unauthorized call");
-        }
-        catch (QueryExecutionException ex) {
-            if (!(ex.getCause() instanceof SQLException && ((SQLException) ex.getCause()).getCause().toString().equals(AccessDeniedException.class.getCanonicalName().toString() + ": Access Denied: Cannot access catalog hive"))) {
-                throw ex;
-            }
-        }
+        exceptionQuery(aliceExecutor, selectStar);
     }
 
     // this should be allowed (by the policy - user)
     @Test(groups = {RANGER}, dependsOnMethods = "setup")
     public void testHiveSelectSpecificColumnAsBob()
-            throws Exception
     {
         QueryResult queryResult = bobExecutor.executeQuery(selectCount);
         assertThat(queryResult).hasRowsCount(1);
@@ -126,15 +113,7 @@ public class RangerTestCases
     @Test(groups = {RANGER}, dependsOnMethods = "setup")
     public void testHiveSelectSpecificColumnAsAlice()
     {
-        try {
-            aliceExecutor.executeQuery(selectCount);
-            Assert.fail("Failure expected on an unauthorized call");
-        }
-        catch (QueryExecutionException ex) {
-            if (!(ex.getCause() instanceof SQLException && ((SQLException) ex.getCause()).getCause().toString().equals(AccessDeniedException.class.getCanonicalName().toString() + ": Access Denied: Cannot access catalog hive"))) {
-                throw ex;
-            }
-        }
+        exceptionQuery(aliceExecutor, selectCount);
     }
 
     // this should be allowed (by the policy - user)
@@ -153,41 +132,15 @@ public class RangerTestCases
     @Test(groups = {RANGER}, dependsOnMethods = "setup")
     public void testHiveUpdateAllAsAlice()
     {
-        try {
-            aliceExecutor.executeQuery(insertQuery);
-            Assert.fail("Failure expected on an unauthorized call");
-        }
-        catch (QueryExecutionException ex) {
-            if (!(ex.getCause() instanceof SQLException && ((SQLException) ex.getCause()).getCause().toString().equals(AccessDeniedException.class.getCanonicalName().toString() + ": Access Denied: Cannot access catalog hive"))) {
-                throw ex;
-            }
-        }
+        exceptionQuery(aliceExecutor, insertQuery);
     }
 
     @Test(groups = {RANGER}, dependsOnMethods = "setup")
     public void testHiveCreateDropDatabase()
     {
         bobExecutor.executeQuery("CREATE schema if not exists hive.bobtemp");
-
-        try {
-            aliceExecutor.executeQuery("CREATE schema if not exists hive.alicetemp");
-            Assert.fail("Failure expected on an unauthorized call");
-        }
-        catch (QueryExecutionException ex) {
-            if (!(ex.getCause() instanceof SQLException && ((SQLException) ex.getCause()).getCause().toString().equals(AccessDeniedException.class.getCanonicalName().toString() + ": Access Denied: Cannot access catalog hive"))) {
-                throw ex;
-            }
-        }
-
-        try {
-            bobExecutor.executeQuery("drop schema hive.bobtemp");
-            Assert.fail("Failure expected on an unauthorized call");
-        }
-        catch (QueryExecutionException ex) {
-            if (!(ex.getCause() instanceof SQLException && ((SQLException) ex.getCause()).getCause().toString().equals(AccessDeniedException.class.getCanonicalName().toString() + ": Access Denied: Cannot access catalog hive"))) {
-                throw ex;
-            }
-        }
+        exceptionQuery(aliceExecutor, "CREATE schema if not exists hive.alicetemp");
+        exceptionQuery(bobExecutor, "drop schema hive.bobtemp");
         adminExecutor.executeQuery("drop schema hive.bobtemp");
     }
 
@@ -197,15 +150,7 @@ public class RangerTestCases
         adminExecutor.executeQuery("CREATE schema if not exists hive.admintemp");
         adminExecutor.executeQuery("CREATE TABLE if not exists  hive.admintemp.WORDS (word varchar, count INT)");
 
-        try {
-            bobExecutor.executeQuery("SELECT count FROM hive.admintemp.WORDS where count = 100");
-            Assert.fail("Failure expected on an unauthorized call");
-        }
-        catch (QueryExecutionException ex) {
-            if (!(ex.getCause() instanceof SQLException && (ex.getCause()).getCause().toString().startsWith(AccessDeniedException.class.getCanonicalName()))) {
-                throw ex;
-            }
-        }
+        exceptionQuery(bobExecutor, "SELECT count FROM hive.admintemp.WORDS where count = 100");
 
         adminExecutor.executeQuery("drop TABLE hive.admintemp.words");
         adminExecutor.executeQuery("drop schema hive.admintemp");
@@ -218,30 +163,13 @@ public class RangerTestCases
         adminExecutor.executeQuery("CREATE TABLE IF NOT EXISTS " + words2 + " (word varchar, count INT)");
 
         // Try to add a new column in words as "bob" - this should fail
-        try {
-            bobExecutor.executeQuery("ALTER TABLE " + words2 + " ADD COLUMN newcol varchar");
-            Assert.fail("Failure expected on an unauthorized call");
-        }
-        catch (QueryExecutionException ex) {
-            if (!(ex.getCause() instanceof SQLException && (ex.getCause()).getCause().toString().startsWith(AccessDeniedException.class.getCanonicalName()))) {
-                throw ex;
-            }
-        }
+        exceptionQuery(bobExecutor, "ALTER TABLE " + words2 + " ADD COLUMN newcol varchar");
 
         // Now alter it as "admin"
-
         adminExecutor.executeQuery("ALTER TABLE " + words2 + " ADD COLUMN newcol varchar");
 
         // Try to alter it as "bob" - this should fail
-        try {
-            bobExecutor.executeQuery("ALTER TABLE " + words2 + " drop COLUMN newcol ");
-            Assert.fail("Failure expected on an unauthorized call");
-        }
-        catch (QueryExecutionException ex) {
-            if (!(ex.getCause() instanceof SQLException && (ex.getCause()).getCause().toString().startsWith(AccessDeniedException.class.getCanonicalName()))) {
-                throw ex;
-            }
-        }
+        exceptionQuery(bobExecutor, "ALTER TABLE " + words2 + " drop COLUMN newcol ");
 
         // Now alter it as "admin"
         adminExecutor.executeQuery("ALTER TABLE " + words2 + " drop COLUMN newcol ");
@@ -259,47 +187,39 @@ public class RangerTestCases
         adminExecutor.executeQuery("CREATE TABLE if not exists " + newTable + "(word varchar, count INT)");
 
         // Now try to read it as "bob"
-        try {
-            bobExecutor.executeQuery("SELECT count FROM " + newTable + " where count = 100");
-            Assert.fail("Failure expected on an unauthorized call");
-        }
-        catch (QueryExecutionException ex) {
-            if (!(ex.getCause() instanceof SQLException && (ex.getCause()).getCause().toString().startsWith(AccessDeniedException.class.getCanonicalName()))) {
-                throw ex;
-            }
-        }
+        exceptionQuery(bobExecutor, "SELECT count FROM " + newTable + " where count = 100");
         adminExecutor.executeQuery("drop TABLE " + newTable);
     }
 
     @Test(groups = {RANGER}, dependsOnMethods = "setup")
+    public void testCharlieSelectOnDifferentCols()
+    {
+        exceptionQuery(charlieExecutor, selectStar);
+        exceptionQuery(charlieExecutor, "SELECT word,count FROM " + words + " where word = 'Mr.'");
+
+        QueryResult queryResult = charlieExecutor.executeQuery("select count from " + words);
+        assertThat(queryResult).hasAnyRows();
+    }
+
+    @Test(groups = {RANGER}, dependsOnMethods = "setup")
     public void testGrantrevoke()
-            throws Exception
     {
         adminExecutor.executeQuery("CREATE schema IF NOT EXISTS hive.rangerauthzx");
         adminExecutor.executeQuery("CREATE TABLE  if not exists hive.rangerauthzx.tbl1 (a INT, b INT)");
 
-        try {
-            charlieExecutor.executeQuery("grant select ON TABLE hive.rangerauthzx.tbl1 to USER admin with grant option");
-            Assert.fail("access should not have been granted");
-        }
-        catch (QueryExecutionException ex) {
-            if (!(ex.getCause() instanceof SQLException && (ex.getCause()).getCause().toString().startsWith(AccessDeniedException.class.getCanonicalName()))) {
-                throw ex;
-            }
-        }
+        exceptionQuery(charlieExecutor, "grant select ON TABLE hive.rangerauthzx.tbl1 to USER admin with grant option");
         adminExecutor.executeQuery("DROP TABLE hive.rangerauthzx.tbl1");
     }
 
     @Test(groups = {RANGER}, dependsOnMethods = "setup")
     public void testTagBasedPolicyForTable()
-            throws Exception
     {
         // Create a database as "admin"
-        adminExecutor.executeQuery("CREATE schema hive.hivetable");
+        adminExecutor.executeQuery("CREATE schema if not exists hive.hivetable");
 
         // Create a "words" table in "hivetable"
-        adminExecutor.executeQuery("CREATE TABLE hive.hivetable.WORDS (word varchar, count INT)");
-        adminExecutor.executeQuery("CREATE TABLE hive.hivetable.WORDS2 (word varchar, count INT)");
+        adminExecutor.executeQuery("CREATE TABLE if not exists hive.hivetable.WORDS (word varchar, count INT)");
+        adminExecutor.executeQuery("CREATE TABLE if not exists hive.hivetable.WORDS2 (word varchar, count INT)");
 
         // Now try to read it as the "public" group
 
@@ -307,31 +227,25 @@ public class RangerTestCases
         charlieExecutor.executeQuery("SELECT * FROM hive.hivetable.WORDS");
         charlieExecutor.executeQuery("select count from hive.hivetable.WORDS");
 
-        try {
-            // "words2" should not
-            aliceExecutor.executeQuery("SELECT * FROM hive.hivetable.WORDS2");
-            Assert.fail("Failure expected on an unauthorized call");
-        }
-        catch (QueryExecutionException ex) {
-            if (!(ex.getCause() instanceof SQLException && (ex.getCause()).getCause().toString().startsWith(AccessDeniedException.class.getCanonicalName()))) {
-                throw ex;
-            }
-        }
-
-        try {
-            // "words2" should not
-            aliceExecutor.executeQuery("SELECT count FROM hive.hivetable.WORDS2");
-            Assert.fail("Failure expected on an unauthorized call");
-        }
-        catch (QueryExecutionException ex) {
-            if (!(ex.getCause() instanceof SQLException && (ex.getCause()).getCause().toString().startsWith(AccessDeniedException.class.getCanonicalName()))) {
-                throw ex;
-            }
-        }
+        exceptionQuery(aliceExecutor, "SELECT * FROM hive.hivetable.WORDS2");
+        exceptionQuery(aliceExecutor, "SELECT count FROM hive.hivetable.WORDS2");
 
         // Drop the table and database as "admin"
         adminExecutor.executeQuery("drop TABLE hive.hivetable.WORDS");
         adminExecutor.executeQuery("drop TABLE hive.hivetable.WORDS2");
-        adminExecutor.executeQuery("drop DATABASE hive.hivetable");
+        adminExecutor.executeQuery("drop schema hive.hivetable");
+    }
+
+    private void exceptionQuery(QueryExecutor queryExecutor, String s)
+    {
+        try {
+            queryExecutor.executeQuery(s);
+            Assert.fail("Failure expected on an unauthorized call");
+        }
+        catch (QueryExecutionException ex) {
+            if (!(ex.getCause() instanceof SQLException && (ex.getCause()).getCause().toString().startsWith(AccessDeniedException.class.getCanonicalName()))) {
+                throw ex;
+            }
+        }
     }
 }

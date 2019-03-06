@@ -21,7 +21,7 @@ import io.airlift.units.Duration;
 import io.prestosql.execution.QueryInfo;
 import io.prestosql.execution.QueryState;
 import io.prestosql.execution.QueryStats;
-import io.prestosql.execution.resourceGroups.InternalResourceGroup;
+import io.prestosql.execution.resourcegroups.InternalResourceGroup;
 import io.prestosql.spi.QueryId;
 import io.prestosql.spi.memory.MemoryPoolId;
 import org.joda.time.DateTime;
@@ -130,6 +130,9 @@ public class TestQueryStateInfo
                         DataSize.valueOf("24GB"),
                         DataSize.valueOf("25GB"),
                         DataSize.valueOf("26GB"),
+                        DataSize.valueOf("27GB"),
+                        DataSize.valueOf("28GB"),
+                        DataSize.valueOf("29GB"),
                         true,
                         Duration.valueOf("23m"),
                         Duration.valueOf("24m"),

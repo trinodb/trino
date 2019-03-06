@@ -14,22 +14,22 @@
 package io.prestosql.tests.sqlserver;
 
 import io.airlift.log.Logger;
-import io.prestodb.tempto.AfterTestWithContext;
-import io.prestodb.tempto.BeforeTestWithContext;
-import io.prestodb.tempto.ProductTest;
-import io.prestodb.tempto.Requirement;
-import io.prestodb.tempto.RequirementsProvider;
-import io.prestodb.tempto.configuration.Configuration;
-import io.prestodb.tempto.query.QueryResult;
+import io.prestosql.tempto.AfterTestWithContext;
+import io.prestosql.tempto.BeforeTestWithContext;
+import io.prestosql.tempto.ProductTest;
+import io.prestosql.tempto.Requirement;
+import io.prestosql.tempto.RequirementsProvider;
+import io.prestosql.tempto.configuration.Configuration;
+import io.prestosql.tempto.query.QueryResult;
 import org.testng.annotations.Test;
 
 import java.sql.Date;
 import java.sql.Timestamp;
 
-import static io.prestodb.tempto.Requirements.compose;
-import static io.prestodb.tempto.assertions.QueryAssert.Row.row;
-import static io.prestodb.tempto.assertions.QueryAssert.assertThat;
-import static io.prestodb.tempto.fulfillment.table.TableRequirements.immutableTable;
+import static io.prestosql.tempto.Requirements.compose;
+import static io.prestosql.tempto.assertions.QueryAssert.Row.row;
+import static io.prestosql.tempto.assertions.QueryAssert.assertThat;
+import static io.prestosql.tempto.fulfillment.table.TableRequirements.immutableTable;
 import static io.prestosql.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.prestosql.tests.TestGroups.SQL_SERVER;
 import static io.prestosql.tests.TpchTableResults.PRESTO_NATION_RESULT;
@@ -141,7 +141,7 @@ public class TestSelect
                 .containsOnly(
                         row(Long.MIN_VALUE, Short.MIN_VALUE, Integer.MIN_VALUE, Byte.MIN_VALUE, Double.MIN_VALUE,
                                 Float.valueOf("-3.40E+38"), "\0   ", "\0", "\0", "\0    ", "\0", "\0",
-                                Date.valueOf("0001-01-02"), Timestamp.valueOf("1753-01-01 00:00:00.000"),
+                                Date.valueOf("1953-01-02"), Timestamp.valueOf("1753-01-01 00:00:00.000"),
                                 Timestamp.valueOf("0001-01-01 00:00:00.000"), Timestamp.valueOf("1900-01-01 00:00:00"),
                                 Double.MIN_VALUE, Float.valueOf("-3.40E+38")),
                         row(Long.MAX_VALUE, Short.MAX_VALUE, Integer.MAX_VALUE, Byte.MAX_VALUE, Double.MAX_VALUE,

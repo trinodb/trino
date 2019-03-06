@@ -186,12 +186,11 @@ public final class StandardColumnMappings
         return ColumnMapping.sliceMapping(
                 charType,
                 (resultSet, columnIndex) -> utf8Slice(CharMatcher.is(' ').trimTrailingFrom(resultSet.getString(columnIndex))),
-                charWriteFunction(charType));
+                charWriteFunction());
     }
 
-    public static SliceWriteFunction charWriteFunction(CharType charType)
+    public static SliceWriteFunction charWriteFunction()
     {
-        requireNonNull(charType, "charType is null");
         return (statement, index, value) -> {
             statement.setString(index, value.toStringUtf8());
         };

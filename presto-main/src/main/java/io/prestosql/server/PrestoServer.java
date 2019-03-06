@@ -14,7 +14,6 @@
 package io.prestosql.server;
 
 import com.google.common.base.Joiner;
-import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Injector;
 import com.google.inject.Module;
@@ -35,7 +34,7 @@ import io.airlift.node.NodeModule;
 import io.airlift.tracetoken.TraceTokenModule;
 import io.prestosql.eventlistener.EventListenerManager;
 import io.prestosql.eventlistener.EventListenerModule;
-import io.prestosql.execution.resourceGroups.ResourceGroupManager;
+import io.prestosql.execution.resourcegroups.ResourceGroupManager;
 import io.prestosql.execution.scheduler.NodeSchedulerConfig;
 import io.prestosql.execution.warnings.WarningCollectorModule;
 import io.prestosql.metadata.Catalog;
@@ -50,10 +49,8 @@ import org.weakref.jmx.guice.MBeanModule;
 
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
-import static com.google.common.base.Strings.nullToEmpty;
 import static io.airlift.discovery.client.ServiceAnnouncement.ServiceAnnouncementBuilder;
 import static io.airlift.discovery.client.ServiceAnnouncement.serviceAnnouncement;
 import static io.prestosql.server.PrestoSystemRequirements.verifyJvmRequirements;
@@ -156,37 +153,28 @@ public class PrestoServer
         // get existing announcement
         ServiceAnnouncement announcement = getPrestoAnnouncement(announcer.getServiceAnnouncements());
 
-        // get existing connectorIds
-        String property = nullToEmpty(announcement.getProperties().get("connectorIds"));
-        List<String> values = Splitter.on(',').trimResults().omitEmptyStrings().splitToList(property);
-        Set<String> connectorIds = new LinkedHashSet<>(values);
+        Set<String> connectorIds = new LinkedHashSet<>();
 
         // automatically build connectorIds if not configured
-        if (connectorIds.isEmpty()) {
-            List<Catalog> catalogs = metadata.getCatalogs();
-            // if this is a dedicated coordinator, only add jmx
-            if (serverConfig.isCoordinator() && !schedulerConfig.isIncludeCoordinator()) {
-                catalogs.stream()
-                        .map(Catalog::getConnectorId)
-                        .filter(connectorId -> connectorId.getCatalogName().equals("jmx"))
-                        .map(Object::toString)
-                        .forEach(connectorIds::add);
-            }
-            else {
-                catalogs.stream()
-                        .map(Catalog::getConnectorId)
-                        .map(Object::toString)
-                        .forEach(connectorIds::add);
-            }
+        List<Catalog> catalogs = metadata.getCatalogs();
+        // if this is a dedicated coordinator, only add jmx
+        if (serverConfig.isCoordinator() && !schedulerConfig.isIncludeCoordinator()) {
+            catalogs.stream()
+                    .map(Catalog::getConnectorId)
+                    .filter(connectorId -> connectorId.getCatalogName().equals("jmx"))
+                    .map(Object::toString)
+                    .forEach(connectorIds::add);
+        }
+        else {
+            catalogs.stream()
+                    .map(Catalog::getConnectorId)
+                    .map(Object::toString)
+                    .forEach(connectorIds::add);
         }
 
         // build announcement with updated sources
         ServiceAnnouncementBuilder builder = serviceAnnouncement(announcement.getType());
-        for (Map.Entry<String, String> entry : announcement.getProperties().entrySet()) {
-            if (!entry.getKey().equals("connectorIds")) {
-                builder.addProperty(entry.getKey(), entry.getValue());
-            }
-        }
+        builder.addProperties(announcement.getProperties());
         builder.addProperty("connectorIds", Joiner.on(',').join(connectorIds));
 
         // update announcement

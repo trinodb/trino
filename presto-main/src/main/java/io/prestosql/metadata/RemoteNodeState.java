@@ -19,6 +19,7 @@ import io.airlift.http.client.FullJsonResponseHandler.JsonResponse;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.HttpClient.HttpResponseFuture;
 import io.airlift.http.client.Request;
+import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.prestosql.spi.NodeState;
@@ -47,6 +48,7 @@ import static javax.ws.rs.core.HttpHeaders.CONTENT_TYPE;
 public class RemoteNodeState
 {
     private static final Logger log = Logger.get(RemoteNodeState.class);
+    private static final JsonCodec<NodeState> NODE_STATE_CODEC = jsonCodec(NodeState.class);
 
     private final HttpClient httpClient;
     private final URI stateInfoUri;
@@ -80,7 +82,7 @@ public class RemoteNodeState
                     .setUri(stateInfoUri)
                     .setHeader(CONTENT_TYPE, JSON_UTF_8.toString())
                     .build();
-            HttpResponseFuture<JsonResponse<NodeState>> responseFuture = httpClient.executeAsync(request, createFullJsonResponseHandler(jsonCodec(NodeState.class)));
+            HttpResponseFuture<JsonResponse<NodeState>> responseFuture = httpClient.executeAsync(request, createFullJsonResponseHandler(NODE_STATE_CODEC));
             future.compareAndSet(null, responseFuture);
 
             Futures.addCallback(responseFuture, new FutureCallback<JsonResponse<NodeState>>()

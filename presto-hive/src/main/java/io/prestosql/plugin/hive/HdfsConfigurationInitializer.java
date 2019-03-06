@@ -15,10 +15,10 @@ package io.prestosql.plugin.hive;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HostAndPort;
 import io.airlift.units.Duration;
-import io.prestosql.plugin.hive.gcs.GcsConfigurationInitializer;
-import io.prestosql.plugin.hive.s3.S3ConfigurationUpdater;
+import io.prestosql.plugin.hive.s3.ConfigurationInitializer;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapreduce.lib.input.LineRecordReader;
@@ -32,8 +32,8 @@ import javax.inject.Inject;
 import javax.net.SocketFactory;
 
 import java.util.List;
+import java.util.Set;
 
-import static com.facebook.hive.orc.OrcConf.ConfVars.HIVE_ORC_COMPRESSION;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.plugin.hive.util.ConfigurationUtils.copy;
 import static java.lang.Math.toIntExact;
@@ -62,19 +62,18 @@ public class HdfsConfigurationInitializer
     private final Configuration resourcesConfiguration;
     private final HiveCompressionCodec compressionCodec;
     private final int fileSystemMaxCacheSize;
-    private final S3ConfigurationUpdater s3ConfigurationUpdater;
-    private final GcsConfigurationInitializer gcsConfigurationInitialize;
+    private final Set<ConfigurationInitializer> configurationInitializers;
     private final boolean isHdfsWireEncryptionEnabled;
     private int textMaxLineLength;
 
     @VisibleForTesting
     public HdfsConfigurationInitializer(HiveClientConfig config)
     {
-        this(config, ignored -> {}, ignored -> {});
+        this(config, ImmutableSet.of());
     }
 
     @Inject
-    public HdfsConfigurationInitializer(HiveClientConfig config, S3ConfigurationUpdater s3ConfigurationUpdater, GcsConfigurationInitializer gcsConfigurationInitialize)
+    public HdfsConfigurationInitializer(HiveClientConfig config, Set<ConfigurationInitializer> configurationInitializers)
     {
         requireNonNull(config, "config is null");
         checkArgument(config.getDfsTimeout().toMillis() >= 1, "dfsTimeout must be at least 1 ms");
@@ -92,8 +91,7 @@ public class HdfsConfigurationInitializer
         this.isHdfsWireEncryptionEnabled = config.isHdfsWireEncryptionEnabled();
         this.textMaxLineLength = toIntExact(config.getTextMaxLineLength().toBytes());
 
-        this.s3ConfigurationUpdater = requireNonNull(s3ConfigurationUpdater, "s3ConfigurationUpdater is null");
-        this.gcsConfigurationInitialize = requireNonNull(gcsConfigurationInitialize, "gcsConfigurationInitialize is null");
+        this.configurationInitializers = ImmutableSet.copyOf(requireNonNull(configurationInitializers, "configurationInitializers is null"));
     }
 
     private static Configuration readConfiguration(List<String> resourcePaths)
@@ -146,8 +144,7 @@ public class HdfsConfigurationInitializer
 
         configureCompression(config, compressionCodec);
 
-        s3ConfigurationUpdater.updateConfiguration(config);
-        gcsConfigurationInitialize.updateConfiguration(config);
+        configurationInitializers.forEach(configurationInitializer -> configurationInitializer.initializeConfiguration(config));
     }
 
     public static void configureCompression(Configuration config, HiveCompressionCodec compressionCodec)
@@ -156,8 +153,6 @@ public class HdfsConfigurationInitializer
         config.setBoolean(COMPRESSRESULT.varname, compression);
         config.setBoolean("mapred.output.compress", compression);
         config.setBoolean(FileOutputFormat.COMPRESS, compression);
-        // For DWRF
-        com.facebook.hive.orc.OrcConf.setVar(config, HIVE_ORC_COMPRESSION, compressionCodec.getOrcCompressionKind().name());
         // For ORC
         OrcConf.COMPRESS.setString(config, compressionCodec.getOrcCompressionKind().name());
         // For RCFile and Text

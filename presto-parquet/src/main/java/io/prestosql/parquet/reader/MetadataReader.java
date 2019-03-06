@@ -26,6 +26,7 @@ import org.apache.parquet.format.RowGroup;
 import org.apache.parquet.format.SchemaElement;
 import org.apache.parquet.format.Statistics;
 import org.apache.parquet.format.Type;
+import org.apache.parquet.format.converter.ParquetMetadataConverter;
 import org.apache.parquet.hadoop.metadata.BlockMetaData;
 import org.apache.parquet.hadoop.metadata.ColumnChunkMetaData;
 import org.apache.parquet.hadoop.metadata.ColumnPath;
@@ -37,6 +38,7 @@ import org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName;
 import org.apache.parquet.schema.Type.Repetition;
 import org.apache.parquet.schema.Types;
 
+import java.io.ByteArrayInputStream;
 import java.io.EOFException;
 import java.io.IOException;
 import java.io.InputStream;
@@ -59,6 +61,7 @@ public final class MetadataReader
 {
     private static final int PARQUET_METADATA_LENGTH = 4;
     private static final byte[] MAGIC = "PAR1".getBytes(US_ASCII);
+    private static final ParquetMetadataConverter PARQUET_METADATA_CONVERTER = new ParquetMetadataConverter();
 
     private MetadataReader() {}
 
@@ -85,11 +88,11 @@ public final class MetadataReader
         validateParquet(fileSize >= MAGIC.length + PARQUET_METADATA_LENGTH + MAGIC.length, "%s is not a valid Parquet File", file);
         long metadataLengthIndex = fileSize - PARQUET_METADATA_LENGTH - MAGIC.length;
 
-        inputStream.seek(metadataLengthIndex);
-        int metadataLength = readIntLittleEndian(inputStream);
+        InputStream footerStream = readFully(inputStream, metadataLengthIndex, PARQUET_METADATA_LENGTH + MAGIC.length);
+        int metadataLength = readIntLittleEndian(footerStream);
 
         byte[] magic = new byte[MAGIC.length];
-        inputStream.readFully(magic);
+        footerStream.read(magic);
         validateParquet(Arrays.equals(MAGIC, magic), "Not valid Parquet file: %s expected magic number: %s got: %s", file, Arrays.toString(MAGIC), Arrays.toString(magic));
 
         long metadataIndex = metadataLengthIndex - metadataLength;
@@ -98,8 +101,8 @@ public final class MetadataReader
                 "Corrupted Parquet file: %s metadata index: %s out of range",
                 file,
                 metadataIndex);
-        inputStream.seek(metadataIndex);
-        FileMetaData fileMetaData = readFileMetaData(inputStream);
+        InputStream metadataStream = readFully(inputStream, metadataIndex, metadataLength);
+        FileMetaData fileMetaData = readFileMetaData(metadataStream);
         List<SchemaElement> schema = fileMetaData.getSchema();
         validateParquet(!schema.isEmpty(), "Empty Parquet schema in file: %s", file);
 
@@ -129,6 +132,7 @@ public final class MetadataReader
                             columnPath,
                             primitiveTypeName,
                             CompressionCodecName.fromParquet(metaData.codec),
+                            PARQUET_METADATA_CONVERTER.convertEncodingStats(metaData.encoding_stats),
                             readEncodings(metaData.encodings),
                             readStats(metaData.statistics, primitiveTypeName),
                             metaData.data_page_offset,
@@ -299,5 +303,13 @@ public final class MetadataReader
             throw new EOFException();
         }
         return ((ch4 << 24) + (ch3 << 16) + (ch2 << 8) + (ch1));
+    }
+
+    private static InputStream readFully(FSDataInputStream from, long position, int length)
+            throws IOException
+    {
+        byte[] buffer = new byte[length];
+        from.readFully(position, buffer);
+        return new ByteArrayInputStream(buffer);
     }
 }

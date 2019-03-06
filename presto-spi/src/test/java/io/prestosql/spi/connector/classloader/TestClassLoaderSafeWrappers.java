@@ -13,7 +13,6 @@
  */
 package io.prestosql.spi.connector.classloader;
 
-import io.prestosql.spi.classloader.ClassLoaderSafeConnectorPageSink;
 import io.prestosql.spi.connector.ConnectorMetadata;
 import io.prestosql.spi.connector.ConnectorNodePartitioningProvider;
 import io.prestosql.spi.connector.ConnectorPageSink;

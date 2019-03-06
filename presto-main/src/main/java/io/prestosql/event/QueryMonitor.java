@@ -23,7 +23,7 @@ import io.airlift.stats.Distribution.DistributionSnapshot;
 import io.prestosql.SessionRepresentation;
 import io.prestosql.client.NodeVersion;
 import io.prestosql.connector.ConnectorId;
-import io.prestosql.cost.PlanNodeCostEstimate;
+import io.prestosql.cost.PlanCostEstimate;
 import io.prestosql.cost.PlanNodeStatsEstimate;
 import io.prestosql.cost.StatsAndCosts;
 import io.prestosql.eventlistener.EventListenerManager;
@@ -255,7 +255,7 @@ public class QueryMonitor
     private static StatsAndCosts reconstructStatsAndCosts(StageInfo stageInfo)
     {
         ImmutableMap.Builder<PlanNodeId, PlanNodeStatsEstimate> planNodeStats = ImmutableMap.builder();
-        ImmutableMap.Builder<PlanNodeId, PlanNodeCostEstimate> planNodeCosts = ImmutableMap.builder();
+        ImmutableMap.Builder<PlanNodeId, PlanCostEstimate> planNodeCosts = ImmutableMap.builder();
         reconstructStatsAndCosts(stageInfo, planNodeStats, planNodeCosts);
         return new StatsAndCosts(planNodeStats.build(), planNodeCosts.build());
     }
@@ -263,7 +263,7 @@ public class QueryMonitor
     private static void reconstructStatsAndCosts(
             StageInfo stage,
             ImmutableMap.Builder<PlanNodeId, PlanNodeStatsEstimate> planNodeStats,
-            ImmutableMap.Builder<PlanNodeId, PlanNodeCostEstimate> planNodeCosts)
+            ImmutableMap.Builder<PlanNodeId, PlanCostEstimate> planNodeCosts)
     {
         PlanFragment planFragment = stage.getPlan();
         if (planFragment != null) {

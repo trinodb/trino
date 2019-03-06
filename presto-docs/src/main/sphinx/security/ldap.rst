@@ -34,7 +34,7 @@ TLS Configuration on Presto Coordinator
 
 You need to import the LDAP server's TLS certificate to the default Java
 truststore of the Presto coordinator to secure TLS connection. You can use
-the following example `keytool` command to import the certificate
+the following example ``keytool`` command to import the certificate
 ``ldap_server.crt``, to the truststore on the coordinator.
 
 .. code-block:: none

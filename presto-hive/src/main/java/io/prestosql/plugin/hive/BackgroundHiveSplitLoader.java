@@ -551,6 +551,12 @@ public class BackgroundHiveSplitLoader
 
             int tableBucketCount = bucketHandle.get().getTableBucketCount();
             int readBucketCount = bucketHandle.get().getReadBucketCount();
+
+            if (tableBucketCount != readBucketCount && bucketFilter.isPresent()) {
+                // TODO: remove when supported
+                throw new PrestoException(NOT_SUPPORTED, "Filter on \"$bucket\" is not supported when the table has partitions with different bucket counts");
+            }
+
             List<HiveColumnHandle> bucketColumns = bucketHandle.get().getColumns();
             IntPredicate predicate = bucketFilter
                     .<IntPredicate>map(filter -> filter.getBucketsToKeep()::contains)

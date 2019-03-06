@@ -13,11 +13,11 @@
  */
 package io.prestosql.tests;
 
-import io.prestodb.tempto.ProductTest;
+import io.prestosql.tempto.ProductTest;
 import org.testng.annotations.Test;
 
-import static io.prestodb.tempto.assertions.QueryAssert.assertThat;
-import static io.prestodb.tempto.query.QueryExecutor.query;
+import static io.prestosql.tempto.assertions.QueryAssert.assertThat;
+import static io.prestosql.tempto.query.QueryExecutor.query;
 import static io.prestosql.tests.TestGroups.JDBC;
 import static io.prestosql.tests.TestGroups.JMX_CONNECTOR;
 import static java.sql.JDBCType.BIGINT;

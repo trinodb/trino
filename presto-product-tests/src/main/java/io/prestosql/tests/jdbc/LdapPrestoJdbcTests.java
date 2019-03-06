@@ -13,8 +13,8 @@
  */
 package io.prestosql.tests.jdbc;
 
-import io.prestodb.tempto.Requires;
-import io.prestodb.tempto.fulfillment.table.hive.tpch.ImmutableTpchTablesRequirements.ImmutableNationTable;
+import io.prestosql.tempto.Requires;
+import io.prestosql.tempto.fulfillment.table.hive.tpch.ImmutableTpchTablesRequirements.ImmutableNationTable;
 import org.testng.annotations.Test;
 
 import java.sql.Connection;
@@ -22,7 +22,7 @@ import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
 
-import static io.prestodb.tempto.assertions.QueryAssert.assertThat;
+import static io.prestosql.tempto.assertions.QueryAssert.assertThat;
 import static io.prestosql.tests.ImmutableLdapObjectDefinitions.CHILD_GROUP_USER;
 import static io.prestosql.tests.ImmutableLdapObjectDefinitions.ORPHAN_USER;
 import static io.prestosql.tests.ImmutableLdapObjectDefinitions.PARENT_GROUP_USER;
