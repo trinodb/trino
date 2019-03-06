@@ -16,7 +16,7 @@ the built-in manager that reads a JSON config file:
 .. code-block:: none
 
     resource-groups.configuration-manager=file
-    resource-groups.config-file=etc/resource_groups.json
+    resource-groups.config-file=etc/resource-groups.json
 
 Change the value of ``resource-groups.config-file`` to point to a JSON config file,
 which can be an absolute path, or a path relative to the Presto data directory.
