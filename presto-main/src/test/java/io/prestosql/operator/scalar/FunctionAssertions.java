@@ -126,7 +126,7 @@ import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
 import static io.prestosql.sql.ParsingUtil.createParsingOptions;
-import static io.prestosql.sql.analyzer.ExpressionAnalyzer.analyzeExpressionsWithSymbols;
+import static io.prestosql.sql.analyzer.ExpressionAnalyzer.analyzeExpressions;
 import static io.prestosql.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static io.prestosql.sql.planner.iterative.rule.CanonicalizeExpressionRewriter.canonicalizeExpression;
 import static io.prestosql.sql.relational.Expressions.constant;
@@ -748,7 +748,7 @@ public final class FunctionAssertions
 
         parsedExpression = rewriteIdentifiersToSymbolReferences(parsedExpression);
 
-        final ExpressionAnalysis analysis = analyzeExpressionsWithSymbols(
+        final ExpressionAnalysis analysis = analyzeExpressions(
                 session,
                 metadata,
                 SQL_PARSER,
