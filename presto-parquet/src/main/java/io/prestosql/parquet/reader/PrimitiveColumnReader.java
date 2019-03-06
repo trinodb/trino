@@ -29,6 +29,7 @@ import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.Type;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
+import org.apache.parquet.bytes.ByteBufferInputStream;
 import org.apache.parquet.bytes.BytesUtils;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.column.values.ValuesReader;
@@ -42,6 +43,7 @@ import java.util.function.Consumer;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
+import static io.prestosql.parquet.ParquetReaderUtils.toInputStream;
 import static io.prestosql.parquet.ParquetTypeUtils.createDecimalType;
 import static io.prestosql.parquet.ValuesType.DEFINITION_LEVEL;
 import static io.prestosql.parquet.ValuesType.REPETITION_LEVEL;
@@ -271,12 +273,10 @@ public abstract class PrimitiveColumnReader
         repetitionReader = new LevelValuesReader(rlReader);
         definitionReader = new LevelValuesReader(dlReader);
         try {
-            byte[] bytes = page.getSlice().getBytes();
-            rlReader.initFromPage(page.getValueCount(), bytes, 0);
-            int offset = rlReader.getNextOffset();
-            dlReader.initFromPage(page.getValueCount(), bytes, offset);
-            offset = dlReader.getNextOffset();
-            return initDataReader(page.getValueEncoding(), bytes, offset, page.getValueCount());
+            ByteBufferInputStream in = toInputStream(page.getSlice());
+            rlReader.initFromPage(page.getValueCount(), in);
+            dlReader.initFromPage(page.getValueCount(), in);
+            return initDataReader(page.getValueEncoding(), page.getValueCount(), in);
         }
         catch (IOException e) {
             throw new ParquetDecodingException("Error reading parquet page " + page + " in column " + columnDescriptor, e);
@@ -287,7 +287,7 @@ public abstract class PrimitiveColumnReader
     {
         repetitionReader = buildLevelRLEReader(columnDescriptor.getMaxRepetitionLevel(), page.getRepetitionLevels());
         definitionReader = buildLevelRLEReader(columnDescriptor.getMaxDefinitionLevel(), page.getDefinitionLevels());
-        return initDataReader(page.getDataEncoding(), page.getSlice().getBytes(), 0, page.getValueCount());
+        return initDataReader(page.getDataEncoding(), page.getValueCount(), toInputStream(page.getSlice()));
     }
 
     private LevelReader buildLevelRLEReader(int maxLevel, Slice slice)
@@ -298,7 +298,7 @@ public abstract class PrimitiveColumnReader
         return new LevelRLEReader(new RunLengthBitPackingHybridDecoder(BytesUtils.getWidthFromMaxInt(maxLevel), new ByteArrayInputStream(slice.getBytes())));
     }
 
-    private ValuesReader initDataReader(ParquetEncoding dataEncoding, byte[] bytes, int offset, int valueCount)
+    private ValuesReader initDataReader(ParquetEncoding dataEncoding, int valueCount, ByteBufferInputStream in)
     {
         ValuesReader valuesReader;
         if (dataEncoding.usesDictionary()) {
@@ -312,7 +312,7 @@ public abstract class PrimitiveColumnReader
         }
 
         try {
-            valuesReader.initFromPage(valueCount, bytes, offset);
+            valuesReader.initFromPage(valueCount, in);
             return valuesReader;
         }
         catch (IOException e) {

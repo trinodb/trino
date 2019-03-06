@@ -34,6 +34,7 @@ import org.apache.parquet.hadoop.metadata.CompressionCodecName;
 import org.apache.parquet.hadoop.metadata.ParquetMetadata;
 import org.apache.parquet.schema.MessageType;
 import org.apache.parquet.schema.OriginalType;
+import org.apache.parquet.schema.PrimitiveType;
 import org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName;
 import org.apache.parquet.schema.Type.Repetition;
 import org.apache.parquet.schema.Types;
@@ -127,14 +128,14 @@ public final class MetadataReader
                             .map(value -> value.toLowerCase(Locale.ENGLISH))
                             .toArray(String[]::new);
                     ColumnPath columnPath = ColumnPath.get(path);
-                    PrimitiveTypeName primitiveTypeName = messageType.getType(columnPath.toArray()).asPrimitiveType().getPrimitiveTypeName();
+                    PrimitiveType primitiveType = messageType.getType(columnPath.toArray()).asPrimitiveType();
                     ColumnChunkMetaData column = ColumnChunkMetaData.get(
                             columnPath,
-                            primitiveTypeName,
+                            primitiveType,
                             CompressionCodecName.fromParquet(metaData.codec),
                             PARQUET_METADATA_CONVERTER.convertEncodingStats(metaData.encoding_stats),
                             readEncodings(metaData.encodings),
-                            readStats(metaData.statistics, primitiveTypeName),
+                            readStats(metaData.statistics, primitiveType.getPrimitiveTypeName()),
                             metaData.data_page_offset,
                             metaData.dictionary_page_offset,
                             metaData.num_values,
