@@ -113,10 +113,10 @@ public class PrestoServer
         Bootstrap app = new Bootstrap(modules.build());
 
         try {
+            Injector injector = app.strictConfig().initialize();
+
             log.info("Working directory: %s", Paths.get(".").toAbsolutePath().toRealPath());
             log.info("Etc directory: %s", Paths.get("etc").toAbsolutePath().toRealPath());
-
-            Injector injector = app.strictConfig().initialize();
 
             injector.getInstance(PluginManager.class).loadPlugins();
 
