@@ -1271,7 +1271,7 @@ public class LocalExecutionPlanner
 
         private RowExpression toRowExpression(Expression expression, Map<NodeRef<Expression>, Type> types, Map<Symbol, Integer> layout)
         {
-            return SqlToRowExpressionTranslator.translate(expression, SCALAR, types, metadata.getFunctionRegistry(), metadata.getTypeManager(), session, true, layout);
+            return SqlToRowExpressionTranslator.translate(expression, SCALAR, types, layout, metadata.getFunctionRegistry(), metadata.getTypeManager(), session, true);
         }
 
         @Override

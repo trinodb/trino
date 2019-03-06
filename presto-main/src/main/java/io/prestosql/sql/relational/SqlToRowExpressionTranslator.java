@@ -142,11 +142,11 @@ public final class SqlToRowExpressionTranslator
             Expression expression,
             FunctionKind functionKind,
             Map<NodeRef<Expression>, Type> types,
+            Map<Symbol, Integer> layout,
             FunctionRegistry functionRegistry,
             TypeManager typeManager,
             Session session,
-            boolean optimize,
-            Map<Symbol, Integer> layout)
+            boolean optimize)
     {
         Visitor visitor = new Visitor(
                 functionKind,

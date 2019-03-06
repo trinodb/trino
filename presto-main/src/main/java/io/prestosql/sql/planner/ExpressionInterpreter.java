@@ -28,7 +28,6 @@ import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
 import io.prestosql.operator.scalar.ArraySubscriptOperator;
 import io.prestosql.operator.scalar.ScalarFunctionImplementation;
-import io.prestosql.spi.Page;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
@@ -252,10 +251,10 @@ public class ExpressionInterpreter
         return visitor.process(expression, new NoPagePositionContext());
     }
 
-    public Object evaluate(int position, Page page)
+    public Object evaluate(SymbolResolver inputs)
     {
         checkState(!optimize, "evaluate(int, Page) not allowed for optimizer");
-        return visitor.process(expression, new SinglePagePositionContext(position, page));
+        return visitor.process(expression, inputs);
     }
 
     public Object optimize(SymbolResolver inputs)
@@ -271,39 +270,7 @@ public class ExpressionInterpreter
         @Override
         public Object visitFieldReference(FieldReference node, Object context)
         {
-            Type type = type(node);
-
-            int channel = node.getFieldIndex();
-            if (context instanceof PagePositionContext) {
-                PagePositionContext pagePositionContext = (PagePositionContext) context;
-                int position = pagePositionContext.getPosition(channel);
-                Block block = pagePositionContext.getBlock(channel);
-
-                if (block.isNull(position)) {
-                    return null;
-                }
-
-                Class<?> javaType = type.getJavaType();
-                if (javaType == boolean.class) {
-                    return type.getBoolean(block, position);
-                }
-                else if (javaType == long.class) {
-                    return type.getLong(block, position);
-                }
-                else if (javaType == double.class) {
-                    return type.getDouble(block, position);
-                }
-                else if (javaType == Slice.class) {
-                    return type.getSlice(block, position);
-                }
-                else if (javaType == Block.class) {
-                    return type.getObject(block, position);
-                }
-                else {
-                    throw new UnsupportedOperationException("not yet implemented");
-                }
-            }
-            throw new UnsupportedOperationException("Inputs must be set");
+            throw new UnsupportedOperationException("Field references not supported in interpreter");
         }
 
         @Override
@@ -1296,31 +1263,6 @@ public class ExpressionInterpreter
         public int getPosition(int channel)
         {
             throw new IllegalArgumentException("Context does not have a position");
-        }
-    }
-
-    private static class SinglePagePositionContext
-            implements PagePositionContext
-    {
-        private final int position;
-        private final Page page;
-
-        private SinglePagePositionContext(int position, Page page)
-        {
-            this.position = position;
-            this.page = page;
-        }
-
-        @Override
-        public Block getBlock(int channel)
-        {
-            return page.getBlock(channel);
-        }
-
-        @Override
-        public int getPosition(int channel)
-        {
-            return position;
         }
     }
 

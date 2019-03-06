@@ -23,6 +23,7 @@ import io.prestosql.Session;
 import io.prestosql.execution.Lifespan;
 import io.prestosql.execution.TaskId;
 import io.prestosql.execution.TaskStateMachine;
+import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.memory.MemoryPool;
 import io.prestosql.memory.QueryContext;
 import io.prestosql.metadata.Metadata;
@@ -39,7 +40,6 @@ import io.prestosql.operator.PageSourceOperator;
 import io.prestosql.operator.TaskContext;
 import io.prestosql.operator.TaskStats;
 import io.prestosql.operator.project.InputPageProjection;
-import io.prestosql.operator.project.InterpretedPageProjection;
 import io.prestosql.operator.project.PageProcessor;
 import io.prestosql.operator.project.PageProjection;
 import io.prestosql.security.AllowAllAccessControl;
@@ -50,11 +50,14 @@ import io.prestosql.spi.memory.MemoryPoolId;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spiller.SpillSpaceTracker;
 import io.prestosql.split.SplitSource;
+import io.prestosql.sql.gen.PageFunctionCompiler;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.TypeProvider;
 import io.prestosql.sql.planner.optimizations.HashGenerationOptimizer;
 import io.prestosql.sql.planner.plan.PlanNodeId;
+import io.prestosql.sql.relational.RowExpression;
 import io.prestosql.sql.tree.Expression;
+import io.prestosql.sql.tree.NodeRef;
 import io.prestosql.testing.LocalQueryRunner;
 import io.prestosql.transaction.TransactionId;
 
@@ -76,9 +79,12 @@ import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.prestosql.SystemSessionProperties.getFilterAndProjectMinOutputPageRowCount;
 import static io.prestosql.SystemSessionProperties.getFilterAndProjectMinOutputPageSize;
+import static io.prestosql.metadata.FunctionKind.SCALAR;
 import static io.prestosql.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.UNGROUPED_SCHEDULING;
 import static io.prestosql.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
+import static io.prestosql.sql.relational.SqlToRowExpressionTranslator.translate;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -222,13 +228,19 @@ public abstract class AbstractOperatorBenchmark
 
         Optional<Expression> hashExpression = HashGenerationOptimizer.getHashExpression(ImmutableList.copyOf(symbolTypes.build().keySet()));
         verify(hashExpression.isPresent());
-        projections.add(new InterpretedPageProjection(
-                hashExpression.get(),
-                TypeProvider.copyOf(symbolTypes.build()),
-                symbolToInputMapping.build(),
+
+        Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(
+                session,
                 localQueryRunner.getMetadata(),
                 localQueryRunner.getSqlParser(),
-                session));
+                TypeProvider.copyOf(symbolTypes.build()),
+                hashExpression.get(),
+                ImmutableList.of(),
+                WarningCollector.NOOP);
+        RowExpression translated = translate(hashExpression.get(), SCALAR, expressionTypes, symbolToInputMapping.build(), localQueryRunner.getMetadata().getFunctionRegistry(), localQueryRunner.getTypeManager(), session, false);
+
+        PageFunctionCompiler functionCompiler = new PageFunctionCompiler(localQueryRunner.getMetadata(), 0);
+        projections.add(functionCompiler.compileProjection(translated, Optional.empty()).get());
 
         return new FilterAndProjectOperator.FilterAndProjectOperatorFactory(
                 operatorId,

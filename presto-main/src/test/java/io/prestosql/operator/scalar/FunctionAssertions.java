@@ -37,9 +37,6 @@ import io.prestosql.operator.ScanFilterAndProjectOperator;
 import io.prestosql.operator.SourceOperator;
 import io.prestosql.operator.SourceOperatorFactory;
 import io.prestosql.operator.project.CursorProcessor;
-import io.prestosql.operator.project.InterpretedPageFilter;
-import io.prestosql.operator.project.InterpretedPageProjection;
-import io.prestosql.operator.project.PageFilter;
 import io.prestosql.operator.project.PageProcessor;
 import io.prestosql.operator.project.PageProjection;
 import io.prestosql.spi.ErrorCodeSupplier;
@@ -56,6 +53,7 @@ import io.prestosql.spi.connector.FixedPageSource;
 import io.prestosql.spi.connector.InMemoryRecordSet;
 import io.prestosql.spi.connector.RecordPageSource;
 import io.prestosql.spi.connector.RecordSet;
+import io.prestosql.spi.predicate.Utils;
 import io.prestosql.spi.type.TimeZoneKey;
 import io.prestosql.spi.type.Type;
 import io.prestosql.split.PageSourceProvider;
@@ -65,6 +63,7 @@ import io.prestosql.sql.analyzer.SemanticErrorCode;
 import io.prestosql.sql.analyzer.SemanticException;
 import io.prestosql.sql.gen.ExpressionCompiler;
 import io.prestosql.sql.parser.SqlParser;
+import io.prestosql.sql.planner.ExpressionInterpreter;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.TypeProvider;
 import io.prestosql.sql.planner.plan.PlanNodeId;
@@ -132,10 +131,10 @@ import static io.prestosql.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static io.prestosql.sql.planner.iterative.rule.CanonicalizeExpressionRewriter.canonicalizeExpression;
 import static io.prestosql.sql.relational.Expressions.constant;
 import static io.prestosql.sql.relational.SqlToRowExpressionTranslator.translate;
-import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.prestosql.testing.TestingTaskContext.createTaskContext;
 import static io.prestosql.type.UnknownType.UNKNOWN;
 import static java.lang.String.format;
+import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
@@ -598,8 +597,7 @@ public final class FunctionAssertions
         results.add(directOperatorValue);
 
         // interpret
-        Operator interpretedFilterProject = interpretedFilterProject(Optional.empty(), projectionExpression, expectedType, session);
-        Object interpretedValue = selectSingleValue(interpretedFilterProject, expectedType);
+        Object interpretedValue = interpret(projectionExpression, expectedType, session);
         results.add(interpretedValue);
 
         // execute over normal operator
@@ -704,7 +702,10 @@ public final class FunctionAssertions
         }
 
         // interpret
-        boolean interpretedValue = executeFilter(interpretedFilterProject(Optional.of(filterExpression), TRUE_LITERAL, BOOLEAN, session));
+        Boolean interpretedValue = (Boolean) interpret(filterExpression, BOOLEAN, session);
+        if (interpretedValue == null) {
+            interpretedValue = false;
+        }
         results.add(interpretedValue);
 
         // execute over normal operator
@@ -867,29 +868,46 @@ public final class FunctionAssertions
         return hasSymbolReferences.get();
     }
 
-    private Operator interpretedFilterProject(Optional<Expression> filter, Expression projection, Type expectedType, Session session)
+    private Object interpret(Expression expression, Type expectedType, Session session)
     {
-        Optional<PageFilter> pageFilter = filter
-                .map(expression -> new InterpretedPageFilter(
-                        expression,
-                        SYMBOL_TYPES,
-                        INPUT_MAPPING,
-                        metadata,
-                        SQL_PARSER,
-                        session));
+        Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(session, metadata, SQL_PARSER, SYMBOL_TYPES, expression, emptyList(), WarningCollector.NOOP);
+        ExpressionInterpreter evaluator = ExpressionInterpreter.expressionInterpreter(expression, metadata, session, expressionTypes);
 
-        PageProjection pageProjection = new InterpretedPageProjection(projection, SYMBOL_TYPES, INPUT_MAPPING, metadata, SQL_PARSER, session);
-        assertEquals(pageProjection.getType(), expectedType);
+        Object result = evaluator.evaluate(symbol -> {
+            int position = 0;
+            int channel = INPUT_MAPPING.get(symbol);
+            Type type = SYMBOL_TYPES.get(symbol);
 
-        PageProcessor processor = new PageProcessor(pageFilter, ImmutableList.of(pageProjection));
-        OperatorFactory operatorFactory = new FilterAndProjectOperatorFactory(
-                0,
-                new PlanNodeId("test"),
-                () -> processor,
-                ImmutableList.of(pageProjection.getType()),
-                new DataSize(0, BYTE),
-                0);
-        return operatorFactory.createOperator(createDriverContext(session));
+            Block block = SOURCE_PAGE.getBlock(channel);
+
+            if (block.isNull(position)) {
+                return null;
+            }
+
+            Class<?> javaType = type.getJavaType();
+            if (javaType == boolean.class) {
+                return type.getBoolean(block, position);
+            }
+            else if (javaType == long.class) {
+                return type.getLong(block, position);
+            }
+            else if (javaType == double.class) {
+                return type.getDouble(block, position);
+            }
+            else if (javaType == Slice.class) {
+                return type.getSlice(block, position);
+            }
+            else if (javaType == Block.class) {
+                return type.getObject(block, position);
+            }
+            else {
+                throw new UnsupportedOperationException("not yet implemented");
+            }
+        });
+
+        // convert result from stack type to Type ObjectValue
+        Block block = Utils.nativeValueToBlock(expectedType, result);
+        return expectedType.getObjectValue(session.toConnectorSession(), block, 0);
     }
 
     private static OperatorFactory compileFilterWithNoInputColumns(RowExpression filter, ExpressionCompiler compiler)
@@ -955,7 +973,7 @@ public final class FunctionAssertions
 
     private RowExpression toRowExpression(Expression projection, Map<NodeRef<Expression>, Type> expressionTypes, Map<Symbol, Integer> layout)
     {
-        return translate(projection, SCALAR, expressionTypes, metadata.getFunctionRegistry(), metadata.getTypeManager(), session, false, layout);
+        return translate(projection, SCALAR, expressionTypes, layout, metadata.getFunctionRegistry(), metadata.getTypeManager(), session, false);
     }
 
     private static Page getAtMostOnePage(Operator operator, Page sourcePage)

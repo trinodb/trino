@@ -233,7 +233,7 @@ public class BenchmarkScanFilterAndProjectOperator
             Expression expression = createExpression(value, METADATA, TypeProvider.copyOf(symbolTypes));
 
             Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(TEST_SESSION, METADATA, SQL_PARSER, TypeProvider.copyOf(symbolTypes), expression, emptyList(), WarningCollector.NOOP);
-            return SqlToRowExpressionTranslator.translate(expression, SCALAR, expressionTypes, METADATA.getFunctionRegistry(), METADATA.getTypeManager(), TEST_SESSION, true, sourceLayout);
+            return SqlToRowExpressionTranslator.translate(expression, SCALAR, expressionTypes, sourceLayout, METADATA.getFunctionRegistry(), METADATA.getTypeManager(), TEST_SESSION, true);
         }
 
         private static Page createPage(List<? extends Type> types, int positions, boolean dictionary)
