@@ -44,6 +44,7 @@ import io.prestosql.sql.planner.iterative.rule.DetermineSemiJoinDistributionType
 import io.prestosql.sql.planner.iterative.rule.EliminateCrossJoins;
 import io.prestosql.sql.planner.iterative.rule.EvaluateZeroLimit;
 import io.prestosql.sql.planner.iterative.rule.EvaluateZeroSample;
+import io.prestosql.sql.planner.iterative.rule.EvaluateZeroTopN;
 import io.prestosql.sql.planner.iterative.rule.ExtractSpatialJoins;
 import io.prestosql.sql.planner.iterative.rule.GatherAndMergeWindows;
 import io.prestosql.sql.planner.iterative.rule.ImplementBernoulliSampleAsFilter;
@@ -282,6 +283,7 @@ public class PlanOptimizers
                                         new RemoveRedundantIdentityProjections(),
                                         new RemoveFullSample(),
                                         new EvaluateZeroLimit(),
+                                        new EvaluateZeroTopN(),
                                         new EvaluateZeroSample(),
                                         new PushLimitThroughProject(),
                                         new MergeLimits(),
