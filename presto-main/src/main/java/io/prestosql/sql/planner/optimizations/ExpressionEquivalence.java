@@ -26,7 +26,6 @@ import io.prestosql.metadata.Signature;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.parser.SqlParser;
 import io.prestosql.sql.planner.Symbol;
-import io.prestosql.sql.planner.SymbolToInputRewriter;
 import io.prestosql.sql.planner.TypeProvider;
 import io.prestosql.sql.relational.CallExpression;
 import io.prestosql.sql.relational.ConstantExpression;
@@ -58,7 +57,7 @@ import static io.prestosql.spi.function.OperatorType.LESS_THAN;
 import static io.prestosql.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static io.prestosql.spi.function.OperatorType.NOT_EQUAL;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
-import static io.prestosql.sql.analyzer.ExpressionAnalyzer.getExpressionTypesFromInput;
+import static io.prestosql.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static io.prestosql.sql.relational.SqlToRowExpressionTranslator.translate;
 import static java.lang.Integer.min;
 import static java.util.Collections.emptyList;
@@ -80,15 +79,13 @@ public class ExpressionEquivalence
     public boolean areExpressionsEquivalent(Session session, Expression leftExpression, Expression rightExpression, TypeProvider types)
     {
         Map<Symbol, Integer> symbolInput = new HashMap<>();
-        Map<Integer, Type> inputTypes = new HashMap<>();
         int inputId = 0;
         for (Entry<Symbol, Type> entry : types.allTypes().entrySet()) {
             symbolInput.put(entry.getKey(), inputId);
-            inputTypes.put(inputId, entry.getValue());
             inputId++;
         }
-        RowExpression leftRowExpression = toRowExpression(session, leftExpression, symbolInput, inputTypes);
-        RowExpression rightRowExpression = toRowExpression(session, rightExpression, symbolInput, inputTypes);
+        RowExpression leftRowExpression = toRowExpression(session, leftExpression, symbolInput, types);
+        RowExpression rightRowExpression = toRowExpression(session, rightExpression, symbolInput, types);
 
         RowExpression canonicalizedLeft = leftRowExpression.accept(CANONICALIZATION_VISITOR, null);
         RowExpression canonicalizedRight = rightRowExpression.accept(CANONICALIZATION_VISITOR, null);
@@ -96,23 +93,20 @@ public class ExpressionEquivalence
         return canonicalizedLeft.equals(canonicalizedRight);
     }
 
-    private RowExpression toRowExpression(Session session, Expression expression, Map<Symbol, Integer> symbolInput, Map<Integer, Type> inputTypes)
+    private RowExpression toRowExpression(Session session, Expression expression, Map<Symbol, Integer> symbolInput, TypeProvider types)
     {
-        // replace qualified names with input references since row expressions do not support these
-        Expression expressionWithInputReferences = new SymbolToInputRewriter(symbolInput).rewrite(expression);
-
         // determine the type of every expression
-        Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypesFromInput(
+        Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(
                 session,
                 metadata,
                 sqlParser,
-                inputTypes,
-                expressionWithInputReferences,
+                types,
+                expression,
                 emptyList(), /* parameters have already been replaced */
                 WarningCollector.NOOP);
 
         // convert to row expression
-        return translate(expressionWithInputReferences, SCALAR, expressionTypes, metadata.getFunctionRegistry(), metadata.getTypeManager(), session, false);
+        return translate(expression, SCALAR, expressionTypes, metadata.getFunctionRegistry(), metadata.getTypeManager(), session, false, symbolInput);
     }
 
     private static class CanonicalizationVisitor

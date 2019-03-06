@@ -31,6 +31,7 @@ import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeManager;
 import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.spi.type.VarcharType;
+import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.relational.optimizer.ExpressionOptimizer;
 import io.prestosql.sql.tree.ArithmeticBinaryExpression;
 import io.prestosql.sql.tree.ArithmeticUnaryExpression;
@@ -144,12 +145,14 @@ public final class SqlToRowExpressionTranslator
             FunctionRegistry functionRegistry,
             TypeManager typeManager,
             Session session,
-            boolean optimize)
+            boolean optimize,
+            Map<Symbol, Integer> layout)
     {
         Visitor visitor = new Visitor(
                 functionKind,
                 types,
                 typeManager,
+                layout,
                 session.getTimeZoneKey(),
                 isLegacyRowFieldOrdinalAccessEnabled(session),
                 SystemSessionProperties.isLegacyTimestamp(session));
@@ -171,6 +174,7 @@ public final class SqlToRowExpressionTranslator
         private final FunctionKind functionKind;
         private final Map<NodeRef<Expression>, Type> types;
         private final TypeManager typeManager;
+        private final Map<Symbol, Integer> layout;
         private final TimeZoneKey timeZoneKey;
         private final boolean legacyRowFieldOrdinalAccess;
         @Deprecated
@@ -180,6 +184,7 @@ public final class SqlToRowExpressionTranslator
                 FunctionKind functionKind,
                 Map<NodeRef<Expression>, Type> types,
                 TypeManager typeManager,
+                Map<Symbol, Integer> layout,
                 TimeZoneKey timeZoneKey,
                 boolean legacyRowFieldOrdinalAccess,
                 boolean isLegacyTimestamp)
@@ -187,6 +192,7 @@ public final class SqlToRowExpressionTranslator
             this.functionKind = functionKind;
             this.types = ImmutableMap.copyOf(requireNonNull(types, "types is null"));
             this.typeManager = typeManager;
+            this.layout = layout;
             this.timeZoneKey = timeZoneKey;
             this.legacyRowFieldOrdinalAccess = legacyRowFieldOrdinalAccess;
             this.isLegacyTimestamp = isLegacyTimestamp;
@@ -363,6 +369,11 @@ public final class SqlToRowExpressionTranslator
         @Override
         protected RowExpression visitSymbolReference(SymbolReference node, Void context)
         {
+            Integer field = layout.get(Symbol.from(node));
+            if (field != null) {
+                return field(field, getType(node));
+            }
+
             return new VariableReferenceExpression(node.getName(), getType(node));
         }
 
