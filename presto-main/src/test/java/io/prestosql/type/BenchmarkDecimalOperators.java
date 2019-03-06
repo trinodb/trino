@@ -30,7 +30,6 @@ import io.prestosql.sql.gen.ExpressionCompiler;
 import io.prestosql.sql.gen.PageFunctionCompiler;
 import io.prestosql.sql.parser.SqlParser;
 import io.prestosql.sql.planner.Symbol;
-import io.prestosql.sql.planner.SymbolToInputRewriter;
 import io.prestosql.sql.planner.TypeProvider;
 import io.prestosql.sql.relational.RowExpression;
 import io.prestosql.sql.relational.SqlToRowExpressionTranslator;
@@ -71,14 +70,13 @@ import static io.prestosql.operator.scalar.FunctionAssertions.createExpression;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.DecimalType.createDecimalType;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
-import static io.prestosql.sql.analyzer.ExpressionAnalyzer.getExpressionTypesFromInput;
+import static io.prestosql.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static io.prestosql.testing.TestingConnectorSession.SESSION;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static java.math.BigInteger.ONE;
 import static java.math.BigInteger.ZERO;
 import static java.util.Collections.emptyList;
 import static java.util.stream.Collectors.toList;
-import static java.util.stream.Collectors.toMap;
 import static org.openjdk.jmh.annotations.Scope.Thread;
 
 @State(Scope.Thread)
@@ -611,15 +609,12 @@ public class BenchmarkDecimalOperators
             this.doubleMaxValue = doubleMaxValue;
         }
 
-        private RowExpression rowExpression(String expression)
+        private RowExpression rowExpression(String value)
         {
-            Expression inputReferenceExpression = new SymbolToInputRewriter(sourceLayout).rewrite(createExpression(expression, metadata, TypeProvider.copyOf(symbolTypes)));
+            Expression expression = createExpression(value, metadata, TypeProvider.copyOf(symbolTypes));
 
-            Map<Integer, Type> types = sourceLayout.entrySet().stream()
-                    .collect(toMap(Map.Entry::getValue, entry -> symbolTypes.get(entry.getKey())));
-
-            Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypesFromInput(TEST_SESSION, metadata, SQL_PARSER, types, inputReferenceExpression, emptyList(), WarningCollector.NOOP);
-            return SqlToRowExpressionTranslator.translate(inputReferenceExpression, SCALAR, expressionTypes, metadata.getFunctionRegistry(), metadata.getTypeManager(), TEST_SESSION, true);
+            Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(TEST_SESSION, metadata, SQL_PARSER, TypeProvider.copyOf(symbolTypes), expression, emptyList(), WarningCollector.NOOP);
+            return SqlToRowExpressionTranslator.translate(expression, SCALAR, expressionTypes, metadata.getFunctionRegistry(), metadata.getTypeManager(), TEST_SESSION, true, sourceLayout);
         }
 
         private Object generateRandomValue(Type type)
