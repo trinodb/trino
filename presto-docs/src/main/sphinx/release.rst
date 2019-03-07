@@ -5,6 +5,7 @@ Release Notes
 .. toctree::
     :maxdepth: 1
 
+    release/release-305
     release/release-304
     release/release-303
     release/release-302
