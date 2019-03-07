@@ -74,6 +74,7 @@ import io.prestosql.sql.planner.iterative.rule.PruneTopNColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneValuesColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneWindowColumns;
 import io.prestosql.sql.planner.iterative.rule.PushAggregationThroughOuterJoin;
+import io.prestosql.sql.planner.iterative.rule.PushFilterIntoTableScan;
 import io.prestosql.sql.planner.iterative.rule.PushLimitThroughMarkDistinct;
 import io.prestosql.sql.planner.iterative.rule.PushLimitThroughOuterJoin;
 import io.prestosql.sql.planner.iterative.rule.PushLimitThroughProject;
@@ -203,6 +204,7 @@ public class PlanOptimizers
             TaskCountEstimator taskCountEstimator)
     {
         this.exporter = exporter;
+
         ImmutableList.Builder<PlanOptimizer> builder = ImmutableList.builder();
 
         Set<Rule<?>> predicatePushDownRules = ImmutableSet.of(
@@ -297,7 +299,8 @@ public class PlanOptimizers
                                         new MergeLimitWithDistinct(),
                                         new PruneCountAggregationOverScalar(),
                                         new PruneOrderByInAggregation(metadata.getFunctionRegistry()),
-                                        new RewriteSpatialPartitioningAggregation(metadata)))
+                                        new RewriteSpatialPartitioningAggregation(metadata),
+                                        new PushFilterIntoTableScan(metadata, typeAnalyzer)))
                                 .build()),
                 simplifyOptimizer,
                 new UnaliasSymbolReferences(),

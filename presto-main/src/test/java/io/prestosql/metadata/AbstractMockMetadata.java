@@ -36,6 +36,7 @@ import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeManager;
 import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.sql.planner.PartitioningHandle;
+import io.prestosql.spi.expression.ConnectorExpression;
 import io.prestosql.sql.tree.QualifiedName;
 
 import java.util.Collection;
@@ -507,5 +508,11 @@ public abstract class AbstractMockMetadata
     public boolean catalogExists(Session session, String catalogName)
     {
         throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Optional<FilterApplicationResult> applyFilter(TableHandle table, ConnectorExpression expression)
+    {
+        return Optional.empty();
     }
 }

@@ -110,4 +110,13 @@ public class TestLocalQueries
         // https://github.com/cloudera/hue/blob/b49e98c1250c502be596667ce1f0fe118983b432/desktop/libs/notebook/src/notebook/connectors/jdbc.py#L213
         assertQuerySucceeds(getSession(), "SELECT column_name, data_type, column_comment FROM information_schema.columns WHERE table_schema='local' AND TABLE_NAME='nation'");
     }
+
+
+    @Test
+    public void testX()
+    {
+        ((LocalQueryRunner) getQueryRunner()).printPlan();
+        computeActual("SELECT * FROM orders WHERE orderkey = BIGINT '1'");
+    }
+
 }

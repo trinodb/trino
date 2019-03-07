@@ -65,6 +65,9 @@ import io.prestosql.spi.type.TypeManager;
 import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.sql.analyzer.FeaturesConfig;
 import io.prestosql.sql.planner.PartitioningHandle;
+import io.prestosql.spi.expression.Apply;
+import io.prestosql.spi.expression.ColumnReference;
+import io.prestosql.spi.expression.ConnectorExpression;
 import io.prestosql.sql.tree.QualifiedName;
 import io.prestosql.transaction.TransactionManager;
 import io.prestosql.type.TypeDeserializer;
@@ -1149,6 +1152,47 @@ public class MetadataManager
     public AnalyzePropertyManager getAnalyzePropertyManager()
     {
         return analyzePropertyManager;
+    }
+
+    @Override
+    public Optional<FilterApplicationResult> applyFilter(TableHandle table, ConnectorExpression expression)
+    {
+        // TODO: dispatch to connector that owns "table"
+
+
+        /////////////////////////////////// testing code
+        class CustomColumn implements ColumnHandle {
+            int id;
+
+            public CustomColumn(int id)
+            {
+                this.id = id;
+            }
+
+            @Override
+            public int hashCode()
+            {
+                return id;
+            }
+
+            @Override
+            public boolean equals(Object obj)
+            {
+                return id == ((CustomColumn) obj).id;
+            }
+        }
+
+        if (expression instanceof Apply) {
+            ColumnHandle column = new CustomColumn(1);
+            return Optional.of(new FilterApplicationResult(
+                    table,
+                    new ColumnReference(column, BOOLEAN),
+                    ImmutableList.of(new FilterApplicationResult.Column(column, BOOLEAN))));
+        }
+        /////////////////////////////////// testing code
+
+
+        return Optional.empty();
     }
 
     private ViewDefinition deserializeView(String data)

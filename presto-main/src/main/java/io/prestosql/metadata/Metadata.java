@@ -37,6 +37,7 @@ import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeManager;
 import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.sql.planner.PartitioningHandle;
+import io.prestosql.spi.expression.ConnectorExpression;
 import io.prestosql.sql.tree.QualifiedName;
 
 import java.util.Collection;
@@ -380,4 +381,7 @@ public interface Metadata
     ColumnPropertyManager getColumnPropertyManager();
 
     AnalyzePropertyManager getAnalyzePropertyManager();
+
+    //  => TableHandle + remaining filter + new projections
+    Optional<FilterApplicationResult> applyFilter(TableHandle table, ConnectorExpression expression);
 }
