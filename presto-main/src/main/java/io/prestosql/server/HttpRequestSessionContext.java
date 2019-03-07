@@ -298,11 +298,16 @@ public final class HttpRequestSessionContext
     private static Map<String, SelectedRole> parseRoleHeaders(HttpServletRequest servletRequest)
     {
         ImmutableMap.Builder<String, SelectedRole> roles = ImmutableMap.builder();
-        for (String header : splitSessionHeader(servletRequest.getHeaders(PRESTO_ROLE))) {
-            List<String> nameValue = Splitter.on('=').limit(2).trimResults().splitToList(header);
-            assertRequest(nameValue.size() == 2, "Invalid %s header", PRESTO_ROLE);
-            roles.put(nameValue.get(0), SelectedRole.valueOf(urlDecode(nameValue.get(1))));
-        }
+        parseProperty(servletRequest, PRESTO_ROLE).forEach((key, value) -> {
+            SelectedRole role;
+            try {
+                role = SelectedRole.valueOf(value);
+            }
+            catch (IllegalArgumentException e) {
+                throw badRequest(format("Invalid %s header", PRESTO_ROLE));
+            }
+            roles.put(key, role);
+        });
         return roles.build();
     }
 
