@@ -53,6 +53,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.fail;
 
 public class TestJdbcConnection
 {
@@ -186,6 +187,28 @@ public class TestJdbcConnection
             assertThat(listSession(connection))
                     .contains("join_distribution_type|BROADCAST|PARTITIONED")
                     .contains("exchange_compression|true|false");
+
+            try (Statement statement = connection.createStatement()) {
+                // setting Hive session properties requires the admin role
+                statement.execute("SET ROLE admin");
+            }
+
+            for (String part : ImmutableList.of(",", "=", ":", "|", "/", "\\", "'", "\\'", "''", "\"", "\\\"", "[", "]")) {
+                String value = format("/tmp/presto-%s-${USER}", part);
+                try {
+                    try (Statement statement = connection.createStatement()) {
+                        statement.execute(format("SET SESSION hive.temporary_staging_directory_path = '%s'", value.replace("'", "''")));
+                    }
+
+                    assertThat(listSession(connection))
+                            .contains("join_distribution_type|BROADCAST|PARTITIONED")
+                            .contains("exchange_compression|true|false")
+                            .contains(format("hive.temporary_staging_directory_path|%s|/tmp/presto-${USER}", value));
+                }
+                catch (Exception e) {
+                    fail(format("Failed to set session property value to [%s]", value), e);
+                }
+            }
         }
     }
 

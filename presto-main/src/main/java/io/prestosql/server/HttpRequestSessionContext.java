@@ -317,7 +317,12 @@ public final class HttpRequestSessionContext
         for (String header : splitSessionHeader(servletRequest.getHeaders(headerName))) {
             List<String> nameValue = Splitter.on('=').trimResults().splitToList(header);
             assertRequest(nameValue.size() == 2, "Invalid %s header", headerName);
-            properties.put(nameValue.get(0), nameValue.get(1));
+            try {
+                properties.put(nameValue.get(0), urlDecode(nameValue.get(1)));
+            }
+            catch (IllegalArgumentException e) {
+                throw badRequest(format("Invalid %s header: %s", headerName, e));
+            }
         }
         return properties;
     }
