@@ -124,19 +124,19 @@ There are four selectors that define which queries run in which resource group:
 
   * The first selector matches queries from ``bob`` and places them in the admin group.
 
-  * The second selector matches all data definition (DDL) queries from a source name that includes "pipeline"
+  * The second selector matches all data definition (DDL) queries from a source name that includes ``pipeline``
     and places them in the ``global.data_definition`` group. This could help reduce queue times for this
     class of queries, since they are expected to be fast.
 
-  * The third selector matches queries from a source name that includes "pipeline", and places them in a
+  * The third selector matches queries from a source name that includes ``pipeline``, and places them in a
     dynamically-created per-user pipeline group under the ``global.pipeline`` group.
 
-  * The fourth selector matches queries that come from BI tools (which have a source matching the regular
-    expression ``"jdbc#(?<toolname>.*)"``), and have client provided tags that are a superset of "hi-pri".
+  * The fourth selector matches queries that come from BI tools which have a source matching the regular
+    expression ``jdbc#(?<toolname>.*)``, and have client provided tags that are a superset of ``hi-pri``.
     These are placed in a dynamically-created sub-group under the ``global.pipeline.tools`` group. The dynamic
     sub-group will be created based on the named variable ``toolname``, which is extracted from the in the
-    regular expression for source. Consider a query with a source "jdbc#powerfulbi", user "kayla", and
-    client tags "hipri" and "fast". This query would be routed to the ``global.pipeline.bi-powerfulbi.kayla``
+    regular expression for source. Consider a query with a source ``jdbc#powerfulbi``, user ``kayla``, and
+    client tags ``hipri`` and ``fast``. This query would be routed to the ``global.pipeline.bi-powerfulbi.kayla``
     resource group.
 
   * The last selector is a catch-all, which places all queries that have not yet been matched into a per-user
@@ -144,14 +144,14 @@ There are four selectors that define which queries run in which resource group:
 
 Together, these selectors implement the following policy:
 
-* The user "bob" is an admin and can run up to 50 concurrent queries. Queries will be run based on user-provided
-  priority.
+* The user ``bob`` is an admin and can run up to 50 concurrent queries.
+  Queries will be run based on user-provided priority.
 
 For the remaining users:
 
 * No more than 100 total queries may run concurrently.
 
-* Up to 5 concurrent DDL queries with a source "pipeline" can run. Queries are run in FIFO order.
+* Up to 5 concurrent DDL queries with a source ``pipeline`` can run. Queries are run in FIFO order.
 
 * Non-DDL queries will run under the ``global.pipeline`` group, with a total concurrency of 45, and a per-user
   concurrency of 5. Queries are run in FIFO order.
