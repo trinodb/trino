@@ -347,12 +347,7 @@ public final class HttpRequestSessionContext
     private ResourceEstimates parseResourceEstimate(HttpServletRequest servletRequest)
     {
         ResourceEstimateBuilder builder = new ResourceEstimateBuilder();
-        for (String header : splitSessionHeader(servletRequest.getHeaders(PRESTO_RESOURCE_ESTIMATE))) {
-            List<String> nameValue = Splitter.on('=').limit(2).trimResults().splitToList(header);
-            assertRequest(nameValue.size() == 2, "Invalid %s header", PRESTO_RESOURCE_ESTIMATE);
-            String name = nameValue.get(0);
-            String value = nameValue.get(1);
-
+        parseProperty(servletRequest, PRESTO_RESOURCE_ESTIMATE).forEach((name, value) -> {
             try {
                 switch (name.toUpperCase()) {
                     case ResourceEstimates.EXECUTION_TIME:
@@ -371,7 +366,7 @@ public final class HttpRequestSessionContext
             catch (IllegalArgumentException e) {
                 throw badRequest(format("Unsupported format for resource estimate '%s': %s", value, e));
             }
-        }
+        });
 
         return builder.build();
     }

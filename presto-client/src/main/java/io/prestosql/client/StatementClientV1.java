@@ -182,7 +182,7 @@ class StatementClientV1
 
         Map<String, String> resourceEstimates = session.getResourceEstimates();
         for (Entry<String, String> entry : resourceEstimates.entrySet()) {
-            builder.addHeader(PRESTO_RESOURCE_ESTIMATE, entry.getKey() + "=" + entry.getValue());
+            builder.addHeader(PRESTO_RESOURCE_ESTIMATE, entry.getKey() + "=" + urlEncode(entry.getValue()));
         }
 
         Map<String, ClientSelectedRole> roles = session.getRoles();
