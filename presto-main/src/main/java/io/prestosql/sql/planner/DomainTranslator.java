@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.PeekingIterator;
 import io.prestosql.Session;
-import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
 import io.prestosql.spi.block.Block;
@@ -34,7 +33,6 @@ import io.prestosql.spi.predicate.ValueSet;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.ExpressionUtils;
 import io.prestosql.sql.InterpretedFunctionInvoker;
-import io.prestosql.sql.analyzer.ExpressionAnalyzer;
 import io.prestosql.sql.parser.SqlParser;
 import io.prestosql.sql.tree.AstVisitor;
 import io.prestosql.sql.tree.BetweenPredicate;
@@ -78,7 +76,6 @@ import static io.prestosql.sql.tree.ComparisonExpression.Operator.GREATER_THAN_O
 import static io.prestosql.sql.tree.ComparisonExpression.Operator.LESS_THAN;
 import static io.prestosql.sql.tree.ComparisonExpression.Operator.LESS_THAN_OR_EQUAL;
 import static io.prestosql.sql.tree.ComparisonExpression.Operator.NOT_EQUAL;
-import static java.util.Collections.emptyList;
 import static java.util.Comparator.comparing;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.collectingAndThen;
@@ -277,7 +274,7 @@ public final class DomainTranslator
             Expression predicate,
             TypeProvider types)
     {
-        return new Visitor(metadata, session, types).process(predicate, false);
+        return new Visitor(metadata, session, types, new TypeAnalyzer(new SqlParser(), metadata)).process(predicate, false);
     }
 
     private static class Visitor
@@ -288,14 +285,16 @@ public final class DomainTranslator
         private final Session session;
         private final TypeProvider types;
         private final InterpretedFunctionInvoker functionInvoker;
+        private final TypeAnalyzer typeAnalyzer;
 
-        private Visitor(Metadata metadata, Session session, TypeProvider types)
+        private Visitor(Metadata metadata, Session session, TypeProvider types, TypeAnalyzer typeAnalyzer)
         {
             this.metadata = requireNonNull(metadata, "metadata is null");
             this.literalEncoder = new LiteralEncoder(metadata.getBlockEncodingSerde());
             this.session = requireNonNull(session, "session is null");
             this.types = requireNonNull(types, "types is null");
             this.functionInvoker = new InterpretedFunctionInvoker(metadata.getFunctionRegistry());
+            this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
         }
 
         private Type checkedTypeLookup(Symbol symbol)
@@ -424,7 +423,7 @@ public final class DomainTranslator
                     return super.visitComparisonExpression(node, complement);
                 }
 
-                Type castSourceType = typeOf(castExpression.getExpression(), session, metadata, types); // type of expression which is then cast to type of value
+                Type castSourceType = typeAnalyzer.getType(session, types, castExpression.getExpression()); // type of expression which is then cast to type of value
 
                 // we use saturated floor cast value -> castSourceType to rewrite original expression to new one with one cast peeled off the symbol side
                 Optional<Expression> coercedExpression = coerceComparisonWithRounding(
@@ -489,7 +488,7 @@ public final class DomainTranslator
 
         private Map<NodeRef<Expression>, Type> analyzeExpression(Expression expression)
         {
-            return ExpressionAnalyzer.getExpressionTypes(session, metadata, new SqlParser(), types, expression, emptyList(), WarningCollector.NOOP);
+            return typeAnalyzer.getTypes(session, types, expression);
         }
 
         private static ExtractionResult createComparisonExtractionResult(ComparisonExpression.Operator comparisonOperator, Symbol column, Type type, @Nullable Object value, boolean complement)
@@ -755,12 +754,6 @@ public final class DomainTranslator
         {
             return new ExtractionResult(TupleDomain.none(), TRUE_LITERAL);
         }
-    }
-
-    private static Type typeOf(Expression expression, Session session, Metadata metadata, TypeProvider types)
-    {
-        Map<NodeRef<Expression>, Type> expressionTypes = ExpressionAnalyzer.getExpressionTypes(session, metadata, new SqlParser(), types, expression, emptyList(), WarningCollector.NOOP);
-        return expressionTypes.get(NodeRef.of(expression));
     }
 
     private static class NormalizedSimpleComparison

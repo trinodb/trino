@@ -127,6 +127,7 @@ import io.prestosql.sql.parser.SqlParserOptions;
 import io.prestosql.sql.planner.CompilerConfig;
 import io.prestosql.sql.planner.LocalExecutionPlanner;
 import io.prestosql.sql.planner.NodePartitioningManager;
+import io.prestosql.sql.planner.TypeAnalyzer;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.FunctionCall;
 import io.prestosql.transaction.TransactionManagerConfig;
@@ -354,6 +355,7 @@ public class ServerMainModule
         binder.bind(Metadata.class).to(MetadataManager.class).in(Scopes.SINGLETON);
 
         // type
+        binder.bind(TypeAnalyzer.class).in(Scopes.SINGLETON);
         binder.bind(TypeRegistry.class).in(Scopes.SINGLETON);
         binder.bind(TypeManager.class).to(TypeRegistry.class).in(Scopes.SINGLETON);
         jsonBinder(binder).addDeserializerBinding(Type.class).to(TypeDeserializer.class);

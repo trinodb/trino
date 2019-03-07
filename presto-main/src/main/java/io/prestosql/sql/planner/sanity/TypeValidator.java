@@ -21,9 +21,9 @@ import io.prestosql.metadata.Signature;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeManager;
 import io.prestosql.spi.type.TypeSignature;
-import io.prestosql.sql.parser.SqlParser;
 import io.prestosql.sql.planner.SimplePlanVisitor;
 import io.prestosql.sql.planner.Symbol;
+import io.prestosql.sql.planner.TypeAnalyzer;
 import io.prestosql.sql.planner.TypeProvider;
 import io.prestosql.sql.planner.plan.AggregationNode;
 import io.prestosql.sql.planner.plan.AggregationNode.Aggregation;
@@ -33,16 +33,13 @@ import io.prestosql.sql.planner.plan.UnionNode;
 import io.prestosql.sql.planner.plan.WindowNode;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.FunctionCall;
-import io.prestosql.sql.tree.NodeRef;
 import io.prestosql.sql.tree.SymbolReference;
 
 import java.util.List;
 import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.prestosql.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static io.prestosql.type.UnknownType.UNKNOWN;
-import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -54,9 +51,9 @@ public final class TypeValidator
     public TypeValidator() {}
 
     @Override
-    public void validate(PlanNode plan, Session session, Metadata metadata, SqlParser sqlParser, TypeProvider types, WarningCollector warningCollector)
+    public void validate(PlanNode plan, Session session, Metadata metadata, TypeAnalyzer typeAnalyzer, TypeProvider types, WarningCollector warningCollector)
     {
-        plan.accept(new Visitor(session, metadata, sqlParser, types, warningCollector), null);
+        plan.accept(new Visitor(session, metadata, typeAnalyzer, types, warningCollector), null);
     }
 
     private static class Visitor
@@ -64,15 +61,15 @@ public final class TypeValidator
     {
         private final Session session;
         private final Metadata metadata;
-        private final SqlParser sqlParser;
+        private final TypeAnalyzer typeAnalyzer;
         private final TypeProvider types;
         private final WarningCollector warningCollector;
 
-        public Visitor(Session session, Metadata metadata, SqlParser sqlParser, TypeProvider types, WarningCollector warningCollector)
+        public Visitor(Session session, Metadata metadata, TypeAnalyzer typeAnalyzer, TypeProvider types, WarningCollector warningCollector)
         {
             this.session = requireNonNull(session, "session is null");
             this.metadata = requireNonNull(metadata, "metadata is null");
-            this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
+            this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
             this.types = requireNonNull(types, "types is null");
             this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
         }
@@ -119,8 +116,7 @@ public final class TypeValidator
                     verifyTypeSignature(entry.getKey(), expectedType.getTypeSignature(), types.get(Symbol.from(symbolReference)).getTypeSignature());
                     continue;
                 }
-                Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(session, metadata, sqlParser, types, entry.getValue(), emptyList(), warningCollector);
-                Type actualType = expressionTypes.get(NodeRef.of(entry.getValue()));
+                Type actualType = typeAnalyzer.getType(session, types, entry.getValue());
                 verifyTypeSignature(entry.getKey(), expectedType.getTypeSignature(), actualType.getTypeSignature());
             }
 
@@ -165,8 +161,7 @@ public final class TypeValidator
         private void checkCall(Symbol symbol, FunctionCall call)
         {
             Type expectedType = types.get(symbol);
-            Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(session, metadata, sqlParser, types, call, emptyList(), warningCollector);
-            Type actualType = expressionTypes.get(NodeRef.<Expression>of(call));
+            Type actualType = typeAnalyzer.getType(session, types, call);
             verifyTypeSignature(symbol, expectedType.getTypeSignature(), actualType.getTypeSignature());
         }
 

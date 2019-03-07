@@ -16,8 +16,8 @@ package io.prestosql.sql.planner.sanity;
 import io.prestosql.Session;
 import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.metadata.Metadata;
-import io.prestosql.sql.parser.SqlParser;
 import io.prestosql.sql.planner.ExpressionExtractor;
+import io.prestosql.sql.planner.TypeAnalyzer;
 import io.prestosql.sql.planner.TypeProvider;
 import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.tree.DefaultTraversalVisitor;
@@ -30,7 +30,7 @@ public final class NoSubqueryExpressionLeftChecker
         implements PlanSanityChecker.Checker
 {
     @Override
-    public void validate(PlanNode plan, Session session, Metadata metadata, SqlParser sqlParser, TypeProvider types, WarningCollector warningCollector)
+    public void validate(PlanNode plan, Session session, Metadata metadata, TypeAnalyzer typeAnalyzer, TypeProvider types, WarningCollector warningCollector)
     {
         for (Expression expression : ExpressionExtractor.extractExpressions(plan)) {
             new DefaultTraversalVisitor<Void, Void>()

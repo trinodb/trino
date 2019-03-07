@@ -26,6 +26,7 @@ import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.parser.SqlParser;
+import io.prestosql.sql.planner.TypeAnalyzer;
 import io.prestosql.sql.planner.iterative.rule.test.BaseRuleTest;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -53,7 +54,7 @@ public class TestPushPredicateIntoTableScan
     @BeforeClass
     public void setUpBeforeClass()
     {
-        pushPredicateIntoTableScan = new PushPredicateIntoTableScan(tester().getMetadata(), new SqlParser());
+        pushPredicateIntoTableScan = new PushPredicateIntoTableScan(tester().getMetadata(), new TypeAnalyzer(new SqlParser(), tester().getMetadata()));
 
         connectorId = tester().getCurrentConnectorId();
 

@@ -16,7 +16,7 @@ package io.prestosql.sql.planner.sanity;
 import io.prestosql.Session;
 import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.metadata.Metadata;
-import io.prestosql.sql.parser.SqlParser;
+import io.prestosql.sql.planner.TypeAnalyzer;
 import io.prestosql.sql.planner.TypeProvider;
 import io.prestosql.sql.planner.optimizations.ActualProperties;
 import io.prestosql.sql.planner.optimizations.PropertyDerivations;
@@ -60,9 +60,9 @@ public class ValidateAggregationsWithDefaultValues
     }
 
     @Override
-    public void validate(PlanNode planNode, Session session, Metadata metadata, SqlParser sqlParser, TypeProvider types, WarningCollector warningCollector)
+    public void validate(PlanNode planNode, Session session, Metadata metadata, TypeAnalyzer typeAnalyzer, TypeProvider types, WarningCollector warningCollector)
     {
-        planNode.accept(new Visitor(session, metadata, sqlParser, types), null);
+        planNode.accept(new Visitor(session, metadata, typeAnalyzer, types), null);
     }
 
     private class Visitor
@@ -70,14 +70,14 @@ public class ValidateAggregationsWithDefaultValues
     {
         final Session session;
         final Metadata metadata;
-        final SqlParser parser;
+        final TypeAnalyzer typeAnalyzer;
         final TypeProvider types;
 
-        Visitor(Session session, Metadata metadata, SqlParser parser, TypeProvider types)
+        Visitor(Session session, Metadata metadata, TypeAnalyzer typeAnalyzer, TypeProvider types)
         {
             this.session = requireNonNull(session, "session is null");
             this.metadata = requireNonNull(metadata, "metadata is null");
-            this.parser = requireNonNull(parser, "parser is null");
+            this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
             this.types = requireNonNull(types, "types is null");
         }
 
@@ -115,14 +115,14 @@ public class ValidateAggregationsWithDefaultValues
 
             // No remote repartition exchange between final and partial aggregation.
             // Make sure that final aggregation operators are executed on a single node.
-            ActualProperties globalProperties = PropertyDerivations.derivePropertiesRecursively(node, metadata, session, types, parser);
+            ActualProperties globalProperties = PropertyDerivations.derivePropertiesRecursively(node, metadata, session, types, typeAnalyzer);
             checkArgument(forceSingleNode || globalProperties.isSingleNode(),
                     "Final aggregation with default value not separated from partial aggregation by remote hash exchange");
 
             if (!seenExchanges.localRepartitionExchange) {
                 // No local repartition exchange between final and partial aggregation.
                 // Make sure that final aggregation operators are executed by single thread.
-                StreamProperties localProperties = StreamPropertyDerivations.derivePropertiesRecursively(node, metadata, session, types, parser);
+                StreamProperties localProperties = StreamPropertyDerivations.derivePropertiesRecursively(node, metadata, session, types, typeAnalyzer);
                 checkArgument(localProperties.isSingleStream(),
                         "Final aggregation with default value not separated from partial aggregation by local hash exchange");
             }

@@ -65,6 +65,7 @@ import io.prestosql.sql.gen.ExpressionCompiler;
 import io.prestosql.sql.parser.SqlParser;
 import io.prestosql.sql.planner.ExpressionInterpreter;
 import io.prestosql.sql.planner.Symbol;
+import io.prestosql.sql.planner.TypeAnalyzer;
 import io.prestosql.sql.planner.TypeProvider;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 import io.prestosql.sql.relational.RowExpression;
@@ -127,14 +128,12 @@ import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
 import static io.prestosql.sql.ParsingUtil.createParsingOptions;
 import static io.prestosql.sql.analyzer.ExpressionAnalyzer.analyzeExpressions;
-import static io.prestosql.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static io.prestosql.sql.planner.iterative.rule.CanonicalizeExpressionRewriter.canonicalizeExpression;
 import static io.prestosql.sql.relational.Expressions.constant;
 import static io.prestosql.sql.relational.SqlToRowExpressionTranslator.translate;
 import static io.prestosql.testing.TestingTaskContext.createTaskContext;
 import static io.prestosql.type.UnknownType.UNKNOWN;
 import static java.lang.String.format;
-import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
@@ -211,6 +210,7 @@ public final class FunctionAssertions
     private final Session session;
     private final LocalQueryRunner runner;
     private final Metadata metadata;
+    private final TypeAnalyzer typeAnalyzer;
     private final ExpressionCompiler compiler;
 
     public FunctionAssertions()
@@ -229,6 +229,7 @@ public final class FunctionAssertions
         runner = new LocalQueryRunner(session, featuresConfig);
         metadata = runner.getMetadata();
         compiler = runner.getExpressionCompiler();
+        typeAnalyzer = new TypeAnalyzer(SQL_PARSER, metadata);
     }
 
     public TypeRegistry getTypeRegistry()
@@ -627,15 +628,7 @@ public final class FunctionAssertions
 
     private RowExpression toRowExpression(Session session, Expression projectionExpression)
     {
-        Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(
-                session,
-                metadata,
-                SQL_PARSER,
-                TypeProvider.copyOf(INPUT_TYPES),
-                projectionExpression,
-                ImmutableList.of(),
-                WarningCollector.NOOP);
-        return toRowExpression(projectionExpression, expressionTypes, INPUT_MAPPING);
+        return toRowExpression(projectionExpression, typeAnalyzer.getTypes(session, TypeProvider.copyOf(INPUT_TYPES), projectionExpression), INPUT_MAPPING);
     }
 
     private Object selectSingleValue(OperatorFactory operatorFactory, Type type, Session session)
@@ -870,7 +863,7 @@ public final class FunctionAssertions
 
     private Object interpret(Expression expression, Type expectedType, Session session)
     {
-        Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(session, metadata, SQL_PARSER, SYMBOL_TYPES, expression, emptyList(), WarningCollector.NOOP);
+        Map<NodeRef<Expression>, Type> expressionTypes = typeAnalyzer.getTypes(session, SYMBOL_TYPES, expression);
         ExpressionInterpreter evaluator = ExpressionInterpreter.expressionInterpreter(expression, metadata, session, expressionTypes);
 
         Object result = evaluator.evaluate(symbol -> {

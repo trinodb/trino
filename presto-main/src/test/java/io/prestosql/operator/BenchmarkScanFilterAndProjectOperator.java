@@ -19,7 +19,6 @@ import io.airlift.units.DataSize;
 import io.prestosql.SequencePageBuilder;
 import io.prestosql.Session;
 import io.prestosql.connector.ConnectorId;
-import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Split;
 import io.prestosql.operator.ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory;
@@ -33,12 +32,12 @@ import io.prestosql.sql.gen.ExpressionCompiler;
 import io.prestosql.sql.gen.PageFunctionCompiler;
 import io.prestosql.sql.parser.SqlParser;
 import io.prestosql.sql.planner.Symbol;
+import io.prestosql.sql.planner.TypeAnalyzer;
 import io.prestosql.sql.planner.TypeProvider;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 import io.prestosql.sql.relational.RowExpression;
 import io.prestosql.sql.relational.SqlToRowExpressionTranslator;
 import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.NodeRef;
 import io.prestosql.testing.TestingMetadata.TestingColumnHandle;
 import io.prestosql.testing.TestingSession;
 import io.prestosql.testing.TestingTaskContext;
@@ -80,9 +79,7 @@ import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.operator.scalar.FunctionAssertions.createExpression;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
-import static io.prestosql.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static io.prestosql.testing.TestingSplit.createLocalSplit;
-import static java.util.Collections.emptyList;
 import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
@@ -101,8 +98,8 @@ public class BenchmarkScanFilterAndProjectOperator
     private static final Map<String, Type> TYPE_MAP = ImmutableMap.of("bigint", BIGINT, "varchar", VARCHAR);
 
     private static final Session TEST_SESSION = TestingSession.testSessionBuilder().build();
-    private static final SqlParser SQL_PARSER = new SqlParser();
     private static final Metadata METADATA = createTestMetadataManager();
+    private static final TypeAnalyzer TYPE_ANALYZER = new TypeAnalyzer(new SqlParser(), METADATA);
 
     private static final int TOTAL_POSITIONS = 1_000_000;
     private static final DataSize FILTER_AND_PROJECT_MIN_OUTPUT_PAGE_SIZE = new DataSize(500, KILOBYTE);
@@ -232,8 +229,15 @@ public class BenchmarkScanFilterAndProjectOperator
         {
             Expression expression = createExpression(value, METADATA, TypeProvider.copyOf(symbolTypes));
 
-            Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(TEST_SESSION, METADATA, SQL_PARSER, TypeProvider.copyOf(symbolTypes), expression, emptyList(), WarningCollector.NOOP);
-            return SqlToRowExpressionTranslator.translate(expression, SCALAR, expressionTypes, sourceLayout, METADATA.getFunctionRegistry(), METADATA.getTypeManager(), TEST_SESSION, true);
+            return SqlToRowExpressionTranslator.translate(
+                    expression,
+                    SCALAR,
+                    TYPE_ANALYZER.getTypes(TEST_SESSION, TypeProvider.copyOf(symbolTypes), expression),
+                    sourceLayout,
+                    METADATA.getFunctionRegistry(),
+                    METADATA.getTypeManager(),
+                    TEST_SESSION,
+                    true);
         }
 
         private static Page createPage(List<? extends Type> types, int positions, boolean dictionary)

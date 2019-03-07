@@ -1421,44 +1421,6 @@ public class ExpressionAnalyzer
         }
     }
 
-    public static Map<NodeRef<Expression>, Type> getExpressionTypes(
-            Session session,
-            Metadata metadata,
-            SqlParser sqlParser,
-            TypeProvider types,
-            Expression expression,
-            List<Expression> parameters,
-            WarningCollector warningCollector)
-    {
-        return getExpressionTypes(session, metadata, sqlParser, types, expression, parameters, warningCollector, false);
-    }
-
-    public static Map<NodeRef<Expression>, Type> getExpressionTypes(
-            Session session,
-            Metadata metadata,
-            SqlParser sqlParser,
-            TypeProvider types,
-            Expression expression,
-            List<Expression> parameters,
-            WarningCollector warningCollector,
-            boolean isDescribe)
-    {
-        return getExpressionTypes(session, metadata, sqlParser, types, ImmutableList.of(expression), parameters, warningCollector, isDescribe);
-    }
-
-    public static Map<NodeRef<Expression>, Type> getExpressionTypes(
-            Session session,
-            Metadata metadata,
-            SqlParser sqlParser,
-            TypeProvider types,
-            Iterable<Expression> expressions,
-            List<Expression> parameters,
-            WarningCollector warningCollector,
-            boolean isDescribe)
-    {
-        return analyzeExpressions(session, metadata, sqlParser, types, expressions, parameters, warningCollector, isDescribe).getExpressionTypes();
-    }
-
     public static ExpressionAnalysis analyzeExpressions(
             Session session,
             Metadata metadata,

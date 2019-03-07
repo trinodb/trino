@@ -34,6 +34,7 @@ import io.prestosql.sql.parser.SqlParser;
 import io.prestosql.sql.planner.Plan;
 import io.prestosql.sql.planner.PlanFragmenter;
 import io.prestosql.sql.planner.PlanOptimizers;
+import io.prestosql.sql.planner.TypeAnalyzer;
 import io.prestosql.sql.planner.optimizations.PlanOptimizer;
 import io.prestosql.sql.tree.ExplainType;
 import io.prestosql.testing.MaterializedResult;
@@ -345,7 +346,7 @@ public abstract class AbstractTestQueryFramework
         CostCalculator costCalculator = new CostCalculatorUsingExchanges(taskCountEstimator);
         List<PlanOptimizer> optimizers = new PlanOptimizers(
                 metadata,
-                sqlParser,
+                new TypeAnalyzer(sqlParser, metadata),
                 featuresConfig,
                 new TaskManagerConfig(),
                 forceSingleNode,

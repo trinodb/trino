@@ -20,7 +20,6 @@ import io.prestosql.Session;
 import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.spi.type.Type;
-import io.prestosql.sql.parser.SqlParser;
 import io.prestosql.sql.planner.DeterminismEvaluator;
 import io.prestosql.sql.planner.DomainTranslator;
 import io.prestosql.sql.planner.EffectivePredicateExtractor;
@@ -32,6 +31,7 @@ import io.prestosql.sql.planner.PlanNodeIdAllocator;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.SymbolAllocator;
 import io.prestosql.sql.planner.SymbolsExtractor;
+import io.prestosql.sql.planner.TypeAnalyzer;
 import io.prestosql.sql.planner.TypeProvider;
 import io.prestosql.sql.planner.plan.AggregationNode;
 import io.prestosql.sql.planner.plan.AssignUniqueId;
@@ -84,7 +84,6 @@ import static com.google.common.collect.Iterables.filter;
 import static io.prestosql.sql.ExpressionUtils.combineConjuncts;
 import static io.prestosql.sql.ExpressionUtils.extractConjuncts;
 import static io.prestosql.sql.ExpressionUtils.filterDeterministicConjuncts;
-import static io.prestosql.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static io.prestosql.sql.planner.DeterminismEvaluator.isDeterministic;
 import static io.prestosql.sql.planner.EqualityInference.createEqualityInference;
 import static io.prestosql.sql.planner.ExpressionSymbolInliner.inlineSymbols;
@@ -93,7 +92,6 @@ import static io.prestosql.sql.planner.plan.JoinNode.Type.INNER;
 import static io.prestosql.sql.planner.plan.JoinNode.Type.LEFT;
 import static io.prestosql.sql.planner.plan.JoinNode.Type.RIGHT;
 import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
-import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 
 public class PredicatePushDown
@@ -102,14 +100,14 @@ public class PredicatePushDown
     private final Metadata metadata;
     private final LiteralEncoder literalEncoder;
     private final EffectivePredicateExtractor effectivePredicateExtractor;
-    private final SqlParser sqlParser;
+    private final TypeAnalyzer typeAnalyzer;
 
-    public PredicatePushDown(Metadata metadata, SqlParser sqlParser)
+    public PredicatePushDown(Metadata metadata, TypeAnalyzer typeAnalyzer)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.literalEncoder = new LiteralEncoder(metadata.getBlockEncodingSerde());
         this.effectivePredicateExtractor = new EffectivePredicateExtractor(new DomainTranslator(literalEncoder));
-        this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
+        this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
     }
 
     @Override
@@ -121,7 +119,7 @@ public class PredicatePushDown
         requireNonNull(idAllocator, "idAllocator is null");
 
         return SimplePlanRewriter.rewriteWith(
-                new Rewriter(symbolAllocator, idAllocator, metadata, literalEncoder, effectivePredicateExtractor, sqlParser, session, types),
+                new Rewriter(symbolAllocator, idAllocator, metadata, literalEncoder, effectivePredicateExtractor, typeAnalyzer, session, types),
                 plan,
                 TRUE_LITERAL);
     }
@@ -134,7 +132,7 @@ public class PredicatePushDown
         private final Metadata metadata;
         private final LiteralEncoder literalEncoder;
         private final EffectivePredicateExtractor effectivePredicateExtractor;
-        private final SqlParser sqlParser;
+        private final TypeAnalyzer typeAnalyzer;
         private final Session session;
         private final TypeProvider types;
         private final ExpressionEquivalence expressionEquivalence;
@@ -145,7 +143,7 @@ public class PredicatePushDown
                 Metadata metadata,
                 LiteralEncoder literalEncoder,
                 EffectivePredicateExtractor effectivePredicateExtractor,
-                SqlParser sqlParser,
+                TypeAnalyzer typeAnalyzer,
                 Session session,
                 TypeProvider types)
         {
@@ -154,10 +152,10 @@ public class PredicatePushDown
             this.metadata = requireNonNull(metadata, "metadata is null");
             this.literalEncoder = requireNonNull(literalEncoder, "literalEncoder is null");
             this.effectivePredicateExtractor = requireNonNull(effectivePredicateExtractor, "effectivePredicateExtractor is null");
-            this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
+            this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
             this.session = requireNonNull(session, "session is null");
             this.types = requireNonNull(types, "types is null");
-            this.expressionEquivalence = new ExpressionEquivalence(metadata, sqlParser);
+            this.expressionEquivalence = new ExpressionEquivalence(metadata, typeAnalyzer);
         }
 
         @Override
@@ -638,7 +636,7 @@ public class PredicatePushDown
                 return Symbol.from(expression);
             }
 
-            return symbolAllocator.newSymbol(expression, extractType(expression));
+            return symbolAllocator.newSymbol(expression, typeAnalyzer.getType(session, symbolAllocator.getTypes(), expression));
         }
 
         private static OuterJoinPushDownResult processLimitedOuterJoin(Expression inheritedPredicate, Expression outerEffectivePredicate, Expression innerEffectivePredicate, Expression joinPredicate, Collection<Symbol> outerSymbols)
@@ -891,12 +889,6 @@ public class PredicatePushDown
             return combineConjuncts(builder.build());
         }
 
-        private Type extractType(Expression expression)
-        {
-            Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(session, metadata, sqlParser, symbolAllocator.getTypes(), expression, emptyList(), /* parameters have already been replaced */WarningCollector.NOOP);
-            return expressionTypes.get(NodeRef.of(expression));
-        }
-
         private JoinNode tryNormalizeToOuterToInnerJoin(JoinNode node, Expression inheritedPredicate)
         {
             checkArgument(EnumSet.of(INNER, RIGHT, LEFT, FULL).contains(node.getType()), "Unsupported join type: %s", node.getType());
@@ -948,14 +940,7 @@ public class PredicatePushDown
         // Temporary implementation for joins because the SimplifyExpressions optimizers can not run properly on join clauses
         private Expression simplifyExpression(Expression expression)
         {
-            Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(
-                    session,
-                    metadata,
-                    sqlParser,
-                    symbolAllocator.getTypes(),
-                    expression,
-                    emptyList(), /* parameters have already been replaced */
-                    WarningCollector.NOOP);
+            Map<NodeRef<Expression>, Type> expressionTypes = typeAnalyzer.getTypes(session, symbolAllocator.getTypes(), expression);
             ExpressionInterpreter optimizer = ExpressionInterpreter.expressionOptimizer(expression, metadata, session, expressionTypes);
             return literalEncoder.toExpression(optimizer.optimize(NoOpSymbolResolver.INSTANCE), expressionTypes.get(NodeRef.of(expression)));
         }
@@ -970,14 +955,7 @@ public class PredicatePushDown
          */
         private Object nullInputEvaluator(final Collection<Symbol> nullSymbols, Expression expression)
         {
-            Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(
-                    session,
-                    metadata,
-                    sqlParser,
-                    symbolAllocator.getTypes(),
-                    expression,
-                    emptyList(), /* parameters have already been replaced */
-                    WarningCollector.NOOP);
+            Map<NodeRef<Expression>, Type> expressionTypes = typeAnalyzer.getTypes(session, symbolAllocator.getTypes(), expression);
             return ExpressionInterpreter.expressionOptimizer(expression, metadata, session, expressionTypes)
                     .optimize(symbol -> nullSymbols.contains(symbol) ? null : symbol.toSymbolReference());
         }
