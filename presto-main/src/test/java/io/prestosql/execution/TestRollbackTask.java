@@ -22,7 +22,7 @@ import io.prestosql.security.AllowAllAccessControl;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.resourcegroups.ResourceGroupId;
 import io.prestosql.sql.tree.Rollback;
-import io.prestosql.transaction.TransactionId;
+import io.prestosql.transaction.InMemoryTransactionManager;
 import io.prestosql.transaction.TransactionManager;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
@@ -99,10 +99,10 @@ public class TestRollbackTask
     @Test
     public void testUnknownTransactionRollback()
     {
-        TransactionManager transactionManager = createTestTransactionManager();
+        InMemoryTransactionManager transactionManager = createTestTransactionManager();
 
         Session session = sessionBuilder()
-                .setTransactionId(TransactionId.create()) // Use a random transaction ID that is unknown to the system
+                .setTransactionId(transactionManager.createTransactionId()) // Use a random transaction ID that is unknown to the system
                 .build();
         QueryStateMachine stateMachine = createQueryStateMachine("ROLLBACK", session, transactionManager);
 

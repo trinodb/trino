@@ -15,7 +15,10 @@ package io.prestosql.transaction;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
+import com.google.common.base.Preconditions;
+import com.google.common.base.Splitter;
 
+import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -24,21 +27,30 @@ import static java.util.Objects.requireNonNull;
 public final class TransactionId
 {
     private final UUID uuid;
+    private final String nodeId;
 
-    private TransactionId(UUID uuid)
+    private TransactionId(UUID uuid, String nodeId)
     {
         this.uuid = requireNonNull(uuid, "uuid is null");
+        this.nodeId = requireNonNull(nodeId, "nodeId is null");
     }
 
-    public static TransactionId create()
+    public static TransactionId create(String nodeId)
     {
-        return new TransactionId(UUID.randomUUID());
+        return new TransactionId(UUID.randomUUID(), nodeId);
+    }
+
+    String getNodeId()
+    {
+        return nodeId;
     }
 
     @JsonCreator
     public static TransactionId valueOf(String value)
     {
-        return new TransactionId(UUID.fromString(value));
+        List<String> parts = Splitter.on(":").limit(2).splitToList(value);
+        Preconditions.checkArgument(parts.size() == 2, "Invalid transaction id: " + value);
+        return new TransactionId(UUID.fromString(parts.get(0)), parts.get(1));
     }
 
     @Override
@@ -64,6 +76,6 @@ public final class TransactionId
     @JsonValue
     public String toString()
     {
-        return uuid.toString();
+        return uuid + ":" + nodeId;
     }
 }

@@ -23,6 +23,7 @@ import com.google.inject.multibindings.MapBinder;
 import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.discovery.server.EmbeddedDiscoveryModule;
+import io.airlift.node.NodeInfo;
 import io.airlift.units.Duration;
 import io.prestosql.client.QueryResults;
 import io.prestosql.cost.CostCalculator;
@@ -447,12 +448,13 @@ public class CoordinatorModule
     @Provides
     @Singleton
     public static TransactionManager createTransactionManager(
+            NodeInfo nodeInfo,
             TransactionManagerConfig config,
             CatalogManager catalogManager,
             @ForTransactionManager ScheduledExecutorService idleCheckExecutor,
             @ForTransactionManager ExecutorService finishingExecutor)
     {
-        return InMemoryTransactionManager.create(config, idleCheckExecutor, catalogManager, finishingExecutor);
+        return InMemoryTransactionManager.create(nodeInfo.getNodeId(), config, idleCheckExecutor, catalogManager, finishingExecutor);
     }
 
     private static <T extends Statement> void bindDataDefinitionTask(

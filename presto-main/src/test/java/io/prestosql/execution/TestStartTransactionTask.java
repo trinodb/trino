@@ -30,7 +30,6 @@ import io.prestosql.sql.tree.Isolation;
 import io.prestosql.sql.tree.StartTransaction;
 import io.prestosql.sql.tree.TransactionAccessMode;
 import io.prestosql.transaction.InMemoryTransactionManager;
-import io.prestosql.transaction.TransactionId;
 import io.prestosql.transaction.TransactionInfo;
 import io.prestosql.transaction.TransactionManager;
 import io.prestosql.transaction.TransactionManagerConfig;
@@ -39,6 +38,7 @@ import org.testng.annotations.Test;
 
 import java.net.URI;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -96,9 +96,9 @@ public class TestStartTransactionTask
     @Test
     public void testNestedTransaction()
     {
-        TransactionManager transactionManager = createTestTransactionManager();
+        InMemoryTransactionManager transactionManager = createTestTransactionManager();
         Session session = sessionBuilder()
-                .setTransactionId(TransactionId.create())
+                .setTransactionId(transactionManager.createTransactionId())
                 .setClientTransactionSupport()
                 .build();
         QueryStateMachine stateMachine = createQueryStateMachine("START TRANSACTION", session, transactionManager);
@@ -228,6 +228,7 @@ public class TestStartTransactionTask
                 .setClientTransactionSupport()
                 .build();
         TransactionManager transactionManager = InMemoryTransactionManager.create(
+                UUID.randomUUID().toString(),
                 new TransactionManagerConfig()
                         .setIdleTimeout(new Duration(1, TimeUnit.MICROSECONDS)) // Fast idle timeout
                         .setIdleCheckInterval(new Duration(10, TimeUnit.MILLISECONDS)),

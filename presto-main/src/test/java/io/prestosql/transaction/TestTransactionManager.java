@@ -34,6 +34,7 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import java.io.Closeable;
+import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -57,6 +58,7 @@ public class TestTransactionManager
     private static final ConnectorId CONNECTOR_ID = new ConnectorId(CATALOG_NAME);
     private static final ConnectorId SYSTEM_TABLES_ID = createSystemTablesConnectorId(CONNECTOR_ID);
     private static final ConnectorId INFORMATION_SCHEMA_ID = createInformationSchemaConnectorId(CONNECTOR_ID);
+    private static final String NODE_ID = UUID.randomUUID().toString();
     private final ExecutorService finishingExecutor = newCachedThreadPool(daemonThreadsNamed("transaction-%s"));
 
     @AfterClass(alwaysRun = true)
@@ -70,7 +72,7 @@ public class TestTransactionManager
     {
         try (IdleCheckExecutor executor = new IdleCheckExecutor()) {
             CatalogManager catalogManager = new CatalogManager();
-            TransactionManager transactionManager = InMemoryTransactionManager.create(new TransactionManagerConfig(), executor.getExecutor(), catalogManager, finishingExecutor);
+            TransactionManager transactionManager = InMemoryTransactionManager.create(NODE_ID, new TransactionManagerConfig(), executor.getExecutor(), catalogManager, finishingExecutor);
 
             Connector c1 = new TpchConnectorFactory().create(CATALOG_NAME, ImmutableMap.of(), new TestingConnectorContext());
             registerConnector(catalogManager, transactionManager, CATALOG_NAME, CONNECTOR_ID, c1);
@@ -100,7 +102,7 @@ public class TestTransactionManager
     {
         try (IdleCheckExecutor executor = new IdleCheckExecutor()) {
             CatalogManager catalogManager = new CatalogManager();
-            TransactionManager transactionManager = InMemoryTransactionManager.create(new TransactionManagerConfig(), executor.getExecutor(), catalogManager, finishingExecutor);
+            TransactionManager transactionManager = InMemoryTransactionManager.create(NODE_ID, new TransactionManagerConfig(), executor.getExecutor(), catalogManager, finishingExecutor);
 
             Connector c1 = new TpchConnectorFactory().create(CATALOG_NAME, ImmutableMap.of(), new TestingConnectorContext());
             registerConnector(catalogManager, transactionManager, CATALOG_NAME, CONNECTOR_ID, c1);
@@ -130,7 +132,7 @@ public class TestTransactionManager
     {
         try (IdleCheckExecutor executor = new IdleCheckExecutor()) {
             CatalogManager catalogManager = new CatalogManager();
-            TransactionManager transactionManager = InMemoryTransactionManager.create(new TransactionManagerConfig(), executor.getExecutor(), catalogManager, finishingExecutor);
+            TransactionManager transactionManager = InMemoryTransactionManager.create(NODE_ID, new TransactionManagerConfig(), executor.getExecutor(), catalogManager, finishingExecutor);
 
             Connector c1 = new TpchConnectorFactory().create(CATALOG_NAME, ImmutableMap.of(), new TestingConnectorContext());
             registerConnector(catalogManager, transactionManager, CATALOG_NAME, CONNECTOR_ID, c1);
@@ -173,6 +175,7 @@ public class TestTransactionManager
     {
         try (IdleCheckExecutor executor = new IdleCheckExecutor()) {
             TransactionManager transactionManager = InMemoryTransactionManager.create(
+                    NODE_ID,
                     new TransactionManagerConfig()
                             .setIdleTimeout(new Duration(1, TimeUnit.MILLISECONDS))
                             .setIdleCheckInterval(new Duration(5, TimeUnit.MILLISECONDS)),

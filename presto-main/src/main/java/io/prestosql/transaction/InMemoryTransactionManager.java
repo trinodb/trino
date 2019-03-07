@@ -13,6 +13,7 @@
  */
 package io.prestosql.transaction;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.Futures;
@@ -42,6 +43,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executor;
@@ -83,12 +85,15 @@ public class InMemoryTransactionManager
     private final int maxFinishingConcurrency;
 
     private final ConcurrentMap<TransactionId, TransactionMetadata> transactions = new ConcurrentHashMap<>();
+    private final String nodeId;
     private final CatalogManager catalogManager;
     private final Executor finishingExecutor;
 
-    private InMemoryTransactionManager(Duration idleTimeout, int maxFinishingConcurrency, CatalogManager catalogManager, Executor finishingExecutor)
+    private InMemoryTransactionManager(String nodeId, Duration idleTimeout, int maxFinishingConcurrency, CatalogManager catalogManager, Executor finishingExecutor)
     {
-        this.catalogManager = catalogManager;
+        this.nodeId = requireNonNull(nodeId, "nodeId is null");
+        this.catalogManager = requireNonNull(catalogManager, "catalogManager is null");
+
         requireNonNull(idleTimeout, "idleTimeout is null");
         checkArgument(maxFinishingConcurrency > 0, "maxFinishingConcurrency must be at least 1");
         requireNonNull(finishingExecutor, "finishingExecutor is null");
@@ -99,25 +104,28 @@ public class InMemoryTransactionManager
     }
 
     public static TransactionManager create(
+            String nodeId,
             TransactionManagerConfig config,
             ScheduledExecutorService idleCheckExecutor,
             CatalogManager catalogManager,
             ExecutorService finishingExecutor)
     {
-        InMemoryTransactionManager transactionManager = new InMemoryTransactionManager(config.getIdleTimeout(), config.getMaxFinishingConcurrency(), catalogManager, finishingExecutor);
+        InMemoryTransactionManager transactionManager = new InMemoryTransactionManager(nodeId, config.getIdleTimeout(), config.getMaxFinishingConcurrency(), catalogManager, finishingExecutor);
         transactionManager.scheduleIdleChecks(config.getIdleCheckInterval(), idleCheckExecutor);
         return transactionManager;
     }
 
-    public static TransactionManager createTestTransactionManager()
+    @VisibleForTesting
+    public static InMemoryTransactionManager createTestTransactionManager()
     {
         return createTestTransactionManager(new CatalogManager());
     }
 
-    public static TransactionManager createTestTransactionManager(CatalogManager catalogManager)
+    @VisibleForTesting
+    public static InMemoryTransactionManager createTestTransactionManager(CatalogManager catalogManager)
     {
         // No idle checks needed
-        return new InMemoryTransactionManager(new Duration(1, TimeUnit.DAYS), 1, catalogManager, directExecutor());
+        return new InMemoryTransactionManager(UUID.randomUUID().toString(), new Duration(1, TimeUnit.DAYS), 1, catalogManager, directExecutor());
     }
 
     private void scheduleIdleChecks(Duration idleCheckInterval, ScheduledExecutorService idleCheckExecutor)
@@ -174,11 +182,17 @@ public class InMemoryTransactionManager
     @Override
     public TransactionId beginTransaction(IsolationLevel isolationLevel, boolean readOnly, boolean autoCommitContext)
     {
-        TransactionId transactionId = TransactionId.create();
+        TransactionId transactionId = createTransactionId();
         BoundedExecutor executor = new BoundedExecutor(finishingExecutor, maxFinishingConcurrency);
         TransactionMetadata transactionMetadata = new TransactionMetadata(transactionId, isolationLevel, readOnly, autoCommitContext, catalogManager, executor);
         checkState(transactions.put(transactionId, transactionMetadata) == null, "Duplicate transaction ID: %s", transactionId);
         return transactionId;
+    }
+
+    @VisibleForTesting
+    public TransactionId createTransactionId()
+    {
+        return TransactionId.create(nodeId);
     }
 
     @Override
@@ -254,6 +268,9 @@ public class InMemoryTransactionManager
 
     private TransactionMetadata getTransactionMetadata(TransactionId transactionId)
     {
+        if (!nodeId.equals(transactionId.getNodeId())) {
+            throw new PrestoException(UNKNOWN_TRANSACTION, format("Transaction ID is from another server: %s", transactionId));
+        }
         TransactionMetadata transactionMetadata = transactions.get(transactionId);
         if (transactionMetadata == null) {
             throw unknownTransactionError(transactionId);

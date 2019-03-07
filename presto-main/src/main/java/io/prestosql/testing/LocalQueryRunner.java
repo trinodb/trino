@@ -295,6 +295,7 @@ public class LocalQueryRunner
         this.pageSinkManager = new PageSinkManager();
         CatalogManager catalogManager = new CatalogManager();
         this.transactionManager = InMemoryTransactionManager.create(
+                nodeManager.getCurrentNode().getNodeIdentifier(),
                 new TransactionManagerConfig().setIdleTimeout(new Duration(1, TimeUnit.DAYS)),
                 yieldExecutor,
                 catalogManager,
