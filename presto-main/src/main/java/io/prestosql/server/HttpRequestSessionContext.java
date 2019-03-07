@@ -386,15 +386,10 @@ public final class HttpRequestSessionContext
     private static Map<String, String> parsePreparedStatementsHeaders(HttpServletRequest servletRequest)
     {
         ImmutableMap.Builder<String, String> preparedStatements = ImmutableMap.builder();
-        for (String header : splitSessionHeader(servletRequest.getHeaders(PRESTO_PREPARED_STATEMENT))) {
-            List<String> nameValue = Splitter.on('=').limit(2).trimResults().splitToList(header);
-            assertRequest(nameValue.size() == 2, "Invalid %s header", PRESTO_PREPARED_STATEMENT);
-
+        parseProperty(servletRequest, PRESTO_PREPARED_STATEMENT).forEach((key, sqlString) -> {
             String statementName;
-            String sqlString;
             try {
-                statementName = urlDecode(nameValue.get(0));
-                sqlString = urlDecode(nameValue.get(1));
+                statementName = urlDecode(key);
             }
             catch (IllegalArgumentException e) {
                 throw badRequest(format("Invalid %s header: %s", PRESTO_PREPARED_STATEMENT, e.getMessage()));
@@ -410,7 +405,8 @@ public final class HttpRequestSessionContext
             }
 
             preparedStatements.put(statementName, sqlString);
-        }
+        });
+
         return preparedStatements.build();
     }
 
