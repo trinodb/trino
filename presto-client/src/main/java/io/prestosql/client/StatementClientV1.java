@@ -177,7 +177,7 @@ class StatementClientV1
 
         Map<String, String> property = session.getProperties();
         for (Entry<String, String> entry : property.entrySet()) {
-            builder.addHeader(PRESTO_SESSION, entry.getKey() + "=" + entry.getValue());
+            builder.addHeader(PRESTO_SESSION, entry.getKey() + "=" + urlEncode(entry.getValue()));
         }
 
         Map<String, String> resourceEstimates = session.getResourceEstimates();
@@ -192,7 +192,7 @@ class StatementClientV1
 
         Map<String, String> extraCredentials = session.getExtraCredentials();
         for (Entry<String, String> entry : extraCredentials.entrySet()) {
-            builder.addHeader(PRESTO_EXTRA_CREDENTIAL, entry.getKey() + "=" + entry.getValue());
+            builder.addHeader(PRESTO_EXTRA_CREDENTIAL, entry.getKey() + "=" + urlEncode(entry.getValue()));
         }
 
         Map<String, String> statements = session.getPreparedStatements();
@@ -415,7 +415,7 @@ class StatementClientV1
             if (keyValue.size() != 2) {
                 continue;
             }
-            setSessionProperties.put(keyValue.get(0), keyValue.get(1));
+            setSessionProperties.put(keyValue.get(0), urlDecode(keyValue.get(1)));
         }
         resetSessionProperties.addAll(headers.values(PRESTO_CLEAR_SESSION));
 

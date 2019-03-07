@@ -220,7 +220,7 @@ public class StatementResource
 
         // add set session properties
         query.getSetSessionProperties().entrySet()
-                .forEach(entry -> response.header(PRESTO_SET_SESSION, entry.getKey() + '=' + entry.getValue()));
+                .forEach(entry -> response.header(PRESTO_SET_SESSION, entry.getKey() + '=' + urlEncode(entry.getValue())));
 
         // add clear session properties
         query.getResetSessionProperties()
