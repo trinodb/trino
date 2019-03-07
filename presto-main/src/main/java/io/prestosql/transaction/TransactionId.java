@@ -40,7 +40,7 @@ public final class TransactionId
         return new TransactionId(UUID.randomUUID(), nodeId);
     }
 
-    String getNodeId()
+    public String getNodeId()
     {
         return nodeId;
     }

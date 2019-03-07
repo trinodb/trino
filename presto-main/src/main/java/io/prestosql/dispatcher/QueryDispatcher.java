@@ -27,6 +27,7 @@ import io.prestosql.metadata.SessionPropertyManager;
 import io.prestosql.server.BasicQueryInfo;
 import io.prestosql.spi.Node;
 import io.prestosql.spi.PrestoException;
+import io.prestosql.transaction.TransactionId;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
@@ -138,7 +139,7 @@ public class QueryDispatcher
 
     public ListenableFuture<QueryAnalysisResponse> analyzeQuery(QueuedQueryStateMachine stateMachine)
     {
-        ListenableFuture<RemoteCoordinator> coordinatorFuture = selectRandomCoordinator();
+        ListenableFuture<RemoteCoordinator> coordinatorFuture = getCoordinator(stateMachine);
         return Futures.transformAsync(coordinatorFuture, remoteCoordinator -> {
             requireNonNull(remoteCoordinator, "remoteCoordinator is null");
             if (stateMachine.getQueryState().isDone()) {
@@ -150,7 +151,7 @@ public class QueryDispatcher
 
     public ListenableFuture<?> dispatchQuery(QueuedQueryStateMachine stateMachine)
     {
-        ListenableFuture<RemoteCoordinator> remoteCoordinatorListenableFuture = selectRandomCoordinator();
+        ListenableFuture<RemoteCoordinator> remoteCoordinatorListenableFuture = getCoordinator(stateMachine);
         return Futures.transformAsync(remoteCoordinatorListenableFuture, remoteCoordinator -> {
             requireNonNull(remoteCoordinator, "remoteCoordinator is null");
             if (stateMachine.getQueryState().isDone()) {
@@ -187,6 +188,35 @@ public class QueryDispatcher
 
         // it is likely there was a race, just skip this time, if necessary this will be addressed in the next update
         return Optional.empty();
+    }
+
+    private ListenableFuture<RemoteCoordinator> getCoordinator(QueuedQueryStateMachine stateMachine)
+    {
+        Optional<TransactionId> transactionId = stateMachine.getSession().getTransactionId();
+        ListenableFuture<RemoteCoordinator> coordinatorFuture;
+        if (transactionId.isPresent()) {
+            coordinatorFuture = getCoordinatorForTransaction(transactionId.get());
+        }
+        else {
+            coordinatorFuture = selectRandomCoordinator();
+        }
+        return coordinatorFuture;
+    }
+
+    private ListenableFuture<RemoteCoordinator> getCoordinatorForTransaction(TransactionId transactionId)
+    {
+        // this code does not use the listener mechanism because the query can only be placed on the
+        // coordinator managing the transaction, so we ignore all other systems and send the query
+        // as soon as the coordinator is registered
+        Map<String, RemoteCoordinator> coordinators = remoteCoordinators.get();
+
+        RemoteCoordinator coordinator = coordinators.get(transactionId.getNodeId());
+        if (coordinator == null) {
+            // wait for there the coordinator to register
+            return Futures.transformAsync(remoteCoordinators.getStateChange(coordinators), ignored -> getCoordinatorForTransaction(transactionId), executor);
+        }
+
+        return immediateFuture(coordinator);
     }
 
     private ListenableFuture<RemoteCoordinator> selectRandomCoordinator()
