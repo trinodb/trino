@@ -21,7 +21,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import io.prestosql.Session;
 import io.prestosql.execution.Lifespan;
-import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.geospatial.KdbTree;
 import io.prestosql.geospatial.KdbTreeUtils;
 import io.prestosql.matching.Capture;
@@ -42,8 +41,8 @@ import io.prestosql.split.PageSourceManager;
 import io.prestosql.split.SplitManager;
 import io.prestosql.split.SplitSource;
 import io.prestosql.split.SplitSource.SplitBatch;
-import io.prestosql.sql.parser.SqlParser;
 import io.prestosql.sql.planner.Symbol;
+import io.prestosql.sql.planner.TypeAnalyzer;
 import io.prestosql.sql.planner.iterative.Rule;
 import io.prestosql.sql.planner.iterative.Rule.Context;
 import io.prestosql.sql.planner.iterative.Rule.Result;
@@ -59,7 +58,6 @@ import io.prestosql.sql.tree.Cast;
 import io.prestosql.sql.tree.ComparisonExpression;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.FunctionCall;
-import io.prestosql.sql.tree.NodeRef;
 import io.prestosql.sql.tree.QualifiedName;
 import io.prestosql.sql.tree.StringLiteral;
 import io.prestosql.sql.tree.SymbolReference;
@@ -85,7 +83,6 @@ import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
-import static io.prestosql.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static io.prestosql.sql.planner.ExpressionNodeInliner.replaceExpression;
 import static io.prestosql.sql.planner.SymbolsExtractor.extractUnique;
 import static io.prestosql.sql.planner.plan.JoinNode.Type.INNER;
@@ -98,7 +95,6 @@ import static io.prestosql.sql.tree.ComparisonExpression.Operator.LESS_THAN_OR_E
 import static io.prestosql.util.SpatialJoinUtils.extractSupportedSpatialComparisons;
 import static io.prestosql.util.SpatialJoinUtils.extractSupportedSpatialFunctions;
 import static java.lang.String.format;
-import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -158,21 +154,21 @@ public class ExtractSpatialJoins
     private final Metadata metadata;
     private final SplitManager splitManager;
     private final PageSourceManager pageSourceManager;
-    private final SqlParser sqlParser;
+    private final TypeAnalyzer typeAnalyzer;
 
-    public ExtractSpatialJoins(Metadata metadata, SplitManager splitManager, PageSourceManager pageSourceManager, SqlParser sqlParser)
+    public ExtractSpatialJoins(Metadata metadata, SplitManager splitManager, PageSourceManager pageSourceManager, TypeAnalyzer typeAnalyzer)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
         this.pageSourceManager = requireNonNull(pageSourceManager, "pageSourceManager is null");
-        this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
+        this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
     }
 
     public Set<Rule<?>> rules()
     {
         return ImmutableSet.of(
-                new ExtractSpatialInnerJoin(metadata, splitManager, pageSourceManager, sqlParser),
-                new ExtractSpatialLeftJoin(metadata, splitManager, pageSourceManager, sqlParser));
+                new ExtractSpatialInnerJoin(metadata, splitManager, pageSourceManager, typeAnalyzer),
+                new ExtractSpatialLeftJoin(metadata, splitManager, pageSourceManager, typeAnalyzer));
     }
 
     @VisibleForTesting
@@ -186,14 +182,14 @@ public class ExtractSpatialJoins
         private final Metadata metadata;
         private final SplitManager splitManager;
         private final PageSourceManager pageSourceManager;
-        private final SqlParser sqlParser;
+        private final TypeAnalyzer typeAnalyzer;
 
-        public ExtractSpatialInnerJoin(Metadata metadata, SplitManager splitManager, PageSourceManager pageSourceManager, SqlParser sqlParser)
+        public ExtractSpatialInnerJoin(Metadata metadata, SplitManager splitManager, PageSourceManager pageSourceManager, TypeAnalyzer typeAnalyzer)
         {
             this.metadata = requireNonNull(metadata, "metadata is null");
             this.splitManager = requireNonNull(splitManager, "splitManager is null");
             this.pageSourceManager = requireNonNull(pageSourceManager, "pageSourceManager is null");
-            this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
+            this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
         }
 
         @Override
@@ -215,7 +211,7 @@ public class ExtractSpatialJoins
             Expression filter = node.getPredicate();
             List<FunctionCall> spatialFunctions = extractSupportedSpatialFunctions(filter);
             for (FunctionCall spatialFunction : spatialFunctions) {
-                Result result = tryCreateSpatialJoin(context, joinNode, filter, node.getId(), node.getOutputSymbols(), spatialFunction, Optional.empty(), metadata, splitManager, pageSourceManager, sqlParser);
+                Result result = tryCreateSpatialJoin(context, joinNode, filter, node.getId(), node.getOutputSymbols(), spatialFunction, Optional.empty(), metadata, splitManager, pageSourceManager, typeAnalyzer);
                 if (!result.isEmpty()) {
                     return result;
                 }
@@ -223,7 +219,7 @@ public class ExtractSpatialJoins
 
             List<ComparisonExpression> spatialComparisons = extractSupportedSpatialComparisons(filter);
             for (ComparisonExpression spatialComparison : spatialComparisons) {
-                Result result = tryCreateSpatialJoin(context, joinNode, filter, node.getId(), node.getOutputSymbols(), spatialComparison, metadata, splitManager, pageSourceManager, sqlParser);
+                Result result = tryCreateSpatialJoin(context, joinNode, filter, node.getId(), node.getOutputSymbols(), spatialComparison, metadata, splitManager, pageSourceManager, typeAnalyzer);
                 if (!result.isEmpty()) {
                     return result;
                 }
@@ -242,14 +238,14 @@ public class ExtractSpatialJoins
         private final Metadata metadata;
         private final SplitManager splitManager;
         private final PageSourceManager pageSourceManager;
-        private final SqlParser sqlParser;
+        private final TypeAnalyzer typeAnalyzer;
 
-        public ExtractSpatialLeftJoin(Metadata metadata, SplitManager splitManager, PageSourceManager pageSourceManager, SqlParser sqlParser)
+        public ExtractSpatialLeftJoin(Metadata metadata, SplitManager splitManager, PageSourceManager pageSourceManager, TypeAnalyzer typeAnalyzer)
         {
             this.metadata = requireNonNull(metadata, "metadata is null");
             this.splitManager = requireNonNull(splitManager, "splitManager is null");
             this.pageSourceManager = requireNonNull(pageSourceManager, "pageSourceManager is null");
-            this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
+            this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
         }
 
         @Override
@@ -270,7 +266,7 @@ public class ExtractSpatialJoins
             Expression filter = joinNode.getFilter().get();
             List<FunctionCall> spatialFunctions = extractSupportedSpatialFunctions(filter);
             for (FunctionCall spatialFunction : spatialFunctions) {
-                Result result = tryCreateSpatialJoin(context, joinNode, filter, joinNode.getId(), joinNode.getOutputSymbols(), spatialFunction, Optional.empty(), metadata, splitManager, pageSourceManager, sqlParser);
+                Result result = tryCreateSpatialJoin(context, joinNode, filter, joinNode.getId(), joinNode.getOutputSymbols(), spatialFunction, Optional.empty(), metadata, splitManager, pageSourceManager, typeAnalyzer);
                 if (!result.isEmpty()) {
                     return result;
                 }
@@ -278,7 +274,7 @@ public class ExtractSpatialJoins
 
             List<ComparisonExpression> spatialComparisons = extractSupportedSpatialComparisons(filter);
             for (ComparisonExpression spatialComparison : spatialComparisons) {
-                Result result = tryCreateSpatialJoin(context, joinNode, filter, joinNode.getId(), joinNode.getOutputSymbols(), spatialComparison, metadata, splitManager, pageSourceManager, sqlParser);
+                Result result = tryCreateSpatialJoin(context, joinNode, filter, joinNode.getId(), joinNode.getOutputSymbols(), spatialComparison, metadata, splitManager, pageSourceManager, typeAnalyzer);
                 if (!result.isEmpty()) {
                     return result;
                 }
@@ -298,7 +294,7 @@ public class ExtractSpatialJoins
             Metadata metadata,
             SplitManager splitManager,
             PageSourceManager pageSourceManager,
-            SqlParser sqlParser)
+            TypeAnalyzer typeAnalyzer)
     {
         PlanNode leftNode = joinNode.getLeft();
         PlanNode rightNode = joinNode.getRight();
@@ -350,7 +346,7 @@ public class ExtractSpatialJoins
                 joinNode.getDistributionType(),
                 joinNode.isSpillable());
 
-        return tryCreateSpatialJoin(context, newJoinNode, newFilter, nodeId, outputSymbols, (FunctionCall) newComparison.getLeft(), Optional.of(newComparison.getRight()), metadata, splitManager, pageSourceManager, sqlParser);
+        return tryCreateSpatialJoin(context, newJoinNode, newFilter, nodeId, outputSymbols, (FunctionCall) newComparison.getLeft(), Optional.of(newComparison.getRight()), metadata, splitManager, pageSourceManager, typeAnalyzer);
     }
 
     private static Result tryCreateSpatialJoin(
@@ -364,7 +360,7 @@ public class ExtractSpatialJoins
             Metadata metadata,
             SplitManager splitManager,
             PageSourceManager pageSourceManager,
-            SqlParser sqlParser)
+            TypeAnalyzer typeAnalyzer)
     {
         // TODO Add support for distributed left spatial joins
         Optional<String> spatialPartitioningTableName = joinNode.getType() == INNER ? getSpatialPartitioningTableName(context.getSession()) : Optional.empty();
@@ -377,8 +373,8 @@ public class ExtractSpatialJoins
         Expression secondArgument = arguments.get(1);
 
         Type sphericalGeographyType = metadata.getType(SPHERICAL_GEOGRAPHY_TYPE_SIGNATURE);
-        if (getExpressionType(firstArgument, context, metadata, sqlParser).equals(sphericalGeographyType)
-                || getExpressionType(secondArgument, context, metadata, sqlParser).equals(sphericalGeographyType)) {
+        if (typeAnalyzer.getType(context.getSession(), context.getSymbolAllocator().getTypes(), firstArgument).equals(sphericalGeographyType)
+                || typeAnalyzer.getType(context.getSession(), context.getSymbolAllocator().getTypes(), secondArgument).equals(sphericalGeographyType)) {
             return Result.empty();
         }
 
@@ -444,14 +440,6 @@ public class ExtractSpatialJoins
                 leftPartitionSymbol,
                 rightPartitionSymbol,
                 kdbTree.map(KdbTreeUtils::toJson)));
-    }
-
-    private static Type getExpressionType(Expression expression, Context context, Metadata metadata, SqlParser sqlParser)
-    {
-        Type type = getExpressionTypes(context.getSession(), metadata, sqlParser, context.getSymbolAllocator().getTypes(), expression, emptyList(), WarningCollector.NOOP)
-                .get(NodeRef.of(expression));
-        verify(type != null);
-        return type;
     }
 
     private static KdbTree loadKdbTree(String tableName, Session session, Metadata metadata, SplitManager splitManager, PageSourceManager pageSourceManager)

@@ -20,12 +20,11 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Ordering;
 import io.airlift.slice.Slice;
 import io.prestosql.Session;
-import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
 import io.prestosql.spi.type.Type;
-import io.prestosql.sql.parser.SqlParser;
 import io.prestosql.sql.planner.Symbol;
+import io.prestosql.sql.planner.TypeAnalyzer;
 import io.prestosql.sql.planner.TypeProvider;
 import io.prestosql.sql.relational.CallExpression;
 import io.prestosql.sql.relational.ConstantExpression;
@@ -35,7 +34,6 @@ import io.prestosql.sql.relational.RowExpression;
 import io.prestosql.sql.relational.RowExpressionVisitor;
 import io.prestosql.sql.relational.VariableReferenceExpression;
 import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.NodeRef;
 
 import java.util.Comparator;
 import java.util.HashMap;
@@ -57,10 +55,8 @@ import static io.prestosql.spi.function.OperatorType.LESS_THAN;
 import static io.prestosql.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static io.prestosql.spi.function.OperatorType.NOT_EQUAL;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
-import static io.prestosql.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static io.prestosql.sql.relational.SqlToRowExpressionTranslator.translate;
 import static java.lang.Integer.min;
-import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 
 public class ExpressionEquivalence
@@ -68,12 +64,12 @@ public class ExpressionEquivalence
     private static final Ordering<RowExpression> ROW_EXPRESSION_ORDERING = Ordering.from(new RowExpressionComparator());
     private static final CanonicalizationVisitor CANONICALIZATION_VISITOR = new CanonicalizationVisitor();
     private final Metadata metadata;
-    private final SqlParser sqlParser;
+    private final TypeAnalyzer typeAnalyzer;
 
-    public ExpressionEquivalence(Metadata metadata, SqlParser sqlParser)
+    public ExpressionEquivalence(Metadata metadata, TypeAnalyzer typeAnalyzer)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
-        this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
+        this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
     }
 
     public boolean areExpressionsEquivalent(Session session, Expression leftExpression, Expression rightExpression, TypeProvider types)
@@ -95,18 +91,15 @@ public class ExpressionEquivalence
 
     private RowExpression toRowExpression(Session session, Expression expression, Map<Symbol, Integer> symbolInput, TypeProvider types)
     {
-        // determine the type of every expression
-        Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(
-                session,
-                metadata,
-                sqlParser,
-                types,
+        return translate(
                 expression,
-                emptyList(), /* parameters have already been replaced */
-                WarningCollector.NOOP);
-
-        // convert to row expression
-        return translate(expression, SCALAR, expressionTypes, symbolInput, metadata.getFunctionRegistry(), metadata.getTypeManager(), session, false);
+                SCALAR,
+                typeAnalyzer.getTypes(session, types, expression),
+                symbolInput,
+                metadata.getFunctionRegistry(),
+                metadata.getTypeManager(),
+                session,
+                false);
     }
 
     private static class CanonicalizationVisitor

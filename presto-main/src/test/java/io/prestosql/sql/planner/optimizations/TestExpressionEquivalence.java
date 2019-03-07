@@ -21,6 +21,7 @@ import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.sql.parser.ParsingOptions;
 import io.prestosql.sql.parser.SqlParser;
 import io.prestosql.sql.planner.Symbol;
+import io.prestosql.sql.planner.TypeAnalyzer;
 import io.prestosql.sql.planner.TypeProvider;
 import io.prestosql.sql.tree.Expression;
 import org.intellij.lang.annotations.Language;
@@ -41,7 +42,7 @@ public class TestExpressionEquivalence
 {
     private static final SqlParser SQL_PARSER = new SqlParser();
     private static final MetadataManager METADATA = MetadataManager.createTestMetadataManager();
-    private static final ExpressionEquivalence EQUIVALENCE = new ExpressionEquivalence(METADATA, SQL_PARSER);
+    private static final ExpressionEquivalence EQUIVALENCE = new ExpressionEquivalence(METADATA, new TypeAnalyzer(SQL_PARSER, METADATA));
 
     @Test
     public void testEquivalent()

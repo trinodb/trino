@@ -25,6 +25,7 @@ import io.prestosql.plugin.tpch.TpchTableHandle;
 import io.prestosql.sql.parser.SqlParser;
 import io.prestosql.sql.planner.PlanNodeIdAllocator;
 import io.prestosql.sql.planner.Symbol;
+import io.prestosql.sql.planner.TypeAnalyzer;
 import io.prestosql.sql.planner.TypeProvider;
 import io.prestosql.sql.planner.assertions.BasePlanTest;
 import io.prestosql.sql.planner.iterative.rule.test.PlanBuilder;
@@ -48,8 +49,6 @@ import static io.prestosql.sql.planner.plan.JoinNode.Type.INNER;
 public class TestValidateAggregationsWithDefaultValues
         extends BasePlanTest
 {
-    private static final SqlParser SQL_PARSER = new SqlParser();
-
     private Metadata metadata;
     private PlanBuilder builder;
     private Symbol symbol;
@@ -192,7 +191,7 @@ public class TestValidateAggregationsWithDefaultValues
         getQueryRunner().inTransaction(session -> {
             // metadata.getCatalogHandle() registers the catalog for the transaction
             session.getCatalog().ifPresent(catalog -> metadata.getCatalogHandle(session, catalog));
-            new ValidateAggregationsWithDefaultValues(forceSingleNode).validate(root, session, metadata, SQL_PARSER, TypeProvider.empty(), WarningCollector.NOOP);
+            new ValidateAggregationsWithDefaultValues(forceSingleNode).validate(root, session, metadata, new TypeAnalyzer(new SqlParser(), metadata), TypeProvider.empty(), WarningCollector.NOOP);
             return null;
         });
     }

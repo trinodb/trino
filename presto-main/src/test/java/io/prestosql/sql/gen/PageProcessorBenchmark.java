@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.SequencePageBuilder;
 import io.prestosql.Session;
-import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.MetadataManager;
 import io.prestosql.operator.DriverYieldSignal;
@@ -30,6 +29,7 @@ import io.prestosql.spi.connector.RecordSet;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.parser.SqlParser;
 import io.prestosql.sql.planner.Symbol;
+import io.prestosql.sql.planner.TypeAnalyzer;
 import io.prestosql.sql.planner.TypeProvider;
 import io.prestosql.sql.relational.RowExpression;
 import io.prestosql.sql.relational.SqlToRowExpressionTranslator;
@@ -65,8 +65,6 @@ import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.operator.scalar.FunctionAssertions.createExpression;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
-import static io.prestosql.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
-import static java.util.Collections.emptyList;
 import static java.util.Locale.ENGLISH;
 import static java.util.stream.Collectors.toList;
 
@@ -80,8 +78,8 @@ import static java.util.stream.Collectors.toList;
 public class PageProcessorBenchmark
 {
     private static final Map<String, Type> TYPE_MAP = ImmutableMap.of("bigint", BIGINT, "varchar", VARCHAR);
-    private static final SqlParser SQL_PARSER = new SqlParser();
     private static final Metadata METADATA = createTestMetadataManager();
+    private static final TypeAnalyzer TYPE_ANALYZER = new TypeAnalyzer(new SqlParser(), METADATA);
     private static final Session TEST_SESSION = TestingSession.testSessionBuilder().build();
     private static final int POSITIONS = 1024;
 
@@ -180,7 +178,7 @@ public class PageProcessorBenchmark
     {
         Expression expression = createExpression(value, METADATA, TypeProvider.copyOf(symbolTypes));
 
-        Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(TEST_SESSION, METADATA, SQL_PARSER, TypeProvider.copyOf(symbolTypes), expression, emptyList(), WarningCollector.NOOP);
+        Map<NodeRef<Expression>, Type> expressionTypes = TYPE_ANALYZER.getTypes(TEST_SESSION, TypeProvider.copyOf(symbolTypes), expression);
         return SqlToRowExpressionTranslator.translate(expression, SCALAR, expressionTypes, sourceLayout, METADATA.getFunctionRegistry(), METADATA.getTypeManager(), TEST_SESSION, true);
     }
 

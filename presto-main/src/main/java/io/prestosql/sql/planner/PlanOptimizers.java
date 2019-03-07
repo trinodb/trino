@@ -27,7 +27,6 @@ import io.prestosql.metadata.Metadata;
 import io.prestosql.split.PageSourceManager;
 import io.prestosql.split.SplitManager;
 import io.prestosql.sql.analyzer.FeaturesConfig;
-import io.prestosql.sql.parser.SqlParser;
 import io.prestosql.sql.planner.iterative.IterativeOptimizer;
 import io.prestosql.sql.planner.iterative.Rule;
 import io.prestosql.sql.planner.iterative.rule.AddExchangesBelowPartialAggregationOverGroupIdRuleSet;
@@ -145,7 +144,7 @@ public class PlanOptimizers
     @Inject
     public PlanOptimizers(
             Metadata metadata,
-            SqlParser sqlParser,
+            TypeAnalyzer typeAnalyzer,
             FeaturesConfig featuresConfig,
             NodeSchedulerConfig nodeSchedulerConfig,
             InternalNodeManager nodeManager,
@@ -160,7 +159,7 @@ public class PlanOptimizers
             TaskCountEstimator taskCountEstimator)
     {
         this(metadata,
-                sqlParser,
+                typeAnalyzer,
                 featuresConfig,
                 taskManagerConfig,
                 false,
@@ -190,7 +189,7 @@ public class PlanOptimizers
 
     public PlanOptimizers(
             Metadata metadata,
-            SqlParser sqlParser,
+            TypeAnalyzer typeAnalyzer,
             FeaturesConfig featuresConfig,
             TaskManagerConfig taskManagerConfig,
             boolean forceSingleNode,
@@ -249,9 +248,9 @@ public class PlanOptimizers
                 ruleStats,
                 statsCalculator,
                 estimatedExchangesCostCalculator,
-                new SimplifyExpressions(metadata, sqlParser).rules());
+                new SimplifyExpressions(metadata, typeAnalyzer).rules());
 
-        PlanOptimizer predicatePushDown = new StatsRecordingPlanOptimizer(optimizerStats, new PredicatePushDown(metadata, sqlParser));
+        PlanOptimizer predicatePushDown = new StatsRecordingPlanOptimizer(optimizerStats, new PredicatePushDown(metadata, typeAnalyzer));
 
         builder.add(
                 // Clean up all the sugar in expressions, e.g. AtTimeZone, must be run before all the other optimizers
@@ -261,7 +260,7 @@ public class PlanOptimizers
                         estimatedExchangesCostCalculator,
                         ImmutableSet.<Rule<?>>builder()
                                 .addAll(new DesugarLambdaExpression().rules())
-                                .addAll(new DesugarAtTimeZone(metadata, sqlParser).rules())
+                                .addAll(new DesugarAtTimeZone(metadata, typeAnalyzer).rules())
                                 .addAll(new DesugarCurrentUser().rules())
                                 .addAll(new DesugarCurrentPath().rules())
                                 .addAll(new DesugarTryExpression().rules())
@@ -357,7 +356,7 @@ public class PlanOptimizers
                         ruleStats,
                         statsCalculator,
                         estimatedExchangesCostCalculator,
-                        ImmutableSet.of(new PushPredicateIntoTableScan(metadata, sqlParser))),
+                        ImmutableSet.of(new PushPredicateIntoTableScan(metadata, typeAnalyzer))),
                 new PruneUnreferencedOutputs(),
                 new IterativeOptimizer(
                         ruleStats,
@@ -407,7 +406,7 @@ public class PlanOptimizers
                         ruleStats,
                         statsCalculator,
                         estimatedExchangesCostCalculator,
-                        ImmutableSet.of(new PushPredicateIntoTableScan(metadata, sqlParser))),
+                        ImmutableSet.of(new PushPredicateIntoTableScan(metadata, typeAnalyzer))),
                 projectionPushDown,
                 new PruneUnreferencedOutputs(),
                 new IterativeOptimizer(
@@ -440,7 +439,7 @@ public class PlanOptimizers
                 costCalculator,
                 ImmutableSet.<Rule<?>>builder()
                         .add(new RemoveRedundantIdentityProjections())
-                        .addAll(new ExtractSpatialJoins(metadata, splitManager, pageSourceManager, sqlParser).rules())
+                        .addAll(new ExtractSpatialJoins(metadata, splitManager, pageSourceManager, typeAnalyzer).rules())
                         .add(new InlineProjections())
                         .build()));
 
@@ -461,7 +460,7 @@ public class PlanOptimizers
                             statsCalculator,
                             estimatedExchangesCostCalculator,
                             ImmutableSet.of(new PushTableWriteThroughUnion()))); // Must run before AddExchanges
-            builder.add(new StatsRecordingPlanOptimizer(optimizerStats, new AddExchanges(metadata, sqlParser)));
+            builder.add(new StatsRecordingPlanOptimizer(optimizerStats, new AddExchanges(metadata, typeAnalyzer)));
         }
         //noinspection UnusedAssignment
         estimatedExchangesCostCalculator = null; // Prevent accidental use after AddExchanges
@@ -491,7 +490,7 @@ public class PlanOptimizers
                         .build()));
 
         // Optimizers above this don't understand local exchanges, so be careful moving this.
-        builder.add(new AddLocalExchanges(metadata, sqlParser));
+        builder.add(new AddLocalExchanges(metadata, typeAnalyzer));
 
         // Optimizers above this do not need to care about aggregations with the type other than SINGLE
         // This optimizer must be run after all exchange-related optimizers
@@ -507,7 +506,7 @@ public class PlanOptimizers
                 ruleStats,
                 statsCalculator,
                 costCalculator,
-                new AddExchangesBelowPartialAggregationOverGroupIdRuleSet(metadata, sqlParser, taskCountEstimator, taskManagerConfig).rules()));
+                new AddExchangesBelowPartialAggregationOverGroupIdRuleSet(metadata, typeAnalyzer, taskCountEstimator, taskManagerConfig).rules()));
         builder.add(new IterativeOptimizer(
                 ruleStats,
                 statsCalculator,

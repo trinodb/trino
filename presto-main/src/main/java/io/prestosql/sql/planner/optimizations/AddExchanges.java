@@ -26,7 +26,6 @@ import io.prestosql.metadata.Metadata;
 import io.prestosql.spi.connector.GroupingProperty;
 import io.prestosql.spi.connector.LocalProperty;
 import io.prestosql.spi.connector.SortingProperty;
-import io.prestosql.sql.parser.SqlParser;
 import io.prestosql.sql.planner.DomainTranslator;
 import io.prestosql.sql.planner.LiteralEncoder;
 import io.prestosql.sql.planner.Partitioning;
@@ -34,6 +33,7 @@ import io.prestosql.sql.planner.PartitioningScheme;
 import io.prestosql.sql.planner.PlanNodeIdAllocator;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.SymbolAllocator;
+import io.prestosql.sql.planner.TypeAnalyzer;
 import io.prestosql.sql.planner.TypeProvider;
 import io.prestosql.sql.planner.iterative.rule.PushPredicateIntoTableScan;
 import io.prestosql.sql.planner.plan.AggregationNode;
@@ -112,15 +112,15 @@ import static java.util.stream.Collectors.toList;
 public class AddExchanges
         implements PlanOptimizer
 {
-    private final SqlParser parser;
+    private final TypeAnalyzer typeAnalyzer;
     private final Metadata metadata;
     private final DomainTranslator domainTranslator;
 
-    public AddExchanges(Metadata metadata, SqlParser parser)
+    public AddExchanges(Metadata metadata, TypeAnalyzer typeAnalyzer)
     {
         this.metadata = metadata;
         this.domainTranslator = new DomainTranslator(new LiteralEncoder(metadata.getBlockEncodingSerde()));
-        this.parser = parser;
+        this.typeAnalyzer = typeAnalyzer;
     }
 
     @Override
@@ -532,7 +532,7 @@ public class AddExchanges
 
         private PlanWithProperties planTableScan(TableScanNode node, Expression predicate)
         {
-            PlanNode plan = PushPredicateIntoTableScan.pushFilterIntoTableScan(node, predicate, true, session, types, idAllocator, metadata, parser, domainTranslator);
+            PlanNode plan = PushPredicateIntoTableScan.pushFilterIntoTableScan(node, predicate, true, session, types, idAllocator, metadata, typeAnalyzer, domainTranslator);
             return new PlanWithProperties(plan, derivePropertiesRecursively(plan));
         }
 
@@ -1190,7 +1190,7 @@ public class AddExchanges
         private ActualProperties deriveProperties(PlanNode result, List<ActualProperties> inputProperties)
         {
             // TODO: move this logic to PlanSanityChecker once PropertyDerivations.deriveProperties fully supports local exchanges
-            ActualProperties outputProperties = PropertyDerivations.deriveProperties(result, inputProperties, metadata, session, types, parser);
+            ActualProperties outputProperties = PropertyDerivations.deriveProperties(result, inputProperties, metadata, session, types, typeAnalyzer);
             verify(result instanceof SemiJoinNode || inputProperties.stream().noneMatch(ActualProperties::isNullsAndAnyReplicated) || outputProperties.isNullsAndAnyReplicated(),
                     "SemiJoinNode is the only node that can strip null replication");
             return outputProperties;
@@ -1198,7 +1198,7 @@ public class AddExchanges
 
         private ActualProperties derivePropertiesRecursively(PlanNode result)
         {
-            return PropertyDerivations.derivePropertiesRecursively(result, metadata, session, types, parser);
+            return PropertyDerivations.derivePropertiesRecursively(result, metadata, session, types, typeAnalyzer);
         }
     }
 

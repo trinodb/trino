@@ -166,7 +166,6 @@ import static io.prestosql.sql.ParsingUtil.createParsingOptions;
 import static io.prestosql.sql.analyzer.AggregationAnalyzer.verifyOrderByAggregations;
 import static io.prestosql.sql.analyzer.AggregationAnalyzer.verifySourceAggregations;
 import static io.prestosql.sql.analyzer.ExpressionAnalyzer.createConstantAnalyzer;
-import static io.prestosql.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static io.prestosql.sql.analyzer.ExpressionTreeUtils.extractAggregateFunctions;
 import static io.prestosql.sql.analyzer.ExpressionTreeUtils.extractExpressions;
 import static io.prestosql.sql.analyzer.ExpressionTreeUtils.extractWindowFunctions;
@@ -954,15 +953,17 @@ class StatementAnalyzer
                 throw new SemanticException(NON_NUMERIC_SAMPLE_PERCENTAGE, relation.getSamplePercentage(), "Sample percentage cannot contain column references");
             }
 
-            Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(
+            Map<NodeRef<Expression>, Type> expressionTypes = ExpressionAnalyzer.analyzeExpressions(
                     session,
                     metadata,
                     sqlParser,
                     TypeProvider.empty(),
-                    relation.getSamplePercentage(),
+                    ImmutableList.of(relation.getSamplePercentage()),
                     analysis.getParameters(),
                     WarningCollector.NOOP,
-                    analysis.isDescribe());
+                    analysis.isDescribe())
+                    .getExpressionTypes();
+
             ExpressionInterpreter samplePercentageEval = expressionOptimizer(relation.getSamplePercentage(), metadata, session, expressionTypes);
 
             Object samplePercentageObject = samplePercentageEval.optimize(symbol -> {

@@ -16,10 +16,8 @@ package io.prestosql.sql.planner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.Session;
-import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.spi.type.Type;
-import io.prestosql.sql.parser.SqlParser;
 import io.prestosql.sql.tree.AtTimeZone;
 import io.prestosql.sql.tree.Cast;
 import io.prestosql.sql.tree.Expression;
@@ -36,8 +34,6 @@ import static io.prestosql.spi.type.TimeType.TIME;
 import static io.prestosql.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
-import static io.prestosql.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
-import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 
 public class DesugarAtTimeZoneRewriter
@@ -49,15 +45,15 @@ public class DesugarAtTimeZoneRewriter
 
     private DesugarAtTimeZoneRewriter() {}
 
-    public static Expression rewrite(Expression expression, Session session, Metadata metadata, SqlParser sqlParser, SymbolAllocator symbolAllocator)
+    public static Expression rewrite(Expression expression, Session session, Metadata metadata, TypeAnalyzer typeAnalyzer, SymbolAllocator symbolAllocator)
     {
         requireNonNull(metadata, "metadata is null");
-        requireNonNull(sqlParser, "sqlParser is null");
+        requireNonNull(typeAnalyzer, "typeAnalyzer is null");
 
         if (expression instanceof SymbolReference) {
             return expression;
         }
-        Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(session, metadata, sqlParser, symbolAllocator.getTypes(), expression, emptyList(), WarningCollector.NOOP);
+        Map<NodeRef<Expression>, Type> expressionTypes = typeAnalyzer.getTypes(session, symbolAllocator.getTypes(), expression);
 
         return rewrite(expression, expressionTypes);
     }

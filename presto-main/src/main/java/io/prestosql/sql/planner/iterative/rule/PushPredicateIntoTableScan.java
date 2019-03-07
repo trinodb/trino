@@ -16,7 +16,6 @@ package io.prestosql.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.Session;
-import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.matching.Capture;
 import io.prestosql.matching.Captures;
 import io.prestosql.matching.Pattern;
@@ -27,8 +26,6 @@ import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.Constraint;
 import io.prestosql.spi.predicate.NullableValue;
 import io.prestosql.spi.predicate.TupleDomain;
-import io.prestosql.spi.type.Type;
-import io.prestosql.sql.parser.SqlParser;
 import io.prestosql.sql.planner.DomainTranslator;
 import io.prestosql.sql.planner.ExpressionInterpreter;
 import io.prestosql.sql.planner.LiteralEncoder;
@@ -36,6 +33,7 @@ import io.prestosql.sql.planner.LookupSymbolResolver;
 import io.prestosql.sql.planner.PlanNodeIdAllocator;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.SymbolsExtractor;
+import io.prestosql.sql.planner.TypeAnalyzer;
 import io.prestosql.sql.planner.TypeProvider;
 import io.prestosql.sql.planner.iterative.Rule;
 import io.prestosql.sql.planner.plan.FilterNode;
@@ -43,7 +41,6 @@ import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.TableScanNode;
 import io.prestosql.sql.planner.plan.ValuesNode;
 import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.NodeRef;
 import io.prestosql.sql.tree.NullLiteral;
 
 import java.util.Map;
@@ -59,12 +56,10 @@ import static io.prestosql.metadata.TableLayoutResult.computeEnforced;
 import static io.prestosql.sql.ExpressionUtils.combineConjuncts;
 import static io.prestosql.sql.ExpressionUtils.filterDeterministicConjuncts;
 import static io.prestosql.sql.ExpressionUtils.filterNonDeterministicConjuncts;
-import static io.prestosql.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static io.prestosql.sql.planner.plan.Patterns.filter;
 import static io.prestosql.sql.planner.plan.Patterns.source;
 import static io.prestosql.sql.planner.plan.Patterns.tableScan;
 import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
-import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -80,13 +75,13 @@ public class PushPredicateIntoTableScan
             tableScan().capturedAs(TABLE_SCAN)));
 
     private final Metadata metadata;
-    private final SqlParser parser;
+    private final TypeAnalyzer typeAnalyzer;
     private final DomainTranslator domainTranslator;
 
-    public PushPredicateIntoTableScan(Metadata metadata, SqlParser parser)
+    public PushPredicateIntoTableScan(Metadata metadata, TypeAnalyzer typeAnalyzer)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
-        this.parser = requireNonNull(parser, "parser is null");
+        this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
         this.domainTranslator = new DomainTranslator(new LiteralEncoder(metadata.getBlockEncodingSerde()));
     }
 
@@ -115,7 +110,7 @@ public class PushPredicateIntoTableScan
                 context.getSymbolAllocator().getTypes(),
                 context.getIdAllocator(),
                 metadata,
-                parser,
+                typeAnalyzer,
                 domainTranslator);
 
         if (arePlansSame(filterNode, tableScan, rewritten)) {
@@ -154,7 +149,7 @@ public class PushPredicateIntoTableScan
             TypeProvider types,
             PlanNodeIdAllocator idAllocator,
             Metadata metadata,
-            SqlParser parser,
+            TypeAnalyzer typeAnalyzer,
             DomainTranslator domainTranslator)
     {
         // don't include non-deterministic predicates
@@ -176,7 +171,7 @@ public class PushPredicateIntoTableScan
         if (pruneWithPredicateExpression) {
             LayoutConstraintEvaluator evaluator = new LayoutConstraintEvaluator(
                     metadata,
-                    parser,
+                    typeAnalyzer,
                     session,
                     types,
                     node.getAssignments(),
@@ -239,13 +234,11 @@ public class PushPredicateIntoTableScan
         private final ExpressionInterpreter evaluator;
         private final Set<ColumnHandle> arguments;
 
-        public LayoutConstraintEvaluator(Metadata metadata, SqlParser parser, Session session, TypeProvider types, Map<Symbol, ColumnHandle> assignments, Expression expression)
+        public LayoutConstraintEvaluator(Metadata metadata, TypeAnalyzer typeAnalyzer, Session session, TypeProvider types, Map<Symbol, ColumnHandle> assignments, Expression expression)
         {
             this.assignments = assignments;
 
-            Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(session, metadata, parser, types, expression, emptyList(), WarningCollector.NOOP);
-
-            evaluator = ExpressionInterpreter.expressionOptimizer(expression, metadata, session, expressionTypes);
+            evaluator = ExpressionInterpreter.expressionOptimizer(expression, metadata, session, typeAnalyzer.getTypes(session, types, expression));
             arguments = SymbolsExtractor.extractUnique(expression).stream()
                     .map(assignments::get)
                     .collect(toImmutableSet());

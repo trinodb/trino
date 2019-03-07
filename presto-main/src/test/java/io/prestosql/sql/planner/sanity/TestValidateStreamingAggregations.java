@@ -22,8 +22,8 @@ import io.prestosql.metadata.TableHandle;
 import io.prestosql.plugin.tpch.TpchColumnHandle;
 import io.prestosql.plugin.tpch.TpchTableHandle;
 import io.prestosql.plugin.tpch.TpchTransactionHandle;
-import io.prestosql.sql.parser.SqlParser;
 import io.prestosql.sql.planner.PlanNodeIdAllocator;
+import io.prestosql.sql.planner.TypeAnalyzer;
 import io.prestosql.sql.planner.TypeProvider;
 import io.prestosql.sql.planner.assertions.BasePlanTest;
 import io.prestosql.sql.planner.iterative.rule.test.PlanBuilder;
@@ -41,7 +41,7 @@ public class TestValidateStreamingAggregations
         extends BasePlanTest
 {
     private Metadata metadata;
-    private SqlParser sqlParser;
+    private TypeAnalyzer typeAnalyzer;
     private PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
     private TableHandle nationTableHandle;
 
@@ -49,7 +49,7 @@ public class TestValidateStreamingAggregations
     public void setup()
     {
         metadata = getQueryRunner().getMetadata();
-        sqlParser = getQueryRunner().getSqlParser();
+        typeAnalyzer = new TypeAnalyzer(getQueryRunner().getSqlParser(), metadata);
 
         ConnectorId connectorId = getCurrentConnectorId();
         nationTableHandle = new TableHandle(
@@ -109,7 +109,7 @@ public class TestValidateStreamingAggregations
         getQueryRunner().inTransaction(session -> {
             // metadata.getCatalogHandle() registers the catalog for the transaction
             session.getCatalog().ifPresent(catalog -> metadata.getCatalogHandle(session, catalog));
-            new ValidateStreamingAggregations().validate(planNode, session, metadata, sqlParser, types, WarningCollector.NOOP);
+            new ValidateStreamingAggregations().validate(planNode, session, metadata, typeAnalyzer, types, WarningCollector.NOOP);
             return null;
         });
     }

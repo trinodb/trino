@@ -135,6 +135,7 @@ import io.prestosql.sql.planner.PlanFragmenter;
 import io.prestosql.sql.planner.PlanNodeIdAllocator;
 import io.prestosql.sql.planner.PlanOptimizers;
 import io.prestosql.sql.planner.SubPlan;
+import io.prestosql.sql.planner.TypeAnalyzer;
 import io.prestosql.sql.planner.optimizations.PlanOptimizer;
 import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.PlanNodeId;
@@ -694,7 +695,7 @@ public class LocalQueryRunner
 
         LocalExecutionPlanner executionPlanner = new LocalExecutionPlanner(
                 metadata,
-                sqlParser,
+                new TypeAnalyzer(sqlParser, metadata),
                 Optional.empty(),
                 pageSourceManager,
                 indexManager,
@@ -806,7 +807,7 @@ public class LocalQueryRunner
     {
         return new PlanOptimizers(
                 metadata,
-                sqlParser,
+                new TypeAnalyzer(sqlParser, metadata),
                 featuresConfig,
                 taskManagerConfig,
                 forceSingleNode,
@@ -844,7 +845,7 @@ public class LocalQueryRunner
                 dataDefinitionTask);
         Analyzer analyzer = new Analyzer(session, metadata, sqlParser, accessControl, Optional.of(queryExplainer), preparedQuery.getParameters(), warningCollector);
 
-        LogicalPlanner logicalPlanner = new LogicalPlanner(session, optimizers, new PlanSanityChecker(true), idAllocator, metadata, sqlParser, statsCalculator, costCalculator, warningCollector);
+        LogicalPlanner logicalPlanner = new LogicalPlanner(session, optimizers, new PlanSanityChecker(true), idAllocator, metadata, new TypeAnalyzer(sqlParser, metadata), statsCalculator, costCalculator, warningCollector);
 
         Analysis analysis = analyzer.analyze(preparedQuery.getStatement());
         return logicalPlanner.plan(analysis, stage);

@@ -23,7 +23,6 @@ import io.prestosql.Session;
 import io.prestosql.execution.Lifespan;
 import io.prestosql.execution.TaskId;
 import io.prestosql.execution.TaskStateMachine;
-import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.memory.MemoryPool;
 import io.prestosql.memory.QueryContext;
 import io.prestosql.metadata.Metadata;
@@ -52,6 +51,7 @@ import io.prestosql.spiller.SpillSpaceTracker;
 import io.prestosql.split.SplitSource;
 import io.prestosql.sql.gen.PageFunctionCompiler;
 import io.prestosql.sql.planner.Symbol;
+import io.prestosql.sql.planner.TypeAnalyzer;
 import io.prestosql.sql.planner.TypeProvider;
 import io.prestosql.sql.planner.optimizations.HashGenerationOptimizer;
 import io.prestosql.sql.planner.plan.PlanNodeId;
@@ -83,7 +83,6 @@ import static io.prestosql.metadata.FunctionKind.SCALAR;
 import static io.prestosql.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.UNGROUPED_SCHEDULING;
 import static io.prestosql.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static io.prestosql.sql.relational.SqlToRowExpressionTranslator.translate;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
@@ -229,14 +228,9 @@ public abstract class AbstractOperatorBenchmark
         Optional<Expression> hashExpression = HashGenerationOptimizer.getHashExpression(ImmutableList.copyOf(symbolTypes.build().keySet()));
         verify(hashExpression.isPresent());
 
-        Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(
-                session,
-                localQueryRunner.getMetadata(),
-                localQueryRunner.getSqlParser(),
-                TypeProvider.copyOf(symbolTypes.build()),
-                hashExpression.get(),
-                ImmutableList.of(),
-                WarningCollector.NOOP);
+        Map<NodeRef<Expression>, Type> expressionTypes = new TypeAnalyzer(localQueryRunner.getSqlParser(), localQueryRunner.getMetadata())
+                .getTypes(session, TypeProvider.copyOf(symbolTypes.build()), hashExpression.get());
+
         RowExpression translated = translate(hashExpression.get(), SCALAR, expressionTypes, symbolToInputMapping.build(), localQueryRunner.getMetadata().getFunctionRegistry(), localQueryRunner.getTypeManager(), session, false);
 
         PageFunctionCompiler functionCompiler = new PageFunctionCompiler(localQueryRunner.getMetadata(), 0);

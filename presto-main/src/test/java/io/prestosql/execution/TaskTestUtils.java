@@ -52,6 +52,7 @@ import io.prestosql.sql.planner.Partitioning;
 import io.prestosql.sql.planner.PartitioningScheme;
 import io.prestosql.sql.planner.PlanFragment;
 import io.prestosql.sql.planner.Symbol;
+import io.prestosql.sql.planner.TypeAnalyzer;
 import io.prestosql.sql.planner.plan.PlanFragmentId;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 import io.prestosql.sql.planner.plan.TableScanNode;
@@ -127,7 +128,7 @@ public final class TaskTestUtils
         PageFunctionCompiler pageFunctionCompiler = new PageFunctionCompiler(metadata, 0);
         return new LocalExecutionPlanner(
                 metadata,
-                new SqlParser(),
+                new TypeAnalyzer(new SqlParser(), metadata),
                 Optional.empty(),
                 pageSourceManager,
                 new IndexManager(),

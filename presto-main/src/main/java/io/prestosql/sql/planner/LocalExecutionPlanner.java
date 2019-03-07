@@ -133,7 +133,6 @@ import io.prestosql.sql.gen.JoinFilterFunctionCompiler;
 import io.prestosql.sql.gen.JoinFilterFunctionCompiler.JoinFilterFunctionFactory;
 import io.prestosql.sql.gen.OrderingCompiler;
 import io.prestosql.sql.gen.PageFunctionCompiler;
-import io.prestosql.sql.parser.SqlParser;
 import io.prestosql.sql.planner.optimizations.IndexJoinOptimizer;
 import io.prestosql.sql.planner.plan.AggregationNode;
 import io.prestosql.sql.planner.plan.AggregationNode.Aggregation;
@@ -230,7 +229,6 @@ import static io.prestosql.SystemSessionProperties.isExchangeCompressionEnabled;
 import static io.prestosql.SystemSessionProperties.isSpillEnabled;
 import static io.prestosql.SystemSessionProperties.isSpillOrderBy;
 import static io.prestosql.SystemSessionProperties.isSpillWindowOperator;
-import static io.prestosql.execution.warnings.WarningCollector.NOOP;
 import static io.prestosql.metadata.FunctionKind.SCALAR;
 import static io.prestosql.operator.DistinctLimitOperator.DistinctLimitOperatorFactory;
 import static io.prestosql.operator.NestedLoopBuildOperator.NestedLoopBuildOperatorFactory;
@@ -249,7 +247,6 @@ import static io.prestosql.spi.StandardErrorCode.COMPILER_ERROR;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.TypeUtils.writeNativeValue;
 import static io.prestosql.spiller.PartitioningSpillerFactory.unsupportedPartitioningSpillerFactory;
-import static io.prestosql.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static io.prestosql.sql.gen.LambdaBytecodeGenerator.compileLambdaProvider;
 import static io.prestosql.sql.planner.ExpressionNodeInliner.replaceExpression;
 import static io.prestosql.sql.planner.SystemPartitioningHandle.COORDINATOR_DISTRIBUTION;
@@ -276,14 +273,13 @@ import static io.prestosql.util.SpatialJoinUtils.ST_INTERSECTS;
 import static io.prestosql.util.SpatialJoinUtils.ST_WITHIN;
 import static io.prestosql.util.SpatialJoinUtils.extractSupportedSpatialComparisons;
 import static io.prestosql.util.SpatialJoinUtils.extractSupportedSpatialFunctions;
-import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.IntStream.range;
 
 public class LocalExecutionPlanner
 {
     private final Metadata metadata;
-    private final SqlParser sqlParser;
+    private final TypeAnalyzer typeAnalyzer;
     private final Optional<ExplainAnalyzeContext> explainAnalyzeContext;
     private final PageSourceProvider pageSourceProvider;
     private final IndexManager indexManager;
@@ -310,7 +306,7 @@ public class LocalExecutionPlanner
     @Inject
     public LocalExecutionPlanner(
             Metadata metadata,
-            SqlParser sqlParser,
+            TypeAnalyzer typeAnalyzer,
             Optional<ExplainAnalyzeContext> explainAnalyzeContext,
             PageSourceProvider pageSourceProvider,
             IndexManager indexManager,
@@ -337,7 +333,7 @@ public class LocalExecutionPlanner
         this.nodePartitioningManager = requireNonNull(nodePartitioningManager, "nodePartitioningManager is null");
         this.exchangeClientSupplier = exchangeClientSupplier;
         this.metadata = requireNonNull(metadata, "metadata is null");
-        this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
+        this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
         this.pageSinkManager = requireNonNull(pageSinkManager, "pageSinkManager is null");
         this.expressionCompiler = requireNonNull(expressionCompiler, "compiler is null");
         this.pageFunctionCompiler = requireNonNull(pageFunctionCompiler, "pageFunctionCompiler is null");
@@ -1215,15 +1211,10 @@ public class LocalExecutionPlanner
                 projections.add(assignments.get(symbol));
             }
 
-            Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(
+            Map<NodeRef<Expression>, Type> expressionTypes = typeAnalyzer.getTypes(
                     context.getSession(),
-                    metadata,
-                    sqlParser,
                     context.getTypes(),
-                    concat(filterExpression.map(ImmutableList::of).orElse(ImmutableList.of()), assignments.getExpressions()),
-                    emptyList(),
-                    NOOP,
-                    false);
+                    concat(filterExpression.map(ImmutableList::of).orElse(ImmutableList.of()), assignments.getExpressions()));
 
             Optional<RowExpression> translatedFilter = filterExpression.map(filter -> toRowExpression(filter, expressionTypes, sourceLayout));
             List<RowExpression> translatedProjections = projections.stream()
@@ -1300,15 +1291,7 @@ public class LocalExecutionPlanner
             PageBuilder pageBuilder = new PageBuilder(node.getRows().size(), outputTypes);
             for (List<Expression> row : node.getRows()) {
                 pageBuilder.declarePosition();
-                Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(
-                        context.getSession(),
-                        metadata,
-                        sqlParser,
-                        TypeProvider.empty(),
-                        ImmutableList.copyOf(row),
-                        emptyList(),
-                        NOOP,
-                        false);
+                Map<NodeRef<Expression>, Type> expressionTypes = typeAnalyzer.getTypes(context.getSession(), TypeProvider.empty(), ImmutableList.copyOf(row));
                 for (int i = 0; i < row.size(); i++) {
                     // evaluate the literal value
                     Object result = ExpressionInterpreter.expressionInterpreter(row.get(i), metadata, context.getSession(), expressionTypes).evaluate();
@@ -2033,17 +2016,7 @@ public class LocalExecutionPlanner
         {
             Map<Symbol, Integer> joinSourcesLayout = createJoinSourcesLayout(buildLayout, probeLayout);
 
-            Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(
-                    session,
-                    metadata,
-                    sqlParser,
-                    types,
-                    filterExpression,
-                    emptyList(), /* parameters have already been replaced */
-                    NOOP,
-                    false);
-
-            RowExpression translatedFilter = toRowExpression(filterExpression, expressionTypes, joinSourcesLayout);
+            RowExpression translatedFilter = toRowExpression(filterExpression, typeAnalyzer.getTypes(session, types, filterExpression), joinSourcesLayout);
             return joinFilterFunctionCompiler.compileJoinFilterFunction(translatedFilter, buildLayout.size());
         }
 
@@ -2554,14 +2527,7 @@ public class LocalExecutionPlanner
                             // expressions from lambda arguments
                             .putAll(lambdaArgumentExpressionTypes)
                             // expressions from lambda body
-                            .putAll(getExpressionTypes(
-                                    session,
-                                    metadata,
-                                    sqlParser,
-                                    TypeProvider.copyOf(lambdaArgumentSymbolTypes),
-                                    lambdaExpression.getBody(),
-                                    emptyList(),
-                                    NOOP))
+                            .putAll(typeAnalyzer.getTypes(session, TypeProvider.copyOf(lambdaArgumentSymbolTypes), lambdaExpression.getBody()))
                             .build();
 
                     LambdaDefinitionExpression lambda = (LambdaDefinitionExpression) toRowExpression(lambdaExpression, expressionTypes, ImmutableMap.of());
