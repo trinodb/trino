@@ -13,6 +13,7 @@
  */
 package io.prestosql.spi.connector;
 
+@Deprecated
 public interface ConnectorTableLayoutHandle
 {
 }

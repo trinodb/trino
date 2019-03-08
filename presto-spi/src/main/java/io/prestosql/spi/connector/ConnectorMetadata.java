@@ -36,6 +36,7 @@ import java.util.stream.Collectors;
 
 import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
+import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
 import static java.util.stream.Collectors.toList;
@@ -88,13 +89,29 @@ public interface ConnectorMetadata
      * <p>
      * For each layout, connectors must return an "unenforced constraint" representing the part of the constraint summary that isn't guaranteed by the layout.
      */
-    List<ConnectorTableLayoutResult> getTableLayouts(
+    @Deprecated
+    default List<ConnectorTableLayoutResult> getTableLayouts(
             ConnectorSession session,
             ConnectorTableHandle table,
             Constraint<ColumnHandle> constraint,
-            Optional<Set<ColumnHandle>> desiredColumns);
+            Optional<Set<ColumnHandle>> desiredColumns)
+    {
+        if (!usesLegacyTableLayouts()) {
+            throw new IllegalStateException("Connector uses legacy Table Layout but doesn't implement getTableLayouts()");
+        }
 
-    ConnectorTableLayout getTableLayout(ConnectorSession session, ConnectorTableLayoutHandle handle);
+        throw new UnsupportedOperationException("Not yet implemented");
+    }
+
+    @Deprecated
+    default ConnectorTableLayout getTableLayout(ConnectorSession session, ConnectorTableLayoutHandle handle)
+    {
+        if (!usesLegacyTableLayouts()) {
+            throw new IllegalStateException("Connector uses legacy Table Layout but doesn't implement getTableLayout()");
+        }
+
+        throw new UnsupportedOperationException("Not yet implemented");
+    }
 
     /**
      * Return a table layout handle whose partitioning is converted to the provided partitioning handle,
@@ -131,7 +148,13 @@ public interface ConnectorMetadata
      *
      * @throws RuntimeException if table handle is no longer valid
      */
+    @Deprecated
     default Optional<Object> getInfo(ConnectorTableLayoutHandle layoutHandle)
+    {
+        return Optional.empty();
+    }
+
+    default Optional<Object> getInfo(ConnectorTableHandle table)
     {
         return Optional.empty();
     }
@@ -262,29 +285,17 @@ public interface ConnectorMetadata
      */
     default Optional<ConnectorNewTableLayout> getInsertLayout(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        List<ConnectorTableLayout> layouts = getTableLayouts(session, tableHandle, new Constraint<>(TupleDomain.all(), map -> true), Optional.empty())
-                .stream()
-                .map(ConnectorTableLayoutResult::getTableLayout)
-                .filter(layout -> layout.getTablePartitioning().isPresent())
-                .collect(toList());
+        ConnectorTableProperties properties = getTableProperties(session, tableHandle);
+        return properties.getTablePartitioning()
+                .map(partitioning -> {
+                    Map<ColumnHandle, String> columnNamesByHandle = getColumnHandles(session, tableHandle).entrySet().stream()
+                            .collect(Collectors.toMap(Map.Entry::getValue, Map.Entry::getKey));
+                    List<String> partitionColumns = partitioning.getPartitioningColumns().stream()
+                            .map(columnNamesByHandle::get)
+                            .collect(toList());
 
-        if (layouts.isEmpty()) {
-            return Optional.empty();
-        }
-
-        if (layouts.size() > 1) {
-            throw new PrestoException(NOT_SUPPORTED, "Tables with multiple layouts can not be written");
-        }
-
-        ConnectorTableLayout layout = layouts.get(0);
-        ConnectorPartitioningHandle partitioningHandle = layout.getTablePartitioning().get().getPartitioningHandle();
-        Map<ColumnHandle, String> columnNamesByHandle = getColumnHandles(session, tableHandle).entrySet().stream()
-                .collect(Collectors.toMap(Map.Entry::getValue, Map.Entry::getKey));
-        List<String> partitionColumns = layout.getTablePartitioning().get().getPartitioningColumns().stream()
-                .map(columnNamesByHandle::get)
-                .collect(toList());
-
-        return Optional.of(new ConnectorNewTableLayout(partitioningHandle, partitionColumns));
+                    return new ConnectorNewTableLayout(partitioning.getPartitioningHandle(), partitionColumns);
+                });
     }
 
     /**
@@ -537,5 +548,34 @@ public interface ConnectorMetadata
     default List<GrantInfo> listTablePrivileges(ConnectorSession session, SchemaTablePrefix prefix)
     {
         return emptyList();
+    }
+
+    /**
+     * Whether the connector uses the legacy Table Layout feature. If this method returns false,
+     * connectors are required to implement the following methods:
+     * <ul>
+     * <li>{@link #getTableProperties(ConnectorSession session, ConnectorTableHandle table)}</li>
+     * <li>{@link #getInfo(ConnectorTableHandle table)} </li>
+     * <li>{@link ConnectorSplitManager#getSplits(ConnectorTransactionHandle, ConnectorSession, ConnectorTableHandle, ConnectorSplitManager.SplitSchedulingStrategy)}</li>
+     * </ul>
+     */
+    default boolean usesLegacyTableLayouts()
+    {
+        return true;
+    }
+
+    default ConnectorTableProperties getTableProperties(ConnectorSession session, ConnectorTableHandle table)
+    {
+        if (!usesLegacyTableLayouts()) {
+            throw new IllegalStateException("getTableProperties() must be implemented if usesLegacyTableLayouts is false");
+        }
+
+        List<ConnectorTableLayoutResult> layouts = getTableLayouts(session, table, Constraint.alwaysTrue(), Optional.empty());
+
+        if (layouts.size() != 1) {
+            throw new PrestoException(NOT_SUPPORTED, format("Connector must return a single layout for table %s, but got %s", table, layouts.size()));
+        }
+
+        return new ConnectorTableProperties(layouts.get(0).getTableLayout());
     }
 }

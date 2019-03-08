@@ -102,7 +102,7 @@ public class PushPredicateIntoTableScan
     {
         TableScanNode tableScan = captures.get(TABLE_SCAN);
 
-        PlanNode rewritten = pushFilterIntoTableScan(
+        Optional<PlanNode> rewritten = pushFilterIntoTableScan(
                 tableScan,
                 filterNode.getPredicate(),
                 false,
@@ -113,11 +113,11 @@ public class PushPredicateIntoTableScan
                 typeAnalyzer,
                 domainTranslator);
 
-        if (arePlansSame(filterNode, tableScan, rewritten)) {
+        if (!rewritten.isPresent() || arePlansSame(filterNode, tableScan, rewritten.get())) {
             return Result.empty();
         }
 
-        return Result.ofPlanNode(rewritten);
+        return Result.ofPlanNode(rewritten.get());
     }
 
     private boolean arePlansSame(FilterNode filter, TableScanNode tableScan, PlanNode rewritten)
@@ -141,7 +141,7 @@ public class PushPredicateIntoTableScan
                 && Objects.equals(tableScan.getEnforcedConstraint(), rewrittenTableScan.getEnforcedConstraint());
     }
 
-    public static PlanNode pushFilterIntoTableScan(
+    public static Optional<PlanNode> pushFilterIntoTableScan(
             TableScanNode node,
             Expression predicate,
             boolean pruneWithPredicateExpression,
@@ -152,6 +152,10 @@ public class PushPredicateIntoTableScan
             TypeAnalyzer typeAnalyzer,
             DomainTranslator domainTranslator)
     {
+        if (!metadata.usesLegacyTableLayouts(session, node.getTable())) {
+            return Optional.empty();
+        }
+
         // don't include non-deterministic predicates
         Expression deterministicPredicate = filterDeterministicConjuncts(predicate);
 
@@ -196,8 +200,8 @@ public class PushPredicateIntoTableScan
                         .map(node.getAssignments()::get)
                         .collect(toImmutableSet())));
 
-        if (!layout.isPresent() || layout.get().getLayout().getPredicate().isNone()) {
-            return new ValuesNode(idAllocator.getNextId(), node.getOutputSymbols(), ImmutableList.of());
+        if (!layout.isPresent() || layout.get().getTableProperties().getPredicate().isNone()) {
+            return Optional.of(new ValuesNode(idAllocator.getNextId(), node.getOutputSymbols(), ImmutableList.of()));
         }
 
         TableScanNode tableScan = new TableScanNode(
@@ -205,7 +209,7 @@ public class PushPredicateIntoTableScan
                 layout.get().getNewTableHandle(),
                 node.getOutputSymbols(),
                 node.getAssignments(),
-                layout.get().getLayout().getPredicate(),
+                layout.get().getTableProperties().getPredicate(),
                 computeEnforced(newDomain, layout.get().getUnenforcedConstraint()));
 
         // The order of the arguments to combineConjuncts matters:
@@ -222,10 +226,10 @@ public class PushPredicateIntoTableScan
                 decomposedPredicate.getRemainingExpression());
 
         if (!TRUE_LITERAL.equals(resultingPredicate)) {
-            return new FilterNode(idAllocator.getNextId(), tableScan, resultingPredicate);
+            return Optional.of(new FilterNode(idAllocator.getNextId(), tableScan, resultingPredicate));
         }
 
-        return tableScan;
+        return Optional.of(tableScan);
     }
 
     private static class LayoutConstraintEvaluator

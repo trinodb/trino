@@ -21,7 +21,7 @@ import io.prestosql.Session;
 import io.prestosql.SystemSessionProperties;
 import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.metadata.Metadata;
-import io.prestosql.metadata.TableLayout;
+import io.prestosql.metadata.TableProperties;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.DiscretePredicates;
@@ -135,7 +135,7 @@ public class MetadataQueryOptimizer
 
             // Materialize the list of partitions and replace the TableScan node
             // with a Values node
-            TableLayout layout = metadata.getLayout(session, tableScan.getTable());
+            TableProperties layout = metadata.getTableProperties(session, tableScan.getTable());
             if (!layout.getDiscretePredicates().isPresent()) {
                 return context.defaultRewrite(node);
             }

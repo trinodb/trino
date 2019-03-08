@@ -23,13 +23,14 @@ import java.util.Map;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
+@Deprecated
 public class TableLayoutResult
 {
     private final TableHandle newTableHandle;
-    private final TableLayout layout;
+    private final TableProperties layout;
     private final TupleDomain<ColumnHandle> unenforcedConstraint;
 
-    public TableLayoutResult(TableHandle newTable, TableLayout layout, TupleDomain<ColumnHandle> unenforcedConstraint)
+    public TableLayoutResult(TableHandle newTable, TableProperties layout, TupleDomain<ColumnHandle> unenforcedConstraint)
     {
         this.newTableHandle = requireNonNull(newTable, "newTable is null");
         this.layout = requireNonNull(layout, "layout is null");
@@ -41,7 +42,7 @@ public class TableLayoutResult
         return newTableHandle;
     }
 
-    public TableLayout getLayout()
+    public TableProperties getTableProperties()
     {
         return layout;
     }

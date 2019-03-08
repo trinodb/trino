@@ -71,17 +71,19 @@ public class SplitManager
 
         ConnectorSession connectorSession = session.toConnectorSession(connectorId);
 
-        ConnectorTableLayoutHandle layout = table.getLayout()
-                .orElseGet(() -> metadata.getLayout(session, table, Constraint.alwaysTrue(), Optional.empty())
-                        .get()
-                        .getNewTableHandle()
-                        .getLayout().get());
+        ConnectorSplitSource source;
+        if (metadata.usesLegacyTableLayouts(session, table)) {
+            ConnectorTableLayoutHandle layout = table.getLayout()
+                    .orElseGet(() -> metadata.getLayout(session, table, Constraint.alwaysTrue(), Optional.empty())
+                            .get()
+                            .getNewTableHandle()
+                            .getLayout().get());
 
-        ConnectorSplitSource source = splitManager.getSplits(
-                table.getTransaction(),
-                connectorSession,
-                layout,
-                splitSchedulingStrategy);
+            source = splitManager.getSplits(table.getTransaction(), connectorSession, layout, splitSchedulingStrategy);
+        }
+        else {
+            source = splitManager.getSplits(table.getTransaction(), connectorSession, table.getConnectorHandle(), splitSchedulingStrategy);
+        }
 
         SplitSource splitSource = new ConnectorAwareSplitSource(connectorId, table.getTransaction(), source);
         if (minScheduleSplitBatchSize > 1) {

@@ -16,7 +16,7 @@ package io.prestosql.metadata;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.connector.ConnectorId;
 import io.prestosql.spi.connector.ColumnHandle;
-import io.prestosql.spi.connector.ConnectorTableLayout;
+import io.prestosql.spi.connector.ConnectorTableProperties;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 import io.prestosql.spi.connector.DiscretePredicates;
 import io.prestosql.spi.connector.LocalProperty;
@@ -30,41 +30,36 @@ import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
 
-public class TableLayout
+public class TableProperties
 {
-    private final ConnectorTableLayout layout;
+    private final ConnectorTableProperties tableProperties;
     private final ConnectorId connectorId;
     private final ConnectorTransactionHandle transaction;
 
-    public TableLayout(ConnectorId connectorId, ConnectorTransactionHandle transaction, ConnectorTableLayout layout)
+    public TableProperties(ConnectorId connectorId, ConnectorTransactionHandle transaction, ConnectorTableProperties tableProperties)
     {
         requireNonNull(connectorId, "connectorId is null");
         requireNonNull(transaction, "transaction is null");
-        requireNonNull(layout, "layout is null");
+        requireNonNull(tableProperties, "layout is null");
 
         this.connectorId = connectorId;
         this.transaction = transaction;
-        this.layout = layout;
-    }
-
-    public Optional<List<ColumnHandle>> getColumns()
-    {
-        return layout.getColumns();
+        this.tableProperties = tableProperties;
     }
 
     public TupleDomain<ColumnHandle> getPredicate()
     {
-        return layout.getPredicate();
+        return tableProperties.getPredicate();
     }
 
     public List<LocalProperty<ColumnHandle>> getLocalProperties()
     {
-        return layout.getLocalProperties();
+        return tableProperties.getLocalProperties();
     }
 
     public Optional<TablePartitioning> getTablePartitioning()
     {
-        return layout.getTablePartitioning()
+        return tableProperties.getTablePartitioning()
                 .map(nodePartitioning -> new TablePartitioning(
                         new PartitioningHandle(
                                 Optional.of(connectorId),
@@ -75,12 +70,12 @@ public class TableLayout
 
     public Optional<Set<ColumnHandle>> getStreamPartitioningColumns()
     {
-        return layout.getStreamPartitioningColumns();
+        return tableProperties.getStreamPartitioningColumns();
     }
 
     public Optional<DiscretePredicates> getDiscretePredicates()
     {
-        return layout.getDiscretePredicates();
+        return tableProperties.getDiscretePredicates();
     }
 
     public static class TablePartitioning

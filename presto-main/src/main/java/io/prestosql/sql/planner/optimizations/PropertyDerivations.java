@@ -22,8 +22,8 @@ import com.google.common.collect.Sets;
 import io.prestosql.Session;
 import io.prestosql.SystemSessionProperties;
 import io.prestosql.metadata.Metadata;
-import io.prestosql.metadata.TableLayout;
-import io.prestosql.metadata.TableLayout.TablePartitioning;
+import io.prestosql.metadata.TableProperties;
+import io.prestosql.metadata.TableProperties.TablePartitioning;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConstantProperty;
 import io.prestosql.spi.connector.GroupingProperty;
@@ -706,7 +706,7 @@ public class PropertyDerivations
         @Override
         public ActualProperties visitTableScan(TableScanNode node, List<ActualProperties> inputProperties)
         {
-            TableLayout layout = metadata.getLayout(session, node.getTable());
+            TableProperties layout = metadata.getTableProperties(session, node.getTable());
             Map<ColumnHandle, Symbol> assignments = ImmutableBiMap.copyOf(node.getAssignments()).inverse();
 
             ActualProperties.Builder properties = ActualProperties.builder();
@@ -736,7 +736,7 @@ public class PropertyDerivations
             return properties.build();
         }
 
-        private Global deriveGlobalProperties(TableLayout layout, Map<ColumnHandle, Symbol> assignments, Map<ColumnHandle, NullableValue> constants)
+        private Global deriveGlobalProperties(TableProperties layout, Map<ColumnHandle, Symbol> assignments, Map<ColumnHandle, NullableValue> constants)
         {
             Optional<List<Symbol>> streamPartitioning = layout.getStreamPartitioningColumns()
                     .flatMap(columns -> translateToNonConstantSymbols(columns, assignments, constants));

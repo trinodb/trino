@@ -120,7 +120,7 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public TableLayout getLayout(Session session, TableHandle handle)
+    public TableProperties getTableProperties(Session session, TableHandle handle)
     {
         throw new UnsupportedOperationException();
     }
@@ -505,6 +505,12 @@ public abstract class AbstractMockMetadata
 
     @Override
     public boolean catalogExists(Session session, String catalogName)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public boolean usesLegacyTableLayouts(Session session, TableHandle table)
     {
         throw new UnsupportedOperationException();
     }

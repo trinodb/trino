@@ -73,9 +73,10 @@ public interface Metadata
 
     Optional<TableHandle> getTableHandleForStatisticsCollection(Session session, QualifiedObjectName tableName, Map<String, Object> analyzeProperties);
 
+    @Deprecated
     Optional<TableLayoutResult> getLayout(Session session, TableHandle tableHandle, Constraint<ColumnHandle> constraint, Optional<Set<ColumnHandle>> desiredColumns);
 
-    TableLayout getLayout(Session session, TableHandle handle);
+    TableProperties getTableProperties(Session session, TableHandle handle);
 
     /**
      * Return a table handle whose partitioning is converted to the provided partitioning handle,
@@ -380,4 +381,7 @@ public interface Metadata
     ColumnPropertyManager getColumnPropertyManager();
 
     AnalyzePropertyManager getAnalyzePropertyManager();
+
+    @Deprecated
+    boolean usesLegacyTableLayouts(Session session, TableHandle table);
 }

@@ -23,47 +23,42 @@ import java.util.Set;
 import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 
-@Deprecated
-public class ConnectorTableLayout
+public class ConnectorTableProperties
 {
-    private final ConnectorTableLayoutHandle handle;
-    private final Optional<List<ColumnHandle>> columns;
     private final TupleDomain<ColumnHandle> predicate;
     private final Optional<ConnectorTablePartitioning> tablePartitioning;
     private final Optional<Set<ColumnHandle>> streamPartitioningColumns;
     private final Optional<DiscretePredicates> discretePredicates;
     private final List<LocalProperty<ColumnHandle>> localProperties;
 
-    public ConnectorTableLayout(ConnectorTableLayoutHandle handle)
+    public ConnectorTableProperties()
     {
-        this(handle,
-                Optional.empty(),
-                TupleDomain.all(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                emptyList());
+        this(TupleDomain.all(), Optional.empty(), Optional.empty(), Optional.empty(), emptyList());
     }
 
-    public ConnectorTableLayout(
-            ConnectorTableLayoutHandle handle,
-            Optional<List<ColumnHandle>> columns,
+    @Deprecated
+    public ConnectorTableProperties(ConnectorTableLayout layout)
+    {
+        this(layout.getPredicate(),
+                layout.getTablePartitioning(),
+                layout.getStreamPartitioningColumns(),
+                layout.getDiscretePredicates(),
+                layout.getLocalProperties());
+    }
+
+    public ConnectorTableProperties(
             TupleDomain<ColumnHandle> predicate,
             Optional<ConnectorTablePartitioning> tablePartitioning,
             Optional<Set<ColumnHandle>> streamPartitioningColumns,
             Optional<DiscretePredicates> discretePredicates,
             List<LocalProperty<ColumnHandle>> localProperties)
     {
-        requireNonNull(handle, "handle is null");
-        requireNonNull(columns, "columns is null");
         requireNonNull(streamPartitioningColumns, "partitioningColumns is null");
         requireNonNull(tablePartitioning, "tablePartitioning is null");
         requireNonNull(predicate, "predicate is null");
         requireNonNull(discretePredicates, "discretePredicates is null");
         requireNonNull(localProperties, "localProperties is null");
 
-        this.handle = handle;
-        this.columns = columns;
         this.tablePartitioning = tablePartitioning;
         this.streamPartitioningColumns = streamPartitioningColumns;
         this.predicate = predicate;
@@ -71,22 +66,8 @@ public class ConnectorTableLayout
         this.localProperties = localProperties;
     }
 
-    public ConnectorTableLayoutHandle getHandle()
-    {
-        return handle;
-    }
-
     /**
-     * The columns from the original table provided by this layout. A layout may provide only a subset of columns.
-     */
-    public Optional<List<ColumnHandle>> getColumns()
-    {
-        return columns;
-    }
-
-    /**
-     * A TupleDomain that represents a predicate that every row this TableScan node
-     * produces is guaranteed to satisfy.
+     * A TupleDomain that represents a predicate that every row in this table satisfies.
      * <p>
      * This guarantee can have different origins.
      * For example, it may be successful predicate push down, or inherent guarantee provided by the underlying data.
@@ -142,7 +123,7 @@ public class ConnectorTableLayout
     @Override
     public int hashCode()
     {
-        return Objects.hash(handle, columns, predicate, discretePredicates, streamPartitioningColumns, tablePartitioning, localProperties);
+        return Objects.hash(predicate, discretePredicates, streamPartitioningColumns, tablePartitioning, localProperties);
     }
 
     @Override
@@ -154,10 +135,8 @@ public class ConnectorTableLayout
         if (obj == null || getClass() != obj.getClass()) {
             return false;
         }
-        ConnectorTableLayout other = (ConnectorTableLayout) obj;
-        return Objects.equals(this.handle, other.handle)
-                && Objects.equals(this.columns, other.columns)
-                && Objects.equals(this.predicate, other.predicate)
+        ConnectorTableProperties other = (ConnectorTableProperties) obj;
+        return Objects.equals(this.predicate, other.predicate)
                 && Objects.equals(this.discretePredicates, other.discretePredicates)
                 && Objects.equals(this.streamPartitioningColumns, other.streamPartitioningColumns)
                 && Objects.equals(this.tablePartitioning, other.tablePartitioning)

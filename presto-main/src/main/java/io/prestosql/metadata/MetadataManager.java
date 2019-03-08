@@ -45,6 +45,7 @@ import io.prestosql.spi.connector.ConnectorTableLayout;
 import io.prestosql.spi.connector.ConnectorTableLayoutHandle;
 import io.prestosql.spi.connector.ConnectorTableLayoutResult;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
+import io.prestosql.spi.connector.ConnectorTableProperties;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 import io.prestosql.spi.connector.ConnectorViewDefinition;
 import io.prestosql.spi.connector.Constraint;
@@ -88,6 +89,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.prestosql.metadata.QualifiedObjectName.convertFromSchemaTableName;
 import static io.prestosql.metadata.ViewDefinition.ViewColumn;
@@ -391,6 +393,9 @@ public class MetadataManager
 
         CatalogMetadata catalogMetadata = getCatalogMetadata(session, connectorId);
         ConnectorMetadata metadata = catalogMetadata.getMetadataFor(connectorId);
+
+        checkState(metadata.usesLegacyTableLayouts(), "getLayout() was called even though connector doesn't support legacy Table Layout");
+
         ConnectorTransactionHandle transaction = catalogMetadata.getTransactionHandleFor(connectorId);
         ConnectorSession connectorSession = session.toConnectorSession(connectorId);
         List<ConnectorTableLayoutResult> layouts = metadata.getTableLayouts(connectorSession, connectorTable, constraint, desiredColumns);
@@ -405,23 +410,27 @@ public class MetadataManager
         ConnectorTableLayout tableLayout = layouts.get(0).getTableLayout();
         return Optional.of(new TableLayoutResult(
                 new TableHandle(connectorId, connectorTable, transaction, Optional.of(tableLayout.getHandle())),
-                new TableLayout(connectorId, transaction, tableLayout),
+                new TableProperties(connectorId, transaction, new ConnectorTableProperties(tableLayout)),
                 layouts.get(0).getUnenforcedConstraint()));
     }
 
     @Override
-    public TableLayout getLayout(Session session, TableHandle handle)
+    public TableProperties getTableProperties(Session session, TableHandle handle)
     {
         ConnectorId connectorId = handle.getConnectorId();
         CatalogMetadata catalogMetadata = getCatalogMetadata(session, connectorId);
         ConnectorMetadata metadata = catalogMetadata.getMetadataFor(connectorId);
         ConnectorSession connectorSession = session.toConnectorSession(connectorId);
 
-        return handle.getLayout()
-                .map(layout -> new TableLayout(connectorId, handle.getTransaction(), metadata.getTableLayout(connectorSession, layout)))
-                .orElseGet(() -> getLayout(session, handle, Constraint.alwaysTrue(), Optional.empty())
-                        .get()
-                        .getLayout());
+        if (metadata.usesLegacyTableLayouts()) {
+            return handle.getLayout()
+                    .map(layout -> new TableProperties(connectorId, handle.getTransaction(), new ConnectorTableProperties(metadata.getTableLayout(connectorSession, layout))))
+                    .orElseGet(() -> getLayout(session, handle, Constraint.alwaysTrue(), Optional.empty())
+                            .get()
+                            .getTableProperties());
+        }
+
+        return new TableProperties(connectorId, handle.getTransaction(), metadata.getTableProperties(connectorSession, handle.getConnectorHandle()));
     }
 
     @Override
@@ -461,14 +470,18 @@ public class MetadataManager
         ConnectorId connectorId = handle.getConnectorId();
         ConnectorMetadata metadata = getMetadata(session, connectorId);
 
-        ConnectorTableLayoutHandle layoutHandle = handle.getLayout()
-                .orElseGet(() -> getLayout(session, handle, Constraint.alwaysTrue(), Optional.empty())
-                        .get()
-                        .getNewTableHandle()
-                        .getLayout()
-                        .get());
+        if (usesLegacyTableLayouts(session, handle)) {
+            ConnectorTableLayoutHandle layoutHandle = handle.getLayout()
+                    .orElseGet(() -> getLayout(session, handle, Constraint.alwaysTrue(), Optional.empty())
+                            .get()
+                            .getNewTableHandle()
+                            .getLayout()
+                            .get());
 
-        return metadata.getInfo(layoutHandle);
+            return metadata.getInfo(layoutHandle);
+        }
+
+        return metadata.getInfo(handle.getConnectorHandle());
     }
 
     @Override
@@ -1149,6 +1162,12 @@ public class MetadataManager
     public AnalyzePropertyManager getAnalyzePropertyManager()
     {
         return analyzePropertyManager;
+    }
+
+    @Override
+    public boolean usesLegacyTableLayouts(Session session, TableHandle table)
+    {
+        return getMetadata(session, table.getConnectorId()).usesLegacyTableLayouts();
     }
 
     private ViewDefinition deserializeView(String data)

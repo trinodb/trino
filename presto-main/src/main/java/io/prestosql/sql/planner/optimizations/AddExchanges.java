@@ -491,7 +491,11 @@ public class AddExchanges
         public PlanWithProperties visitFilter(FilterNode node, PreferredProperties preferredProperties)
         {
             if (node.getSource() instanceof TableScanNode) {
-                return planTableScan((TableScanNode) node.getSource(), node.getPredicate());
+                Optional<PlanWithProperties> plan = planTableScan((TableScanNode) node.getSource(), node.getPredicate());
+
+                if (plan.isPresent()) {
+                    return plan.get();
+                }
             }
 
             return rebaseAndDeriveProperties(node, planChild(node, preferredProperties));
@@ -500,7 +504,8 @@ public class AddExchanges
         @Override
         public PlanWithProperties visitTableScan(TableScanNode node, PreferredProperties preferredProperties)
         {
-            return planTableScan(node, TRUE_LITERAL);
+            return planTableScan(node, TRUE_LITERAL)
+                    .orElseGet(() -> new PlanWithProperties(node, deriveProperties(node, ImmutableList.of())));
         }
 
         @Override
@@ -530,10 +535,10 @@ public class AddExchanges
             return rebaseAndDeriveProperties(node, source);
         }
 
-        private PlanWithProperties planTableScan(TableScanNode node, Expression predicate)
+        private Optional<PlanWithProperties> planTableScan(TableScanNode node, Expression predicate)
         {
-            PlanNode plan = PushPredicateIntoTableScan.pushFilterIntoTableScan(node, predicate, true, session, types, idAllocator, metadata, typeAnalyzer, domainTranslator);
-            return new PlanWithProperties(plan, derivePropertiesRecursively(plan));
+            return PushPredicateIntoTableScan.pushFilterIntoTableScan(node, predicate, true, session, types, idAllocator, metadata, typeAnalyzer, domainTranslator)
+                    .map(plan -> new PlanWithProperties(plan, derivePropertiesRecursively(plan)));
         }
 
         @Override
