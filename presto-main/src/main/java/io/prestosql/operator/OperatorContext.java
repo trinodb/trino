@@ -278,7 +278,7 @@ public class OperatorContext
     // caller shouldn't close this context as it's managed by the OperatorContext
     public AggregatedMemoryContext aggregateRevocableMemoryContext()
     {
-        return new InternalAggregatedMemoryContext(operatorMemoryContext.aggregateRevocableMemoryContext(), memoryFuture, this::updatePeakMemoryReservations, false);
+        return new InternalAggregatedMemoryContext(operatorMemoryContext.aggregateRevocableMemoryContext(), revocableMemoryFuture, this::updatePeakMemoryReservations, false);
     }
 
     // caller should close this context as it's a new context
