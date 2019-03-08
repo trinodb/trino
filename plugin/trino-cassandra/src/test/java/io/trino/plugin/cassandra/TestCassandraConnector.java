@@ -36,6 +36,7 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import io.trino.testing.TestingConnectorContext;
@@ -54,6 +55,7 @@ import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.testing.Assertions.assertInstanceOf;
 import static io.trino.plugin.cassandra.CassandraTestingUtils.TABLE_ALL_TYPES;
 import static io.trino.plugin.cassandra.CassandraTestingUtils.TABLE_DELETE_DATA;
+import static io.trino.plugin.cassandra.CassandraTestingUtils.TABLE_TUPLE_TYPE;
 import static io.trino.plugin.cassandra.CassandraTestingUtils.createTestTables;
 import static io.trino.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.UNGROUPED_SCHEDULING;
 import static io.trino.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
@@ -84,6 +86,7 @@ public class TestCassandraConnector
     protected String database;
     protected SchemaTableName table;
     protected SchemaTableName tableForDelete;
+    protected SchemaTableName tableTuple;
     private ConnectorMetadata metadata;
     private ConnectorSplitManager splitManager;
     private ConnectorRecordSetProvider recordSetProvider;
@@ -116,6 +119,7 @@ public class TestCassandraConnector
         database = keyspace;
         table = new SchemaTableName(database, TABLE_ALL_TYPES.toLowerCase(ENGLISH));
         tableForDelete = new SchemaTableName(database, TABLE_DELETE_DATA.toLowerCase(ENGLISH));
+        tableTuple = new SchemaTableName(database, TABLE_TUPLE_TYPE.toLowerCase(ENGLISH));
     }
 
     @AfterClass(alwaysRun = true)
@@ -226,6 +230,49 @@ public class TestCassandraConnector
         assertNumberOfRows(tableForDelete, 7);
     }
 
+    @Test
+    public void testGetTupleType()
+    {
+        ConnectorTableHandle tableHandle = getTableHandle(tableTuple);
+        ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(SESSION, tableHandle);
+        List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(SESSION, tableHandle).values());
+        Map<String, Integer> columnIndex = indexColumns(columnHandles);
+
+        ConnectorTransactionHandle transaction = CassandraTransactionHandle.INSTANCE;
+
+        List<ConnectorSplit> splits = getAllSplits(splitManager.getSplits(transaction, SESSION, tableHandle, UNGROUPED_SCHEDULING, DynamicFilter.EMPTY));
+
+        long rowNumber = 0;
+        for (ConnectorSplit split : splits) {
+            CassandraSplit cassandraSplit = (CassandraSplit) split;
+
+            long completedBytes = 0;
+            try (RecordCursor cursor = recordSetProvider.getRecordSet(transaction, SESSION, cassandraSplit, tableHandle, columnHandles).cursor()) {
+                while (cursor.advanceNextPosition()) {
+                    try {
+                        assertReadFields(cursor, tableMetadata.getColumns());
+                    }
+                    catch (RuntimeException e) {
+                        throw new RuntimeException("row " + rowNumber, e);
+                    }
+
+                    rowNumber++;
+
+                    String keyValue = cursor.getSlice(columnIndex.get("key")).toStringUtf8();
+                    String tupleValue = cursor.getSlice(columnIndex.get("typetuple")).toStringUtf8();
+
+                    assertEquals(keyValue, Long.toString(rowNumber));
+                    assertEquals(tupleValue, String.format("(%d,'text-%d',%.2f)", rowNumber, rowNumber, (1.11 * rowNumber)));
+
+                    long newCompletedBytes = cursor.getCompletedBytes();
+                    assertTrue(newCompletedBytes >= completedBytes);
+                    completedBytes = newCompletedBytes;
+                }
+            }
+        }
+        assertEquals(rowNumber, 2);
+    }
+
     private static void assertReadFields(RecordCursor cursor, List<ColumnMetadata> schema)
     {
         for (int columnIndex = 0; columnIndex < schema.size(); columnIndex++) {
@@ -257,6 +304,9 @@ public class TestCassandraConnector
                     catch (RuntimeException e) {
                         throw new RuntimeException("column " + column, e);
                     }
+                }
+                else if (type instanceof RowType) {
+                    cursor.getObject(columnIndex);
                 }
                 else {
                     fail("Unknown primitive type " + type + " for column " + columnIndex);

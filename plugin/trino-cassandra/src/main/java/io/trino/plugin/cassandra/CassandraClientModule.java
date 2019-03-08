@@ -30,7 +30,6 @@ import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
-import io.airlift.json.JsonBinder;
 import io.airlift.json.JsonCodec;
 import io.airlift.security.pem.PemReader;
 import io.trino.spi.TrinoException;
@@ -76,9 +75,18 @@ import static java.util.Objects.requireNonNull;
 public class CassandraClientModule
         implements Module
 {
+    private final TypeManager typeManager;
+
+    public CassandraClientModule(TypeManager typeManager)
+    {
+        this.typeManager = requireNonNull(typeManager, "typeManager is null");
+    }
+
     @Override
     public void configure(Binder binder)
     {
+        binder.bind(TypeManager.class).toInstance(typeManager);
+
         binder.bind(CassandraConnector.class).in(Scopes.SINGLETON);
         binder.bind(CassandraMetadata.class).in(Scopes.SINGLETON);
         binder.bind(CassandraSplitManager.class).in(Scopes.SINGLETON);

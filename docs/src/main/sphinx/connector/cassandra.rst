@@ -228,6 +228,7 @@ TIMEUUID          VARCHAR
 TINYINT           TINYINT
 VARCHAR           VARCHAR
 VARIANT           VARCHAR
+TUPLE             ROW with anonymous fields
 ================  ======
 
 Any collection (LIST/MAP/SET) can be designated as FROZEN, and the value is
