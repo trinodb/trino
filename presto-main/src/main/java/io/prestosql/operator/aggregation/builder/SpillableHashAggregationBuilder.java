@@ -127,15 +127,6 @@ public class SpillableHashAggregationBuilder
         }
     }
 
-    public long getSizeInMemory()
-    {
-        // TODO: we could skip memory reservation for hashAggregationBuilder.getGroupIdsSortingSize()
-        // if before building result from hashAggregationBuilder we would convert it to "read only" version.
-        // Read only version of GroupByHash from hashAggregationBuilder could be compacted by dropping
-        // most of it's field, freeing up some memory that could be used for sorting.
-        return hashAggregationBuilder.getSizeInMemory() + hashAggregationBuilder.getGroupIdsSortingSize();
-    }
-
     @Override
     public void recordHashCollisions(HashCollisionsCounter hashCollisionsCounter)
     {
@@ -210,13 +201,25 @@ public class SpillableHashAggregationBuilder
             return hashAggregationBuilder.buildResult();
         }
 
-        if (shouldMergeWithMemory(getSizeInMemory())) {
+        if (shouldMergeWithMemory(getSizeInMemoryWhenUnspilling())) {
             return mergeFromDiskAndMemory();
         }
         else {
             getFutureValue(spillToDisk());
             return mergeFromDisk();
         }
+    }
+
+    /**
+     * Estimates future memory usage, during unspilling.
+     */
+    private long getSizeInMemoryWhenUnspilling()
+    {
+        // TODO: we could skip memory reservation for hashAggregationBuilder.getGroupIdsSortingSize()
+        // if before building result from hashAggregationBuilder we would convert it to "read only" version.
+        // Read only version of GroupByHash from hashAggregationBuilder could be compacted by dropping
+        // most of it's field, freeing up some memory that could be used for sorting.
+        return hashAggregationBuilder.getSizeInMemory() + hashAggregationBuilder.getGroupIdsSortingSize();
     }
 
     @Override
