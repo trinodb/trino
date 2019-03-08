@@ -18,7 +18,7 @@
     <parent>
         <artifactId>presto-root</artifactId>
         <groupId>io.prestosql</groupId>
-        <version>305</version>
+        <version>306-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-matching</artifactId>
