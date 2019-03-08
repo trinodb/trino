@@ -52,6 +52,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.testing.Assertions.assertInstanceOf;
 import static io.prestosql.plugin.cassandra.CassandraTestingUtils.TABLE_ALL_TYPES;
+import static io.prestosql.plugin.cassandra.CassandraTestingUtils.TABLE_TUPLE_TYPE;
 import static io.prestosql.plugin.cassandra.CassandraTestingUtils.createTestTables;
 import static io.prestosql.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.UNGROUPED_SCHEDULING;
 import static io.prestosql.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
@@ -88,6 +89,7 @@ public class TestCassandraConnector
     protected String database;
     protected SchemaTableName table;
     protected SchemaTableName tableUnpartitioned;
+    protected SchemaTableName tableTuple;
     protected SchemaTableName invalidTable;
     private ConnectorMetadata metadata;
     private ConnectorSplitManager splitManager;
@@ -121,6 +123,7 @@ public class TestCassandraConnector
 
         database = keyspace;
         table = new SchemaTableName(database, TABLE_ALL_TYPES.toLowerCase(ENGLISH));
+        tableTuple = new SchemaTableName(database, TABLE_TUPLE_TYPE.toLowerCase(ENGLISH));
         tableUnpartitioned = new SchemaTableName(database, "presto_test_unpartitioned");
         invalidTable = new SchemaTableName(database, "totally_invalid_table_name");
     }
@@ -218,6 +221,51 @@ public class TestCassandraConnector
             }
         }
         assertEquals(rowNumber, 9);
+    }
+
+    @Test
+    public void testGetTupleType()
+    {
+        ConnectorTableHandle tableHandle = getTableHandle(tableTuple);
+        ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(SESSION, tableHandle);
+        List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(SESSION, tableHandle).values());
+        Map<String, Integer> columnIndex = indexColumns(columnHandles);
+
+        ConnectorTransactionHandle transaction = CassandraTransactionHandle.INSTANCE;
+
+        List<ConnectorTableLayoutResult> layouts = metadata.getTableLayouts(SESSION, tableHandle, Constraint.alwaysTrue(), Optional.empty());
+        ConnectorTableLayoutHandle layout = getOnlyElement(layouts).getTableLayout().getHandle();
+        List<ConnectorSplit> splits = getAllSplits(splitManager.getSplits(transaction, SESSION, layout, UNGROUPED_SCHEDULING));
+
+        long rowNumber = 0;
+        for (ConnectorSplit split : splits) {
+            CassandraSplit cassandraSplit = (CassandraSplit) split;
+
+            long completedBytes = 0;
+            try (RecordCursor cursor = recordSetProvider.getRecordSet(transaction, SESSION, cassandraSplit, columnHandles).cursor()) {
+                while (cursor.advanceNextPosition()) {
+                    try {
+                        assertReadFields(cursor, tableMetadata.getColumns());
+                    }
+                    catch (RuntimeException e) {
+                        throw new RuntimeException("row " + rowNumber, e);
+                    }
+
+                    rowNumber++;
+
+                    String keyValue = cursor.getSlice(columnIndex.get("typeinteger")).toStringUtf8();
+                    String tupleValue = cursor.getSlice(columnIndex.get("typetuple")).toStringUtf8();
+
+                    assertEquals(keyValue, Long.toString(rowNumber));
+                    assertEquals(tupleValue, "(" + Long.toString(rowNumber) + "," + Long.toString(rowNumber) + ")");
+
+                    long newCompletedBytes = cursor.getCompletedBytes();
+                    assertTrue(newCompletedBytes >= completedBytes);
+                    completedBytes = newCompletedBytes;
+                }
+            }
+        }
+        assertEquals(rowNumber, 2);
     }
 
     private static void assertReadFields(RecordCursor cursor, List<ColumnMetadata> schema)

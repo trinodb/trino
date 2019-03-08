@@ -17,6 +17,7 @@ import com.datastax.driver.core.DataType;
 import com.datastax.driver.core.LocalDate;
 import com.datastax.driver.core.ProtocolVersion;
 import com.datastax.driver.core.Row;
+import com.datastax.driver.core.TupleValue;
 import com.datastax.driver.core.utils.Bytes;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.net.InetAddresses;
@@ -81,7 +82,8 @@ public enum CassandraType
     VARINT(createUnboundedVarcharType(), BigInteger.class),
     LIST(createUnboundedVarcharType(), null),
     MAP(createUnboundedVarcharType(), null),
-    SET(createUnboundedVarcharType(), null);
+    SET(createUnboundedVarcharType(), null),
+    TUPLE(createUnboundedVarcharType(), TupleValue.class);
 
     private static class Constants
     {
@@ -168,6 +170,8 @@ public enum CassandraType
                 return VARCHAR;
             case VARINT:
                 return VARINT;
+            case TUPLE:
+                return TUPLE;
             default:
                 return null;
         }
@@ -230,6 +234,8 @@ public enum CassandraType
                 case MAP:
                     checkTypeArguments(cassandraType, 2, typeArguments);
                     return NullableValue.of(nativeType, utf8Slice(buildMapValue(row, position, typeArguments.get(0), typeArguments.get(1))));
+                case TUPLE:
+                    return NullableValue.of(nativeType, utf8Slice(buildTupleValue(row, position)));
                 default:
                     throw new IllegalStateException("Handling of type " + cassandraType
                             + " is not implemented");
@@ -280,6 +286,11 @@ public enum CassandraType
         }
         sb.append("}");
         return sb.toString();
+    }
+
+    private static String buildTupleValue(Row row, int position)
+    {
+        return row.getTupleValue(position).toString();
     }
 
     @VisibleForTesting
@@ -347,6 +358,8 @@ public enum CassandraType
                 case BLOB:
                 case CUSTOM:
                     return Bytes.toHexString(row.getBytesUnsafe(position));
+                case TUPLE:
+                    return Bytes.toHexString(row.getBytesUnsafe(position));
                 default:
                     throw new IllegalStateException("Handling of type " + cassandraType
                             + " is not implemented");
@@ -381,6 +394,8 @@ public enum CassandraType
             case DOUBLE:
             case FLOAT:
             case DECIMAL:
+                return object.toString();
+            case TUPLE:
                 return object.toString();
             default:
                 throw new IllegalStateException("Handling of type " + elemType + " is not implemented");
@@ -449,6 +464,8 @@ public enum CassandraType
                 return ((Slice) nativeValue).toStringUtf8();
             case VARINT:
                 return new BigInteger(((Slice) nativeValue).toStringUtf8());
+            case TUPLE:
+                return ((Slice) nativeValue).toStringUtf8();
             case SET:
             case LIST:
             case MAP:
@@ -481,6 +498,7 @@ public enum CassandraType
             case SET:
             case LIST:
             case MAP:
+            case TUPLE:
             default:
                 return false;
         }

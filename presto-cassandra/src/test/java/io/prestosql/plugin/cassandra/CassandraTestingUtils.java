@@ -35,6 +35,7 @@ public class CassandraTestingUtils
     public static final String TABLE_ALL_TYPES = "table_all_types";
     public static final String TABLE_ALL_TYPES_INSERT = "table_all_types_insert";
     public static final String TABLE_ALL_TYPES_PARTITION_KEY = "table_all_types_partition_key";
+    public static final String TABLE_TUPLE_TYPE = "table_tuple_type";
     public static final String TABLE_CLUSTERING_KEYS = "table_clustering_keys";
     public static final String TABLE_CLUSTERING_KEYS_LARGE = "table_clustering_keys_large";
     public static final String TABLE_MULTI_PARTITION_CLUSTERING_KEYS = "table_multi_partition_clustering_keys";
@@ -48,6 +49,7 @@ public class CassandraTestingUtils
         createTableAllTypes(cassandraSession, new SchemaTableName(keyspace, TABLE_ALL_TYPES), date, 9);
         createTableAllTypes(cassandraSession, new SchemaTableName(keyspace, TABLE_ALL_TYPES_INSERT), date, 0);
         createTableAllTypesPartitionKey(cassandraSession, new SchemaTableName(keyspace, TABLE_ALL_TYPES_PARTITION_KEY), date);
+        createTableTupleType(cassandraSession, new SchemaTableName(keyspace, TABLE_TUPLE_TYPE));
         createTableClusteringKeys(cassandraSession, new SchemaTableName(keyspace, TABLE_CLUSTERING_KEYS), 9);
         createTableClusteringKeys(cassandraSession, new SchemaTableName(keyspace, TABLE_CLUSTERING_KEYS_LARGE), 1000);
         createTableMultiPartitionClusteringKeys(cassandraSession, new SchemaTableName(keyspace, TABLE_MULTI_PARTITION_CLUSTERING_KEYS));
@@ -218,6 +220,24 @@ public class CassandraTestingUtils
                 ")");
 
         insertTestData(session, table, date, 9);
+    }
+
+    public static void createTableTupleType(CassandraSession session, SchemaTableName table)
+    {
+        String typeName = "type_tuple_type";
+
+        session.execute("DROP TABLE IF EXISTS " + table);
+
+        session.execute("CREATE TABLE " + table + " (" +
+                " typeinteger int PRIMARY KEY, " +
+                " typetuple frozen<tuple<int, int>>" +
+                ")");
+        session.execute("INSERT INTO " + table + " (typeinteger, typetuple)" +
+                "VALUES (1, (1, 1))");
+        session.execute("INSERT INTO " + table + " (typeinteger, typetuple)" +
+                "VALUES (2, (2, 2))");
+
+        assertEquals(session.execute("SELECT COUNT(*) FROM " + table).all().get(0).getLong(0), 2);
     }
 
     private static void insertTestData(CassandraSession session, SchemaTableName table, Date date, int rowsCount)

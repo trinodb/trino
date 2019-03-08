@@ -167,6 +167,26 @@ public class TestInsertIntoCassandraTable
         onCasssandra(format("DROP MATERIALIZED VIEW IF EXISTS %s.%s", KEY_SPACE, CASSANDRA_MATERIALIZED_VIEW));
     }
 
+    @Test(groups = CASSANDRA)
+    public void testInsertIntoTupleType()
+    {
+        String tableName = "insert_tuple_table";
+
+        onCasssandra(format("DROP TABLE IF EXISTS %s.%s", KEY_SPACE, tableName));
+
+        onCasssandra(format("CREATE TABLE %s.%s (key int, value frozen<tuple(int, int)>, PRIMARY KEY (key))",
+                 KEY_SPACE, tableName));
+
+        query(format("INSERT INTO %s.%s.%s (key, value) VALUES (1, (1,1))", CONNECTOR_NAME, KEY_SPACE, tableName));
+        assertThat(query(format("SELECT * FROM %s.%s.%s", CONNECTOR_NAME, KEY_SPACE, tableName))).containsOnly(
+                row(1, "(1,1)"));
+
+        assertThat(() -> query(format("INSERT INTO %s.%s.%s (key, value) VALUES (2, (2,2))", CONNECTOR_NAME, KEY_SPACE, tableName)))
+                .failsWithMessage("Codec not found for requested operation: [frozen<test.type_tuple_insert> <-> java.lang.String]");
+
+        onCasssandra(format("DROP TABLE IF EXISTS %s.%s", KEY_SPACE, tableName));
+    }
+
     private void onCasssandra(String query)
     {
         CassandraQueryExecutor queryExecutor = new CassandraQueryExecutor(configuration);
