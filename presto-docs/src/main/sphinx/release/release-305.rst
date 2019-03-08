@@ -8,7 +8,7 @@ General Changes
 * Fix failure of :doc:`/functions/regexp` for certain patterns and inputs
   when using the default ``JONI`` library. (:issue:`350`)
 * Fix a rare ``ClassLoader`` related problem for plugins providing an ``EventListenerFactory``. (:issue:`299`)
-* Expose``join_max_broadcast_table_size`` session property, which was previously hidden. (:issue:`346`)
+* Expose ``join_max_broadcast_table_size`` session property, which was previously hidden. (:issue:`346`)
 * Improve performance of queries when spill is enabled but not triggered. (:issue:`315`)
 * Consider estimated query peak memory when making cost based decisions. (:issue:`247`)
 * Include revocable memory in total memory stats. (:issue:`273`)
