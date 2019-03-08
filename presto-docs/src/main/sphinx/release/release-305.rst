@@ -44,6 +44,7 @@ Hive Connector Changes
   the writer as an old version of Hive (rather than Presto) in the files.
   This can be enabled using the ``hive.orc.writer.use-legacy-version-number``
   configuration property. (:issue:`353`)
+* Support dictionary filtering for Parquet v2 files using ``RLE_DICTIONARY`` encoding. (:issue:`251`)
 * Remove legacy writers for ORC and RCFile. (:issue:`353`)
 * Remove support for the DWRF file format. (:issue:`353`)
 
