@@ -106,8 +106,9 @@ public class SpillableHashAggregationBuilder
     public Work<?> processPage(Page page)
     {
         checkState(hasPreviousSpillCompletedSuccessfully(), "Previous spill hasn't yet finished");
-        // hashAggregationBuilder is constructed with yieldForMemoryReservation = false
-        // Therefore the processing of the returned Work should always be true
+        // hashAggregationBuilder is constructed with non yielding UpdateMemory instance.
+        // Therefore the processing of the returned Work should always be true.
+        // It is not possible to spill during processing of a page.
         return hashAggregationBuilder.processPage(page);
     }
 
@@ -305,7 +306,7 @@ public class SpillableHashAggregationBuilder
                 hashChannel,
                 operatorContext,
                 sortedPages,
-                operatorContext.newLocalSystemMemoryContext(SpillableHashAggregationBuilder.class.getSimpleName()),
+                operatorContext.aggregateSystemMemoryContext(),
                 memoryLimitForMerge,
                 hashAggregationBuilder.getKeyChannels(),
                 joinCompiler));
@@ -331,8 +332,11 @@ public class SpillableHashAggregationBuilder
                 operatorContext,
                 Optional.of(DataSize.succinctBytes(0)),
                 joinCompiler,
-                false,
-                false);
+                () -> {
+                    updateMemory();
+                    // TODO: Support GroupByHash yielding in spillable hash aggregation (https://github.com/prestosql/presto/issues/460)
+                    return true;
+                });
         emptyHashAggregationBuilderSize = hashAggregationBuilder.getSizeInMemory();
     }
 }
