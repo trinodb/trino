@@ -21,6 +21,7 @@ import io.prestosql.plugin.hive.metastore.Partition;
 import io.prestosql.plugin.hive.metastore.SemiTransactionalHiveMetastore;
 import io.prestosql.plugin.hive.metastore.Table;
 import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.classloader.ThreadContextClassLoader;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.TableNotFoundException;
@@ -94,6 +95,13 @@ public class SyncPartitionMetadataProcedure
     }
 
     public void syncPartitionMetadata(ConnectorSession session, String schemaName, String tableName, String mode)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(getClass().getClassLoader())) {
+            doSyncPartitionMetadata(session, schemaName, tableName, mode);
+        }
+    }
+
+    private void doSyncPartitionMetadata(ConnectorSession session, String schemaName, String tableName, String mode)
     {
         SyncMode syncMode = toSyncMode(mode);
         HdfsContext context = new HdfsContext(session, schemaName, tableName);
