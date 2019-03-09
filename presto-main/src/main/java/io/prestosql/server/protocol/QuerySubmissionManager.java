@@ -53,6 +53,7 @@ import javax.annotation.concurrent.GuardedBy;
 import javax.inject.Inject;
 
 import java.net.URI;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
@@ -299,6 +300,13 @@ public class QuerySubmissionManager
     public Optional<Query> getQuery(QueryId queryId)
     {
         return Optional.ofNullable(queries.get(queryId));
+    }
+
+    public void resetInactiveTimeout(List<TransactionId> transactionIds)
+    {
+        for (TransactionId transactionId : transactionIds) {
+            transactionManager.resetInactiveTimeout(transactionId);
+        }
     }
 
     @PostConstruct

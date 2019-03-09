@@ -24,6 +24,8 @@ import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.Request;
 import io.airlift.http.client.Response;
 import io.airlift.http.client.ResponseHandler;
+import io.airlift.http.client.StatusResponseHandler;
+import io.airlift.http.client.StatusResponseHandler.StatusResponse;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.Duration;
 import io.prestosql.server.remotetask.Backoff;
@@ -161,6 +163,29 @@ public class RetryHttpClient
                 setException(t);
             }
         }
+    }
+
+    public static ResponseHandler<?, ?> createStatusResponseHandler(String action, int... successfulResponseCodes)
+    {
+        return new ResponseHandlerAdapter<>(
+                StatusResponseHandler.createStatusResponseHandler(),
+                getStatusResponseProcessor(action, successfulResponseCodes));
+    }
+
+    private static BiFunction<Request, StatusResponse, ?> getStatusResponseProcessor(String action, int... successfulResponseCodes)
+    {
+        ImmutableSet<Integer> responseCodes = ImmutableSet.copyOf(Ints.asList(successfulResponseCodes));
+        return (request, result) -> {
+            if (!responseCodes.contains(result.getStatusCode())) {
+                throw new RuntimeException(String.format(
+                        "Unable to %s. Unexpected response status code %s. Expected codes %s. URL: %s",
+                        action,
+                        result.getStatusCode(),
+                        responseCodes,
+                        request.getUri()));
+            }
+            return null;
+        };
     }
 
     public static <T> ResponseHandler<T, ?> createJsonResponseHandler(String action, JsonCodec<T> responseCodec, int... successfulResponseCodes)

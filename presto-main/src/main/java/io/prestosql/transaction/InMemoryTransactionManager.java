@@ -266,6 +266,12 @@ public class InMemoryTransactionManager
         tryGetTransactionMetadata(transactionId).ifPresent(TransactionMetadata::setInactive);
     }
 
+    @Override
+    public void resetInactiveTimeout(TransactionId transactionId)
+    {
+        tryGetTransactionMetadata(transactionId).ifPresent(TransactionMetadata::resetInactiveTimeout);
+    }
+
     private TransactionMetadata getTransactionMetadata(TransactionId transactionId)
     {
         if (!nodeId.equals(transactionId.getNodeId())) {
@@ -364,6 +370,11 @@ public class InMemoryTransactionManager
         public void setInactive()
         {
             idleStartTime.set(System.nanoTime());
+        }
+
+        public void resetInactiveTimeout()
+        {
+            idleStartTime.compareAndSet(null, System.nanoTime());
         }
 
         public boolean isExpired(Duration idleTimeout)

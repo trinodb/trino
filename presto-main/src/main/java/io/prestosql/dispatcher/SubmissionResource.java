@@ -27,6 +27,7 @@ import io.prestosql.server.ForStatementResource;
 import io.prestosql.server.GracefulShutdownHandler;
 import io.prestosql.server.protocol.QuerySubmissionManager;
 import io.prestosql.spi.NodeState;
+import io.prestosql.transaction.TransactionId;
 
 import javax.inject.Inject;
 import javax.ws.rs.Consumes;
@@ -36,6 +37,7 @@ import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
 import javax.ws.rs.container.AsyncResponse;
 import javax.ws.rs.container.Suspended;
+import javax.ws.rs.core.Response;
 
 import java.util.List;
 import java.util.Optional;
@@ -161,5 +163,13 @@ public class SubmissionResource
         catch (Exception e) {
             return analysisFailed(toFailure(e));
         }
+    }
+    @POST
+    @Path("transaction/resetInactiveTimeout")
+    @Consumes(APPLICATION_JSON)
+    public Response resetInactiveTimeout(List<TransactionId> transactionIds)
+    {
+        querySubmissionManager.resetInactiveTimeout(transactionIds);
+        return Response.noContent().build();
     }
 }

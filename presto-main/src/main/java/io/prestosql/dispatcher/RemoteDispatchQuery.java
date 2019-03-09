@@ -261,4 +261,9 @@ public class RemoteDispatchQuery
     {
         stateMachine.addStateChangeListener(stateChangeListener);
     }
+
+    public boolean isRemotelyManaged()
+    {
+        return stateMachine.isRemotelyManaged();
+    }
 }

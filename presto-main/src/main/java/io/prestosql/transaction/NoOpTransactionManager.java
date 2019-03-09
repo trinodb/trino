@@ -114,6 +114,12 @@ public class NoOpTransactionManager
     }
 
     @Override
+    public void resetInactiveTimeout(TransactionId transactionId)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public ListenableFuture<?> asyncCommit(TransactionId transactionId)
     {
         throw new UnsupportedOperationException();

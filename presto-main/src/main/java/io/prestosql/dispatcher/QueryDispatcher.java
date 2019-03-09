@@ -13,8 +13,11 @@
  */
 package io.prestosql.dispatcher;
 
+import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Multimap;
+import com.google.common.collect.Multimaps;
 import com.google.common.util.concurrent.AbstractFuture;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -47,6 +50,7 @@ import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Consumer;
+import java.util.function.Function;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -55,6 +59,7 @@ import static io.prestosql.dispatcher.QueryAnalysisResponse.analysisUnknown;
 import static io.prestosql.spi.NodeState.ACTIVE;
 import static io.prestosql.spi.StandardErrorCode.SERVER_SHUTTING_DOWN;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class QueryDispatcher
 {
@@ -118,6 +123,36 @@ public class QueryDispatcher
         }
         running = true;
         remoteCoordinatorMonitor.addCoordinatorsChangeListener(coordinatorNodesListener);
+        scheduledExecutor.scheduleWithFixedDelay(
+                () -> {
+                    try {
+                        resetTransactionTimeouts();
+                    }
+                    catch (Exception e) {
+                        log.error(e, "Error resetting transaction timeouts for queued queries");
+                    }
+                },
+                10, 10, SECONDS);
+    }
+
+    private void resetTransactionTimeouts()
+    {
+        Multimap<String, TransactionId> transactionsByCoordinator = dispatchQueryTracker.getAllQueries().stream()
+                .filter(RemoteDispatchQuery.class::isInstance)
+                .map(RemoteDispatchQuery.class::cast)
+                .filter(RemoteDispatchQuery::isRemotelyManaged)
+                .map(query -> query.getSession().getTransactionId())
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .collect(Multimaps.toMultimap(TransactionId::getNodeId, Function.identity(), ArrayListMultimap::create));
+
+        Map<String, RemoteCoordinator> coordinators = remoteCoordinators.get();
+        for (Entry<String, Collection<TransactionId>> entry : transactionsByCoordinator.asMap().entrySet()) {
+            RemoteCoordinator coordinator = coordinators.get(entry.getKey());
+            if (coordinator != null) {
+                coordinator.resetInactiveTimeout(entry.getValue());
+            }
+        }
     }
 
     @PreDestroy

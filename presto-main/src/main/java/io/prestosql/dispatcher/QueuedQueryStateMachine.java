@@ -339,6 +339,11 @@ public class QueuedQueryStateMachine
         return localBasicQueryInfo(queryStateHolder.getQueryState());
     }
 
+    public boolean isRemotelyManaged()
+    {
+        return queryState.get().getBasicQueryInfo().isPresent();
+    }
+
     private BasicQueryInfo localBasicQueryInfo(QueryState queryState)
     {
         Optional<ErrorCode> errorCode = getFailureCause().map(ExecutionFailureInfo::getErrorCode);

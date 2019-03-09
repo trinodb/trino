@@ -24,7 +24,9 @@ import io.prestosql.execution.ExecutionFailureInfo;
 import io.prestosql.execution.StateMachine;
 import io.prestosql.execution.StateMachine.StateChangeListener;
 import io.prestosql.spi.PrestoException;
+import io.prestosql.transaction.TransactionId;
 
+import java.util.Collection;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 
@@ -201,5 +203,10 @@ public class RemoteCoordinator
                     stateMachine.getElapsedTime(),
                     stateMachine.getQueuedTime(),
                     stateMachine.getResourceGroup());
+    }
+
+    public void resetInactiveTimeout(Collection<TransactionId> transactionIds)
+    {
+        remoteCoordinatorClient.resetInactiveTimeout(transactionIds, MAX_FAILURE_INTERVAL);
     }
 }

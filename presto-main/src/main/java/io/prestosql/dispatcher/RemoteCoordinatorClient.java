@@ -18,10 +18,12 @@ import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.Request;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.Duration;
+import io.prestosql.transaction.TransactionId;
 
 import javax.ws.rs.core.UriBuilder;
 
 import java.net.URI;
+import java.util.Collection;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Supplier;
@@ -29,9 +31,11 @@ import java.util.function.Supplier;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 import static com.google.common.net.MediaType.JSON_UTF_8;
 import static io.airlift.http.client.JsonBodyGenerator.jsonBodyGenerator;
+import static io.airlift.http.client.Request.Builder.prepareDelete;
 import static io.airlift.http.client.Request.Builder.prepareGet;
 import static io.airlift.http.client.Request.Builder.preparePost;
 import static io.prestosql.dispatcher.RetryHttpClient.createJsonResponseHandler;
+import static io.prestosql.dispatcher.RetryHttpClient.createStatusResponseHandler;
 import static java.util.Objects.requireNonNull;
 
 public class RemoteCoordinatorClient
@@ -111,6 +115,21 @@ public class RemoteCoordinatorClient
                 .setHeader(CONTENT_TYPE, JSON_UTF_8.toString())
                 .setBodyGenerator(jsonBodyGenerator(querySubmissionCodec, querySubmission))
                 .build();
+    }
+
+    public void resetInactiveTimeout(Collection<TransactionId> transactionIds, Duration maxRequestTime)
+    {
+        Request request = prepareDelete()
+                .setUri(UriBuilder.fromUri(coordinatorLocation.getUri("https"))
+                        .replacePath("/v1/coordinator/transaction/resetInactiveTimeout")
+                        .build())
+                .build();
+
+        retryHttpClient.execute(
+                "reset inactive timeout",
+                () -> request,
+                createStatusResponseHandler("reset inactive timeout", 204),
+                maxRequestTime);
     }
 
     public ListenableFuture<CoordinatorStatus> getStatus(Duration maxRequestTime)
