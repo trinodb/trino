@@ -32,12 +32,12 @@ public final class MemoryTableHandle
     private final String connectorId;
     private final String schemaName;
     private final String tableName;
-    private final Long tableId;
+    private final long tableId;
     private final List<MemoryColumnHandle> columnHandles;
 
     public MemoryTableHandle(
             String connectorId,
-            Long tableId,
+            long tableId,
             ConnectorTableMetadata tableMetadata)
     {
         this(connectorId,
@@ -52,13 +52,13 @@ public final class MemoryTableHandle
             @JsonProperty("connectorId") String connectorId,
             @JsonProperty("schemaName") String schemaName,
             @JsonProperty("tableName") String tableName,
-            @JsonProperty("tableId") Long tableId,
+            @JsonProperty("tableId") long tableId,
             @JsonProperty("columnHandles") List<MemoryColumnHandle> columnHandles)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
-        this.tableId = requireNonNull(tableId, "tableId is null");
+        this.tableId = tableId;
         this.columnHandles = requireNonNull(columnHandles, "columnHandles is null");
     }
 
@@ -81,7 +81,7 @@ public final class MemoryTableHandle
     }
 
     @JsonProperty
-    public Long getTableId()
+    public long getTableId()
     {
         return tableId;
     }
