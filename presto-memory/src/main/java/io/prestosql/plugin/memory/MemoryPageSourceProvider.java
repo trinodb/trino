@@ -48,7 +48,7 @@ public final class MemoryPageSourceProvider
             List<ColumnHandle> columns)
     {
         MemorySplit memorySplit = (MemorySplit) split;
-        long tableId = memorySplit.getTableHandle().getTableId();
+        long tableId = memorySplit.getTable();
         int partNumber = memorySplit.getPartNumber();
         int totalParts = memorySplit.getTotalPartsPerWorker();
         long expectedRows = memorySplit.getExpectedRows();

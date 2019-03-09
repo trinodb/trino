@@ -24,12 +24,12 @@ import static java.util.Objects.requireNonNull;
 public class MemoryTableLayoutHandle
         implements ConnectorTableLayoutHandle
 {
-    private final MemoryTableHandle table;
+    private final long table;
     private final List<MemoryDataFragment> dataFragments;
 
     @JsonCreator
     public MemoryTableLayoutHandle(
-            @JsonProperty("table") MemoryTableHandle table,
+            @JsonProperty("table") long table,
             @JsonProperty("dataFragments") List<MemoryDataFragment> dataFragments)
     {
         this.table = requireNonNull(table, "table is null");
@@ -37,7 +37,7 @@ public class MemoryTableLayoutHandle
     }
 
     @JsonProperty
-    public MemoryTableHandle getTable()
+    public long getTable()
     {
         return table;
     }
@@ -48,14 +48,9 @@ public class MemoryTableLayoutHandle
         return dataFragments;
     }
 
-    public String getConnectorId()
-    {
-        return table.getConnectorId();
-    }
-
     @Override
     public String toString()
     {
-        return table.toString();
+        return Long.toString(table);
     }
 }

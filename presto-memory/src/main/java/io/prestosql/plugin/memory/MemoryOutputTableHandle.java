@@ -25,12 +25,12 @@ import static java.util.Objects.requireNonNull;
 public final class MemoryOutputTableHandle
         implements ConnectorOutputTableHandle
 {
-    private final MemoryTableHandle table;
+    private final long table;
     private final Set<Long> activeTableIds;
 
     @JsonCreator
     public MemoryOutputTableHandle(
-            @JsonProperty("table") MemoryTableHandle table,
+            @JsonProperty("table") long table,
             @JsonProperty("activeTableIds") Set<Long> activeTableIds)
     {
         this.table = requireNonNull(table, "table is null");
@@ -38,7 +38,7 @@ public final class MemoryOutputTableHandle
     }
 
     @JsonProperty
-    public MemoryTableHandle getTable()
+    public long getTable()
     {
         return table;
     }

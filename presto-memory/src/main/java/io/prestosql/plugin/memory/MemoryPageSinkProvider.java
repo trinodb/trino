@@ -58,8 +58,7 @@ public class MemoryPageSinkProvider
     public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorOutputTableHandle outputTableHandle)
     {
         MemoryOutputTableHandle memoryOutputTableHandle = (MemoryOutputTableHandle) outputTableHandle;
-        MemoryTableHandle tableHandle = memoryOutputTableHandle.getTable();
-        long tableId = tableHandle.getTableId();
+        long tableId = memoryOutputTableHandle.getTable();
         checkState(memoryOutputTableHandle.getActiveTableIds().contains(tableId));
 
         pagesStore.cleanUp(memoryOutputTableHandle.getActiveTableIds());
@@ -71,8 +70,7 @@ public class MemoryPageSinkProvider
     public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorInsertTableHandle insertTableHandle)
     {
         MemoryInsertTableHandle memoryInsertTableHandle = (MemoryInsertTableHandle) insertTableHandle;
-        MemoryTableHandle tableHandle = memoryInsertTableHandle.getTable();
-        long tableId = tableHandle.getTableId();
+        long tableId = memoryInsertTableHandle.getTable();
         checkState(memoryInsertTableHandle.getActiveTableIds().contains(tableId));
 
         pagesStore.cleanUp(memoryInsertTableHandle.getActiveTableIds());
