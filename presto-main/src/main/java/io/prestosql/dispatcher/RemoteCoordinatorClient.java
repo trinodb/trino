@@ -18,6 +18,7 @@ import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.Request;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.Duration;
+import io.prestosql.spi.QueryId;
 import io.prestosql.transaction.TransactionId;
 
 import javax.ws.rs.core.UriBuilder;
@@ -115,6 +116,21 @@ public class RemoteCoordinatorClient
                 .setHeader(CONTENT_TYPE, JSON_UTF_8.toString())
                 .setBodyGenerator(jsonBodyGenerator(querySubmissionCodec, querySubmission))
                 .build();
+    }
+
+    public void cancelQuery(QueryId queryId, Duration maxRequestTime)
+    {
+        Request request = prepareDelete()
+                .setUri(UriBuilder.fromUri(coordinatorLocation.getUri("https"))
+                        .replacePath("/v1/coordinator/query/" + queryId)
+                        .build())
+                .build();
+
+        retryHttpClient.execute(
+                String.format("cancel query %s", queryId),
+                () -> request,
+                createStatusResponseHandler(String.format("cancel query %s", queryId), 204),
+                maxRequestTime);
     }
 
     public void resetInactiveTimeout(Collection<TransactionId> transactionIds, Duration maxRequestTime)

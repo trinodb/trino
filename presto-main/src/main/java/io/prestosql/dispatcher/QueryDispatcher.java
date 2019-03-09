@@ -24,12 +24,14 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.http.client.HttpClient;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
+import io.airlift.units.Duration;
 import io.prestosql.execution.QueryTracker;
 import io.prestosql.execution.StateMachine;
 import io.prestosql.metadata.SessionPropertyManager;
 import io.prestosql.server.BasicQueryInfo;
 import io.prestosql.spi.Node;
 import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.QueryId;
 import io.prestosql.transaction.TransactionId;
 
 import javax.annotation.PostConstruct;
@@ -59,6 +61,7 @@ import static io.prestosql.dispatcher.QueryAnalysisResponse.analysisUnknown;
 import static io.prestosql.spi.NodeState.ACTIVE;
 import static io.prestosql.spi.StandardErrorCode.SERVER_SHUTTING_DOWN;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class QueryDispatcher
@@ -170,6 +173,22 @@ public class QueryDispatcher
         for (RemoteCoordinator activeCoordinator : activeCoordinators.values()) {
             activeCoordinator.destroy();
         }
+    }
+
+    public void cancelQuery(CoordinatorLocation coordinatorLocation, QueryId queryId)
+    {
+        RemoteCoordinatorClient client = new RemoteCoordinatorClient(
+                coordinatorLocation,
+                httpClient,
+                executor,
+                scheduledExecutor,
+                querySubmissionCodec,
+                querySubmissionResponseCodec,
+                queryAnalysisCodec,
+                queryAnalysisResponseCodec,
+                coordinatorStatusCodec);
+
+        client.cancelQuery(queryId, new Duration(5, MINUTES));
     }
 
     public ListenableFuture<QueryAnalysisResponse> analyzeQuery(QueuedQueryStateMachine stateMachine)

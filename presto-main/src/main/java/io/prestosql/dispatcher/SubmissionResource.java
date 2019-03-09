@@ -25,15 +25,19 @@ import io.prestosql.metadata.SessionPropertyManager;
 import io.prestosql.server.BasicQueryInfo;
 import io.prestosql.server.ForStatementResource;
 import io.prestosql.server.GracefulShutdownHandler;
+import io.prestosql.server.protocol.Query;
 import io.prestosql.server.protocol.QuerySubmissionManager;
 import io.prestosql.spi.NodeState;
+import io.prestosql.spi.QueryId;
 import io.prestosql.transaction.TransactionId;
 
 import javax.inject.Inject;
 import javax.ws.rs.Consumes;
+import javax.ws.rs.DELETE;
 import javax.ws.rs.GET;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
+import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
 import javax.ws.rs.container.AsyncResponse;
 import javax.ws.rs.container.Suspended;
@@ -164,6 +168,17 @@ public class SubmissionResource
             return analysisFailed(toFailure(e));
         }
     }
+
+    @DELETE
+    @Path("query/{queryId}")
+    @Produces(APPLICATION_JSON)
+    public Response cancelQuery(@PathParam("queryId") QueryId queryId)
+    {
+        querySubmissionManager.getQuery(queryId)
+                .ifPresent(Query::cancel);
+        return Response.noContent().build();
+    }
+
     @POST
     @Path("transaction/resetInactiveTimeout")
     @Consumes(APPLICATION_JSON)

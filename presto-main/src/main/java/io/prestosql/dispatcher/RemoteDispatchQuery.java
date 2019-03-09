@@ -244,7 +244,15 @@ public class RemoteDispatchQuery
     @Override
     public void cancel()
     {
-        stateMachine.transitionToCanceled();
+        if (stateMachine.transitionToCanceled()) {
+            return;
+        }
+        if (stateMachine.getQueryState().isDone()) {
+            return;
+        }
+        // query is remotely managed, so we need to do a remote cancel
+        stateMachine.getCoordinatorLocation()
+                .ifPresent(coordinatorLocation -> queryDispatcher.cancelQuery(coordinatorLocation, stateMachine.getQueryId()));
     }
 
     @Override
