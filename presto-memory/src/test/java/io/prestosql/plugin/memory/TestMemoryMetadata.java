@@ -54,7 +54,7 @@ public class TestMemoryMetadata
     @BeforeMethod
     public void setUp()
     {
-        metadata = new MemoryMetadata(new TestingNodeManager(), new MemoryConnectorId("test"));
+        metadata = new MemoryMetadata(new TestingNodeManager());
     }
 
     @Test
@@ -116,7 +116,7 @@ public class TestMemoryMetadata
         metadata.createTable(SESSION, new ConnectorTableMetadata(firstTableName, ImmutableList.of(), ImmutableMap.of()), false);
 
         MemoryTableHandle firstTableHandle = (MemoryTableHandle) metadata.getTableHandle(SESSION, firstTableName);
-        Long firstTableId = firstTableHandle.getTableId();
+        long firstTableId = firstTableHandle.getId();
 
         assertTrue(metadata.beginInsert(SESSION, firstTableHandle).getActiveTableIds().contains(firstTableId));
 
@@ -124,7 +124,7 @@ public class TestMemoryMetadata
         metadata.createTable(SESSION, new ConnectorTableMetadata(secondTableName, ImmutableList.of(), ImmutableMap.of()), false);
 
         MemoryTableHandle secondTableHandle = (MemoryTableHandle) metadata.getTableHandle(SESSION, secondTableName);
-        Long secondTableId = secondTableHandle.getTableId();
+        long secondTableId = secondTableHandle.getId();
 
         assertNotEquals(firstTableId, secondTableId);
         assertTrue(metadata.beginInsert(SESSION, secondTableHandle).getActiveTableIds().contains(firstTableId));

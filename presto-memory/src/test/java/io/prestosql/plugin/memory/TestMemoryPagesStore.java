@@ -29,7 +29,6 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import static io.prestosql.spi.type.BigintType.BIGINT;
-import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -144,26 +143,12 @@ public class TestMemoryPagesStore
 
     private static ConnectorOutputTableHandle createMemoryOutputTableHandle(long tableId, Long... activeTableIds)
     {
-        return new MemoryOutputTableHandle(
-                new MemoryTableHandle(
-                        "test",
-                        "schema",
-                        format("table_%d", tableId),
-                        tableId,
-                        ImmutableList.of()),
-                ImmutableSet.copyOf(activeTableIds));
+        return new MemoryOutputTableHandle(tableId, ImmutableSet.copyOf(activeTableIds));
     }
 
     private static ConnectorInsertTableHandle createMemoryInsertTableHandle(long tableId, Long[] activeTableIds)
     {
-        return new MemoryInsertTableHandle(
-                new MemoryTableHandle(
-                        "test",
-                        "schema",
-                        format("table_%d", tableId),
-                        tableId,
-                        ImmutableList.of()),
-                ImmutableSet.copyOf(activeTableIds));
+        return new MemoryInsertTableHandle(tableId, ImmutableSet.copyOf(activeTableIds));
     }
 
     private static Page createPage()

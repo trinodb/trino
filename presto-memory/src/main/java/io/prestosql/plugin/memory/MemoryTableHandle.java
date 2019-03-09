@@ -15,99 +15,32 @@ package io.prestosql.plugin.memory;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.primitives.Longs;
 import io.prestosql.spi.connector.ConnectorTableHandle;
-import io.prestosql.spi.connector.ConnectorTableMetadata;
-import io.prestosql.spi.connector.SchemaTableName;
 
-import java.util.List;
 import java.util.Objects;
-
-import static com.google.common.base.MoreObjects.toStringHelper;
-import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.toList;
 
 public final class MemoryTableHandle
         implements ConnectorTableHandle
 {
-    private final String connectorId;
-    private final String schemaName;
-    private final String tableName;
-    private final long tableId;
-    private final List<MemoryColumnHandle> columnHandles;
-
-    public MemoryTableHandle(
-            String connectorId,
-            long tableId,
-            ConnectorTableMetadata tableMetadata)
-    {
-        this(connectorId,
-                tableMetadata.getTable().getSchemaName(),
-                tableMetadata.getTable().getTableName(),
-                tableId,
-                MemoryColumnHandle.extractColumnHandles(tableMetadata.getColumns()));
-    }
+    private final long id;
 
     @JsonCreator
-    public MemoryTableHandle(
-            @JsonProperty("connectorId") String connectorId,
-            @JsonProperty("schemaName") String schemaName,
-            @JsonProperty("tableName") String tableName,
-            @JsonProperty("tableId") long tableId,
-            @JsonProperty("columnHandles") List<MemoryColumnHandle> columnHandles)
+    public MemoryTableHandle(@JsonProperty("id") long id)
     {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null");
-        this.schemaName = requireNonNull(schemaName, "schemaName is null");
-        this.tableName = requireNonNull(tableName, "tableName is null");
-        this.tableId = tableId;
-        this.columnHandles = requireNonNull(columnHandles, "columnHandles is null");
+        this.id = id;
     }
 
     @JsonProperty
-    public String getConnectorId()
+    public long getId()
     {
-        return connectorId;
-    }
-
-    @JsonProperty
-    public String getSchemaName()
-    {
-        return schemaName;
-    }
-
-    @JsonProperty
-    public String getTableName()
-    {
-        return tableName;
-    }
-
-    @JsonProperty
-    public long getTableId()
-    {
-        return tableId;
-    }
-
-    @JsonProperty
-    public List<MemoryColumnHandle> getColumnHandles()
-    {
-        return columnHandles;
-    }
-
-    public ConnectorTableMetadata toTableMetadata()
-    {
-        return new ConnectorTableMetadata(
-                toSchemaTableName(),
-                columnHandles.stream().map(MemoryColumnHandle::toColumnMetadata).collect(toList()));
-    }
-
-    public SchemaTableName toSchemaTableName()
-    {
-        return new SchemaTableName(schemaName, tableName);
+        return id;
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(getConnectorId(), getTableId());
+        return Longs.hashCode(id);
     }
 
     @Override
@@ -120,19 +53,12 @@ public final class MemoryTableHandle
             return false;
         }
         MemoryTableHandle other = (MemoryTableHandle) obj;
-        return Objects.equals(this.getConnectorId(), other.getConnectorId()) &&
-                Objects.equals(this.getTableId(), other.getTableId());
+        return Objects.equals(this.getId(), other.getId());
     }
 
     @Override
     public String toString()
     {
-        return toStringHelper(this)
-                .add("connectorId", connectorId)
-                .add("schemaName", schemaName)
-                .add("tableName", tableName)
-                .add("tableId", tableId)
-                .add("columnHandles", columnHandles)
-                .toString();
+        return Long.toString(id);
     }
 }
