@@ -204,6 +204,11 @@ public class PlanBuilder
 
     public TopNNode topN(long count, List<Symbol> orderBy, PlanNode source)
     {
+        return topN(count, orderBy, TopNNode.Step.SINGLE, source);
+    }
+
+    public TopNNode topN(long count, List<Symbol> orderBy, TopNNode.Step step, PlanNode source)
+    {
         return new TopNNode(
                 idAllocator.getNextId(),
                 source,
@@ -211,7 +216,7 @@ public class PlanBuilder
                 new OrderingScheme(
                         orderBy,
                         Maps.toMap(orderBy, Functions.constant(SortOrder.ASC_NULLS_FIRST))),
-                TopNNode.Step.SINGLE);
+                step);
     }
 
     public SampleNode sample(double sampleRatio, SampleNode.Type type, PlanNode source)

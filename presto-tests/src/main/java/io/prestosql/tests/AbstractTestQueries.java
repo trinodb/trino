@@ -2666,6 +2666,12 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testTopN()
+    {
+        assertQuery("SELECT n.name, r.name FROM nation n LEFT JOIN region r ON n.regionkey = r.regionkey ORDER BY n.name LIMIT 1");
+    }
+
+    @Test
     public void testTopNByMultipleFields()
     {
         assertQueryOrdered("SELECT orderkey, custkey, orderstatus FROM orders ORDER BY orderkey ASC, custkey ASC LIMIT 10");
