@@ -41,7 +41,7 @@ public class ThriftMetastoreModule
         configBinder(binder).bindConfig(StaticMetastoreConfig.class);
         configBinder(binder).bindConfig(ThriftHiveMetastoreConfig.class);
 
-        binder.bind(HiveMetastore.class).to(ThriftHiveMetastore.class).in(Scopes.SINGLETON);
+        binder.bind(ThriftMetastore.class).to(ThriftHiveMetastore.class).in(Scopes.SINGLETON);
 
         if (buildConfigObject(HiveConfig.class).getRecordingPath() != null) {
             binder.bind(ExtendedHiveMetastore.class)
@@ -66,7 +66,7 @@ public class ThriftMetastoreModule
         }
 
         binder.bind(ExtendedHiveMetastore.class).to(CachingHiveMetastore.class).in(Scopes.SINGLETON);
-        newExporter(binder).export(HiveMetastore.class)
+        newExporter(binder).export(ThriftMetastore.class)
                 .as(generator -> generator.generatedNameOf(ThriftHiveMetastore.class));
         newExporter(binder).export(ExtendedHiveMetastore.class)
                 .as(generator -> generator.generatedNameOf(CachingHiveMetastore.class));

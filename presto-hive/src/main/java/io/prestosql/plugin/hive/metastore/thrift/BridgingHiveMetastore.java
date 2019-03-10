@@ -55,10 +55,10 @@ import static java.util.function.UnaryOperator.identity;
 public class BridgingHiveMetastore
         implements ExtendedHiveMetastore
 {
-    private final HiveMetastore delegate;
+    private final ThriftMetastore delegate;
 
     @Inject
-    public BridgingHiveMetastore(HiveMetastore delegate)
+    public BridgingHiveMetastore(ThriftMetastore delegate)
     {
         this.delegate = delegate;
     }

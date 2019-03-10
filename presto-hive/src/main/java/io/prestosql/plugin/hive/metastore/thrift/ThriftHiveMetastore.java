@@ -107,7 +107,7 @@ import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.HIVE_
 
 @ThreadSafe
 public class ThriftHiveMetastore
-        implements HiveMetastore
+        implements ThriftMetastore
 {
     private final ThriftHiveMetastoreStats stats = new ThriftHiveMetastoreStats();
     private final MetastoreLocator clientProvider;
