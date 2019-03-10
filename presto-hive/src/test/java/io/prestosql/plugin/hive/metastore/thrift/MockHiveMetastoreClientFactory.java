@@ -28,20 +28,20 @@ import static java.util.Objects.requireNonNull;
 public class MockHiveMetastoreClientFactory
         extends HiveMetastoreClientFactory
 {
-    private final List<HiveMetastoreClient> clients;
+    private final List<ThriftMetastoreClient> clients;
 
-    public MockHiveMetastoreClientFactory(Optional<HostAndPort> socksProxy, Duration timeout, List<HiveMetastoreClient> clients)
+    public MockHiveMetastoreClientFactory(Optional<HostAndPort> socksProxy, Duration timeout, List<ThriftMetastoreClient> clients)
     {
         super(Optional.empty(), socksProxy, timeout, new NoHiveMetastoreAuthentication());
         this.clients = new ArrayList<>(requireNonNull(clients, "clients is null"));
     }
 
     @Override
-    public HiveMetastoreClient create(HostAndPort address)
+    public ThriftMetastoreClient create(HostAndPort address)
             throws TTransportException
     {
         checkState(!clients.isEmpty(), "mock not given enough clients");
-        HiveMetastoreClient client = clients.remove(0);
+        ThriftMetastoreClient client = clients.remove(0);
         if (client == null) {
             throw new TTransportException(TTransportException.TIMED_OUT);
         }

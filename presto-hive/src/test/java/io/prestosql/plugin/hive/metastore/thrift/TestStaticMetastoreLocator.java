@@ -28,8 +28,8 @@ import static org.testng.Assert.assertEquals;
 
 public class TestStaticMetastoreLocator
 {
-    private static final HiveMetastoreClient DEFAULT_CLIENT = createFakeMetastoreClient();
-    private static final HiveMetastoreClient FALLBACK_CLIENT = createFakeMetastoreClient();
+    private static final ThriftMetastoreClient DEFAULT_CLIENT = createFakeMetastoreClient();
+    private static final ThriftMetastoreClient FALLBACK_CLIENT = createFakeMetastoreClient();
 
     private static final StaticMetastoreConfig CONFIG_WITH_FALLBACK = new StaticMetastoreConfig()
             .setMetastoreUris("thrift://default:8080,thrift://fallback:8090,thrift://fallback2:8090");
@@ -97,13 +97,13 @@ public class TestStaticMetastoreLocator
                 .hasMessage(message);
     }
 
-    private static MetastoreLocator createMetastoreLocator(StaticMetastoreConfig config, List<HiveMetastoreClient> clients)
+    private static MetastoreLocator createMetastoreLocator(StaticMetastoreConfig config, List<ThriftMetastoreClient> clients)
     {
         return new StaticMetastoreLocator(config, new MockHiveMetastoreClientFactory(Optional.empty(), new Duration(1, SECONDS), clients));
     }
 
-    private static HiveMetastoreClient createFakeMetastoreClient()
+    private static ThriftMetastoreClient createFakeMetastoreClient()
     {
-        return new MockHiveMetastoreClient();
+        return new MockThriftMetastoreClient();
     }
 }

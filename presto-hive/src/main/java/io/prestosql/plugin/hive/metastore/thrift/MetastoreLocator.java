@@ -18,8 +18,8 @@ import org.apache.thrift.TException;
 public interface MetastoreLocator
 {
     /**
-     * Create a connected {@link HiveMetastoreClient}
+     * Create a connected {@link ThriftMetastoreClient}
      */
-    HiveMetastoreClient createMetastoreClient()
+    ThriftMetastoreClient createMetastoreClient()
             throws TException;
 }

@@ -47,7 +47,7 @@ import java.util.Map;
 import static java.util.Objects.requireNonNull;
 
 public class ThriftHiveMetastoreClient
-        implements HiveMetastoreClient
+        implements ThriftMetastoreClient
 {
     private final TTransport transport;
     private final ThriftHiveMetastore.Client client;
