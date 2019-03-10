@@ -60,52 +60,52 @@ public final class HiveTestUtils
     }
 
     public static final ConnectorSession SESSION = new TestingConnectorSession(
-            new HiveSessionProperties(new HiveClientConfig(), new OrcFileWriterConfig(), new ParquetFileWriterConfig()).getSessionProperties());
+            new HiveSessionProperties(new HiveConfig(), new OrcFileWriterConfig(), new ParquetFileWriterConfig()).getSessionProperties());
 
     private static final Metadata METADATA = createTestMetadataManager();
     private static final FunctionRegistry FUNCTION_REGISTRY = METADATA.getFunctionRegistry();
     public static final TypeManager TYPE_MANAGER = METADATA.getTypeManager();
 
-    public static final HdfsEnvironment HDFS_ENVIRONMENT = createTestHdfsEnvironment(new HiveClientConfig());
+    public static final HdfsEnvironment HDFS_ENVIRONMENT = createTestHdfsEnvironment(new HiveConfig());
 
     public static final PageSorter PAGE_SORTER = new PagesIndexPageSorter(new PagesIndex.TestingFactory(false));
 
-    public static Set<HivePageSourceFactory> getDefaultHiveDataStreamFactories(HiveClientConfig hiveClientConfig)
+    public static Set<HivePageSourceFactory> getDefaultHiveDataStreamFactories(HiveConfig hiveConfig)
     {
         FileFormatDataSourceStats stats = new FileFormatDataSourceStats();
-        HdfsEnvironment testHdfsEnvironment = createTestHdfsEnvironment(hiveClientConfig);
+        HdfsEnvironment testHdfsEnvironment = createTestHdfsEnvironment(hiveConfig);
         return ImmutableSet.<HivePageSourceFactory>builder()
                 .add(new RcFilePageSourceFactory(TYPE_MANAGER, testHdfsEnvironment, stats))
-                .add(new OrcPageSourceFactory(TYPE_MANAGER, hiveClientConfig, testHdfsEnvironment, stats))
+                .add(new OrcPageSourceFactory(TYPE_MANAGER, hiveConfig, testHdfsEnvironment, stats))
                 .add(new ParquetPageSourceFactory(TYPE_MANAGER, testHdfsEnvironment, stats))
                 .build();
     }
 
-    public static Set<HiveRecordCursorProvider> getDefaultHiveRecordCursorProvider(HiveClientConfig hiveClientConfig)
+    public static Set<HiveRecordCursorProvider> getDefaultHiveRecordCursorProvider(HiveConfig hiveConfig)
     {
-        HdfsEnvironment testHdfsEnvironment = createTestHdfsEnvironment(hiveClientConfig);
+        HdfsEnvironment testHdfsEnvironment = createTestHdfsEnvironment(hiveConfig);
         return ImmutableSet.<HiveRecordCursorProvider>builder()
                 .add(new GenericHiveRecordCursorProvider(testHdfsEnvironment))
                 .build();
     }
 
-    public static Set<HiveFileWriterFactory> getDefaultHiveFileWriterFactories(HiveClientConfig hiveClientConfig)
+    public static Set<HiveFileWriterFactory> getDefaultHiveFileWriterFactories(HiveConfig hiveConfig)
     {
-        HdfsEnvironment testHdfsEnvironment = createTestHdfsEnvironment(hiveClientConfig);
+        HdfsEnvironment testHdfsEnvironment = createTestHdfsEnvironment(hiveConfig);
         return ImmutableSet.<HiveFileWriterFactory>builder()
-                .add(new RcFileFileWriterFactory(testHdfsEnvironment, TYPE_MANAGER, new NodeVersion("test_version"), hiveClientConfig, new FileFormatDataSourceStats()))
-                .add(getDefaultOrcFileWriterFactory(hiveClientConfig))
+                .add(new RcFileFileWriterFactory(testHdfsEnvironment, TYPE_MANAGER, new NodeVersion("test_version"), hiveConfig, new FileFormatDataSourceStats()))
+                .add(getDefaultOrcFileWriterFactory(hiveConfig))
                 .build();
     }
 
-    public static OrcFileWriterFactory getDefaultOrcFileWriterFactory(HiveClientConfig hiveClientConfig)
+    public static OrcFileWriterFactory getDefaultOrcFileWriterFactory(HiveConfig hiveConfig)
     {
-        HdfsEnvironment testHdfsEnvironment = createTestHdfsEnvironment(hiveClientConfig);
+        HdfsEnvironment testHdfsEnvironment = createTestHdfsEnvironment(hiveConfig);
         return new OrcFileWriterFactory(
                 testHdfsEnvironment,
                 TYPE_MANAGER,
                 new NodeVersion("test_version"),
-                hiveClientConfig,
+                hiveConfig,
                 new FileFormatDataSourceStats(),
                 new OrcFileWriterConfig());
     }
@@ -119,7 +119,7 @@ public final class HiveTestUtils
         return types.build();
     }
 
-    public static HdfsEnvironment createTestHdfsEnvironment(HiveClientConfig config)
+    public static HdfsEnvironment createTestHdfsEnvironment(HiveConfig config)
     {
         HdfsConfiguration hdfsConfig = new HiveHdfsConfiguration(
                 new HdfsConfigurationInitializer(

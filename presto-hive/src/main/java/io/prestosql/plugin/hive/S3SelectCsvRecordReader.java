@@ -51,7 +51,7 @@ public class S3SelectCsvRecordReader
 
     S3SelectCsvRecordReader(
             Configuration configuration,
-            HiveClientConfig clientConfig,
+            HiveConfig hiveConfig,
             Path path,
             long start,
             long length,
@@ -59,7 +59,7 @@ public class S3SelectCsvRecordReader
             String ionSqlQuery,
             PrestoS3ClientFactory s3ClientFactory)
     {
-        super(configuration, clientConfig, path, start, length, schema, ionSqlQuery, s3ClientFactory);
+        super(configuration, hiveConfig, path, start, length, schema, ionSqlQuery, s3ClientFactory);
     }
 
     @Override

@@ -16,7 +16,7 @@ package io.prestosql.plugin.hive.s3;
 import com.google.inject.Binder;
 import com.google.inject.Scopes;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
-import io.prestosql.plugin.hive.HiveClientConfig;
+import io.prestosql.plugin.hive.HiveConfig;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hive.common.JavaUtils;
 
@@ -32,7 +32,7 @@ public class HiveS3Module
     @Override
     protected void setup(Binder binder)
     {
-        S3FileSystemType type = buildConfigObject(HiveClientConfig.class).getS3FileSystemType();
+        S3FileSystemType type = buildConfigObject(HiveConfig.class).getS3FileSystemType();
         if (type == S3FileSystemType.PRESTO) {
             newSetBinder(binder, ConfigurationInitializer.class).addBinding().to(PrestoS3ConfigurationInitializer.class).in(Scopes.SINGLETON);
             configBinder(binder).bindConfig(HiveS3Config.class);

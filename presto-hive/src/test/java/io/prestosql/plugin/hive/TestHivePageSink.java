@@ -96,7 +96,7 @@ public class TestHivePageSink
     public void testAllFormats()
             throws Exception
     {
-        HiveClientConfig config = new HiveClientConfig();
+        HiveConfig config = new HiveConfig();
         File tempDir = Files.createTempDir();
         try {
             ExtendedHiveMetastore metastore = createTestingFileHiveMetastore(new File(tempDir, "metastore"));
@@ -121,12 +121,12 @@ public class TestHivePageSink
         }
     }
 
-    private static String makeFileName(File tempDir, HiveClientConfig config)
+    private static String makeFileName(File tempDir, HiveConfig config)
     {
         return tempDir.getAbsolutePath() + "/" + config.getHiveStorageFormat().name() + "." + config.getHiveCompressionCodec().name();
     }
 
-    private static long writeTestFile(HiveClientConfig config, ExtendedHiveMetastore metastore, String outputPath)
+    private static long writeTestFile(HiveConfig config, ExtendedHiveMetastore metastore, String outputPath)
     {
         HiveTransactionHandle transaction = new HiveTransactionHandle();
         HiveWriterStats stats = new HiveWriterStats();
@@ -205,7 +205,7 @@ public class TestHivePageSink
         return resultBuilder.build();
     }
 
-    private static ConnectorPageSource createPageSource(HiveTransactionHandle transaction, HiveClientConfig config, File outputFile)
+    private static ConnectorPageSource createPageSource(HiveTransactionHandle transaction, HiveConfig config, File outputFile)
     {
         Properties splitProperties = new Properties();
         splitProperties.setProperty(FILE_INPUT_FORMAT, config.getHiveStorageFormat().getInputFormat());
@@ -233,7 +233,7 @@ public class TestHivePageSink
         return provider.createPageSource(transaction, getSession(config), split, ImmutableList.copyOf(getColumnHandles()));
     }
 
-    private static ConnectorPageSink createPageSink(HiveTransactionHandle transaction, HiveClientConfig config, ExtendedHiveMetastore metastore, Path outputPath, HiveWriterStats stats)
+    private static ConnectorPageSink createPageSink(HiveTransactionHandle transaction, HiveConfig config, ExtendedHiveMetastore metastore, Path outputPath, HiveWriterStats stats)
     {
         LocationHandle locationHandle = new LocationHandle(outputPath, outputPath, false, DIRECT_TO_TARGET_NEW_DIRECTORY);
         HiveOutputTableHandle handle = new HiveOutputTableHandle(
@@ -269,7 +269,7 @@ public class TestHivePageSink
         return provider.createPageSink(transaction, getSession(config), handle);
     }
 
-    private static TestingConnectorSession getSession(HiveClientConfig config)
+    private static TestingConnectorSession getSession(HiveConfig config)
     {
         return new TestingConnectorSession(new HiveSessionProperties(config, new OrcFileWriterConfig(), new ParquetFileWriterConfig()).getSessionProperties());
     }

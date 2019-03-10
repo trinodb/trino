@@ -91,13 +91,13 @@ public class HivePartitionManager
     @Inject
     public HivePartitionManager(
             TypeManager typeManager,
-            HiveClientConfig hiveClientConfig)
+            HiveConfig hiveConfig)
     {
         this(
                 typeManager,
-                hiveClientConfig.getDateTimeZone(),
-                hiveClientConfig.isAssumeCanonicalPartitionKeys(),
-                hiveClientConfig.getDomainCompactionThreshold());
+                hiveConfig.getDateTimeZone(),
+                hiveConfig.isAssumeCanonicalPartitionKeys(),
+                hiveConfig.getDomainCompactionThreshold());
     }
 
     public HivePartitionManager(

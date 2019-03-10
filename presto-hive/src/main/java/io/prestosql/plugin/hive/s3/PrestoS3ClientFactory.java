@@ -27,7 +27,7 @@ import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3Builder;
 import com.amazonaws.services.s3.AmazonS3Client;
 import io.airlift.units.Duration;
-import io.prestosql.plugin.hive.HiveClientConfig;
+import io.prestosql.plugin.hive.HiveConfig;
 import org.apache.hadoop.conf.Configuration;
 
 import javax.annotation.concurrent.GuardedBy;
@@ -68,7 +68,7 @@ public class PrestoS3ClientFactory
     @GuardedBy("this")
     private AmazonS3 s3Client;
 
-    synchronized AmazonS3 getS3Client(Configuration config, HiveClientConfig clientConfig)
+    synchronized AmazonS3 getS3Client(Configuration config, HiveConfig hiveConfig)
     {
         if (s3Client != null) {
             return s3Client;
@@ -80,9 +80,9 @@ public class PrestoS3ClientFactory
         boolean sslEnabled = config.getBoolean(S3_SSL_ENABLED, defaults.isS3SslEnabled());
         Duration connectTimeout = Duration.valueOf(config.get(S3_CONNECT_TIMEOUT, defaults.getS3ConnectTimeout().toString()));
         Duration socketTimeout = Duration.valueOf(config.get(S3_SOCKET_TIMEOUT, defaults.getS3SocketTimeout().toString()));
-        int maxConnections = config.getInt(S3_SELECT_PUSHDOWN_MAX_CONNECTIONS, clientConfig.getS3SelectPushdownMaxConnections());
+        int maxConnections = config.getInt(S3_SELECT_PUSHDOWN_MAX_CONNECTIONS, hiveConfig.getS3SelectPushdownMaxConnections());
 
-        if (clientConfig.isS3SelectPushdownEnabled()) {
+        if (hiveConfig.isS3SelectPushdownEnabled()) {
             s3UserAgentSuffix = "presto-select";
         }
 

@@ -74,7 +74,7 @@ public class HivePageSinkProvider
             ExtendedHiveMetastore metastore,
             PageIndexerFactory pageIndexerFactory,
             TypeManager typeManager,
-            HiveClientConfig config,
+            HiveConfig config,
             LocationService locationService,
             JsonCodec<PartitionUpdate> partitionUpdateCodec,
             NodeManager nodeManager,

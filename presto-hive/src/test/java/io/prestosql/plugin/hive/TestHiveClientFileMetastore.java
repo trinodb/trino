@@ -28,7 +28,7 @@ public class TestHiveClientFileMetastore
     protected ExtendedHiveMetastore createMetastore(File tempDir)
     {
         File baseDir = new File(tempDir, "metastore");
-        HiveClientConfig hiveConfig = new HiveClientConfig();
+        HiveConfig hiveConfig = new HiveConfig();
         HdfsConfigurationInitializer updator = new HdfsConfigurationInitializer(hiveConfig);
         HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(updator, ImmutableSet.of());
         HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, hiveConfig, new NoHdfsAuthentication());

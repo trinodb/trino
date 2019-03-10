@@ -18,7 +18,7 @@ import com.google.inject.Scopes;
 import com.google.inject.multibindings.Multibinder;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.prestosql.plugin.hive.ForRecordingHiveMetastore;
-import io.prestosql.plugin.hive.HiveClientConfig;
+import io.prestosql.plugin.hive.HiveConfig;
 import io.prestosql.plugin.hive.metastore.ExtendedHiveMetastore;
 import io.prestosql.plugin.hive.metastore.RecordingHiveMetastore;
 import io.prestosql.plugin.hive.metastore.WriteHiveMetastoreRecordingProcedure;
@@ -36,7 +36,7 @@ public class GlueMetastoreModule
     {
         configBinder(binder).bindConfig(GlueHiveMetastoreConfig.class);
 
-        if (buildConfigObject(HiveClientConfig.class).getRecordingPath() != null) {
+        if (buildConfigObject(HiveConfig.class).getRecordingPath() != null) {
             binder.bind(ExtendedHiveMetastore.class)
                     .annotatedWith(ForRecordingHiveMetastore.class)
                     .to(GlueHiveMetastore.class)

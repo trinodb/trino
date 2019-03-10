@@ -66,14 +66,14 @@ public class HivePageSourceProvider
 
     @Inject
     public HivePageSourceProvider(
-            HiveClientConfig hiveClientConfig,
+            HiveConfig hiveConfig,
             HdfsEnvironment hdfsEnvironment,
             Set<HiveRecordCursorProvider> cursorProviders,
             Set<HivePageSourceFactory> pageSourceFactories,
             TypeManager typeManager)
     {
-        requireNonNull(hiveClientConfig, "hiveClientConfig is null");
-        this.hiveStorageTimeZone = hiveClientConfig.getDateTimeZone();
+        requireNonNull(hiveConfig, "hiveConfig is null");
+        this.hiveStorageTimeZone = hiveConfig.getDateTimeZone();
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.cursorProviders = ImmutableSet.copyOf(requireNonNull(cursorProviders, "cursorProviders is null"));
         this.pageSourceFactories = ImmutableSet.copyOf(requireNonNull(pageSourceFactories, "pageSourceFactories is null"));

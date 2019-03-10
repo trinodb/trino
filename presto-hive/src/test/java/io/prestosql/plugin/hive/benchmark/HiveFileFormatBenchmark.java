@@ -22,8 +22,8 @@ import io.airlift.tpch.TpchTable;
 import io.airlift.units.DataSize;
 import io.prestosql.hadoop.HadoopNative;
 import io.prestosql.plugin.hive.HdfsEnvironment;
-import io.prestosql.plugin.hive.HiveClientConfig;
 import io.prestosql.plugin.hive.HiveCompressionCodec;
+import io.prestosql.plugin.hive.HiveConfig;
 import io.prestosql.plugin.hive.HiveSessionProperties;
 import io.prestosql.plugin.hive.OrcFileWriterConfig;
 import io.prestosql.plugin.hive.ParquetFileWriterConfig;
@@ -93,8 +93,7 @@ public class HiveFileFormatBenchmark
         HadoopNative.requireHadoopNative();
     }
 
-    @SuppressWarnings("deprecation")
-    private static final HiveClientConfig CONFIG = new HiveClientConfig();
+    private static final HiveConfig CONFIG = new HiveConfig();
 
     private static final ConnectorSession SESSION = new TestingConnectorSession(new HiveSessionProperties(CONFIG, new OrcFileWriterConfig(), new ParquetFileWriterConfig())
             .getSessionProperties());

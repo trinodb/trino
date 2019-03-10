@@ -51,7 +51,7 @@ import static java.util.concurrent.TimeUnit.MINUTES;
         "hive.orc.optimized-writer.enabled",
         "hive.rcfile-optimized-writer.enabled",
 })
-public class HiveClientConfig
+public class HiveConfig
 {
     private String timeZone = TimeZone.getDefault().getID();
 
@@ -161,7 +161,7 @@ public class HiveClientConfig
     }
 
     @Config("hive.max-initial-splits")
-    public HiveClientConfig setMaxInitialSplits(int maxInitialSplits)
+    public HiveConfig setMaxInitialSplits(int maxInitialSplits)
     {
         this.maxInitialSplits = maxInitialSplits;
         return this;
@@ -176,7 +176,7 @@ public class HiveClientConfig
     }
 
     @Config("hive.max-initial-split-size")
-    public HiveClientConfig setMaxInitialSplitSize(DataSize maxInitialSplitSize)
+    public HiveConfig setMaxInitialSplitSize(DataSize maxInitialSplitSize)
     {
         this.maxInitialSplitSize = maxInitialSplitSize;
         return this;
@@ -189,7 +189,7 @@ public class HiveClientConfig
     }
 
     @Config("hive.split-loader-concurrency")
-    public HiveClientConfig setSplitLoaderConcurrency(int splitLoaderConcurrency)
+    public HiveConfig setSplitLoaderConcurrency(int splitLoaderConcurrency)
     {
         this.splitLoaderConcurrency = splitLoaderConcurrency;
         return this;
@@ -203,7 +203,7 @@ public class HiveClientConfig
 
     @Config("hive.domain-compaction-threshold")
     @ConfigDescription("Maximum ranges to allow in a tuple domain without compacting it")
-    public HiveClientConfig setDomainCompactionThreshold(int domainCompactionThreshold)
+    public HiveConfig setDomainCompactionThreshold(int domainCompactionThreshold)
     {
         this.domainCompactionThreshold = domainCompactionThreshold;
         return this;
@@ -217,7 +217,7 @@ public class HiveClientConfig
     }
 
     @Config("hive.writer-sort-buffer-size")
-    public HiveClientConfig setWriterSortBufferSize(DataSize writerSortBufferSize)
+    public HiveConfig setWriterSortBufferSize(DataSize writerSortBufferSize)
     {
         this.writerSortBufferSize = writerSortBufferSize;
         return this;
@@ -229,7 +229,7 @@ public class HiveClientConfig
     }
 
     @Config("hive.force-local-scheduling")
-    public HiveClientConfig setForceLocalScheduling(boolean forceLocalScheduling)
+    public HiveConfig setForceLocalScheduling(boolean forceLocalScheduling)
     {
         this.forceLocalScheduling = forceLocalScheduling;
         return this;
@@ -242,14 +242,14 @@ public class HiveClientConfig
     }
 
     @Config("hive.max-concurrent-file-renames")
-    public HiveClientConfig setMaxConcurrentFileRenames(int maxConcurrentFileRenames)
+    public HiveConfig setMaxConcurrentFileRenames(int maxConcurrentFileRenames)
     {
         this.maxConcurrentFileRenames = maxConcurrentFileRenames;
         return this;
     }
 
     @Config("hive.recursive-directories")
-    public HiveClientConfig setRecursiveDirWalkerEnabled(boolean recursiveDirWalkerEnabled)
+    public HiveConfig setRecursiveDirWalkerEnabled(boolean recursiveDirWalkerEnabled)
     {
         this.recursiveDirWalkerEnabled = recursiveDirWalkerEnabled;
         return this;
@@ -272,7 +272,7 @@ public class HiveClientConfig
     }
 
     @Config("hive.time-zone")
-    public HiveClientConfig setTimeZone(String id)
+    public HiveConfig setTimeZone(String id)
     {
         this.timeZone = (id != null) ? id : TimeZone.getDefault().getID();
         return this;
@@ -285,7 +285,7 @@ public class HiveClientConfig
     }
 
     @Config("hive.max-split-size")
-    public HiveClientConfig setMaxSplitSize(DataSize maxSplitSize)
+    public HiveConfig setMaxSplitSize(DataSize maxSplitSize)
     {
         this.maxSplitSize = maxSplitSize;
         return this;
@@ -299,7 +299,7 @@ public class HiveClientConfig
 
     @Config("hive.max-partitions-per-scan")
     @ConfigDescription("Maximum allowed partitions for a single table scan")
-    public HiveClientConfig setMaxPartitionsPerScan(int maxPartitionsPerScan)
+    public HiveConfig setMaxPartitionsPerScan(int maxPartitionsPerScan)
     {
         this.maxPartitionsPerScan = maxPartitionsPerScan;
         return this;
@@ -313,7 +313,7 @@ public class HiveClientConfig
 
     @Config("hive.max-outstanding-splits")
     @ConfigDescription("Target number of buffered splits for each table scan in a query, before the scheduler tries to pause itself")
-    public HiveClientConfig setMaxOutstandingSplits(int maxOutstandingSplits)
+    public HiveConfig setMaxOutstandingSplits(int maxOutstandingSplits)
     {
         this.maxOutstandingSplits = maxOutstandingSplits;
         return this;
@@ -327,7 +327,7 @@ public class HiveClientConfig
 
     @Config("hive.max-outstanding-splits-size")
     @ConfigDescription("Maximum amount of memory allowed for split buffering for each table scan in a query, before the query is failed")
-    public HiveClientConfig setMaxOutstandingSplitsSize(DataSize maxOutstandingSplits)
+    public HiveConfig setMaxOutstandingSplitsSize(DataSize maxOutstandingSplits)
     {
         this.maxOutstandingSplitsSize = maxOutstandingSplits;
         return this;
@@ -340,7 +340,7 @@ public class HiveClientConfig
     }
 
     @Config("hive.max-split-iterator-threads")
-    public HiveClientConfig setMaxSplitIteratorThreads(int maxSplitIteratorThreads)
+    public HiveConfig setMaxSplitIteratorThreads(int maxSplitIteratorThreads)
     {
         this.maxSplitIteratorThreads = maxSplitIteratorThreads;
         return this;
@@ -355,7 +355,7 @@ public class HiveClientConfig
     @Deprecated
     @Config("hive.allow-corrupt-writes-for-testing")
     @ConfigDescription("Allow Hive connector to write data even when data will likely be corrupt")
-    public HiveClientConfig setAllowCorruptWritesForTesting(boolean allowCorruptWritesForTesting)
+    public HiveConfig setAllowCorruptWritesForTesting(boolean allowCorruptWritesForTesting)
     {
         this.allowCorruptWritesForTesting = allowCorruptWritesForTesting;
         return this;
@@ -369,7 +369,7 @@ public class HiveClientConfig
 
     @MinDuration("0ms")
     @Config("hive.metastore-cache-ttl")
-    public HiveClientConfig setMetastoreCacheTtl(Duration metastoreCacheTtl)
+    public HiveConfig setMetastoreCacheTtl(Duration metastoreCacheTtl)
     {
         this.metastoreCacheTtl = metastoreCacheTtl;
         return this;
@@ -383,7 +383,7 @@ public class HiveClientConfig
 
     @MinDuration("1ms")
     @Config("hive.metastore-refresh-interval")
-    public HiveClientConfig setMetastoreRefreshInterval(Duration metastoreRefreshInterval)
+    public HiveConfig setMetastoreRefreshInterval(Duration metastoreRefreshInterval)
     {
         this.metastoreRefreshInterval = metastoreRefreshInterval;
         return this;
@@ -396,7 +396,7 @@ public class HiveClientConfig
 
     @Min(1)
     @Config("hive.metastore-cache-maximum-size")
-    public HiveClientConfig setMetastoreCacheMaximumSize(long metastoreCacheMaximumSize)
+    public HiveConfig setMetastoreCacheMaximumSize(long metastoreCacheMaximumSize)
     {
         this.metastoreCacheMaximumSize = metastoreCacheMaximumSize;
         return this;
@@ -409,7 +409,7 @@ public class HiveClientConfig
 
     @Min(1)
     @Config("hive.per-transaction-metastore-cache-maximum-size")
-    public HiveClientConfig setPerTransactionMetastoreCacheMaximumSize(long perTransactionMetastoreCacheMaximumSize)
+    public HiveConfig setPerTransactionMetastoreCacheMaximumSize(long perTransactionMetastoreCacheMaximumSize)
     {
         this.perTransactionMetastoreCacheMaximumSize = perTransactionMetastoreCacheMaximumSize;
         return this;
@@ -422,7 +422,7 @@ public class HiveClientConfig
     }
 
     @Config("hive.metastore-refresh-max-threads")
-    public HiveClientConfig setMaxMetastoreRefreshThreads(int maxMetastoreRefreshThreads)
+    public HiveConfig setMaxMetastoreRefreshThreads(int maxMetastoreRefreshThreads)
     {
         this.maxMetastoreRefreshThreads = maxMetastoreRefreshThreads;
         return this;
@@ -434,7 +434,7 @@ public class HiveClientConfig
     }
 
     @Config("hive.metastore.thrift.client.socks-proxy")
-    public HiveClientConfig setMetastoreSocksProxy(HostAndPort metastoreSocksProxy)
+    public HiveConfig setMetastoreSocksProxy(HostAndPort metastoreSocksProxy)
     {
         this.metastoreSocksProxy = metastoreSocksProxy;
         return this;
@@ -447,7 +447,7 @@ public class HiveClientConfig
     }
 
     @Config("hive.metastore-timeout")
-    public HiveClientConfig setMetastoreTimeout(Duration metastoreTimeout)
+    public HiveConfig setMetastoreTimeout(Duration metastoreTimeout)
     {
         this.metastoreTimeout = metastoreTimeout;
         return this;
@@ -460,7 +460,7 @@ public class HiveClientConfig
     }
 
     @Config("hive.metastore.partition-batch-size.min")
-    public HiveClientConfig setMinPartitionBatchSize(int minPartitionBatchSize)
+    public HiveConfig setMinPartitionBatchSize(int minPartitionBatchSize)
     {
         this.minPartitionBatchSize = minPartitionBatchSize;
         return this;
@@ -473,7 +473,7 @@ public class HiveClientConfig
     }
 
     @Config("hive.metastore.partition-batch-size.max")
-    public HiveClientConfig setMaxPartitionBatchSize(int maxPartitionBatchSize)
+    public HiveConfig setMaxPartitionBatchSize(int maxPartitionBatchSize)
     {
         this.maxPartitionBatchSize = maxPartitionBatchSize;
         return this;
@@ -486,13 +486,13 @@ public class HiveClientConfig
     }
 
     @Config("hive.config.resources")
-    public HiveClientConfig setResourceConfigFiles(String files)
+    public HiveConfig setResourceConfigFiles(String files)
     {
         this.resourceConfigFiles = Splitter.on(',').trimResults().omitEmptyStrings().splitToList(files);
         return this;
     }
 
-    public HiveClientConfig setResourceConfigFiles(List<String> files)
+    public HiveConfig setResourceConfigFiles(List<String> files)
     {
         this.resourceConfigFiles = ImmutableList.copyOf(files);
         return this;
@@ -506,7 +506,7 @@ public class HiveClientConfig
     }
 
     @Config("hive.dfs.ipc-ping-interval")
-    public HiveClientConfig setIpcPingInterval(Duration pingInterval)
+    public HiveConfig setIpcPingInterval(Duration pingInterval)
     {
         this.ipcPingInterval = pingInterval;
         return this;
@@ -520,7 +520,7 @@ public class HiveClientConfig
     }
 
     @Config("hive.dfs-timeout")
-    public HiveClientConfig setDfsTimeout(Duration dfsTimeout)
+    public HiveConfig setDfsTimeout(Duration dfsTimeout)
     {
         this.dfsTimeout = dfsTimeout;
         return this;
@@ -534,7 +534,7 @@ public class HiveClientConfig
     }
 
     @Config("hive.dfs.connect.timeout")
-    public HiveClientConfig setDfsConnectTimeout(Duration dfsConnectTimeout)
+    public HiveConfig setDfsConnectTimeout(Duration dfsConnectTimeout)
     {
         this.dfsConnectTimeout = dfsConnectTimeout;
         return this;
@@ -547,7 +547,7 @@ public class HiveClientConfig
     }
 
     @Config("hive.dfs.connect.max-retries")
-    public HiveClientConfig setDfsConnectMaxRetries(int dfsConnectMaxRetries)
+    public HiveConfig setDfsConnectMaxRetries(int dfsConnectMaxRetries)
     {
         this.dfsConnectMaxRetries = dfsConnectMaxRetries;
         return this;
@@ -559,7 +559,7 @@ public class HiveClientConfig
     }
 
     @Config("hive.storage-format")
-    public HiveClientConfig setHiveStorageFormat(HiveStorageFormat hiveStorageFormat)
+    public HiveConfig setHiveStorageFormat(HiveStorageFormat hiveStorageFormat)
     {
         this.hiveStorageFormat = hiveStorageFormat;
         return this;
@@ -571,7 +571,7 @@ public class HiveClientConfig
     }
 
     @Config("hive.compression-codec")
-    public HiveClientConfig setHiveCompressionCodec(HiveCompressionCodec hiveCompressionCodec)
+    public HiveConfig setHiveCompressionCodec(HiveCompressionCodec hiveCompressionCodec)
     {
         this.hiveCompressionCodec = hiveCompressionCodec;
         return this;
@@ -584,7 +584,7 @@ public class HiveClientConfig
 
     @Config("hive.respect-table-format")
     @ConfigDescription("Should new partitions be written using the existing table format or the default Presto format")
-    public HiveClientConfig setRespectTableFormat(boolean respectTableFormat)
+    public HiveConfig setRespectTableFormat(boolean respectTableFormat)
     {
         this.respectTableFormat = respectTableFormat;
         return this;
@@ -597,7 +597,7 @@ public class HiveClientConfig
 
     @Config("hive.immutable-partitions")
     @ConfigDescription("Can new data be inserted into existing partitions or existing unpartitioned tables")
-    public HiveClientConfig setImmutablePartitions(boolean immutablePartitions)
+    public HiveConfig setImmutablePartitions(boolean immutablePartitions)
     {
         this.immutablePartitions = immutablePartitions;
         return this;
@@ -611,7 +611,7 @@ public class HiveClientConfig
 
     @Config("hive.max-partitions-per-writers")
     @ConfigDescription("Maximum number of partitions per writer")
-    public HiveClientConfig setMaxPartitionsPerWriter(int maxPartitionsPerWriter)
+    public HiveConfig setMaxPartitionsPerWriter(int maxPartitionsPerWriter)
     {
         this.maxPartitionsPerWriter = maxPartitionsPerWriter;
         return this;
@@ -626,7 +626,7 @@ public class HiveClientConfig
 
     @Config("hive.max-open-sort-files")
     @ConfigDescription("Maximum number of writer temporary files to read in one pass")
-    public HiveClientConfig setMaxOpenSortFiles(int maxOpenSortFiles)
+    public HiveConfig setMaxOpenSortFiles(int maxOpenSortFiles)
     {
         this.maxOpenSortFiles = maxOpenSortFiles;
         return this;
@@ -639,7 +639,7 @@ public class HiveClientConfig
 
     @Config("hive.write-validation-threads")
     @ConfigDescription("Number of threads used for verifying data after a write")
-    public HiveClientConfig setWriteValidationThreads(int writeValidationThreads)
+    public HiveConfig setWriteValidationThreads(int writeValidationThreads)
     {
         this.writeValidationThreads = writeValidationThreads;
         return this;
@@ -651,7 +651,7 @@ public class HiveClientConfig
     }
 
     @Config("hive.dfs.domain-socket-path")
-    public HiveClientConfig setDomainSocketPath(String domainSocketPath)
+    public HiveConfig setDomainSocketPath(String domainSocketPath)
     {
         this.domainSocketPath = domainSocketPath;
         return this;
@@ -664,7 +664,7 @@ public class HiveClientConfig
     }
 
     @Config("hive.s3-file-system-type")
-    public HiveClientConfig setS3FileSystemType(S3FileSystemType s3FileSystemType)
+    public HiveConfig setS3FileSystemType(S3FileSystemType s3FileSystemType)
     {
         this.s3FileSystemType = s3FileSystemType;
         return this;
@@ -676,7 +676,7 @@ public class HiveClientConfig
     }
 
     @Config("hive.dfs.verify-checksum")
-    public HiveClientConfig setVerifyChecksum(boolean verifyChecksum)
+    public HiveConfig setVerifyChecksum(boolean verifyChecksum)
     {
         this.verifyChecksum = verifyChecksum;
         return this;
@@ -689,7 +689,7 @@ public class HiveClientConfig
 
     @Config("hive.orc.use-column-names")
     @ConfigDescription("Access ORC columns using names from the file")
-    public HiveClientConfig setUseOrcColumnNames(boolean useOrcColumnNames)
+    public HiveConfig setUseOrcColumnNames(boolean useOrcColumnNames)
     {
         this.useOrcColumnNames = useOrcColumnNames;
         return this;
@@ -702,7 +702,7 @@ public class HiveClientConfig
     }
 
     @Config("hive.orc.max-merge-distance")
-    public HiveClientConfig setOrcMaxMergeDistance(DataSize orcMaxMergeDistance)
+    public HiveConfig setOrcMaxMergeDistance(DataSize orcMaxMergeDistance)
     {
         this.orcMaxMergeDistance = orcMaxMergeDistance;
         return this;
@@ -715,7 +715,7 @@ public class HiveClientConfig
     }
 
     @Config("hive.orc.max-buffer-size")
-    public HiveClientConfig setOrcMaxBufferSize(DataSize orcMaxBufferSize)
+    public HiveConfig setOrcMaxBufferSize(DataSize orcMaxBufferSize)
     {
         this.orcMaxBufferSize = orcMaxBufferSize;
         return this;
@@ -728,7 +728,7 @@ public class HiveClientConfig
     }
 
     @Config("hive.orc.stream-buffer-size")
-    public HiveClientConfig setOrcStreamBufferSize(DataSize orcStreamBufferSize)
+    public HiveConfig setOrcStreamBufferSize(DataSize orcStreamBufferSize)
     {
         this.orcStreamBufferSize = orcStreamBufferSize;
         return this;
@@ -741,7 +741,7 @@ public class HiveClientConfig
     }
 
     @Config("hive.orc.tiny-stripe-threshold")
-    public HiveClientConfig setOrcTinyStripeThreshold(DataSize orcTinyStripeThreshold)
+    public HiveConfig setOrcTinyStripeThreshold(DataSize orcTinyStripeThreshold)
     {
         this.orcTinyStripeThreshold = orcTinyStripeThreshold;
         return this;
@@ -754,7 +754,7 @@ public class HiveClientConfig
     }
 
     @Config("hive.orc.max-read-block-size")
-    public HiveClientConfig setOrcMaxReadBlockSize(DataSize orcMaxReadBlockSize)
+    public HiveConfig setOrcMaxReadBlockSize(DataSize orcMaxReadBlockSize)
     {
         this.orcMaxReadBlockSize = orcMaxReadBlockSize;
         return this;
@@ -770,7 +770,7 @@ public class HiveClientConfig
     @Deprecated
     @Config("hive.orc.lazy-read-small-ranges")
     @ConfigDescription("ORC read small disk ranges lazily")
-    public HiveClientConfig setOrcLazyReadSmallRanges(boolean orcLazyReadSmallRanges)
+    public HiveConfig setOrcLazyReadSmallRanges(boolean orcLazyReadSmallRanges)
     {
         this.orcLazyReadSmallRanges = orcLazyReadSmallRanges;
         return this;
@@ -782,7 +782,7 @@ public class HiveClientConfig
     }
 
     @Config("hive.orc.bloom-filters.enabled")
-    public HiveClientConfig setOrcBloomFiltersEnabled(boolean orcBloomFiltersEnabled)
+    public HiveConfig setOrcBloomFiltersEnabled(boolean orcBloomFiltersEnabled)
     {
         this.orcBloomFiltersEnabled = orcBloomFiltersEnabled;
         return this;
@@ -795,7 +795,7 @@ public class HiveClientConfig
 
     @Config("hive.orc.default-bloom-filter-fpp")
     @ConfigDescription("ORC Bloom filter false positive probability")
-    public HiveClientConfig setOrcDefaultBloomFilterFpp(double orcDefaultBloomFilterFpp)
+    public HiveConfig setOrcDefaultBloomFilterFpp(double orcDefaultBloomFilterFpp)
     {
         this.orcDefaultBloomFilterFpp = orcDefaultBloomFilterFpp;
         return this;
@@ -808,7 +808,7 @@ public class HiveClientConfig
 
     @Config("hive.orc.writer.use-legacy-version-number")
     @ConfigDescription("Write ORC files with a version number that is readable by Hive 2.0.0 to 2.2.0")
-    public HiveClientConfig setOrcWriteLegacyVersion(boolean orcWriteLegacyVersion)
+    public HiveConfig setOrcWriteLegacyVersion(boolean orcWriteLegacyVersion)
     {
         this.orcWriteLegacyVersion = orcWriteLegacyVersion;
         return this;
@@ -823,7 +823,7 @@ public class HiveClientConfig
 
     @Config("hive.orc.writer.validation-percentage")
     @ConfigDescription("Percentage of ORC files to validate after write by re-reading the whole file")
-    public HiveClientConfig setOrcWriterValidationPercentage(double orcWriterValidationPercentage)
+    public HiveConfig setOrcWriterValidationPercentage(double orcWriterValidationPercentage)
     {
         this.orcWriterValidationPercentage = orcWriterValidationPercentage;
         return this;
@@ -837,7 +837,7 @@ public class HiveClientConfig
 
     @Config("hive.orc.writer.validation-mode")
     @ConfigDescription("Level of detail in ORC validation. Lower levels require more memory.")
-    public HiveClientConfig setOrcWriterValidationMode(OrcWriteValidationMode orcWriterValidationMode)
+    public HiveConfig setOrcWriterValidationMode(OrcWriteValidationMode orcWriterValidationMode)
     {
         this.orcWriterValidationMode = orcWriterValidationMode;
         return this;
@@ -850,7 +850,7 @@ public class HiveClientConfig
 
     @Config("hive.rcfile.writer.validate")
     @ConfigDescription("Validate RCFile after write by re-reading the whole file")
-    public HiveClientConfig setRcfileWriterValidate(boolean rcfileWriterValidate)
+    public HiveConfig setRcfileWriterValidate(boolean rcfileWriterValidate)
     {
         this.rcfileWriterValidate = rcfileWriterValidate;
         return this;
@@ -862,7 +862,7 @@ public class HiveClientConfig
     }
 
     @Config("hive.assume-canonical-partition-keys")
-    public HiveClientConfig setAssumeCanonicalPartitionKeys(boolean assumeCanonicalPartitionKeys)
+    public HiveConfig setAssumeCanonicalPartitionKeys(boolean assumeCanonicalPartitionKeys)
     {
         this.assumeCanonicalPartitionKeys = assumeCanonicalPartitionKeys;
         return this;
@@ -878,7 +878,7 @@ public class HiveClientConfig
 
     @Config("hive.text.max-line-length")
     @ConfigDescription("Maximum line length for text files")
-    public HiveClientConfig setTextMaxLineLength(DataSize textMaxLineLength)
+    public HiveConfig setTextMaxLineLength(DataSize textMaxLineLength)
     {
         this.textMaxLineLength = textMaxLineLength;
         return this;
@@ -891,7 +891,7 @@ public class HiveClientConfig
 
     @Config("hive.parquet.use-column-names")
     @ConfigDescription("Access Parquet columns using names from the file")
-    public HiveClientConfig setUseParquetColumnNames(boolean useParquetColumnNames)
+    public HiveConfig setUseParquetColumnNames(boolean useParquetColumnNames)
     {
         this.useParquetColumnNames = useParquetColumnNames;
         return this;
@@ -904,7 +904,7 @@ public class HiveClientConfig
 
     @Config("hive.parquet.fail-on-corrupted-statistics")
     @ConfigDescription("Fail when scanning Parquet files with corrupted statistics")
-    public HiveClientConfig setFailOnCorruptedParquetStatistics(boolean failOnCorruptedParquetStatistics)
+    public HiveConfig setFailOnCorruptedParquetStatistics(boolean failOnCorruptedParquetStatistics)
     {
         this.failOnCorruptedParquetStatistics = failOnCorruptedParquetStatistics;
         return this;
@@ -917,7 +917,7 @@ public class HiveClientConfig
     }
 
     @Config("hive.parquet.max-read-block-size")
-    public HiveClientConfig setParquetMaxReadBlockSize(DataSize parquetMaxReadBlockSize)
+    public HiveConfig setParquetMaxReadBlockSize(DataSize parquetMaxReadBlockSize)
     {
         this.parquetMaxReadBlockSize = parquetMaxReadBlockSize;
         return this;
@@ -929,7 +929,7 @@ public class HiveClientConfig
     }
 
     @Config("hive.optimize-mismatched-bucket-count")
-    public HiveClientConfig setOptimizeMismatchedBucketCount(boolean optimizeMismatchedBucketCount)
+    public HiveConfig setOptimizeMismatchedBucketCount(boolean optimizeMismatchedBucketCount)
     {
         this.optimizeMismatchedBucketCount = optimizeMismatchedBucketCount;
         return this;
@@ -949,7 +949,7 @@ public class HiveClientConfig
 
     @Config("hive.metastore.authentication.type")
     @ConfigDescription("Hive Metastore authentication type")
-    public HiveClientConfig setHiveMetastoreAuthenticationType(HiveMetastoreAuthenticationType hiveMetastoreAuthenticationType)
+    public HiveConfig setHiveMetastoreAuthenticationType(HiveMetastoreAuthenticationType hiveMetastoreAuthenticationType)
     {
         this.hiveMetastoreAuthenticationType = hiveMetastoreAuthenticationType;
         return this;
@@ -969,7 +969,7 @@ public class HiveClientConfig
 
     @Config("hive.hdfs.authentication.type")
     @ConfigDescription("HDFS authentication type")
-    public HiveClientConfig setHdfsAuthenticationType(HdfsAuthenticationType hdfsAuthenticationType)
+    public HiveConfig setHdfsAuthenticationType(HdfsAuthenticationType hdfsAuthenticationType)
     {
         this.hdfsAuthenticationType = hdfsAuthenticationType;
         return this;
@@ -982,7 +982,7 @@ public class HiveClientConfig
 
     @Config("hive.hdfs.impersonation.enabled")
     @ConfigDescription("Should Presto user be impersonated when communicating with HDFS")
-    public HiveClientConfig setHdfsImpersonationEnabled(boolean hdfsImpersonationEnabled)
+    public HiveConfig setHdfsImpersonationEnabled(boolean hdfsImpersonationEnabled)
     {
         this.hdfsImpersonationEnabled = hdfsImpersonationEnabled;
         return this;
@@ -995,7 +995,7 @@ public class HiveClientConfig
 
     @Config("hive.hdfs.wire-encryption.enabled")
     @ConfigDescription("Should be turned on when HDFS wire encryption is enabled")
-    public HiveClientConfig setHdfsWireEncryptionEnabled(boolean hdfsWireEncryptionEnabled)
+    public HiveConfig setHdfsWireEncryptionEnabled(boolean hdfsWireEncryptionEnabled)
     {
         this.hdfsWireEncryptionEnabled = hdfsWireEncryptionEnabled;
         return this;
@@ -1008,7 +1008,7 @@ public class HiveClientConfig
 
     @Config("hive.skip-deletion-for-alter")
     @ConfigDescription("Skip deletion of old partition data when a partition is deleted and then inserted in the same transaction")
-    public HiveClientConfig setSkipDeletionForAlter(boolean skipDeletionForAlter)
+    public HiveConfig setSkipDeletionForAlter(boolean skipDeletionForAlter)
     {
         this.skipDeletionForAlter = skipDeletionForAlter;
         return this;
@@ -1021,7 +1021,7 @@ public class HiveClientConfig
 
     @Config("hive.skip-target-cleanup-on-rollback")
     @ConfigDescription("Skip deletion of target directories when a metastore operation fails")
-    public HiveClientConfig setSkipTargetCleanupOnRollback(boolean skipTargetCleanupOnRollback)
+    public HiveConfig setSkipTargetCleanupOnRollback(boolean skipTargetCleanupOnRollback)
     {
         this.skipTargetCleanupOnRollback = skipTargetCleanupOnRollback;
         return this;
@@ -1034,7 +1034,7 @@ public class HiveClientConfig
 
     @Config("hive.bucket-execution")
     @ConfigDescription("Enable bucket-aware execution: only use a single worker per bucket")
-    public HiveClientConfig setBucketExecutionEnabled(boolean bucketExecutionEnabled)
+    public HiveConfig setBucketExecutionEnabled(boolean bucketExecutionEnabled)
     {
         this.bucketExecutionEnabled = bucketExecutionEnabled;
         return this;
@@ -1047,7 +1047,7 @@ public class HiveClientConfig
 
     @Config("hive.sorted-writing")
     @ConfigDescription("Enable writing to bucketed sorted tables")
-    public HiveClientConfig setSortedWritingEnabled(boolean sortedWritingEnabled)
+    public HiveConfig setSortedWritingEnabled(boolean sortedWritingEnabled)
     {
         this.sortedWritingEnabled = sortedWritingEnabled;
         return this;
@@ -1060,7 +1060,7 @@ public class HiveClientConfig
 
     @Config("hive.fs.cache.max-size")
     @ConfigDescription("Hadoop FileSystem cache size")
-    public HiveClientConfig setFileSystemMaxCacheSize(int fileSystemMaxCacheSize)
+    public HiveConfig setFileSystemMaxCacheSize(int fileSystemMaxCacheSize)
     {
         this.fileSystemMaxCacheSize = fileSystemMaxCacheSize;
         return this;
@@ -1068,7 +1068,7 @@ public class HiveClientConfig
 
     @Config("hive.non-managed-table-writes-enabled")
     @ConfigDescription("Enable writes to non-managed (external) tables")
-    public HiveClientConfig setWritesToNonManagedTablesEnabled(boolean writesToNonManagedTablesEnabled)
+    public HiveConfig setWritesToNonManagedTablesEnabled(boolean writesToNonManagedTablesEnabled)
     {
         this.writesToNonManagedTablesEnabled = writesToNonManagedTablesEnabled;
         return this;
@@ -1081,7 +1081,7 @@ public class HiveClientConfig
 
     @Config("hive.non-managed-table-creates-enabled")
     @ConfigDescription("Enable non-managed (external) table creates")
-    public HiveClientConfig setCreatesOfNonManagedTablesEnabled(boolean createsOfNonManagedTablesEnabled)
+    public HiveConfig setCreatesOfNonManagedTablesEnabled(boolean createsOfNonManagedTablesEnabled)
     {
         this.createsOfNonManagedTablesEnabled = createsOfNonManagedTablesEnabled;
         return this;
@@ -1094,7 +1094,7 @@ public class HiveClientConfig
 
     @Config("hive.table-statistics-enabled")
     @ConfigDescription("Enable use of table statistics")
-    public HiveClientConfig setTableStatisticsEnabled(boolean tableStatisticsEnabled)
+    public HiveConfig setTableStatisticsEnabled(boolean tableStatisticsEnabled)
     {
         this.tableStatisticsEnabled = tableStatisticsEnabled;
         return this;
@@ -1113,7 +1113,7 @@ public class HiveClientConfig
 
     @Config("hive.partition-statistics-sample-size")
     @ConfigDescription("Maximum sample size of the partitions column statistics")
-    public HiveClientConfig setPartitionStatisticsSampleSize(int partitionStatisticsSampleSize)
+    public HiveConfig setPartitionStatisticsSampleSize(int partitionStatisticsSampleSize)
     {
         this.partitionStatisticsSampleSize = partitionStatisticsSampleSize;
         return this;
@@ -1126,7 +1126,7 @@ public class HiveClientConfig
 
     @Config("hive.ignore-corrupted-statistics")
     @ConfigDescription("Ignore corrupted statistics rather than failing")
-    public HiveClientConfig setIgnoreCorruptedStatistics(boolean ignoreCorruptedStatistics)
+    public HiveConfig setIgnoreCorruptedStatistics(boolean ignoreCorruptedStatistics)
     {
         this.ignoreCorruptedStatistics = ignoreCorruptedStatistics;
         return this;
@@ -1139,14 +1139,14 @@ public class HiveClientConfig
 
     @Config("hive.collect-column-statistics-on-write")
     @ConfigDescription("Enables automatic column level statistics collection on write")
-    public HiveClientConfig setCollectColumnStatisticsOnWrite(boolean collectColumnStatisticsOnWrite)
+    public HiveConfig setCollectColumnStatisticsOnWrite(boolean collectColumnStatisticsOnWrite)
     {
         this.collectColumnStatisticsOnWrite = collectColumnStatisticsOnWrite;
         return this;
     }
 
     @Config("hive.metastore-recording-path")
-    public HiveClientConfig setRecordingPath(String recordingPath)
+    public HiveConfig setRecordingPath(String recordingPath)
     {
         this.recordingPath = recordingPath;
         return this;
@@ -1158,7 +1158,7 @@ public class HiveClientConfig
     }
 
     @Config("hive.replay-metastore-recording")
-    public HiveClientConfig setReplay(boolean replay)
+    public HiveConfig setReplay(boolean replay)
     {
         this.replay = replay;
         return this;
@@ -1170,7 +1170,7 @@ public class HiveClientConfig
     }
 
     @Config("hive.metastore-recoding-duration")
-    public HiveClientConfig setRecordingDuration(Duration recordingDuration)
+    public HiveConfig setRecordingDuration(Duration recordingDuration)
     {
         this.recordingDuration = recordingDuration;
         return this;
@@ -1189,7 +1189,7 @@ public class HiveClientConfig
 
     @Config("hive.s3select-pushdown.enabled")
     @ConfigDescription("Enable query pushdown to AWS S3 Select service")
-    public HiveClientConfig setS3SelectPushdownEnabled(boolean s3SelectPushdownEnabled)
+    public HiveConfig setS3SelectPushdownEnabled(boolean s3SelectPushdownEnabled)
     {
         this.s3SelectPushdownEnabled = s3SelectPushdownEnabled;
         return this;
@@ -1202,7 +1202,7 @@ public class HiveClientConfig
     }
 
     @Config("hive.s3select-pushdown.max-connections")
-    public HiveClientConfig setS3SelectPushdownMaxConnections(int s3SelectPushdownMaxConnections)
+    public HiveConfig setS3SelectPushdownMaxConnections(int s3SelectPushdownMaxConnections)
     {
         this.s3SelectPushdownMaxConnections = s3SelectPushdownMaxConnections;
         return this;
@@ -1210,7 +1210,7 @@ public class HiveClientConfig
 
     @Config("hive.temporary-staging-directory-enabled")
     @ConfigDescription("Should use (if possible) temporary staging directory for write operations")
-    public HiveClientConfig setTemporaryStagingDirectoryEnabled(boolean temporaryStagingDirectoryEnabled)
+    public HiveConfig setTemporaryStagingDirectoryEnabled(boolean temporaryStagingDirectoryEnabled)
     {
         this.isTemporaryStagingDirectoryEnabled = temporaryStagingDirectoryEnabled;
         return this;
@@ -1223,7 +1223,7 @@ public class HiveClientConfig
 
     @Config("hive.temporary-staging-directory-path")
     @ConfigDescription("Location of temporary staging directory for write operations. Use ${USER} placeholder to use different location for each user.")
-    public HiveClientConfig setTemporaryStagingDirectoryPath(String temporaryStagingDirectoryPath)
+    public HiveConfig setTemporaryStagingDirectoryPath(String temporaryStagingDirectoryPath)
     {
         this.temporaryStagingDirectoryPath = temporaryStagingDirectoryPath;
         return this;

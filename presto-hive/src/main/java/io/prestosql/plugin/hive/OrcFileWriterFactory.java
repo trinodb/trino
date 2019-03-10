@@ -82,7 +82,7 @@ public class OrcFileWriterFactory
             HdfsEnvironment hdfsEnvironment,
             TypeManager typeManager,
             NodeVersion nodeVersion,
-            HiveClientConfig hiveClientConfig,
+            HiveConfig hiveConfig,
             FileFormatDataSourceStats readStats,
             OrcFileWriterConfig config)
     {
@@ -90,8 +90,8 @@ public class OrcFileWriterFactory
                 hdfsEnvironment,
                 typeManager,
                 nodeVersion,
-                requireNonNull(hiveClientConfig, "hiveClientConfig is null").getDateTimeZone(),
-                hiveClientConfig.isOrcWriteLegacyVersion(),
+                requireNonNull(hiveConfig, "hiveConfig is null").getDateTimeZone(),
+                hiveConfig.isOrcWriteLegacyVersion(),
                 readStats,
                 requireNonNull(config, "config is null").toOrcWriterOptions());
     }

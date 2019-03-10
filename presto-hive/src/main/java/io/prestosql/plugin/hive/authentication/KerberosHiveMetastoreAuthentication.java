@@ -15,7 +15,7 @@ package io.prestosql.plugin.hive.authentication;
 
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.plugin.hive.ForHiveMetastore;
-import io.prestosql.plugin.hive.HiveClientConfig;
+import io.prestosql.plugin.hive.HiveConfig;
 import org.apache.hadoop.hive.thrift.client.TUGIAssumingTransport;
 import org.apache.hadoop.security.SaslRpcServer;
 import org.apache.thrift.transport.TSaslClientTransport;
@@ -44,9 +44,9 @@ public class KerberosHiveMetastoreAuthentication
     public KerberosHiveMetastoreAuthentication(
             MetastoreKerberosConfig config,
             @ForHiveMetastore HadoopAuthentication authentication,
-            HiveClientConfig hiveClientConfig)
+            HiveConfig hiveConfig)
     {
-        this(config.getHiveMetastoreServicePrincipal(), authentication, hiveClientConfig.isHdfsWireEncryptionEnabled());
+        this(config.getHiveMetastoreServicePrincipal(), authentication, hiveConfig.isHdfsWireEncryptionEnabled());
     }
 
     public KerberosHiveMetastoreAuthentication(String hiveMetastoreServicePrincipal, HadoopAuthentication authentication, boolean hdfsWireEncryptionEnabled)

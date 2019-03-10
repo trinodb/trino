@@ -21,8 +21,8 @@ import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 import io.airlift.units.Duration;
 import io.prestosql.orc.OrcWriteValidation.OrcWriteValidationMode;
-import io.prestosql.plugin.hive.HiveClientConfig.HdfsAuthenticationType;
-import io.prestosql.plugin.hive.HiveClientConfig.HiveMetastoreAuthenticationType;
+import io.prestosql.plugin.hive.HiveConfig.HdfsAuthenticationType;
+import io.prestosql.plugin.hive.HiveConfig.HiveMetastoreAuthenticationType;
 import io.prestosql.plugin.hive.s3.S3FileSystemType;
 import org.testng.annotations.Test;
 
@@ -32,12 +32,12 @@ import java.util.concurrent.TimeUnit;
 
 import static io.prestosql.plugin.hive.TestHiveUtil.nonDefaultTimeZone;
 
-public class TestHiveClientConfig
+public class TestHiveConfig
 {
     @Test
     public void testDefaults()
     {
-        ConfigAssertions.assertRecordedDefaults(ConfigAssertions.recordDefaults(HiveClientConfig.class)
+        ConfigAssertions.assertRecordedDefaults(ConfigAssertions.recordDefaults(HiveConfig.class)
                 .setTimeZone(TimeZone.getDefault().getID())
                 .setMaxSplitSize(new DataSize(64, Unit.MEGABYTE))
                 .setMaxPartitionsPerScan(100_000)
@@ -206,7 +206,7 @@ public class TestHiveClientConfig
                 .put("hive.temporary-staging-directory-path", "updated")
                 .build();
 
-        HiveClientConfig expected = new HiveClientConfig()
+        HiveConfig expected = new HiveConfig()
                 .setTimeZone(nonDefaultTimeZone().toTimeZone().getID())
                 .setMaxSplitSize(new DataSize(256, Unit.MEGABYTE))
                 .setMaxPartitionsPerScan(123)

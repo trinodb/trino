@@ -21,7 +21,7 @@ import com.google.common.collect.Lists;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import io.prestosql.plugin.hive.HdfsEnvironment;
-import io.prestosql.plugin.hive.HiveClientConfig;
+import io.prestosql.plugin.hive.HiveConfig;
 import io.prestosql.plugin.hive.HiveSessionProperties;
 import io.prestosql.plugin.hive.HiveStorageFormat;
 import io.prestosql.plugin.hive.OrcFileWriterConfig;
@@ -113,10 +113,10 @@ public class ParquetTester
 {
     public static final DateTimeZone HIVE_STORAGE_TIME_ZONE = DateTimeZone.forID("America/Bahia_Banderas");
     private static final boolean OPTIMIZED = true;
-    private static final HiveClientConfig HIVE_CLIENT_CONFIG = createHiveClientConfig(false);
+    private static final HiveConfig HIVE_CLIENT_CONFIG = createHiveConfig(false);
     private static final HdfsEnvironment HDFS_ENVIRONMENT = createTestHdfsEnvironment(HIVE_CLIENT_CONFIG);
     private static final TestingConnectorSession SESSION = new TestingConnectorSession(new HiveSessionProperties(HIVE_CLIENT_CONFIG, new OrcFileWriterConfig(), new ParquetFileWriterConfig()).getSessionProperties());
-    private static final TestingConnectorSession SESSION_USE_NAME = new TestingConnectorSession(new HiveSessionProperties(createHiveClientConfig(true), new OrcFileWriterConfig(), new ParquetFileWriterConfig()).getSessionProperties());
+    private static final TestingConnectorSession SESSION_USE_NAME = new TestingConnectorSession(new HiveSessionProperties(createHiveConfig(true), new OrcFileWriterConfig(), new ParquetFileWriterConfig()).getSessionProperties());
     private static final List<String> TEST_COLUMN = singletonList("test");
 
     private Set<CompressionCodecName> compressions = ImmutableSet.of();
@@ -336,7 +336,7 @@ public class ParquetTester
             throws Exception
     {
         CompressionCodecName compressionCodecName = UNCOMPRESSED;
-        HiveClientConfig config = new HiveClientConfig()
+        HiveConfig config = new HiveConfig()
                 .setHiveStorageFormat(HiveStorageFormat.PARQUET)
                 .setUseParquetColumnNames(false)
                 .setParquetMaxReadBlockSize(maxReadBlockSize);
@@ -504,12 +504,11 @@ public class ParquetTester
         return Collections.unmodifiableList(values);
     }
 
-    private static HiveClientConfig createHiveClientConfig(boolean useParquetColumnNames)
+    private static HiveConfig createHiveConfig(boolean useParquetColumnNames)
     {
-        HiveClientConfig config = new HiveClientConfig();
-        config.setHiveStorageFormat(HiveStorageFormat.PARQUET)
+        return new HiveConfig()
+                .setHiveStorageFormat(HiveStorageFormat.PARQUET)
                 .setUseParquetColumnNames(useParquetColumnNames);
-        return config;
     }
 
     private static FileFormat getFileFormat()

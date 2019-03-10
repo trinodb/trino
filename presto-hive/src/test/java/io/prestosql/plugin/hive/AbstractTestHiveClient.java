@@ -697,14 +697,14 @@ public abstract class AbstractTestHiveClient
 
     protected final void setup(String host, int port, String databaseName, String timeZone)
     {
-        HiveClientConfig hiveClientConfig = getHiveClientConfig();
-        hiveClientConfig.setTimeZone(timeZone);
+        HiveConfig hiveConfig = getHiveConfig();
+        hiveConfig.setTimeZone(timeZone);
         String proxy = System.getProperty("hive.metastore.thrift.client.socks-proxy");
         if (proxy != null) {
-            hiveClientConfig.setMetastoreSocksProxy(HostAndPort.fromString(proxy));
+            hiveConfig.setMetastoreSocksProxy(HostAndPort.fromString(proxy));
         }
 
-        MetastoreLocator metastoreLocator = new TestingMetastoreLocator(hiveClientConfig, host, port);
+        MetastoreLocator metastoreLocator = new TestingMetastoreLocator(hiveConfig, host, port);
         ExtendedHiveMetastore metastore = new CachingHiveMetastore(
                 new BridgingHiveMetastore(new ThriftHiveMetastore(metastoreLocator, new ThriftHiveMetastoreConfig())),
                 executor,
@@ -712,22 +712,22 @@ public abstract class AbstractTestHiveClient
                 Duration.valueOf("15s"),
                 10000);
 
-        setup(databaseName, hiveClientConfig, metastore);
+        setup(databaseName, hiveConfig, metastore);
     }
 
-    protected final void setup(String databaseName, HiveClientConfig hiveClientConfig, ExtendedHiveMetastore hiveMetastore)
+    protected final void setup(String databaseName, HiveConfig hiveConfig, ExtendedHiveMetastore hiveMetastore)
     {
-        setupHive(databaseName, hiveClientConfig.getTimeZone());
+        setupHive(databaseName, hiveConfig.getTimeZone());
 
         metastoreClient = hiveMetastore;
-        HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(new HdfsConfigurationInitializer(hiveClientConfig), ImmutableSet.of());
-        hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, hiveClientConfig, new NoHdfsAuthentication());
+        HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(new HdfsConfigurationInitializer(hiveConfig), ImmutableSet.of());
+        hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, hiveConfig, new NoHdfsAuthentication());
         locationService = new HiveLocationService(hdfsEnvironment);
         JsonCodec<PartitionUpdate> partitionUpdateCodec = JsonCodec.jsonCodec(PartitionUpdate.class);
         metadataFactory = new HiveMetadataFactory(
                 metastoreClient,
                 hdfsEnvironment,
-                new HivePartitionManager(TYPE_MANAGER, hiveClientConfig),
+                new HivePartitionManager(TYPE_MANAGER, hiveConfig),
                 timeZone,
                 10,
                 true,
@@ -736,7 +736,7 @@ public abstract class AbstractTestHiveClient
                 false,
                 true,
                 1000,
-                getHiveClientConfig().getMaxPartitionsPerScan(),
+                getHiveConfig().getMaxPartitionsPerScan(),
                 TYPE_MANAGER,
                 locationService,
                 partitionUpdateCodec,
@@ -753,43 +753,43 @@ public abstract class AbstractTestHiveClient
                 new HiveCoercionPolicy(TYPE_MANAGER),
                 new CounterStat(),
                 100,
-                hiveClientConfig.getMaxOutstandingSplitsSize(),
-                hiveClientConfig.getMinPartitionBatchSize(),
-                hiveClientConfig.getMaxPartitionBatchSize(),
-                hiveClientConfig.getMaxInitialSplits(),
-                hiveClientConfig.getSplitLoaderConcurrency(),
+                hiveConfig.getMaxOutstandingSplitsSize(),
+                hiveConfig.getMinPartitionBatchSize(),
+                hiveConfig.getMaxPartitionBatchSize(),
+                hiveConfig.getMaxInitialSplits(),
+                hiveConfig.getSplitLoaderConcurrency(),
                 false);
         pageSinkProvider = new HivePageSinkProvider(
-                getDefaultHiveFileWriterFactories(hiveClientConfig),
+                getDefaultHiveFileWriterFactories(hiveConfig),
                 hdfsEnvironment,
                 PAGE_SORTER,
                 metastoreClient,
                 new GroupByHashPageIndexerFactory(JOIN_COMPILER),
                 TYPE_MANAGER,
-                getHiveClientConfig(),
+                getHiveConfig(),
                 locationService,
                 partitionUpdateCodec,
                 new TestingNodeManager("fake-environment"),
                 new HiveEventClient(),
-                new HiveSessionProperties(hiveClientConfig, new OrcFileWriterConfig(), new ParquetFileWriterConfig()),
+                new HiveSessionProperties(hiveConfig, new OrcFileWriterConfig(), new ParquetFileWriterConfig()),
                 new HiveWriterStats(),
-                getDefaultOrcFileWriterFactory(hiveClientConfig));
-        pageSourceProvider = new HivePageSourceProvider(hiveClientConfig, hdfsEnvironment, getDefaultHiveRecordCursorProvider(hiveClientConfig), getDefaultHiveDataStreamFactories(hiveClientConfig), TYPE_MANAGER);
+                getDefaultOrcFileWriterFactory(hiveConfig));
+        pageSourceProvider = new HivePageSourceProvider(hiveConfig, hdfsEnvironment, getDefaultHiveRecordCursorProvider(hiveConfig), getDefaultHiveDataStreamFactories(hiveConfig), TYPE_MANAGER);
     }
 
     /**
      * Allow subclass to change default configuration.
      */
-    protected HiveClientConfig getHiveClientConfig()
+    protected HiveConfig getHiveConfig()
     {
-        return new HiveClientConfig()
+        return new HiveConfig()
                 .setMaxOpenSortFiles(10)
                 .setWriterSortBufferSize(new DataSize(100, KILOBYTE));
     }
 
     protected ConnectorSession newSession()
     {
-        return new TestingConnectorSession(new HiveSessionProperties(getHiveClientConfig(), new OrcFileWriterConfig(), new ParquetFileWriterConfig()).getSessionProperties());
+        return new TestingConnectorSession(new HiveSessionProperties(getHiveConfig(), new OrcFileWriterConfig(), new ParquetFileWriterConfig()).getSessionProperties());
     }
 
     protected Transaction newTransaction()
@@ -2311,7 +2311,7 @@ public abstract class AbstractTestHiveClient
             HdfsContext context = new HdfsContext(session, table.getSchemaName(), table.getTableName());
             assertThat(listAllDataFiles(context, stagingPathRoot))
                     .filteredOn(file -> file.contains(".tmp-sort."))
-                    .size().isGreaterThan(bucketCount * getHiveClientConfig().getMaxOpenSortFiles() * 2);
+                    .size().isGreaterThan(bucketCount * getHiveConfig().getMaxOpenSortFiles() * 2);
 
             // finish the write
             Collection<Slice> fragments = getFutureValue(sink.finish());
@@ -2874,7 +2874,7 @@ public abstract class AbstractTestHiveClient
     private ConnectorSession sampleSize(int sampleSize)
     {
         HiveSessionProperties properties = new HiveSessionProperties(
-                getHiveClientConfig().setPartitionStatisticsSampleSize(sampleSize),
+                getHiveConfig().setPartitionStatisticsSampleSize(sampleSize),
                 new OrcFileWriterConfig(), new ParquetFileWriterConfig());
         return new TestingConnectorSession(properties.getSessionProperties());
     }
