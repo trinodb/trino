@@ -15,19 +15,10 @@ package io.prestosql.plugin.hive.metastore.thrift;
 
 import org.apache.thrift.TException;
 
-/**
- * A Hive cluster is a single logical installation of Hive. It might
- * have multiple instances of the metastore service (for scalability
- * purposes), but they would all return the same data.
- * <p/>
- * This Hive plugin only supports having a single Hive cluster per
- * instantiation of the plugin, but a plugin that extends this code
- * could support multiple, dynamically located Hive clusters.
- */
-public interface HiveCluster
+public interface MetastoreLocator
 {
     /**
-     * Create a connected {@link HiveMetastoreClient} to this HiveCluster
+     * Create a connected {@link HiveMetastoreClient}
      */
     HiveMetastoreClient createMetastoreClient()
             throws TException;

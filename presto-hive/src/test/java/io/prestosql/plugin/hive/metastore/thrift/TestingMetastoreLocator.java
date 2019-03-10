@@ -20,13 +20,13 @@ import org.apache.thrift.TException;
 
 import static java.util.Objects.requireNonNull;
 
-public class TestingHiveCluster
-        implements HiveCluster
+public class TestingMetastoreLocator
+        implements MetastoreLocator
 {
     private final HiveClientConfig config;
     private final HostAndPort address;
 
-    public TestingHiveCluster(HiveClientConfig config, String host, int port)
+    public TestingMetastoreLocator(HiveClientConfig config, String host, int port)
     {
         this.config = requireNonNull(config, "config is null");
         this.address = HostAndPort.fromParts(requireNonNull(host, "host is null"), port);
