@@ -75,6 +75,7 @@ import io.prestosql.sql.planner.iterative.rule.PruneTopNColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneValuesColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneWindowColumns;
 import io.prestosql.sql.planner.iterative.rule.PushAggregationThroughOuterJoin;
+import io.prestosql.sql.planner.iterative.rule.PushLimitIntoTableScan;
 import io.prestosql.sql.planner.iterative.rule.PushLimitThroughMarkDistinct;
 import io.prestosql.sql.planner.iterative.rule.PushLimitThroughOuterJoin;
 import io.prestosql.sql.planner.iterative.rule.PushLimitThroughProject;
@@ -291,6 +292,7 @@ public class PlanOptimizers
                                         new PushLimitThroughMarkDistinct(),
                                         new PushLimitThroughOuterJoin(),
                                         new PushLimitThroughSemiJoin(),
+                                        new PushLimitIntoTableScan(metadata),
                                         new RemoveTrivialFilters(),
                                         new ImplementFilteredAggregations(),
                                         new SingleDistinctAggregationToGroupBy(),

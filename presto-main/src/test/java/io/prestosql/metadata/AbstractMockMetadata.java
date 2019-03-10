@@ -24,6 +24,7 @@ import io.prestosql.spi.connector.ConnectorCapabilities;
 import io.prestosql.spi.connector.ConnectorOutputMetadata;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
 import io.prestosql.spi.connector.Constraint;
+import io.prestosql.spi.connector.LimitApplicationResult;
 import io.prestosql.spi.connector.SystemTable;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.security.GrantInfo;
@@ -520,5 +521,11 @@ public abstract class AbstractMockMetadata
     public boolean usesLegacyTableLayouts(Session session, TableHandle table)
     {
         throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Optional<LimitApplicationResult<TableHandle>> applyLimit(Session session, TableHandle table, long limit)
+    {
+        return Optional.empty();
     }
 }
