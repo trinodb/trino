@@ -33,7 +33,7 @@ public class TestingMetastoreLocator
     }
 
     @Override
-    public HiveMetastoreClient createMetastoreClient()
+    public ThriftMetastoreClient createMetastoreClient()
             throws TException
     {
         return new HiveMetastoreClientFactory(config, new NoHiveMetastoreAuthentication()).create(address);

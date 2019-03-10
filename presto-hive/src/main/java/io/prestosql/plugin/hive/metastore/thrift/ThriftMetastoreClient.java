@@ -30,7 +30,7 @@ import java.io.Closeable;
 import java.util.List;
 import java.util.Map;
 
-public interface HiveMetastoreClient
+public interface ThriftMetastoreClient
         extends Closeable
 {
     @Override

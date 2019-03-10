@@ -18,12 +18,12 @@ import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import io.airlift.units.Duration;
 import io.prestosql.plugin.hive.metastore.thrift.BridgingHiveMetastore;
-import io.prestosql.plugin.hive.metastore.thrift.HiveMetastoreClient;
 import io.prestosql.plugin.hive.metastore.thrift.MetastoreLocator;
-import io.prestosql.plugin.hive.metastore.thrift.MockHiveMetastoreClient;
+import io.prestosql.plugin.hive.metastore.thrift.MockThriftMetastoreClient;
 import io.prestosql.plugin.hive.metastore.thrift.ThriftHiveMetastore;
 import io.prestosql.plugin.hive.metastore.thrift.ThriftHiveMetastoreConfig;
 import io.prestosql.plugin.hive.metastore.thrift.ThriftHiveMetastoreStats;
+import io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreClient;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -33,12 +33,12 @@ import java.util.concurrent.TimeUnit;
 
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static io.prestosql.plugin.hive.metastore.thrift.MockHiveMetastoreClient.BAD_DATABASE;
-import static io.prestosql.plugin.hive.metastore.thrift.MockHiveMetastoreClient.TEST_DATABASE;
-import static io.prestosql.plugin.hive.metastore.thrift.MockHiveMetastoreClient.TEST_PARTITION1;
-import static io.prestosql.plugin.hive.metastore.thrift.MockHiveMetastoreClient.TEST_PARTITION2;
-import static io.prestosql.plugin.hive.metastore.thrift.MockHiveMetastoreClient.TEST_ROLES;
-import static io.prestosql.plugin.hive.metastore.thrift.MockHiveMetastoreClient.TEST_TABLE;
+import static io.prestosql.plugin.hive.metastore.thrift.MockThriftMetastoreClient.BAD_DATABASE;
+import static io.prestosql.plugin.hive.metastore.thrift.MockThriftMetastoreClient.TEST_DATABASE;
+import static io.prestosql.plugin.hive.metastore.thrift.MockThriftMetastoreClient.TEST_PARTITION1;
+import static io.prestosql.plugin.hive.metastore.thrift.MockThriftMetastoreClient.TEST_PARTITION2;
+import static io.prestosql.plugin.hive.metastore.thrift.MockThriftMetastoreClient.TEST_ROLES;
+import static io.prestosql.plugin.hive.metastore.thrift.MockThriftMetastoreClient.TEST_TABLE;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -47,14 +47,14 @@ import static org.testng.Assert.assertNotNull;
 @Test(singleThreaded = true)
 public class TestCachingHiveMetastore
 {
-    private MockHiveMetastoreClient mockClient;
+    private MockThriftMetastoreClient mockClient;
     private CachingHiveMetastore metastore;
     private ThriftHiveMetastoreStats stats;
 
     @BeforeMethod
     public void setUp()
     {
-        mockClient = new MockHiveMetastoreClient();
+        mockClient = new MockThriftMetastoreClient();
         MetastoreLocator metastoreLocator = new MockMetastoreLocator(mockClient);
         ListeningExecutorService executor = listeningDecorator(newCachedThreadPool(daemonThreadsNamed("test-%s")));
         ThriftHiveMetastore thriftHiveMetastore = new ThriftHiveMetastore(metastoreLocator, new ThriftHiveMetastoreConfig());
@@ -260,15 +260,15 @@ public class TestCachingHiveMetastore
     private static class MockMetastoreLocator
             implements MetastoreLocator
     {
-        private final HiveMetastoreClient client;
+        private final ThriftMetastoreClient client;
 
-        private MockMetastoreLocator(HiveMetastoreClient client)
+        private MockMetastoreLocator(ThriftMetastoreClient client)
         {
             this.client = client;
         }
 
         @Override
-        public HiveMetastoreClient createMetastoreClient()
+        public ThriftMetastoreClient createMetastoreClient()
         {
             return client;
         }

@@ -43,8 +43,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static org.apache.hadoop.hive.metastore.api.PrincipalType.ROLE;
 import static org.apache.hadoop.hive.metastore.api.PrincipalType.USER;
 
-public class MockHiveMetastoreClient
-        implements HiveMetastoreClient
+public class MockThriftMetastoreClient
+        implements ThriftMetastoreClient
 {
     public static final String TEST_DATABASE = "testdb";
     public static final String BAD_DATABASE = "baddb";

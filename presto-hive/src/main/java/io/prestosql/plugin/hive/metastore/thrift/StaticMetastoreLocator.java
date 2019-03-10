@@ -62,7 +62,7 @@ public class StaticMetastoreLocator
      * connection succeeds or there are no more fallback metastores.
      */
     @Override
-    public HiveMetastoreClient createMetastoreClient()
+    public ThriftMetastoreClient createMetastoreClient()
             throws TException
     {
         List<HostAndPort> metastores = new ArrayList<>(addresses);
@@ -71,7 +71,7 @@ public class StaticMetastoreLocator
         TException lastException = null;
         for (HostAndPort metastore : metastores) {
             try {
-                HiveMetastoreClient client = clientFactory.create(metastore);
+                ThriftMetastoreClient client = clientFactory.create(metastore);
                 if (!isNullOrEmpty(metastoreUsername)) {
                     client.setUGI(metastoreUsername);
                 }
