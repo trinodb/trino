@@ -44,7 +44,7 @@ import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newFixedThreadPool;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
-public class HiveClientModule
+public class HiveModule
         implements Module
 {
     @Override
@@ -108,7 +108,7 @@ public class HiveClientModule
         configBinder(binder).bindConfig(ParquetFileWriterConfig.class);
     }
 
-    @ForHiveClient
+    @ForHive
     @Singleton
     @Provides
     public ExecutorService createHiveClientExecutor(HiveCatalogName catalogName)

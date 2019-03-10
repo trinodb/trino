@@ -99,7 +99,7 @@ public class HiveConnectorFactory
                     new MBeanModule(),
                     new ConnectorObjectNameGeneratorModule(catalogName),
                     new JsonModule(),
-                    new HiveClientModule(),
+                    new HiveModule(),
                     new HiveS3Module(),
                     new HiveGcsModule(),
                     new HiveMetastoreModule(metastore),
