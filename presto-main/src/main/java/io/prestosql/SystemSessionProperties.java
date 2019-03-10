@@ -113,7 +113,6 @@ public final class SystemSessionProperties
     public static final String PREFER_PARTIAL_AGGREGATION = "prefer_partial_aggregation";
     public static final String OPTIMIZE_TOP_N_ROW_NUMBER = "optimize_top_n_row_number";
     public static final String MAX_GROUPING_SETS = "max_grouping_sets";
-    public static final String LEGACY_UNNEST = "legacy_unnest";
     public static final String STATISTICS_CPU_TIMER_ENABLED = "statistics_cpu_timer_enabled";
     public static final String ENABLE_STATS_CALCULATOR = "enable_stats_calculator";
     public static final String IGNORE_STATS_CALCULATOR_FAILURES = "ignore_stats_calculator_failures";
@@ -529,11 +528,6 @@ public final class SystemSessionProperties
                         featuresConfig.getMaxGroupingSets(),
                         true),
                 booleanProperty(
-                        LEGACY_UNNEST,
-                        "Using legacy unnest semantic, where unnest(array(row)) will create one column of type row",
-                        featuresConfig.isLegacyUnnestArrayRows(),
-                        false),
-                booleanProperty(
                         STATISTICS_CPU_TIMER_ENABLED,
                         "Experimental: Enable cpu time tracking for automatic column statistics collection on write",
                         taskManagerConfig.isStatisticsCpuTimerEnabled(),
@@ -890,11 +884,6 @@ public final class SystemSessionProperties
     public static int getMaxGroupingSets(Session session)
     {
         return session.getSystemProperty(MAX_GROUPING_SETS, Integer.class);
-    }
-
-    public static boolean isLegacyUnnest(Session session)
-    {
-        return session.getSystemProperty(LEGACY_UNNEST, Boolean.class);
     }
 
     public static OptionalInt getMaxDriversPerTask(Session session)

@@ -20,7 +20,6 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.UnmodifiableIterator;
 import io.prestosql.Session;
-import io.prestosql.SystemSessionProperties;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.TableHandle;
 import io.prestosql.spi.connector.ColumnHandle;
@@ -576,7 +575,7 @@ class RelationPlanner
             Symbol inputSymbol = translations.get(expression);
             if (type instanceof ArrayType) {
                 Type elementType = ((ArrayType) type).getElementType();
-                if (!SystemSessionProperties.isLegacyUnnest(session) && elementType instanceof RowType) {
+                if (elementType instanceof RowType) {
                     ImmutableList.Builder<Symbol> unnestSymbolBuilder = ImmutableList.builder();
                     for (int i = 0; i < ((RowType) elementType).getFields().size(); i++) {
                         unnestSymbolBuilder.add(unnestedSymbolsIterator.next());
@@ -677,7 +676,7 @@ class RelationPlanner
             argumentSymbols.add(inputSymbol);
             if (type instanceof ArrayType) {
                 Type elementType = ((ArrayType) type).getElementType();
-                if (!SystemSessionProperties.isLegacyUnnest(session) && elementType instanceof RowType) {
+                if (elementType instanceof RowType) {
                     ImmutableList.Builder<Symbol> unnestSymbolBuilder = ImmutableList.builder();
                     for (int i = 0; i < ((RowType) elementType).getFields().size(); i++) {
                         unnestSymbolBuilder.add(unnestedSymbolsIterator.next());
