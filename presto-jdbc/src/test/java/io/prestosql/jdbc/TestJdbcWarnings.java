@@ -25,7 +25,6 @@ import io.prestosql.plugin.tpch.TpchPlugin;
 import io.prestosql.server.testing.TestingPrestoServer;
 import io.prestosql.spi.PrestoWarning;
 import io.prestosql.spi.WarningCode;
-import io.prestosql.sql.parser.SqlParserOptions;
 import io.prestosql.testing.TestingWarningCollector;
 import io.prestosql.testing.TestingWarningCollectorConfig;
 import org.testng.annotations.AfterClass;
@@ -73,16 +72,10 @@ public class TestJdbcWarnings
     public void setupServer()
             throws Exception
     {
-        server = new TestingPrestoServer(
-                true,
-                ImmutableMap.<String, String>builder()
-                        .put("testing-warning-collector.add-warnings", "true")
-                        .put("testing-warning-collector.preloaded-warnings", String.valueOf(PRELOADED_WARNINGS))
-                        .build(),
-                null,
-                null,
-                new SqlParserOptions(),
-                ImmutableList.of());
+        server = new TestingPrestoServer(ImmutableMap.<String, String>builder()
+                .put("testing-warning-collector.add-warnings", "true")
+                .put("testing-warning-collector.preloaded-warnings", String.valueOf(PRELOADED_WARNINGS))
+                .build());
         server.installPlugin(new TpchPlugin());
         server.createCatalog("tpch", "tpch");
         server.installPlugin(new BlackHolePlugin());
