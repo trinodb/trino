@@ -32,6 +32,7 @@ import io.prestosql.cost.CostComparator;
 import io.prestosql.cost.StatsAndCosts;
 import io.prestosql.cost.StatsCalculatorModule;
 import io.prestosql.cost.TaskCountEstimator;
+import io.prestosql.dispatcher.DispatchExecutor;
 import io.prestosql.dispatcher.DispatchManager;
 import io.prestosql.dispatcher.DispatchQueryFactory;
 import io.prestosql.dispatcher.FailedDispatchQueryFactory;
@@ -217,16 +218,21 @@ public class CoordinatorModule
         jaxrsBinder(binder).bind(ResourceGroupStateInfoResource.class);
         binder.bind(QueryIdGenerator.class).in(Scopes.SINGLETON);
         binder.bind(QueryManager.class).to(SqlQueryManager.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(QueryManager.class).withGeneratedName();
         binder.bind(QueryPreparer.class).in(Scopes.SINGLETON);
         binder.bind(SessionSupplier.class).to(QuerySessionSupplier.class).in(Scopes.SINGLETON);
         binder.bind(InternalResourceGroupManager.class).in(Scopes.SINGLETON);
         newExporter(binder).export(InternalResourceGroupManager.class).withGeneratedName();
         binder.bind(ResourceGroupManager.class).to(InternalResourceGroupManager.class);
+        binder.bind(LegacyResourceGroupConfigurationManager.class).in(Scopes.SINGLETON);
+
+        // dispatcher
         binder.bind(DispatchManager.class).in(Scopes.SINGLETON);
         binder.bind(FailedDispatchQueryFactory.class).in(Scopes.SINGLETON);
+        binder.bind(DispatchExecutor.class).in(Scopes.SINGLETON);
+
+        // local dispatcher
         binder.bind(DispatchQueryFactory.class).to(LocalDispatchQueryFactory.class);
-        binder.bind(LegacyResourceGroupConfigurationManager.class).in(Scopes.SINGLETON);
-        newExporter(binder).export(QueryManager.class).withGeneratedName();
 
         // cluster memory manager
         binder.bind(ClusterMemoryManager.class).in(Scopes.SINGLETON);

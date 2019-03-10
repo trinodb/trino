@@ -15,8 +15,6 @@ package io.prestosql.dispatcher;
 
 import com.google.common.util.concurrent.AbstractFuture;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.ListeningScheduledExecutorService;
-import io.airlift.concurrent.ThreadPoolExecutorMBean;
 import io.prestosql.Session;
 import io.prestosql.execution.QueryIdGenerator;
 import io.prestosql.execution.QueryInfo;
@@ -39,26 +37,21 @@ import io.prestosql.spi.resourcegroups.SelectionCriteria;
 import io.prestosql.transaction.TransactionManager;
 import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
-import org.weakref.jmx.Nested;
 
 import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.Executor;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
-import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
-import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.prestosql.spi.StandardErrorCode.QUERY_TEXT_TOO_LARGE;
 import static io.prestosql.util.StatementUtils.getQueryType;
 import static io.prestosql.util.StatementUtils.isTransactionControlStatement;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.Executors.newScheduledThreadPool;
 
 public class DispatchManager
 {
@@ -74,8 +67,7 @@ public class DispatchManager
 
     private final int maxQueryLength;
 
-    private final ListeningScheduledExecutorService queryManagementExecutor;
-    private final ThreadPoolExecutorMBean queryManagementExecutorMBean;
+    private final Executor queryExecutor;
 
     private final QueryTracker<DispatchQuery> queryTracker;
 
@@ -92,7 +84,8 @@ public class DispatchManager
             AccessControl accessControl,
             SessionSupplier sessionSupplier,
             SessionPropertyDefaults sessionPropertyDefaults,
-            QueryManagerConfig queryManagerConfig)
+            QueryManagerConfig queryManagerConfig,
+            DispatchExecutor dispatchExecutor)
     {
         this.queryIdGenerator = requireNonNull(queryIdGenerator, "queryIdGenerator is null");
         this.queryPreparer = requireNonNull(queryPreparer, "queryPreparer is null");
@@ -107,18 +100,9 @@ public class DispatchManager
         requireNonNull(queryManagerConfig, "queryManagerConfig is null");
         this.maxQueryLength = queryManagerConfig.getMaxQueryLength();
 
-        ScheduledExecutorService scheduledExecutorService = newScheduledThreadPool(queryManagerConfig.getQueryManagerExecutorPoolSize(), threadsNamed("query-dispatch-%s"));
-        queryManagementExecutor = listeningDecorator(scheduledExecutorService);
-        queryManagementExecutorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) scheduledExecutorService);
+        this.queryExecutor = requireNonNull(dispatchExecutor, "dispatchExecutor is null").getExecutor();
 
-        this.queryTracker = new QueryTracker<>(queryManagerConfig, queryManagementExecutor);
-    }
-
-    @Managed(description = "Query dispatch executor")
-    @Nested
-    public ThreadPoolExecutorMBean getExecutor()
-    {
-        return queryManagementExecutorMBean;
+        this.queryTracker = new QueryTracker<>(queryManagerConfig, dispatchExecutor.getScheduledExecutor());
     }
 
     @Managed
@@ -142,7 +126,7 @@ public class DispatchManager
         checkArgument(!queryTracker.tryGetQuery(queryId).isPresent(), "query %s already exists", queryId);
 
         DispatchQueryCreationFuture queryCreationFuture = new DispatchQueryCreationFuture();
-        queryManagementExecutor.submit(() -> {
+        queryExecutor.execute(() -> {
             try {
                 createQueryInternal(queryId, slug, sessionContext, query, resourceGroupManager);
             }
@@ -194,13 +178,12 @@ public class DispatchManager
                     query,
                     preparedQuery,
                     slug,
-                    selectionContext.getResourceGroupId(),
-                    queryManagementExecutor);
+                    selectionContext.getResourceGroupId());
 
             boolean queryAdded = queryCreated(dispatchQuery);
             if (queryAdded && !dispatchQuery.isDone()) {
                 try {
-                    resourceGroupManager.submit(dispatchQuery, selectionContext, queryManagementExecutor);
+                    resourceGroupManager.submit(dispatchQuery, selectionContext, queryExecutor);
                 }
                 catch (Throwable e) {
                     // dispatch query has already been registered, so just fail it directly
