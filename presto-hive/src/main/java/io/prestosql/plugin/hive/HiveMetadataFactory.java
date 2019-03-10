@@ -48,7 +48,6 @@ public class HiveMetadataFactory
     private final DateTimeZone timeZone;
     private final TypeManager typeManager;
     private final LocationService locationService;
-    private final TableParameterCodec tableParameterCodec;
     private final JsonCodec<PartitionUpdate> partitionUpdateCodec;
     private final BoundedExecutor renameExecution;
     private final TypeTranslator typeTranslator;
@@ -64,7 +63,6 @@ public class HiveMetadataFactory
             @ForHiveClient ExecutorService executorService,
             TypeManager typeManager,
             LocationService locationService,
-            TableParameterCodec tableParameterCodec,
             JsonCodec<PartitionUpdate> partitionUpdateCodec,
             TypeTranslator typeTranslator,
             NodeVersion nodeVersion)
@@ -84,7 +82,6 @@ public class HiveMetadataFactory
                 hiveClientConfig.getMaxPartitionsPerScan(),
                 typeManager,
                 locationService,
-                tableParameterCodec,
                 partitionUpdateCodec,
                 executorService,
                 typeTranslator,
@@ -106,7 +103,6 @@ public class HiveMetadataFactory
             int maxPartitions,
             TypeManager typeManager,
             LocationService locationService,
-            TableParameterCodec tableParameterCodec,
             JsonCodec<PartitionUpdate> partitionUpdateCodec,
             ExecutorService executorService,
             TypeTranslator typeTranslator,
@@ -125,7 +121,6 @@ public class HiveMetadataFactory
         this.timeZone = requireNonNull(timeZone, "timeZone is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.locationService = requireNonNull(locationService, "locationService is null");
-        this.tableParameterCodec = requireNonNull(tableParameterCodec, "tableParameterCodec is null");
         this.partitionUpdateCodec = requireNonNull(partitionUpdateCodec, "partitionUpdateCodec is null");
         this.typeTranslator = requireNonNull(typeTranslator, "typeTranslator is null");
         this.prestoVersion = requireNonNull(prestoVersion, "prestoVersion is null");
@@ -161,7 +156,6 @@ public class HiveMetadataFactory
                 createsOfNonManagedTablesEnabled,
                 typeManager,
                 locationService,
-                tableParameterCodec,
                 partitionUpdateCodec,
                 typeTranslator,
                 prestoVersion,
