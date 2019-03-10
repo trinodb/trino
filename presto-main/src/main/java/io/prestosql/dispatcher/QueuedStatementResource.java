@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Ordering;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.prestosql.client.QueryError;
@@ -26,7 +25,6 @@ import io.prestosql.client.QueryResults;
 import io.prestosql.client.StatementStats;
 import io.prestosql.execution.ExecutionFailureInfo;
 import io.prestosql.execution.QueryState;
-import io.prestosql.server.ForStatementResource;
 import io.prestosql.server.HttpRequestSessionContext;
 import io.prestosql.server.SessionContext;
 import io.prestosql.spi.ErrorCode;
@@ -57,6 +55,7 @@ import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -92,7 +91,7 @@ public class QueuedStatementResource
 
     private final DispatchManager dispatchManager;
 
-    private final BoundedExecutor responseExecutor;
+    private final Executor responseExecutor;
     private final ScheduledExecutorService timeoutExecutor;
 
     private final ConcurrentMap<QueryId, Query> queries = new ConcurrentHashMap<>();
@@ -101,13 +100,13 @@ public class QueuedStatementResource
     @Inject
     public QueuedStatementResource(
             DispatchManager dispatchManager,
-            @ForStatementResource BoundedExecutor responseExecutor,
-            @ForStatementResource ScheduledExecutorService timeoutExecutor)
+            DispatchExecutor executor)
     {
         this.dispatchManager = requireNonNull(dispatchManager, "dispatchManager is null");
 
-        this.responseExecutor = requireNonNull(responseExecutor, "responseExecutor is null");
-        this.timeoutExecutor = requireNonNull(timeoutExecutor, "timeoutExecutor is null");
+        requireNonNull(dispatchManager, "dispatchManager is null");
+        this.responseExecutor = requireNonNull(executor, "responseExecutor is null").getExecutor();
+        this.timeoutExecutor = requireNonNull(executor, "timeoutExecutor is null").getScheduledExecutor();
 
         queryPurger.scheduleWithFixedDelay(
                 () -> {

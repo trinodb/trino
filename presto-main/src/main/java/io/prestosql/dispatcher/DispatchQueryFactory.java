@@ -17,8 +17,6 @@ import io.prestosql.Session;
 import io.prestosql.execution.QueryPreparer.PreparedQuery;
 import io.prestosql.spi.resourcegroups.ResourceGroupId;
 
-import java.util.concurrent.ExecutorService;
-
 public interface DispatchQueryFactory
 {
     DispatchQuery createDispatchQuery(
@@ -26,6 +24,5 @@ public interface DispatchQueryFactory
             String query,
             PreparedQuery preparedQuery,
             String slug,
-            ResourceGroupId resourceGroup,
-            ExecutorService queryExecutor);
+            ResourceGroupId resourceGroup);
 }

@@ -16,7 +16,6 @@ package io.prestosql.dispatcher;
 import io.prestosql.Session;
 import io.prestosql.event.QueryMonitor;
 import io.prestosql.execution.ExecutionFailureInfo;
-import io.prestosql.execution.ForQueryExecution;
 import io.prestosql.execution.LocationFactory;
 import io.prestosql.server.BasicQueryInfo;
 import io.prestosql.spi.resourcegroups.ResourceGroupId;
@@ -36,11 +35,11 @@ public class FailedDispatchQueryFactory
     private final ExecutorService executor;
 
     @Inject
-    public FailedDispatchQueryFactory(QueryMonitor queryMonitor, LocationFactory locationFactory, @ForQueryExecution ExecutorService executor)
+    public FailedDispatchQueryFactory(QueryMonitor queryMonitor, LocationFactory locationFactory, DispatchExecutor dispatchExecutor)
     {
         this.queryMonitor = requireNonNull(queryMonitor, "queryMonitor is null");
         this.locationFactory = requireNonNull(locationFactory, "locationFactory is null");
-        this.executor = requireNonNull(executor, "executor is null");
+        this.executor = requireNonNull(dispatchExecutor, "dispatchExecutor is null").getExecutor();
     }
 
     public FailedDispatchQuery createFailedDispatchQuery(Session session, String query, Optional<ResourceGroupId> resourceGroup, Throwable throwable)

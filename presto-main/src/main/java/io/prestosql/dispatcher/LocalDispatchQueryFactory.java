@@ -18,7 +18,6 @@ import com.google.common.util.concurrent.ListeningExecutorService;
 import io.prestosql.Session;
 import io.prestosql.event.QueryMonitor;
 import io.prestosql.execution.ClusterSizeMonitor;
-import io.prestosql.execution.ForQueryExecution;
 import io.prestosql.execution.LocationFactory;
 import io.prestosql.execution.QueryExecution;
 import io.prestosql.execution.QueryExecution.QueryExecutionFactory;
@@ -38,9 +37,7 @@ import javax.inject.Inject;
 
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.ExecutorService;
 
-import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.util.StatementUtils.isTransactionControlStatement;
 import static java.util.Objects.requireNonNull;
@@ -59,7 +56,7 @@ public class LocalDispatchQueryFactory
 
     private final Map<Class<? extends Statement>, QueryExecutionFactory<?>> executionFactories;
     private final WarningCollectorFactory warningCollectorFactory;
-    private final ListeningExecutorService executorService;
+    private final ListeningExecutorService executor;
 
     @Inject
     public LocalDispatchQueryFactory(
@@ -72,8 +69,7 @@ public class LocalDispatchQueryFactory
             Map<Class<? extends Statement>, QueryExecutionFactory<?>> executionFactories,
             WarningCollectorFactory warningCollectorFactory,
             ClusterSizeMonitor clusterSizeMonitor,
-            @ForQueryExecution ExecutorService executorService)
-
+            DispatchExecutor dispatchExecutor)
     {
         this.queryManager = requireNonNull(queryManager, "queryManager is null");
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
@@ -86,7 +82,7 @@ public class LocalDispatchQueryFactory
 
         this.clusterSizeMonitor = requireNonNull(clusterSizeMonitor, "clusterSizeMonitor is null");
 
-        this.executorService = listeningDecorator(requireNonNull(executorService, "executorService is null"));
+        this.executor = requireNonNull(dispatchExecutor, "executorService is null").getExecutor();
     }
 
     @Override
@@ -95,8 +91,7 @@ public class LocalDispatchQueryFactory
             String query,
             PreparedQuery preparedQuery,
             String slug,
-            ResourceGroupId resourceGroup,
-            ExecutorService queryExecutor)
+            ResourceGroupId resourceGroup)
     {
         WarningCollector warningCollector = warningCollectorFactory.create();
         QueryStateMachine stateMachine = QueryStateMachine.begin(
@@ -107,13 +102,13 @@ public class LocalDispatchQueryFactory
                 isTransactionControlStatement(preparedQuery.getStatement()),
                 transactionManager,
                 accessControl,
-                executorService,
+                executor,
                 metadata,
                 warningCollector);
 
         queryMonitor.queryCreatedEvent(stateMachine.getBasicQueryInfo(Optional.empty()));
 
-        ListenableFuture<QueryExecution> queryExecutionFuture = executorService.submit(() -> {
+        ListenableFuture<QueryExecution> queryExecutionFuture = executor.submit(() -> {
             QueryExecutionFactory<?> queryExecutionFactory = executionFactories.get(preparedQuery.getStatement().getClass());
             if (queryExecutionFactory == null) {
                 throw new PrestoException(NOT_SUPPORTED, "Unsupported statement type: " + preparedQuery.getStatement().getClass().getSimpleName());
@@ -126,7 +121,7 @@ public class LocalDispatchQueryFactory
                 stateMachine,
                 queryExecutionFuture,
                 clusterSizeMonitor,
-                queryExecutor,
-                queryExecution -> executorService.submit(() -> queryManager.createQuery(queryExecution)));
+                executor,
+                queryExecution -> executor.submit(() -> queryManager.createQuery(queryExecution)));
     }
 }
