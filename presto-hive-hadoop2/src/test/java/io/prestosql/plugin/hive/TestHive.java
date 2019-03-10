@@ -19,8 +19,8 @@ import org.testng.annotations.Parameters;
 
 import java.net.UnknownHostException;
 
-public class TestHiveClient
-        extends AbstractTestHiveClient
+public class TestHive
+        extends AbstractTestHive
 {
     @Parameters({"hive.hadoop2.metastoreHost", "hive.hadoop2.metastorePort", "hive.hadoop2.databaseName", "hive.hadoop2.timeZone"})
     @BeforeClass

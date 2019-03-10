@@ -21,8 +21,8 @@ import org.testng.SkipException;
 
 import java.io.File;
 
-public class TestHiveClientFileMetastore
-        extends AbstractTestHiveClientLocal
+public class TestHiveFileMetastore
+        extends AbstractTestHiveLocal
 {
     @Override
     protected ExtendedHiveMetastore createMetastore(File tempDir)

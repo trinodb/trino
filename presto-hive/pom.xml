@@ -331,7 +331,7 @@
                         <configuration>
                             <excludes>
                                 <!-- Exclude tests against Glue from build -->
-                                <exclude>**/TestHiveClientGlueMetastore.java</exclude>
+                                <exclude>**/TestHiveGlueMetastore.java</exclude>
                                 <!-- Parquet tests take a long time so only run them in the CI server -->
                                 <exclude>**/TestFullParquetReader.java</exclude>
                             </excludes>
@@ -350,7 +350,7 @@
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration>
                             <includes>
-                                <include>**/TestHiveClientGlueMetastore.java</include>
+                                <include>**/TestHiveGlueMetastore.java</include>
                             </includes>
                         </configuration>
                     </plugin>

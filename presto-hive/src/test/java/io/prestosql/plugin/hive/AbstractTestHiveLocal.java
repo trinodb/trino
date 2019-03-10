@@ -31,20 +31,20 @@ import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static java.util.Objects.requireNonNull;
 
-public abstract class AbstractTestHiveClientLocal
-        extends AbstractTestHiveClient
+public abstract class AbstractTestHiveLocal
+        extends AbstractTestHive
 {
     private static final String DEFAULT_TEST_DB_NAME = "test";
 
     private File tempDir;
     private String testDbName;
 
-    protected AbstractTestHiveClientLocal()
+    protected AbstractTestHiveLocal()
     {
         this(DEFAULT_TEST_DB_NAME);
     }
 
-    protected AbstractTestHiveClientLocal(String testDbName)
+    protected AbstractTestHiveLocal(String testDbName)
     {
         this.testDbName = requireNonNull(testDbName, "testDbName is null");
     }

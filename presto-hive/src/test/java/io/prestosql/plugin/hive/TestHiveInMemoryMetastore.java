@@ -19,8 +19,8 @@ import io.prestosql.plugin.hive.metastore.thrift.InMemoryHiveMetastore;
 
 import java.io.File;
 
-public class TestHiveClientInMemoryMetastore
-        extends AbstractTestHiveClientLocal
+public class TestHiveInMemoryMetastore
+        extends AbstractTestHiveLocal
 {
     @Override
     protected ExtendedHiveMetastore createMetastore(File tempDir)

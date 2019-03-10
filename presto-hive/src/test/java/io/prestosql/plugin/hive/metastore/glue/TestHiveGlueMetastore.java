@@ -14,7 +14,7 @@
 package io.prestosql.plugin.hive.metastore.glue;
 
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.plugin.hive.AbstractTestHiveClientLocal;
+import io.prestosql.plugin.hive.AbstractTestHiveLocal;
 import io.prestosql.plugin.hive.HdfsConfiguration;
 import io.prestosql.plugin.hive.HdfsConfigurationInitializer;
 import io.prestosql.plugin.hive.HdfsEnvironment;
@@ -28,10 +28,10 @@ import java.io.File;
 import static java.util.Locale.ENGLISH;
 import static java.util.UUID.randomUUID;
 
-public class TestHiveClientGlueMetastore
-        extends AbstractTestHiveClientLocal
+public class TestHiveGlueMetastore
+        extends AbstractTestHiveLocal
 {
-    public TestHiveClientGlueMetastore()
+    public TestHiveGlueMetastore()
     {
         super("test_glue" + randomUUID().toString().toLowerCase(ENGLISH).replace("-", ""));
     }
