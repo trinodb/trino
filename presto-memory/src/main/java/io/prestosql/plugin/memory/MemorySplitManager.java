@@ -18,7 +18,7 @@ import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorSplit;
 import io.prestosql.spi.connector.ConnectorSplitManager;
 import io.prestosql.spi.connector.ConnectorSplitSource;
-import io.prestosql.spi.connector.ConnectorTableLayoutHandle;
+import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 import io.prestosql.spi.connector.FixedSplitSource;
 
@@ -30,26 +30,28 @@ public final class MemorySplitManager
         implements ConnectorSplitManager
 {
     private final int splitsPerNode;
+    private final MemoryMetadata metadata;
 
     @Inject
-    public MemorySplitManager(MemoryConfig config)
+    public MemorySplitManager(MemoryConfig config, MemoryMetadata metadata)
     {
         this.splitsPerNode = config.getSplitsPerNode();
+        this.metadata = metadata;
     }
 
     @Override
-    public ConnectorSplitSource getSplits(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorTableLayoutHandle layoutHandle, SplitSchedulingStrategy splitSchedulingStrategy)
+    public ConnectorSplitSource getSplits(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorTableHandle handle, SplitSchedulingStrategy splitSchedulingStrategy)
     {
-        MemoryTableLayoutHandle layout = (MemoryTableLayoutHandle) layoutHandle;
+        MemoryTableHandle table = (MemoryTableHandle) handle;
 
-        List<MemoryDataFragment> dataFragments = layout.getDataFragments();
+        List<MemoryDataFragment> dataFragments = metadata.getDataFragments(table.getId());
 
         ImmutableList.Builder<ConnectorSplit> splits = ImmutableList.builder();
         for (MemoryDataFragment dataFragment : dataFragments) {
             for (int i = 0; i < splitsPerNode; i++) {
                 splits.add(
                         new MemorySplit(
-                                layout.getTable(),
+                                table.getId(),
                                 i,
                                 splitsPerNode,
                                 dataFragment.getHostAddress(),

@@ -19,7 +19,6 @@ import io.prestosql.spi.connector.ConnectorInsertTableHandle;
 import io.prestosql.spi.connector.ConnectorOutputTableHandle;
 import io.prestosql.spi.connector.ConnectorSplit;
 import io.prestosql.spi.connector.ConnectorTableHandle;
-import io.prestosql.spi.connector.ConnectorTableLayoutHandle;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 
 public final class MemoryHandleResolver
@@ -53,12 +52,6 @@ public final class MemoryHandleResolver
     public Class<? extends ConnectorInsertTableHandle> getInsertTableHandleClass()
     {
         return MemoryInsertTableHandle.class;
-    }
-
-    @Override
-    public Class<? extends ConnectorTableLayoutHandle> getTableLayoutHandleClass()
-    {
-        return MemoryTableLayoutHandle.class;
     }
 
     @Override
