@@ -26,6 +26,7 @@ import io.prestosql.execution.QueryStateMachine;
 import io.prestosql.execution.StateMachine.StateChangeListener;
 import io.prestosql.server.BasicQueryInfo;
 import io.prestosql.spi.ErrorCode;
+import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.QueryId;
 import org.joda.time.DateTime;
 
@@ -41,6 +42,8 @@ import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.prestosql.execution.QueryState.FAILED;
 import static io.prestosql.execution.QueryState.PLANNING;
+import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static io.prestosql.util.Failures.toFailure;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -131,15 +134,15 @@ public class LocalDispatchQuery
     public DispatchInfo getDispatchInfo()
     {
         BasicQueryInfo queryInfo = stateMachine.getBasicQueryInfo(Optional.empty());
-        Optional<CoordinatorLocation> coordinator = Optional.empty();
-        if (queryInfo.getState().ordinal() >= PLANNING.ordinal()) {
-            coordinator = Optional.of(coordinatorLocation);
-        }
-        Optional<ExecutionFailureInfo> failureInfo = Optional.empty();
         if (queryInfo.getState() == FAILED) {
-            failureInfo = stateMachine.getFailureInfo();
+            ExecutionFailureInfo failureInfo = stateMachine.getFailureInfo()
+                    .orElseGet(() -> toFailure(new PrestoException(GENERIC_INTERNAL_ERROR, "Query failed for an unknown reason")));
+            return DispatchInfo.failed(failureInfo, queryInfo.getQueryStats().getElapsedTime(), queryInfo.getQueryStats().getQueuedTime());
         }
-        return new DispatchInfo(coordinator, failureInfo, queryInfo.getQueryStats().getElapsedTime(), queryInfo.getQueryStats().getQueuedTime());
+        if (queryInfo.getState().ordinal() >= PLANNING.ordinal()) {
+            return DispatchInfo.dispatched(coordinatorLocation, queryInfo.getQueryStats().getElapsedTime(), queryInfo.getQueryStats().getQueuedTime());
+        }
+        return DispatchInfo.queued(queryInfo.getQueryStats().getElapsedTime(), queryInfo.getQueryStats().getQueuedTime());
     }
 
     @Override
