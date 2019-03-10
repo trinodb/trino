@@ -61,7 +61,8 @@ public final class MemoryPageSourceProvider
                 partNumber,
                 totalParts,
                 columnIndexes,
-                expectedRows);
+                expectedRows,
+                memorySplit.getLimit());
 
         return new FixedPageSource(pages);
     }

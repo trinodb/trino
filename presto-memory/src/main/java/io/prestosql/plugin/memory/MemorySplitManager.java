@@ -25,6 +25,7 @@ import io.prestosql.spi.connector.FixedSplitSource;
 import javax.inject.Inject;
 
 import java.util.List;
+import java.util.OptionalLong;
 
 public final class MemorySplitManager
         implements ConnectorSplitManager
@@ -46,16 +47,22 @@ public final class MemorySplitManager
 
         List<MemoryDataFragment> dataFragments = metadata.getDataFragments(table.getId());
 
+        int totalRows = 0;
+
         ImmutableList.Builder<ConnectorSplit> splits = ImmutableList.builder();
+
         for (MemoryDataFragment dataFragment : dataFragments) {
+            long rows = dataFragment.getRows();
+            totalRows += rows;
+
+            if (table.getLimit().isPresent() && totalRows > table.getLimit().getAsLong()) {
+                rows -= totalRows - table.getLimit().getAsLong();
+                splits.add(new MemorySplit(table.getId(), 0, 1, dataFragment.getHostAddress(), rows, OptionalLong.of(rows)));
+                break;
+            }
+
             for (int i = 0; i < splitsPerNode; i++) {
-                splits.add(
-                        new MemorySplit(
-                                table.getId(),
-                                i,
-                                splitsPerNode,
-                                dataFragment.getHostAddress(),
-                                dataFragment.getRows()));
+                splits.add(new MemorySplit(table.getId(), i, splitsPerNode, dataFragment.getHostAddress(), rows, OptionalLong.empty()));
             }
         }
         return new FixedSplitSource(splits.build());

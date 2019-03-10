@@ -32,6 +32,7 @@ import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
 import io.prestosql.spi.connector.ConnectorTableProperties;
 import io.prestosql.spi.connector.ConnectorViewDefinition;
+import io.prestosql.spi.connector.LimitApplicationResult;
 import io.prestosql.spi.connector.SchemaNotFoundException;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.SchemaTablePrefix;
@@ -47,6 +48,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -347,5 +349,17 @@ public class MemoryMetadata
     public List<MemoryDataFragment> getDataFragments(long tableId)
     {
         return ImmutableList.copyOf(tables.get(tableId).getDataFragments().values());
+    }
+
+    @Override
+    public Optional<LimitApplicationResult<ConnectorTableHandle>> applyLimit(ConnectorTableHandle handle, long limit)
+    {
+        MemoryTableHandle table = (MemoryTableHandle) handle;
+
+        if (!table.getLimit().isPresent() || limit < table.getLimit().getAsLong()) {
+            table = new MemoryTableHandle(table.getId(), OptionalLong.of(limit));
+        }
+
+        return Optional.of(new LimitApplicationResult<>(table, true));
     }
 }

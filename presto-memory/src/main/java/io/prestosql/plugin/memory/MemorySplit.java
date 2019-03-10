@@ -21,6 +21,7 @@ import io.prestosql.spi.connector.ConnectorSplit;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.OptionalLong;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
@@ -34,6 +35,7 @@ public class MemorySplit
     private final int partNumber; // part of the pages on one worker that this splits is responsible
     private final HostAddress address;
     private final long expectedRows;
+    private final OptionalLong limit;
 
     @JsonCreator
     public MemorySplit(
@@ -41,7 +43,8 @@ public class MemorySplit
             @JsonProperty("partNumber") int partNumber,
             @JsonProperty("totalPartsPerWorker") int totalPartsPerWorker,
             @JsonProperty("address") HostAddress address,
-            @JsonProperty("expectedRows") long expectedRows)
+            @JsonProperty("expectedRows") long expectedRows,
+            @JsonProperty("limit") OptionalLong limit)
     {
         checkState(partNumber >= 0, "partNumber must be >= 0");
         checkState(totalPartsPerWorker >= 1, "totalPartsPerWorker must be >= 1");
@@ -52,6 +55,7 @@ public class MemorySplit
         this.totalPartsPerWorker = totalPartsPerWorker;
         this.address = requireNonNull(address, "address is null");
         this.expectedRows = expectedRows;
+        this.limit = limit;
     }
 
     @JsonProperty
@@ -100,6 +104,12 @@ public class MemorySplit
     public long getExpectedRows()
     {
         return expectedRows;
+    }
+
+    @JsonProperty
+    public OptionalLong getLimit()
+    {
+        return limit;
     }
 
     @Override
