@@ -19,7 +19,7 @@ import com.google.inject.multibindings.Multibinder;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.prestosql.plugin.hive.ForCachingHiveMetastore;
 import io.prestosql.plugin.hive.ForRecordingHiveMetastore;
-import io.prestosql.plugin.hive.HiveClientConfig;
+import io.prestosql.plugin.hive.HiveConfig;
 import io.prestosql.plugin.hive.metastore.CachingHiveMetastore;
 import io.prestosql.plugin.hive.metastore.ExtendedHiveMetastore;
 import io.prestosql.plugin.hive.metastore.RecordingHiveMetastore;
@@ -43,7 +43,7 @@ public class ThriftMetastoreModule
 
         binder.bind(HiveMetastore.class).to(ThriftHiveMetastore.class).in(Scopes.SINGLETON);
 
-        if (buildConfigObject(HiveClientConfig.class).getRecordingPath() != null) {
+        if (buildConfigObject(HiveConfig.class).getRecordingPath() != null) {
             binder.bind(ExtendedHiveMetastore.class)
                     .annotatedWith(ForRecordingHiveMetastore.class)
                     .to(BridgingHiveMetastore.class)

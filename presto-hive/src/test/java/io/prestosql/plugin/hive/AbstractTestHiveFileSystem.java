@@ -121,7 +121,7 @@ public abstract class AbstractTestHiveFileSystem
     protected ConnectorPageSourceProvider pageSourceProvider;
 
     private ExecutorService executor;
-    private HiveClientConfig config;
+    private HiveConfig config;
 
     @BeforeClass
     public void setUp()
@@ -140,7 +140,7 @@ public abstract class AbstractTestHiveFileSystem
 
     protected abstract Path getBasePath();
 
-    protected void setup(String host, int port, String databaseName, Function<HiveClientConfig, HdfsConfiguration> hdfsConfigurationProvider, boolean s3SelectPushdownEnabled)
+    protected void setup(String host, int port, String databaseName, Function<HiveConfig, HdfsConfiguration> hdfsConfigurationProvider, boolean s3SelectPushdownEnabled)
     {
         database = databaseName;
         table = new SchemaTableName(database, "presto_test_external_fs");
@@ -148,7 +148,7 @@ public abstract class AbstractTestHiveFileSystem
         String random = UUID.randomUUID().toString().toLowerCase(ENGLISH).replace("-", "");
         temporaryCreateTable = new SchemaTableName(database, "tmp_presto_test_create_" + random);
 
-        config = new HiveClientConfig().setS3SelectPushdownEnabled(s3SelectPushdownEnabled);
+        config = new HiveConfig().setS3SelectPushdownEnabled(s3SelectPushdownEnabled);
 
         String proxy = System.getProperty("hive.metastore.thrift.client.socks-proxy");
         if (proxy != null) {
@@ -450,9 +450,9 @@ public abstract class AbstractTestHiveFileSystem
         private final Path basePath;
         private final HdfsEnvironment hdfsEnvironment;
 
-        public TestingHiveMetastore(ExtendedHiveMetastore delegate, ExecutorService executor, HiveClientConfig hiveClientConfig, Path basePath, HdfsEnvironment hdfsEnvironment)
+        public TestingHiveMetastore(ExtendedHiveMetastore delegate, ExecutorService executor, HiveConfig hiveConfig, Path basePath, HdfsEnvironment hdfsEnvironment)
         {
-            super(delegate, executor, hiveClientConfig);
+            super(delegate, executor, hiveConfig);
             this.basePath = basePath;
             this.hdfsEnvironment = hdfsEnvironment;
         }

@@ -19,7 +19,7 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.units.Duration;
 import io.prestosql.plugin.hive.HiveBasicStatistics;
 import io.prestosql.plugin.hive.HiveBucketProperty;
-import io.prestosql.plugin.hive.HiveClientConfig;
+import io.prestosql.plugin.hive.HiveConfig;
 import io.prestosql.plugin.hive.HiveType;
 import io.prestosql.plugin.hive.PartitionStatistics;
 import io.prestosql.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege;
@@ -105,19 +105,19 @@ public class TestRecordingHiveMetastore
     public void testRecordingHiveMetastore()
             throws IOException
     {
-        HiveClientConfig recordingHiveClientConfig = new HiveClientConfig()
+        HiveConfig recordingHiveConfig = new HiveConfig()
                 .setRecordingPath(File.createTempFile("recording_test", "json").getAbsolutePath())
                 .setRecordingDuration(new Duration(10, TimeUnit.MINUTES));
 
-        RecordingHiveMetastore recordingHiveMetastore = new RecordingHiveMetastore(new TestingHiveMetastore(), recordingHiveClientConfig);
+        RecordingHiveMetastore recordingHiveMetastore = new RecordingHiveMetastore(new TestingHiveMetastore(), recordingHiveConfig);
         validateMetadata(recordingHiveMetastore);
         recordingHiveMetastore.dropDatabase("other_database");
         recordingHiveMetastore.writeRecording();
 
-        HiveClientConfig replayingHiveClientConfig = recordingHiveClientConfig
+        HiveConfig replayingHiveConfig = recordingHiveConfig
                 .setReplay(true);
 
-        recordingHiveMetastore = new RecordingHiveMetastore(new UnimplementedHiveMetastore(), replayingHiveClientConfig);
+        recordingHiveMetastore = new RecordingHiveMetastore(new UnimplementedHiveMetastore(), replayingHiveConfig);
         recordingHiveMetastore.loadRecording();
         validateMetadata(recordingHiveMetastore);
     }

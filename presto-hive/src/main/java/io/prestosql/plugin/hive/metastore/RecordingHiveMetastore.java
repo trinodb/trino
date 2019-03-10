@@ -22,7 +22,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.json.ObjectMapperProvider;
 import io.prestosql.plugin.hive.ForRecordingHiveMetastore;
-import io.prestosql.plugin.hive.HiveClientConfig;
+import io.prestosql.plugin.hive.HiveConfig;
 import io.prestosql.plugin.hive.HiveType;
 import io.prestosql.plugin.hive.PartitionStatistics;
 import io.prestosql.spi.PrestoException;
@@ -76,27 +76,27 @@ public class RecordingHiveMetastore
     private final Cache<HivePrincipal, Set<RoleGrant>> roleGrantsCache;
 
     @Inject
-    public RecordingHiveMetastore(@ForRecordingHiveMetastore ExtendedHiveMetastore delegate, HiveClientConfig hiveClientConfig)
+    public RecordingHiveMetastore(@ForRecordingHiveMetastore ExtendedHiveMetastore delegate, HiveConfig hiveConfig)
             throws IOException
     {
         this.delegate = requireNonNull(delegate, "delegate is null");
-        requireNonNull(hiveClientConfig, "hiveClientConfig is null");
-        this.recordingPath = requireNonNull(hiveClientConfig.getRecordingPath(), "recordingPath is null");
-        this.replay = hiveClientConfig.isReplay();
+        requireNonNull(hiveConfig, "hiveConfig is null");
+        this.recordingPath = requireNonNull(hiveConfig.getRecordingPath(), "recordingPath is null");
+        this.replay = hiveConfig.isReplay();
 
-        databaseCache = createCache(hiveClientConfig);
-        tableCache = createCache(hiveClientConfig);
-        supportedColumnStatisticsCache = createCache(hiveClientConfig);
-        tableStatisticsCache = createCache(hiveClientConfig);
-        partitionStatisticsCache = createCache(hiveClientConfig);
-        allTablesCache = createCache(hiveClientConfig);
-        allViewsCache = createCache(hiveClientConfig);
-        partitionCache = createCache(hiveClientConfig);
-        partitionNamesCache = createCache(hiveClientConfig);
-        partitionNamesByPartsCache = createCache(hiveClientConfig);
-        partitionsByNamesCache = createCache(hiveClientConfig);
-        tablePrivilegesCache = createCache(hiveClientConfig);
-        roleGrantsCache = createCache(hiveClientConfig);
+        databaseCache = createCache(hiveConfig);
+        tableCache = createCache(hiveConfig);
+        supportedColumnStatisticsCache = createCache(hiveConfig);
+        tableStatisticsCache = createCache(hiveConfig);
+        partitionStatisticsCache = createCache(hiveConfig);
+        allTablesCache = createCache(hiveConfig);
+        allViewsCache = createCache(hiveConfig);
+        partitionCache = createCache(hiveConfig);
+        partitionNamesCache = createCache(hiveConfig);
+        partitionNamesByPartsCache = createCache(hiveConfig);
+        partitionsByNamesCache = createCache(hiveConfig);
+        tablePrivilegesCache = createCache(hiveConfig);
+        roleGrantsCache = createCache(hiveConfig);
 
         if (replay) {
             loadRecording();
@@ -126,15 +126,15 @@ public class RecordingHiveMetastore
         roleGrantsCache.putAll(toMap(recording.getRoleGrants()));
     }
 
-    private static <K, V> Cache<K, V> createCache(HiveClientConfig hiveClientConfig)
+    private static <K, V> Cache<K, V> createCache(HiveConfig hiveConfig)
     {
-        if (hiveClientConfig.isReplay()) {
+        if (hiveConfig.isReplay()) {
             return CacheBuilder.newBuilder()
                     .build();
         }
 
         return CacheBuilder.newBuilder()
-                .expireAfterWrite(hiveClientConfig.getRecordingDuration().toMillis(), MILLISECONDS)
+                .expireAfterWrite(hiveConfig.getRecordingDuration().toMillis(), MILLISECONDS)
                 .build();
     }
 

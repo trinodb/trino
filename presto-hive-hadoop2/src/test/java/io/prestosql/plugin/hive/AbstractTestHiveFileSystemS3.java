@@ -44,7 +44,7 @@ public abstract class AbstractTestHiveFileSystemS3
         super.setup(host, port, databaseName, this::createHdfsConfiguration, s3SelectPushdownEnabled);
     }
 
-    HdfsConfiguration createHdfsConfiguration(HiveClientConfig config)
+    HdfsConfiguration createHdfsConfiguration(HiveConfig config)
     {
         ConfigurationInitializer s3Config = new PrestoS3ConfigurationInitializer(new HiveS3Config()
                 .setS3AwsAccessKey(awsAccessKey)

@@ -54,7 +54,7 @@ public class HiveTableProperties
     private final List<PropertyMetadata<?>> tableProperties;
 
     @Inject
-    public HiveTableProperties(TypeManager typeManager, HiveClientConfig config)
+    public HiveTableProperties(TypeManager typeManager, HiveConfig config)
     {
         tableProperties = ImmutableList.of(
                 stringProperty(

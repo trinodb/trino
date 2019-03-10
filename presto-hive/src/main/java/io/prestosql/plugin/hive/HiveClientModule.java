@@ -66,7 +66,7 @@ public class HiveClientModule
         binder.bind(HdfsConfiguration.class).to(HiveHdfsConfiguration.class).in(Scopes.SINGLETON);
         binder.bind(HdfsEnvironment.class).in(Scopes.SINGLETON);
         binder.bind(DirectoryLister.class).to(HadoopDirectoryLister.class).in(Scopes.SINGLETON);
-        configBinder(binder).bindConfig(HiveClientConfig.class);
+        configBinder(binder).bindConfig(HiveConfig.class);
 
         binder.bind(HiveSessionProperties.class).in(Scopes.SINGLETON);
         binder.bind(HiveTableProperties.class).in(Scopes.SINGLETON);
@@ -127,10 +127,10 @@ public class HiveClientModule
     @ForCachingHiveMetastore
     @Singleton
     @Provides
-    public ExecutorService createCachingHiveMetastoreExecutor(HiveConnectorId hiveClientId, HiveClientConfig hiveClientConfig)
+    public ExecutorService createCachingHiveMetastoreExecutor(HiveConnectorId hiveClientId, HiveConfig hiveConfig)
     {
         return newFixedThreadPool(
-                hiveClientConfig.getMaxMetastoreRefreshThreads(),
+                hiveConfig.getMaxMetastoreRefreshThreads(),
                 daemonThreadsNamed("hive-metastore-" + hiveClientId + "-%s"));
     }
 

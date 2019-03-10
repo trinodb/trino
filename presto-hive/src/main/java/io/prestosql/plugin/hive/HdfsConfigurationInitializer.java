@@ -67,13 +67,13 @@ public class HdfsConfigurationInitializer
     private int textMaxLineLength;
 
     @VisibleForTesting
-    public HdfsConfigurationInitializer(HiveClientConfig config)
+    public HdfsConfigurationInitializer(HiveConfig config)
     {
         this(config, ImmutableSet.of());
     }
 
     @Inject
-    public HdfsConfigurationInitializer(HiveClientConfig config, Set<ConfigurationInitializer> configurationInitializers)
+    public HdfsConfigurationInitializer(HiveConfig config, Set<ConfigurationInitializer> configurationInitializers)
     {
         requireNonNull(config, "config is null");
         checkArgument(config.getDfsTimeout().toMillis() >= 1, "dfsTimeout must be at least 1 ms");

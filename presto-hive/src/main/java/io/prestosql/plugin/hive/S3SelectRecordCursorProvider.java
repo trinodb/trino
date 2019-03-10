@@ -42,17 +42,17 @@ public class S3SelectRecordCursorProvider
 {
     private static final Set<String> CSV_SERDES = ImmutableSet.of(LazySimpleSerDe.class.getName());
     private final HdfsEnvironment hdfsEnvironment;
-    private final HiveClientConfig clientConfig;
+    private final HiveConfig hiveConfig;
     private final PrestoS3ClientFactory s3ClientFactory;
 
     @Inject
     public S3SelectRecordCursorProvider(
             HdfsEnvironment hdfsEnvironment,
-            HiveClientConfig clientConfig,
+            HiveConfig hiveConfig,
             PrestoS3ClientFactory s3ClientFactory)
     {
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
-        this.clientConfig = requireNonNull(clientConfig, "clientConfig is null");
+        this.hiveConfig = requireNonNull(hiveConfig, "hiveConfig is null");
         this.s3ClientFactory = requireNonNull(s3ClientFactory, "s3ClientFactory is null");
     }
 
@@ -86,7 +86,7 @@ public class S3SelectRecordCursorProvider
         if (CSV_SERDES.contains(serdeName)) {
             IonSqlQueryBuilder queryBuilder = new IonSqlQueryBuilder(typeManager);
             String ionSqlQuery = queryBuilder.buildSql(columns, effectivePredicate);
-            S3SelectLineRecordReader recordReader = new S3SelectCsvRecordReader(configuration, clientConfig, path, start, length, schema, ionSqlQuery, s3ClientFactory);
+            S3SelectLineRecordReader recordReader = new S3SelectCsvRecordReader(configuration, hiveConfig, path, start, length, schema, ionSqlQuery, s3ClientFactory);
             return Optional.of(new S3SelectRecordCursor(configuration, path, recordReader, length, schema, columns, hiveStorageTimeZone, typeManager));
         }
 

@@ -14,7 +14,7 @@
 package io.prestosql.plugin.hive.metastore.thrift;
 
 import com.google.common.net.HostAndPort;
-import io.prestosql.plugin.hive.HiveClientConfig;
+import io.prestosql.plugin.hive.HiveConfig;
 import io.prestosql.plugin.hive.authentication.NoHiveMetastoreAuthentication;
 import org.apache.thrift.TException;
 
@@ -23,10 +23,10 @@ import static java.util.Objects.requireNonNull;
 public class TestingMetastoreLocator
         implements MetastoreLocator
 {
-    private final HiveClientConfig config;
+    private final HiveConfig config;
     private final HostAndPort address;
 
-    public TestingMetastoreLocator(HiveClientConfig config, String host, int port)
+    public TestingMetastoreLocator(HiveConfig config, String host, int port)
     {
         this.config = requireNonNull(config, "config is null");
         this.address = HostAndPort.fromParts(requireNonNull(host, "host is null"), port);

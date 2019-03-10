@@ -252,7 +252,7 @@ public class TestOrcPageSourceMemoryTracking
             throws Exception
     {
         int maxReadBytes = 1_000;
-        HiveClientConfig config = new HiveClientConfig();
+        HiveConfig config = new HiveConfig();
         config.setOrcMaxReadBlockSize(new DataSize(maxReadBytes, BYTE));
         ConnectorSession session = new TestingConnectorSession(new HiveSessionProperties(config, new OrcFileWriterConfig(), new ParquetFileWriterConfig()).getSessionProperties());
         FileFormatDataSourceStats stats = new FileFormatDataSourceStats();

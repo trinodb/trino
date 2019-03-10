@@ -93,7 +93,7 @@ public class HiveSplitManager
 
     @Inject
     public HiveSplitManager(
-            HiveClientConfig hiveClientConfig,
+            HiveConfig hiveConfig,
             Function<HiveTransactionHandle, SemiTransactionalHiveMetastore> metastoreProvider,
             NamenodeStats namenodeStats,
             HdfsEnvironment hdfsEnvironment,
@@ -106,16 +106,16 @@ public class HiveSplitManager
                 namenodeStats,
                 hdfsEnvironment,
                 directoryLister,
-                new BoundedExecutor(executorService, hiveClientConfig.getMaxSplitIteratorThreads()),
+                new BoundedExecutor(executorService, hiveConfig.getMaxSplitIteratorThreads()),
                 coercionPolicy,
                 new CounterStat(),
-                hiveClientConfig.getMaxOutstandingSplits(),
-                hiveClientConfig.getMaxOutstandingSplitsSize(),
-                hiveClientConfig.getMinPartitionBatchSize(),
-                hiveClientConfig.getMaxPartitionBatchSize(),
-                hiveClientConfig.getMaxInitialSplits(),
-                hiveClientConfig.getSplitLoaderConcurrency(),
-                hiveClientConfig.getRecursiveDirWalkerEnabled());
+                hiveConfig.getMaxOutstandingSplits(),
+                hiveConfig.getMaxOutstandingSplitsSize(),
+                hiveConfig.getMinPartitionBatchSize(),
+                hiveConfig.getMaxPartitionBatchSize(),
+                hiveConfig.getMaxInitialSplits(),
+                hiveConfig.getSplitLoaderConcurrency(),
+                hiveConfig.getRecursiveDirWalkerEnabled());
     }
 
     public HiveSplitManager(

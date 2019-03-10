@@ -17,7 +17,7 @@ import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.model.SelectObjectContentEventVisitor;
 import com.amazonaws.services.s3.model.SelectObjectContentRequest;
 import com.amazonaws.services.s3.model.SelectObjectContentResult;
-import io.prestosql.plugin.hive.HiveClientConfig;
+import io.prestosql.plugin.hive.HiveConfig;
 import org.apache.hadoop.conf.Configuration;
 
 import java.io.Closeable;
@@ -35,12 +35,12 @@ public class PrestoS3SelectClient
     private SelectObjectContentRequest selectObjectRequest;
     private SelectObjectContentResult selectObjectContentResult;
 
-    public PrestoS3SelectClient(Configuration config, HiveClientConfig clientConfig, PrestoS3ClientFactory s3ClientFactory)
+    public PrestoS3SelectClient(Configuration configuration, HiveConfig hiveConfig, PrestoS3ClientFactory s3ClientFactory)
     {
-        requireNonNull(config, "config is null");
-        requireNonNull(clientConfig, "clientConfig is null");
+        requireNonNull(configuration, "configuration is null");
+        requireNonNull(hiveConfig, "hiveConfig is null");
         requireNonNull(s3ClientFactory, "s3ClientFactory is null");
-        this.s3Client = s3ClientFactory.getS3Client(config, clientConfig);
+        this.s3Client = s3ClientFactory.getS3Client(configuration, hiveConfig);
     }
 
     public InputStream getRecordsContent(SelectObjectContentRequest selectObjectRequest)

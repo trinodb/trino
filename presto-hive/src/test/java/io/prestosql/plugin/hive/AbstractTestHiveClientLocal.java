@@ -64,7 +64,7 @@ public abstract class AbstractTestHiveClientLocal
                 .setOwnerType(PrincipalType.ROLE)
                 .build());
 
-        HiveClientConfig hiveConfig = new HiveClientConfig()
+        HiveConfig hiveConfig = new HiveConfig()
                 .setTimeZone("America/Los_Angeles");
 
         setup(testDbName, hiveConfig, metastore);

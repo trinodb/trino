@@ -23,7 +23,7 @@ import com.google.common.collect.SetMultimap;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.units.Duration;
 import io.prestosql.plugin.hive.ForCachingHiveMetastore;
-import io.prestosql.plugin.hive.HiveClientConfig;
+import io.prestosql.plugin.hive.HiveConfig;
 import io.prestosql.plugin.hive.HiveType;
 import io.prestosql.plugin.hive.PartitionStatistics;
 import io.prestosql.spi.PrestoException;
@@ -87,14 +87,14 @@ public class CachingHiveMetastore
     private final LoadingCache<HivePrincipal, Set<RoleGrant>> roleGrantsCache;
 
     @Inject
-    public CachingHiveMetastore(@ForCachingHiveMetastore ExtendedHiveMetastore delegate, @ForCachingHiveMetastore ExecutorService executor, HiveClientConfig hiveClientConfig)
+    public CachingHiveMetastore(@ForCachingHiveMetastore ExtendedHiveMetastore delegate, @ForCachingHiveMetastore ExecutorService executor, HiveConfig hiveConfig)
     {
         this(
                 delegate,
                 executor,
-                hiveClientConfig.getMetastoreCacheTtl(),
-                hiveClientConfig.getMetastoreRefreshInterval(),
-                hiveClientConfig.getMetastoreCacheMaximumSize());
+                hiveConfig.getMetastoreCacheTtl(),
+                hiveConfig.getMetastoreRefreshInterval(),
+                hiveConfig.getMetastoreCacheMaximumSize());
     }
 
     public CachingHiveMetastore(ExtendedHiveMetastore delegate, ExecutorService executor, Duration cacheTtl, Duration refreshInterval, long maximumSize)
