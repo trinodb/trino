@@ -67,8 +67,8 @@ import static org.apache.hadoop.hive.metastore.TableType.EXTERNAL_TABLE;
 import static org.apache.hadoop.hive.metastore.TableType.MANAGED_TABLE;
 import static org.apache.hadoop.hive.metastore.TableType.VIRTUAL_VIEW;
 
-public class InMemoryHiveMetastore
-        implements HiveMetastore
+public class InMemoryThriftMetastore
+        implements ThriftMetastore
 {
     @GuardedBy("this")
     private final Map<String, Database> databases = new HashMap<>();
@@ -87,7 +87,7 @@ public class InMemoryHiveMetastore
 
     private final File baseDirectory;
 
-    public InMemoryHiveMetastore(File baseDirectory)
+    public InMemoryThriftMetastore(File baseDirectory)
     {
         this.baseDirectory = requireNonNull(baseDirectory, "baseDirectory is null");
         checkArgument(!baseDirectory.exists(), "Base directory already exists");
@@ -223,7 +223,7 @@ public class InMemoryHiveMetastore
         }
     }
 
-    private static List<String> listAllDataPaths(HiveMetastore metastore, String schemaName, String tableName)
+    private static List<String> listAllDataPaths(ThriftMetastore metastore, String schemaName, String tableName)
     {
         ImmutableList.Builder<String> locations = ImmutableList.builder();
         Table table = metastore.getTable(schemaName, tableName).get();

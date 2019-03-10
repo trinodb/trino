@@ -36,7 +36,7 @@ import java.util.function.Function;
 
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 
-public interface HiveMetastore
+public interface ThriftMetastore
 {
     void createDatabase(Database database);
 

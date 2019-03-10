@@ -15,7 +15,7 @@ package io.prestosql.plugin.hive;
 
 import io.prestosql.plugin.hive.metastore.ExtendedHiveMetastore;
 import io.prestosql.plugin.hive.metastore.thrift.BridgingHiveMetastore;
-import io.prestosql.plugin.hive.metastore.thrift.InMemoryHiveMetastore;
+import io.prestosql.plugin.hive.metastore.thrift.InMemoryThriftMetastore;
 
 import java.io.File;
 
@@ -26,7 +26,7 @@ public class TestHiveInMemoryMetastore
     protected ExtendedHiveMetastore createMetastore(File tempDir)
     {
         File baseDir = new File(tempDir, "metastore");
-        InMemoryHiveMetastore hiveMetastore = new InMemoryHiveMetastore(baseDir);
+        InMemoryThriftMetastore hiveMetastore = new InMemoryThriftMetastore(baseDir);
         return new BridgingHiveMetastore(hiveMetastore);
     }
 
