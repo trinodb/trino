@@ -78,7 +78,7 @@ public class SqlQueryManager
     private final ScheduledExecutorService queryManagementExecutor;
     private final ThreadPoolExecutorMBean queryManagementExecutorMBean;
 
-    private final SqlQueryManagerStats stats = new SqlQueryManagerStats();
+    private final QueryManagerStats stats = new QueryManagerStats();
 
     @Inject
     public SqlQueryManager(ClusterMemoryManager memoryManager, QueryMonitor queryMonitor, EmbedVersion embedVersion, QueryManagerConfig queryManagerConfig)
@@ -273,7 +273,7 @@ public class SqlQueryManager
     @Override
     @Managed
     @Flatten
-    public SqlQueryManagerStats getStats()
+    public QueryManagerStats getStats()
     {
         return stats;
     }
