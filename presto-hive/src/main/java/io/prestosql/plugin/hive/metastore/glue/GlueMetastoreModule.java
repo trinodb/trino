@@ -19,7 +19,7 @@ import com.google.inject.multibindings.Multibinder;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.prestosql.plugin.hive.ForRecordingHiveMetastore;
 import io.prestosql.plugin.hive.HiveConfig;
-import io.prestosql.plugin.hive.metastore.ExtendedHiveMetastore;
+import io.prestosql.plugin.hive.metastore.HiveMetastore;
 import io.prestosql.plugin.hive.metastore.RecordingHiveMetastore;
 import io.prestosql.plugin.hive.metastore.WriteHiveMetastoreRecordingProcedure;
 import io.prestosql.spi.procedure.Procedure;
@@ -37,14 +37,14 @@ public class GlueMetastoreModule
         configBinder(binder).bindConfig(GlueHiveMetastoreConfig.class);
 
         if (buildConfigObject(HiveConfig.class).getRecordingPath() != null) {
-            binder.bind(ExtendedHiveMetastore.class)
+            binder.bind(HiveMetastore.class)
                     .annotatedWith(ForRecordingHiveMetastore.class)
                     .to(GlueHiveMetastore.class)
                     .in(Scopes.SINGLETON);
             binder.bind(GlueHiveMetastore.class).in(Scopes.SINGLETON);
             newExporter(binder).export(GlueHiveMetastore.class).withGeneratedName();
 
-            binder.bind(ExtendedHiveMetastore.class).to(RecordingHiveMetastore.class).in(Scopes.SINGLETON);
+            binder.bind(HiveMetastore.class).to(RecordingHiveMetastore.class).in(Scopes.SINGLETON);
             binder.bind(RecordingHiveMetastore.class).in(Scopes.SINGLETON);
             newExporter(binder).export(RecordingHiveMetastore.class).withGeneratedName();
 
@@ -52,8 +52,8 @@ public class GlueMetastoreModule
             procedures.addBinding().toProvider(WriteHiveMetastoreRecordingProcedure.class).in(Scopes.SINGLETON);
         }
         else {
-            binder.bind(ExtendedHiveMetastore.class).to(GlueHiveMetastore.class).in(Scopes.SINGLETON);
-            newExporter(binder).export(ExtendedHiveMetastore.class)
+            binder.bind(HiveMetastore.class).to(GlueHiveMetastore.class).in(Scopes.SINGLETON);
+            newExporter(binder).export(HiveMetastore.class)
                     .as(generator -> generator.generatedNameOf(GlueHiveMetastore.class));
         }
     }

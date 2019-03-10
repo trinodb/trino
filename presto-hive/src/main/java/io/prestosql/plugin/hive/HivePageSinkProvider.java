@@ -19,7 +19,7 @@ import com.google.common.util.concurrent.ListeningExecutorService;
 import io.airlift.event.client.EventClient;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.DataSize;
-import io.prestosql.plugin.hive.metastore.ExtendedHiveMetastore;
+import io.prestosql.plugin.hive.metastore.HiveMetastore;
 import io.prestosql.plugin.hive.metastore.HivePageSinkMetadataProvider;
 import io.prestosql.plugin.hive.metastore.SortingColumn;
 import io.prestosql.spi.NodeManager;
@@ -50,7 +50,7 @@ public class HivePageSinkProvider
     private final Set<HiveFileWriterFactory> fileWriterFactories;
     private final HdfsEnvironment hdfsEnvironment;
     private final PageSorter pageSorter;
-    private final ExtendedHiveMetastore metastore;
+    private final HiveMetastore metastore;
     private final PageIndexerFactory pageIndexerFactory;
     private final TypeManager typeManager;
     private final int maxOpenPartitions;
@@ -71,7 +71,7 @@ public class HivePageSinkProvider
             Set<HiveFileWriterFactory> fileWriterFactories,
             HdfsEnvironment hdfsEnvironment,
             PageSorter pageSorter,
-            ExtendedHiveMetastore metastore,
+            HiveMetastore metastore,
             PageIndexerFactory pageIndexerFactory,
             TypeManager typeManager,
             HiveConfig config,

@@ -15,7 +15,7 @@ package io.prestosql.plugin.hive;
 
 import com.google.common.collect.ImmutableSet;
 import io.prestosql.plugin.hive.authentication.NoHdfsAuthentication;
-import io.prestosql.plugin.hive.metastore.ExtendedHiveMetastore;
+import io.prestosql.plugin.hive.metastore.HiveMetastore;
 import io.prestosql.plugin.hive.metastore.file.FileHiveMetastore;
 import org.testng.SkipException;
 
@@ -25,7 +25,7 @@ public class TestHiveFileMetastore
         extends AbstractTestHiveLocal
 {
     @Override
-    protected ExtendedHiveMetastore createMetastore(File tempDir)
+    protected HiveMetastore createMetastore(File tempDir)
     {
         File baseDir = new File(tempDir, "metastore");
         HiveConfig hiveConfig = new HiveConfig();

@@ -25,7 +25,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 
-public interface ExtendedHiveMetastore
+public interface HiveMetastore
 {
     Optional<Database> getDatabase(String databaseName);
 

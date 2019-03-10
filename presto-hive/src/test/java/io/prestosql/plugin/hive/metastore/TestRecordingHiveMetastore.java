@@ -122,7 +122,7 @@ public class TestRecordingHiveMetastore
         validateMetadata(recordingHiveMetastore);
     }
 
-    private void validateMetadata(ExtendedHiveMetastore hiveMetastore)
+    private void validateMetadata(HiveMetastore hiveMetastore)
     {
         assertEquals(hiveMetastore.getDatabase("database"), Optional.of(DATABASE));
         assertEquals(hiveMetastore.getAllDatabases(), ImmutableList.of("database"));

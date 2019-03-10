@@ -52,9 +52,9 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class RecordingHiveMetastore
-        implements ExtendedHiveMetastore
+        implements HiveMetastore
 {
-    private final ExtendedHiveMetastore delegate;
+    private final HiveMetastore delegate;
     private final String recordingPath;
     private final boolean replay;
 
@@ -76,7 +76,7 @@ public class RecordingHiveMetastore
     private final Cache<HivePrincipal, Set<RoleGrant>> roleGrantsCache;
 
     @Inject
-    public RecordingHiveMetastore(@ForRecordingHiveMetastore ExtendedHiveMetastore delegate, HiveConfig hiveConfig)
+    public RecordingHiveMetastore(@ForRecordingHiveMetastore HiveMetastore delegate, HiveConfig hiveConfig)
             throws IOException
     {
         this.delegate = requireNonNull(delegate, "delegate is null");

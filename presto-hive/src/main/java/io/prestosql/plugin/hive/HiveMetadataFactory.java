@@ -17,7 +17,7 @@ import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.prestosql.plugin.hive.metastore.CachingHiveMetastore;
-import io.prestosql.plugin.hive.metastore.ExtendedHiveMetastore;
+import io.prestosql.plugin.hive.metastore.HiveMetastore;
 import io.prestosql.plugin.hive.metastore.SemiTransactionalHiveMetastore;
 import io.prestosql.plugin.hive.statistics.MetastoreHiveStatisticsProvider;
 import io.prestosql.spi.type.TypeManager;
@@ -42,7 +42,7 @@ public class HiveMetadataFactory
     private final boolean createsOfNonManagedTablesEnabled;
     private final long perTransactionCacheMaximumSize;
     private final int maxPartitions;
-    private final ExtendedHiveMetastore metastore;
+    private final HiveMetastore metastore;
     private final HdfsEnvironment hdfsEnvironment;
     private final HivePartitionManager partitionManager;
     private final DateTimeZone timeZone;
@@ -57,7 +57,7 @@ public class HiveMetadataFactory
     @SuppressWarnings("deprecation")
     public HiveMetadataFactory(
             HiveConfig hiveConfig,
-            ExtendedHiveMetastore metastore,
+            HiveMetastore metastore,
             HdfsEnvironment hdfsEnvironment,
             HivePartitionManager partitionManager,
             @ForHive ExecutorService executorService,
@@ -89,7 +89,7 @@ public class HiveMetadataFactory
     }
 
     public HiveMetadataFactory(
-            ExtendedHiveMetastore metastore,
+            HiveMetastore metastore,
             HdfsEnvironment hdfsEnvironment,
             HivePartitionManager partitionManager,
             DateTimeZone timeZone,

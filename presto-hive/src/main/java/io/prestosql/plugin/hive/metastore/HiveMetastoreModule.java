@@ -27,9 +27,9 @@ import static io.airlift.configuration.ConditionalModule.installModuleIf;
 public class HiveMetastoreModule
         extends AbstractConfigurationAwareModule
 {
-    private final Optional<ExtendedHiveMetastore> metastore;
+    private final Optional<HiveMetastore> metastore;
 
-    public HiveMetastoreModule(Optional<ExtendedHiveMetastore> metastore)
+    public HiveMetastoreModule(Optional<HiveMetastore> metastore)
     {
         this.metastore = metastore;
     }
@@ -38,7 +38,7 @@ public class HiveMetastoreModule
     protected void setup(Binder binder)
     {
         if (metastore.isPresent()) {
-            binder.bind(ExtendedHiveMetastore.class).toInstance(metastore.get());
+            binder.bind(HiveMetastore.class).toInstance(metastore.get());
         }
         else {
             bindMetastoreModule("thrift", new ThriftMetastoreModule());
