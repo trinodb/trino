@@ -540,7 +540,6 @@ public abstract class AbstractTestHiveClient
                             .put("t_long_decimal", createDecimalColumnStatistics(Optional.empty(), Optional.empty(), OptionalLong.of(2), OptionalLong.of(1)))
                             .build());
 
-    protected String clientId;
     protected String database;
     protected SchemaTableName tablePartitionFormat;
     protected SchemaTableName tableUnpartitioned;
@@ -556,7 +555,6 @@ public abstract class AbstractTestHiveClient
     protected SchemaTableName tablePartitionSchemaChangeNonCanonical;
     protected SchemaTableName tableBucketEvolution;
 
-    protected String invalidClientId;
     protected ConnectorTableHandle invalidTableHandle;
 
     protected ColumnHandle dsColumn;
@@ -599,9 +597,8 @@ public abstract class AbstractTestHiveClient
         }
     }
 
-    protected void setupHive(String connectorId, String databaseName, String timeZoneId)
+    protected void setupHive(String databaseName, String timeZoneId)
     {
-        clientId = connectorId;
         database = databaseName;
         tablePartitionFormat = new SchemaTableName(database, "presto_test_partition_format");
         tableUnpartitioned = new SchemaTableName(database, "presto_test_unpartitioned");
@@ -617,7 +614,6 @@ public abstract class AbstractTestHiveClient
         tablePartitionSchemaChangeNonCanonical = new SchemaTableName(database, "presto_test_partition_schema_change_non_canonical");
         tableBucketEvolution = new SchemaTableName(database, "presto_test_bucket_evolution");
 
-        invalidClientId = "hive";
         invalidTableHandle = new HiveTableHandle(database, INVALID_TABLE);
         invalidTableLayoutHandle = new HiveTableLayoutHandle(
                 invalidTable,
@@ -721,9 +717,7 @@ public abstract class AbstractTestHiveClient
 
     protected final void setup(String databaseName, HiveClientConfig hiveClientConfig, ExtendedHiveMetastore hiveMetastore)
     {
-        HiveConnectorId connectorId = new HiveConnectorId("hive-test");
-
-        setupHive(connectorId.toString(), databaseName, hiveClientConfig.getTimeZone());
+        setupHive(databaseName, hiveClientConfig.getTimeZone());
 
         metastoreClient = hiveMetastore;
         HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(new HdfsConfigurationInitializer(hiveClientConfig), ImmutableSet.of());
@@ -1191,7 +1185,6 @@ public abstract class AbstractTestHiveClient
         }
     }
 
-    @SuppressWarnings({"ValueOfIncrementOrDecrementUsed", "UnusedAssignment"})
     @Test
     public void testGetTableSchemaPartitionFormat()
     {
