@@ -21,7 +21,7 @@ import io.prestosql.plugin.hive.HdfsEnvironment;
 import io.prestosql.plugin.hive.HiveConfig;
 import io.prestosql.plugin.hive.HiveHdfsConfiguration;
 import io.prestosql.plugin.hive.authentication.NoHdfsAuthentication;
-import io.prestosql.plugin.hive.metastore.ExtendedHiveMetastore;
+import io.prestosql.plugin.hive.metastore.HiveMetastore;
 
 import java.io.File;
 
@@ -42,7 +42,7 @@ public class TestHiveGlueMetastore
      * on ways to set your AWS credentials which will be needed to run this test.
      */
     @Override
-    protected ExtendedHiveMetastore createMetastore(File tempDir)
+    protected HiveMetastore createMetastore(File tempDir)
     {
         HiveConfig hiveConfig = new HiveConfig();
         HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(new HdfsConfigurationInitializer(hiveConfig), ImmutableSet.of());

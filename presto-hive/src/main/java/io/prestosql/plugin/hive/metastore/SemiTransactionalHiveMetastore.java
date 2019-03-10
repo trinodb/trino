@@ -95,7 +95,7 @@ public class SemiTransactionalHiveMetastore
     private static final Logger log = Logger.get(SemiTransactionalHiveMetastore.class);
     private static final int PARTITION_COMMIT_BATCH_SIZE = 8;
 
-    private final ExtendedHiveMetastore delegate;
+    private final HiveMetastore delegate;
     private final HdfsEnvironment hdfsEnvironment;
     private final Executor renameExecutor;
     private final boolean skipDeletionForAlter;
@@ -113,7 +113,7 @@ public class SemiTransactionalHiveMetastore
     private State state = State.EMPTY;
     private boolean throwOnCleanupFailure;
 
-    public SemiTransactionalHiveMetastore(HdfsEnvironment hdfsEnvironment, ExtendedHiveMetastore delegate, Executor renameExecutor, boolean skipDeletionForAlter, boolean skipTargetCleanupOnRollback)
+    public SemiTransactionalHiveMetastore(HdfsEnvironment hdfsEnvironment, HiveMetastore delegate, Executor renameExecutor, boolean skipDeletionForAlter, boolean skipTargetCleanupOnRollback)
     {
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.delegate = requireNonNull(delegate, "delegate is null");
@@ -2324,7 +2324,7 @@ public class SemiTransactionalHiveMetastore
             return format("add table %s.%s", newTable.getDatabaseName(), newTable.getTableName());
         }
 
-        public void run(ExtendedHiveMetastore metastore)
+        public void run(HiveMetastore metastore)
         {
             boolean done = false;
             try {
@@ -2388,7 +2388,7 @@ public class SemiTransactionalHiveMetastore
             return true;
         }
 
-        public void undo(ExtendedHiveMetastore metastore)
+        public void undo(HiveMetastore metastore)
         {
             if (!tableCreated) {
                 return;
@@ -2421,13 +2421,13 @@ public class SemiTransactionalHiveMetastore
                     newPartition.getPartition().getValues());
         }
 
-        public void run(ExtendedHiveMetastore metastore)
+        public void run(HiveMetastore metastore)
         {
             undo = true;
             metastore.alterPartition(newPartition.getPartition().getDatabaseName(), newPartition.getPartition().getTableName(), newPartition);
         }
 
-        public void undo(ExtendedHiveMetastore metastore)
+        public void undo(HiveMetastore metastore)
         {
             if (!undo) {
                 return;
@@ -2453,7 +2453,7 @@ public class SemiTransactionalHiveMetastore
             this.merge = merge;
         }
 
-        public void run(ExtendedHiveMetastore metastore)
+        public void run(HiveMetastore metastore)
         {
             if (partitionName.isPresent()) {
                 metastore.updatePartitionStatistics(tableName.getSchemaName(), tableName.getTableName(), partitionName.get(), this::updateStatistics);
@@ -2464,7 +2464,7 @@ public class SemiTransactionalHiveMetastore
             done = true;
         }
 
-        public void undo(ExtendedHiveMetastore metastore)
+        public void undo(HiveMetastore metastore)
         {
             if (!done) {
                 return;
@@ -2500,12 +2500,12 @@ public class SemiTransactionalHiveMetastore
     {
         private final String schemaName;
         private final String tableName;
-        private final ExtendedHiveMetastore metastore;
+        private final HiveMetastore metastore;
         private final int batchSize;
         private final List<PartitionWithStatistics> partitions;
         private List<List<String>> createdPartitionValues = new ArrayList<>();
 
-        public PartitionAdder(String schemaName, String tableName, ExtendedHiveMetastore metastore, int batchSize)
+        public PartitionAdder(String schemaName, String tableName, HiveMetastore metastore, int batchSize)
         {
             this.schemaName = schemaName;
             this.tableName = tableName;
@@ -2622,6 +2622,6 @@ public class SemiTransactionalHiveMetastore
 
     private interface ExclusiveOperation
     {
-        void execute(ExtendedHiveMetastore delegate, HdfsEnvironment hdfsEnvironment);
+        void execute(HiveMetastore delegate, HdfsEnvironment hdfsEnvironment);
     }
 }

@@ -26,7 +26,7 @@ import io.airlift.tpch.TpchColumnType;
 import io.airlift.tpch.TpchColumnTypes;
 import io.prestosql.GroupByHashPageIndexerFactory;
 import io.prestosql.metadata.MetadataManager;
-import io.prestosql.plugin.hive.metastore.ExtendedHiveMetastore;
+import io.prestosql.plugin.hive.metastore.HiveMetastore;
 import io.prestosql.plugin.hive.metastore.HivePageSinkMetadata;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.PageBuilder;
@@ -99,7 +99,7 @@ public class TestHivePageSink
         HiveConfig config = new HiveConfig();
         File tempDir = Files.createTempDir();
         try {
-            ExtendedHiveMetastore metastore = createTestingFileHiveMetastore(new File(tempDir, "metastore"));
+            HiveMetastore metastore = createTestingFileHiveMetastore(new File(tempDir, "metastore"));
             for (HiveStorageFormat format : HiveStorageFormat.values()) {
                 config.setHiveStorageFormat(format);
                 config.setHiveCompressionCodec(NONE);
@@ -126,7 +126,7 @@ public class TestHivePageSink
         return tempDir.getAbsolutePath() + "/" + config.getHiveStorageFormat().name() + "." + config.getHiveCompressionCodec().name();
     }
 
-    private static long writeTestFile(HiveConfig config, ExtendedHiveMetastore metastore, String outputPath)
+    private static long writeTestFile(HiveConfig config, HiveMetastore metastore, String outputPath)
     {
         HiveTransactionHandle transaction = new HiveTransactionHandle();
         HiveWriterStats stats = new HiveWriterStats();
@@ -233,7 +233,7 @@ public class TestHivePageSink
         return provider.createPageSource(transaction, getSession(config), split, ImmutableList.copyOf(getColumnHandles()));
     }
 
-    private static ConnectorPageSink createPageSink(HiveTransactionHandle transaction, HiveConfig config, ExtendedHiveMetastore metastore, Path outputPath, HiveWriterStats stats)
+    private static ConnectorPageSink createPageSink(HiveTransactionHandle transaction, HiveConfig config, HiveMetastore metastore, Path outputPath, HiveWriterStats stats)
     {
         LocationHandle locationHandle = new LocationHandle(outputPath, outputPath, false, DIRECT_TO_TARGET_NEW_DIRECTORY);
         HiveOutputTableHandle handle = new HiveOutputTableHandle(

@@ -246,7 +246,7 @@ public class MetastoreUtil
         }
     }
 
-    public static void verifyCanDropColumn(ExtendedHiveMetastore metastore, String databaseName, String tableName, String columnName)
+    public static void verifyCanDropColumn(HiveMetastore metastore, String databaseName, String tableName, String columnName)
     {
         Table table = metastore.getTable(databaseName, tableName)
                 .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(databaseName, tableName)));

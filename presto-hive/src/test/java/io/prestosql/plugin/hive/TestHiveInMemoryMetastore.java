@@ -13,7 +13,7 @@
  */
 package io.prestosql.plugin.hive;
 
-import io.prestosql.plugin.hive.metastore.ExtendedHiveMetastore;
+import io.prestosql.plugin.hive.metastore.HiveMetastore;
 import io.prestosql.plugin.hive.metastore.thrift.BridgingHiveMetastore;
 import io.prestosql.plugin.hive.metastore.thrift.InMemoryThriftMetastore;
 
@@ -23,7 +23,7 @@ public class TestHiveInMemoryMetastore
         extends AbstractTestHiveLocal
 {
     @Override
-    protected ExtendedHiveMetastore createMetastore(File tempDir)
+    protected HiveMetastore createMetastore(File tempDir)
     {
         File baseDir = new File(tempDir, "metastore");
         InMemoryThriftMetastore hiveMetastore = new InMemoryThriftMetastore(baseDir);

@@ -18,7 +18,7 @@ import com.google.common.io.Files;
 import io.prestosql.Session;
 import io.prestosql.benchmark.BenchmarkSuite;
 import io.prestosql.plugin.hive.metastore.Database;
-import io.prestosql.plugin.hive.metastore.ExtendedHiveMetastore;
+import io.prestosql.plugin.hive.metastore.HiveMetastore;
 import io.prestosql.plugin.tpch.TpchConnectorFactory;
 import io.prestosql.spi.security.PrincipalType;
 import io.prestosql.testing.LocalQueryRunner;
@@ -67,7 +67,7 @@ public final class HiveBenchmarkQueryRunner
 
         // add hive
         File hiveDir = new File(tempDir, "hive_data");
-        ExtendedHiveMetastore metastore = createTestingFileHiveMetastore(hiveDir);
+        HiveMetastore metastore = createTestingFileHiveMetastore(hiveDir);
         metastore.createDatabase(Database.builder()
                 .setDatabaseName("tpch")
                 .setOwnerName("public")

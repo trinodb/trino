@@ -69,9 +69,9 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
  */
 @ThreadSafe
 public class CachingHiveMetastore
-        implements ExtendedHiveMetastore
+        implements HiveMetastore
 {
-    protected final ExtendedHiveMetastore delegate;
+    protected final HiveMetastore delegate;
     private final LoadingCache<String, Optional<Database>> databaseCache;
     private final LoadingCache<String, List<String>> databaseNamesCache;
     private final LoadingCache<HiveTableName, Optional<Table>> tableCache;
@@ -87,7 +87,7 @@ public class CachingHiveMetastore
     private final LoadingCache<HivePrincipal, Set<RoleGrant>> roleGrantsCache;
 
     @Inject
-    public CachingHiveMetastore(@ForCachingHiveMetastore ExtendedHiveMetastore delegate, @ForCachingHiveMetastore ExecutorService executor, HiveConfig hiveConfig)
+    public CachingHiveMetastore(@ForCachingHiveMetastore HiveMetastore delegate, @ForCachingHiveMetastore ExecutorService executor, HiveConfig hiveConfig)
     {
         this(
                 delegate,
@@ -97,7 +97,7 @@ public class CachingHiveMetastore
                 hiveConfig.getMetastoreCacheMaximumSize());
     }
 
-    public CachingHiveMetastore(ExtendedHiveMetastore delegate, ExecutorService executor, Duration cacheTtl, Duration refreshInterval, long maximumSize)
+    public CachingHiveMetastore(HiveMetastore delegate, ExecutorService executor, Duration cacheTtl, Duration refreshInterval, long maximumSize)
     {
         this(
                 delegate,
@@ -107,7 +107,7 @@ public class CachingHiveMetastore
                 maximumSize);
     }
 
-    public static CachingHiveMetastore memoizeMetastore(ExtendedHiveMetastore delegate, long maximumSize)
+    public static CachingHiveMetastore memoizeMetastore(HiveMetastore delegate, long maximumSize)
     {
         return new CachingHiveMetastore(
                 delegate,
@@ -117,7 +117,7 @@ public class CachingHiveMetastore
                 maximumSize);
     }
 
-    private CachingHiveMetastore(ExtendedHiveMetastore delegate, ExecutorService executor, OptionalLong expiresAfterWriteMillis, OptionalLong refreshMills, long maximumSize)
+    private CachingHiveMetastore(HiveMetastore delegate, ExecutorService executor, OptionalLong expiresAfterWriteMillis, OptionalLong refreshMills, long maximumSize)
     {
         this.delegate = requireNonNull(delegate, "delegate is null");
         requireNonNull(executor, "executor is null");

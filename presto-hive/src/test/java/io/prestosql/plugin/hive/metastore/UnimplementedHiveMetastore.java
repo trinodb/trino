@@ -26,7 +26,7 @@ import java.util.Set;
 import java.util.function.Function;
 
 class UnimplementedHiveMetastore
-        implements ExtendedHiveMetastore
+        implements HiveMetastore
 {
     @Override
     public Optional<Database> getDatabase(String databaseName)

@@ -15,7 +15,7 @@ package io.prestosql.plugin.hive;
 
 import com.google.common.io.Files;
 import io.prestosql.plugin.hive.metastore.Database;
-import io.prestosql.plugin.hive.metastore.ExtendedHiveMetastore;
+import io.prestosql.plugin.hive.metastore.HiveMetastore;
 import io.prestosql.spi.connector.ConnectorMetadata;
 import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.SchemaTableName;
@@ -49,14 +49,14 @@ public abstract class AbstractTestHiveLocal
         this.testDbName = requireNonNull(testDbName, "testDbName is null");
     }
 
-    protected abstract ExtendedHiveMetastore createMetastore(File tempDir);
+    protected abstract HiveMetastore createMetastore(File tempDir);
 
     @BeforeClass
     public void initialize()
     {
         tempDir = Files.createTempDir();
 
-        ExtendedHiveMetastore metastore = createMetastore(tempDir);
+        HiveMetastore metastore = createMetastore(tempDir);
 
         metastore.createDatabase(Database.builder()
                 .setDatabaseName(testDbName)

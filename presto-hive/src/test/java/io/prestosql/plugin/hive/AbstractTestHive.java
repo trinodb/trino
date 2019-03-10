@@ -31,8 +31,8 @@ import io.prestosql.plugin.hive.LocationService.WriteInfo;
 import io.prestosql.plugin.hive.authentication.NoHdfsAuthentication;
 import io.prestosql.plugin.hive.metastore.CachingHiveMetastore;
 import io.prestosql.plugin.hive.metastore.Column;
-import io.prestosql.plugin.hive.metastore.ExtendedHiveMetastore;
 import io.prestosql.plugin.hive.metastore.HiveColumnStatistics;
+import io.prestosql.plugin.hive.metastore.HiveMetastore;
 import io.prestosql.plugin.hive.metastore.HivePrincipal;
 import io.prestosql.plugin.hive.metastore.HivePrivilegeInfo;
 import io.prestosql.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege;
@@ -576,7 +576,7 @@ public abstract class AbstractTestHive
 
     protected HiveMetadataFactory metadataFactory;
     protected HiveTransactionManager transactionManager;
-    protected ExtendedHiveMetastore metastoreClient;
+    protected HiveMetastore metastoreClient;
     protected ConnectorSplitManager splitManager;
     protected ConnectorPageSourceProvider pageSourceProvider;
     protected ConnectorPageSinkProvider pageSinkProvider;
@@ -705,7 +705,7 @@ public abstract class AbstractTestHive
         }
 
         MetastoreLocator metastoreLocator = new TestingMetastoreLocator(hiveConfig, host, port);
-        ExtendedHiveMetastore metastore = new CachingHiveMetastore(
+        HiveMetastore metastore = new CachingHiveMetastore(
                 new BridgingHiveMetastore(new ThriftHiveMetastore(metastoreLocator, new ThriftHiveMetastoreConfig())),
                 executor,
                 Duration.valueOf("1m"),
@@ -715,7 +715,7 @@ public abstract class AbstractTestHive
         setup(databaseName, hiveConfig, metastore);
     }
 
-    protected final void setup(String databaseName, HiveConfig hiveConfig, ExtendedHiveMetastore hiveMetastore)
+    protected final void setup(String databaseName, HiveConfig hiveConfig, HiveMetastore hiveMetastore)
     {
         setupHive(databaseName, hiveConfig.getTimeZone());
 
@@ -2563,7 +2563,7 @@ public abstract class AbstractTestHive
 
     protected void testUpdateTableStatistics(SchemaTableName tableName, PartitionStatistics initialStatistics, PartitionStatistics... statistics)
     {
-        ExtendedHiveMetastore metastoreClient = getMetastoreClient();
+        HiveMetastore metastoreClient = getMetastoreClient();
         assertThat(metastoreClient.getTableStatistics(tableName.getSchemaName(), tableName.getTableName()))
                 .isEqualTo(initialStatistics);
 
@@ -2664,7 +2664,7 @@ public abstract class AbstractTestHive
     {
         doCreateEmptyTable(tableName, ORC, columns);
 
-        ExtendedHiveMetastore metastoreClient = getMetastoreClient();
+        HiveMetastore metastoreClient = getMetastoreClient();
         Table table = metastoreClient.getTable(tableName.getSchemaName(), tableName.getTableName())
                 .orElseThrow(() -> new TableNotFoundException(tableName));
 
@@ -2694,7 +2694,7 @@ public abstract class AbstractTestHive
         String firstPartitionName = "ds=2016-01-01";
         String secondPartitionName = "ds=2016-01-02";
 
-        ExtendedHiveMetastore metastoreClient = getMetastoreClient();
+        HiveMetastore metastoreClient = getMetastoreClient();
         assertThat(metastoreClient.getPartitionStatistics(tableName.getSchemaName(), tableName.getTableName(), ImmutableSet.of(firstPartitionName, secondPartitionName)))
                 .isEqualTo(ImmutableMap.of(firstPartitionName, initialStatistics, secondPartitionName, initialStatistics));
 
@@ -2751,7 +2751,7 @@ public abstract class AbstractTestHive
         try {
             doCreateEmptyTable(tableName, ORC, columns);
 
-            ExtendedHiveMetastore metastoreClient = getMetastoreClient();
+            HiveMetastore metastoreClient = getMetastoreClient();
             Table table = metastoreClient.getTable(tableName.getSchemaName(), tableName.getTableName())
                     .orElseThrow(() -> new TableNotFoundException(tableName));
 
@@ -2852,7 +2852,7 @@ public abstract class AbstractTestHive
 
         try {
             createDummyPartitionedTable(tableName, columns);
-            ExtendedHiveMetastore metastoreClient = getMetastoreClient();
+            HiveMetastore metastoreClient = getMetastoreClient();
             metastoreClient.updatePartitionStatistics(tableName.getSchemaName(), tableName.getTableName(), "ds=2016-01-01", actualStatistics -> statistics);
             metastoreClient.updatePartitionStatistics(tableName.getSchemaName(), tableName.getTableName(), "ds=2016-01-02", actualStatistics -> statistics);
 
@@ -3535,7 +3535,7 @@ public abstract class AbstractTestHive
 
     private void eraseStatistics(SchemaTableName schemaTableName)
     {
-        ExtendedHiveMetastore metastoreClient = getMetastoreClient();
+        HiveMetastore metastoreClient = getMetastoreClient();
         metastoreClient.updateTableStatistics(schemaTableName.getSchemaName(), schemaTableName.getTableName(), statistics -> new PartitionStatistics(createEmptyStatistics(), ImmutableMap.of()));
         Table table = metastoreClient.getTable(schemaTableName.getSchemaName(), schemaTableName.getTableName())
                 .orElseThrow(() -> new TableNotFoundException(schemaTableName));
@@ -4013,7 +4013,7 @@ public abstract class AbstractTestHive
         return new MaterializedResult(allRows.build(), getTypes(columnHandles));
     }
 
-    public ExtendedHiveMetastore getMetastoreClient()
+    public HiveMetastore getMetastoreClient()
     {
         return metastoreClient;
     }
@@ -4619,7 +4619,7 @@ public abstract class AbstractTestHive
         {
             // This method bypasses transaction interface because this method is inherently hacky and doesn't work well with the transaction abstraction.
             // Additionally, this method is not part of a test. Its purpose is to set up an environment for another test.
-            ExtendedHiveMetastore metastoreClient = getMetastoreClient();
+            HiveMetastore metastoreClient = getMetastoreClient();
             Optional<Partition> partition = metastoreClient.getPartition(tableName.getSchemaName(), tableName.getTableName(), copyPartitionFrom);
             conflictPartition = Partition.builder(partition.get())
                     .setValues(toPartitionValues(partitionNameToConflict))
@@ -4635,7 +4635,7 @@ public abstract class AbstractTestHive
         {
             // This method bypasses transaction interface because this method is inherently hacky and doesn't work well with the transaction abstraction.
             // Additionally, this method is not part of a test. Its purpose is to set up an environment for another test.
-            ExtendedHiveMetastore metastoreClient = getMetastoreClient();
+            HiveMetastore metastoreClient = getMetastoreClient();
             Optional<Partition> actualPartition = metastoreClient.getPartition(tableName.getSchemaName(), tableName.getTableName(), toPartitionValues(partitionNameToConflict));
             // Make sure the partition inserted to trigger conflict was not overwritten
             // Checking storage location is sufficient because implement never uses .../pk1=a/pk2=a2 as the directory for partition [b, b2].
@@ -4654,7 +4654,7 @@ public abstract class AbstractTestHive
         {
             // This method bypasses transaction interface because this method is inherently hacky and doesn't work well with the transaction abstraction.
             // Additionally, this method is not part of a test. Its purpose is to set up an environment for another test.
-            ExtendedHiveMetastore metastoreClient = getMetastoreClient();
+            HiveMetastore metastoreClient = getMetastoreClient();
             metastoreClient.dropPartition(tableName.getSchemaName(), tableName.getTableName(), partitionValueToConflict, false);
         }
 

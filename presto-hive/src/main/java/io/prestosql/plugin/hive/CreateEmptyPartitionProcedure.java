@@ -19,7 +19,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.prestosql.plugin.hive.LocationService.WriteInfo;
 import io.prestosql.plugin.hive.PartitionUpdate.UpdateMode;
-import io.prestosql.plugin.hive.metastore.ExtendedHiveMetastore;
+import io.prestosql.plugin.hive.metastore.HiveMetastore;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.classloader.ThreadContextClassLoader;
 import io.prestosql.spi.connector.ConnectorSession;
@@ -56,12 +56,12 @@ public class CreateEmptyPartitionProcedure
             List.class);
 
     private final Supplier<TransactionalMetadata> hiveMetadataFactory;
-    private final ExtendedHiveMetastore metastore;
+    private final HiveMetastore metastore;
     private final LocationService locationService;
     private final JsonCodec<PartitionUpdate> partitionUpdateJsonCodec;
 
     @Inject
-    public CreateEmptyPartitionProcedure(Supplier<TransactionalMetadata> hiveMetadataFactory, ExtendedHiveMetastore metastore, LocationService locationService, JsonCodec<PartitionUpdate> partitionUpdateCodec)
+    public CreateEmptyPartitionProcedure(Supplier<TransactionalMetadata> hiveMetadataFactory, HiveMetastore metastore, LocationService locationService, JsonCodec<PartitionUpdate> partitionUpdateCodec)
     {
         this.hiveMetadataFactory = requireNonNull(hiveMetadataFactory, "hiveMetadataFactory is null");
         this.metastore = requireNonNull(metastore, "metastore is null");

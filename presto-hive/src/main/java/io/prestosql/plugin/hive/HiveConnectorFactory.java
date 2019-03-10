@@ -23,7 +23,7 @@ import io.airlift.event.client.EventModule;
 import io.airlift.json.JsonModule;
 import io.prestosql.plugin.hive.authentication.HiveAuthenticationModule;
 import io.prestosql.plugin.hive.gcs.HiveGcsModule;
-import io.prestosql.plugin.hive.metastore.ExtendedHiveMetastore;
+import io.prestosql.plugin.hive.metastore.HiveMetastore;
 import io.prestosql.plugin.hive.metastore.HiveMetastoreModule;
 import io.prestosql.plugin.hive.s3.HiveS3Module;
 import io.prestosql.plugin.hive.security.HiveSecurityModule;
@@ -66,9 +66,9 @@ public class HiveConnectorFactory
 {
     private final String name;
     private final ClassLoader classLoader;
-    private final Optional<ExtendedHiveMetastore> metastore;
+    private final Optional<HiveMetastore> metastore;
 
-    public HiveConnectorFactory(String name, ClassLoader classLoader, Optional<ExtendedHiveMetastore> metastore)
+    public HiveConnectorFactory(String name, ClassLoader classLoader, Optional<HiveMetastore> metastore)
     {
         checkArgument(!isNullOrEmpty(name), "name is null or empty");
         this.name = name;

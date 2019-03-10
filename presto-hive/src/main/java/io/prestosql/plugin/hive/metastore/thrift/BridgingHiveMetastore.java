@@ -18,7 +18,7 @@ import io.prestosql.plugin.hive.HiveType;
 import io.prestosql.plugin.hive.HiveUtil;
 import io.prestosql.plugin.hive.PartitionStatistics;
 import io.prestosql.plugin.hive.metastore.Database;
-import io.prestosql.plugin.hive.metastore.ExtendedHiveMetastore;
+import io.prestosql.plugin.hive.metastore.HiveMetastore;
 import io.prestosql.plugin.hive.metastore.HivePrincipal;
 import io.prestosql.plugin.hive.metastore.HivePrivilegeInfo;
 import io.prestosql.plugin.hive.metastore.Partition;
@@ -53,7 +53,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.function.UnaryOperator.identity;
 
 public class BridgingHiveMetastore
-        implements ExtendedHiveMetastore
+        implements HiveMetastore
 {
     private final ThriftMetastore delegate;
 

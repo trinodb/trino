@@ -33,8 +33,8 @@ import io.prestosql.plugin.hive.TableAlreadyExistsException;
 import io.prestosql.plugin.hive.authentication.NoHdfsAuthentication;
 import io.prestosql.plugin.hive.metastore.Column;
 import io.prestosql.plugin.hive.metastore.Database;
-import io.prestosql.plugin.hive.metastore.ExtendedHiveMetastore;
 import io.prestosql.plugin.hive.metastore.HiveColumnStatistics;
+import io.prestosql.plugin.hive.metastore.HiveMetastore;
 import io.prestosql.plugin.hive.metastore.HivePrincipal;
 import io.prestosql.plugin.hive.metastore.HivePrivilegeInfo;
 import io.prestosql.plugin.hive.metastore.Partition;
@@ -105,7 +105,7 @@ import static org.apache.hadoop.hive.metastore.TableType.VIRTUAL_VIEW;
 
 @ThreadSafe
 public class FileHiveMetastore
-        implements ExtendedHiveMetastore
+        implements HiveMetastore
 {
     private static final String PUBLIC_ROLE_NAME = "public";
     private static final String ADMIN_ROLE_NAME = "admin";

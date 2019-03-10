@@ -14,7 +14,7 @@
 package io.prestosql.plugin.hive;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.plugin.hive.metastore.ExtendedHiveMetastore;
+import io.prestosql.plugin.hive.metastore.HiveMetastore;
 import io.prestosql.spi.Plugin;
 import io.prestosql.spi.connector.ConnectorFactory;
 
@@ -28,14 +28,14 @@ public class HivePlugin
         implements Plugin
 {
     private final String name;
-    private final Optional<ExtendedHiveMetastore> metastore;
+    private final Optional<HiveMetastore> metastore;
 
     public HivePlugin(String name)
     {
         this(name, Optional.empty());
     }
 
-    public HivePlugin(String name, Optional<ExtendedHiveMetastore> metastore)
+    public HivePlugin(String name, Optional<HiveMetastore> metastore)
     {
         checkArgument(!isNullOrEmpty(name), "name is null or empty");
         this.name = name;
