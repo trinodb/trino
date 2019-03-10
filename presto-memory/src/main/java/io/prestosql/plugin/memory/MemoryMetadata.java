@@ -29,17 +29,13 @@ import io.prestosql.spi.connector.ConnectorOutputMetadata;
 import io.prestosql.spi.connector.ConnectorOutputTableHandle;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorTableHandle;
-import io.prestosql.spi.connector.ConnectorTableLayout;
-import io.prestosql.spi.connector.ConnectorTableLayoutHandle;
-import io.prestosql.spi.connector.ConnectorTableLayoutResult;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
+import io.prestosql.spi.connector.ConnectorTableProperties;
 import io.prestosql.spi.connector.ConnectorViewDefinition;
-import io.prestosql.spi.connector.Constraint;
 import io.prestosql.spi.connector.SchemaNotFoundException;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.SchemaTablePrefix;
 import io.prestosql.spi.connector.ViewNotFoundException;
-import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.statistics.ComputedStatistics;
 
 import javax.annotation.concurrent.ThreadSafe;
@@ -54,7 +50,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -338,40 +333,19 @@ public class MemoryMetadata
     }
 
     @Override
-    public synchronized List<ConnectorTableLayoutResult> getTableLayouts(
-            ConnectorSession session,
-            ConnectorTableHandle handle,
-            Constraint<ColumnHandle> constraint,
-            Optional<Set<ColumnHandle>> desiredColumns)
+    public boolean usesLegacyTableLayouts()
     {
-        requireNonNull(handle, "handle is null");
-        checkArgument(handle instanceof MemoryTableHandle);
-        MemoryTableHandle memoryTableHandle = (MemoryTableHandle) handle;
-        long tableId = memoryTableHandle.getId();
-        TableInfo info = tables.get(tableId);
-        checkState(
-                info != null,
-                "Inconsistent state for the table [%s.%s]",
-                info.getSchemaName(),
-                info.getTableName());
-
-        Map<HostAddress, MemoryDataFragment> dataFragments = info.getDataFragments();
-        List<MemoryDataFragment> expectedFragments = ImmutableList.copyOf(dataFragments.values());
-
-        MemoryTableLayoutHandle layoutHandle = new MemoryTableLayoutHandle(tableId, expectedFragments);
-        return ImmutableList.of(new ConnectorTableLayoutResult(getTableLayout(session, layoutHandle), constraint.getSummary()));
+        return false;
     }
 
     @Override
-    public synchronized ConnectorTableLayout getTableLayout(ConnectorSession session, ConnectorTableLayoutHandle handle)
+    public ConnectorTableProperties getTableProperties(ConnectorSession session, ConnectorTableHandle table)
     {
-        return new ConnectorTableLayout(
-                handle,
-                Optional.empty(),
-                TupleDomain.all(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                ImmutableList.of());
+        return new ConnectorTableProperties();
+    }
+
+    public List<MemoryDataFragment> getDataFragments(long tableId)
+    {
+        return ImmutableList.copyOf(tables.get(tableId).getDataFragments().values());
     }
 }
