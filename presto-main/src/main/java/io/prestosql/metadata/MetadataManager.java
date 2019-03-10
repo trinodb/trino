@@ -50,6 +50,7 @@ import io.prestosql.spi.connector.ConnectorTableProperties;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 import io.prestosql.spi.connector.ConnectorViewDefinition;
 import io.prestosql.spi.connector.Constraint;
+import io.prestosql.spi.connector.LimitApplicationResult;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.SchemaTablePrefix;
 import io.prestosql.spi.connector.SystemTable;
@@ -1175,6 +1176,22 @@ public class MetadataManager
     public boolean usesLegacyTableLayouts(Session session, TableHandle table)
     {
         return getMetadata(session, table.getConnectorId()).usesLegacyTableLayouts();
+    }
+
+    @Override
+    public Optional<LimitApplicationResult<TableHandle>> applyLimit(Session session, TableHandle table, long limit)
+    {
+        ConnectorId connectorId = table.getConnectorId();
+        ConnectorMetadata metadata = getMetadata(session, connectorId);
+
+        if (metadata.usesLegacyTableLayouts()) {
+            return Optional.empty();
+        }
+
+        return metadata.applyLimit(table.getConnectorHandle(), limit)
+                .map(result -> new LimitApplicationResult<>(
+                        new TableHandle(connectorId, result.getHandle(), table.getTransaction(), Optional.empty()),
+                        result.isLimitGuaranteed()));
     }
 
     private ViewDefinition deserializeView(String data)
