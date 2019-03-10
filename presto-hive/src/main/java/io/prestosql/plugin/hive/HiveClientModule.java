@@ -47,17 +47,9 @@ import static org.weakref.jmx.guice.ExportBinder.newExporter;
 public class HiveClientModule
         implements Module
 {
-    private final String connectorId;
-
-    public HiveClientModule(String connectorId)
-    {
-        this.connectorId = connectorId;
-    }
-
     @Override
     public void configure(Binder binder)
     {
-        binder.bind(HiveConnectorId.class).toInstance(new HiveConnectorId(connectorId));
         binder.bind(TypeTranslator.class).toInstance(new HiveTypeTranslator());
         binder.bind(CoercionPolicy.class).to(HiveCoercionPolicy.class).in(Scopes.SINGLETON);
 
@@ -119,19 +111,19 @@ public class HiveClientModule
     @ForHiveClient
     @Singleton
     @Provides
-    public ExecutorService createHiveClientExecutor(HiveConnectorId hiveClientId)
+    public ExecutorService createHiveClientExecutor(HiveCatalogName catalogName)
     {
-        return newCachedThreadPool(daemonThreadsNamed("hive-" + hiveClientId + "-%s"));
+        return newCachedThreadPool(daemonThreadsNamed("hive-" + catalogName + "-%s"));
     }
 
     @ForCachingHiveMetastore
     @Singleton
     @Provides
-    public ExecutorService createCachingHiveMetastoreExecutor(HiveConnectorId hiveClientId, HiveConfig hiveConfig)
+    public ExecutorService createCachingHiveMetastoreExecutor(HiveCatalogName catalogName, HiveConfig hiveConfig)
     {
         return newFixedThreadPool(
                 hiveConfig.getMaxMetastoreRefreshThreads(),
-                daemonThreadsNamed("hive-metastore-" + hiveClientId + "-%s"));
+                daemonThreadsNamed("hive-metastore-" + catalogName + "-%s"));
     }
 
     @Singleton
