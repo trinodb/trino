@@ -15,20 +15,31 @@ package io.prestosql.plugin.memory;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.primitives.Longs;
 import io.prestosql.spi.connector.ConnectorTableHandle;
 
 import java.util.Objects;
+import java.util.OptionalLong;
+
+import static java.util.Objects.requireNonNull;
 
 public final class MemoryTableHandle
         implements ConnectorTableHandle
 {
     private final long id;
+    private final OptionalLong limit;
+
+    public MemoryTableHandle(long id)
+    {
+        this(id, OptionalLong.empty());
+    }
 
     @JsonCreator
-    public MemoryTableHandle(@JsonProperty("id") long id)
+    public MemoryTableHandle(
+            @JsonProperty("id") long id,
+            @JsonProperty("limit") OptionalLong limit)
     {
         this.id = id;
+        this.limit = requireNonNull(limit, "limit is null");
     }
 
     @JsonProperty
@@ -37,28 +48,38 @@ public final class MemoryTableHandle
         return id;
     }
 
-    @Override
-    public int hashCode()
+    @JsonProperty
+    public OptionalLong getLimit()
     {
-        return Longs.hashCode(id);
+        return limit;
     }
 
     @Override
-    public boolean equals(Object obj)
+    public boolean equals(Object o)
     {
-        if (this == obj) {
+        if (this == o) {
             return true;
         }
-        if (obj == null || getClass() != obj.getClass()) {
+        if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        MemoryTableHandle other = (MemoryTableHandle) obj;
-        return Objects.equals(this.getId(), other.getId());
+        MemoryTableHandle that = (MemoryTableHandle) o;
+        return id == that.id &&
+                limit.equals(that.limit);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(id, limit);
     }
 
     @Override
     public String toString()
     {
-        return Long.toString(id);
+        StringBuilder builder = new StringBuilder();
+        builder.append(id);
+        limit.ifPresent(value -> builder.append("(limit:" + value + ")"));
+        return builder.toString();
     }
 }
