@@ -13,7 +13,6 @@
  */
 package io.prestosql.tests;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.testing.Closeables;
 import io.prestosql.Session;
@@ -28,7 +27,6 @@ import io.prestosql.spi.Node;
 import io.prestosql.spi.Plugin;
 import io.prestosql.split.PageSourceManager;
 import io.prestosql.split.SplitManager;
-import io.prestosql.sql.parser.SqlParserOptions;
 import io.prestosql.sql.planner.NodePartitioningManager;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.QueryRunner;
@@ -255,11 +253,10 @@ public final class StandaloneQueryRunner
     private static TestingPrestoServer createTestingPrestoServer()
             throws Exception
     {
-        ImmutableMap.Builder<String, String> properties = ImmutableMap.<String, String>builder()
+        return new TestingPrestoServer(ImmutableMap.<String, String>builder()
                 .put("query.client.timeout", "10m")
                 .put("exchange.http-client.idle-timeout", "1h")
-                .put("node-scheduler.min-candidates", "1");
-
-        return new TestingPrestoServer(true, properties.build(), null, null, new SqlParserOptions(), ImmutableList.of());
+                .put("node-scheduler.min-candidates", "1")
+                .build());
     }
 }

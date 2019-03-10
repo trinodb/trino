@@ -171,7 +171,14 @@ public class TestingPrestoServer
         this(true, ImmutableMap.of(), null, null, new SqlParserOptions(), additionalModules);
     }
 
-    public TestingPrestoServer(boolean coordinator,
+    public TestingPrestoServer(Map<String, String> properties)
+            throws Exception
+    {
+        this(true, properties, null, null, new SqlParserOptions(), ImmutableList.of());
+    }
+
+    public TestingPrestoServer(
+            boolean coordinator,
             Map<String, String> properties,
             String environment,
             URI discoveryUri,
