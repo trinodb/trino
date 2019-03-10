@@ -45,6 +45,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
 @DefunctConfig({
+        "deprecated.legacy-unnest-array-rows",
         "resource-group-manager",
         "experimental.resource-groups-enabled",
         "experimental-syntax-enabled",
@@ -124,7 +125,6 @@ public class FeaturesConfig
     private DataSize filterAndProjectMinOutputPageSize = new DataSize(500, KILOBYTE);
     private int filterAndProjectMinOutputPageRowCount = 256;
     private int maxGroupingSets = 2048;
-    private boolean legacyUnnestArrayRows;
 
     public enum JoinReorderingStrategy
     {
@@ -912,18 +912,6 @@ public class FeaturesConfig
     public FeaturesConfig setMaxGroupingSets(int maxGroupingSets)
     {
         this.maxGroupingSets = maxGroupingSets;
-        return this;
-    }
-
-    public boolean isLegacyUnnestArrayRows()
-    {
-        return legacyUnnestArrayRows;
-    }
-
-    @Config("deprecated.legacy-unnest-array-rows")
-    public FeaturesConfig setLegacyUnnestArrayRows(boolean legacyUnnestArrayRows)
-    {
-        this.legacyUnnestArrayRows = legacyUnnestArrayRows;
         return this;
     }
 }

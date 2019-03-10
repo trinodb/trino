@@ -22,7 +22,6 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
 import io.prestosql.Session;
-import io.prestosql.SystemSessionProperties;
 import io.prestosql.connector.ConnectorId;
 import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.metadata.FunctionKind;
@@ -751,7 +750,7 @@ class StatementAnalyzer
                 Type expressionType = expressionAnalysis.getType(expression);
                 if (expressionType instanceof ArrayType) {
                     Type elementType = ((ArrayType) expressionType).getElementType();
-                    if (!SystemSessionProperties.isLegacyUnnest(session) && elementType instanceof RowType) {
+                    if (elementType instanceof RowType) {
                         ((RowType) elementType).getFields().stream()
                                 .map(field -> Field.newUnqualified(field.getName(), field.getType()))
                                 .forEach(outputFields::add);
