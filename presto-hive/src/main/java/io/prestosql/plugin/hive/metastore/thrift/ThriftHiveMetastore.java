@@ -111,7 +111,7 @@ public class ThriftHiveMetastore
         implements HiveMetastore
 {
     private final ThriftHiveMetastoreStats stats;
-    private final HiveCluster clientProvider;
+    private final MetastoreLocator clientProvider;
     private final Function<Exception, Exception> exceptionMapper;
     private final double backoffScaleFactor;
     private final Duration minBackoffDelay;
@@ -120,14 +120,14 @@ public class ThriftHiveMetastore
     private final int maxRetries;
 
     @Inject
-    public ThriftHiveMetastore(HiveCluster hiveCluster, ThriftHiveMetastoreConfig thriftConfig)
+    public ThriftHiveMetastore(MetastoreLocator metastoreLocator, ThriftHiveMetastoreConfig thriftConfig)
     {
-        this(hiveCluster, new ThriftHiveMetastoreStats(), identity(), thriftConfig);
+        this(metastoreLocator, new ThriftHiveMetastoreStats(), identity(), thriftConfig);
     }
 
-    public ThriftHiveMetastore(HiveCluster hiveCluster, ThriftHiveMetastoreStats stats, Function<Exception, Exception> exceptionMapper, ThriftHiveMetastoreConfig thriftConfig)
+    public ThriftHiveMetastore(MetastoreLocator metastoreLocator, ThriftHiveMetastoreStats stats, Function<Exception, Exception> exceptionMapper, ThriftHiveMetastoreConfig thriftConfig)
     {
-        this.clientProvider = requireNonNull(hiveCluster, "hiveCluster is null");
+        this.clientProvider = requireNonNull(metastoreLocator, "metastoreLocator is null");
         this.stats = requireNonNull(stats, "stats is null");
         this.exceptionMapper = requireNonNull(exceptionMapper, "exceptionMapper is null");
         this.backoffScaleFactor = thriftConfig.getBackoffScaleFactor();

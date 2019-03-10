@@ -18,8 +18,8 @@ import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import io.airlift.units.Duration;
 import io.prestosql.plugin.hive.metastore.thrift.BridgingHiveMetastore;
-import io.prestosql.plugin.hive.metastore.thrift.HiveCluster;
 import io.prestosql.plugin.hive.metastore.thrift.HiveMetastoreClient;
+import io.prestosql.plugin.hive.metastore.thrift.MetastoreLocator;
 import io.prestosql.plugin.hive.metastore.thrift.MockHiveMetastoreClient;
 import io.prestosql.plugin.hive.metastore.thrift.ThriftHiveMetastore;
 import io.prestosql.plugin.hive.metastore.thrift.ThriftHiveMetastoreConfig;
@@ -55,9 +55,9 @@ public class TestCachingHiveMetastore
     public void setUp()
     {
         mockClient = new MockHiveMetastoreClient();
-        MockHiveCluster mockHiveCluster = new MockHiveCluster(mockClient);
+        MetastoreLocator metastoreLocator = new MockMetastoreLocator(mockClient);
         ListeningExecutorService executor = listeningDecorator(newCachedThreadPool(daemonThreadsNamed("test-%s")));
-        ThriftHiveMetastore thriftHiveMetastore = new ThriftHiveMetastore(mockHiveCluster, new ThriftHiveMetastoreConfig());
+        ThriftHiveMetastore thriftHiveMetastore = new ThriftHiveMetastore(metastoreLocator, new ThriftHiveMetastoreConfig());
         metastore = new CachingHiveMetastore(
                 new BridgingHiveMetastore(thriftHiveMetastore),
                 executor,
@@ -257,12 +257,12 @@ public class TestCachingHiveMetastore
         assertEquals(mockClient.getAccessCount(), 2);
     }
 
-    private static class MockHiveCluster
-            implements HiveCluster
+    private static class MockMetastoreLocator
+            implements MetastoreLocator
     {
         private final HiveMetastoreClient client;
 
-        private MockHiveCluster(HiveMetastoreClient client)
+        private MockMetastoreLocator(HiveMetastoreClient client)
         {
             this.client = client;
         }

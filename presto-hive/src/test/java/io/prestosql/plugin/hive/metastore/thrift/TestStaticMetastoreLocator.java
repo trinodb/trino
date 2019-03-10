@@ -20,14 +20,13 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.Optional;
 
-import static io.airlift.testing.Assertions.assertContains;
 import static java.util.Arrays.asList;
 import static java.util.Collections.singletonList;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.fail;
 
-public class TestStaticHiveCluster
+public class TestStaticMetastoreLocator
 {
     private static final HiveMetastoreClient DEFAULT_CLIENT = createFakeMetastoreClient();
     private static final HiveMetastoreClient FALLBACK_CLIENT = createFakeMetastoreClient();
@@ -50,61 +49,57 @@ public class TestStaticHiveCluster
     public void testDefaultHiveMetastore()
             throws TException
     {
-        HiveCluster cluster = createHiveCluster(CONFIG_WITH_FALLBACK, singletonList(DEFAULT_CLIENT));
-        assertEquals(cluster.createMetastoreClient(), DEFAULT_CLIENT);
+        MetastoreLocator locator = createMetastoreLocator(CONFIG_WITH_FALLBACK, singletonList(DEFAULT_CLIENT));
+        assertEquals(locator.createMetastoreClient(), DEFAULT_CLIENT);
     }
 
     @Test
     public void testFallbackHiveMetastore()
             throws TException
     {
-        HiveCluster cluster = createHiveCluster(CONFIG_WITH_FALLBACK, asList(null, null, FALLBACK_CLIENT));
-        assertEquals(cluster.createMetastoreClient(), FALLBACK_CLIENT);
+        MetastoreLocator locator = createMetastoreLocator(CONFIG_WITH_FALLBACK, asList(null, null, FALLBACK_CLIENT));
+        assertEquals(locator.createMetastoreClient(), FALLBACK_CLIENT);
     }
 
     @Test
     public void testFallbackHiveMetastoreFails()
     {
-        HiveCluster cluster = createHiveCluster(CONFIG_WITH_FALLBACK, asList(null, null, null));
-        assertCreateClientFails(cluster, "Failed connecting to Hive metastore: [default:8080, fallback:8090, fallback2:8090]");
+        MetastoreLocator locator = createMetastoreLocator(CONFIG_WITH_FALLBACK, asList(null, null, null));
+        assertCreateClientFails(locator, "Failed connecting to Hive metastore: [default:8080, fallback:8090, fallback2:8090]");
     }
 
     @Test
     public void testMetastoreFailedWithoutFallback()
     {
-        HiveCluster cluster = createHiveCluster(CONFIG_WITHOUT_FALLBACK, singletonList(null));
-        assertCreateClientFails(cluster, "Failed connecting to Hive metastore: [default:8080]");
+        MetastoreLocator locator = createMetastoreLocator(CONFIG_WITHOUT_FALLBACK, singletonList(null));
+        assertCreateClientFails(locator, "Failed connecting to Hive metastore: [default:8080]");
     }
 
     @Test
     public void testFallbackHiveMetastoreWithHiveUser()
             throws TException
     {
-        HiveCluster cluster = createHiveCluster(CONFIG_WITH_FALLBACK_WITH_USER, asList(null, null, FALLBACK_CLIENT));
-        assertEquals(cluster.createMetastoreClient(), FALLBACK_CLIENT);
+        MetastoreLocator locator = createMetastoreLocator(CONFIG_WITH_FALLBACK_WITH_USER, asList(null, null, FALLBACK_CLIENT));
+        assertEquals(locator.createMetastoreClient(), FALLBACK_CLIENT);
     }
 
     @Test
     public void testMetastoreFailedWithoutFallbackWithHiveUser()
     {
-        HiveCluster cluster = createHiveCluster(CONFIG_WITHOUT_FALLBACK_WITH_USER, singletonList(null));
-        assertCreateClientFails(cluster, "Failed connecting to Hive metastore: [default:8080]");
+        MetastoreLocator locator = createMetastoreLocator(CONFIG_WITHOUT_FALLBACK_WITH_USER, singletonList(null));
+        assertCreateClientFails(locator, "Failed connecting to Hive metastore: [default:8080]");
     }
 
-    private static void assertCreateClientFails(HiveCluster cluster, String message)
+    private static void assertCreateClientFails(MetastoreLocator locator, String message)
     {
-        try {
-            cluster.createMetastoreClient();
-            fail("expected exception");
-        }
-        catch (TException e) {
-            assertContains(e.getMessage(), message);
-        }
+        assertThatThrownBy(locator::createMetastoreClient)
+                .hasCauseInstanceOf(TException.class)
+                .hasMessage(message);
     }
 
-    private static HiveCluster createHiveCluster(StaticMetastoreConfig config, List<HiveMetastoreClient> clients)
+    private static MetastoreLocator createMetastoreLocator(StaticMetastoreConfig config, List<HiveMetastoreClient> clients)
     {
-        return new StaticHiveCluster(config, new MockHiveMetastoreClientFactory(Optional.empty(), new Duration(1, SECONDS), clients));
+        return new StaticMetastoreLocator(config, new MockHiveMetastoreClientFactory(Optional.empty(), new Duration(1, SECONDS), clients));
     }
 
     private static HiveMetastoreClient createFakeMetastoreClient()

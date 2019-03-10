@@ -44,8 +44,8 @@ import io.prestosql.plugin.hive.metastore.SortingColumn;
 import io.prestosql.plugin.hive.metastore.StorageFormat;
 import io.prestosql.plugin.hive.metastore.Table;
 import io.prestosql.plugin.hive.metastore.thrift.BridgingHiveMetastore;
-import io.prestosql.plugin.hive.metastore.thrift.HiveCluster;
-import io.prestosql.plugin.hive.metastore.thrift.TestingHiveCluster;
+import io.prestosql.plugin.hive.metastore.thrift.MetastoreLocator;
+import io.prestosql.plugin.hive.metastore.thrift.TestingMetastoreLocator;
 import io.prestosql.plugin.hive.metastore.thrift.ThriftHiveMetastore;
 import io.prestosql.plugin.hive.metastore.thrift.ThriftHiveMetastoreConfig;
 import io.prestosql.plugin.hive.orc.OrcPageSource;
@@ -708,9 +708,9 @@ public abstract class AbstractTestHiveClient
             hiveClientConfig.setMetastoreSocksProxy(HostAndPort.fromString(proxy));
         }
 
-        HiveCluster hiveCluster = new TestingHiveCluster(hiveClientConfig, host, port);
+        MetastoreLocator metastoreLocator = new TestingMetastoreLocator(hiveClientConfig, host, port);
         ExtendedHiveMetastore metastore = new CachingHiveMetastore(
-                new BridgingHiveMetastore(new ThriftHiveMetastore(hiveCluster, new ThriftHiveMetastoreConfig())),
+                new BridgingHiveMetastore(new ThriftHiveMetastore(metastoreLocator, new ThriftHiveMetastoreConfig())),
                 executor,
                 Duration.valueOf("1m"),
                 Duration.valueOf("15s"),

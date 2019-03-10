@@ -28,25 +28,25 @@ import static com.google.common.base.Strings.isNullOrEmpty;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
-public class StaticHiveCluster
-        implements HiveCluster
+public class StaticMetastoreLocator
+        implements MetastoreLocator
 {
     private final List<HostAndPort> addresses;
     private final HiveMetastoreClientFactory clientFactory;
     private final String metastoreUsername;
 
     @Inject
-    public StaticHiveCluster(StaticMetastoreConfig config, HiveMetastoreClientFactory clientFactory)
+    public StaticMetastoreLocator(StaticMetastoreConfig config, HiveMetastoreClientFactory clientFactory)
     {
         this(config.getMetastoreUris(), config.getMetastoreUsername(), clientFactory);
     }
 
-    public StaticHiveCluster(List<URI> metastoreUris, String metastoreUsername, HiveMetastoreClientFactory clientFactory)
+    public StaticMetastoreLocator(List<URI> metastoreUris, String metastoreUsername, HiveMetastoreClientFactory clientFactory)
     {
         requireNonNull(metastoreUris, "metastoreUris is null");
         checkArgument(!metastoreUris.isEmpty(), "metastoreUris must specify at least one URI");
         this.addresses = metastoreUris.stream()
-                .map(StaticHiveCluster::checkMetastoreUri)
+                .map(StaticMetastoreLocator::checkMetastoreUri)
                 .map(uri -> HostAndPort.fromParts(uri.getHost(), uri.getPort()))
                 .collect(toList());
         this.metastoreUsername = metastoreUsername;
