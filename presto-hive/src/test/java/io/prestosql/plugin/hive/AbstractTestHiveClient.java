@@ -746,7 +746,6 @@ public abstract class AbstractTestHiveClient
                 getHiveClientConfig().getMaxPartitionsPerScan(),
                 TYPE_MANAGER,
                 locationService,
-                new TableParameterCodec(),
                 partitionUpdateCodec,
                 newFixedThreadPool(2),
                 new HiveTypeTranslator(),

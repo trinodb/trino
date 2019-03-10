@@ -179,7 +179,6 @@ public abstract class AbstractTestHiveFileSystem
                 newDirectExecutorService(),
                 TYPE_MANAGER,
                 locationService,
-                new TableParameterCodec(),
                 partitionUpdateCodec,
                 new HiveTypeTranslator(),
                 new NodeVersion("test_version"));
