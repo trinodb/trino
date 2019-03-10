@@ -24,7 +24,6 @@ import java.util.Optional;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Function;
 
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -42,7 +41,6 @@ public class RetryDriver
     private final Duration maxSleepTime;
     private final double scaleFactor;
     private final Duration maxRetryTime;
-    private final Function<Exception, Exception> exceptionMapper;
     private final List<Class<? extends Exception>> exceptionWhiteList;
     private final Optional<Runnable> retryRunnable;
 
@@ -52,7 +50,6 @@ public class RetryDriver
             Duration maxSleepTime,
             double scaleFactor,
             Duration maxRetryTime,
-            Function<Exception, Exception> exceptionMapper,
             List<Class<? extends Exception>> exceptionWhiteList,
             Optional<Runnable> retryRunnable)
     {
@@ -61,7 +58,6 @@ public class RetryDriver
         this.maxSleepTime = maxSleepTime;
         this.scaleFactor = scaleFactor;
         this.maxRetryTime = maxRetryTime;
-        this.exceptionMapper = exceptionMapper;
         this.exceptionWhiteList = exceptionWhiteList;
         this.retryRunnable = retryRunnable;
     }
@@ -73,7 +69,6 @@ public class RetryDriver
                 DEFAULT_SLEEP_TIME,
                 DEFAULT_SCALE_FACTOR,
                 DEFAULT_MAX_RETRY_TIME,
-                Function.identity(),
                 ImmutableList.of(),
                 Optional.empty());
     }
@@ -85,22 +80,17 @@ public class RetryDriver
 
     public final RetryDriver maxAttempts(int maxAttempts)
     {
-        return new RetryDriver(maxAttempts, minSleepTime, maxSleepTime, scaleFactor, maxRetryTime, exceptionMapper, exceptionWhiteList, retryRunnable);
+        return new RetryDriver(maxAttempts, minSleepTime, maxSleepTime, scaleFactor, maxRetryTime, exceptionWhiteList, retryRunnable);
     }
 
     public final RetryDriver exponentialBackoff(Duration minSleepTime, Duration maxSleepTime, Duration maxRetryTime, double scaleFactor)
     {
-        return new RetryDriver(maxAttempts, minSleepTime, maxSleepTime, scaleFactor, maxRetryTime, exceptionMapper, exceptionWhiteList, retryRunnable);
+        return new RetryDriver(maxAttempts, minSleepTime, maxSleepTime, scaleFactor, maxRetryTime, exceptionWhiteList, retryRunnable);
     }
 
     public final RetryDriver onRetry(Runnable retryRunnable)
     {
-        return new RetryDriver(maxAttempts, minSleepTime, maxSleepTime, scaleFactor, maxRetryTime, exceptionMapper, exceptionWhiteList, Optional.ofNullable(retryRunnable));
-    }
-
-    public final RetryDriver exceptionMapper(Function<Exception, Exception> exceptionMapper)
-    {
-        return new RetryDriver(maxAttempts, minSleepTime, maxSleepTime, scaleFactor, maxRetryTime, exceptionMapper, exceptionWhiteList, retryRunnable);
+        return new RetryDriver(maxAttempts, minSleepTime, maxSleepTime, scaleFactor, maxRetryTime, exceptionWhiteList, Optional.ofNullable(retryRunnable));
     }
 
     @SafeVarargs
@@ -112,7 +102,7 @@ public class RetryDriver
                 .addAll(Arrays.asList(classes))
                 .build();
 
-        return new RetryDriver(maxAttempts, minSleepTime, maxSleepTime, scaleFactor, maxRetryTime, exceptionMapper, exceptions, retryRunnable);
+        return new RetryDriver(maxAttempts, minSleepTime, maxSleepTime, scaleFactor, maxRetryTime, exceptions, retryRunnable);
     }
 
     public RetryDriver stopOnIllegalExceptions()
@@ -140,7 +130,6 @@ public class RetryDriver
                 return callable.call();
             }
             catch (Exception e) {
-                e = exceptionMapper.apply(e);
                 for (Class<? extends Exception> clazz : exceptionWhiteList) {
                     if (clazz.isInstance(e)) {
                         addSuppressed(e, suppressedExceptions);

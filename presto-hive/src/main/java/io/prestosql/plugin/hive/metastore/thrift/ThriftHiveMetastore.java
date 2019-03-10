@@ -100,7 +100,6 @@ import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.security.PrincipalType.USER;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
-import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.hadoop.hive.common.FileUtils.makePartName;
 import static org.apache.hadoop.hive.metastore.api.HiveObjectType.TABLE;
@@ -110,9 +109,8 @@ import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.HIVE_
 public class ThriftHiveMetastore
         implements HiveMetastore
 {
-    private final ThriftHiveMetastoreStats stats;
+    private final ThriftHiveMetastoreStats stats = new ThriftHiveMetastoreStats();
     private final MetastoreLocator clientProvider;
-    private final Function<Exception, Exception> exceptionMapper;
     private final double backoffScaleFactor;
     private final Duration minBackoffDelay;
     private final Duration maxBackoffDelay;
@@ -122,14 +120,7 @@ public class ThriftHiveMetastore
     @Inject
     public ThriftHiveMetastore(MetastoreLocator metastoreLocator, ThriftHiveMetastoreConfig thriftConfig)
     {
-        this(metastoreLocator, new ThriftHiveMetastoreStats(), identity(), thriftConfig);
-    }
-
-    public ThriftHiveMetastore(MetastoreLocator metastoreLocator, ThriftHiveMetastoreStats stats, Function<Exception, Exception> exceptionMapper, ThriftHiveMetastoreConfig thriftConfig)
-    {
         this.clientProvider = requireNonNull(metastoreLocator, "metastoreLocator is null");
-        this.stats = requireNonNull(stats, "stats is null");
-        this.exceptionMapper = requireNonNull(exceptionMapper, "exceptionMapper is null");
         this.backoffScaleFactor = thriftConfig.getBackoffScaleFactor();
         this.minBackoffDelay = thriftConfig.getMinBackoffDelay();
         this.maxBackoffDelay = thriftConfig.getMaxBackoffDelay();
@@ -1323,7 +1314,6 @@ public class ThriftHiveMetastore
         return RetryDriver.retry()
                 .exponentialBackoff(minBackoffDelay, maxBackoffDelay, maxRetryTime, backoffScaleFactor)
                 .maxAttempts(maxRetries + 1)
-                .exceptionMapper(exceptionMapper)
                 .stopOn(PrestoException.class);
     }
 
