@@ -38,10 +38,10 @@ import java.util.Properties;
 
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Throwables.throwIfUnchecked;
-import static io.prestosql.plugin.hive.RetryDriver.retry;
 import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_MAX_BACKOFF_TIME;
 import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_MAX_CLIENT_RETRIES;
 import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_MAX_RETRY_TIME;
+import static io.prestosql.plugin.hive.util.RetryDriver.retry;
 import static java.lang.String.format;
 import static java.net.HttpURLConnection.HTTP_BAD_REQUEST;
 import static java.net.HttpURLConnection.HTTP_FORBIDDEN;

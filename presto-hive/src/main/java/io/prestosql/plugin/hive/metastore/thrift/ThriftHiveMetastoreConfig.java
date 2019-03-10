@@ -16,7 +16,7 @@ package io.prestosql.plugin.hive.metastore.thrift;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.units.Duration;
-import io.prestosql.plugin.hive.RetryDriver;
+import io.prestosql.plugin.hive.util.RetryDriver;
 
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;

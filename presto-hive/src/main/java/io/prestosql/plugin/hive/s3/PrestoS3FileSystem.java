@@ -104,7 +104,7 @@ import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.toArray;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
-import static io.prestosql.plugin.hive.RetryDriver.retry;
+import static io.prestosql.plugin.hive.util.RetryDriver.retry;
 import static java.lang.Math.max;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
