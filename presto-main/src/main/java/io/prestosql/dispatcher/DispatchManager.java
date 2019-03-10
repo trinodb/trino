@@ -21,10 +21,10 @@ import io.prestosql.Session;
 import io.prestosql.execution.QueryIdGenerator;
 import io.prestosql.execution.QueryInfo;
 import io.prestosql.execution.QueryManagerConfig;
+import io.prestosql.execution.QueryManagerStats;
 import io.prestosql.execution.QueryPreparer;
 import io.prestosql.execution.QueryPreparer.PreparedQuery;
 import io.prestosql.execution.QueryTracker;
-import io.prestosql.execution.SqlQueryManagerStats;
 import io.prestosql.execution.resourcegroups.ResourceGroupManager;
 import io.prestosql.metadata.SessionPropertyManager;
 import io.prestosql.security.AccessControl;
@@ -80,7 +80,7 @@ public class DispatchManager
 
     private final QueryTracker<DispatchQuery> queryTracker;
 
-    private final SqlQueryManagerStats stats = new SqlQueryManagerStats();
+    private final QueryManagerStats stats = new QueryManagerStats();
 
     @Inject
     public DispatchManager(
@@ -123,7 +123,7 @@ public class DispatchManager
 
     @Managed
     @Flatten
-    public SqlQueryManagerStats getStats()
+    public QueryManagerStats getStats()
     {
         return stats;
     }
