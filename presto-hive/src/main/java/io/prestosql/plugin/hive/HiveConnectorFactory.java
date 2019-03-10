@@ -99,7 +99,7 @@ public class HiveConnectorFactory
                     new MBeanModule(),
                     new ConnectorObjectNameGeneratorModule(catalogName),
                     new JsonModule(),
-                    new HiveClientModule(catalogName),
+                    new HiveClientModule(),
                     new HiveS3Module(),
                     new HiveGcsModule(),
                     new HiveMetastoreModule(metastore),
@@ -114,6 +114,7 @@ public class HiveConnectorFactory
                         binder.bind(TypeManager.class).toInstance(context.getTypeManager());
                         binder.bind(PageIndexerFactory.class).toInstance(context.getPageIndexerFactory());
                         binder.bind(PageSorter.class).toInstance(context.getPageSorter());
+                        binder.bind(HiveCatalogName.class).toInstance(new HiveCatalogName(catalogName));
                     });
 
             Injector injector = app

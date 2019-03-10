@@ -13,7 +13,7 @@
  */
 package io.prestosql.plugin.hive.security;
 
-import io.prestosql.plugin.hive.HiveConnectorId;
+import io.prestosql.plugin.hive.HiveCatalogName;
 import io.prestosql.plugin.hive.HiveTransactionHandle;
 import io.prestosql.plugin.hive.metastore.Database;
 import io.prestosql.plugin.hive.metastore.HivePrincipal;
@@ -86,7 +86,7 @@ public class SqlStandardAccessControl
 
     @Inject
     public SqlStandardAccessControl(
-            HiveConnectorId connectorId,
+            HiveCatalogName connectorId,
             Function<HiveTransactionHandle, SemiTransactionalHiveMetastore> metastoreProvider)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
