@@ -45,6 +45,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
 @DefunctConfig({
+        "deprecated.legacy-map-subscript",
         "deprecated.group-by-uses-equal",
         "deprecated.legacy-row-field-ordinal-access",
         "deprecated.legacy-unnest-array-rows",
@@ -85,7 +86,6 @@ public class FeaturesConfig
     private boolean pushTableWriteThroughUnion = true;
     private boolean exchangeCompressionEnabled;
     private boolean legacyTimestamp = true;
-    private boolean legacyMapSubscript;
     private boolean legacyCharToVarcharCoercion;
     private boolean optimizeMixedDistinctAggregations;
     private boolean forceSingleNodeOutput = true;
@@ -220,18 +220,6 @@ public class FeaturesConfig
     public boolean isLegacyTimestamp()
     {
         return legacyTimestamp;
-    }
-
-    @Config("deprecated.legacy-map-subscript")
-    public FeaturesConfig setLegacyMapSubscript(boolean value)
-    {
-        this.legacyMapSubscript = value;
-        return this;
-    }
-
-    public boolean isLegacyMapSubscript()
-    {
-        return legacyMapSubscript;
     }
 
     public JoinDistributionType getJoinDistributionType()
