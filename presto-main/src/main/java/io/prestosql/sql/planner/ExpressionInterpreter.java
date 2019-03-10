@@ -107,7 +107,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.OptionalInt;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -119,7 +118,6 @@ import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.prestosql.SystemSessionProperties.isLegacyRowFieldOrdinalAccessEnabled;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
@@ -133,7 +131,6 @@ import static io.prestosql.sql.planner.DeterminismEvaluator.isDeterministic;
 import static io.prestosql.sql.planner.iterative.rule.CanonicalizeExpressionRewriter.canonicalizeExpression;
 import static io.prestosql.type.LikeFunctions.isLikePattern;
 import static io.prestosql.type.LikeFunctions.unescapeLiteralLikePattern;
-import static io.prestosql.util.LegacyRowFieldOrdinalAccessUtil.parseAnonymousRowFieldOrdinalAccess;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -146,7 +143,6 @@ public class ExpressionInterpreter
     private final boolean optimize;
     private final Map<NodeRef<Expression>, Type> expressionTypes;
     private final InterpretedFunctionInvoker functionInvoker;
-    private final boolean legacyRowFieldOrdinalAccess;
 
     private final Visitor visitor;
 
@@ -235,7 +231,6 @@ public class ExpressionInterpreter
         verify((expressionTypes.containsKey(NodeRef.of(expression))));
         this.optimize = optimize;
         this.functionInvoker = new InterpretedFunctionInvoker(metadata.getFunctionRegistry());
-        this.legacyRowFieldOrdinalAccess = isLegacyRowFieldOrdinalAccessEnabled(session);
 
         this.visitor = new Visitor();
     }
@@ -303,13 +298,6 @@ public class ExpressionInterpreter
                 if (field.getName().isPresent() && field.getName().get().equalsIgnoreCase(fieldName)) {
                     checkArgument(index < 0, "Ambiguous field %s in type %s", field, rowType.getDisplayName());
                     index = i;
-                }
-            }
-
-            if (legacyRowFieldOrdinalAccess && index < 0) {
-                OptionalInt rowIndex = parseAnonymousRowFieldOrdinalAccess(fieldName, fields);
-                if (rowIndex.isPresent()) {
-                    index = rowIndex.getAsInt();
                 }
             }
 

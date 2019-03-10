@@ -111,7 +111,6 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.OptionalInt;
 import java.util.Set;
 import java.util.function.Function;
 
@@ -119,7 +118,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.prestosql.SystemSessionProperties.isLegacyRowFieldOrdinalAccessEnabled;
 import static io.prestosql.spi.function.OperatorType.SUBSCRIPT;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
@@ -157,7 +155,6 @@ import static io.prestosql.type.UnknownType.UNKNOWN;
 import static io.prestosql.util.DateTimeUtils.parseTimestampLiteral;
 import static io.prestosql.util.DateTimeUtils.timeHasTimeZone;
 import static io.prestosql.util.DateTimeUtils.timestampHasTimeZone;
-import static io.prestosql.util.LegacyRowFieldOrdinalAccessUtil.parseAnonymousRowFieldOrdinalAccess;
 import static java.lang.String.format;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.Collections.unmodifiableSet;
@@ -173,7 +170,6 @@ public class ExpressionAnalyzer
     private final Function<Node, StatementAnalyzer> statementAnalyzerFactory;
     private final TypeProvider symbolTypes;
     private final boolean isDescribe;
-    private final boolean legacyRowFieldOrdinalAccess;
 
     private final Map<NodeRef<FunctionCall>, Signature> resolvedFunctions = new LinkedHashMap<>();
     private final Set<NodeRef<SubqueryExpression>> scalarSubqueries = new LinkedHashSet<>();
@@ -210,7 +206,6 @@ public class ExpressionAnalyzer
         this.symbolTypes = requireNonNull(symbolTypes, "symbolTypes is null");
         this.parameters = requireNonNull(parameters, "parameters is null");
         this.isDescribe = isDescribe;
-        this.legacyRowFieldOrdinalAccess = isLegacyRowFieldOrdinalAccessEnabled(session);
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
     }
 
@@ -448,13 +443,6 @@ public class ExpressionAnalyzer
                 if (fieldName.equalsIgnoreCase(rowField.getName().orElse(null))) {
                     rowFieldType = rowField.getType();
                     break;
-                }
-            }
-
-            if (legacyRowFieldOrdinalAccess && rowFieldType == null) {
-                OptionalInt rowIndex = parseAnonymousRowFieldOrdinalAccess(fieldName, rowType.getFields());
-                if (rowIndex.isPresent()) {
-                    rowFieldType = rowType.getFields().get(rowIndex.getAsInt()).getType();
                 }
             }
 

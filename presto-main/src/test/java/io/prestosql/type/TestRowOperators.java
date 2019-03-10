@@ -18,9 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import io.airlift.slice.Slice;
-import io.prestosql.Session;
 import io.prestosql.operator.scalar.AbstractTestFunctions;
-import io.prestosql.operator.scalar.FunctionAssertions;
 import io.prestosql.spi.StandardErrorCode;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.function.LiteralParameters;
@@ -30,9 +28,7 @@ import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.Type;
-import io.prestosql.sql.analyzer.FeaturesConfig;
 import io.prestosql.sql.analyzer.SemanticErrorCode;
-import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -43,7 +39,6 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.SessionTestUtils.TEST_SESSION;
-import static io.prestosql.SystemSessionProperties.LEGACY_ROW_FIELD_ORDINAL_ACCESS;
 import static io.prestosql.spi.function.OperatorType.HASH_CODE;
 import static io.prestosql.spi.function.OperatorType.INDETERMINATE;
 import static io.prestosql.spi.type.BigintType.BIGINT;
@@ -57,8 +52,6 @@ import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
-import static io.prestosql.spi.type.VarcharType.createVarcharType;
-import static io.prestosql.sql.analyzer.SemanticErrorCode.MISSING_ATTRIBUTE;
 import static io.prestosql.testing.DateTimeTestingUtils.sqlTimestampOf;
 import static io.prestosql.type.JsonType.JSON;
 import static io.prestosql.util.StructuralTestUtil.appendToBlockBuilder;
@@ -73,24 +66,10 @@ public class TestRowOperators
 {
     public TestRowOperators() {}
 
-    private static FunctionAssertions legacyRowFieldOrdinalAccess;
-
     @BeforeClass
     public void setUp()
     {
         registerScalar(getClass());
-        legacyRowFieldOrdinalAccess = new FunctionAssertions(
-                Session.builder(session)
-                        .setSystemProperty(LEGACY_ROW_FIELD_ORDINAL_ACCESS, "true")
-                        .build(),
-                new FeaturesConfig());
-    }
-
-    @AfterClass(alwaysRun = true)
-    public final void tearDown()
-    {
-        legacyRowFieldOrdinalAccess.close();
-        legacyRowFieldOrdinalAccess = null;
     }
 
     @ScalarFunction
@@ -408,21 +387,6 @@ public class TestRowOperators
 
         assertDecimalFunction("CAST(row(1.0, 123123123456.6549876543) AS ROW(col0 decimal(2,1), col1 decimal(22,10))).col0", decimal("1.0"));
         assertDecimalFunction("CAST(row(1.0, 123123123456.6549876543) AS ROW(col0 decimal(2,1), col1 decimal(22,10))).col1", decimal("123123123456.6549876543"));
-
-        // Legacy anonymous row field ordinal access
-        legacyRowFieldOrdinalAccess.assertFunction("row(1, CAST(NULL AS DOUBLE)).field1", DOUBLE, null);
-        legacyRowFieldOrdinalAccess.assertFunction("row(TRUE, CAST(NULL AS BOOLEAN)).field1", BOOLEAN, null);
-        legacyRowFieldOrdinalAccess.assertFunction("row(TRUE, CAST(NULL AS ARRAY<INTEGER>)).field1", new ArrayType(INTEGER), null);
-        legacyRowFieldOrdinalAccess.assertFunction("row(1.0E0, CAST(NULL AS VARCHAR)).field1", createUnboundedVarcharType(), null);
-        legacyRowFieldOrdinalAccess.assertFunction("row(1, 2).field0", INTEGER, 1);
-        legacyRowFieldOrdinalAccess.assertFunction("row(1, 'kittens').field1", createVarcharType(7), "kittens");
-        legacyRowFieldOrdinalAccess.assertFunction("row(1, 2).\"field1\"", INTEGER, 2);
-        legacyRowFieldOrdinalAccess.assertFunction("array[row(1, 2)][1].field1", INTEGER, 2);
-        legacyRowFieldOrdinalAccess.assertFunction("row(FALSE, ARRAY [1, 2], MAP(ARRAY[1, 3], ARRAY[2.0E0, 4.0E0])).field1", new ArrayType(INTEGER), ImmutableList.of(1, 2));
-        legacyRowFieldOrdinalAccess.assertFunction("row(FALSE, ARRAY [1, 2], MAP(ARRAY[1, 3], ARRAY[2.0E0, 4.0E0])).field2", mapType(INTEGER, DOUBLE), ImmutableMap.of(1, 2.0, 3, 4.0));
-        legacyRowFieldOrdinalAccess.assertFunction("row(1.0E0, ARRAY[row(31, 4.1E0), row(32, 4.2E0)], row(3, 4.0E0)).field1[2].field0", INTEGER, 32);
-        legacyRowFieldOrdinalAccess.assertFunction("row(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11).field10", INTEGER, 11);
-        legacyRowFieldOrdinalAccess.assertInvalidFunction("CAST(row(1, 2) as ROW(col0 integer, col1 integer)).field1", MISSING_ATTRIBUTE);
     }
 
     @Test

@@ -82,14 +82,12 @@ import io.prestosql.type.UnknownType;
 
 import java.util.List;
 import java.util.Map;
-import java.util.OptionalInt;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.SliceUtf8.countCodePoints;
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.prestosql.SystemSessionProperties.isLegacyRowFieldOrdinalAccessEnabled;
 import static io.prestosql.metadata.FunctionKind.SCALAR;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
@@ -131,7 +129,6 @@ import static io.prestosql.util.DateTimeUtils.parseTimeWithTimeZone;
 import static io.prestosql.util.DateTimeUtils.parseTimeWithoutTimeZone;
 import static io.prestosql.util.DateTimeUtils.parseTimestampLiteral;
 import static io.prestosql.util.DateTimeUtils.parseYearMonthInterval;
-import static io.prestosql.util.LegacyRowFieldOrdinalAccessUtil.parseAnonymousRowFieldOrdinalAccess;
 import static java.util.Objects.requireNonNull;
 
 public final class SqlToRowExpressionTranslator
@@ -154,7 +151,6 @@ public final class SqlToRowExpressionTranslator
                 typeManager,
                 layout,
                 session.getTimeZoneKey(),
-                isLegacyRowFieldOrdinalAccessEnabled(session),
                 SystemSessionProperties.isLegacyTimestamp(session));
         RowExpression result = visitor.process(expression, null);
 
@@ -176,7 +172,6 @@ public final class SqlToRowExpressionTranslator
         private final TypeManager typeManager;
         private final Map<Symbol, Integer> layout;
         private final TimeZoneKey timeZoneKey;
-        private final boolean legacyRowFieldOrdinalAccess;
         @Deprecated
         private final boolean isLegacyTimestamp;
 
@@ -186,7 +181,6 @@ public final class SqlToRowExpressionTranslator
                 TypeManager typeManager,
                 Map<Symbol, Integer> layout,
                 TimeZoneKey timeZoneKey,
-                boolean legacyRowFieldOrdinalAccess,
                 boolean isLegacyTimestamp)
         {
             this.functionKind = functionKind;
@@ -194,7 +188,6 @@ public final class SqlToRowExpressionTranslator
             this.typeManager = typeManager;
             this.layout = layout;
             this.timeZoneKey = timeZoneKey;
-            this.legacyRowFieldOrdinalAccess = legacyRowFieldOrdinalAccess;
             this.isLegacyTimestamp = isLegacyTimestamp;
         }
 
@@ -601,13 +594,6 @@ public final class SqlToRowExpressionTranslator
                 if (field.getName().isPresent() && field.getName().get().equalsIgnoreCase(fieldName)) {
                     checkArgument(index < 0, "Ambiguous field %s in type %s", field, rowType.getDisplayName());
                     index = i;
-                }
-            }
-
-            if (legacyRowFieldOrdinalAccess && index < 0) {
-                OptionalInt rowIndex = parseAnonymousRowFieldOrdinalAccess(fieldName, fields);
-                if (rowIndex.isPresent()) {
-                    index = rowIndex.getAsInt();
                 }
             }
 

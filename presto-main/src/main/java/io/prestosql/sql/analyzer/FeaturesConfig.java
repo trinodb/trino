@@ -45,6 +45,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
 @DefunctConfig({
+        "deprecated.legacy-row-field-ordinal-access",
         "deprecated.legacy-unnest-array-rows",
         "resource-group-manager",
         "experimental.resource-groups-enabled",
@@ -85,7 +86,6 @@ public class FeaturesConfig
     private boolean groupByUsesEqualTo;
     private boolean legacyTimestamp = true;
     private boolean legacyMapSubscript;
-    private boolean legacyRowFieldOrdinalAccess;
     private boolean legacyCharToVarcharCoercion;
     private boolean optimizeMixedDistinctAggregations;
     private boolean forceSingleNodeOutput = true;
@@ -196,18 +196,6 @@ public class FeaturesConfig
     {
         this.distributedIndexJoinsEnabled = distributedIndexJoinsEnabled;
         return this;
-    }
-
-    @Config("deprecated.legacy-row-field-ordinal-access")
-    public FeaturesConfig setLegacyRowFieldOrdinalAccess(boolean value)
-    {
-        this.legacyRowFieldOrdinalAccess = value;
-        return this;
-    }
-
-    public boolean isLegacyRowFieldOrdinalAccess()
-    {
-        return legacyRowFieldOrdinalAccess;
     }
 
     @Config("deprecated.legacy-char-to-varchar-coercion")
