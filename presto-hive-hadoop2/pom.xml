@@ -110,7 +110,7 @@
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration>
                             <excludes>
-                                <exclude>**/TestHiveClient.java</exclude>
+                                <exclude>**/TestHive.java</exclude>
                                 <exclude>**/TestHiveFileSystemS3.java</exclude>
                                 <exclude>**/TestHiveFileSystemS3SelectPushdown.java</exclude>
                             </excludes>
@@ -128,7 +128,7 @@
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration>
                             <includes>
-                                <include>**/TestHiveClient.java</include>
+                                <include>**/TestHive.java</include>
                             </includes>
                         </configuration>
                     </plugin>
