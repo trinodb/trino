@@ -16,30 +16,39 @@ package io.prestosql.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.sql.planner.iterative.rule.test.BaseRuleTest;
+import io.prestosql.sql.planner.plan.AggregationNode;
+import io.prestosql.sql.planner.plan.ValuesNode;
 import org.testng.annotations.Test;
 
+import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.node;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.values;
 import static io.prestosql.sql.planner.iterative.rule.test.PlanBuilder.expression;
 import static io.prestosql.sql.planner.iterative.rule.test.PlanBuilder.expressions;
 
-public class TestEvaluateZeroLimit
+public class TestRemoveRedundantLimit
         extends BaseRuleTest
 {
     @Test
-    public void testDoesNotFire()
+    public void test()
     {
-        tester().assertThat(new EvaluateZeroLimit())
+        tester().assertThat(new RemoveRedundantLimit())
                 .on(p ->
                         p.limit(
-                                1,
-                                p.values(p.symbol("a"))))
-                .doesNotFire();
+                                10,
+                                p.aggregation(builder -> builder
+                                        .addAggregation(p.symbol("c"), expression("count(foo)"), ImmutableList.of(BIGINT))
+                                        .globalGrouping()
+                                        .source(p.values(p.symbol("foo"))))))
+                .matches(
+                        node(AggregationNode.class,
+                                node(ValuesNode.class)));
     }
 
     @Test
-    public void test()
+    public void testForZeroLimit()
     {
-        tester().assertThat(new EvaluateZeroLimit())
+        tester().assertThat(new RemoveRedundantLimit())
                 .on(p ->
                         p.limit(
                                 0,
@@ -52,5 +61,19 @@ public class TestEvaluateZeroLimit
                                                         expressions("2", "11"))))))
                 // TODO: verify contents
                 .matches(values(ImmutableMap.of()));
+    }
+
+    @Test
+    public void doesNotFire()
+    {
+        tester().assertThat(new RemoveRedundantLimit())
+                .on(p ->
+                        p.limit(
+                                10,
+                                p.aggregation(builder -> builder
+                                        .addAggregation(p.symbol("c"), expression("count(foo)"), ImmutableList.of(BIGINT))
+                                        .singleGroupingSet(p.symbol("foo"))
+                                        .source(p.values(p.symbol("foo"))))))
+                .doesNotFire();
     }
 }

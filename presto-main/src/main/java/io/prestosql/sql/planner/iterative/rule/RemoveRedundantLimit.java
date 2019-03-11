@@ -20,14 +20,17 @@ import io.prestosql.sql.planner.iterative.Rule;
 import io.prestosql.sql.planner.plan.LimitNode;
 import io.prestosql.sql.planner.plan.ValuesNode;
 
-import static io.prestosql.sql.planner.plan.Patterns.Limit.count;
+import static io.prestosql.sql.planner.optimizations.QueryCardinalityUtil.isAtMost;
 import static io.prestosql.sql.planner.plan.Patterns.limit;
 
-public class EvaluateZeroLimit
+/**
+ *  Remove Limit node when the subplan is guaranteed to produce fewer rows than the limit and
+ *  replace the plan with empty values if the limit count is 0.
+ */
+public class RemoveRedundantLimit
         implements Rule<LimitNode>
 {
-    private static final Pattern<LimitNode> PATTERN = limit()
-            .with(count().equalTo(0L));
+    private static final Pattern<LimitNode> PATTERN = limit();
 
     @Override
     public Pattern<LimitNode> getPattern()
@@ -38,6 +41,12 @@ public class EvaluateZeroLimit
     @Override
     public Result apply(LimitNode limit, Captures captures, Context context)
     {
-        return Result.ofPlanNode(new ValuesNode(limit.getId(), limit.getOutputSymbols(), ImmutableList.of()));
+        if (limit.getCount() == 0) {
+            return Result.ofPlanNode(new ValuesNode(limit.getId(), limit.getOutputSymbols(), ImmutableList.of()));
+        }
+        if (isAtMost(limit.getSource(), context.getLookup(), limit.getCount())) {
+            return Result.ofPlanNode(limit.getSource());
+        }
+        return Result.empty();
     }
 }
