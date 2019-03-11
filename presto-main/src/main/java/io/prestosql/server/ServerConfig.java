@@ -24,7 +24,6 @@ public class ServerConfig
 {
     private boolean coordinator = true;
     private String prestoVersion = getClass().getPackage().getImplementationVersion();
-    private String dataSources;
     private boolean includeExceptionInResponse = true;
     private Duration gracePeriod = new Duration(2, MINUTES);
     private boolean enhancedErrorReporting = true;
