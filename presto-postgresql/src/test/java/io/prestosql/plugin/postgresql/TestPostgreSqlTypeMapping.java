@@ -46,12 +46,14 @@ import static io.prestosql.tests.datatype.DataType.dataType;
 import static io.prestosql.tests.datatype.DataType.dateDataType;
 import static io.prestosql.tests.datatype.DataType.decimalDataType;
 import static io.prestosql.tests.datatype.DataType.doubleDataType;
+import static io.prestosql.tests.datatype.DataType.formatStringLiteral;
 import static io.prestosql.tests.datatype.DataType.integerDataType;
 import static io.prestosql.tests.datatype.DataType.jsonDataType;
 import static io.prestosql.tests.datatype.DataType.realDataType;
 import static io.prestosql.tests.datatype.DataType.smallintDataType;
 import static io.prestosql.tests.datatype.DataType.varbinaryDataType;
 import static io.prestosql.tests.datatype.DataType.varcharDataType;
+import static io.prestosql.type.JsonType.JSON;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_16LE;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -272,41 +274,34 @@ public class TestPostgreSqlTypeMapping
     }
 
     @Test
-    public void jsonDataTypeTest()
+    public void testJson()
     {
-        DataTypeTest dataTypeTest = DataTypeTest.create()
-                .addRoundTrip(jsonDataType(), "{}")
-                .addRoundTrip(jsonDataType(), null)
-                .addRoundTrip(jsonDataType(), "null")
-                .addRoundTrip(jsonDataType(), "123.4")
-                .addRoundTrip(jsonDataType(), "\"abc\"")
-                .addRoundTrip(jsonDataType(), "\"text with \\\" quotations and ' apostrophes\"")
-                .addRoundTrip(jsonDataType(), "\"\"")
-                .addRoundTrip(jsonDataType(), "{\"a\":1,\"b\":2}")
-                .addRoundTrip(jsonDataType(), "{\"a\":[1,2,3],\"b\":{\"aa\":11,\"bb\":[{\"a\":1,\"b\":2},{\"a\":0}]}}")
-                .addRoundTrip(jsonDataType(), "[]");
-
-        dataTypeTest.execute(getQueryRunner(), prestoCreateAsSelect("presto_test_json"));
-        dataTypeTest.execute(getQueryRunner(), postgresCreateAndInsert("tpch.postgresql_test_json"));
+        jsonTestCases(jsonDataType())
+                .execute(getQueryRunner(), prestoCreateAsSelect("presto_test_json"));
+        jsonTestCases(jsonDataType())
+                .execute(getQueryRunner(), postgresCreateAndInsert("tpch.postgresql_test_json"));
     }
 
     @Test
-    public void testJson()
+    public void testJsonb()
     {
-        JdbcSqlExecutor jdbcSqlExecutor = new JdbcSqlExecutor(postgreSqlServer.getJdbcUrl());
-        jdbcSqlExecutor.execute("CREATE TABLE tpch.test_json(key varchar(5), json_column json, jsonb_column jsonb)");
-        try {
-            assertQuery(
-                    "SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'tpch' AND table_name = 'test_json'",
-                    "VALUES ('key','varchar(5)'),('json_column','json'),('jsonb_column','json')");
-            assertUpdate("INSERT INTO tpch.test_json VALUES ('1', json'{\"x\":123}',json'{\"x\": 123}' )", 1);
-            assertQuery("SELECT * FROM tpch.test_json", "SELECT '1' \"key\", '{\"x\":   123}' json_column, '{\"x\":123}' jsonb_column");
-            assertQuery("SELECT * FROM test_json WHERE json_column = json'{\"x\":123}'", "SELECT '1' \"key\", '{\"x\":   123}' json_column, '{\"x\":123}' jsonb_column");
-            assertUpdate("INSERT INTO test_json VALUES ('1', json'{\"x\":123}',json'{\"x\": 123}' )", 1);
-        }
-        finally {
-            jdbcSqlExecutor.execute("DROP TABLE tpch.test_json");
-        }
+        jsonTestCases(jsonbDataType())
+                .execute(getQueryRunner(), postgresCreateAndInsert("tpch.postgresql_test_jsonb"));
+    }
+
+    private DataTypeTest jsonTestCases(DataType<String> jsonDataType)
+    {
+        return DataTypeTest.create()
+                .addRoundTrip(jsonDataType, "{}")
+                .addRoundTrip(jsonDataType, null)
+                .addRoundTrip(jsonDataType, "null")
+                .addRoundTrip(jsonDataType, "123.4")
+                .addRoundTrip(jsonDataType, "\"abc\"")
+                .addRoundTrip(jsonDataType, "\"text with \\\" quotations and ' apostrophes\"")
+                .addRoundTrip(jsonDataType, "\"\"")
+                .addRoundTrip(jsonDataType, "{\"a\":1,\"b\":2}")
+                .addRoundTrip(jsonDataType, "{\"a\":[1,2,3],\"b\":{\"aa\":11,\"bb\":[{\"a\":1,\"b\":2},{\"a\":0}]}}")
+                .addRoundTrip(jsonDataType, "[]");
     }
 
     private void testUnsupportedDataType(String databaseDataType)
@@ -321,6 +316,15 @@ public class TestPostgreSqlTypeMapping
         finally {
             jdbcSqlExecutor.execute("DROP TABLE tpch.test_unsupported_data_type");
         }
+    }
+
+    public static DataType<String> jsonbDataType()
+    {
+        return dataType(
+                "jsonb",
+                JSON,
+                value -> "JSON " + formatStringLiteral(value),
+                identity());
     }
 
     private static DataType<byte[]> byteaDataType()

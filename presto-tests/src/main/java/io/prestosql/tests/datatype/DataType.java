@@ -108,7 +108,7 @@ public class DataType<T>
 
     public static DataType<String> stringDataType(String insertType, Type prestoResultType)
     {
-        return dataType(insertType, prestoResultType, DataType::quote, Function.identity());
+        return dataType(insertType, prestoResultType, DataType::formatStringLiteral, Function.identity());
     }
 
     public static DataType<String> charDataType(int length)
@@ -124,7 +124,7 @@ public class DataType<T>
 
     public static DataType<String> charDataType(String insertType, int length)
     {
-        return dataType(insertType, createCharType(length), DataType::quote, input -> padEnd(input, length, ' '));
+        return dataType(insertType, createCharType(length), DataType::formatStringLiteral, input -> padEnd(input, length, ' '));
     }
 
     public static DataType<byte[]> varbinaryDataType()
@@ -156,11 +156,11 @@ public class DataType<T>
         return dataType(
                 "json",
                 JSON,
-                value -> "JSON " + quote(value),
+                value -> "JSON " + formatStringLiteral(value),
                 identity());
     }
 
-    private static String quote(String value)
+    public static String formatStringLiteral(String value)
     {
         return "'" + value.replace("'", "''") + "'";
     }
