@@ -41,8 +41,6 @@ import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
-import static io.prestosql.sql.analyzer.FeaturesConfig.JoinDistributionType.BROADCAST;
-import static io.prestosql.sql.analyzer.FeaturesConfig.JoinDistributionType.PARTITIONED;
 import static io.prestosql.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.ELIMINATE_CROSS_JOINS;
 import static io.prestosql.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.NONE;
 import static java.lang.Math.min;
@@ -55,7 +53,6 @@ public final class SystemSessionProperties
     public static final String OPTIMIZE_HASH_GENERATION = "optimize_hash_generation";
     public static final String JOIN_DISTRIBUTION_TYPE = "join_distribution_type";
     public static final String JOIN_MAX_BROADCAST_TABLE_SIZE = "join_max_broadcast_table_size";
-    public static final String DISTRIBUTED_JOIN = "distributed_join";
     public static final String DISTRIBUTED_INDEX_JOIN = "distributed_index_join";
     public static final String HASH_PARTITION_COUNT = "hash_partition_count";
     public static final String GROUPED_EXECUTION = "grouped_execution";
@@ -142,11 +139,6 @@ public final class SystemSessionProperties
                         OPTIMIZE_HASH_GENERATION,
                         "Compute hash codes for distribution, joins, and aggregations early in query plan",
                         featuresConfig.isOptimizeHashGeneration(),
-                        false),
-                booleanProperty(
-                        DISTRIBUTED_JOIN,
-                        "(DEPRECATED) Use a distributed join instead of a broadcast join. If this is set, join_distribution_type is ignored.",
-                        null,
                         false),
                 new PropertyMetadata<>(
                         JOIN_DISTRIBUTION_TYPE,
@@ -569,15 +561,6 @@ public final class SystemSessionProperties
 
     public static JoinDistributionType getJoinDistributionType(Session session)
     {
-        // distributed_join takes precedence until we remove it
-        Boolean distributedJoin = session.getSystemProperty(DISTRIBUTED_JOIN, Boolean.class);
-        if (distributedJoin != null) {
-            if (!distributedJoin) {
-                return BROADCAST;
-            }
-            return PARTITIONED;
-        }
-
         return session.getSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.class);
     }
 
