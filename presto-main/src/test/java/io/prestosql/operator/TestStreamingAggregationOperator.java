@@ -20,7 +20,6 @@ import io.prestosql.metadata.Signature;
 import io.prestosql.operator.StreamingAggregationOperator.StreamingAggregationOperatorFactory;
 import io.prestosql.operator.aggregation.InternalAggregationFunction;
 import io.prestosql.spi.Page;
-import io.prestosql.sql.analyzer.FeaturesConfig;
 import io.prestosql.sql.gen.JoinCompiler;
 import io.prestosql.sql.planner.plan.AggregationNode;
 import io.prestosql.sql.planner.plan.PlanNodeId;
@@ -81,7 +80,7 @@ public class TestStreamingAggregationOperator
                 AggregationNode.Step.SINGLE,
                 ImmutableList.of(COUNT.bind(ImmutableList.of(0), Optional.empty()),
                         LONG_SUM.bind(ImmutableList.of(2), Optional.empty())),
-                new JoinCompiler(MetadataManager.createTestMetadataManager(), new FeaturesConfig()));
+                new JoinCompiler(MetadataManager.createTestMetadataManager()));
     }
 
     @AfterMethod

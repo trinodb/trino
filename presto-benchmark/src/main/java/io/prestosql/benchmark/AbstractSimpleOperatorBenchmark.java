@@ -20,7 +20,6 @@ import io.prestosql.operator.DriverContext;
 import io.prestosql.operator.DriverFactory;
 import io.prestosql.operator.OperatorFactory;
 import io.prestosql.operator.TaskContext;
-import io.prestosql.sql.analyzer.FeaturesConfig;
 import io.prestosql.sql.gen.JoinCompiler;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 import io.prestosql.testing.LocalQueryRunner;
@@ -35,7 +34,7 @@ import static io.prestosql.operator.PipelineExecutionStrategy.UNGROUPED_EXECUTIO
 public abstract class AbstractSimpleOperatorBenchmark
         extends AbstractOperatorBenchmark
 {
-    protected static final JoinCompiler JOIN_COMPILER = new JoinCompiler(MetadataManager.createTestMetadataManager(), new FeaturesConfig());
+    protected static final JoinCompiler JOIN_COMPILER = new JoinCompiler(MetadataManager.createTestMetadataManager());
 
     protected AbstractSimpleOperatorBenchmark(
             LocalQueryRunner localQueryRunner,

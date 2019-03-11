@@ -49,7 +49,6 @@ import io.prestosql.spi.function.OperatorType;
 import io.prestosql.spi.type.BigintType;
 import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.Type;
-import io.prestosql.sql.analyzer.FeaturesConfig;
 import io.prestosql.sql.gen.JoinFilterFunctionCompiler.JoinFilterFunctionFactory;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import org.openjdk.jol.info.ClassLayout;
@@ -91,7 +90,6 @@ import static java.util.Objects.requireNonNull;
 public class JoinCompiler
 {
     private final FunctionRegistry registry;
-    private final boolean groupByUsesEqualTo;
 
     private final LoadingCache<CacheKey, LookupSourceSupplierFactory> lookupSourceFactories = CacheBuilder.newBuilder()
             .recordStats()
@@ -111,10 +109,9 @@ public class JoinCompiler
     }
 
     @Inject
-    public JoinCompiler(Metadata metadata, FeaturesConfig config)
+    public JoinCompiler(Metadata metadata)
     {
         this.registry = requireNonNull(metadata, "metadata is null").getFunctionRegistry();
-        this.groupByUsesEqualTo = requireNonNull(config, "config is null").isGroupByUsesEqualTo();
     }
 
     @Managed
@@ -664,18 +661,6 @@ public class JoinCompiler
         Variable thisVariable = positionNotDistinctFromRowMethod.getThis();
         Scope scope = positionNotDistinctFromRowMethod.getScope();
         BytecodeBlock body = positionNotDistinctFromRowMethod.getBody();
-        if (groupByUsesEqualTo) {
-            // positionNotDistinctFromRow delegates to positionEqualsRow when groupByUsesEqualTo is set.
-            body.append(thisVariable.invoke(
-                    "positionEqualsRow",
-                    boolean.class,
-                    leftBlockIndex,
-                    leftBlockPosition,
-                    rightPosition,
-                    page,
-                    rightChannels).ret());
-            return;
-        }
         scope.declareVariable("wasNull", body, constantFalse());
         for (int index = 0; index < joinChannelTypes.size(); index++) {
             BytecodeExpression leftBlock = thisVariable

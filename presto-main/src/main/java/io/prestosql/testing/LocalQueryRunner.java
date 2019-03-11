@@ -313,7 +313,7 @@ public class LocalQueryRunner
                 transactionManager);
         this.splitManager = new SplitManager(new QueryManagerConfig(), metadata);
         this.planFragmenter = new PlanFragmenter(this.metadata, this.nodePartitioningManager, new QueryManagerConfig());
-        this.joinCompiler = new JoinCompiler(metadata, featuresConfig);
+        this.joinCompiler = new JoinCompiler(metadata);
         this.pageIndexerFactory = new GroupByHashPageIndexerFactory(joinCompiler);
         this.statsCalculator = createNewStatsCalculator(metadata);
         this.taskCountEstimator = new TaskCountEstimator(() -> nodeCountForStats);

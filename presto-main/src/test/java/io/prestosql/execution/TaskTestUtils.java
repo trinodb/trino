@@ -39,7 +39,6 @@ import io.prestosql.spi.type.TestingTypeManager;
 import io.prestosql.spiller.GenericSpillerFactory;
 import io.prestosql.split.PageSinkManager;
 import io.prestosql.split.PageSourceManager;
-import io.prestosql.sql.analyzer.FeaturesConfig;
 import io.prestosql.sql.gen.ExpressionCompiler;
 import io.prestosql.sql.gen.JoinCompiler;
 import io.prestosql.sql.gen.JoinFilterFunctionCompiler;
@@ -150,7 +149,7 @@ public final class TaskTestUtils
                 },
                 new BlockEncodingManager(new TestingTypeManager()),
                 new PagesIndex.TestingFactory(false),
-                new JoinCompiler(MetadataManager.createTestMetadataManager(), new FeaturesConfig()),
+                new JoinCompiler(MetadataManager.createTestMetadataManager()),
                 new LookupJoinOperators(),
                 new OrderingCompiler());
     }
