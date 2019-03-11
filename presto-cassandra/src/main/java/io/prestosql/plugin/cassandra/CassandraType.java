@@ -357,7 +357,6 @@ public enum CassandraType
                     return row.getVarint(position).toString();
                 case BLOB:
                 case CUSTOM:
-                    return Bytes.toHexString(row.getBytesUnsafe(position));
                 case TUPLE:
                     return Bytes.toHexString(row.getBytesUnsafe(position));
                 default:
@@ -394,7 +393,6 @@ public enum CassandraType
             case DOUBLE:
             case FLOAT:
             case DECIMAL:
-                return object.toString();
             case TUPLE:
                 return object.toString();
             default:
@@ -461,11 +459,10 @@ public enum CassandraType
                 return java.util.UUID.fromString(((Slice) nativeValue).toStringUtf8());
             case BLOB:
             case CUSTOM:
+            case TUPLE:
                 return ((Slice) nativeValue).toStringUtf8();
             case VARINT:
                 return new BigInteger(((Slice) nativeValue).toStringUtf8());
-            case TUPLE:
-                return ((Slice) nativeValue).toStringUtf8();
             case SET:
             case LIST:
             case MAP:

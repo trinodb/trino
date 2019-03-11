@@ -253,11 +253,11 @@ public class TestCassandraConnector
 
                     rowNumber++;
 
-                    String keyValue = cursor.getSlice(columnIndex.get("typeinteger")).toStringUtf8();
+                    String keyValue = cursor.getSlice(columnIndex.get("key")).toStringUtf8();
                     String tupleValue = cursor.getSlice(columnIndex.get("typetuple")).toStringUtf8();
 
                     assertEquals(keyValue, Long.toString(rowNumber));
-                    assertEquals(tupleValue, "(" + Long.toString(rowNumber) + "," + Long.toString(rowNumber) + ")");
+                    assertEquals(tupleValue, String.format("(%d,'text-%d',%.2f)", rowNumber, rowNumber, (1.11 * rowNumber)));
 
                     long newCompletedBytes = cursor.getCompletedBytes();
                     assertTrue(newCompletedBytes >= completedBytes);

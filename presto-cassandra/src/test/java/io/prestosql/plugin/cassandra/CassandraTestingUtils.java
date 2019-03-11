@@ -229,13 +229,11 @@ public class CassandraTestingUtils
         session.execute("DROP TABLE IF EXISTS " + table);
 
         session.execute("CREATE TABLE " + table + " (" +
-                " typeinteger int PRIMARY KEY, " +
-                " typetuple frozen<tuple<int, int>>" +
+                " key int PRIMARY KEY, " +
+                " typetuple frozen<tuple<int, text, float>>" +
                 ")");
-        session.execute("INSERT INTO " + table + " (typeinteger, typetuple)" +
-                "VALUES (1, (1, 1))");
-        session.execute("INSERT INTO " + table + " (typeinteger, typetuple)" +
-                "VALUES (2, (2, 2))");
+        session.execute(String.format("INSERT INTO %s (key, typetuple) VALUES (1, (1, 'text-1', 1.11))", table));
+        session.execute(String.format("INSERT INTO %s (key, typetuple) VALUES (2, (2, 'text-2', 2.22))", table));
 
         assertEquals(session.execute("SELECT COUNT(*) FROM " + table).all().get(0).getLong(0), 2);
     }
