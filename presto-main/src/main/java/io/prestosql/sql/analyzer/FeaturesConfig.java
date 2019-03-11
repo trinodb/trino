@@ -45,6 +45,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
 @DefunctConfig({
+        "deprecated.legacy-char-to-varchar-coercion",
         "deprecated.legacy-map-subscript",
         "deprecated.group-by-uses-equal",
         "deprecated.legacy-row-field-ordinal-access",
@@ -86,7 +87,6 @@ public class FeaturesConfig
     private boolean pushTableWriteThroughUnion = true;
     private boolean exchangeCompressionEnabled;
     private boolean legacyTimestamp = true;
-    private boolean legacyCharToVarcharCoercion;
     private boolean optimizeMixedDistinctAggregations;
     private boolean forceSingleNodeOutput = true;
     private boolean pagesIndexEagerCompactionEnabled;
@@ -196,18 +196,6 @@ public class FeaturesConfig
     {
         this.distributedIndexJoinsEnabled = distributedIndexJoinsEnabled;
         return this;
-    }
-
-    @Config("deprecated.legacy-char-to-varchar-coercion")
-    public FeaturesConfig setLegacyCharToVarcharCoercion(boolean value)
-    {
-        this.legacyCharToVarcharCoercion = value;
-        return this;
-    }
-
-    public boolean isLegacyCharToVarcharCoercion()
-    {
-        return legacyCharToVarcharCoercion;
     }
 
     @Config("deprecated.legacy-timestamp")

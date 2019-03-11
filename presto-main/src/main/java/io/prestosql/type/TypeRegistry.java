@@ -303,7 +303,7 @@ public final class TypeRegistry
                 Type commonSuperType = getCommonSuperTypeForVarchar((VarcharType) fromType, (VarcharType) toType);
                 return TypeCompatibility.compatible(commonSuperType, commonSuperType.equals(toType));
             }
-            if (fromTypeBaseName.equals(StandardTypes.CHAR) && !featuresConfig.isLegacyCharToVarcharCoercion()) {
+            if (fromTypeBaseName.equals(StandardTypes.CHAR)) {
                 Type commonSuperType = getCommonSuperTypeForChar((CharType) fromType, (CharType) toType);
                 return TypeCompatibility.compatible(commonSuperType, commonSuperType.equals(toType));
             }
@@ -587,10 +587,6 @@ public final class TypeRegistry
             case StandardTypes.VARCHAR: {
                 switch (resultTypeBase) {
                     case StandardTypes.CHAR:
-                        if (featuresConfig.isLegacyCharToVarcharCoercion()) {
-                            return Optional.empty();
-                        }
-
                         VarcharType varcharType = (VarcharType) sourceType;
                         if (varcharType.isUnbounded()) {
                             return Optional.of(CharType.createCharType(CharType.MAX_LENGTH));
@@ -614,12 +610,7 @@ public final class TypeRegistry
             case StandardTypes.CHAR: {
                 switch (resultTypeBase) {
                     case StandardTypes.VARCHAR:
-                        if (!featuresConfig.isLegacyCharToVarcharCoercion()) {
-                            return Optional.empty();
-                        }
-
-                        CharType charType = (CharType) sourceType;
-                        return Optional.of(createVarcharType(charType.getLength()));
+                        return Optional.empty();
                     case JoniRegexpType.NAME:
                         return Optional.of(JONI_REGEXP);
                     case Re2JRegexpType.NAME:
