@@ -20,6 +20,7 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.prestosql.Session;
 import io.prestosql.dispatcher.QueryAnalysisResponse.Status;
+import io.prestosql.execution.ClusterSizeMonitor;
 import io.prestosql.execution.ExecutionFailureInfo;
 import io.prestosql.execution.QueryState;
 import io.prestosql.execution.StateMachine.StateChangeListener;
@@ -51,15 +52,21 @@ public class RemoteDispatchQuery
     private final QueuedQueryStateMachine stateMachine;
 
     private final QueryDispatcher queryDispatcher;
+    private final ClusterSizeMonitor clusterSizeMonitor;
     private final Executor executor;
 
     private final SettableFuture<?> dispatched = SettableFuture.create();
     private final ListenableFuture<QueryAnalysisResponse> analyzeQueryFuture;
 
-    public RemoteDispatchQuery(QueuedQueryStateMachine stateMachine, QueryDispatcher queryDispatcher, Executor executor)
+    public RemoteDispatchQuery(
+            QueuedQueryStateMachine stateMachine,
+            QueryDispatcher queryDispatcher,
+            ClusterSizeMonitor clusterSizeMonitor,
+            Executor executor)
     {
         this.stateMachine = requireNonNull(stateMachine, "stateMachine is null");
         this.queryDispatcher = requireNonNull(queryDispatcher, "queryDispatcher is null");
+        this.clusterSizeMonitor = requireNonNull(clusterSizeMonitor, "clusterSizeMonitor is null");
         this.executor = requireNonNull(executor, "executor is null");
 
         // start analysis immediately
@@ -90,6 +97,23 @@ public class RemoteDispatchQuery
     @Override
     public void startWaitingForResources()
     {
+        if (stateMachine.transitionToWaitingForResources()) {
+            waitForMinimumWorkers();
+        }
+    }
+
+    private void waitForMinimumWorkers()
+    {
+        ListenableFuture<?> minimumWorkerFuture = clusterSizeMonitor.waitForMinimumWorkers();
+        addSuccessCallback(minimumWorkerFuture, this::startExecution);
+        addExceptionCallback(minimumWorkerFuture, throwable -> {
+            stateMachine.transitionToFailed(throwable);
+            analyzeQueryFuture.cancel(true);
+        });
+    }
+
+    private void startExecution()
+    {
         // If there this is an auto-commit transaction, simply abort the analysis, since the
         // query will be analysis will be performed again after dispatch.  But, if this is an
         // existing transaction, the we must wait for the analysis to complete since the
@@ -99,11 +123,9 @@ public class RemoteDispatchQuery
         }
         analyzeQueryFuture.addListener(() -> {
             try {
-                if (stateMachine.transitionToWaitingForResources()) {
-                    ListenableFuture<?> locationFuture = queryDispatcher.dispatchQuery(stateMachine);
-                    addSuccessCallback(locationFuture, () -> dispatched.set(null));
-                    addExceptionCallback(locationFuture, stateMachine::transitionToFailed);
-                }
+                ListenableFuture<?> locationFuture = queryDispatcher.dispatchQuery(stateMachine);
+                addSuccessCallback(locationFuture, () -> dispatched.set(null));
+                addExceptionCallback(locationFuture, stateMachine::transitionToFailed);
             }
             catch (Exception e) {
                 stateMachine.transitionToFailed(e);

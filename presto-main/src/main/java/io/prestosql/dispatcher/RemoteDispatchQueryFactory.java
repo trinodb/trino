@@ -15,6 +15,7 @@ package io.prestosql.dispatcher;
 
 import io.prestosql.Session;
 import io.prestosql.event.QueryMonitor;
+import io.prestosql.execution.ClusterSizeMonitor;
 import io.prestosql.execution.ExecutionFailureInfo;
 import io.prestosql.execution.LocationFactory;
 import io.prestosql.execution.QueryPreparer.PreparedQuery;
@@ -37,6 +38,7 @@ public class RemoteDispatchQueryFactory
     private final QueryMonitor queryMonitor;
     private final LocationFactory locationFactory;
     private final QueryDispatcher queryDispatcher;
+    private final ClusterSizeMonitor clusterSizeMonitor;
     private final Executor executor;
 
     @Inject
@@ -45,12 +47,14 @@ public class RemoteDispatchQueryFactory
             QueryMonitor queryMonitor,
             LocationFactory locationFactory,
             QueryDispatcher queryDispatcher,
+            ClusterSizeMonitor clusterSizeMonitor,
             DispatchExecutor dispatchExecutor)
     {
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.queryMonitor = requireNonNull(queryMonitor, "queryMonitor is null");
         this.locationFactory = requireNonNull(locationFactory, "locationFactory is null");
         this.queryDispatcher = requireNonNull(queryDispatcher, "queryDispatcher is null");
+        this.clusterSizeMonitor = requireNonNull(clusterSizeMonitor, "clusterSizeMonitor is null");
         this.executor = requireNonNull(dispatchExecutor, "dispatchExecutor is null").getExecutor();
     }
 
@@ -81,6 +85,6 @@ public class RemoteDispatchQueryFactory
             }
         });
 
-        return new RemoteDispatchQuery(stateMachine, queryDispatcher, executor);
+        return new RemoteDispatchQuery(stateMachine, queryDispatcher, clusterSizeMonitor, executor);
     }
 }
