@@ -153,7 +153,7 @@ public class DistributedQueryRunner
         }
 
         // copy session using property manager in coordinator
-        defaultSession = defaultSession.toSessionRepresentation().toSession(coordinator.getMetadata().getSessionPropertyManager());
+        defaultSession = defaultSession.toSessionRepresentation().toSession(coordinator.getMetadata().getSessionPropertyManager(), defaultSession.getIdentity().getExtraCredentials());
         this.prestoClient = closer.register(new TestingPrestoClient(coordinator, defaultSession));
 
         long start = System.nanoTime();
