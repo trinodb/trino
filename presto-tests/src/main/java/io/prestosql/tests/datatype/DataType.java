@@ -30,7 +30,6 @@ import java.time.format.DateTimeFormatter;
 import java.util.Optional;
 import java.util.function.Function;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.padEnd;
 import static com.google.common.io.BaseEncoding.base16;
 import static io.prestosql.spi.type.CharType.createCharType;
@@ -157,16 +156,13 @@ public class DataType<T>
         return dataType(
                 "json",
                 JSON,
-                value -> {
-                    checkArgument(!value.contains("'"));
-                    return format("JSON '%s'", value);
-                },
+                value -> "JSON " + quote(value),
                 identity());
     }
 
     private static String quote(String value)
     {
-        return "'" + value + "'";
+        return "'" + value.replace("'", "''") + "'";
     }
 
     /**

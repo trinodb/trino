@@ -300,6 +300,7 @@ public class TestPostgreSqlTypeMapping
                 .addRoundTrip(jsonDataType(), "null")
                 .addRoundTrip(jsonDataType(), "123.4")
                 .addRoundTrip(jsonDataType(), "\"abc\"")
+                .addRoundTrip(jsonDataType(), "\"text with \\\" quotations and ' apostrophes\"")
                 .addRoundTrip(jsonDataType(), "\"\"")
                 .addRoundTrip(jsonDataType(), "{\"a\":1,\"b\":2}")
                 .addRoundTrip(jsonDataType(), "{\"a\":[1,2,3],\"b\":{\"aa\":11,\"bb\":[{\"a\":1,\"b\":2},{\"a\":0}]}}")
