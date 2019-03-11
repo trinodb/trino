@@ -18,8 +18,6 @@ import io.prestosql.plugin.hive.HiveClientConfig;
 import io.prestosql.plugin.hive.authentication.NoHiveMetastoreAuthentication;
 import org.apache.thrift.TException;
 
-import java.util.Objects;
-
 import static java.util.Objects.requireNonNull;
 
 public class TestingHiveCluster
@@ -39,25 +37,5 @@ public class TestingHiveCluster
             throws TException
     {
         return new HiveMetastoreClientFactory(config, new NoHiveMetastoreAuthentication()).create(address);
-    }
-
-    @Override
-    public boolean equals(Object obj)
-    {
-        if (this == obj) {
-            return true;
-        }
-        if ((obj == null) || (getClass() != obj.getClass())) {
-            return false;
-        }
-        TestingHiveCluster o = (TestingHiveCluster) obj;
-
-        return Objects.equals(this.address, o.address);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(address);
     }
 }
