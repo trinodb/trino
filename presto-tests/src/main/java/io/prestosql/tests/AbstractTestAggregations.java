@@ -1269,4 +1269,10 @@ public abstract class AbstractTestAggregations
                         "('5-LOW', 445 , NULL)," +
                         "('1-URGENT', 781 , ('O'))");
     }
+
+    @Test
+    public void testAggregationWithConstantArgumentsOverScalar()
+    {
+        assertQuery("SELECT count(1) FROM (SELECT count(custkey) FROM orders LIMIT 10) a");
+    }
 }
