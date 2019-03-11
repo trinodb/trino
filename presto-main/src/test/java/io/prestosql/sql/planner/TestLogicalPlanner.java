@@ -989,4 +989,35 @@ public class TestLogicalPlanner
                                 anyTree(
                                         tableScan("orders")))));
     }
+
+    public void testRedundantTopNNodeRemoval()
+    {
+        String query = "SELECT count(*) FROM orders ORDER BY 1 LIMIT 10";
+        assertFalse(
+                searchFrom(plan(query, LogicalPlanner.Stage.OPTIMIZED).getRoot())
+                        .where(isInstanceOfAny(TopNNode.class, SortNode.class))
+                        .matches(),
+                format("Unexpected TopN node for query: '%s'", query));
+
+        query = "SELECT orderkey, count(*) FROM orders GROUP BY orderkey ORDER BY 1 LIMIT 10";
+        assertPlan(
+                query,
+                output(
+                        node(TopNNode.class,
+                                anyTree(
+                                        tableScan("orders")))));
+
+        query = "SELECT orderkey, count(*) FROM orders GROUP BY orderkey ORDER BY 1 LIMIT 0";
+        assertPlan(
+                query,
+                output(
+                        node(ValuesNode.class)));
+
+        query = "SELECT * FROM (VALUES 1,2,3,4,5,6) AS t1 ORDER BY 1 LIMIT 10";
+        assertPlan(
+                query,
+                output(
+                        node(SortNode.class,
+                                values(ImmutableList.of("t1")))));
+    }
 }

@@ -42,7 +42,6 @@ import io.prestosql.sql.planner.iterative.rule.DetermineJoinDistributionType;
 import io.prestosql.sql.planner.iterative.rule.DetermineSemiJoinDistributionType;
 import io.prestosql.sql.planner.iterative.rule.EliminateCrossJoins;
 import io.prestosql.sql.planner.iterative.rule.EvaluateZeroSample;
-import io.prestosql.sql.planner.iterative.rule.EvaluateZeroTopN;
 import io.prestosql.sql.planner.iterative.rule.ExtractSpatialJoins;
 import io.prestosql.sql.planner.iterative.rule.GatherAndMergeWindows;
 import io.prestosql.sql.planner.iterative.rule.ImplementBernoulliSampleAsFilter;
@@ -103,6 +102,7 @@ import io.prestosql.sql.planner.iterative.rule.RemoveFullSample;
 import io.prestosql.sql.planner.iterative.rule.RemoveRedundantIdentityProjections;
 import io.prestosql.sql.planner.iterative.rule.RemoveRedundantLimit;
 import io.prestosql.sql.planner.iterative.rule.RemoveRedundantSort;
+import io.prestosql.sql.planner.iterative.rule.RemoveRedundantTopN;
 import io.prestosql.sql.planner.iterative.rule.RemoveTrivialFilters;
 import io.prestosql.sql.planner.iterative.rule.RemoveUnreferencedScalarApplyNodes;
 import io.prestosql.sql.planner.iterative.rule.RemoveUnreferencedScalarLateralNodes;
@@ -294,7 +294,6 @@ public class PlanOptimizers
                                 .addAll(ImmutableSet.of(
                                         new RemoveRedundantIdentityProjections(),
                                         new RemoveFullSample(),
-                                        new EvaluateZeroTopN(),
                                         new EvaluateZeroSample(),
                                         new PushOffsetThroughProject(),
                                         new PushLimitThroughOffset(),
@@ -311,6 +310,7 @@ public class PlanOptimizers
                                         new RemoveTrivialFilters(),
                                         new RemoveRedundantLimit(),
                                         new RemoveRedundantSort(),
+                                        new RemoveRedundantTopN(),
                                         new ImplementFilteredAggregations(),
                                         new SingleDistinctAggregationToGroupBy(),
                                         new MultipleDistinctAggregationToMarkDistinct(),
