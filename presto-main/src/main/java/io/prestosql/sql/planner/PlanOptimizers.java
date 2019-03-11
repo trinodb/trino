@@ -41,7 +41,6 @@ import io.prestosql.sql.planner.iterative.rule.DesugarTryExpression;
 import io.prestosql.sql.planner.iterative.rule.DetermineJoinDistributionType;
 import io.prestosql.sql.planner.iterative.rule.DetermineSemiJoinDistributionType;
 import io.prestosql.sql.planner.iterative.rule.EliminateCrossJoins;
-import io.prestosql.sql.planner.iterative.rule.EvaluateZeroLimit;
 import io.prestosql.sql.planner.iterative.rule.EvaluateZeroSample;
 import io.prestosql.sql.planner.iterative.rule.EvaluateZeroTopN;
 import io.prestosql.sql.planner.iterative.rule.ExtractSpatialJoins;
@@ -102,6 +101,7 @@ import io.prestosql.sql.planner.iterative.rule.RemoveAggregationInSemiJoin;
 import io.prestosql.sql.planner.iterative.rule.RemoveEmptyDelete;
 import io.prestosql.sql.planner.iterative.rule.RemoveFullSample;
 import io.prestosql.sql.planner.iterative.rule.RemoveRedundantIdentityProjections;
+import io.prestosql.sql.planner.iterative.rule.RemoveRedundantLimit;
 import io.prestosql.sql.planner.iterative.rule.RemoveTrivialFilters;
 import io.prestosql.sql.planner.iterative.rule.RemoveUnreferencedScalarApplyNodes;
 import io.prestosql.sql.planner.iterative.rule.RemoveUnreferencedScalarLateralNodes;
@@ -293,7 +293,6 @@ public class PlanOptimizers
                                 .addAll(ImmutableSet.of(
                                         new RemoveRedundantIdentityProjections(),
                                         new RemoveFullSample(),
-                                        new EvaluateZeroLimit(),
                                         new EvaluateZeroTopN(),
                                         new EvaluateZeroSample(),
                                         new PushOffsetThroughProject(),
@@ -309,6 +308,7 @@ public class PlanOptimizers
                                         new PushLimitIntoTableScan(metadata),
                                         new PushPredicateIntoTableScan(metadata, typeAnalyzer),
                                         new RemoveTrivialFilters(),
+                                        new RemoveRedundantLimit(),
                                         new ImplementFilteredAggregations(),
                                         new SingleDistinctAggregationToGroupBy(),
                                         new MultipleDistinctAggregationToMarkDistinct(),

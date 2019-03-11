@@ -33,6 +33,7 @@ import io.prestosql.sql.planner.plan.FilterNode;
 import io.prestosql.sql.planner.plan.IndexJoinNode;
 import io.prestosql.sql.planner.plan.JoinNode;
 import io.prestosql.sql.planner.plan.LateralJoinNode;
+import io.prestosql.sql.planner.plan.LimitNode;
 import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.SemiJoinNode;
 import io.prestosql.sql.planner.plan.StatisticsWriterNode;
@@ -943,5 +944,29 @@ public class TestLogicalPlanner
                                                         any(
                                                                 tableScan("nation", ImmutableMap.of("NAME", "name")))))
                                                 .withAlias("row_num", new RowNumberSymbolMatcher())))));
+    }
+
+    public void testRedundantLimitNodeRemoval()
+    {
+        String query = "SELECT count(*) FROM orders LIMIT 10";
+        assertFalse(
+                searchFrom(plan(query, OPTIMIZED).getRoot())
+                        .where(LimitNode.class::isInstance)
+                        .matches(),
+                format("Unexpected limit node for query: '%s'", query));
+
+        query = "SELECT orderkey, count(*) FROM orders GROUP BY orderkey LIMIT 10";
+        assertPlan(
+                query,
+                output(
+                        limit(10,
+                                anyTree(
+                                        tableScan("orders")))));
+
+        query = "SELECT * FROM (VALUES 1,2,3,4,5,6) AS t1 LIMIT 10";
+        assertPlan(
+                query,
+                output(
+                        values(ImmutableList.of("t1"))));
     }
 }

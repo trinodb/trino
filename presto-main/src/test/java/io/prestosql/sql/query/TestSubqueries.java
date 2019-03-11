@@ -79,7 +79,7 @@ public class TestSubqueries
     {
         // coercion FROM subquery symbol type to correlation type
         assertions.assertFails(
-                "SELECT (SELECT count(*) FROM (VALUES 1) t(a) WHERE t.a=t2.b LIMIT 1) FROM (VALUES 1.0) t2(b)",
+                "SELECT (SELECT count(*) FROM (VALUES 1) t(a) WHERE t.a=t2.b GROUP BY t.a LIMIT 1) FROM (VALUES 1.0) t2(b)",
                 UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
         // coercion from t.a (null) to integer
         assertions.assertFails(
@@ -93,9 +93,12 @@ public class TestSubqueries
         assertions.assertQuery(
                 "SELECT (SELECT t.a FROM (VALUES 1, 2) t(a) WHERE t.a=t2.b LIMIT 1) FROM (VALUES 1) t2(b)",
                 "VALUES 1");
-        // cannot enforce LIMIT 2 on correlated subquery
-        assertions.assertFails(
+        assertions.assertQuery(
                 "SELECT (SELECT t.a FROM (VALUES 1, 2) t(a) WHERE t.a=t2.b LIMIT 2) FROM (VALUES 1) t2(b)",
+                "VALUES 1");
+        // cannot enforce LIMIT on correlated subquery
+        assertions.assertFails(
+                "SELECT (SELECT t.a FROM (VALUES 1, 2, 3) t(a) WHERE t.a=t2.b LIMIT 2) from (VALUES 1) t2(b)",
                 UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
         assertions.assertQuery(
                 "SELECT (SELECT sum(t.a) FROM (VALUES 1, 2) t(a) WHERE t.a=t2.b group by t.a LIMIT 2) FROM (VALUES 1) t2(b)",
@@ -107,10 +110,9 @@ public class TestSubqueries
                 "SELECT EXISTS(SELECT 1 FROM (VALUES 1, 1, 3) t(a) WHERE t.a=t2.b LIMIT 1) FROM (VALUES 1, 2) t2(b)",
                 "VALUES true, false",
                 false);
-        // TransformCorrelatedScalarAggregationToJoin does not fire since limit is above aggregation node
-        assertions.assertFails(
+        assertions.assertQuery(
                 "SELECT (SELECT count(*) FROM (VALUES 1, 1, 3) t(a) WHERE t.a=t2.b LIMIT 1) FROM (VALUES 1) t2(b)",
-                UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
+                "VALUES BIGINT '2'");
         assertExistsRewrittenToAggregationBelowJoin(
                 "SELECT EXISTS(SELECT 1 FROM (VALUES ('x', 1)) u(x, cid) WHERE x = 'x' AND t.cid = cid LIMIT 1) " +
                         "FROM (VALUES 1) t(cid)",
