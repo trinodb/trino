@@ -50,6 +50,7 @@ import io.prestosql.dispatcher.QuerySubmission;
 import io.prestosql.dispatcher.QuerySubmissionResponse;
 import io.prestosql.dispatcher.RemoteCoordinatorMonitor;
 import io.prestosql.dispatcher.RemoteDispatchQueryFactory;
+import io.prestosql.dispatcher.RemoteDispatcherConfig;
 import io.prestosql.dispatcher.SubmissionResource;
 import io.prestosql.event.QueryMonitor;
 import io.prestosql.event.QueryMonitorConfig;
@@ -256,6 +257,7 @@ public class CoordinatorModule
             // remote dispatcher
             binder.bind(DispatchQueryFactory.class).to(RemoteDispatchQueryFactory.class);
             binder.bind(QueryDispatcher.class).in(Scopes.SINGLETON);
+            configBinder(binder).bindConfig(RemoteDispatcherConfig.class);
             binder.bind(RemoteCoordinatorMonitor.class).to(DiscoveryRemoteCoordinatorMonitor.class).in(Scopes.SINGLETON);
             jaxrsBinder(binder).bind(SubmissionResource.class);
             jsonCodecBinder(binder).bindJsonCodec(QuerySubmission.class);

@@ -57,9 +57,12 @@ import java.util.function.Function;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static io.airlift.concurrent.MoreFutures.addTimeout;
 import static io.prestosql.dispatcher.QueryAnalysisResponse.analysisUnknown;
 import static io.prestosql.spi.NodeState.ACTIVE;
+import static io.prestosql.spi.StandardErrorCode.GENERIC_INSUFFICIENT_RESOURCES;
 import static io.prestosql.spi.StandardErrorCode.SERVER_SHUTTING_DOWN;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -79,6 +82,7 @@ public class QueryDispatcher
     private final QueryTracker<DispatchQuery> dispatchQueryTracker;
     private final RemoteCoordinatorMonitor remoteCoordinatorMonitor;
     private final SessionPropertyManager sessionPropertyManager;
+    private final Duration coordinatorSelectionWaitTime;
 
     @GuardedBy("this")
     private boolean running;
@@ -100,7 +104,8 @@ public class QueryDispatcher
             JsonCodec<QuerySubmissionResponse> querySubmissionResponseCodec,
             JsonCodec<QueryAnalysis> queryAnalysisCodec,
             JsonCodec<QueryAnalysisResponse> queryAnalysisResponseCodec,
-            JsonCodec<CoordinatorStatus> coordinatorStatusCodec)
+            JsonCodec<CoordinatorStatus> coordinatorStatusCodec,
+            RemoteDispatcherConfig config)
     {
         this.dispatchQueryTracker = requireNonNull(dispatchQueryTracker, "dispatchQueryTracker is null");
         this.remoteCoordinatorMonitor = requireNonNull(remoteCoordinatorMonitor, "remoteCoordinatorMonitor is null");
@@ -116,6 +121,8 @@ public class QueryDispatcher
         this.executor = dispatchExecutor.getExecutor();
         this.scheduledExecutor = dispatchExecutor.getScheduledExecutor();
         this.remoteCoordinators = new StateMachine<>("coordinators", executor, ImmutableMap.of());
+
+        coordinatorSelectionWaitTime = requireNonNull(config, "config is null").getCoordinatorSelectionWaitTime();
     }
 
     @PostConstruct
@@ -248,13 +255,22 @@ public class QueryDispatcher
     {
         Optional<TransactionId> transactionId = stateMachine.getSession().getTransactionId();
         ListenableFuture<RemoteCoordinator> coordinatorFuture;
+        String timeoutMessage;
         if (transactionId.isPresent()) {
             coordinatorFuture = getCoordinatorForTransaction(transactionId.get());
+            timeoutMessage = format("Coordinator managing active transaction %s has been offline for %s.", transactionId.get(), coordinatorSelectionWaitTime);
         }
         else {
             coordinatorFuture = selectRandomCoordinator();
+            timeoutMessage = format("No coordinators available withing %s.", coordinatorSelectionWaitTime);
         }
-        return coordinatorFuture;
+        return addTimeout(
+                coordinatorFuture,
+                () -> {
+                    throw new PrestoException(GENERIC_INSUFFICIENT_RESOURCES, timeoutMessage);
+                },
+                coordinatorSelectionWaitTime,
+                scheduledExecutor);
     }
 
     private ListenableFuture<RemoteCoordinator> getCoordinatorForTransaction(TransactionId transactionId)
