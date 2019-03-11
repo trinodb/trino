@@ -749,6 +749,10 @@ public abstract class AbstractTestDistributedQueries
 
         assertEquals(getOnlyElement(actual.getOnlyColumnAsSet()), expectedSql);
 
+        actual = computeActual(format("SHOW CREATE VIEW %s.%s.meta_test_view", getSession().getCatalog().get(), getSession().getSchema().get()));
+
+        assertEquals(getOnlyElement(actual.getOnlyColumnAsSet()), expectedSql);
+
         assertUpdate("DROP VIEW meta_test_view");
     }
 
