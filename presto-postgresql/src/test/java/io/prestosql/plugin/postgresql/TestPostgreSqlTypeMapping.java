@@ -34,7 +34,6 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.function.Function;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.io.BaseEncoding.base16;
@@ -48,11 +47,11 @@ import static io.prestosql.tests.datatype.DataType.dateDataType;
 import static io.prestosql.tests.datatype.DataType.decimalDataType;
 import static io.prestosql.tests.datatype.DataType.doubleDataType;
 import static io.prestosql.tests.datatype.DataType.integerDataType;
+import static io.prestosql.tests.datatype.DataType.jsonDataType;
 import static io.prestosql.tests.datatype.DataType.realDataType;
 import static io.prestosql.tests.datatype.DataType.smallintDataType;
 import static io.prestosql.tests.datatype.DataType.varbinaryDataType;
 import static io.prestosql.tests.datatype.DataType.varcharDataType;
-import static io.prestosql.type.JsonType.JSON;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_16LE;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -329,18 +328,6 @@ public class TestPostgreSqlTypeMapping
                 "bytea",
                 VARBINARY,
                 bytes -> format("bytea E'\\\\x%s'", base16().encode(bytes)),
-                identity());
-    }
-
-    private static DataType<String> jsonDataType()
-    {
-        return dataType(
-                "json",
-                JSON,
-                value -> {
-                    checkArgument(!value.contains("'"));
-                    return format("JSON '%s'", value);
-                },
                 identity());
     }
 
