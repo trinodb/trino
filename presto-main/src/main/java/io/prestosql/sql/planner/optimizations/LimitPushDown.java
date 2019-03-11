@@ -135,6 +135,7 @@ public class LimitPushDown
 
             if (limit != null &&
                     node.getAggregations().isEmpty() &&
+                    !node.getGroupingKeys().isEmpty() &&
                     node.getOutputSymbols().size() == node.getGroupingKeys().size() &&
                     node.getOutputSymbols().containsAll(node.getGroupingKeys())) {
                 PlanNode rewrittenSource = context.rewrite(node.getSource());
