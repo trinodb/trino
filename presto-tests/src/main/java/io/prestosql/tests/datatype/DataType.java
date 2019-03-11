@@ -30,12 +30,14 @@ import java.time.format.DateTimeFormatter;
 import java.util.Optional;
 import java.util.function.Function;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.padEnd;
 import static com.google.common.io.BaseEncoding.base16;
 import static io.prestosql.spi.type.CharType.createCharType;
 import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.DecimalType.createDecimalType;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
+import static io.prestosql.type.JsonType.JSON;
 import static java.lang.String.format;
 import static java.math.RoundingMode.UNNECESSARY;
 import static java.util.function.Function.identity;
@@ -147,6 +149,18 @@ public class DataType<T>
                 "DATE",
                 DATE,
                 DateTimeFormatter.ofPattern("'DATE '''yyyy-MM-dd''")::format,
+                identity());
+    }
+
+    public static DataType<String> jsonDataType()
+    {
+        return dataType(
+                "json",
+                JSON,
+                value -> {
+                    checkArgument(!value.contains("'"));
+                    return format("JSON '%s'", value);
+                },
                 identity());
     }
 
