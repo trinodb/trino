@@ -47,6 +47,9 @@ import io.prestosql.server.security.ServerSecurityModule;
 import io.prestosql.sql.parser.SqlParserOptions;
 import org.weakref.jmx.guice.MBeanModule;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -56,6 +59,7 @@ import static io.airlift.discovery.client.ServiceAnnouncement.ServiceAnnouncemen
 import static io.airlift.discovery.client.ServiceAnnouncement.serviceAnnouncement;
 import static io.prestosql.server.PrestoSystemRequirements.verifyJvmRequirements;
 import static io.prestosql.server.PrestoSystemRequirements.verifySystemTimeIsReasonable;
+import static java.nio.file.LinkOption.NOFOLLOW_LINKS;
 import static java.util.Objects.requireNonNull;
 
 public class PrestoServer
@@ -115,8 +119,8 @@ public class PrestoServer
         try {
             Injector injector = app.strictConfig().initialize();
 
-            log.info("Working directory: %s", Paths.get(".").toAbsolutePath().toRealPath());
-            log.info("Etc directory: %s", Paths.get("etc").toAbsolutePath().toRealPath());
+            logLocation(log, "Working directory", Paths.get("."));
+            logLocation(log, "Etc directory", Paths.get("etc"));
 
             injector.getInstance(PluginManager.class).loadPlugins();
 
@@ -194,5 +198,21 @@ public class PrestoServer
             }
         }
         throw new IllegalArgumentException("Presto announcement not found: " + announcements);
+    }
+
+    private static void logLocation(Logger log, String name, Path path)
+    {
+        if (!Files.exists(path, NOFOLLOW_LINKS)) {
+            log.info("%s: [does not exist]", name);
+            return;
+        }
+        try {
+            path = path.toAbsolutePath().toRealPath();
+        }
+        catch (IOException e) {
+            log.info("%s: [not accessible]", name);
+            return;
+        }
+        log.info("%s: %s", name, path);
     }
 }
