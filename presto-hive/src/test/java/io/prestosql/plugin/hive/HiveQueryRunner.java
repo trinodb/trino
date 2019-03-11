@@ -181,7 +181,6 @@ public final class HiveQueryRunner
                         Optional.empty(),
                         role.map(selectedRole -> ImmutableMap.of("hive", selectedRole))
                                 .orElse(ImmutableMap.of())))
-                .setCatalog(HIVE_CATALOG)
                 .setCatalog(HIVE_BUCKETED_CATALOG)
                 .setSchema(TPCH_BUCKETED_SCHEMA)
                 .build();
