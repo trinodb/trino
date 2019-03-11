@@ -319,7 +319,6 @@ public class SqlQueryManager
         Session session = null;
         SelectionContext<C> selectionContext = null;
         QueryExecution queryExecution;
-        PreparedQuery preparedQuery;
         try {
             clusterSizeMonitor.verifyInitialMinimumWorkersRequirement();
 
@@ -333,7 +332,7 @@ public class SqlQueryManager
             session = sessionSupplier.createSession(queryId, sessionContext);
 
             // prepare query
-            preparedQuery = queryPreparer.prepareQuery(session, query);
+            PreparedQuery preparedQuery = queryPreparer.prepareQuery(session, query);
 
             // select resource group
             Optional<String> queryType = getQueryType(preparedQuery.getStatement().getClass()).map(Enum::name);
@@ -436,7 +435,7 @@ public class SqlQueryManager
 
         // start the query in the background
         try {
-            resourceGroupManager.submit(preparedQuery.getStatement(), queryExecution, selectionContext, queryExecutor);
+            resourceGroupManager.submit(queryExecution, selectionContext, queryExecutor);
         }
         catch (Throwable e) {
             failQuery(queryId, e);

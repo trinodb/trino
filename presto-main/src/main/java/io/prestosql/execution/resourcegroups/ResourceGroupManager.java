@@ -19,7 +19,6 @@ import io.prestosql.spi.resourcegroups.ResourceGroupConfigurationManagerFactory;
 import io.prestosql.spi.resourcegroups.ResourceGroupId;
 import io.prestosql.spi.resourcegroups.SelectionContext;
 import io.prestosql.spi.resourcegroups.SelectionCriteria;
-import io.prestosql.sql.tree.Statement;
 
 import javax.annotation.concurrent.ThreadSafe;
 
@@ -33,7 +32,7 @@ import java.util.concurrent.Executor;
 @ThreadSafe
 public interface ResourceGroupManager<C>
 {
-    void submit(Statement statement, ManagedQueryExecution queryExecution, SelectionContext<C> selectionContext, Executor executor);
+    void submit(ManagedQueryExecution queryExecution, SelectionContext<C> selectionContext, Executor executor);
 
     SelectionContext<C> selectGroup(SelectionCriteria criteria);
 
