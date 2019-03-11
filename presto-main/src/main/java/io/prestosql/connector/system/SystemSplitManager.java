@@ -33,7 +33,7 @@ import io.prestosql.spi.predicate.TupleDomain;
 
 import java.util.Set;
 
-import static io.prestosql.spi.NodeState.ACTIVE;
+import static io.prestosql.metadata.NodeState.ACTIVE;
 import static io.prestosql.spi.StandardErrorCode.NOT_FOUND;
 import static io.prestosql.spi.connector.SystemTable.Distribution.ALL_COORDINATORS;
 import static io.prestosql.spi.connector.SystemTable.Distribution.ALL_NODES;

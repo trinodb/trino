@@ -53,7 +53,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.airlift.concurrent.MoreFutures.whenAnyCompleteCancelOthers;
 import static io.prestosql.execution.scheduler.NodeSchedulerConfig.NetworkTopologyType;
-import static io.prestosql.spi.NodeState.ACTIVE;
+import static io.prestosql.metadata.NodeState.ACTIVE;
 import static java.util.Objects.requireNonNull;
 
 public class NodeScheduler

@@ -45,8 +45,8 @@ import static io.airlift.discovery.client.ServiceDescriptor.serviceDescriptor;
 import static io.airlift.discovery.client.ServiceSelectorConfig.DEFAULT_POOL;
 import static io.airlift.http.client.HttpStatus.OK;
 import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
-import static io.prestosql.spi.NodeState.ACTIVE;
-import static io.prestosql.spi.NodeState.INACTIVE;
+import static io.prestosql.metadata.NodeState.ACTIVE;
+import static io.prestosql.metadata.NodeState.INACTIVE;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotSame;
 

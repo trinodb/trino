@@ -21,7 +21,6 @@ import com.google.common.collect.SetMultimap;
 import io.prestosql.client.NodeVersion;
 import io.prestosql.connector.ConnectorId;
 import io.prestosql.spi.Node;
-import io.prestosql.spi.NodeState;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.inject.Inject;

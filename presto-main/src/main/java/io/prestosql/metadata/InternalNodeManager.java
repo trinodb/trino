@@ -15,7 +15,6 @@ package io.prestosql.metadata;
 
 import io.prestosql.connector.ConnectorId;
 import io.prestosql.spi.Node;
-import io.prestosql.spi.NodeState;
 
 import java.util.Set;
 import java.util.function.Consumer;
