@@ -15,13 +15,16 @@ package io.prestosql.elasticsearch;
 
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import io.airlift.configuration.ConfigSecuritySensitive;
 import io.airlift.units.Duration;
 
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
 import java.io.File;
+import java.util.Optional;
 
+import static io.prestosql.elasticsearch.SearchGuardCertificateFormat.NONE;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -35,6 +38,15 @@ public class ElasticsearchConnectorConfig
     private Duration requestTimeout = new Duration(100, MILLISECONDS);
     private int maxRequestRetries = 5;
     private Duration maxRetryTime = new Duration(10, SECONDS);
+    private SearchGuardCertificateFormat certificateFormat = NONE;
+    private File pemcertFilepath = new File("etc/elasticsearch/esnode.pem");
+    private File pemkeyFilepath = new File("etc/elasticsearch/esnode-key.pem");
+    private String pemkeyPassword;
+    private File pemtrustedcasFilepath = new File("etc/elasticsearch/root-ca.pem");
+    private File keystoreFilepath = new File("etc/elasticsearch/keystore.jks");
+    private String keystorePassword;
+    private File truststoreFilepath = new File("etc/elasticsearch/truststore.jks");
+    private String truststorePassword;
 
     @NotNull
     public File getTableDescriptionDirectory()
@@ -147,6 +159,132 @@ public class ElasticsearchConnectorConfig
     public ElasticsearchConnectorConfig setMaxRetryTime(Duration maxRetryTime)
     {
         this.maxRetryTime = maxRetryTime;
+        return this;
+    }
+
+    @NotNull
+    public SearchGuardCertificateFormat getCertificateFormat()
+    {
+        return certificateFormat;
+    }
+
+    @Config("searchguard.ssl.certificate-format")
+    @ConfigDescription("Certificate format")
+    public ElasticsearchConnectorConfig setCertificateFormat(SearchGuardCertificateFormat certificateFormat)
+    {
+        this.certificateFormat = certificateFormat;
+        return this;
+    }
+
+    @NotNull
+    public File getPemcertFilepath()
+    {
+        return pemcertFilepath;
+    }
+
+    @Config("searchguard.ssl.pemcert-filepath")
+    @ConfigDescription("Path to the X.509 node certificate chain")
+    public ElasticsearchConnectorConfig setPemcertFilepath(File pemcertFilepath)
+    {
+        this.pemcertFilepath = pemcertFilepath;
+        return this;
+    }
+
+    @NotNull
+    public File getPemkeyFilepath()
+    {
+        return pemkeyFilepath;
+    }
+
+    @Config("searchguard.ssl.pemkey-filepath")
+    @ConfigDescription("Path to the certificates key file")
+    public ElasticsearchConnectorConfig setPemkeyFilepath(File pemkeyFilepath)
+    {
+        this.pemkeyFilepath = pemkeyFilepath;
+        return this;
+    }
+
+    public Optional<String> getPemkeyPassword()
+    {
+        return Optional.ofNullable(pemkeyPassword);
+    }
+
+    @Config("searchguard.ssl.pemkey-password")
+    @ConfigDescription("Key password. Omit this setting if the key has no password.")
+    @ConfigSecuritySensitive
+    public ElasticsearchConnectorConfig setPemkeyPassword(String pemkeyPassword)
+    {
+        this.pemkeyPassword = pemkeyPassword;
+        return this;
+    }
+
+    @NotNull
+    public File getPemtrustedcasFilepath()
+    {
+        return pemtrustedcasFilepath;
+    }
+
+    @Config("searchguard.ssl.pemtrustedcas-filepath")
+    @ConfigDescription("Path to the root CA(s) (PEM format)")
+    public ElasticsearchConnectorConfig setPemtrustedcasFilepath(File pemtrustedcasFilepath)
+    {
+        this.pemtrustedcasFilepath = pemtrustedcasFilepath;
+        return this;
+    }
+
+    @NotNull
+    public File getKeystoreFilepath()
+    {
+        return keystoreFilepath;
+    }
+
+    @Config("searchguard.ssl.keystore-filepath")
+    @ConfigDescription("Path to the keystore file")
+    public ElasticsearchConnectorConfig setKeystoreFilepath(File keystoreFilepath)
+    {
+        this.keystoreFilepath = keystoreFilepath;
+        return this;
+    }
+
+    public Optional<String> getKeystorePassword()
+    {
+        return Optional.ofNullable(keystorePassword);
+    }
+
+    @Config("searchguard.ssl.keystore-password")
+    @ConfigDescription("Keystore password")
+    @ConfigSecuritySensitive
+    public ElasticsearchConnectorConfig setKeystorePassword(String keystorePassword)
+    {
+        this.keystorePassword = keystorePassword;
+        return this;
+    }
+
+    @NotNull
+    public File getTruststoreFilepath()
+    {
+        return truststoreFilepath;
+    }
+
+    @Config("searchguard.ssl.truststore-filepath")
+    @ConfigDescription("Path to the truststore file")
+    public ElasticsearchConnectorConfig setTruststoreFilepath(File truststoreFilepath)
+    {
+        this.truststoreFilepath = truststoreFilepath;
+        return this;
+    }
+
+    public Optional<String> getTruststorePassword()
+    {
+        return Optional.ofNullable(truststorePassword);
+    }
+
+    @Config("searchguard.ssl.truststore-password")
+    @ConfigDescription("Truststore password")
+    @ConfigSecuritySensitive
+    public ElasticsearchConnectorConfig setTruststorePassword(String truststorePassword)
+    {
+        this.truststorePassword = truststorePassword;
         return this;
     }
 }
