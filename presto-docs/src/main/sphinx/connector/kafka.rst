@@ -417,7 +417,7 @@ this decoder should be used.
 Date and Time Decoders
 ^^^^^^^^^^^^^^^^^^^^^^
 
-To convert values from JSON objects into Presto ``DATE``, ``TIME``, ``TIME WITH TIME ZONE`,
+To convert values from JSON objects into Presto ``DATE``, ``TIME``, ``TIME WITH TIME ZONE``,
 ``TIMESTAMP`` or ``TIMESTAMP WITH TIME ZONE`` columns, special decoders must be selected using the
 ``dataFormat`` attribute of a field definition.
 
