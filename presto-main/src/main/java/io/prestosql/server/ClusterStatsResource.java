@@ -20,7 +20,7 @@ import io.prestosql.execution.QueryState;
 import io.prestosql.execution.scheduler.NodeSchedulerConfig;
 import io.prestosql.memory.ClusterMemoryManager;
 import io.prestosql.metadata.InternalNodeManager;
-import io.prestosql.spi.NodeState;
+import io.prestosql.metadata.NodeState;
 
 import javax.inject.Inject;
 import javax.ws.rs.GET;

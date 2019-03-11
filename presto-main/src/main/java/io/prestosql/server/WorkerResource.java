@@ -17,8 +17,8 @@ import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.Request;
 import io.airlift.http.client.ResponseHandler;
 import io.prestosql.metadata.InternalNodeManager;
+import io.prestosql.metadata.NodeState;
 import io.prestosql.spi.Node;
-import io.prestosql.spi.NodeState;
 
 import javax.inject.Inject;
 import javax.ws.rs.GET;

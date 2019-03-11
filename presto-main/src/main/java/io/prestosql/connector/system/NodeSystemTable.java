@@ -15,9 +15,9 @@ package io.prestosql.connector.system;
 
 import io.prestosql.metadata.AllNodes;
 import io.prestosql.metadata.InternalNodeManager;
+import io.prestosql.metadata.NodeState;
 import io.prestosql.metadata.PrestoNode;
 import io.prestosql.spi.Node;
-import io.prestosql.spi.NodeState;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
@@ -34,9 +34,9 @@ import java.util.Locale;
 import java.util.Set;
 
 import static io.prestosql.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
-import static io.prestosql.spi.NodeState.ACTIVE;
-import static io.prestosql.spi.NodeState.INACTIVE;
-import static io.prestosql.spi.NodeState.SHUTTING_DOWN;
+import static io.prestosql.metadata.NodeState.ACTIVE;
+import static io.prestosql.metadata.NodeState.INACTIVE;
+import static io.prestosql.metadata.NodeState.SHUTTING_DOWN;
 import static io.prestosql.spi.connector.SystemTable.Distribution.SINGLE_COORDINATOR;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
