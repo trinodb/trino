@@ -36,6 +36,7 @@ import io.prestosql.sql.planner.plan.LateralJoinNode;
 import io.prestosql.sql.planner.plan.LimitNode;
 import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.SemiJoinNode;
+import io.prestosql.sql.planner.plan.SortNode;
 import io.prestosql.sql.planner.plan.StatisticsWriterNode;
 import io.prestosql.sql.planner.plan.TableScanNode;
 import io.prestosql.sql.planner.plan.TopNNode;
@@ -968,5 +969,24 @@ public class TestLogicalPlanner
                 query,
                 output(
                         values(ImmutableList.of("t1"))));
+    }
+
+    @Test
+    public void testRemoveSingleRowSort()
+    {
+        String query = "SELECT count(*) FROM orders ORDER BY 1";
+        assertFalse(
+                searchFrom(plan(query, LogicalPlanner.Stage.OPTIMIZED).getRoot())
+                        .where(isInstanceOfAny(SortNode.class))
+                        .matches(),
+                format("Unexpected sort node for query: '%s'", query));
+
+        query = "SELECT orderkey, count(*) FROM orders GROUP BY orderkey ORDER BY 1";
+        assertPlan(
+                query,
+                anyTree(
+                        node(SortNode.class,
+                                anyTree(
+                                        tableScan("orders")))));
     }
 }
