@@ -23,9 +23,9 @@ import io.prestosql.plugin.hive.HiveColumnHandle;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.block.LazyBlock;
 import io.prestosql.spi.block.LazyBlockLoader;
+import io.prestosql.spi.block.RunLengthEncodedBlock;
 import io.prestosql.spi.connector.ConnectorPageSource;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeManager;
@@ -96,11 +96,7 @@ public class OrcPageSource
             hiveColumnIndexes[columnIndex] = column.getHiveColumnIndex();
 
             if (!recordReader.isColumnPresent(column.getHiveColumnIndex())) {
-                BlockBuilder blockBuilder = type.createBlockBuilder(null, MAX_BATCH_SIZE, NULL_ENTRY_SIZE);
-                for (int i = 0; i < MAX_BATCH_SIZE; i++) {
-                    blockBuilder.appendNull();
-                }
-                constantBlocks[columnIndex] = blockBuilder.build();
+                constantBlocks[columnIndex] = RunLengthEncodedBlock.create(type, null, MAX_BATCH_SIZE);
             }
         }
         types = typesBuilder.build();
