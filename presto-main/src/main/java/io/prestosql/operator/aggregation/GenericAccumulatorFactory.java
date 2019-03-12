@@ -80,8 +80,8 @@ public class GenericAccumulatorFactory
             List<Integer> orderByChannels,
             List<SortOrder> orderings,
             PagesIndex.Factory pagesIndexFactory,
-            JoinCompiler joinCompiler,
-            Session session,
+            @Nullable JoinCompiler joinCompiler,
+            @Nullable Session session,
             boolean distinct)
     {
         this.stateDescriptors = requireNonNull(stateDescriptors, "stateDescriptors is null");
