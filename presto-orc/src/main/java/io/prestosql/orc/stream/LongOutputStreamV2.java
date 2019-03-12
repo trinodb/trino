@@ -693,7 +693,7 @@ public class LongOutputStreamV2
         isFixedDelta = true;
     }
 
-    public void flush()
+    private void flush()
     {
         if (numLiterals == 0) {
             return;

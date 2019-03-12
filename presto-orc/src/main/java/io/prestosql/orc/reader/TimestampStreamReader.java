@@ -212,7 +212,7 @@ public class TimestampStreamReader
     }
 
     // This comes from the Apache Hive ORC code
-    public static long decodeTimestamp(long seconds, long serializedNanos, long baseTimestampInSeconds)
+    private static long decodeTimestamp(long seconds, long serializedNanos, long baseTimestampInSeconds)
     {
         long millis = (seconds + baseTimestampInSeconds) * MILLIS_PER_SECOND;
         long nanos = parseNanos(serializedNanos);

@@ -65,7 +65,7 @@ public class TestStructStreamReader
 
     private static final String STRUCT_COL_NAME = "struct_col";
 
-    public static final ConnectorSession SESSION = new TestingConnectorSession(ImmutableList.of());
+    private static final ConnectorSession SESSION = new TestingConnectorSession(ImmutableList.of());
 
     private TempFile tempFile;
 

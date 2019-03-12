@@ -37,7 +37,7 @@ public class DictionaryCompressionOptimizer
     // direct mode, close the stripe early assuming it has hit the minimum row count.
     static final DataSize DICTIONARY_MEMORY_MAX_RANGE = new DataSize(4, Unit.MEGABYTE);
 
-    static final DataSize DIRECT_COLUMN_SIZE_RANGE = new DataSize(4, Unit.MEGABYTE);
+    private static final DataSize DIRECT_COLUMN_SIZE_RANGE = new DataSize(4, Unit.MEGABYTE);
 
     private final Set<DictionaryColumnManager> allWriters;
     private final Set<DictionaryColumnManager> directConversionCandidates = new HashSet<>();

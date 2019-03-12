@@ -179,7 +179,7 @@ public class BooleanInputStream
      * Sets the vector element to true for the batchSize number of elements starting at offset
      * if the bit is not set.
      */
-    public int getUnsetBits(int batchSize, boolean[] vector, int offset)
+    private int getUnsetBits(int batchSize, boolean[] vector, int offset)
             throws IOException
     {
         int count = 0;

@@ -364,7 +364,7 @@ public class OrcMetadataReader
         return new BinaryStatistics(binaryStatistics.getSum());
     }
 
-    static Slice byteStringToSlice(ByteString value)
+    private static Slice byteStringToSlice(ByteString value)
     {
         return Slices.wrappedBuffer(value.toByteArray());
     }

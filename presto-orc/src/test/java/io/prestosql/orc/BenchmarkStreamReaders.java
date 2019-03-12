@@ -82,9 +82,9 @@ import static org.joda.time.DateTimeZone.UTC;
 @BenchmarkMode(Mode.AverageTime)
 public class BenchmarkStreamReaders
 {
-    public static final DecimalType DECIMAL_TYPE = createDecimalType(10, 5);
-    public static final int ROWS = 10_000_000;
-    public static final Collection<?> NULL_VALUES = Collections.nCopies(ROWS, null);
+    private static final DecimalType DECIMAL_TYPE = createDecimalType(10, 5);
+    private static final int ROWS = 10_000_000;
+    private static final Collection<?> NULL_VALUES = Collections.nCopies(ROWS, null);
 
     @Benchmark
     public Object readBooleanNoNull(BooleanNoNullBenchmarkData data)

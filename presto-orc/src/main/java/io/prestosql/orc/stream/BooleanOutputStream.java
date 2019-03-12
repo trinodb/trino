@@ -48,7 +48,7 @@ public class BooleanOutputStream
         this(new ByteOutputStream(buffer));
     }
 
-    public BooleanOutputStream(ByteOutputStream byteOutputStream)
+    private BooleanOutputStream(ByteOutputStream byteOutputStream)
     {
         this.byteOutputStream = byteOutputStream;
     }
