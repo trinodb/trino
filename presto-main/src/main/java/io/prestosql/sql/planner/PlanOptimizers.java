@@ -179,6 +179,7 @@ import io.prestosql.sql.planner.optimizations.AddExchanges;
 import io.prestosql.sql.planner.optimizations.AddLocalExchanges;
 import io.prestosql.sql.planner.optimizations.BeginTableWrite;
 import io.prestosql.sql.planner.optimizations.CheckSubqueryNodesAreRewritten;
+import io.prestosql.sql.planner.optimizations.CompositePlanOptimizer;
 import io.prestosql.sql.planner.optimizations.HashGenerationOptimizer;
 import io.prestosql.sql.planner.optimizations.IndexJoinOptimizer;
 import io.prestosql.sql.planner.optimizations.LimitPushDown;
@@ -203,6 +204,7 @@ import java.util.List;
 import java.util.Set;
 
 public class PlanOptimizers
+        extends CompositePlanOptimizer
 {
     private final List<PlanOptimizer> optimizers;
     private final RuleStatsRecorder ruleStats = new RuleStatsRecorder();
@@ -754,7 +756,8 @@ public class PlanOptimizers
         this.optimizers = builder.build();
     }
 
-    public List<PlanOptimizer> get()
+    @Override
+    public List<PlanOptimizer> getOptimizers()
     {
         return optimizers;
     }

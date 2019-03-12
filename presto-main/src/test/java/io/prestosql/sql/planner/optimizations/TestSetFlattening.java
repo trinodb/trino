@@ -13,7 +13,6 @@
  */
 package io.prestosql.sql.planner.optimizations;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.prestosql.sql.planner.RuleStatsRecorder;
 import io.prestosql.sql.planner.TypeAnalyzer;
@@ -26,8 +25,6 @@ import io.prestosql.sql.planner.iterative.rule.MergeUnion;
 import io.prestosql.sql.planner.iterative.rule.PruneDistinctAggregation;
 import io.prestosql.sql.planner.iterative.rule.RemoveRedundantIdentityProjections;
 import org.testng.annotations.Test;
-
-import java.util.List;
 
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.except;
@@ -131,7 +128,7 @@ public class TestSetFlattening
     @Override
     protected void assertPlan(String sql, PlanMatchPattern pattern)
     {
-        List<PlanOptimizer> optimizers = ImmutableList.of(
+        PlanOptimizer optimizers = CompositePlanOptimizer.of(
                 new UnaliasSymbolReferences(getQueryRunner().getMetadata()),
                 new PruneUnreferencedOutputs(getQueryRunner().getMetadata(), new TypeAnalyzer(getQueryRunner().getSqlParser(), getQueryRunner().getMetadata())),
                 new IterativeOptimizer(

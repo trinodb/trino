@@ -52,7 +52,7 @@ import static java.util.Objects.requireNonNull;
 
 public class QueryExplainer
 {
-    private final List<PlanOptimizer> planOptimizers;
+    private final PlanOptimizer planOptimizers;
     private final PlanFragmenter planFragmenter;
     private final Metadata metadata;
     private final AccessControl accessControl;
@@ -73,7 +73,7 @@ public class QueryExplainer
             Map<Class<? extends Statement>, DataDefinitionTask<?>> dataDefinitionTask)
     {
         this(
-                planOptimizers.get(),
+                (PlanOptimizer) planOptimizers,
                 planFragmenter,
                 metadata,
                 accessControl,
@@ -84,7 +84,7 @@ public class QueryExplainer
     }
 
     public QueryExplainer(
-            List<PlanOptimizer> planOptimizers,
+            PlanOptimizer planOptimizers,
             PlanFragmenter planFragmenter,
             Metadata metadata,
             AccessControl accessControl,

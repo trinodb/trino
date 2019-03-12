@@ -13,7 +13,6 @@
  */
 package io.prestosql.sql.planner.iterative;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.prestosql.Session;
@@ -79,7 +78,7 @@ public class TestIterativeOptimizer
 
         try {
             queryRunner.inTransaction(transactionSession -> {
-                queryRunner.createPlan(transactionSession, "SELECT nationkey FROM nation", ImmutableList.of(optimizer), WarningCollector.NOOP);
+                queryRunner.createPlan(transactionSession, "SELECT nationkey FROM nation", optimizer, WarningCollector.NOOP);
                 fail("The optimizer should not converge");
                 return null;
             });

@@ -30,7 +30,6 @@ import io.prestosql.sql.tree.WindowFrame;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
-import java.util.List;
 import java.util.Optional;
 
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.anyTree;
@@ -321,7 +320,7 @@ public class TestReorderWindows
 
     private void assertUnitPlan(@Language("SQL") String sql, PlanMatchPattern pattern)
     {
-        List<PlanOptimizer> optimizers = ImmutableList.of(
+        PlanOptimizer optimizers = CompositePlanOptimizer.of(
                 new UnaliasSymbolReferences(getQueryRunner().getMetadata()),
                 new PredicatePushDown(getQueryRunner().getMetadata(), new TypeAnalyzer(getQueryRunner().getSqlParser(), getQueryRunner().getMetadata()), false, false),
                 new IterativeOptimizer(

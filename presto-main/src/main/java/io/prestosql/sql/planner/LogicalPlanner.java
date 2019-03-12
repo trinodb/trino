@@ -129,7 +129,7 @@ public class LogicalPlanner
     private final PlanNodeIdAllocator idAllocator;
 
     private final Session session;
-    private final List<PlanOptimizer> planOptimizers;
+    private final PlanOptimizer planOptimizers;
     private final PlanSanityChecker planSanityChecker;
     private final SymbolAllocator symbolAllocator = new SymbolAllocator();
     private final Metadata metadata;
@@ -142,7 +142,7 @@ public class LogicalPlanner
 
     public LogicalPlanner(
             Session session,
-            List<PlanOptimizer> planOptimizers,
+            PlanOptimizer planOptimizers,
             PlanNodeIdAllocator idAllocator,
             Metadata metadata,
             TypeAnalyzer typeAnalyzer,
@@ -155,7 +155,7 @@ public class LogicalPlanner
 
     public LogicalPlanner(
             Session session,
-            List<PlanOptimizer> planOptimizers,
+            PlanOptimizer planOptimizers,
             PlanSanityChecker planSanityChecker,
             PlanNodeIdAllocator idAllocator,
             Metadata metadata,
@@ -194,10 +194,8 @@ public class LogicalPlanner
         planSanityChecker.validateIntermediatePlan(root, session, metadata, typeAnalyzer, symbolAllocator.getTypes(), warningCollector);
 
         if (stage.ordinal() >= OPTIMIZED.ordinal()) {
-            for (PlanOptimizer optimizer : planOptimizers) {
-                root = optimizer.optimize(root, session, symbolAllocator.getTypes(), symbolAllocator, idAllocator, warningCollector);
-                requireNonNull(root, format("%s returned a null plan", optimizer.getClass().getName()));
-            }
+            root = planOptimizers.optimize(root, session, symbolAllocator.getTypes(), symbolAllocator, idAllocator, warningCollector);
+            requireNonNull(root, format("%s returned a null plan", planOptimizers.getClass().getName()));
         }
 
         if (stage.ordinal() >= OPTIMIZED_AND_VALIDATED.ordinal()) {

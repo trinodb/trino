@@ -29,7 +29,6 @@ import io.prestosql.sql.planner.plan.WindowNode;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
-import java.util.List;
 import java.util.Optional;
 
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.anyTree;
@@ -89,7 +88,7 @@ public class TestEliminateSorts
     private void assertUnitPlan(@Language("SQL") String sql, PlanMatchPattern pattern)
     {
         TypeAnalyzer typeAnalyzer = new TypeAnalyzer(new SqlParser(), getQueryRunner().getMetadata());
-        List<PlanOptimizer> optimizers = ImmutableList.of(
+        PlanOptimizer optimizers = CompositePlanOptimizer.of(
                 new UnaliasSymbolReferences(getQueryRunner().getMetadata()),
                 new AddExchanges(getQueryRunner().getMetadata(), typeAnalyzer),
                 new PruneUnreferencedOutputs(getQueryRunner().getMetadata(), typeAnalyzer),

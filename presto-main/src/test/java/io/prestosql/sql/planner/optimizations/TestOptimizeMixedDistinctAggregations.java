@@ -114,7 +114,7 @@ public class TestOptimizeMixedDistinctAggregations
 
     private void assertUnitPlan(String sql, PlanMatchPattern pattern)
     {
-        List<PlanOptimizer> optimizers = ImmutableList.of(
+        PlanOptimizer optimizers = CompositePlanOptimizer.of(
                 new UnaliasSymbolReferences(getQueryRunner().getMetadata()),
                 new IterativeOptimizer(
                         new RuleStatsRecorder(),

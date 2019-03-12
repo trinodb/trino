@@ -21,6 +21,7 @@ import io.prestosql.sql.planner.assertions.BasePlanTest;
 import io.prestosql.sql.planner.assertions.ExpectedValueProvider;
 import io.prestosql.sql.planner.iterative.IterativeOptimizer;
 import io.prestosql.sql.planner.iterative.rule.RemoveRedundantIdentityProjections;
+import io.prestosql.sql.planner.optimizations.CompositePlanOptimizer;
 import io.prestosql.sql.planner.optimizations.UnaliasSymbolReferences;
 import io.prestosql.sql.planner.plan.WindowNode;
 import org.testng.annotations.Test;
@@ -74,7 +75,7 @@ public class TestCanonicalize
                                         .specification(specification)
                                         .addFunction(functionCall("row_number", Optional.empty(), ImmutableList.of())),
                                 values("A"))),
-                ImmutableList.of(
+                CompositePlanOptimizer.of(
                         new UnaliasSymbolReferences(getQueryRunner().getMetadata()),
                         new IterativeOptimizer(
                                 new RuleStatsRecorder(),
