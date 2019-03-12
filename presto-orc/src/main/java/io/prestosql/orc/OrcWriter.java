@@ -94,7 +94,6 @@ public final class OrcWriter
     private final OrcDataSink orcDataSink;
     private final List<Type> types;
     private final CompressionKind compression;
-    private final int stripeMinBytes;
     private final int stripeMaxBytes;
     private final int chunkMaxLogicalBytes;
     private final int stripeMaxRowCount;
@@ -144,7 +143,7 @@ public final class OrcWriter
 
         requireNonNull(options, "options is null");
         checkArgument(options.getStripeMaxSize().compareTo(options.getStripeMinSize()) >= 0, "stripeMaxSize must be greater than stripeMinSize");
-        this.stripeMinBytes = toIntExact(requireNonNull(options.getStripeMinSize(), "stripeMinSize is null").toBytes());
+        int stripeMinBytes = toIntExact(requireNonNull(options.getStripeMinSize(), "stripeMinSize is null").toBytes());
         this.stripeMaxBytes = toIntExact(requireNonNull(options.getStripeMaxSize(), "stripeMaxSize is null").toBytes());
         this.chunkMaxLogicalBytes = Math.max(1, stripeMaxBytes / 2);
         this.stripeMaxRowCount = options.getStripeMaxRowCount();
