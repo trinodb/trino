@@ -75,7 +75,7 @@ public class TimestampStreamReader
 
     private boolean rowGroupOpen;
 
-    private LocalMemoryContext systemMemoryContext;
+    private final LocalMemoryContext systemMemoryContext;
 
     public TimestampStreamReader(StreamDescriptor streamDescriptor, LocalMemoryContext systemMemoryContext)
     {

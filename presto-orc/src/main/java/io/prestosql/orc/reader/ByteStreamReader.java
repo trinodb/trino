@@ -61,7 +61,7 @@ public class ByteStreamReader
 
     private boolean rowGroupOpen;
 
-    private LocalMemoryContext systemMemoryContext;
+    private final LocalMemoryContext systemMemoryContext;
 
     public ByteStreamReader(StreamDescriptor streamDescriptor, LocalMemoryContext systemMemoryContext)
     {

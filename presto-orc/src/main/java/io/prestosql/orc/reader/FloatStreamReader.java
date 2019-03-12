@@ -62,7 +62,7 @@ public class FloatStreamReader
 
     private boolean rowGroupOpen;
 
-    private LocalMemoryContext systemMemoryContext;
+    private final LocalMemoryContext systemMemoryContext;
 
     public FloatStreamReader(StreamDescriptor streamDescriptor, LocalMemoryContext systemMemoryContext)
     {
