@@ -225,7 +225,7 @@ public class StructStreamReader
     {
         try (Closer closer = Closer.create()) {
             for (StreamReader structField : structFields.values()) {
-                closer.register(() -> structField.close());
+                closer.register(structField::close);
             }
         }
         catch (IOException e) {

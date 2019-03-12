@@ -101,8 +101,8 @@ public class LongStreamReader
     public void close()
     {
         try (Closer closer = Closer.create()) {
-            closer.register(() -> directReader.close());
-            closer.register(() -> dictionaryReader.close());
+            closer.register(directReader::close);
+            closer.register(dictionaryReader::close);
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);
