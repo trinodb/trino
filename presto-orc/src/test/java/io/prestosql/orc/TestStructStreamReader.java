@@ -97,7 +97,7 @@ public class TestStructStreamReader
 
         write(tempFile, writerType, writerData);
         RowBlock readBlock = read(tempFile, readerType);
-        List actual = (List) readerType.getObjectValue(SESSION, readBlock, 0);
+        List<?> actual = (List<?>) readerType.getObjectValue(SESSION, readBlock, 0);
 
         assertEquals(actual.size(), readerFields.size());
         assertEquals(actual.get(0), "field_a_value");
@@ -120,7 +120,7 @@ public class TestStructStreamReader
 
         write(tempFile, writerType, writerData);
         RowBlock readBlock = read(tempFile, readerType);
-        List actual = (List) readerType.getObjectValue(SESSION, readBlock, 0);
+        List<?> actual = (List<?>) readerType.getObjectValue(SESSION, readBlock, 0);
 
         assertEquals(actual.size(), readerFields.size());
         assertEquals(actual.get(0), "fieldAValue");
@@ -143,7 +143,7 @@ public class TestStructStreamReader
 
         write(tempFile, writerType, writerData);
         RowBlock readBlock = read(tempFile, readerType);
-        List actual = (List) readerType.getObjectValue(SESSION, readBlock, 0);
+        List<?> actual = (List<?>) readerType.getObjectValue(SESSION, readBlock, 0);
 
         assertEquals(actual.size(), readerFields.size());
         assertEquals(actual.get(0), "fieldAValue");
@@ -183,7 +183,7 @@ public class TestStructStreamReader
 
         write(tempFile, writerType, writerData);
         RowBlock readBlock = read(tempFile, readerType);
-        List actual = (List) readerType.getObjectValue(SESSION, readBlock, 0);
+        List<?> actual = (List<?>) readerType.getObjectValue(SESSION, readBlock, 0);
 
         assertEquals(actual.size(), readerFields.size());
         assertEquals(actual.get(0), "field_a_value");
@@ -207,7 +207,7 @@ public class TestStructStreamReader
 
         write(tempFile, writerType, writerData);
         RowBlock readBlock = read(tempFile, readerType);
-        List actual = (List) readerType.getObjectValue(SESSION, readBlock, 0);
+        List<?> actual = (List<?>) readerType.getObjectValue(SESSION, readBlock, 0);
 
         assertEquals(actual.size(), readerFields.size());
         assertEquals(actual.get(0), "field_a_value");
