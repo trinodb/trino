@@ -48,6 +48,7 @@ import io.prestosql.sql.planner.plan.ApplyNode;
 import io.prestosql.sql.planner.plan.AssignUniqueId;
 import io.prestosql.sql.planner.plan.Assignments;
 import io.prestosql.sql.planner.plan.DeleteNode;
+import io.prestosql.sql.planner.plan.DistinctLimitNode;
 import io.prestosql.sql.planner.plan.EnforceSingleRowNode;
 import io.prestosql.sql.planner.plan.ExchangeNode;
 import io.prestosql.sql.planner.plan.FilterNode;
@@ -267,6 +268,17 @@ public class PlanBuilder
         AggregationBuilder aggregationBuilder = new AggregationBuilder();
         aggregationBuilderConsumer.accept(aggregationBuilder);
         return aggregationBuilder.build();
+    }
+
+    public DistinctLimitNode distinctLimit(long count, List<Symbol> distinctSymbols, PlanNode source)
+    {
+        return new DistinctLimitNode(
+                idAllocator.getNextId(),
+                source,
+                count,
+                false,
+                distinctSymbols,
+                Optional.empty());
     }
 
     public class AggregationBuilder
