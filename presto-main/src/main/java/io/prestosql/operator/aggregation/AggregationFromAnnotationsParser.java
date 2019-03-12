@@ -43,7 +43,7 @@ import static io.prestosql.operator.annotations.FunctionsParserHelper.parseDescr
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
-public class AggregationFromAnnotationsParser
+public final class AggregationFromAnnotationsParser
 {
     private AggregationFromAnnotationsParser()
     {
@@ -172,7 +172,7 @@ public class AggregationFromAnnotationsParser
         }
     }
 
-    public static Method getCombineFunction(Class<?> clazz, Class<?> stateClass)
+    private static Method getCombineFunction(Class<?> clazz, Class<?> stateClass)
     {
         // Only include methods that match this state class
         List<Method> combineFunctions = FunctionsParserHelper.findPublicStaticMethodsWithAnnotation(clazz, CombineFunction.class).stream()
