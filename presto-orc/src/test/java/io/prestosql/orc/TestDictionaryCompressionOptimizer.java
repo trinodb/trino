@@ -565,6 +565,7 @@ public class TestDictionaryCompressionOptimizer
             this.rowCount = rowCount;
         }
 
+        @Override
         public long getBufferedBytes()
         {
             if (direct) {
