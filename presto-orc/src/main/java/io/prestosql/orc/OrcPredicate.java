@@ -19,14 +19,7 @@ import java.util.Map;
 
 public interface OrcPredicate
 {
-    OrcPredicate TRUE = new OrcPredicate()
-    {
-        @Override
-        public boolean matches(long numberOfRows, Map<Integer, ColumnStatistics> statisticsByColumnIndex)
-        {
-            return true;
-        }
-    };
+    OrcPredicate TRUE = (numberOfRows, statisticsByColumnIndex) -> true;
 
     /**
      * Should the ORC reader process a file section with the specified statistics.
