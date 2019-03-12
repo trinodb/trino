@@ -389,7 +389,6 @@ public class BenchmarkStreamReaders
         }
     }
 
-    @SuppressWarnings("FieldMayBeFinal")
     @State(Scope.Thread)
     public static class BooleanNoNullBenchmarkData
             extends BenchmarkData
@@ -412,7 +411,6 @@ public class BenchmarkStreamReaders
         }
     }
 
-    @SuppressWarnings("FieldMayBeFinal")
     @State(Scope.Thread)
     public static class BooleanWithNullBenchmarkData
             extends BenchmarkData
@@ -435,7 +433,6 @@ public class BenchmarkStreamReaders
         }
     }
 
-    @SuppressWarnings("FieldMayBeFinal")
     @State(Scope.Thread)
     public static class TinyIntNoNullBenchmarkData
             extends BenchmarkData
@@ -458,7 +455,6 @@ public class BenchmarkStreamReaders
         }
     }
 
-    @SuppressWarnings("FieldMayBeFinal")
     @State(Scope.Thread)
     public static class TinyIntWithNullBenchmarkData
             extends BenchmarkData
@@ -486,7 +482,6 @@ public class BenchmarkStreamReaders
         }
     }
 
-    @SuppressWarnings("FieldMayBeFinal")
     @State(Scope.Thread)
     public static class DecimalNoNullBenchmarkData
             extends BenchmarkData
@@ -509,7 +504,6 @@ public class BenchmarkStreamReaders
         }
     }
 
-    @SuppressWarnings("FieldMayBeFinal")
     @State(Scope.Thread)
     public static class DecimalWithNullBenchmarkData
             extends BenchmarkData
@@ -537,7 +531,6 @@ public class BenchmarkStreamReaders
         }
     }
 
-    @SuppressWarnings("FieldMayBeFinal")
     @State(Scope.Thread)
     public static class DoubleNoNullBenchmarkData
             extends BenchmarkData
@@ -560,7 +553,6 @@ public class BenchmarkStreamReaders
         }
     }
 
-    @SuppressWarnings("FieldMayBeFinal")
     @State(Scope.Thread)
     public static class DoubleWithNullBenchmarkData
             extends BenchmarkData
@@ -588,7 +580,6 @@ public class BenchmarkStreamReaders
         }
     }
 
-    @SuppressWarnings("FieldMayBeFinal")
     @State(Scope.Thread)
     public static class FloatNoNullBenchmarkData
             extends BenchmarkData
@@ -611,7 +602,6 @@ public class BenchmarkStreamReaders
         }
     }
 
-    @SuppressWarnings("FieldMayBeFinal")
     @State(Scope.Thread)
     public static class FloatWithNullBenchmarkData
             extends BenchmarkData
@@ -639,7 +629,6 @@ public class BenchmarkStreamReaders
         }
     }
 
-    @SuppressWarnings("FieldMayBeFinal")
     @State(Scope.Thread)
     public static class BigintNoNullBenchmarkData
             extends BenchmarkData
@@ -662,7 +651,6 @@ public class BenchmarkStreamReaders
         }
     }
 
-    @SuppressWarnings("FieldMayBeFinal")
     @State(Scope.Thread)
     public static class BigintWithNullBenchmarkData
             extends BenchmarkData
@@ -690,7 +678,6 @@ public class BenchmarkStreamReaders
         }
     }
 
-    @SuppressWarnings("FieldMayBeFinal")
     @State(Scope.Thread)
     public static class VarcharNoNullBenchmarkData
             extends BenchmarkData
@@ -713,7 +700,6 @@ public class BenchmarkStreamReaders
         }
     }
 
-    @SuppressWarnings("FieldMayBeFinal")
     @State(Scope.Thread)
     public static class VarcharWithNullBenchmarkData
             extends BenchmarkData
@@ -741,7 +727,6 @@ public class BenchmarkStreamReaders
         }
     }
 
-    @SuppressWarnings("FieldMayBeFinal")
     @State(Scope.Thread)
     public static class TimestampNoNullBenchmarkData
             extends BenchmarkData
@@ -764,7 +749,6 @@ public class BenchmarkStreamReaders
         }
     }
 
-    @SuppressWarnings("FieldMayBeFinal")
     @State(Scope.Thread)
     public static class TimestampWithNullBenchmarkData
             extends BenchmarkData

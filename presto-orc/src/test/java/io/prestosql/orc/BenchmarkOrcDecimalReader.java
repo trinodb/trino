@@ -89,7 +89,6 @@ public class BenchmarkOrcDecimalReader
         readDecimal(data);
     }
 
-    @SuppressWarnings("FieldMayBeFinal")
     @State(Scope.Thread)
     public static class BenchmarkData
     {
