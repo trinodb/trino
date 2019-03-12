@@ -180,20 +180,20 @@ public class TestCachingOrcDataSource
         // tiny file
         TestingOrcDataSource orcDataSource = new TestingOrcDataSource(
                 new FileOrcDataSource(tempFile.getFile(), new DataSize(1, Unit.MEGABYTE), new DataSize(1, Unit.MEGABYTE), new DataSize(1, Unit.MEGABYTE), true));
-        doIntegration(orcDataSource, new DataSize(1, Unit.MEGABYTE), new DataSize(1, Unit.MEGABYTE), new DataSize(1, Unit.MEGABYTE));
+        doIntegration(orcDataSource, new DataSize(1, Unit.MEGABYTE), new DataSize(1, Unit.MEGABYTE));
         assertEquals(orcDataSource.getReadCount(), 1); // read entire file at once
 
         // tiny stripes
         orcDataSource = new TestingOrcDataSource(
                 new FileOrcDataSource(tempFile.getFile(), new DataSize(1, Unit.MEGABYTE), new DataSize(1, Unit.MEGABYTE), new DataSize(1, Unit.MEGABYTE), true));
-        doIntegration(orcDataSource, new DataSize(400, Unit.KILOBYTE), new DataSize(400, Unit.KILOBYTE), new DataSize(400, Unit.KILOBYTE));
+        doIntegration(orcDataSource, new DataSize(400, Unit.KILOBYTE), new DataSize(400, Unit.KILOBYTE));
         assertEquals(orcDataSource.getReadCount(), 3); // footer, first few stripes, last few stripes
     }
 
-    public void doIntegration(TestingOrcDataSource orcDataSource, DataSize maxMergeDistance, DataSize maxReadSize, DataSize tinyStripeThreshold)
+    public void doIntegration(TestingOrcDataSource orcDataSource, DataSize maxMergeDistance, DataSize tinyStripeThreshold)
             throws IOException
     {
-        OrcReader orcReader = new OrcReader(orcDataSource, maxMergeDistance, maxReadSize, tinyStripeThreshold, new DataSize(1, Unit.MEGABYTE));
+        OrcReader orcReader = new OrcReader(orcDataSource, maxMergeDistance, tinyStripeThreshold, new DataSize(1, Unit.MEGABYTE));
         // 1 for reading file footer
         assertEquals(orcDataSource.getReadCount(), 1);
         List<StripeInformation> stripes = orcReader.getFooter().getStripes();

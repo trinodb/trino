@@ -262,7 +262,7 @@ public class TestStructStreamReader
     {
         DataSize dataSize = new DataSize(1, MEGABYTE);
         OrcDataSource orcDataSource = new FileOrcDataSource(tempFile.getFile(), dataSize, dataSize, dataSize, true);
-        OrcReader orcReader = new OrcReader(orcDataSource, dataSize, dataSize, dataSize, dataSize);
+        OrcReader orcReader = new OrcReader(orcDataSource, dataSize, dataSize, dataSize);
 
         Map<Integer, Type> includedColumns = new HashMap<>();
         includedColumns.put(0, readerType);
