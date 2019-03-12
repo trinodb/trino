@@ -13,7 +13,6 @@
  */
 package io.prestosql.orc;
 
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Ordering;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -33,9 +32,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
-import static com.google.common.base.Predicates.equalTo;
-import static com.google.common.base.Predicates.notNull;
-import static com.google.common.collect.Iterables.filter;
 import static com.google.common.collect.Lists.newArrayList;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
@@ -182,7 +178,7 @@ public final class TestingOrcPredicate
         protected boolean chunkMatchesStats(List<T> chunk, ColumnStatistics columnStatistics)
         {
             // verify non null count
-            if (columnStatistics.getNumberOfValues() != Iterables.size(filter(chunk, notNull()))) {
+            if (columnStatistics.getNumberOfValues() != chunk.stream().filter(Objects::nonNull).count()) {
                 return false;
             }
 
@@ -213,7 +209,7 @@ public final class TestingOrcPredicate
 
             // statistics can be missing for any reason
             if (columnStatistics.getBooleanStatistics() != null) {
-                if (columnStatistics.getBooleanStatistics().getTrueValueCount() != Iterables.size(filter(chunk, equalTo(Boolean.TRUE)))) {
+                if (columnStatistics.getBooleanStatistics().getTrueValueCount() != chunk.stream().filter(Boolean.TRUE::equals).count()) {
                     return false;
                 }
             }
