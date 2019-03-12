@@ -14,7 +14,6 @@
 package io.prestosql.plugin.hive.util;
 
 import com.google.common.collect.AbstractIterator;
-import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 import io.prestosql.orc.OrcDataSource;
 import io.prestosql.orc.OrcPredicate;
@@ -41,12 +40,13 @@ import static org.joda.time.DateTimeZone.UTC;
 public class TempFileReader
         extends AbstractIterator<Page>
 {
-    private final List<Type> types;
+    private final int columnCount;
     private final OrcRecordReader reader;
 
     public TempFileReader(List<Type> types, OrcDataSource dataSource)
     {
-        this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
+        requireNonNull(types, "types is null");
+        this.columnCount = types.size();
 
         try {
             OrcReader orcReader = new OrcReader(
@@ -85,9 +85,9 @@ public class TempFileReader
                 return endOfData();
             }
 
-            Block[] blocks = new Block[types.size()];
-            for (int i = 0; i < types.size(); i++) {
-                blocks[i] = reader.readBlock(types.get(i), i).getLoadedBlock();
+            Block[] blocks = new Block[columnCount];
+            for (int i = 0; i < columnCount; i++) {
+                blocks[i] = reader.readBlock(i).getLoadedBlock();
             }
             return new Page(batchSize, blocks);
         }

@@ -26,7 +26,6 @@ import io.prestosql.orc.stream.LongInputStream;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.DictionaryBlock;
 import io.prestosql.spi.block.VariableWidthBlock;
-import io.prestosql.spi.type.Type;
 import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
@@ -45,9 +44,7 @@ import static io.prestosql.orc.metadata.Stream.StreamKind.DICTIONARY_DATA;
 import static io.prestosql.orc.metadata.Stream.StreamKind.LENGTH;
 import static io.prestosql.orc.metadata.Stream.StreamKind.PRESENT;
 import static io.prestosql.orc.reader.SliceStreamReader.computeTruncatedLength;
-import static io.prestosql.orc.reader.SliceStreamReader.getMaxCodePointCount;
 import static io.prestosql.orc.stream.MissingInputStreamSource.missingStreamSource;
-import static io.prestosql.spi.type.Chars.isCharType;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
@@ -61,6 +58,8 @@ public class SliceDictionaryStreamReader
     private static final int[] EMPTY_DICTIONARY_OFFSETS = new int[2];
 
     private final StreamDescriptor streamDescriptor;
+    private final int maxCodePointCount;
+    private final boolean isCharType;
 
     private int readOffset;
     private int nextBatchSize;
@@ -95,8 +94,10 @@ public class SliceDictionaryStreamReader
 
     private final LocalMemoryContext systemMemoryContext;
 
-    public SliceDictionaryStreamReader(StreamDescriptor streamDescriptor, LocalMemoryContext systemMemoryContext)
+    public SliceDictionaryStreamReader(StreamDescriptor streamDescriptor, LocalMemoryContext systemMemoryContext, int maxCodePointCount, boolean isCharType)
     {
+        this.maxCodePointCount = maxCodePointCount;
+        this.isCharType = isCharType;
         this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
         this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
     }
@@ -109,11 +110,11 @@ public class SliceDictionaryStreamReader
     }
 
     @Override
-    public Block readBlock(Type type)
+    public Block readBlock()
             throws IOException
     {
         if (!rowGroupOpen) {
-            openRowGroup(type);
+            openRowGroup();
         }
 
         if (readOffset > 0) {
@@ -200,7 +201,7 @@ public class SliceDictionaryStreamReader
         }
     }
 
-    private void openRowGroup(Type type)
+    private void openRowGroup()
             throws IOException
     {
         // read the dictionary
@@ -230,7 +231,7 @@ public class SliceDictionaryStreamReader
 
                 // read dictionary values
                 ByteArrayInputStream dictionaryDataStream = stripeDictionaryDataStreamSource.openStream();
-                readDictionary(dictionaryDataStream, stripeDictionarySize, stripeDictionaryLength, 0, stripeDictionaryData, stripeDictionaryOffsetVector, type);
+                readDictionary(dictionaryDataStream, stripeDictionarySize, stripeDictionaryLength, 0, stripeDictionaryData, stripeDictionaryOffsetVector, maxCodePointCount, isCharType);
             }
             else {
                 stripeDictionaryData = EMPTY_DICTIONARY_DATA;
@@ -256,7 +257,8 @@ public class SliceDictionaryStreamReader
             int offsetVectorOffset,
             byte[] data,
             int[] offsetVector,
-            Type type)
+            int maxCodePointCount,
+            boolean isCharType)
             throws IOException
     {
         Slice slice = wrappedBuffer(data);
@@ -274,8 +276,6 @@ public class SliceDictionaryStreamReader
             int length = dictionaryLengthVector[i];
 
             int truncatedLength;
-            int maxCodePointCount = getMaxCodePointCount(type);
-            boolean isCharType = isCharType(type);
             if (length > 0) {
                 // read data without truncation
                 dictionaryDataStream.next(data, offset, offset + length);

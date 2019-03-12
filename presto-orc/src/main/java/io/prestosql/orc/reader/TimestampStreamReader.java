@@ -24,6 +24,7 @@ import io.prestosql.orc.stream.LongInputStream;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.block.RunLengthEncodedBlock;
+import io.prestosql.spi.type.TimestampType;
 import io.prestosql.spi.type.Type;
 import org.openjdk.jol.info.ClassLayout;
 
@@ -40,7 +41,9 @@ import static io.airlift.slice.SizeOf.sizeOf;
 import static io.prestosql.orc.metadata.Stream.StreamKind.DATA;
 import static io.prestosql.orc.metadata.Stream.StreamKind.PRESENT;
 import static io.prestosql.orc.metadata.Stream.StreamKind.SECONDARY;
+import static io.prestosql.orc.reader.ReaderUtils.verifyStreamType;
 import static io.prestosql.orc.stream.MissingInputStreamSource.missingStreamSource;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
 import static java.util.Objects.requireNonNull;
 
 public class TimestampStreamReader
@@ -77,8 +80,12 @@ public class TimestampStreamReader
 
     private final LocalMemoryContext systemMemoryContext;
 
-    public TimestampStreamReader(StreamDescriptor streamDescriptor, LocalMemoryContext systemMemoryContext)
+    public TimestampStreamReader(Type type, StreamDescriptor streamDescriptor, LocalMemoryContext systemMemoryContext)
+            throws OrcCorruptionException
     {
+        requireNonNull(type, "type is null");
+        verifyStreamType(streamDescriptor, type, TimestampType.class::isInstance);
+
         this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
         this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
     }
@@ -91,7 +98,7 @@ public class TimestampStreamReader
     }
 
     @Override
-    public Block readBlock(Type type)
+    public Block readBlock()
             throws IOException
     {
         if (!rowGroupOpen) {
@@ -119,13 +126,13 @@ public class TimestampStreamReader
 
         if (secondsStream == null && nanosStream == null && presentStream != null) {
             presentStream.skip(nextBatchSize);
-            Block nullValueBlock = RunLengthEncodedBlock.create(type, null, nextBatchSize);
+            Block nullValueBlock = RunLengthEncodedBlock.create(TIMESTAMP, null, nextBatchSize);
             readOffset = 0;
             nextBatchSize = 0;
             return nullValueBlock;
         }
 
-        BlockBuilder builder = type.createBlockBuilder(null, nextBatchSize);
+        BlockBuilder builder = TIMESTAMP.createBlockBuilder(null, nextBatchSize);
 
         if (presentStream == null) {
             if (secondsStream == null) {
@@ -136,7 +143,7 @@ public class TimestampStreamReader
             }
 
             for (int i = 0; i < nextBatchSize; i++) {
-                type.writeLong(builder, decodeTimestamp(secondsStream.next(), nanosStream.next(), baseTimestampInSeconds));
+                TIMESTAMP.writeLong(builder, decodeTimestamp(secondsStream.next(), nanosStream.next(), baseTimestampInSeconds));
             }
         }
         else {
@@ -144,7 +151,7 @@ public class TimestampStreamReader
             verify(nanosStream != null, "Value is not null but nanos stream is not present");
             for (int i = 0; i < nextBatchSize; i++) {
                 if (presentStream.nextBit()) {
-                    type.writeLong(builder, decodeTimestamp(secondsStream.next(), nanosStream.next(), baseTimestampInSeconds));
+                    TIMESTAMP.writeLong(builder, decodeTimestamp(secondsStream.next(), nanosStream.next(), baseTimestampInSeconds));
                 }
                 else {
                     builder.appendNull();

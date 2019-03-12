@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.UnsignedBytes;
 import io.airlift.units.DataSize;
 import io.prestosql.orc.FileOrcDataSource;
+import io.prestosql.orc.OrcCorruptionException;
 import io.prestosql.orc.OrcDataSource;
 import io.prestosql.orc.OrcPredicate;
 import io.prestosql.orc.OrcReader;
@@ -76,6 +77,7 @@ final class OrcTestingUtil
     }
 
     public static OrcRecordReader createRecordReader(OrcReader orcReader, Map<Integer, Type> includedColumns)
+            throws OrcCorruptionException
     {
         return orcReader.createRecordReader(includedColumns, OrcPredicate.TRUE, DateTimeZone.UTC, newSimpleAggregatedMemoryContext(), MAX_BATCH_SIZE);
     }

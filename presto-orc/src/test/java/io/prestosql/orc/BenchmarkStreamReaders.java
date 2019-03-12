@@ -93,7 +93,7 @@ public class BenchmarkStreamReaders
         OrcRecordReader recordReader = data.createRecordReader();
         List<Block> blocks = new ArrayList<>();
         while (recordReader.nextBatch() > 0) {
-            Block block = recordReader.readBlock(BOOLEAN, 0);
+            Block block = recordReader.readBlock(0);
             blocks.add(block);
         }
         return blocks;
@@ -106,7 +106,7 @@ public class BenchmarkStreamReaders
         OrcRecordReader recordReader = data.createRecordReader();
         List<Block> blocks = new ArrayList<>();
         while (recordReader.nextBatch() > 0) {
-            Block block = recordReader.readBlock(BOOLEAN, 0);
+            Block block = recordReader.readBlock(0);
             blocks.add(block);
         }
         return blocks;
@@ -119,7 +119,7 @@ public class BenchmarkStreamReaders
         OrcRecordReader recordReader = data.createRecordReader();
         List<Block> blocks = new ArrayList<>();
         while (recordReader.nextBatch() > 0) {
-            Block block = recordReader.readBlock(data.getType(), 0);
+            Block block = recordReader.readBlock(0);
             blocks.add(block);
         }
         return blocks;
@@ -132,7 +132,7 @@ public class BenchmarkStreamReaders
         OrcRecordReader recordReader = data.createRecordReader();
         List<Block> blocks = new ArrayList<>();
         while (recordReader.nextBatch() > 0) {
-            Block block = recordReader.readBlock(TINYINT, 0);
+            Block block = recordReader.readBlock(0);
             blocks.add(block);
         }
         return blocks;
@@ -145,7 +145,7 @@ public class BenchmarkStreamReaders
         OrcRecordReader recordReader = data.createRecordReader();
         List<Block> blocks = new ArrayList<>();
         while (recordReader.nextBatch() > 0) {
-            Block block = recordReader.readBlock(TINYINT, 0);
+            Block block = recordReader.readBlock(0);
             blocks.add(block);
         }
         return blocks;
@@ -158,7 +158,7 @@ public class BenchmarkStreamReaders
         OrcRecordReader recordReader = data.createRecordReader();
         List<Block> blocks = new ArrayList<>();
         while (recordReader.nextBatch() > 0) {
-            Block block = recordReader.readBlock(DECIMAL_TYPE, 0);
+            Block block = recordReader.readBlock(0);
             blocks.add(block);
         }
         return blocks;
@@ -171,7 +171,7 @@ public class BenchmarkStreamReaders
         OrcRecordReader recordReader = data.createRecordReader();
         List<Block> blocks = new ArrayList<>();
         while (recordReader.nextBatch() > 0) {
-            Block block = recordReader.readBlock(DECIMAL_TYPE, 0);
+            Block block = recordReader.readBlock(0);
             blocks.add(block);
         }
         return blocks;
@@ -184,7 +184,7 @@ public class BenchmarkStreamReaders
         OrcRecordReader recordReader = data.createRecordReader();
         List<Block> blocks = new ArrayList<>();
         while (recordReader.nextBatch() > 0) {
-            Block block = recordReader.readBlock(DOUBLE, 0);
+            Block block = recordReader.readBlock(0);
             blocks.add(block);
         }
         return blocks;
@@ -197,7 +197,7 @@ public class BenchmarkStreamReaders
         OrcRecordReader recordReader = data.createRecordReader();
         List<Block> blocks = new ArrayList<>();
         while (recordReader.nextBatch() > 0) {
-            Block block = recordReader.readBlock(DOUBLE, 0);
+            Block block = recordReader.readBlock(0);
             blocks.add(block);
         }
         return blocks;
@@ -210,7 +210,7 @@ public class BenchmarkStreamReaders
         OrcRecordReader recordReader = data.createRecordReader();
         List<Block> blocks = new ArrayList<>();
         while (recordReader.nextBatch() > 0) {
-            Block block = recordReader.readBlock(REAL, 0);
+            Block block = recordReader.readBlock(0);
             blocks.add(block);
         }
         return blocks;
@@ -223,7 +223,7 @@ public class BenchmarkStreamReaders
         OrcRecordReader recordReader = data.createRecordReader();
         List<Block> blocks = new ArrayList<>();
         while (recordReader.nextBatch() > 0) {
-            Block block = recordReader.readBlock(REAL, 0);
+            Block block = recordReader.readBlock(0);
             blocks.add(block);
         }
         return blocks;
@@ -236,7 +236,7 @@ public class BenchmarkStreamReaders
         OrcRecordReader recordReader = data.createRecordReader();
         List<Block> blocks = new ArrayList<>();
         while (recordReader.nextBatch() > 0) {
-            Block block = recordReader.readBlock(BIGINT, 0);
+            Block block = recordReader.readBlock(0);
             blocks.add(block);
         }
         return blocks;
@@ -249,7 +249,7 @@ public class BenchmarkStreamReaders
         OrcRecordReader recordReader = data.createRecordReader();
         List<Block> blocks = new ArrayList<>();
         while (recordReader.nextBatch() > 0) {
-            Block block = recordReader.readBlock(BIGINT, 0);
+            Block block = recordReader.readBlock(0);
             blocks.add(block);
         }
         return blocks;
@@ -262,7 +262,7 @@ public class BenchmarkStreamReaders
         OrcRecordReader recordReader = data.createRecordReader();
         List<Block> blocks = new ArrayList<>();
         while (recordReader.nextBatch() > 0) {
-            Block block = recordReader.readBlock(VARCHAR, 0);
+            Block block = recordReader.readBlock(0);
             blocks.add(block);
         }
         return blocks;
@@ -275,7 +275,7 @@ public class BenchmarkStreamReaders
         OrcRecordReader recordReader = data.createRecordReader();
         List<Block> blocks = new ArrayList<>();
         while (recordReader.nextBatch() > 0) {
-            Block block = recordReader.readBlock(VARCHAR, 0);
+            Block block = recordReader.readBlock(0);
             blocks.add(block);
         }
         return blocks;
@@ -288,7 +288,7 @@ public class BenchmarkStreamReaders
         OrcRecordReader recordReader = data.createRecordReader();
         List<Block> blocks = new ArrayList<>();
         while (recordReader.nextBatch() > 0) {
-            Block block = recordReader.readBlock(TIMESTAMP, 0);
+            Block block = recordReader.readBlock(0);
             blocks.add(block);
         }
         return blocks;
@@ -301,7 +301,7 @@ public class BenchmarkStreamReaders
         OrcRecordReader recordReader = data.createRecordReader();
         List<Block> blocks = new ArrayList<>();
         while (recordReader.nextBatch() > 0) {
-            Block block = recordReader.readBlock(TIMESTAMP, 0);
+            Block block = recordReader.readBlock(0);
             blocks.add(block);
         }
         return blocks;

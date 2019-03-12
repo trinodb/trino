@@ -24,6 +24,10 @@ import io.prestosql.orc.stream.LongInputStream;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.block.RunLengthEncodedBlock;
+import io.prestosql.spi.type.BigintType;
+import io.prestosql.spi.type.DateType;
+import io.prestosql.spi.type.IntegerType;
+import io.prestosql.spi.type.SmallintType;
 import io.prestosql.spi.type.Type;
 import org.openjdk.jol.info.ClassLayout;
 
@@ -37,6 +41,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.prestosql.orc.metadata.Stream.StreamKind.DATA;
 import static io.prestosql.orc.metadata.Stream.StreamKind.PRESENT;
+import static io.prestosql.orc.reader.ReaderUtils.verifyStreamType;
 import static io.prestosql.orc.stream.MissingInputStreamSource.missingStreamSource;
 import static java.util.Objects.requireNonNull;
 
@@ -45,6 +50,7 @@ public class LongStreamReader
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(LongStreamReader.class).instanceSize();
 
+    private final Type type;
     private final StreamDescriptor streamDescriptor;
 
     private int readOffset;
@@ -63,8 +69,13 @@ public class LongStreamReader
 
     private final LocalMemoryContext systemMemoryContext;
 
-    public LongStreamReader(StreamDescriptor streamDescriptor, LocalMemoryContext systemMemoryContext)
+    public LongStreamReader(Type type, StreamDescriptor streamDescriptor, LocalMemoryContext systemMemoryContext)
+            throws OrcCorruptionException
     {
+        requireNonNull(type, "type is null");
+        verifyStreamType(streamDescriptor, type, t -> t instanceof BigintType || t instanceof IntegerType || t instanceof SmallintType || t instanceof DateType);
+        this.type = type;
+
         this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
         this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
     }
@@ -77,7 +88,7 @@ public class LongStreamReader
     }
 
     @Override
-    public Block readBlock(Type type)
+    public Block readBlock()
             throws IOException
     {
         if (!rowGroupOpen) {

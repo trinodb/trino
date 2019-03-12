@@ -23,6 +23,7 @@ import io.prestosql.orc.stream.InputStreamSource;
 import io.prestosql.orc.stream.InputStreamSources;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.RunLengthEncodedBlock;
+import io.prestosql.spi.type.RealType;
 import io.prestosql.spi.type.Type;
 import org.openjdk.jol.info.ClassLayout;
 
@@ -36,7 +37,9 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.prestosql.orc.metadata.Stream.StreamKind.DATA;
 import static io.prestosql.orc.metadata.Stream.StreamKind.PRESENT;
+import static io.prestosql.orc.reader.ReaderUtils.verifyStreamType;
 import static io.prestosql.orc.stream.MissingInputStreamSource.missingStreamSource;
+import static io.prestosql.spi.type.RealType.REAL;
 import static java.util.Objects.requireNonNull;
 
 public class FloatStreamReader
@@ -62,8 +65,12 @@ public class FloatStreamReader
 
     private final LocalMemoryContext systemMemoryContext;
 
-    public FloatStreamReader(StreamDescriptor streamDescriptor, LocalMemoryContext systemMemoryContext)
+    public FloatStreamReader(Type type, StreamDescriptor streamDescriptor, LocalMemoryContext systemMemoryContext)
+            throws OrcCorruptionException
     {
+        requireNonNull(type, "type is null");
+        verifyStreamType(streamDescriptor, type, RealType.class::isInstance);
+
         this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
         this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
     }
@@ -76,7 +83,7 @@ public class FloatStreamReader
     }
 
     @Override
-    public Block readBlock(Type type)
+    public Block readBlock()
             throws IOException
     {
         if (!rowGroupOpen) {
@@ -102,7 +109,7 @@ public class FloatStreamReader
                 throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but data stream is not present");
             }
             presentStream.skip(nextBatchSize);
-            Block nullValueBlock = RunLengthEncodedBlock.create(type, null, nextBatchSize);
+            Block nullValueBlock = RunLengthEncodedBlock.create(REAL, null, nextBatchSize);
             readOffset = 0;
             nextBatchSize = 0;
             return nullValueBlock;
@@ -110,19 +117,19 @@ public class FloatStreamReader
 
         Block block;
         if (presentStream == null) {
-            block = dataStream.nextBlock(type, nextBatchSize);
+            block = dataStream.nextBlock(REAL, nextBatchSize);
         }
         else {
             boolean[] isNull = new boolean[nextBatchSize];
             int nullCount = presentStream.getUnsetBits(nextBatchSize, isNull);
             if (nullCount == 0) {
-                block = dataStream.nextBlock(type, nextBatchSize);
+                block = dataStream.nextBlock(REAL, nextBatchSize);
             }
             else if (nullCount != nextBatchSize) {
-                block = dataStream.nextBlock(type, isNull);
+                block = dataStream.nextBlock(REAL, isNull);
             }
             else {
-                block = RunLengthEncodedBlock.create(type, null, nextBatchSize);
+                block = RunLengthEncodedBlock.create(REAL, null, nextBatchSize);
             }
         }
 
