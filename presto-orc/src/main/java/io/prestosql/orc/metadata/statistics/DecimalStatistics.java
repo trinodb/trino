@@ -85,8 +85,8 @@ public class DecimalStatistics
             return false;
         }
         DecimalStatistics that = (DecimalStatistics) o;
-        return Objects.equals(minimum, that.minimum) &&
-                Objects.equals(maximum, that.maximum);
+        return minimum.compareTo(that.minimum) == 0 &&
+                maximum.compareTo(that.maximum) == 0;
     }
 
     @Override
