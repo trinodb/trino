@@ -38,7 +38,7 @@ git:
   quiet: true
 
 install:
-  - ./mvnw -v
+  - travis_retry ./mvnw -v
   - |
     if [[ -v TEST_SPECIFIC_MODULES ]]; then
       ./mvnw install $MAVEN_FAST_INSTALL -pl $TEST_SPECIFIC_MODULES -am
