@@ -118,7 +118,6 @@ public class StripeReader
 
         // get streams for selected columns
         Map<StreamId, Stream> streams = new HashMap<>();
-        boolean hasRowGroupDictionary = false;
         for (Stream stream : stripeFooter.getStreams()) {
             if (includedOrcColumns.contains(stream.getColumn())) {
                 streams.put(new StreamId(stream), stream);
@@ -173,12 +172,7 @@ public class StripeReader
                 return new Stripe(stripe.getNumberOfRows(), timeZone, columnEncodings, rowGroups, dictionaryStreamSources);
             }
             catch (InvalidCheckpointException e) {
-                // The ORC file contains a corrupt checkpoint stream
-                // If the file does not have a row group dictionary, treat the stripe as a single row group. Otherwise,
-                // we must fail because the length of the row group dictionary is contained in the checkpoint stream.
-                if (hasRowGroupDictionary) {
-                    throw new OrcCorruptionException(e, orcDataSource.getId(), "Checkpoints are corrupt");
-                }
+                // The ORC file contains a corrupt checkpoint stream treat the stripe as a single row group.
                 invalidCheckPoint = true;
             }
         }
