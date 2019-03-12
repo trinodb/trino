@@ -668,7 +668,7 @@ public class BenchmarkStreamReaders
             List<Long> values = new ArrayList<>();
             for (int i = 0; i < ROWS; ++i) {
                 if (random.nextBoolean()) {
-                    values.add(Long.valueOf(random.nextLong()));
+                    values.add(random.nextLong());
                 }
                 else {
                     values.add(null);
