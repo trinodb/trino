@@ -47,10 +47,15 @@ import io.prestosql.spi.Page;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ConnectorPageSource;
 import io.prestosql.spi.predicate.TupleDomain;
+import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.DecimalType;
+import io.prestosql.spi.type.MapType;
 import io.prestosql.spi.type.NamedTypeSignature;
 import io.prestosql.spi.type.RowFieldName;
+import io.prestosql.spi.type.RowType;
+import io.prestosql.spi.type.RowType.Field;
 import io.prestosql.spi.type.StandardTypes;
+import io.prestosql.spi.type.TimestampType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeManager;
 import io.prestosql.spi.type.TypeSignature;
@@ -86,6 +91,7 @@ import java.util.concurrent.TimeoutException;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.concurrent.MoreFutures.allAsList;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
@@ -252,7 +258,7 @@ public class OrcStorageManager
                 }
                 else {
                     columnIndexes.add(index);
-                    includedColumns.put(index, columnTypes.get(i));
+                    includedColumns.put(index, toOrcFileType(columnTypes.get(i), typeManager));
                 }
             }
 
@@ -380,7 +386,7 @@ public class OrcStorageManager
 
             ImmutableList.Builder<ColumnStats> list = ImmutableList.builder();
             for (ColumnInfo info : getColumnInfo(reader)) {
-                computeColumnStats(reader, info.getColumnId(), info.getType()).ifPresent(list::add);
+                computeColumnStats(reader, info.getColumnId(), info.getType(), typeManager).ifPresent(list::add);
             }
             return list.build();
         }
@@ -527,6 +533,30 @@ public class OrcStorageManager
                 return typeManager.getParameterizedType(StandardTypes.ROW, fieldTypes.build());
         }
         throw new PrestoException(RAPTOR_ERROR, "Unhandled ORC type: " + type);
+    }
+
+    static Type toOrcFileType(Type raptorType, TypeManager typeManager)
+    {
+        // TIMESTAMPS are stored as BIGINT to void the poor encoding in ORC
+        if (raptorType == TimestampType.TIMESTAMP) {
+            return BIGINT;
+        }
+        if (raptorType instanceof ArrayType) {
+            Type elementType = toOrcFileType(((ArrayType) raptorType).getElementType(), typeManager);
+            return new ArrayType(elementType);
+        }
+        if (raptorType instanceof MapType) {
+            TypeSignature keyType = toOrcFileType(((MapType) raptorType).getKeyType(), typeManager).getTypeSignature();
+            TypeSignature valueType = toOrcFileType(((MapType) raptorType).getValueType(), typeManager).getTypeSignature();
+            return typeManager.getParameterizedType(StandardTypes.MAP, ImmutableList.of(TypeSignatureParameter.of(keyType), TypeSignatureParameter.of(valueType)));
+        }
+        if (raptorType instanceof RowType) {
+            List<Field> fields = ((RowType) raptorType).getFields().stream()
+                    .map(field -> new Field(field.getName(), toOrcFileType(field.getType(), typeManager)))
+                    .collect(toImmutableList());
+            return RowType.from(fields);
+        }
+        return raptorType;
     }
 
     private static OrcPredicate getPredicate(TupleDomain<RaptorColumnHandle> effectivePredicate, Map<Long, Integer> indexMap)

@@ -16,7 +16,6 @@ package io.prestosql.orc.reader;
 import io.prestosql.orc.metadata.ColumnEncoding;
 import io.prestosql.orc.stream.InputStreamSources;
 import io.prestosql.spi.block.Block;
-import io.prestosql.spi.type.Type;
 
 import java.io.IOException;
 import java.time.ZoneId;
@@ -24,7 +23,7 @@ import java.util.List;
 
 public interface StreamReader
 {
-    Block readBlock(Type type)
+    Block readBlock()
             throws IOException;
 
     void prepareNextRead(int batchSize);

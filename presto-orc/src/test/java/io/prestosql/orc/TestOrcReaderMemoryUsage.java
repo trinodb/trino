@@ -82,7 +82,7 @@ public class TestOrcReaderMemoryUsage
                     break;
                 }
 
-                Block block = reader.readBlock(VARCHAR, 0);
+                Block block = reader.readBlock(0);
                 assertEquals(block.getPositionCount(), batchSize);
 
                 // We only verify the memory usage when the batchSize reaches MAX_BATCH_SIZE as batchSize may be
@@ -129,7 +129,7 @@ public class TestOrcReaderMemoryUsage
                     break;
                 }
 
-                Block block = reader.readBlock(BIGINT, 0);
+                Block block = reader.readBlock(0);
                 assertEquals(block.getPositionCount(), batchSize);
 
                 // We only verify the memory usage when the batchSize reaches MAX_BATCH_SIZE as batchSize may be
@@ -193,7 +193,7 @@ public class TestOrcReaderMemoryUsage
                     break;
                 }
 
-                Block block = reader.readBlock(mapType, 0);
+                Block block = reader.readBlock(0);
                 assertEquals(block.getPositionCount(), batchSize);
 
                 // We only verify the memory usage when the batchSize reaches MAX_BATCH_SIZE as batchSize may be

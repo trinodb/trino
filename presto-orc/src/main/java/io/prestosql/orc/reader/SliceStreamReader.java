@@ -16,6 +16,7 @@ package io.prestosql.orc.reader;
 import com.google.common.io.Closer;
 import io.airlift.slice.Slice;
 import io.prestosql.memory.context.AggregatedMemoryContext;
+import io.prestosql.orc.OrcCorruptionException;
 import io.prestosql.orc.StreamDescriptor;
 import io.prestosql.orc.metadata.ColumnEncoding;
 import io.prestosql.orc.metadata.ColumnEncoding.ColumnEncodingKind;
@@ -23,6 +24,7 @@ import io.prestosql.orc.stream.InputStreamSources;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.type.CharType;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.VarbinaryType;
 import io.prestosql.spi.type.VarcharType;
 import org.openjdk.jol.info.ClassLayout;
 
@@ -36,6 +38,7 @@ import static io.prestosql.orc.metadata.ColumnEncoding.ColumnEncodingKind.DICTIO
 import static io.prestosql.orc.metadata.ColumnEncoding.ColumnEncodingKind.DICTIONARY_V2;
 import static io.prestosql.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT;
 import static io.prestosql.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT_V2;
+import static io.prestosql.orc.reader.ReaderUtils.verifyStreamType;
 import static io.prestosql.spi.type.Chars.byteCountWithoutTrailingSpace;
 import static io.prestosql.spi.type.Chars.isCharType;
 import static io.prestosql.spi.type.VarbinaryType.isVarbinaryType;
@@ -53,18 +56,25 @@ public class SliceStreamReader
     private final SliceDictionaryStreamReader dictionaryReader;
     private StreamReader currentReader;
 
-    public SliceStreamReader(StreamDescriptor streamDescriptor, AggregatedMemoryContext systemMemoryContext)
+    public SliceStreamReader(Type type, StreamDescriptor streamDescriptor, AggregatedMemoryContext systemMemoryContext)
+            throws OrcCorruptionException
     {
+        requireNonNull(type, "type is null");
+        verifyStreamType(streamDescriptor, type, t -> t instanceof VarcharType || t instanceof CharType || t instanceof VarbinaryType);
+
         this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
-        directReader = new SliceDirectStreamReader(streamDescriptor);
-        dictionaryReader = new SliceDictionaryStreamReader(streamDescriptor, systemMemoryContext.newLocalMemoryContext(SliceStreamReader.class.getSimpleName()));
+
+        int maxCodePointCount = getMaxCodePointCount(type);
+        boolean charType = isCharType(type);
+        directReader = new SliceDirectStreamReader(streamDescriptor, maxCodePointCount, charType);
+        dictionaryReader = new SliceDictionaryStreamReader(streamDescriptor, systemMemoryContext.newLocalMemoryContext(SliceStreamReader.class.getSimpleName()), maxCodePointCount, charType);
     }
 
     @Override
-    public Block readBlock(Type type)
+    public Block readBlock()
             throws IOException
     {
-        return currentReader.readBlock(type);
+        return currentReader.readBlock();
     }
 
     @Override
@@ -106,7 +116,7 @@ public class SliceStreamReader
                 .toString();
     }
 
-    public static int getMaxCodePointCount(Type type)
+    private static int getMaxCodePointCount(Type type)
     {
         if (isVarcharType(type)) {
             VarcharType varcharType = (VarcharType) type;
