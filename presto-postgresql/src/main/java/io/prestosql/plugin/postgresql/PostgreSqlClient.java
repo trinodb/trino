@@ -36,6 +36,7 @@ import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeManager;
 import io.prestosql.spi.type.TypeSignature;
+import io.prestosql.spi.type.VarcharType;
 import org.postgresql.Driver;
 import org.postgresql.util.PGobject;
 
@@ -49,6 +50,7 @@ import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Types;
 import java.util.Optional;
 
 import static com.fasterxml.jackson.core.JsonFactory.Feature.CANONICALIZE_FIELD_NAMES;
@@ -141,6 +143,10 @@ public class PostgreSqlClient
             case "json":
                 return Optional.of(jsonColumnMapping());
         }
+        if (typeHandle.getJdbcType() == Types.VARCHAR && !typeHandle.getJdbcTypeName().equals("varchar")) {
+            // This can be e.g. an ENUM
+            return Optional.of(typedVarcharColumnMapping(typeHandle.getJdbcTypeName()));
+        }
         // TODO support PostgreSQL's TIMESTAMP WITH TIME ZONE and TIME WITH TIME ZONE explicitly, otherwise predicate pushdown for these types may be incorrect
         return super.toPrestoType(session, typeHandle);
     }
@@ -152,7 +158,7 @@ public class PostgreSqlClient
             return WriteMapping.sliceMapping("bytea", varbinaryWriteFunction());
         }
         if (type.getTypeSignature().getBase().equals(StandardTypes.JSON)) {
-            return WriteMapping.sliceMapping("jsonb", jsonWriteFunction());
+            return WriteMapping.sliceMapping("jsonb", typedVarcharWriteFunction("json"));
         }
         return super.toWriteMapping(session, type);
     }
@@ -162,15 +168,23 @@ public class PostgreSqlClient
         return ColumnMapping.sliceMapping(
                 jsonType,
                 (resultSet, columnIndex) -> jsonParse(utf8Slice(resultSet.getString(columnIndex))),
-                jsonWriteFunction(),
+                typedVarcharWriteFunction("json"),
                 DISABLE_PUSHDOWN);
     }
 
-    private static SliceWriteFunction jsonWriteFunction()
+    private ColumnMapping typedVarcharColumnMapping(String jdbcTypeName)
+    {
+        return ColumnMapping.sliceMapping(
+                VarcharType.VARCHAR,
+                (resultSet, columnIndex) -> utf8Slice(resultSet.getString(columnIndex)),
+                typedVarcharWriteFunction(jdbcTypeName));
+    }
+
+    private static SliceWriteFunction typedVarcharWriteFunction(String jdbcTypeName)
     {
         return (statement, index, value) -> {
             PGobject pgObject = new PGobject();
-            pgObject.setType("json");
+            pgObject.setType(jdbcTypeName);
             pgObject.setValue(value.toStringUtf8());
             statement.setObject(index, pgObject);
         };
