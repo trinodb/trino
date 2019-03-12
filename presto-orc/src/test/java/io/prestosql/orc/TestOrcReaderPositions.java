@@ -58,6 +58,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.hadoop.hive.ql.io.orc.CompressionKind.SNAPPY;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.fail;
 
 public class TestOrcReaderPositions
 {
@@ -233,7 +234,7 @@ public class TestOrcReaderPositions
                         currentStringBytes += baseStringBytes;
                     }
                     else if (rowCountsInCurrentRowGroup > rowsInRowGroup) {
-                        assertTrue(false, "read more rows in the current row group");
+                        fail("read more rows in the current row group");
                     }
                 }
             }
@@ -276,7 +277,7 @@ public class TestOrcReaderPositions
                         rowCountsInCurrentRowGroup = 0;
                     }
                     else if (rowCountsInCurrentRowGroup > rowsInRowGroup) {
-                        assertTrue(false, "read more rows in the current row group");
+                        fail("read more rows in the current row group");
                     }
                 }
             }
@@ -346,7 +347,7 @@ public class TestOrcReaderPositions
                         rowCountsInCurrentRowGroup = 0;
                     }
                     else if (rowCountsInCurrentRowGroup > 20) {
-                        assertTrue(false, "read more rows in the current row group");
+                        fail("read more rows in the current row group");
                     }
 
                     expectedBatchSize = min(min(nextBatchSize, MAX_BATCH_SIZE), 20 - rowCountsInCurrentRowGroup);
