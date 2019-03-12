@@ -53,7 +53,6 @@ public class TempFileReader
                     dataSource,
                     new DataSize(1, MEGABYTE),
                     new DataSize(8, MEGABYTE),
-                    new DataSize(8, MEGABYTE),
                     new DataSize(16, MEGABYTE));
 
             Map<Integer, Type> includedColumns = new HashMap<>();
