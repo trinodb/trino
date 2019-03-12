@@ -223,7 +223,7 @@ public class TestOrcReaderMemoryUsage
      * Write a file that contains a number of rows with 1 BIGINT column, and some rows have null values.
      */
     private static TempFile createSingleColumnFileWithNullValues(int rows)
-            throws IOException, ReflectiveOperationException, SerDeException
+            throws IOException, SerDeException
     {
         Serializer serde = new OrcSerde();
         TempFile tempFile = new TempFile();
@@ -276,7 +276,7 @@ public class TestOrcReaderMemoryUsage
      * and some entries have null keys/values.
      */
     private static TempFile createSingleColumnMapFileWithNullValues(Type mapType, int rows)
-            throws IOException, ReflectiveOperationException, SerDeException
+            throws IOException, SerDeException
     {
         Serializer serde = new OrcSerde();
         TempFile tempFile = new TempFile();
