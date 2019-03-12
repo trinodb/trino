@@ -82,8 +82,8 @@ public final class OrcWriter
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(OrcWriter.class).instanceSize();
 
-    static final String PRESTO_ORC_WRITER_VERSION_METADATA_KEY = "presto.writer.version";
-    static final String PRESTO_ORC_WRITER_VERSION;
+    private static final String PRESTO_ORC_WRITER_VERSION_METADATA_KEY = "presto.writer.version";
+    private static final String PRESTO_ORC_WRITER_VERSION;
     private final OrcWriterStats stats;
 
     static {

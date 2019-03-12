@@ -80,7 +80,7 @@ public class OrcReader
         this(orcDataSource, maxMergeDistance, tinyStripeThreshold, maxBlockSize, Optional.empty());
     }
 
-    OrcReader(
+    private OrcReader(
             OrcDataSource orcDataSource,
             DataSize maxMergeDistance,
             DataSize tinyStripeThreshold,

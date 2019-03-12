@@ -397,7 +397,7 @@ public class OrcTester
         }
     }
 
-    public void assertRoundTrip(Type type, List<?> readValues)
+    private void assertRoundTrip(Type type, List<?> readValues)
             throws Exception
     {
         assertRoundTrip(type, type, readValues, readValues);

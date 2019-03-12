@@ -25,9 +25,9 @@ import static org.testng.Assert.assertEquals;
 
 public class TestLongBitPacker
 {
-    public static final int LENGTHS = 128;
-    public static final int OFFSETS = 4;
-    public static final int WIDTHS = 64;
+    private static final int LENGTHS = 128;
+    private static final int OFFSETS = 4;
+    private static final int WIDTHS = 64;
 
     @Test
     public void testBasic()

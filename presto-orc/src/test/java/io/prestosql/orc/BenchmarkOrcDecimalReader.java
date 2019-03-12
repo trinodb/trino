@@ -65,7 +65,7 @@ import static java.util.UUID.randomUUID;
 @BenchmarkMode(Mode.AverageTime)
 public class BenchmarkOrcDecimalReader
 {
-    public static final DecimalType DECIMAL_TYPE = createDecimalType(30, 10);
+    private static final DecimalType DECIMAL_TYPE = createDecimalType(30, 10);
 
     @Benchmark
     public Object readDecimal(BenchmarkData data)

@@ -190,7 +190,7 @@ public class TestCachingOrcDataSource
         assertEquals(orcDataSource.getReadCount(), 3); // footer, first few stripes, last few stripes
     }
 
-    public void doIntegration(TestingOrcDataSource orcDataSource, DataSize maxMergeDistance, DataSize tinyStripeThreshold)
+    private void doIntegration(TestingOrcDataSource orcDataSource, DataSize maxMergeDistance, DataSize tinyStripeThreshold)
             throws IOException
     {
         OrcReader orcReader = new OrcReader(orcDataSource, maxMergeDistance, tinyStripeThreshold, new DataSize(1, Unit.MEGABYTE));
@@ -220,7 +220,7 @@ public class TestCachingOrcDataSource
         assertEquals(positionCount, POSITION_COUNT);
     }
 
-    public static <T, U extends T> void assertNotInstanceOf(T actual, Class<U> expectedType)
+    private static <T, U extends T> void assertNotInstanceOf(T actual, Class<U> expectedType)
     {
         assertNotNull(actual, "actual is null");
         assertNotNull(expectedType, "expectedType is null");
