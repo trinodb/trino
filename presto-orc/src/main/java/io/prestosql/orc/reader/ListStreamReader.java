@@ -207,7 +207,7 @@ public class ListStreamReader
     public void close()
     {
         try (Closer closer = Closer.create()) {
-            closer.register(() -> elementStreamReader.close());
+            closer.register(elementStreamReader::close);
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);
