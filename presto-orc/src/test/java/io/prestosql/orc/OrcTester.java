@@ -415,7 +415,7 @@ public class OrcTester
                 if (hiveSupported) {
                     try (TempFile tempFile = new TempFile()) {
                         writeOrcColumnHive(tempFile.getFile(), format, compression, writeType, writeValues.iterator());
-                        assertFileContentsPresto(readType, tempFile, readValues, false, false, format, true);
+                        assertFileContentsPresto(readType, tempFile, readValues, false, false);
                     }
                 }
 
@@ -424,17 +424,17 @@ public class OrcTester
                     writeOrcColumnPresto(tempFile.getFile(), compression, writeType, writeValues.iterator(), stats);
 
                     if (hiveSupported) {
-                        assertFileContentsHive(readType, tempFile, format, readValues);
+                        assertFileContentsHive(readType, tempFile, readValues);
                     }
 
-                    assertFileContentsPresto(readType, tempFile, readValues, false, false, format, false);
+                    assertFileContentsPresto(readType, tempFile, readValues, false, false);
 
                     if (skipBatchTestsEnabled) {
-                        assertFileContentsPresto(readType, tempFile, readValues, true, false, format, false);
+                        assertFileContentsPresto(readType, tempFile, readValues, true, false);
                     }
 
                     if (skipStripeTestsEnabled) {
-                        assertFileContentsPresto(readType, tempFile, readValues, false, true, format, false);
+                        assertFileContentsPresto(readType, tempFile, readValues, false, true);
                     }
                 }
             }
@@ -448,12 +448,10 @@ public class OrcTester
             TempFile tempFile,
             List<?> expectedValues,
             boolean skipFirstBatch,
-            boolean skipStripe,
-            Format format,
-            boolean isHiveWriter)
+            boolean skipStripe)
             throws IOException
     {
-        try (OrcRecordReader recordReader = createCustomOrcRecordReader(tempFile, createOrcPredicate(type, expectedValues, format, isHiveWriter), type, MAX_BATCH_SIZE)) {
+        try (OrcRecordReader recordReader = createCustomOrcRecordReader(tempFile, createOrcPredicate(type, expectedValues), type, MAX_BATCH_SIZE)) {
             assertEquals(recordReader.getReaderPosition(), 0);
             assertEquals(recordReader.getFilePosition(), 0);
 
@@ -696,7 +694,6 @@ public class OrcTester
     private static void assertFileContentsHive(
             Type type,
             TempFile tempFile,
-            Format format,
             Iterable<?> expectedValues)
             throws Exception
     {
@@ -849,7 +846,6 @@ public class OrcTester
         List<StructField> fields = ImmutableList.copyOf(objectInspector.getAllStructFieldRefs());
         Serializer serializer = new OrcSerde();
 
-        int i = 0;
         while (values.hasNext()) {
             Object value = values.next();
             value = preprocessWriteValueHive(type, value);
@@ -857,7 +853,6 @@ public class OrcTester
 
             Writable record = serializer.serialize(row, objectInspector);
             recordWriter.write(record);
-            i++;
         }
 
         recordWriter.close(false);
@@ -1087,26 +1082,6 @@ public class OrcTester
     private static List<Object> toHiveList(Object input)
     {
         return asList(input, input, input, input);
-    }
-
-    private static boolean hasType(Type testType, Set<String> baseTypes)
-    {
-        String testBaseType = testType.getTypeSignature().getBase();
-        if (StandardTypes.ARRAY.equals(testBaseType)) {
-            Type elementType = testType.getTypeParameters().get(0);
-            return hasType(elementType, baseTypes);
-        }
-        if (StandardTypes.MAP.equals(testBaseType)) {
-            Type keyType = testType.getTypeParameters().get(0);
-            Type valueType = testType.getTypeParameters().get(1);
-            return hasType(keyType, baseTypes) || hasType(valueType, baseTypes);
-        }
-        if (StandardTypes.ROW.equals(testBaseType)) {
-            return testType.getTypeParameters().stream()
-                    .anyMatch(fieldType -> hasType(fieldType, baseTypes));
-        }
-
-        return baseTypes.contains(testBaseType);
     }
 
     private static Type arrayType(Type elementType)

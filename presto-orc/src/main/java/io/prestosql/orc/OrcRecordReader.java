@@ -316,11 +316,6 @@ public class OrcRecordReader
         return totalRowCount;
     }
 
-    public float getProgress()
-    {
-        return ((float) currentPosition) / totalRowCount;
-    }
-
     public long getSplitLength()
     {
         return splitLength;
@@ -423,12 +418,6 @@ public class OrcRecordReader
             }
         }
         return block;
-    }
-
-    public StreamReader getStreamReader(int index)
-    {
-        checkArgument(index < streamReaders.length, "index does not exist");
-        return streamReaders[index];
     }
 
     public Map<String, Slice> getUserMetadata()

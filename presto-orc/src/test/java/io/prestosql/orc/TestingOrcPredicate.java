@@ -17,7 +17,6 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Ordering;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.prestosql.orc.OrcTester.Format;
 import io.prestosql.orc.metadata.statistics.ColumnStatistics;
 import io.prestosql.spi.type.CharType;
 import io.prestosql.spi.type.DecimalType;
@@ -64,7 +63,7 @@ public final class TestingOrcPredicate
     {
     }
 
-    public static OrcPredicate createOrcPredicate(Type type, Iterable<?> values, Format format, boolean isHiveWriter)
+    public static OrcPredicate createOrcPredicate(Type type, Iterable<?> values)
     {
         List<Object> expectedValues = newArrayList(values);
         if (BOOLEAN.equals(type)) {
@@ -99,7 +98,7 @@ public final class TestingOrcPredicate
             return new BasicOrcPredicate<>(expectedValues, Object.class);
         }
         if (type instanceof VarcharType) {
-            return new StringOrcPredicate(expectedValues, format, isHiveWriter);
+            return new StringOrcPredicate(expectedValues);
         }
         if (type instanceof CharType) {
             return new CharOrcPredicate(expectedValues);
@@ -330,14 +329,9 @@ public final class TestingOrcPredicate
     public static class StringOrcPredicate
             extends BasicOrcPredicate<String>
     {
-        private final Format format;
-        private final boolean isHiveWriter;
-
-        public StringOrcPredicate(Iterable<?> expectedValues, Format format, boolean isHiveWriter)
+        public StringOrcPredicate(Iterable<?> expectedValues)
         {
             super(expectedValues, String.class);
-            this.format = format;
-            this.isHiveWriter = isHiveWriter;
         }
 
         @Override
