@@ -192,8 +192,8 @@ public class ElasticsearchClient
         verify(client != null, "client is null");
         String[] indices = getIndices(client, new GetIndexRequest());
         return Arrays.stream(indices)
-                    .filter(index -> index.startsWith(tableDescription.getIndex()))
-                    .collect(toImmutableList());
+                .filter(index -> index.startsWith(tableDescription.getIndex()))
+                .collect(toImmutableList());
     }
 
     public ClusterSearchShardsResponse getSearchShards(String index, ElasticsearchTableDescription tableDescription)
