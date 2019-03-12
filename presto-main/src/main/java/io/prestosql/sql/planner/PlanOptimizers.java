@@ -13,14 +13,17 @@
  */
 package io.prestosql.sql.planner;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import io.prestosql.Session;
 import io.prestosql.cost.CostCalculator;
 import io.prestosql.cost.CostCalculator.EstimatedExchanges;
 import io.prestosql.cost.CostComparator;
 import io.prestosql.cost.StatsCalculator;
 import io.prestosql.cost.TaskCountEstimator;
 import io.prestosql.execution.TaskManagerConfig;
+import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.split.PageSourceManager;
 import io.prestosql.split.SplitManager;
@@ -179,7 +182,6 @@ import io.prestosql.sql.planner.optimizations.AddExchanges;
 import io.prestosql.sql.planner.optimizations.AddLocalExchanges;
 import io.prestosql.sql.planner.optimizations.BeginTableWrite;
 import io.prestosql.sql.planner.optimizations.CheckSubqueryNodesAreRewritten;
-import io.prestosql.sql.planner.optimizations.CompositePlanOptimizer;
 import io.prestosql.sql.planner.optimizations.HashGenerationOptimizer;
 import io.prestosql.sql.planner.optimizations.IndexJoinOptimizer;
 import io.prestosql.sql.planner.optimizations.LimitPushDown;
@@ -194,6 +196,7 @@ import io.prestosql.sql.planner.optimizations.TableDeleteOptimizer;
 import io.prestosql.sql.planner.optimizations.TransformQuantifiedComparisonApplyToCorrelatedJoin;
 import io.prestosql.sql.planner.optimizations.UnaliasSymbolReferences;
 import io.prestosql.sql.planner.optimizations.WindowFilterPushDown;
+import io.prestosql.sql.planner.plan.PlanNode;
 import org.weakref.jmx.MBeanExporter;
 
 import javax.annotation.PostConstruct;
@@ -203,13 +206,28 @@ import javax.inject.Inject;
 import java.util.List;
 import java.util.Set;
 
+import static java.lang.String.format;
+import static java.util.Arrays.asList;
+import static java.util.Objects.requireNonNull;
+
 public class PlanOptimizers
-        extends CompositePlanOptimizer
+        implements PlanOptimizer
 {
-    private final List<PlanOptimizer> optimizers;
+    private final Metadata metadata;
+    private final TypeAnalyzer typeAnalyzer;
+    private final TaskManagerConfig taskManagerConfig;
+    private final boolean forceSingleNode;
+    private final MBeanExporter exporter;
+    private final SplitManager splitManager;
+    private final PageSourceManager pageSourceManager;
+    private final StatsCalculator statsCalculator;
+    private final CostCalculator costCalculator;
+    private final CostCalculator estimatedExchangesCostCalculator;
+    private final CostComparator costComparator;
+    private final TaskCountEstimator taskCountEstimator;
+
     private final RuleStatsRecorder ruleStats = new RuleStatsRecorder();
     private final OptimizerStatsRecorder optimizerStats = new OptimizerStatsRecorder();
-    private final MBeanExporter exporter;
 
     @Inject
     public PlanOptimizers(
@@ -225,7 +243,8 @@ public class PlanOptimizers
             CostComparator costComparator,
             TaskCountEstimator taskCountEstimator)
     {
-        this(metadata,
+        this(
+                metadata,
                 typeAnalyzer,
                 taskManagerConfig,
                 false,
@@ -237,20 +256,6 @@ public class PlanOptimizers
                 estimatedExchangesCostCalculator,
                 costComparator,
                 taskCountEstimator);
-    }
-
-    @PostConstruct
-    public void initialize()
-    {
-        ruleStats.export(exporter);
-        optimizerStats.export(exporter);
-    }
-
-    @PreDestroy
-    public void destroy()
-    {
-        ruleStats.unexport(exporter);
-        optimizerStats.unexport(exporter);
     }
 
     public PlanOptimizers(
@@ -267,9 +272,48 @@ public class PlanOptimizers
             CostComparator costComparator,
             TaskCountEstimator taskCountEstimator)
     {
-        this.exporter = exporter;
-        ImmutableList.Builder<PlanOptimizer> builder = ImmutableList.builder();
+        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
+        this.taskManagerConfig = requireNonNull(taskManagerConfig, "taskManagerConfig is null");
+        this.forceSingleNode = forceSingleNode;
+        this.exporter = requireNonNull(exporter, "exporter is null");
+        this.splitManager = requireNonNull(splitManager, "splitManager is null");
+        this.pageSourceManager = requireNonNull(pageSourceManager, "pageSourceManager is null");
+        this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
+        this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
+        this.estimatedExchangesCostCalculator = requireNonNull(estimatedExchangesCostCalculator, "estimatedExchangesCostCalculator is null");
+        this.costComparator = requireNonNull(costComparator, "costComparator is null");
+        this.taskCountEstimator = requireNonNull(taskCountEstimator, "taskCountEstimator is null");
+    }
 
+    @PostConstruct
+    public void initialize()
+    {
+        ruleStats.export(exporter);
+        optimizerStats.export(exporter);
+    }
+
+    @PreDestroy
+    public void destroy()
+    {
+        ruleStats.unexport(exporter);
+        optimizerStats.unexport(exporter);
+    }
+
+    @Override
+    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
+    {
+        return collectOptimizers(new OptimizingBuilder(plan, session, symbolAllocator, idAllocator, warningCollector));
+    }
+
+    @VisibleForTesting
+    public List<PlanOptimizer> getOptimizers()
+    {
+        return collectOptimizers(new CollectingBuilder());
+    }
+
+    private <T> T collectOptimizers(OptimizationBuilder<T> builder)
+    {
         Set<Rule<?>> predicatePushDownRules = ImmutableSet.of(
                 new MergeFilters(metadata));
 
@@ -659,8 +703,6 @@ public class PlanOptimizers
             builder.add(new UnaliasSymbolReferences(metadata));
             builder.add(new StatsRecordingPlanOptimizer(optimizerStats, new AddExchanges(metadata, typeAnalyzer)));
         }
-        //noinspection UnusedAssignment
-        estimatedExchangesCostCalculator = null; // Prevent accidental use after AddExchanges
 
         builder.add(
                 new IterativeOptimizer(
@@ -753,12 +795,76 @@ public class PlanOptimizers
         // TODO: consider adding a formal final plan sanitization optimizer that prepares the plan for transmission/execution/logging
         // TODO: figure out how to improve the set flattening optimizer so that it can run at any point
 
-        this.optimizers = builder.build();
+        return builder.get();
     }
 
-    @Override
-    public List<PlanOptimizer> getOptimizers()
+    private interface OptimizationBuilder<T>
     {
-        return optimizers;
+        void add(PlanOptimizer optimizer);
+
+        default void add(PlanOptimizer... optimizers)
+        {
+            addAll(asList(optimizers));
+        }
+
+        default void addAll(Iterable<PlanOptimizer> optimizers)
+        {
+            for (PlanOptimizer optimizer : optimizers) {
+                add(optimizer);
+            }
+        }
+
+        T get();
+    }
+
+    private static class OptimizingBuilder
+            implements OptimizationBuilder<PlanNode>
+    {
+        private PlanNode plan;
+        private final Session session;
+        private final SymbolAllocator symbolAllocator;
+        private final PlanNodeIdAllocator idAllocator;
+        private final WarningCollector warningCollector;
+
+        public OptimizingBuilder(PlanNode plan, Session session, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
+        {
+            this.plan = requireNonNull(plan, "plan is null");
+            this.session = requireNonNull(session, "session is null");
+            this.symbolAllocator = requireNonNull(symbolAllocator, "symbolAllocator is null");
+            this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
+            this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
+        }
+
+        @Override
+        public void add(PlanOptimizer optimizer)
+        {
+            requireNonNull(optimizer, "optimizer is null");
+            plan = optimizer.optimize(plan, session, symbolAllocator.getTypes(), symbolAllocator, idAllocator, warningCollector);
+            requireNonNull(plan, format("%s returned a null plan", optimizer.getClass().getName()));
+        }
+
+        @Override
+        public PlanNode get()
+        {
+            return plan;
+        }
+    }
+
+    private static class CollectingBuilder
+            implements OptimizationBuilder<List<PlanOptimizer>>
+    {
+        private final ImmutableList.Builder<PlanOptimizer> optimizers = ImmutableList.builder();
+
+        @Override
+        public void add(PlanOptimizer optimizer)
+        {
+            optimizers.add(requireNonNull(optimizer, "optimizer is null"));
+        }
+
+        @Override
+        public List<PlanOptimizer> get()
+        {
+            return optimizers.build();
+        }
     }
 }
