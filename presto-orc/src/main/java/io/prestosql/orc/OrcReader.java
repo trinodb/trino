@@ -180,7 +180,7 @@ public class OrcReader
         try (InputStream footerInputStream = new OrcInputStream(orcDataSource.getId(), footerSlice.getInput(), decompressor, newSimpleAggregatedMemoryContext(), footerSize)) {
             this.footer = metadataReader.readFooter(hiveWriterVersion, footerInputStream);
         }
-        if (footer.getTypes().size() == 0) {
+        if (footer.getTypes().isEmpty()) {
             throw new OrcCorruptionException(orcDataSource.getId(), "File has no columns");
         }
 
