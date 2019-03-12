@@ -35,6 +35,7 @@ import io.prestosql.sql.planner.plan.JoinNode;
 import io.prestosql.sql.planner.plan.LateralJoinNode;
 import io.prestosql.sql.planner.plan.LimitNode;
 import io.prestosql.sql.planner.plan.PlanNode;
+import io.prestosql.sql.planner.plan.ProjectNode;
 import io.prestosql.sql.planner.plan.SemiJoinNode;
 import io.prestosql.sql.planner.plan.SortNode;
 import io.prestosql.sql.planner.plan.StatisticsWriterNode;
@@ -1019,5 +1020,33 @@ public class TestLogicalPlanner
                 output(
                         node(SortNode.class,
                                 values(ImmutableList.of("t1")))));
+    }
+
+    @Test
+    public void testRedundantDistinctLimitNodeRemoval()
+    {
+        String query = "SELECT distinct(c) FROM (SELECT count(*) as c FROM orders) LIMIT 10";
+        assertFalse(
+                searchFrom(plan(query, LogicalPlanner.Stage.OPTIMIZED).getRoot())
+                        .where(isInstanceOfAny(DistinctLimitNode.class))
+                        .matches(),
+                format("Unexpected DistinctLimit node for query: '%s'", query));
+
+        query = "SELECT distinct(c) FROM (SELECT count(*) as c FROM orders GROUP BY orderkey) LIMIT 10";
+        assertPlan(
+                query,
+                output(
+                        node(DistinctLimitNode.class,
+                                anyTree(
+                                        tableScan("orders")))));
+
+        query = "SELECT distinct(id) FROM (VALUES 1, 2, 3, 4, 5, 6) as t1 (id) LIMIT 10";
+        assertPlan(
+                query,
+                output(
+                        node(ProjectNode.class,
+                                node(AggregationNode.class,
+                                        node(ProjectNode.class,
+                                                values(ImmutableList.of("t1")))))));
     }
 }

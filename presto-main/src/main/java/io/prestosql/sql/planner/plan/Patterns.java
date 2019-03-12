@@ -167,6 +167,11 @@ public class Patterns
         return typeOf(RowNumberNode.class);
     }
 
+    public static Pattern<DistinctLimitNode> distinctLimit()
+    {
+        return typeOf(DistinctLimitNode.class);
+    }
+
     public static Property<PlanNode, Lookup, PlanNode> source()
     {
         return optionalProperty(
