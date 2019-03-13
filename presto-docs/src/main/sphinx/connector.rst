@@ -13,6 +13,7 @@ from different data sources.
     connector/cassandra
     connector/elasticsearch
     connector/hive
+    connector/hive-gcs-tutorial
     connector/hive-security
     connector/jmx
     connector/kafka
