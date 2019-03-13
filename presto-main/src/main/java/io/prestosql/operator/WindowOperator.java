@@ -335,6 +335,17 @@ public class WindowOperator
     }
 
     @Override
+    public ListenableFuture<?> isBlocked()
+    {
+        // We can block e.g. because of self-triggered spill
+        if (outputPages.isBlocked()) {
+            return outputPages.getBlockedFuture();
+        }
+
+        return NOT_BLOCKED;
+    }
+
+    @Override
     public boolean needsInput()
     {
         return pendingInput == null && !operatorFinishing;
