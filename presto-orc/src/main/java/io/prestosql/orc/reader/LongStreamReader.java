@@ -13,25 +13,31 @@
  */
 package io.prestosql.orc.reader;
 
-import com.google.common.io.Closer;
-import io.prestosql.memory.context.AggregatedMemoryContext;
+import io.prestosql.memory.context.LocalMemoryContext;
+import io.prestosql.orc.OrcCorruptionException;
 import io.prestosql.orc.StreamDescriptor;
 import io.prestosql.orc.metadata.ColumnEncoding;
-import io.prestosql.orc.metadata.ColumnEncoding.ColumnEncodingKind;
+import io.prestosql.orc.stream.BooleanInputStream;
+import io.prestosql.orc.stream.InputStreamSource;
 import io.prestosql.orc.stream.InputStreamSources;
+import io.prestosql.orc.stream.LongInputStream;
 import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.block.RunLengthEncodedBlock;
 import io.prestosql.spi.type.Type;
 import org.openjdk.jol.info.ClassLayout;
 
+import javax.annotation.Nullable;
+
 import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.time.ZoneId;
 import java.util.List;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static io.prestosql.orc.metadata.ColumnEncoding.ColumnEncodingKind.DICTIONARY;
-import static io.prestosql.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT;
-import static io.prestosql.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT_V2;
+import static io.airlift.slice.SizeOf.sizeOf;
+import static io.prestosql.orc.metadata.Stream.StreamKind.DATA;
+import static io.prestosql.orc.metadata.Stream.StreamKind.PRESENT;
+import static io.prestosql.orc.stream.MissingInputStreamSource.missingStreamSource;
 import static java.util.Objects.requireNonNull;
 
 public class LongStreamReader
@@ -40,53 +46,127 @@ public class LongStreamReader
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(LongStreamReader.class).instanceSize();
 
     private final StreamDescriptor streamDescriptor;
-    private final LongDirectStreamReader directReader;
-    private final LongDictionaryStreamReader dictionaryReader;
-    private StreamReader currentReader;
 
-    public LongStreamReader(StreamDescriptor streamDescriptor, AggregatedMemoryContext systemMemoryContext)
+    private int readOffset;
+    private int nextBatchSize;
+
+    private InputStreamSource<BooleanInputStream> presentStreamSource = missingStreamSource(BooleanInputStream.class);
+    @Nullable
+    private BooleanInputStream presentStream;
+    private boolean[] nullVector = new boolean[0];
+
+    private InputStreamSource<LongInputStream> dataStreamSource = missingStreamSource(LongInputStream.class);
+    @Nullable
+    private LongInputStream dataStream;
+
+    private boolean rowGroupOpen;
+
+    private final LocalMemoryContext systemMemoryContext;
+
+    public LongStreamReader(StreamDescriptor streamDescriptor, LocalMemoryContext systemMemoryContext)
     {
         this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
-        directReader = new LongDirectStreamReader(streamDescriptor, systemMemoryContext.newLocalMemoryContext(LongStreamReader.class.getSimpleName()));
-        dictionaryReader = new LongDictionaryStreamReader(streamDescriptor, systemMemoryContext.newLocalMemoryContext(LongStreamReader.class.getSimpleName()));
+        this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
     }
 
     @Override
     public void prepareNextRead(int batchSize)
     {
-        currentReader.prepareNextRead(batchSize);
+        readOffset += nextBatchSize;
+        nextBatchSize = batchSize;
     }
 
     @Override
     public Block readBlock(Type type)
             throws IOException
     {
-        return currentReader.readBlock(type);
+        if (!rowGroupOpen) {
+            openRowGroup();
+        }
+
+        if (readOffset > 0) {
+            if (presentStream != null) {
+                // skip ahead the present bit reader, but count the set bits
+                // and use this as the skip size for the data reader
+                readOffset = presentStream.countBitsSet(readOffset);
+            }
+            if (readOffset > 0) {
+                if (dataStream == null) {
+                    throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but data stream is not present");
+                }
+                dataStream.skip(readOffset);
+            }
+        }
+
+        if (dataStream == null && presentStream != null) {
+            presentStream.skip(nextBatchSize);
+            Block nullValueBlock = RunLengthEncodedBlock.create(type, null, nextBatchSize);
+            readOffset = 0;
+            nextBatchSize = 0;
+            return nullValueBlock;
+        }
+
+        BlockBuilder builder = type.createBlockBuilder(null, nextBatchSize);
+        if (presentStream == null) {
+            if (dataStream == null) {
+                throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but data stream is not present");
+            }
+            dataStream.nextLongVector(type, nextBatchSize, builder);
+        }
+        else {
+            for (int i = 0; i < nextBatchSize; i++) {
+                if (presentStream.nextBit()) {
+                    type.writeLong(builder, dataStream.next());
+                }
+                else {
+                    builder.appendNull();
+                }
+            }
+        }
+
+        readOffset = 0;
+        nextBatchSize = 0;
+
+        return builder.build();
+    }
+
+    private void openRowGroup()
+            throws IOException
+    {
+        presentStream = presentStreamSource.openStream();
+        dataStream = dataStreamSource.openStream();
+
+        rowGroupOpen = true;
     }
 
     @Override
     public void startStripe(ZoneId timeZone, InputStreamSources dictionaryStreamSources, List<ColumnEncoding> encoding)
-            throws IOException
     {
-        ColumnEncodingKind kind = encoding.get(streamDescriptor.getStreamId()).getColumnEncodingKind();
-        if (kind == DIRECT || kind == DIRECT_V2) {
-            currentReader = directReader;
-        }
-        else if (kind == DICTIONARY) {
-            currentReader = dictionaryReader;
-        }
-        else {
-            throw new IllegalArgumentException("Unsupported encoding " + kind);
-        }
+        presentStreamSource = missingStreamSource(BooleanInputStream.class);
+        dataStreamSource = missingStreamSource(LongInputStream.class);
 
-        currentReader.startStripe(timeZone, dictionaryStreamSources, encoding);
+        readOffset = 0;
+        nextBatchSize = 0;
+
+        presentStream = null;
+        dataStream = null;
+
+        rowGroupOpen = false;
     }
 
     @Override
     public void startRowGroup(InputStreamSources dataStreamSources)
-            throws IOException
     {
-        currentReader.startRowGroup(dataStreamSources);
+        presentStreamSource = dataStreamSources.getInputStreamSource(streamDescriptor, PRESENT, BooleanInputStream.class);
+        dataStreamSource = dataStreamSources.getInputStreamSource(streamDescriptor, DATA, LongInputStream.class);
+
+        readOffset = 0;
+        nextBatchSize = 0;
+
+        presentStream = null;
+        dataStream = null;
+
+        rowGroupOpen = false;
     }
 
     @Override
@@ -100,18 +180,13 @@ public class LongStreamReader
     @Override
     public void close()
     {
-        try (Closer closer = Closer.create()) {
-            closer.register(directReader::close);
-            closer.register(dictionaryReader::close);
-        }
-        catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
+        systemMemoryContext.close();
+        nullVector = null;
     }
 
     @Override
     public long getRetainedSizeInBytes()
     {
-        return INSTANCE_SIZE + directReader.getRetainedSizeInBytes() + dictionaryReader.getRetainedSizeInBytes();
+        return INSTANCE_SIZE + sizeOf(nullVector);
     }
 }

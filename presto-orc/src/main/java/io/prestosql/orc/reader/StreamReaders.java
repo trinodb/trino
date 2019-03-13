@@ -33,7 +33,7 @@ public final class StreamReaders
             case INT:
             case LONG:
             case DATE:
-                return new LongStreamReader(streamDescriptor, systemMemoryContext);
+                return new LongStreamReader(streamDescriptor, systemMemoryContext.newLocalMemoryContext(StreamReaders.class.getSimpleName()));
             case FLOAT:
                 return new FloatStreamReader(streamDescriptor, systemMemoryContext.newLocalMemoryContext(StreamReaders.class.getSimpleName()));
             case DOUBLE:
