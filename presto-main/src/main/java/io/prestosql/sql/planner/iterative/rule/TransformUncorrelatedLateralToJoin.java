@@ -44,7 +44,7 @@ public class TransformUncorrelatedLateralToJoin
     {
         return Result.ofPlanNode(new JoinNode(
                 context.getIdAllocator().getNextId(),
-                JoinNode.Type.INNER,
+                lateralJoinNode.getType().toJoinNodeType(),
                 lateralJoinNode.getInput(),
                 lateralJoinNode.getSubquery(),
                 ImmutableList.of(),
