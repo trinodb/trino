@@ -226,7 +226,8 @@ class SubqueryPlanner
             subPlan.getTranslations().put(coercion, coercionSymbol);
         }
 
-        return appendLateralJoin(subPlan, subqueryPlan, scalarSubquery.getQuery(), correlationAllowed, LateralJoinNode.Type.LEFT);
+        // The subquery's EnforceSingleRowNode always produces a row, so the join is effectively INNER
+        return appendLateralJoin(subPlan, subqueryPlan, scalarSubquery.getQuery(), correlationAllowed, LateralJoinNode.Type.INNER);
     }
 
     public PlanBuilder appendLateralJoin(PlanBuilder subPlan, PlanBuilder subqueryPlan, Query query, boolean correlationAllowed, LateralJoinNode.Type type)
