@@ -158,7 +158,6 @@ import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveO
 import static org.apache.hadoop.hive.serde2.typeinfo.TypeInfoFactory.getCharTypeInfo;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
 public class OrcTester
@@ -407,10 +406,10 @@ public class OrcTester
             throws Exception
     {
         OrcWriterStats stats = new OrcWriterStats();
-        for (Format format : formats) {
-            for (CompressionKind compression : compressions) {
-                boolean hiveSupported = (compression != LZ4) && (compression != ZSTD);
+        for (CompressionKind compression : compressions) {
+            boolean hiveSupported = (compression != LZ4) && (compression != ZSTD);
 
+            for (Format format : formats) {
                 // write Hive, read Presto
                 if (hiveSupported) {
                     try (TempFile tempFile = new TempFile()) {
@@ -418,24 +417,24 @@ public class OrcTester
                         assertFileContentsPresto(readType, tempFile, readValues, false, false);
                     }
                 }
+            }
 
-                // write Presto, read Hive and Presto
-                try (TempFile tempFile = new TempFile()) {
-                    writeOrcColumnPresto(tempFile.getFile(), compression, writeType, writeValues.iterator(), stats);
+            // write Presto, read Hive and Presto
+            try (TempFile tempFile = new TempFile()) {
+                writeOrcColumnPresto(tempFile.getFile(), compression, writeType, writeValues.iterator(), stats);
 
-                    if (hiveSupported) {
-                        assertFileContentsHive(readType, tempFile, readValues);
-                    }
+                if (hiveSupported) {
+                    assertFileContentsHive(readType, tempFile, readValues);
+                }
 
-                    assertFileContentsPresto(readType, tempFile, readValues, false, false);
+                assertFileContentsPresto(readType, tempFile, readValues, false, false);
 
-                    if (skipBatchTestsEnabled) {
-                        assertFileContentsPresto(readType, tempFile, readValues, true, false);
-                    }
+                if (skipBatchTestsEnabled) {
+                    assertFileContentsPresto(readType, tempFile, readValues, true, false);
+                }
 
-                    if (skipStripeTestsEnabled) {
-                        assertFileContentsPresto(readType, tempFile, readValues, false, true);
-                    }
+                if (skipStripeTestsEnabled) {
+                    assertFileContentsPresto(readType, tempFile, readValues, false, true);
                 }
             }
         }
@@ -495,7 +494,7 @@ public class OrcTester
     private static void assertColumnValueEquals(Type type, Object actual, Object expected)
     {
         if (actual == null) {
-            assertNull(expected);
+            assertEquals(actual, expected);
             return;
         }
         String baseType = type.getTypeSignature().getBase();
