@@ -33,7 +33,6 @@ import io.prestosql.failureDetector.NoOpFailureDetector;
 import io.prestosql.metadata.InMemoryNodeManager;
 import io.prestosql.metadata.InternalNodeManager;
 import io.prestosql.metadata.PrestoNode;
-import io.prestosql.metadata.TableHandle;
 import io.prestosql.spi.Node;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.QueryId;
@@ -53,9 +52,7 @@ import io.prestosql.sql.planner.plan.PlanFragmentId;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 import io.prestosql.sql.planner.plan.RemoteSourceNode;
 import io.prestosql.sql.planner.plan.TableScanNode;
-import io.prestosql.testing.TestingHandle;
 import io.prestosql.testing.TestingMetadata.TestingColumnHandle;
-import io.prestosql.testing.TestingMetadata.TestingTableHandle;
 import io.prestosql.testing.TestingSplit;
 import io.prestosql.testing.TestingTransactionHandle;
 import io.prestosql.util.FinalizerService;
@@ -86,6 +83,7 @@ import static io.prestosql.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUT
 import static io.prestosql.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
 import static io.prestosql.sql.planner.plan.ExchangeNode.Type.GATHER;
 import static io.prestosql.sql.planner.plan.JoinNode.Type.INNER;
+import static io.prestosql.testing.TestingHandles.TEST_TABLE_HANDLE;
 import static java.lang.Integer.min;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -98,7 +96,7 @@ import static org.testng.Assert.fail;
 public class TestSourcePartitionedScheduler
 {
     public static final OutputBufferId OUT = new OutputBufferId(0);
-    private static final ConnectorId CONNECTOR_ID = new ConnectorId("connector_id");
+    private static final ConnectorId CONNECTOR_ID = TEST_TABLE_HANDLE.getConnectorId();
 
     private final ExecutorService queryExecutor = newCachedThreadPool(daemonThreadsNamed("stageExecutor-%s"));
     private final ScheduledExecutorService scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed("stageScheduledExecutor-%s"));
@@ -460,7 +458,7 @@ public class TestSourcePartitionedScheduler
         PlanNodeId tableScanNodeId = new PlanNodeId("plan_id");
         TableScanNode tableScan = TableScanNode.newInstance(
                 tableScanNodeId,
-                new TableHandle(CONNECTOR_ID, new TestingTableHandle(), TestingTransactionHandle.create(), Optional.of(TestingHandle.INSTANCE)),
+                TEST_TABLE_HANDLE,
                 ImmutableList.of(symbol),
                 ImmutableMap.of(symbol, new TestingColumnHandle("column")));
 
