@@ -69,17 +69,17 @@ public class SliceDictionaryStreamReader
     private BooleanInputStream presentStream;
     private boolean[] isNullVector = new boolean[0];
 
-    private InputStreamSource<ByteArrayInputStream> stripeDictionaryDataStreamSource = missingStreamSource(ByteArrayInputStream.class);
-    private boolean stripeDictionaryOpen;
-    private int stripeDictionarySize;
-    private int[] stripeDictionaryLength = new int[0];
-    private byte[] stripeDictionaryData = EMPTY_DICTIONARY_DATA;
-    private int[] stripeDictionaryOffsetVector = EMPTY_DICTIONARY_OFFSETS;
+    private InputStreamSource<ByteArrayInputStream> dictionaryDataStreamSource = missingStreamSource(ByteArrayInputStream.class);
+    private boolean dictionaryOpen;
+    private int dictionarySize;
+    private int[] dictionaryLength = new int[0];
+    private byte[] dictionaryData = EMPTY_DICTIONARY_DATA;
+    private int[] dictionaryOffsetVector = EMPTY_DICTIONARY_OFFSETS;
 
     private VariableWidthBlock dictionaryBlock = new VariableWidthBlock(1, wrappedBuffer(EMPTY_DICTIONARY_DATA), EMPTY_DICTIONARY_OFFSETS, Optional.of(new boolean[] {true}));
     private byte[] currentDictionaryData = EMPTY_DICTIONARY_DATA;
 
-    private InputStreamSource<LongInputStream> stripeDictionaryLengthStreamSource = missingStreamSource(LongInputStream.class);
+    private InputStreamSource<LongInputStream> dictionaryLengthStreamSource = missingStreamSource(LongInputStream.class);
 
     private InputStreamSource<LongInputStream> dataStreamSource = missingStreamSource(LongInputStream.class);
     @Nullable
@@ -182,42 +182,42 @@ public class SliceDictionaryStreamReader
             throws IOException
     {
         // read the dictionary
-        if (!stripeDictionaryOpen) {
-            if (stripeDictionarySize > 0) {
+        if (!dictionaryOpen) {
+            if (dictionarySize > 0) {
                 // resize the dictionary lengths array if necessary
-                if (stripeDictionaryLength.length < stripeDictionarySize) {
-                    stripeDictionaryLength = new int[stripeDictionarySize];
+                if (dictionaryLength.length < dictionarySize) {
+                    dictionaryLength = new int[dictionarySize];
                 }
 
                 // read the lengths
-                LongInputStream lengthStream = stripeDictionaryLengthStreamSource.openStream();
+                LongInputStream lengthStream = dictionaryLengthStreamSource.openStream();
                 if (lengthStream == null) {
                     throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Dictionary is not empty but dictionary length stream is not present");
                 }
-                lengthStream.nextIntVector(stripeDictionarySize, stripeDictionaryLength, 0);
+                lengthStream.nextIntVector(dictionarySize, dictionaryLength, 0);
 
                 long dataLength = 0;
-                for (int i = 0; i < stripeDictionarySize; i++) {
-                    dataLength += stripeDictionaryLength[i];
+                for (int i = 0; i < dictionarySize; i++) {
+                    dataLength += dictionaryLength[i];
                 }
 
                 // we must always create a new dictionary array because the previous dictionary may still be referenced
-                stripeDictionaryData = new byte[toIntExact(dataLength)];
+                dictionaryData = new byte[toIntExact(dataLength)];
                 // add one extra entry for null
-                stripeDictionaryOffsetVector = new int[stripeDictionarySize + 2];
+                dictionaryOffsetVector = new int[dictionarySize + 2];
 
                 // read dictionary values
-                ByteArrayInputStream dictionaryDataStream = stripeDictionaryDataStreamSource.openStream();
-                readDictionary(dictionaryDataStream, stripeDictionarySize, stripeDictionaryLength, 0, stripeDictionaryData, stripeDictionaryOffsetVector, maxCodePointCount, isCharType);
+                ByteArrayInputStream dictionaryDataStream = dictionaryDataStreamSource.openStream();
+                readDictionary(dictionaryDataStream, dictionarySize, dictionaryLength, 0, dictionaryData, dictionaryOffsetVector, maxCodePointCount, isCharType);
             }
             else {
-                stripeDictionaryData = EMPTY_DICTIONARY_DATA;
-                stripeDictionaryOffsetVector = EMPTY_DICTIONARY_OFFSETS;
+                dictionaryData = EMPTY_DICTIONARY_DATA;
+                dictionaryOffsetVector = EMPTY_DICTIONARY_OFFSETS;
             }
         }
-        stripeDictionaryOpen = true;
+        dictionaryOpen = true;
 
-        setDictionaryBlockData(stripeDictionaryData, stripeDictionaryOffsetVector, stripeDictionarySize + 1);
+        setDictionaryBlockData(dictionaryData, dictionaryOffsetVector, dictionarySize + 1);
 
         presentStream = presentStreamSource.openStream();
         dataStream = dataStreamSource.openStream();
@@ -270,10 +270,10 @@ public class SliceDictionaryStreamReader
     @Override
     public void startStripe(ZoneId timeZone, InputStreamSources dictionaryStreamSources, List<ColumnEncoding> encoding)
     {
-        stripeDictionaryDataStreamSource = dictionaryStreamSources.getInputStreamSource(streamDescriptor, DICTIONARY_DATA, ByteArrayInputStream.class);
-        stripeDictionaryLengthStreamSource = dictionaryStreamSources.getInputStreamSource(streamDescriptor, LENGTH, LongInputStream.class);
-        stripeDictionarySize = encoding.get(streamDescriptor.getStreamId()).getDictionarySize();
-        stripeDictionaryOpen = false;
+        dictionaryDataStreamSource = dictionaryStreamSources.getInputStreamSource(streamDescriptor, DICTIONARY_DATA, ByteArrayInputStream.class);
+        dictionaryLengthStreamSource = dictionaryStreamSources.getInputStreamSource(streamDescriptor, LENGTH, LongInputStream.class);
+        dictionarySize = encoding.get(streamDescriptor.getStreamId()).getDictionarySize();
+        dictionaryOpen = false;
 
         presentStreamSource = missingStreamSource(BooleanInputStream.class);
         dataStreamSource = missingStreamSource(LongInputStream.class);
