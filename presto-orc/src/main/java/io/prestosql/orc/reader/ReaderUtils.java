@@ -101,6 +101,23 @@ final class ReaderUtils
         return result;
     }
 
+    public static long[] unpackInt128Nulls(long[] values, boolean[] isNull)
+    {
+        long[] result = new long[isNull.length * 2];
+
+        int position = 0;
+        int outputPosition = 0;
+        for (int i = 0; i < isNull.length; i++) {
+            result[outputPosition] = values[position];
+            result[outputPosition + 1] = values[position + 1];
+            if (!isNull[i]) {
+                position += 2;
+            }
+            outputPosition += 2;
+        }
+        return result;
+    }
+
     public static void unpackLengthNulls(int[] values, boolean[] isNull, int nonNullCount)
     {
         int nullSuppressedPosition = nonNullCount - 1;
