@@ -30,7 +30,6 @@ import io.prestosql.index.IndexManager;
 import io.prestosql.metadata.InMemoryNodeManager;
 import io.prestosql.metadata.MetadataManager;
 import io.prestosql.metadata.Split;
-import io.prestosql.metadata.TableHandle;
 import io.prestosql.operator.LookupJoinOperators;
 import io.prestosql.operator.PagesIndex;
 import io.prestosql.operator.index.IndexJoinLookupStats;
@@ -55,9 +54,7 @@ import io.prestosql.sql.planner.TypeAnalyzer;
 import io.prestosql.sql.planner.plan.PlanFragmentId;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 import io.prestosql.sql.planner.plan.TableScanNode;
-import io.prestosql.testing.TestingHandle;
 import io.prestosql.testing.TestingMetadata.TestingColumnHandle;
-import io.prestosql.testing.TestingMetadata.TestingTableHandle;
 import io.prestosql.testing.TestingSplit;
 import io.prestosql.testing.TestingTransactionHandle;
 import io.prestosql.util.FinalizerService;
@@ -72,6 +69,7 @@ import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.prestosql.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
+import static io.prestosql.testing.TestingHandles.TEST_TABLE_HANDLE;
 
 public final class TaskTestUtils
 {
@@ -83,7 +81,7 @@ public final class TaskTestUtils
 
     public static final PlanNodeId TABLE_SCAN_NODE_ID = new PlanNodeId("tableScan");
 
-    private static final ConnectorId CONNECTOR_ID = new ConnectorId("test");
+    private static final ConnectorId CONNECTOR_ID = TEST_TABLE_HANDLE.getConnectorId();
 
     public static final ScheduledSplit SPLIT = new ScheduledSplit(0, TABLE_SCAN_NODE_ID, new Split(CONNECTOR_ID, TRANSACTION_HANDLE, TestingSplit.createLocalSplit()));
 
@@ -95,7 +93,7 @@ public final class TaskTestUtils
             new PlanFragmentId("fragment"),
             TableScanNode.newInstance(
                     TABLE_SCAN_NODE_ID,
-                    new TableHandle(CONNECTOR_ID, new TestingTableHandle(), TRANSACTION_HANDLE, Optional.of(TestingHandle.INSTANCE)),
+                    TEST_TABLE_HANDLE,
                     ImmutableList.of(SYMBOL),
                     ImmutableMap.of(SYMBOL, new TestingColumnHandle("column", 0, BIGINT))),
             ImmutableMap.of(SYMBOL, VARCHAR),

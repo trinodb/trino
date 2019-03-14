@@ -25,7 +25,6 @@ import io.airlift.stats.TestingGcMonitor;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.prestosql.Session;
-import io.prestosql.connector.ConnectorId;
 import io.prestosql.cost.StatsAndCosts;
 import io.prestosql.execution.NodeTaskMap.PartitionedSplitCountTracker;
 import io.prestosql.execution.buffer.LazyOutputBuffer;
@@ -35,7 +34,6 @@ import io.prestosql.memory.MemoryPool;
 import io.prestosql.memory.QueryContext;
 import io.prestosql.memory.context.SimpleLocalMemoryContext;
 import io.prestosql.metadata.Split;
-import io.prestosql.metadata.TableHandle;
 import io.prestosql.operator.TaskContext;
 import io.prestosql.operator.TaskStats;
 import io.prestosql.spi.Node;
@@ -49,10 +47,7 @@ import io.prestosql.sql.planner.plan.PlanFragmentId;
 import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 import io.prestosql.sql.planner.plan.TableScanNode;
-import io.prestosql.testing.TestingHandle;
 import io.prestosql.testing.TestingMetadata.TestingColumnHandle;
-import io.prestosql.testing.TestingMetadata.TestingTableHandle;
-import io.prestosql.testing.TestingTransactionHandle;
 import org.joda.time.DateTime;
 
 import javax.annotation.concurrent.GuardedBy;
@@ -87,6 +82,7 @@ import static io.prestosql.operator.StageExecutionDescriptor.ungroupedExecution;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.prestosql.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
+import static io.prestosql.testing.TestingHandles.TEST_TABLE_HANDLE;
 import static io.prestosql.util.Failures.toFailures;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -112,7 +108,7 @@ public class MockRemoteTaskFactory
                 new PlanFragmentId("test"),
                 TableScanNode.newInstance(
                         sourceId,
-                        new TableHandle(new ConnectorId("test"), new TestingTableHandle(), TestingTransactionHandle.create(), Optional.of(TestingHandle.INSTANCE)),
+                        TEST_TABLE_HANDLE,
                         ImmutableList.of(symbol),
                         ImmutableMap.of(symbol, new TestingColumnHandle("column"))),
                 ImmutableMap.of(symbol, VARCHAR),

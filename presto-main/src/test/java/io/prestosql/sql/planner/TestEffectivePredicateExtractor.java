@@ -21,12 +21,10 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
-import io.prestosql.connector.ConnectorId;
 import io.prestosql.metadata.FunctionKind;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.MetadataManager;
 import io.prestosql.metadata.Signature;
-import io.prestosql.metadata.TableHandle;
 import io.prestosql.spi.block.SortOrder;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.predicate.Domain;
@@ -56,10 +54,7 @@ import io.prestosql.sql.tree.GenericLiteral;
 import io.prestosql.sql.tree.IsNullPredicate;
 import io.prestosql.sql.tree.LongLiteral;
 import io.prestosql.sql.tree.QualifiedName;
-import io.prestosql.testing.TestingHandle;
 import io.prestosql.testing.TestingMetadata.TestingColumnHandle;
-import io.prestosql.testing.TestingMetadata.TestingTableHandle;
-import io.prestosql.testing.TestingTransactionHandle;
 import io.prestosql.type.UnknownType;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -83,13 +78,12 @@ import static io.prestosql.sql.planner.plan.AggregationNode.globalAggregation;
 import static io.prestosql.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static io.prestosql.sql.tree.BooleanLiteral.FALSE_LITERAL;
 import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
+import static io.prestosql.testing.TestingHandles.TEST_TABLE_HANDLE;
 import static org.testng.Assert.assertEquals;
 
 @Test(singleThreaded = true)
 public class TestEffectivePredicateExtractor
 {
-    private static final TableHandle DUAL_TABLE_HANDLE = new TableHandle(new ConnectorId("test"), new TestingTableHandle(), TestingTransactionHandle.create(), Optional.of(TestingHandle.INSTANCE));
-
     private static final Symbol A = new Symbol("a");
     private static final Symbol B = new Symbol("b");
     private static final Symbol C = new Symbol("c");
@@ -127,7 +121,7 @@ public class TestEffectivePredicateExtractor
         Map<Symbol, ColumnHandle> assignments = Maps.filterKeys(scanAssignments, Predicates.in(ImmutableList.of(A, B, C, D, E, F)));
         baseTableScan = TableScanNode.newInstance(
                 newId(),
-                DUAL_TABLE_HANDLE,
+                TEST_TABLE_HANDLE,
                 ImmutableList.copyOf(assignments.keySet()),
                 assignments);
 
@@ -320,7 +314,7 @@ public class TestEffectivePredicateExtractor
         Map<Symbol, ColumnHandle> assignments = Maps.filterKeys(scanAssignments, Predicates.in(ImmutableList.of(A, B, C, D)));
         PlanNode node = TableScanNode.newInstance(
                 newId(),
-                DUAL_TABLE_HANDLE,
+                TEST_TABLE_HANDLE,
                 ImmutableList.copyOf(assignments.keySet()),
                 assignments);
         Expression effectivePredicate = effectivePredicateExtractor.extract(node);
@@ -328,7 +322,7 @@ public class TestEffectivePredicateExtractor
 
         node = new TableScanNode(
                 newId(),
-                DUAL_TABLE_HANDLE,
+                TEST_TABLE_HANDLE,
                 ImmutableList.copyOf(assignments.keySet()),
                 assignments,
                 TupleDomain.none(),
@@ -338,7 +332,7 @@ public class TestEffectivePredicateExtractor
 
         node = new TableScanNode(
                 newId(),
-                DUAL_TABLE_HANDLE,
+                TEST_TABLE_HANDLE,
                 ImmutableList.copyOf(assignments.keySet()),
                 assignments,
                 TupleDomain.withColumnDomains(ImmutableMap.of(scanAssignments.get(A), Domain.singleValue(BIGINT, 1L))),
@@ -348,7 +342,7 @@ public class TestEffectivePredicateExtractor
 
         node = new TableScanNode(
                 newId(),
-                DUAL_TABLE_HANDLE,
+                TEST_TABLE_HANDLE,
                 ImmutableList.copyOf(assignments.keySet()),
                 assignments,
                 TupleDomain.withColumnDomains(ImmutableMap.of(
@@ -360,7 +354,7 @@ public class TestEffectivePredicateExtractor
 
         node = new TableScanNode(
                 newId(),
-                DUAL_TABLE_HANDLE,
+                TEST_TABLE_HANDLE,
                 ImmutableList.copyOf(assignments.keySet()),
                 assignments,
                 TupleDomain.all(),
@@ -705,7 +699,7 @@ public class TestEffectivePredicateExtractor
     {
         return new TableScanNode(
                 newId(),
-                DUAL_TABLE_HANDLE,
+                TEST_TABLE_HANDLE,
                 ImmutableList.copyOf(scanAssignments.keySet()),
                 scanAssignments,
                 TupleDomain.all(),
