@@ -206,12 +206,12 @@ public class TestWorkProcessor
         // processor should progress since it yielded last time
         assertResult(processor, 2);
 
+        // yield signal is still set
+        assertYields(processor);
+
         // base scenario future blocks
         assertBlocks(processor);
         assertUnblocks(processor, future);
-
-        // yield signal is still set
-        assertYields(processor);
 
         // continue to process normally
         yieldSignal.set(false);

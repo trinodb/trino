@@ -152,32 +152,44 @@ public final class WorkProcessorUtils
 
     static <T> WorkProcessor<T> yielding(WorkProcessor<T> processor, BooleanSupplier yieldSignal)
     {
-        return processor.transform(new YieldingTransformation<>(yieldSignal));
+        return WorkProcessor.create(new YieldingProcess<>(processor, yieldSignal));
     }
 
-    private static class YieldingTransformation<T>
-            implements Transformation<T, T>
+    private static class YieldingProcess<T>
+            implements WorkProcessor.Process<T>
     {
+        final WorkProcessor<T> processor;
         final BooleanSupplier yieldSignal;
         boolean lastProcessYielded;
 
-        YieldingTransformation(BooleanSupplier yieldSignal)
+        YieldingProcess(WorkProcessor<T> processor, BooleanSupplier yieldSignal)
         {
+            this.processor = requireNonNull(processor, "processor is null");
             this.yieldSignal = requireNonNull(yieldSignal, "yieldSignal is null");
         }
 
         @Override
-        public TransformationState<T> process(Optional<T> elementOptional)
+        public ProcessState<T> process()
         {
             if (!lastProcessYielded && yieldSignal.getAsBoolean()) {
                 lastProcessYielded = true;
-                return TransformationState.yield();
+                return ProcessState.yield();
             }
             lastProcessYielded = false;
 
-            return elementOptional
-                    .map(TransformationState::ofResult)
-                    .orElseGet(TransformationState::finished);
+            if (processor.process()) {
+                if (processor.isFinished()) {
+                    return ProcessState.finished();
+                }
+
+                return ProcessState.ofResult(processor.getResult());
+            }
+
+            if (processor.isBlocked()) {
+                return ProcessState.blocked(processor.getBlockedFuture());
+            }
+
+            return ProcessState.yield();
         }
     }
 
