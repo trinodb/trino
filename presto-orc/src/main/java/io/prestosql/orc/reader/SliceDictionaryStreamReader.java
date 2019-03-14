@@ -81,11 +81,6 @@ public class SliceDictionaryStreamReader
 
     private InputStreamSource<LongInputStream> stripeDictionaryLengthStreamSource = missingStreamSource(LongInputStream.class);
 
-    private InputStreamSource<BooleanInputStream> inDictionaryStreamSource = missingStreamSource(BooleanInputStream.class);
-    @Nullable
-    private BooleanInputStream inDictionaryStream;
-    private boolean[] inDictionaryVector = new boolean[0];
-
     private InputStreamSource<LongInputStream> dataStreamSource = missingStreamSource(LongInputStream.class);
     @Nullable
     private LongInputStream dataStream;
@@ -127,9 +122,6 @@ public class SliceDictionaryStreamReader
                 if (dataStream == null) {
                     throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but data stream is not present");
                 }
-                if (inDictionaryStream != null) {
-                    inDictionaryStream.skip(readOffset);
-                }
                 dataStream.skip(readOffset);
             }
         }
@@ -140,18 +132,7 @@ public class SliceDictionaryStreamReader
             if (dataStream == null) {
                 throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but data stream is not present");
             }
-            if (inDictionaryStream == null) {
-                dataStream.nextIntVector(nextBatchSize, idsVector, 0);
-            }
-            else {
-                for (int i = 0; i < nextBatchSize; i++) {
-                    idsVector[i] = toIntExact(dataStream.next());
-                    if (!inDictionaryStream.nextBit()) {
-                        // row group dictionary elements are after the main dictionary
-                        idsVector[i] += stripeDictionarySize;
-                    }
-                }
-            }
+            dataStream.nextIntVector(nextBatchSize, idsVector, 0);
         }
         else {
             // Data has nulls
@@ -172,10 +153,6 @@ public class SliceDictionaryStreamReader
                     }
                     else {
                         idsVector[i] = toIntExact(dataStream.next());
-                        if (inDictionaryStream != null && !inDictionaryStream.nextBit()) {
-                            // row group dictionary elements are after the main dictionary
-                            idsVector[i] += stripeDictionarySize;
-                        }
                     }
                 }
             }
@@ -243,7 +220,6 @@ public class SliceDictionaryStreamReader
         setDictionaryBlockData(stripeDictionaryData, stripeDictionaryOffsetVector, stripeDictionarySize + 1);
 
         presentStream = presentStreamSource.openStream();
-        inDictionaryStream = inDictionaryStreamSource.openStream();
         dataStream = dataStreamSource.openStream();
 
         rowGroupOpen = true;
@@ -302,13 +278,10 @@ public class SliceDictionaryStreamReader
         presentStreamSource = missingStreamSource(BooleanInputStream.class);
         dataStreamSource = missingStreamSource(LongInputStream.class);
 
-        inDictionaryStreamSource = missingStreamSource(BooleanInputStream.class);
-
         readOffset = 0;
         nextBatchSize = 0;
 
         presentStream = null;
-        inDictionaryStream = null;
         dataStream = null;
 
         rowGroupOpen = false;
@@ -324,7 +297,6 @@ public class SliceDictionaryStreamReader
         nextBatchSize = 0;
 
         presentStream = null;
-        inDictionaryStream = null;
         dataStream = null;
 
         rowGroupOpen = false;
@@ -343,12 +315,11 @@ public class SliceDictionaryStreamReader
     {
         systemMemoryContext.close();
         isNullVector = null;
-        inDictionaryVector = null;
     }
 
     @Override
     public long getRetainedSizeInBytes()
     {
-        return INSTANCE_SIZE + sizeOf(isNullVector) + sizeOf(inDictionaryVector);
+        return INSTANCE_SIZE + sizeOf(isNullVector);
     }
 }
