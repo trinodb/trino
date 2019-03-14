@@ -14,6 +14,7 @@
 package io.prestosql.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Range;
 import io.prestosql.matching.Captures;
 import io.prestosql.matching.Pattern;
 import io.prestosql.spi.type.BigintType;
@@ -42,7 +43,8 @@ import static io.prestosql.matching.Pattern.nonEmpty;
 import static io.prestosql.spi.StandardErrorCode.SUBQUERY_MULTIPLE_ROWS;
 import static io.prestosql.spi.type.StandardTypes.BOOLEAN;
 import static io.prestosql.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
-import static io.prestosql.sql.planner.optimizations.QueryCardinalityUtil.isAtMostScalar;
+import static io.prestosql.sql.planner.optimizations.QueryCardinalityUtil.extractCardinality;
+import static io.prestosql.sql.planner.plan.LateralJoinNode.Type.LEFT;
 import static io.prestosql.sql.planner.plan.Patterns.LateralJoin.correlation;
 import static io.prestosql.sql.planner.plan.Patterns.lateralJoin;
 import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
@@ -104,13 +106,16 @@ public class TransformCorrelatedScalarSubquery
                 .recurseOnlyWhen(ProjectNode.class::isInstance)
                 .removeFirst();
 
-        if (isAtMostScalar(rewrittenSubquery, context.getLookup())) {
+        Range<Long> subqueryCardinality = extractCardinality(rewrittenSubquery, context.getLookup());
+        boolean producesAtMostOneRow = Range.closed(0L, 1L).encloses(subqueryCardinality);
+        if (producesAtMostOneRow) {
+            boolean producesSingleRow = Range.singleton(1L).encloses(subqueryCardinality);
             return Result.ofPlanNode(new LateralJoinNode(
                     context.getIdAllocator().getNextId(),
                     lateralJoinNode.getInput(),
                     rewrittenSubquery,
                     lateralJoinNode.getCorrelation(),
-                    lateralJoinNode.getType(),
+                    producesSingleRow ? lateralJoinNode.getType() : LEFT,
                     lateralJoinNode.getOriginSubquery()));
         }
 
@@ -124,7 +129,7 @@ public class TransformCorrelatedScalarSubquery
                         unique),
                 rewrittenSubquery,
                 lateralJoinNode.getCorrelation(),
-                lateralJoinNode.getType(),
+                LEFT,
                 lateralJoinNode.getOriginSubquery());
 
         Symbol isDistinct = context.getSymbolAllocator().newSymbol("is_distinct", BooleanType.BOOLEAN);
