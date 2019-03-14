@@ -58,4 +58,32 @@ final class ReaderUtils
         }
         return result;
     }
+
+    public static int[] unpackIntNulls(int[] values, boolean[] isNull)
+    {
+        int[] result = new int[isNull.length];
+
+        int position = 0;
+        for (int i = 0; i < isNull.length; i++) {
+            result[i] = values[position];
+            if (!isNull[i]) {
+                position++;
+            }
+        }
+        return result;
+    }
+
+    public static long[] unpackLongNulls(long[] values, boolean[] isNull)
+    {
+        long[] result = new long[isNull.length];
+
+        int position = 0;
+        for (int i = 0; i < isNull.length; i++) {
+            result[i] = values[position];
+            if (!isNull[i]) {
+                position++;
+            }
+        }
+        return result;
+    }
 }
