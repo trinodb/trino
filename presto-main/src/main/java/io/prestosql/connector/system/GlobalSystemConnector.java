@@ -19,8 +19,10 @@ import com.google.common.collect.ImmutableSet;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorMetadata;
+import io.prestosql.spi.connector.ConnectorPageSource;
 import io.prestosql.spi.connector.ConnectorPageSourceProvider;
 import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.connector.ConnectorSplit;
 import io.prestosql.spi.connector.ConnectorSplitManager;
 import io.prestosql.spi.connector.ConnectorSplitSource;
 import io.prestosql.spi.connector.ConnectorTableHandle;
@@ -144,8 +146,13 @@ public class GlobalSystemConnector
     @Override
     public ConnectorPageSourceProvider getPageSourceProvider()
     {
-        return (transactionHandle, session, split, columns) -> {
-            throw new UnsupportedOperationException();
+        return new ConnectorPageSourceProvider()
+        {
+            @Override
+            public ConnectorPageSource createPageSource(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorSplit split, ConnectorTableHandle table, List<ColumnHandle> columns)
+            {
+                throw new UnsupportedOperationException();
+            }
         };
     }
 
