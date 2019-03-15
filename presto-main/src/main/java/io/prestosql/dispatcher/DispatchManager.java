@@ -241,9 +241,7 @@ public class DispatchManager
 
     public BasicQueryInfo getQueryInfo(QueryId queryId)
     {
-        DispatchQuery dispatchQuery = queryTracker.getQuery(queryId);
-        dispatchQuery.recordHeartbeat();
-        return dispatchQuery.getBasicQueryInfo();
+        return queryTracker.getQuery(queryId).getBasicQueryInfo();
     }
 
     public Optional<DispatchInfo> getDispatchInfo(QueryId queryId)
