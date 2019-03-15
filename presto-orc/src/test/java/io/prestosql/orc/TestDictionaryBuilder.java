@@ -40,7 +40,7 @@ public class TestDictionaryBuilder
         assertEquals(positions, ImmutableSet.of(1, 2));
     }
 
-    private class TestHashCollisionBlock
+    private static class TestHashCollisionBlock
             extends VariableWidthBlock
     {
         public TestHashCollisionBlock(int positionCount, Slice slice, int[] offsets, boolean[] valueIsNull)

@@ -116,7 +116,7 @@ public class MockExchangeRequestProcessor
                 bytes);
     }
 
-    private class RequestLocation
+    private static class RequestLocation
     {
         private final URI location;
         private final long sequenceId;

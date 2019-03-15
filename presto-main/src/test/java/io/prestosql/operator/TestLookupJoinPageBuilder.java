@@ -175,7 +175,7 @@ public class TestLookupJoinPageBuilder
         assertTrue(lookupJoinPageBuilder.isFull());
     }
 
-    private final class TestLookupSource
+    private static final class TestLookupSource
             implements LookupSource
     {
         private final List<Type> types;
