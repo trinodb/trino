@@ -55,7 +55,6 @@ import io.prestosql.sql.analyzer.FeaturesConfig;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 import io.prestosql.testing.TestingHandleResolver;
 import io.prestosql.testing.TestingSplit;
-import io.prestosql.testing.TestingTransactionHandle;
 import io.prestosql.type.TypeDeserializer;
 import io.prestosql.type.TypeRegistry;
 import org.testng.annotations.Test;
@@ -153,7 +152,7 @@ public class TestHttpRemoteTask
         remoteTask.start();
 
         Lifespan lifespan = Lifespan.driverGroup(3);
-        remoteTask.addSplits(ImmutableMultimap.of(TABLE_SCAN_NODE_ID, new Split(new ConnectorId("test"), TestingTransactionHandle.create(), TestingSplit.createLocalSplit(), lifespan)));
+        remoteTask.addSplits(ImmutableMultimap.of(TABLE_SCAN_NODE_ID, new Split(new ConnectorId("test"), TestingSplit.createLocalSplit(), lifespan)));
         poll(() -> testingTaskResource.getTaskSource(TABLE_SCAN_NODE_ID) != null);
         poll(() -> testingTaskResource.getTaskSource(TABLE_SCAN_NODE_ID).getSplits().size() == 1);
 

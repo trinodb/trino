@@ -19,6 +19,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.prestosql.connector.ConnectorId;
+import io.prestosql.execution.Lifespan;
 import io.prestosql.execution.ScheduledSplit;
 import io.prestosql.execution.TaskSource;
 import io.prestosql.metadata.Split;
@@ -35,7 +36,6 @@ import io.prestosql.sql.planner.plan.PlanNodeId;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.PageConsumerOperator;
 import io.prestosql.testing.TestingTaskContext;
-import io.prestosql.testing.TestingTransactionHandle;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -110,7 +110,7 @@ public class TestSystemMemoryBlocking
         Driver driver = Driver.createDriver(driverContext, source, sink);
         assertSame(driver.getDriverContext(), driverContext);
         assertFalse(driver.isFinished());
-        Split testSplit = new Split(new ConnectorId("test"), TestingTransactionHandle.create(), new TestSplit());
+        Split testSplit = new Split(new ConnectorId("test"), new TestSplit(), Lifespan.taskWide());
         driver.updateSource(new TaskSource(sourceId, ImmutableSet.of(new ScheduledSplit(0, sourceId, testSplit)), true));
 
         ListenableFuture<?> blocked = driver.processFor(new Duration(1, NANOSECONDS));

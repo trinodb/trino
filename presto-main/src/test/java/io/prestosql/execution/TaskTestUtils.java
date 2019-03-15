@@ -33,7 +33,6 @@ import io.prestosql.metadata.Split;
 import io.prestosql.operator.LookupJoinOperators;
 import io.prestosql.operator.PagesIndex;
 import io.prestosql.operator.index.IndexJoinLookupStats;
-import io.prestosql.spi.connector.ConnectorTransactionHandle;
 import io.prestosql.spi.type.TestingTypeManager;
 import io.prestosql.spiller.GenericSpillerFactory;
 import io.prestosql.split.PageSinkManager;
@@ -56,7 +55,6 @@ import io.prestosql.sql.planner.plan.PlanNodeId;
 import io.prestosql.sql.planner.plan.TableScanNode;
 import io.prestosql.testing.TestingMetadata.TestingColumnHandle;
 import io.prestosql.testing.TestingSplit;
-import io.prestosql.testing.TestingTransactionHandle;
 import io.prestosql.util.FinalizerService;
 
 import java.util.List;
@@ -77,13 +75,11 @@ public final class TaskTestUtils
     {
     }
 
-    private static final ConnectorTransactionHandle TRANSACTION_HANDLE = TestingTransactionHandle.create();
-
     public static final PlanNodeId TABLE_SCAN_NODE_ID = new PlanNodeId("tableScan");
 
     private static final ConnectorId CONNECTOR_ID = TEST_TABLE_HANDLE.getConnectorId();
 
-    public static final ScheduledSplit SPLIT = new ScheduledSplit(0, TABLE_SCAN_NODE_ID, new Split(CONNECTOR_ID, TRANSACTION_HANDLE, TestingSplit.createLocalSplit()));
+    public static final ScheduledSplit SPLIT = new ScheduledSplit(0, TABLE_SCAN_NODE_ID, new Split(CONNECTOR_ID, TestingSplit.createLocalSplit(), Lifespan.taskWide()));
 
     public static final ImmutableList<TaskSource> EMPTY_SOURCES = ImmutableList.of();
 

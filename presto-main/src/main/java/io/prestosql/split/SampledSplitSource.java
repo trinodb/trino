@@ -18,7 +18,6 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.prestosql.connector.ConnectorId;
 import io.prestosql.execution.Lifespan;
 import io.prestosql.spi.connector.ConnectorPartitionHandle;
-import io.prestosql.spi.connector.ConnectorTransactionHandle;
 
 import javax.annotation.Nullable;
 
@@ -45,12 +44,6 @@ public class SampledSplitSource
     public ConnectorId getConnectorId()
     {
         return splitSource.getConnectorId();
-    }
-
-    @Override
-    public ConnectorTransactionHandle getTransactionHandle()
-    {
-        return splitSource.getTransactionHandle();
     }
 
     @Override

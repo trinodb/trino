@@ -23,6 +23,7 @@ import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
 import io.prestosql.Session;
 import io.prestosql.connector.ConnectorId;
+import io.prestosql.execution.Lifespan;
 import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.metadata.FunctionListBuilder;
 import io.prestosql.metadata.Metadata;
@@ -80,7 +81,6 @@ import io.prestosql.sql.tree.NodeRef;
 import io.prestosql.sql.tree.SymbolReference;
 import io.prestosql.testing.LocalQueryRunner;
 import io.prestosql.testing.MaterializedResult;
-import io.prestosql.testing.TestingTransactionHandle;
 import io.prestosql.type.TypeRegistry;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
@@ -1057,12 +1057,12 @@ public final class FunctionAssertions
 
     private static Split createRecordSetSplit()
     {
-        return new Split(new ConnectorId("test"), TestingTransactionHandle.create(), new TestSplit(true));
+        return new Split(new ConnectorId("test"), new TestSplit(true), Lifespan.taskWide());
     }
 
     private static Split createNormalSplit()
     {
-        return new Split(new ConnectorId("test"), TestingTransactionHandle.create(), new TestSplit(false));
+        return new Split(new ConnectorId("test"), new TestSplit(false), Lifespan.taskWide());
     }
 
     private static class TestSplit

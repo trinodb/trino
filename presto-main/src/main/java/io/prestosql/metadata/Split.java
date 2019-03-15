@@ -19,7 +19,6 @@ import io.prestosql.connector.ConnectorId;
 import io.prestosql.execution.Lifespan;
 import io.prestosql.spi.HostAddress;
 import io.prestosql.spi.connector.ConnectorSplit;
-import io.prestosql.spi.connector.ConnectorTransactionHandle;
 
 import java.util.List;
 
@@ -29,25 +28,16 @@ import static java.util.Objects.requireNonNull;
 public final class Split
 {
     private final ConnectorId connectorId;
-    private final ConnectorTransactionHandle transactionHandle;
     private final ConnectorSplit connectorSplit;
     private final Lifespan lifespan;
-
-    // TODO: inline
-    public Split(ConnectorId connectorId, ConnectorTransactionHandle transactionHandle, ConnectorSplit connectorSplit)
-    {
-        this(connectorId, transactionHandle, connectorSplit, Lifespan.taskWide());
-    }
 
     @JsonCreator
     public Split(
             @JsonProperty("connectorId") ConnectorId connectorId,
-            @JsonProperty("transactionHandle") ConnectorTransactionHandle transactionHandle,
             @JsonProperty("connectorSplit") ConnectorSplit connectorSplit,
             @JsonProperty("lifespan") Lifespan lifespan)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
-        this.transactionHandle = requireNonNull(transactionHandle, "transactionHandle is null");
         this.connectorSplit = requireNonNull(connectorSplit, "connectorSplit is null");
         this.lifespan = requireNonNull(lifespan, "lifespan is null");
     }
@@ -56,12 +46,6 @@ public final class Split
     public ConnectorId getConnectorId()
     {
         return connectorId;
-    }
-
-    @JsonProperty
-    public ConnectorTransactionHandle getTransactionHandle()
-    {
-        return transactionHandle;
     }
 
     @JsonProperty
@@ -96,7 +80,6 @@ public final class Split
     {
         return toStringHelper(this)
                 .add("connectorId", connectorId)
-                .add("transactionHandle", transactionHandle)
                 .add("connectorSplit", connectorSplit)
                 .add("lifespan", lifespan)
                 .toString();
