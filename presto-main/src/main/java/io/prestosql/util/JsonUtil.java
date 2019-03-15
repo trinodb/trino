@@ -1344,7 +1344,7 @@ public final class JsonUtil
                 if (positionByHash[hashPosition] == EMPTY_SLOT) {
                     return hashPosition;
                 }
-                else if (positionEqualsPosition(type, block, positionByHash[hashPosition], block, position)) {
+                if (positionEqualsPosition(type, block, positionByHash[hashPosition], block, position)) {
                     return hashPosition;
                 }
                 hashPosition = getMaskedHash(hashPosition + 1);

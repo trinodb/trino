@@ -925,7 +925,7 @@ public final class ExpressionTreeRewriter<C>
         if (!a.isPresent() && !b.isPresent()) {
             return true;
         }
-        else if (a.isPresent() != b.isPresent()) {
+        if (a.isPresent() != b.isPresent()) {
             return false;
         }
 

@@ -102,7 +102,7 @@ public class JmxMetadata
         if (tableName.getSchemaName().equals(JMX_SCHEMA_NAME)) {
             return getJmxTableHandle(tableName);
         }
-        else if (tableName.getSchemaName().equals(HISTORY_SCHEMA_NAME)) {
+        if (tableName.getSchemaName().equals(HISTORY_SCHEMA_NAME)) {
             return getJmxHistoryTableHandle(tableName);
         }
         return null;

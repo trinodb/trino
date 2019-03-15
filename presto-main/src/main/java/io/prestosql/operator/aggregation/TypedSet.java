@@ -145,7 +145,7 @@ public class TypedSet
                 return hashPosition;
             }
             // Already has this element
-            else if (positionEqualsPosition(elementType, elementBlock, blockPosition, block, position)) {
+            if (positionEqualsPosition(elementType, elementBlock, blockPosition, block, position)) {
                 return hashPosition;
             }
 

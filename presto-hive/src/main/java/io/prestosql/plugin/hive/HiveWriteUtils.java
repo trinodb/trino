@@ -200,52 +200,52 @@ public final class HiveWriteUtils
         if (type.equals(BooleanType.BOOLEAN)) {
             return javaBooleanObjectInspector;
         }
-        else if (type.equals(BigintType.BIGINT)) {
+        if (type.equals(BigintType.BIGINT)) {
             return javaLongObjectInspector;
         }
-        else if (type.equals(IntegerType.INTEGER)) {
+        if (type.equals(IntegerType.INTEGER)) {
             return javaIntObjectInspector;
         }
-        else if (type.equals(SmallintType.SMALLINT)) {
+        if (type.equals(SmallintType.SMALLINT)) {
             return javaShortObjectInspector;
         }
-        else if (type.equals(TinyintType.TINYINT)) {
+        if (type.equals(TinyintType.TINYINT)) {
             return javaByteObjectInspector;
         }
-        else if (type.equals(RealType.REAL)) {
+        if (type.equals(RealType.REAL)) {
             return javaFloatObjectInspector;
         }
-        else if (type.equals(DoubleType.DOUBLE)) {
+        if (type.equals(DoubleType.DOUBLE)) {
             return javaDoubleObjectInspector;
         }
-        else if (type instanceof VarcharType) {
+        if (type instanceof VarcharType) {
             return writableStringObjectInspector;
         }
-        else if (type instanceof CharType) {
+        if (type instanceof CharType) {
             return writableHiveCharObjectInspector;
         }
-        else if (type.equals(VarbinaryType.VARBINARY)) {
+        if (type.equals(VarbinaryType.VARBINARY)) {
             return javaByteArrayObjectInspector;
         }
-        else if (type.equals(DateType.DATE)) {
+        if (type.equals(DateType.DATE)) {
             return javaDateObjectInspector;
         }
-        else if (type.equals(TimestampType.TIMESTAMP)) {
+        if (type.equals(TimestampType.TIMESTAMP)) {
             return javaTimestampObjectInspector;
         }
-        else if (type instanceof DecimalType) {
+        if (type instanceof DecimalType) {
             DecimalType decimalType = (DecimalType) type;
             return getPrimitiveJavaObjectInspector(new DecimalTypeInfo(decimalType.getPrecision(), decimalType.getScale()));
         }
-        else if (isArrayType(type)) {
+        if (isArrayType(type)) {
             return ObjectInspectorFactory.getStandardListObjectInspector(getJavaObjectInspector(type.getTypeParameters().get(0)));
         }
-        else if (isMapType(type)) {
+        if (isMapType(type)) {
             ObjectInspector keyObjectInspector = getJavaObjectInspector(type.getTypeParameters().get(0));
             ObjectInspector valueObjectInspector = getJavaObjectInspector(type.getTypeParameters().get(1));
             return ObjectInspectorFactory.getStandardMapObjectInspector(keyObjectInspector, valueObjectInspector);
         }
-        else if (isRowType(type)) {
+        if (isRowType(type)) {
             return ObjectInspectorFactory.getStandardStructObjectInspector(
                     type.getTypeSignature().getParameters().stream()
                             .map(parameter -> parameter.getNamedTypeSignature().getName().get())

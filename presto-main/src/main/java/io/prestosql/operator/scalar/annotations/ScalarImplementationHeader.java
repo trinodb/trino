@@ -56,7 +56,7 @@ public class ScalarImplementationHeader
         if (annotatedElement instanceof Class<?>) {
             return ((Class<?>) annotatedElement).getSimpleName();
         }
-        else if (annotatedElement instanceof Method) {
+        if (annotatedElement instanceof Method) {
             return ((Method) annotatedElement).getName();
         }
 

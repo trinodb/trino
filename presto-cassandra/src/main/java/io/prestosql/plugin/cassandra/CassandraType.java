@@ -524,34 +524,34 @@ public enum CassandraType
         if (type.equals(BooleanType.BOOLEAN)) {
             return BOOLEAN;
         }
-        else if (type.equals(BigintType.BIGINT)) {
+        if (type.equals(BigintType.BIGINT)) {
             return BIGINT;
         }
-        else if (type.equals(IntegerType.INTEGER)) {
+        if (type.equals(IntegerType.INTEGER)) {
             return INT;
         }
-        else if (type.equals(SmallintType.SMALLINT)) {
+        if (type.equals(SmallintType.SMALLINT)) {
             return SMALLINT;
         }
-        else if (type.equals(TinyintType.TINYINT)) {
+        if (type.equals(TinyintType.TINYINT)) {
             return TINYINT;
         }
-        else if (type.equals(DoubleType.DOUBLE)) {
+        if (type.equals(DoubleType.DOUBLE)) {
             return DOUBLE;
         }
-        else if (type.equals(RealType.REAL)) {
+        if (type.equals(RealType.REAL)) {
             return FLOAT;
         }
-        else if (isVarcharType(type)) {
+        if (isVarcharType(type)) {
             return TEXT;
         }
-        else if (type.equals(DateType.DATE)) {
+        if (type.equals(DateType.DATE)) {
             return protocolVersion.toInt() <= ProtocolVersion.V3.toInt() ? TEXT : DATE;
         }
-        else if (type.equals(VarbinaryType.VARBINARY)) {
+        if (type.equals(VarbinaryType.VARBINARY)) {
             return BLOB;
         }
-        else if (type.equals(TimestampType.TIMESTAMP)) {
+        if (type.equals(TimestampType.TIMESTAMP)) {
             return TIMESTAMP;
         }
         throw new IllegalArgumentException("unsupported type: " + type);

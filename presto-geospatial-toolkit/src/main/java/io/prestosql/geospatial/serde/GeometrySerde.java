@@ -364,12 +364,10 @@ public class GeometrySerde
         if (left == null) {
             return right;
         }
-        else if (right == null) {
+        if (right == null) {
             return left;
         }
-        else {
-            right.merge(left);
-        }
+        right.merge(left);
         return right;
     }
 }

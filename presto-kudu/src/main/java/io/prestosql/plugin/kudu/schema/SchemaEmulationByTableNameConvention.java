@@ -234,28 +234,24 @@ public class SchemaEmulationByTableNameConvention
             if (dotIndex == -1) {
                 return new SchemaTableName(DEFAULT_SCHEMA, rawName);
             }
-            else if (dotIndex == 0 || dotIndex == rawName.length() - 1) {
+            if (dotIndex == 0 || dotIndex == rawName.length() - 1) {
                 return null; // illegal rawName ignored
             }
             return new SchemaTableName(rawName.substring(0, dotIndex), rawName.substring(dotIndex + 1));
         }
-        else {
-            if (rawName.startsWith(commonPrefix)) {
-                int start = commonPrefix.length();
-                int dotIndex = rawName.indexOf('.', start);
-                if (dotIndex == -1 || dotIndex == start || dotIndex == rawName.length() - 1) {
-                    return null; // illegal rawName ignored
-                }
-                String schema = rawName.substring(start, dotIndex);
-                if (DEFAULT_SCHEMA.equalsIgnoreCase(schema)) {
-                    return null; // illegal rawName ignored
-                }
-                return new SchemaTableName(schema, rawName.substring(dotIndex + 1));
+        if (rawName.startsWith(commonPrefix)) {
+            int start = commonPrefix.length();
+            int dotIndex = rawName.indexOf('.', start);
+            if (dotIndex == -1 || dotIndex == start || dotIndex == rawName.length() - 1) {
+                return null; // illegal rawName ignored
             }
-            else {
-                return new SchemaTableName(DEFAULT_SCHEMA, rawName);
+            String schema = rawName.substring(start, dotIndex);
+            if (DEFAULT_SCHEMA.equalsIgnoreCase(schema)) {
+                return null; // illegal rawName ignored
             }
+            return new SchemaTableName(schema, rawName.substring(dotIndex + 1));
         }
+        return new SchemaTableName(DEFAULT_SCHEMA, rawName);
     }
 
     @Override

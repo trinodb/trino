@@ -324,28 +324,28 @@ public class HivePageSource
         if (toType instanceof VarcharType && (fromHiveType.equals(HIVE_BYTE) || fromHiveType.equals(HIVE_SHORT) || fromHiveType.equals(HIVE_INT) || fromHiveType.equals(HIVE_LONG))) {
             return new IntegerNumberToVarcharCoercer(fromType, toType);
         }
-        else if (fromType instanceof VarcharType && (toHiveType.equals(HIVE_BYTE) || toHiveType.equals(HIVE_SHORT) || toHiveType.equals(HIVE_INT) || toHiveType.equals(HIVE_LONG))) {
+        if (fromType instanceof VarcharType && (toHiveType.equals(HIVE_BYTE) || toHiveType.equals(HIVE_SHORT) || toHiveType.equals(HIVE_INT) || toHiveType.equals(HIVE_LONG))) {
             return new VarcharToIntegerNumberCoercer(fromType, toType);
         }
-        else if (fromHiveType.equals(HIVE_BYTE) && toHiveType.equals(HIVE_SHORT) || toHiveType.equals(HIVE_INT) || toHiveType.equals(HIVE_LONG)) {
+        if (fromHiveType.equals(HIVE_BYTE) && toHiveType.equals(HIVE_SHORT) || toHiveType.equals(HIVE_INT) || toHiveType.equals(HIVE_LONG)) {
             return new IntegerNumberUpscaleCoercer(fromType, toType);
         }
-        else if (fromHiveType.equals(HIVE_SHORT) && toHiveType.equals(HIVE_INT) || toHiveType.equals(HIVE_LONG)) {
+        if (fromHiveType.equals(HIVE_SHORT) && toHiveType.equals(HIVE_INT) || toHiveType.equals(HIVE_LONG)) {
             return new IntegerNumberUpscaleCoercer(fromType, toType);
         }
-        else if (fromHiveType.equals(HIVE_INT) && toHiveType.equals(HIVE_LONG)) {
+        if (fromHiveType.equals(HIVE_INT) && toHiveType.equals(HIVE_LONG)) {
             return new IntegerNumberUpscaleCoercer(fromType, toType);
         }
-        else if (fromHiveType.equals(HIVE_FLOAT) && toHiveType.equals(HIVE_DOUBLE)) {
+        if (fromHiveType.equals(HIVE_FLOAT) && toHiveType.equals(HIVE_DOUBLE)) {
             return new FloatToDoubleCoercer();
         }
-        else if (isArrayType(fromType) && isArrayType(toType)) {
+        if (isArrayType(fromType) && isArrayType(toType)) {
             return new ListCoercer(typeManager, fromHiveType, toHiveType);
         }
-        else if (isMapType(fromType) && isMapType(toType)) {
+        if (isMapType(fromType) && isMapType(toType)) {
             return new MapCoercer(typeManager, fromHiveType, toHiveType);
         }
-        else if (isRowType(fromType) && isRowType(toType)) {
+        if (isRowType(fromType) && isRowType(toType)) {
             return new StructCoercer(typeManager, fromHiveType, toHiveType);
         }
 

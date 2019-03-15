@@ -147,7 +147,7 @@ public class KeyValuePairs
             if (keyPositionByHash[hashPosition] == EMPTY_SLOT) {
                 return hashPosition;
             }
-            else if (positionEqualsPosition(keyType, keyBlockBuilder, keyPositionByHash[hashPosition], key, position)) {
+            if (positionEqualsPosition(keyType, keyBlockBuilder, keyPositionByHash[hashPosition], key, position)) {
                 return hashPosition;
             }
             hashPosition = getMaskedHash(hashPosition + 1);

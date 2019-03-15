@@ -258,10 +258,10 @@ public final class VarbinaryFunctions
         if (b >= '0' && b <= '9') {
             return b - '0';
         }
-        else if (b >= 'a' && b <= 'f') {
+        if (b >= 'a' && b <= 'f') {
             return b - 'a' + 10;
         }
-        else if (b >= 'A' && b <= 'F') {
+        if (b >= 'A' && b <= 'F') {
             return b - 'A' + 10;
         }
         throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "invalid hex character: " + (char) b);

@@ -29,7 +29,7 @@ public interface Mergeable<T>
         if (first.isPresent() && second.isPresent()) {
             return Optional.of(first.get().mergeWith(second.get()));
         }
-        else if (first.isPresent()) {
+        if (first.isPresent()) {
             return first;
         }
 

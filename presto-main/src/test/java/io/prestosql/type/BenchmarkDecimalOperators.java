@@ -628,10 +628,10 @@ public class BenchmarkDecimalOperators
             if (type instanceof DoubleType) {
                 return random.nextDouble() * (2L * doubleMaxValue) - doubleMaxValue;
             }
-            else if (type instanceof DecimalType) {
+            if (type instanceof DecimalType) {
                 return randomDecimal((DecimalType) type);
             }
-            else if (type instanceof BigintType) {
+            if (type instanceof BigintType) {
                 int randomInt = random.nextInt();
                 return randomInt == 0 ? 1 : randomInt;
             }

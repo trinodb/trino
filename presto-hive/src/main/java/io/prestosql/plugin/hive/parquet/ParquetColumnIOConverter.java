@@ -70,7 +70,7 @@ final class ParquetColumnIOConverter
             }
             return Optional.empty();
         }
-        else if (MAP.equals(type.getTypeSignature().getBase())) {
+        if (MAP.equals(type.getTypeSignature().getBase())) {
             GroupColumnIO groupColumnIO = (GroupColumnIO) columnIO;
             MapType mapType = (MapType) type;
             GroupColumnIO keyValueColumnIO = getMapKeyValueColumn(groupColumnIO);
@@ -81,7 +81,7 @@ final class ParquetColumnIOConverter
             Optional<Field> valueField = constructField(mapType.getValueType(), keyValueColumnIO.getChild(1));
             return Optional.of(new GroupField(type, repetitionLevel, definitionLevel, required, ImmutableList.of(keyField, valueField)));
         }
-        else if (ARRAY.equals(type.getTypeSignature().getBase())) {
+        if (ARRAY.equals(type.getTypeSignature().getBase())) {
             GroupColumnIO groupColumnIO = (GroupColumnIO) columnIO;
             List<Type> types = type.getTypeParameters();
             if (groupColumnIO.getChildrenCount() != 1) {

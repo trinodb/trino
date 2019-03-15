@@ -48,7 +48,7 @@ public final class IntegerType
         if (value > Integer.MAX_VALUE) {
             throw new PrestoException(GENERIC_INTERNAL_ERROR, format("Value %d exceeds MAX_INT", value));
         }
-        else if (value < Integer.MIN_VALUE) {
+        if (value < Integer.MIN_VALUE) {
             throw new PrestoException(GENERIC_INTERNAL_ERROR, format("Value %d is less than MIN_INT", value));
         }
 

@@ -92,7 +92,7 @@ public class KuduQueryRunnerFactory
         if (prefix == null || prefix.equals("null")) {
             return null;
         }
-        else if (prefix.isEmpty()) {
+        if (prefix.isEmpty()) {
             return "";
         }
         return prefix;

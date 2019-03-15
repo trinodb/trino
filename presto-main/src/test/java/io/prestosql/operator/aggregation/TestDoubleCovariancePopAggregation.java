@@ -50,7 +50,7 @@ public class TestDoubleCovariancePopAggregation
         if (length <= 0) {
             return null;
         }
-        else if (length == 1) {
+        if (length == 1) {
             return 0.;
         }
         Covariance covariance = new Covariance();
