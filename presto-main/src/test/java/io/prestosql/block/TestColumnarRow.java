@@ -37,6 +37,7 @@ import static io.prestosql.block.ColumnarTestUtils.createTestRleBlock;
 import static io.prestosql.block.ColumnarTestUtils.createTestRleExpectedValues;
 import static io.prestosql.spi.block.ColumnarRow.toColumnarRow;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 
 public class TestColumnarRow
@@ -52,7 +53,7 @@ public class TestColumnarRow
             expectedValues[i] = new Slice[FIELD_COUNT];
             for (int j = 0; j < FIELD_COUNT; j++) {
                 if (j % 3 != 1) {
-                    expectedValues[i][j] = Slices.utf8Slice(String.format("%d.%d", i, j));
+                    expectedValues[i][j] = Slices.utf8Slice(format("%d.%d", i, j));
                 }
             }
         }

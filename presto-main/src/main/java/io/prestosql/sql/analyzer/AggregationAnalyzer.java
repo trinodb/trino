@@ -88,6 +88,7 @@ import static io.prestosql.sql.analyzer.SemanticErrorCode.NESTED_WINDOW;
 import static io.prestosql.sql.analyzer.SemanticErrorCode.ORDER_BY_MUST_BE_IN_AGGREGATE;
 import static io.prestosql.sql.analyzer.SemanticErrorCode.REFERENCE_TO_OUTPUT_ATTRIBUTE_WITHIN_ORDER_BY_AGGREGATION;
 import static io.prestosql.sql.analyzer.SemanticErrorCode.REFERENCE_TO_OUTPUT_ATTRIBUTE_WITHIN_ORDER_BY_GROUPING;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -509,7 +510,7 @@ class AggregationAnalyzer
                     column = Integer.toString(node.getFieldIndex() + 1);
                 }
                 else if (field.getRelationAlias().isPresent()) {
-                    column = String.format("'%s.%s'", field.getRelationAlias().get(), field.getName().get());
+                    column = format("'%s.%s'", field.getRelationAlias().get(), field.getName().get());
                 }
                 else {
                     column = "'" + field.getName().get() + "'";

@@ -684,12 +684,12 @@ public abstract class AbstractTestHiveFileFormats
                 Type type = types.get(i);
                 Object fieldFromCursor = getFieldFromCursor(cursor, type, i);
                 if (fieldFromCursor == null) {
-                    assertEquals(null, testColumn.getExpectedValue(), String.format("Expected null for column %s", testColumn.getName()));
+                    assertEquals(null, testColumn.getExpectedValue(), "Expected null for column " + testColumn.getName());
                 }
                 else if (type instanceof DecimalType) {
                     DecimalType decimalType = (DecimalType) type;
                     fieldFromCursor = new BigDecimal((BigInteger) fieldFromCursor, decimalType.getScale());
-                    assertEquals(fieldFromCursor, testColumn.getExpectedValue(), String.format("Wrong value for column %s", testColumn.getName()));
+                    assertEquals(fieldFromCursor, testColumn.getExpectedValue(), "Wrong value for column " + testColumn.getName());
                 }
                 else if (testColumn.getObjectInspector().getTypeName().equals("float")) {
                     assertEquals((float) fieldFromCursor, (float) testColumn.getExpectedValue(), (float) EPSILON);
@@ -707,7 +707,7 @@ public abstract class AbstractTestHiveFileFormats
                     assertEquals(((Number) fieldFromCursor).intValue(), testColumn.getExpectedValue());
                 }
                 else if (testColumn.getObjectInspector().getCategory() == Category.PRIMITIVE) {
-                    assertEquals(fieldFromCursor, testColumn.getExpectedValue(), String.format("Wrong value for column %s", testColumn.getName()));
+                    assertEquals(fieldFromCursor, testColumn.getExpectedValue(), "Wrong value for column " + testColumn.getName());
                 }
                 else {
                     Block expected = (Block) testColumn.getExpectedValue();

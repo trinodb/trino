@@ -55,6 +55,7 @@ import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.Varchars.isVarcharType;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 
@@ -113,7 +114,7 @@ public class KuduPageSink
             PartialRow row = upsert.getRow();
             int start = 0;
             if (generateUUID) {
-                String id = String.format("%s-%08x", uuid, nextSubId++);
+                String id = format("%s-%08x", uuid, nextSubId++);
                 row.addString(0, id);
                 start = 1;
             }

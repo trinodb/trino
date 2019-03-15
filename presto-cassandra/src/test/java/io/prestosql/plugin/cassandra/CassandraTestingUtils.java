@@ -28,6 +28,7 @@ import java.nio.ByteBuffer;
 import java.util.Date;
 import java.util.UUID;
 
+import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 
 public class CassandraTestingUtils
@@ -225,7 +226,7 @@ public class CassandraTestingUtils
         for (Integer rowNumber = 1; rowNumber <= rowsCount; rowNumber++) {
             Insert insert = QueryBuilder.insertInto(table.getSchemaName(), table.getTableName())
                     .value("key", "key " + rowNumber.toString())
-                    .value("typeuuid", UUID.fromString(String.format("00000000-0000-0000-0000-%012d", rowNumber)))
+                    .value("typeuuid", UUID.fromString(format("00000000-0000-0000-0000-%012d", rowNumber)))
                     .value("typeinteger", rowNumber)
                     .value("typelong", rowNumber.longValue() + 1000)
                     .value("typebytes", ByteBuffer.wrap(Ints.toByteArray(rowNumber)).asReadOnlyBuffer())
@@ -238,7 +239,7 @@ public class CassandraTestingUtils
                     .value("typeinet", InetAddresses.forString("127.0.0.1"))
                     .value("typevarchar", "varchar " + rowNumber)
                     .value("typevarint", BigInteger.TEN.pow(rowNumber))
-                    .value("typetimeuuid", UUID.fromString(String.format("d2177dd0-eaa2-11de-a572-001b779c76e%d", rowNumber)))
+                    .value("typetimeuuid", UUID.fromString(format("d2177dd0-eaa2-11de-a572-001b779c76e%d", rowNumber)))
                     .value("typelist", ImmutableList.of("list-value-1" + rowNumber, "list-value-2" + rowNumber))
                     .value("typemap", ImmutableMap.of(rowNumber, rowNumber + 1L, rowNumber + 2, rowNumber + 3L))
                     .value("typeset", ImmutableSet.of(false, true));

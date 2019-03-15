@@ -72,9 +72,9 @@ public class BingTileFunctions
     private static final Block EMPTY_TILE_ARRAY = BIGINT.createFixedSizeBlockBuilder(0).build();
 
     private static final String LATITUDE_OUT_OF_RANGE = "Latitude must be between " + MIN_LATITUDE + " and " + MAX_LATITUDE;
-    private static final String LATITUDE_SPAN_OUT_OF_RANGE = String.format("Latitude span for the geometry must be in [%.2f, %.2f] range", MIN_LATITUDE, MAX_LATITUDE);
+    private static final String LATITUDE_SPAN_OUT_OF_RANGE = format("Latitude span for the geometry must be in [%.2f, %.2f] range", MIN_LATITUDE, MAX_LATITUDE);
     private static final String LONGITUDE_OUT_OF_RANGE = "Longitude must be between " + MIN_LONGITUDE + " and " + MAX_LONGITUDE;
-    private static final String LONGITUDE_SPAN_OUT_OF_RANGE = String.format("Longitude span for the geometry must be in [%.2f, %.2f] range", MIN_LONGITUDE, MAX_LONGITUDE);
+    private static final String LONGITUDE_SPAN_OUT_OF_RANGE = format("Longitude span for the geometry must be in [%.2f, %.2f] range", MIN_LONGITUDE, MAX_LONGITUDE);
     private static final String QUAD_KEY_EMPTY = "QuadKey must not be empty string";
     private static final String QUAD_KEY_TOO_LONG = "QuadKey must be " + MAX_ZOOM_LEVEL + " characters or less";
     private static final String ZOOM_LEVEL_TOO_SMALL = "Zoom level must be > 0";

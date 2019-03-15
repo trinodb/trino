@@ -59,6 +59,7 @@ import static io.prestosql.plugin.cassandra.util.CassandraCqlUtils.validSchemaNa
 import static io.prestosql.plugin.cassandra.util.CassandraCqlUtils.validTableName;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.StandardErrorCode.PERMISSION_DENIED;
+import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -249,7 +250,7 @@ public class CassandraMetadata
             throw new PrestoException(NOT_SUPPORTED, "Dropping materialized views not yet supported");
         }
 
-        cassandraSession.execute(String.format("DROP TABLE \"%s\".\"%s\"", cassandraTableHandle.getSchemaName(), cassandraTableHandle.getTableName()));
+        cassandraSession.execute(format("DROP TABLE \"%s\".\"%s\"", cassandraTableHandle.getSchemaName(), cassandraTableHandle.getTableName()));
     }
 
     @Override
@@ -277,7 +278,7 @@ public class CassandraMetadata
         String tableName = table.getTableName();
         List<String> columns = columnNames.build();
         List<Type> types = columnTypes.build();
-        StringBuilder queryBuilder = new StringBuilder(String.format("CREATE TABLE \"%s\".\"%s\"(id uuid primary key", schemaName, tableName));
+        StringBuilder queryBuilder = new StringBuilder(format("CREATE TABLE \"%s\".\"%s\"(id uuid primary key", schemaName, tableName));
         for (int i = 0; i < columns.size(); i++) {
             String name = columns.get(i);
             Type type = types.get(i);

@@ -21,6 +21,8 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 
+import static java.lang.String.format;
+
 @JsonTypeInfo(
         use = JsonTypeInfo.Id.NAME,
         include = JsonTypeInfo.As.PROPERTY,
@@ -64,7 +66,7 @@ public interface LocalProperty<E>
     default LocalProperty<E> constrain(Set<E> columns)
     {
         if (!columns.equals(getColumns())) {
-            throw new IllegalArgumentException(String.format("Cannot constrain %s with %s", this, columns));
+            throw new IllegalArgumentException(format("Cannot constrain %s with %s", this, columns));
         }
         return this;
     }

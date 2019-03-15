@@ -22,6 +22,8 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 
+import static java.lang.String.format;
+
 public class JdbcDriverUtils
 {
     private static final Logger LOGGER = Logger.get(JdbcDriverUtils.class);
@@ -31,7 +33,7 @@ public class JdbcDriverUtils
             throws SQLException
     {
         try (Statement statement = connection.createStatement()) {
-            statement.execute(String.format("SET ROLE %s", role));
+            statement.execute("SET ROLE " + role);
         }
     }
 
@@ -73,7 +75,7 @@ public class JdbcDriverUtils
                 if (shouldValueBeQuoted(value)) {
                     value = "'" + value + "'";
                 }
-                statement.execute(String.format("set session %s=%s", key, value));
+                statement.execute(format("set session %s=%s", key, value));
             }
         }
         else {
@@ -110,7 +112,7 @@ public class JdbcDriverUtils
         }
         else if (usingTeradataJdbcDriver(connection)) {
             try (Statement statement = connection.createStatement()) {
-                statement.execute(String.format("RESET SESSION %s", key));
+                statement.execute("RESET SESSION " + key);
             }
         }
         else {

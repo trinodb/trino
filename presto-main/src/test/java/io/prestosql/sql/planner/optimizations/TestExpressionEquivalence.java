@@ -33,6 +33,7 @@ import static io.prestosql.SessionTestUtils.TEST_SESSION;
 import static io.prestosql.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
 import static io.prestosql.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;
 import static io.prestosql.sql.planner.SymbolsExtractor.extractUnique;
+import static java.lang.String.format;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toMap;
 import static org.testng.Assert.assertFalse;
@@ -113,10 +114,10 @@ public class TestExpressionEquivalence
 
         assertTrue(
                 EQUIVALENCE.areExpressionsEquivalent(TEST_SESSION, leftExpression, rightExpression, types),
-                String.format("Expected (%s) and (%s) to be equivalent", left, right));
+                format("Expected (%s) and (%s) to be equivalent", left, right));
         assertTrue(
                 EQUIVALENCE.areExpressionsEquivalent(TEST_SESSION, rightExpression, leftExpression, types),
-                String.format("Expected (%s) and (%s) to be equivalent", right, left));
+                format("Expected (%s) and (%s) to be equivalent", right, left));
     }
 
     @Test
@@ -165,10 +166,10 @@ public class TestExpressionEquivalence
 
         assertFalse(
                 EQUIVALENCE.areExpressionsEquivalent(TEST_SESSION, leftExpression, rightExpression, types),
-                String.format("Expected (%s) and (%s) to not be equivalent", left, right));
+                format("Expected (%s) and (%s) to not be equivalent", left, right));
         assertFalse(
                 EQUIVALENCE.areExpressionsEquivalent(TEST_SESSION, rightExpression, leftExpression, types),
-                String.format("Expected (%s) and (%s) to not be equivalent", right, left));
+                format("Expected (%s) and (%s) to not be equivalent", right, left));
     }
 
     private static Type generateType(Symbol symbol)

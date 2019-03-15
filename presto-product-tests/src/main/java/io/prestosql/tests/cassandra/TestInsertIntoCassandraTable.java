@@ -61,7 +61,7 @@ public class TestInsertIntoCassandraTable
     public void testInsertIntoValuesToCassandraTableAllSimpleTypes()
     {
         TableName table = mutableTablesState().get(CASSANDRA_INSERT_TABLE).getTableName();
-        String tableNameInDatabase = String.format("%s.%s", CONNECTOR_NAME, table.getNameInDatabase());
+        String tableNameInDatabase = format("%s.%s", CONNECTOR_NAME, table.getNameInDatabase());
 
         assertContainsEventually(() -> query(format("SHOW TABLES FROM %s.%s", CONNECTOR_NAME, KEY_SPACE)),
                 query(format("SELECT '%s'", table.getSchemalessNameInDatabase())),

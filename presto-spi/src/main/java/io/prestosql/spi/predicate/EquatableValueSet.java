@@ -31,6 +31,7 @@ import java.util.stream.Collector;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static java.lang.String.format;
 import static java.util.Collections.unmodifiableCollection;
 import static java.util.Collections.unmodifiableSet;
 import static java.util.Objects.requireNonNull;
@@ -268,10 +269,10 @@ public class EquatableValueSet
     private EquatableValueSet checkCompatibility(ValueSet other)
     {
         if (!getType().equals(other.getType())) {
-            throw new IllegalStateException(String.format("Mismatched types: %s vs %s", getType(), other.getType()));
+            throw new IllegalStateException(format("Mismatched types: %s vs %s", getType(), other.getType()));
         }
         if (!(other instanceof EquatableValueSet)) {
-            throw new IllegalStateException(String.format("ValueSet is not a EquatableValueSet: %s", other.getClass()));
+            throw new IllegalStateException(format("ValueSet is not a EquatableValueSet: %s", other.getClass()));
         }
         return (EquatableValueSet) other;
     }

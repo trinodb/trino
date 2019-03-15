@@ -22,6 +22,7 @@ import java.util.Objects;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -86,7 +87,7 @@ public class AllOrNoneValueSet
     public boolean containsValue(Object value)
     {
         if (!Primitives.wrap(type.getJavaType()).isInstance(value)) {
-            throw new IllegalArgumentException(String.format("Value class %s does not match required Type class %s", value.getClass().getName(), Primitives.wrap(type.getJavaType()).getClass().getName()));
+            throw new IllegalArgumentException(format("Value class %s does not match required Type class %s", value.getClass().getName(), Primitives.wrap(type.getJavaType()).getClass().getName()));
         }
         return all;
     }
@@ -164,10 +165,10 @@ public class AllOrNoneValueSet
     private AllOrNoneValueSet checkCompatibility(ValueSet other)
     {
         if (!getType().equals(other.getType())) {
-            throw new IllegalArgumentException(String.format("Mismatched types: %s vs %s", getType(), other.getType()));
+            throw new IllegalArgumentException(format("Mismatched types: %s vs %s", getType(), other.getType()));
         }
         if (!(other instanceof AllOrNoneValueSet)) {
-            throw new IllegalArgumentException(String.format("ValueSet is not a AllOrNoneValueSet: %s", other.getClass()));
+            throw new IllegalArgumentException(format("ValueSet is not a AllOrNoneValueSet: %s", other.getClass()));
         }
         return (AllOrNoneValueSet) other;
     }

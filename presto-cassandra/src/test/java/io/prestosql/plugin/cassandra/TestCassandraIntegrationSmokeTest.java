@@ -53,6 +53,7 @@ import static io.prestosql.testing.MaterializedResult.DEFAULT_PRECISION;
 import static io.prestosql.testing.MaterializedResult.resultBuilder;
 import static io.prestosql.tests.QueryAssertions.assertContains;
 import static io.prestosql.tests.QueryAssertions.assertContainsEventually;
+import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.stream.Collectors.toList;
 import static org.testng.Assert.assertEquals;
@@ -556,7 +557,7 @@ public class TestCassandraIntegrationSmokeTest
         for (int rowNumber = 1; rowNumber <= rowCount; rowNumber++) {
             assertEquals(sortedRows.get(rowNumber - 1), new MaterializedRow(DEFAULT_PRECISION,
                     "key " + rowNumber,
-                    String.format("00000000-0000-0000-0000-%012d", rowNumber),
+                    format("00000000-0000-0000-0000-%012d", rowNumber),
                     rowNumber,
                     rowNumber + 1000L,
                     ByteBuffer.wrap(toByteArray(rowNumber)),
@@ -569,9 +570,9 @@ public class TestCassandraIntegrationSmokeTest
                     "127.0.0.1",
                     "varchar " + rowNumber,
                     BigInteger.TEN.pow(rowNumber).toString(),
-                    String.format("d2177dd0-eaa2-11de-a572-001b779c76e%d", rowNumber),
-                    String.format("[\"list-value-1%1$d\",\"list-value-2%1$d\"]", rowNumber),
-                    String.format("{%d:%d,%d:%d}", rowNumber, rowNumber + 1L, rowNumber + 2, rowNumber + 3L),
+                    format("d2177dd0-eaa2-11de-a572-001b779c76e%d", rowNumber),
+                    format("[\"list-value-1%1$d\",\"list-value-2%1$d\"]", rowNumber),
+                    format("{%d:%d,%d:%d}", rowNumber, rowNumber + 1L, rowNumber + 2, rowNumber + 3L),
                     "[false,true]"));
         }
     }

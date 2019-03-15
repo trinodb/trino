@@ -55,6 +55,7 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.prestosql.testing.LocalQueryRunner.queryRunnerWithInitialTransaction;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static io.prestosql.testing.TestingTaskContext.createTaskContext;
+import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNull;
@@ -150,7 +151,7 @@ public class TestMemoryPools
         setUpCountStarFromOrdersWithJoin();
         assertTrue(userPool.tryReserve(fakeQueryId, "test", TEN_MEGABYTES.toBytes()));
         runDriversUntilBlocked(waitingForUserMemory());
-        assertTrue(userPool.getFreeBytes() <= 0, String.format("Expected empty pool but got [%d]", userPool.getFreeBytes()));
+        assertTrue(userPool.getFreeBytes() <= 0, format("Expected empty pool but got [%d]", userPool.getFreeBytes()));
         userPool.free(fakeQueryId, "test", TEN_MEGABYTES.toBytes());
         assertDriversProgress(waitingForUserMemory());
     }
@@ -196,12 +197,12 @@ public class TestMemoryPools
 
         // we expect 2 iterations as we have 2 bytes remaining in memory pool and we allocate 1 byte per page
         assertEquals(runDriversUntilBlocked(waitingForRevocableSystemMemory()), 2);
-        assertTrue(userPool.getFreeBytes() <= 0, String.format("Expected empty pool but got [%d]", userPool.getFreeBytes()));
+        assertTrue(userPool.getFreeBytes() <= 0, format("Expected empty pool but got [%d]", userPool.getFreeBytes()));
 
         // lets free 5 bytes
         userPool.free(fakeQueryId, "test", 5);
         assertEquals(runDriversUntilBlocked(waitingForRevocableSystemMemory()), 5);
-        assertTrue(userPool.getFreeBytes() <= 0, String.format("Expected empty pool but got [%d]", userPool.getFreeBytes()));
+        assertTrue(userPool.getFreeBytes() <= 0, format("Expected empty pool but got [%d]", userPool.getFreeBytes()));
 
         // 3 more bytes is enough for driver to finish
         userPool.free(fakeQueryId, "test", 3);

@@ -30,6 +30,7 @@ import java.util.stream.IntStream;
 
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
+import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 
@@ -126,9 +127,9 @@ public final class AggregationTestUtils
         if (!isEqual.apply(actualValue, expectedValue)) {
             StringBuilder sb = new StringBuilder();
             if (testDescription != null) {
-                sb.append(String.format("Test: %s, ", testDescription));
+                sb.append(format("Test: %s, ", testDescription));
             }
-            sb.append(String.format("Expected: %s, actual: %s", expectedValue, actualValue));
+            sb.append(format("Expected: %s, actual: %s", expectedValue, actualValue));
             fail(sb.toString());
         }
     }

@@ -304,7 +304,7 @@ public class Page
     public Page prependColumn(Block column)
     {
         if (column.getPositionCount() != positionCount) {
-            throw new IllegalArgumentException(String.format("Column does not have same position count (%s) as page (%s)", column.getPositionCount(), positionCount));
+            throw new IllegalArgumentException(format("Column does not have same position count (%s) as page (%s)", column.getPositionCount(), positionCount));
         }
 
         Block[] result = new Block[blocks.length + 1];

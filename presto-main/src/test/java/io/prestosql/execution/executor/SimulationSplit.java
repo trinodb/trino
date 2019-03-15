@@ -27,6 +27,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import static io.airlift.units.Duration.succinctNanos;
 import static io.prestosql.operator.Operator.NOT_BLOCKED;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
@@ -204,7 +205,8 @@ abstract class SimulationSplit
         public String getInfo()
         {
             double pct = (100.0 * getCompletedProcessNanos() / super.scheduledTimeNanos);
-            return String.format("leaf %3s%% done (total: %8s, per quanta: %8s)",
+            return format(
+                    "leaf %3s%% done (total: %8s, per quanta: %8s)",
                     (int) (pct > 100.00 ? 100.0 : pct),
                     succinctNanos(super.scheduledTimeNanos),
                     succinctNanos(perQuantaNanos));
@@ -282,7 +284,7 @@ abstract class SimulationSplit
         public String getInfo()
         {
             double pct = (100.0 * getCalls() / numQuantas);
-            return String.format("intr %3s%% done (wall: %9s, per quanta: %8s, between quanta: %8s)",
+            return format("intr %3s%% done (wall: %9s, per quanta: %8s, between quanta: %8s)",
                     (int) (pct > 100.00 ? 100.0 : pct),
                     succinctNanos(wallTimeNanos),
                     succinctNanos(perQuantaNanos),

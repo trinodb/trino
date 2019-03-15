@@ -46,6 +46,7 @@ import static io.prestosql.execution.executor.Histogram.fromContinuous;
 import static io.prestosql.execution.executor.Histogram.fromDiscrete;
 import static io.prestosql.execution.executor.SimulationController.TaskSpecification.Type.INTERMEDIATE;
 import static io.prestosql.execution.executor.SimulationController.TaskSpecification.Type.LEAF;
+import static java.lang.String.format;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
@@ -439,7 +440,8 @@ public class TaskExecutorSimulator
     private static String formatNanos(List<Long> list)
     {
         LongSummaryStatistics stats = list.stream().mapToLong(Long::new).summaryStatistics();
-        return String.format("Min: %8s  Max: %8s  Avg: %8s  Sum: %8s",
+        return format(
+                "Min: %8s  Max: %8s  Avg: %8s  Sum: %8s",
                 succinctNanos(stats.getMin() == Long.MAX_VALUE ? 0 : stats.getMin()),
                 succinctNanos(stats.getMax() == Long.MIN_VALUE ? 0 : stats.getMax()),
                 succinctNanos((long) stats.getAverage()),

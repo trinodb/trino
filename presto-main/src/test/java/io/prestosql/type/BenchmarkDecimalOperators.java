@@ -71,6 +71,7 @@ import static io.prestosql.spi.type.DecimalType.createDecimalType;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.testing.TestingConnectorSession.SESSION;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
+import static java.lang.String.format;
 import static java.math.BigInteger.ONE;
 import static java.math.BigInteger.ZERO;
 import static java.util.stream.Collectors.toList;
@@ -111,7 +112,7 @@ public class BenchmarkDecimalOperators
             }
             else {
                 setDoubleMaxValue(Math.pow(9, Integer.valueOf(precision) - SCALE));
-                expression = String.format("CAST(d1 AS DECIMAL(%s, %d))", precision, SCALE);
+                expression = format("CAST(d1 AS DECIMAL(%s, %d))", precision, SCALE);
             }
             generateRandomInputPage();
             generateProcessor(expression);

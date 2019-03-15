@@ -1087,7 +1087,7 @@ public abstract class AbstractTestQueries
         String groupingSet1 = "at, ab, am, bg, bn, ai, an";
         // 28, 4, 5, 29, 31, 10 (corresponding indices from left to right in the above fortyLetterSequence)
         String groupingSet2 = "bb, ad, ae, bc, be, aj";
-        String query = String.format(
+        String query = format(
                 "SELECT grouping(%s) FROM (VALUES (%s)) AS t(%s) GROUP BY GROUPING SETS ((%s), (%s), (%s))",
                 fortyLetterSequence,
                 fortyIntegers,

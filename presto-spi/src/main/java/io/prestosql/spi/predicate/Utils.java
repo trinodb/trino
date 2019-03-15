@@ -19,6 +19,7 @@ import io.prestosql.spi.type.Type;
 
 import static io.prestosql.spi.type.TypeUtils.readNativeValue;
 import static io.prestosql.spi.type.TypeUtils.writeNativeValue;
+import static java.lang.String.format;
 
 public final class Utils
 {
@@ -29,7 +30,7 @@ public final class Utils
     public static Block nativeValueToBlock(Type type, Object object)
     {
         if (object != null && !Primitives.wrap(type.getJavaType()).isInstance(object)) {
-            throw new IllegalArgumentException(String.format("Object '%s' does not match type %s", object, type.getJavaType()));
+            throw new IllegalArgumentException(format("Object '%s' does not match type %s", object, type.getJavaType()));
         }
         BlockBuilder blockBuilder = type.createBlockBuilder(null, 1);
         writeNativeValue(type, blockBuilder, object);

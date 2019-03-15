@@ -43,6 +43,7 @@ import java.util.Queue;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static java.lang.String.format;
 import static org.antlr.v4.runtime.atn.ATNState.BLOCK_START;
 import static org.antlr.v4.runtime.atn.ATNState.RULE_START;
 
@@ -100,7 +101,7 @@ class ErrorHandler
                     .sorted()
                     .collect(Collectors.joining(", "));
 
-            message = String.format("mismatched input '%s'. Expecting: %s", ((Token) offendingSymbol).getText(), expected);
+            message = format("mismatched input '%s'. Expecting: %s", ((Token) offendingSymbol).getText(), expected);
         }
         catch (Exception exception) {
             LOG.error(exception, "Unexpected failure when handling parsing error. This is likely a bug in the implementation");

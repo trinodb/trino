@@ -31,6 +31,7 @@ import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
+import static java.lang.String.format;
 import static java.util.Collections.nCopies;
 
 public class TestMathFunctions
@@ -334,8 +335,8 @@ public class TestMathFunctions
     public void testDegrees()
     {
         for (double doubleValue : DOUBLE_VALUES) {
-            assertFunction(String.format("degrees(%s)", doubleValue), DOUBLE, Math.toDegrees(doubleValue));
-            assertFunction(String.format("degrees(REAL '%s')", (float) doubleValue), DOUBLE, Math.toDegrees((float) doubleValue));
+            assertFunction(format("degrees(%s)", doubleValue), DOUBLE, Math.toDegrees(doubleValue));
+            assertFunction(format("degrees(REAL '%s')", (float) doubleValue), DOUBLE, Math.toDegrees((float) doubleValue));
         }
         assertFunction("degrees(NULL)", DOUBLE, null);
     }
@@ -673,8 +674,8 @@ public class TestMathFunctions
     public void testRadians()
     {
         for (double doubleValue : DOUBLE_VALUES) {
-            assertFunction(String.format("radians(%s)", doubleValue), DOUBLE, Math.toRadians(doubleValue));
-            assertFunction(String.format("radians(REAL '%s')", (float) doubleValue), DOUBLE, Math.toRadians((float) doubleValue));
+            assertFunction(format("radians(%s)", doubleValue), DOUBLE, Math.toRadians(doubleValue));
+            assertFunction(format("radians(REAL '%s')", (float) doubleValue), DOUBLE, Math.toRadians((float) doubleValue));
         }
         assertFunction("radians(NULL)", DOUBLE, null);
     }

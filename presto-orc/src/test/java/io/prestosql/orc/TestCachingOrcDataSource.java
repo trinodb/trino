@@ -54,6 +54,7 @@ import static io.prestosql.orc.OrcTester.writeOrcFileColumnHive;
 import static io.prestosql.orc.metadata.CompressionKind.NONE;
 import static io.prestosql.orc.metadata.CompressionKind.ZLIB;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static java.lang.String.format;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaStringObjectInspector;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
@@ -225,7 +226,7 @@ public class TestCachingOrcDataSource
         assertNotNull(actual, "actual is null");
         assertNotNull(expectedType, "expectedType is null");
         if (expectedType.isInstance(actual)) {
-            fail(String.format("expected:<%s> to not be an instance of <%s>", actual, expectedType.getName()));
+            fail(format("expected:<%s> to not be an instance of <%s>", actual, expectedType.getName()));
         }
     }
 

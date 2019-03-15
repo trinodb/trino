@@ -27,6 +27,7 @@ import java.util.Random;
 import static io.prestosql.spi.block.ArrayBlock.fromElementBlock;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -65,7 +66,7 @@ public class TestArrayBlock
         for (int i = 0; i < ARRAY_SIZES.length; i++) {
             expectedValues[i] = new Slice[ARRAY_SIZES[i]];
             for (int j = 0; j < ARRAY_SIZES[i]; j++) {
-                expectedValues[i][j] = Slices.utf8Slice(String.format("%d.%d", i, j));
+                expectedValues[i][j] = Slices.utf8Slice(format("%d.%d", i, j));
             }
         }
 

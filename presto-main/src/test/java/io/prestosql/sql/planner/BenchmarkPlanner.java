@@ -49,6 +49,7 @@ import java.util.stream.IntStream;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.plugin.tpch.TpchConnectorFactory.TPCH_COLUMN_NAMING_PROPERTY;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
+import static java.lang.String.format;
 
 @SuppressWarnings("MethodMayBeStatic")
 @State(Scope.Benchmark)
@@ -90,7 +91,7 @@ public class BenchmarkPlanner
             queries = IntStream.rangeClosed(1, 22)
                     .boxed()
                     .filter(i -> i != 15) // q15 has two queries in it
-                    .map(i -> readResource(String.format("/io/airlift/tpch/queries/q%d.sql", i)))
+                    .map(i -> readResource(format("/io/airlift/tpch/queries/q%d.sql", i)))
                     .collect(toImmutableList());
         }
 

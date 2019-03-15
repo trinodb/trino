@@ -492,9 +492,7 @@ public class PlanFragmenter
                 return this;
             }
 
-            throw new IllegalStateException(String.format(
-                    "Cannot overwrite distribution with %s (currently set to %s)",
-                    distribution, currentPartitioning));
+            throw new IllegalStateException(format("Cannot overwrite distribution with %s (currently set to %s)", distribution, currentPartitioning));
         }
 
         public FragmentProperties addChildren(List<SubPlan> children)

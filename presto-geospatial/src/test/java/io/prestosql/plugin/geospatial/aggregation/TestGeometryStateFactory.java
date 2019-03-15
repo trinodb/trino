@@ -46,7 +46,7 @@ public class TestGeometryStateFactory
         GeometryState state = factory.createSingleState();
         state.setGeometry(OGCGeometry.fromText("POINT (1 2)"));
         assertEquals(OGCGeometry.fromText("POINT (1 2)"), state.getGeometry());
-        assertTrue(state.getEstimatedSize() > 0, String.format("Estimated memory size was %d", state.getEstimatedSize()));
+        assertTrue(state.getEstimatedSize() > 0, "Estimated memory size was " + state.getEstimatedSize());
     }
 
     @Test
@@ -54,7 +54,7 @@ public class TestGeometryStateFactory
     {
         GeometryState state = factory.createGroupedState();
         assertNull(state.getGeometry());
-        assertTrue(state.getEstimatedSize() > 0, String.format("Estimated memory size was %d", state.getEstimatedSize()));
+        assertTrue(state.getEstimatedSize() > 0, "Estimated memory size was " + state.getEstimatedSize());
     }
 
     @Test

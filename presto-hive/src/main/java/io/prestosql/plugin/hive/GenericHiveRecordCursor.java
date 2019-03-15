@@ -79,6 +79,7 @@ import static io.prestosql.spi.type.Varchars.truncateToLength;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 class GenericHiveRecordCursor<K, V extends Writable>
@@ -518,7 +519,7 @@ class GenericHiveRecordCursor<K, V extends Writable>
     {
         if (!types[fieldId].getJavaType().equals(type)) {
             // we don't use Preconditions.checkArgument because it requires boxing fieldId, which affects inner loop performance
-            throw new IllegalArgumentException(String.format("Expected field to be %s, actual %s (field %s)", type, types[fieldId], fieldId));
+            throw new IllegalArgumentException(format("Expected field to be %s, actual %s (field %s)", type, types[fieldId], fieldId));
         }
     }
 

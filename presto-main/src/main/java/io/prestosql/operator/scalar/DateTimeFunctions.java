@@ -55,6 +55,7 @@ import static io.prestosql.util.DateTimeZoneIndex.packDateTimeWithZone;
 import static io.prestosql.util.DateTimeZoneIndex.unpackChronology;
 import static io.prestosql.util.Failures.checkCondition;
 import static java.lang.Math.toIntExact;
+import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -1268,7 +1269,7 @@ public final class DateTimeFunctions
                     case 'V': // %V Week (01..53), where Sunday is the first day of the week; used with %X
                     case 'X': // %X Year for the week where Sunday is the first day of the week, numeric, four digits; used with %V
                     case 'D': // %D Day of the month with English suffix (0th, 1st, 2nd, 3rd, …)
-                        throw new PrestoException(INVALID_FUNCTION_ARGUMENT, String.format("%%%s not supported in date format string", character));
+                        throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("%%%s not supported in date format string", character));
                     case '%': // %% A literal “%” character
                         builder.appendLiteral('%');
                         break;

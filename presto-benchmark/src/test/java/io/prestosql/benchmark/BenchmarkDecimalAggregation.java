@@ -85,7 +85,7 @@ public class BenchmarkDecimalAggregation
     public List<Page> benchmarkBuildHash(AggregationContext context)
     {
         return context.getQueryRunner()
-                .execute(String.format("SELECT %s FROM orders GROUP BY orderstatus", context.project));
+                .execute(format("SELECT %s FROM orders GROUP BY orderstatus", context.project));
     }
 
     public static void main(String[] args)
