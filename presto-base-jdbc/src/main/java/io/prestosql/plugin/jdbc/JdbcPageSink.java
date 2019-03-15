@@ -170,7 +170,10 @@ public class JdbcPageSink
         // rollback and close
         try (Connection connection = this.connection;
                 PreparedStatement statement = this.statement) {
-            connection.rollback();
+            // skip rollback if implicitly closed due to an error
+            if (!connection.isClosed()) {
+                connection.rollback();
+            }
         }
         catch (SQLException e) {
             throw new PrestoException(JDBC_ERROR, e);
