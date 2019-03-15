@@ -263,10 +263,6 @@ public class BenchmarkScanFilterAndProjectOperator
         operator.addSplit(new Split(new ConnectorId("test"), createLocalSplit(), Lifespan.taskWide()));
 
         for (int loops = 0; !operator.isFinished() && loops < 1_000_000; loops++) {
-            if (operator.isFinished()) {
-                break;
-            }
-
             Page outputPage = operator.getOutput();
             if (outputPage != null) {
                 outputPages.add(outputPage);
