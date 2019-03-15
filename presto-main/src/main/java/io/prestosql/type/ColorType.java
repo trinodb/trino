@@ -19,6 +19,8 @@ import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.type.AbstractIntType;
 import io.prestosql.spi.type.TypeSignature;
 
+import static java.lang.String.format;
+
 public class ColorType
         extends AbstractIntType
 {
@@ -54,7 +56,7 @@ public class ColorType
             return ColorFunctions.SystemColor.valueOf(-(color + 1)).getName();
         }
 
-        return String.format("#%02x%02x%02x",
+        return format("#%02x%02x%02x",
                 (color >> 16) & 0xFF,
                 (color >> 8) & 0xFF,
                 color & 0xFF);

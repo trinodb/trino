@@ -53,6 +53,7 @@ import static io.prestosql.matching.Capture.newCapture;
 import static io.prestosql.sql.planner.assertions.PlanAssert.assertPlan;
 import static io.prestosql.sql.planner.planPrinter.PlanPrinter.textLogicalPlan;
 import static io.prestosql.transaction.TransactionBuilder.transaction;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.fail;
 
@@ -116,7 +117,7 @@ public class RuleAssert
         RuleApplication ruleApplication = applyRule();
 
         if (ruleApplication.wasRuleApplied()) {
-            fail(String.format(
+            fail(format(
                     "Expected %s to not fire for:\n%s",
                     rule.getClass().getName(),
                     inTransaction(session -> textLogicalPlan(plan, ruleApplication.types, metadata.getFunctionRegistry(), StatsAndCosts.empty(), session, 2))));
@@ -129,7 +130,7 @@ public class RuleAssert
         TypeProvider types = ruleApplication.types;
 
         if (!ruleApplication.wasRuleApplied()) {
-            fail(String.format(
+            fail(format(
                     "%s did not fire for:\n%s",
                     rule.getClass().getName(),
                     formatPlan(plan, types)));
@@ -138,14 +139,14 @@ public class RuleAssert
         PlanNode actual = ruleApplication.getTransformedPlan();
 
         if (actual == plan) { // plans are not comparable, so we can only ensure they are not the same instance
-            fail(String.format(
+            fail(format(
                     "%s: rule fired but return the original plan:\n%s",
                     rule.getClass().getName(),
                     formatPlan(plan, types)));
         }
 
         if (!ImmutableSet.copyOf(plan.getOutputSymbols()).equals(ImmutableSet.copyOf(actual.getOutputSymbols()))) {
-            fail(String.format(
+            fail(format(
                     "%s: output schema of transformed and original plans are not equivalent\n" +
                             "\texpected: %s\n" +
                             "\tactual:   %s",

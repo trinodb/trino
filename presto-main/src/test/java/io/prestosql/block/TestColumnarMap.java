@@ -39,6 +39,7 @@ import static io.prestosql.spi.block.ColumnarMap.toColumnarMap;
 import static io.prestosql.spi.block.MethodHandleUtil.compose;
 import static io.prestosql.spi.block.MethodHandleUtil.nativeValueGetter;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 
@@ -54,9 +55,9 @@ public class TestColumnarMap
             expectedValues[mapIndex] = new Slice[MAP_SIZES[mapIndex]][];
             for (int entryIndex = 0; entryIndex < MAP_SIZES[mapIndex]; entryIndex++) {
                 Slice[] entry = new Slice[2];
-                entry[0] = Slices.utf8Slice(String.format("key.%d.%d", mapIndex, entryIndex));
+                entry[0] = Slices.utf8Slice(format("key.%d.%d", mapIndex, entryIndex));
                 if (entryIndex % 3 != 1) {
-                    entry[1] = Slices.utf8Slice(String.format("value.%d.%d", mapIndex, entryIndex));
+                    entry[1] = Slices.utf8Slice(format("value.%d.%d", mapIndex, entryIndex));
                 }
                 expectedValues[mapIndex][entryIndex] = entry;
             }

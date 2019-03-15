@@ -20,6 +20,7 @@ import io.prestosql.spi.type.Type;
 
 import java.util.Objects;
 
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 // TODO: When we move RowExpressions to the SPI, we should get rid of this. This is effectively a ConstantExpression.
@@ -32,7 +33,7 @@ public final class NullableValue
     {
         requireNonNull(type, "type is null");
         if (value != null && !Primitives.wrap(type.getJavaType()).isInstance(value)) {
-            throw new IllegalArgumentException(String.format("Object '%s' does not match type %s", value, type.getJavaType()));
+            throw new IllegalArgumentException(format("Object '%s' does not match type %s", value, type.getJavaType()));
         }
 
         this.type = type;

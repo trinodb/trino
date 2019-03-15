@@ -28,6 +28,7 @@ import static io.prestosql.tempto.query.QueryExecutor.query;
 import static io.prestosql.tests.TestGroups.SMOKE;
 import static io.prestosql.tests.hive.HiveTableDefinitions.NATION_PARTITIONED_BY_BIGINT_REGIONKEY;
 import static io.prestosql.tests.hive.HiveTableDefinitions.NATION_PARTITIONED_BY_REGIONKEY_NUMBER_OF_LINES_PER_SPLIT;
+import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestTablePartitioningInsertInto
@@ -71,7 +72,7 @@ public class TestTablePartitioningInsertInto
     {
         String partitionedNation = mutableTablesState().get(NATION_PARTITIONED_BY_BIGINT_REGIONKEY.getTableHandle()).getNameInDatabase();
         String targetNation = mutableTablesState().get(TARGET_NATION_NAME).getNameInDatabase();
-        String query = String.format(
+        String query = format(
                 "INSERT INTO %s SELECT p_nationkey, p_name, p_regionkey, p_comment FROM %s WHERE %s",
                 targetNation,
                 partitionedNation,

@@ -32,6 +32,7 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import static java.lang.String.format;
 import static java.util.Arrays.asList;
 import static java.util.Objects.requireNonNull;
 
@@ -317,10 +318,10 @@ public final class SortedRangeSet
     private SortedRangeSet checkCompatibility(ValueSet other)
     {
         if (!getType().equals(other.getType())) {
-            throw new IllegalStateException(String.format("Mismatched types: %s vs %s", getType(), other.getType()));
+            throw new IllegalStateException(format("Mismatched types: %s vs %s", getType(), other.getType()));
         }
         if (!(other instanceof SortedRangeSet)) {
-            throw new IllegalStateException(String.format("ValueSet is not a SortedRangeSet: %s", other.getClass()));
+            throw new IllegalStateException(format("ValueSet is not a SortedRangeSet: %s", other.getClass()));
         }
         return (SortedRangeSet) other;
     }
@@ -328,7 +329,7 @@ public final class SortedRangeSet
     private void checkTypeCompatibility(Marker marker)
     {
         if (!getType().equals(marker.getType())) {
-            throw new IllegalStateException(String.format("Marker of %s does not match SortedRangeSet of %s", marker.getType(), getType()));
+            throw new IllegalStateException(format("Marker of %s does not match SortedRangeSet of %s", marker.getType(), getType()));
         }
     }
 
@@ -377,7 +378,7 @@ public final class SortedRangeSet
         Builder add(Range range)
         {
             if (!type.equals(range.getType())) {
-                throw new IllegalArgumentException(String.format("Range type %s does not match builder type %s", range.getType(), type));
+                throw new IllegalArgumentException(format("Range type %s does not match builder type %s", range.getType(), type));
             }
 
             ranges.add(range);

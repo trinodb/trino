@@ -236,7 +236,7 @@ public abstract class AbstractTestFunctions
     protected static SqlDecimal maxPrecisionDecimal(long value)
     {
         final String maxPrecisionFormat = "%0" + (Decimals.MAX_PRECISION + (value < 0 ? 1 : 0)) + "d";
-        return decimal(String.format(maxPrecisionFormat, value));
+        return decimal(format(maxPrecisionFormat, value));
     }
 
     // this help function should only be used when the map contains null value

@@ -34,6 +34,7 @@ import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class InMemoryRecordSet
@@ -254,7 +255,7 @@ public class InMemoryRecordSet
     private static void checkArgument(boolean test, String message, Object... args)
     {
         if (!test) {
-            throw new IllegalArgumentException(String.format(message, args));
+            throw new IllegalArgumentException(format(message, args));
         }
     }
 

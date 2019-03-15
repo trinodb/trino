@@ -68,6 +68,7 @@ import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.prestosql.execution.executor.MultilevelSplitQueue.computeLevel;
 import static io.prestosql.util.MoreMath.min;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
@@ -806,14 +807,14 @@ public class TaskExecutor
             if (duration.compareTo(LONG_SPLIT_WARNING_THRESHOLD) >= 0) {
                 maxActiveSplitCount++;
                 stackTrace.append("\n");
-                stackTrace.append(String.format("\"%s\" tid=%s", splitInfo.getThreadId(), splitInfo.getThread().getId())).append("\n");
+                stackTrace.append(format("\"%s\" tid=%s", splitInfo.getThreadId(), splitInfo.getThread().getId())).append("\n");
                 for (StackTraceElement traceElement : splitInfo.getThread().getStackTrace()) {
                     stackTrace.append("\tat ").append(traceElement).append("\n");
                 }
             }
         }
 
-        return String.format(message, maxActiveSplitCount, LONG_SPLIT_WARNING_THRESHOLD).concat(stackTrace.toString());
+        return format(message, maxActiveSplitCount, LONG_SPLIT_WARNING_THRESHOLD).concat(stackTrace.toString());
     }
 
     @Managed

@@ -64,6 +64,7 @@ import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.Varchars.isVarcharType;
+import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNull;
@@ -198,16 +199,16 @@ public class TestCassandraConnector
                     assertTrue(keyValue.startsWith("key "));
                     int rowId = Integer.parseInt(keyValue.substring(4));
 
-                    assertEquals(keyValue, String.format("key %d", rowId));
+                    assertEquals(keyValue, "key " + rowId);
 
-                    assertEquals(Bytes.toHexString(cursor.getSlice(columnIndex.get("typebytes")).getBytes()), String.format("0x%08X", rowId));
+                    assertEquals(Bytes.toHexString(cursor.getSlice(columnIndex.get("typebytes")).getBytes()), format("0x%08X", rowId));
 
                     // VARINT is returned as a string
                     assertEquals(cursor.getSlice(columnIndex.get("typeinteger")).toStringUtf8(), String.valueOf(rowId));
 
                     assertEquals(cursor.getLong(columnIndex.get("typelong")), 1000 + rowId);
 
-                    assertEquals(cursor.getSlice(columnIndex.get("typeuuid")).toStringUtf8(), String.format("00000000-0000-0000-0000-%012d", rowId));
+                    assertEquals(cursor.getSlice(columnIndex.get("typeuuid")).toStringUtf8(), format("00000000-0000-0000-0000-%012d", rowId));
 
                     assertEquals(cursor.getSlice(columnIndex.get("typetimestamp")).toStringUtf8(), Long.valueOf(DATE.getTime()).toString());
 

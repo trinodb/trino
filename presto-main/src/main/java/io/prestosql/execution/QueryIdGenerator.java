@@ -27,6 +27,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Preconditions.checkState;
+import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class QueryIdGenerator
@@ -103,7 +104,7 @@ public class QueryIdGenerator
             }
         }
 
-        return new QueryId(String.format("%s_%05d_%s", lastTimestamp, counter++, coordinatorId));
+        return new QueryId(format("%s_%05d_%s", lastTimestamp, counter++, coordinatorId));
     }
 
     @VisibleForTesting

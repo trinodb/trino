@@ -24,6 +24,7 @@ import io.prestosql.spi.connector.ConnectorSession;
 import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static java.lang.Long.rotateLeft;
+import static java.lang.String.format;
 
 public final class TinyintType
         extends AbstractType
@@ -136,10 +137,10 @@ public final class TinyintType
     public void writeLong(BlockBuilder blockBuilder, long value)
     {
         if (value > Byte.MAX_VALUE) {
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, String.format("Value %d exceeds MAX_BYTE", value));
+            throw new PrestoException(GENERIC_INTERNAL_ERROR, format("Value %d exceeds MAX_BYTE", value));
         }
         else if (value < Byte.MIN_VALUE) {
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, String.format("Value %d is less than MIN_BYTE", value));
+            throw new PrestoException(GENERIC_INTERNAL_ERROR, format("Value %d is less than MIN_BYTE", value));
         }
 
         blockBuilder.writeByte((int) value).closeEntry();

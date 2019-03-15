@@ -80,7 +80,7 @@ public class ParametricScalar
         if (implementations.getExactImplementations().containsKey(boundSignature)) {
             ParametricScalarImplementation implementation = implementations.getExactImplementations().get(boundSignature);
             Optional<ScalarFunctionImplementation> scalarFunctionImplementation = implementation.specialize(boundSignature, boundVariables, typeManager, functionRegistry, isDeterministic());
-            checkCondition(scalarFunctionImplementation.isPresent(), FUNCTION_IMPLEMENTATION_ERROR, String.format("Exact implementation of %s do not match expected java types.", boundSignature.getName()));
+            checkCondition(scalarFunctionImplementation.isPresent(), FUNCTION_IMPLEMENTATION_ERROR, format("Exact implementation of %s do not match expected java types.", boundSignature.getName()));
             return scalarFunctionImplementation.get();
         }
 

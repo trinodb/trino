@@ -29,6 +29,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static io.prestosql.operator.Operator.NOT_BLOCKED;
+import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 public class PrioritizedSplitRunner
@@ -241,7 +242,7 @@ public class PrioritizedSplitRunner
 
     public String getInfo()
     {
-        return String.format("Split %-15s-%d %s (start = %s, wall = %s ms, cpu = %s ms, wait = %s ms, calls = %s)",
+        return format("Split %-15s-%d %s (start = %s, wall = %s ms, cpu = %s ms, wait = %s ms, calls = %s)",
                 taskHandle.getTaskId(),
                 splitId,
                 split.getInfo(),
@@ -255,6 +256,6 @@ public class PrioritizedSplitRunner
     @Override
     public String toString()
     {
-        return String.format("Split %-15s-%d", taskHandle.getTaskId(), splitId);
+        return format("Split %-15s-%d", taskHandle.getTaskId(), splitId);
     }
 }

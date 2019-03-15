@@ -383,10 +383,10 @@ public class TestAnalyzer
                 "a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a," +
                 "a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a," +
                 "a, a)";
-        assertFails(INVALID_PROCEDURE_ARGUMENTS, String.format("SELECT a, b, %s + 1 FROM t1 GROUP BY GROUPING SETS ((a), (a, b))", grouping));
-        assertFails(INVALID_PROCEDURE_ARGUMENTS, String.format("SELECT a, b, %s as g FROM t1 GROUP BY a, b HAVING g > 0", grouping));
-        assertFails(INVALID_PROCEDURE_ARGUMENTS, String.format("SELECT a, b, rank() OVER (PARTITION BY %s) FROM t1 GROUP BY GROUPING SETS ((a), (a, b))", grouping));
-        assertFails(INVALID_PROCEDURE_ARGUMENTS, String.format("SELECT a, b, rank() OVER (PARTITION BY a ORDER BY %s) FROM t1 GROUP BY GROUPING SETS ((a), (a, b))", grouping));
+        assertFails(INVALID_PROCEDURE_ARGUMENTS, format("SELECT a, b, %s + 1 FROM t1 GROUP BY GROUPING SETS ((a), (a, b))", grouping));
+        assertFails(INVALID_PROCEDURE_ARGUMENTS, format("SELECT a, b, %s as g FROM t1 GROUP BY a, b HAVING g > 0", grouping));
+        assertFails(INVALID_PROCEDURE_ARGUMENTS, format("SELECT a, b, rank() OVER (PARTITION BY %s) FROM t1 GROUP BY GROUPING SETS ((a), (a, b))", grouping));
+        assertFails(INVALID_PROCEDURE_ARGUMENTS, format("SELECT a, b, rank() OVER (PARTITION BY a ORDER BY %s) FROM t1 GROUP BY GROUPING SETS ((a), (a, b))", grouping));
     }
 
     @Test

@@ -28,6 +28,7 @@ import java.net.InetSocketAddress;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.prestosql.plugin.mongodb.ObjectIdType.OBJECT_ID;
+import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 
 public class TestMongoPlugin
@@ -41,7 +42,7 @@ public class TestMongoPlugin
         server = new MongoServer(new MemoryBackend());
 
         InetSocketAddress address = server.bind();
-        seed = String.format("%s:%d", address.getHostString(), address.getPort());
+        seed = format("%s:%d", address.getHostString(), address.getPort());
     }
 
     @Test

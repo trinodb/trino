@@ -30,6 +30,7 @@ import static io.prestosql.tests.TestGroups.LDAP;
 import static io.prestosql.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.prestosql.tests.TestGroups.SIMBA_JDBC;
 import static io.prestosql.tests.TpchTableResults.PRESTO_NATION_RESULT;
+import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 
@@ -124,7 +125,7 @@ public class LdapSimbaJdbcTests
     public void shouldFailForIncorrectTrustStore()
     {
         try {
-            String url = String.format(JDBC_URL_FORMAT, prestoServer(), ldapTruststorePath, "wrong_password");
+            String url = format(JDBC_URL_FORMAT, prestoServer(), ldapTruststorePath, "wrong_password");
             Connection connection = DriverManager.getConnection(url, ldapUserName, ldapUserPassword);
             Statement statement = connection.createStatement();
             statement.executeQuery(NATION_SELECT_ALL_QUERY);

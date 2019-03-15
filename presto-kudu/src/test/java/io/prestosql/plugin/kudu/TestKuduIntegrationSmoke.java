@@ -26,6 +26,7 @@ import java.util.regex.Pattern;
 
 import static io.airlift.tpch.TpchTable.ORDERS;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
+import static java.lang.String.format;
 import static org.testng.Assert.assertTrue;
 
 public class TestKuduIntegrationSmoke
@@ -70,7 +71,7 @@ public class TestKuduIntegrationSmoke
                 .row("clerk", "varchar", "", "")
                 .row("shippriority", "integer", "", "")
                 .row("comment", "varchar", "", "").build();
-        assertEquals(filteredActual, expectedColumns, String.format("%s != %s", filteredActual, expectedColumns));
+        assertEquals(filteredActual, expectedColumns, format("%s != %s", filteredActual, expectedColumns));
     }
 
     @Test

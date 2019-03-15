@@ -67,6 +67,7 @@ import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.HOURS;
 import static java.util.concurrent.TimeUnit.MINUTES;
@@ -537,7 +538,7 @@ public class MongoSession
                 typeSignature = new TypeSignature(StandardTypes.ROW,
                         IntStream.range(0, subTypes.size())
                                 .mapToObj(idx -> TypeSignatureParameter.of(
-                                        new NamedTypeSignature(Optional.of(new RowFieldName(String.format("%s%d", implicitPrefix, idx + 1), false)), subTypes.get(idx).get())))
+                                        new NamedTypeSignature(Optional.of(new RowFieldName(format("%s%d", implicitPrefix, idx + 1), false)), subTypes.get(idx).get())))
                                 .collect(toList()));
             }
         }

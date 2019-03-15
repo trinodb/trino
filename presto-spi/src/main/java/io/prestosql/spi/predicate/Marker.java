@@ -22,6 +22,7 @@ import io.prestosql.spi.type.Type;
 import java.util.Objects;
 import java.util.Optional;
 
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -155,7 +156,7 @@ public final class Marker
     private void checkTypeCompatibility(Marker marker)
     {
         if (!type.equals(marker.getType())) {
-            throw new IllegalArgumentException(String.format("Mismatched Marker types: %s vs %s", type, marker.getType()));
+            throw new IllegalArgumentException(format("Mismatched Marker types: %s vs %s", type, marker.getType()));
         }
     }
 

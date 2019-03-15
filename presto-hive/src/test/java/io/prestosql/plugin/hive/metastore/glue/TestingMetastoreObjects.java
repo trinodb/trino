@@ -32,6 +32,8 @@ import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Consumer;
 
+import static java.lang.String.format;
+
 public final class TestingMetastoreObjects
 {
     private TestingMetastoreObjects() {}
@@ -148,6 +150,6 @@ public final class TestingMetastoreObjects
 
     private static String generateRandom()
     {
-        return String.format("%04x", ThreadLocalRandom.current().nextInt());
+        return format("%04x", ThreadLocalRandom.current().nextInt());
     }
 }

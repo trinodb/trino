@@ -46,6 +46,7 @@ import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
 import static io.prestosql.type.JsonType.JSON;
 import static java.lang.Math.toIntExact;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.testng.Assert.assertEquals;
@@ -437,7 +438,8 @@ public class TestReadWrite
         @Override
         void writeNextRandomValue(Random random, BlockBuilder builder)
         {
-            String json = String.format("{\"%s\": %d, \"%s\": \"%s\"}",
+            String json = format(
+                    "{\"%s\": %d, \"%s\": \"%s\"}",
                     nextString(random, MAX_GENERATED_JSON_KEY_LENGTH),
                     random.nextInt(),
                     nextString(random, MAX_GENERATED_JSON_KEY_LENGTH),

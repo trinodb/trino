@@ -80,8 +80,7 @@ public abstract class AbstractResourceConfigurationManager
                     case QUERY_PRIORITY:
                     case FAIR:
                         for (ResourceGroupSpec subGroup : subGroups) {
-                            checkArgument(!subGroup.getSchedulingWeight().isPresent(),
-                                    String.format("Must use 'weighted' or 'weighted_fair' scheduling policy if specifying scheduling weight for '%s'", group.getName()));
+                            checkArgument(!subGroup.getSchedulingWeight().isPresent(), "Must use 'weighted' or 'weighted_fair' scheduling policy if specifying scheduling weight for '%s'", group.getName());
                         }
                         break;
                     default:

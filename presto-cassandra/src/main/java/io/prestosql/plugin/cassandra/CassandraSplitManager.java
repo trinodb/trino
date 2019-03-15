@@ -36,6 +36,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static io.prestosql.plugin.cassandra.CassandraSessionProperties.getSplitsPerNode;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class CassandraSplitManager
@@ -160,7 +161,7 @@ public class CassandraSplitManager
                     sb.append(value);
                     size++;
                     if (size > partitionSizeForBatchSelect) {
-                        String partitionId = String.format("%s in (%s)", partitionKeyColumnName, sb.toString());
+                        String partitionId = format("%s in (%s)", partitionKeyColumnName, sb.toString());
                         builder.add(createSplitForClusteringPredicates(cassTableHandle, partitionId, hostMap.get(entry.getKey()), clusteringPredicates));
                         size = 0;
                         sb.setLength(0);
@@ -168,7 +169,7 @@ public class CassandraSplitManager
                     }
                 }
                 if (size > 0) {
-                    String partitionId = String.format("%s in (%s)", partitionKeyColumnName, sb.toString());
+                    String partitionId = format("%s in (%s)", partitionKeyColumnName, sb.toString());
                     builder.add(createSplitForClusteringPredicates(cassTableHandle, partitionId, hostMap.get(entry.getKey()), clusteringPredicates));
                 }
             }

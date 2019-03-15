@@ -39,6 +39,7 @@ import java.util.Set;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.plugin.thrift.server.SplitInfo.indexSplit;
 import static io.prestosql.tests.AbstractTestIndexedQueries.INDEX_SPEC;
+import static java.lang.String.format;
 
 public class ThriftIndexedTpchService
         extends ThriftTpchService
@@ -95,7 +96,7 @@ public class ThriftIndexedTpchService
                 splitInfo.getTableName(),
                 schemaNameToScaleFactor(splitInfo.getSchemaName()),
                 ImmutableSet.copyOf(splitInfo.getLookupColumnNames()))
-                .orElseThrow(() -> new IllegalArgumentException(String.format("No such index: %s%s", splitInfo.getTableName(), splitInfo.getLookupColumnNames())));
+                .orElseThrow(() -> new IllegalArgumentException(format("No such index: %s%s", splitInfo.getTableName(), splitInfo.getLookupColumnNames())));
         List<Type> lookupColumnTypes = types(splitInfo.getTableName(), splitInfo.getLookupColumnNames());
         RecordSet keyRecordSet = new ListBasedRecordSet(splitInfo.getKeys(), lookupColumnTypes);
         RecordSet outputRecordSet = lookupIndexKeys(keyRecordSet, indexedTable, outputColumnNames);

@@ -20,6 +20,7 @@ import io.prestosql.spi.type.Type;
 
 import java.util.Objects;
 
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -38,7 +39,7 @@ public final class Range
         requireNonNull(low, "value is null");
         requireNonNull(high, "value is null");
         if (!low.getType().equals(high.getType())) {
-            throw new IllegalArgumentException(String.format("Marker types do not match: %s vs %s", low.getType(), high.getType()));
+            throw new IllegalArgumentException(format("Marker types do not match: %s vs %s", low.getType(), high.getType()));
         }
         if (low.getBound() == Marker.Bound.BELOW) {
             throw new IllegalArgumentException("low bound must be EXACTLY or ABOVE");
@@ -168,14 +169,14 @@ public final class Range
     private void checkTypeCompatibility(Range range)
     {
         if (!getType().equals(range.getType())) {
-            throw new IllegalArgumentException(String.format("Mismatched Range types: %s vs %s", getType(), range.getType()));
+            throw new IllegalArgumentException(format("Mismatched Range types: %s vs %s", getType(), range.getType()));
         }
     }
 
     private void checkTypeCompatibility(Marker marker)
     {
         if (!getType().equals(marker.getType())) {
-            throw new IllegalArgumentException(String.format("Marker of %s does not match Range of %s", marker.getType(), getType()));
+            throw new IllegalArgumentException(format("Marker of %s does not match Range of %s", marker.getType(), getType()));
         }
     }
 

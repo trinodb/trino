@@ -43,6 +43,7 @@ import static io.prestosql.tests.TestGroups.JDBC;
 import static io.prestosql.tests.TestGroups.SIMBA_JDBC;
 import static io.prestosql.tests.hive.AllSimpleTypesTableDefinitions.ALL_HIVE_SIMPLE_TYPES_TEXTFILE;
 import static io.prestosql.tests.utils.JdbcDriverUtils.usingTeradataJdbcDriver;
+import static java.lang.String.format;
 import static java.sql.JDBCType.BIGINT;
 import static java.sql.JDBCType.BOOLEAN;
 import static java.sql.JDBCType.CHAR;
@@ -137,8 +138,8 @@ public class PreparedStatements
     {
         if (usingTeradataJdbcDriver(connection())) {
             String tableNameInDatabase = mutableTablesState().get(TABLE_NAME_MUTABLE).getNameInDatabase();
-            String insertSqlWithTable = String.format(INSERT_SQL, tableNameInDatabase);
-            String selectSqlWithTable = String.format(SELECT_STAR_SQL, tableNameInDatabase);
+            String insertSqlWithTable = format(INSERT_SQL, tableNameInDatabase);
+            String selectSqlWithTable = format(SELECT_STAR_SQL, tableNameInDatabase);
 
             defaultQueryExecutor().executeQuery(
                     insertSqlWithTable,
@@ -175,8 +176,8 @@ public class PreparedStatements
     {
         if (usingTeradataJdbcDriver(connection())) {
             String tableNameInDatabase = mutableTablesState().get(TABLE_NAME_MUTABLE).getNameInDatabase();
-            String insertSqlWithTable = String.format(INSERT_SQL, tableNameInDatabase);
-            String selectSqlWithTable = String.format(SELECT_STAR_SQL, tableNameInDatabase);
+            String insertSqlWithTable = format(INSERT_SQL, tableNameInDatabase);
+            String selectSqlWithTable = format(SELECT_STAR_SQL, tableNameInDatabase);
 
             query(
                     insertSqlWithTable,
@@ -281,8 +282,8 @@ public class PreparedStatements
     {
         if (usingTeradataJdbcDriver(connection())) {
             String tableNameInDatabase = mutableTablesState().get(TABLE_NAME_MUTABLE).getNameInDatabase();
-            String insertSqlWithTable = "PREPARE ps1 from " + String.format(INSERT_SQL, tableNameInDatabase);
-            String selectSqlWithTable = String.format(SELECT_STAR_SQL, tableNameInDatabase);
+            String insertSqlWithTable = "PREPARE ps1 from " + format(INSERT_SQL, tableNameInDatabase);
+            String selectSqlWithTable = format(SELECT_STAR_SQL, tableNameInDatabase);
             String executeSql = "EXECUTE ps1 using ";
 
             Statement statement = connection().createStatement();
@@ -387,8 +388,8 @@ public class PreparedStatements
     {
         if (usingTeradataJdbcDriver(connection())) {
             String tableNameInDatabase = mutableTablesState().get(TABLE_NAME_MUTABLE).getNameInDatabase();
-            String insertSqlWithTable = "PREPARE ps1 from " + String.format(INSERT_SQL, tableNameInDatabase);
-            String selectSqlWithTable = String.format(SELECT_STAR_SQL, tableNameInDatabase);
+            String insertSqlWithTable = "PREPARE ps1 from " + format(INSERT_SQL, tableNameInDatabase);
+            String selectSqlWithTable = format(SELECT_STAR_SQL, tableNameInDatabase);
             String executeSql = "EXECUTE ps1 using ";
 
             Statement statement = connection().createStatement();

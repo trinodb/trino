@@ -61,6 +61,6 @@ public class TableMetadata
         return getColumns().stream()
                 .filter(columnMetadata -> columnMetadata.getName().equals(name))
                 .findFirst()
-                .orElseThrow(() -> new IllegalArgumentException(String.format("Invalid column name: %s", name)));
+                .orElseThrow(() -> new IllegalArgumentException("Invalid column name: " + name));
     }
 }
