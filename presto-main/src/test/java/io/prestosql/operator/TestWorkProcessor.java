@@ -25,6 +25,10 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import static io.prestosql.operator.WorkProcessor.ProcessState.Type.BLOCKED;
+import static io.prestosql.operator.WorkProcessor.ProcessState.Type.FINISHED;
+import static io.prestosql.operator.WorkProcessor.ProcessState.Type.RESULT;
+import static io.prestosql.operator.WorkProcessor.ProcessState.Type.YIELD;
 import static io.prestosql.operator.WorkProcessorAssertion.assertBlocks;
 import static io.prestosql.operator.WorkProcessorAssertion.assertFinishes;
 import static io.prestosql.operator.WorkProcessorAssertion.assertResult;
@@ -218,6 +222,31 @@ public class TestWorkProcessor
         assertResult(processor, 3);
         assertResult(processor, 4);
         assertFinishes(processor);
+    }
+
+    @Test(timeOut = 5000)
+    public void testProcessStateMonitor()
+    {
+        SettableFuture<?> future = SettableFuture.create();
+
+        List<ProcessState<Integer>> baseScenario = ImmutableList.of(
+                ProcessState.ofResult(1),
+                ProcessState.yield(),
+                ProcessState.blocked(future),
+                ProcessState.finished());
+
+        ImmutableList.Builder<ProcessState.Type> actions = ImmutableList.builder();
+
+        WorkProcessor<Integer> processor = processorFrom(baseScenario)
+                .withProcessStateMonitor(state -> actions.add(state.getType()));
+
+        assertResult(processor, 1);
+        assertYields(processor);
+        assertBlocks(processor);
+        assertUnblocks(processor, future);
+        assertFinishes(processor);
+
+        assertEquals(actions.build(), ImmutableList.of(RESULT, YIELD, BLOCKED, FINISHED));
     }
 
     @Test(timeOut = 5000)

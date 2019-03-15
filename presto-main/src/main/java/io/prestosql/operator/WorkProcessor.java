@@ -22,6 +22,7 @@ import java.util.Comparator;
 import java.util.Iterator;
 import java.util.Optional;
 import java.util.function.BooleanSupplier;
+import java.util.function.Consumer;
 import java.util.function.Function;
 
 import static java.util.Objects.requireNonNull;
@@ -62,6 +63,11 @@ public interface WorkProcessor<T>
     default WorkProcessor<T> yielding(BooleanSupplier yieldSignal)
     {
         return WorkProcessorUtils.yielding(this, yieldSignal);
+    }
+
+    default WorkProcessor<T> withProcessStateMonitor(Consumer<ProcessState<? extends T>> monitor)
+    {
+        return WorkProcessorUtils.processStateMonitor(this, monitor);
     }
 
     default <R> WorkProcessor<R> flatMap(Function<T, WorkProcessor<R>> mapper)
@@ -295,7 +301,7 @@ public interface WorkProcessor<T>
         private static final ProcessState<?> YIELD_STATE = new ProcessState<>(Type.YIELD, Optional.empty(), Optional.empty());
         private static final ProcessState<?> FINISHED_STATE = new ProcessState<>(Type.FINISHED, Optional.empty(), Optional.empty());
 
-        enum Type
+        public enum Type
         {
             BLOCKED,
             YIELD,
@@ -348,17 +354,17 @@ public interface WorkProcessor<T>
             return (ProcessState<T>) FINISHED_STATE;
         }
 
-        Type getType()
+        public Type getType()
         {
             return type;
         }
 
-        Optional<T> getResult()
+        public Optional<T> getResult()
         {
             return result;
         }
 
-        Optional<ListenableFuture<?>> getBlocked()
+        public Optional<ListenableFuture<?>> getBlocked()
         {
             return blocked;
         }

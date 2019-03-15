@@ -26,6 +26,7 @@ import java.util.Iterator;
 import java.util.Optional;
 import java.util.PriorityQueue;
 import java.util.function.BooleanSupplier;
+import java.util.function.Consumer;
 import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -177,20 +178,36 @@ public final class WorkProcessorUtils
             }
             lastProcessYielded = false;
 
-            if (processor.process()) {
-                if (processor.isFinished()) {
-                    return ProcessState.finished();
-                }
-
-                return ProcessState.ofResult(processor.getResult());
-            }
-
-            if (processor.isBlocked()) {
-                return ProcessState.blocked(processor.getBlockedFuture());
-            }
-
-            return ProcessState.yield();
+            return getNextState(processor);
         }
+    }
+
+    static <T> WorkProcessor<T> processStateMonitor(WorkProcessor<T> processor, Consumer<ProcessState<? extends T>> monitor)
+    {
+        requireNonNull(processor, "processor is null");
+        requireNonNull(monitor, "monitor is null");
+        return WorkProcessor.create(() -> {
+            ProcessState<T> state = getNextState(processor);
+            monitor.accept(state);
+            return state;
+        });
+    }
+
+    private static <T> ProcessState<T> getNextState(WorkProcessor<T> processor)
+    {
+        if (processor.process()) {
+            if (processor.isFinished()) {
+                return ProcessState.finished();
+            }
+
+            return ProcessState.ofResult(processor.getResult());
+        }
+
+        if (processor.isBlocked()) {
+            return ProcessState.blocked(processor.getBlockedFuture());
+        }
+
+        return ProcessState.yield();
     }
 
     static <T, R> WorkProcessor<R> flatMap(WorkProcessor<T> processor, Function<T, WorkProcessor<R>> mapper)
