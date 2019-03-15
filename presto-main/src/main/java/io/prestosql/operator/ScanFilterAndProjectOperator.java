@@ -215,10 +215,10 @@ public class ScanFilterAndProjectOperator
         final TableHandle table;
         final List<ColumnHandle> columns;
         final List<Type> types;
+        final LocalMemoryContext memoryContext;
+        final AggregatedMemoryContext localAggregatedMemoryContext;
         final LocalMemoryContext pageSourceMemoryContext;
         final LocalMemoryContext outputMemoryContext;
-        final LocalMemoryContext pageProcessorMemoryContext;
-        final AggregatedMemoryContext mergePagesMemoryContext;
         final DataSize minOutputPageSize;
         final int minOutputPageRowCount;
 
@@ -241,10 +241,10 @@ public class ScanFilterAndProjectOperator
             this.table = requireNonNull(table, "table is null");
             this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
             this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
-            this.pageSourceMemoryContext = aggregatedMemoryContext.newLocalMemoryContext(ScanFilterAndProjectOperator.class.getSimpleName());
-            this.outputMemoryContext = aggregatedMemoryContext.newLocalMemoryContext(ScanFilterAndProjectOperator.class.getSimpleName());
-            this.pageProcessorMemoryContext = newSimpleAggregatedMemoryContext().newLocalMemoryContext(ScanFilterAndProjectOperator.class.getSimpleName());
-            this.mergePagesMemoryContext = newSimpleAggregatedMemoryContext();
+            this.memoryContext = aggregatedMemoryContext.newLocalMemoryContext(ScanFilterAndProjectOperator.class.getSimpleName());
+            this.localAggregatedMemoryContext = newSimpleAggregatedMemoryContext();
+            this.pageSourceMemoryContext = localAggregatedMemoryContext.newLocalMemoryContext(ScanFilterAndProjectOperator.class.getSimpleName());
+            this.outputMemoryContext = localAggregatedMemoryContext.newLocalMemoryContext(ScanFilterAndProjectOperator.class.getSimpleName());
             this.minOutputPageSize = requireNonNull(minOutputPageSize, "minOutputPageSize is null");
             this.minOutputPageRowCount = minOutputPageRowCount;
         }
@@ -253,8 +253,7 @@ public class ScanFilterAndProjectOperator
         public ProcessState<WorkProcessor<Page>> process()
         {
             if (operatorFinishing || finished) {
-                pageSourceMemoryContext.close();
-                outputMemoryContext.close();
+                memoryContext.close();
                 return ProcessState.finished();
             }
 
@@ -286,7 +285,8 @@ public class ScanFilterAndProjectOperator
         {
             return WorkProcessor
                     .create(new RecordCursorToPages(cursorProcessor, types, pageSourceMemoryContext, outputMemoryContext))
-                    .yielding(() -> operatorContext.getDriverContext().getYieldSignal().isSet());
+                    .yielding(() -> operatorContext.getDriverContext().getYieldSignal().isSet())
+                    .withProcessStateMonitor(state -> memoryContext.setBytes(localAggregatedMemoryContext.getBytes()));
         }
 
         WorkProcessor<Page> processPageSource()
@@ -297,10 +297,10 @@ public class ScanFilterAndProjectOperator
                     .flatMap(page -> pageProcessor.createWorkProcessor(
                             operatorContext.getSession().toConnectorSession(),
                             operatorContext.getDriverContext().getYieldSignal(),
-                            pageProcessorMemoryContext,
+                            outputMemoryContext,
                             page))
-                    .transformProcessor(processor -> MergePages.mergePages(types, minOutputPageSize.toBytes(), minOutputPageRowCount, processor, mergePagesMemoryContext))
-                    .withProcessStateMonitor(state -> outputMemoryContext.setBytes(mergePagesMemoryContext.getBytes() + pageProcessorMemoryContext.getBytes()));
+                    .transformProcessor(processor -> MergePages.mergePages(types, minOutputPageSize.toBytes(), minOutputPageRowCount, processor, localAggregatedMemoryContext))
+                    .withProcessStateMonitor(state -> memoryContext.setBytes(localAggregatedMemoryContext.getBytes()));
         }
     }
 
