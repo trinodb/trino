@@ -48,6 +48,9 @@ public final class SqlTime
         return millis;
     }
 
+    /**
+     * @deprecated applicable in legacy timestamp semantics only
+     */
     @Deprecated
     public long getMillisUtc()
     {
@@ -55,13 +58,15 @@ public final class SqlTime
         return millis;
     }
 
+    /**
+     * @deprecated applicable in legacy timestamp semantics only
+     */
     @Deprecated
     public Optional<TimeZoneKey> getSessionTimeZoneKey()
     {
         return sessionTimeZoneKey;
     }
 
-    @Deprecated
     public boolean isLegacyTimestamp()
     {
         return sessionTimeZoneKey.isPresent();
