@@ -19,6 +19,7 @@ import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.units.DataSize;
 import io.prestosql.memory.context.LocalMemoryContext;
 import io.prestosql.metadata.Split;
+import io.prestosql.metadata.TableHandle;
 import io.prestosql.operator.project.CursorProcessor;
 import io.prestosql.operator.project.CursorProcessorOutput;
 import io.prestosql.operator.project.MergingPageOutput;
@@ -58,6 +59,7 @@ public class ScanFilterAndProjectOperator
     private final OperatorContext operatorContext;
     private final PlanNodeId planNodeId;
     private final PageSourceProvider pageSourceProvider;
+    private final TableHandle table;
     private final List<ColumnHandle> columns;
     private final PageBuilder pageBuilder;
     private final CursorProcessor cursorProcessor;
@@ -84,6 +86,7 @@ public class ScanFilterAndProjectOperator
             PageSourceProvider pageSourceProvider,
             CursorProcessor cursorProcessor,
             PageProcessor pageProcessor,
+            TableHandle table,
             Iterable<ColumnHandle> columns,
             Iterable<Type> types,
             MergingPageOutput mergingOutput)
@@ -93,6 +96,7 @@ public class ScanFilterAndProjectOperator
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.planNodeId = requireNonNull(sourceId, "sourceId is null");
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
+        this.table = requireNonNull(table, "table is null");
         this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
         this.pageSourceMemoryContext = operatorContext.newLocalSystemMemoryContext(ScanFilterAndProjectOperator.class.getSimpleName());
         this.pageProcessorMemoryContext = newSimpleAggregatedMemoryContext().newLocalMemoryContext(ScanFilterAndProjectOperator.class.getSimpleName());
@@ -218,7 +222,7 @@ public class ScanFilterAndProjectOperator
         }
 
         if (!finishing && pageSource == null && cursor == null) {
-            ConnectorPageSource source = pageSourceProvider.createPageSource(operatorContext.getSession(), split, columns);
+            ConnectorPageSource source = pageSourceProvider.createPageSource(operatorContext.getSession(), split, table, columns);
             if (source instanceof RecordPageSource) {
                 cursor = ((RecordPageSource) source).getCursor();
             }
@@ -330,6 +334,7 @@ public class ScanFilterAndProjectOperator
         private final Supplier<PageProcessor> pageProcessor;
         private final PlanNodeId sourceId;
         private final PageSourceProvider pageSourceProvider;
+        private final TableHandle table;
         private final List<ColumnHandle> columns;
         private final List<Type> types;
         private final DataSize minOutputPageSize;
@@ -343,6 +348,7 @@ public class ScanFilterAndProjectOperator
                 PageSourceProvider pageSourceProvider,
                 Supplier<CursorProcessor> cursorProcessor,
                 Supplier<PageProcessor> pageProcessor,
+                TableHandle table,
                 Iterable<ColumnHandle> columns,
                 List<Type> types,
                 DataSize minOutputPageSize,
@@ -354,6 +360,7 @@ public class ScanFilterAndProjectOperator
             this.pageProcessor = requireNonNull(pageProcessor, "pageProcessor is null");
             this.sourceId = requireNonNull(sourceId, "sourceId is null");
             this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
+            this.table = requireNonNull(table, "table is null");
             this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
             this.types = requireNonNull(types, "types is null");
             this.minOutputPageSize = requireNonNull(minOutputPageSize, "minOutputPageSize is null");
@@ -377,6 +384,7 @@ public class ScanFilterAndProjectOperator
                     pageSourceProvider,
                     cursorProcessor.get(),
                     pageProcessor.get(),
+                    table,
                     columns,
                     types,
                     new MergingPageOutput(types, minOutputPageSize.toBytes(), minOutputPageRowCount));

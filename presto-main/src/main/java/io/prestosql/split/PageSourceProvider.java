@@ -15,6 +15,7 @@ package io.prestosql.split;
 
 import io.prestosql.Session;
 import io.prestosql.metadata.Split;
+import io.prestosql.metadata.TableHandle;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorPageSource;
 
@@ -22,5 +23,5 @@ import java.util.List;
 
 public interface PageSourceProvider
 {
-    ConnectorPageSource createPageSource(Session session, Split split, List<ColumnHandle> columns);
+    ConnectorPageSource createPageSource(Session session, Split split, TableHandle table, List<ColumnHandle> columns);
 }

@@ -16,10 +16,10 @@ package io.prestosql.split;
 import io.prestosql.Session;
 import io.prestosql.connector.ConnectorId;
 import io.prestosql.metadata.Split;
+import io.prestosql.metadata.TableHandle;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorPageSource;
 import io.prestosql.spi.connector.ConnectorPageSourceProvider;
-import io.prestosql.spi.connector.ConnectorSession;
 
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
@@ -47,21 +47,24 @@ public class PageSourceManager
     }
 
     @Override
-    public ConnectorPageSource createPageSource(Session session, Split split, List<ColumnHandle> columns)
+    public ConnectorPageSource createPageSource(Session session, Split split, TableHandle table, List<ColumnHandle> columns)
     {
-        requireNonNull(split, "split is null");
         requireNonNull(columns, "columns is null");
+        checkArgument(split.getConnectorId().equals(table.getConnectorId()), "mismatched split and table");
+        ConnectorId connectorId = split.getConnectorId();
 
-        ConnectorSession connectorSession = session.toConnectorSession(split.getConnectorId());
-        return getPageSourceProvider(split).createPageSource(split.getTransactionHandle(), connectorSession, split.getConnectorSplit(), columns);
+        return getPageSourceProvider(connectorId).createPageSource(
+                table.getTransaction(),
+                session.toConnectorSession(connectorId),
+                split.getConnectorSplit(),
+                table.getConnectorHandle(),
+                columns);
     }
 
-    private ConnectorPageSourceProvider getPageSourceProvider(Split split)
+    private ConnectorPageSourceProvider getPageSourceProvider(ConnectorId connectorId)
     {
-        ConnectorPageSourceProvider provider = pageSourceProviders.get(split.getConnectorId());
-
-        checkArgument(provider != null, "No page stream provider for '%s", split.getConnectorId());
-
+        ConnectorPageSourceProvider provider = pageSourceProviders.get(connectorId);
+        checkArgument(provider != null, "No page source provider for connector: %s", connectorId);
         return provider;
     }
 }
