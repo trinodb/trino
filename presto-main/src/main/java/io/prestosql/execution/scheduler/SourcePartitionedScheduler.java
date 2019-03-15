@@ -242,7 +242,6 @@ public class SourcePartitionedScheduler
                             // Scheduling an empty split kicks off necessary driver instantiation to make this work.
                             pendingSplits.add(new Split(
                                     splitSource.getConnectorId(),
-                                    splitSource.getTransactionHandle(),
                                     new EmptySplit(splitSource.getConnectorId()),
                                     lifespan));
                         }

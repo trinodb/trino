@@ -19,7 +19,6 @@ import io.prestosql.connector.ConnectorId;
 import io.prestosql.execution.Lifespan;
 import io.prestosql.metadata.Split;
 import io.prestosql.spi.connector.ConnectorPartitionHandle;
-import io.prestosql.spi.connector.ConnectorTransactionHandle;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -45,12 +44,6 @@ public class BufferingSplitSource
     public ConnectorId getConnectorId()
     {
         return source.getConnectorId();
-    }
-
-    @Override
-    public ConnectorTransactionHandle getTransactionHandle()
-    {
-        return source.getTransactionHandle();
     }
 
     @Override

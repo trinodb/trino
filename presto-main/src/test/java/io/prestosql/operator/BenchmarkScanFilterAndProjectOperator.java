@@ -19,6 +19,7 @@ import io.airlift.units.DataSize;
 import io.prestosql.SequencePageBuilder;
 import io.prestosql.Session;
 import io.prestosql.connector.ConnectorId;
+import io.prestosql.execution.Lifespan;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Split;
 import io.prestosql.operator.ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory;
@@ -41,7 +42,6 @@ import io.prestosql.sql.tree.Expression;
 import io.prestosql.testing.TestingMetadata.TestingColumnHandle;
 import io.prestosql.testing.TestingSession;
 import io.prestosql.testing.TestingTaskContext;
-import io.prestosql.testing.TestingTransactionHandle;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -260,7 +260,7 @@ public class BenchmarkScanFilterAndProjectOperator
         SourceOperator operator = (SourceOperator) context.getOperatorFactory().createOperator(driverContext);
 
         ImmutableList.Builder<Page> outputPages = ImmutableList.builder();
-        operator.addSplit(new Split(new ConnectorId("test"), TestingTransactionHandle.create(), createLocalSplit()));
+        operator.addSplit(new Split(new ConnectorId("test"), createLocalSplit(), Lifespan.taskWide()));
 
         for (int loops = 0; !operator.isFinished() && loops < 1_000_000; loops++) {
             if (operator.isFinished()) {

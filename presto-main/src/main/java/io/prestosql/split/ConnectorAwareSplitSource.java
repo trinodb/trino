@@ -23,7 +23,6 @@ import io.prestosql.spi.connector.ConnectorPartitionHandle;
 import io.prestosql.spi.connector.ConnectorSplit;
 import io.prestosql.spi.connector.ConnectorSplitSource;
 import io.prestosql.spi.connector.ConnectorSplitSource.ConnectorSplitBatch;
-import io.prestosql.spi.connector.ConnectorTransactionHandle;
 
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
@@ -33,16 +32,11 @@ public class ConnectorAwareSplitSource
         implements SplitSource
 {
     private final ConnectorId connectorId;
-    private final ConnectorTransactionHandle transactionHandle;
     private final ConnectorSplitSource source;
 
-    public ConnectorAwareSplitSource(
-            ConnectorId connectorId,
-            ConnectorTransactionHandle transactionHandle,
-            ConnectorSplitSource source)
+    public ConnectorAwareSplitSource(ConnectorId connectorId, ConnectorSplitSource source)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
-        this.transactionHandle = requireNonNull(transactionHandle, "transactionHandle is null");
         this.source = requireNonNull(source, "source is null");
     }
 
@@ -53,19 +47,13 @@ public class ConnectorAwareSplitSource
     }
 
     @Override
-    public ConnectorTransactionHandle getTransactionHandle()
-    {
-        return transactionHandle;
-    }
-
-    @Override
     public ListenableFuture<SplitBatch> getNextBatch(ConnectorPartitionHandle partitionHandle, Lifespan lifespan, int maxSize)
     {
         ListenableFuture<ConnectorSplitBatch> nextBatch = toListenableFuture(source.getNextBatch(partitionHandle, maxSize));
         return Futures.transform(nextBatch, splitBatch -> {
             ImmutableList.Builder<Split> result = ImmutableList.builder();
             for (ConnectorSplit connectorSplit : splitBatch.getSplits()) {
-                result.add(new Split(connectorId, transactionHandle, connectorSplit, lifespan));
+                result.add(new Split(connectorId, connectorSplit, lifespan));
             }
             return new SplitBatch(result.build(), splitBatch.isNoMoreSplits());
         }, directExecutor());

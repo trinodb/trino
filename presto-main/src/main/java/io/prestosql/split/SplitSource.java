@@ -18,7 +18,6 @@ import io.prestosql.connector.ConnectorId;
 import io.prestosql.execution.Lifespan;
 import io.prestosql.metadata.Split;
 import io.prestosql.spi.connector.ConnectorPartitionHandle;
-import io.prestosql.spi.connector.ConnectorTransactionHandle;
 
 import java.io.Closeable;
 import java.util.List;
@@ -29,8 +28,6 @@ public interface SplitSource
         extends Closeable
 {
     ConnectorId getConnectorId();
-
-    ConnectorTransactionHandle getTransactionHandle();
 
     ListenableFuture<SplitBatch> getNextBatch(ConnectorPartitionHandle partitionHandle, Lifespan lifespan, int maxSize);
 

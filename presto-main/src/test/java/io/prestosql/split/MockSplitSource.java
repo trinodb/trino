@@ -23,7 +23,6 @@ import io.prestosql.metadata.Split;
 import io.prestosql.spi.HostAddress;
 import io.prestosql.spi.connector.ConnectorPartitionHandle;
 import io.prestosql.spi.connector.ConnectorSplit;
-import io.prestosql.spi.connector.ConnectorTransactionHandle;
 
 import javax.annotation.concurrent.NotThreadSafe;
 
@@ -41,7 +40,7 @@ import static io.prestosql.split.MockSplitSource.Action.FINISH;
 public class MockSplitSource
         implements SplitSource
 {
-    private static final Split SPLIT = new Split(new ConnectorId("test"), new ConnectorTransactionHandle() {}, new MockConnectorSplit());
+    private static final Split SPLIT = new Split(new ConnectorId("test"), new MockConnectorSplit(), Lifespan.taskWide());
     private static final SettableFuture<List<Split>> COMPLETED_FUTURE = SettableFuture.create();
 
     static {
@@ -86,12 +85,6 @@ public class MockSplitSource
 
     @Override
     public ConnectorId getConnectorId()
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public ConnectorTransactionHandle getTransactionHandle()
     {
         throw new UnsupportedOperationException();
     }

@@ -21,6 +21,7 @@ import io.airlift.slice.Slice;
 import io.airlift.stats.Distribution;
 import io.airlift.units.DataSize;
 import io.prestosql.connector.ConnectorId;
+import io.prestosql.execution.Lifespan;
 import io.prestosql.metadata.MetadataManager;
 import io.prestosql.metadata.Split;
 import io.prestosql.operator.DriverContext;
@@ -45,7 +46,6 @@ import io.prestosql.sql.planner.plan.PlanNodeId;
 import io.prestosql.sql.relational.RowExpression;
 import io.prestosql.testing.TestingConnectorSession;
 import io.prestosql.testing.TestingSplit;
-import io.prestosql.testing.TestingTransactionHandle;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -500,7 +500,7 @@ public class TestOrcPageSourceMemoryTracking
                     TEST_TABLE_HANDLE,
                     columns.stream().map(columnHandle -> (ColumnHandle) columnHandle).collect(toList()));
             SourceOperator operator = sourceOperatorFactory.createOperator(driverContext);
-            operator.addSplit(new Split(new ConnectorId("test"), TestingTransactionHandle.create(), TestingSplit.createLocalSplit()));
+            operator.addSplit(new Split(new ConnectorId("test"), TestingSplit.createLocalSplit(), Lifespan.taskWide()));
             return operator;
         }
 
@@ -526,7 +526,7 @@ public class TestOrcPageSourceMemoryTracking
                     new DataSize(0, BYTE),
                     0);
             SourceOperator operator = sourceOperatorFactory.createOperator(driverContext);
-            operator.addSplit(new Split(new ConnectorId("test"), TestingTransactionHandle.create(), TestingSplit.createLocalSplit()));
+            operator.addSplit(new Split(new ConnectorId("test"), TestingSplit.createLocalSplit(), Lifespan.taskWide()));
             return operator;
         }
 

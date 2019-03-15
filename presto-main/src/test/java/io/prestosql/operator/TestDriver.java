@@ -20,6 +20,7 @@ import com.google.common.util.concurrent.SettableFuture;
 import com.google.common.util.concurrent.Uninterruptibles;
 import io.airlift.units.Duration;
 import io.prestosql.connector.ConnectorId;
+import io.prestosql.execution.Lifespan;
 import io.prestosql.execution.ScheduledSplit;
 import io.prestosql.execution.TaskSource;
 import io.prestosql.memory.context.LocalMemoryContext;
@@ -36,7 +37,6 @@ import io.prestosql.split.PageSourceProvider;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.PageConsumerOperator;
-import io.prestosql.testing.TestingTransactionHandle;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -338,7 +338,7 @@ public class TestDriver
 
     private static Split newMockSplit()
     {
-        return new Split(new ConnectorId("test"), TestingTransactionHandle.create(), new MockSplit());
+        return new Split(new ConnectorId("test"), new MockSplit(), Lifespan.taskWide());
     }
 
     private PageConsumerOperator createSinkOperator(List<Type> types)
