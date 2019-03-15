@@ -777,7 +777,6 @@ public final class SystemSessionProperties
         return session.getSystemProperty(ITERATIVE_OPTIMIZER, Boolean.class);
     }
 
-    @Deprecated
     public static boolean isLegacyTimestamp(Session session)
     {
         return session.getSystemProperty(LEGACY_TIMESTAMP, Boolean.class);

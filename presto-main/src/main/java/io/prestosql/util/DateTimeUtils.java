@@ -168,6 +168,7 @@ public final class DateTimeUtils
      * If the string doesn't specify a zone, it is interpreted in {@code timeZoneKey} zone.
      *
      * @return stack representation of legacy TIMESTAMP or TIMESTAMP WITH TIME ZONE type, depending on input
+     * @deprecated applicable in legacy timestamp semantics only
      */
     @Deprecated
     public static long parseTimestampLiteral(TimeZoneKey timeZoneKey, String value)
@@ -222,6 +223,7 @@ public final class DateTimeUtils
      * If the string doesn't specify a zone, it is interpreted in {@code timeZoneKey} zone.
      *
      * @return stack representation of legacy TIMESTAMP type
+     * @deprecated applicable in legacy timestamp semantics only
      */
     @Deprecated
     public static long parseTimestampWithoutTimeZone(TimeZoneKey timeZoneKey, String value)
@@ -241,6 +243,9 @@ public final class DateTimeUtils
         return TIMESTAMP_WITHOUT_TIME_ZONE_FORMATTER.print(timestamp);
     }
 
+    /**
+     * @deprecated applicable in legacy timestamp semantics only
+     */
     @Deprecated
     public static String printTimestampWithoutTimeZone(TimeZoneKey timeZoneKey, long timestamp)
     {
@@ -317,6 +322,7 @@ public final class DateTimeUtils
      * If the string doesn't specify a zone, it is interpreted in {@code timeZoneKey} zone.
      *
      * @return stack representation of legacy TIME or TIME WITH TIME ZONE type, depending on input
+     * @deprecated applicable in legacy timestamp semantics only
      */
     @Deprecated
     public static long parseTimeLiteral(TimeZoneKey timeZoneKey, String value)
@@ -360,6 +366,7 @@ public final class DateTimeUtils
      * Parse a string (without a zone) as a value of TIME type, interpreted in {@code timeZoneKey} zone.
      *
      * @return stack representation of legacy TIME type
+     * @deprecated applicable in legacy timestamp semantics only
      */
     @Deprecated
     public static long parseTimeWithoutTimeZone(TimeZoneKey timeZoneKey, String value)
@@ -379,6 +386,9 @@ public final class DateTimeUtils
         return TIME_FORMATTER.print(value);
     }
 
+    /**
+     * @deprecated applicable in legacy timestamp semantics only
+     */
     @Deprecated
     public static String printTimeWithoutTimeZone(TimeZoneKey timeZoneKey, long value)
     {

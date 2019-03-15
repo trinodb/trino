@@ -172,7 +172,6 @@ public final class SqlToRowExpressionTranslator
         private final TypeManager typeManager;
         private final Map<Symbol, Integer> layout;
         private final TimeZoneKey timeZoneKey;
-        @Deprecated
         private final boolean isLegacyTimestamp;
 
         private Visitor(
