@@ -1683,7 +1683,7 @@ public final class UnscaledDecimal128Arithmetic
         return low < 0 || low >= 0x098a224000000000L;
     }
 
-    private static byte[] reverse(final byte[] a)
+    private static void reverse(final byte[] a)
     {
         final int length = a.length;
         for (int i = length / 2; i-- != 0; ) {
@@ -1691,7 +1691,6 @@ public final class UnscaledDecimal128Arithmetic
             a[length - i - 1] = a[i];
             a[i] = t;
         }
-        return a;
     }
 
     private static void setToZero(Slice decimal)
