@@ -170,7 +170,7 @@ public class JdbcPageSink
             connection.rollback();
         }
         catch (SQLException e) {
-            throw new PrestoException(JDBC_ERROR, e);
+            // ignore exception from close
         }
     }
 
