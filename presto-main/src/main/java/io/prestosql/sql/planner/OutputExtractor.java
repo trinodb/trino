@@ -41,7 +41,7 @@ public class OutputExtractor
                 visitor.getSchemaTableName().getTableName()));
     }
 
-    private class Visitor
+    private static class Visitor
             extends PlanVisitor<Void, Void>
     {
         private ConnectorId connectorId;

@@ -337,7 +337,7 @@ public class TestMemoryPools
         return false;
     }
 
-    private class RevocableMemoryOperator
+    private static class RevocableMemoryOperator
             implements Operator
     {
         private final DataSize reservedPerPage;

@@ -320,7 +320,7 @@ public class TestDictionaryAwarePageProjection
             return new TestPageProjectionWork(yieldSignal, page, selectedPositions);
         }
 
-        private class TestPageProjectionWork
+        private static class TestPageProjectionWork
                 implements Work<Block>
         {
             private final DriverYieldSignal yieldSignal;

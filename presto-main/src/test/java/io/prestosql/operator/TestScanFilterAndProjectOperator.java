@@ -394,7 +394,7 @@ public class TestScanFilterAndProjectOperator
                 .addDriverContext();
     }
 
-    public class SinglePagePageSource
+    public static class SinglePagePageSource
             implements ConnectorPageSource
     {
         private Page page;

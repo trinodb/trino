@@ -223,7 +223,7 @@ public class GroupedTopNBuilder
      * The class is a pointer to a row in a page.
      * The actual position in the page is mutable because as pages are compacted, the position will change.
      */
-    private class Row
+    private static class Row
     {
         private final int pageId;
         private int position;

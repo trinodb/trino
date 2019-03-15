@@ -524,7 +524,7 @@ public class SignatureBinder
         UNSOLVABLE,
     }
 
-    private class SolverReturnStatusMerger
+    private static class SolverReturnStatusMerger
     {
         // This class gives the overall status when multiple status are seen from different parts.
         // The logic is simple and can be summarized as finding the right most item (based on the list below) seen so far:
