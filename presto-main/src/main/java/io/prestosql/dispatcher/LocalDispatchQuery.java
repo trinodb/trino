@@ -134,13 +134,16 @@ public class LocalDispatchQuery
     @Override
     public DispatchInfo getDispatchInfo()
     {
+        // observe submitted before getting the state, to ensure a failed query stat is visible
+        boolean dispatched = submitted.isDone();
         BasicQueryInfo queryInfo = stateMachine.getBasicQueryInfo(Optional.empty());
+
         if (queryInfo.getState() == FAILED) {
             ExecutionFailureInfo failureInfo = stateMachine.getFailureInfo()
                     .orElseGet(() -> toFailure(new PrestoException(GENERIC_INTERNAL_ERROR, "Query failed for an unknown reason")));
             return DispatchInfo.failed(failureInfo, queryInfo.getQueryStats().getElapsedTime(), queryInfo.getQueryStats().getQueuedTime());
         }
-        if (submitted.isDone()) {
+        if (dispatched) {
             return DispatchInfo.dispatched(coordinatorLocation, queryInfo.getQueryStats().getElapsedTime(), queryInfo.getQueryStats().getQueuedTime());
         }
         return DispatchInfo.queued(queryInfo.getQueryStats().getElapsedTime(), queryInfo.getQueryStats().getQueuedTime());
