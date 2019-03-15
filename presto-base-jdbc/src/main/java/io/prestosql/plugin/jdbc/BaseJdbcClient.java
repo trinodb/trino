@@ -231,7 +231,8 @@ public class BaseJdbcClient
                             resultSet.getInt("DATA_TYPE"),
                             resultSet.getString("TYPE_NAME"),
                             resultSet.getInt("COLUMN_SIZE"),
-                            resultSet.getInt("DECIMAL_DIGITS"));
+                            resultSet.getInt("DECIMAL_DIGITS"),
+                            Optional.empty());
                     Optional<ColumnMapping> columnMapping = toPrestoType(session, typeHandle);
                     // skip unsupported column types
                     if (columnMapping.isPresent()) {
