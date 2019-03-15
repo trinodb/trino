@@ -139,7 +139,7 @@ public final class TinyintType
         if (value > Byte.MAX_VALUE) {
             throw new PrestoException(GENERIC_INTERNAL_ERROR, format("Value %d exceeds MAX_BYTE", value));
         }
-        else if (value < Byte.MIN_VALUE) {
+        if (value < Byte.MIN_VALUE) {
             throw new PrestoException(GENERIC_INTERNAL_ERROR, format("Value %d is less than MIN_BYTE", value));
         }
 

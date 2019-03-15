@@ -343,9 +343,7 @@ public class MapBlockBuilder
             if (singleMapBlock.isNull(i)) {
                 throw new IllegalArgumentException("Map keys must not be null");
             }
-            else {
-                singleMapBlock.writePositionTo(i, keyBlockBuilder);
-            }
+            singleMapBlock.writePositionTo(i, keyBlockBuilder);
             if (singleMapBlock.isNull(i + 1)) {
                 valueBlockBuilder.appendNull();
             }
@@ -376,9 +374,7 @@ public class MapBlockBuilder
             if (mapBlock.getRawKeyBlock().isNull(i)) {
                 throw new IllegalArgumentException("Map keys must not be null");
             }
-            else {
-                mapBlock.getRawKeyBlock().writePositionTo(i, keyBlockBuilder);
-            }
+            mapBlock.getRawKeyBlock().writePositionTo(i, keyBlockBuilder);
             if (mapBlock.getRawValueBlock().isNull(i)) {
                 valueBlockBuilder.appendNull();
             }

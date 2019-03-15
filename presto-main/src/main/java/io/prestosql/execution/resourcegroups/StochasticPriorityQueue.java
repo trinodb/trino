@@ -100,16 +100,12 @@ final class StochasticPriorityQueue<E>
                 candidate = candidate.getLeft().get();
                 continue;
             }
-            else {
-                winningTicket -= leftTickets;
-            }
+            winningTicket -= leftTickets;
 
             if (winningTicket < candidate.getTickets()) {
                 break;
             }
-            else {
-                winningTicket -= candidate.getTickets();
-            }
+            winningTicket -= candidate.getTickets();
 
             checkState(candidate.getRight().isPresent(), "Expected right node to contain the winner, but it does not exist");
             candidate = candidate.getRight().get();

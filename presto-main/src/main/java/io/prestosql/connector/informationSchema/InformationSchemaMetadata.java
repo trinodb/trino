@@ -323,7 +323,7 @@ public class InformationSchemaMetadata
         if (domain.isSingleValue()) {
             return Optional.of(ImmutableSet.of(((Slice) domain.getSingleValue()).toStringUtf8()));
         }
-        else if (domain.getValues() instanceof EquatableValueSet) {
+        if (domain.getValues() instanceof EquatableValueSet) {
             Collection<Object> values = ((EquatableValueSet) domain.getValues()).getValues();
             return Optional.of(values.stream()
                     .map(Slice.class::cast)

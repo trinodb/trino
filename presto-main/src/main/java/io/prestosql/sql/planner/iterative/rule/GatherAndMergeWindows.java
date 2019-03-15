@@ -271,10 +271,10 @@ public class GatherAndMergeWindows
             if (!o1.getOrderingScheme().isPresent() && !o2.getOrderingScheme().isPresent()) {
                 return 0;
             }
-            else if (o1.getOrderingScheme().isPresent() && !o2.getOrderingScheme().isPresent()) {
+            if (o1.getOrderingScheme().isPresent() && !o2.getOrderingScheme().isPresent()) {
                 return 1;
             }
-            else if (!o1.getOrderingScheme().isPresent() && o2.getOrderingScheme().isPresent()) {
+            if (!o1.getOrderingScheme().isPresent() && o2.getOrderingScheme().isPresent()) {
                 return -1;
             }
 

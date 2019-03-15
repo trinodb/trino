@@ -1158,7 +1158,7 @@ class StatementAnalyzer
             if (node.getType() == Join.Type.CROSS || node.getType() == Join.Type.IMPLICIT) {
                 return output;
             }
-            else if (criteria instanceof JoinOn) {
+            if (criteria instanceof JoinOn) {
                 Expression expression = ((JoinOn) criteria).getExpression();
 
                 // need to register coercions in case when join criteria requires coercion (e.g. join on char(1) = char(2))

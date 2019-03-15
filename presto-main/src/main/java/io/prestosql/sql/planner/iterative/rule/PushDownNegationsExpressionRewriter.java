@@ -48,11 +48,11 @@ public class PushDownNegationsExpressionRewriter
                 List<Expression> negatedPredicates = predicates.stream().map(predicate -> treeRewriter.rewrite((Expression) new NotExpression(predicate), context)).collect(toImmutableList());
                 return combinePredicates(child.getOperator().flip(), negatedPredicates);
             }
-            else if (node.getValue() instanceof ComparisonExpression && ((ComparisonExpression) node.getValue()).getOperator() != IS_DISTINCT_FROM) {
+            if (node.getValue() instanceof ComparisonExpression && ((ComparisonExpression) node.getValue()).getOperator() != IS_DISTINCT_FROM) {
                 ComparisonExpression child = (ComparisonExpression) node.getValue();
                 return new ComparisonExpression(child.getOperator().negate(), treeRewriter.rewrite(child.getLeft(), context), treeRewriter.rewrite(child.getRight(), context));
             }
-            else if (node.getValue() instanceof NotExpression) {
+            if (node.getValue() instanceof NotExpression) {
                 NotExpression child = (NotExpression) node.getValue();
                 return treeRewriter.rewrite(child.getValue(), context);
             }

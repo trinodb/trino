@@ -143,13 +143,13 @@ public class TpchIndexedData
         if (javaType == boolean.class) {
             return cursor.getBoolean(field);
         }
-        else if (javaType == long.class) {
+        if (javaType == long.class) {
             return cursor.getLong(field);
         }
-        else if (javaType == double.class) {
+        if (javaType == double.class) {
             return cursor.getDouble(field);
         }
-        else if (javaType == Slice.class) {
+        if (javaType == Slice.class) {
             return cursor.getSlice(field).toStringUtf8();
         }
         throw new AssertionError("Unsupported type: " + type);

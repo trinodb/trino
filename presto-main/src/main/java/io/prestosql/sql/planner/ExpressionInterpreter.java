@@ -309,16 +309,16 @@ public class ExpressionInterpreter
             if (javaType == long.class) {
                 return returnType.getLong(row, index);
             }
-            else if (javaType == double.class) {
+            if (javaType == double.class) {
                 return returnType.getDouble(row, index);
             }
-            else if (javaType == boolean.class) {
+            if (javaType == boolean.class) {
                 return returnType.getBoolean(row, index);
             }
-            else if (javaType == Slice.class) {
+            if (javaType == Slice.class) {
                 return returnType.getSlice(row, index);
             }
-            else if (!javaType.isPrimitive()) {
+            if (!javaType.isPrimitive()) {
                 return returnType.getObject(row, index);
             }
             throw new UnsupportedOperationException("Dereference a unsupported primitive type: " + javaType.getName());

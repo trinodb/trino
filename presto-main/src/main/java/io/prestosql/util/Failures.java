@@ -132,7 +132,7 @@ public final class Failures
             ParsingException e = (ParsingException) throwable;
             return new ErrorLocation(e.getLineNumber(), e.getColumnNumber());
         }
-        else if (throwable instanceof SemanticException) {
+        if (throwable instanceof SemanticException) {
             SemanticException e = (SemanticException) throwable;
             if (e.getNode().getLocation().isPresent()) {
                 NodeLocation nodeLocation = e.getNode().getLocation().get();

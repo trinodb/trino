@@ -71,7 +71,7 @@ public class HttpQueryStatsClient
             if (response.getStatusCode() == HttpStatus.GONE.code()) {
                 return Optional.empty();
             }
-            else if (response.getStatusCode() != HttpStatus.OK.code()) {
+            if (response.getStatusCode() != HttpStatus.OK.code()) {
                 throw new RuntimeException("unexpected error code " + response.getStatusCode() + "; reason=" + response.getStatusMessage());
             }
 

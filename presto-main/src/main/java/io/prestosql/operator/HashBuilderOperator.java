@@ -379,7 +379,7 @@ public class HashBuilderOperator
             });
             return spillIndex();
         }
-        else if (state == State.LOOKUP_SOURCE_BUILT) {
+        if (state == State.LOOKUP_SOURCE_BUILT) {
             finishMemoryRevoke = Optional.of(() -> {
                 lookupSourceFactory.setPartitionSpilledLookupSourceHandle(partitionIndex, spilledLookupSourceHandle);
                 lookupSourceNotNeeded = Optional.empty();
@@ -392,7 +392,7 @@ public class HashBuilderOperator
             });
             return spillIndex();
         }
-        else if (operatorContext.getReservedRevocableBytes() == 0) {
+        if (operatorContext.getReservedRevocableBytes() == 0) {
             // Probably stale revoking request
             finishMemoryRevoke = Optional.of(() -> {});
             return immediateFuture(null);

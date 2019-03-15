@@ -283,7 +283,7 @@ public class NativeCassandraSession
         if (tables.size() == 0) {
             throw new TableNotFoundException(new SchemaTableName(keyspace.getName(), caseInsensitiveTableName));
         }
-        else if (tables.size() == 1) {
+        if (tables.size() == 1) {
             return tables.get(0);
         }
         String tableNames = tables.stream()

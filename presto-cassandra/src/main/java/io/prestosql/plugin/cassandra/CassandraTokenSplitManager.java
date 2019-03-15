@@ -123,7 +123,7 @@ public class CassandraTokenSplitManager
         if (sessionSplitsPerNode.isPresent()) {
             return sessionSplitsPerNode.get();
         }
-        else if (configSplitsPerNode.isPresent()) {
+        if (configSplitsPerNode.isPresent()) {
             return configSplitsPerNode.get();
         }
         List<SizeEstimate> estimates = session.getSizeEstimates(keyspace, table);

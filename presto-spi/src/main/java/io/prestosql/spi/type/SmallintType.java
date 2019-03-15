@@ -139,7 +139,7 @@ public final class SmallintType
         if (value > Short.MAX_VALUE) {
             throw new PrestoException(GENERIC_INTERNAL_ERROR, format("Value %d exceeds MAX_SHORT", value));
         }
-        else if (value < Short.MIN_VALUE) {
+        if (value < Short.MIN_VALUE) {
             throw new PrestoException(GENERIC_INTERNAL_ERROR, format("Value %d is less than MIN_SHORT", value));
         }
 

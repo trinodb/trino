@@ -1647,7 +1647,7 @@ public class LocalExecutionPlanner
                         filterExpression,
                         context));
             }
-            else if (probeSymbols.contains(secondSymbol) && buildSymbols.contains(firstSymbol)) {
+            if (probeSymbols.contains(secondSymbol) && buildSymbols.contains(firstSymbol)) {
                 return Optional.of(createSpatialLookupJoin(
                         node,
                         probeNode,

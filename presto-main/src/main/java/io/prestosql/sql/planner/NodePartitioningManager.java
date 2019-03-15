@@ -92,20 +92,18 @@ public class NodePartitioningManager
                     partitioningScheme.getHashColumn().isPresent(),
                     partitioningScheme.getBucketToPartition().get());
         }
-        else {
-            ConnectorId connectorId = partitioningHandle.getConnectorId().get();
-            ConnectorNodePartitioningProvider partitioningProvider = partitioningProviders.get(connectorId);
-            checkArgument(partitioningProvider != null, "No partitioning provider for connector %s", connectorId);
+        ConnectorId connectorId = partitioningHandle.getConnectorId().get();
+        ConnectorNodePartitioningProvider partitioningProvider = partitioningProviders.get(connectorId);
+        checkArgument(partitioningProvider != null, "No partitioning provider for connector %s", connectorId);
 
-            bucketFunction = partitioningProvider.getBucketFunction(
-                    partitioningHandle.getTransactionHandle().orElse(null),
-                    session.toConnectorSession(connectorId),
-                    partitioningHandle.getConnectorHandle(),
-                    partitionChannelTypes,
-                    bucketToPartition.get().length);
+        bucketFunction = partitioningProvider.getBucketFunction(
+                partitioningHandle.getTransactionHandle().orElse(null),
+                session.toConnectorSession(connectorId),
+                partitioningHandle.getConnectorHandle(),
+                partitionChannelTypes,
+                bucketToPartition.get().length);
 
-            checkArgument(bucketFunction != null, "No function %s", partitioningHandle);
-        }
+        checkArgument(bucketFunction != null, "No function %s", partitioningHandle);
         return new BucketPartitionFunction(bucketFunction, partitioningScheme.getBucketToPartition().get());
     }
 

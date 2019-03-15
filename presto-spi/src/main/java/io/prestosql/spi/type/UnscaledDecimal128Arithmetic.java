@@ -1675,7 +1675,7 @@ public final class UnscaledDecimal128Arithmetic
         if (high >= 0 && high < 0x4b3b4ca85a86c47aL) {
             return false;
         }
-        else if (high != 0x4b3b4ca85a86c47aL) {
+        if (high != 0x4b3b4ca85a86c47aL) {
             return true;
         }
 

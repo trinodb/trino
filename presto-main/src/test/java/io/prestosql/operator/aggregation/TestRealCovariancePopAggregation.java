@@ -50,7 +50,7 @@ public class TestRealCovariancePopAggregation
         if (length <= 0) {
             return null;
         }
-        else if (length == 1) {
+        if (length == 1) {
             return 0.f;
         }
         Covariance covariance = new Covariance();
