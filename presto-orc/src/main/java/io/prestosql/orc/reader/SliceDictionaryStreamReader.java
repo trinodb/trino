@@ -132,7 +132,7 @@ public class SliceDictionaryStreamReader
             if (dataStream == null) {
                 throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but data stream is not present");
             }
-            dataStream.nextIntVector(nextBatchSize, idsVector, 0);
+            dataStream.next(idsVector, nextBatchSize);
         }
         else {
             // Data has nulls
@@ -194,7 +194,7 @@ public class SliceDictionaryStreamReader
                 if (lengthStream == null) {
                     throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Dictionary is not empty but dictionary length stream is not present");
                 }
-                lengthStream.nextIntVector(dictionarySize, dictionaryLength, 0);
+                lengthStream.next(dictionaryLength, dictionarySize);
 
                 long dataLength = 0;
                 for (int i = 0; i < dictionarySize; i++) {
