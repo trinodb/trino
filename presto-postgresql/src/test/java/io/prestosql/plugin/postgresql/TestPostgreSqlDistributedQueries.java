@@ -56,12 +56,6 @@ public class TestPostgreSqlDistributedQueries
     }
 
     @Override
-    protected boolean supportsArrays()
-    {
-        return false;
-    }
-
-    @Override
     public void testCommentTable()
     {
         // PostgreSQL connector currently does not support comment on table
