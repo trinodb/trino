@@ -143,7 +143,7 @@ public class SliceDirectStreamReader
         int[] offsetVector = new int[nextBatchSize + 1];
 
         if (presentStream == null) {
-            lengthStream.nextIntVector(nextBatchSize, offsetVector, 0);
+            lengthStream.next(offsetVector, nextBatchSize);
         }
         else {
             isNullVector = new boolean[nextBatchSize];
@@ -161,10 +161,10 @@ public class SliceDirectStreamReader
             }
             if (nullCount == 0) {
                 isNullVector = null;
-                lengthStream.nextIntVector(nextBatchSize, offsetVector, 0);
+                lengthStream.next(offsetVector, nextBatchSize);
             }
             else {
-                lengthStream.nextIntVector(nextBatchSize - nullCount, offsetVector, 0);
+                lengthStream.next(offsetVector, nextBatchSize - nullCount);
                 unpackLengthNulls(offsetVector, isNullVector, nextBatchSize - nullCount);
             }
         }

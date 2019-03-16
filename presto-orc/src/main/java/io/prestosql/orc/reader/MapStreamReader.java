@@ -126,7 +126,7 @@ public class MapStreamReader
             if (lengthStream == null) {
                 throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but data stream is not present");
             }
-            lengthStream.nextIntVector(nextBatchSize, offsetVector, 0);
+            lengthStream.next(offsetVector, nextBatchSize);
         }
         else {
             nullVector = new boolean[nextBatchSize];
@@ -135,7 +135,7 @@ public class MapStreamReader
                 if (lengthStream == null) {
                     throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but data stream is not present");
                 }
-                lengthStream.nextIntVector(nextBatchSize - nullValues, offsetVector, 0, nullVector);
+                lengthStream.next(offsetVector, nextBatchSize - nullValues);
                 unpackLengthNulls(offsetVector, nullVector, nextBatchSize - nullValues);
             }
         }
