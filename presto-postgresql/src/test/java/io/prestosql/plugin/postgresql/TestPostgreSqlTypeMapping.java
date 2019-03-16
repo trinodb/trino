@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.testing.postgresql.TestingPostgreSqlServer;
 import io.prestosql.Session;
+import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.TimeZoneKey;
 import io.prestosql.testing.TestingSession;
 import io.prestosql.tests.AbstractTestQueryFramework;
@@ -37,6 +38,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
+import java.util.List;
 import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -63,7 +65,10 @@ import static io.prestosql.type.JsonType.JSON;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_16LE;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Arrays.asList;
+import static java.util.Collections.singletonList;
 import static java.util.function.Function.identity;
+import static java.util.stream.Collectors.toList;
 
 @Test
 public class TestPostgreSqlTypeMapping
@@ -234,6 +239,167 @@ public class TestPostgreSqlTypeMapping
     public void testDecimalExceedingPrecisionMax()
     {
         testUnsupportedDataType("decimal(50,0)");
+    }
+
+    @Test
+    public void testArray()
+    {
+        // basic types
+        DataTypeTest.create()
+                .addRoundTrip(arrayDataType(booleanDataType()), asList(true, false))
+                .addRoundTrip(arrayDataType(bigintDataType()), asList(123_456_789_012L))
+                .addRoundTrip(arrayDataType(integerDataType()), asList(1, 2, 1_234_567_890))
+                .addRoundTrip(arrayDataType(smallintDataType()), asList((short) 32_456))
+                .addRoundTrip(arrayDataType(doubleDataType()), asList(123.45d))
+                .addRoundTrip(arrayDataType(realDataType()), asList(123.45f))
+                .execute(getQueryRunner(), prestoCreateAsSelect("test_array_basic"));
+
+        arrayDateTest(TestPostgreSqlTypeMapping::arrayDataType)
+                .execute(getQueryRunner(), prestoCreateAsSelect("test_array_date"));
+        arrayDateTest(TestPostgreSqlTypeMapping::postgresArrayDataType)
+                .execute(getQueryRunner(), postgresCreateAndInsert("tpch.test_array_date"));
+
+        arrayDecimalTest(TestPostgreSqlTypeMapping::arrayDataType)
+                .execute(getQueryRunner(), prestoCreateAsSelect("test_array_decimal"));
+        arrayDecimalTest(TestPostgreSqlTypeMapping::postgresArrayDataType)
+                .execute(getQueryRunner(), postgresCreateAndInsert("tpch.test_array_decimal"));
+
+        arrayVarcharDataTypeTest(TestPostgreSqlTypeMapping::arrayDataType)
+                .execute(getQueryRunner(), prestoCreateAsSelect("test_array_varchar"));
+        arrayVarcharDataTypeTest(TestPostgreSqlTypeMapping::postgresArrayDataType)
+                .execute(getQueryRunner(), postgresCreateAndInsert("tpch.test_array_varchar"));
+
+        arrayUnicodeDataTypeTest(TestPostgreSqlTypeMapping::arrayDataType, DataType::charDataType)
+                .execute(getQueryRunner(), prestoCreateAsSelect("test_array_parameterized_char_unicode"));
+        arrayUnicodeDataTypeTest(TestPostgreSqlTypeMapping::postgresArrayDataType, DataType::charDataType)
+                .execute(getQueryRunner(), postgresCreateAndInsert("tpch.test_array_parameterized_char_unicode"));
+        arrayVarcharUnicodeDataTypeTest(TestPostgreSqlTypeMapping::arrayDataType)
+                .execute(getQueryRunner(), prestoCreateAsSelect("test_array_parameterized_varchar_unicode"));
+        arrayVarcharUnicodeDataTypeTest(TestPostgreSqlTypeMapping::postgresArrayDataType)
+                .execute(getQueryRunner(), postgresCreateAndInsert("tpch.test_array_parameterized_varchar_unicode"));
+    }
+
+    @Test
+    public void testArrayEmptyOrNulls()
+    {
+        DataTypeTest.create()
+                .addRoundTrip(arrayDataType(bigintDataType()), asList())
+                .addRoundTrip(arrayDataType(booleanDataType()), null)
+                .addRoundTrip(arrayDataType(realDataType()), singletonList(null))
+                .addRoundTrip(arrayDataType(integerDataType()), asList(1, null, 3, null))
+                .execute(getQueryRunner(), prestoCreateAsSelect("test_array_empty_or_nulls"));
+    }
+
+    private DataTypeTest arrayDecimalTest(Function<DataType<BigDecimal>, DataType<List<BigDecimal>>> arrayTypeFactory)
+    {
+        return DataTypeTest.create()
+                .addRoundTrip(arrayTypeFactory.apply(decimalDataType(3, 0)), asList(new BigDecimal("193"), new BigDecimal("19"), new BigDecimal("-193")))
+                .addRoundTrip(arrayTypeFactory.apply(decimalDataType(3, 1)), asList(new BigDecimal("10.0"), new BigDecimal("10.1"), new BigDecimal("-10.1")))
+                .addRoundTrip(arrayTypeFactory.apply(decimalDataType(4, 2)), asList(new BigDecimal("2"), new BigDecimal("2.3")))
+                .addRoundTrip(arrayTypeFactory.apply(decimalDataType(24, 2)), asList(new BigDecimal("2"), new BigDecimal("2.3"), new BigDecimal("123456789.3")))
+                .addRoundTrip(arrayTypeFactory.apply(decimalDataType(24, 4)), asList(new BigDecimal("12345678901234567890.31")))
+                .addRoundTrip(arrayTypeFactory.apply(decimalDataType(30, 5)), asList(new BigDecimal("3141592653589793238462643.38327"), new BigDecimal("-3141592653589793238462643.38327")))
+                .addRoundTrip(arrayTypeFactory.apply(decimalDataType(38, 0)), asList(
+                        new BigDecimal("27182818284590452353602874713526624977"),
+                        new BigDecimal("-27182818284590452353602874713526624977")));
+    }
+
+    private DataTypeTest arrayVarcharDataTypeTest(Function<DataType<String>, DataType<List<String>>> arrayTypeFactory)
+    {
+        return DataTypeTest.create()
+                .addRoundTrip(arrayTypeFactory.apply(varcharDataType(10)), asList("text_a"))
+                .addRoundTrip(arrayTypeFactory.apply(varcharDataType(255)), asList("text_b"))
+                .addRoundTrip(arrayTypeFactory.apply(varcharDataType(65535)), asList("text_d"))
+                .addRoundTrip(arrayTypeFactory.apply(varcharDataType(10485760)), asList("text_f"))
+                .addRoundTrip(arrayTypeFactory.apply(varcharDataType()), asList("unbounded"));
+    }
+
+    private DataTypeTest arrayVarcharUnicodeDataTypeTest(Function<DataType<String>, DataType<List<String>>> arrayTypeFactory)
+    {
+        return arrayUnicodeDataTypeTest(arrayTypeFactory, DataType::varcharDataType)
+                .addRoundTrip(arrayTypeFactory.apply(varcharDataType()), asList("\u041d\u0443, \u043f\u043e\u0433\u043e\u0434\u0438!"));
+    }
+
+    private DataTypeTest arrayUnicodeDataTypeTest(Function<DataType<String>, DataType<List<String>>> arrayTypeFactory, Function<Integer, DataType<String>> dataTypeFactory)
+    {
+        String sampleUnicodeText = "\u653b\u6bbb\u6a5f\u52d5\u968a";
+        String sampleFourByteUnicodeCharacter = "\uD83D\uDE02";
+
+        return DataTypeTest.create()
+                .addRoundTrip(arrayTypeFactory.apply(dataTypeFactory.apply(sampleUnicodeText.length())), asList(sampleUnicodeText))
+                .addRoundTrip(arrayTypeFactory.apply(dataTypeFactory.apply(32)), asList(sampleUnicodeText))
+                .addRoundTrip(arrayTypeFactory.apply(dataTypeFactory.apply(20000)), asList(sampleUnicodeText))
+                .addRoundTrip(arrayTypeFactory.apply(dataTypeFactory.apply(1)), asList(sampleFourByteUnicodeCharacter));
+    }
+
+    private DataTypeTest arrayDateTest(Function<DataType<LocalDate>, DataType<List<LocalDate>>> arrayTypeFactory)
+    {
+        ZoneId jvmZone = ZoneId.systemDefault();
+        checkState(jvmZone.getId().equals("America/Bahia_Banderas"), "This test assumes certain JVM time zone");
+        LocalDate dateOfLocalTimeChangeForwardAtMidnightInJvmZone = LocalDate.of(1970, 1, 1);
+        checkIsGap(jvmZone, dateOfLocalTimeChangeForwardAtMidnightInJvmZone.atStartOfDay());
+
+        ZoneId someZone = ZoneId.of("Europe/Vilnius");
+        LocalDate dateOfLocalTimeChangeForwardAtMidnightInSomeZone = LocalDate.of(1983, 4, 1);
+        checkIsGap(someZone, dateOfLocalTimeChangeForwardAtMidnightInSomeZone.atStartOfDay());
+        LocalDate dateOfLocalTimeChangeBackwardAtMidnightInSomeZone = LocalDate.of(1983, 10, 1);
+        checkIsDoubled(someZone, dateOfLocalTimeChangeBackwardAtMidnightInSomeZone.atStartOfDay().minusMinutes(1));
+
+        return DataTypeTest.create()
+                .addRoundTrip(arrayTypeFactory.apply(dateDataType()), asList(LocalDate.of(1952, 4, 3))) // before epoch
+                .addRoundTrip(arrayTypeFactory.apply(dateDataType()), asList(LocalDate.of(1970, 1, 1)))
+                .addRoundTrip(arrayTypeFactory.apply(dateDataType()), asList(LocalDate.of(1970, 2, 3)))
+                .addRoundTrip(arrayTypeFactory.apply(dateDataType()), asList(LocalDate.of(2017, 7, 1))) // summer on northern hemisphere (possible DST)
+                .addRoundTrip(arrayTypeFactory.apply(dateDataType()), asList(LocalDate.of(2017, 1, 1))) // winter on northern hemisphere (possible DST on southern hemisphere)
+                .addRoundTrip(arrayTypeFactory.apply(dateDataType()), asList(dateOfLocalTimeChangeForwardAtMidnightInJvmZone))
+                .addRoundTrip(arrayTypeFactory.apply(dateDataType()), asList(dateOfLocalTimeChangeForwardAtMidnightInSomeZone))
+                .addRoundTrip(arrayTypeFactory.apply(dateDataType()), asList(dateOfLocalTimeChangeBackwardAtMidnightInSomeZone));
+    }
+
+    @Test
+    public void testArrayMultidimensional()
+    {
+        // for multidimensional arrays, PostgreSQL requires subarrays to have the same dimensions, including nulls
+        // e.g. [[1], [1, 2]] and [null, [1, 2]] are not allowed, but [[null, null], [1, 2]] is allowed
+        DataTypeTest.create()
+                .addRoundTrip(arrayDataType(arrayDataType(booleanDataType())), asList(asList(null, null, null)))
+                .addRoundTrip(arrayDataType(arrayDataType(booleanDataType())), asList(asList(true, null), asList(null, null), asList(false, false)))
+                .addRoundTrip(arrayDataType(arrayDataType(integerDataType())), asList(asList(1, 2), asList(null, null), asList(3, 4)))
+                .addRoundTrip(arrayDataType(arrayDataType(decimalDataType(3, 0))), asList(
+                        asList(new BigDecimal("193")),
+                        asList(new BigDecimal("19")),
+                        asList(new BigDecimal("-193"))))
+                .execute(getQueryRunner(), prestoCreateAsSelect("test_array_2d"));
+
+        DataTypeTest.create()
+                .addRoundTrip(arrayDataType(arrayDataType(arrayDataType(doubleDataType()))), asList(
+                        asList(asList(123.45d), asList(678.99d)),
+                        asList(asList(543.21d), asList(998.76d)),
+                        asList(asList(567.123d), asList(789.12d))))
+                .addRoundTrip(arrayDataType(arrayDataType(arrayDataType(dateDataType()))), asList(
+                        asList(asList(LocalDate.of(1952, 4, 3), LocalDate.of(1970, 1, 1))),
+                        asList(asList(null, LocalDate.of(1970, 1, 1))),
+                        asList(asList(LocalDate.of(1970, 2, 3), LocalDate.of(2017, 7, 1)))))
+                .execute(getQueryRunner(), prestoCreateAsSelect("test_array_3d"));
+    }
+
+    private static <E> DataType<List<E>> arrayDataType(DataType<E> elementType)
+    {
+        return arrayDataType(elementType, format("ARRAY(%s)", elementType.getInsertType()));
+    }
+
+    private static <E> DataType<List<E>> postgresArrayDataType(DataType<E> elementType)
+    {
+        return arrayDataType(elementType, elementType.getInsertType() + "[]");
+    }
+
+    private static <E> DataType<List<E>> arrayDataType(DataType<E> elementType, String insertType)
+    {
+        return dataType(
+                insertType,
+                new ArrayType(elementType.getPrestoResultType()),
+                valuesList -> "ARRAY" + valuesList.stream().map(elementType::toLiteral).collect(toList()),
+                valuesList -> valuesList == null ? null : valuesList.stream().map(elementType::toPrestoQueryResult).collect(toList()));
     }
 
     @Test
