@@ -148,7 +148,7 @@ public class MergingPageOutput
         requireNonNull(page, "page is null");
 
         // avoid memory copying for pages that are big enough
-        if (page.getSizeInBytes() >= minPageSizeInBytes || page.getPositionCount() >= minRowCount) {
+        if (page.getPositionCount() >= minRowCount || page.getSizeInBytes() >= minPageSizeInBytes) {
             flush();
             outputQueue.add(page);
             return;

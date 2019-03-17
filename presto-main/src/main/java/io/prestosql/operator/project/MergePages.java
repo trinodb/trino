@@ -129,7 +129,7 @@ public class MergePages
             }
 
             Page inputPage = inputPageOptional.get();
-            if (inputPage.getSizeInBytes() >= minPageSizeInBytes || inputPage.getPositionCount() >= minRowCount) {
+            if (inputPage.getPositionCount() >= minRowCount || inputPage.getSizeInBytes() >= minPageSizeInBytes) {
                 if (pageBuilder.isEmpty()) {
                     return ofResult(inputPage);
                 }
