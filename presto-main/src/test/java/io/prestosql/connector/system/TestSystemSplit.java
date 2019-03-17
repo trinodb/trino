@@ -26,13 +26,11 @@ public class TestSystemSplit
     @Test
     public void testSerialization()
     {
-        SystemTableHandle tableHandle = new SystemTableHandle("xyz", "foo");
-        SystemSplit expected = new SystemSplit(tableHandle, HostAddress.fromParts("127.0.0.1", 0), TupleDomain.all());
+        SystemSplit expected = new SystemSplit(HostAddress.fromParts("127.0.0.1", 0), TupleDomain.all());
 
         JsonCodec<SystemSplit> codec = jsonCodec(SystemSplit.class);
         SystemSplit actual = codec.fromJson(codec.toJson(expected));
 
-        assertEquals(actual.getTableHandle(), expected.getTableHandle());
         assertEquals(actual.getAddresses(), expected.getAddresses());
         assertEquals(actual.getConstraint(), expected.getConstraint());
     }

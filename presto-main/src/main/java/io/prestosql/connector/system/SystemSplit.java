@@ -30,23 +30,19 @@ import static java.util.Objects.requireNonNull;
 public class SystemSplit
         implements ConnectorSplit
 {
-    private final SystemTableHandle tableHandle;
     private final List<HostAddress> addresses;
     private final TupleDomain<ColumnHandle> constraint;
 
-    public SystemSplit(SystemTableHandle tableHandle, HostAddress address, TupleDomain<ColumnHandle> constraint)
+    public SystemSplit(HostAddress address, TupleDomain<ColumnHandle> constraint)
     {
-        this(tableHandle, ImmutableList.of(requireNonNull(address, "address is null")), constraint);
+        this(ImmutableList.of(requireNonNull(address, "address is null")), constraint);
     }
 
     @JsonCreator
     public SystemSplit(
-            @JsonProperty("tableHandle") SystemTableHandle tableHandle,
             @JsonProperty("addresses") List<HostAddress> addresses,
             @JsonProperty("constraint") TupleDomain<ColumnHandle> constraint)
     {
-        this.tableHandle = requireNonNull(tableHandle, "tableHandle is null");
-
         requireNonNull(addresses, "hosts is null");
         checkArgument(!addresses.isEmpty(), "hosts is empty");
         this.addresses = ImmutableList.copyOf(addresses);
@@ -67,12 +63,6 @@ public class SystemSplit
     }
 
     @JsonProperty
-    public SystemTableHandle getTableHandle()
-    {
-        return tableHandle;
-    }
-
-    @JsonProperty
     public TupleDomain<ColumnHandle> getConstraint()
     {
         return constraint;
@@ -88,7 +78,6 @@ public class SystemSplit
     public String toString()
     {
         return toStringHelper(this)
-                .add("tableHandle", tableHandle)
                 .add("addresses", addresses)
                 .toString();
     }
