@@ -10,7 +10,7 @@
 
     <groupId>io.prestosql</groupId>
     <artifactId>presto-root</artifactId>
-    <version>306-SNAPSHOT</version>
+    <version>306</version>
     <packaging>pom</packaging>
 
     <name>presto-root</name>
@@ -30,7 +30,7 @@
     <scm>
         <connection>scm:git:git://github.com/prestosql/presto.git</connection>
         <url>https://github.com/prestosql/presto</url>
-        <tag>HEAD</tag>
+        <tag>306</tag>
     </scm>
 
     <properties>
