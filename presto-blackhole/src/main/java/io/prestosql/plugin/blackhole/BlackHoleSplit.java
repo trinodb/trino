@@ -13,62 +13,16 @@
  */
 package io.prestosql.plugin.blackhole;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
-import io.airlift.units.Duration;
 import io.prestosql.spi.HostAddress;
 import io.prestosql.spi.connector.ConnectorSplit;
 
 import java.util.List;
-import java.util.Objects;
 
-import static java.util.Objects.requireNonNull;
-
-public final class BlackHoleSplit
+public enum BlackHoleSplit
         implements ConnectorSplit
 {
-    private final int pagesCount;
-    private final int rowsPerPage;
-    private final int fieldsLength;
-    private final Duration pageProcessingDelay;
-
-    @JsonCreator
-    public BlackHoleSplit(
-            @JsonProperty("pagesCount") int pagesCount,
-            @JsonProperty("rowsPerPage") int rowsPerPage,
-            @JsonProperty("fieldsLength") int fieldsLength,
-            @JsonProperty("pageProcessingDelay") Duration pageProcessingDelay)
-    {
-        this.rowsPerPage = rowsPerPage;
-        this.pagesCount = pagesCount;
-        this.fieldsLength = fieldsLength;
-        this.pageProcessingDelay = requireNonNull(pageProcessingDelay, "pageProcessingDelay is null");
-    }
-
-    @JsonProperty
-    public int getPagesCount()
-    {
-        return pagesCount;
-    }
-
-    @JsonProperty
-    public int getRowsPerPage()
-    {
-        return rowsPerPage;
-    }
-
-    @JsonProperty
-    public int getFieldsLength()
-    {
-        return fieldsLength;
-    }
-
-    @JsonProperty
-    public Duration getPageProcessingDelay()
-    {
-        return pageProcessingDelay;
-    }
+    INSTANCE;
 
     @Override
     public boolean isRemotelyAccessible()
@@ -86,25 +40,5 @@ public final class BlackHoleSplit
     public Object getInfo()
     {
         return this;
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(getPagesCount(), getRowsPerPage());
-    }
-
-    @Override
-    public boolean equals(Object obj)
-    {
-        if (this == obj) {
-            return true;
-        }
-        if (obj == null || getClass() != obj.getClass()) {
-            return false;
-        }
-        BlackHoleSplit other = (BlackHoleSplit) obj;
-        return Objects.equals(this.getPagesCount(), other.getPagesCount()) &&
-                Objects.equals(this.getRowsPerPage(), other.getRowsPerPage());
     }
 }
