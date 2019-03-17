@@ -14,7 +14,6 @@
 package io.prestosql.connector.system;
 
 import io.airlift.json.JsonCodec;
-import io.prestosql.connector.ConnectorId;
 import io.prestosql.spi.HostAddress;
 import io.prestosql.spi.predicate.TupleDomain;
 import org.testng.annotations.Test;
@@ -27,14 +26,12 @@ public class TestSystemSplit
     @Test
     public void testSerialization()
     {
-        ConnectorId connectorId = new ConnectorId("testid");
-        SystemTableHandle tableHandle = new SystemTableHandle(connectorId, "xyz", "foo");
-        SystemSplit expected = new SystemSplit(connectorId, tableHandle, HostAddress.fromParts("127.0.0.1", 0), TupleDomain.all());
+        SystemTableHandle tableHandle = new SystemTableHandle("xyz", "foo");
+        SystemSplit expected = new SystemSplit(tableHandle, HostAddress.fromParts("127.0.0.1", 0), TupleDomain.all());
 
         JsonCodec<SystemSplit> codec = jsonCodec(SystemSplit.class);
         SystemSplit actual = codec.fromJson(codec.toJson(expected));
 
-        assertEquals(actual.getConnectorId(), expected.getConnectorId());
         assertEquals(actual.getTableHandle(), expected.getTableHandle());
         assertEquals(actual.getAddresses(), expected.getAddresses());
         assertEquals(actual.getConstraint(), expected.getConstraint());
