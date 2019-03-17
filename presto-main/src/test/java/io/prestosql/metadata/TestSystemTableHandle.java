@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.inject.Guice;
 import com.google.inject.Injector;
 import io.airlift.json.JsonModule;
-import io.prestosql.connector.ConnectorId;
 import io.prestosql.connector.system.SystemTableHandle;
 import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.SchemaTableName;
@@ -35,10 +34,8 @@ import static org.testng.Assert.assertTrue;
 @Test(singleThreaded = true)
 public class TestSystemTableHandle
 {
-    private static final ConnectorId CONNECTOR_ID = new ConnectorId("system_connector_id");
     private static final Map<String, Object> SCHEMA_AS_MAP = ImmutableMap.of(
             "@type", "$system",
-            "connectorId", CONNECTOR_ID.toString(),
             "schemaName", "system_schema",
             "tableName", "system_table");
 
@@ -56,7 +53,7 @@ public class TestSystemTableHandle
     public void testSystemSerialize()
             throws Exception
     {
-        SystemTableHandle internalHandle = new SystemTableHandle(CONNECTOR_ID, "system_schema", "system_table");
+        SystemTableHandle internalHandle = new SystemTableHandle("system_schema", "system_table");
 
         assertTrue(objectMapper.canSerialize(SystemTableHandle.class));
         String json = objectMapper.writeValueAsString(internalHandle);
@@ -73,7 +70,6 @@ public class TestSystemTableHandle
         assertEquals(tableHandle.getClass(), SystemTableHandle.class);
         SystemTableHandle systemHandle = (SystemTableHandle) tableHandle;
 
-        assertEquals(systemHandle.getConnectorId(), CONNECTOR_ID);
         assertEquals(systemHandle.getSchemaTableName(), new SchemaTableName("system_schema", "system_table"));
     }
 
