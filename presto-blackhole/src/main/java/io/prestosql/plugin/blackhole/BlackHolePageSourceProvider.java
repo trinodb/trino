@@ -26,6 +26,7 @@ import io.prestosql.spi.connector.ConnectorPageSource;
 import io.prestosql.spi.connector.ConnectorPageSourceProvider;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorSplit;
+import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.FixedWidthType;
@@ -67,9 +68,11 @@ public final class BlackHolePageSourceProvider
             ConnectorTransactionHandle transactionHandle,
             ConnectorSession session,
             ConnectorSplit split,
+            ConnectorTableHandle tableHandle,
             List<ColumnHandle> columns)
     {
         BlackHoleSplit blackHoleSplit = (BlackHoleSplit) split;
+        BlackHoleTableHandle table = (BlackHoleTableHandle) tableHandle;
 
         ImmutableList.Builder<Type> builder = ImmutableList.builder();
 
@@ -78,8 +81,8 @@ public final class BlackHolePageSourceProvider
         }
         List<Type> types = builder.build();
 
-        Page page = generateZeroPage(types, blackHoleSplit.getRowsPerPage(), blackHoleSplit.getFieldsLength());
-        return new BlackHolePageSource(page, blackHoleSplit.getPagesCount(), executorService, blackHoleSplit.getPageProcessingDelay());
+        Page page = generateZeroPage(types, table.getRowsPerPage(), table.getFieldsLength());
+        return new BlackHolePageSource(page, table.getPagesPerSplit(), executorService, table.getPageProcessingDelay());
     }
 
     private Page generateZeroPage(List<Type> types, int rowsCount, int fieldLength)
