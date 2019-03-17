@@ -68,6 +68,11 @@ public class ScanFilterAndProjectOperator
     private Split split;
     private boolean operatorFinishing;
 
+    private long deltaPositionsCount;
+    private long deltaPhysicalBytes;
+    private long deltaPhysicalReadTimeNanos;
+    private long deltaProcessedBytes;
+
     private ScanFilterAndProjectOperator(
             OperatorContext operatorContext,
             PlanNodeId sourceId,
@@ -300,7 +305,15 @@ public class ScanFilterAndProjectOperator
                             outputMemoryContext,
                             page))
                     .transformProcessor(processor -> MergePages.mergePages(types, minOutputPageSize.toBytes(), minOutputPageRowCount, processor, localAggregatedMemoryContext))
-                    .withProcessStateMonitor(state -> memoryContext.setBytes(localAggregatedMemoryContext.getBytes()));
+                    .withProcessStateMonitor(state -> {
+                        memoryContext.setBytes(localAggregatedMemoryContext.getBytes());
+                        operatorContext.recordPhysicalInputWithTiming(deltaPhysicalBytes, deltaPositionsCount, deltaPhysicalReadTimeNanos);
+                        operatorContext.recordProcessedInput(deltaProcessedBytes, deltaPositionsCount);
+                        deltaPositionsCount = 0;
+                        deltaPhysicalBytes = 0;
+                        deltaPhysicalReadTimeNanos = 0;
+                        deltaProcessedBytes = 0;
+                    });
         }
     }
 
@@ -408,7 +421,9 @@ public class ScanFilterAndProjectOperator
             // update operator stats
             long endCompletedBytes = pageSource.getCompletedBytes();
             long endReadTimeNanos = pageSource.getReadTimeNanos();
-            operatorContext.recordPhysicalInputWithTiming(endCompletedBytes - completedBytes, page.getPositionCount(), endReadTimeNanos - readTimeNanos);
+            deltaPositionsCount += page.getPositionCount();
+            deltaPhysicalBytes += endCompletedBytes - completedBytes;
+            deltaPhysicalReadTimeNanos += endReadTimeNanos - readTimeNanos;
             completedBytes = endCompletedBytes;
             readTimeNanos = endReadTimeNanos;
 
@@ -418,7 +433,6 @@ public class ScanFilterAndProjectOperator
 
     private Page recordProcessedInput(Page page)
     {
-        operatorContext.recordProcessedInput(0, page.getPositionCount());
         // account processed bytes from lazy blocks only when they are loaded
         Block[] blocks = new Block[page.getChannelCount()];
         for (int i = 0; i < page.getChannelCount(); ++i) {
@@ -427,12 +441,12 @@ public class ScanFilterAndProjectOperator
                 LazyBlock delegateLazyBlock = (LazyBlock) block;
                 blocks[i] = new LazyBlock(page.getPositionCount(), lazyBlock -> {
                     Block loadedBlock = delegateLazyBlock.getLoadedBlock();
-                    operatorContext.recordProcessedInput(loadedBlock.getSizeInBytes(), 0L);
+                    deltaProcessedBytes += loadedBlock.getSizeInBytes();
                     lazyBlock.setBlock(loadedBlock);
                 });
             }
             else {
-                operatorContext.recordProcessedInput(block.getSizeInBytes(), 0L);
+                deltaProcessedBytes += block.getSizeInBytes();
                 blocks[i] = block;
             }
         }
