@@ -69,7 +69,7 @@ public class JmxSplitManager
                     NullableValue value = NullableValue.of(createUnboundedVarcharType(), utf8Slice(node.getNodeIdentifier()));
                     return predicate.overlaps(fromFixedValues(ImmutableMap.of(nodeColumnHandle.get(), value)));
                 })
-                .map(node -> new JmxSplit(tableHandle, ImmutableList.of(node.getHostAndPort())))
+                .map(node -> new JmxSplit(ImmutableList.of(node.getHostAndPort())))
                 .collect(toList());
 
         return new FixedSplitSource(splits);

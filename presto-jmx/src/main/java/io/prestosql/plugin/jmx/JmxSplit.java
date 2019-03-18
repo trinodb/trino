@@ -26,22 +26,13 @@ import static java.util.Objects.requireNonNull;
 public class JmxSplit
         implements ConnectorSplit
 {
-    private final JmxTableHandle tableHandle;
     private final List<HostAddress> addresses;
 
     @JsonCreator
     public JmxSplit(
-            @JsonProperty("tableHandle") JmxTableHandle tableHandle,
             @JsonProperty("addresses") List<HostAddress> addresses)
     {
-        this.tableHandle = requireNonNull(tableHandle, "tableHandle is null");
         this.addresses = ImmutableList.copyOf(requireNonNull(addresses, "addresses is null"));
-    }
-
-    @JsonProperty
-    public JmxTableHandle getTableHandle()
-    {
-        return tableHandle;
     }
 
     @Override
