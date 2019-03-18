@@ -59,19 +59,15 @@ public class RedisMetadata
 {
     private static final Logger log = Logger.get(RedisMetadata.class);
 
-    private final String connectorId;
     private final boolean hideInternalColumns;
 
     private final Supplier<Map<SchemaTableName, RedisTableDescription>> redisTableDescriptionSupplier;
 
     @Inject
     RedisMetadata(
-            RedisConnectorId connectorId,
             RedisConnectorConfig redisConnectorConfig,
             Supplier<Map<SchemaTableName, RedisTableDescription>> redisTableDescriptionSupplier)
     {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
-
         requireNonNull(redisConnectorConfig, "redisConfig is null");
         hideInternalColumns = redisConnectorConfig.isHideInternalColumns();
 
@@ -106,7 +102,6 @@ public class RedisMetadata
         }
 
         return new RedisTableHandle(
-                connectorId,
                 schemaTableName.getSchemaName(),
                 schemaTableName.getTableName(),
                 getDataFormat(table.getKey()),
@@ -186,7 +181,7 @@ public class RedisMetadata
             List<RedisTableFieldDescription> fields = key.getFields();
             if (fields != null) {
                 for (RedisTableFieldDescription field : fields) {
-                    columnHandles.put(field.getName(), field.getColumnHandle(connectorId, true, index));
+                    columnHandles.put(field.getName(), field.getColumnHandle(true, index));
                     index++;
                 }
             }
@@ -197,14 +192,14 @@ public class RedisMetadata
             List<RedisTableFieldDescription> fields = value.getFields();
             if (fields != null) {
                 for (RedisTableFieldDescription field : fields) {
-                    columnHandles.put(field.getName(), field.getColumnHandle(connectorId, false, index));
+                    columnHandles.put(field.getName(), field.getColumnHandle(false, index));
                     index++;
                 }
             }
         }
 
         for (RedisInternalFieldDescription field : RedisInternalFieldDescription.values()) {
-            columnHandles.put(field.getColumnName(), field.getColumnHandle(connectorId, index, hideInternalColumns));
+            columnHandles.put(field.getColumnName(), field.getColumnHandle(index, hideInternalColumns));
             index++;
         }
 

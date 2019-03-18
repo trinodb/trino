@@ -34,11 +34,6 @@ public class RedisTableLayoutHandle
         return table;
     }
 
-    public String getConnectorId()
-    {
-        return table.getConnectorId();
-    }
-
     @Override
     public String toString()
     {

@@ -102,9 +102,9 @@ public enum RedisInternalFieldDescription
         return type;
     }
 
-    RedisColumnHandle getColumnHandle(String connectorId, int index, boolean hidden)
+    RedisColumnHandle getColumnHandle(int index, boolean hidden)
     {
-        return new RedisColumnHandle(connectorId,
+        return new RedisColumnHandle(
                 index,
                 getColumnName(),
                 getType(),

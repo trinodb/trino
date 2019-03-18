@@ -100,10 +100,9 @@ public final class RedisTableFieldDescription
         return hidden;
     }
 
-    RedisColumnHandle getColumnHandle(String connectorId, boolean keyDecoder, int index)
+    RedisColumnHandle getColumnHandle(boolean keyDecoder, int index)
     {
         return new RedisColumnHandle(
-                connectorId,
                 index,
                 getName(),
                 getType(),

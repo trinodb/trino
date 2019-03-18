@@ -30,7 +30,6 @@ import static java.util.Objects.requireNonNull;
 public final class RedisSplit
         implements ConnectorSplit
 {
-    private final String connectorId;
     private final String schemaName;
     private final String tableName;
     private final String keyDataFormat;
@@ -47,7 +46,6 @@ public final class RedisSplit
 
     @JsonCreator
     public RedisSplit(
-            @JsonProperty("connectorId") String connectorId,
             @JsonProperty("schemaName") String schemaName,
             @JsonProperty("tableName") String tableName,
             @JsonProperty("keyDataFormat") String keyDataFormat,
@@ -57,7 +55,6 @@ public final class RedisSplit
             @JsonProperty("end") long end,
             @JsonProperty("nodes") List<HostAddress> nodes)
     {
-        this.connectorId = requireNonNull(connectorId, "connector id is null");
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "dataFormat is null");
         this.keyDataFormat = requireNonNull(keyDataFormat, "KeydataFormat is null");
@@ -68,12 +65,6 @@ public final class RedisSplit
         this.end = end;
         this.valueDataType = toRedisDataType(valueDataFormat);
         this.keyDataType = toRedisDataType(keyDataFormat);
-    }
-
-    @JsonProperty
-    public String getConnectorId()
-    {
-        return connectorId;
     }
 
     @JsonProperty
@@ -168,7 +159,6 @@ public final class RedisSplit
     public String toString()
     {
         return toStringHelper(this)
-                .add("connectorId", connectorId)
                 .add("schemaName", schemaName)
                 .add("tableName", tableName)
                 .add("keyDataFormat", keyDataFormat)
