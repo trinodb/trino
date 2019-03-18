@@ -100,9 +100,9 @@ public final class KafkaTopicFieldDescription
         return hidden;
     }
 
-    KafkaColumnHandle getColumnHandle(String connectorId, boolean keyDecoder, int index)
+    KafkaColumnHandle getColumnHandle(boolean keyDecoder, int index)
     {
-        return new KafkaColumnHandle(connectorId,
+        return new KafkaColumnHandle(
                 index,
                 getName(),
                 getType(),

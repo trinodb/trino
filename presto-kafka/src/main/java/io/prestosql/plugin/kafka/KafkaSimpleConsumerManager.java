@@ -27,7 +27,6 @@ import javax.inject.Inject;
 import java.util.Map;
 
 import static java.lang.Math.toIntExact;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -40,18 +39,15 @@ public class KafkaSimpleConsumerManager
 
     private final LoadingCache<HostAddress, SimpleConsumer> consumerCache;
 
-    private final String connectorId;
     private final NodeManager nodeManager;
     private final int connectTimeoutMillis;
     private final int bufferSizeBytes;
 
     @Inject
     public KafkaSimpleConsumerManager(
-            KafkaConnectorId connectorId,
             KafkaConnectorConfig kafkaConnectorConfig,
             NodeManager nodeManager)
     {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
 
         requireNonNull(kafkaConnectorConfig, "kafkaConfig is null");
@@ -87,6 +83,6 @@ public class KafkaSimpleConsumerManager
                 host.getPort(),
                 connectTimeoutMillis,
                 bufferSizeBytes,
-                format("presto-kafka-%s-%s", connectorId, nodeManager.getCurrentNode().getNodeIdentifier()));
+                "presto-kafka-" + nodeManager.getCurrentNode().getNodeIdentifier());
     }
 }

@@ -34,7 +34,7 @@ import static com.google.common.base.Throwables.throwIfUnchecked;
 import static java.util.Objects.requireNonNull;
 
 /**
- * Creates Kafka Connectors based off connectorId and specific configuration.
+ * Creates Kafka Connectors based off catalogName and specific configuration.
  */
 public class KafkaConnectorFactory
         implements ConnectorFactory
@@ -69,7 +69,6 @@ public class KafkaConnectorFactory
                     new JsonModule(),
                     new KafkaConnectorModule(),
                     binder -> {
-                        binder.bind(KafkaConnectorId.class).toInstance(new KafkaConnectorId(catalogName));
                         binder.bind(TypeManager.class).toInstance(context.getTypeManager());
                         binder.bind(NodeManager.class).toInstance(context.getNodeManager());
 

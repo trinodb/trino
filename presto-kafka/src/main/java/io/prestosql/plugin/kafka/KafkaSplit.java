@@ -35,7 +35,6 @@ import static java.util.Objects.requireNonNull;
 public class KafkaSplit
         implements ConnectorSplit
 {
-    private final String connectorId;
     private final String topicName;
     private final String keyDataFormat;
     private final String messageDataFormat;
@@ -48,7 +47,6 @@ public class KafkaSplit
 
     @JsonCreator
     public KafkaSplit(
-            @JsonProperty("connectorId") String connectorId,
             @JsonProperty("topicName") String topicName,
             @JsonProperty("keyDataFormat") String keyDataFormat,
             @JsonProperty("messageDataFormat") String messageDataFormat,
@@ -59,7 +57,6 @@ public class KafkaSplit
             @JsonProperty("end") long end,
             @JsonProperty("leader") HostAddress leader)
     {
-        this.connectorId = requireNonNull(connectorId, "connector id is null");
         this.topicName = requireNonNull(topicName, "topicName is null");
         this.keyDataFormat = requireNonNull(keyDataFormat, "dataFormat is null");
         this.messageDataFormat = requireNonNull(messageDataFormat, "messageDataFormat is null");
@@ -69,12 +66,6 @@ public class KafkaSplit
         this.start = start;
         this.end = end;
         this.leader = requireNonNull(leader, "leader address is null");
-    }
-
-    @JsonProperty
-    public String getConnectorId()
-    {
-        return connectorId;
     }
 
     @JsonProperty
@@ -153,7 +144,6 @@ public class KafkaSplit
     public String toString()
     {
         return toStringHelper(this)
-                .add("connectorId", connectorId)
                 .add("topicName", topicName)
                 .add("keyDataFormat", keyDataFormat)
                 .add("messageDataFormat", messageDataFormat)

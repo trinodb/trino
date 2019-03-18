@@ -31,11 +31,6 @@ public final class KafkaTableHandle
         implements ConnectorTableHandle
 {
     /**
-     * connector id
-     */
-    private final String connectorId;
-
-    /**
      * The schema name for this table. Is set through configuration and read
      * using {@link KafkaConnectorConfig#getDefaultSchema()}. Usually 'default'.
      */
@@ -58,7 +53,6 @@ public final class KafkaTableHandle
 
     @JsonCreator
     public KafkaTableHandle(
-            @JsonProperty("connectorId") String connectorId,
             @JsonProperty("schemaName") String schemaName,
             @JsonProperty("tableName") String tableName,
             @JsonProperty("topicName") String topicName,
@@ -67,7 +61,6 @@ public final class KafkaTableHandle
             @JsonProperty("keyDataSchemaLocation") Optional<String> keyDataSchemaLocation,
             @JsonProperty("messageDataSchemaLocation") Optional<String> messageDataSchemaLocation)
     {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
         this.topicName = requireNonNull(topicName, "topicName is null");
@@ -75,12 +68,6 @@ public final class KafkaTableHandle
         this.messageDataFormat = requireNonNull(messageDataFormat, "messageDataFormat is null");
         this.keyDataSchemaLocation = keyDataSchemaLocation;
         this.messageDataSchemaLocation = messageDataSchemaLocation;
-    }
-
-    @JsonProperty
-    public String getConnectorId()
-    {
-        return connectorId;
     }
 
     @JsonProperty
@@ -133,7 +120,7 @@ public final class KafkaTableHandle
     @Override
     public int hashCode()
     {
-        return Objects.hash(connectorId, schemaName, tableName, topicName, keyDataFormat, messageDataFormat, keyDataSchemaLocation, messageDataSchemaLocation);
+        return Objects.hash(schemaName, tableName, topicName, keyDataFormat, messageDataFormat, keyDataSchemaLocation, messageDataSchemaLocation);
     }
 
     @Override
@@ -147,8 +134,7 @@ public final class KafkaTableHandle
         }
 
         KafkaTableHandle other = (KafkaTableHandle) obj;
-        return Objects.equals(this.connectorId, other.connectorId)
-                && Objects.equals(this.schemaName, other.schemaName)
+        return Objects.equals(this.schemaName, other.schemaName)
                 && Objects.equals(this.tableName, other.tableName)
                 && Objects.equals(this.topicName, other.topicName)
                 && Objects.equals(this.keyDataFormat, other.keyDataFormat)
@@ -161,7 +147,6 @@ public final class KafkaTableHandle
     public String toString()
     {
         return toStringHelper(this)
-                .add("connectorId", connectorId)
                 .add("schemaName", schemaName)
                 .add("tableName", tableName)
                 .add("topicName", topicName)

@@ -30,7 +30,6 @@ import static java.util.Objects.requireNonNull;
 public final class KafkaColumnHandle
         implements DecoderColumnHandle, Comparable<KafkaColumnHandle>
 {
-    private final String connectorId;
     private final int ordinalPosition;
 
     /**
@@ -75,7 +74,6 @@ public final class KafkaColumnHandle
 
     @JsonCreator
     public KafkaColumnHandle(
-            @JsonProperty("connectorId") String connectorId,
             @JsonProperty("ordinalPosition") int ordinalPosition,
             @JsonProperty("name") String name,
             @JsonProperty("type") Type type,
@@ -86,7 +84,6 @@ public final class KafkaColumnHandle
             @JsonProperty("hidden") boolean hidden,
             @JsonProperty("internal") boolean internal)
     {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.ordinalPosition = ordinalPosition;
         this.name = requireNonNull(name, "name is null");
         this.type = requireNonNull(type, "type is null");
@@ -96,12 +93,6 @@ public final class KafkaColumnHandle
         this.keyDecoder = keyDecoder;
         this.hidden = hidden;
         this.internal = internal;
-    }
-
-    @JsonProperty
-    public String getConnectorId()
-    {
-        return connectorId;
     }
 
     @JsonProperty
@@ -172,7 +163,7 @@ public final class KafkaColumnHandle
     @Override
     public int hashCode()
     {
-        return Objects.hash(connectorId, ordinalPosition, name, type, mapping, dataFormat, formatHint, keyDecoder, hidden, internal);
+        return Objects.hash(ordinalPosition, name, type, mapping, dataFormat, formatHint, keyDecoder, hidden, internal);
     }
 
     @Override
@@ -186,8 +177,7 @@ public final class KafkaColumnHandle
         }
 
         KafkaColumnHandle other = (KafkaColumnHandle) obj;
-        return Objects.equals(this.connectorId, other.connectorId) &&
-                Objects.equals(this.ordinalPosition, other.ordinalPosition) &&
+        return Objects.equals(this.ordinalPosition, other.ordinalPosition) &&
                 Objects.equals(this.name, other.name) &&
                 Objects.equals(this.type, other.type) &&
                 Objects.equals(this.mapping, other.mapping) &&
@@ -208,7 +198,6 @@ public final class KafkaColumnHandle
     public String toString()
     {
         return toStringHelper(this)
-                .add("connectorId", connectorId)
                 .add("ordinalPosition", ordinalPosition)
                 .add("name", name)
                 .add("type", type)
