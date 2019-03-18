@@ -59,8 +59,8 @@ public class PrestoCliLauncher
             throws InterruptedException
     {
         if (presto != null) {
-            presto.getProcessInput().println(EXIT_COMMAND);
-            presto.waitForWithTimeoutAndKill();
+            presto.close();
+            presto = null;
         }
     }
 
