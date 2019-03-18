@@ -52,18 +52,14 @@ import static java.util.Objects.requireNonNull;
 public class KafkaMetadata
         implements ConnectorMetadata
 {
-    private final String connectorId;
     private final boolean hideInternalColumns;
     private final Map<SchemaTableName, KafkaTopicDescription> tableDescriptions;
 
     @Inject
     public KafkaMetadata(
-            KafkaConnectorId connectorId,
             KafkaConnectorConfig kafkaConnectorConfig,
             Supplier<Map<SchemaTableName, KafkaTopicDescription>> kafkaTableDescriptionSupplier)
     {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
-
         requireNonNull(kafkaConnectorConfig, "kafkaConfig is null");
         this.hideInternalColumns = kafkaConnectorConfig.isHideInternalColumns();
 
@@ -89,7 +85,7 @@ public class KafkaMetadata
             return null;
         }
 
-        return new KafkaTableHandle(connectorId,
+        return new KafkaTableHandle(
                 schemaTableName.getSchemaName(),
                 schemaTableName.getTableName(),
                 table.getTopicName(),
@@ -143,7 +139,7 @@ public class KafkaMetadata
             List<KafkaTopicFieldDescription> fields = key.getFields();
             if (fields != null) {
                 for (KafkaTopicFieldDescription kafkaTopicFieldDescription : fields) {
-                    columnHandles.put(kafkaTopicFieldDescription.getName(), kafkaTopicFieldDescription.getColumnHandle(connectorId, true, index.getAndIncrement()));
+                    columnHandles.put(kafkaTopicFieldDescription.getName(), kafkaTopicFieldDescription.getColumnHandle(true, index.getAndIncrement()));
                 }
             }
         });
@@ -153,13 +149,13 @@ public class KafkaMetadata
             List<KafkaTopicFieldDescription> fields = message.getFields();
             if (fields != null) {
                 for (KafkaTopicFieldDescription kafkaTopicFieldDescription : fields) {
-                    columnHandles.put(kafkaTopicFieldDescription.getName(), kafkaTopicFieldDescription.getColumnHandle(connectorId, false, index.getAndIncrement()));
+                    columnHandles.put(kafkaTopicFieldDescription.getName(), kafkaTopicFieldDescription.getColumnHandle(false, index.getAndIncrement()));
                 }
             }
         });
 
         for (KafkaInternalFieldDescription kafkaInternalFieldDescription : KafkaInternalFieldDescription.values()) {
-            columnHandles.put(kafkaInternalFieldDescription.getColumnName(), kafkaInternalFieldDescription.getColumnHandle(connectorId, index.getAndIncrement(), hideInternalColumns));
+            columnHandles.put(kafkaInternalFieldDescription.getColumnName(), kafkaInternalFieldDescription.getColumnHandle(index.getAndIncrement(), hideInternalColumns));
         }
 
         return columnHandles.build();

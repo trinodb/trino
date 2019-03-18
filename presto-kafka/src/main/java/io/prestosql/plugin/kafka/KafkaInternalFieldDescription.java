@@ -127,9 +127,9 @@ public enum KafkaInternalFieldDescription
         return type;
     }
 
-    KafkaColumnHandle getColumnHandle(String connectorId, int index, boolean hidden)
+    KafkaColumnHandle getColumnHandle(int index, boolean hidden)
     {
-        return new KafkaColumnHandle(connectorId,
+        return new KafkaColumnHandle(
                 index,
                 getColumnName(),
                 getType(),

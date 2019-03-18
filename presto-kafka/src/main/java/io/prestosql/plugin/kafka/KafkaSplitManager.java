@@ -67,17 +67,14 @@ public class KafkaSplitManager
 {
     private static final Logger log = Logger.get(KafkaSplitManager.class);
 
-    private final String connectorId;
     private final KafkaSimpleConsumerManager consumerManager;
     private final Set<HostAddress> nodes;
 
     @Inject
     public KafkaSplitManager(
-            KafkaConnectorId connectorId,
             KafkaConnectorConfig kafkaConnectorConfig,
             KafkaSimpleConsumerManager consumerManager)
     {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
         this.consumerManager = requireNonNull(consumerManager, "consumerManager is null");
 
         requireNonNull(kafkaConnectorConfig, "kafkaConfig is null");
@@ -114,7 +111,6 @@ public class KafkaSplitManager
 
                     for (int i = offsets.length - 1; i > 0; i--) {
                         KafkaSplit split = new KafkaSplit(
-                                connectorId,
                                 metadata.topic(),
                                 kafkaTableHandle.getKeyDataFormat(),
                                 kafkaTableHandle.getMessageDataFormat(),
