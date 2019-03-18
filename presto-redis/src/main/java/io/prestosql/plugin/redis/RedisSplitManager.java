@@ -40,7 +40,6 @@ import static java.util.Objects.requireNonNull;
 public class RedisSplitManager
         implements ConnectorSplitManager
 {
-    private final String connectorId;
     private final RedisConnectorConfig redisConnectorConfig;
     private final RedisJedisManager jedisManager;
 
@@ -49,11 +48,9 @@ public class RedisSplitManager
 
     @Inject
     public RedisSplitManager(
-            RedisConnectorId connectorId,
             RedisConnectorConfig redisConnectorConfig,
             RedisJedisManager jedisManager)
     {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
         this.redisConnectorConfig = requireNonNull(redisConnectorConfig, "redisConfig is null");
         this.jedisManager = requireNonNull(jedisManager, "jedisManager is null");
     }
@@ -90,7 +87,7 @@ public class RedisSplitManager
                 endIndex = -1;
             }
 
-            RedisSplit split = new RedisSplit(connectorId,
+            RedisSplit split = new RedisSplit(
                     redisTableHandle.getSchemaName(),
                     redisTableHandle.getTableName(),
                     redisTableHandle.getKeyDataFormat(),

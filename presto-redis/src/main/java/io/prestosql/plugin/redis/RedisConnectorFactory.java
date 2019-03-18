@@ -34,7 +34,7 @@ import static com.google.common.base.Throwables.throwIfUnchecked;
 import static java.util.Objects.requireNonNull;
 
 /**
- * Creates Redis Connectors based off connectorId and specific configuration.
+ * Creates Redis Connectors based off catalogName and specific configuration.
  */
 public class RedisConnectorFactory
         implements ConnectorFactory
@@ -69,7 +69,6 @@ public class RedisConnectorFactory
                     new JsonModule(),
                     new RedisConnectorModule(),
                     binder -> {
-                        binder.bind(RedisConnectorId.class).toInstance(new RedisConnectorId(catalogName));
                         binder.bind(TypeManager.class).toInstance(context.getTypeManager());
                         binder.bind(NodeManager.class).toInstance(context.getNodeManager());
 

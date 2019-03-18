@@ -30,11 +30,6 @@ public final class RedisTableHandle
         implements ConnectorTableHandle
 {
     /**
-     * connector id
-     */
-    private final String connectorId;
-
-    /**
      * The schema name for this table. Is set through configuration and read
      * using {@link RedisConnectorConfig#getDefaultSchema()}. Usually 'default'.
      */
@@ -52,25 +47,17 @@ public final class RedisTableHandle
 
     @JsonCreator
     public RedisTableHandle(
-            @JsonProperty("connectorId") String connectorId,
             @JsonProperty("schemaName") String schemaName,
             @JsonProperty("tableName") String tableName,
             @JsonProperty("keyDataFormat") String keyDataFormat,
             @JsonProperty("valueDataFormat") String valueDataFormat,
             @JsonProperty("keyName") String keyName)
     {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
         this.keyDataFormat = requireNonNull(keyDataFormat, "keyDataFormat is null");
         this.valueDataFormat = requireNonNull(valueDataFormat, "valueDataFormat is null");
         this.keyName = keyName;
-    }
-
-    @JsonProperty
-    public String getConnectorId()
-    {
-        return connectorId;
     }
 
     @JsonProperty
@@ -111,7 +98,7 @@ public final class RedisTableHandle
     @Override
     public int hashCode()
     {
-        return Objects.hash(connectorId, schemaName, tableName, keyDataFormat, valueDataFormat, keyName);
+        return Objects.hash(schemaName, tableName, keyDataFormat, valueDataFormat, keyName);
     }
 
     @Override
@@ -125,8 +112,7 @@ public final class RedisTableHandle
         }
 
         RedisTableHandle other = (RedisTableHandle) obj;
-        return Objects.equals(this.connectorId, other.connectorId)
-                && Objects.equals(this.schemaName, other.schemaName)
+        return Objects.equals(this.schemaName, other.schemaName)
                 && Objects.equals(this.tableName, other.tableName)
                 && Objects.equals(this.keyDataFormat, other.keyDataFormat)
                 && Objects.equals(this.valueDataFormat, other.valueDataFormat)
@@ -137,7 +123,6 @@ public final class RedisTableHandle
     public String toString()
     {
         return toStringHelper(this)
-                .add("connectorId", connectorId)
                 .add("schemaName", schemaName)
                 .add("tableName", tableName)
                 .add("keyDataFormat", keyDataFormat)
