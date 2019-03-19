@@ -16,6 +16,7 @@ package io.prestosql.plugin.accumulo.model;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.prestosql.plugin.accumulo.metadata.AccumuloTable;
 import io.prestosql.plugin.accumulo.serializers.AccumuloRowSerializer;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ConnectorInsertTableHandle;
@@ -107,6 +108,12 @@ public final class AccumuloTableHandle
     public SchemaTableName toSchemaTableName()
     {
         return new SchemaTableName(schema, table);
+    }
+
+    @JsonIgnore
+    public String getFullTableName()
+    {
+        return AccumuloTable.getFullTableName(schema, table);
     }
 
     @Override

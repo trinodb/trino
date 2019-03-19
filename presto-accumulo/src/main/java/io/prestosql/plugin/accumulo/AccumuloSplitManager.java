@@ -75,13 +75,8 @@ public class AccumuloSplitManager
         ImmutableList.Builder<ConnectorSplit> cSplits = ImmutableList.builder();
         for (TabletSplitMetadata splitMetadata : tabletSplits) {
             AccumuloSplit split = new AccumuloSplit(
-                    schemaName,
-                    tableName,
-                    rowIdName,
-                    tableHandle.getSerializerClassName(),
                     splitMetadata.getRanges().stream().map(WrappedRange::new).collect(Collectors.toList()),
                     constraints,
-                    tableHandle.getScanAuthorizations(),
                     splitMetadata.getHostPort());
             cSplits.add(split);
         }
