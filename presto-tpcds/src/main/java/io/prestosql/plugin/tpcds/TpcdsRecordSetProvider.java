@@ -22,6 +22,7 @@ import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorRecordSetProvider;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorSplit;
+import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 import io.prestosql.spi.connector.RecordSet;
 
@@ -34,22 +35,22 @@ public class TpcdsRecordSetProvider
         implements ConnectorRecordSetProvider
 {
     @Override
-    public RecordSet getRecordSet(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorSplit split, List<? extends ColumnHandle> columns)
+    public RecordSet getRecordSet(
+            ConnectorTransactionHandle transaction,
+            ConnectorSession connectorSession,
+            ConnectorSplit split,
+            ConnectorTableHandle tableHandle,
+            List<? extends ColumnHandle> columns)
     {
         TpcdsSplit tpcdsSplit = (TpcdsSplit) split;
-        String tableName = tpcdsSplit.getTableHandle().getTableName();
-        Table table = getTable(tableName);
-        return getRecordSet(table, columns, tpcdsSplit.getTableHandle().getScaleFactor(), tpcdsSplit.getPartNumber(), tpcdsSplit.getTotalParts(), tpcdsSplit.isNoSexism());
-    }
+        TpcdsTableHandle tpcdsTable = (TpcdsTableHandle) tableHandle;
 
-    private RecordSet getRecordSet(
-            Table table,
-            List<? extends ColumnHandle> columns,
-            double scaleFactor,
-            int partNumber,
-            int totalParts,
-            boolean noSexism)
-    {
+        Table table = getTable(tpcdsTable.getTableName());
+        double scaleFactor = tpcdsTable.getScaleFactor();
+        int partNumber = tpcdsSplit.getPartNumber();
+        int totalParts = tpcdsSplit.getTotalParts();
+        boolean noSexism = tpcdsSplit.isNoSexism();
+
         ImmutableList.Builder<Column> builder = ImmutableList.builder();
         for (ColumnHandle column : columns) {
             String columnName = ((TpcdsColumnHandle) column).getColumnName();
