@@ -245,7 +245,7 @@ public abstract class AbstractTestHiveFileSystem
             long sum = 0;
 
             for (ConnectorSplit split : getAllSplits(splitSource)) {
-                try (ConnectorPageSource pageSource = pageSourceProvider.createPageSource(transaction.getTransactionHandle(), session, split, columnHandles)) {
+                try (ConnectorPageSource pageSource = pageSourceProvider.createPageSource(transaction.getTransactionHandle(), session, split, table, columnHandles)) {
                     MaterializedResult result = materializeSourceDataStream(session, pageSource, getTypes(columnHandles));
 
                     for (MaterializedRow row : result) {
@@ -410,7 +410,7 @@ public abstract class AbstractTestHiveFileSystem
             ConnectorSplitSource splitSource = splitManager.getSplits(transaction.getTransactionHandle(), session, layoutHandle, UNGROUPED_SCHEDULING);
             ConnectorSplit split = getOnlyElement(getAllSplits(splitSource));
 
-            try (ConnectorPageSource pageSource = pageSourceProvider.createPageSource(transaction.getTransactionHandle(), session, split, columnHandles)) {
+            try (ConnectorPageSource pageSource = pageSourceProvider.createPageSource(transaction.getTransactionHandle(), session, split, tableHandle, columnHandles)) {
                 MaterializedResult result = materializeSourceDataStream(session, pageSource, getTypes(columnHandles));
                 assertEqualsIgnoreOrder(result.getMaterializedRows(), data.getMaterializedRows());
             }

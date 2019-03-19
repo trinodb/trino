@@ -22,6 +22,7 @@ import io.prestosql.spi.connector.ConnectorPageSource;
 import io.prestosql.spi.connector.ConnectorPageSourceProvider;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorSplit;
+import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 import io.prestosql.spi.connector.RecordCursor;
 import io.prestosql.spi.connector.RecordPageSource;
@@ -81,7 +82,7 @@ public class HivePageSourceProvider
     }
 
     @Override
-    public ConnectorPageSource createPageSource(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorSplit split, List<ColumnHandle> columns)
+    public ConnectorPageSource createPageSource(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorSplit split, ConnectorTableHandle table, List<ColumnHandle> columns)
     {
         List<HiveColumnHandle> hiveColumns = columns.stream()
                 .map(HiveColumnHandle.class::cast)

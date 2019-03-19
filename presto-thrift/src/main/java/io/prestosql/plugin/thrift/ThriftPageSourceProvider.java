@@ -20,6 +20,7 @@ import io.prestosql.spi.connector.ConnectorPageSource;
 import io.prestosql.spi.connector.ConnectorPageSourceProvider;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorSplit;
+import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 
 import javax.inject.Inject;
@@ -47,9 +48,10 @@ public class ThriftPageSourceProvider
 
     @Override
     public ConnectorPageSource createPageSource(
-            ConnectorTransactionHandle transactionHandle,
+            ConnectorTransactionHandle transaction,
             ConnectorSession session,
             ConnectorSplit split,
+            ConnectorTableHandle table,
             List<ColumnHandle> columns)
     {
         return new ThriftPageSource(client, thriftHeaderProvider.getHeaders(session), (ThriftConnectorSplit) split, columns, stats, maxBytesPerResponse);
