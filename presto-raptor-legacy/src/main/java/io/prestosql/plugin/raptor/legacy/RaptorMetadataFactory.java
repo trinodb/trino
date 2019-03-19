@@ -25,23 +25,18 @@ import static java.util.Objects.requireNonNull;
 
 public class RaptorMetadataFactory
 {
-    private final String connectorId;
     private final IDBI dbi;
     private final ShardManager shardManager;
 
     @Inject
-    public RaptorMetadataFactory(
-            RaptorConnectorId connectorId,
-            @ForMetadata IDBI dbi,
-            ShardManager shardManager)
+    public RaptorMetadataFactory(@ForMetadata IDBI dbi, ShardManager shardManager)
     {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
         this.dbi = requireNonNull(dbi, "dbi is null");
         this.shardManager = requireNonNull(shardManager, "shardManager is null");
     }
 
     public RaptorMetadata create(LongConsumer beginDeleteForTableId)
     {
-        return new RaptorMetadata(connectorId, dbi, shardManager, beginDeleteForTableId);
+        return new RaptorMetadata(dbi, shardManager, beginDeleteForTableId);
     }
 }

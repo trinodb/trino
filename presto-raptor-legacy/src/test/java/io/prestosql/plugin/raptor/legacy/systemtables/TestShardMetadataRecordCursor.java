@@ -79,7 +79,7 @@ public class TestShardMetadataRecordCursor
         this.dbi.registerMapper(new TableColumn.Mapper(new TypeRegistry()));
         this.dummyHandle = dbi.open();
         createTablesWithRetry(dbi);
-        this.metadata = new RaptorMetadata("raptor", dbi, createShardManager(dbi));
+        this.metadata = new RaptorMetadata(dbi, createShardManager(dbi));
 
         // Create table
         ConnectorTableMetadata table = tableMetadataBuilder(DEFAULT_TEST_ORDERS)

@@ -65,7 +65,6 @@ import static java.util.stream.Collectors.toSet;
 public class RaptorSplitManager
         implements ConnectorSplitManager
 {
-    private final String connectorId;
     private final NodeSupplier nodeSupplier;
     private final ShardManager shardManager;
     private final boolean backupAvailable;
@@ -79,7 +78,6 @@ public class RaptorSplitManager
 
     public RaptorSplitManager(RaptorConnectorId connectorId, NodeSupplier nodeSupplier, ShardManager shardManager, boolean backupAvailable)
     {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
         this.nodeSupplier = requireNonNull(nodeSupplier, "nodeSupplier is null");
         this.shardManager = requireNonNull(shardManager, "shardManager is null");
         this.backupAvailable = backupAvailable;
@@ -235,7 +233,7 @@ public class RaptorSplitManager
                 addresses = ImmutableList.of(node.getHostAndPort());
             }
 
-            return new RaptorSplit(connectorId, shardId, addresses, effectivePredicate, transactionId);
+            return new RaptorSplit(shardId, addresses, effectivePredicate, transactionId);
         }
 
         private ConnectorSplit createBucketSplit(int bucketNumber, Set<ShardNodes> shards)
@@ -254,7 +252,7 @@ public class RaptorSplitManager
                     .collect(toSet());
             HostAddress address = node.getHostAndPort();
 
-            return new RaptorSplit(connectorId, shardUuids, bucketNumber, address, effectivePredicate, transactionId);
+            return new RaptorSplit(shardUuids, bucketNumber, address, effectivePredicate, transactionId);
         }
     }
 }
