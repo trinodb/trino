@@ -29,26 +29,16 @@ import javax.management.MBeanServer;
 import java.lang.management.ManagementFactory;
 import java.util.Map;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static java.util.Objects.requireNonNull;
 
 public class CassandraConnectorFactory
         implements ConnectorFactory
 {
-    private final String name;
-
-    public CassandraConnectorFactory(String name)
-    {
-        checkArgument(!isNullOrEmpty(name), "name is null or empty");
-        this.name = name;
-    }
-
     @Override
     public String getName()
     {
-        return name;
+        return "cassandra";
     }
 
     @Override

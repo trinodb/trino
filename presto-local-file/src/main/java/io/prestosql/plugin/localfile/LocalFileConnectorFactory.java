@@ -49,7 +49,7 @@ public class LocalFileConnectorFactory
         try {
             Bootstrap app = new Bootstrap(
                     binder -> binder.bind(NodeManager.class).toInstance(context.getNodeManager()),
-                    new LocalFileModule(catalogName));
+                    new LocalFileModule());
 
             Injector injector = app
                     .strictConfig()
