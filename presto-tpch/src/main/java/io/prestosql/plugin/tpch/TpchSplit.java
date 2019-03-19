@@ -28,18 +28,16 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
-// Right now, splits are just the entire TPCH table
 public class TpchSplit
         implements ConnectorSplit
 {
-    private final TpchTableHandle tableHandle;
     private final int totalParts;
     private final int partNumber;
     private final List<HostAddress> addresses;
     private final TupleDomain<ColumnHandle> predicate;
 
     @JsonCreator
-    public TpchSplit(@JsonProperty("tableHandle") TpchTableHandle tableHandle,
+    public TpchSplit(
             @JsonProperty("partNumber") int partNumber,
             @JsonProperty("totalParts") int totalParts,
             @JsonProperty("addresses") List<HostAddress> addresses,
@@ -49,17 +47,10 @@ public class TpchSplit
         checkState(totalParts >= 1, "totalParts must be >= 1");
         checkState(totalParts > partNumber, "totalParts must be > partNumber");
 
-        this.tableHandle = requireNonNull(tableHandle, "tableHandle is null");
         this.partNumber = partNumber;
         this.totalParts = totalParts;
         this.addresses = ImmutableList.copyOf(requireNonNull(addresses, "addresses is null"));
         this.predicate = requireNonNull(predicate, "predicate is null");
-    }
-
-    @JsonProperty
-    public TpchTableHandle getTableHandle()
-    {
-        return tableHandle;
     }
 
     @JsonProperty
@@ -109,8 +100,7 @@ public class TpchSplit
             return false;
         }
         TpchSplit other = (TpchSplit) obj;
-        return Objects.equals(this.tableHandle, other.tableHandle) &&
-                Objects.equals(this.totalParts, other.totalParts) &&
+        return Objects.equals(this.totalParts, other.totalParts) &&
                 Objects.equals(this.partNumber, other.partNumber) &&
                 Objects.equals(this.predicate, other.predicate);
     }
@@ -118,14 +108,13 @@ public class TpchSplit
     @Override
     public int hashCode()
     {
-        return Objects.hash(tableHandle, totalParts, partNumber);
+        return Objects.hash(totalParts, partNumber);
     }
 
     @Override
     public String toString()
     {
         return toStringHelper(this)
-                .add("tableHandle", tableHandle)
                 .add("partNumber", partNumber)
                 .add("totalParts", totalParts)
                 .add("predicate", predicate)
