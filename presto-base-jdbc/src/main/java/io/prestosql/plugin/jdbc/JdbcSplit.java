@@ -21,8 +21,6 @@ import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorSplit;
 import io.prestosql.spi.predicate.TupleDomain;
 
-import javax.annotation.Nullable;
-
 import java.util.List;
 import java.util.Optional;
 
@@ -31,45 +29,16 @@ import static java.util.Objects.requireNonNull;
 public class JdbcSplit
         implements ConnectorSplit
 {
-    private final String catalogName;
-    private final String schemaName;
-    private final String tableName;
     private final TupleDomain<ColumnHandle> tupleDomain;
     private final Optional<String> additionalPredicate;
 
     @JsonCreator
     public JdbcSplit(
-            @JsonProperty("catalogName") @Nullable String catalogName,
-            @JsonProperty("schemaName") @Nullable String schemaName,
-            @JsonProperty("tableName") String tableName,
             @JsonProperty("tupleDomain") TupleDomain<ColumnHandle> tupleDomain,
             @JsonProperty("additionalPredicate") Optional<String> additionalPredicate)
     {
-        this.catalogName = catalogName;
-        this.schemaName = schemaName;
-        this.tableName = requireNonNull(tableName, "table name is null");
         this.tupleDomain = requireNonNull(tupleDomain, "tupleDomain is null");
         this.additionalPredicate = requireNonNull(additionalPredicate, "additionalPredicate is null");
-    }
-
-    @JsonProperty
-    @Nullable
-    public String getCatalogName()
-    {
-        return catalogName;
-    }
-
-    @JsonProperty
-    @Nullable
-    public String getSchemaName()
-    {
-        return schemaName;
-    }
-
-    @JsonProperty
-    public String getTableName()
-    {
-        return tableName;
     }
 
     @JsonProperty
