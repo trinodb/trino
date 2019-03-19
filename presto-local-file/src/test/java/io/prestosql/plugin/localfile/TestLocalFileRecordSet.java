@@ -15,7 +15,7 @@ package io.prestosql.plugin.localfile;
 
 import io.prestosql.spi.HostAddress;
 import io.prestosql.spi.connector.RecordCursor;
-import io.prestosql.spi.connector.SchemaTableName;
+import io.prestosql.spi.connector.RecordSet;
 import io.prestosql.spi.predicate.TupleDomain;
 import org.testng.annotations.Test;
 
@@ -54,12 +54,13 @@ public class TestLocalFileRecordSet
 
     private static void assertData(LocalFileTables localFileTables, LocalFileMetadata metadata)
     {
-        SchemaTableName tableName = getSchemaTableName();
-        List<LocalFileColumnHandle> columnHandles = metadata.getColumnHandles(SESSION, new LocalFileTableHandle(tableName, OptionalInt.of(0), OptionalInt.of(-1)))
+        LocalFileTableHandle tableHandle = new LocalFileTableHandle(getSchemaTableName(), OptionalInt.of(0), OptionalInt.of(-1));
+        List<LocalFileColumnHandle> columnHandles = metadata.getColumnHandles(SESSION, tableHandle)
                 .values().stream().map(column -> (LocalFileColumnHandle) column)
                 .collect(Collectors.toList());
 
-        LocalFileRecordSet recordSet = new LocalFileRecordSet(localFileTables, new LocalFileSplit(address, tableName, TupleDomain.all()), columnHandles);
+        LocalFileSplit split = new LocalFileSplit(address, TupleDomain.all());
+        RecordSet recordSet = new LocalFileRecordSet(localFileTables, split, tableHandle, columnHandles);
         RecordCursor cursor = recordSet.cursor();
 
         for (int i = 0; i < columnHandles.size(); i++) {

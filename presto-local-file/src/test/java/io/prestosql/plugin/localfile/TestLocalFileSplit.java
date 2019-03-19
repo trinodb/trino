@@ -25,7 +25,7 @@ import static org.testng.Assert.assertEquals;
 public class TestLocalFileSplit
 {
     private final HostAddress address = HostAddress.fromParts("localhost", 1234);
-    private final LocalFileSplit split = new LocalFileSplit(address, LocalFileTables.HttpRequestLogTable.getSchemaTableName(), TupleDomain.all());
+    private final LocalFileSplit split = new LocalFileSplit(address, TupleDomain.all());
 
     @Test
     public void testJsonRoundTrip()
@@ -35,7 +35,6 @@ public class TestLocalFileSplit
         LocalFileSplit copy = codec.fromJson(json);
 
         assertEquals(copy.getAddress(), split.getAddress());
-        assertEquals(copy.getTableName(), split.getTableName());
         assertEquals(copy.getEffectivePredicate(), split.getEffectivePredicate());
 
         assertEquals(copy.getAddresses(), ImmutableList.of(address));
