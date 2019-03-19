@@ -214,20 +214,27 @@ public final class WorkProcessorUtils
     {
         requireNonNull(processor, "processor is null");
         requireNonNull(mapper, "mapper is null");
-        return processor.flatTransform(elementOptional ->
-                elementOptional
-                        .map(element -> TransformationState.ofResult(mapper.apply(element)))
-                        .orElseGet(TransformationState::finished));
+        return processor.flatTransform(element ->
+        {
+            if (element == null) {
+                return TransformationState.finished();
+            }
+
+            return TransformationState.ofResult(mapper.apply(element));
+        });
     }
 
     static <T, R> WorkProcessor<R> map(WorkProcessor<T> processor, Function<T, R> mapper)
     {
         requireNonNull(processor, "processor is null");
         requireNonNull(mapper, "mapper is null");
-        return processor.transform(elementOptional ->
-                elementOptional
-                        .map(element -> TransformationState.ofResult(mapper.apply(element)))
-                        .orElseGet(TransformationState::finished));
+        return processor.transform(element -> {
+            if (element == null) {
+                return TransformationState.finished();
+            }
+
+            return TransformationState.ofResult(mapper.apply(element));
+        });
     }
 
     static <T, R> WorkProcessor<R> flatTransform(WorkProcessor<T> processor, Transformation<T, WorkProcessor<R>> transformation)
@@ -240,12 +247,11 @@ public final class WorkProcessorUtils
     static <T> WorkProcessor<T> flatten(WorkProcessor<WorkProcessor<T>> processor)
     {
         requireNonNull(processor, "processor is null");
-        return processor.transform(nestedProcessorOptional -> {
-            if (!nestedProcessorOptional.isPresent()) {
+        return processor.transform(nestedProcessor -> {
+            if (nestedProcessor == null) {
                 return TransformationState.finished();
             }
 
-            WorkProcessor<T> nestedProcessor = nestedProcessorOptional.get();
             if (nestedProcessor.process()) {
                 if (nestedProcessor.isFinished()) {
                     return TransformationState.needsMoreData();
@@ -268,16 +274,16 @@ public final class WorkProcessorUtils
         requireNonNull(transformation, "transformation is null");
         return create(new WorkProcessor.Process<R>()
         {
-            Optional<T> element = Optional.empty();
+            T element;
 
             @Override
             public ProcessState<R> process()
             {
                 while (true) {
-                    if (!element.isPresent() && !processor.isFinished()) {
+                    if (element == null && !processor.isFinished()) {
                         if (processor.process()) {
                             if (!processor.isFinished()) {
-                                element = Optional.of(processor.getResult());
+                                element = requireNonNull(processor.getResult(), "result is null");
                             }
                         }
                         else if (processor.isBlocked()) {
@@ -293,7 +299,7 @@ public final class WorkProcessorUtils
                     if (state.isNeedsMoreData()) {
                         checkState(!processor.isFinished(), "Cannot request more data when base processor is finished");
                         // set element to empty() in order to fetch a new one
-                        element = Optional.empty();
+                        element = null;
                     }
 
                     // pass-through transformation state if it doesn't require new data

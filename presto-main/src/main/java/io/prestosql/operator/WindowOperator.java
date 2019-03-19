@@ -460,7 +460,7 @@ public class WindowOperator
         }
 
         @Override
-        public TransformationState<PagesIndexWithHashStrategies> process(Optional<Page> pendingInputOptional)
+        public TransformationState<PagesIndexWithHashStrategies> process(Page pendingInput)
         {
             if (resetPagesIndex) {
                 pagesIndexWithHashStrategies.pagesIndex.clear();
@@ -468,20 +468,19 @@ public class WindowOperator
                 resetPagesIndex = false;
             }
 
-            boolean finishing = !pendingInputOptional.isPresent();
+            boolean finishing = pendingInput == null;
             if (finishing && pagesIndexWithHashStrategies.pagesIndex.getPositionCount() == 0) {
                 memoryContext.close();
                 return TransformationState.finished();
             }
 
             if (!finishing) {
-                Page pendingInput = pendingInputOptional.get();
                 pendingInputPosition = updatePagesIndex(pagesIndexWithHashStrategies, pendingInput, pendingInputPosition, Optional.empty());
                 updateMemoryUsage();
             }
 
             // If we have unused input or are finishing, then we have buffered a full group
-            if (finishing || pendingInputPosition < pendingInputOptional.get().getPositionCount()) {
+            if (finishing || pendingInputPosition < pendingInput.getPositionCount()) {
                 sortPagesIndexIfNecessary(pagesIndexWithHashStrategies, orderChannels, ordering);
                 resetPagesIndex = true;
                 return TransformationState.ofResult(pagesIndexWithHashStrategies, false);
@@ -537,9 +536,9 @@ public class WindowOperator
         }
 
         @Override
-        public TransformationState<Page> process(Optional<WindowPartition> partitionOptional)
+        public TransformationState<Page> process(WindowPartition partition)
         {
-            boolean finishing = !partitionOptional.isPresent();
+            boolean finishing = partition == null;
             if (finishing) {
                 if (pageBuilder.isEmpty()) {
                     return TransformationState.finished();
@@ -551,7 +550,6 @@ public class WindowOperator
                 return TransformationState.ofResult(page, false);
             }
 
-            WindowPartition partition = partitionOptional.get();
             while (!pageBuilder.isFull() && partition.hasNext()) {
                 partition.processNextRow(pageBuilder);
             }
@@ -611,7 +609,7 @@ public class WindowOperator
         }
 
         @Override
-        public TransformationState<WorkProcessor<PagesIndexWithHashStrategies>> process(Optional<Page> pendingInputOptional)
+        public TransformationState<WorkProcessor<PagesIndexWithHashStrategies>> process(Page pendingInput)
         {
             if (spillingWhenConvertingRevocableMemory) {
                 // Spill could already be finished by Driver (via WindowOperator#finishMemoryRevoke), but finishRevokeMemory will take care of that
@@ -633,7 +631,7 @@ public class WindowOperator
                 resetPagesIndex = false;
             }
 
-            boolean finishing = !pendingInputOptional.isPresent();
+            boolean finishing = pendingInput == null;
             if (finishing && inMemoryPagesIndexWithHashStrategies.pagesIndex.getPositionCount() == 0 && !spiller.isPresent()) {
                 localRevocableMemoryContext.close();
                 localUserMemoryContext.close();
@@ -641,12 +639,11 @@ public class WindowOperator
             }
 
             if (!finishing) {
-                Page pendingInput = pendingInputOptional.get();
                 pendingInputPosition = updatePagesIndex(inMemoryPagesIndexWithHashStrategies, pendingInput, pendingInputPosition, currentSpillGroupRowPage);
             }
 
             // If we have unused input or are finishing, then we have buffered a full group
-            if (finishing || pendingInputPosition < pendingInputOptional.get().getPositionCount()) {
+            if (finishing || pendingInputPosition < pendingInput.getPositionCount()) {
                 return fullGroupBuffered();
             }
 
