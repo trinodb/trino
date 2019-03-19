@@ -17,6 +17,7 @@ import com.google.common.base.Splitter;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
+import io.airlift.log.Logger;
 import io.prestosql.cli.ClientOptions.OutputFormat;
 import io.prestosql.client.ClientSelectedRole;
 import io.prestosql.client.Column;
@@ -58,6 +59,8 @@ public class Query
         implements Closeable
 {
     private static final Signal SIGINT = new Signal("INT");
+
+    private static final Logger log = Logger.get(Query.class);
 
     private final AtomicBoolean ignoreUserInterrupt = new AtomicBoolean();
     private final StatementClient client;
@@ -196,7 +199,12 @@ public class Query
     {
         while (client.isRunning() && (client.currentData().getData() == null)) {
             warningsPrinter.print(client.currentStatusInfo().getWarnings(), true, false);
-            client.advance();
+            try {
+                client.advance();
+            }
+            catch (RuntimeException e) {
+                log.debug(e, "error printing status");
+            }
         }
         List<Warning> warnings;
         if (client.isRunning()) {

@@ -141,7 +141,13 @@ public class Console
                 Optional.ofNullable(clientOptions.krb5CredentialCachePath),
                 !clientOptions.krb5DisableRemoteServiceHostnameCanonicalization)) {
             if (hasQuery) {
-                return executeCommand(queryRunner, query, clientOptions.outputFormat, clientOptions.ignoreErrors, clientOptions.progress);
+                return executeCommand(
+                        queryRunner,
+                        exiting,
+                        query,
+                        clientOptions.outputFormat,
+                        clientOptions.ignoreErrors,
+                        clientOptions.progress);
             }
 
             runConsole(queryRunner, exiting);
@@ -271,7 +277,13 @@ public class Console
         }
     }
 
-    private static boolean executeCommand(QueryRunner queryRunner, String query, OutputFormat outputFormat, boolean ignoreErrors, boolean showProgress)
+    private static boolean executeCommand(
+            QueryRunner queryRunner,
+            AtomicBoolean exiting,
+            String query,
+            OutputFormat outputFormat,
+            boolean ignoreErrors,
+            boolean showProgress)
     {
         boolean success = true;
         StatementSplitter splitter = new StatementSplitter(query);
@@ -283,6 +295,9 @@ public class Console
                     }
                     success = false;
                 }
+            }
+            if (exiting.get()) {
+                return success;
             }
         }
         if (!isEmptyStatement(splitter.getPartialStatement())) {
