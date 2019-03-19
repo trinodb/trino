@@ -49,7 +49,7 @@ public class ExampleConnectorFactory
             // A plugin is not required to use Guice; it is just very convenient
             Bootstrap app = new Bootstrap(
                     new JsonModule(),
-                    new ExampleModule(catalogName, context.getTypeManager()));
+                    new ExampleModule(context.getTypeManager()));
 
             Injector injector = app
                     .strictConfig()

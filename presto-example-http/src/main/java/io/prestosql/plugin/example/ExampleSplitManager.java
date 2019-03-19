@@ -34,13 +34,11 @@ import static java.util.Objects.requireNonNull;
 public class ExampleSplitManager
         implements ConnectorSplitManager
 {
-    private final String connectorId;
     private final ExampleClient exampleClient;
 
     @Inject
-    public ExampleSplitManager(ExampleConnectorId connectorId, ExampleClient exampleClient)
+    public ExampleSplitManager(ExampleClient exampleClient)
     {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
         this.exampleClient = requireNonNull(exampleClient, "client is null");
     }
 
@@ -55,7 +53,7 @@ public class ExampleSplitManager
 
         List<ConnectorSplit> splits = new ArrayList<>();
         for (URI uri : table.getSources()) {
-            splits.add(new ExampleSplit(connectorId, tableHandle.getSchemaName(), tableHandle.getTableName(), uri));
+            splits.add(new ExampleSplit(tableHandle.getSchemaName(), tableHandle.getTableName(), uri));
         }
         Collections.shuffle(splits);
 
