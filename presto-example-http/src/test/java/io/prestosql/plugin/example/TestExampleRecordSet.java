@@ -38,30 +38,30 @@ public class TestExampleRecordSet
     @Test
     public void testGetColumnTypes()
     {
-        RecordSet recordSet = new ExampleRecordSet(new ExampleSplit("schema", "table", dataUri), ImmutableList.of(
+        RecordSet recordSet = new ExampleRecordSet(new ExampleSplit(dataUri), ImmutableList.of(
                 new ExampleColumnHandle("text", createUnboundedVarcharType(), 0),
                 new ExampleColumnHandle("value", BIGINT, 1)));
         assertEquals(recordSet.getColumnTypes(), ImmutableList.of(createUnboundedVarcharType(), BIGINT));
 
-        recordSet = new ExampleRecordSet(new ExampleSplit("schema", "table", dataUri), ImmutableList.of(
+        recordSet = new ExampleRecordSet(new ExampleSplit(dataUri), ImmutableList.of(
                 new ExampleColumnHandle("value", BIGINT, 1),
                 new ExampleColumnHandle("text", createUnboundedVarcharType(), 0)));
         assertEquals(recordSet.getColumnTypes(), ImmutableList.of(BIGINT, createUnboundedVarcharType()));
 
-        recordSet = new ExampleRecordSet(new ExampleSplit("schema", "table", dataUri), ImmutableList.of(
+        recordSet = new ExampleRecordSet(new ExampleSplit(dataUri), ImmutableList.of(
                 new ExampleColumnHandle("value", BIGINT, 1),
                 new ExampleColumnHandle("value", BIGINT, 1),
                 new ExampleColumnHandle("text", createUnboundedVarcharType(), 0)));
         assertEquals(recordSet.getColumnTypes(), ImmutableList.of(BIGINT, BIGINT, createUnboundedVarcharType()));
 
-        recordSet = new ExampleRecordSet(new ExampleSplit("schema", "table", dataUri), ImmutableList.of());
+        recordSet = new ExampleRecordSet(new ExampleSplit(dataUri), ImmutableList.of());
         assertEquals(recordSet.getColumnTypes(), ImmutableList.of());
     }
 
     @Test
     public void testCursorSimple()
     {
-        RecordSet recordSet = new ExampleRecordSet(new ExampleSplit("schema", "table", dataUri), ImmutableList.of(
+        RecordSet recordSet = new ExampleRecordSet(new ExampleSplit(dataUri), ImmutableList.of(
                 new ExampleColumnHandle("text", createUnboundedVarcharType(), 0),
                 new ExampleColumnHandle("value", BIGINT, 1)));
         RecordCursor cursor = recordSet.cursor();
@@ -85,7 +85,7 @@ public class TestExampleRecordSet
     @Test
     public void testCursorMixedOrder()
     {
-        RecordSet recordSet = new ExampleRecordSet(new ExampleSplit("schema", "table", dataUri), ImmutableList.of(
+        RecordSet recordSet = new ExampleRecordSet(new ExampleSplit(dataUri), ImmutableList.of(
                 new ExampleColumnHandle("value", BIGINT, 1),
                 new ExampleColumnHandle("value", BIGINT, 1),
                 new ExampleColumnHandle("text", createUnboundedVarcharType(), 0)));
