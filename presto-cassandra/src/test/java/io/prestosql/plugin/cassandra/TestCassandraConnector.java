@@ -103,10 +103,9 @@ public class TestCassandraConnector
         String keyspace = "test_connector";
         createTestTables(EmbeddedCassandra.getSession(), keyspace, DATE);
 
-        String connectorId = "cassandra-test";
-        CassandraConnectorFactory connectorFactory = new CassandraConnectorFactory(connectorId);
+        CassandraConnectorFactory connectorFactory = new CassandraConnectorFactory();
 
-        Connector connector = connectorFactory.create(connectorId, ImmutableMap.of(
+        Connector connector = connectorFactory.create("test", ImmutableMap.of(
                 "cassandra.contact-points", EmbeddedCassandra.getHost(),
                 "cassandra.native-protocol-port", Integer.toString(EmbeddedCassandra.getPort())),
                 new TestingConnectorContext());
