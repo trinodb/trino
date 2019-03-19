@@ -21,6 +21,7 @@ import io.prestosql.plugin.accumulo.conf.AccumuloSessionProperties;
 import io.prestosql.plugin.accumulo.model.AccumuloColumnConstraint;
 import io.prestosql.plugin.accumulo.model.AccumuloColumnHandle;
 import io.prestosql.plugin.accumulo.model.AccumuloSplit;
+import io.prestosql.plugin.accumulo.model.AccumuloTableHandle;
 import io.prestosql.plugin.accumulo.serializers.AccumuloRowSerializer;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ConnectorSession;
@@ -37,7 +38,6 @@ import java.util.List;
 import java.util.Optional;
 
 import static io.prestosql.plugin.accumulo.AccumuloErrorCode.UNEXPECTED_ACCUMULO_ERROR;
-import static io.prestosql.spi.StandardErrorCode.NOT_FOUND;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -65,6 +65,7 @@ public class AccumuloRecordSet
             ConnectorSession session,
             AccumuloSplit split,
             String username,
+            AccumuloTableHandle table,
             List<AccumuloColumnHandle> columnHandles)
     {
         requireNonNull(session, "session is null");
@@ -72,15 +73,9 @@ public class AccumuloRecordSet
         requireNonNull(username, "username is null");
         constraints = requireNonNull(split.getConstraints(), "constraints is null");
 
-        rowIdName = split.getRowId();
+        rowIdName = table.getRowId();
 
-        // Factory the serializer based on the split configuration
-        try {
-            this.serializer = split.getSerializerClass().getConstructor().newInstance();
-        }
-        catch (Exception e) {
-            throw new PrestoException(NOT_FOUND, "Failed to factory serializer class.  Is it on the classpath?", e);
-        }
+        serializer = table.getSerializerInstance();
 
         // Save off the column handles and createa list of the Accumulo types
         this.columnHandles = requireNonNull(columnHandles, "column handles is null");
@@ -92,11 +87,11 @@ public class AccumuloRecordSet
 
         try {
             // Create the BatchScanner and set the ranges from the split
-            scanner = connector.createBatchScanner(split.getFullTableName(), getScanAuthorizations(session, split, connector, username), 10);
+            scanner = connector.createBatchScanner(table.getFullTableName(), getScanAuthorizations(session, table, connector, username), 10);
             scanner.setRanges(split.getRanges());
         }
         catch (Exception e) {
-            throw new PrestoException(UNEXPECTED_ACCUMULO_ERROR, format("Failed to create batch scanner for table %s", split.getFullTableName()), e);
+            throw new PrestoException(UNEXPECTED_ACCUMULO_ERROR, format("Failed to create batch scanner for table %s", table.getFullTableName()), e);
         }
     }
 
@@ -106,14 +101,14 @@ public class AccumuloRecordSet
      * In order of priority: session username authorizations, then table property, then the default connector auths.
      *
      * @param session Current session
-     * @param split Accumulo split
+     * @param table Accumulo table
      * @param connector Accumulo connector
      * @param username Accumulo username
      * @return Scan authorizations
      * @throws AccumuloException If a generic Accumulo error occurs
      * @throws AccumuloSecurityException If a security exception occurs
      */
-    private static Authorizations getScanAuthorizations(ConnectorSession session, AccumuloSplit split, Connector connector, String username)
+    private static Authorizations getScanAuthorizations(ConnectorSession session, AccumuloTableHandle table, Connector connector, String username)
             throws AccumuloException, AccumuloSecurityException
     {
         String sessionScanUser = AccumuloSessionProperties.getScanUsername(session);
@@ -123,7 +118,7 @@ public class AccumuloRecordSet
             return scanAuths;
         }
 
-        Optional<String> scanAuths = split.getScanAuthorizations();
+        Optional<String> scanAuths = table.getScanAuthorizations();
         if (scanAuths.isPresent()) {
             Authorizations auths = new Authorizations(Iterables.toArray(COMMA_SPLITTER.split(scanAuths.get()), String.class));
             LOG.debug("scan_auths table property set: %s", auths);

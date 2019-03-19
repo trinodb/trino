@@ -17,9 +17,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
-import io.prestosql.plugin.accumulo.serializers.AccumuloRowSerializer;
 import io.prestosql.spi.HostAddress;
-import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ConnectorSplit;
 import org.apache.accumulo.core.data.Range;
 
@@ -28,17 +26,11 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static io.prestosql.spi.StandardErrorCode.NOT_FOUND;
 import static java.util.Objects.requireNonNull;
 
 public class AccumuloSplit
         implements ConnectorSplit
 {
-    private final String rowId;
-    private final String schema;
-    private final String table;
-    private final String serializerClassName;
-    private final Optional<String> scanAuthorizations;
     private final Optional<String> hostPort;
     private final List<HostAddress> addresses;
     private final List<AccumuloColumnConstraint> constraints;
@@ -46,21 +38,11 @@ public class AccumuloSplit
 
     @JsonCreator
     public AccumuloSplit(
-            @JsonProperty("schema") String schema,
-            @JsonProperty("table") String table,
-            @JsonProperty("rowId") String rowId,
-            @JsonProperty("serializerClassName") String serializerClassName,
             @JsonProperty("ranges") List<WrappedRange> ranges,
             @JsonProperty("constraints") List<AccumuloColumnConstraint> constraints,
-            @JsonProperty("scanAuthorizations") Optional<String> scanAuthorizations,
             @JsonProperty("hostPort") Optional<String> hostPort)
     {
-        this.rowId = requireNonNull(rowId, "rowId is null");
-        this.schema = requireNonNull(schema, "schema is null");
-        this.table = requireNonNull(table, "table is null");
-        this.serializerClassName = requireNonNull(serializerClassName, "serializerClassName is null");
         this.constraints = ImmutableList.copyOf(requireNonNull(constraints, "constraints is null"));
-        this.scanAuthorizations = requireNonNull(scanAuthorizations, "scanAuthorizations is null");
         this.hostPort = requireNonNull(hostPort, "hostPort is null");
         this.ranges = ImmutableList.copyOf(requireNonNull(ranges, "ranges is null"));
 
@@ -79,36 +61,6 @@ public class AccumuloSplit
         return hostPort;
     }
 
-    @JsonProperty
-    public String getRowId()
-    {
-        return rowId;
-    }
-
-    @JsonProperty
-    public String getSchema()
-    {
-        return schema;
-    }
-
-    @JsonProperty
-    public String getTable()
-    {
-        return table;
-    }
-
-    @JsonIgnore
-    public String getFullTableName()
-    {
-        return (this.getSchema().equals("default") ? "" : this.getSchema() + ".") + this.getTable();
-    }
-
-    @JsonProperty
-    public String getSerializerClassName()
-    {
-        return this.serializerClassName;
-    }
-
     @JsonProperty("ranges")
     public List<WrappedRange> getWrappedRanges()
     {
@@ -125,24 +77,6 @@ public class AccumuloSplit
     public List<AccumuloColumnConstraint> getConstraints()
     {
         return constraints;
-    }
-
-    @SuppressWarnings("unchecked")
-    @JsonIgnore
-    public Class<? extends AccumuloRowSerializer> getSerializerClass()
-    {
-        try {
-            return (Class<? extends AccumuloRowSerializer>) Class.forName(serializerClassName);
-        }
-        catch (ClassNotFoundException e) {
-            throw new PrestoException(NOT_FOUND, "Configured serializer class not found", e);
-        }
-    }
-
-    @JsonProperty
-    public Optional<String> getScanAuthorizations()
-    {
-        return scanAuthorizations;
     }
 
     @Override
@@ -167,14 +101,9 @@ public class AccumuloSplit
     public String toString()
     {
         return toStringHelper(this)
-                .add("schema", schema)
-                .add("table", table)
-                .add("rowId", rowId)
-                .add("serializerClassName", serializerClassName)
                 .add("addresses", addresses)
                 .add("numRanges", ranges.size())
                 .add("constraints", constraints)
-                .add("scanAuthorizations", scanAuthorizations)
                 .add("hostPort", hostPort)
                 .toString();
     }
