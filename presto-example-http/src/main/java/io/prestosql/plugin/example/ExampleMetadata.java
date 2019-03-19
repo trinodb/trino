@@ -37,20 +37,16 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public class ExampleMetadata
         implements ConnectorMetadata
 {
-    private final String connectorId;
-
     private final ExampleClient exampleClient;
 
     @Inject
-    public ExampleMetadata(ExampleConnectorId connectorId, ExampleClient exampleClient)
+    public ExampleMetadata(ExampleClient exampleClient)
     {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
         this.exampleClient = requireNonNull(exampleClient, "client is null");
     }
 
@@ -77,7 +73,7 @@ public class ExampleMetadata
             return null;
         }
 
-        return new ExampleTableHandle(connectorId, tableName.getSchemaName(), tableName.getTableName());
+        return new ExampleTableHandle(tableName.getSchemaName(), tableName.getTableName());
     }
 
     @Override
@@ -97,11 +93,7 @@ public class ExampleMetadata
     @Override
     public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle table)
     {
-        ExampleTableHandle exampleTableHandle = (ExampleTableHandle) table;
-        checkArgument(exampleTableHandle.getConnectorId().equals(connectorId), "tableHandle is not for this connector");
-        SchemaTableName tableName = new SchemaTableName(exampleTableHandle.getSchemaName(), exampleTableHandle.getTableName());
-
-        return getTableMetadata(tableName);
+        return getTableMetadata(((ExampleTableHandle) table).toSchemaTableName());
     }
 
     @Override
@@ -123,7 +115,6 @@ public class ExampleMetadata
     public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         ExampleTableHandle exampleTableHandle = (ExampleTableHandle) tableHandle;
-        checkArgument(exampleTableHandle.getConnectorId().equals(connectorId), "tableHandle is not for this connector");
 
         ExampleTable table = exampleClient.getTable(exampleTableHandle.getSchemaName(), exampleTableHandle.getTableName());
         if (table == null) {
@@ -133,7 +124,7 @@ public class ExampleMetadata
         ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
         int index = 0;
         for (ColumnMetadata column : table.getColumnsMetadata()) {
-            columnHandles.put(column.getName(), new ExampleColumnHandle(connectorId, column.getName(), column.getType(), index));
+            columnHandles.put(column.getName(), new ExampleColumnHandle(column.getName(), column.getType(), index));
             index++;
         }
         return columnHandles.build();

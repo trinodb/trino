@@ -27,7 +27,6 @@ import static java.util.Objects.requireNonNull;
 public class ExampleSplit
         implements ConnectorSplit
 {
-    private final String connectorId;
     private final String schemaName;
     private final String tableName;
     private final URI uri;
@@ -36,25 +35,17 @@ public class ExampleSplit
 
     @JsonCreator
     public ExampleSplit(
-            @JsonProperty("connectorId") String connectorId,
             @JsonProperty("schemaName") String schemaName,
             @JsonProperty("tableName") String tableName,
             @JsonProperty("uri") URI uri)
     {
         this.schemaName = requireNonNull(schemaName, "schema name is null");
-        this.connectorId = requireNonNull(connectorId, "connector id is null");
         this.tableName = requireNonNull(tableName, "table name is null");
         this.uri = requireNonNull(uri, "uri is null");
 
 //        if ("http".equalsIgnoreCase(uri.getScheme()) || "https".equalsIgnoreCase(uri.getScheme())) {
         remotelyAccessible = true;
         addresses = ImmutableList.of(HostAddress.fromUri(uri));
-    }
-
-    @JsonProperty
-    public String getConnectorId()
-    {
-        return connectorId;
     }
 
     @JsonProperty

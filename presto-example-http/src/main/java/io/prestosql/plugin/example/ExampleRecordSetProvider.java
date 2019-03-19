@@ -21,30 +21,18 @@ import io.prestosql.spi.connector.ConnectorSplit;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 import io.prestosql.spi.connector.RecordSet;
 
-import javax.inject.Inject;
-
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public class ExampleRecordSetProvider
         implements ConnectorRecordSetProvider
 {
-    private final String connectorId;
-
-    @Inject
-    public ExampleRecordSetProvider(ExampleConnectorId connectorId)
-    {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
-    }
-
     @Override
     public RecordSet getRecordSet(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorSplit split, List<? extends ColumnHandle> columns)
     {
         requireNonNull(split, "partitionChunk is null");
         ExampleSplit exampleSplit = (ExampleSplit) split;
-        checkArgument(exampleSplit.getConnectorId().equals(connectorId), "split is not for this connector");
 
         ImmutableList.Builder<ExampleColumnHandle> handles = ImmutableList.builder();
         for (ColumnHandle handle : columns) {
