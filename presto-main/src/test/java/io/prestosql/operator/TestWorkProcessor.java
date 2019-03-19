@@ -463,9 +463,9 @@ public class TestWorkProcessor
     private static <T, R> WorkProcessor.Transformation<T, R> transformationFrom(List<Transform<T, R>> transformations)
     {
         Iterator<Transform<T, R>> iterator = transformations.iterator();
-        return elementOptional -> {
+        return element -> {
             assertTrue(iterator.hasNext());
-            return iterator.next().transform(elementOptional);
+            return iterator.next().transform(Optional.ofNullable(element));
         };
     }
 

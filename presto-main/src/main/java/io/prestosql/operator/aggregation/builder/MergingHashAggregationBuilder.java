@@ -91,7 +91,7 @@ public class MergingHashAggregationBuilder
             boolean reset = true;
             long memorySize;
 
-            public TransformationState<WorkProcessor<Page>> process(Optional<Page> inputPageOptional)
+            public TransformationState<WorkProcessor<Page>> process(Page inputPage)
             {
                 if (reset) {
                     rebuildHashAggregationBuilder();
@@ -99,14 +99,13 @@ public class MergingHashAggregationBuilder
                     reset = false;
                 }
 
-                boolean inputFinished = !inputPageOptional.isPresent();
+                boolean inputFinished = inputPage == null;
                 if (inputFinished && memorySize == 0) {
                     // no more pages and aggregation builder is empty
                     return TransformationState.finished();
                 }
 
                 if (!inputFinished) {
-                    Page inputPage = inputPageOptional.get();
                     boolean done = hashAggregationBuilder.processPage(inputPage).process();
                     // TODO: this class does not yield wrt memory limit; enable it
                     verify(done);

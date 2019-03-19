@@ -23,7 +23,6 @@ import io.prestosql.spi.PageBuilder;
 import io.prestosql.spi.type.Type;
 
 import java.util.List;
-import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.operator.WorkProcessor.TransformationState.finished;
@@ -109,7 +108,7 @@ public class MergePages
         }
 
         @Override
-        public TransformationState<Page> process(Optional<Page> inputPageOptional)
+        public TransformationState<Page> process(Page inputPage)
         {
             if (queuedPage != null) {
                 Page output = queuedPage;
@@ -118,7 +117,7 @@ public class MergePages
                 return ofResult(output);
             }
 
-            boolean inputFinished = !inputPageOptional.isPresent();
+            boolean inputFinished = inputPage == null;
             if (inputFinished) {
                 if (pageBuilder.isEmpty()) {
                     memoryContext.close();
@@ -128,7 +127,6 @@ public class MergePages
                 return ofResult(flush(), false);
             }
 
-            Page inputPage = inputPageOptional.get();
             if (inputPage.getPositionCount() >= minRowCount || inputPage.getSizeInBytes() >= minPageSizeInBytes) {
                 if (pageBuilder.isEmpty()) {
                     return ofResult(inputPage);

@@ -161,7 +161,7 @@ public interface WorkProcessor<T>
         /**
          * Processes input elements and returns current transformation state.
          *
-         * @param elementOptional an element to be transformed. Will be empty
+         * @param element an element to be transformed. Will be null
          * when there are no more elements. In such case transformation should
          * finish processing and flush any remaining data.
          * @return the current transformation state, optionally bearing a result
@@ -172,7 +172,7 @@ public interface WorkProcessor<T>
          * @see TransformationState#ofResult(Object, boolean)
          * @see TransformationState#finished()
          */
-        TransformationState<R> process(Optional<T> elementOptional);
+        TransformationState<R> process(@Nullable T element);
     }
 
     interface Process<T>
