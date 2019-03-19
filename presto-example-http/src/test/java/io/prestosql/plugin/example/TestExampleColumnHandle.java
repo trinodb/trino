@@ -39,16 +39,9 @@ public class TestExampleColumnHandle
         EquivalenceTester.equivalenceTester()
                 .addEquivalentGroup(
                         new ExampleColumnHandle("columnName", createUnboundedVarcharType(), 0),
-                        new ExampleColumnHandle("columnName", createUnboundedVarcharType(), 0),
                         new ExampleColumnHandle("columnName", BIGINT, 0),
                         new ExampleColumnHandle("columnName", createUnboundedVarcharType(), 1))
                 .addEquivalentGroup(
-                        new ExampleColumnHandle("columnName", createUnboundedVarcharType(), 0),
-                        new ExampleColumnHandle("columnName", createUnboundedVarcharType(), 0),
-                        new ExampleColumnHandle("columnName", BIGINT, 0),
-                        new ExampleColumnHandle("columnName", createUnboundedVarcharType(), 1))
-                .addEquivalentGroup(
-                        new ExampleColumnHandle("columnNameX", createUnboundedVarcharType(), 0),
                         new ExampleColumnHandle("columnNameX", createUnboundedVarcharType(), 0),
                         new ExampleColumnHandle("columnNameX", BIGINT, 0),
                         new ExampleColumnHandle("columnNameX", createUnboundedVarcharType(), 1))
