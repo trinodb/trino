@@ -29,7 +29,6 @@ import static java.util.Objects.requireNonNull;
 public class TpcdsSplit
         implements ConnectorSplit
 {
-    private final TpcdsTableHandle tableHandle;
     private final int totalParts;
     private final int partNumber;
     private final List<HostAddress> addresses;
@@ -37,7 +36,6 @@ public class TpcdsSplit
 
     @JsonCreator
     public TpcdsSplit(
-            @JsonProperty("tableHandle") TpcdsTableHandle tableHandle,
             @JsonProperty("partNumber") int partNumber,
             @JsonProperty("totalParts") int totalParts,
             @JsonProperty("addresses") List<HostAddress> addresses,
@@ -46,20 +44,12 @@ public class TpcdsSplit
         checkState(partNumber >= 0, "partNumber must be >= 0");
         checkState(totalParts >= 1, "totalParts must be >= 1");
         checkState(totalParts > partNumber, "totalParts must be > partNumber");
-        requireNonNull(tableHandle, "tableHandle is null");
         requireNonNull(addresses, "addresses is null");
 
-        this.tableHandle = tableHandle;
         this.partNumber = partNumber;
         this.totalParts = totalParts;
         this.addresses = ImmutableList.copyOf(addresses);
         this.noSexism = noSexism;
-    }
-
-    @JsonProperty
-    public TpcdsTableHandle getTableHandle()
-    {
-        return tableHandle;
     }
 
     @JsonProperty
@@ -109,8 +99,7 @@ public class TpcdsSplit
             return false;
         }
         TpcdsSplit other = (TpcdsSplit) obj;
-        return Objects.equals(this.tableHandle, other.tableHandle) &&
-                Objects.equals(this.totalParts, other.totalParts) &&
+        return Objects.equals(this.totalParts, other.totalParts) &&
                 Objects.equals(this.partNumber, other.partNumber) &&
                 Objects.equals(this.noSexism, other.noSexism);
     }
@@ -118,14 +107,13 @@ public class TpcdsSplit
     @Override
     public int hashCode()
     {
-        return Objects.hash(tableHandle, totalParts, partNumber, noSexism);
+        return Objects.hash(totalParts, partNumber, noSexism);
     }
 
     @Override
     public String toString()
     {
         return toStringHelper(this)
-                .add("tableHandle", tableHandle)
                 .add("partNumber", partNumber)
                 .add("totalParts", totalParts)
                 .add("noSexism", noSexism)
