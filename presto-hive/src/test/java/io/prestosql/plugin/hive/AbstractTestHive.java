@@ -1721,7 +1721,7 @@ public abstract class AbstractTestHive
 
                 long rowNumber = 0;
                 long completedBytes = 0;
-                try (ConnectorPageSource pageSource = pageSourceProvider.createPageSource(transaction.getTransactionHandle(), session, hiveSplit, columnHandles)) {
+                try (ConnectorPageSource pageSource = pageSourceProvider.createPageSource(transaction.getTransactionHandle(), session, hiveSplit, tableHandle, columnHandles)) {
                     MaterializedResult result = materializeSourceDataStream(session, pageSource, getTypes(columnHandles));
 
                     assertPageSourceType(pageSource, fileType);
@@ -1810,7 +1810,7 @@ public abstract class AbstractTestHive
                 int dummyPartition = Integer.parseInt(partitionKeys.get(2).getValue());
 
                 long rowNumber = 0;
-                try (ConnectorPageSource pageSource = pageSourceProvider.createPageSource(transaction.getTransactionHandle(), session, hiveSplit, columnHandles)) {
+                try (ConnectorPageSource pageSource = pageSourceProvider.createPageSource(transaction.getTransactionHandle(), session, hiveSplit, tableHandle, columnHandles)) {
                     assertPageSourceType(pageSource, fileType);
                     MaterializedResult result = materializeSourceDataStream(session, pageSource, getTypes(columnHandles));
                     for (MaterializedRow row : result) {
@@ -1848,7 +1848,7 @@ public abstract class AbstractTestHive
                 assertEquals(hiveSplit.getPartitionKeys(), ImmutableList.of());
 
                 long rowNumber = 0;
-                try (ConnectorPageSource pageSource = pageSourceProvider.createPageSource(transaction.getTransactionHandle(), session, split, columnHandles)) {
+                try (ConnectorPageSource pageSource = pageSourceProvider.createPageSource(transaction.getTransactionHandle(), session, split, tableHandle, columnHandles)) {
                     assertPageSourceType(pageSource, TEXTFILE);
                     MaterializedResult result = materializeSourceDataStream(session, pageSource, getTypes(columnHandles));
 
@@ -1916,7 +1916,7 @@ public abstract class AbstractTestHive
             ConnectorSplit split = getOnlyElement(getAllSplits(splitSource));
 
             ImmutableList<ColumnHandle> columnHandles = ImmutableList.of(column);
-            try (ConnectorPageSource ignored = pageSourceProvider.createPageSource(transaction.getTransactionHandle(), session, split, columnHandles)) {
+            try (ConnectorPageSource ignored = pageSourceProvider.createPageSource(transaction.getTransactionHandle(), session, split, table, columnHandles)) {
                 fail("expected exception");
             }
             catch (PrestoException e) {
@@ -2340,7 +2340,7 @@ public abstract class AbstractTestHive
 
             int actualRowCount = 0;
             for (ConnectorSplit split : splits) {
-                try (ConnectorPageSource pageSource = pageSourceProvider.createPageSource(transaction.getTransactionHandle(), session, split, columnHandles)) {
+                try (ConnectorPageSource pageSource = pageSourceProvider.createPageSource(transaction.getTransactionHandle(), session, split, tableHandle, columnHandles)) {
                     String lastValueAsc = null;
                     long lastValueDesc = -1;
 
@@ -3719,7 +3719,7 @@ public abstract class AbstractTestHive
 
             List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(session, tableHandle).values());
 
-            ConnectorPageSource pageSource = pageSourceProvider.createPageSource(transaction.getTransactionHandle(), session, hiveSplit, columnHandles);
+            ConnectorPageSource pageSource = pageSourceProvider.createPageSource(transaction.getTransactionHandle(), session, hiveSplit, tableHandle, columnHandles);
             assertGetRecords(hiveStorageFormat, tableMetadata, hiveSplit, pageSource, columnHandles);
         }
     }
@@ -4004,7 +4004,7 @@ public abstract class AbstractTestHive
 
         ImmutableList.Builder<MaterializedRow> allRows = ImmutableList.builder();
         for (ConnectorSplit split : splits) {
-            try (ConnectorPageSource pageSource = pageSourceProvider.createPageSource(transaction.getTransactionHandle(), session, split, columnHandles)) {
+            try (ConnectorPageSource pageSource = pageSourceProvider.createPageSource(transaction.getTransactionHandle(), session, split, tableHandle, columnHandles)) {
                 expectedStorageFormat.ifPresent(format -> assertPageSourceType(pageSource, format));
                 MaterializedResult result = materializeSourceDataStream(session, pageSource, getTypes(columnHandles));
                 allRows.addAll(result.getMaterializedRows());
