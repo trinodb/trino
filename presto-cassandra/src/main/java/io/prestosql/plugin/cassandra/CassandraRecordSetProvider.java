@@ -19,6 +19,7 @@ import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorRecordSetProvider;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorSplit;
+import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 import io.prestosql.spi.connector.RecordSet;
 
@@ -43,15 +44,16 @@ public class CassandraRecordSetProvider
     }
 
     @Override
-    public RecordSet getRecordSet(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorSplit split, List<? extends ColumnHandle> columns)
+    public RecordSet getRecordSet(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorSplit split, ConnectorTableHandle table, List<? extends ColumnHandle> columns)
     {
         CassandraSplit cassandraSplit = (CassandraSplit) split;
+        CassandraTableHandle cassandraTable = (CassandraTableHandle) table;
 
         List<CassandraColumnHandle> cassandraColumns = columns.stream()
                 .map(column -> (CassandraColumnHandle) column)
                 .collect(toList());
 
-        String selectCql = CassandraCqlUtils.selectFrom(cassandraSplit.getCassandraTableHandle(), cassandraColumns).getQueryString();
+        String selectCql = CassandraCqlUtils.selectFrom(cassandraTable, cassandraColumns).getQueryString();
         StringBuilder sb = new StringBuilder(selectCql);
         if (sb.charAt(sb.length() - 1) == ';') {
             sb.setLength(sb.length() - 1);
