@@ -24,7 +24,6 @@ import io.prestosql.metadata.TableHandle;
 import io.prestosql.operator.WorkProcessor.ProcessState;
 import io.prestosql.operator.project.CursorProcessor;
 import io.prestosql.operator.project.CursorProcessorOutput;
-import io.prestosql.operator.project.MergePages;
 import io.prestosql.operator.project.PageProcessor;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.PageBuilder;
@@ -52,6 +51,7 @@ import java.util.function.Supplier;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
 import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static io.prestosql.operator.project.MergePages.mergePages;
 import static java.util.Objects.requireNonNull;
 
 public class ScanFilterAndProjectOperator
@@ -304,7 +304,7 @@ public class ScanFilterAndProjectOperator
                             operatorContext.getDriverContext().getYieldSignal(),
                             outputMemoryContext,
                             page))
-                    .transformProcessor(processor -> MergePages.mergePages(types, minOutputPageSize.toBytes(), minOutputPageRowCount, processor, localAggregatedMemoryContext))
+                    .transformProcessor(processor -> mergePages(types, minOutputPageSize.toBytes(), minOutputPageRowCount, processor, localAggregatedMemoryContext))
                     .withProcessStateMonitor(state -> {
                         memoryContext.setBytes(localAggregatedMemoryContext.getBytes());
                         operatorContext.recordPhysicalInputWithTiming(deltaPhysicalBytes, deltaPositionsCount, deltaPhysicalReadTimeNanos);
