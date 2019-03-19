@@ -183,7 +183,7 @@ public class TestCassandraConnector
             CassandraSplit cassandraSplit = (CassandraSplit) split;
 
             long completedBytes = 0;
-            try (RecordCursor cursor = recordSetProvider.getRecordSet(transaction, SESSION, cassandraSplit, columnHandles).cursor()) {
+            try (RecordCursor cursor = recordSetProvider.getRecordSet(transaction, SESSION, cassandraSplit, tableHandle, columnHandles).cursor()) {
                 while (cursor.advanceNextPosition()) {
                     try {
                         assertReadFields(cursor, tableMetadata.getColumns());

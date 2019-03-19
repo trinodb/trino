@@ -92,7 +92,7 @@ public class CassandraSplitManager
         for (CassandraTokenSplitManager.TokenSplit tokenSplit : tokenSplits) {
             String condition = buildTokenCondition(tokenExpression, tokenSplit.getStartToken(), tokenSplit.getEndToken());
             List<HostAddress> addresses = new HostAddressFactory().AddressNamesToHostAddressList(tokenSplit.getHosts());
-            CassandraSplit split = new CassandraSplit(schema, tableName, partitionId, condition, addresses);
+            CassandraSplit split = new CassandraSplit(partitionId, condition, addresses);
             builder.add(split);
         }
 
@@ -147,7 +147,7 @@ public class CassandraSplitManager
                 hostMap.put(hostAddresses, addresses);
             }
             else {
-                builder.add(createSplitForClusteringPredicates(cassTableHandle, cassandraPartition.getPartitionId(), addresses, clusteringPredicates));
+                builder.add(createSplitForClusteringPredicates(cassandraPartition.getPartitionId(), addresses, clusteringPredicates));
             }
         }
         if (singlePartitionKeyColumn) {
@@ -162,7 +162,7 @@ public class CassandraSplitManager
                     size++;
                     if (size > partitionSizeForBatchSelect) {
                         String partitionId = format("%s in (%s)", partitionKeyColumnName, sb.toString());
-                        builder.add(createSplitForClusteringPredicates(cassTableHandle, partitionId, hostMap.get(entry.getKey()), clusteringPredicates));
+                        builder.add(createSplitForClusteringPredicates(partitionId, hostMap.get(entry.getKey()), clusteringPredicates));
                         size = 0;
                         sb.setLength(0);
                         sb.trimToSize();
@@ -170,7 +170,7 @@ public class CassandraSplitManager
                 }
                 if (size > 0) {
                     String partitionId = format("%s in (%s)", partitionKeyColumnName, sb.toString());
-                    builder.add(createSplitForClusteringPredicates(cassTableHandle, partitionId, hostMap.get(entry.getKey()), clusteringPredicates));
+                    builder.add(createSplitForClusteringPredicates(partitionId, hostMap.get(entry.getKey()), clusteringPredicates));
                 }
             }
         }
@@ -178,18 +178,14 @@ public class CassandraSplitManager
     }
 
     private CassandraSplit createSplitForClusteringPredicates(
-            CassandraTableHandle tableHandle,
             String partitionId,
             List<HostAddress> hosts,
             String clusteringPredicates)
     {
-        String schema = tableHandle.getSchemaName();
-        String table = tableHandle.getTableName();
-
         if (clusteringPredicates.isEmpty()) {
-            return new CassandraSplit(schema, table, partitionId, null, hosts);
+            return new CassandraSplit(partitionId, null, hosts);
         }
 
-        return new CassandraSplit(schema, table, partitionId, clusteringPredicates, hosts);
+        return new CassandraSplit(partitionId, clusteringPredicates, hosts);
     }
 }
