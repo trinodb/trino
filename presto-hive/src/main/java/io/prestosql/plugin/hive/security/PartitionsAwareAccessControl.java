@@ -15,6 +15,7 @@
 package io.prestosql.plugin.hive.security;
 
 import io.prestosql.plugin.base.security.ForwardingConnectorAccessControl;
+import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorAccessControl;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 import io.prestosql.spi.connector.SchemaTableName;
@@ -23,12 +24,14 @@ import io.prestosql.spi.security.ConnectorIdentity;
 import io.prestosql.spi.security.PrestoPrincipal;
 import io.prestosql.spi.security.Privilege;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
 import static io.prestosql.plugin.hive.HiveMetadata.getSourceTableNameForPartitionsTable;
 import static io.prestosql.plugin.hive.HiveMetadata.isPartitionsSystemTable;
 import static io.prestosql.spi.security.AccessDeniedException.denySelectTable;
+import static io.prestosql.spi.security.AccessDeniedException.denyShowColumnsMetadata;
 import static java.util.Objects.requireNonNull;
 
 public class PartitionsAwareAccessControl
@@ -105,6 +108,30 @@ public class PartitionsAwareAccessControl
     public Set<SchemaTableName> filterTables(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, Set<SchemaTableName> tableNames)
     {
         return delegate.filterTables(transactionHandle, identity, tableNames);
+    }
+
+    @Override
+    public void checkCanShowColumnsMetadata(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, SchemaTableName tableName)
+    {
+        if (isPartitionsSystemTable(tableName)) {
+            try {
+                checkCanShowColumnsMetadata(transactionHandle, identity, getSourceTableNameForPartitionsTable(tableName));
+                return;
+            }
+            catch (AccessDeniedException e) {
+                denyShowColumnsMetadata(tableName.toString());
+            }
+        }
+        delegate.checkCanShowColumnsMetadata(transactionHandle, identity, tableName);
+    }
+
+    @Override
+    public List<ColumnMetadata> filterColumns(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, SchemaTableName tableName, List<ColumnMetadata> columns)
+    {
+        if (isPartitionsSystemTable(tableName)) {
+            return filterColumns(transactionHandle, identity, getSourceTableNameForPartitionsTable(tableName), columns);
+        }
+        return delegate.filterColumns(transactionHandle, identity, tableName, columns);
     }
 
     @Override
