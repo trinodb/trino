@@ -30,7 +30,6 @@ import static java.util.Objects.requireNonNull;
 public final class RaptorTableHandle
         implements ConnectorTableHandle
 {
-    private final String connectorId;
     private final String schemaName;
     private final String tableName;
     private final long tableId;
@@ -43,7 +42,6 @@ public final class RaptorTableHandle
 
     @JsonCreator
     public RaptorTableHandle(
-            @JsonProperty("connectorId") String connectorId,
             @JsonProperty("schemaName") String schemaName,
             @JsonProperty("tableName") String tableName,
             @JsonProperty("tableId") long tableId,
@@ -54,7 +52,6 @@ public final class RaptorTableHandle
             @JsonProperty("transactionId") OptionalLong transactionId,
             @JsonProperty("delete") boolean delete)
     {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.schemaName = checkSchemaName(schemaName);
         this.tableName = checkTableName(tableName);
 
@@ -73,12 +70,6 @@ public final class RaptorTableHandle
     public boolean isBucketed()
     {
         return this.distributionId.isPresent();
-    }
-
-    @JsonProperty
-    public String getConnectorId()
-    {
-        return connectorId;
     }
 
     @JsonProperty
@@ -138,7 +129,7 @@ public final class RaptorTableHandle
     @Override
     public String toString()
     {
-        return connectorId + ":" + schemaName + ":" + tableName + ":" + tableId;
+        return schemaName + ":" + tableName + ":" + tableId;
     }
 
     @Override

@@ -32,7 +32,6 @@ import static java.util.Objects.requireNonNull;
 public class RaptorOutputTableHandle
         implements ConnectorOutputTableHandle
 {
-    private final String connectorId;
     private final long transactionId;
     private final String schemaName;
     private final String tableName;
@@ -48,7 +47,6 @@ public class RaptorOutputTableHandle
 
     @JsonCreator
     public RaptorOutputTableHandle(
-            @JsonProperty("connectorId") String connectorId,
             @JsonProperty("transactionId") long transactionId,
             @JsonProperty("schemaName") String schemaName,
             @JsonProperty("tableName") String tableName,
@@ -62,7 +60,6 @@ public class RaptorOutputTableHandle
             @JsonProperty("organized") boolean organized,
             @JsonProperty("bucketColumnHandles") List<RaptorColumnHandle> bucketColumnHandles)
     {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.transactionId = transactionId;
         this.schemaName = checkSchemaName(schemaName);
         this.tableName = checkTableName(tableName);
@@ -75,12 +72,6 @@ public class RaptorOutputTableHandle
         this.bucketCount = requireNonNull(bucketCount, "bucketCount is null");
         this.bucketColumnHandles = ImmutableList.copyOf(requireNonNull(bucketColumnHandles, "bucketColumnHandles is null"));
         this.organized = organized;
-    }
-
-    @JsonProperty
-    public String getConnectorId()
-    {
-        return connectorId;
     }
 
     @JsonProperty

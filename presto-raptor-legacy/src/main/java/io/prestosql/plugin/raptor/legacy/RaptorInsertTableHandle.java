@@ -30,7 +30,6 @@ import static java.util.Objects.requireNonNull;
 public class RaptorInsertTableHandle
         implements ConnectorInsertTableHandle
 {
-    private final String connectorId;
     private final long transactionId;
     private final long tableId;
     private final List<RaptorColumnHandle> columnHandles;
@@ -44,7 +43,6 @@ public class RaptorInsertTableHandle
 
     @JsonCreator
     public RaptorInsertTableHandle(
-            @JsonProperty("connectorId") String connectorId,
             @JsonProperty("transactionId") long transactionId,
             @JsonProperty("tableId") long tableId,
             @JsonProperty("columnHandles") List<RaptorColumnHandle> columnHandles,
@@ -58,7 +56,6 @@ public class RaptorInsertTableHandle
     {
         checkArgument(tableId > 0, "tableId must be greater than zero");
 
-        this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.transactionId = transactionId;
         this.tableId = tableId;
         this.columnHandles = ImmutableList.copyOf(requireNonNull(columnHandles, "columnHandles is null"));
@@ -70,12 +67,6 @@ public class RaptorInsertTableHandle
         this.bucketCount = requireNonNull(bucketCount, "bucketCount is null");
         this.bucketColumnHandles = ImmutableList.copyOf(requireNonNull(bucketColumnHandles, "bucketColumnHandles is null"));
         this.temporalColumnHandle = requireNonNull(temporalColumnHandle, "temporalColumnHandle is null");
-    }
-
-    @JsonProperty
-    public String getConnectorId()
-    {
-        return connectorId;
     }
 
     @JsonProperty
@@ -141,6 +132,6 @@ public class RaptorInsertTableHandle
     @Override
     public String toString()
     {
-        return connectorId + ":" + tableId;
+        return String.valueOf(tableId);
     }
 }

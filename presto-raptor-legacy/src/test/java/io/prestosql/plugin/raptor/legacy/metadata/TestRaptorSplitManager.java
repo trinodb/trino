@@ -108,7 +108,7 @@ public class TestRaptorSplitManager
         nodeManager.addNode(new PrestoNode(nodeName, new URI("http://127.0.0.1/"), NodeVersion.UNKNOWN, false));
 
         RaptorConnectorId connectorId = new RaptorConnectorId("raptor");
-        metadata = new RaptorMetadata(connectorId.toString(), dbi, shardManager);
+        metadata = new RaptorMetadata(dbi, shardManager);
 
         metadata.createTable(SESSION, TEST_TABLE, false);
         tableHandle = metadata.getTableHandle(SESSION, TEST_TABLE.getTable());

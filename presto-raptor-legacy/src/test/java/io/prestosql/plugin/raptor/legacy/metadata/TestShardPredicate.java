@@ -46,7 +46,7 @@ public class TestShardPredicate
     {
         String uuid = randomUUID().toString();
         TupleDomain<RaptorColumnHandle> tupleDomain = withColumnDomains(ImmutableMap.of(
-                shardUuidColumnHandle("test"), singleValue(VARCHAR, utf8Slice(uuid))));
+                shardUuidColumnHandle(), singleValue(VARCHAR, utf8Slice(uuid))));
 
         ShardPredicate shardPredicate = ShardPredicate.create(tupleDomain);
 
@@ -61,7 +61,7 @@ public class TestShardPredicate
         Slice uuid0 = utf8Slice(randomUUID().toString());
         Slice uuid1 = utf8Slice(randomUUID().toString());
         TupleDomain<RaptorColumnHandle> tupleDomain = withColumnDomains(ImmutableMap.of(
-                shardUuidColumnHandle("test"),
+                shardUuidColumnHandle(),
                 create(SortedRangeSet.copyOf(VARCHAR, ImmutableList.of(equal(VARCHAR, uuid0), equal(VARCHAR, uuid1))), false)));
 
         ShardPredicate shardPredicate = ShardPredicate.create(tupleDomain);
@@ -77,7 +77,7 @@ public class TestShardPredicate
         Slice uuid0 = utf8Slice("test1");
         Slice uuid1 = utf8Slice("test2");
         TupleDomain<RaptorColumnHandle> tupleDomain = withColumnDomains(ImmutableMap.of(
-                shardUuidColumnHandle("test"),
+                shardUuidColumnHandle(),
                 create(SortedRangeSet.copyOf(VARCHAR, ImmutableList.of(equal(VARCHAR, uuid0), equal(VARCHAR, uuid1))), false)));
 
         ShardPredicate shardPredicate = ShardPredicate.create(tupleDomain);
@@ -90,7 +90,7 @@ public class TestShardPredicate
     {
         Slice uuid0 = utf8Slice(randomUUID().toString());
         TupleDomain<RaptorColumnHandle> tupleDomain = withColumnDomains(ImmutableMap.of(
-                shardUuidColumnHandle("test"),
+                shardUuidColumnHandle(),
                 create(SortedRangeSet.copyOf(VARCHAR, ImmutableList.of(greaterThanOrEqual(VARCHAR, uuid0))), false)));
 
         ShardPredicate shardPredicate = ShardPredicate.create(tupleDomain);
@@ -101,7 +101,7 @@ public class TestShardPredicate
     public void testBucketNumberSingleRange()
     {
         TupleDomain<RaptorColumnHandle> tupleDomain = withColumnDomains(ImmutableMap.of(
-                bucketNumberColumnHandle("test"),
+                bucketNumberColumnHandle(),
                 create(SortedRangeSet.copyOf(INTEGER, ImmutableList.of(equal(INTEGER, 1L))), false)));
 
         ShardPredicate shardPredicate = ShardPredicate.create(tupleDomain);
@@ -112,7 +112,7 @@ public class TestShardPredicate
     public void testBucketNumberMultipleRanges()
     {
         TupleDomain<RaptorColumnHandle> tupleDomain = withColumnDomains(ImmutableMap.of(
-                bucketNumberColumnHandle("test"),
+                bucketNumberColumnHandle(),
                 create(SortedRangeSet.copyOf(INTEGER, ImmutableList.of(equal(INTEGER, 1L), equal(INTEGER, 3L))), false)));
 
         ShardPredicate shardPredicate = ShardPredicate.create(tupleDomain);
@@ -125,9 +125,9 @@ public class TestShardPredicate
     public void testMultipleColumnsMultipleRanges()
     {
         TupleDomain<RaptorColumnHandle> tupleDomain = withColumnDomains(ImmutableMap.of(
-                bucketNumberColumnHandle("test"),
+                bucketNumberColumnHandle(),
                 create(SortedRangeSet.copyOf(INTEGER, ImmutableList.of(equal(INTEGER, 1L), equal(INTEGER, 3L))), false),
-                new RaptorColumnHandle("test", "col", 1, INTEGER),
+                new RaptorColumnHandle("col", 1, INTEGER),
                 create(SortedRangeSet.copyOf(INTEGER, ImmutableList.of(equal(INTEGER, 1L), equal(INTEGER, 3L))), false)));
         ShardPredicate shardPredicate = ShardPredicate.create(tupleDomain);
         assertEquals(

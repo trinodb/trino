@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableSet;
 import io.prestosql.metadata.MetadataUtil.TableMetadataBuilder;
 import io.prestosql.plugin.raptor.legacy.NodeSupplier;
 import io.prestosql.plugin.raptor.legacy.RaptorColumnHandle;
-import io.prestosql.plugin.raptor.legacy.RaptorConnectorId;
 import io.prestosql.plugin.raptor.legacy.RaptorMetadata;
 import io.prestosql.plugin.raptor.legacy.RaptorPartitioningHandle;
 import io.prestosql.plugin.raptor.legacy.RaptorSessionProperties;
@@ -103,11 +102,10 @@ public class TestRaptorMetadata
         dummyHandle = dbi.open();
         createTablesWithRetry(dbi);
 
-        RaptorConnectorId connectorId = new RaptorConnectorId("raptor");
         NodeManager nodeManager = new TestingNodeManager();
         NodeSupplier nodeSupplier = nodeManager::getWorkerNodes;
         shardManager = createShardManager(dbi, nodeSupplier, systemTicker());
-        metadata = new RaptorMetadata(connectorId.toString(), dbi, shardManager);
+        metadata = new RaptorMetadata(dbi, shardManager);
     }
 
     @AfterMethod(alwaysRun = true)

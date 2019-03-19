@@ -39,28 +39,19 @@ public final class RaptorColumnHandle
     public static final long BUCKET_NUMBER_COLUMN_ID = -3;
     public static final String BUCKET_NUMBER_COLUMN_NAME = "$bucket_number";
 
-    private final String connectorId;
     private final String columnName;
     private final long columnId;
     private final Type columnType;
 
     @JsonCreator
     public RaptorColumnHandle(
-            @JsonProperty("connectorId") String connectorId,
             @JsonProperty("columnName") String columnName,
             @JsonProperty("columnId") long columnId,
             @JsonProperty("columnType") Type columnType)
     {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.columnName = requireNonNull(columnName, "columnName is null");
         this.columnId = columnId;
         this.columnType = requireNonNull(columnType, "columnType is null");
-    }
-
-    @JsonProperty
-    public String getConnectorId()
-    {
-        return connectorId;
     }
 
     @JsonProperty
@@ -84,7 +75,7 @@ public final class RaptorColumnHandle
     @Override
     public String toString()
     {
-        return connectorId + ":" + columnName + ":" + columnId + ":" + columnType;
+        return columnName + ":" + columnId + ":" + columnType;
     }
 
     @Override
@@ -126,9 +117,9 @@ public final class RaptorColumnHandle
         return columnId == SHARD_ROW_ID_COLUMN_ID;
     }
 
-    public static RaptorColumnHandle shardRowIdHandle(String connectorId)
+    public static RaptorColumnHandle shardRowIdHandle()
     {
-        return new RaptorColumnHandle(connectorId, SHARD_ROW_ID_COLUMN_NAME, SHARD_ROW_ID_COLUMN_ID, BIGINT);
+        return new RaptorColumnHandle(SHARD_ROW_ID_COLUMN_NAME, SHARD_ROW_ID_COLUMN_ID, BIGINT);
     }
 
     public static boolean isShardUuidColumn(long columnId)
@@ -136,9 +127,9 @@ public final class RaptorColumnHandle
         return columnId == SHARD_UUID_COLUMN_ID;
     }
 
-    public static RaptorColumnHandle shardUuidColumnHandle(String connectorId)
+    public static RaptorColumnHandle shardUuidColumnHandle()
     {
-        return new RaptorColumnHandle(connectorId, SHARD_UUID_COLUMN_NAME, SHARD_UUID_COLUMN_ID, SHARD_UUID_COLUMN_TYPE);
+        return new RaptorColumnHandle(SHARD_UUID_COLUMN_NAME, SHARD_UUID_COLUMN_ID, SHARD_UUID_COLUMN_TYPE);
     }
 
     public static boolean isBucketNumberColumn(long columnId)
@@ -146,9 +137,9 @@ public final class RaptorColumnHandle
         return columnId == BUCKET_NUMBER_COLUMN_ID;
     }
 
-    public static RaptorColumnHandle bucketNumberColumnHandle(String connectorId)
+    public static RaptorColumnHandle bucketNumberColumnHandle()
     {
-        return new RaptorColumnHandle(connectorId, BUCKET_NUMBER_COLUMN_NAME, BUCKET_NUMBER_COLUMN_ID, INTEGER);
+        return new RaptorColumnHandle(BUCKET_NUMBER_COLUMN_NAME, BUCKET_NUMBER_COLUMN_ID, INTEGER);
     }
 
     public static boolean isHiddenColumn(long columnId)

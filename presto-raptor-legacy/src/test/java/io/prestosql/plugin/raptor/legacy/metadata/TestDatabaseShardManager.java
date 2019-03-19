@@ -503,12 +503,12 @@ public class TestDatabaseShardManager
                 .add(new ColumnInfo(7, VARBINARY))
                 .build();
 
-        RaptorColumnHandle c1 = new RaptorColumnHandle("raptor", "c1", 1, BIGINT);
-        RaptorColumnHandle c2 = new RaptorColumnHandle("raptor", "c2", 2, DOUBLE);
-        RaptorColumnHandle c3 = new RaptorColumnHandle("raptor", "c3", 3, DATE);
-        RaptorColumnHandle c4 = new RaptorColumnHandle("raptor", "c4", 4, TIMESTAMP);
-        RaptorColumnHandle c5 = new RaptorColumnHandle("raptor", "c5", 5, createVarcharType(10));
-        RaptorColumnHandle c6 = new RaptorColumnHandle("raptor", "c6", 6, BOOLEAN);
+        RaptorColumnHandle c1 = new RaptorColumnHandle("c1", 1, BIGINT);
+        RaptorColumnHandle c2 = new RaptorColumnHandle("c2", 2, DOUBLE);
+        RaptorColumnHandle c3 = new RaptorColumnHandle("c3", 3, DATE);
+        RaptorColumnHandle c4 = new RaptorColumnHandle("c4", 4, TIMESTAMP);
+        RaptorColumnHandle c5 = new RaptorColumnHandle("c5", 5, createVarcharType(10));
+        RaptorColumnHandle c6 = new RaptorColumnHandle("c6", 6, BOOLEAN);
 
         long tableId = createTable("test");
         shardManager.createTable(tableId, columns, false, OptionalLong.empty());
@@ -606,7 +606,7 @@ public class TestDatabaseShardManager
         List<ShardInfo> shards = ImmutableList.of(shard);
 
         List<ColumnInfo> columns = ImmutableList.of(new ColumnInfo(1, createVarcharType(10)));
-        RaptorColumnHandle c1 = new RaptorColumnHandle("raptor", "c1", 1, createVarcharType(10));
+        RaptorColumnHandle c1 = new RaptorColumnHandle("c1", 1, createVarcharType(10));
 
         long tableId = createTable("test");
         shardManager.createTable(tableId, columns, false, OptionalLong.empty());
@@ -642,7 +642,7 @@ public class TestDatabaseShardManager
 
         long tableId = createTable("test");
         List<ColumnInfo> columns = ImmutableList.of(new ColumnInfo(1, BIGINT));
-        RaptorColumnHandle c1 = new RaptorColumnHandle("raptor", "c1", 1, BIGINT);
+        RaptorColumnHandle c1 = new RaptorColumnHandle("c1", 1, BIGINT);
 
         shardManager.createTable(tableId, columns, false, OptionalLong.empty());
 
