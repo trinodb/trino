@@ -22,7 +22,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
-import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 public class HiveTableHandle
@@ -101,10 +100,6 @@ public class HiveTableHandle
     @Override
     public String toString()
     {
-        return toStringHelper(this)
-                .add("schemaName", schemaName)
-                .add("tableName", tableName)
-                .add("analyzePartitionValues", analyzePartitionValues)
-                .toString();
+        return schemaName + ":" + tableName;
     }
 }
