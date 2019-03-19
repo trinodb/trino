@@ -22,6 +22,7 @@ import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorRecordSetProvider;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorSplit;
+import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 import io.prestosql.spi.connector.RecordSet;
 import io.prestosql.spi.predicate.TupleDomain;
@@ -35,15 +36,18 @@ public class TpchRecordSetProvider
         implements ConnectorRecordSetProvider
 {
     @Override
-    public RecordSet getRecordSet(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorSplit split, List<? extends ColumnHandle> columns)
+    public RecordSet getRecordSet(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorSplit split, ConnectorTableHandle table, List<? extends ColumnHandle> columns)
     {
         TpchSplit tpchSplit = (TpchSplit) split;
+        TpchTableHandle tpchTable = (TpchTableHandle) table;
 
-        String tableName = tpchSplit.getTableHandle().getTableName();
-
-        TpchTable<?> tpchTable = TpchTable.getTable(tableName);
-
-        return getRecordSet(tpchTable, columns, tpchSplit.getTableHandle().getScaleFactor(), tpchSplit.getPartNumber(), tpchSplit.getTotalParts(), tpchSplit.getPredicate());
+        return getRecordSet(
+                TpchTable.getTable(tpchTable.getTableName()),
+                columns,
+                tpchTable.getScaleFactor(),
+                tpchSplit.getPartNumber(),
+                tpchSplit.getTotalParts(),
+                tpchSplit.getPredicate());
     }
 
     public <E extends TpchEntity> RecordSet getRecordSet(
