@@ -46,7 +46,7 @@ public class QueryBuilder
     private static final String ALWAYS_TRUE = "1=1";
     private static final String ALWAYS_FALSE = "1=0";
 
-    private final String quote;
+    private final String identifierQoute;
 
     private static class TypeAndValue
     {
@@ -77,9 +77,9 @@ public class QueryBuilder
         }
     }
 
-    public QueryBuilder(String quote)
+    public QueryBuilder(String identifierQoute)
     {
-        this.quote = requireNonNull(quote, "quote is null");
+        this.identifierQoute = requireNonNull(identifierQoute, "identifierQoute is null");
     }
 
     public PreparedStatement buildSql(
@@ -266,8 +266,7 @@ public class QueryBuilder
 
     private String quote(String name)
     {
-        name = name.replace(quote, quote + quote);
-        return quote + name + quote;
+        return identifierQoute + name.replace(identifierQoute, identifierQoute + identifierQoute) + identifierQoute;
     }
 
     private static void bindValue(Object value, JdbcColumnHandle column, List<TypeAndValue> accumulator)
