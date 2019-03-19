@@ -36,7 +36,7 @@ public class LocalFileRecordSet
     private final SchemaTableName tableName;
     private final LocalFileTables localFileTables;
 
-    public LocalFileRecordSet(LocalFileTables localFileTables, LocalFileSplit split, List<LocalFileColumnHandle> columns)
+    public LocalFileRecordSet(LocalFileTables localFileTables, LocalFileSplit split, LocalFileTableHandle table, List<LocalFileColumnHandle> columns)
     {
         this.columns = requireNonNull(columns, "column handles is null");
         requireNonNull(split, "split is null");
@@ -48,7 +48,7 @@ public class LocalFileRecordSet
         this.columnTypes = types.build();
         this.address = Iterables.getOnlyElement(split.getAddresses());
         this.effectivePredicate = split.getEffectivePredicate();
-        this.tableName = split.getTableName();
+        this.tableName = table.getSchemaTableName();
 
         this.localFileTables = requireNonNull(localFileTables, "localFileTables is null");
     }

@@ -51,7 +51,7 @@ public class LocalFileSplitManager
                 .transform(LocalFileColumnHandle.class::cast);
 
         List<ConnectorSplit> splits = nodeManager.getAllNodes().stream()
-                .map(node -> new LocalFileSplit(node.getHostAndPort(), tableHandle.getSchemaTableName(), effectivePredicate))
+                .map(node -> new LocalFileSplit(node.getHostAndPort(), effectivePredicate))
                 .collect(Collectors.toList());
 
         return new FixedSplitSource(splits);
