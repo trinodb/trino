@@ -81,7 +81,11 @@ public final class ColumnMapping
     private final WriteFunction writeFunction;
     private final UnaryOperator<Domain> pushdownConverter;
 
-    private ColumnMapping(Type type, ReadFunction readFunction, WriteFunction writeFunction, UnaryOperator<Domain> pushdownConverter)
+    /**
+     * @deprecated Prefer factory methods instead over calling constructor directly.
+     */
+    @Deprecated
+    public ColumnMapping(Type type, ReadFunction readFunction, WriteFunction writeFunction, UnaryOperator<Domain> pushdownConverter)
     {
         this.type = requireNonNull(type, "type is null");
         this.readFunction = requireNonNull(readFunction, "readFunction is null");
