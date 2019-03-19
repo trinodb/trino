@@ -24,13 +24,14 @@ import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorMetadata;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorTableHandle;
-import io.prestosql.spi.connector.ConnectorTableLayout;
-import io.prestosql.spi.connector.ConnectorTableLayoutHandle;
-import io.prestosql.spi.connector.ConnectorTableLayoutResult;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
+import io.prestosql.spi.connector.ConnectorTableProperties;
 import io.prestosql.spi.connector.Constraint;
+import io.prestosql.spi.connector.ConstraintApplicationResult;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.SchemaTablePrefix;
+import io.prestosql.spi.predicate.Domain;
+import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.type.Type;
 
 import javax.inject.Inject;
@@ -43,6 +44,7 @@ import javax.management.ObjectName;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -96,6 +98,18 @@ public class JmxMetadata
         return getTableHandle(tableName);
     }
 
+    @Override
+    public boolean usesLegacyTableLayouts()
+    {
+        return false;
+    }
+
+    @Override
+    public ConnectorTableProperties getTableProperties(ConnectorSession session, ConnectorTableHandle table)
+    {
+        return new ConnectorTableProperties();
+    }
+
     public JmxTableHandle getTableHandle(SchemaTableName tableName)
     {
         requireNonNull(tableName, "tableName is null");
@@ -117,7 +131,7 @@ public class JmxMetadata
         ImmutableList.Builder<JmxColumnHandle> builder = ImmutableList.builder();
         builder.add(new JmxColumnHandle(TIMESTAMP_COLUMN_NAME, TIMESTAMP));
         builder.addAll(handle.getColumnHandles());
-        return new JmxTableHandle(handle.getTableName(), handle.getObjectNames(), builder.build(), false);
+        return new JmxTableHandle(handle.getTableName(), handle.getObjectNames(), builder.build(), false, TupleDomain.all());
     }
 
     private JmxTableHandle getJmxTableHandle(SchemaTableName tableName)
@@ -146,7 +160,7 @@ public class JmxMetadata
                     .sorted(comparing(JmxColumnHandle::getColumnName))
                     .collect(toImmutableList());
 
-            return new JmxTableHandle(tableName, objectNames.stream().map(ObjectName::toString).collect(toImmutableList()), columns, true);
+            return new JmxTableHandle(tableName, objectNames.stream().map(ObjectName::toString).collect(toImmutableList()), columns, true, TupleDomain.all());
         }
         catch (JMException e) {
             return null;
@@ -242,17 +256,37 @@ public class JmxMetadata
     }
 
     @Override
-    public List<ConnectorTableLayoutResult> getTableLayouts(ConnectorSession session, ConnectorTableHandle table, Constraint constraint, Optional<Set<ColumnHandle>> desiredColumns)
+    public Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorSession session, ConnectorTableHandle handle, Constraint constraint)
     {
-        JmxTableHandle handle = (JmxTableHandle) table;
-        ConnectorTableLayout layout = new ConnectorTableLayout(new JmxTableLayoutHandle(handle, constraint.getSummary()));
-        return ImmutableList.of(new ConnectorTableLayoutResult(layout, constraint.getSummary()));
-    }
+        Optional<Map<ColumnHandle, Domain>> domains = constraint.getSummary().getDomains();
+        if (!domains.isPresent()) {
+            return Optional.empty();
+        }
 
-    @Override
-    public ConnectorTableLayout getTableLayout(ConnectorSession session, ConnectorTableLayoutHandle handle)
-    {
-        return new ConnectorTableLayout(handle);
+        JmxTableHandle tableHandle = (JmxTableHandle) handle;
+
+        Map<ColumnHandle, Domain> nodeDomains = new LinkedHashMap<>();
+        Map<ColumnHandle, Domain> otherDomains = new LinkedHashMap<>();
+        domains.get().forEach((column, domain) -> {
+            JmxColumnHandle columnHandle = (JmxColumnHandle) column;
+            if (columnHandle.getColumnName().equals(NODE_COLUMN_NAME)) {
+                nodeDomains.put(column, domain);
+            }
+            else {
+                otherDomains.put(column, domain);
+            }
+        });
+
+        TupleDomain<ColumnHandle> oldDomain = tableHandle.getNodeFilter();
+        TupleDomain<ColumnHandle> newDomain = oldDomain.intersect(TupleDomain.withColumnDomains(nodeDomains));
+
+        if (oldDomain.equals(newDomain)) {
+            return Optional.empty();
+        }
+
+        JmxTableHandle newTableHandle = new JmxTableHandle(tableHandle.getTableName(), tableHandle.getObjectNames(), tableHandle.getColumnHandles(), tableHandle.isLiveData(), newDomain);
+
+        return Optional.of(new ConstraintApplicationResult(newTableHandle, TupleDomain.withColumnDomains(otherDomains)));
     }
 
     private static Type getColumnType(MBeanAttributeInfo attribute)

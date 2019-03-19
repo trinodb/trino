@@ -16,9 +16,11 @@ package io.prestosql.plugin.jmx;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
 import io.prestosql.spi.connector.SchemaTableName;
+import io.prestosql.spi.predicate.TupleDomain;
 
 import java.util.List;
 import java.util.Objects;
@@ -35,18 +37,21 @@ public class JmxTableHandle
     private final List<String> objectNames;
     private final List<JmxColumnHandle> columnHandles;
     private final boolean liveData;
+    private final TupleDomain<ColumnHandle> nodeFilter;
 
     @JsonCreator
     public JmxTableHandle(
             @JsonProperty("tableName") SchemaTableName tableName,
             @JsonProperty("objectNames") List<String> objectNames,
             @JsonProperty("columnHandles") List<JmxColumnHandle> columnHandles,
-            @JsonProperty("liveData") boolean liveData)
+            @JsonProperty("liveData") boolean liveData,
+            @JsonProperty("nodeFilter") TupleDomain<ColumnHandle> nodeFilter)
     {
         this.tableName = requireNonNull(tableName, "tableName is null");
         this.objectNames = ImmutableList.copyOf(requireNonNull(objectNames, "objectName is null"));
         this.columnHandles = ImmutableList.copyOf(requireNonNull(columnHandles, "columnHandles is null"));
         this.liveData = liveData;
+        this.nodeFilter = requireNonNull(nodeFilter, "nodeFilter is null");
 
         checkArgument(!objectNames.isEmpty(), "objectsNames is empty");
     }
@@ -75,10 +80,16 @@ public class JmxTableHandle
         return liveData;
     }
 
+    @JsonProperty
+    public TupleDomain<ColumnHandle> getNodeFilter()
+    {
+        return nodeFilter;
+    }
+
     @Override
     public int hashCode()
     {
-        return Objects.hash(tableName, objectNames, columnHandles, liveData);
+        return Objects.hash(tableName, objectNames, columnHandles, liveData, nodeFilter);
     }
 
     @Override
@@ -94,7 +105,8 @@ public class JmxTableHandle
         return Objects.equals(tableName, other.tableName) &&
                 Objects.equals(this.objectNames, other.objectNames) &&
                 Objects.equals(this.columnHandles, other.columnHandles) &&
-                Objects.equals(this.liveData, other.liveData);
+                Objects.equals(this.liveData, other.liveData) &&
+                Objects.equals(this.nodeFilter, other.nodeFilter);
     }
 
     @Override
@@ -105,6 +117,7 @@ public class JmxTableHandle
                 .add("objectNames", objectNames)
                 .add("columnHandles", columnHandles)
                 .add("liveData", liveData)
+                .add("nodeFilter", nodeFilter)
                 .toString();
     }
 
