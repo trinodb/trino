@@ -236,12 +236,7 @@ public class BaseJdbcClient
     public ConnectorSplitSource getSplits(JdbcIdentity identity, JdbcTableLayoutHandle layoutHandle)
     {
         JdbcTableHandle tableHandle = layoutHandle.getTable();
-        JdbcSplit jdbcSplit = new JdbcSplit(
-                tableHandle.getCatalogName(),
-                tableHandle.getSchemaName(),
-                tableHandle.getTableName(),
-                layoutHandle.getTupleDomain(),
-                Optional.empty());
+        JdbcSplit jdbcSplit = new JdbcSplit(layoutHandle.getTupleDomain(), Optional.empty());
         return new FixedSplitSource(ImmutableList.of(jdbcSplit));
     }
 
@@ -261,17 +256,17 @@ public class BaseJdbcClient
     }
 
     @Override
-    public PreparedStatement buildSql(ConnectorSession session, Connection connection, JdbcSplit split, List<JdbcColumnHandle> columnHandles)
+    public PreparedStatement buildSql(ConnectorSession session, Connection connection, JdbcSplit split, JdbcTableHandle table, List<JdbcColumnHandle> columns)
             throws SQLException
     {
         return new QueryBuilder(identifierQuote).buildSql(
                 this,
                 session,
                 connection,
-                split.getCatalogName(),
-                split.getSchemaName(),
-                split.getTableName(),
-                columnHandles,
+                table.getCatalogName(),
+                table.getSchemaName(),
+                table.getTableName(),
+                columns,
                 split.getTupleDomain(),
                 split.getAdditionalPredicate());
     }

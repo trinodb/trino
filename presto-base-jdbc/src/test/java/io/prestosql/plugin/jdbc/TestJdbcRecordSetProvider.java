@@ -64,12 +64,10 @@ public class TestJdbcRecordSetProvider
     {
         database = new TestingDatabase();
         jdbcClient = database.getJdbcClient();
-        split = database.getSplit("example", "numbers");
+        table = database.getTableHandle(SESSION, new SchemaTableName("example", "numbers"));
+        split = database.getSplit(SESSION, table);
 
-        table = jdbcClient.getTableHandle(IDENTITY, new SchemaTableName("example", "numbers"))
-                .orElseThrow(AssertionError::new);
-
-        Map<String, JdbcColumnHandle> columns = database.getColumnHandles("example", "numbers");
+        Map<String, JdbcColumnHandle> columns = database.getColumnHandles(SESSION, table);
         textColumn = columns.get("text");
         textShortColumn = columns.get("text_short");
         valueColumn = columns.get("value");
@@ -87,7 +85,7 @@ public class TestJdbcRecordSetProvider
     {
         ConnectorTransactionHandle transaction = new JdbcTransactionHandle();
         JdbcRecordSetProvider recordSetProvider = new JdbcRecordSetProvider(jdbcClient);
-        RecordSet recordSet = recordSetProvider.getRecordSet(transaction, SESSION, split, ImmutableList.of(textColumn, textShortColumn, valueColumn));
+        RecordSet recordSet = recordSetProvider.getRecordSet(transaction, SESSION, split, table, ImmutableList.of(textColumn, textShortColumn, valueColumn));
         assertNotNull(recordSet, "recordSet is null");
 
         RecordCursor cursor = recordSet.cursor();
@@ -187,7 +185,7 @@ public class TestJdbcRecordSetProvider
 
         ConnectorTransactionHandle transaction = new JdbcTransactionHandle();
         JdbcRecordSetProvider recordSetProvider = new JdbcRecordSetProvider(jdbcClient);
-        RecordSet recordSet = recordSetProvider.getRecordSet(transaction, SESSION, split, columns);
+        RecordSet recordSet = recordSetProvider.getRecordSet(transaction, SESSION, split, jdbcTableHandle, columns);
 
         return recordSet.cursor();
     }

@@ -53,7 +53,7 @@ public class JdbcRecordCursor
     private final ResultSet resultSet;
     private boolean closed;
 
-    public JdbcRecordCursor(JdbcClient jdbcClient, ConnectorSession session, JdbcSplit split, List<JdbcColumnHandle> columnHandles)
+    public JdbcRecordCursor(JdbcClient jdbcClient, ConnectorSession session, JdbcSplit split, JdbcTableHandle table, List<JdbcColumnHandle> columnHandles)
     {
         this.jdbcClient = requireNonNull(jdbcClient, "jdbcClient is null");
 
@@ -93,7 +93,7 @@ public class JdbcRecordCursor
 
         try {
             connection = jdbcClient.getConnection(JdbcIdentity.from(session), split);
-            statement = jdbcClient.buildSql(session, connection, split, columnHandles);
+            statement = jdbcClient.buildSql(session, connection, split, table, columnHandles);
             log.debug("Executing: %s", statement.toString());
             resultSet = statement.executeQuery();
         }
