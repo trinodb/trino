@@ -21,6 +21,7 @@ import io.prestosql.plugin.base.security.ForwardingSystemAccessControl;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.CatalogSchemaName;
 import io.prestosql.spi.connector.CatalogSchemaTableName;
+import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.security.Identity;
 import io.prestosql.spi.security.PrestoPrincipal;
@@ -256,6 +257,21 @@ public class FileBasedSystemAccessControl
         }
 
         return tableNames;
+    }
+
+    @Override
+    public void checkCanShowColumnsMetadata(Identity identity, CatalogSchemaTableName table)
+    {
+    }
+
+    @Override
+    public List<ColumnMetadata> filterColumns(Identity identity, CatalogSchemaTableName tableName, List<ColumnMetadata> columns)
+    {
+        if (!canAccessCatalog(identity, tableName.getCatalogName())) {
+            return ImmutableList.of();
+        }
+
+        return columns;
     }
 
     @Override

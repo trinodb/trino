@@ -211,4 +211,23 @@ public class TestSqlStandardAccessControlChecks
         onHive().executeQuery(format("GRANT SELECT ON TABLE %s TO USER CaseSensitiveUserName", viewName));
         assertThat(caseSensitiveUserNameExecutor.executeQuery(format("SELECT * FROM %s", viewName))).hasNoRows();
     }
+
+    @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
+    public void testAccessControlShowColumns()
+    {
+        assertThat(() -> bobExecutor.executeQuery(format("SHOW COLUMNS FROM %s", tableName)))
+                .failsWithMessage(format("Access Denied: Cannot show columns of table default.%s", tableName));
+
+        aliceExecutor.executeQuery(format("GRANT SELECT ON %s TO bob", tableName));
+        assertThat(bobExecutor.executeQuery(format("SHOW COLUMNS FROM %s", tableName))).hasRowsCount(2);
+    }
+
+    @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
+    public void testAccessControlFilterColumns()
+    {
+        assertThat(bobExecutor.executeQuery(format("SELECT * FROM information_schema.columns WHERE table_name = '%s'", tableName))).hasNoRows();
+
+        aliceExecutor.executeQuery(format("GRANT SELECT ON %s TO bob", tableName));
+        assertThat(bobExecutor.executeQuery(format("SELECT * FROM information_schema.columns WHERE table_name = '%s'", tableName))).hasRowsCount(2);
+    }
 }

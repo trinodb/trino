@@ -15,6 +15,8 @@ package io.prestosql.security;
 
 import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.spi.connector.CatalogSchemaName;
+import io.prestosql.spi.connector.CatalogSchemaTableName;
+import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.security.Identity;
 import io.prestosql.spi.security.PrestoPrincipal;
@@ -22,6 +24,7 @@ import io.prestosql.spi.security.Privilege;
 import io.prestosql.transaction.TransactionId;
 
 import java.security.Principal;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
@@ -123,6 +126,22 @@ public interface AccessControl
      * Filter the list of tables and views to those visible to the identity.
      */
     Set<SchemaTableName> filterTables(TransactionId transactionId, Identity identity, String catalogName, Set<SchemaTableName> tableNames);
+
+    /**
+     * Check if identity is allowed to show columns of tables by executing SHOW COLUMNS, DESCRIBE etc.
+     * <p>
+     * NOTE: This method is only present to give users an error message when listing is not allowed.
+     * The {@link #filterColumns} method must filter all results for unauthorized users,
+     * since there are multiple ways to list columns.
+     *
+     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
+     */
+    void checkCanShowColumnsMetadata(TransactionId transactionId, Identity identity, CatalogSchemaTableName table);
+
+    /**
+     * Filter the list of columns to those visible to the identity.
+     */
+    List<ColumnMetadata> filterColumns(TransactionId transactionId, Identity identity, CatalogSchemaTableName tableName, List<ColumnMetadata> columns);
 
     /**
      * Check if identity is allowed to add columns to the specified table.

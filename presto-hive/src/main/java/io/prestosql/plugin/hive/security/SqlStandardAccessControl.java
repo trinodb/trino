@@ -13,11 +13,13 @@
  */
 package io.prestosql.plugin.hive.security;
 
+import com.google.common.collect.ImmutableList;
 import io.prestosql.plugin.hive.HiveCatalogName;
 import io.prestosql.plugin.hive.HiveTransactionHandle;
 import io.prestosql.plugin.hive.metastore.Database;
 import io.prestosql.plugin.hive.metastore.HivePrincipal;
 import io.prestosql.plugin.hive.metastore.SemiTransactionalHiveMetastore;
+import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorAccessControl;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 import io.prestosql.spi.connector.SchemaTableName;
@@ -29,6 +31,7 @@ import io.prestosql.spi.security.RoleGrant;
 
 import javax.inject.Inject;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
@@ -69,6 +72,7 @@ import static io.prestosql.spi.security.AccessDeniedException.denyRevokeTablePri
 import static io.prestosql.spi.security.AccessDeniedException.denySelectTable;
 import static io.prestosql.spi.security.AccessDeniedException.denySetCatalogSessionProperty;
 import static io.prestosql.spi.security.AccessDeniedException.denySetRole;
+import static io.prestosql.spi.security.AccessDeniedException.denyShowColumnsMetadata;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowRoles;
 import static io.prestosql.spi.security.PrincipalType.ROLE;
 import static io.prestosql.spi.security.PrincipalType.USER;
@@ -170,6 +174,23 @@ public class SqlStandardAccessControl
     public Set<SchemaTableName> filterTables(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, Set<SchemaTableName> tableNames)
     {
         return tableNames;
+    }
+
+    @Override
+    public void checkCanShowColumnsMetadata(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, SchemaTableName tableName)
+    {
+        if (!hasAnyTablePermission(transactionHandle, identity, tableName)) {
+            denyShowColumnsMetadata(tableName.toString());
+        }
+    }
+
+    @Override
+    public List<ColumnMetadata> filterColumns(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, SchemaTableName tableName, List<ColumnMetadata> columns)
+    {
+        if (!hasAnyTablePermission(transactionHandle, identity, tableName)) {
+            return ImmutableList.of();
+        }
+        return columns;
     }
 
     @Override
@@ -443,5 +464,24 @@ public class SqlStandardAccessControl
                 .map(RoleGrant::getRoleName)
                 .collect(toSet());
         return rolesWithGrantOption.containsAll(roles);
+    }
+
+    private boolean hasAnyTablePermission(ConnectorTransactionHandle transaction, ConnectorIdentity identity, SchemaTableName tableName)
+    {
+        if (isAdmin(transaction, identity)) {
+            return true;
+        }
+
+        if (tableName.equals(ROLES)) {
+            return false;
+        }
+
+        if (INFORMATION_SCHEMA_NAME.equals(tableName.getSchemaName())) {
+            return true;
+        }
+
+        SemiTransactionalHiveMetastore metastore = metastoreProvider.apply(((HiveTransactionHandle) transaction));
+        return listEnabledTablePrivileges(metastore, tableName.getSchemaName(), tableName.getTableName(), identity)
+                .anyMatch(privilegeInfo -> true);
     }
 }

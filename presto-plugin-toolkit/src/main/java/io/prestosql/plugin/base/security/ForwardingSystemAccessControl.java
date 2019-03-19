@@ -15,6 +15,7 @@ package io.prestosql.plugin.base.security;
 
 import io.prestosql.spi.connector.CatalogSchemaName;
 import io.prestosql.spi.connector.CatalogSchemaTableName;
+import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.security.Identity;
 import io.prestosql.spi.security.PrestoPrincipal;
@@ -22,6 +23,7 @@ import io.prestosql.spi.security.Privilege;
 import io.prestosql.spi.security.SystemAccessControl;
 
 import java.security.Principal;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Supplier;
@@ -134,6 +136,18 @@ public abstract class ForwardingSystemAccessControl
     public Set<SchemaTableName> filterTables(Identity identity, String catalogName, Set<SchemaTableName> tableNames)
     {
         return delegate().filterTables(identity, catalogName, tableNames);
+    }
+
+    @Override
+    public void checkCanShowColumnsMetadata(Identity identity, CatalogSchemaTableName tableName)
+    {
+        delegate().checkCanShowColumnsMetadata(identity, tableName);
+    }
+
+    @Override
+    public List<ColumnMetadata> filterColumns(Identity identity, CatalogSchemaTableName tableName, List<ColumnMetadata> columns)
+    {
+        return delegate().filterColumns(identity, tableName, columns);
     }
 
     @Override

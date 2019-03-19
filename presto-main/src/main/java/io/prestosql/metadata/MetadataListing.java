@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableSortedSet;
 import io.prestosql.Session;
 import io.prestosql.connector.CatalogName;
 import io.prestosql.security.AccessControl;
+import io.prestosql.spi.connector.CatalogSchemaTableName;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.security.GrantInfo;
@@ -101,7 +102,11 @@ public final class MetadataListing
         ImmutableMap.Builder<SchemaTableName, List<ColumnMetadata>> result = ImmutableMap.builder();
         for (Entry<SchemaTableName, List<ColumnMetadata>> entry : tableColumns.entrySet()) {
             if (allowedTables.contains(entry.getKey())) {
-                result.put(entry);
+                result.put(entry.getKey(), accessControl.filterColumns(
+                        session.getRequiredTransactionId(),
+                        session.getIdentity(),
+                        new CatalogSchemaTableName(prefix.getCatalogName(), entry.getKey()),
+                        entry.getValue()));
             }
         }
         return result.build();
