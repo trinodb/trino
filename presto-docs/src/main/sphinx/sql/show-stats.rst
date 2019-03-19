@@ -20,7 +20,7 @@ Statistics are returned for each column, along with a summary row.
 ==========================  =============================================================
 Column                      Description
 ==========================  =============================================================
-``column_name``             The name of the column (``NULL`` for the sumary row)
+``column_name``             The name of the column (``NULL`` for the summary row)
 ``data_size``               The total size in bytes of all of the values in the column
 ``distinct_values_count``   The number of distinct values in the column
 ``nulls_fractions``         The portion of the values in the column that are ``NULL``
