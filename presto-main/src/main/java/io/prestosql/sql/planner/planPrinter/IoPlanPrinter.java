@@ -66,6 +66,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.predicate.Marker.Bound.EXACTLY;
+import static io.prestosql.sql.planner.planPrinter.PlanPrinterUtil.castToVarchar;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -580,7 +581,7 @@ public class IoPlanPrinter
         {
             for (Class<Type> whitelistedType : WHITELISTED_TYPES_FOR_OUTPUT) {
                 if (whitelistedType.getClass().isInstance(type.getClass())) {
-                    return PlanPrinterUtil.castToVarchar(type, value, metadata.getFunctionRegistry(), session);
+                    return castToVarchar(type, value, metadata.getFunctionRegistry(), session);
                 }
             }
             throw new PrestoException(NOT_SUPPORTED, format("Unsupported data type in EXPLAIN (TYPE IO): %s", type.getDisplayName()));

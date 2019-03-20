@@ -23,11 +23,9 @@ import io.prestosql.sql.InterpretedFunctionInvoker;
 
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 
-public class PlanPrinterUtil
+public final class PlanPrinterUtil
 {
-    private PlanPrinterUtil()
-    {
-    }
+    private PlanPrinterUtil() {}
 
     static String castToVarchar(Type type, Object value, FunctionRegistry functionRegistry, Session session)
     {
