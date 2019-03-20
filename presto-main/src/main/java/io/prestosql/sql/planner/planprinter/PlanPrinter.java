@@ -21,7 +21,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Streams;
-import io.airlift.slice.Slice;
 import io.airlift.units.Duration;
 import io.prestosql.Session;
 import io.prestosql.SystemSessionProperties;
@@ -32,8 +31,6 @@ import io.prestosql.execution.StageInfo;
 import io.prestosql.execution.StageStats;
 import io.prestosql.metadata.FunctionRegistry;
 import io.prestosql.metadata.Metadata;
-import io.prestosql.metadata.OperatorNotFoundException;
-import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.TableHandle;
 import io.prestosql.operator.StageExecutionDescriptor;
 import io.prestosql.spi.connector.ColumnHandle;
@@ -45,7 +42,6 @@ import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.statistics.ColumnStatisticMetadata;
 import io.prestosql.spi.statistics.TableStatisticType;
 import io.prestosql.spi.type.Type;
-import io.prestosql.sql.InterpretedFunctionInvoker;
 import io.prestosql.sql.planner.OrderingScheme;
 import io.prestosql.sql.planner.Partitioning;
 import io.prestosql.sql.planner.PartitioningScheme;
@@ -123,9 +119,9 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.prestosql.execution.StageInfo.getAllStages;
 import static io.prestosql.operator.StageExecutionDescriptor.ungroupedExecution;
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.prestosql.sql.planner.planprinter.PlanNodeStatsSummarizer.aggregateStageStats;
+import static io.prestosql.sql.planner.planprinter.PlanPrinterUtil.castToVarchar;
 import static io.prestosql.sql.planner.planprinter.TextRenderer.formatDouble;
 import static io.prestosql.sql.planner.planprinter.TextRenderer.formatPositions;
 import static io.prestosql.sql.planner.planprinter.TextRenderer.indentString;
@@ -1194,22 +1190,6 @@ public class PlanPrinter
 
             representation.addNode(nodeOutput);
             return nodeOutput;
-        }
-    }
-
-    private static String castToVarchar(Type type, Object value, FunctionRegistry functionRegistry, Session session)
-    {
-        if (value == null) {
-            return "NULL";
-        }
-
-        try {
-            Signature coercion = functionRegistry.getCoercion(type, VARCHAR);
-            Slice coerced = (Slice) new InterpretedFunctionInvoker(functionRegistry).invoke(coercion, session.toConnectorSession(), value);
-            return coerced.toStringUtf8();
-        }
-        catch (OperatorNotFoundException e) {
-            return "<UNREPRESENTABLE VALUE>";
         }
     }
 

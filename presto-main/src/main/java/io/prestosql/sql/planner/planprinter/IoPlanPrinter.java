@@ -16,9 +16,9 @@ package io.prestosql.sql.planner.planprinter;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.slice.Slice;
 import io.prestosql.Session;
 import io.prestosql.metadata.Metadata;
+import io.prestosql.metadata.OperatorNotFoundException;
 import io.prestosql.metadata.TableHandle;
 import io.prestosql.metadata.TableMetadata;
 import io.prestosql.spi.PrestoException;
@@ -29,14 +29,8 @@ import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.Marker;
 import io.prestosql.spi.predicate.Marker.Bound;
 import io.prestosql.spi.predicate.TupleDomain;
-import io.prestosql.spi.type.BigintType;
-import io.prestosql.spi.type.BooleanType;
-import io.prestosql.spi.type.IntegerType;
-import io.prestosql.spi.type.SmallintType;
-import io.prestosql.spi.type.TinyintType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignature;
-import io.prestosql.spi.type.VarcharType;
 import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.PlanVisitor;
 import io.prestosql.sql.planner.plan.TableFinishNode;
@@ -61,6 +55,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.predicate.Marker.Bound.EXACTLY;
+import static io.prestosql.sql.planner.planprinter.PlanPrinterUtil.castToVarcharOrFail;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -565,16 +560,12 @@ public class IoPlanPrinter
 
         private String getVarcharValue(Type type, Object value)
         {
-            if (type instanceof VarcharType) {
-                return ((Slice) value).toStringUtf8();
+            try {
+                return castToVarcharOrFail(type, value, metadata.getFunctionRegistry(), session);
             }
-            if (type instanceof TinyintType || type instanceof SmallintType || type instanceof IntegerType || type instanceof BigintType) {
-                return ((Long) value).toString();
+            catch (OperatorNotFoundException e) {
+                throw new PrestoException(NOT_SUPPORTED, format("Unsupported data type in EXPLAIN (TYPE IO): %s", type.getDisplayName()), e);
             }
-            if (type instanceof BooleanType) {
-                return ((Boolean) value).toString();
-            }
-            throw new PrestoException(NOT_SUPPORTED, format("Unsupported data type in EXPLAIN (TYPE IO): %s", type.getDisplayName()));
         }
 
         private Void processChildren(PlanNode node, IoPlanBuilder context)

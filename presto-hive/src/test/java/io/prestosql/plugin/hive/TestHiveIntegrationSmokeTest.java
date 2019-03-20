@@ -33,8 +33,19 @@ import io.prestosql.spi.connector.ConnectorTableLayoutHandle;
 import io.prestosql.spi.connector.Constraint;
 import io.prestosql.spi.security.Identity;
 import io.prestosql.spi.security.SelectedRole;
+import io.prestosql.spi.type.BigintType;
+import io.prestosql.spi.type.BooleanType;
+import io.prestosql.spi.type.CharType;
+import io.prestosql.spi.type.DateType;
+import io.prestosql.spi.type.DecimalType;
+import io.prestosql.spi.type.DoubleType;
+import io.prestosql.spi.type.IntegerType;
+import io.prestosql.spi.type.SmallintType;
+import io.prestosql.spi.type.TimestampType;
+import io.prestosql.spi.type.TinyintType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignature;
+import io.prestosql.spi.type.VarcharType;
 import io.prestosql.sql.planner.Plan;
 import io.prestosql.sql.planner.plan.ExchangeNode;
 import io.prestosql.sql.planner.planprinter.IoPlanPrinter.ColumnConstraint;
@@ -230,6 +241,51 @@ public class TestHiveIntegrationSmokeTest
                         Optional.of(new CatalogSchemaTableName(catalog, "tpch", "test_orders"))));
 
         assertUpdate("DROP TABLE test_orders");
+    }
+
+    @Test
+    public void testIoExplainWithPrimitiveTypes()
+    {
+        Map<Object, Type> data = new HashMap<>();
+        data.put("foo", VarcharType.createUnboundedVarcharType());
+        data.put(Byte.toString((byte) (Byte.MAX_VALUE / 2)), TinyintType.TINYINT);
+        data.put(Short.toString((short) (Short.MAX_VALUE / 2)), SmallintType.SMALLINT);
+        data.put(Integer.toString(Integer.MAX_VALUE / 2), IntegerType.INTEGER);
+        data.put(Long.toString(Long.MAX_VALUE / 2), BigintType.BIGINT);
+        data.put(Boolean.TRUE.toString(), BooleanType.BOOLEAN);
+        data.put("bar", CharType.createCharType(3));
+        data.put("1.2345678901234578E14", DoubleType.DOUBLE);
+        data.put("123456789012345678901234.567", DecimalType.createDecimalType(30, 3));
+        data.put("2019-01-01", DateType.DATE);
+        data.put("2019-01-01 23:22:21.123", TimestampType.TIMESTAMP);
+        for (Map.Entry<Object, Type> entry : data.entrySet()) {
+            @Language("SQL") String query = String.format(
+                    "CREATE TABLE test_types_table  WITH (partitioned_by = ARRAY['my_col']) AS " +
+                            "SELECT 'foo' my_non_partition_col, CAST('%s' AS %s) my_col",
+                    entry.getKey(),
+                    entry.getValue().getDisplayName());
+
+            assertUpdate(query, 1);
+            MaterializedResult result = computeActual("EXPLAIN (TYPE IO, FORMAT JSON) SELECT * FROM test_types_table");
+            assertEquals(
+                    jsonCodec(IoPlan.class).fromJson((String) getOnlyElement(result.getOnlyColumnAsSet())),
+                    new IoPlan(
+                            ImmutableSet.of(new TableColumnInfo(
+                                    new CatalogSchemaTableName(catalog, "tpch", "test_types_table"),
+                                    ImmutableSet.of(
+                                            new ColumnConstraint(
+                                                    "my_col",
+                                                    entry.getValue().getTypeSignature(),
+                                                    new FormattedDomain(
+                                                            false,
+                                                            ImmutableSet.of(
+                                                                    new FormattedRange(
+                                                                            new FormattedMarker(Optional.of(entry.getKey().toString()), EXACTLY),
+                                                                            new FormattedMarker(Optional.of(entry.getKey().toString()), EXACTLY)))))))),
+                            Optional.empty()));
+
+            assertUpdate("DROP TABLE test_types_table");
+        }
     }
 
     @Test
