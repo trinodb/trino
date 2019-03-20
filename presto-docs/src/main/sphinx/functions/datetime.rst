@@ -67,17 +67,20 @@ Date and Time Functions
 
 .. function:: from_unixtime(unixtime) -> timestamp
 
-    Returns the UNIX timestamp ``unixtime`` as a timestamp.
+    Returns the UNIX timestamp ``unixtime`` as a timestamp. ``unixtime`` is the number of seconds since ``1970-01-01 00:00:00``.
+ 
 
 .. function:: from_unixtime(unixtime, string) -> timestamp with time zone
 
     Returns the UNIX timestamp ``unixtime`` as a timestamp with time zone
-    using ``string`` for the time zone.
+    using ``string`` for the time zone. ``unixtime`` is the number of seconds since ``1970-01-01 00:00:00``.
+ 
 
 .. function:: from_unixtime(unixtime, hours, minutes) -> timestamp with time zone
 
     Returns the UNIX timestamp ``unixtime`` as a timestamp with time zone
-    using ``hours`` and ``minutes`` for the time zone offset.
+    using ``hours`` and ``minutes`` for the time zone offset. ``unixtime`` is the number of seconds since ``1970-01-01 00:00:00``.
+ 
 
 .. function:: localtime -> time
 
