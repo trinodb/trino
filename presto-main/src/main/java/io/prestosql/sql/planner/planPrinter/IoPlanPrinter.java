@@ -16,7 +16,6 @@ package io.prestosql.sql.planner.planPrinter;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.slice.Slice;
 import io.prestosql.Session;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.TableHandle;
@@ -31,8 +30,14 @@ import io.prestosql.spi.predicate.Marker.Bound;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.type.BigintType;
 import io.prestosql.spi.type.BooleanType;
+import io.prestosql.spi.type.CharType;
+import io.prestosql.spi.type.DateType;
+import io.prestosql.spi.type.DecimalType;
+import io.prestosql.spi.type.DoubleType;
 import io.prestosql.spi.type.IntegerType;
 import io.prestosql.spi.type.SmallintType;
+import io.prestosql.spi.type.TimeType;
+import io.prestosql.spi.type.TimestampType;
 import io.prestosql.spi.type.TinyintType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignature;
@@ -66,6 +71,15 @@ import static java.util.Objects.requireNonNull;
 
 public class IoPlanPrinter
 {
+    /**
+     * List of supported data types for column constraints appearing in
+     * EXPLAIN (TYPE IO). Other types would cause a NOT_SUPPORTED
+     * Presto exception to be thrown.
+     */
+    private static final Set<Class> WHITELISTED_TYPES_FOR_OUTPUT = ImmutableSet.of(
+            VarcharType.class, TinyintType.class, SmallintType.class, IntegerType.class, BigintType.class,
+            BooleanType.class, CharType.class, DecimalType.class, DoubleType.class, DateType.class,
+            TimeType.class, TimestampType.class);
     private final Metadata metadata;
     private final Session session;
 
@@ -564,14 +578,10 @@ public class IoPlanPrinter
 
         private String getVarcharValue(Type type, Object value)
         {
-            if (type instanceof VarcharType) {
-                return ((Slice) value).toStringUtf8();
-            }
-            if (type instanceof TinyintType || type instanceof SmallintType || type instanceof IntegerType || type instanceof BigintType) {
-                return ((Long) value).toString();
-            }
-            if (type instanceof BooleanType) {
-                return ((Boolean) value).toString();
+            for (Class<Type> whitelistedType : WHITELISTED_TYPES_FOR_OUTPUT) {
+                if (whitelistedType.getClass().isInstance(type.getClass())) {
+                    return PlanPrinterUtil.castToVarchar(type, value, metadata.getFunctionRegistry(), session);
+                }
             }
             throw new PrestoException(NOT_SUPPORTED, format("Unsupported data type in EXPLAIN (TYPE IO): %s", type.getDisplayName()));
         }
