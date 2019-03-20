@@ -45,6 +45,7 @@ import java.util.OptionalInt;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.plugin.hive.HiveColumnHandle.BUCKET_COLUMN_NAME;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
@@ -55,6 +56,7 @@ import static java.lang.String.format;
 import static java.util.Map.Entry;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
+import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.TABLE_BUCKETING_VERSION;
 import static org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector.PrimitiveCategory;
 
 final class HiveBucketing
@@ -270,6 +272,9 @@ final class HiveBucketing
         if (!hiveBucketProperty.isPresent()) {
             return Optional.empty();
         }
+        if (!isHiveBucketingV1(table)) {
+            return Optional.empty();
+        }
 
         Map<String, HiveColumnHandle> map = getRegularColumnHandles(table).stream()
                 .collect(Collectors.toMap(HiveColumnHandle::getName, identity()));
@@ -292,6 +297,9 @@ final class HiveBucketing
     public static Optional<HiveBucketFilter> getHiveBucketFilter(Table table, TupleDomain<ColumnHandle> effectivePredicate)
     {
         if (!table.getStorage().getBucketProperty().isPresent()) {
+            return Optional.empty();
+        }
+        if (!isHiveBucketingV1(table)) {
             return Optional.empty();
         }
 
@@ -368,6 +376,11 @@ final class HiveBucketing
         }
 
         return OptionalInt.of(getHiveBucket(table.getStorage().getBucketProperty().get().getBucketCount(), typeInfos.build(), values));
+    }
+
+    public static boolean isHiveBucketingV1(Table table)
+    {
+        return firstNonNull(table.getParameters().get(TABLE_BUCKETING_VERSION), "1").equals("1");
     }
 
     public static class HiveBucketFilter
