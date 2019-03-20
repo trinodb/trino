@@ -120,6 +120,7 @@ import static io.prestosql.execution.StageInfo.getAllStages;
 import static io.prestosql.operator.StageExecutionDescriptor.ungroupedExecution;
 import static io.prestosql.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.prestosql.sql.planner.planPrinter.PlanNodeStatsSummarizer.aggregateStageStats;
+import static io.prestosql.sql.planner.planPrinter.PlanPrinterUtil.castToVarchar;
 import static io.prestosql.sql.planner.planPrinter.TextRenderer.formatDouble;
 import static io.prestosql.sql.planner.planPrinter.TextRenderer.formatPositions;
 import static io.prestosql.sql.planner.planPrinter.TextRenderer.indentString;
@@ -277,7 +278,7 @@ public class PlanPrinter
                 .map(argument -> {
                     if (argument.isConstant()) {
                         NullableValue constant = argument.getConstant();
-                        String printableValue = PlanPrinterUtil.castToVarchar(constant.getType(), constant.getValue(), functionRegistry, session);
+                        String printableValue = castToVarchar(constant.getType(), constant.getValue(), functionRegistry, session);
                         return constant.getType().getDisplayName() + "(" + printableValue + ")";
                     }
                     return argument.getColumn().toString();
@@ -1093,7 +1094,7 @@ public class PlanPrinter
                         for (Range range : ranges.getOrderedRanges()) {
                             StringBuilder builder = new StringBuilder();
                             if (range.isSingleValue()) {
-                                String value = PlanPrinterUtil.castToVarchar(type, range.getSingleValue(), functionRegistry, session);
+                                String value = castToVarchar(type, range.getSingleValue(), functionRegistry, session);
                                 builder.append('[').append(value).append(']');
                             }
                             else {
@@ -1103,7 +1104,7 @@ public class PlanPrinter
                                     builder.append("<min>");
                                 }
                                 else {
-                                    builder.append(PlanPrinterUtil.castToVarchar(type, range.getLow().getValue(), functionRegistry, session));
+                                    builder.append(castToVarchar(type, range.getLow().getValue(), functionRegistry, session));
                                 }
 
                                 builder.append(", ");
@@ -1112,7 +1113,7 @@ public class PlanPrinter
                                     builder.append("<max>");
                                 }
                                 else {
-                                    builder.append(PlanPrinterUtil.castToVarchar(type, range.getHigh().getValue(), functionRegistry, session));
+                                    builder.append(castToVarchar(type, range.getHigh().getValue(), functionRegistry, session));
                                 }
 
                                 builder.append((range.getHigh().getBound() == Marker.Bound.EXACTLY) ? ']' : ')');
@@ -1121,7 +1122,7 @@ public class PlanPrinter
                         }
                     },
                     discreteValues -> discreteValues.getValues().stream()
-                            .map(value -> PlanPrinterUtil.castToVarchar(type, value, functionRegistry, session))
+                            .map(value -> castToVarchar(type, value, functionRegistry, session))
                             .sorted() // Sort so the values will be printed in predictable order
                             .forEach(parts::add),
                     allOrNone -> {
