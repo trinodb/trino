@@ -127,6 +127,7 @@ import static io.prestosql.plugin.hive.HiveAnalyzeProperties.getPartitionList;
 import static io.prestosql.plugin.hive.HiveBasicStatistics.createEmptyStatistics;
 import static io.prestosql.plugin.hive.HiveBasicStatistics.createZeroStatistics;
 import static io.prestosql.plugin.hive.HiveBucketing.getHiveBucketHandle;
+import static io.prestosql.plugin.hive.HiveBucketing.isHiveBucketingV1;
 import static io.prestosql.plugin.hive.HiveColumnHandle.BUCKET_COLUMN_NAME;
 import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
 import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
@@ -1833,6 +1834,9 @@ public class HiveMetadata
                 .orElseThrow(() -> new NoSuchElementException("Bucket property should be set"));
         if (!bucketProperty.getSortedBy().isEmpty() && !isSortedWritingEnabled(session)) {
             throw new PrestoException(NOT_SUPPORTED, "Writing to bucketed sorted Hive tables is disabled");
+        }
+        if (!isHiveBucketingV1(table)) {
+            throw new PrestoException(NOT_SUPPORTED, "Table bucketing version not supported for writing");
         }
 
         HivePartitioningHandle partitioningHandle = new HivePartitioningHandle(
