@@ -512,15 +512,6 @@ Optimizer Properties
     can return empty partitions if they were created by other systems (Presto cannot
     create them).
 
-``optimizer.optimize-single-distinct``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-    * **Type:** ``boolean``
-    * **Default value:** ``true``
-
-    The single distinct optimization will try to replace multiple ``DISTINCT`` clauses
-    with a single ``GROUP BY`` clause, which can be substantially faster to execute.
-
 ``optimizer.push-aggregation-through-join``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
