@@ -276,7 +276,12 @@ public final class StandardColumnMappings
         };
     }
 
-    public static ColumnMapping timestampColumnMapping()
+    /**
+     * This method uses {@link java.sql.Timestamp} and the class cannot represent date-time value when JVM zone had
+     * forward offset change (a 'gap'). This includes regular DST changes (e.g. Europe/Warsaw) and one-time policy changes
+     * (Asia/Kathmandu's shift by 15 minutes on January 1, 1986, 00:00:00).
+     */
+    public static ColumnMapping timestampColumnMappingUsingSqlTimestamp()
     {
         return ColumnMapping.longMapping(
                 TIMESTAMP,
@@ -290,10 +295,15 @@ public final class StandardColumnMappings
                     Timestamp timestamp = resultSet.getTimestamp(columnIndex);
                     return timestamp.getTime();
                 },
-                timestampWriteFunction());
+                timestampWriteFunctionUsingSqlTimestamp());
     }
 
-    public static LongWriteFunction timestampWriteFunction()
+    /**
+     * This method uses {@link java.sql.Timestamp} and the class cannot represent date-time value when JVM zone had
+     * forward offset change (a 'gap'). This includes regular DST changes (e.g. Europe/Warsaw) and one-time policy changes
+     * (Asia/Kathmandu's shift by 15 minutes on January 1, 1986, 00:00:00).
+     */
+    public static LongWriteFunction timestampWriteFunctionUsingSqlTimestamp()
     {
         return (statement, index, value) -> {
             // Copied from `QueryBuilder.buildSql`
@@ -365,7 +375,7 @@ public final class StandardColumnMappings
                 return Optional.of(timeColumnMapping());
 
             case Types.TIMESTAMP:
-                return Optional.of(timestampColumnMapping());
+                return Optional.of(timestampColumnMappingUsingSqlTimestamp());
         }
         return Optional.empty();
     }
