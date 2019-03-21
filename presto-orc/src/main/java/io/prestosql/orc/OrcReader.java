@@ -26,6 +26,7 @@ import io.prestosql.orc.metadata.Metadata;
 import io.prestosql.orc.metadata.OrcMetadataReader;
 import io.prestosql.orc.metadata.PostScript;
 import io.prestosql.orc.metadata.PostScript.HiveWriterVersion;
+import io.prestosql.orc.stream.OrcChunkLoader;
 import io.prestosql.orc.stream.OrcInputStream;
 import io.prestosql.spi.type.Type;
 import org.joda.time.DateTimeZone;
@@ -163,13 +164,13 @@ public class OrcReader
 
         // read metadata
         Slice metadataSlice = completeFooterSlice.slice(0, metadataSize);
-        try (InputStream metadataInputStream = new OrcInputStream(orcDataSource.getId(), metadataSlice.getInput(), decompressor, newSimpleAggregatedMemoryContext(), metadataSize)) {
+        try (InputStream metadataInputStream = new OrcInputStream(OrcChunkLoader.create(orcDataSource.getId(), metadataSlice, decompressor, newSimpleAggregatedMemoryContext()))) {
             this.metadata = metadataReader.readMetadata(hiveWriterVersion, metadataInputStream);
         }
 
         // read footer
         Slice footerSlice = completeFooterSlice.slice(metadataSize, footerSize);
-        try (InputStream footerInputStream = new OrcInputStream(orcDataSource.getId(), footerSlice.getInput(), decompressor, newSimpleAggregatedMemoryContext(), footerSize)) {
+        try (InputStream footerInputStream = new OrcInputStream(OrcChunkLoader.create(orcDataSource.getId(), footerSlice, decompressor, newSimpleAggregatedMemoryContext()))) {
             this.footer = metadataReader.readFooter(hiveWriterVersion, footerInputStream);
         }
         if (footer.getTypes().isEmpty()) {

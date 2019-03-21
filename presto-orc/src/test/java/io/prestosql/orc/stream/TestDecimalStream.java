@@ -13,7 +13,6 @@
  */
 package io.prestosql.orc.stream;
 
-import io.airlift.slice.BasicSliceInput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.prestosql.orc.OrcCorruptionException;
@@ -145,7 +144,7 @@ public class TestDecimalStream
 
     private static OrcInputStream orcInputStreamFor(String source, byte[] bytes)
     {
-        return new OrcInputStream(new OrcDataSourceId(source), new BasicSliceInput(Slices.wrappedBuffer(bytes)), Optional.empty(), newSimpleAggregatedMemoryContext(), bytes.length);
+        return new OrcInputStream(OrcChunkLoader.create(new OrcDataSourceId(source), Slices.wrappedBuffer(bytes), Optional.empty(), newSimpleAggregatedMemoryContext()));
     }
 
     // copied from org.apache.hadoop.hive.ql.io.orc.SerializationUtils.java

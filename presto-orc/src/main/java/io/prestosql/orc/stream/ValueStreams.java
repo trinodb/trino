@@ -38,43 +38,43 @@ public final class ValueStreams
 
     public static ValueInputStream<?> createValueStreams(
             StreamId streamId,
-            OrcInputStream inputStream,
+            OrcChunkLoader chunkLoader,
             OrcTypeKind type,
             ColumnEncodingKind encoding)
     {
         if (streamId.getStreamKind() == PRESENT) {
-            return new BooleanInputStream(inputStream);
+            return new BooleanInputStream(new OrcInputStream(chunkLoader));
         }
 
         // dictionary length and data streams are unsigned int streams
         if ((encoding == DICTIONARY || encoding == DICTIONARY_V2) && (streamId.getStreamKind() == LENGTH || streamId.getStreamKind() == DATA)) {
-            return createLongStream(inputStream, encoding, false);
+            return createLongStream(new OrcInputStream(chunkLoader), encoding, false);
         }
 
         if (streamId.getStreamKind() == DATA) {
             switch (type) {
                 case BOOLEAN:
-                    return new BooleanInputStream(inputStream);
+                    return new BooleanInputStream(new OrcInputStream(chunkLoader));
                 case BYTE:
-                    return new ByteInputStream(inputStream);
+                    return new ByteInputStream(new OrcInputStream(chunkLoader));
                 case SHORT:
                 case INT:
                 case LONG:
                 case DATE:
-                    return createLongStream(inputStream, encoding, true);
+                    return createLongStream(new OrcInputStream(chunkLoader), encoding, true);
                 case FLOAT:
-                    return new FloatInputStream(inputStream);
+                    return new FloatInputStream(new OrcInputStream(chunkLoader));
                 case DOUBLE:
-                    return new DoubleInputStream(inputStream);
+                    return new DoubleInputStream(new OrcInputStream(chunkLoader));
                 case STRING:
                 case VARCHAR:
                 case CHAR:
                 case BINARY:
-                    return new ByteArrayInputStream(inputStream);
+                    return new ByteArrayInputStream(new OrcInputStream(chunkLoader));
                 case TIMESTAMP:
-                    return createLongStream(inputStream, encoding, true);
+                    return createLongStream(new OrcInputStream(chunkLoader), encoding, true);
                 case DECIMAL:
-                    return new DecimalInputStream(inputStream);
+                    return new DecimalInputStream(new OrcInputStream(chunkLoader));
             }
         }
 
@@ -87,13 +87,13 @@ public final class ValueStreams
                 case BINARY:
                 case MAP:
                 case LIST:
-                    return createLongStream(inputStream, encoding, false);
+                    return createLongStream(new OrcInputStream(chunkLoader), encoding, false);
             }
         }
 
         // length (nanos) of a timestamp column
         if (type == TIMESTAMP && streamId.getStreamKind() == SECONDARY) {
-            return createLongStream(inputStream, encoding, false);
+            return createLongStream(new OrcInputStream(chunkLoader), encoding, false);
         }
 
         // scale of a decimal column
@@ -101,7 +101,7 @@ public final class ValueStreams
             // specification (https://orc.apache.org/docs/encodings.html) says scale stream is unsigned,
             // however Hive writer stores scale as signed integer (org.apache.hadoop.hive.ql.io.orc.WriterImpl.DecimalTreeWriter)
             // BUG link: https://issues.apache.org/jira/browse/HIVE-13229
-            return createLongStream(inputStream, encoding, true);
+            return createLongStream(new OrcInputStream(chunkLoader), encoding, true);
         }
 
         if (streamId.getStreamKind() == DICTIONARY_DATA) {
@@ -110,7 +110,7 @@ public final class ValueStreams
                 case VARCHAR:
                 case CHAR:
                 case BINARY:
-                    return new ByteArrayInputStream(inputStream);
+                    return new ByteArrayInputStream(new OrcInputStream(chunkLoader));
             }
         }
 
