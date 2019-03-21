@@ -193,19 +193,6 @@ public final class FunctionAssertions
             .put(new Symbol("bound_integer"), 9)
             .build();
 
-    private static final TypeProvider SYMBOL_TYPES = TypeProvider.copyOf(ImmutableMap.<Symbol, Type>builder()
-            .put(new Symbol("bound_long"), BIGINT)
-            .put(new Symbol("bound_string"), VARCHAR)
-            .put(new Symbol("bound_double"), DOUBLE)
-            .put(new Symbol("bound_boolean"), BOOLEAN)
-            .put(new Symbol("bound_timestamp"), BIGINT)
-            .put(new Symbol("bound_pattern"), VARCHAR)
-            .put(new Symbol("bound_null_string"), VARCHAR)
-            .put(new Symbol("bound_timestamp_with_timezone"), TIMESTAMP_WITH_TIME_ZONE)
-            .put(new Symbol("bound_binary_literal"), VARBINARY)
-            .put(new Symbol("bound_integer"), INTEGER)
-            .build());
-
     private static final PageSourceProvider PAGE_SOURCE_PROVIDER = new TestPageSourceProvider();
     private static final PlanNodeId SOURCE_ID = new PlanNodeId("scan");
 
@@ -464,7 +451,7 @@ public final class FunctionAssertions
     {
         requireNonNull(projection, "projection is null");
 
-        Expression projectionExpression = createExpression(session, projection, metadata, SYMBOL_TYPES);
+        Expression projectionExpression = createExpression(session, projection, metadata, TypeProvider.copyOf(INPUT_TYPES));
         RowExpression projectionRowExpression = toRowExpression(session, projectionExpression);
         PageProcessor processor = compiler.compilePageProcessor(Optional.empty(), ImmutableList.of(projectionRowExpression)).get();
 
@@ -579,7 +566,7 @@ public final class FunctionAssertions
     {
         requireNonNull(projection, "projection is null");
 
-        Expression projectionExpression = createExpression(session, projection, metadata, SYMBOL_TYPES);
+        Expression projectionExpression = createExpression(session, projection, metadata, TypeProvider.copyOf(INPUT_TYPES));
         RowExpression projectionRowExpression = toRowExpression(session, projectionExpression);
 
         List<Object> results = new ArrayList<>();
@@ -681,7 +668,7 @@ public final class FunctionAssertions
     {
         requireNonNull(filter, "filter is null");
 
-        Expression filterExpression = createExpression(session, filter, metadata, SYMBOL_TYPES);
+        Expression filterExpression = createExpression(session, filter, metadata, TypeProvider.copyOf(INPUT_TYPES));
         RowExpression filterRowExpression = toRowExpression(session, filterExpression);
 
         List<Boolean> results = new ArrayList<>();
@@ -865,13 +852,13 @@ public final class FunctionAssertions
 
     private Object interpret(Expression expression, Type expectedType, Session session)
     {
-        Map<NodeRef<Expression>, Type> expressionTypes = typeAnalyzer.getTypes(session, SYMBOL_TYPES, expression);
+        Map<NodeRef<Expression>, Type> expressionTypes = typeAnalyzer.getTypes(session, TypeProvider.copyOf(INPUT_TYPES), expression);
         ExpressionInterpreter evaluator = ExpressionInterpreter.expressionInterpreter(expression, metadata, session, expressionTypes);
 
         Object result = evaluator.evaluate(symbol -> {
             int position = 0;
             int channel = INPUT_MAPPING.get(symbol);
-            Type type = SYMBOL_TYPES.get(symbol);
+            Type type = INPUT_TYPES.get(symbol);
 
             Block block = SOURCE_PAGE.getBlock(channel);
 
