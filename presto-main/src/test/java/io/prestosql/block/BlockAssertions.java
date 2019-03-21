@@ -17,6 +17,7 @@ import io.airlift.slice.Slice;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.block.DictionaryBlock;
+import io.prestosql.spi.block.RowBlockBuilder;
 import io.prestosql.spi.block.RunLengthEncodedBlock;
 import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.DecimalType;
@@ -30,6 +31,7 @@ import java.util.Collections;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DateType.DATE;
@@ -274,6 +276,52 @@ public final class BlockAssertions
         }
 
         return builder.build();
+    }
+
+    public static Block createRowBlock(List<Type> fieldTypes, Object[]... rows)
+    {
+        BlockBuilder rowBlockBuilder = new RowBlockBuilder(fieldTypes, null, 1);
+        for (Object[] row : rows) {
+            if (row == null) {
+                rowBlockBuilder.appendNull();
+                continue;
+            }
+            BlockBuilder singleRowBlockWriter = rowBlockBuilder.beginBlockEntry();
+            for (Object fieldValue : row) {
+                if (fieldValue == null) {
+                    singleRowBlockWriter.appendNull();
+                    continue;
+                }
+
+                if (fieldValue instanceof String) {
+                    VARCHAR.writeSlice(singleRowBlockWriter, utf8Slice((String) fieldValue));
+                }
+                else if (fieldValue instanceof Slice) {
+                    VARBINARY.writeSlice(singleRowBlockWriter, (Slice) fieldValue);
+                }
+                else if (fieldValue instanceof Double) {
+                    DOUBLE.writeDouble(singleRowBlockWriter, ((Double) fieldValue).doubleValue());
+                }
+                else if (fieldValue instanceof Long) {
+                    BIGINT.writeLong(singleRowBlockWriter, ((Long) fieldValue).longValue());
+                }
+                else if (fieldValue instanceof Boolean) {
+                    BOOLEAN.writeBoolean(singleRowBlockWriter, ((Boolean) fieldValue).booleanValue());
+                }
+                else if (fieldValue instanceof Block) {
+                    singleRowBlockWriter.appendStructure((Block) fieldValue);
+                }
+                else if (fieldValue instanceof Integer) {
+                    INTEGER.writeLong(singleRowBlockWriter, ((Integer) fieldValue).intValue());
+                }
+                else {
+                    throw new IllegalArgumentException();
+                }
+            }
+            rowBlockBuilder.closeEntry();
+        }
+
+        return rowBlockBuilder.build();
     }
 
     public static Block createEmptyLongsBlock()
