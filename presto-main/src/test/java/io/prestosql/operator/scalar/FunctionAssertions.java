@@ -56,6 +56,7 @@ import io.prestosql.spi.connector.InMemoryRecordSet;
 import io.prestosql.spi.connector.RecordPageSource;
 import io.prestosql.spi.connector.RecordSet;
 import io.prestosql.spi.predicate.Utils;
+import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.TimeZoneKey;
 import io.prestosql.spi.type.Type;
 import io.prestosql.split.PageSourceProvider;
@@ -91,6 +92,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
@@ -110,6 +112,7 @@ import static io.prestosql.block.BlockAssertions.createBooleansBlock;
 import static io.prestosql.block.BlockAssertions.createDoublesBlock;
 import static io.prestosql.block.BlockAssertions.createIntsBlock;
 import static io.prestosql.block.BlockAssertions.createLongsBlock;
+import static io.prestosql.block.BlockAssertions.createRowBlock;
 import static io.prestosql.block.BlockAssertions.createSlicesBlock;
 import static io.prestosql.block.BlockAssertions.createStringsBlock;
 import static io.prestosql.block.BlockAssertions.createTimestampsWithTimezoneBlock;
@@ -153,6 +156,11 @@ public final class FunctionAssertions
 
     private static final SqlParser SQL_PARSER = new SqlParser();
 
+    // Increase the number of fields to generate a wide column
+    private static final int TEST_ROW_NUMBER_OF_FIELDS = 2500;
+    private static final RowType TEST_ROW_TYPE = createTestRowType(TEST_ROW_NUMBER_OF_FIELDS);
+    private static final Block TEST_ROW_DATA = createTestRowData(TEST_ROW_TYPE);
+
     private static final Page SOURCE_PAGE = new Page(
             createLongsBlock(1234L),
             createStringsBlock("hello"),
@@ -163,7 +171,8 @@ public final class FunctionAssertions
             createStringsBlock((String) null),
             createTimestampsWithTimezoneBlock(packDateTimeWithZone(new DateTime(1970, 1, 1, 0, 1, 0, 999, DateTimeZone.UTC).getMillis(), TimeZoneKey.getTimeZoneKey("Z"))),
             createSlicesBlock(Slices.wrappedBuffer((byte) 0xab)),
-            createIntsBlock(1234));
+            createIntsBlock(1234),
+            TEST_ROW_DATA);
 
     private static final Page ZERO_CHANNEL_PAGE = new Page(1);
 
@@ -178,6 +187,7 @@ public final class FunctionAssertions
             .put(new Symbol("bound_timestamp_with_timezone"), TIMESTAMP_WITH_TIME_ZONE)
             .put(new Symbol("bound_binary_literal"), VARBINARY)
             .put(new Symbol("bound_integer"), INTEGER)
+            .put(new Symbol("bound_row"), TEST_ROW_TYPE)
             .build();
 
     private static final Map<Symbol, Integer> INPUT_MAPPING = ImmutableMap.<Symbol, Integer>builder()
@@ -191,6 +201,7 @@ public final class FunctionAssertions
             .put(new Symbol("bound_timestamp_with_timezone"), 7)
             .put(new Symbol("bound_binary_literal"), 8)
             .put(new Symbol("bound_integer"), 9)
+            .put(new Symbol("bound_row"), 10)
             .build();
 
     private static final PageSourceProvider PAGE_SOURCE_PROVIDER = new TestPageSourceProvider();
@@ -1021,7 +1032,7 @@ public final class FunctionAssertions
             assertInstanceOf(split.getConnectorSplit(), FunctionAssertions.TestSplit.class);
             FunctionAssertions.TestSplit testSplit = (FunctionAssertions.TestSplit) split.getConnectorSplit();
             if (testSplit.isRecordSet()) {
-                RecordSet records = InMemoryRecordSet.builder(ImmutableList.of(BIGINT, VARCHAR, DOUBLE, BOOLEAN, BIGINT, VARCHAR, VARCHAR, TIMESTAMP_WITH_TIME_ZONE, VARBINARY, INTEGER))
+                RecordSet records = InMemoryRecordSet.builder(ImmutableList.of(BIGINT, VARCHAR, DOUBLE, BOOLEAN, BIGINT, VARCHAR, VARCHAR, TIMESTAMP_WITH_TIME_ZONE, VARBINARY, INTEGER, TEST_ROW_TYPE))
                         .addRow(
                                 1234L,
                                 "hello",
@@ -1032,7 +1043,8 @@ public final class FunctionAssertions
                                 null,
                                 packDateTimeWithZone(new DateTime(1970, 1, 1, 0, 1, 0, 999, DateTimeZone.UTC).getMillis(), TimeZoneKey.getTimeZoneKey("Z")),
                                 Slices.wrappedBuffer((byte) 0xab),
-                                1234)
+                                1234,
+                                TEST_ROW_DATA.getObject(0, Block.class))
                         .build();
                 return new RecordPageSource(records);
             }
@@ -1050,6 +1062,45 @@ public final class FunctionAssertions
     private static Split createNormalSplit()
     {
         return new Split(new CatalogName("test"), new TestSplit(false), Lifespan.taskWide());
+    }
+
+    private static RowType createTestRowType(int numberOfFields)
+    {
+        Iterator<Type> types = Iterables.<Type>cycle(
+                BIGINT,
+                INTEGER,
+                VARCHAR,
+                DOUBLE,
+                BOOLEAN,
+                VARBINARY,
+                RowType.from(ImmutableList.of(RowType.field("nested_nested_column", VARCHAR)))).iterator();
+
+        List<RowType.Field> fields = new ArrayList<>();
+        for (int fieldIdx = 0; fieldIdx < numberOfFields; fieldIdx++) {
+            fields.add(new RowType.Field(Optional.of("nested_column_" + fieldIdx), types.next()));
+        }
+
+        return RowType.from(fields);
+    }
+
+    private static Block createTestRowData(RowType rowType)
+    {
+        Iterator<Object> values = Iterables.cycle(
+                1234L,
+                34,
+                "hello",
+                12.34d,
+                true,
+                Slices.wrappedBuffer((byte) 0xab),
+                createRowBlock(ImmutableList.of(VARCHAR), Collections.singleton("innerFieldValue").toArray()).getObject(0, Block.class)).iterator();
+
+        final int numFields = rowType.getFields().size();
+        Object[] rowValues = new Object[numFields];
+        for (int fieldIdx = 0; fieldIdx < numFields; fieldIdx++) {
+            rowValues[fieldIdx] = values.next();
+        }
+
+        return createRowBlock(rowType.getTypeParameters(), rowValues);
     }
 
     private static class TestSplit
