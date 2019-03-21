@@ -15,6 +15,8 @@ package io.prestosql.orc;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 import io.prestosql.orc.OrcTester.Format;
@@ -281,15 +283,9 @@ public class TestCachingOrcDataSource
         }
 
         @Override
-        public void readFully(long position, byte[] buffer)
+        public Slice readFully(long position, int length)
         {
-            // do nothing
-        }
-
-        @Override
-        public void readFully(long position, byte[] buffer, int bufferOffset, int bufferLength)
-        {
-            // do nothing
+            return Slices.allocate(length);
         }
 
         @Override

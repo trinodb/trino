@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
-import io.airlift.slice.Slices;
+import io.airlift.slice.Slice;
 import io.prestosql.memory.context.AggregatedMemoryContext;
 import io.prestosql.orc.checkpoint.InvalidCheckpointException;
 import io.prestosql.orc.checkpoint.StreamCheckpoint;
@@ -358,9 +358,8 @@ public class StripeReader
         int tailLength = toIntExact(stripe.getFooterLength());
 
         // read the footer
-        byte[] tailBuffer = new byte[tailLength];
-        orcDataSource.readFully(offset, tailBuffer);
-        try (InputStream inputStream = new OrcInputStream(orcDataSource.getId(), Slices.wrappedBuffer(tailBuffer).getInput(), decompressor, systemMemoryUsage, tailLength)) {
+        Slice tailBuffer = orcDataSource.readFully(offset, tailLength);
+        try (InputStream inputStream = new OrcInputStream(orcDataSource.getId(), tailBuffer.getInput(), decompressor, systemMemoryUsage, tailLength)) {
             return metadataReader.readStripeFooter(types, inputStream);
         }
     }
