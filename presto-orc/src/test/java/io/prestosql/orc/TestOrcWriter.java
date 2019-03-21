@@ -24,6 +24,7 @@ import io.prestosql.orc.metadata.OrcMetadataReader;
 import io.prestosql.orc.metadata.Stream;
 import io.prestosql.orc.metadata.StripeFooter;
 import io.prestosql.orc.metadata.StripeInformation;
+import io.prestosql.orc.stream.OrcChunkLoader;
 import io.prestosql.orc.stream.OrcInputStream;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.block.Block;
@@ -101,7 +102,7 @@ public class TestOrcWriter
             for (StripeInformation stripe : footer.getStripes()) {
                 // read the footer
                 Slice tailBuffer = orcDataSource.readFully(stripe.getOffset() + stripe.getIndexLength() + stripe.getDataLength(), toIntExact(stripe.getFooterLength()));
-                try (InputStream inputStream = new OrcInputStream(orcDataSource.getId(), tailBuffer.getInput(), Optional.empty(), newSimpleAggregatedMemoryContext(), tailBuffer.length())) {
+                try (InputStream inputStream = new OrcInputStream(OrcChunkLoader.create(orcDataSource.getId(), tailBuffer, Optional.empty(), newSimpleAggregatedMemoryContext()))) {
                     StripeFooter stripeFooter = new OrcMetadataReader().readStripeFooter(footer.getTypes(), inputStream);
 
                     int size = 0;

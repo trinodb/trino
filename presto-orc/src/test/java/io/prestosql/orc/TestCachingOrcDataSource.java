@@ -22,6 +22,7 @@ import io.airlift.units.DataSize.Unit;
 import io.prestosql.orc.OrcTester.Format;
 import io.prestosql.orc.metadata.CompressionKind;
 import io.prestosql.orc.metadata.StripeInformation;
+import io.prestosql.orc.stream.OrcDataReader;
 import io.prestosql.spi.block.Block;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.ql.exec.FileSinkOperator;
@@ -289,7 +290,7 @@ public class TestCachingOrcDataSource
         }
 
         @Override
-        public <K> Map<K, OrcDataSourceInput> readFully(Map<K, DiskRange> diskRanges)
+        public <K> Map<K, OrcDataReader> readFully(Map<K, DiskRange> diskRanges)
         {
             throw new UnsupportedOperationException();
         }

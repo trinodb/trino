@@ -15,6 +15,7 @@ package io.prestosql.orc;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
+import io.prestosql.orc.stream.OrcDataReader;
 
 import java.io.IOException;
 import java.util.List;
@@ -79,7 +80,7 @@ class TestingOrcDataSource
     }
 
     @Override
-    public <K> Map<K, OrcDataSourceInput> readFully(Map<K, DiskRange> diskRanges)
+    public <K> Map<K, OrcDataReader> readFully(Map<K, DiskRange> diskRanges)
             throws IOException
     {
         readCount += diskRanges.size();
