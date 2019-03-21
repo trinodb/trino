@@ -53,6 +53,7 @@ public final class SqlServerDataTypesTableDefinition
                     "d date, " +
                     "dt datetime, " +
                     "dt2 datetime2, " +
+                    "dt3 datetime2, " +
                     "sdt smalldatetime, " +
                     "pf30 float(30), " +
                     "pf22 float(22))";
@@ -78,7 +79,8 @@ public final class SqlServerDataTypesTableDefinition
                             "\0",
                             Date.valueOf("1953-01-02"),
                             Timestamp.valueOf("1953-01-01 00:00:00.000"),
-                            Timestamp.valueOf("2001-01-01 00:00:00.000"),
+                            Timestamp.valueOf("2001-01-01 00:00:00.123"),
+                            Timestamp.valueOf("1970-01-01 00:00:00"),
                             Timestamp.valueOf("1960-01-01 00:00:00"),
                             Double.MIN_VALUE,
                             -3.40E+38f),
@@ -98,10 +100,11 @@ public final class SqlServerDataTypesTableDefinition
                             Date.valueOf("9999-12-31"),
                             Timestamp.valueOf("9999-12-31 23:59:59.997"),
                             Timestamp.valueOf("9999-12-31 23:59:59.999"),
+                            Timestamp.valueOf("9999-12-31 23:59:59.999"),
                             Timestamp.valueOf("2079-06-05 23:59:59"),
                             12345678912.3456756,
                             12345678.6557f),
-                    nCopies(18, null))
+                    nCopies(19, null))
                     .iterator();
         };
 

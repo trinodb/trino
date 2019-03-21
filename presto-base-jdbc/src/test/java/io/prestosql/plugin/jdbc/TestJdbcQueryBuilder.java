@@ -22,6 +22,8 @@ import io.prestosql.spi.predicate.Range;
 import io.prestosql.spi.predicate.SortedRangeSet;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.type.CharType;
+import io.prestosql.spi.type.SqlTimestamp;
+import io.prestosql.testing.DateTimeTestingUtils;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -61,6 +63,7 @@ import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.TimeType.TIME;
+import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
@@ -68,6 +71,7 @@ import static io.prestosql.testing.TestingConnectorSession.SESSION;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.String.format;
 import static java.time.temporal.ChronoUnit.DAYS;
+import static org.joda.time.DateTimeZone.UTC;
 import static org.testng.Assert.assertEquals;
 
 @Test(singleThreaded = true)
@@ -335,9 +339,9 @@ public class TestJdbcQueryBuilder
         TupleDomain<ColumnHandle> tupleDomain = TupleDomain.withColumnDomains(ImmutableMap.of(
                 columns.get(6), Domain.create(SortedRangeSet.copyOf(TIMESTAMP,
                         ImmutableList.of(
-                                Range.equal(TIMESTAMP, toTimestamp(2016, 6, 3, 0, 23, 37).getTime()),
-                                Range.equal(TIMESTAMP, toTimestamp(2016, 10, 19, 16, 23, 37).getTime()),
-                                Range.range(TIMESTAMP, toTimestamp(2016, 6, 7, 8, 23, 37).getTime(), false, toTimestamp(2016, 6, 9, 12, 23, 37).getTime(), true))),
+                                Range.equal(TIMESTAMP, toPrestoTimestamp(2016, 6, 3, 0, 23, 37)),
+                                Range.equal(TIMESTAMP, toPrestoTimestamp(2016, 10, 19, 16, 23, 37)),
+                                Range.range(TIMESTAMP, toPrestoTimestamp(2016, 6, 7, 8, 23, 37), false, toPrestoTimestamp(2016, 6, 9, 12, 23, 37), true))),
                         false)));
 
         Connection connection = database.getConnection();
@@ -372,6 +376,15 @@ public class TestJdbcQueryBuilder
                 ResultSet resultSet = preparedStatement.executeQuery()) {
             assertEquals(resultSet.next(), false);
         }
+    }
+
+    private static long toPrestoTimestamp(int year, int month, int day, int hour, int minute, int second)
+    {
+        SqlTimestamp sqlTimestamp = DateTimeTestingUtils.sqlTimestampOf(year, month, day, hour, minute, second, 0, UTC, UTC_KEY, SESSION);
+        if (SESSION.isLegacyTimestamp()) {
+            return sqlTimestamp.getMillisUtc();
+        }
+        return sqlTimestamp.getMillis();
     }
 
     private static Timestamp toTimestamp(int year, int month, int day, int hour, int minute, int second)

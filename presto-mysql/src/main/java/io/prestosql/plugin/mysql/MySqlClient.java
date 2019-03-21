@@ -167,7 +167,8 @@ public class MySqlClient
             throw new PrestoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
         }
         if (TIMESTAMP.equals(type)) {
-            return WriteMapping.longMapping("datetime", timestampWriteFunctionUsingSqlTimestamp());
+            // TODO use `timestampWriteFunction`
+            return WriteMapping.longMapping("datetime", timestampWriteFunctionUsingSqlTimestamp(session));
         }
         if (VARBINARY.equals(type)) {
             return WriteMapping.sliceMapping("mediumblob", varbinaryWriteFunction());

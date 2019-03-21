@@ -26,6 +26,7 @@ import io.prestosql.spi.type.VarcharType;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Optional;
 import java.util.function.Function;
@@ -35,6 +36,7 @@ import static com.google.common.io.BaseEncoding.base16;
 import static io.prestosql.spi.type.CharType.createCharType;
 import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.DecimalType.createDecimalType;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.prestosql.type.JsonType.JSON;
 import static java.lang.String.format;
@@ -145,9 +147,18 @@ public class DataType<T>
     public static DataType<LocalDate> dateDataType()
     {
         return dataType(
-                "DATE",
+                "date",
                 DATE,
                 DateTimeFormatter.ofPattern("'DATE '''yyyy-MM-dd''")::format,
+                identity());
+    }
+
+    public static DataType<LocalDateTime> timestampDataType()
+    {
+        return dataType(
+                "timestamp",
+                TIMESTAMP,
+                DateTimeFormatter.ofPattern("'TIMESTAMP '''yyyy-MM-dd HH:mm:ss.SSS''")::format,
                 identity());
     }
 
