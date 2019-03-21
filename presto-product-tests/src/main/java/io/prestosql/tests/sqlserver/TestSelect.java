@@ -146,6 +146,7 @@ public class TestSelect
                         TIMESTAMP,
                         TIMESTAMP,
                         TIMESTAMP,
+                        TIMESTAMP,
                         DOUBLE,
                         REAL)
                 .containsOnly(
@@ -164,7 +165,8 @@ public class TestSelect
                                 "\0",
                                 Date.valueOf("1953-01-02"),
                                 Timestamp.valueOf("1953-01-01 00:00:00.000"),
-                                Timestamp.valueOf("2001-01-01 00:00:00.000"),
+                                Timestamp.valueOf("2001-01-01 00:00:00.123"),
+                                Timestamp.valueOf("1970-01-01 00:00:00.000"),
                                 Timestamp.valueOf("1960-01-01 00:00:00"),
                                 Double.MIN_VALUE,
                                 -3.40E+38f),
@@ -184,10 +186,11 @@ public class TestSelect
                                 Date.valueOf("9999-12-31"),
                                 Timestamp.valueOf("9999-12-31 23:59:59.997"),
                                 Timestamp.valueOf("9999-12-31 23:59:59.999"),
+                                Timestamp.valueOf("9999-12-31 23:59:59.999"),
                                 Timestamp.valueOf("2079-06-06 00:00:00"),
                                 12345678912.3456756,
                                 12345678.6557f),
-                        row(nCopies(18, null).toArray()));
+                        row(nCopies(19, null).toArray()));
     }
 
     @Test(groups = {SQL_SERVER, PROFILE_SPECIFIC_TESTS})

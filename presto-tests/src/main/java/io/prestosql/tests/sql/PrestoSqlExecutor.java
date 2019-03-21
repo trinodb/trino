@@ -13,23 +13,33 @@
  */
 package io.prestosql.tests.sql;
 
+import io.prestosql.Session;
 import io.prestosql.testing.QueryRunner;
+
+import static java.util.Objects.requireNonNull;
 
 public class PrestoSqlExecutor
         implements SqlExecutor
 {
     private final QueryRunner queryRunner;
+    private final Session session;
 
     public PrestoSqlExecutor(QueryRunner queryRunner)
     {
-        this.queryRunner = queryRunner;
+        this(queryRunner, queryRunner.getDefaultSession());
+    }
+
+    public PrestoSqlExecutor(QueryRunner queryRunner, Session session)
+    {
+        this.queryRunner = requireNonNull(queryRunner, "queryRunner is null");
+        this.session = requireNonNull(session, "session is null");
     }
 
     @Override
     public void execute(String sql)
     {
         try {
-            queryRunner.execute(queryRunner.getDefaultSession(), sql);
+            queryRunner.execute(session, sql);
         }
         catch (Throwable e) {
             throw new RuntimeException("Error executing sql:\n" + sql, e);

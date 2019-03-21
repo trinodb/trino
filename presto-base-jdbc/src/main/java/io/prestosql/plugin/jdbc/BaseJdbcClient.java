@@ -229,7 +229,7 @@ public class BaseJdbcClient
     @Override
     public Optional<ColumnMapping> toPrestoType(ConnectorSession session, JdbcTypeHandle typeHandle)
     {
-        return jdbcTypeToPrestoType(typeHandle);
+        return jdbcTypeToPrestoType(session, typeHandle);
     }
 
     @Override
