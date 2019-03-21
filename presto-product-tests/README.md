@@ -283,9 +283,11 @@ setup outlined below:
 
     ```
     presto-product-tests/conf/docker/singlenode/compose.sh up -d hadoop-master
-    presto-product-tests/conf/docker/singlenode/compose.sh up -d mysql
-    presto-product-tests/conf/docker/singlenode/compose.sh up -d postgres
-    presto-product-tests/conf/docker/singlenode/compose.sh up -d cassandra
+    presto-product-tests/conf/docker/singlenode-mysql/compose.sh up -d mysql
+    presto-product-tests/conf/docker/singlenode-postgresql/compose.sh up -d postgres
+    presto-product-tests/conf/docker/singlenode-cassandra/compose.sh up -d cassandra
+    presto-product-tests/conf/docker/singlenode-sqlserver/compose.sh up -d sqlserver
+    presto-product-tests/conf/docker/singlenode-kafka/compose.sh up -d kafka
     ```
     
     Tip: To display container logs run:
@@ -303,13 +305,15 @@ The format of `/etc/hosts` entries is `<ip> <host>`:
         ```
         docker inspect $(presto-product-tests/conf/docker/singlenode/compose.sh ps -q hadoop-master) | grep -i IPAddress
         ```
-    Similarly add mappings for MySQL, Postgres and Cassandra containers (`mysql`, `postgres` and `cassandra` hostnames respectively).
+    Similarly add mappings for MySQL, Postgres and Cassandra containers (`mysql`, `postgres`, `cassandra`, `sqlserver` and `kafka` hostnames respectively).
     To check IPs for those containers run:
 
     ```
-    docker inspect $(presto-product-tests/conf/docker/singlenode/compose.sh ps -q mysql) | grep -i IPAddress
-    docker inspect $(presto-product-tests/conf/docker/singlenode/compose.sh ps -q postgres) | grep -i IPAddress
-    docker inspect $(presto-product-tests/conf/docker/singlenode/compose.sh ps -q cassandra) | grep -i IPAddress
+    docker inspect $(presto-product-tests/conf/docker/singlenode-mysql/compose.sh ps -q mysql) | grep -i IPAddress
+    docker inspect $(presto-product-tests/conf/docker/singlenode-postgresql/compose.sh ps -q postgres) | grep -i IPAddress
+    docker inspect $(presto-product-tests/conf/docker/singlenode-cassandra/compose.sh ps -q cassandra) | grep -i IPAddress
+    docker inspect $(presto-product-tests/conf/docker/singlenode-sqlserver/compose.sh ps -q sqlserver) | grep -i IPAddress
+    docker inspect $(presto-product-tests/conf/docker/singlenode-kafka/compose.sh ps -q kafka) | grep -i IPAddress
     ```
 
     Alternatively you can use below script to obtain hosts ip mapping
