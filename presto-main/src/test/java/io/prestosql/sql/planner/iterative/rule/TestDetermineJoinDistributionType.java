@@ -19,6 +19,7 @@ import io.prestosql.cost.CostComparator;
 import io.prestosql.cost.PlanNodeStatsEstimate;
 import io.prestosql.cost.SymbolStatsEstimate;
 import io.prestosql.cost.TaskCountEstimator;
+import io.prestosql.spi.type.VarcharType;
 import io.prestosql.sql.analyzer.FeaturesConfig.JoinDistributionType;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.iterative.rule.test.RuleAssert;
@@ -36,6 +37,7 @@ import java.util.Optional;
 import static io.prestosql.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.prestosql.SystemSessionProperties.JOIN_MAX_BROADCAST_TABLE_SIZE;
 import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.enforceSingleRow;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.join;
@@ -211,6 +213,7 @@ public class TestDetermineJoinDistributionType
     @Test
     public void testFlipAndReplicateWhenOneTableMuchSmaller()
     {
+        VarcharType symbolType = createUnboundedVarcharType(); // variable width so that average row size is respected
         int aRows = 100;
         int bRows = 10_000;
         assertDetermineJoinDistributionType()
@@ -223,14 +226,17 @@ public class TestDetermineJoinDistributionType
                         .setOutputRowCount(bRows)
                         .addSymbolStatistics(ImmutableMap.of(new Symbol("B1"), new SymbolStatsEstimate(0, 100, 0, 640000, 100)))
                         .build())
-                .on(p ->
-                        p.join(
-                                INNER,
-                                p.values(new PlanNodeId("valuesA"), aRows, p.symbol("A1", BIGINT)),
-                                p.values(new PlanNodeId("valuesB"), bRows, p.symbol("B1", BIGINT)),
-                                ImmutableList.of(new JoinNode.EquiJoinClause(p.symbol("A1", BIGINT), p.symbol("B1", BIGINT))),
-                                ImmutableList.of(p.symbol("A1", BIGINT), p.symbol("B1", BIGINT)),
-                                Optional.empty()))
+                .on(p -> {
+                    Symbol a1 = p.symbol("A1", symbolType);
+                    Symbol b1 = p.symbol("B1", symbolType);
+                    return p.join(
+                            INNER,
+                            p.values(new PlanNodeId("valuesA"), aRows, a1),
+                            p.values(new PlanNodeId("valuesB"), bRows, b1),
+                            ImmutableList.of(new JoinNode.EquiJoinClause(a1, b1)),
+                            ImmutableList.of(a1, b1),
+                            Optional.empty());
+                })
                 .matches(join(
                         INNER,
                         ImmutableList.of(equiJoinClause("B1", "A1")),
@@ -277,6 +283,7 @@ public class TestDetermineJoinDistributionType
     @Test
     public void testPartitionWhenRequiredBySession()
     {
+        VarcharType symbolType = createUnboundedVarcharType(); // variable width so that average row size is respected
         int aRows = 100;
         int bRows = 10_000;
         assertDetermineJoinDistributionType()
@@ -289,14 +296,17 @@ public class TestDetermineJoinDistributionType
                         .setOutputRowCount(bRows)
                         .addSymbolStatistics(ImmutableMap.of(new Symbol("B1"), new SymbolStatsEstimate(0, 100, 0, 640000, 100)))
                         .build())
-                .on(p ->
-                        p.join(
-                                INNER,
-                                p.values(new PlanNodeId("valuesA"), aRows, p.symbol("A1", BIGINT)),
-                                p.values(new PlanNodeId("valuesB"), bRows, p.symbol("B1", BIGINT)),
-                                ImmutableList.of(new JoinNode.EquiJoinClause(p.symbol("A1", BIGINT), p.symbol("B1", BIGINT))),
-                                ImmutableList.of(p.symbol("A1", BIGINT), p.symbol("B1", BIGINT)),
-                                Optional.empty()))
+                .on(p -> {
+                    Symbol a1 = p.symbol("A1", symbolType);
+                    Symbol b1 = p.symbol("B1", symbolType);
+                    return p.join(
+                            INNER,
+                            p.values(new PlanNodeId("valuesA"), aRows, a1),
+                            p.values(new PlanNodeId("valuesB"), bRows, b1),
+                            ImmutableList.of(new JoinNode.EquiJoinClause(a1, b1)),
+                            ImmutableList.of(a1, b1),
+                            Optional.empty());
+                })
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.PARTITIONED.name())
                 .matches(join(
                         INNER,
@@ -342,6 +352,7 @@ public class TestDetermineJoinDistributionType
     @Test
     public void testReplicatesWhenRequiredBySession()
     {
+        VarcharType symbolType = createUnboundedVarcharType(); // variable width so that average row size is respected
         int aRows = 10_000;
         int bRows = 10_000;
         assertDetermineJoinDistributionType()
@@ -354,14 +365,17 @@ public class TestDetermineJoinDistributionType
                         .setOutputRowCount(bRows)
                         .addSymbolStatistics(ImmutableMap.of(new Symbol("B1"), new SymbolStatsEstimate(0, 100, 0, 640000, 100)))
                         .build())
-                .on(p ->
-                        p.join(
-                                INNER,
-                                p.values(new PlanNodeId("valuesA"), aRows, p.symbol("A1", BIGINT)),
-                                p.values(new PlanNodeId("valuesB"), bRows, p.symbol("B1", BIGINT)),
-                                ImmutableList.of(new JoinNode.EquiJoinClause(p.symbol("A1", BIGINT), p.symbol("B1", BIGINT))),
-                                ImmutableList.of(p.symbol("A1", BIGINT), p.symbol("B1", BIGINT)),
-                                Optional.empty()))
+                .on(p -> {
+                    Symbol a1 = p.symbol("A1", symbolType);
+                    Symbol b1 = p.symbol("B1", symbolType);
+                    return p.join(
+                            INNER,
+                            p.values(new PlanNodeId("valuesA"), aRows, a1),
+                            p.values(new PlanNodeId("valuesB"), bRows, b1),
+                            ImmutableList.of(new JoinNode.EquiJoinClause(a1, b1)),
+                            ImmutableList.of(a1, b1),
+                            Optional.empty());
+                })
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.BROADCAST.name())
                 .matches(join(
                         INNER,
@@ -537,6 +551,7 @@ public class TestDetermineJoinDistributionType
     @Test
     public void testReplicatesWhenNotRestricted()
     {
+        VarcharType symbolType = createUnboundedVarcharType(); // variable width so that average row size is respected
         int aRows = 10_000;
         int bRows = 10;
 
@@ -555,14 +570,17 @@ public class TestDetermineJoinDistributionType
                 .setSystemProperty(JOIN_MAX_BROADCAST_TABLE_SIZE, "100MB")
                 .overrideStats("valuesA", probeSideStatsEstimate)
                 .overrideStats("valuesB", buildSideStatsEstimate)
-                .on(p ->
-                        p.join(
-                                INNER,
-                                p.values(new PlanNodeId("valuesA"), aRows, p.symbol("A1", BIGINT)),
-                                p.values(new PlanNodeId("valuesB"), bRows, p.symbol("B1", BIGINT)),
-                                ImmutableList.of(new JoinNode.EquiJoinClause(p.symbol("A1", BIGINT), p.symbol("B1", BIGINT))),
-                                ImmutableList.of(p.symbol("A1", BIGINT), p.symbol("B1", BIGINT)),
-                                Optional.empty()))
+                .on(p -> {
+                    Symbol a1 = p.symbol("A1", symbolType);
+                    Symbol b1 = p.symbol("B1", symbolType);
+                    return p.join(
+                            INNER,
+                            p.values(new PlanNodeId("valuesA"), aRows, a1),
+                            p.values(new PlanNodeId("valuesB"), bRows, b1),
+                            ImmutableList.of(new JoinNode.EquiJoinClause(a1, b1)),
+                            ImmutableList.of(a1, b1),
+                            Optional.empty());
+                })
                 .matches(join(
                         INNER,
                         ImmutableList.of(equiJoinClause("A1", "B1")),
@@ -586,14 +604,17 @@ public class TestDetermineJoinDistributionType
                 .setSystemProperty(JOIN_MAX_BROADCAST_TABLE_SIZE, "100MB")
                 .overrideStats("valuesA", probeSideStatsEstimate)
                 .overrideStats("valuesB", buildSideStatsEstimate)
-                .on(p ->
-                        p.join(
-                                INNER,
-                                p.values(new PlanNodeId("valuesA"), aRows, p.symbol("A1", BIGINT)),
-                                p.values(new PlanNodeId("valuesB"), bRows, p.symbol("B1", BIGINT)),
-                                ImmutableList.of(new JoinNode.EquiJoinClause(p.symbol("A1", BIGINT), p.symbol("B1", BIGINT))),
-                                ImmutableList.of(p.symbol("A1", BIGINT), p.symbol("B1", BIGINT)),
-                                Optional.empty()))
+                .on(p -> {
+                    Symbol a1 = p.symbol("A1", symbolType);
+                    Symbol b1 = p.symbol("B1", symbolType);
+                    return p.join(
+                            INNER,
+                            p.values(new PlanNodeId("valuesA"), aRows, a1),
+                            p.values(new PlanNodeId("valuesB"), bRows, b1),
+                            ImmutableList.of(new JoinNode.EquiJoinClause(a1, b1)),
+                            ImmutableList.of(a1, b1),
+                            Optional.empty());
+                })
                 .matches(join(
                         INNER,
                         ImmutableList.of(equiJoinClause("A1", "B1")),
