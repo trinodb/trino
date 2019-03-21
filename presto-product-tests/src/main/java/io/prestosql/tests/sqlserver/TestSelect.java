@@ -163,9 +163,9 @@ public class TestSelect
                                 "\0",
                                 "\0",
                                 Date.valueOf("1953-01-02"),
-                                Timestamp.valueOf("1753-01-01 00:00:00.000"),
-                                Timestamp.valueOf("0001-01-01 00:00:00.000"),
-                                Timestamp.valueOf("1900-01-01 00:00:00"),
+                                Timestamp.valueOf("1953-01-01 00:00:00.000"),
+                                Timestamp.valueOf("2001-01-01 00:00:00.000"),
+                                Timestamp.valueOf("1960-01-01 00:00:00"),
                                 Double.MIN_VALUE,
                                 -3.40E+38f),
                         row(
