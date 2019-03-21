@@ -33,6 +33,7 @@ import static java.util.Objects.requireNonNull;
 
 public class ArrayType
         extends AbstractType
+        implements VariableWidthType
 {
     private final Type elementType;
     public static final String ARRAY_NULL_ELEMENT_MSG = "ARRAY comparison not supported for arrays with null elements";

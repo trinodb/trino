@@ -21,11 +21,13 @@ import io.prestosql.spi.block.BlockBuilderStatus;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.type.AbstractType;
 import io.prestosql.spi.type.TypeSignature;
+import io.prestosql.spi.type.VariableWidthType;
 
 import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 
 public class JoniRegexpType
         extends AbstractType
+        implements VariableWidthType
 {
     public static final JoniRegexpType JONI_REGEXP = new JoniRegexpType();
     public static final String NAME = "JoniRegExp";

@@ -25,6 +25,7 @@ import io.prestosql.spi.function.OperatorType;
 import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.CharType;
 import io.prestosql.spi.type.DecimalType;
+import io.prestosql.spi.type.FixedWidthType;
 import io.prestosql.spi.type.MapType;
 import io.prestosql.spi.type.ParametricType;
 import io.prestosql.spi.type.RowType;
@@ -35,6 +36,7 @@ import io.prestosql.spi.type.TypeParameter;
 import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.spi.type.TypeSignatureParameter;
 import io.prestosql.spi.type.VarcharType;
+import io.prestosql.spi.type.VariableWidthType;
 import io.prestosql.sql.analyzer.FeaturesConfig;
 import io.prestosql.type.setdigest.SetDigestType;
 
@@ -207,6 +209,7 @@ public final class TypeRegistry
         }
 
         Type instantiatedType = parametricType.createType(this, parameters);
+        validateType(instantiatedType);
 
         // TODO: reimplement this check? Currently "varchar(Integer.MAX_VALUE)" fails with "varchar"
         //checkState(instantiatedType.equalsSignature(signature), "Instantiated parametric type name (%s) does not match expected name (%s)", instantiatedType, signature);
@@ -414,7 +417,7 @@ public final class TypeRegistry
 
     public void addType(Type type)
     {
-        requireNonNull(type, "type is null");
+        validateType(type);
         Type existingType = types.putIfAbsent(type.getTypeSignature(), type);
         checkState(existingType == null || existingType.equals(type), "Type %s is already registered", type);
     }
@@ -654,6 +657,13 @@ public final class TypeRegistry
     {
         requireNonNull(functionRegistry, "functionRegistry is null");
         return functionRegistry.getScalarFunctionImplementation(functionRegistry.resolveOperator(operatorType, argumentTypes)).getMethodHandle();
+    }
+
+    private static void validateType(Type type)
+    {
+        requireNonNull(type, "type is null");
+        checkArgument(type instanceof FixedWidthType || type instanceof VariableWidthType, "%s (%s) must be either FixedWidthType or VariableWidthType", type, type.getClass());
+        checkArgument(!(type instanceof FixedWidthType && type instanceof VariableWidthType), "%s (%s) must not be FixedWidthType and VariableWidthType at the same time", type, type.getClass());
     }
 
     public static class TypeCompatibility

@@ -20,11 +20,13 @@ import io.prestosql.spi.block.BlockBuilderStatus;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.type.AbstractType;
 import io.prestosql.spi.type.TypeSignature;
+import io.prestosql.spi.type.VariableWidthType;
 
 import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 
 public class Re2JRegexpType
         extends AbstractType
+        implements VariableWidthType
 {
     public static final Re2JRegexpType RE2J_REGEXP = new Re2JRegexpType();
     public static final String NAME = "Re2JRegExp";

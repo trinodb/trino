@@ -23,6 +23,7 @@ import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.spi.type.TypeSignatureParameter;
+import io.prestosql.spi.type.VariableWidthType;
 
 import java.util.List;
 
@@ -30,7 +31,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 public class FunctionType
-        implements Type
+        implements VariableWidthType
 {
     public static final String NAME = "function";
 

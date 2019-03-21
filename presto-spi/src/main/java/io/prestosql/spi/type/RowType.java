@@ -35,6 +35,7 @@ import static java.util.Objects.requireNonNull;
  */
 public class RowType
         extends AbstractType
+        implements VariableWidthType
 {
     private final List<Field> fields;
     private final List<Type> fieldTypes;
