@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-package io.prestosql.operator.aggregation.groupByAggregations;
+package io.prestosql.operator.aggregation.groupby;
 
 import io.prestosql.block.BlockAssertions;
 import io.prestosql.operator.aggregation.GroupedAccumulator;

@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-package io.prestosql.operator.aggregation.groupByAggregations;
+package io.prestosql.operator.aggregation.groupby;
 
 import com.google.common.base.Suppliers;
 import io.prestosql.operator.GroupByIdBlock;
