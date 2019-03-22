@@ -19,7 +19,7 @@ import io.prestosql.Session;
 import io.prestosql.SystemSessionProperties;
 import io.prestosql.block.BlockEncodingManager;
 import io.prestosql.connector.ConnectorId;
-import io.prestosql.connector.informationSchema.InformationSchemaConnector;
+import io.prestosql.connector.informationschema.InformationSchemaConnector;
 import io.prestosql.connector.system.SystemConnector;
 import io.prestosql.execution.QueryManagerConfig;
 import io.prestosql.execution.TaskManagerConfig;

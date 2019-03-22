@@ -85,12 +85,12 @@ import java.util.SortedMap;
 
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.prestosql.connector.informationSchema.InformationSchemaMetadata.TABLE_COLUMNS;
-import static io.prestosql.connector.informationSchema.InformationSchemaMetadata.TABLE_ENABLED_ROLES;
-import static io.prestosql.connector.informationSchema.InformationSchemaMetadata.TABLE_ROLES;
-import static io.prestosql.connector.informationSchema.InformationSchemaMetadata.TABLE_SCHEMATA;
-import static io.prestosql.connector.informationSchema.InformationSchemaMetadata.TABLE_TABLES;
-import static io.prestosql.connector.informationSchema.InformationSchemaMetadata.TABLE_TABLE_PRIVILEGES;
+import static io.prestosql.connector.informationschema.InformationSchemaMetadata.TABLE_COLUMNS;
+import static io.prestosql.connector.informationschema.InformationSchemaMetadata.TABLE_ENABLED_ROLES;
+import static io.prestosql.connector.informationschema.InformationSchemaMetadata.TABLE_ROLES;
+import static io.prestosql.connector.informationschema.InformationSchemaMetadata.TABLE_SCHEMATA;
+import static io.prestosql.connector.informationschema.InformationSchemaMetadata.TABLE_TABLES;
+import static io.prestosql.connector.informationschema.InformationSchemaMetadata.TABLE_TABLE_PRIVILEGES;
 import static io.prestosql.metadata.MetadataListing.listCatalogs;
 import static io.prestosql.metadata.MetadataListing.listSchemas;
 import static io.prestosql.metadata.MetadataUtil.createCatalogSchemaName;

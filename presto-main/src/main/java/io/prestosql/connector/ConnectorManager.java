@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
 import io.airlift.node.NodeInfo;
-import io.prestosql.connector.informationSchema.InformationSchemaConnector;
+import io.prestosql.connector.informationschema.InformationSchemaConnector;
 import io.prestosql.connector.system.DelegatingSystemTablesProvider;
 import io.prestosql.connector.system.MetadataBasedSystemTablesProvider;
 import io.prestosql.connector.system.StaticSystemTablesProvider;

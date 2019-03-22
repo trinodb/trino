@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.connector.informationSchema;
+package io.prestosql.connector.informationschema;
 
 import com.google.common.collect.ImmutableList;
 import io.prestosql.FullConnectorSession;
@@ -46,15 +46,15 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Sets.union;
-import static io.prestosql.connector.informationSchema.InformationSchemaMetadata.TABLES;
-import static io.prestosql.connector.informationSchema.InformationSchemaMetadata.TABLE_APPLICABLE_ROLES;
-import static io.prestosql.connector.informationSchema.InformationSchemaMetadata.TABLE_COLUMNS;
-import static io.prestosql.connector.informationSchema.InformationSchemaMetadata.TABLE_ENABLED_ROLES;
-import static io.prestosql.connector.informationSchema.InformationSchemaMetadata.TABLE_ROLES;
-import static io.prestosql.connector.informationSchema.InformationSchemaMetadata.TABLE_SCHEMATA;
-import static io.prestosql.connector.informationSchema.InformationSchemaMetadata.TABLE_TABLES;
-import static io.prestosql.connector.informationSchema.InformationSchemaMetadata.TABLE_TABLE_PRIVILEGES;
-import static io.prestosql.connector.informationSchema.InformationSchemaMetadata.TABLE_VIEWS;
+import static io.prestosql.connector.informationschema.InformationSchemaMetadata.TABLES;
+import static io.prestosql.connector.informationschema.InformationSchemaMetadata.TABLE_APPLICABLE_ROLES;
+import static io.prestosql.connector.informationschema.InformationSchemaMetadata.TABLE_COLUMNS;
+import static io.prestosql.connector.informationschema.InformationSchemaMetadata.TABLE_ENABLED_ROLES;
+import static io.prestosql.connector.informationschema.InformationSchemaMetadata.TABLE_ROLES;
+import static io.prestosql.connector.informationschema.InformationSchemaMetadata.TABLE_SCHEMATA;
+import static io.prestosql.connector.informationschema.InformationSchemaMetadata.TABLE_TABLES;
+import static io.prestosql.connector.informationschema.InformationSchemaMetadata.TABLE_TABLE_PRIVILEGES;
+import static io.prestosql.connector.informationschema.InformationSchemaMetadata.TABLE_VIEWS;
 import static io.prestosql.metadata.MetadataListing.listSchemas;
 import static io.prestosql.metadata.MetadataListing.listTableColumns;
 import static io.prestosql.metadata.MetadataListing.listTablePrivileges;

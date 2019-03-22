@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
 import io.prestosql.connector.ConnectorId;
-import io.prestosql.connector.informationSchema.InformationSchemaConnector;
+import io.prestosql.connector.informationschema.InformationSchemaConnector;
 import io.prestosql.connector.system.SystemConnector;
 import io.prestosql.metadata.Catalog;
 import io.prestosql.metadata.CatalogManager;

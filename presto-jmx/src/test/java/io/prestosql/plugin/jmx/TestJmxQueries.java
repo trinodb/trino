@@ -22,7 +22,7 @@ import java.util.Locale;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static io.prestosql.connector.informationSchema.InformationSchemaMetadata.INFORMATION_SCHEMA;
+import static io.prestosql.connector.informationschema.InformationSchemaMetadata.INFORMATION_SCHEMA;
 import static io.prestosql.plugin.jmx.JmxMetadata.HISTORY_SCHEMA_NAME;
 import static io.prestosql.plugin.jmx.JmxMetadata.JMX_SCHEMA_NAME;
 import static io.prestosql.tests.QueryAssertions.assertEqualsIgnoreOrder;

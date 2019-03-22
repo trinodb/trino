@@ -19,7 +19,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.inject.Guice;
 import com.google.inject.Injector;
 import io.airlift.json.JsonModule;
-import io.prestosql.connector.informationSchema.InformationSchemaTableHandle;
+import io.prestosql.connector.informationschema.InformationSchemaTableHandle;
 import io.prestosql.spi.connector.ConnectorTableHandle;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
