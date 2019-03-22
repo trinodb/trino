@@ -11,14 +11,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.sql.planner.planPrinter;
+package io.prestosql.sql.planner.planprinter;
 
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.cost.PlanCostEstimate;
 import io.prestosql.cost.PlanNodeStatsEstimate;
 import io.prestosql.sql.planner.Symbol;
-import io.prestosql.sql.planner.planPrinter.NodeRepresentation.TypedSymbol;
+import io.prestosql.sql.planner.planprinter.NodeRepresentation.TypedSymbol;
 
 import java.util.List;
 import java.util.Locale;

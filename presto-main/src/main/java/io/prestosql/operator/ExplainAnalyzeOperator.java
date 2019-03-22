@@ -28,7 +28,7 @@ import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
-import static io.prestosql.sql.planner.planPrinter.PlanPrinter.textDistributedPlan;
+import static io.prestosql.sql.planner.planprinter.PlanPrinter.textDistributedPlan;
 import static java.util.Objects.requireNonNull;
 
 public class ExplainAnalyzeOperator

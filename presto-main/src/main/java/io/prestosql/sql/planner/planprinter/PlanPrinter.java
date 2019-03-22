@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.sql.planner.planPrinter;
+package io.prestosql.sql.planner.planprinter;
 
 import com.google.common.base.CaseFormat;
 import com.google.common.base.Functions;
@@ -98,7 +98,7 @@ import io.prestosql.sql.planner.plan.UnionNode;
 import io.prestosql.sql.planner.plan.UnnestNode;
 import io.prestosql.sql.planner.plan.ValuesNode;
 import io.prestosql.sql.planner.plan.WindowNode;
-import io.prestosql.sql.planner.planPrinter.NodeRepresentation.TypedSymbol;
+import io.prestosql.sql.planner.planprinter.NodeRepresentation.TypedSymbol;
 import io.prestosql.sql.tree.ComparisonExpression;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.FunctionCall;
@@ -124,10 +124,10 @@ import static io.prestosql.execution.StageInfo.getAllStages;
 import static io.prestosql.operator.StageExecutionDescriptor.ungroupedExecution;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
-import static io.prestosql.sql.planner.planPrinter.PlanNodeStatsSummarizer.aggregateStageStats;
-import static io.prestosql.sql.planner.planPrinter.TextRenderer.formatDouble;
-import static io.prestosql.sql.planner.planPrinter.TextRenderer.formatPositions;
-import static io.prestosql.sql.planner.planPrinter.TextRenderer.indentString;
+import static io.prestosql.sql.planner.planprinter.PlanNodeStatsSummarizer.aggregateStageStats;
+import static io.prestosql.sql.planner.planprinter.TextRenderer.formatDouble;
+import static io.prestosql.sql.planner.planprinter.TextRenderer.formatPositions;
+import static io.prestosql.sql.planner.planprinter.TextRenderer.indentString;
 import static java.lang.String.format;
 import static java.util.Arrays.stream;
 import static java.util.Objects.requireNonNull;

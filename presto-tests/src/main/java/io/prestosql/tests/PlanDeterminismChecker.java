@@ -17,7 +17,7 @@ import io.prestosql.Session;
 import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.sql.planner.LogicalPlanner;
 import io.prestosql.sql.planner.Plan;
-import io.prestosql.sql.planner.planPrinter.PlanPrinter;
+import io.prestosql.sql.planner.planprinter.PlanPrinter;
 import io.prestosql.testing.LocalQueryRunner;
 
 import java.util.function.Function;

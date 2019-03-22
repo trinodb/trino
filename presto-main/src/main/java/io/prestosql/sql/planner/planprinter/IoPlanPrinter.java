@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.sql.planner.planPrinter;
+package io.prestosql.sql.planner.planprinter;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -47,7 +47,7 @@ import io.prestosql.sql.planner.plan.TableWriterNode.DeleteHandle;
 import io.prestosql.sql.planner.plan.TableWriterNode.InsertHandle;
 import io.prestosql.sql.planner.plan.TableWriterNode.InsertReference;
 import io.prestosql.sql.planner.plan.TableWriterNode.WriterTarget;
-import io.prestosql.sql.planner.planPrinter.IoPlanPrinter.IoPlan.IoPlanBuilder;
+import io.prestosql.sql.planner.planprinter.IoPlanPrinter.IoPlan.IoPlanBuilder;
 
 import java.util.HashSet;
 import java.util.Map;

@@ -141,7 +141,7 @@ import io.prestosql.sql.planner.optimizations.PlanOptimizer;
 import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 import io.prestosql.sql.planner.plan.TableScanNode;
-import io.prestosql.sql.planner.planPrinter.PlanPrinter;
+import io.prestosql.sql.planner.planprinter.PlanPrinter;
 import io.prestosql.sql.planner.sanity.PlanSanityChecker;
 import io.prestosql.sql.tree.Commit;
 import io.prestosql.sql.tree.CreateTable;

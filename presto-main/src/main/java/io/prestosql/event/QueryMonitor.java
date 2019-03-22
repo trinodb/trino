@@ -68,7 +68,7 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static io.prestosql.execution.QueryState.QUEUED;
-import static io.prestosql.sql.planner.planPrinter.PlanPrinter.textDistributedPlan;
+import static io.prestosql.sql.planner.planprinter.PlanPrinter.textDistributedPlan;
 import static java.lang.Math.max;
 import static java.lang.Math.toIntExact;
 import static java.time.Duration.ofMillis;
