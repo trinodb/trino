@@ -265,7 +265,7 @@ public class TpchMetadata
         TpchTableLayoutHandle layout = (TpchTableLayoutHandle) handle;
 
         // tables in this connector have a single layout
-        return getTableLayouts(session, layout.getTable(), Constraint.alwaysTrue(), Optional.empty())
+        return getTableLayouts(session, layout.getTable(), new Constraint<>(layout.getPredicate()), Optional.empty())
                 .get(0)
                 .getTableLayout();
     }
