@@ -89,6 +89,7 @@ public class QueryMonitor
     private final String environment;
     private final SessionPropertyManager sessionPropertyManager;
     private final FunctionRegistry functionRegistry;
+    private final Metadata metadata;
     private final int maxJsonLimit;
 
     @Inject
@@ -113,7 +114,8 @@ public class QueryMonitor
         this.serverAddress = requireNonNull(nodeInfo, "nodeInfo is null").getExternalAddress();
         this.environment = requireNonNull(nodeInfo, "nodeInfo is null").getEnvironment();
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
-        this.functionRegistry = requireNonNull(metadata, "metadata is null").getFunctionRegistry();
+        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.functionRegistry = metadata.getFunctionRegistry();
         this.maxJsonLimit = toIntExact(requireNonNull(config, "config is null").getMaxOutputStageJsonSize().toBytes());
     }
 
@@ -306,6 +308,7 @@ public class QueryMonitor
                 return Optional.of(textDistributedPlan(
                         queryInfo.getOutputStage().get(),
                         functionRegistry,
+                        Optional.empty(), // transaction is no longer active, so metadata is useless
                         queryInfo.getSession().toSession(sessionPropertyManager),
                         false));
             }

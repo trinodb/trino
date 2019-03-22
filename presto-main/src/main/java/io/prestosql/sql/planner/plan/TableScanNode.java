@@ -40,10 +40,6 @@ public class TableScanNode
     private final List<Symbol> outputSymbols;
     private final Map<Symbol, ColumnHandle> assignments; // symbol -> column
 
-    // Used during predicate refinement over multiple passes of predicate pushdown
-    // TODO: think about how to get rid of this in new planner
-    private final TupleDomain<ColumnHandle> currentConstraint;
-
     private final TupleDomain<ColumnHandle> enforcedConstraint;
 
     // We need this factory method to disambiguate with the constructor used for deserializing
@@ -55,7 +51,7 @@ public class TableScanNode
             List<Symbol> outputs,
             Map<Symbol, ColumnHandle> assignments)
     {
-        return new TableScanNode(id, table, outputs, assignments, TupleDomain.all(), TupleDomain.all());
+        return new TableScanNode(id, table, outputs, assignments, TupleDomain.all());
     }
 
     @JsonCreator
@@ -71,7 +67,6 @@ public class TableScanNode
         this.outputSymbols = ImmutableList.copyOf(requireNonNull(outputs, "outputs is null"));
         this.assignments = ImmutableMap.copyOf(requireNonNull(assignments, "assignments is null"));
         checkArgument(assignments.keySet().containsAll(outputs), "assignments does not cover all of outputs");
-        this.currentConstraint = null;
         this.enforcedConstraint = null;
     }
 
@@ -80,7 +75,6 @@ public class TableScanNode
             TableHandle table,
             List<Symbol> outputs,
             Map<Symbol, ColumnHandle> assignments,
-            TupleDomain<ColumnHandle> currentConstraint,
             TupleDomain<ColumnHandle> enforcedConstraint)
     {
         super(id);
@@ -88,7 +82,6 @@ public class TableScanNode
         this.outputSymbols = ImmutableList.copyOf(requireNonNull(outputs, "outputs is null"));
         this.assignments = ImmutableMap.copyOf(requireNonNull(assignments, "assignments is null"));
         checkArgument(assignments.keySet().containsAll(outputs), "assignments does not cover all of outputs");
-        this.currentConstraint = requireNonNull(currentConstraint, "currentConstraint is null");
         this.enforcedConstraint = requireNonNull(enforcedConstraint, "enforcedConstraint is null");
     }
 
@@ -109,20 +102,6 @@ public class TableScanNode
     public Map<Symbol, ColumnHandle> getAssignments()
     {
         return assignments;
-    }
-
-    /**
-     * A TupleDomain that represents a predicate that every row this TableScan node
-     * produces is guaranteed to satisfy.
-     * <p>
-     * This guarantee can have different origins.
-     * For example, it may be successful predicate push down, or inherent guarantee provided by the underlying data.
-     */
-    public TupleDomain<ColumnHandle> getCurrentConstraint()
-    {
-        // currentConstraint can be pretty complex. As a result, it may incur a significant cost to serialize, store, and transport.
-        checkState(currentConstraint != null, "currentConstraint should only be used in planner. It is not transported to workers.");
-        return currentConstraint;
     }
 
     /**
@@ -159,7 +138,6 @@ public class TableScanNode
                 .add("table", table)
                 .add("outputSymbols", outputSymbols)
                 .add("assignments", assignments)
-                .add("currentConstraint", currentConstraint)
                 .add("enforcedConstraint", enforcedConstraint)
                 .toString();
     }

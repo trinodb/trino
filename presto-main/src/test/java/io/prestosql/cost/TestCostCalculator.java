@@ -750,7 +750,6 @@ public class TestCostCalculator
                 new TableHandle(new CatalogName("tpch"), tableHandle, INSTANCE, Optional.of(new TpchTableLayoutHandle(tableHandle, TupleDomain.all()))),
                 symbolsList,
                 assignments.build(),
-                TupleDomain.all(),
                 TupleDomain.all());
     }
 

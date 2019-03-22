@@ -137,8 +137,7 @@ public class PushPredicateIntoTableScan
 
         TableScanNode rewrittenTableScan = (TableScanNode) rewrittenFilter.getSource();
 
-        return Objects.equals(tableScan.getCurrentConstraint(), rewrittenTableScan.getCurrentConstraint())
-                && Objects.equals(tableScan.getEnforcedConstraint(), rewrittenTableScan.getEnforcedConstraint());
+        return Objects.equals(tableScan.getEnforcedConstraint(), rewrittenTableScan.getEnforcedConstraint());
     }
 
     public static Optional<PlanNode> pushFilterIntoTableScan(
@@ -209,7 +208,6 @@ public class PushPredicateIntoTableScan
                 layout.get().getNewTableHandle(),
                 node.getOutputSymbols(),
                 node.getAssignments(),
-                layout.get().getTableProperties().getPredicate(),
                 computeEnforced(newDomain, layout.get().getUnenforcedConstraint()));
 
         // The order of the arguments to combineConjuncts matters:

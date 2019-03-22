@@ -713,7 +713,9 @@ public class PropertyDerivations
 
             // Globally constant assignments
             Map<ColumnHandle, NullableValue> globalConstants = new HashMap<>();
-            extractFixedValues(node.getCurrentConstraint()).orElse(ImmutableMap.of())
+
+            extractFixedValues(metadata.getTableProperties(session, node.getTable()).getPredicate())
+                    .orElse(ImmutableMap.of())
                     .entrySet().stream()
                     .filter(entry -> !entry.getValue().isNull())
                     .forEach(entry -> globalConstants.put(entry.getKey(), entry.getValue()));
