@@ -116,6 +116,99 @@ Use exponential backoff starting at 1s up to the value specified by this configu
 
 This property is optional; the default is ``10s``.
 
+Search Guard Authentication
+---------------------------
+
+The Elasticsearch connector provides additional security options to support Elasticsearch clusters that have been configured to use Search Guard.
+
+You can configure the certificate format by setting the ``searchguard.ssl.certificate_format`` config property in the Elasticsearch catalog properties file. The allowed values for this configuration are:
+
+========================== ========================================================
+Property Value	           Description
+========================== ========================================================
+``NONE`` (default)         Do not use Search Guard Authentication.
+``PEM``                    Use X.509 PEM certificates and PKCS #8 keys.
+``JKS``                    Use Keystore and Truststore files.
+========================== ========================================================
+
+If you use X.509 PEM certificates and PKCS #8 keys, the following properties must be set:
+
+===================================================== ==============================================================================
+Property Name                                         Description
+===================================================== ==============================================================================
+``searchguard.ssl.pemcert-filepath``                  Path to the X.509 node certificate chain.
+``searchguard.ssl.pemkey-filepath``                   Path to the certificates key file.
+``searchguard.ssl.pemkey-password``                   Key password. Omit this setting if the key has no password.
+``searchguard.ssl.pemtrustedcas-filepath``            Path to the root CA(s) (PEM format).
+===================================================== ==============================================================================
+
+If you use Keystore and Truststore files, the following properties must be set:
+
+===================================================== ==============================================================================
+Property Name                                         Description
+===================================================== ==============================================================================
+``searchguard.ssl.keystore-filepath``                 Path to the keystore file.
+``searchguard.ssl.keystore-password``                 Keystore password.
+``searchguard.ssl.truststore-filepath``               Path to the truststore file.
+``searchguard.ssl.truststore-password``               Truststore password.
+===================================================== ==============================================================================
+
+``searchguard.ssl.pemcert-filepath``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The path to the X.509 node certificate chain. This file must be readable by the operating system user running Presto.
+
+This property is optional; the default is ``etc/elasticsearch/esnode.pem``.
+
+``searchguard.ssl.pemkey-filepath``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The path to the certificates key file. This file must be readable by the operating system user running Presto.
+
+This property is optional; the default is ``etc/elasticsearch/esnode-key.pem``.
+
+``searchguard.ssl.pemkey-password``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The key password for the key file specified by ``searchguard.ssl.pemkey-filepath``.
+
+This property is optional; the default is empty string.
+
+``searchguard.ssl.pemtrustedcas-filepath``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The path to the root CA(s) (PEM format). This file must be readable by the operating system user running Presto.
+
+This property is optional; the default is ``etc/elasticsearch/root-ca.pem``.
+
+``searchguard.ssl.keystore-filepath``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The path to the keystore file. This file must be readable by the operating system user running Presto.
+
+This property is optional; the default is ``etc/elasticsearch/keystore.jks``.
+
+``searchguard.ssl.keystore-password``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The keystore password for the keystore file specified by ``searchguard.ssl.keystore-filepath``
+
+This property is optional; the default is empty string.
+
+``searchguard.ssl.truststore-filepath``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The path to the truststore file. This file must be readable by the operating system user running Presto.
+
+This property is optional; the default is ``etc/elasticsearch/truststore.jks``.
+
+``searchguard.ssl.truststore-password``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The truststore password for the truststore file specified by ``searchguard.ssl.truststore-password``
+
+This property is optional; the default is empty string.
+
 Table Definition Files
 ----------------------
 
