@@ -380,14 +380,13 @@ public class PlanBuilder
             List<Symbol> symbols,
             Map<Symbol, ColumnHandle> assignments)
     {
-        return tableScan(tableHandle, symbols, assignments, TupleDomain.all(), TupleDomain.all());
+        return tableScan(tableHandle, symbols, assignments, TupleDomain.all());
     }
 
     public TableScanNode tableScan(
             TableHandle tableHandle,
             List<Symbol> symbols,
             Map<Symbol, ColumnHandle> assignments,
-            TupleDomain<ColumnHandle> currentConstraint,
             TupleDomain<ColumnHandle> enforcedConstraint)
     {
         return new TableScanNode(
@@ -395,7 +394,6 @@ public class PlanBuilder
                 tableHandle,
                 symbols,
                 assignments,
-                currentConstraint,
                 enforcedConstraint);
     }
 

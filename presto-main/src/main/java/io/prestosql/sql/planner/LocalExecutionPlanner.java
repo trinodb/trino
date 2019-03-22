@@ -755,6 +755,7 @@ public class LocalExecutionPlanner
                     node.getId(),
                     analyzeContext.getQueryPerformanceFetcher(),
                     metadata.getFunctionRegistry(),
+                    metadata,
                     node.isVerbose());
             return new PhysicalOperation(operatorFactory, makeLayout(node), context, source);
         }

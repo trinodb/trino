@@ -103,7 +103,6 @@ public class TestPushPredicateIntoTableScan
                                 nationTableHandle,
                                 ImmutableList.of(p.symbol("nationkey", BIGINT)),
                                 ImmutableMap.of(p.symbol("nationkey", BIGINT), columnHandle),
-                                TupleDomain.none(),
                                 TupleDomain.none())))
                 .matches(values("A"));
     }
@@ -117,7 +116,6 @@ public class TestPushPredicateIntoTableScan
                                 nationTableHandle,
                                 ImmutableList.of(p.symbol("nationkey", BIGINT)),
                                 ImmutableMap.of(p.symbol("nationkey", BIGINT), new TpchColumnHandle("nationkey", BIGINT)),
-                                TupleDomain.all(),
                                 TupleDomain.all())))
                 .doesNotFire();
     }

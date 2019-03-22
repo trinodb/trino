@@ -192,7 +192,6 @@ public class BeginTableWrite
                         handle,
                         scan.getOutputSymbols(),
                         scan.getAssignments(),
-                        scan.getCurrentConstraint(),
                         scan.getEnforcedConstraint());
             }
 
