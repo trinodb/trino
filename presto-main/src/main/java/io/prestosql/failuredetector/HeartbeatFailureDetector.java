@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.failureDetector;
+package io.prestosql.failuredetector;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -67,10 +67,10 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.http.client.Request.Builder.prepareHead;
-import static io.prestosql.failureDetector.FailureDetector.State.ALIVE;
-import static io.prestosql.failureDetector.FailureDetector.State.GONE;
-import static io.prestosql.failureDetector.FailureDetector.State.UNKNOWN;
-import static io.prestosql.failureDetector.FailureDetector.State.UNRESPONSIVE;
+import static io.prestosql.failuredetector.FailureDetector.State.ALIVE;
+import static io.prestosql.failuredetector.FailureDetector.State.GONE;
+import static io.prestosql.failuredetector.FailureDetector.State.UNKNOWN;
+import static io.prestosql.failuredetector.FailureDetector.State.UNRESPONSIVE;
 import static io.prestosql.spi.HostAddress.fromUri;
 import static java.util.Objects.requireNonNull;
 

@@ -33,7 +33,7 @@ import io.prestosql.execution.scheduler.NodeScheduler;
 import io.prestosql.execution.scheduler.SplitSchedulerStats;
 import io.prestosql.execution.scheduler.SqlQueryScheduler;
 import io.prestosql.execution.warnings.WarningCollector;
-import io.prestosql.failureDetector.FailureDetector;
+import io.prestosql.failuredetector.FailureDetector;
 import io.prestosql.memory.VersionedMemoryPoolId;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.TableHandle;

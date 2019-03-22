@@ -20,7 +20,7 @@ import io.prestosql.client.NodeVersion;
 import io.prestosql.cost.StatsAndCosts;
 import io.prestosql.execution.TestSqlTaskManager.MockLocationFactory;
 import io.prestosql.execution.scheduler.SplitSchedulerStats;
-import io.prestosql.failureDetector.NoOpFailureDetector;
+import io.prestosql.failuredetector.NoOpFailureDetector;
 import io.prestosql.metadata.PrestoNode;
 import io.prestosql.spi.Node;
 import io.prestosql.spi.QueryId;

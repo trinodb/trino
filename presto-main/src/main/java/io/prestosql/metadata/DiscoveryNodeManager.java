@@ -29,7 +29,7 @@ import io.airlift.node.NodeInfo;
 import io.prestosql.client.NodeVersion;
 import io.prestosql.connector.ConnectorId;
 import io.prestosql.connector.system.GlobalSystemConnector;
-import io.prestosql.failureDetector.FailureDetector;
+import io.prestosql.failuredetector.FailureDetector;
 import io.prestosql.server.InternalCommunicationConfig;
 import io.prestosql.spi.Node;
 import org.weakref.jmx.Managed;

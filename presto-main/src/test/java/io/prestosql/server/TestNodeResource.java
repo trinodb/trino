@@ -26,7 +26,7 @@ import static io.airlift.http.client.JsonResponseHandler.createJsonResponseHandl
 import static io.airlift.http.client.Request.Builder.prepareGet;
 import static io.airlift.json.JsonCodec.listJsonCodec;
 import static io.airlift.testing.Closeables.closeQuietly;
-import static io.prestosql.failureDetector.HeartbeatFailureDetector.Stats;
+import static io.prestosql.failuredetector.HeartbeatFailureDetector.Stats;
 import static org.testng.Assert.assertTrue;
 
 @Test(singleThreaded = true)

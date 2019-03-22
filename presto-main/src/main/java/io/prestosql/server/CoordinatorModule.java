@@ -84,7 +84,7 @@ import io.prestosql.execution.scheduler.AllAtOnceExecutionPolicy;
 import io.prestosql.execution.scheduler.ExecutionPolicy;
 import io.prestosql.execution.scheduler.PhasedExecutionPolicy;
 import io.prestosql.execution.scheduler.SplitSchedulerStats;
-import io.prestosql.failureDetector.FailureDetectorModule;
+import io.prestosql.failuredetector.FailureDetectorModule;
 import io.prestosql.memory.ClusterMemoryManager;
 import io.prestosql.memory.ForMemoryManager;
 import io.prestosql.memory.LowMemoryKiller;

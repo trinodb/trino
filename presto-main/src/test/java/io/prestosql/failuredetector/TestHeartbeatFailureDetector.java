@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.failureDetector;
+package io.prestosql.failuredetector;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -30,7 +30,7 @@ import io.airlift.json.ObjectMapperProvider;
 import io.airlift.node.testing.TestingNodeModule;
 import io.airlift.tracetoken.TraceTokenModule;
 import io.prestosql.execution.QueryManagerConfig;
-import io.prestosql.failureDetector.HeartbeatFailureDetector.Stats;
+import io.prestosql.failuredetector.HeartbeatFailureDetector.Stats;
 import io.prestosql.server.InternalCommunicationConfig;
 import org.testng.annotations.Test;
 

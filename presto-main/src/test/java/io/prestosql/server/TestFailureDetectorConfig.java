@@ -16,7 +16,7 @@ package io.prestosql.server;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.configuration.testing.ConfigAssertions;
 import io.airlift.units.Duration;
-import io.prestosql.failureDetector.FailureDetectorConfig;
+import io.prestosql.failuredetector.FailureDetectorConfig;
 import org.testng.annotations.Test;
 
 import java.util.Map;

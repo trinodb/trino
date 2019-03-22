@@ -39,7 +39,7 @@ import io.prestosql.execution.StageState;
 import io.prestosql.execution.TaskStatus;
 import io.prestosql.execution.buffer.OutputBuffers;
 import io.prestosql.execution.buffer.OutputBuffers.OutputBufferId;
-import io.prestosql.failureDetector.FailureDetector;
+import io.prestosql.failuredetector.FailureDetector;
 import io.prestosql.spi.Node;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ConnectorPartitionHandle;

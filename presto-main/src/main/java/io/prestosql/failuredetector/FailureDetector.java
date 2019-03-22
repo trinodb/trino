@@ -11,26 +11,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.failureDetector;
+package io.prestosql.failuredetector;
 
-import com.google.common.collect.ImmutableSet;
 import io.airlift.discovery.client.ServiceDescriptor;
 import io.prestosql.spi.HostAddress;
 
 import java.util.Set;
 
-public class NoOpFailureDetector
-        implements FailureDetector
+public interface FailureDetector
 {
-    @Override
-    public Set<ServiceDescriptor> getFailed()
-    {
-        return ImmutableSet.of();
-    }
+    Set<ServiceDescriptor> getFailed();
 
-    @Override
-    public State getState(HostAddress hostAddress)
+    State getState(HostAddress hostAddress);
+
+    enum State
     {
-        return State.UNKNOWN;
+        UNKNOWN,
+        ALIVE,
+        GONE,
+        UNRESPONSIVE,
     }
 }

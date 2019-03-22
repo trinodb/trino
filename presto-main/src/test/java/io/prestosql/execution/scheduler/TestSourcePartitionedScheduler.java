@@ -29,7 +29,7 @@ import io.prestosql.execution.SqlStageExecution;
 import io.prestosql.execution.StageId;
 import io.prestosql.execution.TestSqlTaskManager.MockLocationFactory;
 import io.prestosql.execution.buffer.OutputBuffers.OutputBufferId;
-import io.prestosql.failureDetector.NoOpFailureDetector;
+import io.prestosql.failuredetector.NoOpFailureDetector;
 import io.prestosql.metadata.InMemoryNodeManager;
 import io.prestosql.metadata.InternalNodeManager;
 import io.prestosql.metadata.PrestoNode;
