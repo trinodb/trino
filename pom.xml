@@ -1229,7 +1229,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
-                <configuration combine.children="append">
+                <configuration>
                     <includes>
                         <include>**/Test*.java</include>
                         <include>**/Benchmark*.java</include>
