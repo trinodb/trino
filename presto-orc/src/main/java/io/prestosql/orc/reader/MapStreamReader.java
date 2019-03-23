@@ -40,6 +40,8 @@ import java.util.Optional;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.prestosql.orc.metadata.Stream.StreamKind.LENGTH;
 import static io.prestosql.orc.metadata.Stream.StreamKind.PRESENT;
+import static io.prestosql.orc.reader.ReaderUtils.convertLengthVectorToOffsetVector;
+import static io.prestosql.orc.reader.ReaderUtils.unpackLengthNulls;
 import static io.prestosql.orc.reader.ReaderUtils.verifyStreamType;
 import static io.prestosql.orc.reader.StreamReaders.createStreamReader;
 import static io.prestosql.orc.stream.MissingInputStreamSource.missingStreamSource;
@@ -133,7 +135,8 @@ public class MapStreamReader
                 if (lengthStream == null) {
                     throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but data stream is not present");
                 }
-                lengthStream.nextIntVector(nextBatchSize, offsetVector, 0, nullVector);
+                lengthStream.nextIntVector(nextBatchSize - nullValues, offsetVector, 0, nullVector);
+                unpackLengthNulls(offsetVector, nullVector, nextBatchSize - nullValues);
             }
         }
 
@@ -158,14 +161,7 @@ public class MapStreamReader
 
         Block[] keyValueBlock = createKeyValueBlock(nextBatchSize, keys, values, offsetVector);
 
-        // Convert the length values in the offsetVector to offset values in-place
-        int currentLength = offsetVector[0];
-        offsetVector[0] = 0;
-        for (int i = 1; i < offsetVector.length; i++) {
-            int lastLength = offsetVector[i];
-            offsetVector[i] = offsetVector[i - 1] + currentLength;
-            currentLength = lastLength;
-        }
+        convertLengthVectorToOffsetVector(offsetVector);
 
         readOffset = 0;
         nextBatchSize = 0;
