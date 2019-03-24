@@ -403,8 +403,6 @@ public class AggregationImplementation
         {
             ImmutableList.Builder<AggregateNativeContainerType> builder = ImmutableList.builder();
 
-            int stateId = findAggregationStateParamId(inputFunction);
-
             for (int i = 0; i < inputFunction.getParameterCount(); i++) {
                 Class<?> parameterType = inputFunction.getParameterTypes()[i];
                 Annotation[] annotations = inputFunction.getParameterAnnotations()[i];
