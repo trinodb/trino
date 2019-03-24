@@ -20,9 +20,12 @@ import io.prestosql.metadata.InternalTable;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.metadata.QualifiedTablePrefix;
+import io.prestosql.metadata.TableHandle;
+import io.prestosql.metadata.TableMetadata;
 import io.prestosql.metadata.ViewDefinition;
 import io.prestosql.security.AccessControl;
 import io.prestosql.spi.Page;
+import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
@@ -42,6 +45,7 @@ import io.prestosql.spi.security.RoleGrant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map.Entry;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -185,12 +189,26 @@ public class InformationSchemaPageSourceProvider
             for (SchemaTableName name : union(tables, views)) {
                 // if table and view names overlap, the view wins
                 String type = views.contains(name) ? "VIEW" : "BASE TABLE";
+                Optional<String> comment = Optional.empty();
+
+                QualifiedObjectName tableName = new QualifiedObjectName(prefix.getCatalogName(), name.getSchemaName(), name.getTableName());
+                try {
+                    Optional<TableHandle> tableHandle = metadata.getTableHandle(session, tableName);
+                    if (tableHandle.isPresent()) {
+                        TableMetadata tableMetadata = metadata.getTableMetadata(session, tableHandle.get());
+                        comment = tableMetadata.getMetadata().getComment();
+                    }
+                }
+                catch (PrestoException ignored) {
+                    // getTableHandle may throw an exception (e.g. Cassandra connector doesn't allow case insensitive column names)
+                }
+
                 table.add(
                         prefix.getCatalogName(),
                         name.getSchemaName(),
                         name.getTableName(),
                         type,
-                        null);
+                        comment.orElse(null));
             }
         }
         return table.build();

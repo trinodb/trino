@@ -1894,6 +1894,16 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
+    public void testInformationSchemaTable()
+    {
+        assertUpdate("CREATE TABLE test_comment (c1 bigint) COMMENT 'foo'");
+        String selectTableComment = format("SELECT table_comment FROM information_schema.tables WHERE table_catalog = '%s' AND table_schema = '%s' AND table_name = 'test_comment'", getSession().getCatalog().get(), getSession().getSchema().get());
+        assertQuery(selectTableComment, "SELECT 'foo'");
+
+        assertUpdate("DROP TABLE IF EXISTS test_comment");
+    }
+
+    @Test
     public void testShowCreateTable()
     {
         String createTableSql = format("" +
