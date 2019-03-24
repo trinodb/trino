@@ -134,6 +134,7 @@
         <module>presto-proxy</module>
         <module>presto-kudu</module>
         <module>presto-elasticsearch</module>
+        <module>presto-druid</module>
     </modules>
 
     <dependencyManagement>

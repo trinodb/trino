@@ -193,4 +193,10 @@
             <unpack />
         </artifact>
     </artifactSet>
+
+    <artifactSet to="plugin/druid">
+        <artifact id="${project.groupId}:presto-druid:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
 </runtime>
