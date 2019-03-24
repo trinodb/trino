@@ -33,6 +33,7 @@ import io.prestosql.connector.system.GlobalSystemConnector;
 import io.prestosql.connector.system.GlobalSystemConnectorFactory;
 import io.prestosql.connector.system.NodeSystemTable;
 import io.prestosql.connector.system.SchemaPropertiesSystemTable;
+import io.prestosql.connector.system.TableCommentSystemTable;
 import io.prestosql.connector.system.TablePropertiesSystemTable;
 import io.prestosql.connector.system.TransactionsSystemTable;
 import io.prestosql.cost.CostCalculator;
@@ -350,6 +351,7 @@ public class LocalQueryRunner
         GlobalSystemConnectorFactory globalSystemConnectorFactory = new GlobalSystemConnectorFactory(ImmutableSet.of(
                 new NodeSystemTable(nodeManager),
                 new CatalogSystemTable(metadata, accessControl),
+                new TableCommentSystemTable(metadata, accessControl),
                 new SchemaPropertiesSystemTable(transactionManager, metadata),
                 new TablePropertiesSystemTable(transactionManager, metadata),
                 new ColumnPropertiesSystemTable(transactionManager, metadata),
