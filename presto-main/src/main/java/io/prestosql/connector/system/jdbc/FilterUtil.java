@@ -22,7 +22,7 @@ import io.prestosql.spi.predicate.TupleDomain;
 
 import java.util.Optional;
 
-final class FilterUtil
+public final class FilterUtil
 {
     private FilterUtil() {}
 
