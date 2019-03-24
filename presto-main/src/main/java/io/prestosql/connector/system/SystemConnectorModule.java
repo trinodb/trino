@@ -49,6 +49,7 @@ public class SystemConnectorModule
         globalTableBinder.addBinding().to(QuerySystemTable.class).in(Scopes.SINGLETON);
         globalTableBinder.addBinding().to(TaskSystemTable.class).in(Scopes.SINGLETON);
         globalTableBinder.addBinding().to(CatalogSystemTable.class).in(Scopes.SINGLETON);
+        globalTableBinder.addBinding().to(TableCommentSystemTable.class).in(Scopes.SINGLETON);
         globalTableBinder.addBinding().to(SchemaPropertiesSystemTable.class).in(Scopes.SINGLETON);
         globalTableBinder.addBinding().to(TablePropertiesSystemTable.class).in(Scopes.SINGLETON);
         globalTableBinder.addBinding().to(ColumnPropertiesSystemTable.class).in(Scopes.SINGLETON);

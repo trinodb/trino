@@ -50,6 +50,11 @@ that can be set when creating a new schema.
 The table properties table contains the list of available properties
 that can be set when creating a new table.
 
+``metadata.table_comments``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The table comments table contains the list of table comment.
+
 ``runtime.nodes``
 ^^^^^^^^^^^^^^^^^
 
