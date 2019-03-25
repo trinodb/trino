@@ -38,6 +38,7 @@ import io.prestosql.spi.connector.TableNotFoundException;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
+import javax.annotation.Nullable;
 import javax.inject.Inject;
 
 import java.util.Iterator;
@@ -49,6 +50,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.function.Function;
 
+import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.Iterables.concat;
@@ -88,6 +90,7 @@ public class HiveSplitManager
     private final int maxPartitionBatchSize;
     private final int maxInitialSplits;
     private final int splitLoaderConcurrency;
+    private final int maxSplitsPerSecond;
     private final boolean recursiveDfsWalkerEnabled;
     private final CounterStat highMemorySplitSourceCounter;
 
@@ -117,6 +120,7 @@ public class HiveSplitManager
                 hiveConfig.getMaxPartitionBatchSize(),
                 hiveConfig.getMaxInitialSplits(),
                 hiveConfig.getSplitLoaderConcurrency(),
+                hiveConfig.getMaxSplitsPerSecond(),
                 hiveConfig.getRecursiveDirWalkerEnabled());
     }
 
@@ -135,6 +139,7 @@ public class HiveSplitManager
             int maxPartitionBatchSize,
             int maxInitialSplits,
             int splitLoaderConcurrency,
+            @Nullable Integer maxSplitsPerSecond,
             boolean recursiveDfsWalkerEnabled)
     {
         this.metastoreProvider = requireNonNull(metastoreProvider, "metastore is null");
@@ -152,6 +157,7 @@ public class HiveSplitManager
         this.maxPartitionBatchSize = maxPartitionBatchSize;
         this.maxInitialSplits = maxInitialSplits;
         this.splitLoaderConcurrency = splitLoaderConcurrency;
+        this.maxSplitsPerSecond = firstNonNull(maxSplitsPerSecond, Integer.MAX_VALUE);
         this.recursiveDfsWalkerEnabled = recursiveDfsWalkerEnabled;
     }
 
@@ -221,6 +227,7 @@ public class HiveSplitManager
                         maxInitialSplits,
                         maxOutstandingSplits,
                         maxOutstandingSplitsSize,
+                        maxSplitsPerSecond,
                         hiveSplitLoader,
                         executor,
                         new CounterStat());
@@ -233,6 +240,7 @@ public class HiveSplitManager
                         maxInitialSplits,
                         maxOutstandingSplits,
                         maxOutstandingSplitsSize,
+                        maxSplitsPerSecond,
                         hiveSplitLoader,
                         executor,
                         new CounterStat());

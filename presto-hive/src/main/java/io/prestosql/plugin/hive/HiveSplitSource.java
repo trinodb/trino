@@ -23,6 +23,7 @@ import io.airlift.units.DataSize;
 import io.prestosql.plugin.hive.InternalHiveSplit.InternalHiveBlock;
 import io.prestosql.plugin.hive.util.AsyncQueue;
 import io.prestosql.plugin.hive.util.AsyncQueue.BorrowResult;
+import io.prestosql.plugin.hive.util.ThrottledAsyncQueue;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ConnectorPartitionHandle;
 import io.prestosql.spi.connector.ConnectorSession;
@@ -123,6 +124,7 @@ class HiveSplitSource
             int maxInitialSplits,
             int maxOutstandingSplits,
             DataSize maxOutstandingSplitsSize,
+            int maxSplitsPerSecond,
             HiveSplitLoader splitLoader,
             Executor executor,
             CounterStat highMemorySplitSourceCounter)
@@ -134,7 +136,7 @@ class HiveSplitSource
                 tableName,
                 new PerBucket()
                 {
-                    private final AsyncQueue<InternalHiveSplit> queue = new AsyncQueue<>(maxOutstandingSplits, executor);
+                    private final AsyncQueue<InternalHiveSplit> queue = new ThrottledAsyncQueue<>(maxSplitsPerSecond, maxOutstandingSplits, executor);
 
                     @Override
                     public ListenableFuture<?> offer(OptionalInt bucketNumber, InternalHiveSplit connectorSplit)
@@ -177,6 +179,7 @@ class HiveSplitSource
             int estimatedOutstandingSplitsPerBucket,
             int maxInitialSplits,
             DataSize maxOutstandingSplitsSize,
+            int maxSplitsPerSecond,
             HiveSplitLoader splitLoader,
             Executor executor,
             CounterStat highMemorySplitSourceCounter)
@@ -227,7 +230,7 @@ class HiveSplitSource
                         AtomicBoolean isNew = new AtomicBoolean();
                         AsyncQueue<InternalHiveSplit> queue = queues.computeIfAbsent(bucketNumber.getAsInt(), ignored -> {
                             isNew.set(true);
-                            return new AsyncQueue<>(estimatedOutstandingSplitsPerBucket, executor);
+                            return new ThrottledAsyncQueue<>(maxSplitsPerSecond, estimatedOutstandingSplitsPerBucket, executor);
                         });
                         if (isNew.get() && finished.get()) {
                             // Check `finished` and invoke `queue.finish` after the `queue` is added to the map.
