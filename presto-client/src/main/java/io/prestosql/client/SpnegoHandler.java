@@ -74,6 +74,7 @@ public class SpnegoHandler
     private static final Oid SPNEGO_OID = createOid("1.3.6.1.5.5.2");
     private static final Oid KERBEROS_OID = createOid("1.2.840.113554.1.2.2");
 
+    private final String servicePrincipalPattern;
     private final String remoteServiceName;
     private final boolean useCanonicalHostname;
     private final Optional<String> principal;
@@ -84,6 +85,7 @@ public class SpnegoHandler
     private Session clientSession;
 
     public SpnegoHandler(
+            String servicePrincipalPattern,
             String remoteServiceName,
             boolean useCanonicalHostname,
             Optional<String> principal,
@@ -91,6 +93,7 @@ public class SpnegoHandler
             Optional<File> keytab,
             Optional<File> credentialCache)
     {
+        this.servicePrincipalPattern = requireNonNull(servicePrincipalPattern, "servicePrincipalPattern is null");
         this.remoteServiceName = requireNonNull(remoteServiceName, "remoteServiceName is null");
         this.useCanonicalHostname = useCanonicalHostname;
         this.principal = requireNonNull(principal, "principal is null");
@@ -133,7 +136,7 @@ public class SpnegoHandler
     private Request authenticate(Request request)
     {
         String hostName = request.url().host();
-        String principal = makeServicePrincipal(remoteServiceName, hostName, useCanonicalHostname);
+        String principal = makeServicePrincipal(servicePrincipalPattern, remoteServiceName, hostName, useCanonicalHostname);
         byte[] token = generateToken(principal);
 
         String credential = format("%s %s", NEGOTIATE, Base64.getEncoder().encodeToString(token));
@@ -237,13 +240,13 @@ public class SpnegoHandler
         return new Session(loginContext, clientCredential);
     }
 
-    private static String makeServicePrincipal(String serviceName, String hostName, boolean useCanonicalHostname)
+    private static String makeServicePrincipal(String servicePrincipalPattern, String serviceName, String hostName, boolean useCanonicalHostname)
     {
         String serviceHostName = hostName;
         if (useCanonicalHostname) {
             serviceHostName = canonicalizeServiceHostName(hostName);
         }
-        return format("%s@%s", serviceName, serviceHostName.toLowerCase(Locale.US));
+        return servicePrincipalPattern.replaceAll("\\$\\{SERVICE}", serviceName).replaceAll("\\$\\{HOST}", serviceHostName.toLowerCase(Locale.US));
     }
 
     private static String canonicalizeServiceHostName(String hostName)
