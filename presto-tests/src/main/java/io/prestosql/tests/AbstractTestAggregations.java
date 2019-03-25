@@ -323,6 +323,12 @@ public abstract class AbstractTestAggregations
     }
 
     @Test
+    public void testAggregationFilterEvaluationOrdering()
+    {
+        assertQuery("SELECT sum(1 / a) FILTER (WHERE a <> 0) FROM (VALUES (1), (0)) t(a)");
+    }
+
+    @Test
     public void testAggregationWithProjection()
     {
         assertQuery("SELECT sum(totalprice * 2) - sum(totalprice) FROM orders");
