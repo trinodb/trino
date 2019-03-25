@@ -88,6 +88,7 @@ public class HiveSplitManager
     private final int maxPartitionBatchSize;
     private final int maxInitialSplits;
     private final int splitLoaderConcurrency;
+    private final int maxSplitsPerSecond;
     private final boolean recursiveDfsWalkerEnabled;
     private final CounterStat highMemorySplitSourceCounter;
 
@@ -115,6 +116,7 @@ public class HiveSplitManager
                 hiveConfig.getMaxPartitionBatchSize(),
                 hiveConfig.getMaxInitialSplits(),
                 hiveConfig.getSplitLoaderConcurrency(),
+                hiveConfig.getMaxSplitsPerSecond(),
                 hiveConfig.getRecursiveDirWalkerEnabled());
     }
 
@@ -132,6 +134,7 @@ public class HiveSplitManager
             int maxPartitionBatchSize,
             int maxInitialSplits,
             int splitLoaderConcurrency,
+            int maxSplitPerSec,
             boolean recursiveDfsWalkerEnabled)
     {
         this.metastoreProvider = requireNonNull(metastoreProvider, "metastore is null");
@@ -148,6 +151,7 @@ public class HiveSplitManager
         this.maxPartitionBatchSize = maxPartitionBatchSize;
         this.maxInitialSplits = maxInitialSplits;
         this.splitLoaderConcurrency = splitLoaderConcurrency;
+        this.maxSplitsPerSecond = maxSplitPerSec;
         this.recursiveDfsWalkerEnabled = recursiveDfsWalkerEnabled;
     }
 
@@ -216,6 +220,7 @@ public class HiveSplitManager
                         maxInitialSplits,
                         maxOutstandingSplits,
                         maxOutstandingSplitsSize,
+                        maxSplitsPerSecond,
                         hiveSplitLoader,
                         executor,
                         new CounterStat());
@@ -229,6 +234,7 @@ public class HiveSplitManager
                         maxInitialSplits,
                         maxOutstandingSplits,
                         maxOutstandingSplitsSize,
+                        maxSplitsPerSecond,
                         hiveSplitLoader,
                         executor,
                         new CounterStat());

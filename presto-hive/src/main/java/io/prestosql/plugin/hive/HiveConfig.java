@@ -66,6 +66,7 @@ public class HiveConfig
     private int maxPartitionBatchSize = 100;
     private int maxInitialSplits = 200;
     private int splitLoaderConcurrency = 4;
+    private int maxSplitsPerSecond = Integer.MAX_VALUE;
     private DataSize maxInitialSplitSize;
     private int domainCompactionThreshold = 100;
     private DataSize writerSortBufferSize = new DataSize(64, MEGABYTE);
@@ -198,6 +199,20 @@ public class HiveConfig
     public HiveConfig setSplitLoaderConcurrency(int splitLoaderConcurrency)
     {
         this.splitLoaderConcurrency = splitLoaderConcurrency;
+        return this;
+    }
+
+    @Min(1)
+    public int getMaxSplitsPerSecond()
+    {
+        return maxSplitsPerSecond;
+    }
+
+    @Config("hive.max-splits-per-second")
+    @ConfigDescription("Throttles the maximum number of splits that can be assigned to tasks per second")
+    public HiveConfig setMaxSplitsPerSecond(int maxSplitsPerSecond)
+    {
+        this.maxSplitsPerSecond = maxSplitsPerSecond;
         return this;
     }
 
