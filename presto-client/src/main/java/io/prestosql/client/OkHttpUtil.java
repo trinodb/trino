@@ -241,6 +241,7 @@ public final class OkHttpUtil
 
     public static void setupKerberos(
             OkHttpClient.Builder clientBuilder,
+            String servicePrincipalPattern,
             String remoteServiceName,
             boolean useCanonicalHostname,
             Optional<String> principal,
@@ -248,13 +249,7 @@ public final class OkHttpUtil
             Optional<File> keytab,
             Optional<File> credentialCache)
     {
-        SpnegoHandler handler = new SpnegoHandler(
-                remoteServiceName,
-                useCanonicalHostname,
-                principal,
-                kerberosConfig,
-                keytab,
-                credentialCache);
+        SpnegoHandler handler = new SpnegoHandler(servicePrincipalPattern, remoteServiceName, useCanonicalHostname, principal, kerberosConfig, keytab, credentialCache);
         clientBuilder.addInterceptor(handler);
         clientBuilder.authenticator(handler);
     }

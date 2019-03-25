@@ -49,6 +49,7 @@ import static io.prestosql.jdbc.ConnectionProperties.KERBEROS_CREDENTIAL_CACHE_P
 import static io.prestosql.jdbc.ConnectionProperties.KERBEROS_KEYTAB_PATH;
 import static io.prestosql.jdbc.ConnectionProperties.KERBEROS_PRINCIPAL;
 import static io.prestosql.jdbc.ConnectionProperties.KERBEROS_REMOTE_SERVICE_NAME;
+import static io.prestosql.jdbc.ConnectionProperties.KERBEROS_SERVICE_PRINCIPAL_PATTERN;
 import static io.prestosql.jdbc.ConnectionProperties.KERBEROS_USE_CANONICAL_HOSTNAME;
 import static io.prestosql.jdbc.ConnectionProperties.PASSWORD;
 import static io.prestosql.jdbc.ConnectionProperties.SOCKS_PROXY;
@@ -177,6 +178,7 @@ final class PrestoDriverUri
                 }
                 setupKerberos(
                         builder,
+                        KERBEROS_SERVICE_PRINCIPAL_PATTERN.getRequiredValue(properties),
                         KERBEROS_REMOTE_SERVICE_NAME.getRequiredValue(properties),
                         KERBEROS_USE_CANONICAL_HOSTNAME.getRequiredValue(properties),
                         KERBEROS_PRINCIPAL.getValue(properties),

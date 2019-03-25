@@ -135,6 +135,7 @@ public class Console
                 Optional.ofNullable(clientOptions.user),
                 clientOptions.password ? Optional.of(getPassword()) : Optional.empty(),
                 Optional.ofNullable(clientOptions.krb5Principal),
+                Optional.ofNullable(clientOptions.krb5ServicePrincipalPattern),
                 Optional.ofNullable(clientOptions.krb5RemoteServiceName),
                 Optional.ofNullable(clientOptions.krb5ConfigPath),
                 Optional.ofNullable(clientOptions.krb5KeytabPath),

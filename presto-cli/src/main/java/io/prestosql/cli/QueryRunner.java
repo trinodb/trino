@@ -60,6 +60,7 @@ public class QueryRunner
             Optional<String> user,
             Optional<String> password,
             Optional<String> kerberosPrincipal,
+            Optional<String> krb5ServicePrincipalPattern,
             Optional<String> kerberosRemoteServiceName,
             Optional<String> kerberosConfigPath,
             Optional<String> kerberosKeytabPath,
@@ -87,6 +88,7 @@ public class QueryRunner
                     "Authentication using Kerberos requires HTTPS to be enabled");
             setupKerberos(
                     builder,
+                    krb5ServicePrincipalPattern.get(),
                     kerberosRemoteServiceName.get(),
                     kerberosUseCanonicalHostname,
                     kerberosPrincipal,

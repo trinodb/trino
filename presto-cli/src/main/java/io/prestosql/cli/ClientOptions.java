@@ -50,6 +50,9 @@ public class ClientOptions
     @Option(name = "--server", title = "server", description = "Presto server location (default: localhost:8080)")
     public String server = "localhost:8080";
 
+    @Option(name = "--krb5-service-principal-pattern", title = "krb5 remote service principal pattern", description = "Remote kerberos service principal pattern (default: ${SERVICE}@${HOST})")
+    public String krb5ServicePrincipalPattern = "${SERVICE}@${HOST}";
+
     @Option(name = "--krb5-remote-service-name", title = "krb5 remote service name", description = "Remote peer's kerberos service name")
     public String krb5RemoteServiceName;
 

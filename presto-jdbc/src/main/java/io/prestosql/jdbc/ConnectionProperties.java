@@ -46,6 +46,7 @@ final class ConnectionProperties
     public static final ConnectionProperty<String> SSL_KEY_STORE_PASSWORD = new SslKeyStorePassword();
     public static final ConnectionProperty<String> SSL_TRUST_STORE_PATH = new SslTrustStorePath();
     public static final ConnectionProperty<String> SSL_TRUST_STORE_PASSWORD = new SslTrustStorePassword();
+    public static final ConnectionProperty<String> KERBEROS_SERVICE_PRINCIPAL_PATTERN = new KerberosServicePrincipalPattern();
     public static final ConnectionProperty<String> KERBEROS_REMOTE_SERVICE_NAME = new KerberosRemoteServiceName();
     public static final ConnectionProperty<Boolean> KERBEROS_USE_CANONICAL_HOSTNAME = new KerberosUseCanonicalHostname();
     public static final ConnectionProperty<String> KERBEROS_PRINCIPAL = new KerberosPrincipal();
@@ -67,6 +68,7 @@ final class ConnectionProperties
             .add(SSL_TRUST_STORE_PATH)
             .add(SSL_TRUST_STORE_PASSWORD)
             .add(KERBEROS_REMOTE_SERVICE_NAME)
+            .add(KERBEROS_SERVICE_PRINCIPAL_PATTERN)
             .add(KERBEROS_USE_CANONICAL_HOSTNAME)
             .add(KERBEROS_PRINCIPAL)
             .add(KERBEROS_CONFIG_PATH)
@@ -226,6 +228,15 @@ final class ConnectionProperties
     private static Predicate<Properties> isKerberosEnabled()
     {
         return checkedPredicate(properties -> KERBEROS_REMOTE_SERVICE_NAME.getValue(properties).isPresent());
+    }
+
+    private static class KerberosServicePrincipalPattern
+            extends AbstractConnectionProperty<String>
+    {
+        public KerberosServicePrincipalPattern()
+        {
+            super("KerberosServicePrincipalPattern", Optional.of("${SERVICE}@${HOST}"), isKerberosEnabled(), ALLOWED, STRING_CONVERTER);
+        }
     }
 
     private static class KerberosPrincipal
