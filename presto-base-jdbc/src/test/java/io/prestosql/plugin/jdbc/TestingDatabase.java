@@ -23,6 +23,7 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Properties;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -44,7 +45,7 @@ final class TestingDatabase
         jdbcClient = new BaseJdbcClient(
                 new BaseJdbcConfig(),
                 "\"",
-                new DriverConnectionFactory(new Driver(), connectionUrl, new Properties()));
+                new DriverConnectionFactory(new Driver(), connectionUrl, Optional.empty(), Optional.empty(), new Properties()));
 
         connection = DriverManager.getConnection(connectionUrl);
         connection.createStatement().execute("CREATE SCHEMA example");
