@@ -25,7 +25,7 @@ import static io.prestosql.spi.type.Varchars.truncateToLength;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 
-public class VarcharsTest
+public class TestVarchars
 {
     @Test
     public void testTruncateToLength()
