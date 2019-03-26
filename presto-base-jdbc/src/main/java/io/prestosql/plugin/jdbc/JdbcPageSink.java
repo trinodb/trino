@@ -46,6 +46,7 @@ public class JdbcPageSink
 
     private final List<Type> columnTypes;
     private final List<WriteFunction> columnWriters;
+    private final List<WriteNullFunction> nullWriters;
     private int batchSize;
 
     public JdbcPageSink(ConnectorSession session, JdbcOutputTableHandle handle, JdbcClient jdbcClient)
@@ -68,17 +69,26 @@ public class JdbcPageSink
 
         columnTypes = handle.getColumnTypes();
 
-        columnWriters = columnTypes.stream()
+        List<WriteMapping> writeMappings = columnTypes.stream()
                 .map(type -> {
-                    WriteFunction writeFunction = jdbcClient.toWriteMapping(session, type).getWriteFunction();
+                    WriteMapping writeMapping = jdbcClient.toWriteMapping(session, type);
+                    WriteFunction writeFunction = writeMapping.getWriteFunction();
                     verify(
                             type.getJavaType() == writeFunction.getJavaType(),
                             "Presto type %s is not compatible with write function %s accepting %s",
                             type,
                             writeFunction,
                             writeFunction.getJavaType());
-                    return writeFunction;
+                    return writeMapping;
                 })
+                .collect(toImmutableList());
+
+        columnWriters = writeMappings.stream()
+                .map(WriteMapping::getWriteFunction)
+                .collect(toImmutableList());
+
+        nullWriters = writeMappings.stream()
+                .map(WriteMapping::getWriteNullFunction)
                 .collect(toImmutableList());
     }
 
@@ -115,7 +125,7 @@ public class JdbcPageSink
         int parameterIndex = channel + 1;
 
         if (block.isNull(position)) {
-            statement.setObject(parameterIndex, null);
+            nullWriters.get(channel).setNull(statement, parameterIndex);
             return;
         }
 
