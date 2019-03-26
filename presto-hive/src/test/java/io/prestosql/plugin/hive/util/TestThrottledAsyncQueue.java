@@ -72,20 +72,14 @@ public class TestThrottledAsyncQueue
 
         // we can only dequeue one more element before being throttled
         ListenableFuture<List<Integer>> future2 = queue.getBatchAsync(2);
-        assertTrue(future2.isDone());
-        assertEquals(getFutureValue(future2), ImmutableList.of(3));
+        assertFalse(future2.isDone());
+        assertEquals(getFutureValue(future2), ImmutableList.of(3, 4));
         assertFalse(queue.isFinished());
 
         // we are now throttled, this future will not be immediate
         ListenableFuture<List<Integer>> future3 = queue.getBatchAsync(2);
         assertFalse(future3.isDone());
-        assertEquals(getFutureValue(future3), ImmutableList.of(4, 5));
-        assertFalse(queue.isFinished());
-
-        // not throttled anymore as we can still dequeue 1 element
-        ListenableFuture<List<Integer>> future4 = queue.getBatchAsync(2);
-        assertTrue(future4.isDone());
-        assertEquals(getFutureValue(future4), ImmutableList.of(6));
+        assertEquals(getFutureValue(future3), ImmutableList.of(5, 6));
         assertTrue(queue.isFinished());
     }
 
