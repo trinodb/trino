@@ -727,7 +727,6 @@ public class SqlQueryExecution
             this.splitManager = requireNonNull(splitManager, "splitManager is null");
             this.nodePartitioningManager = requireNonNull(nodePartitioningManager, "nodePartitioningManager is null");
             this.nodeScheduler = requireNonNull(nodeScheduler, "nodeScheduler is null");
-            requireNonNull(planOptimizers, "planOptimizers is null");
             this.planFragmenter = requireNonNull(planFragmenter, "planFragmenter is null");
             this.remoteTaskFactory = requireNonNull(remoteTaskFactory, "remoteTaskFactory is null");
             this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
@@ -739,7 +738,7 @@ public class SqlQueryExecution
             this.queryExplainer = requireNonNull(queryExplainer, "queryExplainer is null");
             this.executionPolicies = requireNonNull(executionPolicies, "schedulerPolicies is null");
             this.clusterSizeMonitor = requireNonNull(clusterSizeMonitor, "clusterSizeMonitor is null");
-            this.planOptimizers = planOptimizers.get();
+            this.planOptimizers = requireNonNull(planOptimizers, "planOptimizers is null").get();
             this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
             this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
         }
@@ -756,7 +755,7 @@ public class SqlQueryExecution
             ExecutionPolicy executionPolicy = executionPolicies.get(executionPolicyName);
             checkArgument(executionPolicy != null, "No execution policy %s", executionPolicy);
 
-            SqlQueryExecution execution = new SqlQueryExecution(
+            return new SqlQueryExecution(
                     query,
                     session,
                     locationFactory.createQueryLocation(session.getQueryId()),
@@ -786,8 +785,6 @@ public class SqlQueryExecution
                     statsCalculator,
                     costCalculator,
                     warningCollector);
-
-            return execution;
         }
     }
 }
