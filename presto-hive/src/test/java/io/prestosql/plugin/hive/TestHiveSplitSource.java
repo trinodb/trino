@@ -55,7 +55,7 @@ public class TestHiveSplitSource
                 10,
                 10,
                 new DataSize(1, MEGABYTE),
-                0,
+                Integer.MAX_VALUE,
                 new TestingHiveSplitLoader(),
                 Executors.newFixedThreadPool(5),
                 new CounterStat());
@@ -90,7 +90,7 @@ public class TestHiveSplitSource
                 10,
                 10,
                 new DataSize(1, MEGABYTE),
-                0,
+                Integer.MAX_VALUE,
                 new TestingHiveSplitLoader(),
                 Executors.newFixedThreadPool(5),
                 new CounterStat());
@@ -149,7 +149,7 @@ public class TestHiveSplitSource
                 10,
                 10,
                 new DataSize(1, MEGABYTE),
-                0,
+                Integer.MAX_VALUE,
                 new TestingHiveSplitLoader(),
                 Executors.newFixedThreadPool(5),
                 new CounterStat());
@@ -209,7 +209,7 @@ public class TestHiveSplitSource
                 10,
                 10000,
                 maxOutstandingSplitsSize,
-                0,
+                Integer.MAX_VALUE,
                 new TestingHiveSplitLoader(),
                 Executors.newFixedThreadPool(5),
                 new CounterStat());
@@ -247,7 +247,7 @@ public class TestHiveSplitSource
                 10,
                 10,
                 new DataSize(1, MEGABYTE),
-                0,
+                Integer.MAX_VALUE,
                 new TestingHiveSplitLoader(),
                 Executors.newFixedThreadPool(5),
                 new CounterStat());

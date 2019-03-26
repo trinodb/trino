@@ -57,7 +57,7 @@ public class TestHiveConfig
                 .setMaxInitialSplits(200)
                 .setMaxInitialSplitSize(new DataSize(32, Unit.MEGABYTE))
                 .setSplitLoaderConcurrency(4)
-                .setMaxSplitsPerSecond(0)
+                .setMaxSplitsPerSecond(null)
                 .setDomainCompactionThreshold(100)
                 .setWriterSortBufferSize(new DataSize(64, Unit.MEGABYTE))
                 .setForceLocalScheduling(false)

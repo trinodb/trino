@@ -39,6 +39,7 @@ import io.prestosql.spi.connector.TableNotFoundException;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
+import javax.annotation.Nullable;
 import javax.inject.Inject;
 
 import java.util.Iterator;
@@ -50,6 +51,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.function.Function;
 
+import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.Iterables.concat;
@@ -134,7 +136,7 @@ public class HiveSplitManager
             int maxPartitionBatchSize,
             int maxInitialSplits,
             int splitLoaderConcurrency,
-            int maxSplitPerSec,
+            @Nullable Integer maxSplitsPerSecond,
             boolean recursiveDfsWalkerEnabled)
     {
         this.metastoreProvider = requireNonNull(metastoreProvider, "metastore is null");
@@ -151,7 +153,7 @@ public class HiveSplitManager
         this.maxPartitionBatchSize = maxPartitionBatchSize;
         this.maxInitialSplits = maxInitialSplits;
         this.splitLoaderConcurrency = splitLoaderConcurrency;
-        this.maxSplitsPerSecond = maxSplitPerSec;
+        this.maxSplitsPerSecond = firstNonNull(maxSplitsPerSecond, Integer.MAX_VALUE);
         this.recursiveDfsWalkerEnabled = recursiveDfsWalkerEnabled;
     }
 

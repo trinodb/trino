@@ -143,7 +143,7 @@ class HiveSplitSource
                 compactEffectivePredicate,
                 new PerBucket()
                 {
-                    private final AsyncQueue<InternalHiveSplit> queue = queue(maxOutstandingSplits, maxSplitsPerSecond, executor);
+                    private final AsyncQueue<InternalHiveSplit> queue = new ThrottledAsyncQueue<>(maxSplitsPerSecond, maxOutstandingSplits, executor);
 
                     @Override
                     public ListenableFuture<?> offer(OptionalInt bucketNumber, InternalHiveSplit connectorSplit)
@@ -239,7 +239,7 @@ class HiveSplitSource
                         AtomicBoolean isNew = new AtomicBoolean();
                         AsyncQueue<InternalHiveSplit> queue = queues.computeIfAbsent(bucketNumber.getAsInt(), ignored -> {
                             isNew.set(true);
-                            return queue(estimatedOutstandingSplitsPerBucket, maxSplitsPerSecond, executor);
+                            return new ThrottledAsyncQueue<>(maxSplitsPerSecond, estimatedOutstandingSplitsPerBucket, executor);
                         });
                         if (isNew.get() && finished.get()) {
                             // Check `finished` and invoke `queue.finish` after the `queue` is added to the map.
@@ -495,14 +495,6 @@ class HiveSplitSource
         void finish();
 
         boolean isFinished(OptionalInt bucketNumber);
-
-        default AsyncQueue<InternalHiveSplit> queue(int maxOutstandingSplits, int maxSplitsPerSecond, Executor executor)
-        {
-            if (maxSplitsPerSecond > 0) {
-                return new ThrottledAsyncQueue<>(maxSplitsPerSecond, maxOutstandingSplits, executor);
-            }
-            return new AsyncQueue<>(maxOutstandingSplits, executor);
-        }
     }
 
     static class State
