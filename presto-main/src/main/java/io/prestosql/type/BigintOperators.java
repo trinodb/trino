@@ -110,7 +110,7 @@ public final class BigintOperators
             return left / right;
         }
         catch (ArithmeticException e) {
-            throw new PrestoException(DIVISION_BY_ZERO, e);
+            throw new PrestoException(DIVISION_BY_ZERO, "Division by zero", e);
         }
     }
 
@@ -122,7 +122,7 @@ public final class BigintOperators
             return left % right;
         }
         catch (ArithmeticException e) {
-            throw new PrestoException(DIVISION_BY_ZERO, e);
+            throw new PrestoException(DIVISION_BY_ZERO, "Division by zero", e);
         }
     }
 
