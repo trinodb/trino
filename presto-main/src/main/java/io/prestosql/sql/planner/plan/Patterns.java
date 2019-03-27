@@ -275,4 +275,21 @@ public class Patterns
             return property("rows", ValuesNode::getRows);
         }
     }
+
+    public static class SemiJoin
+    {
+        public static Property<SemiJoinNode, Lookup, PlanNode> getSource()
+        {
+            return property(
+                    "source",
+                    (SemiJoinNode semiJoin, Lookup lookup) -> lookup.resolve(semiJoin.getSource()));
+        }
+
+        public static Property<SemiJoinNode, Lookup, PlanNode> getFilteringSource()
+        {
+            return property(
+                    "filteringSource",
+                    (SemiJoinNode semiJoin, Lookup lookup) -> lookup.resolve(semiJoin.getFilteringSource()));
+        }
+    }
 }
