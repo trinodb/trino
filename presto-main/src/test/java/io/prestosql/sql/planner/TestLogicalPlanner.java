@@ -412,9 +412,14 @@ public class TestLogicalPlanner
 
     private void assertPlanContainsNoApplyOrAnyJoin(String sql)
     {
+        assertPlanDoesNotContain(sql, ApplyNode.class, JoinNode.class, IndexJoinNode.class, SemiJoinNode.class, LateralJoinNode.class);
+    }
+
+    private void assertPlanDoesNotContain(String sql, Class... classes)
+    {
         assertFalse(
                 searchFrom(plan(sql, LogicalPlanner.Stage.OPTIMIZED).getRoot())
-                        .where(isInstanceOfAny(ApplyNode.class, JoinNode.class, IndexJoinNode.class, SemiJoinNode.class, LateralJoinNode.class))
+                        .where(isInstanceOfAny(classes))
                         .matches(),
                 "Unexpected node for query: " + sql);
     }
@@ -800,5 +805,13 @@ public class TestLogicalPlanner
                                         exchange(REMOTE, GATHER,
                                                 tableScan("orders", ImmutableMap.of(
                                                         "ORDERKEY", "orderkey")))))));
+    }
+
+    @Test
+    public void testRemoveAggregationInSemiJoin()
+    {
+        assertPlanDoesNotContain(
+                "SELECT custkey FROM orders WHERE custkey IN (SELECT distinct custkey FROM customer)",
+                AggregationNode.class);
     }
 }
