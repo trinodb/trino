@@ -92,7 +92,7 @@ public class RangerTestCases
                 row("Mr.", 100));
     }
 
-    // the "IT" group doesn't have permission to select all
+    // the user doesn't have permission to select all
     @Test(groups = {RANGER}, dependsOnMethods = "setup")
     public void testHiveSelectAllAsAlice()
     {
@@ -220,8 +220,6 @@ public class RangerTestCases
         // Create a "words" table in "hivetable"
         adminExecutor.executeQuery("CREATE TABLE if not exists hive.hivetable.WORDS (word varchar, count INT)");
         adminExecutor.executeQuery("CREATE TABLE if not exists hive.hivetable.WORDS2 (word varchar, count INT)");
-
-        // Now try to read it as the "public" group
 
         // "words" should work
         charlieExecutor.executeQuery("SELECT * FROM hive.hivetable.WORDS");

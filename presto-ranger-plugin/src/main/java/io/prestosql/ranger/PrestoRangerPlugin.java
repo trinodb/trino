@@ -23,6 +23,6 @@ public class PrestoRangerPlugin
     @Override
     public Iterable<SystemAccessControlFactory> getSystemAccessControlFactories()
     {
-        return ImmutableList.of(new RangerSystemAccessControlFactory());
+        return ImmutableList.of(new RangerSystemAccessControlFactory(PrestoRangerPlugin.class.getClassLoader()));
     }
 }
