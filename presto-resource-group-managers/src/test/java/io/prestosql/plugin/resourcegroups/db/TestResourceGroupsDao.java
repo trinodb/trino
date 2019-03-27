@@ -21,7 +21,6 @@ import io.prestosql.plugin.resourcegroups.ResourceGroupNameTemplate;
 import io.prestosql.plugin.resourcegroups.SelectorResourceEstimate;
 import io.prestosql.plugin.resourcegroups.SelectorResourceEstimate.Range;
 import io.prestosql.spi.resourcegroups.ResourceGroupId;
-import org.h2.jdbc.JdbcSQLException;
 import org.jdbi.v3.core.statement.UnableToExecuteStatementException;
 import org.testng.annotations.Test;
 
@@ -244,14 +243,14 @@ public class TestResourceGroupsDao
             dao.insertResourceGroupsGlobalProperties("invalid_property", "1h");
         }
         catch (UnableToExecuteStatementException ex) {
-            assertTrue(ex.getCause() instanceof JdbcSQLException);
+            assertTrue(ex.getCause() instanceof org.h2.jdbc.JdbcException);
             assertTrue(ex.getCause().getMessage().startsWith("Check constraint violation:"));
         }
         try {
             dao.updateResourceGroupsGlobalProperties("invalid_property_name");
         }
         catch (UnableToExecuteStatementException ex) {
-            assertTrue(ex.getCause() instanceof JdbcSQLException);
+            assertTrue(ex.getCause() instanceof org.h2.jdbc.JdbcException);
             assertTrue(ex.getCause().getMessage().startsWith("Check constraint violation:"));
         }
     }
