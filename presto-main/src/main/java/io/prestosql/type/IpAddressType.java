@@ -15,25 +15,67 @@ package io.prestosql.type;
 
 import com.google.common.net.InetAddresses;
 import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
+import io.airlift.slice.XxHash64;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.block.BlockBuilderStatus;
+import io.prestosql.spi.block.Int128ArrayBlockBuilder;
+import io.prestosql.spi.block.PageBuilderStatus;
 import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.type.AbstractFixedWidthType;
+import io.prestosql.spi.type.AbstractType;
+import io.prestosql.spi.type.FixedWidthType;
 import io.prestosql.spi.type.StandardTypes;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 
+import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
+import static io.prestosql.spi.block.Int128ArrayBlock.INT128_BYTES;
 import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 
 public class IpAddressType
-        extends AbstractFixedWidthType
+        extends AbstractType
+        implements FixedWidthType
 {
     public static final IpAddressType IPADDRESS = new IpAddressType();
 
     private IpAddressType()
     {
-        super(parseTypeSignature(StandardTypes.IPADDRESS), Slice.class, 16);
+        super(parseTypeSignature(StandardTypes.IPADDRESS), Slice.class);
+    }
+
+    @Override
+    public int getFixedSize()
+    {
+        return INT128_BYTES;
+    }
+
+    @Override
+    public BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries, int expectedBytesPerEntry)
+    {
+        int maxBlockSizeInBytes;
+        if (blockBuilderStatus == null) {
+            maxBlockSizeInBytes = PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
+        }
+        else {
+            maxBlockSizeInBytes = blockBuilderStatus.getMaxPageSizeInBytes();
+        }
+        return new Int128ArrayBlockBuilder(
+                blockBuilderStatus,
+                Math.min(expectedEntries, maxBlockSizeInBytes / getFixedSize()));
+    }
+
+    @Override
+    public BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries)
+    {
+        return createBlockBuilder(blockBuilderStatus, expectedEntries, getFixedSize());
+    }
+
+    @Override
+    public BlockBuilder createFixedSizeBlockBuilder(int positionCount)
+    {
+        return new Int128ArrayBlockBuilder(null, positionCount);
     }
 
     @Override
@@ -51,19 +93,26 @@ public class IpAddressType
     @Override
     public boolean equalTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
     {
-        return compareTo(leftBlock, leftPosition, rightBlock, rightPosition) == 0;
+        return leftBlock.getLong(leftPosition, SIZE_OF_LONG) == rightBlock.getLong(rightPosition, SIZE_OF_LONG) &&
+                leftBlock.getLong(leftPosition, 0) == rightBlock.getLong(rightPosition, 0);
     }
 
     @Override
     public int compareTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
     {
-        return leftBlock.compareTo(leftPosition, 0, getFixedSize(), rightBlock, rightPosition, 0, getFixedSize());
+        // compare high order bits
+        int compare = Long.compare(leftBlock.getLong(leftPosition, SIZE_OF_LONG), rightBlock.getLong(rightPosition, SIZE_OF_LONG));
+        if (compare != 0) {
+            return compare;
+        }
+        // compare low order bits
+        return Long.compare(leftBlock.getLong(leftPosition, 0), rightBlock.getLong(rightPosition, 0));
     }
 
     @Override
     public long hash(Block block, int position)
     {
-        return block.hash(position, 0, getFixedSize());
+        return XxHash64.hash(getSlice(block, position));
     }
 
     @Override
@@ -73,7 +122,7 @@ public class IpAddressType
             return null;
         }
         try {
-            return InetAddresses.toAddrString(InetAddress.getByAddress(block.getSlice(position, 0, getFixedSize()).getBytes()));
+            return InetAddresses.toAddrString(InetAddress.getByAddress(getSlice(block, position).getBytes()));
         }
         catch (UnknownHostException e) {
             throw new IllegalArgumentException();
@@ -87,7 +136,8 @@ public class IpAddressType
             blockBuilder.appendNull();
         }
         else {
-            block.writeBytesTo(position, 0, getFixedSize(), blockBuilder);
+            blockBuilder.writeLong(block.getLong(position, 0));
+            blockBuilder.writeLong(block.getLong(position, SIZE_OF_LONG));
             blockBuilder.closeEntry();
         }
     }
@@ -101,6 +151,19 @@ public class IpAddressType
     @Override
     public void writeSlice(BlockBuilder blockBuilder, Slice value, int offset, int length)
     {
-        blockBuilder.writeBytes(value, offset, length).closeEntry();
+        if (length != INT128_BYTES) {
+            throw new IllegalStateException("Expected entry size to be exactly " + INT128_BYTES + " but was " + length);
+        }
+        blockBuilder.writeLong(value.getLong(offset));
+        blockBuilder.writeLong(value.getLong(offset + SIZE_OF_LONG));
+        blockBuilder.closeEntry();
+    }
+
+    @Override
+    public final Slice getSlice(Block block, int position)
+    {
+        return Slices.wrappedLongArray(
+                block.getLong(position, 0),
+                block.getLong(position, SIZE_OF_LONG));
     }
 }
