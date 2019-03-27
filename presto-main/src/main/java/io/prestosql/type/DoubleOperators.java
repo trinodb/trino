@@ -33,7 +33,6 @@ import io.prestosql.spi.type.StandardTypes;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.prestosql.spi.StandardErrorCode.DIVISION_BY_ZERO;
 import static io.prestosql.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.prestosql.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.prestosql.spi.function.OperatorType.ADD;
@@ -103,24 +102,14 @@ public final class DoubleOperators
     @SqlType(StandardTypes.DOUBLE)
     public static double divide(@SqlType(StandardTypes.DOUBLE) double left, @SqlType(StandardTypes.DOUBLE) double right)
     {
-        try {
-            return left / right;
-        }
-        catch (ArithmeticException e) {
-            throw new PrestoException(DIVISION_BY_ZERO, e);
-        }
+        return left / right;
     }
 
     @ScalarOperator(MODULUS)
     @SqlType(StandardTypes.DOUBLE)
     public static double modulus(@SqlType(StandardTypes.DOUBLE) double left, @SqlType(StandardTypes.DOUBLE) double right)
     {
-        try {
-            return left % right;
-        }
-        catch (ArithmeticException e) {
-            throw new PrestoException(DIVISION_BY_ZERO, e);
-        }
+        return left % right;
     }
 
     @ScalarOperator(NEGATION)
