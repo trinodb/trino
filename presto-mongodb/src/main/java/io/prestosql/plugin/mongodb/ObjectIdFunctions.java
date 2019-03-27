@@ -65,8 +65,7 @@ public class ObjectIdFunctions
 
     @ScalarOperator(IS_DISTINCT_FROM)
     @SqlType(StandardTypes.BOOLEAN)
-    @SqlNullable
-    public static Boolean isDistinctFrom(@SqlType("ObjectId") Slice left, @IsNull boolean leftNull, @SqlType("ObjectId") Slice right, @IsNull boolean rightNull)
+    public static boolean isDistinctFrom(@SqlType("ObjectId") Slice left, @IsNull boolean leftNull, @SqlType("ObjectId") Slice right, @IsNull boolean rightNull)
     {
         if (leftNull != rightNull) {
             return true;
