@@ -15,6 +15,7 @@ package io.prestosql.operator.scalar;
 
 import io.airlift.json.JsonCodec;
 import io.prestosql.client.FailureInfo;
+import io.prestosql.spi.PrestoException;
 import io.prestosql.testing.LocalQueryRunner;
 import io.prestosql.util.Failures;
 import org.testng.annotations.Test;
@@ -33,7 +34,7 @@ public class TestFailureFunction
         assertFunction("fail(json_parse('" + FAILURE_INFO + "'))", UNKNOWN, null);
     }
 
-    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "/ by zero")
+    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Division by zero")
     public void testQuery()
     {
         // The other test does not exercise this function during execution (i.e. inside a page processor).
