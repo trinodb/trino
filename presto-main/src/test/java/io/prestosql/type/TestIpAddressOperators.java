@@ -13,12 +13,18 @@
  */
 package io.prestosql.type;
 
+import com.google.common.net.InetAddresses;
+import io.airlift.slice.Slices;
 import io.prestosql.operator.scalar.AbstractTestFunctions;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.type.SqlVarbinary;
 import org.testng.annotations.Test;
 
 import static com.google.common.io.BaseEncoding.base16;
+import static io.prestosql.spi.function.OperatorType.HASH_CODE;
 import static io.prestosql.spi.function.OperatorType.INDETERMINATE;
+import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
@@ -136,5 +142,20 @@ public class TestIpAddressOperators
     {
         assertOperator(INDETERMINATE, "CAST(null AS IPADDRESS)", BOOLEAN, true);
         assertOperator(INDETERMINATE, "IPADDRESS '::2222'", BOOLEAN, false);
+    }
+
+    @Test
+    public void testHash()
+    {
+        assertOperator(HASH_CODE, "CAST(null AS IPADDRESS)", BIGINT, null);
+        assertOperator(HASH_CODE, "IPADDRESS '::2222'", BIGINT, hashFromType("::2222"));
+    }
+
+    private static long hashFromType(String address)
+    {
+        BlockBuilder blockBuilder = IPADDRESS.createBlockBuilder(null, 1);
+        IPADDRESS.writeSlice(blockBuilder, Slices.wrappedBuffer(InetAddresses.forString(address).getAddress()));
+        Block block = blockBuilder.build();
+        return IPADDRESS.hash(block, 0);
     }
 }
