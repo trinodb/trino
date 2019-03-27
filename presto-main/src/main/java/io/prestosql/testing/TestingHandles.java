@@ -13,7 +13,7 @@
  */
 package io.prestosql.testing;
 
-import io.prestosql.connector.ConnectorId;
+import io.prestosql.connector.CatalogName;
 import io.prestosql.metadata.TableHandle;
 import io.prestosql.testing.TestingMetadata.TestingTableHandle;
 
@@ -24,7 +24,7 @@ public final class TestingHandles
     private TestingHandles() {}
 
     public static final TableHandle TEST_TABLE_HANDLE = new TableHandle(
-            new ConnectorId("test"),
+            new CatalogName("test"),
             new TestingTableHandle(),
             TestingTransactionHandle.create(),
             Optional.of(TestingHandle.INSTANCE));

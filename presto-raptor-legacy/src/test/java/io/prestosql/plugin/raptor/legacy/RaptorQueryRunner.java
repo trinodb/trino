@@ -18,7 +18,7 @@ import io.airlift.log.Logger;
 import io.airlift.log.Logging;
 import io.airlift.tpch.TpchTable;
 import io.prestosql.Session;
-import io.prestosql.connector.ConnectorId;
+import io.prestosql.connector.CatalogName;
 import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.metadata.SessionPropertyManager;
 import io.prestosql.plugin.raptor.legacy.storage.StorageManagerConfig;
@@ -132,7 +132,7 @@ public final class RaptorQueryRunner
     public static Session createSession(String schema)
     {
         SessionPropertyManager sessionPropertyManager = new SessionPropertyManager();
-        sessionPropertyManager.addConnectorSessionProperties(new ConnectorId("raptor"), new RaptorSessionProperties(new StorageManagerConfig()).getSessionProperties());
+        sessionPropertyManager.addConnectorSessionProperties(new CatalogName("raptor"), new RaptorSessionProperties(new StorageManagerConfig()).getSessionProperties());
         return testSessionBuilder(sessionPropertyManager)
                 .setCatalog("raptor")
                 .setSchema(schema)

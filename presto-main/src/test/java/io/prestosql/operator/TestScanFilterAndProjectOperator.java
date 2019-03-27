@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 import io.prestosql.SequencePageBuilder;
 import io.prestosql.block.BlockAssertions;
-import io.prestosql.connector.ConnectorId;
+import io.prestosql.connector.CatalogName;
 import io.prestosql.execution.Lifespan;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.MetadataManager;
@@ -116,7 +116,7 @@ public class TestScanFilterAndProjectOperator
                 0);
 
         SourceOperator operator = factory.createOperator(driverContext);
-        operator.addSplit(new Split(new ConnectorId("test"), TestingSplit.createLocalSplit(), Lifespan.taskWide()));
+        operator.addSplit(new Split(new CatalogName("test"), TestingSplit.createLocalSplit(), Lifespan.taskWide()));
         operator.noMoreSplits();
 
         MaterializedResult expected = toMaterializedResult(driverContext.getSession(), ImmutableList.of(VARCHAR), ImmutableList.of(input));
@@ -159,7 +159,7 @@ public class TestScanFilterAndProjectOperator
                 2);
 
         SourceOperator operator = factory.createOperator(newDriverContext());
-        operator.addSplit(new Split(new ConnectorId("test"), TestingSplit.createLocalSplit(), Lifespan.taskWide()));
+        operator.addSplit(new Split(new CatalogName("test"), TestingSplit.createLocalSplit(), Lifespan.taskWide()));
         operator.noMoreSplits();
 
         List<Page> actual = toPages(operator);
@@ -203,7 +203,7 @@ public class TestScanFilterAndProjectOperator
                 0);
 
         SourceOperator operator = factory.createOperator(driverContext);
-        operator.addSplit(new Split(new ConnectorId("test"), TestingSplit.createLocalSplit(), Lifespan.taskWide()));
+        operator.addSplit(new Split(new CatalogName("test"), TestingSplit.createLocalSplit(), Lifespan.taskWide()));
         operator.noMoreSplits();
 
         MaterializedResult expected = toMaterializedResult(driverContext.getSession(), ImmutableList.of(BIGINT), ImmutableList.of(new Page(inputBlock)));
@@ -237,7 +237,7 @@ public class TestScanFilterAndProjectOperator
                 0);
 
         SourceOperator operator = factory.createOperator(driverContext);
-        operator.addSplit(new Split(new ConnectorId("test"), TestingSplit.createLocalSplit(), Lifespan.taskWide()));
+        operator.addSplit(new Split(new CatalogName("test"), TestingSplit.createLocalSplit(), Lifespan.taskWide()));
         operator.noMoreSplits();
 
         MaterializedResult expected = toMaterializedResult(driverContext.getSession(), ImmutableList.of(VARCHAR), ImmutableList.of(input));
@@ -289,7 +289,7 @@ public class TestScanFilterAndProjectOperator
                 0);
 
         SourceOperator operator = factory.createOperator(driverContext);
-        operator.addSplit(new Split(new ConnectorId("test"), TestingSplit.createLocalSplit(), Lifespan.taskWide()));
+        operator.addSplit(new Split(new CatalogName("test"), TestingSplit.createLocalSplit(), Lifespan.taskWide()));
         operator.noMoreSplits();
 
         // In the below loop we yield for every cell: 20 X 1000 times
@@ -354,7 +354,7 @@ public class TestScanFilterAndProjectOperator
                 0);
 
         SourceOperator operator = factory.createOperator(driverContext);
-        operator.addSplit(new Split(new ConnectorId("test"), TestingSplit.createLocalSplit(), Lifespan.taskWide()));
+        operator.addSplit(new Split(new CatalogName("test"), TestingSplit.createLocalSplit(), Lifespan.taskWide()));
         operator.noMoreSplits();
 
         // start driver; get null value due to yield for the first 15 times

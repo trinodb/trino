@@ -13,7 +13,7 @@
  */
 package io.prestosql.connector.system;
 
-import io.prestosql.connector.ConnectorId;
+import io.prestosql.connector.CatalogName;
 import io.prestosql.metadata.InternalNodeManager;
 import io.prestosql.spi.connector.ConnectorMetadata;
 import io.prestosql.spi.connector.ConnectorPageSourceProvider;
@@ -32,34 +32,34 @@ import static java.util.Objects.requireNonNull;
 public class SystemConnector
         implements InternalConnector
 {
-    private final ConnectorId connectorId;
+    private final CatalogName catalogName;
     private final ConnectorMetadata metadata;
     private final ConnectorSplitManager splitManager;
     private final ConnectorPageSourceProvider pageSourceProvider;
     private final Function<TransactionId, ConnectorTransactionHandle> transactionHandleFunction;
 
     public SystemConnector(
-            ConnectorId connectorId,
+            CatalogName catalogName,
             InternalNodeManager nodeManager,
             Set<SystemTable> tables,
             Function<TransactionId, ConnectorTransactionHandle> transactionHandleFunction)
     {
-        this(connectorId, nodeManager, new StaticSystemTablesProvider(tables), transactionHandleFunction);
+        this(catalogName, nodeManager, new StaticSystemTablesProvider(tables), transactionHandleFunction);
     }
 
     public SystemConnector(
-            ConnectorId connectorId,
+            CatalogName catalogName,
             InternalNodeManager nodeManager,
             SystemTablesProvider tables,
             Function<TransactionId, ConnectorTransactionHandle> transactionHandleFunction)
     {
-        requireNonNull(connectorId, "connectorId is null");
+        requireNonNull(catalogName, "connectorId is null");
         requireNonNull(nodeManager, "nodeManager is null");
         requireNonNull(tables, "tables is null");
         requireNonNull(transactionHandleFunction, "transactionHandleFunction is null");
 
-        this.connectorId = connectorId;
-        this.metadata = new SystemTablesMetadata(connectorId, tables);
+        this.catalogName = catalogName;
+        this.metadata = new SystemTablesMetadata(catalogName, tables);
         this.splitManager = new SystemSplitManager(nodeManager, tables);
         this.pageSourceProvider = new SystemPageSourceProvider(tables);
         this.transactionHandleFunction = transactionHandleFunction;
@@ -68,7 +68,7 @@ public class SystemConnector
     @Override
     public ConnectorTransactionHandle beginTransaction(TransactionId transactionId, IsolationLevel isolationLevel, boolean readOnly)
     {
-        return new SystemTransactionHandle(connectorId, transactionId, transactionHandleFunction);
+        return new SystemTransactionHandle(catalogName, transactionId, transactionHandleFunction);
     }
 
     @Override

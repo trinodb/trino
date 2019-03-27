@@ -16,7 +16,7 @@ package io.prestosql.sql.planner;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
 import io.prestosql.Session;
-import io.prestosql.connector.ConnectorId;
+import io.prestosql.connector.CatalogName;
 import io.prestosql.execution.scheduler.BucketNodeMap;
 import io.prestosql.execution.scheduler.FixedBucketNodeMap;
 import io.prestosql.execution.scheduler.NodeScheduler;
@@ -53,7 +53,7 @@ import static java.util.Objects.requireNonNull;
 public class NodePartitioningManager
 {
     private final NodeScheduler nodeScheduler;
-    private final ConcurrentMap<ConnectorId, ConnectorNodePartitioningProvider> partitioningProviders = new ConcurrentHashMap<>();
+    private final ConcurrentMap<CatalogName, ConnectorNodePartitioningProvider> partitioningProviders = new ConcurrentHashMap<>();
 
     @Inject
     public NodePartitioningManager(NodeScheduler nodeScheduler)
@@ -61,17 +61,17 @@ public class NodePartitioningManager
         this.nodeScheduler = requireNonNull(nodeScheduler, "nodeScheduler is null");
     }
 
-    public void addPartitioningProvider(ConnectorId connectorId, ConnectorNodePartitioningProvider nodePartitioningProvider)
+    public void addPartitioningProvider(CatalogName catalogName, ConnectorNodePartitioningProvider nodePartitioningProvider)
     {
-        requireNonNull(connectorId, "connectorId is null");
+        requireNonNull(catalogName, "connectorId is null");
         requireNonNull(nodePartitioningProvider, "nodePartitioningProvider is null");
-        checkArgument(partitioningProviders.putIfAbsent(connectorId, nodePartitioningProvider) == null,
-                "NodePartitioningProvider for connector '%s' is already registered", connectorId);
+        checkArgument(partitioningProviders.putIfAbsent(catalogName, nodePartitioningProvider) == null,
+                "NodePartitioningProvider for connector '%s' is already registered", catalogName);
     }
 
-    public void removePartitioningProvider(ConnectorId connectorId)
+    public void removePartitioningProvider(CatalogName catalogName)
     {
-        partitioningProviders.remove(connectorId);
+        partitioningProviders.remove(catalogName);
     }
 
     public PartitionFunction getPartitionFunction(
@@ -92,13 +92,13 @@ public class NodePartitioningManager
                     partitioningScheme.getHashColumn().isPresent(),
                     partitioningScheme.getBucketToPartition().get());
         }
-        ConnectorId connectorId = partitioningHandle.getConnectorId().get();
-        ConnectorNodePartitioningProvider partitioningProvider = partitioningProviders.get(connectorId);
-        checkArgument(partitioningProvider != null, "No partitioning provider for connector %s", connectorId);
+        CatalogName catalogName = partitioningHandle.getConnectorId().get();
+        ConnectorNodePartitioningProvider partitioningProvider = partitioningProviders.get(catalogName);
+        checkArgument(partitioningProvider != null, "No partitioning provider for connector %s", catalogName);
 
         bucketFunction = partitioningProvider.getBucketFunction(
                 partitioningHandle.getTransactionHandle().orElse(null),
-                session.toConnectorSession(connectorId),
+                session.toConnectorSession(catalogName),
                 partitioningHandle.getConnectorHandle(),
                 partitionChannelTypes,
                 bucketToPartition.get().length);
@@ -127,10 +127,10 @@ public class NodePartitioningManager
             return ((SystemPartitioningHandle) partitioningHandle.getConnectorHandle()).getNodePartitionMap(session, nodeScheduler);
         }
 
-        ConnectorId connectorId = partitioningHandle.getConnectorId()
+        CatalogName catalogName = partitioningHandle.getConnectorId()
                 .orElseThrow(() -> new IllegalArgumentException("No connector ID for partitioning handle: " + partitioningHandle));
-        ConnectorNodePartitioningProvider partitioningProvider = partitioningProviders.get(connectorId);
-        checkArgument(partitioningProvider != null, "No partitioning provider for connector %s", connectorId);
+        ConnectorNodePartitioningProvider partitioningProvider = partitioningProviders.get(catalogName);
+        checkArgument(partitioningProvider != null, "No partitioning provider for connector %s", catalogName);
 
         ConnectorBucketNodeMap connectorBucketNodeMap = getConnectorBucketNodeMap(session, partitioningHandle);
         // safety check for crazy partitioning
@@ -142,7 +142,7 @@ public class NodePartitioningManager
         }
         else {
             bucketToNode = createArbitraryBucketToNode(
-                    nodeScheduler.createNodeSelector(connectorId).allNodes(),
+                    nodeScheduler.createNodeSelector(catalogName).allNodes(),
                     connectorBucketNodeMap.getBucketCount());
         }
 

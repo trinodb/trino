@@ -15,7 +15,7 @@ package io.prestosql.execution;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import io.prestosql.Session;
-import io.prestosql.connector.ConnectorId;
+import io.prestosql.connector.CatalogName;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.security.AccessControl;
 import io.prestosql.spi.PrestoException;
@@ -67,11 +67,11 @@ public class CreateSchemaTask
             return immediateFuture(null);
         }
 
-        ConnectorId connectorId = metadata.getCatalogHandle(session, schema.getCatalogName())
+        CatalogName catalogName = metadata.getCatalogHandle(session, schema.getCatalogName())
                 .orElseThrow(() -> new PrestoException(NOT_FOUND, "Catalog does not exist: " + schema.getCatalogName()));
 
         Map<String, Object> properties = metadata.getSchemaPropertyManager().getProperties(
-                connectorId,
+                catalogName,
                 schema.getCatalogName(),
                 mapFromProperties(statement.getProperties()),
                 session,

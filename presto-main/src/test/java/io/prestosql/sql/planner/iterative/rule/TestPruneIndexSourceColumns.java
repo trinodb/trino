@@ -17,7 +17,7 @@ import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.connector.ConnectorId;
+import io.prestosql.connector.CatalogName;
 import io.prestosql.metadata.TableHandle;
 import io.prestosql.plugin.tpch.TpchColumnHandle;
 import io.prestosql.plugin.tpch.TpchTableHandle;
@@ -87,7 +87,7 @@ public class TestPruneIndexSourceColumns
                                 .collect(toImmutableList())),
                 p.indexSource(
                         new TableHandle(
-                                new ConnectorId("local"),
+                                new CatalogName("local"),
                                 new TpchTableHandle("orders", TINY_SCALE_FACTOR),
                                 TpchTransactionHandle.INSTANCE,
                                 Optional.empty()),

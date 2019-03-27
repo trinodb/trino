@@ -16,7 +16,7 @@ package io.prestosql.testing;
 import com.google.common.collect.ImmutableSet;
 import io.prestosql.Session;
 import io.prestosql.Session.SessionBuilder;
-import io.prestosql.connector.ConnectorId;
+import io.prestosql.connector.CatalogName;
 import io.prestosql.connector.system.StaticSystemTablesProvider;
 import io.prestosql.connector.system.SystemTablesMetadata;
 import io.prestosql.execution.QueryIdGenerator;
@@ -33,8 +33,8 @@ import io.prestosql.sql.SqlPath;
 
 import java.util.Optional;
 
-import static io.prestosql.connector.ConnectorId.createInformationSchemaConnectorId;
-import static io.prestosql.connector.ConnectorId.createSystemTablesConnectorId;
+import static io.prestosql.connector.CatalogName.createInformationSchemaConnectorId;
+import static io.prestosql.connector.CatalogName.createSystemTablesConnectorId;
 import static java.util.Locale.ENGLISH;
 
 public final class TestingSession
@@ -75,7 +75,7 @@ public final class TestingSession
 
     public static Catalog createBogusTestingCatalog(String catalogName)
     {
-        ConnectorId connectorId = new ConnectorId(catalogName);
+        CatalogName connectorId = new CatalogName(catalogName);
         return new Catalog(
                 catalogName,
                 connectorId,
@@ -99,7 +99,7 @@ public final class TestingSession
             @Override
             public ConnectorMetadata getMetadata(ConnectorTransactionHandle transaction)
             {
-                return new SystemTablesMetadata(new ConnectorId("test_session_connector"), new StaticSystemTablesProvider(ImmutableSet.of()));
+                return new SystemTablesMetadata(new CatalogName("test_session_connector"), new StaticSystemTablesProvider(ImmutableSet.of()));
             }
 
             @Override

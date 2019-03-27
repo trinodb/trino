@@ -16,7 +16,7 @@ package io.prestosql.sql.planner.sanity;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.connector.ConnectorId;
+import io.prestosql.connector.CatalogName;
 import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.TableHandle;
@@ -59,9 +59,9 @@ public class TestValidateAggregationsWithDefaultValues
     {
         metadata = getQueryRunner().getMetadata();
         builder = new PlanBuilder(new PlanNodeIdAllocator(), metadata);
-        ConnectorId connectorId = getCurrentConnectorId();
+        CatalogName catalogName = getCurrentConnectorId();
         TableHandle nationTableHandle = new TableHandle(
-                connectorId,
+                catalogName,
                 new TpchTableHandle("nation", 1.0),
                 TestingTransactionHandle.create(),
                 Optional.empty());

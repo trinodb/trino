@@ -16,7 +16,7 @@ package io.prestosql;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.connector.ConnectorId;
+import io.prestosql.connector.CatalogName;
 import io.prestosql.metadata.SessionPropertyManager;
 import io.prestosql.spi.QueryId;
 import io.prestosql.spi.security.BasicPrincipal;
@@ -58,7 +58,7 @@ public final class SessionRepresentation
     private final long startTime;
     private final ResourceEstimates resourceEstimates;
     private final Map<String, String> systemProperties;
-    private final Map<ConnectorId, Map<String, String>> catalogProperties;
+    private final Map<CatalogName, Map<String, String>> catalogProperties;
     private final Map<String, Map<String, String>> unprocessedCatalogProperties;
     private final Map<String, SelectedRole> roles;
     private final Map<String, String> preparedStatements;
@@ -85,7 +85,7 @@ public final class SessionRepresentation
             @JsonProperty("resourceEstimates") ResourceEstimates resourceEstimates,
             @JsonProperty("startTime") long startTime,
             @JsonProperty("systemProperties") Map<String, String> systemProperties,
-            @JsonProperty("catalogProperties") Map<ConnectorId, Map<String, String>> catalogProperties,
+            @JsonProperty("catalogProperties") Map<CatalogName, Map<String, String>> catalogProperties,
             @JsonProperty("unprocessedCatalogProperties") Map<String, Map<String, String>> unprocessedCatalogProperties,
             @JsonProperty("roles") Map<String, SelectedRole> roles,
             @JsonProperty("preparedStatements") Map<String, String> preparedStatements)
@@ -113,8 +113,8 @@ public final class SessionRepresentation
         this.roles = ImmutableMap.copyOf(roles);
         this.preparedStatements = ImmutableMap.copyOf(preparedStatements);
 
-        ImmutableMap.Builder<ConnectorId, Map<String, String>> catalogPropertiesBuilder = ImmutableMap.builder();
-        for (Entry<ConnectorId, Map<String, String>> entry : catalogProperties.entrySet()) {
+        ImmutableMap.Builder<CatalogName, Map<String, String>> catalogPropertiesBuilder = ImmutableMap.builder();
+        for (Entry<CatalogName, Map<String, String>> entry : catalogProperties.entrySet()) {
             catalogPropertiesBuilder.put(entry.getKey(), ImmutableMap.copyOf(entry.getValue()));
         }
         this.catalogProperties = catalogPropertiesBuilder.build();
@@ -247,7 +247,7 @@ public final class SessionRepresentation
     }
 
     @JsonProperty
-    public Map<ConnectorId, Map<String, String>> getCatalogProperties()
+    public Map<CatalogName, Map<String, String>> getCatalogProperties()
     {
         return catalogProperties;
     }

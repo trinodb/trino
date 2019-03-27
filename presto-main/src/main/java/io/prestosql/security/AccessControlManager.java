@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
 import io.airlift.stats.CounterStat;
-import io.prestosql.connector.ConnectorId;
+import io.prestosql.connector.CatalogName;
 import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.CatalogSchemaName;
@@ -64,7 +64,7 @@ public class AccessControlManager
 
     private final TransactionManager transactionManager;
     private final Map<String, SystemAccessControlFactory> systemAccessControlFactories = new ConcurrentHashMap<>();
-    private final Map<ConnectorId, CatalogAccessControlEntry> connectorAccessControl = new ConcurrentHashMap<>();
+    private final Map<CatalogName, CatalogAccessControlEntry> connectorAccessControl = new ConcurrentHashMap<>();
 
     private final AtomicReference<SystemAccessControl> systemAccessControl = new AtomicReference<>(new InitializingSystemAccessControl());
     private final AtomicBoolean systemAccessControlLoading = new AtomicBoolean();
@@ -92,17 +92,17 @@ public class AccessControlManager
         }
     }
 
-    public void addCatalogAccessControl(ConnectorId connectorId, ConnectorAccessControl accessControl)
+    public void addCatalogAccessControl(CatalogName catalogName, ConnectorAccessControl accessControl)
     {
-        requireNonNull(connectorId, "connectorId is null");
+        requireNonNull(catalogName, "connectorId is null");
         requireNonNull(accessControl, "accessControl is null");
-        checkState(connectorAccessControl.putIfAbsent(connectorId, new CatalogAccessControlEntry(connectorId, accessControl)) == null,
-                "Access control for connector '%s' is already registered", connectorId);
+        checkState(connectorAccessControl.putIfAbsent(catalogName, new CatalogAccessControlEntry(catalogName, accessControl)) == null,
+                "Access control for connector '%s' is already registered", catalogName);
     }
 
-    public void removeCatalogAccessControl(ConnectorId connectorId)
+    public void removeCatalogAccessControl(CatalogName catalogName)
     {
-        connectorAccessControl.remove(connectorId);
+        connectorAccessControl.remove(catalogName);
     }
 
     public void loadSystemAccessControl()
@@ -667,7 +667,7 @@ public class AccessControlManager
     private CatalogAccessControlEntry getConnectorAccessControl(TransactionId transactionId, String catalogName)
     {
         return transactionManager.getOptionalCatalogMetadata(transactionId, catalogName)
-                .map(metadata -> connectorAccessControl.get(metadata.getConnectorId()))
+                .map(metadata -> connectorAccessControl.get(metadata.getCatalogName()))
                 .orElse(null);
     }
 
@@ -725,18 +725,18 @@ public class AccessControlManager
 
     private class CatalogAccessControlEntry
     {
-        private final ConnectorId connectorId;
+        private final CatalogName catalogName;
         private final ConnectorAccessControl accessControl;
 
-        public CatalogAccessControlEntry(ConnectorId connectorId, ConnectorAccessControl accessControl)
+        public CatalogAccessControlEntry(CatalogName catalogName, ConnectorAccessControl accessControl)
         {
-            this.connectorId = requireNonNull(connectorId, "connectorId is null");
+            this.catalogName = requireNonNull(catalogName, "connectorId is null");
             this.accessControl = requireNonNull(accessControl, "accessControl is null");
         }
 
-        public ConnectorId getConnectorId()
+        public CatalogName getCatalogName()
         {
-            return connectorId;
+            return catalogName;
         }
 
         public ConnectorAccessControl getAccessControl()
@@ -746,7 +746,7 @@ public class AccessControlManager
 
         public ConnectorTransactionHandle getTransactionHandle(TransactionId transactionId)
         {
-            return transactionManager.getConnectorTransaction(transactionId, connectorId);
+            return transactionManager.getConnectorTransaction(transactionId, catalogName);
         }
     }
 

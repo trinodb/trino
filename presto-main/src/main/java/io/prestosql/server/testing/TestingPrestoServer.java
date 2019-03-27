@@ -37,7 +37,7 @@ import io.airlift.jmx.testing.TestingJmxModule;
 import io.airlift.json.JsonModule;
 import io.airlift.node.testing.TestingNodeModule;
 import io.airlift.tracetoken.TraceTokenModule;
-import io.prestosql.connector.ConnectorId;
+import io.prestosql.connector.CatalogName;
 import io.prestosql.connector.ConnectorManager;
 import io.prestosql.cost.StatsCalculator;
 import io.prestosql.eventlistener.EventListenerManager;
@@ -350,14 +350,14 @@ public class TestingPrestoServer
         queryManager.addFinalQueryInfoListener(queryId, stateChangeListener);
     }
 
-    public ConnectorId createCatalog(String catalogName, String connectorName)
+    public CatalogName createCatalog(String catalogName, String connectorName)
     {
         return createCatalog(catalogName, connectorName, ImmutableMap.of());
     }
 
-    public ConnectorId createCatalog(String catalogName, String connectorName, Map<String, String> properties)
+    public CatalogName createCatalog(String catalogName, String connectorName, Map<String, String> properties)
     {
-        ConnectorId connectorId = connectorManager.createConnection(catalogName, connectorName, properties);
+        CatalogName connectorId = connectorManager.createConnection(catalogName, connectorName, properties);
         updateConnectorIdAnnouncement(announcer, connectorId, nodeManager);
         return connectorId;
     }
@@ -477,9 +477,9 @@ public class TestingPrestoServer
         return nodeManager.getAllNodes();
     }
 
-    public Set<Node> getActiveNodesWithConnector(ConnectorId connectorId)
+    public Set<Node> getActiveNodesWithConnector(CatalogName catalogName)
     {
-        return nodeManager.getActiveConnectorNodes(connectorId);
+        return nodeManager.getActiveConnectorNodes(catalogName);
     }
 
     public <T> T getInstance(Key<T> key)
@@ -487,7 +487,7 @@ public class TestingPrestoServer
         return injector.getInstance(key);
     }
 
-    private static void updateConnectorIdAnnouncement(Announcer announcer, ConnectorId connectorId, InternalNodeManager nodeManager)
+    private static void updateConnectorIdAnnouncement(Announcer announcer, CatalogName catalogName, InternalNodeManager nodeManager)
     {
         //
         // This code was copied from PrestoServer, and is a hack that should be removed when the connectorId property is removed
@@ -500,7 +500,7 @@ public class TestingPrestoServer
         Map<String, String> properties = new LinkedHashMap<>(announcement.getProperties());
         String property = nullToEmpty(properties.get("connectorIds"));
         Set<String> connectorIds = new LinkedHashSet<>(Splitter.on(',').trimResults().omitEmptyStrings().splitToList(property));
-        connectorIds.add(connectorId.toString());
+        connectorIds.add(catalogName.toString());
         properties.put("connectorIds", Joiner.on(',').join(connectorIds));
 
         // update announcement

@@ -15,7 +15,7 @@ package io.prestosql.metadata;
 
 import io.airlift.slice.Slice;
 import io.prestosql.Session;
-import io.prestosql.connector.ConnectorId;
+import io.prestosql.connector.CatalogName;
 import io.prestosql.spi.block.BlockEncodingSerde;
 import io.prestosql.spi.connector.CatalogSchemaName;
 import io.prestosql.spi.connector.ColumnHandle;
@@ -278,7 +278,7 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public void beginQuery(Session session, Set<ConnectorId> connectors)
+    public void beginQuery(Session session, Set<CatalogName> connectors)
     {
         throw new UnsupportedOperationException();
     }
@@ -332,13 +332,13 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public Optional<ConnectorId> getCatalogHandle(Session session, String catalogName)
+    public Optional<CatalogName> getCatalogHandle(Session session, String catalogName)
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public Map<String, ConnectorId> getCatalogNames(Session session)
+    public Map<String, CatalogName> getCatalogNames(Session session)
     {
         throw new UnsupportedOperationException();
     }
@@ -512,7 +512,7 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public Set<ConnectorCapabilities> getConnectorCapabilities(Session session, ConnectorId catalogName)
+    public Set<ConnectorCapabilities> getConnectorCapabilities(Session session, CatalogName catalogName)
     {
         throw new UnsupportedOperationException();
     }

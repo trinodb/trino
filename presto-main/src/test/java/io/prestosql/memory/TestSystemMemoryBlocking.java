@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-import io.prestosql.connector.ConnectorId;
+import io.prestosql.connector.CatalogName;
 import io.prestosql.execution.Lifespan;
 import io.prestosql.execution.ScheduledSplit;
 import io.prestosql.execution.TaskSource;
@@ -110,7 +110,7 @@ public class TestSystemMemoryBlocking
         Driver driver = Driver.createDriver(driverContext, source, sink);
         assertSame(driver.getDriverContext(), driverContext);
         assertFalse(driver.isFinished());
-        Split testSplit = new Split(new ConnectorId("test"), new TestSplit(), Lifespan.taskWide());
+        Split testSplit = new Split(new CatalogName("test"), new TestSplit(), Lifespan.taskWide());
         driver.updateSource(new TaskSource(sourceId, ImmutableSet.of(new ScheduledSplit(0, sourceId, testSplit)), true));
 
         ListenableFuture<?> blocked = driver.processFor(new Duration(1, NANOSECONDS));

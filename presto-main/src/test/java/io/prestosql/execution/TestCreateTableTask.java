@@ -16,7 +16,7 @@ package io.prestosql.execution;
 
 import com.google.common.collect.ImmutableList;
 import io.prestosql.Session;
-import io.prestosql.connector.ConnectorId;
+import io.prestosql.connector.CatalogName;
 import io.prestosql.metadata.AbstractMockMetadata;
 import io.prestosql.metadata.Catalog;
 import io.prestosql.metadata.CatalogManager;
@@ -89,16 +89,16 @@ public class TestCreateTableTask
         columnPropertyManager = new ColumnPropertyManager();
         testCatalog = createBogusTestingCatalog(CATALOG_NAME);
         catalogManager.registerCatalog(testCatalog);
-        tablePropertyManager.addProperties(testCatalog.getConnectorId(),
+        tablePropertyManager.addProperties(testCatalog.getConnectorCatalogName(),
                 ImmutableList.of(stringProperty("baz", "test property", null, false)));
-        columnPropertyManager.addProperties(testCatalog.getConnectorId(), ImmutableList.of());
+        columnPropertyManager.addProperties(testCatalog.getConnectorCatalogName(), ImmutableList.of());
         testSession = testSessionBuilder()
                 .setTransactionId(transactionManager.beginTransaction(false))
                 .build();
         metadata = new MockMetadata(typeManager,
                 tablePropertyManager,
                 columnPropertyManager,
-                testCatalog.getConnectorId(),
+                testCatalog.getConnectorCatalogName(),
                 emptySet());
     }
 
@@ -188,7 +188,7 @@ public class TestCreateTableTask
         private final TypeManager typeManager;
         private final TablePropertyManager tablePropertyManager;
         private final ColumnPropertyManager columnPropertyManager;
-        private final ConnectorId catalogHandle;
+        private final CatalogName catalogHandle;
         private final List<ConnectorTableMetadata> tables = new CopyOnWriteArrayList<>();
         private Set<ConnectorCapabilities> connectorCapabilities;
 
@@ -196,7 +196,7 @@ public class TestCreateTableTask
                 TypeManager typeManager,
                 TablePropertyManager tablePropertyManager,
                 ColumnPropertyManager columnPropertyManager,
-                ConnectorId catalogHandle,
+                CatalogName catalogHandle,
                 Set<ConnectorCapabilities> connectorCapabilities)
         {
             this.typeManager = requireNonNull(typeManager, "typeManager is null");
@@ -234,7 +234,7 @@ public class TestCreateTableTask
         }
 
         @Override
-        public Optional<ConnectorId> getCatalogHandle(Session session, String catalogName)
+        public Optional<CatalogName> getCatalogHandle(Session session, String catalogName)
         {
             if (catalogHandle.getCatalogName().equals(catalogName)) {
                 return Optional.of(catalogHandle);
@@ -265,7 +265,7 @@ public class TestCreateTableTask
         }
 
         @Override
-        public Set<ConnectorCapabilities> getConnectorCapabilities(Session session, ConnectorId catalogName)
+        public Set<ConnectorCapabilities> getConnectorCapabilities(Session session, CatalogName catalogName)
         {
             return connectorCapabilities;
         }

@@ -16,7 +16,7 @@ package io.prestosql.metadata;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import io.prestosql.Session;
-import io.prestosql.connector.ConnectorId;
+import io.prestosql.connector.CatalogName;
 import io.prestosql.spi.ErrorCodeSupplier;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.BlockBuilder;
@@ -42,7 +42,7 @@ import static java.util.Objects.requireNonNull;
 
 abstract class AbstractPropertyManager
 {
-    private final ConcurrentMap<ConnectorId, Map<String, PropertyMetadata<?>>> connectorProperties = new ConcurrentHashMap<>();
+    private final ConcurrentMap<CatalogName, Map<String, PropertyMetadata<?>>> connectorProperties = new ConcurrentHashMap<>();
     private final String propertyType;
     private final ErrorCodeSupplier propertyError;
 
@@ -53,30 +53,30 @@ abstract class AbstractPropertyManager
         this.propertyError = requireNonNull(propertyError, "propertyError is null");
     }
 
-    public final void addProperties(ConnectorId connectorId, List<PropertyMetadata<?>> properties)
+    public final void addProperties(CatalogName catalogName, List<PropertyMetadata<?>> properties)
     {
-        requireNonNull(connectorId, "connectorId is null");
+        requireNonNull(catalogName, "connectorId is null");
         requireNonNull(properties, "properties is null");
 
         Map<String, PropertyMetadata<?>> propertiesByName = Maps.uniqueIndex(properties, PropertyMetadata::getName);
 
-        checkState(connectorProperties.putIfAbsent(connectorId, propertiesByName) == null, "Properties for connector '%s' are already registered", connectorId);
+        checkState(connectorProperties.putIfAbsent(catalogName, propertiesByName) == null, "Properties for connector '%s' are already registered", catalogName);
     }
 
-    public final void removeProperties(ConnectorId connectorId)
+    public final void removeProperties(CatalogName catalogName)
     {
-        connectorProperties.remove(connectorId);
+        connectorProperties.remove(catalogName);
     }
 
     public final Map<String, Object> getProperties(
-            ConnectorId connectorId,
+            CatalogName catalogName,
             String catalog, // only use this for error messages
             Map<String, Expression> sqlPropertyValues,
             Session session,
             Metadata metadata,
             List<Expression> parameters)
     {
-        Map<String, PropertyMetadata<?>> supportedProperties = connectorProperties.get(connectorId);
+        Map<String, PropertyMetadata<?>> supportedProperties = connectorProperties.get(catalogName);
         if (supportedProperties == null) {
             throw new PrestoException(NOT_FOUND, "Catalog not found: " + catalog);
         }
@@ -137,7 +137,7 @@ abstract class AbstractPropertyManager
         return properties.build();
     }
 
-    public Map<ConnectorId, Map<String, PropertyMetadata<?>>> getAllProperties()
+    public Map<CatalogName, Map<String, PropertyMetadata<?>>> getAllProperties()
     {
         return ImmutableMap.copyOf(connectorProperties);
     }

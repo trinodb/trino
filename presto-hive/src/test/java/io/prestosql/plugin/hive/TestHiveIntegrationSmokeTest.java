@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Files;
 import io.prestosql.Session;
-import io.prestosql.connector.ConnectorId;
+import io.prestosql.connector.CatalogName;
 import io.prestosql.cost.StatsAndCosts;
 import io.prestosql.metadata.InsertTableHandle;
 import io.prestosql.metadata.Metadata;
@@ -3720,7 +3720,7 @@ public class TestHiveIntegrationSmokeTest
 
     private static ConnectorSession getConnectorSession(Session session)
     {
-        return session.toConnectorSession(new ConnectorId(session.getCatalog().get()));
+        return session.toConnectorSession(new CatalogName(session.getCatalog().get()));
     }
 
     private void testWithAllStorageFormats(BiConsumer<Session, HiveStorageFormat> test)

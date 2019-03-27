@@ -18,7 +18,7 @@ import io.airlift.json.JsonCodec;
 import io.prestosql.Session;
 import io.prestosql.SystemSessionProperties;
 import io.prestosql.block.BlockEncodingManager;
-import io.prestosql.connector.ConnectorId;
+import io.prestosql.connector.CatalogName;
 import io.prestosql.connector.informationschema.InformationSchemaConnector;
 import io.prestosql.connector.system.SystemConnector;
 import io.prestosql.execution.QueryManagerConfig;
@@ -66,8 +66,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.function.Consumer;
 
-import static io.prestosql.connector.ConnectorId.createInformationSchemaConnectorId;
-import static io.prestosql.connector.ConnectorId.createSystemTablesConnectorId;
+import static io.prestosql.connector.CatalogName.createInformationSchemaConnectorId;
+import static io.prestosql.connector.CatalogName.createSystemTablesConnectorId;
 import static io.prestosql.metadata.ViewDefinition.ViewColumn;
 import static io.prestosql.operator.scalar.ApplyFunction.APPLY_FUNCTION;
 import static io.prestosql.spi.session.PropertyMetadata.integerProperty;
@@ -130,11 +130,11 @@ import static org.testng.Assert.fail;
 public class TestAnalyzer
 {
     private static final String TPCH_CATALOG = "tpch";
-    private static final ConnectorId TPCH_CONNECTOR_ID = new ConnectorId(TPCH_CATALOG);
+    private static final CatalogName TPCH_CONNECTOR_ID = new CatalogName(TPCH_CATALOG);
     private static final String SECOND_CATALOG = "c2";
-    private static final ConnectorId SECOND_CONNECTOR_ID = new ConnectorId(SECOND_CATALOG);
+    private static final CatalogName SECOND_CONNECTOR_ID = new CatalogName(SECOND_CATALOG);
     private static final String THIRD_CATALOG = "c3";
-    private static final ConnectorId THIRD_CONNECTOR_ID = new ConnectorId(THIRD_CATALOG);
+    private static final CatalogName THIRD_CONNECTOR_ID = new CatalogName(THIRD_CATALOG);
     private static final Session SETUP_SESSION = testSessionBuilder()
             .setCatalog("c1")
             .setSchema("s1")
@@ -1747,9 +1747,9 @@ public class TestAnalyzer
         }
     }
 
-    private Catalog createTestingCatalog(String catalogName, ConnectorId connectorId)
+    private Catalog createTestingCatalog(String catalogName, CatalogName connectorId)
     {
-        ConnectorId systemId = createSystemTablesConnectorId(connectorId);
+        CatalogName systemId = createSystemTablesConnectorId(connectorId);
         Connector connector = createTestingConnector();
         InternalNodeManager nodeManager = new InMemoryNodeManager();
         return new Catalog(

@@ -19,7 +19,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.SetMultimap;
 import io.prestosql.client.NodeVersion;
-import io.prestosql.connector.ConnectorId;
+import io.prestosql.connector.CatalogName;
 import io.prestosql.spi.Node;
 
 import javax.annotation.concurrent.GuardedBy;
@@ -37,7 +37,7 @@ public class InMemoryNodeManager
         implements InternalNodeManager
 {
     private final Node localNode;
-    private final SetMultimap<ConnectorId, Node> remoteNodes = Multimaps.synchronizedSetMultimap(HashMultimap.create());
+    private final SetMultimap<CatalogName, Node> remoteNodes = Multimaps.synchronizedSetMultimap(HashMultimap.create());
 
     @GuardedBy("this")
     private final List<Consumer<AllNodes>> listeners = new ArrayList<>();
@@ -53,19 +53,19 @@ public class InMemoryNodeManager
         localNode = new PrestoNode("local", localUri, NodeVersion.UNKNOWN, false);
     }
 
-    public void addCurrentNodeConnector(ConnectorId connectorId)
+    public void addCurrentNodeConnector(CatalogName catalogName)
     {
-        addNode(connectorId, localNode);
+        addNode(catalogName, localNode);
     }
 
-    public void addNode(ConnectorId connectorId, Node... nodes)
+    public void addNode(CatalogName catalogName, Node... nodes)
     {
-        addNode(connectorId, ImmutableList.copyOf(nodes));
+        addNode(catalogName, ImmutableList.copyOf(nodes));
     }
 
-    public void addNode(ConnectorId connectorId, Iterable<Node> nodes)
+    public void addNode(CatalogName catalogName, Iterable<Node> nodes)
     {
-        remoteNodes.putAll(connectorId, nodes);
+        remoteNodes.putAll(catalogName, nodes);
 
         List<Consumer<AllNodes>> listeners;
         synchronized (this) {
@@ -91,9 +91,9 @@ public class InMemoryNodeManager
     }
 
     @Override
-    public Set<Node> getActiveConnectorNodes(ConnectorId connectorId)
+    public Set<Node> getActiveConnectorNodes(CatalogName catalogName)
     {
-        return ImmutableSet.copyOf(remoteNodes.get(connectorId));
+        return ImmutableSet.copyOf(remoteNodes.get(catalogName));
     }
 
     @Override

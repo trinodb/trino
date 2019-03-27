@@ -15,7 +15,7 @@ package io.prestosql.sql.planner;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.prestosql.connector.ConnectorId;
+import io.prestosql.connector.CatalogName;
 import io.prestosql.spi.connector.ConnectorPartitioningHandle;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 
@@ -27,13 +27,13 @@ import static java.util.Objects.requireNonNull;
 
 public class PartitioningHandle
 {
-    private final Optional<ConnectorId> connectorId;
+    private final Optional<CatalogName> connectorId;
     private final Optional<ConnectorTransactionHandle> transactionHandle;
     private final ConnectorPartitioningHandle connectorHandle;
 
     @JsonCreator
     public PartitioningHandle(
-            @JsonProperty("connectorId") Optional<ConnectorId> connectorId,
+            @JsonProperty("connectorId") Optional<CatalogName> connectorId,
             @JsonProperty("transactionHandle") Optional<ConnectorTransactionHandle> transactionHandle,
             @JsonProperty("connectorHandle") ConnectorPartitioningHandle connectorHandle)
     {
@@ -44,7 +44,7 @@ public class PartitioningHandle
     }
 
     @JsonProperty
-    public Optional<ConnectorId> getConnectorId()
+    public Optional<CatalogName> getConnectorId()
     {
         return connectorId;
     }

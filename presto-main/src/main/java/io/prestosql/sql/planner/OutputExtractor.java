@@ -13,7 +13,7 @@
  */
 package io.prestosql.sql.planner;
 
-import io.prestosql.connector.ConnectorId;
+import io.prestosql.connector.CatalogName;
 import io.prestosql.execution.Output;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.sql.planner.plan.PlanNode;
@@ -31,12 +31,12 @@ public class OutputExtractor
         Visitor visitor = new Visitor();
         root.accept(visitor, null);
 
-        if (visitor.getConnectorId() == null) {
+        if (visitor.getCatalogName() == null) {
             return Optional.empty();
         }
 
         return Optional.of(new Output(
-                visitor.getConnectorId(),
+                visitor.getCatalogName(),
                 visitor.getSchemaTableName().getSchemaName(),
                 visitor.getSchemaTableName().getTableName()));
     }
@@ -44,7 +44,7 @@ public class OutputExtractor
     private static class Visitor
             extends PlanVisitor<Void, Void>
     {
-        private ConnectorId connectorId;
+        private CatalogName catalogName;
         private SchemaTableName schemaTableName;
 
         @Override
@@ -53,19 +53,19 @@ public class OutputExtractor
             TableWriterNode.WriterTarget writerTarget = node.getTarget();
 
             if (writerTarget instanceof TableWriterNode.CreateHandle) {
-                connectorId = ((TableWriterNode.CreateHandle) writerTarget).getHandle().getConnectorId();
+                catalogName = ((TableWriterNode.CreateHandle) writerTarget).getHandle().getCatalogName();
                 checkState(schemaTableName == null || schemaTableName.equals(((TableWriterNode.CreateHandle) writerTarget).getSchemaTableName()),
                         "cannot have more than a single create, insert or delete in a query");
                 schemaTableName = ((TableWriterNode.CreateHandle) writerTarget).getSchemaTableName();
             }
             if (writerTarget instanceof TableWriterNode.InsertHandle) {
-                connectorId = ((TableWriterNode.InsertHandle) writerTarget).getHandle().getConnectorId();
+                catalogName = ((TableWriterNode.InsertHandle) writerTarget).getHandle().getCatalogName();
                 checkState(schemaTableName == null || schemaTableName.equals(((TableWriterNode.InsertHandle) writerTarget).getSchemaTableName()),
                         "cannot have more than a single create, insert or delete in a query");
                 schemaTableName = ((TableWriterNode.InsertHandle) writerTarget).getSchemaTableName();
             }
             if (writerTarget instanceof TableWriterNode.DeleteHandle) {
-                connectorId = ((TableWriterNode.DeleteHandle) writerTarget).getHandle().getConnectorId();
+                catalogName = ((TableWriterNode.DeleteHandle) writerTarget).getHandle().getCatalogName();
                 checkState(schemaTableName == null || schemaTableName.equals(((TableWriterNode.DeleteHandle) writerTarget).getSchemaTableName()),
                         "cannot have more than a single create, insert or delete in a query");
                 schemaTableName = ((TableWriterNode.DeleteHandle) writerTarget).getSchemaTableName();
@@ -82,9 +82,9 @@ public class OutputExtractor
             return null;
         }
 
-        public ConnectorId getConnectorId()
+        public CatalogName getCatalogName()
         {
-            return connectorId;
+            return catalogName;
         }
 
         public SchemaTableName getSchemaTableName()

@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
-import io.prestosql.connector.ConnectorId;
+import io.prestosql.connector.CatalogName;
 import io.prestosql.execution.Lifespan;
 import io.prestosql.metadata.Split;
 import io.prestosql.spi.HostAddress;
@@ -40,7 +40,7 @@ import static io.prestosql.split.MockSplitSource.Action.FINISH;
 public class MockSplitSource
         implements SplitSource
 {
-    private static final Split SPLIT = new Split(new ConnectorId("test"), new MockConnectorSplit(), Lifespan.taskWide());
+    private static final Split SPLIT = new Split(new CatalogName("test"), new MockConnectorSplit(), Lifespan.taskWide());
     private static final SettableFuture<List<Split>> COMPLETED_FUTURE = SettableFuture.create();
 
     static {
@@ -84,7 +84,7 @@ public class MockSplitSource
     }
 
     @Override
-    public ConnectorId getConnectorId()
+    public CatalogName getCatalogName()
     {
         throw new UnsupportedOperationException();
     }

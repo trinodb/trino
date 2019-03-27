@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.prestosql.RowPagesBuilder;
 import io.prestosql.Session;
-import io.prestosql.connector.ConnectorId;
+import io.prestosql.connector.CatalogName;
 import io.prestosql.memory.context.MemoryTrackingContext;
 import io.prestosql.metadata.OutputTableHandle;
 import io.prestosql.metadata.Signature;
@@ -73,7 +73,7 @@ import static org.testng.Assert.assertTrue;
 
 public class TestTableWriterOperator
 {
-    private static final ConnectorId CONNECTOR_ID = new ConnectorId("testConnectorId");
+    private static final CatalogName CONNECTOR_ID = new CatalogName("testConnectorId");
     private static final InternalAggregationFunction LONG_MAX = createTestMetadataManager().getFunctionRegistry().getAggregateFunctionImplementation(
             new Signature("max", AGGREGATE, BIGINT.getTypeSignature(), BIGINT.getTypeSignature()));
     private ExecutorService executor;

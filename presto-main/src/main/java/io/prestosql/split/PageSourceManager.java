@@ -14,7 +14,7 @@
 package io.prestosql.split;
 
 import io.prestosql.Session;
-import io.prestosql.connector.ConnectorId;
+import io.prestosql.connector.CatalogName;
 import io.prestosql.metadata.Split;
 import io.prestosql.metadata.TableHandle;
 import io.prestosql.spi.connector.ColumnHandle;
@@ -32,39 +32,39 @@ import static java.util.Objects.requireNonNull;
 public class PageSourceManager
         implements PageSourceProvider
 {
-    private final ConcurrentMap<ConnectorId, ConnectorPageSourceProvider> pageSourceProviders = new ConcurrentHashMap<>();
+    private final ConcurrentMap<CatalogName, ConnectorPageSourceProvider> pageSourceProviders = new ConcurrentHashMap<>();
 
-    public void addConnectorPageSourceProvider(ConnectorId connectorId, ConnectorPageSourceProvider pageSourceProvider)
+    public void addConnectorPageSourceProvider(CatalogName catalogName, ConnectorPageSourceProvider pageSourceProvider)
     {
-        requireNonNull(connectorId, "connectorId is null");
+        requireNonNull(catalogName, "connectorId is null");
         requireNonNull(pageSourceProvider, "pageSourceProvider is null");
-        checkState(pageSourceProviders.put(connectorId, pageSourceProvider) == null, "PageSourceProvider for connector '%s' is already registered", connectorId);
+        checkState(pageSourceProviders.put(catalogName, pageSourceProvider) == null, "PageSourceProvider for connector '%s' is already registered", catalogName);
     }
 
-    public void removeConnectorPageSourceProvider(ConnectorId connectorId)
+    public void removeConnectorPageSourceProvider(CatalogName catalogName)
     {
-        pageSourceProviders.remove(connectorId);
+        pageSourceProviders.remove(catalogName);
     }
 
     @Override
     public ConnectorPageSource createPageSource(Session session, Split split, TableHandle table, List<ColumnHandle> columns)
     {
         requireNonNull(columns, "columns is null");
-        checkArgument(split.getConnectorId().equals(table.getConnectorId()), "mismatched split and table");
-        ConnectorId connectorId = split.getConnectorId();
+        checkArgument(split.getCatalogName().equals(table.getCatalogName()), "mismatched split and table");
+        CatalogName catalogName = split.getCatalogName();
 
-        return getPageSourceProvider(connectorId).createPageSource(
+        return getPageSourceProvider(catalogName).createPageSource(
                 table.getTransaction(),
-                session.toConnectorSession(connectorId),
+                session.toConnectorSession(catalogName),
                 split.getConnectorSplit(),
                 table.getConnectorHandle(),
                 columns);
     }
 
-    private ConnectorPageSourceProvider getPageSourceProvider(ConnectorId connectorId)
+    private ConnectorPageSourceProvider getPageSourceProvider(CatalogName catalogName)
     {
-        ConnectorPageSourceProvider provider = pageSourceProviders.get(connectorId);
-        checkArgument(provider != null, "No page source provider for connector: %s", connectorId);
+        ConnectorPageSourceProvider provider = pageSourceProviders.get(catalogName);
+        checkArgument(provider != null, "No page source provider for connector: %s", catalogName);
         return provider;
     }
 }

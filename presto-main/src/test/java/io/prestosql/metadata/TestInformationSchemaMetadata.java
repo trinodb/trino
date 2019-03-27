@@ -21,7 +21,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.prestosql.block.BlockEncodingManager;
 import io.prestosql.client.ClientCapabilities;
-import io.prestosql.connector.ConnectorId;
+import io.prestosql.connector.CatalogName;
 import io.prestosql.connector.MockConnectorFactory;
 import io.prestosql.connector.informationschema.InformationSchemaColumnHandle;
 import io.prestosql.connector.informationschema.InformationSchemaMetadata;
@@ -49,8 +49,8 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static io.prestosql.connector.ConnectorId.createInformationSchemaConnectorId;
-import static io.prestosql.connector.ConnectorId.createSystemTablesConnectorId;
+import static io.prestosql.connector.CatalogName.createInformationSchemaConnectorId;
+import static io.prestosql.connector.CatalogName.createSystemTablesConnectorId;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static io.prestosql.transaction.InMemoryTransactionManager.createTestTransactionManager;
@@ -81,7 +81,7 @@ public class TestInformationSchemaMetadata
         Connector testConnector = mockConnectorFactory.create("test", ImmutableMap.of(), new TestingConnectorContext());
         CatalogManager catalogManager = new CatalogManager();
         String catalogName = "test_catalog";
-        ConnectorId connectorId = new ConnectorId(catalogName);
+        CatalogName connectorId = new CatalogName(catalogName);
         catalogManager.registerCatalog(new Catalog(
                 catalogName,
                 connectorId,

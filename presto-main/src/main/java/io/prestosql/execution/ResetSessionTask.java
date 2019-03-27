@@ -14,7 +14,7 @@
 package io.prestosql.execution;
 
 import com.google.common.util.concurrent.ListenableFuture;
-import io.prestosql.connector.ConnectorId;
+import io.prestosql.connector.CatalogName;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.security.AccessControl;
 import io.prestosql.sql.analyzer.SemanticException;
@@ -51,9 +51,9 @@ public class ResetSessionTask
                     .orElseThrow(() -> new SemanticException(INVALID_SESSION_PROPERTY, statement, "Session property %s does not exist", statement.getName()));
         }
         else {
-            ConnectorId connectorId = metadata.getCatalogHandle(stateMachine.getSession(), parts.get(0))
+            CatalogName catalogName = metadata.getCatalogHandle(stateMachine.getSession(), parts.get(0))
                     .orElseThrow(() -> new SemanticException(MISSING_CATALOG, statement, "Catalog %s does not exist", parts.get(0)));
-            metadata.getSessionPropertyManager().getConnectorSessionPropertyMetadata(connectorId, parts.get(1))
+            metadata.getSessionPropertyManager().getConnectorSessionPropertyMetadata(catalogName, parts.get(1))
                     .orElseThrow(() -> new SemanticException(INVALID_SESSION_PROPERTY, statement, "Session property %s does not exist", statement.getName()));
         }
 

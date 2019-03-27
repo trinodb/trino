@@ -21,7 +21,7 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.prestosql.Session;
 import io.prestosql.SystemSessionProperties;
-import io.prestosql.connector.ConnectorId;
+import io.prestosql.connector.CatalogName;
 import io.prestosql.cost.CostCalculator;
 import io.prestosql.cost.StatsCalculator;
 import io.prestosql.execution.QueryPreparer.PreparedQuery;
@@ -441,17 +441,17 @@ public class SqlQueryExecution
         return new PlanRoot(fragmentedPlan, !explainAnalyze, extractConnectors(analysis));
     }
 
-    private static Set<ConnectorId> extractConnectors(Analysis analysis)
+    private static Set<CatalogName> extractConnectors(Analysis analysis)
     {
-        ImmutableSet.Builder<ConnectorId> connectors = ImmutableSet.builder();
+        ImmutableSet.Builder<CatalogName> connectors = ImmutableSet.builder();
 
         for (TableHandle tableHandle : analysis.getTables()) {
-            connectors.add(tableHandle.getConnectorId());
+            connectors.add(tableHandle.getCatalogName());
         }
 
         if (analysis.getInsert().isPresent()) {
             TableHandle target = analysis.getInsert().get().getTarget();
-            connectors.add(target.getConnectorId());
+            connectors.add(target.getCatalogName());
         }
 
         return connectors.build();
@@ -640,9 +640,9 @@ public class SqlQueryExecution
     {
         private final SubPlan root;
         private final boolean summarizeTaskInfos;
-        private final Set<ConnectorId> connectors;
+        private final Set<CatalogName> connectors;
 
-        public PlanRoot(SubPlan root, boolean summarizeTaskInfos, Set<ConnectorId> connectors)
+        public PlanRoot(SubPlan root, boolean summarizeTaskInfos, Set<CatalogName> connectors)
         {
             this.root = requireNonNull(root, "root is null");
             this.summarizeTaskInfos = summarizeTaskInfos;
@@ -659,7 +659,7 @@ public class SqlQueryExecution
             return summarizeTaskInfos;
         }
 
-        public Set<ConnectorId> getConnectors()
+        public Set<CatalogName> getConnectors()
         {
             return connectors;
         }

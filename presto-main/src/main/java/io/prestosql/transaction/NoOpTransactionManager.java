@@ -14,7 +14,7 @@
 package io.prestosql.transaction;
 
 import com.google.common.util.concurrent.ListenableFuture;
-import io.prestosql.connector.ConnectorId;
+import io.prestosql.connector.CatalogName;
 import io.prestosql.metadata.CatalogMetadata;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 import io.prestosql.spi.transaction.IsolationLevel;
@@ -60,7 +60,7 @@ public class NoOpTransactionManager
     }
 
     @Override
-    public Map<String, ConnectorId> getCatalogNames(TransactionId transactionId)
+    public Map<String, CatalogName> getCatalogNames(TransactionId transactionId)
     {
         throw new UnsupportedOperationException();
     }
@@ -72,13 +72,13 @@ public class NoOpTransactionManager
     }
 
     @Override
-    public CatalogMetadata getCatalogMetadata(TransactionId transactionId, ConnectorId connectorId)
+    public CatalogMetadata getCatalogMetadata(TransactionId transactionId, CatalogName catalogName)
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public CatalogMetadata getCatalogMetadataForWrite(TransactionId transactionId, ConnectorId connectorId)
+    public CatalogMetadata getCatalogMetadataForWrite(TransactionId transactionId, CatalogName catalogName)
     {
         throw new UnsupportedOperationException();
     }
@@ -90,7 +90,7 @@ public class NoOpTransactionManager
     }
 
     @Override
-    public ConnectorTransactionHandle getConnectorTransaction(TransactionId transactionId, ConnectorId connectorId)
+    public ConnectorTransactionHandle getConnectorTransaction(TransactionId transactionId, CatalogName catalogName)
     {
         throw new UnsupportedOperationException();
     }

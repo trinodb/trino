@@ -22,7 +22,7 @@ import io.airlift.stats.Distribution;
 import io.airlift.stats.Distribution.DistributionSnapshot;
 import io.prestosql.SessionRepresentation;
 import io.prestosql.client.NodeVersion;
-import io.prestosql.connector.ConnectorId;
+import io.prestosql.connector.CatalogName;
 import io.prestosql.cost.PlanCostEstimate;
 import io.prestosql.cost.PlanNodeStatsEstimate;
 import io.prestosql.cost.StatsAndCosts;
@@ -323,7 +323,7 @@ public class QueryMonitor
         ImmutableList.Builder<QueryInputMetadata> inputs = ImmutableList.builder();
         for (Input input : queryInfo.getInputs()) {
             inputs.add(new QueryInputMetadata(
-                    input.getConnectorId().getCatalogName(),
+                    input.getCatalogName().getCatalogName(),
                     input.getSchema(),
                     input.getTable(),
                     input.getColumns().stream()
@@ -341,7 +341,7 @@ public class QueryMonitor
 
             output = Optional.of(
                     new QueryOutputMetadata(
-                            queryInfo.getOutput().get().getConnectorId().getCatalogName(),
+                            queryInfo.getOutput().get().getCatalogName().getCatalogName(),
                             queryInfo.getOutput().get().getSchema(),
                             queryInfo.getOutput().get().getTable(),
                             tableFinishInfo.map(TableFinishInfo::getConnectorOutputMetadata),
@@ -391,7 +391,7 @@ public class QueryMonitor
                 mergedProperties.put(catalogEntry.getKey() + "." + entry.getKey(), entry.getValue());
             }
         }
-        for (Map.Entry<ConnectorId, Map<String, String>> catalogEntry : session.getCatalogProperties().entrySet()) {
+        for (Map.Entry<CatalogName, Map<String, String>> catalogEntry : session.getCatalogProperties().entrySet()) {
             for (Map.Entry<String, String> entry : catalogEntry.getValue().entrySet()) {
                 mergedProperties.put(catalogEntry.getKey().getCatalogName() + "." + entry.getKey(), entry.getValue());
             }

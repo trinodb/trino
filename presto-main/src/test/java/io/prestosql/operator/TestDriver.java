@@ -19,7 +19,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.common.util.concurrent.Uninterruptibles;
 import io.airlift.units.Duration;
-import io.prestosql.connector.ConnectorId;
+import io.prestosql.connector.CatalogName;
 import io.prestosql.execution.Lifespan;
 import io.prestosql.execution.ScheduledSplit;
 import io.prestosql.execution.TaskSource;
@@ -338,7 +338,7 @@ public class TestDriver
 
     private static Split newMockSplit()
     {
-        return new Split(new ConnectorId("test"), new MockSplit(), Lifespan.taskWide());
+        return new Split(new CatalogName("test"), new MockSplit(), Lifespan.taskWide());
     }
 
     private PageConsumerOperator createSinkOperator(List<Type> types)

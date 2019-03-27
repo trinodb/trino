@@ -23,7 +23,7 @@ import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.stats.CounterStat;
-import io.prestosql.connector.ConnectorId;
+import io.prestosql.connector.CatalogName;
 import io.prestosql.execution.NodeTaskMap;
 import io.prestosql.execution.RemoteTask;
 import io.prestosql.metadata.InternalNodeManager;
@@ -120,7 +120,7 @@ public class NodeScheduler
         return counters.build();
     }
 
-    public NodeSelector createNodeSelector(ConnectorId connectorId)
+    public NodeSelector createNodeSelector(CatalogName catalogName)
     {
         // this supplier is thread-safe. TODO: this logic should probably move to the scheduler since the choice of which node to run in should be
         // done as close to when the the split is about to be scheduled
@@ -130,8 +130,8 @@ public class NodeScheduler
             ImmutableSetMultimap.Builder<NetworkLocation, Node> workersByNetworkPath = ImmutableSetMultimap.builder();
 
             Set<Node> nodes;
-            if (connectorId != null) {
-                nodes = nodeManager.getActiveConnectorNodes(connectorId);
+            if (catalogName != null) {
+                nodes = nodeManager.getActiveConnectorNodes(catalogName);
             }
             else {
                 nodes = nodeManager.getNodes(ACTIVE);

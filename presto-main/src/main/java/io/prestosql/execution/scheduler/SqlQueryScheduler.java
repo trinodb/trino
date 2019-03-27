@@ -24,7 +24,7 @@ import io.airlift.concurrent.SetThreadName;
 import io.airlift.stats.TimeStat;
 import io.airlift.units.Duration;
 import io.prestosql.Session;
-import io.prestosql.connector.ConnectorId;
+import io.prestosql.connector.CatalogName;
 import io.prestosql.execution.BasicStageStats;
 import io.prestosql.execution.LocationFactory;
 import io.prestosql.execution.NodeTaskMap;
@@ -84,7 +84,7 @@ import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.prestosql.SystemSessionProperties.getConcurrentLifespansPerNode;
 import static io.prestosql.SystemSessionProperties.getWriterMinSize;
 import static io.prestosql.SystemSessionProperties.isDynamicSchduleForGroupedExecution;
-import static io.prestosql.connector.ConnectorId.isInternalSystemConnector;
+import static io.prestosql.connector.CatalogName.isInternalSystemConnector;
 import static io.prestosql.execution.BasicStageStats.aggregateBasicStageStats;
 import static io.prestosql.execution.SqlStageExecution.createSqlStageExecution;
 import static io.prestosql.execution.StageState.ABORTED;
@@ -320,11 +320,11 @@ public class SqlQueryScheduler
             Entry<PlanNodeId, SplitSource> entry = Iterables.getOnlyElement(plan.getSplitSources().entrySet());
             PlanNodeId planNodeId = entry.getKey();
             SplitSource splitSource = entry.getValue();
-            ConnectorId connectorId = splitSource.getConnectorId();
-            if (isInternalSystemConnector(connectorId)) {
-                connectorId = null;
+            CatalogName catalogName = splitSource.getCatalogName();
+            if (isInternalSystemConnector(catalogName)) {
+                catalogName = null;
             }
-            NodeSelector nodeSelector = nodeScheduler.createNodeSelector(connectorId);
+            NodeSelector nodeSelector = nodeScheduler.createNodeSelector(catalogName);
             SplitPlacementPolicy placementPolicy = new DynamicSplitPlacementPolicy(nodeSelector, stage::getAllTasks);
 
             checkArgument(!plan.getFragment().getStageExecutionDescriptor().isStageGroupedExecution());
@@ -339,7 +339,7 @@ public class SqlQueryScheduler
             if (!splitSources.isEmpty()) {
                 // contains local source
                 List<PlanNodeId> schedulingOrder = plan.getFragment().getPartitionedSources();
-                ConnectorId connectorId = partitioningHandle.getConnectorId().orElseThrow(IllegalStateException::new);
+                CatalogName catalogName = partitioningHandle.getConnectorId().orElseThrow(IllegalStateException::new);
                 List<ConnectorPartitionHandle> connectorPartitionHandles;
                 boolean groupedExecutionForStage = plan.getFragment().getStageExecutionDescriptor().isStageGroupedExecution();
                 if (groupedExecutionForStage) {
@@ -360,7 +360,7 @@ public class SqlQueryScheduler
                         verify(preferDynamic);
                     }
 
-                    stageNodeList = new ArrayList<>(nodeScheduler.createNodeSelector(connectorId).allNodes());
+                    stageNodeList = new ArrayList<>(nodeScheduler.createNodeSelector(catalogName).allNodes());
                     Collections.shuffle(stageNodeList);
                     bucketToPartition = Optional.empty();
                 }
@@ -384,7 +384,7 @@ public class SqlQueryScheduler
                         bucketNodeMap,
                         splitBatchSize,
                         getConcurrentLifespansPerNode(session),
-                        nodeScheduler.createNodeSelector(connectorId),
+                        nodeScheduler.createNodeSelector(catalogName),
                         connectorPartitionHandles));
             }
             else {

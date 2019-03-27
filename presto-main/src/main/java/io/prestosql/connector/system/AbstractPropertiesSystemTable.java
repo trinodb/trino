@@ -14,7 +14,7 @@
 package io.prestosql.connector.system;
 
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.connector.ConnectorId;
+import io.prestosql.connector.CatalogName;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
@@ -43,9 +43,9 @@ abstract class AbstractPropertiesSystemTable
 {
     private final ConnectorTableMetadata tableMetadata;
     private final TransactionManager transactionManager;
-    private final Supplier<Map<ConnectorId, Map<String, PropertyMetadata<?>>>> propertySupplier;
+    private final Supplier<Map<CatalogName, Map<String, PropertyMetadata<?>>>> propertySupplier;
 
-    protected AbstractPropertiesSystemTable(String tableName, TransactionManager transactionManager, Supplier<Map<ConnectorId, Map<String, PropertyMetadata<?>>>> propertySupplier)
+    protected AbstractPropertiesSystemTable(String tableName, TransactionManager transactionManager, Supplier<Map<CatalogName, Map<String, PropertyMetadata<?>>>> propertySupplier)
     {
         this.tableMetadata = tableMetadataBuilder(new SchemaTableName("metadata", tableName))
                 .column("catalog_name", createUnboundedVarcharType())
@@ -76,8 +76,8 @@ abstract class AbstractPropertiesSystemTable
         TransactionId transactionId = ((GlobalSystemTransactionHandle) transactionHandle).getTransactionId();
 
         InMemoryRecordSet.Builder table = InMemoryRecordSet.builder(tableMetadata);
-        Map<ConnectorId, Map<String, PropertyMetadata<?>>> connectorProperties = propertySupplier.get();
-        for (Entry<String, ConnectorId> entry : new TreeMap<>(transactionManager.getCatalogNames(transactionId)).entrySet()) {
+        Map<CatalogName, Map<String, PropertyMetadata<?>>> connectorProperties = propertySupplier.get();
+        for (Entry<String, CatalogName> entry : new TreeMap<>(transactionManager.getCatalogNames(transactionId)).entrySet()) {
             String catalog = entry.getKey();
             Map<String, PropertyMetadata<?>> properties = new TreeMap<>(connectorProperties.getOrDefault(entry.getValue(), ImmutableMap.of()));
             for (PropertyMetadata<?> propertyMetadata : properties.values()) {
