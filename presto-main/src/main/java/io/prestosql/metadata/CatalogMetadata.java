@@ -15,7 +15,7 @@ package io.prestosql.metadata;
 
 import com.google.common.collect.ImmutableList;
 import io.prestosql.Session;
-import io.prestosql.connector.ConnectorId;
+import io.prestosql.connector.CatalogName;
 import io.prestosql.spi.connector.ConnectorCapabilities;
 import io.prestosql.spi.connector.ConnectorMetadata;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
@@ -31,32 +31,32 @@ public class CatalogMetadata
 {
     private static final String INFORMATION_SCHEMA_NAME = "information_schema";
 
-    private final ConnectorId connectorId;
+    private final CatalogName catalogName;
     private final ConnectorMetadata metadata;
     private final ConnectorTransactionHandle transactionHandle;
 
-    private final ConnectorId informationSchemaId;
+    private final CatalogName informationSchemaId;
     private final ConnectorMetadata informationSchema;
     private final ConnectorTransactionHandle informationSchemaTransactionHandle;
 
-    private final ConnectorId systemTablesId;
+    private final CatalogName systemTablesId;
     private final ConnectorMetadata systemTables;
     private final ConnectorTransactionHandle systemTablesTransactionHandle;
     private final Set<ConnectorCapabilities> connectorCapabilities;
 
     public CatalogMetadata(
-            ConnectorId connectorId,
+            CatalogName catalogName,
             ConnectorMetadata metadata,
             ConnectorTransactionHandle transactionHandle,
-            ConnectorId informationSchemaId,
+            CatalogName informationSchemaId,
             ConnectorMetadata informationSchema,
             ConnectorTransactionHandle informationSchemaTransactionHandle,
-            ConnectorId systemTablesId,
+            CatalogName systemTablesId,
             ConnectorMetadata systemTables,
             ConnectorTransactionHandle systemTablesTransactionHandle,
             Set<ConnectorCapabilities> connectorCapabilities)
     {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null");
+        this.catalogName = requireNonNull(catalogName, "connectorId is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.transactionHandle = requireNonNull(transactionHandle, "transactionHandle is null");
         this.informationSchemaId = requireNonNull(informationSchemaId, "informationSchemaId is null");
@@ -68,9 +68,9 @@ public class CatalogMetadata
         this.connectorCapabilities = immutableEnumSet(requireNonNull(connectorCapabilities, "connectorCapabilities is null"));
     }
 
-    public ConnectorId getConnectorId()
+    public CatalogName getCatalogName()
     {
-        return connectorId;
+        return catalogName;
     }
 
     public ConnectorMetadata getMetadata()
@@ -78,35 +78,35 @@ public class CatalogMetadata
         return metadata;
     }
 
-    public ConnectorMetadata getMetadataFor(ConnectorId connectorId)
+    public ConnectorMetadata getMetadataFor(CatalogName catalogName)
     {
-        if (connectorId.equals(this.connectorId)) {
+        if (catalogName.equals(this.catalogName)) {
             return metadata;
         }
-        if (connectorId.equals(informationSchemaId)) {
+        if (catalogName.equals(informationSchemaId)) {
             return informationSchema;
         }
-        if (connectorId.equals(systemTablesId)) {
+        if (catalogName.equals(systemTablesId)) {
             return systemTables;
         }
-        throw new IllegalArgumentException("Unknown connector id: " + connectorId);
+        throw new IllegalArgumentException("Unknown connector id: " + catalogName);
     }
 
-    public ConnectorTransactionHandle getTransactionHandleFor(ConnectorId connectorId)
+    public ConnectorTransactionHandle getTransactionHandleFor(CatalogName catalogName)
     {
-        if (connectorId.equals(this.connectorId)) {
+        if (catalogName.equals(this.catalogName)) {
             return transactionHandle;
         }
-        if (connectorId.equals(informationSchemaId)) {
+        if (catalogName.equals(informationSchemaId)) {
             return informationSchemaTransactionHandle;
         }
-        if (connectorId.equals(systemTablesId)) {
+        if (catalogName.equals(systemTablesId)) {
             return systemTablesTransactionHandle;
         }
-        throw new IllegalArgumentException("Unknown connector id: " + connectorId);
+        throw new IllegalArgumentException("Unknown connector id: " + catalogName);
     }
 
-    public ConnectorId getConnectorId(Session session, QualifiedObjectName table)
+    public CatalogName getConnectorId(Session session, QualifiedObjectName table)
     {
         if (table.getSchemaName().equals(INFORMATION_SCHEMA_NAME)) {
             return informationSchemaId;
@@ -116,12 +116,12 @@ public class CatalogMetadata
             return systemTablesId;
         }
 
-        return connectorId;
+        return catalogName;
     }
 
-    public List<ConnectorId> listConnectorIds()
+    public List<CatalogName> listConnectorIds()
     {
-        return ImmutableList.of(informationSchemaId, systemTablesId, connectorId);
+        return ImmutableList.of(informationSchemaId, systemTablesId, catalogName);
     }
 
     public Set<ConnectorCapabilities> getConnectorCapabilities()
@@ -133,7 +133,7 @@ public class CatalogMetadata
     public String toString()
     {
         return toStringHelper(this)
-                .add("connectorId", connectorId)
+                .add("connectorId", catalogName)
                 .toString();
     }
 }

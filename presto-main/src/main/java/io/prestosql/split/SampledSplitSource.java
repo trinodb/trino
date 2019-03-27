@@ -15,7 +15,7 @@ package io.prestosql.split;
 
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.prestosql.connector.ConnectorId;
+import io.prestosql.connector.CatalogName;
 import io.prestosql.execution.Lifespan;
 import io.prestosql.spi.connector.ConnectorPartitionHandle;
 
@@ -41,9 +41,9 @@ public class SampledSplitSource
 
     @Nullable
     @Override
-    public ConnectorId getConnectorId()
+    public CatalogName getCatalogName()
     {
-        return splitSource.getConnectorId();
+        return splitSource.getCatalogName();
     }
 
     @Override

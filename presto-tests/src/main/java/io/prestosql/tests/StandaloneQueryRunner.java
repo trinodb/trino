@@ -16,7 +16,7 @@ package io.prestosql.tests;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.testing.Closeables;
 import io.prestosql.Session;
-import io.prestosql.connector.ConnectorId;
+import io.prestosql.connector.CatalogName;
 import io.prestosql.cost.StatsCalculator;
 import io.prestosql.metadata.AllNodes;
 import io.prestosql.metadata.Metadata;
@@ -76,7 +76,7 @@ public final class StandaloneQueryRunner
 
         SessionPropertyManager sessionPropertyManager = server.getMetadata().getSessionPropertyManager();
         sessionPropertyManager.addSystemSessionProperties(TEST_SYSTEM_PROPERTIES);
-        sessionPropertyManager.addConnectorSessionProperties(new ConnectorId("catalog"), TEST_CATALOG_PROPERTIES);
+        sessionPropertyManager.addConnectorSessionProperties(new CatalogName("catalog"), TEST_CATALOG_PROPERTIES);
     }
 
     @Override
@@ -186,7 +186,7 @@ public final class StandaloneQueryRunner
         while (allNodes.getActiveNodes().isEmpty());
     }
 
-    private void refreshNodes(ConnectorId connectorId)
+    private void refreshNodes(CatalogName catalogName)
     {
         Set<Node> activeNodesWithConnector;
 
@@ -198,7 +198,7 @@ public final class StandaloneQueryRunner
                 Thread.currentThread().interrupt();
                 break;
             }
-            activeNodesWithConnector = server.getActiveNodesWithConnector(connectorId);
+            activeNodesWithConnector = server.getActiveNodesWithConnector(catalogName);
         }
         while (activeNodesWithConnector.isEmpty());
     }
@@ -215,7 +215,7 @@ public final class StandaloneQueryRunner
 
     public void createCatalog(String catalogName, String connectorName, Map<String, String> properties)
     {
-        ConnectorId connectorId = server.createCatalog(catalogName, connectorName, properties);
+        CatalogName connectorId = server.createCatalog(catalogName, connectorName, properties);
 
         refreshNodes(connectorId);
     }

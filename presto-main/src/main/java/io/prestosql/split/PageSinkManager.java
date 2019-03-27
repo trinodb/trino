@@ -14,7 +14,7 @@
 package io.prestosql.split;
 
 import io.prestosql.Session;
-import io.prestosql.connector.ConnectorId;
+import io.prestosql.connector.CatalogName;
 import io.prestosql.metadata.InsertTableHandle;
 import io.prestosql.metadata.OutputTableHandle;
 import io.prestosql.spi.connector.ConnectorPageSink;
@@ -31,40 +31,40 @@ import static java.util.Objects.requireNonNull;
 public class PageSinkManager
         implements PageSinkProvider
 {
-    private final ConcurrentMap<ConnectorId, ConnectorPageSinkProvider> pageSinkProviders = new ConcurrentHashMap<>();
+    private final ConcurrentMap<CatalogName, ConnectorPageSinkProvider> pageSinkProviders = new ConcurrentHashMap<>();
 
-    public void addConnectorPageSinkProvider(ConnectorId connectorId, ConnectorPageSinkProvider pageSinkProvider)
+    public void addConnectorPageSinkProvider(CatalogName catalogName, ConnectorPageSinkProvider pageSinkProvider)
     {
-        requireNonNull(connectorId, "connectorId is null");
+        requireNonNull(catalogName, "connectorId is null");
         requireNonNull(pageSinkProvider, "pageSinkProvider is null");
-        checkState(pageSinkProviders.put(connectorId, pageSinkProvider) == null, "PageSinkProvider for connector '%s' is already registered", connectorId);
+        checkState(pageSinkProviders.put(catalogName, pageSinkProvider) == null, "PageSinkProvider for connector '%s' is already registered", catalogName);
     }
 
-    public void removeConnectorPageSinkProvider(ConnectorId connectorId)
+    public void removeConnectorPageSinkProvider(CatalogName catalogName)
     {
-        pageSinkProviders.remove(connectorId);
+        pageSinkProviders.remove(catalogName);
     }
 
     @Override
     public ConnectorPageSink createPageSink(Session session, OutputTableHandle tableHandle)
     {
         // assumes connectorId and catalog are the same
-        ConnectorSession connectorSession = session.toConnectorSession(tableHandle.getConnectorId());
-        return providerFor(tableHandle.getConnectorId()).createPageSink(tableHandle.getTransactionHandle(), connectorSession, tableHandle.getConnectorHandle());
+        ConnectorSession connectorSession = session.toConnectorSession(tableHandle.getCatalogName());
+        return providerFor(tableHandle.getCatalogName()).createPageSink(tableHandle.getTransactionHandle(), connectorSession, tableHandle.getConnectorHandle());
     }
 
     @Override
     public ConnectorPageSink createPageSink(Session session, InsertTableHandle tableHandle)
     {
         // assumes connectorId and catalog are the same
-        ConnectorSession connectorSession = session.toConnectorSession(tableHandle.getConnectorId());
-        return providerFor(tableHandle.getConnectorId()).createPageSink(tableHandle.getTransactionHandle(), connectorSession, tableHandle.getConnectorHandle());
+        ConnectorSession connectorSession = session.toConnectorSession(tableHandle.getCatalogName());
+        return providerFor(tableHandle.getCatalogName()).createPageSink(tableHandle.getTransactionHandle(), connectorSession, tableHandle.getConnectorHandle());
     }
 
-    private ConnectorPageSinkProvider providerFor(ConnectorId connectorId)
+    private ConnectorPageSinkProvider providerFor(CatalogName catalogName)
     {
-        ConnectorPageSinkProvider provider = pageSinkProviders.get(connectorId);
-        checkArgument(provider != null, "No page sink provider for catalog '%s'", connectorId.getCatalogName());
+        ConnectorPageSinkProvider provider = pageSinkProviders.get(catalogName);
+        checkArgument(provider != null, "No page sink provider for catalog '%s'", catalogName.getCatalogName());
         return provider;
     }
 }

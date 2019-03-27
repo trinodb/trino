@@ -22,7 +22,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
 import io.prestosql.Session;
-import io.prestosql.connector.ConnectorId;
+import io.prestosql.connector.CatalogName;
 import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.metadata.FunctionKind;
 import io.prestosql.metadata.Metadata;
@@ -417,12 +417,12 @@ class StatementAnalyzer
             }
 
             validateProperties(node.getProperties(), scope);
-            ConnectorId connectorId = metadata.getCatalogHandle(session, tableName.getCatalogName())
+            CatalogName catalogName = metadata.getCatalogHandle(session, tableName.getCatalogName())
                     .orElseThrow(() -> new PrestoException(NOT_FOUND, "Catalog not found: " + tableName.getCatalogName()));
 
             Map<String, Object> analyzeProperties = metadata.getAnalyzePropertyManager().getProperties(
-                    connectorId,
-                    connectorId.getCatalogName(),
+                    catalogName,
+                    catalogName.getCatalogName(),
                     mapFromProperties(node.getProperties()),
                     session,
                     metadata,

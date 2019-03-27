@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
-import io.prestosql.connector.ConnectorId;
+import io.prestosql.connector.CatalogName;
 import io.prestosql.execution.Lifespan;
 import io.prestosql.execution.ScheduledSplit;
 import io.prestosql.execution.TaskSource;
@@ -57,7 +57,7 @@ import static java.util.Objects.requireNonNull;
 @ThreadSafe
 public class IndexLoader
 {
-    private static final ConnectorId INDEX_CONNECTOR_ID = new ConnectorId("$index");
+    private static final CatalogName INDEX_CONNECTOR_ID = new CatalogName("$index");
     private final BlockingQueue<UpdateRequest> updateRequests = new LinkedBlockingQueue<>();
 
     private final List<Type> outputTypes;

@@ -14,7 +14,7 @@
 package io.prestosql.tests;
 
 import io.prestosql.Session;
-import io.prestosql.connector.ConnectorId;
+import io.prestosql.connector.CatalogName;
 import io.prestosql.metadata.ProcedureRegistry;
 import io.prestosql.server.testing.TestingPrestoServer;
 import io.prestosql.testing.ProcedureTester;
@@ -57,7 +57,7 @@ public class TestProcedureCall
         ProcedureRegistry procedureRegistry = coordinator.getMetadata().getProcedureRegistry();
         TestingProcedures procedures = new TestingProcedures(coordinator.getProcedureTester());
         procedureRegistry.addProcedures(
-                new ConnectorId(TESTING_CATALOG),
+                new CatalogName(TESTING_CATALOG),
                 procedures.getProcedures(PROCEDURE_SCHEMA));
 
         session = testSessionBuilder()

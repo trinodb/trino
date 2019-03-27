@@ -15,7 +15,7 @@ package io.prestosql.sql.planner.iterative.rule.test;
 
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.Session;
-import io.prestosql.connector.ConnectorId;
+import io.prestosql.connector.CatalogName;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.plugin.tpch.TpchConnectorFactory;
 import io.prestosql.security.AccessControl;
@@ -39,7 +39,7 @@ public class RuleTester
         implements Closeable
 {
     public static final String CATALOG_ID = "local";
-    public static final ConnectorId CONNECTOR_ID = new ConnectorId(CATALOG_ID);
+    public static final CatalogName CONNECTOR_ID = new CatalogName(CATALOG_ID);
 
     private final Metadata metadata;
     private final Session session;
@@ -125,7 +125,7 @@ public class RuleTester
         return typeAnalyzer;
     }
 
-    public ConnectorId getCurrentConnectorId()
+    public CatalogName getCurrentConnectorId()
     {
         return queryRunner.inTransaction(transactionSession -> metadata.getCatalogHandle(transactionSession, session.getCatalog().get())).get();
     }

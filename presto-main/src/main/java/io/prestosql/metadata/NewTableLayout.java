@@ -15,7 +15,7 @@ package io.prestosql.metadata;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.prestosql.connector.ConnectorId;
+import io.prestosql.connector.CatalogName;
 import io.prestosql.spi.connector.ConnectorNewTableLayout;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 import io.prestosql.sql.planner.PartitioningHandle;
@@ -29,25 +29,25 @@ import static java.util.Objects.requireNonNull;
 
 public class NewTableLayout
 {
-    private final ConnectorId connectorId;
+    private final CatalogName catalogName;
     private final ConnectorTransactionHandle transactionHandle;
     private final ConnectorNewTableLayout layout;
 
     @JsonCreator
     public NewTableLayout(
-            @JsonProperty("connectorId") ConnectorId connectorId,
+            @JsonProperty("connectorId") CatalogName catalogName,
             @JsonProperty("transactionHandle") ConnectorTransactionHandle transactionHandle,
             @JsonProperty("layout") ConnectorNewTableLayout layout)
     {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null");
+        this.catalogName = requireNonNull(catalogName, "connectorId is null");
         this.transactionHandle = requireNonNull(transactionHandle, "transactionHandle is null");
         this.layout = requireNonNull(layout, "layout is null");
     }
 
     @JsonProperty
-    public ConnectorId getConnectorId()
+    public CatalogName getCatalogName()
     {
-        return connectorId;
+        return catalogName;
     }
 
     @JsonProperty
@@ -58,7 +58,7 @@ public class NewTableLayout
 
     public PartitioningHandle getPartitioning()
     {
-        return new PartitioningHandle(Optional.of(connectorId), Optional.of(transactionHandle), layout.getPartitioning());
+        return new PartitioningHandle(Optional.of(catalogName), Optional.of(transactionHandle), layout.getPartitioning());
     }
 
     public List<String> getPartitionColumns()
@@ -77,7 +77,7 @@ public class NewTableLayout
         }
 
         NewTableLayout that = (NewTableLayout) o;
-        return Objects.equals(connectorId, that.connectorId) &&
+        return Objects.equals(catalogName, that.catalogName) &&
                 Objects.equals(transactionHandle, that.transactionHandle) &&
                 Objects.equals(layout, that.layout);
     }
@@ -85,14 +85,14 @@ public class NewTableLayout
     @Override
     public int hashCode()
     {
-        return Objects.hash(connectorId, transactionHandle, layout);
+        return Objects.hash(catalogName, transactionHandle, layout);
     }
 
     @Override
     public String toString()
     {
         return toStringHelper(this)
-                .add("connectorId", connectorId)
+                .add("connectorId", catalogName)
                 .add("transactionHandle", transactionHandle)
                 .add("layout", layout)
                 .toString();

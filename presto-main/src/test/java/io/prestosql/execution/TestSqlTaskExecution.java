@@ -25,7 +25,7 @@ import io.airlift.stats.TestingGcMonitor;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.prestosql.block.BlockEncodingManager;
-import io.prestosql.connector.ConnectorId;
+import io.prestosql.connector.CatalogName;
 import io.prestosql.execution.buffer.BufferResult;
 import io.prestosql.execution.buffer.BufferState;
 import io.prestosql.execution.buffer.OutputBuffer;
@@ -112,7 +112,7 @@ import static org.testng.Assert.assertFalse;
 public class TestSqlTaskExecution
 {
     private static final OutputBufferId OUTPUT_BUFFER_ID = new OutputBufferId(0);
-    private static final ConnectorId CONNECTOR_ID = new ConnectorId("test");
+    private static final CatalogName CONNECTOR_ID = new CatalogName("test");
     private static final Duration ASSERT_WAIT_TIMEOUT = new Duration(1, HOURS);
 
     @DataProvider

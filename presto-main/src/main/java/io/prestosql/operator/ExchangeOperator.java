@@ -14,7 +14,7 @@
 package io.prestosql.operator;
 
 import com.google.common.util.concurrent.ListenableFuture;
-import io.prestosql.connector.ConnectorId;
+import io.prestosql.connector.CatalogName;
 import io.prestosql.execution.buffer.PagesSerde;
 import io.prestosql.execution.buffer.PagesSerdeFactory;
 import io.prestosql.execution.buffer.SerializedPage;
@@ -36,7 +36,7 @@ import static java.util.Objects.requireNonNull;
 public class ExchangeOperator
         implements SourceOperator, Closeable
 {
-    public static final ConnectorId REMOTE_CONNECTOR_ID = new ConnectorId("$remote");
+    public static final CatalogName REMOTE_CONNECTOR_ID = new CatalogName("$remote");
 
     public static class ExchangeOperatorFactory
             implements SourceOperatorFactory
@@ -118,7 +118,7 @@ public class ExchangeOperator
     public Supplier<Optional<UpdatablePageSource>> addSplit(Split split)
     {
         requireNonNull(split, "split is null");
-        checkArgument(split.getConnectorId().equals(REMOTE_CONNECTOR_ID), "split is not a remote split");
+        checkArgument(split.getCatalogName().equals(REMOTE_CONNECTOR_ID), "split is not a remote split");
 
         URI location = ((RemoteSplit) split.getConnectorSplit()).getLocation();
         exchangeClient.addLocation(location);

@@ -15,7 +15,7 @@ package io.prestosql.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.connector.ConnectorId;
+import io.prestosql.connector.CatalogName;
 import io.prestosql.metadata.TableHandle;
 import io.prestosql.plugin.tpch.TpchColumnHandle;
 import io.prestosql.plugin.tpch.TpchTableHandle;
@@ -51,7 +51,7 @@ public class TestPruneTableScanColumns
                             Assignments.of(p.symbol("x"), totalprice.toSymbolReference()),
                             p.tableScan(
                                     new TableHandle(
-                                            new ConnectorId("local"),
+                                            new CatalogName("local"),
                                             new TpchTableHandle("orders", TINY_SCALE_FACTOR),
                                             TpchTransactionHandle.INSTANCE,
                                             Optional.empty()),

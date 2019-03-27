@@ -14,7 +14,7 @@
 package io.prestosql.connector.system;
 
 import io.prestosql.Session;
-import io.prestosql.connector.ConnectorId;
+import io.prestosql.connector.CatalogName;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.security.AccessControl;
 import io.prestosql.spi.connector.ConnectorSession;
@@ -74,7 +74,7 @@ public class CatalogSystemTable
     {
         Session session = toSession(transactionHandle, connectorSession);
         Builder table = InMemoryRecordSet.builder(CATALOG_TABLE);
-        for (Map.Entry<String, ConnectorId> entry : listCatalogs(session, metadata, accessControl).entrySet()) {
+        for (Map.Entry<String, CatalogName> entry : listCatalogs(session, metadata, accessControl).entrySet()) {
             table.addRow(entry.getKey(), entry.getValue().toString());
         }
         return table.build().cursor();

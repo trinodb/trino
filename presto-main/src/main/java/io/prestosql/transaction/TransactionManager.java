@@ -15,7 +15,7 @@ package io.prestosql.transaction;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import io.prestosql.Session;
-import io.prestosql.connector.ConnectorId;
+import io.prestosql.connector.CatalogName;
 import io.prestosql.metadata.CatalogMetadata;
 import io.prestosql.security.AccessControl;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
@@ -45,17 +45,17 @@ public interface TransactionManager
 
     TransactionId beginTransaction(IsolationLevel isolationLevel, boolean readOnly, boolean autoCommitContext);
 
-    Map<String, ConnectorId> getCatalogNames(TransactionId transactionId);
+    Map<String, CatalogName> getCatalogNames(TransactionId transactionId);
 
     Optional<CatalogMetadata> getOptionalCatalogMetadata(TransactionId transactionId, String catalogName);
 
-    CatalogMetadata getCatalogMetadata(TransactionId transactionId, ConnectorId connectorId);
+    CatalogMetadata getCatalogMetadata(TransactionId transactionId, CatalogName catalogName);
 
-    CatalogMetadata getCatalogMetadataForWrite(TransactionId transactionId, ConnectorId connectorId);
+    CatalogMetadata getCatalogMetadataForWrite(TransactionId transactionId, CatalogName catalogName);
 
     CatalogMetadata getCatalogMetadataForWrite(TransactionId transactionId, String catalogName);
 
-    ConnectorTransactionHandle getConnectorTransaction(TransactionId transactionId, ConnectorId connectorId);
+    ConnectorTransactionHandle getConnectorTransaction(TransactionId transactionId, CatalogName catalogName);
 
     void checkAndSetActive(TransactionId transactionId);
 

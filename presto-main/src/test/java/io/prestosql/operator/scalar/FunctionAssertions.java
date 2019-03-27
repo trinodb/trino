@@ -22,7 +22,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
 import io.prestosql.Session;
-import io.prestosql.connector.ConnectorId;
+import io.prestosql.connector.CatalogName;
 import io.prestosql.execution.Lifespan;
 import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.metadata.FunctionListBuilder;
@@ -1044,12 +1044,12 @@ public final class FunctionAssertions
 
     private static Split createRecordSetSplit()
     {
-        return new Split(new ConnectorId("test"), new TestSplit(true), Lifespan.taskWide());
+        return new Split(new CatalogName("test"), new TestSplit(true), Lifespan.taskWide());
     }
 
     private static Split createNormalSplit()
     {
-        return new Split(new ConnectorId("test"), new TestSplit(false), Lifespan.taskWide());
+        return new Split(new CatalogName("test"), new TestSplit(false), Lifespan.taskWide());
     }
 
     private static class TestSplit

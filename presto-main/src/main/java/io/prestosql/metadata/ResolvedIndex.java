@@ -13,7 +13,7 @@
  */
 package io.prestosql.metadata;
 
-import io.prestosql.connector.ConnectorId;
+import io.prestosql.connector.CatalogName;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorResolvedIndex;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
@@ -26,12 +26,12 @@ public final class ResolvedIndex
     private final IndexHandle indexHandle;
     private final TupleDomain<ColumnHandle> undeterminedTupleDomain;
 
-    public ResolvedIndex(ConnectorId connectorId, ConnectorTransactionHandle transactionHandle, ConnectorResolvedIndex index)
+    public ResolvedIndex(CatalogName catalogName, ConnectorTransactionHandle transactionHandle, ConnectorResolvedIndex index)
     {
-        requireNonNull(connectorId, "connectorId is null");
+        requireNonNull(catalogName, "connectorId is null");
         requireNonNull(index, "index is null");
 
-        indexHandle = new IndexHandle(connectorId, transactionHandle, index.getIndexHandle());
+        indexHandle = new IndexHandle(catalogName, transactionHandle, index.getIndexHandle());
         undeterminedTupleDomain = index.getUnresolvedTupleDomain();
     }
 

@@ -15,7 +15,7 @@ package io.prestosql.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.connector.ConnectorId;
+import io.prestosql.connector.CatalogName;
 import io.prestosql.metadata.TableHandle;
 import io.prestosql.plugin.tpch.TpchColumnHandle;
 import io.prestosql.plugin.tpch.TpchTableHandle;
@@ -49,25 +49,25 @@ public class TestPushPredicateIntoTableScan
     private PushPredicateIntoTableScan pushPredicateIntoTableScan;
     private TableHandle nationTableHandle;
     private TableHandle ordersTableHandle;
-    private ConnectorId connectorId;
+    private CatalogName catalogName;
 
     @BeforeClass
     public void setUpBeforeClass()
     {
         pushPredicateIntoTableScan = new PushPredicateIntoTableScan(tester().getMetadata(), new TypeAnalyzer(new SqlParser(), tester().getMetadata()));
 
-        connectorId = tester().getCurrentConnectorId();
+        catalogName = tester().getCurrentConnectorId();
 
         TpchTableHandle nation = new TpchTableHandle("nation", 1.0);
         nationTableHandle = new TableHandle(
-                connectorId,
+                catalogName,
                 nation,
                 TpchTransactionHandle.INSTANCE,
                 Optional.of(new TpchTableLayoutHandle(nation, TupleDomain.all())));
 
         TpchTableHandle orders = new TpchTableHandle("orders", 1.0);
         ordersTableHandle = new TableHandle(
-                connectorId,
+                catalogName,
                 orders,
                 TpchTransactionHandle.INSTANCE,
                 Optional.of(new TpchTableLayoutHandle(orders, TupleDomain.all())));

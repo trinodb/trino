@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.ObjectMapperProvider;
 import io.prestosql.block.BlockEncodingManager;
-import io.prestosql.connector.ConnectorId;
+import io.prestosql.connector.CatalogName;
 import io.prestosql.cost.StatsAndCosts;
 import io.prestosql.event.SplitMonitor;
 import io.prestosql.eventlistener.EventListenerManager;
@@ -77,7 +77,7 @@ public final class TaskTestUtils
 
     public static final PlanNodeId TABLE_SCAN_NODE_ID = new PlanNodeId("tableScan");
 
-    private static final ConnectorId CONNECTOR_ID = TEST_TABLE_HANDLE.getConnectorId();
+    private static final CatalogName CONNECTOR_ID = TEST_TABLE_HANDLE.getCatalogName();
 
     public static final ScheduledSplit SPLIT = new ScheduledSplit(0, TABLE_SCAN_NODE_ID, new Split(CONNECTOR_ID, TestingSplit.createLocalSplit(), Lifespan.taskWide()));
 

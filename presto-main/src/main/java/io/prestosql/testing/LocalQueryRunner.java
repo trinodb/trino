@@ -24,7 +24,7 @@ import io.prestosql.PagesIndexPageSorter;
 import io.prestosql.Session;
 import io.prestosql.SystemSessionProperties;
 import io.prestosql.block.BlockEncodingManager;
-import io.prestosql.connector.ConnectorId;
+import io.prestosql.connector.CatalogName;
 import io.prestosql.connector.ConnectorManager;
 import io.prestosql.connector.system.AnalyzePropertiesSystemTable;
 import io.prestosql.connector.system.CatalogSystemTable;
@@ -533,7 +533,7 @@ public class LocalQueryRunner
 
     public void createCatalog(String catalogName, ConnectorFactory connectorFactory, Map<String, String> properties)
     {
-        nodeManager.addCurrentNodeConnector(new ConnectorId(catalogName));
+        nodeManager.addCurrentNodeConnector(new CatalogName(catalogName));
         connectorManager.addConnectorFactory(connectorFactory);
         connectorManager.createConnection(catalogName, connectorFactory.getName(), properties);
     }

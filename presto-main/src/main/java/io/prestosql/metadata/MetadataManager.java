@@ -26,7 +26,7 @@ import io.airlift.json.ObjectMapperProvider;
 import io.airlift.slice.Slice;
 import io.prestosql.Session;
 import io.prestosql.block.BlockEncodingManager;
-import io.prestosql.connector.ConnectorId;
+import io.prestosql.connector.CatalogName;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.QueryId;
 import io.prestosql.spi.block.BlockEncodingSerde;
@@ -286,7 +286,7 @@ public class MetadataManager
             return false;
         }
         CatalogMetadata catalogMetadata = catalog.get();
-        ConnectorSession connectorSession = session.toConnectorSession(catalogMetadata.getConnectorId());
+        ConnectorSession connectorSession = session.toConnectorSession(catalogMetadata.getCatalogName());
         return catalogMetadata.listConnectorIds().stream()
                 .map(catalogMetadata::getMetadataFor)
                 .anyMatch(metadata -> metadata.schemaExists(connectorSession, schema.getSchemaName()));
@@ -306,8 +306,8 @@ public class MetadataManager
         ImmutableSet.Builder<String> schemaNames = ImmutableSet.builder();
         if (catalog.isPresent()) {
             CatalogMetadata catalogMetadata = catalog.get();
-            ConnectorSession connectorSession = session.toConnectorSession(catalogMetadata.getConnectorId());
-            for (ConnectorId connectorId : catalogMetadata.listConnectorIds()) {
+            ConnectorSession connectorSession = session.toConnectorSession(catalogMetadata.getCatalogName());
+            for (CatalogName connectorId : catalogMetadata.listConnectorIds()) {
                 ConnectorMetadata metadata = catalogMetadata.getMetadataFor(connectorId);
                 metadata.listSchemaNames(connectorSession).stream()
                         .map(schema -> schema.toLowerCase(Locale.ENGLISH))
@@ -325,16 +325,16 @@ public class MetadataManager
         Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, table.getCatalogName());
         if (catalog.isPresent()) {
             CatalogMetadata catalogMetadata = catalog.get();
-            ConnectorId connectorId = catalogMetadata.getConnectorId(session, table);
-            ConnectorMetadata metadata = catalogMetadata.getMetadataFor(connectorId);
+            CatalogName catalogName = catalogMetadata.getConnectorId(session, table);
+            ConnectorMetadata metadata = catalogMetadata.getMetadataFor(catalogName);
 
-            ConnectorSession connectorSession = session.toConnectorSession(connectorId);
+            ConnectorSession connectorSession = session.toConnectorSession(catalogName);
             ConnectorTableHandle tableHandle = metadata.getTableHandle(connectorSession, table.asSchemaTableName());
             if (tableHandle != null) {
                 return Optional.of(new TableHandle(
-                        connectorId,
+                        catalogName,
                         tableHandle,
-                        catalogMetadata.getTransactionHandleFor(connectorId),
+                        catalogMetadata.getTransactionHandleFor(catalogName),
                         Optional.empty()));
             }
         }
@@ -349,15 +349,15 @@ public class MetadataManager
         Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, table.getCatalogName());
         if (catalog.isPresent()) {
             CatalogMetadata catalogMetadata = catalog.get();
-            ConnectorId connectorId = catalogMetadata.getConnectorId(session, table);
-            ConnectorMetadata metadata = catalogMetadata.getMetadataFor(connectorId);
+            CatalogName catalogName = catalogMetadata.getConnectorId(session, table);
+            ConnectorMetadata metadata = catalogMetadata.getMetadataFor(catalogName);
 
-            ConnectorTableHandle tableHandle = metadata.getTableHandleForStatisticsCollection(session.toConnectorSession(connectorId), table.asSchemaTableName(), analyzeProperties);
+            ConnectorTableHandle tableHandle = metadata.getTableHandleForStatisticsCollection(session.toConnectorSession(catalogName), table.asSchemaTableName(), analyzeProperties);
             if (tableHandle != null) {
                 return Optional.of(new TableHandle(
-                        connectorId,
+                        catalogName,
                         tableHandle,
-                        catalogMetadata.getTransactionHandleFor(connectorId),
+                        catalogMetadata.getTransactionHandleFor(catalogName),
                         Optional.empty()));
             }
         }
@@ -375,10 +375,10 @@ public class MetadataManager
             CatalogMetadata catalogMetadata = catalog.get();
 
             // we query only main connector for runtime system tables
-            ConnectorId connectorId = catalogMetadata.getConnectorId();
-            ConnectorMetadata metadata = catalogMetadata.getMetadataFor(connectorId);
+            CatalogName catalogName = catalogMetadata.getCatalogName();
+            ConnectorMetadata metadata = catalogMetadata.getMetadataFor(catalogName);
 
-            return metadata.getSystemTable(session.toConnectorSession(connectorId), tableName.asSchemaTableName());
+            return metadata.getSystemTable(session.toConnectorSession(catalogName), tableName.asSchemaTableName());
         }
         return Optional.empty();
     }
@@ -390,16 +390,16 @@ public class MetadataManager
             return Optional.empty();
         }
 
-        ConnectorId connectorId = table.getConnectorId();
+        CatalogName catalogName = table.getCatalogName();
         ConnectorTableHandle connectorTable = table.getConnectorHandle();
 
-        CatalogMetadata catalogMetadata = getCatalogMetadata(session, connectorId);
-        ConnectorMetadata metadata = catalogMetadata.getMetadataFor(connectorId);
+        CatalogMetadata catalogMetadata = getCatalogMetadata(session, catalogName);
+        ConnectorMetadata metadata = catalogMetadata.getMetadataFor(catalogName);
 
         checkState(metadata.usesLegacyTableLayouts(), "getLayout() was called even though connector doesn't support legacy Table Layout");
 
-        ConnectorTransactionHandle transaction = catalogMetadata.getTransactionHandleFor(connectorId);
-        ConnectorSession connectorSession = session.toConnectorSession(connectorId);
+        ConnectorTransactionHandle transaction = catalogMetadata.getTransactionHandleFor(catalogName);
+        ConnectorSession connectorSession = session.toConnectorSession(catalogName);
         List<ConnectorTableLayoutResult> layouts = metadata.getTableLayouts(connectorSession, connectorTable, constraint, desiredColumns);
         if (layouts.isEmpty()) {
             return Optional.empty();
@@ -411,66 +411,66 @@ public class MetadataManager
 
         ConnectorTableLayout tableLayout = layouts.get(0).getTableLayout();
         return Optional.of(new TableLayoutResult(
-                new TableHandle(connectorId, connectorTable, transaction, Optional.of(tableLayout.getHandle())),
-                new TableProperties(connectorId, transaction, new ConnectorTableProperties(tableLayout)),
+                new TableHandle(catalogName, connectorTable, transaction, Optional.of(tableLayout.getHandle())),
+                new TableProperties(catalogName, transaction, new ConnectorTableProperties(tableLayout)),
                 layouts.get(0).getUnenforcedConstraint()));
     }
 
     @Override
     public TableProperties getTableProperties(Session session, TableHandle handle)
     {
-        ConnectorId connectorId = handle.getConnectorId();
-        CatalogMetadata catalogMetadata = getCatalogMetadata(session, connectorId);
-        ConnectorMetadata metadata = catalogMetadata.getMetadataFor(connectorId);
-        ConnectorSession connectorSession = session.toConnectorSession(connectorId);
+        CatalogName catalogName = handle.getCatalogName();
+        CatalogMetadata catalogMetadata = getCatalogMetadata(session, catalogName);
+        ConnectorMetadata metadata = catalogMetadata.getMetadataFor(catalogName);
+        ConnectorSession connectorSession = session.toConnectorSession(catalogName);
 
         if (metadata.usesLegacyTableLayouts()) {
             return handle.getLayout()
-                    .map(layout -> new TableProperties(connectorId, handle.getTransaction(), new ConnectorTableProperties(metadata.getTableLayout(connectorSession, layout))))
+                    .map(layout -> new TableProperties(catalogName, handle.getTransaction(), new ConnectorTableProperties(metadata.getTableLayout(connectorSession, layout))))
                     .orElseGet(() -> getLayout(session, handle, Constraint.alwaysTrue(), Optional.empty())
                             .get()
                             .getTableProperties());
         }
 
-        return new TableProperties(connectorId, handle.getTransaction(), metadata.getTableProperties(connectorSession, handle.getConnectorHandle()));
+        return new TableProperties(catalogName, handle.getTransaction(), metadata.getTableProperties(connectorSession, handle.getConnectorHandle()));
     }
 
     @Override
     public TableHandle makeCompatiblePartitioning(Session session, TableHandle tableHandle, PartitioningHandle partitioningHandle)
     {
         checkArgument(partitioningHandle.getConnectorId().isPresent(), "Expect partitioning handle from connector, got system partitioning handle");
-        ConnectorId connectorId = partitioningHandle.getConnectorId().get();
-        checkArgument(connectorId.equals(tableHandle.getConnectorId()), "ConnectorId of tableHandle and partitioningHandle does not match");
-        CatalogMetadata catalogMetadata = getCatalogMetadata(session, connectorId);
-        ConnectorMetadata metadata = catalogMetadata.getMetadataFor(connectorId);
-        ConnectorTransactionHandle transaction = catalogMetadata.getTransactionHandleFor(connectorId);
-        ConnectorTableLayoutHandle newTableLayoutHandle = metadata.makeCompatiblePartitioning(session.toConnectorSession(connectorId), tableHandle.getLayout().get(), partitioningHandle.getConnectorHandle());
-        return new TableHandle(connectorId, tableHandle.getConnectorHandle(), transaction, Optional.of(newTableLayoutHandle));
+        CatalogName catalogName = partitioningHandle.getConnectorId().get();
+        checkArgument(catalogName.equals(tableHandle.getCatalogName()), "ConnectorId of tableHandle and partitioningHandle does not match");
+        CatalogMetadata catalogMetadata = getCatalogMetadata(session, catalogName);
+        ConnectorMetadata metadata = catalogMetadata.getMetadataFor(catalogName);
+        ConnectorTransactionHandle transaction = catalogMetadata.getTransactionHandleFor(catalogName);
+        ConnectorTableLayoutHandle newTableLayoutHandle = metadata.makeCompatiblePartitioning(session.toConnectorSession(catalogName), tableHandle.getLayout().get(), partitioningHandle.getConnectorHandle());
+        return new TableHandle(catalogName, tableHandle.getConnectorHandle(), transaction, Optional.of(newTableLayoutHandle));
     }
 
     @Override
     public Optional<PartitioningHandle> getCommonPartitioning(Session session, PartitioningHandle left, PartitioningHandle right)
     {
-        Optional<ConnectorId> leftConnectorId = left.getConnectorId();
-        Optional<ConnectorId> rightConnectorId = right.getConnectorId();
+        Optional<CatalogName> leftConnectorId = left.getConnectorId();
+        Optional<CatalogName> rightConnectorId = right.getConnectorId();
         if (!leftConnectorId.isPresent() || !rightConnectorId.isPresent() || !leftConnectorId.equals(rightConnectorId)) {
             return Optional.empty();
         }
         if (!left.getTransactionHandle().equals(right.getTransactionHandle())) {
             return Optional.empty();
         }
-        ConnectorId connectorId = leftConnectorId.get();
-        CatalogMetadata catalogMetadata = getCatalogMetadata(session, connectorId);
-        ConnectorMetadata metadata = catalogMetadata.getMetadataFor(connectorId);
-        Optional<ConnectorPartitioningHandle> commonHandle = metadata.getCommonPartitioningHandle(session.toConnectorSession(connectorId), left.getConnectorHandle(), right.getConnectorHandle());
-        return commonHandle.map(handle -> new PartitioningHandle(Optional.of(connectorId), left.getTransactionHandle(), handle));
+        CatalogName catalogName = leftConnectorId.get();
+        CatalogMetadata catalogMetadata = getCatalogMetadata(session, catalogName);
+        ConnectorMetadata metadata = catalogMetadata.getMetadataFor(catalogName);
+        Optional<ConnectorPartitioningHandle> commonHandle = metadata.getCommonPartitioningHandle(session.toConnectorSession(catalogName), left.getConnectorHandle(), right.getConnectorHandle());
+        return commonHandle.map(handle -> new PartitioningHandle(Optional.of(catalogName), left.getTransactionHandle(), handle));
     }
 
     @Override
     public Optional<Object> getInfo(Session session, TableHandle handle)
     {
-        ConnectorId connectorId = handle.getConnectorId();
-        ConnectorMetadata metadata = getMetadata(session, connectorId);
+        CatalogName catalogName = handle.getCatalogName();
+        ConnectorMetadata metadata = getMetadata(session, catalogName);
 
         if (usesLegacyTableLayouts(session, handle)) {
             ConnectorTableLayoutHandle layoutHandle = handle.getLayout()
@@ -489,30 +489,30 @@ public class MetadataManager
     @Override
     public TableMetadata getTableMetadata(Session session, TableHandle tableHandle)
     {
-        ConnectorId connectorId = tableHandle.getConnectorId();
-        ConnectorMetadata metadata = getMetadata(session, connectorId);
-        ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle());
+        CatalogName catalogName = tableHandle.getCatalogName();
+        ConnectorMetadata metadata = getMetadata(session, catalogName);
+        ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(session.toConnectorSession(catalogName), tableHandle.getConnectorHandle());
         if (tableMetadata.getColumns().isEmpty()) {
             throw new PrestoException(NOT_SUPPORTED, "Table has no columns: " + tableHandle);
         }
 
-        return new TableMetadata(connectorId, tableMetadata);
+        return new TableMetadata(catalogName, tableMetadata);
     }
 
     @Override
     public TableStatistics getTableStatistics(Session session, TableHandle tableHandle, Constraint<ColumnHandle> constraint)
     {
-        ConnectorId connectorId = tableHandle.getConnectorId();
-        ConnectorMetadata metadata = getMetadata(session, connectorId);
-        return metadata.getTableStatistics(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle(), constraint);
+        CatalogName catalogName = tableHandle.getCatalogName();
+        ConnectorMetadata metadata = getMetadata(session, catalogName);
+        return metadata.getTableStatistics(session.toConnectorSession(catalogName), tableHandle.getConnectorHandle(), constraint);
     }
 
     @Override
     public Map<String, ColumnHandle> getColumnHandles(Session session, TableHandle tableHandle)
     {
-        ConnectorId connectorId = tableHandle.getConnectorId();
-        ConnectorMetadata metadata = getMetadata(session, connectorId);
-        Map<String, ColumnHandle> handles = metadata.getColumnHandles(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle());
+        CatalogName catalogName = tableHandle.getCatalogName();
+        ConnectorMetadata metadata = getMetadata(session, catalogName);
+        Map<String, ColumnHandle> handles = metadata.getColumnHandles(session.toConnectorSession(catalogName), tableHandle.getConnectorHandle());
 
         ImmutableMap.Builder<String, ColumnHandle> map = ImmutableMap.builder();
         for (Entry<String, ColumnHandle> mapEntry : handles.entrySet()) {
@@ -527,9 +527,9 @@ public class MetadataManager
         requireNonNull(tableHandle, "tableHandle is null");
         requireNonNull(columnHandle, "columnHandle is null");
 
-        ConnectorId connectorId = tableHandle.getConnectorId();
-        ConnectorMetadata metadata = getMetadata(session, connectorId);
-        return metadata.getColumnMetadata(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle(), columnHandle);
+        CatalogName catalogName = tableHandle.getCatalogName();
+        ConnectorMetadata metadata = getMetadata(session, catalogName);
+        return metadata.getColumnMetadata(session.toConnectorSession(catalogName), tableHandle.getConnectorHandle(), columnHandle);
     }
 
     @Override
@@ -542,9 +542,9 @@ public class MetadataManager
         if (catalog.isPresent()) {
             CatalogMetadata catalogMetadata = catalog.get();
 
-            for (ConnectorId connectorId : catalogMetadata.listConnectorIds()) {
-                ConnectorMetadata metadata = catalogMetadata.getMetadataFor(connectorId);
-                ConnectorSession connectorSession = session.toConnectorSession(connectorId);
+            for (CatalogName catalogName : catalogMetadata.listConnectorIds()) {
+                ConnectorMetadata metadata = catalogMetadata.getMetadataFor(catalogName);
+                ConnectorSession connectorSession = session.toConnectorSession(catalogName);
                 metadata.listTables(connectorSession, prefix.getSchemaName()).stream()
                         .map(convertFromSchemaTableName(prefix.getCatalogName()))
                         .filter(prefix::matches)
@@ -565,10 +565,10 @@ public class MetadataManager
             CatalogMetadata catalogMetadata = catalog.get();
 
             SchemaTablePrefix tablePrefix = prefix.asSchemaTablePrefix();
-            for (ConnectorId connectorId : catalogMetadata.listConnectorIds()) {
-                ConnectorMetadata metadata = catalogMetadata.getMetadataFor(connectorId);
+            for (CatalogName catalogName : catalogMetadata.listConnectorIds()) {
+                ConnectorMetadata metadata = catalogMetadata.getMetadataFor(catalogName);
 
-                ConnectorSession connectorSession = session.toConnectorSession(connectorId);
+                ConnectorSession connectorSession = session.toConnectorSession(catalogName);
                 for (Entry<SchemaTableName, List<ColumnMetadata>> entry : metadata.listTableColumns(connectorSession, tablePrefix).entrySet()) {
                     QualifiedObjectName tableName = new QualifiedObjectName(
                             prefix.getCatalogName(),
@@ -600,34 +600,34 @@ public class MetadataManager
     public void createSchema(Session session, CatalogSchemaName schema, Map<String, Object> properties)
     {
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, schema.getCatalogName());
-        ConnectorId connectorId = catalogMetadata.getConnectorId();
+        CatalogName catalogName = catalogMetadata.getCatalogName();
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
-        metadata.createSchema(session.toConnectorSession(connectorId), schema.getSchemaName(), properties);
+        metadata.createSchema(session.toConnectorSession(catalogName), schema.getSchemaName(), properties);
     }
 
     @Override
     public void dropSchema(Session session, CatalogSchemaName schema)
     {
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, schema.getCatalogName());
-        ConnectorId connectorId = catalogMetadata.getConnectorId();
+        CatalogName catalogName = catalogMetadata.getCatalogName();
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
-        metadata.dropSchema(session.toConnectorSession(connectorId), schema.getSchemaName());
+        metadata.dropSchema(session.toConnectorSession(catalogName), schema.getSchemaName());
     }
 
     @Override
     public void renameSchema(Session session, CatalogSchemaName source, String target)
     {
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, source.getCatalogName());
-        ConnectorId connectorId = catalogMetadata.getConnectorId();
+        CatalogName catalogName = catalogMetadata.getCatalogName();
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
-        metadata.renameSchema(session.toConnectorSession(connectorId), source.getSchemaName(), target);
+        metadata.renameSchema(session.toConnectorSession(catalogName), source.getSchemaName(), target);
     }
 
     @Override
     public void createTable(Session session, String catalogName, ConnectorTableMetadata tableMetadata, boolean ignoreExisting)
     {
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalogName);
-        ConnectorId connectorId = catalogMetadata.getConnectorId();
+        CatalogName connectorId = catalogMetadata.getCatalogName();
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
         metadata.createTable(session.toConnectorSession(connectorId), tableMetadata, ignoreExisting);
     }
@@ -637,8 +637,8 @@ public class MetadataManager
     {
         String catalogName = newTableName.getCatalogName();
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalogName);
-        ConnectorId connectorId = catalogMetadata.getConnectorId();
-        if (!tableHandle.getConnectorId().equals(connectorId)) {
+        CatalogName connectorId = catalogMetadata.getCatalogName();
+        if (!tableHandle.getCatalogName().equals(connectorId)) {
             throw new PrestoException(SYNTAX_ERROR, "Cannot rename tables across catalogs");
         }
 
@@ -649,44 +649,44 @@ public class MetadataManager
     @Override
     public void renameColumn(Session session, TableHandle tableHandle, ColumnHandle source, String target)
     {
-        ConnectorId connectorId = tableHandle.getConnectorId();
-        ConnectorMetadata metadata = getMetadataForWrite(session, connectorId);
-        metadata.renameColumn(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle(), source, target.toLowerCase(ENGLISH));
+        CatalogName catalogName = tableHandle.getCatalogName();
+        ConnectorMetadata metadata = getMetadataForWrite(session, catalogName);
+        metadata.renameColumn(session.toConnectorSession(catalogName), tableHandle.getConnectorHandle(), source, target.toLowerCase(ENGLISH));
     }
 
     @Override
     public void addColumn(Session session, TableHandle tableHandle, ColumnMetadata column)
     {
-        ConnectorId connectorId = tableHandle.getConnectorId();
-        ConnectorMetadata metadata = getMetadataForWrite(session, connectorId);
-        metadata.addColumn(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle(), column);
+        CatalogName catalogName = tableHandle.getCatalogName();
+        ConnectorMetadata metadata = getMetadataForWrite(session, catalogName);
+        metadata.addColumn(session.toConnectorSession(catalogName), tableHandle.getConnectorHandle(), column);
     }
 
     @Override
     public void dropColumn(Session session, TableHandle tableHandle, ColumnHandle column)
     {
-        ConnectorId connectorId = tableHandle.getConnectorId();
-        ConnectorMetadata metadata = getMetadataForWrite(session, connectorId);
-        metadata.dropColumn(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle(), column);
+        CatalogName catalogName = tableHandle.getCatalogName();
+        ConnectorMetadata metadata = getMetadataForWrite(session, catalogName);
+        metadata.dropColumn(session.toConnectorSession(catalogName), tableHandle.getConnectorHandle(), column);
     }
 
     @Override
     public void dropTable(Session session, TableHandle tableHandle)
     {
-        ConnectorId connectorId = tableHandle.getConnectorId();
-        ConnectorMetadata metadata = getMetadataForWrite(session, connectorId);
-        metadata.dropTable(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle());
+        CatalogName catalogName = tableHandle.getCatalogName();
+        ConnectorMetadata metadata = getMetadataForWrite(session, catalogName);
+        metadata.dropTable(session.toConnectorSession(catalogName), tableHandle.getConnectorHandle());
     }
 
     @Override
     public Optional<NewTableLayout> getInsertLayout(Session session, TableHandle table)
     {
-        ConnectorId connectorId = table.getConnectorId();
-        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, connectorId);
+        CatalogName catalogName = table.getCatalogName();
+        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalogName);
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
 
-        return metadata.getInsertLayout(session.toConnectorSession(connectorId), table.getConnectorHandle())
-                .map(layout -> new NewTableLayout(connectorId, catalogMetadata.getTransactionHandleFor(connectorId), layout));
+        return metadata.getInsertLayout(session.toConnectorSession(catalogName), table.getConnectorHandle())
+                .map(layout -> new NewTableLayout(catalogName, catalogMetadata.getTransactionHandleFor(catalogName), layout));
     }
 
     @Override
@@ -694,7 +694,7 @@ public class MetadataManager
     {
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalogName);
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
-        ConnectorId connectorId = catalogMetadata.getConnectorId();
+        CatalogName connectorId = catalogMetadata.getCatalogName();
         return metadata.getStatisticsCollectionMetadataForWrite(session.toConnectorSession(connectorId), tableMetadata);
     }
 
@@ -703,27 +703,27 @@ public class MetadataManager
     {
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalogName);
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
-        ConnectorId connectorId = catalogMetadata.getConnectorId();
+        CatalogName connectorId = catalogMetadata.getCatalogName();
         return metadata.getStatisticsCollectionMetadata(session.toConnectorSession(connectorId), tableMetadata);
     }
 
     @Override
     public AnalyzeTableHandle beginStatisticsCollection(Session session, TableHandle tableHandle)
     {
-        ConnectorId connectorId = tableHandle.getConnectorId();
-        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, connectorId);
+        CatalogName catalogName = tableHandle.getCatalogName();
+        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalogName);
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
 
-        ConnectorTransactionHandle transactionHandle = catalogMetadata.getTransactionHandleFor(connectorId);
-        ConnectorTableHandle connectorTableHandle = metadata.beginStatisticsCollection(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle());
-        return new AnalyzeTableHandle(connectorId, transactionHandle, connectorTableHandle);
+        ConnectorTransactionHandle transactionHandle = catalogMetadata.getTransactionHandleFor(catalogName);
+        ConnectorTableHandle connectorTableHandle = metadata.beginStatisticsCollection(session.toConnectorSession(catalogName), tableHandle.getConnectorHandle());
+        return new AnalyzeTableHandle(catalogName, transactionHandle, connectorTableHandle);
     }
 
     @Override
     public void finishStatisticsCollection(Session session, AnalyzeTableHandle tableHandle, Collection<ComputedStatistics> computedStatistics)
     {
-        ConnectorId connectorId = tableHandle.getConnectorId();
-        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, connectorId);
+        CatalogName catalogName = tableHandle.getCatalogName();
+        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalogName);
         catalogMetadata.getMetadata().finishStatisticsCollection(session.toConnectorSession(), tableHandle.getConnectorHandle(), computedStatistics);
     }
 
@@ -731,7 +731,7 @@ public class MetadataManager
     public Optional<NewTableLayout> getNewTableLayout(Session session, String catalogName, ConnectorTableMetadata tableMetadata)
     {
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalogName);
-        ConnectorId connectorId = catalogMetadata.getConnectorId();
+        CatalogName connectorId = catalogMetadata.getCatalogName();
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
 
         ConnectorTransactionHandle transactionHandle = catalogMetadata.getTransactionHandleFor(connectorId);
@@ -741,11 +741,11 @@ public class MetadataManager
     }
 
     @Override
-    public void beginQuery(Session session, Set<ConnectorId> connectors)
+    public void beginQuery(Session session, Set<CatalogName> connectors)
     {
-        for (ConnectorId connectorId : connectors) {
-            ConnectorMetadata metadata = getMetadata(session, connectorId);
-            ConnectorSession connectorSession = session.toConnectorSession(connectorId);
+        for (CatalogName catalogName : connectors) {
+            ConnectorMetadata metadata = getMetadata(session, catalogName);
+            ConnectorSession connectorSession = session.toConnectorSession(catalogName);
             metadata.beginQuery(connectorSession);
             registerCatalogForQueryId(session.getQueryId(), metadata);
         }
@@ -779,7 +779,7 @@ public class MetadataManager
     public OutputTableHandle beginCreateTable(Session session, String catalogName, ConnectorTableMetadata tableMetadata, Optional<NewTableLayout> layout)
     {
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalogName);
-        ConnectorId connectorId = catalogMetadata.getConnectorId();
+        CatalogName connectorId = catalogMetadata.getCatalogName();
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
 
         ConnectorTransactionHandle transactionHandle = catalogMetadata.getTransactionHandleFor(connectorId);
@@ -791,45 +791,45 @@ public class MetadataManager
     @Override
     public Optional<ConnectorOutputMetadata> finishCreateTable(Session session, OutputTableHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
-        ConnectorId connectorId = tableHandle.getConnectorId();
-        ConnectorMetadata metadata = getMetadata(session, connectorId);
-        return metadata.finishCreateTable(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle(), fragments, computedStatistics);
+        CatalogName catalogName = tableHandle.getCatalogName();
+        ConnectorMetadata metadata = getMetadata(session, catalogName);
+        return metadata.finishCreateTable(session.toConnectorSession(catalogName), tableHandle.getConnectorHandle(), fragments, computedStatistics);
     }
 
     @Override
     public InsertTableHandle beginInsert(Session session, TableHandle tableHandle)
     {
-        ConnectorId connectorId = tableHandle.getConnectorId();
-        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, connectorId);
+        CatalogName catalogName = tableHandle.getCatalogName();
+        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalogName);
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
-        ConnectorTransactionHandle transactionHandle = catalogMetadata.getTransactionHandleFor(connectorId);
-        ConnectorInsertTableHandle handle = metadata.beginInsert(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle());
-        return new InsertTableHandle(tableHandle.getConnectorId(), transactionHandle, handle);
+        ConnectorTransactionHandle transactionHandle = catalogMetadata.getTransactionHandleFor(catalogName);
+        ConnectorInsertTableHandle handle = metadata.beginInsert(session.toConnectorSession(catalogName), tableHandle.getConnectorHandle());
+        return new InsertTableHandle(tableHandle.getCatalogName(), transactionHandle, handle);
     }
 
     @Override
     public Optional<ConnectorOutputMetadata> finishInsert(Session session, InsertTableHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
-        ConnectorId connectorId = tableHandle.getConnectorId();
-        ConnectorMetadata metadata = getMetadata(session, connectorId);
-        return metadata.finishInsert(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle(), fragments, computedStatistics);
+        CatalogName catalogName = tableHandle.getCatalogName();
+        ConnectorMetadata metadata = getMetadata(session, catalogName);
+        return metadata.finishInsert(session.toConnectorSession(catalogName), tableHandle.getConnectorHandle(), fragments, computedStatistics);
     }
 
     @Override
     public ColumnHandle getUpdateRowIdColumnHandle(Session session, TableHandle tableHandle)
     {
-        ConnectorId connectorId = tableHandle.getConnectorId();
-        ConnectorMetadata metadata = getMetadata(session, connectorId);
-        return metadata.getUpdateRowIdColumnHandle(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle());
+        CatalogName catalogName = tableHandle.getCatalogName();
+        ConnectorMetadata metadata = getMetadata(session, catalogName);
+        return metadata.getUpdateRowIdColumnHandle(session.toConnectorSession(catalogName), tableHandle.getConnectorHandle());
     }
 
     @Override
     public boolean supportsMetadataDelete(Session session, TableHandle tableHandle)
     {
-        ConnectorId connectorId = tableHandle.getConnectorId();
-        ConnectorMetadata metadata = getMetadata(session, connectorId);
+        CatalogName catalogName = tableHandle.getCatalogName();
+        ConnectorMetadata metadata = getMetadata(session, catalogName);
         return metadata.supportsMetadataDelete(
-                session.toConnectorSession(connectorId),
+                session.toConnectorSession(catalogName),
                 tableHandle.getConnectorHandle(),
                 tableHandle.getLayout().get());
     }
@@ -837,36 +837,36 @@ public class MetadataManager
     @Override
     public OptionalLong metadataDelete(Session session, TableHandle tableHandle)
     {
-        ConnectorId connectorId = tableHandle.getConnectorId();
-        ConnectorMetadata metadata = getMetadataForWrite(session, connectorId);
-        return metadata.metadataDelete(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle(), tableHandle.getLayout().get());
+        CatalogName catalogName = tableHandle.getCatalogName();
+        ConnectorMetadata metadata = getMetadataForWrite(session, catalogName);
+        return metadata.metadataDelete(session.toConnectorSession(catalogName), tableHandle.getConnectorHandle(), tableHandle.getLayout().get());
     }
 
     @Override
     public TableHandle beginDelete(Session session, TableHandle tableHandle)
     {
-        ConnectorId connectorId = tableHandle.getConnectorId();
-        ConnectorMetadata metadata = getMetadataForWrite(session, connectorId);
-        ConnectorTableHandle newHandle = metadata.beginDelete(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle());
-        return new TableHandle(tableHandle.getConnectorId(), newHandle, tableHandle.getTransaction(), tableHandle.getLayout());
+        CatalogName catalogName = tableHandle.getCatalogName();
+        ConnectorMetadata metadata = getMetadataForWrite(session, catalogName);
+        ConnectorTableHandle newHandle = metadata.beginDelete(session.toConnectorSession(catalogName), tableHandle.getConnectorHandle());
+        return new TableHandle(tableHandle.getCatalogName(), newHandle, tableHandle.getTransaction(), tableHandle.getLayout());
     }
 
     @Override
     public void finishDelete(Session session, TableHandle tableHandle, Collection<Slice> fragments)
     {
-        ConnectorId connectorId = tableHandle.getConnectorId();
-        ConnectorMetadata metadata = getMetadata(session, connectorId);
-        metadata.finishDelete(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle(), fragments);
+        CatalogName catalogName = tableHandle.getCatalogName();
+        ConnectorMetadata metadata = getMetadata(session, catalogName);
+        metadata.finishDelete(session.toConnectorSession(catalogName), tableHandle.getConnectorHandle(), fragments);
     }
 
     @Override
-    public Optional<ConnectorId> getCatalogHandle(Session session, String catalogName)
+    public Optional<CatalogName> getCatalogHandle(Session session, String catalogName)
     {
-        return transactionManager.getOptionalCatalogMetadata(session.getRequiredTransactionId(), catalogName).map(CatalogMetadata::getConnectorId);
+        return transactionManager.getOptionalCatalogMetadata(session.getRequiredTransactionId(), catalogName).map(CatalogMetadata::getCatalogName);
     }
 
     @Override
-    public Map<String, ConnectorId> getCatalogNames(Session session)
+    public Map<String, CatalogName> getCatalogNames(Session session)
     {
         return transactionManager.getCatalogNames(session.getRequiredTransactionId());
     }
@@ -882,9 +882,9 @@ public class MetadataManager
         if (catalog.isPresent()) {
             CatalogMetadata catalogMetadata = catalog.get();
 
-            for (ConnectorId connectorId : catalogMetadata.listConnectorIds()) {
-                ConnectorMetadata metadata = catalogMetadata.getMetadataFor(connectorId);
-                ConnectorSession connectorSession = session.toConnectorSession(connectorId);
+            for (CatalogName catalogName : catalogMetadata.listConnectorIds()) {
+                ConnectorMetadata metadata = catalogMetadata.getMetadataFor(catalogName);
+                ConnectorSession connectorSession = session.toConnectorSession(catalogName);
                 metadata.listViews(connectorSession, prefix.getSchemaName()).stream()
                         .map(convertFromSchemaTableName(prefix.getCatalogName()))
                         .filter(prefix::matches)
@@ -906,9 +906,9 @@ public class MetadataManager
             CatalogMetadata catalogMetadata = catalog.get();
 
             SchemaTablePrefix tablePrefix = prefix.asSchemaTablePrefix();
-            for (ConnectorId connectorId : catalogMetadata.listConnectorIds()) {
-                ConnectorMetadata metadata = catalogMetadata.getMetadataFor(connectorId);
-                ConnectorSession connectorSession = session.toConnectorSession(connectorId);
+            for (CatalogName catalogName : catalogMetadata.listConnectorIds()) {
+                ConnectorMetadata metadata = catalogMetadata.getMetadataFor(catalogName);
+                ConnectorSession connectorSession = session.toConnectorSession(catalogName);
                 for (Entry<SchemaTableName, ConnectorViewDefinition> entry : metadata.getViews(connectorSession, tablePrefix).entrySet()) {
                     QualifiedObjectName viewName = new QualifiedObjectName(
                             prefix.getCatalogName(),
@@ -927,11 +927,11 @@ public class MetadataManager
         Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, viewName.getCatalogName());
         if (catalog.isPresent()) {
             CatalogMetadata catalogMetadata = catalog.get();
-            ConnectorId connectorId = catalogMetadata.getConnectorId(session, viewName);
-            ConnectorMetadata metadata = catalogMetadata.getMetadataFor(connectorId);
+            CatalogName catalogName = catalogMetadata.getConnectorId(session, viewName);
+            ConnectorMetadata metadata = catalogMetadata.getMetadataFor(catalogName);
 
             Map<SchemaTableName, ConnectorViewDefinition> views = metadata.getViews(
-                    session.toConnectorSession(connectorId),
+                    session.toConnectorSession(catalogName),
                     viewName.asSchemaTableName().toSchemaTablePrefix());
             ConnectorViewDefinition view = views.get(viewName.asSchemaTableName());
             if (view != null) {
@@ -949,52 +949,52 @@ public class MetadataManager
     public void createView(Session session, QualifiedObjectName viewName, String viewData, boolean replace)
     {
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, viewName.getCatalogName());
-        ConnectorId connectorId = catalogMetadata.getConnectorId();
+        CatalogName catalogName = catalogMetadata.getCatalogName();
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
 
-        metadata.createView(session.toConnectorSession(connectorId), viewName.asSchemaTableName(), viewData, replace);
+        metadata.createView(session.toConnectorSession(catalogName), viewName.asSchemaTableName(), viewData, replace);
     }
 
     @Override
     public void dropView(Session session, QualifiedObjectName viewName)
     {
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, viewName.getCatalogName());
-        ConnectorId connectorId = catalogMetadata.getConnectorId();
+        CatalogName catalogName = catalogMetadata.getCatalogName();
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
 
-        metadata.dropView(session.toConnectorSession(connectorId), viewName.asSchemaTableName());
+        metadata.dropView(session.toConnectorSession(catalogName), viewName.asSchemaTableName());
     }
 
     @Override
     public Optional<ResolvedIndex> resolveIndex(Session session, TableHandle tableHandle, Set<ColumnHandle> indexableColumns, Set<ColumnHandle> outputColumns, TupleDomain<ColumnHandle> tupleDomain)
     {
-        ConnectorId connectorId = tableHandle.getConnectorId();
-        CatalogMetadata catalogMetadata = getCatalogMetadata(session, connectorId);
-        ConnectorMetadata metadata = catalogMetadata.getMetadataFor(connectorId);
-        ConnectorTransactionHandle transaction = catalogMetadata.getTransactionHandleFor(connectorId);
-        ConnectorSession connectorSession = session.toConnectorSession(connectorId);
+        CatalogName catalogName = tableHandle.getCatalogName();
+        CatalogMetadata catalogMetadata = getCatalogMetadata(session, catalogName);
+        ConnectorMetadata metadata = catalogMetadata.getMetadataFor(catalogName);
+        ConnectorTransactionHandle transaction = catalogMetadata.getTransactionHandleFor(catalogName);
+        ConnectorSession connectorSession = session.toConnectorSession(catalogName);
         Optional<ConnectorResolvedIndex> resolvedIndex = metadata.resolveIndex(connectorSession, tableHandle.getConnectorHandle(), indexableColumns, outputColumns, tupleDomain);
-        return resolvedIndex.map(resolved -> new ResolvedIndex(tableHandle.getConnectorId(), transaction, resolved));
+        return resolvedIndex.map(resolved -> new ResolvedIndex(tableHandle.getCatalogName(), transaction, resolved));
     }
 
     @Override
     public void createRole(Session session, String role, Optional<PrestoPrincipal> grantor, String catalog)
     {
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalog);
-        ConnectorId connectorId = catalogMetadata.getConnectorId();
+        CatalogName catalogName = catalogMetadata.getCatalogName();
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
 
-        metadata.createRole(session.toConnectorSession(connectorId), role, grantor);
+        metadata.createRole(session.toConnectorSession(catalogName), role, grantor);
     }
 
     @Override
     public void dropRole(Session session, String role, String catalog)
     {
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalog);
-        ConnectorId connectorId = catalogMetadata.getConnectorId();
+        CatalogName catalogName = catalogMetadata.getCatalogName();
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
 
-        metadata.dropRole(session.toConnectorSession(connectorId), role);
+        metadata.dropRole(session.toConnectorSession(catalogName), role);
     }
 
     @Override
@@ -1004,9 +1004,9 @@ public class MetadataManager
         if (!catalogMetadata.isPresent()) {
             return ImmutableSet.of();
         }
-        ConnectorId connectorId = catalogMetadata.get().getConnectorId();
-        ConnectorSession connectorSession = session.toConnectorSession(connectorId);
-        ConnectorMetadata metadata = catalogMetadata.get().getMetadataFor(connectorId);
+        CatalogName catalogName = catalogMetadata.get().getCatalogName();
+        ConnectorSession connectorSession = session.toConnectorSession(catalogName);
+        ConnectorMetadata metadata = catalogMetadata.get().getMetadataFor(catalogName);
         return metadata.listRoles(connectorSession).stream()
                 .map(role -> role.toLowerCase(ENGLISH))
                 .collect(toImmutableSet());
@@ -1019,9 +1019,9 @@ public class MetadataManager
         if (!catalogMetadata.isPresent()) {
             return ImmutableSet.of();
         }
-        ConnectorId connectorId = catalogMetadata.get().getConnectorId();
-        ConnectorSession connectorSession = session.toConnectorSession(connectorId);
-        ConnectorMetadata metadata = catalogMetadata.get().getMetadataFor(connectorId);
+        CatalogName catalogName = catalogMetadata.get().getCatalogName();
+        ConnectorSession connectorSession = session.toConnectorSession(catalogName);
+        ConnectorMetadata metadata = catalogMetadata.get().getMetadataFor(catalogName);
         return metadata.listRoleGrants(connectorSession, principal);
     }
 
@@ -1029,20 +1029,20 @@ public class MetadataManager
     public void grantRoles(Session session, Set<String> roles, Set<PrestoPrincipal> grantees, boolean withAdminOption, Optional<PrestoPrincipal> grantor, String catalog)
     {
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalog);
-        ConnectorId connectorId = catalogMetadata.getConnectorId();
+        CatalogName catalogName = catalogMetadata.getCatalogName();
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
 
-        metadata.grantRoles(session.toConnectorSession(connectorId), roles, grantees, withAdminOption, grantor);
+        metadata.grantRoles(session.toConnectorSession(catalogName), roles, grantees, withAdminOption, grantor);
     }
 
     @Override
     public void revokeRoles(Session session, Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOptionFor, Optional<PrestoPrincipal> grantor, String catalog)
     {
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalog);
-        ConnectorId connectorId = catalogMetadata.getConnectorId();
+        CatalogName catalogName = catalogMetadata.getCatalogName();
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
 
-        metadata.revokeRoles(session.toConnectorSession(connectorId), roles, grantees, adminOptionFor, grantor);
+        metadata.revokeRoles(session.toConnectorSession(catalogName), roles, grantees, adminOptionFor, grantor);
     }
 
     @Override
@@ -1052,9 +1052,9 @@ public class MetadataManager
         if (!catalogMetadata.isPresent()) {
             return ImmutableSet.of();
         }
-        ConnectorId connectorId = catalogMetadata.get().getConnectorId();
-        ConnectorSession connectorSession = session.toConnectorSession(connectorId);
-        ConnectorMetadata metadata = catalogMetadata.get().getMetadataFor(connectorId);
+        CatalogName catalogName = catalogMetadata.get().getCatalogName();
+        ConnectorSession connectorSession = session.toConnectorSession(catalogName);
+        ConnectorMetadata metadata = catalogMetadata.get().getMetadataFor(catalogName);
         return ImmutableSet.copyOf(metadata.listApplicableRoles(connectorSession, principal));
     }
 
@@ -1065,9 +1065,9 @@ public class MetadataManager
         if (!catalogMetadata.isPresent()) {
             return ImmutableSet.of();
         }
-        ConnectorId connectorId = catalogMetadata.get().getConnectorId();
-        ConnectorSession connectorSession = session.toConnectorSession(connectorId);
-        ConnectorMetadata metadata = catalogMetadata.get().getMetadataFor(connectorId);
+        CatalogName catalogName = catalogMetadata.get().getCatalogName();
+        ConnectorSession connectorSession = session.toConnectorSession(catalogName);
+        ConnectorMetadata metadata = catalogMetadata.get().getMetadataFor(catalogName);
         return ImmutableSet.copyOf(metadata.listEnabledRoles(connectorSession));
     }
 
@@ -1075,20 +1075,20 @@ public class MetadataManager
     public void grantTablePrivileges(Session session, QualifiedObjectName tableName, Set<Privilege> privileges, PrestoPrincipal grantee, boolean grantOption)
     {
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, tableName.getCatalogName());
-        ConnectorId connectorId = catalogMetadata.getConnectorId();
+        CatalogName catalogName = catalogMetadata.getCatalogName();
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
 
-        metadata.grantTablePrivileges(session.toConnectorSession(connectorId), tableName.asSchemaTableName(), privileges, grantee, grantOption);
+        metadata.grantTablePrivileges(session.toConnectorSession(catalogName), tableName.asSchemaTableName(), privileges, grantee, grantOption);
     }
 
     @Override
     public void revokeTablePrivileges(Session session, QualifiedObjectName tableName, Set<Privilege> privileges, PrestoPrincipal grantee, boolean grantOption)
     {
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, tableName.getCatalogName());
-        ConnectorId connectorId = catalogMetadata.getConnectorId();
+        CatalogName catalogName = catalogMetadata.getCatalogName();
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
 
-        metadata.revokeTablePrivileges(session.toConnectorSession(connectorId), tableName.asSchemaTableName(), privileges, grantee, grantOption);
+        metadata.revokeTablePrivileges(session.toConnectorSession(catalogName), tableName.asSchemaTableName(), privileges, grantee, grantOption);
     }
 
     @Override
@@ -1102,9 +1102,9 @@ public class MetadataManager
         ImmutableSet.Builder<GrantInfo> grantInfos = ImmutableSet.builder();
         if (catalog.isPresent()) {
             CatalogMetadata catalogMetadata = catalog.get();
-            ConnectorSession connectorSession = session.toConnectorSession(catalogMetadata.getConnectorId());
-            for (ConnectorId connectorId : catalogMetadata.listConnectorIds()) {
-                ConnectorMetadata metadata = catalogMetadata.getMetadataFor(connectorId);
+            ConnectorSession connectorSession = session.toConnectorSession(catalogMetadata.getCatalogName());
+            for (CatalogName catalogName : catalogMetadata.listConnectorIds()) {
+                ConnectorMetadata metadata = catalogMetadata.getMetadataFor(catalogName);
                 grantInfos.addAll(metadata.listTablePrivileges(connectorSession, tablePrefix));
             }
         }
@@ -1167,22 +1167,22 @@ public class MetadataManager
     }
 
     @Override
-    public Set<ConnectorCapabilities> getConnectorCapabilities(Session session, ConnectorId connectorId)
+    public Set<ConnectorCapabilities> getConnectorCapabilities(Session session, CatalogName catalogName)
     {
-        return getCatalogMetadata(session, connectorId).getConnectorCapabilities();
+        return getCatalogMetadata(session, catalogName).getConnectorCapabilities();
     }
 
     @Override
     public boolean usesLegacyTableLayouts(Session session, TableHandle table)
     {
-        return getMetadata(session, table.getConnectorId()).usesLegacyTableLayouts();
+        return getMetadata(session, table.getCatalogName()).usesLegacyTableLayouts();
     }
 
     @Override
     public Optional<LimitApplicationResult<TableHandle>> applyLimit(Session session, TableHandle table, long limit)
     {
-        ConnectorId connectorId = table.getConnectorId();
-        ConnectorMetadata metadata = getMetadata(session, connectorId);
+        CatalogName catalogName = table.getCatalogName();
+        ConnectorMetadata metadata = getMetadata(session, catalogName);
 
         if (metadata.usesLegacyTableLayouts()) {
             return Optional.empty();
@@ -1190,7 +1190,7 @@ public class MetadataManager
 
         return metadata.applyLimit(table.getConnectorHandle(), limit)
                 .map(result -> new LimitApplicationResult<>(
-                        new TableHandle(connectorId, result.getHandle(), table.getTransaction(), Optional.empty()),
+                        new TableHandle(catalogName, result.getHandle(), table.getTransaction(), Optional.empty()),
                         result.isLimitGuaranteed()));
     }
 
@@ -1209,9 +1209,9 @@ public class MetadataManager
         return transactionManager.getOptionalCatalogMetadata(session.getRequiredTransactionId(), catalogName);
     }
 
-    private CatalogMetadata getCatalogMetadata(Session session, ConnectorId connectorId)
+    private CatalogMetadata getCatalogMetadata(Session session, CatalogName catalogName)
     {
-        return transactionManager.getCatalogMetadata(session.getRequiredTransactionId(), connectorId);
+        return transactionManager.getCatalogMetadata(session.getRequiredTransactionId(), catalogName);
     }
 
     private CatalogMetadata getCatalogMetadataForWrite(Session session, String catalogName)
@@ -1219,19 +1219,19 @@ public class MetadataManager
         return transactionManager.getCatalogMetadataForWrite(session.getRequiredTransactionId(), catalogName);
     }
 
-    private CatalogMetadata getCatalogMetadataForWrite(Session session, ConnectorId connectorId)
+    private CatalogMetadata getCatalogMetadataForWrite(Session session, CatalogName catalogName)
     {
-        return transactionManager.getCatalogMetadataForWrite(session.getRequiredTransactionId(), connectorId);
+        return transactionManager.getCatalogMetadataForWrite(session.getRequiredTransactionId(), catalogName);
     }
 
-    private ConnectorMetadata getMetadata(Session session, ConnectorId connectorId)
+    private ConnectorMetadata getMetadata(Session session, CatalogName catalogName)
     {
-        return getCatalogMetadata(session, connectorId).getMetadataFor(connectorId);
+        return getCatalogMetadata(session, catalogName).getMetadataFor(catalogName);
     }
 
-    private ConnectorMetadata getMetadataForWrite(Session session, ConnectorId connectorId)
+    private ConnectorMetadata getMetadataForWrite(Session session, CatalogName catalogName)
     {
-        return getCatalogMetadataForWrite(session, connectorId).getMetadata();
+        return getCatalogMetadataForWrite(session, catalogName).getMetadata();
     }
 
     @VisibleForTesting

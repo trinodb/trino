@@ -15,7 +15,7 @@ package io.prestosql.metadata;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.prestosql.connector.ConnectorId;
+import io.prestosql.connector.CatalogName;
 import io.prestosql.execution.Lifespan;
 import io.prestosql.spi.HostAddress;
 import io.prestosql.spi.connector.ConnectorSplit;
@@ -27,25 +27,25 @@ import static java.util.Objects.requireNonNull;
 
 public final class Split
 {
-    private final ConnectorId connectorId;
+    private final CatalogName catalogName;
     private final ConnectorSplit connectorSplit;
     private final Lifespan lifespan;
 
     @JsonCreator
     public Split(
-            @JsonProperty("connectorId") ConnectorId connectorId,
+            @JsonProperty("connectorId") CatalogName catalogName,
             @JsonProperty("connectorSplit") ConnectorSplit connectorSplit,
             @JsonProperty("lifespan") Lifespan lifespan)
     {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null");
+        this.catalogName = requireNonNull(catalogName, "connectorId is null");
         this.connectorSplit = requireNonNull(connectorSplit, "connectorSplit is null");
         this.lifespan = requireNonNull(lifespan, "lifespan is null");
     }
 
     @JsonProperty
-    public ConnectorId getConnectorId()
+    public CatalogName getCatalogName()
     {
-        return connectorId;
+        return catalogName;
     }
 
     @JsonProperty
@@ -79,7 +79,7 @@ public final class Split
     public String toString()
     {
         return toStringHelper(this)
-                .add("connectorId", connectorId)
+                .add("connectorId", catalogName)
                 .add("connectorSplit", connectorSplit)
                 .add("lifespan", lifespan)
                 .toString();

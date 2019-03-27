@@ -15,7 +15,7 @@ package io.prestosql.metadata;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.prestosql.connector.ConnectorId;
+import io.prestosql.connector.CatalogName;
 import io.prestosql.spi.connector.ConnectorInsertTableHandle;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 
@@ -25,25 +25,25 @@ import static java.util.Objects.requireNonNull;
 
 public final class InsertTableHandle
 {
-    private final ConnectorId connectorId;
+    private final CatalogName catalogName;
     private final ConnectorTransactionHandle transactionHandle;
     private final ConnectorInsertTableHandle connectorHandle;
 
     @JsonCreator
     public InsertTableHandle(
-            @JsonProperty("connectorId") ConnectorId connectorId,
+            @JsonProperty("connectorId") CatalogName catalogName,
             @JsonProperty("transactionHandle") ConnectorTransactionHandle transactionHandle,
             @JsonProperty("connectorHandle") ConnectorInsertTableHandle connectorHandle)
     {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null");
+        this.catalogName = requireNonNull(catalogName, "connectorId is null");
         this.transactionHandle = requireNonNull(transactionHandle, "transactionHandle is null");
         this.connectorHandle = requireNonNull(connectorHandle, "connectorHandle is null");
     }
 
     @JsonProperty
-    public ConnectorId getConnectorId()
+    public CatalogName getCatalogName()
     {
-        return connectorId;
+        return catalogName;
     }
 
     @JsonProperty
@@ -61,7 +61,7 @@ public final class InsertTableHandle
     @Override
     public int hashCode()
     {
-        return Objects.hash(connectorId, transactionHandle, connectorHandle);
+        return Objects.hash(catalogName, transactionHandle, connectorHandle);
     }
 
     @Override
@@ -74,7 +74,7 @@ public final class InsertTableHandle
             return false;
         }
         InsertTableHandle o = (InsertTableHandle) obj;
-        return Objects.equals(this.connectorId, o.connectorId) &&
+        return Objects.equals(this.catalogName, o.catalogName) &&
                 Objects.equals(this.transactionHandle, o.transactionHandle) &&
                 Objects.equals(this.connectorHandle, o.connectorHandle);
     }
@@ -82,6 +82,6 @@ public final class InsertTableHandle
     @Override
     public String toString()
     {
-        return connectorId + ":" + connectorHandle;
+        return catalogName + ":" + connectorHandle;
     }
 }
