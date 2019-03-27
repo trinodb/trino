@@ -15,11 +15,7 @@ package io.prestosql.ranger;
 
 import io.prestosql.ranger.groups.UserGroups;
 import io.prestosql.spi.security.Identity;
-import org.apache.commons.lang.StringUtils;
-import org.apache.ranger.plugin.model.RangerPolicy;
 import org.apache.ranger.plugin.policyengine.RangerAccessResult;
-import org.apache.ranger.plugin.policyengine.RangerDataMaskResult;
-import org.apache.ranger.plugin.policyengine.RangerRowFilterResult;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -107,62 +103,6 @@ public class PrestoAuthorizer
     private Set<String> getGroups(Identity identity)
     {
         return userGroups.getUserGroups(identity.getUser());
-    }
-
-    public String getRowLevelFilterExp(String catalogName, RangerPrestoResource resource, Identity identity)
-    {
-        Optional<RangerPrestoPlugin> rangerPrestoPlugin = catalogPlugin.getPluginForCatalog(catalogName);
-        if (rangerPrestoPlugin.isPresent()) {
-            RangerPrestoAccessRequest rangerRequest = new RangerPrestoAccessRequest(
-                    resource,
-                    identity.getUser(),
-                    getGroups(identity),
-                    PrestoAccessType.SELECT);
-
-            RangerRowFilterResult rowFilterResult = rangerPrestoPlugin.get().evalRowFilterPolicies(rangerRequest, rangerPrestoPlugin.get().getResultProcessor());
-            if (isRowFilterEnabled(rowFilterResult)) {
-                return rowFilterResult.getFilterExpr();
-            }
-        }
-        return null;
-    }
-
-    public String getColumnMaskingExpression(String catalogName, RangerPrestoResource resource, Identity identity, String columnName)
-    {
-        Optional<RangerPrestoPlugin> rangerPrestoPlugin = catalogPlugin.getPluginForCatalog(catalogName);
-        if (rangerPrestoPlugin.isPresent()) {
-            RangerPrestoAccessRequest rangerRequest = new RangerPrestoAccessRequest(
-                    resource,
-                    identity.getUser(),
-                    getGroups(identity),
-                    PrestoAccessType.SELECT);
-
-            RangerDataMaskResult rangerDataMaskResult = rangerPrestoPlugin.get().evalDataMaskPolicies(rangerRequest, rangerPrestoPlugin.get().getResultProcessor());
-            if (isDataMaskEnabled(rangerDataMaskResult)) {
-                // only support for custom masking
-                if (StringUtils.equalsIgnoreCase(rangerDataMaskResult.getMaskType(), RangerPolicy.MASK_TYPE_CUSTOM)) {
-                    String maskedValue = rangerDataMaskResult.getMaskedValue();
-                    if (maskedValue == null) {
-                        return "NULL";
-                    }
-                    else {
-                        return maskedValue.replace("{col}", columnName);
-                    }
-                }
-            }
-        }
-
-        return null;
-    }
-
-    private boolean isDataMaskEnabled(RangerDataMaskResult result)
-    {
-        return result != null && result.isMaskEnabled() && !StringUtils.equalsIgnoreCase(result.getMaskType(), RangerPolicy.MASK_TYPE_NONE);
-    }
-
-    private boolean isRowFilterEnabled(RangerRowFilterResult result)
-    {
-        return result != null && result.isRowFilterEnabled() && StringUtils.isNotEmpty(result.getFilterExpr());
     }
 
     private class CatalogPlugin
