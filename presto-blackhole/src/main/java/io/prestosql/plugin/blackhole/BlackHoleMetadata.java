@@ -62,7 +62,7 @@ public class BlackHoleMetadata
     public static final String SCHEMA_NAME = "default";
 
     private final List<String> schemas = new ArrayList<>();
-    private final Map<String, BlackHoleTableHandle> tables = new ConcurrentHashMap<>();
+    private final Map<SchemaTableName, BlackHoleTableHandle> tables = new ConcurrentHashMap<>();
 
     public BlackHoleMetadata()
     {
@@ -87,7 +87,7 @@ public class BlackHoleMetadata
     @Override
     public ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
     {
-        return tables.get(tableName.getTableName());
+        return tables.get(tableName);
     }
 
     @Override
@@ -133,7 +133,7 @@ public class BlackHoleMetadata
     public void dropTable(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         BlackHoleTableHandle blackHoleTableHandle = (BlackHoleTableHandle) tableHandle;
-        tables.remove(blackHoleTableHandle.getTableName());
+        tables.remove(blackHoleTableHandle.toSchemaTableName());
     }
 
     @Override
@@ -149,8 +149,8 @@ public class BlackHoleMetadata
                 oldTableHandle.getRowsPerPage(),
                 oldTableHandle.getFieldsLength(),
                 oldTableHandle.getPageProcessingDelay());
-        tables.remove(oldTableHandle.getTableName());
-        tables.put(newTableName.getTableName(), newTableHandle);
+        tables.remove(oldTableHandle.toSchemaTableName());
+        tables.put(newTableName, newTableHandle);
     }
 
     @Override
@@ -222,7 +222,7 @@ public class BlackHoleMetadata
     {
         BlackHoleOutputTableHandle blackHoleOutputTableHandle = (BlackHoleOutputTableHandle) tableHandle;
         BlackHoleTableHandle table = blackHoleOutputTableHandle.getTable();
-        tables.put(table.getTableName(), table);
+        tables.put(table.toSchemaTableName(), table);
         return Optional.empty();
     }
 
