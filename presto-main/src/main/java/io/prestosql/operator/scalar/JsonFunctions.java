@@ -26,6 +26,7 @@ import io.airlift.slice.SliceOutput;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.function.LiteralParameter;
 import io.prestosql.spi.function.LiteralParameters;
 import io.prestosql.spi.function.OperatorType;
 import io.prestosql.spi.function.ScalarFunction;
@@ -36,7 +37,6 @@ import io.prestosql.spi.type.SqlDecimal;
 import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.Type;
 import io.prestosql.type.JsonPathType;
-import io.prestosql.type.LiteralParameter;
 
 import java.io.IOException;
 import java.io.OutputStream;

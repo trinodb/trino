@@ -23,6 +23,7 @@ import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.function.Description;
+import io.prestosql.spi.function.LiteralParameter;
 import io.prestosql.spi.function.LiteralParameters;
 import io.prestosql.spi.function.OperatorType;
 import io.prestosql.spi.function.ScalarFunction;
@@ -32,7 +33,6 @@ import io.prestosql.spi.function.SqlType;
 import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.type.CodePointsType;
 import io.prestosql.type.Constraint;
-import io.prestosql.type.LiteralParameter;
 
 import java.text.Normalizer;
 import java.util.OptionalInt;

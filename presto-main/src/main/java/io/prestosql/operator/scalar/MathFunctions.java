@@ -21,6 +21,7 @@ import io.prestosql.operator.aggregation.TypedSet;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.function.Description;
+import io.prestosql.spi.function.LiteralParameter;
 import io.prestosql.spi.function.LiteralParameters;
 import io.prestosql.spi.function.ScalarFunction;
 import io.prestosql.spi.function.SqlNullable;
@@ -29,7 +30,6 @@ import io.prestosql.spi.type.Decimals;
 import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.UnscaledDecimal128Arithmetic;
 import io.prestosql.type.Constraint;
-import io.prestosql.type.LiteralParameter;
 import org.apache.commons.math3.distribution.BetaDistribution;
 import org.apache.commons.math3.special.Erf;
 

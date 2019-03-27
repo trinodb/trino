@@ -30,6 +30,7 @@ import io.prestosql.operator.scalar.annotations.ScalarFromAnnotationsParser;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.function.Description;
 import io.prestosql.spi.function.IsNull;
+import io.prestosql.spi.function.LiteralParameter;
 import io.prestosql.spi.function.LiteralParameters;
 import io.prestosql.spi.function.ScalarFunction;
 import io.prestosql.spi.function.SqlNullable;
@@ -37,7 +38,6 @@ import io.prestosql.spi.function.SqlType;
 import io.prestosql.spi.function.TypeParameter;
 import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.Type;
-import io.prestosql.type.LiteralParameter;
 import io.prestosql.type.TypeRegistry;
 import org.testng.annotations.Test;
 
