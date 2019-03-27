@@ -141,7 +141,7 @@ public class TestDbResourceGroupConfigurationManager
         }
         catch (RuntimeException ex) {
             assertTrue(ex instanceof UnableToExecuteStatementException);
-            assertTrue(ex.getCause() instanceof org.h2.jdbc.JdbcSQLException);
+            assertTrue(ex.getCause() instanceof org.h2.jdbc.JdbcException);
             assertTrue(ex.getCause().getMessage().startsWith("Unique index or primary key violation"));
         }
         dao.insertSelector(1, 1, null, null, null, null, null);
@@ -157,7 +157,7 @@ public class TestDbResourceGroupConfigurationManager
         }
         catch (RuntimeException ex) {
             assertTrue(ex instanceof UnableToExecuteStatementException);
-            assertTrue(ex.getCause() instanceof org.h2.jdbc.JdbcSQLException);
+            assertTrue(ex.getCause() instanceof org.h2.jdbc.JdbcException);
             assertTrue(ex.getCause().getMessage().startsWith("Unique index or primary key violation"));
         }
 
