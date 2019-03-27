@@ -20,6 +20,7 @@ import io.airlift.joni.Syntax;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.function.LiteralParameter;
 import io.prestosql.spi.function.LiteralParameters;
 import io.prestosql.spi.function.OperatorType;
 import io.prestosql.spi.function.ScalarFunction;
