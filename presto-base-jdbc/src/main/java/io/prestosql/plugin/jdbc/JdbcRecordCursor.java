@@ -227,7 +227,9 @@ public class JdbcRecordCursor
         try (Connection connection = this.connection;
                 Statement statement = this.statement;
                 ResultSet resultSet = this.resultSet) {
-            jdbcClient.abortReadConnection(connection);
+            if (connection != null) {
+                jdbcClient.abortReadConnection(connection);
+            }
         }
         catch (SQLException e) {
             // ignore exception from close
