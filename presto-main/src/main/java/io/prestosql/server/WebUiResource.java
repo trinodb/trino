@@ -22,7 +22,7 @@ import javax.ws.rs.core.UriInfo;
 
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.net.HttpHeaders.X_FORWARDED_PROTO;
-import static javax.ws.rs.core.Response.Status.MOVED_PERMANENTLY;
+import static javax.ws.rs.core.Response.Status.TEMPORARY_REDIRECT;
 
 @Path("/")
 public class WebUiResource
@@ -36,7 +36,7 @@ public class WebUiResource
             proto = uriInfo.getRequestUri().getScheme();
         }
 
-        return Response.status(MOVED_PERMANENTLY)
+        return Response.status(TEMPORARY_REDIRECT)
                 .location(uriInfo.getRequestUriBuilder().scheme(proto).path("/ui/").build())
                 .build();
     }
