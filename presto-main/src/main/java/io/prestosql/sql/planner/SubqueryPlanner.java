@@ -29,7 +29,6 @@ import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.ProjectNode;
 import io.prestosql.sql.planner.plan.SimplePlanRewriter;
 import io.prestosql.sql.planner.plan.ValuesNode;
-import io.prestosql.sql.tree.BooleanLiteral;
 import io.prestosql.sql.tree.DefaultExpressionTraversalVisitor;
 import io.prestosql.sql.tree.DereferenceExpression;
 import io.prestosql.sql.tree.ExistsPredicate;
@@ -61,6 +60,7 @@ import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.sql.analyzer.SemanticExceptions.notSupportedException;
 import static io.prestosql.sql.planner.ExpressionNodeInliner.replaceExpression;
 import static io.prestosql.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
+import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.prestosql.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static io.prestosql.sql.util.AstUtils.nodeContains;
 import static java.lang.String.format;
@@ -279,7 +279,7 @@ class SubqueryPlanner
 
         PlanNode subqueryPlanRoot = subqueryPlan.getRoot();
         if (isAggregationWithEmptyGroupBy(subqueryPlanRoot)) {
-            subPlan.getTranslations().put(existsPredicate, BooleanLiteral.TRUE_LITERAL);
+            subPlan.getTranslations().put(existsPredicate, TRUE_LITERAL);
             return subPlan;
         }
 
@@ -288,7 +288,7 @@ class SubqueryPlanner
 
         Symbol exists = symbolAllocator.newSymbol("exists", BOOLEAN);
         subPlan.getTranslations().put(existsPredicate, exists);
-        ExistsPredicate rewrittenExistsPredicate = new ExistsPredicate(BooleanLiteral.TRUE_LITERAL);
+        ExistsPredicate rewrittenExistsPredicate = new ExistsPredicate(TRUE_LITERAL);
         return appendApplyNode(
                 subPlan,
                 existsPredicate.getSubquery(),
