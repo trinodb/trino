@@ -166,7 +166,7 @@ and Kerberos authentication:
           "allow": true
         },
         {
-          "principal": "([^/]+)/?.*@.*",
+          "principal": "([^/]+)(/.*)?@.*",
           "principal_to_user": "$1",
           "allow": true
         }
