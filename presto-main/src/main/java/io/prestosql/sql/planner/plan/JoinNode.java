@@ -201,7 +201,6 @@ public class JoinNode
 
         public static Type typeConvert(Join.Type joinType)
         {
-            // Omit SEMI join types because they must be inferred by the planner and not part of the SQL parse tree
             switch (joinType) {
                 case CROSS:
                 case IMPLICIT:
