@@ -499,7 +499,7 @@ class SubqueryPlanner
     private Set<Expression> extractOuterColumnReferences(PlanNode planNode)
     {
         // at this point all the column references are already rewritten to SymbolReference
-        // when reference expression is not rewritten that means it cannot be satisfied within given PlaNode
+        // when reference expression is not rewritten that means it cannot be satisfied within given PlanNode
         // see that TranslationMap only resolves (local) fields in current scope
         return ExpressionExtractor.extractExpressions(planNode).stream()
                 .flatMap(expression -> extractColumnReferences(expression, analysis.getColumnReferences()).stream())
