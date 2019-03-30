@@ -212,7 +212,7 @@ public class OrcMetadataReader
         List<OrcProto.BloomFilter> bloomFilterList = bloomFilter.getBloomFilterList();
         ImmutableList.Builder<HiveBloomFilter> builder = ImmutableList.builder();
         for (OrcProto.BloomFilter orcBloomFilter : bloomFilterList) {
-            builder.add(new HiveBloomFilter(orcBloomFilter.getBitsetList(), orcBloomFilter.getBitsetCount() * 64, orcBloomFilter.getNumHashFunctions()));
+            builder.add(new HiveBloomFilter(orcBloomFilter.getBitsetList(), orcBloomFilter.getNumHashFunctions()));
         }
         return builder.build();
     }
