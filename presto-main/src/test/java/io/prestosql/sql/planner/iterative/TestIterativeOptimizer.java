@@ -54,7 +54,7 @@ public class TestIterativeOptimizer
 
         queryRunner = new LocalQueryRunner(sessionBuilder.build());
 
-        queryRunner.createCatalog(queryRunner.getDefaultSession().getCatalog().get(),
+        queryRunner.createCatalog(queryRunner.getDefaultSession().getCatalog().get().getLegacyName(),
                 new TpchConnectorFactory(1),
                 ImmutableMap.of());
     }

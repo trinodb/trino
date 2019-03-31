@@ -17,6 +17,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.execution.QueryState;
+import io.prestosql.spi.Name;
 import io.prestosql.spi.QueryId;
 import io.prestosql.spi.resourcegroups.ResourceGroupId;
 import org.joda.time.DateTime;
@@ -35,11 +36,11 @@ public class QueryStateInfo
     private final Optional<ResourceGroupId> resourceGroupId;
     private final String query;
     private final DateTime createTime;
-    private final String user;
+    private final Name user;
     private final Optional<String> source;
     private final Optional<String> clientInfo;
-    private final Optional<String> catalog;
-    private final Optional<String> schema;
+    private final Optional<Name> catalog;
+    private final Optional<Name> schema;
     private final Optional<List<ResourceGroupInfo>> pathToRoot;
     private final Optional<QueryProgressStats> progress;
 
@@ -50,11 +51,11 @@ public class QueryStateInfo
             @JsonProperty("resourceGroupId") Optional<ResourceGroupId> resourceGroupId,
             @JsonProperty("query") String query,
             @JsonProperty("createTime") DateTime createTime,
-            @JsonProperty("user") String user,
+            @JsonProperty("user") Name user,
             @JsonProperty("source") Optional<String> source,
             @JsonProperty("clientInfo") Optional<String> clientInfo,
-            @JsonProperty("catalog") Optional<String> catalog,
-            @JsonProperty("schema") Optional<String> schema,
+            @JsonProperty("catalog") Optional<Name> catalog,
+            @JsonProperty("schema") Optional<Name> schema,
             @JsonProperty("pathToRoot") Optional<List<ResourceGroupInfo>> pathToRoot,
             @JsonProperty("progress") Optional<QueryProgressStats> progress)
     {
@@ -133,7 +134,7 @@ public class QueryStateInfo
     }
 
     @JsonProperty
-    public String getUser()
+    public Name getUser()
     {
         return user;
     }
@@ -151,13 +152,13 @@ public class QueryStateInfo
     }
 
     @JsonProperty
-    public Optional<String> getCatalog()
+    public Optional<Name> getCatalog()
     {
         return catalog;
     }
 
     @JsonProperty
-    public Optional<String> getSchema()
+    public Optional<Name> getSchema()
     {
         return schema;
     }

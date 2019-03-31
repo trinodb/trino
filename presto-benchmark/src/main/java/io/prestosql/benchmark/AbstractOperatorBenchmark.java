@@ -139,7 +139,7 @@ public abstract class AbstractOperatorBenchmark
 
         // look up the table
         Metadata metadata = localQueryRunner.getMetadata();
-        QualifiedObjectName qualifiedTableName = new QualifiedObjectName(session.getCatalog().get(), session.getSchema().get(), tableName);
+        QualifiedObjectName qualifiedTableName = new QualifiedObjectName(session.getCatalog().get().getLegacyName(), session.getSchema().get().getLegacyName(), tableName);
         TableHandle tableHandle = metadata.getTableHandle(session, qualifiedTableName)
                 .orElseThrow(() -> new IllegalArgumentException(format("Table %s does not exist", qualifiedTableName)));
 
@@ -157,7 +157,7 @@ public abstract class AbstractOperatorBenchmark
 
         // look up the table
         Metadata metadata = localQueryRunner.getMetadata();
-        QualifiedObjectName qualifiedTableName = new QualifiedObjectName(session.getCatalog().get(), session.getSchema().get(), tableName);
+        QualifiedObjectName qualifiedTableName = new QualifiedObjectName(session.getCatalog().get().getLegacyName(), session.getSchema().get().getLegacyName(), tableName);
         TableHandle tableHandle = metadata.getTableHandle(session, qualifiedTableName).orElse(null);
         checkArgument(tableHandle != null, "Table %s does not exist", qualifiedTableName);
 

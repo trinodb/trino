@@ -2297,35 +2297,35 @@ public abstract class AbstractTestQueries
     public void testShowCatalogs()
     {
         MaterializedResult result = computeActual("SHOW CATALOGS");
-        assertTrue(result.getOnlyColumnAsSet().contains(getSession().getCatalog().get()));
+        assertTrue(result.getOnlyColumnAsSet().contains(getSession().getCatalog().get().getLegacyName()));
     }
 
     @Test
     public void testShowCatalogsLike()
     {
         MaterializedResult result = computeActual(format("SHOW CATALOGS LIKE '%s'", getSession().getCatalog().get()));
-        assertEquals(result.getOnlyColumnAsSet(), ImmutableSet.of(getSession().getCatalog().get()));
+        assertEquals(result.getOnlyColumnAsSet(), ImmutableSet.of(getSession().getCatalog().get().getLegacyName()));
     }
 
     @Test
     public void testShowSchemas()
     {
         MaterializedResult result = computeActual("SHOW SCHEMAS");
-        assertTrue(result.getOnlyColumnAsSet().containsAll(ImmutableSet.of(getSession().getSchema().get(), INFORMATION_SCHEMA)));
+        assertTrue(result.getOnlyColumnAsSet().containsAll(ImmutableSet.of(getSession().getSchema().get().getLegacyName(), INFORMATION_SCHEMA)));
     }
 
     @Test
     public void testShowSchemasFrom()
     {
-        MaterializedResult result = computeActual(format("SHOW SCHEMAS FROM %s", getSession().getCatalog().get()));
-        assertTrue(result.getOnlyColumnAsSet().containsAll(ImmutableSet.of(getSession().getSchema().get(), INFORMATION_SCHEMA)));
+        MaterializedResult result = computeActual(format("SHOW SCHEMAS FROM %s", getSession().getCatalog().get().getLegacyName()));
+        assertTrue(result.getOnlyColumnAsSet().containsAll(ImmutableSet.of(getSession().getSchema().get().getLegacyName(), INFORMATION_SCHEMA)));
     }
 
     @Test
     public void testShowSchemasLike()
     {
-        MaterializedResult result = computeActual(format("SHOW SCHEMAS LIKE '%s'", getSession().getSchema().get()));
-        assertEquals(result.getOnlyColumnAsSet(), ImmutableSet.of(getSession().getSchema().get()));
+        MaterializedResult result = computeActual(format("SHOW SCHEMAS LIKE '%s'", getSession().getSchema().get().getLegacyName()));
+        assertEquals(result.getOnlyColumnAsSet(), ImmutableSet.of(getSession().getSchema().get().getLegacyName()));
     }
 
     @Test
@@ -2356,8 +2356,8 @@ public abstract class AbstractTestQueries
     {
         Set<String> expectedTables = ImmutableSet.copyOf(transform(TpchTable.getTables(), TpchTable::getTableName));
 
-        String catalog = getSession().getCatalog().get();
-        String schema = getSession().getSchema().get();
+        String catalog = getSession().getCatalog().get().getLegacyName();
+        String schema = getSession().getSchema().get().getLegacyName();
 
         MaterializedResult result = computeActual("SHOW TABLES FROM " + schema);
         assertTrue(result.getOnlyColumnAsSet().containsAll(expectedTables));
@@ -4829,10 +4829,10 @@ public abstract class AbstractTestQueries
 
         MaterializedResult actual = computeActual(session, "DESCRIBE OUTPUT my_query");
         MaterializedResult expected = resultBuilder(session, VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, BIGINT, BOOLEAN)
-                .row("nationkey", session.getCatalog().get(), session.getSchema().get(), "nation", "bigint", 8, false)
-                .row("name", session.getCatalog().get(), session.getSchema().get(), "nation", "varchar(25)", 0, false)
-                .row("regionkey", session.getCatalog().get(), session.getSchema().get(), "nation", "bigint", 8, false)
-                .row("comment", session.getCatalog().get(), session.getSchema().get(), "nation", "varchar(152)", 0, false)
+                .row("nationkey", session.getCatalog().get().getLegacyName(), session.getSchema().get().getLegacyName(), "nation", "bigint", 8, false)
+                .row("name", session.getCatalog().get().getLegacyName(), session.getSchema().get().getLegacyName(), "nation", "varchar(25)", 0, false)
+                .row("regionkey", session.getCatalog().get().getLegacyName(), session.getSchema().get().getLegacyName(), "nation", "bigint", 8, false)
+                .row("comment", session.getCatalog().get().getLegacyName(), session.getSchema().get().getLegacyName(), "nation", "varchar(152)", 0, false)
                 .build();
         assertEqualsIgnoreOrder(actual, expected);
     }
@@ -4847,8 +4847,8 @@ public abstract class AbstractTestQueries
         MaterializedResult actual = computeActual(session, "DESCRIBE OUTPUT my_query");
         MaterializedResult expected = resultBuilder(session, VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, BIGINT, BOOLEAN)
                 .row("_col0", "", "", "", "integer", 4, false)
-                .row("name", session.getCatalog().get(), session.getSchema().get(), "nation", "varchar(25)", 0, false)
-                .row("my_alias", session.getCatalog().get(), session.getSchema().get(), "nation", "bigint", 8, true)
+                .row("name", session.getCatalog().get().getLegacyName(), session.getSchema().get().getLegacyName(), "nation", "varchar(25)", 0, false)
+                .row("my_alias", session.getCatalog().get().getLegacyName(), session.getSchema().get().getLegacyName(), "nation", "bigint", 8, true)
                 .build();
         assertEqualsIgnoreOrder(actual, expected);
     }
@@ -4915,7 +4915,7 @@ public abstract class AbstractTestQueries
 
         MaterializedResult actual = computeActual(session, "DESCRIBE OUTPUT my_query");
         MaterializedResult expected = resultBuilder(session, VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, BIGINT, BOOLEAN)
-                .row("Table", session.getCatalog().get(), "information_schema", "tables", "varchar", 0, true)
+                .row("Table", session.getCatalog().get().getLegacyName(), "information_schema", "tables", "varchar", 0, true)
                 .build();
         assertEqualsIgnoreOrder(actual, expected);
     }

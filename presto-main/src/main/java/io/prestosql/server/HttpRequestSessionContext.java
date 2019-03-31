@@ -72,6 +72,7 @@ import static io.prestosql.client.PrestoHeaders.PRESTO_TRANSACTION_ID;
 import static io.prestosql.client.PrestoHeaders.PRESTO_USER;
 import static io.prestosql.spi.Name.createNonDelimitedName;
 import static io.prestosql.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;
+import static io.prestosql.util.NameUtil.createName;
 import static java.lang.String.format;
 
 public final class HttpRequestSessionContext
@@ -80,8 +81,8 @@ public final class HttpRequestSessionContext
     private static final Splitter DOT_SPLITTER = Splitter.on('.');
     private static final Pattern ROLE_PATTERN = Pattern.compile("(ROLE|ALL|NONE)(\\{(.+?)\\})?");
 
-    private final String catalog;
-    private final String schema;
+    private final Name catalog;
+    private final Name schema;
     private final String path;
 
     private final Identity identity;
@@ -108,8 +109,8 @@ public final class HttpRequestSessionContext
     public HttpRequestSessionContext(HttpServletRequest servletRequest)
             throws WebApplicationException
     {
-        catalog = trimEmptyToNull(servletRequest.getHeader(PRESTO_CATALOG));
-        schema = trimEmptyToNull(servletRequest.getHeader(PRESTO_SCHEMA));
+        catalog = parseName(servletRequest.getHeader(PRESTO_CATALOG));
+        schema = parseName(servletRequest.getHeader(PRESTO_SCHEMA));
         path = trimEmptyToNull(servletRequest.getHeader(PRESTO_PATH));
         assertRequest((catalog != null) || (schema == null), "Schema is set but catalog is not");
 
@@ -179,13 +180,13 @@ public final class HttpRequestSessionContext
     }
 
     @Override
-    public String getCatalog()
+    public Name getCatalog()
     {
         return catalog;
     }
 
     @Override
-    public String getSchema()
+    public Name getSchema()
     {
         return schema;
     }
@@ -439,6 +440,12 @@ public final class HttpRequestSessionContext
     private static String trimEmptyToNull(String value)
     {
         return emptyToNull(nullToEmpty(value).trim());
+    }
+
+    private static Name parseName(String name)
+    {
+        String value = trimEmptyToNull(name);
+        return value == null ? null : createName(value);
     }
 
     private static String urlDecode(String value)

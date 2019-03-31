@@ -83,7 +83,7 @@ public class TestQuerySpillLimits
                 true);
 
         queryRunner.createCatalog(
-                SESSION.getCatalog().get(),
+                SESSION.getCatalog().get().getLegacyName(),
                 new TpchConnectorFactory(1),
                 ImmutableMap.of());
 

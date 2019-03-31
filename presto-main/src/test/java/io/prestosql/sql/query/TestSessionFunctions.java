@@ -30,7 +30,7 @@ public class TestSessionFunctions
     {
         Session session = testSessionBuilder().setIdentity(new Identity(createNonDelimitedName("test_current_user"), Optional.empty())).build();
         try (QueryAssertions queryAssertions = new QueryAssertions(session)) {
-            queryAssertions.assertQuery("SELECT CURRENT_USER", "SELECT CAST('" + session.getUser() + "' AS VARCHAR)");
+            queryAssertions.assertQuery("SELECT CURRENT_USER", "SELECT CAST('" + session.getUser().getName() + "' AS VARCHAR)");
         }
     }
 

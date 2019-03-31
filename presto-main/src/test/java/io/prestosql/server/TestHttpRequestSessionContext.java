@@ -71,8 +71,8 @@ public class TestHttpRequestSessionContext
 
         HttpRequestSessionContext context = new HttpRequestSessionContext(request);
         assertEquals(context.getSource(), "testSource");
-        assertEquals(context.getCatalog(), "testCatalog");
-        assertEquals(context.getSchema(), "testSchema");
+        assertEquals(context.getCatalog(), createNonDelimitedName("testCatalog"));
+        assertEquals(context.getSchema(), createNonDelimitedName("testSchema"));
         assertEquals(context.getPath(), "testPath");
         assertEquals(context.getIdentity(), new Identity(createNonDelimitedName("testUser"), Optional.empty()));
         assertEquals(context.getClientInfo(), "client-info");

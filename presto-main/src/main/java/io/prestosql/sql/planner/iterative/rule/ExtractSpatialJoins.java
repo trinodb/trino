@@ -444,7 +444,7 @@ public class ExtractSpatialJoins
 
     private static KdbTree loadKdbTree(String tableName, Session session, Metadata metadata, SplitManager splitManager, PageSourceManager pageSourceManager)
     {
-        QualifiedObjectName name = toQualifiedObjectName(tableName, session.getCatalog().get(), session.getSchema().get());
+        QualifiedObjectName name = toQualifiedObjectName(tableName, session.getCatalog().get().getName(), session.getSchema().get().getLegacyName());
         TableHandle tableHandle = metadata.getTableHandle(session, name)
                 .orElseThrow(() -> new PrestoException(INVALID_SPATIAL_PARTITIONING, format("Table not found: %s", name)));
         Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle);

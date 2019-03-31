@@ -81,7 +81,7 @@ public class RuleTester
         queryRunner = nodeCountForStats
                 .map(nodeCount -> LocalQueryRunner.queryRunnerWithFakeNodeCountForStats(session, nodeCount))
                 .orElseGet(() -> new LocalQueryRunner(session));
-        queryRunner.createCatalog(session.getCatalog().get(),
+        queryRunner.createCatalog(session.getCatalog().get().getName(),
                 new TpchConnectorFactory(1),
                 ImmutableMap.of());
         plugins.stream().forEach(queryRunner::installPlugin);
@@ -127,6 +127,6 @@ public class RuleTester
 
     public CatalogName getCurrentConnectorId()
     {
-        return queryRunner.inTransaction(transactionSession -> metadata.getCatalogHandle(transactionSession, session.getCatalog().get())).get();
+        return queryRunner.inTransaction(transactionSession -> metadata.getCatalogHandle(transactionSession, session.getCatalog().get().getLegacyName())).get();
     }
 }

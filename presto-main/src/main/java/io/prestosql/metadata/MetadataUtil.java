@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import io.prestosql.Session;
+import io.prestosql.spi.Name;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.CatalogSchemaName;
 import io.prestosql.spi.connector.ColumnMetadata;
@@ -26,6 +27,7 @@ import io.prestosql.spi.security.PrestoPrincipal;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.analyzer.SemanticException;
 import io.prestosql.sql.tree.GrantorSpecification;
+import io.prestosql.sql.tree.Identifier;
 import io.prestosql.sql.tree.Node;
 import io.prestosql.sql.tree.PrincipalSpecification;
 import io.prestosql.sql.tree.QualifiedName;
@@ -41,6 +43,7 @@ import static io.prestosql.spi.security.PrincipalType.USER;
 import static io.prestosql.sql.analyzer.SemanticErrorCode.CATALOG_NOT_SPECIFIED;
 import static io.prestosql.sql.analyzer.SemanticErrorCode.INVALID_SCHEMA_NAME;
 import static io.prestosql.sql.analyzer.SemanticErrorCode.SCHEMA_NOT_SPECIFIED;
+import static io.prestosql.util.NameUtil.createName;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -101,7 +104,7 @@ public final class MetadataUtil
 
     public static String createCatalogName(Session session, Node node)
     {
-        Optional<String> sessionCatalog = session.getCatalog();
+        Optional<String> sessionCatalog = session.getCatalog().map(Name::getLegacyName);
 
         if (!sessionCatalog.isPresent()) {
             throw new SemanticException(CATALOG_NOT_SPECIFIED, node, "Session catalog must be set");
@@ -112,18 +115,18 @@ public final class MetadataUtil
 
     public static CatalogSchemaName createCatalogSchemaName(Session session, Node node, Optional<QualifiedName> schema)
     {
-        String catalogName = session.getCatalog().orElse(null);
-        String schemaName = session.getSchema().orElse(null);
+        Name catalogName = session.getCatalog().orElse(null);
+        Name schemaName = session.getSchema().orElse(null);
 
         if (schema.isPresent()) {
-            List<String> parts = schema.get().getParts();
+            List<Identifier> parts = schema.get().getOriginalParts();
             if (parts.size() > 2) {
                 throw new SemanticException(INVALID_SCHEMA_NAME, node, "Too many parts in schema name: %s", schema.get());
             }
             if (parts.size() == 2) {
-                catalogName = parts.get(0);
+                catalogName = createName(parts.get(0));
             }
-            schemaName = schema.get().getSuffix();
+            schemaName = createNonDelimitedName(schema.get().getSuffix());
         }
 
         if (catalogName == null) {
@@ -133,7 +136,7 @@ public final class MetadataUtil
             throw new SemanticException(SCHEMA_NOT_SPECIFIED, node, "Schema must be specified when session schema is not set");
         }
 
-        return new CatalogSchemaName(createNonDelimitedName(catalogName), createNonDelimitedName(schemaName));
+        return new CatalogSchemaName(catalogName, schemaName);
     }
 
     public static QualifiedObjectName createQualifiedObjectName(Session session, Node node, QualifiedName name)
@@ -146,9 +149,9 @@ public final class MetadataUtil
 
         List<String> parts = Lists.reverse(name.getParts());
         String objectName = parts.get(0);
-        String schemaName = (parts.size() > 1) ? parts.get(1) : session.getSchema().orElseThrow(() ->
+        String schemaName = (parts.size() > 1) ? parts.get(1) : session.getSchema().map(Name::getNormalizedName).orElseThrow(() ->
                 new SemanticException(SCHEMA_NOT_SPECIFIED, node, "Schema must be specified when session schema is not set"));
-        String catalogName = (parts.size() > 2) ? parts.get(2) : session.getCatalog().orElseThrow(() ->
+        String catalogName = (parts.size() > 2) ? parts.get(2) : session.getCatalog().map(Name::getNormalizedName).orElseThrow(() ->
                 new SemanticException(CATALOG_NOT_SPECIFIED, node, "Catalog must be specified when session catalog is not set"));
 
         return new QualifiedObjectName(catalogName, schemaName, objectName);
@@ -189,7 +192,7 @@ public final class MetadataUtil
         if (!session.getCatalog().isPresent() || !session.getSchema().isPresent()) {
             return false;
         }
-        QualifiedObjectName name = new QualifiedObjectName(session.getCatalog().get(), session.getSchema().get(), table);
+        QualifiedObjectName name = new QualifiedObjectName(session.getCatalog().get().getLegacyName(), session.getSchema().get().getName(), table);
         return metadata.getTableHandle(session, name).isPresent();
     }
 

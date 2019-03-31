@@ -34,7 +34,6 @@ import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 
-import static io.prestosql.spi.Name.createNonDelimitedName;
 import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
 
@@ -43,11 +42,11 @@ public final class SessionRepresentation
     private final String queryId;
     private final Optional<TransactionId> transactionId;
     private final boolean clientTransactionSupport;
-    private final String user;
-    private final Optional<String> principal;
+    private final Name user;
+    private final Optional<Name> principal;
     private final Optional<String> source;
-    private final Optional<String> catalog;
-    private final Optional<String> schema;
+    private final Optional<Name> catalog;
+    private final Optional<Name> schema;
     private final SqlPath path;
     private final Optional<String> traceToken;
     private final TimeZoneKey timeZoneKey;
@@ -70,11 +69,11 @@ public final class SessionRepresentation
             @JsonProperty("queryId") String queryId,
             @JsonProperty("transactionId") Optional<TransactionId> transactionId,
             @JsonProperty("clientTransactionSupport") boolean clientTransactionSupport,
-            @JsonProperty("user") String user,
-            @JsonProperty("principal") Optional<String> principal,
+            @JsonProperty("user") Name user,
+            @JsonProperty("principal") Optional<Name> principal,
             @JsonProperty("source") Optional<String> source,
-            @JsonProperty("catalog") Optional<String> catalog,
-            @JsonProperty("schema") Optional<String> schema,
+            @JsonProperty("catalog") Optional<Name> catalog,
+            @JsonProperty("schema") Optional<Name> schema,
             @JsonProperty("path") SqlPath path,
             @JsonProperty("traceToken") Optional<String> traceToken,
             @JsonProperty("timeZoneKey") TimeZoneKey timeZoneKey,
@@ -147,13 +146,13 @@ public final class SessionRepresentation
     }
 
     @JsonProperty
-    public String getUser()
+    public Name getUser()
     {
         return user;
     }
 
     @JsonProperty
-    public Optional<String> getPrincipal()
+    public Optional<Name> getPrincipal()
     {
         return principal;
     }
@@ -171,13 +170,13 @@ public final class SessionRepresentation
     }
 
     @JsonProperty
-    public Optional<String> getCatalog()
+    public Optional<Name> getCatalog()
     {
         return catalog;
     }
 
     @JsonProperty
-    public Optional<String> getSchema()
+    public Optional<Name> getSchema()
     {
         return schema;
     }
@@ -283,7 +282,7 @@ public final class SessionRepresentation
                 new QueryId(queryId),
                 transactionId,
                 clientTransactionSupport,
-                new Identity(createNonDelimitedName(user), principal.map(Name::createNonDelimitedName).map(BasicPrincipal::new), roles, extraCredentials),
+                new Identity(user, principal.map(BasicPrincipal::new), roles, extraCredentials),
                 source,
                 catalog,
                 schema,

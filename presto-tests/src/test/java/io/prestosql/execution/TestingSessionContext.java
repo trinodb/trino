@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import io.prestosql.Session;
 import io.prestosql.connector.CatalogName;
 import io.prestosql.server.SessionContext;
+import io.prestosql.spi.Name;
 import io.prestosql.spi.security.Identity;
 import io.prestosql.spi.session.ResourceEstimates;
 import io.prestosql.transaction.TransactionId;
@@ -45,13 +46,13 @@ public class TestingSessionContext
     }
 
     @Override
-    public String getCatalog()
+    public Name getCatalog()
     {
         return session.getCatalog().orElse(null);
     }
 
     @Override
-    public String getSchema()
+    public Name getSchema()
     {
         return session.getSchema().orElse(null);
     }

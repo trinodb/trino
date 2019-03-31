@@ -41,7 +41,7 @@ public class TestStatsCalculator
                 .build());
 
         queryRunner.createCatalog(
-                queryRunner.getDefaultSession().getCatalog().get(),
+                queryRunner.getDefaultSession().getCatalog().get().getLegacyName(),
                 new TpchConnectorFactory(1),
                 ImmutableMap.of());
     }

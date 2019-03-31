@@ -50,6 +50,7 @@ import static io.prestosql.client.PrestoHeaders.PRESTO_SESSION;
 import static io.prestosql.client.PrestoHeaders.PRESTO_SOURCE;
 import static io.prestosql.client.PrestoHeaders.PRESTO_TIME_ZONE;
 import static io.prestosql.client.PrestoHeaders.PRESTO_USER;
+import static io.prestosql.spi.Name.createNonDelimitedName;
 import static io.prestosql.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.prestosql.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static org.testng.Assert.assertEquals;
@@ -85,10 +86,10 @@ public class TestQuerySessionSupplier
         Session session = sessionSupplier.createSession(new QueryId("test_query_id"), context);
 
         assertEquals(session.getQueryId(), new QueryId("test_query_id"));
-        assertEquals(session.getUser(), "testUser");
+        assertEquals(session.getUser(), createNonDelimitedName("testUser"));
         assertEquals(session.getSource().get(), "testSource");
-        assertEquals(session.getCatalog().get(), "testCatalog");
-        assertEquals(session.getSchema().get(), "testSchema");
+        assertEquals(session.getCatalog().get(), createNonDelimitedName("testCatalog"));
+        assertEquals(session.getSchema().get(), createNonDelimitedName("testSchema"));
         assertEquals(session.getPath().getRawPath().get(), "testPath");
         assertEquals(session.getLocale(), Locale.TAIWAN);
         assertEquals(session.getTimeZoneKey(), getTimeZoneKey("Asia/Taipei"));

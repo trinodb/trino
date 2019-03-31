@@ -13,6 +13,7 @@
  */
 package io.prestosql.tests;
 
+import io.prestosql.spi.Name;
 import io.prestosql.testing.MaterializedResult;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
@@ -20,6 +21,7 @@ import org.testng.annotations.Test;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
 import static io.prestosql.tests.QueryAssertions.assertContains;
+import static io.prestosql.util.NameUtil.createName;
 
 public abstract class AbstractTestIntegrationSmokeTest
         extends AbstractTestQueryFramework
@@ -107,7 +109,7 @@ public abstract class AbstractTestIntegrationSmokeTest
         MaterializedResult actualSchemas = computeActual("SHOW SCHEMAS").toTestTypes();
 
         MaterializedResult.Builder resultBuilder = MaterializedResult.resultBuilder(getQueryRunner().getDefaultSession(), VARCHAR)
-                .row(getQueryRunner().getDefaultSession().getSchema().orElse("tpch"));
+                .row(getQueryRunner().getDefaultSession().getSchema().map(Name::getLegacyName).orElse("tpch")));
 
         assertContains(actualSchemas, resultBuilder.build());
     }
@@ -132,8 +134,8 @@ public abstract class AbstractTestIntegrationSmokeTest
     @Test
     public void testSelectInformationSchemaTables()
     {
-        String catalog = getSession().getCatalog().get();
-        String schema = getSession().getSchema().get();
+        String catalog = getSession().getCatalog().get().getLegacyName();
+        String schema = getSession().getSchema().get().getLegacyName();
         String schemaPattern = schema.replaceAll("^.", "_");
 
         assertQuery("SELECT table_name FROM information_schema.tables WHERE table_schema = '" + schema + "' AND table_name = 'orders'", "VALUES 'orders'");
@@ -149,8 +151,8 @@ public abstract class AbstractTestIntegrationSmokeTest
     @Test
     public void testSelectInformationSchemaColumns()
     {
-        String catalog = getSession().getCatalog().get();
-        String schema = getSession().getSchema().get();
+        String catalog = getSession().getCatalog().get().getLegacyName();
+        String schema = getSession().getSchema().get().getLegacyName();
         String schemaPattern = schema.replaceAll(".$", "_");
 
         @Language("SQL") String ordersTableWithColumns = "VALUES " +

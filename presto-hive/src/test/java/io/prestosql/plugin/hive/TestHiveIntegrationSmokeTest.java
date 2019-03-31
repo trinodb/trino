@@ -1891,8 +1891,8 @@ public class TestHiveIntegrationSmokeTest
     @Test
     public void testBucketedCatalog()
     {
-        String bucketedCatalog = bucketedSession.getCatalog().get();
-        String bucketedSchema = bucketedSession.getSchema().get();
+        String bucketedCatalog = bucketedSession.getCatalog().get().getLegacyName();
+        String bucketedSchema = bucketedSession.getSchema().get().getLegacyName();
 
         TableMetadata ordersTableMetadata = getTableMetadata(bucketedCatalog, bucketedSchema, "orders");
         assertEquals(ordersTableMetadata.getMetadata().getProperties().get(BUCKETED_BY_PROPERTY), ImmutableList.of("custkey"));
@@ -3535,7 +3535,7 @@ public class TestHiveIntegrationSmokeTest
 
         // Disable column statistics collection when creating the table
         Session disableColumnStatsSession = Session.builder(defaultSession)
-                .setCatalogSessionProperty(defaultSession.getCatalog().get(), "collect_column_statistics_on_write", "false")
+                .setCatalogSessionProperty(defaultSession.getCatalog().get().getLegacyName(), "collect_column_statistics_on_write", "false")
                 .build();
 
         assertUpdate(
@@ -3887,7 +3887,7 @@ public class TestHiveIntegrationSmokeTest
 
     private static ConnectorSession getConnectorSession(Session session)
     {
-        return session.toConnectorSession(new CatalogName(session.getCatalog().get()));
+        return session.toConnectorSession(new CatalogName(session.getCatalog().get().getLegacyName()));
     }
 
     private void testWithAllStorageFormats(BiConsumer<Session, HiveStorageFormat> test)

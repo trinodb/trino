@@ -14,6 +14,7 @@
 package io.prestosql.spi.eventlistener;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.prestosql.spi.Name;
 import io.prestosql.spi.resourcegroups.ResourceGroupId;
 import io.prestosql.spi.session.ResourceEstimates;
 
@@ -25,8 +26,8 @@ import static java.util.Objects.requireNonNull;
 
 public class QueryContext
 {
-    private final String user;
-    private final Optional<String> principal;
+    private final Name user;
+    private final Optional<Name> principal;
     private final Optional<String> traceToken;
     private final Optional<String> remoteClientAddress;
     private final Optional<String> userAgent;
@@ -35,8 +36,8 @@ public class QueryContext
     private final Set<String> clientCapabilities;
     private final Optional<String> source;
 
-    private final Optional<String> catalog;
-    private final Optional<String> schema;
+    private final Optional<Name> catalog;
+    private final Optional<Name> schema;
 
     private final Optional<ResourceGroupId> resourceGroupId;
 
@@ -48,8 +49,8 @@ public class QueryContext
     private final String environment;
 
     public QueryContext(
-            String user,
-            Optional<String> principal,
+            Name user,
+            Optional<Name> principal,
             Optional<String> traceToken,
             Optional<String> remoteClientAddress,
             Optional<String> userAgent,
@@ -57,8 +58,8 @@ public class QueryContext
             Set<String> clientTags,
             Set<String> clientCapabilities,
             Optional<String> source,
-            Optional<String> catalog,
-            Optional<String> schema,
+            Optional<Name> catalog,
+            Optional<Name> schema,
             Optional<ResourceGroupId> resourceGroupId,
             Map<String, String> sessionProperties,
             ResourceEstimates resourceEstimates,
@@ -86,13 +87,13 @@ public class QueryContext
     }
 
     @JsonProperty
-    public String getUser()
+    public Name getUser()
     {
         return user;
     }
 
     @JsonProperty
-    public Optional<String> getPrincipal()
+    public Optional<Name> getPrincipal()
     {
         return principal;
     }
@@ -140,13 +141,13 @@ public class QueryContext
     }
 
     @JsonProperty
-    public Optional<String> getCatalog()
+    public Optional<Name> getCatalog()
     {
         return catalog;
     }
 
     @JsonProperty
-    public Optional<String> getSchema()
+    public Optional<Name> getSchema()
     {
         return schema;
     }

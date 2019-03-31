@@ -262,7 +262,7 @@ public class InformationSchemaPageSourceProvider
     private InternalTable buildApplicableRoles(Session session, String catalog)
     {
         InternalTable.Builder table = InternalTable.builder(informationSchemaTableColumns(TABLE_APPLICABLE_ROLES));
-        for (RoleGrant grant : metadata.listApplicableRoles(session, new PrestoPrincipal(USER, session.getUser()), catalog)) {
+        for (RoleGrant grant : metadata.listApplicableRoles(session, new PrestoPrincipal(USER, session.getUser().getName()), catalog)) {
             PrestoPrincipal grantee = grant.getGrantee();
             table.add(
                     grantee.getName(),

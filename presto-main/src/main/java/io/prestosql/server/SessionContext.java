@@ -13,6 +13,7 @@
  */
 package io.prestosql.server;
 
+import io.prestosql.spi.Name;
 import io.prestosql.spi.security.Identity;
 import io.prestosql.spi.session.ResourceEstimates;
 import io.prestosql.transaction.TransactionId;
@@ -28,10 +29,10 @@ public interface SessionContext
     Identity getIdentity();
 
     @Nullable
-    String getCatalog();
+    Name getCatalog();
 
     @Nullable
-    String getSchema();
+    Name getSchema();
 
     @Nullable
     String getPath();

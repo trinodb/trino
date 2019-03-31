@@ -60,7 +60,7 @@ public class TestMLQueries
         // add the tpch catalog
         // local queries run directly against the generator
         localQueryRunner.createCatalog(
-                defaultSession.getCatalog().get(),
+                defaultSession.getCatalog().get().getLegacyName(),
                 new TpchConnectorFactory(1),
                 ImmutableMap.of());
 

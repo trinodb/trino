@@ -63,7 +63,7 @@ public class QueryStateInfoResource
 
         if (!isNullOrEmpty(user)) {
             queryInfos = queryInfos.stream()
-                    .filter(queryInfo -> Pattern.matches(user, queryInfo.getSession().getUser()))
+                    .filter(queryInfo -> Pattern.matches(user, queryInfo.getSession().getUser().getName()))
                     .collect(toImmutableList());
         }
 
