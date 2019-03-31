@@ -28,6 +28,7 @@ import io.prestosql.metadata.MetadataUtil;
 import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.metadata.QualifiedTablePrefix;
 import io.prestosql.server.testing.TestingPrestoServer;
+import io.prestosql.spi.Name;
 import io.prestosql.spi.QueryId;
 import io.prestosql.spi.session.ResourceEstimates;
 import io.prestosql.spi.type.Type;
@@ -160,7 +161,7 @@ public abstract class AbstractTestingPrestoClient<T>
                         .collect(toImmutableMap(Entry::getKey, entry ->
                                 new ClientSelectedRole(
                                         ClientSelectedRole.Type.valueOf(entry.getValue().getType().toString()),
-                                        entry.getValue().getRole()))),
+                                        entry.getValue().getRole().map(Name::getLegacyName)))),
                 session.getIdentity().getExtraCredentials(),
                 session.getTransactionId().map(Object::toString).orElse(null),
                 clientRequestTimeout);

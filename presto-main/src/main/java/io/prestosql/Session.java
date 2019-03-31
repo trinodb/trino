@@ -331,7 +331,7 @@ public final class Session
                     .orElseThrow(() -> new PrestoException(NOT_FOUND, "Catalog does not exist: " + catalogName))
                     .getCatalogName();
             if (role.getType() == SelectedRole.Type.ROLE) {
-                accessControl.checkCanSetRole(transactionId, identity, role.getRole().get(), catalogName);
+                accessControl.checkCanSetRole(transactionId, identity, role.getRole().get().getLegacyName(), catalogName);
             }
             roles.put(connectorId.getCatalogName(), role);
 

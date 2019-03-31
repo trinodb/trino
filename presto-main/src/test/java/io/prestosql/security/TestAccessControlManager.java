@@ -50,6 +50,7 @@ import java.util.Set;
 
 import static io.prestosql.connector.CatalogName.createInformationSchemaConnectorId;
 import static io.prestosql.connector.CatalogName.createSystemTablesConnectorId;
+import static io.prestosql.spi.Name.createNonDelimitedName;
 import static io.prestosql.spi.security.AccessDeniedException.denySelectColumns;
 import static io.prestosql.spi.security.AccessDeniedException.denySelectTable;
 import static io.prestosql.transaction.InMemoryTransactionManager.createTestTransactionManager;
@@ -94,7 +95,7 @@ public class TestAccessControlManager
                 .execute(transactionId -> {
                     accessControlManager.checkCanSetCatalogSessionProperty(transactionId, identity, "catalog", "property");
                     accessControlManager.checkCanShowSchemas(transactionId, identity, "catalog");
-                    accessControlManager.checkCanShowTablesMetadata(transactionId, identity, new CatalogSchemaName("catalog", "schema"));
+                    accessControlManager.checkCanShowTablesMetadata(transactionId, identity, new CatalogSchemaName(createNonDelimitedName("catalog"), createNonDelimitedName("schema")));
                     accessControlManager.checkCanSelectFromColumns(transactionId, identity, tableName, ImmutableSet.of("column"));
                     accessControlManager.checkCanCreateViewWithSelectFromColumns(transactionId, identity, tableName, ImmutableSet.of("column"));
                     Set<String> catalogs = ImmutableSet.of("catalog");
@@ -272,7 +273,7 @@ public class TestAccessControlManager
                 @Override
                 public void checkCanSelectFromColumns(Identity identity, CatalogSchemaTableName table, Set<String> columns)
                 {
-                    if (table.getCatalogName().equals("secured_catalog")) {
+                    if (table.getCatalogName().getLegacyName().equals("secured_catalog")) {
                         denySelectTable(table.toString());
                     }
                 }

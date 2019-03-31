@@ -319,7 +319,7 @@ public final class ThriftMetastoreUtil
             principal = new HivePrincipal(USER, identity.getUser());
         }
         else {
-            principal = new HivePrincipal(ROLE, identity.getRole().get().getRole().get());
+            principal = new HivePrincipal(ROLE, identity.getRole().get().getRole().get().getLegacyName());
         }
 
         if (principal.getType() == ROLE && principal.getName().equals(role)) {
@@ -347,7 +347,7 @@ public final class ThriftMetastoreUtil
             principal = new HivePrincipal(USER, identity.getUser());
         }
         else {
-            principal = new HivePrincipal(ROLE, role.get().getRole().get());
+            principal = new HivePrincipal(ROLE, role.get().getRole().get().getLegacyName());
         }
 
         Stream<String> roles = Stream.of(PUBLIC_ROLE_NAME);

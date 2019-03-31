@@ -19,6 +19,7 @@ import io.prestosql.client.ClientException;
 import io.prestosql.client.ClientSelectedRole;
 import io.prestosql.client.QueryStatusInfo;
 import io.prestosql.client.StatementClient;
+import io.prestosql.spi.Name;
 import io.prestosql.spi.security.SelectedRole;
 
 import java.sql.Connection;
@@ -255,7 +256,7 @@ public class PrestoStatement
                         entry.getKey(),
                         new SelectedRole(
                                 SelectedRole.Type.valueOf(entry.getValue().getType().toString()),
-                                entry.getValue().getRole()));
+                                entry.getValue().getRole().map(Name::createNonDelimitedName)));
             }
 
             // check if this is a query

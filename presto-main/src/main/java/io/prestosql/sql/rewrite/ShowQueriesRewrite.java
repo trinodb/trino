@@ -95,6 +95,7 @@ import static io.prestosql.metadata.MetadataListing.listCatalogs;
 import static io.prestosql.metadata.MetadataListing.listSchemas;
 import static io.prestosql.metadata.MetadataUtil.createCatalogSchemaName;
 import static io.prestosql.metadata.MetadataUtil.createQualifiedObjectName;
+import static io.prestosql.spi.Name.createNonDelimitedName;
 import static io.prestosql.spi.StandardErrorCode.INVALID_COLUMN_PROPERTY;
 import static io.prestosql.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static io.prestosql.sql.ExpressionUtils.combineConjuncts;
@@ -188,7 +189,7 @@ final class ShowQueriesRewrite
 
             accessControl.checkCanShowTablesMetadata(session.getRequiredTransactionId(), session.getIdentity(), schema);
 
-            if (!metadata.catalogExists(session, schema.getCatalogName())) {
+            if (!metadata.catalogExists(session, schema.getCatalogName().getLegacyName())) {
                 throw new SemanticException(MISSING_CATALOG, showTables, "Catalog '%s' does not exist", schema.getCatalogName());
             }
 
@@ -196,7 +197,7 @@ final class ShowQueriesRewrite
                 throw new SemanticException(MISSING_SCHEMA, showTables, "Schema '%s' does not exist", schema.getSchemaName());
             }
 
-            Expression predicate = equal(identifier("table_schema"), new StringLiteral(schema.getSchemaName()));
+            Expression predicate = equal(identifier("table_schema"), new StringLiteral(schema.getSchemaName().getLegacyName()));
 
             Optional<String> likePattern = showTables.getLikePattern();
             if (likePattern.isPresent()) {
@@ -209,7 +210,7 @@ final class ShowQueriesRewrite
 
             return simpleQuery(
                     selectList(aliasedName("table_name", "Table")),
-                    from(schema.getCatalogName(), TABLE_TABLES),
+                    from(schema.getCatalogName().getLegacyName(), TABLE_TABLES),
                     predicate,
                     ordering(ascending("table_name")));
         }
@@ -234,7 +235,7 @@ final class ShowQueriesRewrite
                 accessControl.checkCanShowTablesMetadata(
                         session.getRequiredTransactionId(),
                         session.getIdentity(),
-                        new CatalogSchemaName(catalogName, qualifiedTableName.getSchemaName()));
+                        new CatalogSchemaName(createNonDelimitedName(catalogName), createNonDelimitedName(qualifiedTableName.getSchemaName())));
 
                 predicate = Optional.of(combineConjuncts(
                         equal(identifier("table_schema"), new StringLiteral(qualifiedTableName.getSchemaName())),
@@ -247,7 +248,7 @@ final class ShowQueriesRewrite
 
                 Set<String> allowedSchemas = listSchemas(session, metadata, accessControl, catalogName);
                 for (String schema : allowedSchemas) {
-                    accessControl.checkCanShowTablesMetadata(session.getRequiredTransactionId(), session.getIdentity(), new CatalogSchemaName(catalogName, schema));
+                    accessControl.checkCanShowTablesMetadata(session.getRequiredTransactionId(), session.getIdentity(), new CatalogSchemaName(createNonDelimitedName(catalogName), createNonDelimitedName(schema)));
                 }
             }
 

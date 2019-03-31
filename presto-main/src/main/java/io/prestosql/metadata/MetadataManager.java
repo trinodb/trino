@@ -282,7 +282,7 @@ public class MetadataManager
     @Override
     public boolean schemaExists(Session session, CatalogSchemaName schema)
     {
-        Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, schema.getCatalogName());
+        Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, schema.getCatalogName().getLegacyName());
         if (!catalog.isPresent()) {
             return false;
         }
@@ -290,7 +290,7 @@ public class MetadataManager
         ConnectorSession connectorSession = session.toConnectorSession(catalogMetadata.getCatalogName());
         return catalogMetadata.listConnectorIds().stream()
                 .map(catalogMetadata::getMetadataFor)
-                .anyMatch(metadata -> metadata.schemaExists(connectorSession, schema.getSchemaName()));
+                .anyMatch(metadata -> metadata.schemaExists(connectorSession, schema.getSchemaName().getLegacyName()));
     }
 
     @Override
@@ -600,28 +600,28 @@ public class MetadataManager
     @Override
     public void createSchema(Session session, CatalogSchemaName schema, Map<String, Object> properties)
     {
-        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, schema.getCatalogName());
+        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, schema.getCatalogName().getLegacyName());
         CatalogName catalogName = catalogMetadata.getCatalogName();
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
-        metadata.createSchema(session.toConnectorSession(catalogName), schema.getSchemaName(), properties);
+        metadata.createSchema(session.toConnectorSession(catalogName), schema.getSchemaName().getLegacyName(), properties);
     }
 
     @Override
     public void dropSchema(Session session, CatalogSchemaName schema)
     {
-        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, schema.getCatalogName());
+        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, schema.getCatalogName().getLegacyName());
         CatalogName catalogName = catalogMetadata.getCatalogName();
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
-        metadata.dropSchema(session.toConnectorSession(catalogName), schema.getSchemaName());
+        metadata.dropSchema(session.toConnectorSession(catalogName), schema.getSchemaName().getLegacyName());
     }
 
     @Override
     public void renameSchema(Session session, CatalogSchemaName source, String target)
     {
-        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, source.getCatalogName());
+        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, source.getCatalogName().getLegacyName());
         CatalogName catalogName = catalogMetadata.getCatalogName();
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
-        metadata.renameSchema(session.toConnectorSession(catalogName), source.getSchemaName(), target);
+        metadata.renameSchema(session.toConnectorSession(catalogName), source.getSchemaName().getNormalizedName(), target);
     }
 
     @Override

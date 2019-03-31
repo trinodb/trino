@@ -15,33 +15,34 @@ package io.prestosql.spi.connector;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.prestosql.spi.Name;
 
 import java.util.Objects;
 
-import static io.prestosql.spi.connector.SchemaUtil.checkNotEmpty;
+import static io.prestosql.spi.Name.createNonDelimitedName;
 import static java.util.Objects.requireNonNull;
 
 public final class CatalogSchemaTableName
 {
-    private final String catalogName;
+    private final Name catalogName;
     private final SchemaTableName schemaTableName;
 
     @JsonCreator
     public CatalogSchemaTableName(
-            @JsonProperty("catalog") String catalogName,
+            @JsonProperty("catalog") Name catalogName,
             @JsonProperty("schemaTable") SchemaTableName schemaTableName)
     {
-        this.catalogName = checkNotEmpty(catalogName, "catalogName");
+        this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
     }
 
     public CatalogSchemaTableName(String catalogName, String schemaName, String tableName)
     {
-        this(catalogName, new SchemaTableName(schemaName, tableName));
+        this(createNonDelimitedName(catalogName), new SchemaTableName(schemaName, tableName));
     }
 
     @JsonProperty("catalog")
-    public String getCatalogName()
+    public Name getCatalogName()
     {
         return catalogName;
     }
@@ -75,6 +76,6 @@ public final class CatalogSchemaTableName
     @Override
     public String toString()
     {
-        return catalogName + '.' + schemaTableName.toString();
+        return catalogName.toString() + '.' + schemaTableName.toString();
     }
 }

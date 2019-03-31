@@ -67,12 +67,12 @@ public class CreateSchemaTask
             return immediateFuture(null);
         }
 
-        CatalogName catalogName = metadata.getCatalogHandle(session, schema.getCatalogName())
+        CatalogName catalogName = metadata.getCatalogHandle(session, schema.getCatalogName().getLegacyName())
                 .orElseThrow(() -> new PrestoException(NOT_FOUND, "Catalog does not exist: " + schema.getCatalogName()));
 
         Map<String, Object> properties = metadata.getSchemaPropertyManager().getProperties(
                 catalogName,
-                schema.getCatalogName(),
+                schema.getCatalogName().getLegacyName(),
                 mapFromProperties(statement.getProperties()),
                 session,
                 metadata,

@@ -81,6 +81,7 @@ import static io.airlift.testing.Assertions.assertLessThan;
 import static io.airlift.units.Duration.nanosSince;
 import static io.prestosql.execution.QueryState.FAILED;
 import static io.prestosql.execution.QueryState.RUNNING;
+import static io.prestosql.spi.Name.createNonDelimitedName;
 import static io.prestosql.spi.type.CharType.createCharType;
 import static io.prestosql.spi.type.DecimalType.createDecimalType;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
@@ -1421,7 +1422,7 @@ public class TestPrestoDriver
             try (Statement statement = connection.createStatement()) {
                 statement.executeUpdate("SET ROLE bar");
             }
-            assertEquals(connection.getRoles(), ImmutableMap.of(TEST_CATALOG, new SelectedRole(SelectedRole.Type.ROLE, Optional.of("bar"))));
+            assertEquals(connection.getRoles(), ImmutableMap.of(TEST_CATALOG, new SelectedRole(SelectedRole.Type.ROLE, Optional.of(createNonDelimitedName("bar")))));
         }
     }
 

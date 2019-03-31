@@ -178,13 +178,13 @@ public class AccessControlManager
         requireNonNull(identity, "identity is null");
         requireNonNull(schemaName, "schemaName is null");
 
-        authenticationCheck(() -> checkCanAccessCatalog(identity, schemaName.getCatalogName()));
+        authenticationCheck(() -> checkCanAccessCatalog(identity, schemaName.getCatalogName().getLegacyName()));
 
         authorizationCheck(() -> systemAccessControl.get().checkCanCreateSchema(identity, schemaName));
 
-        CatalogAccessControlEntry entry = getConnectorAccessControl(transactionId, schemaName.getCatalogName());
+        CatalogAccessControlEntry entry = getConnectorAccessControl(transactionId, schemaName.getCatalogName().getLegacyName());
         if (entry != null) {
-            authorizationCheck(() -> entry.getAccessControl().checkCanCreateSchema(entry.getTransactionHandle(transactionId), identity.toConnectorIdentity(schemaName.getCatalogName()), schemaName.getSchemaName()));
+            authorizationCheck(() -> entry.getAccessControl().checkCanCreateSchema(entry.getTransactionHandle(transactionId), identity.toConnectorIdentity(schemaName.getCatalogName().getLegacyName()), schemaName.getSchemaName().getLegacyName()));
         }
     }
 
@@ -194,13 +194,13 @@ public class AccessControlManager
         requireNonNull(identity, "identity is null");
         requireNonNull(schemaName, "schemaName is null");
 
-        authenticationCheck(() -> checkCanAccessCatalog(identity, schemaName.getCatalogName()));
+        authenticationCheck(() -> checkCanAccessCatalog(identity, schemaName.getCatalogName().getLegacyName()));
 
         authorizationCheck(() -> systemAccessControl.get().checkCanDropSchema(identity, schemaName));
 
-        CatalogAccessControlEntry entry = getConnectorAccessControl(transactionId, schemaName.getCatalogName());
+        CatalogAccessControlEntry entry = getConnectorAccessControl(transactionId, schemaName.getCatalogName().getLegacyName());
         if (entry != null) {
-            authorizationCheck(() -> entry.getAccessControl().checkCanDropSchema(entry.getTransactionHandle(transactionId), identity.toConnectorIdentity(schemaName.getCatalogName()), schemaName.getSchemaName()));
+            authorizationCheck(() -> entry.getAccessControl().checkCanDropSchema(entry.getTransactionHandle(transactionId), identity.toConnectorIdentity(schemaName.getCatalogName().getLegacyName()), schemaName.getSchemaName().getLegacyName()));
         }
     }
 
@@ -210,13 +210,13 @@ public class AccessControlManager
         requireNonNull(identity, "identity is null");
         requireNonNull(schemaName, "schemaName is null");
 
-        authenticationCheck(() -> checkCanAccessCatalog(identity, schemaName.getCatalogName()));
+        authenticationCheck(() -> checkCanAccessCatalog(identity, schemaName.getCatalogName().getLegacyName()));
 
         authorizationCheck(() -> systemAccessControl.get().checkCanRenameSchema(identity, schemaName, newSchemaName));
 
-        CatalogAccessControlEntry entry = getConnectorAccessControl(transactionId, schemaName.getCatalogName());
+        CatalogAccessControlEntry entry = getConnectorAccessControl(transactionId, schemaName.getCatalogName().getLegacyName());
         if (entry != null) {
-            authorizationCheck(() -> entry.getAccessControl().checkCanRenameSchema(entry.getTransactionHandle(transactionId), identity.toConnectorIdentity(schemaName.getCatalogName()), schemaName.getSchemaName(), newSchemaName));
+            authorizationCheck(() -> entry.getAccessControl().checkCanRenameSchema(entry.getTransactionHandle(transactionId), identity.toConnectorIdentity(schemaName.getCatalogName().getLegacyName()), schemaName.getSchemaName().getLegacyName(), newSchemaName));
         }
     }
 
@@ -327,13 +327,13 @@ public class AccessControlManager
         requireNonNull(identity, "identity is null");
         requireNonNull(schema, "schema is null");
 
-        authenticationCheck(() -> checkCanAccessCatalog(identity, schema.getCatalogName()));
+        authenticationCheck(() -> checkCanAccessCatalog(identity, schema.getCatalogName().getLegacyName()));
 
         authorizationCheck(() -> systemAccessControl.get().checkCanShowTablesMetadata(identity, schema));
 
-        CatalogAccessControlEntry entry = getConnectorAccessControl(transactionId, schema.getCatalogName());
+        CatalogAccessControlEntry entry = getConnectorAccessControl(transactionId, schema.getCatalogName().getLegacyName());
         if (entry != null) {
-            authorizationCheck(() -> entry.getAccessControl().checkCanShowTablesMetadata(entry.getTransactionHandle(transactionId), identity.toConnectorIdentity(), schema.getSchemaName()));
+            authorizationCheck(() -> entry.getAccessControl().checkCanShowTablesMetadata(entry.getTransactionHandle(transactionId), identity.toConnectorIdentity(), schema.getSchemaName().getLegacyName()));
         }
     }
 

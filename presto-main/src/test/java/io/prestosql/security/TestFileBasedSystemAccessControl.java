@@ -34,6 +34,7 @@ import java.util.Set;
 import static com.google.common.io.Files.copy;
 import static io.prestosql.plugin.base.security.FileBasedAccessControlConfig.SECURITY_CONFIG_FILE;
 import static io.prestosql.plugin.base.security.FileBasedAccessControlConfig.SECURITY_REFRESH_PERIOD;
+import static io.prestosql.spi.Name.createNonDelimitedName;
 import static io.prestosql.spi.security.PrincipalType.USER;
 import static io.prestosql.spi.security.Privilege.SELECT;
 import static io.prestosql.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden;
@@ -62,7 +63,7 @@ public class TestFileBasedSystemAccessControl
     private static final Set<String> allCatalogs = ImmutableSet.of("secret", "open-to-all", "all-allowed", "alice-catalog", "allowed-absent", "\u0200\u0200\u0200");
     private static final QualifiedObjectName aliceTable = new QualifiedObjectName("alice-catalog", "schema", "table");
     private static final QualifiedObjectName aliceView = new QualifiedObjectName("alice-catalog", "schema", "view");
-    private static final CatalogSchemaName aliceSchema = new CatalogSchemaName("alice-catalog", "schema");
+    private static final CatalogSchemaName aliceSchema = new CatalogSchemaName(createNonDelimitedName("alice-catalog"), createNonDelimitedName("schema"));
 
     @Test
     public void testCanSetUserOperations()

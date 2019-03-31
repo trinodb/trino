@@ -155,6 +155,7 @@ import static io.prestosql.SystemSessionProperties.getMaxGroupingSets;
 import static io.prestosql.metadata.FunctionKind.AGGREGATE;
 import static io.prestosql.metadata.FunctionKind.WINDOW;
 import static io.prestosql.metadata.MetadataUtil.createQualifiedObjectName;
+import static io.prestosql.spi.Name.createNonDelimitedName;
 import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.prestosql.spi.StandardErrorCode.NOT_FOUND;
 import static io.prestosql.spi.type.BigintType.BIGINT;
@@ -896,7 +897,7 @@ class StatementAnalyzer
                 if (!metadata.getCatalogHandle(session, name.getCatalogName()).isPresent()) {
                     throw new SemanticException(MISSING_CATALOG, table, "Catalog %s does not exist", name.getCatalogName());
                 }
-                if (!metadata.schemaExists(session, new CatalogSchemaName(name.getCatalogName(), name.getSchemaName()))) {
+                if (!metadata.schemaExists(session, new CatalogSchemaName(createNonDelimitedName(name.getCatalogName()), createNonDelimitedName(name.getSchemaName())))) {
                     throw new SemanticException(MISSING_SCHEMA, table, "Schema %s does not exist", name.getSchemaName());
                 }
                 throw new SemanticException(MISSING_TABLE, table, "Table %s does not exist", name);

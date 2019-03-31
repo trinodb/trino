@@ -28,6 +28,7 @@ import java.util.Optional;
 
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.prestosql.metadata.MetadataUtil.createCatalogSchemaName;
+import static io.prestosql.spi.Name.createNonDelimitedName;
 import static io.prestosql.sql.analyzer.SemanticErrorCode.MISSING_SCHEMA;
 import static io.prestosql.sql.analyzer.SemanticErrorCode.SCHEMA_ALREADY_EXISTS;
 
@@ -45,7 +46,7 @@ public class RenameSchemaTask
     {
         Session session = stateMachine.getSession();
         CatalogSchemaName source = createCatalogSchemaName(session, statement, Optional.of(statement.getSource()));
-        CatalogSchemaName target = new CatalogSchemaName(source.getCatalogName(), statement.getTarget().getValue());
+        CatalogSchemaName target = new CatalogSchemaName(source.getCatalogName(), createNonDelimitedName(statement.getTarget().getValue()));
 
         if (!metadata.schemaExists(session, source)) {
             throw new SemanticException(MISSING_SCHEMA, statement, "Schema '%s' does not exist", source);

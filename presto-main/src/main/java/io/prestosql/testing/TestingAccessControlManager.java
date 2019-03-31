@@ -117,7 +117,7 @@ public class TestingAccessControlManager
     @Override
     public void checkCanCreateSchema(TransactionId transactionId, Identity identity, CatalogSchemaName schemaName)
     {
-        if (shouldDenyPrivilege(identity.getUser(), schemaName.getSchemaName(), CREATE_SCHEMA)) {
+        if (shouldDenyPrivilege(identity.getUser(), schemaName.getSchemaName().getLegacyName(), CREATE_SCHEMA)) {
             denyCreateSchema(schemaName.toString());
         }
         if (denyPrivileges.isEmpty()) {
@@ -128,7 +128,7 @@ public class TestingAccessControlManager
     @Override
     public void checkCanDropSchema(TransactionId transactionId, Identity identity, CatalogSchemaName schemaName)
     {
-        if (shouldDenyPrivilege(identity.getUser(), schemaName.getSchemaName(), DROP_SCHEMA)) {
+        if (shouldDenyPrivilege(identity.getUser(), schemaName.getSchemaName().getLegacyName(), DROP_SCHEMA)) {
             denyDropSchema(schemaName.toString());
         }
         if (denyPrivileges.isEmpty()) {
@@ -139,7 +139,7 @@ public class TestingAccessControlManager
     @Override
     public void checkCanRenameSchema(TransactionId transactionId, Identity identity, CatalogSchemaName schemaName, String newSchemaName)
     {
-        if (shouldDenyPrivilege(identity.getUser(), schemaName.getSchemaName(), RENAME_SCHEMA)) {
+        if (shouldDenyPrivilege(identity.getUser(), schemaName.getSchemaName().getLegacyName(), RENAME_SCHEMA)) {
             denyRenameSchema(schemaName.toString(), newSchemaName);
         }
         if (denyPrivileges.isEmpty()) {

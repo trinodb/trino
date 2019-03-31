@@ -14,16 +14,22 @@
 package io.prestosql.spi.security;
 
 import io.airlift.json.JsonCodec;
+import io.prestosql.spi.Name;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static io.airlift.json.JsonCodec.jsonCodec;
+import static io.prestosql.spi.Name.createDelimitedName;
+import static io.prestosql.spi.Name.createNonDelimitedName;
 import static org.testng.Assert.assertEquals;
 
 public class TestSelectedRole
 {
     private static final JsonCodec<SelectedRole> SELECTED_ROLE_JSON_CODEC = jsonCodec(SelectedRole.class);
+    private static final Pattern ROLE_PATTERN = Pattern.compile("(ROLE|ALL|NONE)(\\{(.+?)\\})?");
 
     @Test
     public void testJsonSerialization()
@@ -31,7 +37,8 @@ public class TestSelectedRole
     {
         assertJsonRoundTrip(new SelectedRole(SelectedRole.Type.ALL, Optional.empty()));
         assertJsonRoundTrip(new SelectedRole(SelectedRole.Type.NONE, Optional.empty()));
-        assertJsonRoundTrip(new SelectedRole(SelectedRole.Type.ROLE, Optional.of("role")));
+        assertJsonRoundTrip(new SelectedRole(SelectedRole.Type.ROLE, Optional.of(createNonDelimitedName("role"))));
+        assertJsonRoundTrip(new SelectedRole(SelectedRole.Type.ROLE, Optional.of(createDelimitedName("role"))));
     }
 
     private static void assertJsonRoundTrip(SelectedRole expected)
@@ -45,11 +52,27 @@ public class TestSelectedRole
     {
         assertToStringRoundTrip(new SelectedRole(SelectedRole.Type.ALL, Optional.empty()));
         assertToStringRoundTrip(new SelectedRole(SelectedRole.Type.NONE, Optional.empty()));
-        assertToStringRoundTrip(new SelectedRole(SelectedRole.Type.ROLE, Optional.of("role")));
+        assertToStringRoundTrip(new SelectedRole(SelectedRole.Type.ROLE, Optional.of(createNonDelimitedName("role"))));
+        assertToStringRoundTrip(new SelectedRole(SelectedRole.Type.ROLE, Optional.of(createDelimitedName("role"))));
     }
 
     private static void assertToStringRoundTrip(SelectedRole expected)
     {
-        assertEquals(SelectedRole.valueOf(expected.toString()), expected);
+        Matcher m = ROLE_PATTERN.matcher(expected.toString());
+        SelectedRole role = null;
+        if (m.matches()) {
+            SelectedRole.Type type = SelectedRole.Type.valueOf(m.group(1));
+            Optional<Name> roleName = Optional.ofNullable(m.group(3)).map(TestSelectedRole::createNamePart);
+            role = new SelectedRole(type, roleName);
+        }
+        assertEquals(role, expected);
+    }
+
+    private static Name createNamePart(String name)
+    {
+        if (name.startsWith("\"") && name.endsWith(("\""))) {
+            return new Name(name.substring(1, name.length() - 1).replace("\"\"", "\""), true);
+        }
+        return new Name(name.replace("\"\"", "\""), false);
     }
 }

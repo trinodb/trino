@@ -13,28 +13,29 @@
  */
 package io.prestosql.spi.connector;
 
+import io.prestosql.spi.Name;
+
 import java.util.Objects;
 
-import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public final class CatalogSchemaName
 {
-    private final String catalogName;
-    private final String schemaName;
+    private final Name catalogName;
+    private final Name schemaName;
 
-    public CatalogSchemaName(String catalogName, String schemaName)
+    public CatalogSchemaName(Name catalogName, Name schemaName)
     {
-        this.catalogName = requireNonNull(catalogName, "catalogName is null").toLowerCase(ENGLISH);
-        this.schemaName = requireNonNull(schemaName, "schemaName is null").toLowerCase(ENGLISH);
+        this.catalogName = requireNonNull(catalogName, "catalogName is null");
+        this.schemaName = requireNonNull(schemaName, "schemaName is null");
     }
 
-    public String getCatalogName()
+    public Name getCatalogName()
     {
         return catalogName;
     }
 
-    public String getSchemaName()
+    public Name getSchemaName()
     {
         return schemaName;
     }
@@ -62,6 +63,6 @@ public final class CatalogSchemaName
     @Override
     public String toString()
     {
-        return catalogName + '.' + schemaName;
+        return catalogName.toString() + '.' + schemaName.toString();
     }
 }

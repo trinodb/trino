@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.prestosql.Session.ResourceEstimateBuilder;
+import io.prestosql.spi.Name;
 import io.prestosql.spi.security.Identity;
 import io.prestosql.spi.security.SelectedRole;
 import io.prestosql.spi.session.ResourceEstimates;
@@ -44,6 +45,8 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static com.google.common.base.Strings.emptyToNull;
 import static com.google.common.base.Strings.nullToEmpty;
@@ -74,6 +77,7 @@ public final class HttpRequestSessionContext
         implements SessionContext
 {
     private static final Splitter DOT_SPLITTER = Splitter.on('.');
+    private static final Pattern ROLE_PATTERN = Pattern.compile("(ROLE|ALL|NONE)(\\{(.+?)\\})?");
 
     private final String catalog;
     private final String schema;
@@ -300,10 +304,13 @@ public final class HttpRequestSessionContext
         ImmutableMap.Builder<String, SelectedRole> roles = ImmutableMap.builder();
         parseProperty(servletRequest, PRESTO_ROLE).forEach((key, value) -> {
             SelectedRole role;
-            try {
-                role = SelectedRole.valueOf(value);
+            Matcher m = ROLE_PATTERN.matcher(value);
+            if (m.matches()) {
+                SelectedRole.Type type = SelectedRole.Type.valueOf(m.group(1));
+                Optional<Name> roleName = Optional.ofNullable(m.group(3)).map(Name::createNonDelimitedName);
+                role = new SelectedRole(type, roleName);
             }
-            catch (IllegalArgumentException e) {
+            else {
                 throw badRequest(format("Invalid %s header", PRESTO_ROLE));
             }
             roles.put(key, role);

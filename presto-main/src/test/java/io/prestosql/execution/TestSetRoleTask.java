@@ -43,6 +43,7 @@ import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.prestosql.spi.Name.createNonDelimitedName;
 import static io.prestosql.testing.TestingSession.createBogusTestingCatalog;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static io.prestosql.transaction.InMemoryTransactionManager.createTestTransactionManager;
@@ -101,7 +102,7 @@ public class TestSetRoleTask
     {
         assertSetRole("SET ROLE ALL", ImmutableMap.of(CATALOG_NAME, new SelectedRole(SelectedRole.Type.ALL, Optional.empty())));
         assertSetRole("SET ROLE NONE", ImmutableMap.of(CATALOG_NAME, new SelectedRole(SelectedRole.Type.NONE, Optional.empty())));
-        assertSetRole("SET ROLE bar", ImmutableMap.of(CATALOG_NAME, new SelectedRole(SelectedRole.Type.ROLE, Optional.of("bar"))));
+        assertSetRole("SET ROLE bar", ImmutableMap.of(CATALOG_NAME, new SelectedRole(SelectedRole.Type.ROLE, Optional.of(createNonDelimitedName("bar")))));
     }
 
     private void assertSetRole(String statement, Map<String, SelectedRole> expected)

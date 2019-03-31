@@ -34,6 +34,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.prestosql.spi.Name.createNonDelimitedName;
 import static io.prestosql.spi.StandardErrorCode.SYNTAX_ERROR;
 import static io.prestosql.spi.security.PrincipalType.ROLE;
 import static io.prestosql.spi.security.PrincipalType.USER;
@@ -132,7 +133,7 @@ public final class MetadataUtil
             throw new SemanticException(SCHEMA_NOT_SPECIFIED, node, "Schema must be specified when session schema is not set");
         }
 
-        return new CatalogSchemaName(catalogName, schemaName);
+        return new CatalogSchemaName(createNonDelimitedName(catalogName), createNonDelimitedName(schemaName));
     }
 
     public static QualifiedObjectName createQualifiedObjectName(Session session, Node node, QualifiedName name)

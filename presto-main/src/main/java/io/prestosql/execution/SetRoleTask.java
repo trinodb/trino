@@ -17,6 +17,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.prestosql.Session;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.security.AccessControl;
+import io.prestosql.spi.Name;
 import io.prestosql.spi.security.SelectedRole;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.SetRole;
@@ -63,7 +64,7 @@ public class SetRoleTask
             default:
                 throw new IllegalArgumentException("Unsupported type: " + statement.getType());
         }
-        stateMachine.addSetRole(catalog, new SelectedRole(type, statement.getRole().map(c -> c.getValue().toLowerCase(ENGLISH))));
+        stateMachine.addSetRole(catalog, new SelectedRole(type, statement.getRole().map(c -> c.getValue().toLowerCase(ENGLISH)).map(Name::createNonDelimitedName)));
         return immediateFuture(null);
     }
 }

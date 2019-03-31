@@ -15,11 +15,10 @@ package io.prestosql.spi.security;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.prestosql.spi.Name;
 
 import java.util.Objects;
 import java.util.Optional;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import static java.util.Objects.requireNonNull;
 
@@ -30,13 +29,11 @@ public class SelectedRole
         ROLE, ALL, NONE
     }
 
-    private static final Pattern PATTERN = Pattern.compile("(ROLE|ALL|NONE)(\\{(.+?)\\})?");
-
     private final Type type;
-    private final Optional<String> role;
+    private final Optional<Name> role;
 
     @JsonCreator
-    public SelectedRole(@JsonProperty("type") Type type, @JsonProperty("role") Optional<String> role)
+    public SelectedRole(@JsonProperty("type") Type type, @JsonProperty("role") Optional<Name> role)
     {
         this.type = requireNonNull(type, "type is null");
         this.role = requireNonNull(role, "role is null");
@@ -52,7 +49,7 @@ public class SelectedRole
     }
 
     @JsonProperty
-    public Optional<String> getRole()
+    public Optional<Name> getRole()
     {
         return role;
     }
@@ -84,16 +81,5 @@ public class SelectedRole
         result.append(type);
         role.ifPresent(s -> result.append("{").append(s).append("}"));
         return result.toString();
-    }
-
-    public static SelectedRole valueOf(String value)
-    {
-        Matcher m = PATTERN.matcher(value);
-        if (m.matches()) {
-            Type type = Type.valueOf(m.group(1));
-            Optional<String> role = Optional.ofNullable(m.group(3));
-            return new SelectedRole(type, role);
-        }
-        throw new IllegalArgumentException("Could not parse selected role: " + value);
     }
 }

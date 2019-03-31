@@ -23,6 +23,7 @@ import io.prestosql.client.ClientSelectedRole;
 import io.prestosql.client.ClientSession;
 import io.prestosql.client.ServerInfo;
 import io.prestosql.client.StatementClient;
+import io.prestosql.spi.Name;
 import io.prestosql.spi.security.SelectedRole;
 
 import java.net.URI;
@@ -706,7 +707,7 @@ public class PrestoConnection
                         .collect(toImmutableMap(Map.Entry::getKey, entry ->
                                 new ClientSelectedRole(
                                         ClientSelectedRole.Type.valueOf(entry.getValue().getType().toString()),
-                                        entry.getValue().getRole()))),
+                                        entry.getValue().getRole().map(Name::getLegacyName)))),
                 extraCredentials,
                 transactionId.get(),
                 timeout);

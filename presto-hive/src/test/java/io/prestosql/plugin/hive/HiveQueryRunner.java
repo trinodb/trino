@@ -42,6 +42,7 @@ import java.util.Optional;
 import static io.airlift.log.Level.WARN;
 import static io.airlift.units.Duration.nanosSince;
 import static io.prestosql.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
+import static io.prestosql.spi.Name.createNonDelimitedName;
 import static io.prestosql.spi.security.SelectedRole.Type.ROLE;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static io.prestosql.tests.QueryAssertions.copyTpchTables;
@@ -90,7 +91,7 @@ public final class HiveQueryRunner
         setupLogging();
 
         DistributedQueryRunner queryRunner = DistributedQueryRunner
-                .builder(createSession(Optional.of(new SelectedRole(ROLE, Optional.of("admin")))))
+                .builder(createSession(Optional.of(new SelectedRole(ROLE, Optional.of(createNonDelimitedName("admin"))))))
                 .setNodeCount(4)
                 .setExtraProperties(extraProperties)
                 .setBaseDataDir(baseDataDir)
