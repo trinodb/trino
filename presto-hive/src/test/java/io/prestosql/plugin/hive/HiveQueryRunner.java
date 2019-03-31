@@ -165,7 +165,7 @@ public final class HiveQueryRunner
     {
         return testSessionBuilder()
                 .setIdentity(new Identity(
-                        "hive",
+                        createNonDelimitedName("hive"),
                         Optional.empty(),
                         role.map(selectedRole -> ImmutableMap.of("hive", selectedRole))
                                 .orElse(ImmutableMap.of())))
@@ -178,7 +178,7 @@ public final class HiveQueryRunner
     {
         return testSessionBuilder()
                 .setIdentity(new Identity(
-                        "hive",
+                        createNonDelimitedName("hive"),
                         Optional.empty(),
                         role.map(selectedRole -> ImmutableMap.of("hive", selectedRole))
                                 .orElse(ImmutableMap.of())))

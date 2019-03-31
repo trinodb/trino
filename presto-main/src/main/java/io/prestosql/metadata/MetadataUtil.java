@@ -161,7 +161,7 @@ public final class MetadataUtil
             case PRINCIPAL:
                 return createPrincipal(specification.getPrincipal().get());
             case CURRENT_USER:
-                return new PrestoPrincipal(USER, session.getIdentity().getUser());
+                return new PrestoPrincipal(USER, session.getIdentity().getUser().getName());
             case CURRENT_ROLE:
                 // TODO: will be implemented once the "SET ROLE" statement is introduced
                 throw new UnsupportedOperationException("CURRENT_ROLE is not yet supported");

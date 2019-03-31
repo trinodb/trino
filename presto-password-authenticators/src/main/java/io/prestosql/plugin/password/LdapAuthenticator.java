@@ -20,6 +20,7 @@ import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.log.Logger;
+import io.prestosql.spi.Name;
 import io.prestosql.spi.security.AccessDeniedException;
 import io.prestosql.spi.security.BasicPrincipal;
 import io.prestosql.spi.security.PasswordAuthenticator;
@@ -83,7 +84,7 @@ public class LdapAuthenticator
     }
 
     @Override
-    public Principal createAuthenticatedPrincipal(String user, String password)
+    public Principal createAuthenticatedPrincipal(Name user, String password)
     {
         try {
             return authenticationCache.getUnchecked(new Credentials(user, password));
@@ -99,7 +100,7 @@ public class LdapAuthenticator
         return authenticate(credentials.getUser(), credentials.getPassword());
     }
 
-    private Principal authenticate(String user, String password)
+    private Principal authenticate(Name user, String password)
     {
         Map<String, String> environment = createEnvironment(user, password);
         DirContext context = null;
@@ -125,7 +126,7 @@ public class LdapAuthenticator
         }
     }
 
-    private Map<String, String> createEnvironment(String user, String password)
+    private Map<String, String> createEnvironment(Name user, String password)
     {
         return ImmutableMap.<String, String>builder()
                 .putAll(basicEnvironment)
@@ -135,12 +136,12 @@ public class LdapAuthenticator
                 .build();
     }
 
-    private String createPrincipal(String user)
+    private String createPrincipal(Name user)
     {
         return replaceUser(userBindSearchPattern, user);
     }
 
-    private void checkForGroupMembership(String user, DirContext context)
+    private void checkForGroupMembership(Name user, DirContext context)
     {
         if (!groupAuthorizationSearchPattern.isPresent()) {
             return;
@@ -169,9 +170,9 @@ public class LdapAuthenticator
         }
     }
 
-    private static String replaceUser(String pattern, String user)
+    private static String replaceUser(String pattern, Name user)
     {
-        return pattern.replaceAll("\\$\\{USER}", user);
+        return pattern.replaceAll("\\$\\{USER}", user.toString());
     }
 
     private static void closeContext(DirContext context)
@@ -185,16 +186,16 @@ public class LdapAuthenticator
 
     private static class Credentials
     {
-        private final String user;
+        private final Name user;
         private final String password;
 
-        private Credentials(String user, String password)
+        private Credentials(Name user, String password)
         {
             this.user = requireNonNull(user);
             this.password = requireNonNull(password);
         }
 
-        public String getUser()
+        public Name getUser()
         {
             return user;
         }

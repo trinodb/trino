@@ -25,6 +25,7 @@ import org.testng.annotations.Test;
 import java.util.Optional;
 
 import static io.prestosql.plugin.atop.LocalAtopQueryRunner.createQueryRunner;
+import static io.prestosql.spi.Name.createNonDelimitedName;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 
 public class TestAtopSecurity
@@ -64,6 +65,6 @@ public class TestAtopSecurity
         return testSessionBuilder()
                 .setCatalog(queryRunner.getDefaultSession().getCatalog().get())
                 .setSchema(queryRunner.getDefaultSession().getSchema().get())
-                .setIdentity(new Identity(user, Optional.empty())).build();
+                .setIdentity(new Identity(createNonDelimitedName(user), Optional.empty())).build();
     }
 }

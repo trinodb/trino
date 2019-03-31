@@ -74,7 +74,7 @@ public class TestHttpRequestSessionContext
         assertEquals(context.getCatalog(), "testCatalog");
         assertEquals(context.getSchema(), "testSchema");
         assertEquals(context.getPath(), "testPath");
-        assertEquals(context.getIdentity(), new Identity("testUser", Optional.empty()));
+        assertEquals(context.getIdentity(), new Identity(createNonDelimitedName("testUser"), Optional.empty()));
         assertEquals(context.getClientInfo(), "client-info");
         assertEquals(context.getLanguage(), "zh-TW");
         assertEquals(context.getTimeZoneId(), "Asia/Taipei");
@@ -85,9 +85,9 @@ public class TestHttpRequestSessionContext
                 "some_session_property", "some value with , comma"));
         assertEquals(context.getPreparedStatements(), ImmutableMap.of("query1", "select * from foo", "query2", "select * from bar"));
         assertEquals(context.getIdentity().getRoles(), ImmutableMap.of(
-                "foo_connector", new SelectedRole(SelectedRole.Type.ALL, Optional.empty()),
-                "bar_connector", new SelectedRole(SelectedRole.Type.NONE, Optional.empty()),
-                "foobar_connector", new SelectedRole(SelectedRole.Type.ROLE, Optional.of(createNonDelimitedName("role")))));
+                createNonDelimitedName("foo_connector"), new SelectedRole(SelectedRole.Type.ALL, Optional.empty()),
+                createNonDelimitedName("bar_connector"), new SelectedRole(SelectedRole.Type.NONE, Optional.empty()),
+                createNonDelimitedName("foobar_connector"), new SelectedRole(SelectedRole.Type.ROLE, Optional.of(createNonDelimitedName("role")))));
         assertEquals(context.getIdentity().getExtraCredentials(), ImmutableMap.of("test.token.foo", "bar", "test.token.abc", "xyz"));
     }
 

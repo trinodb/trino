@@ -20,6 +20,7 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 
+import static io.prestosql.spi.Name.createNonDelimitedName;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 
 public class TestSessionFunctions
@@ -27,7 +28,7 @@ public class TestSessionFunctions
     @Test
     public void testCurrentUser()
     {
-        Session session = testSessionBuilder().setIdentity(new Identity("test_current_user", Optional.empty())).build();
+        Session session = testSessionBuilder().setIdentity(new Identity(createNonDelimitedName("test_current_user"), Optional.empty())).build();
         try (QueryAssertions queryAssertions = new QueryAssertions(session)) {
             queryAssertions.assertQuery("SELECT CURRENT_USER", "SELECT CAST('" + session.getUser() + "' AS VARCHAR)");
         }

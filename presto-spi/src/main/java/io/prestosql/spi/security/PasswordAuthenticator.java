@@ -13,6 +13,8 @@
  */
 package io.prestosql.spi.security;
 
+import io.prestosql.spi.Name;
+
 import java.security.Principal;
 
 public interface PasswordAuthenticator
@@ -23,5 +25,5 @@ public interface PasswordAuthenticator
      * @return the authenticated entity
      * @throws AccessDeniedException if not allowed
      */
-    Principal createAuthenticatedPrincipal(String user, String password);
+    Principal createAuthenticatedPrincipal(Name user, String password);
 }

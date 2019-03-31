@@ -15,6 +15,7 @@ package io.prestosql.plugin.sqlserver;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.spi.Name;
 import io.prestosql.testing.docker.DockerContainer;
 import io.prestosql.testing.docker.DockerContainer.HostPortProvider;
 
@@ -23,6 +24,7 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.Statement;
 
+import static io.prestosql.spi.Name.createNonDelimitedName;
 import static java.lang.String.format;
 
 public final class TestingSqlServer
@@ -30,7 +32,7 @@ public final class TestingSqlServer
 {
     private static final int SQL_SERVER_PORT = 1433;
 
-    public static final String USER = "sa";
+    public static final Name USER = createNonDelimitedName("sa");
     public static final String PASSWORD = "SQLServerPass1";
 
     private final DockerContainer dockerContainer;
@@ -54,7 +56,7 @@ public final class TestingSqlServer
     private static void execute(HostPortProvider hostPortProvider, String sql)
     {
         String jdbcUrl = getJdbcUrl(hostPortProvider.getHostPort(SQL_SERVER_PORT));
-        try (Connection conn = DriverManager.getConnection(jdbcUrl, USER, PASSWORD);
+        try (Connection conn = DriverManager.getConnection(jdbcUrl, USER.getName(), PASSWORD);
                 Statement stmt = conn.createStatement()) {
             stmt.execute(sql);
         }

@@ -13,6 +13,8 @@
  */
 package io.prestosql.spi.security;
 
+import io.prestosql.spi.Name;
+
 import java.security.Principal;
 import java.util.Objects;
 
@@ -21,9 +23,9 @@ import static java.util.Objects.requireNonNull;
 public final class BasicPrincipal
         implements Principal
 {
-    private final String name;
+    private final Name name;
 
-    public BasicPrincipal(String name)
+    public BasicPrincipal(Name name)
     {
         this.name = requireNonNull(name, "name is null");
     }
@@ -31,13 +33,13 @@ public final class BasicPrincipal
     @Override
     public String getName()
     {
-        return name;
+        return name.getName();
     }
 
     @Override
     public String toString()
     {
-        return name;
+        return name.toString();
     }
 
     @Override

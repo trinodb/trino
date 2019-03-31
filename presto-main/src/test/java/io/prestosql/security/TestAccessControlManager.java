@@ -24,6 +24,7 @@ import io.prestosql.metadata.InMemoryNodeManager;
 import io.prestosql.metadata.MetadataManager;
 import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.plugin.tpch.TpchConnectorFactory;
+import io.prestosql.spi.Name;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.CatalogSchemaName;
 import io.prestosql.spi.connector.CatalogSchemaTableName;
@@ -61,8 +62,8 @@ import static org.testng.Assert.fail;
 
 public class TestAccessControlManager
 {
-    private static final Principal PRINCIPAL = new BasicPrincipal("principal");
-    private static final String USER_NAME = "user_name";
+    private static final Principal PRINCIPAL = new BasicPrincipal(createNonDelimitedName("principal"));
+    private static final Name USER_NAME = createNonDelimitedName("user_name");
 
     @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Presto server is still initializing")
     public void testInitializing()
@@ -76,7 +77,7 @@ public class TestAccessControlManager
     {
         AccessControlManager accessControlManager = new AccessControlManager(createTestTransactionManager());
         accessControlManager.setSystemAccessControl(AllowAllSystemAccessControl.NAME, ImmutableMap.of());
-        accessControlManager.checkCanSetUser(Optional.empty(), USER_NAME);
+        accessControlManager.checkCanSetUser(Optional.empty(), USER_NAME.getName());
     }
 
     @Test
@@ -88,7 +89,7 @@ public class TestAccessControlManager
         AccessControlManager accessControlManager = new AccessControlManager(transactionManager);
 
         accessControlManager.setSystemAccessControl(ReadOnlySystemAccessControl.NAME, ImmutableMap.of());
-        accessControlManager.checkCanSetUser(Optional.of(PRINCIPAL), USER_NAME);
+        accessControlManager.checkCanSetUser(Optional.of(PRINCIPAL), USER_NAME.getName());
         accessControlManager.checkCanSetSystemSessionProperty(identity, "property");
 
         transaction(transactionManager, accessControlManager)
@@ -126,7 +127,7 @@ public class TestAccessControlManager
         accessControlManager.addSystemAccessControlFactory(accessControlFactory);
         accessControlManager.setSystemAccessControl("test", ImmutableMap.of());
 
-        accessControlManager.checkCanSetUser(Optional.of(PRINCIPAL), USER_NAME);
+        accessControlManager.checkCanSetUser(Optional.of(PRINCIPAL), USER_NAME.getName());
         assertEquals(accessControlFactory.getCheckedUserName(), USER_NAME);
         assertEquals(accessControlFactory.getCheckedPrincipal(), Optional.of(PRINCIPAL));
     }

@@ -44,6 +44,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.io.Files.asCharSource;
 import static com.google.common.net.HttpHeaders.AUTHORIZATION;
+import static io.prestosql.spi.Name.createNonDelimitedName;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.US_ASCII;
 import static java.util.Base64.getMimeDecoder;
@@ -117,7 +118,7 @@ public class JsonWebTokenAuthenticator
         try {
             Jws<Claims> claimsJws = jwtParser.parseClaimsJws(token);
             String subject = claimsJws.getBody().getSubject();
-            return new BasicPrincipal(subject);
+            return new BasicPrincipal(createNonDelimitedName(subject));
         }
         catch (JwtException e) {
             throw needAuthentication(e.getMessage());

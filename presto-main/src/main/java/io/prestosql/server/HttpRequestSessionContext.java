@@ -70,6 +70,7 @@ import static io.prestosql.client.PrestoHeaders.PRESTO_TIME_ZONE;
 import static io.prestosql.client.PrestoHeaders.PRESTO_TRACE_TOKEN;
 import static io.prestosql.client.PrestoHeaders.PRESTO_TRANSACTION_ID;
 import static io.prestosql.client.PrestoHeaders.PRESTO_USER;
+import static io.prestosql.spi.Name.createNonDelimitedName;
 import static io.prestosql.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;
 import static java.lang.String.format;
 
@@ -115,7 +116,7 @@ public final class HttpRequestSessionContext
         String user = trimEmptyToNull(servletRequest.getHeader(PRESTO_USER));
         assertRequest(user != null, "User must be set");
         identity = new Identity(
-                user,
+                createNonDelimitedName(user),
                 Optional.ofNullable(servletRequest.getUserPrincipal()),
                 parseRoleHeaders(servletRequest),
                 parseExtraCredentials(servletRequest));

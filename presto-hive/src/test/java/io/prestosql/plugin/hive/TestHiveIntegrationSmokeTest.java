@@ -170,7 +170,7 @@ public class TestHiveIntegrationSmokeTest
     public void testSchemaOperations()
     {
         Session admin = Session.builder(getQueryRunner().getDefaultSession())
-                .setIdentity(new Identity("hive", Optional.empty(), ImmutableMap.of("hive", new SelectedRole(SelectedRole.Type.ROLE, Optional.of(createNonDelimitedName("admin"))))))
+                .setIdentity(new Identity(createNonDelimitedName("hive"), Optional.empty(), ImmutableMap.of("hive", new SelectedRole(SelectedRole.Type.ROLE, Optional.of(createNonDelimitedName("admin"))))))
                 .build();
 
         assertUpdate(admin, "CREATE SCHEMA new_schema");
@@ -3045,7 +3045,7 @@ public class TestHiveIntegrationSmokeTest
         @Language("SQL") String createTable = "CREATE TABLE " + tableName + " (a bigint, b varchar, c double)";
 
         Session testSession = testSessionBuilder()
-                .setIdentity(new Identity("test_access_owner", Optional.empty()))
+                .setIdentity(new Identity(createNonDelimitedName("test_access_owner"), Optional.empty()))
                 .setCatalog(getSession().getCatalog().get())
                 .setSchema(getSession().getSchema().get())
                 .build();
@@ -3097,13 +3097,13 @@ public class TestHiveIntegrationSmokeTest
         Session user1 = testSessionBuilder()
                 .setCatalog(getSession().getCatalog().get())
                 .setSchema(getSession().getSchema().get())
-                .setIdentity(new Identity("user1", getSession().getIdentity().getPrincipal()))
+                .setIdentity(new Identity(createNonDelimitedName("user1"), getSession().getIdentity().getPrincipal()))
                 .build();
 
         Session user2 = testSessionBuilder()
                 .setCatalog(getSession().getCatalog().get())
                 .setSchema(getSession().getSchema().get())
-                .setIdentity(new Identity("user2", getSession().getIdentity().getPrincipal()))
+                .setIdentity(new Identity(createNonDelimitedName("user2"), getSession().getIdentity().getPrincipal()))
                 .build();
 
         assertQuery(user1, "SELECT account_name FROM test_accounts_view", "VALUES 'account1'");

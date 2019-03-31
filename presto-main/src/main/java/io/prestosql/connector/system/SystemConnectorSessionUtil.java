@@ -26,6 +26,8 @@ import io.prestosql.transaction.TransactionId;
 
 import java.util.Optional;
 
+import static io.prestosql.spi.Name.createNonDelimitedName;
+
 public final class SystemConnectorSessionUtil
 {
     private static final SystemSessionProperties SYSTEM_SESSION_PROPERTIES = new SystemSessionProperties();
@@ -37,7 +39,7 @@ public final class SystemConnectorSessionUtil
     {
         TransactionId transactionId = ((GlobalSystemTransactionHandle) transactionHandle).getTransactionId();
         ConnectorIdentity connectorIdentity = session.getIdentity();
-        Identity identity = new Identity(connectorIdentity.getUser(), connectorIdentity.getPrincipal());
+        Identity identity = new Identity(createNonDelimitedName(connectorIdentity.getUser()), connectorIdentity.getPrincipal());
         return Session.builder(new SessionPropertyManager(SYSTEM_SESSION_PROPERTIES))
                 .setQueryId(new QueryId(session.getQueryId()))
                 .setTransactionId(transactionId)

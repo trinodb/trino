@@ -18,6 +18,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.connector.CatalogName;
 import io.prestosql.metadata.SessionPropertyManager;
+import io.prestosql.spi.Name;
 import io.prestosql.spi.QueryId;
 import io.prestosql.spi.security.BasicPrincipal;
 import io.prestosql.spi.security.Identity;
@@ -33,6 +34,7 @@ import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 
+import static io.prestosql.spi.Name.createNonDelimitedName;
 import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
 
@@ -281,7 +283,7 @@ public final class SessionRepresentation
                 new QueryId(queryId),
                 transactionId,
                 clientTransactionSupport,
-                new Identity(user, principal.map(BasicPrincipal::new), roles, extraCredentials),
+                new Identity(createNonDelimitedName(user), principal.map(Name::createNonDelimitedName).map(BasicPrincipal::new), roles, extraCredentials),
                 source,
                 catalog,
                 schema,

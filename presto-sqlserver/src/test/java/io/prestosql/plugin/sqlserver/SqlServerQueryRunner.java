@@ -61,7 +61,7 @@ public final class SqlServerQueryRunner
 
             connectorProperties = new HashMap<>(ImmutableMap.copyOf(connectorProperties));
             connectorProperties.putIfAbsent("connection-url", testingSqlServer.getJdbcUrl());
-            connectorProperties.putIfAbsent("connection-user", TestingSqlServer.USER);
+            connectorProperties.putIfAbsent("connection-user", TestingSqlServer.USER.getName());
             connectorProperties.putIfAbsent("connection-password", TestingSqlServer.PASSWORD);
             connectorProperties.putIfAbsent("allow-drop-table", "true");
 

@@ -16,6 +16,7 @@ package io.prestosql.plugin.hive;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.Session;
+import io.prestosql.spi.Name;
 import io.prestosql.spi.security.Identity;
 import io.prestosql.testing.QueryRunner;
 import org.testng.annotations.AfterClass;
@@ -26,6 +27,7 @@ import java.util.Optional;
 
 import static io.airlift.tpch.TpchTable.NATION;
 import static io.prestosql.plugin.hive.HiveQueryRunner.createQueryRunner;
+import static io.prestosql.spi.Name.createNonDelimitedName;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 
 public class TestHiveFileBasedSecurity
@@ -50,18 +52,18 @@ public class TestHiveFileBasedSecurity
     @Test
     public void testAdminCanRead()
     {
-        Session admin = getSession("hive");
+        Session admin = getSession(createNonDelimitedName("hive"));
         queryRunner.execute(admin, "SELECT * FROM nation");
     }
 
     @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = ".*Access Denied: Cannot select from table tpch.nation.*")
     public void testNonAdminCannotRead()
     {
-        Session bob = getSession("bob");
+        Session bob = getSession(createNonDelimitedName("bob"));
         queryRunner.execute(bob, "SELECT * FROM nation");
     }
 
-    private Session getSession(String user)
+    private Session getSession(Name user)
     {
         return testSessionBuilder()
                 .setCatalog(queryRunner.getDefaultSession().getCatalog().get())

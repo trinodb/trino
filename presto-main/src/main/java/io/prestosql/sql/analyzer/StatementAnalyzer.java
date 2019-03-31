@@ -1904,8 +1904,8 @@ class StatementAnalyzer
                 // run view as view owner if set; otherwise, run as session user
                 Identity identity;
                 AccessControl viewAccessControl;
-                if (owner.isPresent() && !owner.get().equals(session.getIdentity().getUser())) {
-                    identity = new Identity(owner.get(), Optional.empty());
+                if (owner.isPresent() && !createNonDelimitedName(owner.get()).equals(session.getIdentity().getUser())) {
+                    identity = new Identity(createNonDelimitedName(owner.get()), Optional.empty());
                     viewAccessControl = new ViewAccessControl(accessControl);
                 }
                 else {

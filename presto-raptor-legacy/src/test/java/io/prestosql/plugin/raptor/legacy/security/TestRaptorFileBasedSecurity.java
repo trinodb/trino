@@ -15,6 +15,7 @@ package io.prestosql.plugin.raptor.legacy.security;
 
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.Session;
+import io.prestosql.spi.Name;
 import io.prestosql.spi.security.Identity;
 import io.prestosql.testing.QueryRunner;
 import org.testng.annotations.AfterClass;
@@ -24,6 +25,7 @@ import org.testng.annotations.Test;
 import java.util.Optional;
 
 import static io.prestosql.plugin.raptor.legacy.RaptorQueryRunner.createRaptorQueryRunner;
+import static io.prestosql.spi.Name.createNonDelimitedName;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 
 public class TestRaptorFileBasedSecurity
@@ -52,18 +54,18 @@ public class TestRaptorFileBasedSecurity
     @Test
     public void testAdminCanRead()
     {
-        Session admin = getSession("user");
+        Session admin = getSession(createNonDelimitedName("user"));
         queryRunner.execute(admin, "SELECT * FROM orders");
     }
 
     @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = ".*Access Denied: Cannot select from table tpch.orders.*")
     public void testNonAdminCannotRead()
     {
-        Session bob = getSession("bob");
+        Session bob = getSession(createNonDelimitedName("bob"));
         queryRunner.execute(bob, "SELECT * FROM orders");
     }
 
-    private Session getSession(String user)
+    private Session getSession(Name user)
     {
         return testSessionBuilder()
                 .setCatalog(queryRunner.getDefaultSession().getCatalog().get())

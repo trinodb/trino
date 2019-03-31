@@ -25,6 +25,7 @@ import java.util.List;
 
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.net.HttpHeaders.AUTHORIZATION;
+import static io.prestosql.spi.Name.createNonDelimitedName;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.util.Objects.requireNonNull;
 
@@ -62,7 +63,7 @@ public class PasswordAuthenticator
         String password = parts.get(1);
 
         try {
-            return authenticatorManager.getAuthenticator().createAuthenticatedPrincipal(user, password);
+            return authenticatorManager.getAuthenticator().createAuthenticatedPrincipal(createNonDelimitedName(user), password);
         }
         catch (AccessDeniedException e) {
             throw needAuthentication(e.getMessage());

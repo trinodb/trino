@@ -13,6 +13,8 @@
  */
 package io.prestosql.spi.security;
 
+import io.prestosql.spi.Name;
+
 import java.security.Principal;
 import java.util.HashMap;
 import java.util.Map;
@@ -25,22 +27,22 @@ import static java.util.Objects.requireNonNull;
 
 public class Identity
 {
-    private final String user;
+    private final Name user;
     private final Optional<Principal> principal;
     private final Map<String, SelectedRole> roles;
     private final Map<String, String> extraCredentials;
 
-    public Identity(String user, Optional<Principal> principal)
+    public Identity(Name user, Optional<Principal> principal)
     {
         this(user, principal, emptyMap());
     }
 
-    public Identity(String user, Optional<Principal> principal, Map<String, SelectedRole> roles)
+    public Identity(Name user, Optional<Principal> principal, Map<String, SelectedRole> roles)
     {
         this(user, principal, roles, emptyMap());
     }
 
-    public Identity(String user, Optional<Principal> principal, Map<String, SelectedRole> roles, Map<String, String> extraCredentials)
+    public Identity(Name user, Optional<Principal> principal, Map<String, SelectedRole> roles, Map<String, String> extraCredentials)
     {
         this.user = requireNonNull(user, "user is null");
         this.principal = requireNonNull(principal, "principal is null");
@@ -48,7 +50,7 @@ public class Identity
         this.extraCredentials = unmodifiableMap(new HashMap<>(requireNonNull(extraCredentials, "extraCredentials is null")));
     }
 
-    public String getUser()
+    public Name getUser()
     {
         return user;
     }
@@ -70,13 +72,13 @@ public class Identity
 
     public ConnectorIdentity toConnectorIdentity()
     {
-        return new ConnectorIdentity(user, principal, Optional.empty(), extraCredentials);
+        return new ConnectorIdentity(user.getName(), principal, Optional.empty(), extraCredentials);
     }
 
     public ConnectorIdentity toConnectorIdentity(String catalog)
     {
         requireNonNull(catalog, "catalog is null");
-        return new ConnectorIdentity(user, principal, Optional.ofNullable(roles.get(catalog)), extraCredentials);
+        return new ConnectorIdentity(user.getName(), principal, Optional.ofNullable(roles.get(catalog)), extraCredentials);
     }
 
     @Override
