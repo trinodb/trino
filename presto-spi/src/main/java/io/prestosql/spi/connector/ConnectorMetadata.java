@@ -96,7 +96,7 @@ public interface ConnectorMetadata
             Constraint<ColumnHandle> constraint,
             Optional<Set<ColumnHandle>> desiredColumns)
     {
-        if (!usesLegacyTableLayouts()) {
+        if (usesLegacyTableLayouts()) {
             throw new IllegalStateException("Connector uses legacy Table Layout but doesn't implement getTableLayouts()");
         }
 
@@ -106,7 +106,7 @@ public interface ConnectorMetadata
     @Deprecated
     default ConnectorTableLayout getTableLayout(ConnectorSession session, ConnectorTableLayoutHandle handle)
     {
-        if (!usesLegacyTableLayouts()) {
+        if (usesLegacyTableLayouts()) {
             throw new IllegalStateException("Connector uses legacy Table Layout but doesn't implement getTableLayout()");
         }
 
