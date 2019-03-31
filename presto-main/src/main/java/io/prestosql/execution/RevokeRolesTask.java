@@ -64,10 +64,10 @@ public class RevokeRolesTask
         specifiedRoles.addAll(roles);
         grantees.stream()
                 .filter(principal -> principal.getType() == ROLE)
-                .map(PrestoPrincipal::getName)
+                .map(prestoPrincipal -> prestoPrincipal.getName().getLegacyName())
                 .forEach(specifiedRoles::add);
         if (grantor.isPresent() && grantor.get().getType() == ROLE) {
-            specifiedRoles.add(grantor.get().getName());
+            specifiedRoles.add(grantor.get().getName().getLegacyName());
         }
 
         for (String role : specifiedRoles) {

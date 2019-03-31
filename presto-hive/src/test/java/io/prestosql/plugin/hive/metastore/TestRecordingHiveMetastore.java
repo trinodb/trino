@@ -41,6 +41,7 @@ import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 import static io.prestosql.plugin.hive.HiveBasicStatistics.createEmptyStatistics;
+import static io.prestosql.spi.Name.createNonDelimitedName;
 import static io.prestosql.spi.security.PrincipalType.USER;
 import static io.prestosql.spi.statistics.ColumnStatisticType.MAX_VALUE;
 import static io.prestosql.spi.statistics.ColumnStatisticType.MIN_VALUE;
@@ -99,7 +100,7 @@ public class TestRecordingHiveMetastore
                     OptionalLong.of(1),
                     OptionalLong.of(8))));
     private static final HivePrivilegeInfo PRIVILEGE_INFO = new HivePrivilegeInfo(HivePrivilege.SELECT, true, new HivePrincipal(PrincipalType.USER, "grantor"), new HivePrincipal(PrincipalType.USER, "grantee"));
-    private static final RoleGrant ROLE_GRANT = new RoleGrant(new PrestoPrincipal(USER, "grantee"), "role", true);
+    private static final RoleGrant ROLE_GRANT = new RoleGrant(new PrestoPrincipal(USER, createNonDelimitedName("grantee")), "role", true);
 
     @Test
     public void testRecordingHiveMetastore()

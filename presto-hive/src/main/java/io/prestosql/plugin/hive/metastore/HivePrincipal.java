@@ -22,6 +22,7 @@ import java.util.Objects;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.prestosql.spi.Name.createNonDelimitedName;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
@@ -36,7 +37,7 @@ public class HivePrincipal
 
     public static HivePrincipal from(PrestoPrincipal prestoPrincipal)
     {
-        return new HivePrincipal(prestoPrincipal.getType(), prestoPrincipal.getName());
+        return new HivePrincipal(prestoPrincipal.getType(), prestoPrincipal.getName().getLegacyName());
     }
 
     private final PrincipalType type;
@@ -100,6 +101,6 @@ public class HivePrincipal
 
     public PrestoPrincipal toPrestoPrincipal()
     {
-        return new PrestoPrincipal(type, name);
+        return new PrestoPrincipal(type, createNonDelimitedName(name));
     }
 }

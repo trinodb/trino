@@ -107,6 +107,7 @@ import static io.prestosql.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege
 import static io.prestosql.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege.OWNERSHIP;
 import static io.prestosql.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege.SELECT;
 import static io.prestosql.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege.UPDATE;
+import static io.prestosql.spi.Name.createNonDelimitedName;
 import static io.prestosql.spi.security.PrincipalType.ROLE;
 import static io.prestosql.spi.security.PrincipalType.USER;
 import static io.prestosql.spi.statistics.ColumnStatisticType.MAX_VALUE;
@@ -629,7 +630,7 @@ public final class ThriftMetastoreUtil
     private static RoleGrant fromRolePrincipalGrant(RolePrincipalGrant grant)
     {
         return new RoleGrant(
-                new PrestoPrincipal(fromMetastoreApiPrincipalType(grant.getPrincipalType()), grant.getPrincipalName()),
+                new PrestoPrincipal(fromMetastoreApiPrincipalType(grant.getPrincipalType()), createNonDelimitedName(grant.getPrincipalName())),
                 grant.getRoleName(),
                 grant.isGrantOption());
     }

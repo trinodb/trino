@@ -301,7 +301,7 @@ final class ShowQueriesRewrite
             }
 
             String catalog = node.getCatalog().map(c -> c.getValue().toLowerCase(ENGLISH)).orElseGet(() -> session.getCatalog().get().getNormalizedName());
-            PrestoPrincipal principal = new PrestoPrincipal(PrincipalType.USER, session.getUser().getName());
+            PrestoPrincipal principal = new PrestoPrincipal(PrincipalType.USER, session.getUser());
 
             accessControl.checkCanShowRoleGrants(session.getRequiredTransactionId(), session.getIdentity(), catalog);
             List<Expression> rows = metadata.listRoleGrants(session, catalog, principal).stream()

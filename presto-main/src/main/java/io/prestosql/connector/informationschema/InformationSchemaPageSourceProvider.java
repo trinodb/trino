@@ -203,9 +203,9 @@ public class InformationSchemaPageSourceProvider
             List<GrantInfo> grants = ImmutableList.copyOf(listTablePrivileges(session, metadata, accessControl, prefix));
             for (GrantInfo grant : grants) {
                 table.add(
-                        grant.getGrantor().map(PrestoPrincipal::getName).orElse(null),
+                        grant.getGrantor().map(prestoPrincipal -> prestoPrincipal.getName().getLegacyName()).orElse(null),
                         grant.getGrantor().map(principal -> principal.getType().toString()).orElse(null),
-                        grant.getGrantee().getName(),
+                        grant.getGrantee().getName().getLegacyName(),
                         grant.getGrantee().getType().toString(),
                         prefix.getCatalogName(),
                         grant.getSchemaTableName().getSchemaName(),
@@ -262,10 +262,10 @@ public class InformationSchemaPageSourceProvider
     private InternalTable buildApplicableRoles(Session session, String catalog)
     {
         InternalTable.Builder table = InternalTable.builder(informationSchemaTableColumns(TABLE_APPLICABLE_ROLES));
-        for (RoleGrant grant : metadata.listApplicableRoles(session, new PrestoPrincipal(USER, session.getUser().getName()), catalog)) {
+        for (RoleGrant grant : metadata.listApplicableRoles(session, new PrestoPrincipal(USER, session.getUser()), catalog)) {
             PrestoPrincipal grantee = grant.getGrantee();
             table.add(
-                    grantee.getName(),
+                    grantee.getName().getLegacyName(),
                     grantee.getType().toString(),
                     grant.getRoleName(),
                     grant.isGrantable() ? "YES" : "NO");
