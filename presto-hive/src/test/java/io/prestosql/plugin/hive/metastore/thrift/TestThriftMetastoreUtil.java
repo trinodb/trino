@@ -204,6 +204,24 @@ public class TestThriftMetastoreUtil
     }
 
     @Test
+    public void testImpalaGeneratedBooleanStatistics()
+    {
+        BooleanColumnStatsData statsData = new BooleanColumnStatsData(1L, -1L, 2L);
+        ColumnStatisticsObj columnStatisticsObj = new ColumnStatisticsObj("my_col", BOOLEAN_TYPE_NAME, booleanStats(statsData));
+        HiveColumnStatistics actual = fromMetastoreApiColumnStatistics(columnStatisticsObj, OptionalLong.empty());
+
+        assertEquals(actual.getIntegerStatistics(), Optional.empty());
+        assertEquals(actual.getDoubleStatistics(), Optional.empty());
+        assertEquals(actual.getDecimalStatistics(), Optional.empty());
+        assertEquals(actual.getDateStatistics(), Optional.empty());
+        assertEquals(actual.getMaxValueSizeInBytes(), OptionalLong.empty());
+        assertEquals(actual.getTotalSizeInBytes(), OptionalLong.empty());
+        assertEquals(actual.getNullsCount(), OptionalLong.of(2));
+        assertEquals(actual.getDistinctValuesCount(), OptionalLong.empty());
+        assertEquals(actual.getBooleanStatistics(), Optional.of(new BooleanStatistics(OptionalLong.empty(), OptionalLong.empty())));
+    }
+
+    @Test
     public void testEmptyBooleanStatsToColumnStatistics()
     {
         BooleanColumnStatsData emptyBooleanColumnStatsData = new BooleanColumnStatsData();

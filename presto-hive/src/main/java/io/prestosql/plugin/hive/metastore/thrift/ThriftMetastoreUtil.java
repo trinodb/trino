@@ -518,9 +518,16 @@ public final class ThriftMetastoreUtil
         }
         if (columnStatistics.getStatsData().isSetBooleanStats()) {
             BooleanColumnStatsData booleanStatsData = columnStatistics.getStatsData().getBooleanStats();
+            OptionalLong trueCount = OptionalLong.empty();
+            OptionalLong falseCount = OptionalLong.empty();
+            // Impala 'COMPUTE STATS' writes 1 as the numTrue and -1 as the numFalse
+            if (booleanStatsData.isSetNumTrues() && booleanStatsData.isSetNumFalses() && (booleanStatsData.getNumFalses() != -1)) {
+                trueCount = OptionalLong.of(booleanStatsData.getNumTrues());
+                falseCount = OptionalLong.of(booleanStatsData.getNumFalses());
+            }
             return createBooleanColumnStatistics(
-                    booleanStatsData.isSetNumTrues() ? OptionalLong.of(booleanStatsData.getNumTrues()) : OptionalLong.empty(),
-                    booleanStatsData.isSetNumFalses() ? OptionalLong.of(booleanStatsData.getNumFalses()) : OptionalLong.empty(),
+                    trueCount,
+                    falseCount,
                     booleanStatsData.isSetNumNulls() ? fromMetastoreNullsCount(booleanStatsData.getNumNulls()) : OptionalLong.empty());
         }
         if (columnStatistics.getStatsData().isSetStringStats()) {
