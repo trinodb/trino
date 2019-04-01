@@ -81,6 +81,11 @@ public abstract class AbstractTestDistributedQueries
         return true;
     }
 
+    protected boolean supportsArrays()
+    {
+        return true;
+    }
+
     @Test
     public void testSetSession()
     {
@@ -477,16 +482,22 @@ public abstract class AbstractTestDistributedQueries
                 "SELECT 2 * count(*) FROM orders");
 
         assertUpdate("DROP TABLE test_insert");
+    }
 
-        assertUpdate("CREATE TABLE test_insert (a ARRAY<DOUBLE>, b ARRAY<BIGINT>)");
+    @Test
+    public void testInsertArray()
+    {
+        skipTestUnless(supportsArrays());
 
-        assertUpdate("INSERT INTO test_insert (a) VALUES (ARRAY[null])", 1);
-        assertUpdate("INSERT INTO test_insert (a) VALUES (ARRAY[1234])", 1);
-        assertQuery("SELECT a[1] FROM test_insert", "VALUES (null), (1234)");
+        assertUpdate("CREATE TABLE test_insert_array (a ARRAY<DOUBLE>, b ARRAY<BIGINT>)");
 
-        assertQueryFails("INSERT INTO test_insert (b) VALUES (ARRAY[1.23E1])", "Insert query has mismatched column types: .*");
+        assertUpdate("INSERT INTO test_insert_array (a) VALUES (ARRAY[null])", 1);
+        assertUpdate("INSERT INTO test_insert_array (a) VALUES (ARRAY[1234])", 1);
+        assertQuery("SELECT a[1] FROM test_insert_array", "VALUES (null), (1234)");
 
-        assertUpdate("DROP TABLE test_insert");
+        assertQueryFails("INSERT INTO test_insert_array (b) VALUES (ARRAY[1.23E1])", "Insert query has mismatched column types: .*");
+
+        assertUpdate("DROP TABLE test_insert_array");
     }
 
     @Test
