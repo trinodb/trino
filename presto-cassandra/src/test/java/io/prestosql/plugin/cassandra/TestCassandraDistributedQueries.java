@@ -65,7 +65,15 @@ public class TestCassandraDistributedQueries
     @Override
     public void testInsert()
     {
-        // TODO Cassandra connector supports inserts, but the test would fail
+        // Cassandra connector currently does not support create table
+        // TODO test inserts
+    }
+
+    @Override
+    public void testInsertArray()
+    {
+        // Cassandra connector currently does not support create table
+        // TODO test inserts
     }
 
     @Override
