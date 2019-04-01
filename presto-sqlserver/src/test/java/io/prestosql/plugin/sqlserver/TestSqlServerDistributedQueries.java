@@ -15,7 +15,7 @@ package io.prestosql.plugin.sqlserver;
 
 import com.google.common.collect.ImmutableMap;
 import io.airlift.tpch.TpchTable;
-import io.prestosql.tests.AbstractTestQueries;
+import io.prestosql.tests.AbstractTestDistributedQueries;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
@@ -23,7 +23,7 @@ import static io.prestosql.plugin.sqlserver.SqlServerQueryRunner.createSqlServer
 
 @Test
 public class TestSqlServerDistributedQueries
-        extends AbstractTestQueries
+        extends AbstractTestDistributedQueries
 {
     private final TestingSqlServer sqlServer;
 
@@ -43,4 +43,31 @@ public class TestSqlServerDistributedQueries
     {
         sqlServer.close();
     }
+
+    @Override
+    protected boolean supportsViews()
+    {
+        return false;
+    }
+
+    @Override
+    protected boolean supportsArrays()
+    {
+        return false;
+    }
+
+    @Override
+    public void testCommentTable()
+    {
+        // SQLServer connector currently does not support comment on table
+        assertQueryFails("COMMENT ON TABLE orders IS 'hello'", "This connector does not support setting table comments");
+    }
+
+    @Override
+    public void testDelete()
+    {
+        // delete is not supported
+    }
+
+    // SQLServer specific tests should normally go in TestSqlServerIntegrationSmokeTest
 }

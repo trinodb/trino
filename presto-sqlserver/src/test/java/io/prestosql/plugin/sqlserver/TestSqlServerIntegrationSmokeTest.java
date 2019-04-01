@@ -20,7 +20,6 @@ import org.testng.annotations.Test;
 import static io.airlift.tpch.TpchTable.ORDERS;
 import static io.prestosql.plugin.sqlserver.SqlServerQueryRunner.createSqlServerQueryRunner;
 import static java.lang.String.format;
-import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 @Test
@@ -44,27 +43,6 @@ public class TestSqlServerIntegrationSmokeTest
     public final void destroy()
     {
         sqlServer.close();
-    }
-
-    @Test
-    public void testDropTable()
-    {
-        // TODO move this test to AbstractTestIntegrationSmokeTest
-        assertUpdate("CREATE TABLE test_drop AS SELECT 123 x", 1);
-        assertTrue(getQueryRunner().tableExists(getSession(), "test_drop"));
-
-        assertUpdate("DROP TABLE test_drop");
-        assertFalse(getQueryRunner().tableExists(getSession(), "test_drop"));
-    }
-
-    @Test
-    public void testInsert()
-    {
-        // TODO move this test to AbstractTestIntegrationSmokeTest
-        assertUpdate("CREATE TABLE test_insert (x, y) AS SELECT 123, 'test' WHERE false", 0);
-        assertUpdate("INSERT INTO test_insert VALUES (123, 'test'), (null, null)", 2);
-        assertQuery("SELECT * FROM test_insert", "VALUES (123, 'test'), (null, null)");
-        assertUpdate("DROP TABLE test_insert");
     }
 
     @Test
