@@ -581,15 +581,7 @@ public class BaseJdbcClient
             return WriteMapping.sliceMapping(dataType, varcharWriteFunction());
         }
         if (type instanceof CharType) {
-            CharType charType = (CharType) type;
-            String dataType;
-            if (charType.getLength() == CharType.MAX_LENGTH) {
-                dataType = "char";
-            }
-            else {
-                dataType = "char(" + charType.getLength() + ")";
-            }
-            return WriteMapping.sliceMapping(dataType, charWriteFunction());
+            return WriteMapping.sliceMapping("char(" + ((CharType) type).getLength() + ")", charWriteFunction());
         }
         if (type instanceof DecimalType) {
             DecimalType decimalType = (DecimalType) type;
