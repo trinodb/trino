@@ -47,6 +47,7 @@ import java.util.stream.Collectors;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.connector.CatalogName.createInformationSchemaConnectorId;
 import static io.prestosql.connector.CatalogName.createSystemTablesConnectorId;
 import static io.prestosql.spi.StandardErrorCode.NOT_FOUND;
@@ -324,25 +325,25 @@ public final class Session
             connectorProperties.put(connectorId, catalogProperties);
         }
 
-        ImmutableMap.Builder<String, SelectedRole> roles = ImmutableMap.builder();
-        for (Entry<String, SelectedRole> entry : identity.getRoles().entrySet()) {
-            String catalogName = entry.getKey();
+        ImmutableMap.Builder<Name, SelectedRole> roles = ImmutableMap.builder();
+        for (Entry<Name, SelectedRole> entry : identity.getRoles().entrySet()) {
+            Name catalogName = entry.getKey();
             SelectedRole role = entry.getValue();
-            CatalogName connectorId = transactionManager.getOptionalCatalogMetadata(transactionId, catalogName)
+            CatalogName connectorId = transactionManager.getOptionalCatalogMetadata(transactionId, catalogName.getLegacyName())
                     .orElseThrow(() -> new PrestoException(NOT_FOUND, "Catalog does not exist: " + catalogName))
                     .getCatalogName();
             if (role.getType() == SelectedRole.Type.ROLE) {
-                accessControl.checkCanSetRole(transactionId, identity, role.getRole().get().getLegacyName(), catalogName);
+                accessControl.checkCanSetRole(transactionId, identity, role.getRole().get().getLegacyName(), catalogName.getLegacyName());
             }
             roles.put(connectorId.getCatalogName(), role);
 
-            String informationSchemaCatalogName = createInformationSchemaConnectorId(connectorId).getCatalogName();
-            if (transactionManager.getCatalogNames(transactionId).containsKey(informationSchemaCatalogName)) {
+            Name informationSchemaCatalogName = createInformationSchemaConnectorId(connectorId).getCatalogName();
+            if (transactionManager.getCatalogNames(transactionId).containsKey(informationSchemaCatalogName.getLegacyName())) {
                 roles.put(createInformationSchemaConnectorId(connectorId).getCatalogName(), role);
             }
 
-            String systemTablesCatalogName = createSystemTablesConnectorId(connectorId).getCatalogName();
-            if (transactionManager.getCatalogNames(transactionId).containsKey(systemTablesCatalogName)) {
+            Name systemTablesCatalogName = createSystemTablesConnectorId(connectorId).getCatalogName();
+            if (transactionManager.getCatalogNames(transactionId).containsKey(systemTablesCatalogName.getLegacyName())) {
                 roles.put(createSystemTablesConnectorId(connectorId).getCatalogName(), role);
             }
         }
@@ -435,10 +436,10 @@ public final class Session
 
         return new FullConnectorSession(
                 this,
-                identity.toConnectorIdentity(catalogName.getCatalogName()),
+                identity.toConnectorIdentity(catalogName.getCatalogName().getLegacyName()),
                 connectorProperties.getOrDefault(catalogName, ImmutableMap.of()),
                 catalogName,
-                catalogName.getCatalogName(),
+                catalogName.getCatalogName().getLegacyName(),
                 sessionPropertyManager);
     }
 
@@ -465,9 +466,9 @@ public final class Session
                 resourceEstimates,
                 startTime,
                 systemProperties,
-                connectorProperties,
+                connectorProperties.entrySet().stream().map(entry -> new SessionRepresentation.CatalogPropertiesInformation(entry.getKey(), entry.getValue())).collect(toImmutableList()),
                 unprocessedCatalogProperties,
-                identity.getRoles(),
+                identity.getRoles().entrySet().stream().map(entry -> new SessionRepresentation.SelectedRoleInformation(entry.getKey(), entry.getValue())).collect(toImmutableList()),
                 preparedStatements);
     }
 

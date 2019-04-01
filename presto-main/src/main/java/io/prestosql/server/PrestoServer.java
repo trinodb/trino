@@ -169,7 +169,7 @@ public class PrestoServer
         if (serverConfig.isCoordinator() && !schedulerConfig.isIncludeCoordinator()) {
             catalogs.stream()
                     .map(Catalog::getConnectorCatalogName)
-                    .filter(connectorId -> connectorId.getCatalogName().equals("jmx"))
+                    .filter(connectorId -> connectorId.getCatalogName().getLegacyName().equals("jmx"))
                     .map(Object::toString)
                     .forEach(connectorIds::add);
         }

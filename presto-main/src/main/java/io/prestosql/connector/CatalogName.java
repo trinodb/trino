@@ -14,11 +14,13 @@
 package io.prestosql.connector;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonValue;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import io.prestosql.spi.Name;
 
 import java.util.Objects;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.prestosql.spi.Name.createNonDelimitedName;
 import static java.util.Objects.requireNonNull;
 
 public final class CatalogName
@@ -26,16 +28,22 @@ public final class CatalogName
     private static final String INFORMATION_SCHEMA_CONNECTOR_PREFIX = "$info_schema@";
     private static final String SYSTEM_TABLES_CONNECTOR_PREFIX = "$system@";
 
-    private final String catalogName;
+    private final Name catalogName;
 
     @JsonCreator
-    public CatalogName(String catalogName)
+    public CatalogName(@JsonProperty("name") Name catalogName)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
-        checkArgument(!catalogName.isEmpty(), "catalogName is empty");
+        checkArgument(!catalogName.getName().isEmpty(), "catalogName is empty");
     }
 
-    public String getCatalogName()
+    public CatalogName(String catalogName)
+    {
+        this(createNonDelimitedName(requireNonNull(catalogName, "catalogName is null")));
+    }
+
+    @JsonProperty("name")
+    public Name getCatalogName()
     {
         return catalogName;
     }
@@ -59,26 +67,25 @@ public final class CatalogName
         return Objects.hash(catalogName);
     }
 
-    @JsonValue
     @Override
     public String toString()
     {
-        return catalogName;
+        return catalogName.getLegacyName();
     }
 
     public static boolean isInternalSystemConnector(CatalogName catalogName)
     {
-        return catalogName.getCatalogName().startsWith(SYSTEM_TABLES_CONNECTOR_PREFIX) ||
-                catalogName.getCatalogName().startsWith(INFORMATION_SCHEMA_CONNECTOR_PREFIX);
+        return catalogName.getCatalogName().getLegacyName().startsWith(SYSTEM_TABLES_CONNECTOR_PREFIX) ||
+                catalogName.getCatalogName().getLegacyName().startsWith(INFORMATION_SCHEMA_CONNECTOR_PREFIX);
     }
 
     public static CatalogName createInformationSchemaConnectorId(CatalogName catalogName)
     {
-        return new CatalogName(INFORMATION_SCHEMA_CONNECTOR_PREFIX + catalogName.getCatalogName());
+        return new CatalogName(createNonDelimitedName(INFORMATION_SCHEMA_CONNECTOR_PREFIX + catalogName.getCatalogName().getLegacyName()));
     }
 
     public static CatalogName createSystemTablesConnectorId(CatalogName catalogName)
     {
-        return new CatalogName(SYSTEM_TABLES_CONNECTOR_PREFIX + catalogName.getCatalogName());
+        return new CatalogName(createNonDelimitedName(SYSTEM_TABLES_CONNECTOR_PREFIX + catalogName.getCatalogName().getLegacyName()));
     }
 }

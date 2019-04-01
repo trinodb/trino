@@ -134,7 +134,7 @@ public class TestingSessionContext
     {
         ImmutableMap.Builder<String, Map<String, String>> catalogSessionProperties = ImmutableMap.builder();
         for (Entry<CatalogName, Map<String, String>> entry : session.getConnectorProperties().entrySet()) {
-            catalogSessionProperties.put(entry.getKey().getCatalogName(), entry.getValue());
+            catalogSessionProperties.put(entry.getKey().getCatalogName().getLegacyName(), entry.getValue());
         }
         return catalogSessionProperties.build();
     }

@@ -120,7 +120,7 @@ public class CreateTableTask
                     throw new SemanticException(DUPLICATE_COLUMN_NAME, column, "Column name '%s' specified more than once", column.getName());
                 }
                 if (!column.isNullable() && !metadata.getConnectorCapabilities(session, catalogName).contains(NOT_NULL_COLUMN_CONSTRAINT)) {
-                    throw new SemanticException(NOT_SUPPORTED, column, "Catalog '%s' does not support non-null column for column name '%s'", catalogName.getCatalogName(), column.getName());
+                    throw new SemanticException(NOT_SUPPORTED, column, "Catalog '%s' does not support non-null column for column name '%s'", catalogName.getCatalogName().getLegacyName(), column.getName());
                 }
 
                 Map<String, Expression> sqlProperties = mapFromProperties(column.getProperties());

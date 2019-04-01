@@ -15,6 +15,7 @@ package io.prestosql;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.connector.CatalogName;
 import io.prestosql.metadata.SessionPropertyManager;
@@ -28,11 +29,13 @@ import io.prestosql.spi.type.TimeZoneKey;
 import io.prestosql.sql.SqlPath;
 import io.prestosql.transaction.TransactionId;
 
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
@@ -61,7 +64,9 @@ public final class SessionRepresentation
     private final Map<String, String> systemProperties;
     private final Map<CatalogName, Map<String, String>> catalogProperties;
     private final Map<String, Map<String, String>> unprocessedCatalogProperties;
-    private final Map<String, SelectedRole> roles;
+    private final List<SelectedRoleInformation> roleInformation;
+    private final List<CatalogPropertiesInformation> propertiesInformation;
+    private final Map<Name, SelectedRole> roles;
     private final Map<String, String> preparedStatements;
 
     @JsonCreator
@@ -86,9 +91,9 @@ public final class SessionRepresentation
             @JsonProperty("resourceEstimates") ResourceEstimates resourceEstimates,
             @JsonProperty("startTime") long startTime,
             @JsonProperty("systemProperties") Map<String, String> systemProperties,
-            @JsonProperty("catalogProperties") Map<CatalogName, Map<String, String>> catalogProperties,
+            @JsonProperty("propertiesInformation") List<CatalogPropertiesInformation> propertiesInformation,
             @JsonProperty("unprocessedCatalogProperties") Map<String, Map<String, String>> unprocessedCatalogProperties,
-            @JsonProperty("roles") Map<String, SelectedRole> roles,
+            @JsonProperty("roleInformation") List<SelectedRoleInformation> roleInformation,
             @JsonProperty("preparedStatements") Map<String, String> preparedStatements)
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
@@ -111,12 +116,14 @@ public final class SessionRepresentation
         this.resourceEstimates = requireNonNull(resourceEstimates, "resourceEstimates is null");
         this.startTime = startTime;
         this.systemProperties = ImmutableMap.copyOf(systemProperties);
-        this.roles = ImmutableMap.copyOf(roles);
+        this.roleInformation = ImmutableList.copyOf(requireNonNull(roleInformation, "RoleInformation is null"));
+        this.propertiesInformation = ImmutableList.copyOf(requireNonNull(propertiesInformation, "PropertiesInformation is null"));
+        this.roles = ImmutableMap.copyOf(this.roleInformation.stream().collect(Collectors.toMap(x -> x.getName(), x -> x.getSelectedRole())));
         this.preparedStatements = ImmutableMap.copyOf(preparedStatements);
 
         ImmutableMap.Builder<CatalogName, Map<String, String>> catalogPropertiesBuilder = ImmutableMap.builder();
-        for (Entry<CatalogName, Map<String, String>> entry : catalogProperties.entrySet()) {
-            catalogPropertiesBuilder.put(entry.getKey(), ImmutableMap.copyOf(entry.getValue()));
+        for (CatalogPropertiesInformation information : this.propertiesInformation) {
+            catalogPropertiesBuilder.put(information.getCatalogName(), information.getProperties());
         }
         this.catalogProperties = catalogPropertiesBuilder.build();
 
@@ -247,7 +254,6 @@ public final class SessionRepresentation
         return systemProperties;
     }
 
-    @JsonProperty
     public Map<CatalogName, Map<String, String>> getCatalogProperties()
     {
         return catalogProperties;
@@ -260,9 +266,15 @@ public final class SessionRepresentation
     }
 
     @JsonProperty
-    public Map<String, SelectedRole> getRoles()
+    public List<SelectedRoleInformation> getRoleInformation()
     {
-        return roles;
+        return roleInformation;
+    }
+
+    @JsonProperty
+    public List<CatalogPropertiesInformation> getPropertiesInformation()
+    {
+        return propertiesInformation;
     }
 
     @JsonProperty
@@ -302,5 +314,57 @@ public final class SessionRepresentation
                 unprocessedCatalogProperties,
                 sessionPropertyManager,
                 preparedStatements);
+    }
+
+    //For JsonCreator
+    public static class SelectedRoleInformation
+    {
+        private final Name name;
+        private final SelectedRole selectedRole;
+
+        @JsonCreator
+        public SelectedRoleInformation(@JsonProperty("name") Name name, @JsonProperty("selectedRole") SelectedRole selectedRole)
+        {
+            this.name = requireNonNull(name, "Name is null");
+            this.selectedRole = requireNonNull(selectedRole, "SelectedROle is null");
+        }
+
+        @JsonProperty("name")
+        public Name getName()
+        {
+            return this.name;
+        }
+
+        @JsonProperty("selectedRole")
+        public SelectedRole getSelectedRole()
+        {
+            return this.selectedRole;
+        }
+    }
+
+    //For JsonCreator
+    public static class CatalogPropertiesInformation
+    {
+        private final CatalogName catalogName;
+        private final Map<String, String> properties;
+
+        @JsonCreator
+        public CatalogPropertiesInformation(@JsonProperty("catalogName") CatalogName catalogName, @JsonProperty("properties") Map<String, String> properties)
+        {
+            this.catalogName = requireNonNull(catalogName, "CatalogName is null");
+            this.properties = ImmutableMap.copyOf(requireNonNull(properties, "SelectedROle is null"));
+        }
+
+        @JsonProperty("catalogName")
+        public CatalogName getCatalogName()
+        {
+            return this.catalogName;
+        }
+
+        @JsonProperty("properties")
+        public Map<String, String> getProperties()
+        {
+            return this.properties;
+        }
     }
 }

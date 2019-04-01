@@ -424,7 +424,7 @@ class StatementAnalyzer
 
             Map<String, Object> analyzeProperties = metadata.getAnalyzePropertyManager().getProperties(
                     catalogName,
-                    catalogName.getCatalogName(),
+                    catalogName.getCatalogName().getLegacyName(),
                     mapFromProperties(node.getProperties()),
                     session,
                     metadata,

@@ -236,7 +236,7 @@ public class TestCreateTableTask
         @Override
         public Optional<CatalogName> getCatalogHandle(Session session, String catalogName)
         {
-            if (catalogHandle.getCatalogName().equals(catalogName)) {
+            if (catalogHandle.getCatalogName().getLegacyName().equals(catalogName)) {
                 return Optional.of(catalogHandle);
             }
             return Optional.empty();

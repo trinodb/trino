@@ -301,9 +301,9 @@ public final class HttpRequestSessionContext
         return parseProperty(servletRequest, PRESTO_SESSION);
     }
 
-    private static Map<String, SelectedRole> parseRoleHeaders(HttpServletRequest servletRequest)
+    private static Map<Name, SelectedRole> parseRoleHeaders(HttpServletRequest servletRequest)
     {
-        ImmutableMap.Builder<String, SelectedRole> roles = ImmutableMap.builder();
+        ImmutableMap.Builder<Name, SelectedRole> roles = ImmutableMap.builder();
         parseProperty(servletRequest, PRESTO_ROLE).forEach((key, value) -> {
             SelectedRole role;
             Matcher m = ROLE_PATTERN.matcher(value);
@@ -315,7 +315,7 @@ public final class HttpRequestSessionContext
             else {
                 throw badRequest(format("Invalid %s header", PRESTO_ROLE));
             }
-            roles.put(key, role);
+            roles.put(createName(key), role);
         });
         return roles.build();
     }

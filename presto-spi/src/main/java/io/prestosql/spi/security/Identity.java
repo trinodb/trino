@@ -29,7 +29,7 @@ public class Identity
 {
     private final Name user;
     private final Optional<Principal> principal;
-    private final Map<String, SelectedRole> roles;
+    private final Map<Name, SelectedRole> roles;
     private final Map<String, String> extraCredentials;
 
     public Identity(Name user, Optional<Principal> principal)
@@ -37,12 +37,12 @@ public class Identity
         this(user, principal, emptyMap());
     }
 
-    public Identity(Name user, Optional<Principal> principal, Map<String, SelectedRole> roles)
+    public Identity(Name user, Optional<Principal> principal, Map<Name, SelectedRole> roles)
     {
         this(user, principal, roles, emptyMap());
     }
 
-    public Identity(Name user, Optional<Principal> principal, Map<String, SelectedRole> roles, Map<String, String> extraCredentials)
+    public Identity(Name user, Optional<Principal> principal, Map<Name, SelectedRole> roles, Map<String, String> extraCredentials)
     {
         this.user = requireNonNull(user, "user is null");
         this.principal = requireNonNull(principal, "principal is null");
@@ -60,7 +60,7 @@ public class Identity
         return principal;
     }
 
-    public Map<String, SelectedRole> getRoles()
+    public Map<Name, SelectedRole> getRoles()
     {
         return roles;
     }

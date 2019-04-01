@@ -319,7 +319,7 @@ public class ConnectorManager
                 pageIndexerFactory);
 
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(factory.getClass().getClassLoader())) {
-            return factory.create(catalogName.getCatalogName(), properties, context);
+            return factory.create(catalogName.getCatalogName().getLegacyName(), properties, context);
         }
     }
 

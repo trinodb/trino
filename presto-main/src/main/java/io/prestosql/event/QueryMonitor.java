@@ -326,7 +326,7 @@ public class QueryMonitor
         ImmutableList.Builder<QueryInputMetadata> inputs = ImmutableList.builder();
         for (Input input : queryInfo.getInputs()) {
             inputs.add(new QueryInputMetadata(
-                    input.getCatalogName().getCatalogName(),
+                    input.getCatalogName().getCatalogName().getLegacyName(),
                     input.getSchema(),
                     input.getTable(),
                     input.getColumns().stream()
@@ -344,7 +344,7 @@ public class QueryMonitor
 
             output = Optional.of(
                     new QueryOutputMetadata(
-                            queryInfo.getOutput().get().getCatalogName().getCatalogName(),
+                            queryInfo.getOutput().get().getCatalogName().getCatalogName().getLegacyName(),
                             queryInfo.getOutput().get().getSchema(),
                             queryInfo.getOutput().get().getTable(),
                             tableFinishInfo.map(TableFinishInfo::getConnectorOutputMetadata),
@@ -396,7 +396,7 @@ public class QueryMonitor
         }
         for (Map.Entry<CatalogName, Map<String, String>> catalogEntry : session.getCatalogProperties().entrySet()) {
             for (Map.Entry<String, String> entry : catalogEntry.getValue().entrySet()) {
-                mergedProperties.put(catalogEntry.getKey().getCatalogName() + "." + entry.getKey(), entry.getValue());
+                mergedProperties.put(catalogEntry.getKey().getCatalogName().getLegacyName() + "." + entry.getKey(), entry.getValue());
             }
         }
         return ImmutableMap.copyOf(mergedProperties);

@@ -170,7 +170,7 @@ public class TestHiveIntegrationSmokeTest
     public void testSchemaOperations()
     {
         Session admin = Session.builder(getQueryRunner().getDefaultSession())
-                .setIdentity(new Identity(createNonDelimitedName("hive"), Optional.empty(), ImmutableMap.of("hive", new SelectedRole(SelectedRole.Type.ROLE, Optional.of(createNonDelimitedName("admin"))))))
+                .setIdentity(new Identity(createNonDelimitedName("hive"), Optional.empty(), ImmutableMap.of(createNonDelimitedName("hive"), new SelectedRole(SelectedRole.Type.ROLE, Optional.of(createNonDelimitedName("admin"))))))
                 .build();
 
         assertUpdate(admin, "CREATE SCHEMA new_schema");

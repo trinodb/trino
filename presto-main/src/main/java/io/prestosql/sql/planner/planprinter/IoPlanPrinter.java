@@ -472,7 +472,7 @@ public class IoPlanPrinter
             TupleDomain<ColumnHandle> predicate = metadata.getTableProperties(session, node.getTable()).getPredicate();
             context.addInputTableColumnInfo(new IoPlan.TableColumnInfo(
                     new CatalogSchemaTableName(
-                            tableMetadata.getCatalogName().getCatalogName(),
+                            tableMetadata.getCatalogName().getCatalogName().getLegacyName(),
                             tableMetadata.getTable().getSchemaName(),
                             tableMetadata.getTable().getTableName()),
                     parseConstraints(node.getTable(), predicate)));
@@ -486,21 +486,21 @@ public class IoPlanPrinter
             if (writerTarget instanceof CreateHandle) {
                 CreateHandle createHandle = (CreateHandle) writerTarget;
                 context.setOutputTable(new CatalogSchemaTableName(
-                        createHandle.getHandle().getCatalogName().getCatalogName(),
+                        createHandle.getHandle().getCatalogName().getCatalogName().getLegacyName(),
                         createHandle.getSchemaTableName().getSchemaName(),
                         createHandle.getSchemaTableName().getTableName()));
             }
             else if (writerTarget instanceof InsertHandle) {
                 InsertHandle insertHandle = (InsertHandle) writerTarget;
                 context.setOutputTable(new CatalogSchemaTableName(
-                        insertHandle.getHandle().getCatalogName().getCatalogName(),
+                        insertHandle.getHandle().getCatalogName().getCatalogName().getLegacyName(),
                         insertHandle.getSchemaTableName().getSchemaName(),
                         insertHandle.getSchemaTableName().getTableName()));
             }
             else if (writerTarget instanceof DeleteHandle) {
                 DeleteHandle deleteHandle = (DeleteHandle) writerTarget;
                 context.setOutputTable(new CatalogSchemaTableName(
-                        deleteHandle.getHandle().getCatalogName().getCatalogName(),
+                        deleteHandle.getHandle().getCatalogName().getCatalogName().getLegacyName(),
                         deleteHandle.getSchemaTableName().getSchemaName(),
                         deleteHandle.getSchemaTableName().getTableName()));
             }

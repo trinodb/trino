@@ -621,7 +621,7 @@ public class MetadataManager
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, source.getCatalogName().getLegacyName());
         CatalogName catalogName = catalogMetadata.getCatalogName();
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
-        metadata.renameSchema(session.toConnectorSession(catalogName), source.getSchemaName().getNormalizedName(), target);
+        metadata.renameSchema(session.toConnectorSession(catalogName), source.getSchemaName().getLegacyName(), target);
     }
 
     @Override

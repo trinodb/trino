@@ -94,7 +94,7 @@ public class TransactionsSystemTable
                     info.isAutoCommitContext(),
                     info.getCreateTime().getMillis(),
                     (long) info.getIdleTime().getValue(TimeUnit.SECONDS),
-                    info.getWrittenConnectorId().map(CatalogName::getCatalogName).orElse(null),
+                    info.getWrittenConnectorId().map(catalogName -> catalogName.getCatalogName().getLegacyName()).orElse(null),
                     createStringsBlock(info.getCatalogNames()));
         }
         return table.build().cursor();
@@ -109,7 +109,7 @@ public class TransactionsSystemTable
                 builder.appendNull();
             }
             else {
-                varchar.writeString(builder, value.getCatalogName());
+                varchar.writeString(builder, value.getCatalogName().getLegacyName());
             }
         }
         return builder.build();

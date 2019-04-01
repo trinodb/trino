@@ -300,7 +300,7 @@ final class ShowQueriesRewrite
                 throw new SemanticException(CATALOG_NOT_SPECIFIED, node, "Catalog must be specified when session catalog is not set");
             }
 
-            String catalog = node.getCatalog().map(c -> c.getValue().toLowerCase(ENGLISH)).orElseGet(() -> session.getCatalog().get().getNormalizedName());
+            String catalog = node.getCatalog().map(c -> c.getValue().toLowerCase(ENGLISH)).orElseGet(() -> session.getCatalog().get().getLegacyName());
             PrestoPrincipal principal = new PrestoPrincipal(PrincipalType.USER, session.getUser());
 
             accessControl.checkCanShowRoleGrants(session.getRequiredTransactionId(), session.getIdentity(), catalog);
@@ -321,7 +321,7 @@ final class ShowQueriesRewrite
                 throw new SemanticException(CATALOG_NOT_SPECIFIED, node, "Catalog must be specified when session catalog is not set");
             }
 
-            String catalog = node.getCatalog().map(Identifier::getValue).orElseGet(() -> session.getCatalog().get().getNormalizedName());
+            String catalog = node.getCatalog().map(Identifier::getValue).orElseGet(() -> session.getCatalog().get().getLegacyName());
             accessControl.checkCanShowSchemas(session.getRequiredTransactionId(), session.getIdentity(), catalog);
 
             Optional<Expression> predicate = Optional.empty();

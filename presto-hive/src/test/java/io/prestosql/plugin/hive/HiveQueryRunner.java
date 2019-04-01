@@ -167,7 +167,7 @@ public final class HiveQueryRunner
                 .setIdentity(new Identity(
                         createNonDelimitedName("hive"),
                         Optional.empty(),
-                        role.map(selectedRole -> ImmutableMap.of("hive", selectedRole))
+                        role.map(selectedRole -> ImmutableMap.of(createNonDelimitedName("hive"), selectedRole))
                                 .orElse(ImmutableMap.of())))
                 .setCatalog(HIVE_CATALOG)
                 .setSchema(TPCH_SCHEMA)
@@ -180,7 +180,7 @@ public final class HiveQueryRunner
                 .setIdentity(new Identity(
                         createNonDelimitedName("hive"),
                         Optional.empty(),
-                        role.map(selectedRole -> ImmutableMap.of("hive", selectedRole))
+                        role.map(selectedRole -> ImmutableMap.of(createNonDelimitedName("hive"), selectedRole))
                                 .orElse(ImmutableMap.of())))
                 .setCatalog(HIVE_BUCKETED_CATALOG)
                 .setSchema(TPCH_BUCKETED_SCHEMA)
