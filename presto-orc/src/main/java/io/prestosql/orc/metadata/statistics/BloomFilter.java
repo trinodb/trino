@@ -14,11 +14,16 @@
 package io.prestosql.orc.metadata.statistics;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.primitives.Longs;
 import io.airlift.slice.ByteArrays;
+import org.openjdk.jol.info.ClassLayout;
+
+import java.util.List;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
+import static io.airlift.slice.SizeOf.sizeOf;
 import static java.lang.Double.doubleToLongBits;
 
 /**
@@ -42,7 +47,10 @@ import static java.lang.Double.doubleToLongBits;
  * This class was forked from {@code org.apache.orc.util.BloomFilter}.
  */
 public class BloomFilter
+        implements StatisticsHasher.Hashable
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(BloomFilter.class).instanceSize() + ClassLayout.parseClass(BitSet.class).instanceSize();
+
     // from 64-bit linear congruential generator
     private static final long NULL_HASHCODE = 2862933555777941757L;
 
@@ -67,9 +75,9 @@ public class BloomFilter
      * @param bits the serialized bits
      * @param numFuncs the number of functions used
      */
-    public BloomFilter(long[] bits, int numFuncs)
+    public BloomFilter(List<Long> bits, int numFuncs)
     {
-        bitSet = new BitSet(bits);
+        bitSet = new BitSet(Longs.toArray(bits));
         this.numBits = (int) bitSet.bitSize();
         numHashFunctions = numFuncs;
     }
@@ -82,6 +90,19 @@ public class BloomFilter
     static int optimalNumOfBits(long n, double p)
     {
         return (int) (-n * Math.log(p) / (Math.log(2) * Math.log(2)));
+    }
+
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE + sizeOf(getBitSet());
+    }
+
+    @Override
+    public void addHash(StatisticsHasher hasher)
+    {
+        hasher.putInt(getNumBits())
+                .putInt(getNumHashFunctions())
+                .putLongs(getBitSet());
     }
 
     @Override

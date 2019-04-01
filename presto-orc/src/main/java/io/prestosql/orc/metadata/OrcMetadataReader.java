@@ -24,12 +24,12 @@ import io.prestosql.orc.metadata.OrcType.OrcTypeKind;
 import io.prestosql.orc.metadata.PostScript.HiveWriterVersion;
 import io.prestosql.orc.metadata.Stream.StreamKind;
 import io.prestosql.orc.metadata.statistics.BinaryStatistics;
+import io.prestosql.orc.metadata.statistics.BloomFilter;
 import io.prestosql.orc.metadata.statistics.BooleanStatistics;
 import io.prestosql.orc.metadata.statistics.ColumnStatistics;
 import io.prestosql.orc.metadata.statistics.DateStatistics;
 import io.prestosql.orc.metadata.statistics.DecimalStatistics;
 import io.prestosql.orc.metadata.statistics.DoubleStatistics;
-import io.prestosql.orc.metadata.statistics.HiveBloomFilter;
 import io.prestosql.orc.metadata.statistics.IntegerStatistics;
 import io.prestosql.orc.metadata.statistics.StringStatistics;
 import io.prestosql.orc.metadata.statistics.StripeStatistics;
@@ -204,15 +204,15 @@ public class OrcMetadataReader
     }
 
     @Override
-    public List<HiveBloomFilter> readBloomFilterIndexes(InputStream inputStream)
+    public List<BloomFilter> readBloomFilterIndexes(InputStream inputStream)
             throws IOException
     {
         CodedInputStream input = CodedInputStream.newInstance(inputStream);
         OrcProto.BloomFilterIndex bloomFilter = OrcProto.BloomFilterIndex.parseFrom(input);
         List<OrcProto.BloomFilter> bloomFilterList = bloomFilter.getBloomFilterList();
-        ImmutableList.Builder<HiveBloomFilter> builder = ImmutableList.builder();
+        ImmutableList.Builder<BloomFilter> builder = ImmutableList.builder();
         for (OrcProto.BloomFilter orcBloomFilter : bloomFilterList) {
-            builder.add(new HiveBloomFilter(orcBloomFilter.getBitsetList(), orcBloomFilter.getNumHashFunctions()));
+            builder.add(new BloomFilter(orcBloomFilter.getBitsetList(), orcBloomFilter.getNumHashFunctions()));
         }
         return builder.build();
     }

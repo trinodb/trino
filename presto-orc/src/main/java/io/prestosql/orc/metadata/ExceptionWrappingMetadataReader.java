@@ -16,7 +16,7 @@ package io.prestosql.orc.metadata;
 import io.prestosql.orc.OrcCorruptionException;
 import io.prestosql.orc.OrcDataSourceId;
 import io.prestosql.orc.metadata.PostScript.HiveWriterVersion;
-import io.prestosql.orc.metadata.statistics.HiveBloomFilter;
+import io.prestosql.orc.metadata.statistics.BloomFilter;
 import io.prestosql.spi.PrestoException;
 
 import java.io.IOException;
@@ -101,7 +101,7 @@ public class ExceptionWrappingMetadataReader
     }
 
     @Override
-    public List<HiveBloomFilter> readBloomFilterIndexes(InputStream inputStream)
+    public List<BloomFilter> readBloomFilterIndexes(InputStream inputStream)
             throws OrcCorruptionException
     {
         try {
