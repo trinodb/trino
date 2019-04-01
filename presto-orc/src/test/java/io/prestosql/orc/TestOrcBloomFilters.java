@@ -21,7 +21,6 @@ import io.prestosql.orc.TupleDomainOrcPredicate.ColumnReference;
 import io.prestosql.orc.metadata.OrcMetadataReader;
 import io.prestosql.orc.metadata.statistics.BloomFilter;
 import io.prestosql.orc.metadata.statistics.ColumnStatistics;
-import io.prestosql.orc.metadata.statistics.HiveBloomFilter;
 import io.prestosql.orc.metadata.statistics.IntegerStatistics;
 import io.prestosql.orc.proto.OrcProto;
 import io.prestosql.orc.protobuf.CodedInputStream;
@@ -93,15 +92,15 @@ public class TestOrcBloomFilters
         assertFalse(bloomFilter.testLong(TEST_INTEGER + 1));
 
         // Re-construct
-        HiveBloomFilter hiveBloomFilter = new HiveBloomFilter(ImmutableList.copyOf(Longs.asList(bloomFilter.getBitSet())), bloomFilter.getNumHashFunctions());
+        BloomFilter newBloomFilter = new BloomFilter(Longs.asList(bloomFilter.getBitSet()), bloomFilter.getNumHashFunctions());
 
         // String
-        assertTrue(hiveBloomFilter.test(TEST_STRING));
-        assertFalse(hiveBloomFilter.test(TEST_STRING_NOT_WRITTEN));
+        assertTrue(newBloomFilter.test(TEST_STRING));
+        assertFalse(newBloomFilter.test(TEST_STRING_NOT_WRITTEN));
 
         // Integer
-        assertTrue(hiveBloomFilter.testLong(TEST_INTEGER));
-        assertFalse(hiveBloomFilter.testLong(TEST_INTEGER + 1));
+        assertTrue(newBloomFilter.testLong(TEST_INTEGER));
+        assertFalse(newBloomFilter.testLong(TEST_INTEGER + 1));
     }
 
     @Test
@@ -124,7 +123,7 @@ public class TestOrcBloomFilters
         // Read through method
         InputStream inputStream = new ByteArrayInputStream(bytes);
         OrcMetadataReader metadataReader = new OrcMetadataReader();
-        List<HiveBloomFilter> bloomFilters = metadataReader.readBloomFilterIndexes(inputStream);
+        List<BloomFilter> bloomFilters = metadataReader.readBloomFilterIndexes(inputStream);
 
         assertEquals(bloomFilters.size(), 1);
 
@@ -279,10 +278,10 @@ public class TestOrcBloomFilters
         TupleDomainOrcPredicate<String> emptyPredicate = new TupleDomainOrcPredicate<>(emptyEffectivePredicate, columnReferences, true);
 
         // assemble a matching and a non-matching bloom filter
-        HiveBloomFilter hiveBloomFilter = new HiveBloomFilter(1000, 0.01);
-        OrcProto.BloomFilter emptyOrcBloomFilter = toOrcBloomFilter(hiveBloomFilter);
-        hiveBloomFilter.addLong(1234);
-        OrcProto.BloomFilter orcBloomFilter = toOrcBloomFilter(hiveBloomFilter);
+        BloomFilter bloomFilter = new BloomFilter(1000, 0.01);
+        OrcProto.BloomFilter emptyOrcBloomFilter = toOrcBloomFilter(bloomFilter);
+        bloomFilter.addLong(1234);
+        OrcProto.BloomFilter orcBloomFilter = toOrcBloomFilter(bloomFilter);
 
         Map<Integer, ColumnStatistics> matchingStatisticsByColumnIndex = ImmutableMap.of(0, new ColumnStatistics(
                 null,
@@ -294,7 +293,7 @@ public class TestOrcBloomFilters
                 null,
                 null,
                 null,
-                toHiveBloomFilter(orcBloomFilter)));
+                toBloomFilter(orcBloomFilter)));
 
         Map<Integer, ColumnStatistics> nonMatchingStatisticsByColumnIndex = ImmutableMap.of(0, new ColumnStatistics(
                 null,
@@ -306,7 +305,7 @@ public class TestOrcBloomFilters
                 null,
                 null,
                 null,
-                toHiveBloomFilter(emptyOrcBloomFilter)));
+                toBloomFilter(emptyOrcBloomFilter)));
 
         Map<Integer, ColumnStatistics> withoutBloomFilterStatisticsByColumnIndex = ImmutableMap.of(0, new ColumnStatistics(
                 null,
@@ -326,9 +325,9 @@ public class TestOrcBloomFilters
         assertTrue(emptyPredicate.matches(1L, matchingStatisticsByColumnIndex));
     }
 
-    private static HiveBloomFilter toHiveBloomFilter(OrcProto.BloomFilter orcBloomFilter)
+    private static BloomFilter toBloomFilter(OrcProto.BloomFilter orcBloomFilter)
     {
-        return new HiveBloomFilter(orcBloomFilter.getBitsetList(), orcBloomFilter.getNumHashFunctions());
+        return new BloomFilter(orcBloomFilter.getBitsetList(), orcBloomFilter.getNumHashFunctions());
     }
 
     @Test
