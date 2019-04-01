@@ -23,10 +23,14 @@ import io.prestosql.plugin.jdbc.JdbcColumnHandle;
 import io.prestosql.plugin.jdbc.JdbcIdentity;
 import io.prestosql.plugin.jdbc.JdbcTableHandle;
 import io.prestosql.plugin.jdbc.JdbcTypeHandle;
+import io.prestosql.plugin.jdbc.WriteMapping;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.predicate.Domain;
+import io.prestosql.spi.type.CharType;
+import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.VarcharType;
 
 import javax.inject.Inject;
 
@@ -36,6 +40,11 @@ import java.util.Optional;
 import java.util.function.UnaryOperator;
 
 import static io.prestosql.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.booleanWriteFunction;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.charWriteFunction;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.varcharWriteFunction;
+import static io.prestosql.spi.type.BooleanType.BOOLEAN;
+import static io.prestosql.spi.type.Varchars.isVarcharType;
 import static java.lang.String.format;
 
 public class SqlServerClient
@@ -100,6 +109,41 @@ public class SqlServerClient
                         columnMapping.getReadFunction(),
                         columnMapping.getWriteFunction(),
                         DISABLE_UNSUPPORTED_PUSHDOWN));
+    }
+
+    @Override
+    public WriteMapping toWriteMapping(ConnectorSession session, Type type)
+    {
+        if (type == BOOLEAN) {
+            return WriteMapping.booleanMapping("bit", booleanWriteFunction());
+        }
+
+        if (isVarcharType(type)) {
+            VarcharType varcharType = (VarcharType) type;
+            String dataType;
+            if (varcharType.isUnbounded() || varcharType.getBoundedLength() > 4000) {
+                dataType = "nvarchar(max)";
+            }
+            else {
+                dataType = "nvarchar(" + varcharType.getBoundedLength() + ")";
+            }
+            return WriteMapping.sliceMapping(dataType, varcharWriteFunction());
+        }
+
+        if (type instanceof CharType) {
+            CharType charType = (CharType) type;
+            String dataType;
+            if (charType.getLength() > 4000) {
+                dataType = "nvarchar(max)";
+            }
+            else {
+                dataType = "nchar(" + charType.getLength() + ")";
+            }
+            return WriteMapping.sliceMapping(dataType, charWriteFunction());
+        }
+
+        // TODO implement proper type mapping
+        return super.toWriteMapping(session, type);
     }
 
     private static String singleQuote(String... objects)
