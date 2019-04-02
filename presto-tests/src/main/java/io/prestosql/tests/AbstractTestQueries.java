@@ -4993,6 +4993,7 @@ public abstract class AbstractTestQueries
                 "SELECT name FROM nation, LATERAL (SELECT 1 WHERE false)",
                 "SELECT 1 WHERE false");
 
+        // unused scalar subquery is removed
         assertQuery(
                 "SELECT name FROM nation, LATERAL (SELECT 1)",
                 "SELECT name FROM nation");
@@ -5000,6 +5001,21 @@ public abstract class AbstractTestQueries
         assertQuery(
                 "SELECT name FROM nation, LATERAL (SELECT 1 WHERE name = 'ola')",
                 "SELECT 1 WHERE false");
+
+        // unused at-most-scalar subquery is removed
+        assertQuery(
+                "SELECT name FROM nation LEFT JOIN LATERAL (SELECT 1 WHERE name = 'ola') ON true",
+                "SELECT name FROM nation");
+
+        // unused scalar input is removed
+        assertQuery(
+                "SELECT n FROM (VALUES 1) t(a), LATERAL (SELECT name FROM region) r(n)",
+                "SELECT name FROM region");
+
+        // unused at-most-scalar input is removed
+        assertQuery(
+                "SELECT n FROM (SELECT 1 FROM (VALUES 1) WHERE rand() = 5) t(a) RIGHT JOIN LATERAL (SELECT name FROM region) r(n) ON true",
+                "SELECT name FROM region");
 
         assertQuery(
                 "SELECT nationkey, a FROM nation, LATERAL (SELECT max(region.name) FROM region WHERE region.regionkey <= nation.regionkey) t(a) ORDER BY nationkey LIMIT 1",
@@ -5041,16 +5057,21 @@ public abstract class AbstractTestQueries
         assertQuery(
                 "SELECT * FROM (VALUES 2) a(x) CROSS JOIN LATERAL(SELECT x, x + 1)",
                 "SELECT 2, 2, 3");
-
-        assertQueryFails(
-                "SELECT * FROM (VALUES array[2, 2]) a(x) LEFT OUTER JOIN LATERAL(VALUES x) ON true",
-                "line .*: LATERAL on other than the right side of CROSS JOIN is not supported");
-        assertQueryFails(
-                "SELECT * FROM (VALUES array[2, 2]) a(x) RIGHT OUTER JOIN LATERAL(VALUES x) ON true",
-                "line .*: LATERAL on other than the right side of CROSS JOIN is not supported");
-        assertQueryFails(
-                "SELECT * FROM (VALUES array[2, 2]) a(x) FULL OUTER JOIN LATERAL(VALUES x) ON true",
-                "line .*: LATERAL on other than the right side of CROSS JOIN is not supported");
+        assertQuery(
+                "SELECT r.name, a FROM region r LEFT JOIN LATERAL (SELECT name FROM nation WHERE r.regionkey = nation.regionkey) n(a) ON r.name > a ORDER BY r.name LIMIT 1",
+                "SELECT 'AFRICA', NULL");
+        assertQuery(
+                "SELECT r.name, a FROM region r RIGHT JOIN LATERAL (SELECT name FROM nation WHERE r.regionkey = nation.regionkey) n(a) ON r.name > a ORDER BY a LIMIT 1",
+                "SELECT NULL, 'ALGERIA'");
+        assertQuery(
+                "SELECT * FROM (VALUES 1) a(x) FULL JOIN LATERAL(SELECT y FROM (VALUES 2) b(y) WHERE y > x) ON x=y",
+                "VALUES (1, NULL), (NULL, 2)");
+        assertQuery(
+                "SELECT * FROM (VALUES 1, 2, 3) a(x) FULL JOIN LATERAL(SELECT z FROM (VALUES 1, 2, 3, 5) b(z) WHERE z != x) ON x != 1 AND z != 5",
+                "VALUES (1, NULL), (2, 3), (2, 1), (3, 2), (3, 1), (NULL, 5)");
+        assertQuery(
+                "SELECT * FROM (VALUES 1, 2) a(x) JOIN LATERAL(SELECT y FROM (VALUES 2, 3) b(y) WHERE y > x) c(z) ON z > 2*x",
+                "VALUES (1, 3)");
     }
 
     @Test

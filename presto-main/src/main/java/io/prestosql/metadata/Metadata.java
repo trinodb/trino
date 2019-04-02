@@ -25,6 +25,7 @@ import io.prestosql.spi.connector.ConnectorCapabilities;
 import io.prestosql.spi.connector.ConnectorOutputMetadata;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
 import io.prestosql.spi.connector.Constraint;
+import io.prestosql.spi.connector.ConstraintApplicationResult;
 import io.prestosql.spi.connector.LimitApplicationResult;
 import io.prestosql.spi.connector.SystemTable;
 import io.prestosql.spi.predicate.TupleDomain;
@@ -390,4 +391,6 @@ public interface Metadata
     boolean usesLegacyTableLayouts(Session session, TableHandle table);
 
     Optional<LimitApplicationResult<TableHandle>> applyLimit(Session session, TableHandle table, long limit);
+
+    Optional<ConstraintApplicationResult<TableHandle>> applyFilter(Session session, TableHandle table, Constraint<ColumnHandle> constraint);
 }

@@ -17,7 +17,10 @@ import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
+import io.prestosql.Session;
+import io.prestosql.metadata.Metadata;
 import io.prestosql.spi.connector.ColumnHandle;
+import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.sql.planner.plan.AggregationNode;
 import io.prestosql.sql.planner.plan.AssignUniqueId;
 import io.prestosql.sql.planner.plan.DistinctLimitNode;
@@ -79,25 +82,31 @@ public class EffectivePredicateExtractor
             };
 
     private final DomainTranslator domainTranslator;
+    private final Metadata metadata;
 
-    public EffectivePredicateExtractor(DomainTranslator domainTranslator)
+    public EffectivePredicateExtractor(DomainTranslator domainTranslator, Metadata metadata)
     {
         this.domainTranslator = requireNonNull(domainTranslator, "domainTranslator is null");
+        this.metadata = requireNonNull(metadata, "metadata is null");
     }
 
-    public Expression extract(PlanNode node)
+    public Expression extract(Session session, PlanNode node)
     {
-        return node.accept(new Visitor(domainTranslator), null);
+        return node.accept(new Visitor(domainTranslator, metadata, session), null);
     }
 
     private static class Visitor
             extends PlanVisitor<Expression, Void>
     {
         private final DomainTranslator domainTranslator;
+        private final Metadata metadata;
+        private final Session session;
 
-        public Visitor(DomainTranslator domainTranslator)
+        public Visitor(DomainTranslator domainTranslator, Metadata metadata, Session session)
         {
             this.domainTranslator = requireNonNull(domainTranslator, "domainTranslator is null");
+            this.metadata = requireNonNull(metadata, "metadata is null");
+            this.session = requireNonNull(session, "session is null");
         }
 
         @Override
@@ -198,7 +207,9 @@ public class EffectivePredicateExtractor
         public Expression visitTableScan(TableScanNode node, Void context)
         {
             Map<ColumnHandle, Symbol> assignments = ImmutableBiMap.copyOf(node.getAssignments()).inverse();
-            return domainTranslator.toPredicate(node.getCurrentConstraint().simplify().transform(assignments::get));
+
+            TupleDomain<ColumnHandle> predicate = metadata.getTableProperties(session, node.getTable()).getPredicate();
+            return domainTranslator.toPredicate(predicate.simplify().transform(assignments::get));
         }
 
         @Override

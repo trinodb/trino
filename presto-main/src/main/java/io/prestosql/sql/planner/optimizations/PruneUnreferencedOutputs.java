@@ -86,7 +86,12 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Sets.intersection;
+import static io.prestosql.sql.planner.optimizations.QueryCardinalityUtil.isAtMostScalar;
 import static io.prestosql.sql.planner.optimizations.QueryCardinalityUtil.isScalar;
+import static io.prestosql.sql.planner.plan.LateralJoinNode.Type.INNER;
+import static io.prestosql.sql.planner.plan.LateralJoinNode.Type.LEFT;
+import static io.prestosql.sql.planner.plan.LateralJoinNode.Type.RIGHT;
+import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -426,7 +431,6 @@ public class PruneUnreferencedOutputs
                     node.getTable(),
                     newOutputs,
                     newAssignments,
-                    node.getCurrentConstraint(),
                     node.getEnforcedConstraint());
         }
 
@@ -812,11 +816,25 @@ public class PruneUnreferencedOutputs
         @Override
         public PlanNode visitLateralJoin(LateralJoinNode node, RewriteContext<Set<Symbol>> context)
         {
-            PlanNode subquery = context.rewrite(node.getSubquery(), context.get());
+            Set<Symbol> expectedFilterSymbols = SymbolsExtractor.extractUnique(node.getFilter());
+
+            Set<Symbol> expectedFilterAndContextSymbols = ImmutableSet.<Symbol>builder()
+                    .addAll(expectedFilterSymbols)
+                    .addAll(context.get())
+                    .build();
+
+            PlanNode subquery = context.rewrite(node.getSubquery(), expectedFilterAndContextSymbols);
 
             // remove unused lateral nodes
-            if (intersection(ImmutableSet.copyOf(subquery.getOutputSymbols()), context.get()).isEmpty() && isScalar(subquery)) {
-                return context.rewrite(node.getInput(), context.get());
+            if (intersection(ImmutableSet.copyOf(subquery.getOutputSymbols()), context.get()).isEmpty()) {
+                // remove unused lateral subquery of inner join
+                if (node.getType() == INNER && isScalar(subquery) && node.getFilter().equals(TRUE_LITERAL)) {
+                    return context.rewrite(node.getInput(), context.get());
+                }
+                // remove unused lateral subquery of left join
+                if (node.getType() == LEFT && isAtMostScalar(subquery)) {
+                    return context.rewrite(node.getInput(), context.get());
+                }
             }
 
             // prune not used correlation symbols
@@ -825,18 +843,29 @@ public class PruneUnreferencedOutputs
                     .filter(subquerySymbols::contains)
                     .collect(toImmutableList());
 
-            Set<Symbol> inputContext = ImmutableSet.<Symbol>builder()
-                    .addAll(context.get())
+            Set<Symbol> expectedCorrelationAndContextSymbols = ImmutableSet.<Symbol>builder()
                     .addAll(newCorrelation)
+                    .addAll(context.get())
+                    .build();
+            Set<Symbol> inputContext = ImmutableSet.<Symbol>builder()
+                    .addAll(expectedCorrelationAndContextSymbols)
+                    .addAll(expectedFilterSymbols)
                     .build();
             PlanNode input = context.rewrite(node.getInput(), inputContext);
 
-            // remove unused lateral nodes
-            if (intersection(ImmutableSet.copyOf(input.getOutputSymbols()), inputContext).isEmpty() && isScalar(input)) {
-                return subquery;
+            // remove unused input nodes
+            if (intersection(ImmutableSet.copyOf(input.getOutputSymbols()), expectedCorrelationAndContextSymbols).isEmpty()) {
+                // remove unused input of inner join
+                if (node.getType() == INNER && isScalar(input) && node.getFilter().equals(TRUE_LITERAL)) {
+                    return subquery;
+                }
+                // remove unused input of right join
+                if (node.getType() == RIGHT && isAtMostScalar(input)) {
+                    return subquery;
+                }
             }
 
-            return new LateralJoinNode(node.getId(), input, subquery, newCorrelation, node.getType(), node.getOriginSubquery());
+            return new LateralJoinNode(node.getId(), input, subquery, newCorrelation, node.getType(), node.getFilter(), node.getOriginSubquery());
         }
     }
 }

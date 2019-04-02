@@ -259,7 +259,8 @@ public final class StreamPropertyDerivations
 
             // Globally constant assignments
             Set<ColumnHandle> constants = new HashSet<>();
-            extractFixedValues(node.getCurrentConstraint()).orElse(ImmutableMap.of())
+            extractFixedValues(metadata.getTableProperties(session, node.getTable()).getPredicate())
+                    .orElse(ImmutableMap.of())
                     .entrySet().stream()
                     .filter(entry -> !entry.getValue().isNull())  // TODO consider allowing nulls
                     .forEach(entry -> constants.add(entry.getKey()));

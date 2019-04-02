@@ -201,7 +201,7 @@ public class ShowStatsRewrite
                 return Constraint.alwaysFalse();
             }
 
-            return new Constraint<>(scanNode.get().getCurrentConstraint());
+            return new Constraint<>(metadata.getTableProperties(session, scanNode.get().getTable()).getPredicate());
         }
 
         private TableHandle getTableHandle(ShowStats node, QualifiedName table)

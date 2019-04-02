@@ -97,6 +97,7 @@ import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static io.prestosql.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
+import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.prestosql.util.MoreLists.nElements;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
@@ -363,8 +364,13 @@ public class PlanBuilder
 
     public LateralJoinNode lateral(List<Symbol> correlation, PlanNode input, PlanNode subquery)
     {
+        return lateral(correlation, input, LateralJoinNode.Type.INNER, TRUE_LITERAL, subquery);
+    }
+
+    public LateralJoinNode lateral(List<Symbol> correlation, PlanNode input, LateralJoinNode.Type type, Expression filter, PlanNode subquery)
+    {
         NullLiteral originSubquery = new NullLiteral(); // does not matter for tests
-        return new LateralJoinNode(idAllocator.getNextId(), input, subquery, correlation, LateralJoinNode.Type.INNER, originSubquery);
+        return new LateralJoinNode(idAllocator.getNextId(), input, subquery, correlation, type, filter, originSubquery);
     }
 
     public TableScanNode tableScan(List<Symbol> symbols, Map<Symbol, ColumnHandle> assignments)
@@ -380,14 +386,13 @@ public class PlanBuilder
             List<Symbol> symbols,
             Map<Symbol, ColumnHandle> assignments)
     {
-        return tableScan(tableHandle, symbols, assignments, TupleDomain.all(), TupleDomain.all());
+        return tableScan(tableHandle, symbols, assignments, TupleDomain.all());
     }
 
     public TableScanNode tableScan(
             TableHandle tableHandle,
             List<Symbol> symbols,
             Map<Symbol, ColumnHandle> assignments,
-            TupleDomain<ColumnHandle> currentConstraint,
             TupleDomain<ColumnHandle> enforcedConstraint)
     {
         return new TableScanNode(
@@ -395,7 +400,6 @@ public class PlanBuilder
                 tableHandle,
                 symbols,
                 assignments,
-                currentConstraint,
                 enforcedConstraint);
     }
 

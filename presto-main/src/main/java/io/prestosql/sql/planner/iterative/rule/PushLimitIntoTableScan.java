@@ -59,7 +59,6 @@ public class PushLimitIntoTableScan
                             result.getHandle(),
                             tableScan.getOutputSymbols(),
                             tableScan.getAssignments(),
-                            tableScan.getCurrentConstraint(),
                             tableScan.getEnforcedConstraint());
 
                     if (!result.isLimitGuaranteed()) {

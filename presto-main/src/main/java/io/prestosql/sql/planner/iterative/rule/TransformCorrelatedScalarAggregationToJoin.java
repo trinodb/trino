@@ -31,7 +31,9 @@ import static io.prestosql.matching.Pattern.nonEmpty;
 import static io.prestosql.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static io.prestosql.sql.planner.optimizations.QueryCardinalityUtil.isScalar;
 import static io.prestosql.sql.planner.plan.Patterns.LateralJoin.correlation;
+import static io.prestosql.sql.planner.plan.Patterns.LateralJoin.filter;
 import static io.prestosql.sql.planner.plan.Patterns.lateralJoin;
+import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.prestosql.util.MorePredicates.isInstanceOfAny;
 import static java.util.Objects.requireNonNull;
 
@@ -67,7 +69,8 @@ public class TransformCorrelatedScalarAggregationToJoin
         implements Rule<LateralJoinNode>
 {
     private static final Pattern<LateralJoinNode> PATTERN = lateralJoin()
-            .with(nonEmpty(correlation()));
+            .with(nonEmpty(correlation()))
+            .with(filter().equalTo(TRUE_LITERAL)); // todo non-trivial join filter: adding filter/project on top of aggregation
 
     @Override
     public Pattern<LateralJoinNode> getPattern()

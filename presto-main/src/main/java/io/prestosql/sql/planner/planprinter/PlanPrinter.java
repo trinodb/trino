@@ -30,6 +30,7 @@ import io.prestosql.cost.StatsAndCosts;
 import io.prestosql.execution.StageInfo;
 import io.prestosql.execution.StageStats;
 import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.TableHandle;
 import io.prestosql.operator.StageExecutionDescriptor;
 import io.prestosql.spi.connector.ColumnHandle;
@@ -124,6 +125,7 @@ import static io.prestosql.sql.planner.planprinter.PlanPrinterUtil.castToVarchar
 import static io.prestosql.sql.planner.planprinter.TextRenderer.formatDouble;
 import static io.prestosql.sql.planner.planprinter.TextRenderer.formatPositions;
 import static io.prestosql.sql.planner.planprinter.TextRenderer.indentString;
+import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static java.lang.String.format;
 import static java.util.Arrays.stream;
 import static java.util.Objects.requireNonNull;
@@ -135,12 +137,14 @@ public class PlanPrinter
 {
     private final PlanRepresentation representation;
     private final FunctionRegistry functionRegistry;
+    private final Optional<Metadata> metadata;
 
     private PlanPrinter(
             PlanNode planRoot,
             TypeProvider types,
             Optional<StageExecutionDescriptor> stageExecutionStrategy,
             FunctionRegistry functionRegistry,
+            Optional<Metadata> metadata,
             StatsAndCosts estimatedStatsAndCosts,
             Session session,
             Optional<Map<PlanNodeId, PlanNodeStats>> stats)
@@ -148,10 +152,12 @@ public class PlanPrinter
         requireNonNull(planRoot, "planRoot is null");
         requireNonNull(types, "types is null");
         requireNonNull(functionRegistry, "functionRegistry is null");
+        requireNonNull(metadata, "metadata is null");
         requireNonNull(estimatedStatsAndCosts, "estimatedStatsAndCosts is null");
         requireNonNull(stats, "stats is null");
 
         this.functionRegistry = functionRegistry;
+        this.metadata = metadata;
 
         Optional<Duration> totalCpuTime = stats.map(s -> new Duration(s.values().stream()
                 .mapToLong(planNode -> planNode.getPlanNodeScheduledTime().toMillis())
@@ -177,30 +183,31 @@ public class PlanPrinter
         return new JsonRenderer().render(representation);
     }
 
-    public static String jsonFragmentPlan(PlanNode root, Map<Symbol, Type> symbols, FunctionRegistry functionRegistry, Session session)
+    public static String jsonFragmentPlan(PlanNode root, Map<Symbol, Type> symbols, FunctionRegistry functionRegistry, Optional<Metadata> metadata, Session session)
     {
         TypeProvider typeProvider = TypeProvider.copyOf(symbols.entrySet().stream()
                 .distinct()
                 .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue)));
 
-        return new PlanPrinter(root, typeProvider, Optional.empty(), functionRegistry, StatsAndCosts.empty(), session, Optional.empty()).toJson();
+        return new PlanPrinter(root, typeProvider, Optional.empty(), functionRegistry, metadata, StatsAndCosts.empty(), session, Optional.empty()).toJson();
     }
 
-    public static String textLogicalPlan(PlanNode plan, TypeProvider types, FunctionRegistry functionRegistry, StatsAndCosts estimatedStatsAndCosts, Session session, int level)
+    public static String textLogicalPlan(PlanNode plan, TypeProvider types, FunctionRegistry functionRegistry, Optional<Metadata> metadata, StatsAndCosts estimatedStatsAndCosts, Session session, int level)
     {
-        return new PlanPrinter(plan, types, Optional.empty(), functionRegistry, estimatedStatsAndCosts, session, Optional.empty()).toText(false, level);
+        return new PlanPrinter(plan, types, Optional.empty(), functionRegistry, metadata, estimatedStatsAndCosts, session, Optional.empty()).toText(false, level);
     }
 
     public static String textLogicalPlan(
             PlanNode plan,
             TypeProvider types,
             FunctionRegistry functionRegistry,
+            Optional<Metadata> metadata,
             StatsAndCosts estimatedStatsAndCosts,
             Session session,
             int level,
             boolean verbose)
     {
-        return textLogicalPlan(plan, types, Optional.empty(), functionRegistry, estimatedStatsAndCosts, session, Optional.empty(), level, verbose);
+        return textLogicalPlan(plan, types, Optional.empty(), functionRegistry, metadata, estimatedStatsAndCosts, session, Optional.empty(), level, verbose);
     }
 
     public static String textLogicalPlan(
@@ -208,16 +215,17 @@ public class PlanPrinter
             TypeProvider types,
             Optional<StageExecutionDescriptor> stageExecutionStrategy,
             FunctionRegistry functionRegistry,
+            Optional<Metadata> metadata,
             StatsAndCosts estimatedStatsAndCosts,
             Session session,
             Optional<Map<PlanNodeId, PlanNodeStats>> stats,
             int level,
             boolean verbose)
     {
-        return new PlanPrinter(plan, types, stageExecutionStrategy, functionRegistry, estimatedStatsAndCosts, session, stats).toText(verbose, level);
+        return new PlanPrinter(plan, types, stageExecutionStrategy, functionRegistry, metadata, estimatedStatsAndCosts, session, stats).toText(verbose, level);
     }
 
-    public static String textDistributedPlan(StageInfo outputStageInfo, FunctionRegistry functionRegistry, Session session, boolean verbose)
+    public static String textDistributedPlan(StageInfo outputStageInfo, FunctionRegistry functionRegistry, Optional<Metadata> metadata, Session session, boolean verbose)
     {
         StringBuilder builder = new StringBuilder();
         List<StageInfo> allStages = getAllStages(Optional.of(outputStageInfo));
@@ -226,23 +234,23 @@ public class PlanPrinter
                 .collect(toImmutableList());
         Map<PlanNodeId, PlanNodeStats> aggregatedStats = aggregateStageStats(allStages);
         for (StageInfo stageInfo : allStages) {
-            builder.append(formatFragment(functionRegistry, session, stageInfo.getPlan(), Optional.of(stageInfo), Optional.of(aggregatedStats), verbose, allFragments));
+            builder.append(formatFragment(functionRegistry, metadata, session, stageInfo.getPlan(), Optional.of(stageInfo), Optional.of(aggregatedStats), verbose, allFragments));
         }
 
         return builder.toString();
     }
 
-    public static String textDistributedPlan(SubPlan plan, FunctionRegistry functionRegistry, Session session, boolean verbose)
+    public static String textDistributedPlan(SubPlan plan, FunctionRegistry functionRegistry, Optional<Metadata> metadata, Session session, boolean verbose)
     {
         StringBuilder builder = new StringBuilder();
         for (PlanFragment fragment : plan.getAllFragments()) {
-            builder.append(formatFragment(functionRegistry, session, fragment, Optional.empty(), Optional.empty(), verbose, plan.getAllFragments()));
+            builder.append(formatFragment(functionRegistry, metadata, session, fragment, Optional.empty(), Optional.empty(), verbose, plan.getAllFragments()));
         }
 
         return builder.toString();
     }
 
-    private static String formatFragment(FunctionRegistry functionRegistry, Session session, PlanFragment fragment, Optional<StageInfo> stageInfo, Optional<Map<PlanNodeId, PlanNodeStats>> planNodeStats, boolean verbose, List<PlanFragment> allFragments)
+    private static String formatFragment(FunctionRegistry functionRegistry, Optional<Metadata> metadata, Session session, PlanFragment fragment, Optional<StageInfo> stageInfo, Optional<Map<PlanNodeId, PlanNodeStats>> planNodeStats, boolean verbose, List<PlanFragment> allFragments)
     {
         StringBuilder builder = new StringBuilder();
         builder.append(format("Fragment %s [%s]\n",
@@ -303,7 +311,7 @@ public class PlanPrinter
                 .flatMap(f -> f.getSymbols().entrySet().stream())
                 .distinct()
                 .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue)));
-        builder.append(textLogicalPlan(fragment.getRoot(), typeProvider, Optional.of(fragment.getStageExecutionDescriptor()), functionRegistry, fragment.getStatsAndCosts(), session, planNodeStats, 1, verbose))
+        builder.append(textLogicalPlan(fragment.getRoot(), typeProvider, Optional.of(fragment.getStageExecutionDescriptor()), functionRegistry, metadata, fragment.getStatsAndCosts(), session, planNodeStats, 1, verbose))
                 .append("\n");
 
         return builder.toString();
@@ -754,7 +762,10 @@ public class PlanPrinter
 
         private void printTableScanInfo(NodeRepresentation nodeOutput, TableScanNode node)
         {
-            TupleDomain<ColumnHandle> predicate = node.getCurrentConstraint();
+            TupleDomain<ColumnHandle> predicate = metadata
+                    .map(value -> value.getTableProperties(session, node.getTable()).getPredicate())
+                    .orElse(TupleDomain.all());
+
             if (predicate.isNone()) {
                 nodeOutput.appendDetailsLine(":: NONE");
             }
@@ -1039,7 +1050,11 @@ public class PlanPrinter
         @Override
         public Void visitLateralJoin(LateralJoinNode node, Void context)
         {
-            addNode(node, "Lateral", format("[%s]", node.getCorrelation()));
+            addNode(node,
+                    "Lateral",
+                    format("[%s%s]",
+                            node.getCorrelation(),
+                            node.getFilter().equals(TRUE_LITERAL) ? "" : " " + node.getFilter()));
 
             return processChildren(node, context);
         }

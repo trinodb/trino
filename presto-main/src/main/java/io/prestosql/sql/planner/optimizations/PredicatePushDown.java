@@ -106,7 +106,7 @@ public class PredicatePushDown
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.literalEncoder = new LiteralEncoder(metadata.getBlockEncodingSerde());
-        this.effectivePredicateExtractor = new EffectivePredicateExtractor(new DomainTranslator(literalEncoder));
+        this.effectivePredicateExtractor = new EffectivePredicateExtractor(new DomainTranslator(literalEncoder), metadata);
         this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
     }
 
@@ -383,8 +383,8 @@ public class PredicatePushDown
             // See if we can rewrite outer joins in terms of a plain inner join
             node = tryNormalizeToOuterToInnerJoin(node, inheritedPredicate);
 
-            Expression leftEffectivePredicate = effectivePredicateExtractor.extract(node.getLeft());
-            Expression rightEffectivePredicate = effectivePredicateExtractor.extract(node.getRight());
+            Expression leftEffectivePredicate = effectivePredicateExtractor.extract(session, node.getLeft());
+            Expression rightEffectivePredicate = effectivePredicateExtractor.extract(session, node.getRight());
             Expression joinPredicate = extractJoinPredicate(node);
 
             Expression leftPredicate;
@@ -549,8 +549,8 @@ public class PredicatePushDown
                 node = new SpatialJoinNode(node.getId(), SpatialJoinNode.Type.INNER, node.getLeft(), node.getRight(), node.getOutputSymbols(), node.getFilter(), node.getLeftPartitionSymbol(), node.getRightPartitionSymbol(), node.getKdbTree());
             }
 
-            Expression leftEffectivePredicate = effectivePredicateExtractor.extract(node.getLeft());
-            Expression rightEffectivePredicate = effectivePredicateExtractor.extract(node.getRight());
+            Expression leftEffectivePredicate = effectivePredicateExtractor.extract(session, node.getLeft());
+            Expression rightEffectivePredicate = effectivePredicateExtractor.extract(session, node.getRight());
             Expression joinPredicate = node.getFilter();
 
             Expression leftPredicate;
@@ -1036,8 +1036,8 @@ public class PredicatePushDown
         {
             Expression inheritedPredicate = context.get();
             Expression deterministicInheritedPredicate = filterDeterministicConjuncts(inheritedPredicate);
-            Expression sourceEffectivePredicate = filterDeterministicConjuncts(effectivePredicateExtractor.extract(node.getSource()));
-            Expression filteringSourceEffectivePredicate = filterDeterministicConjuncts(effectivePredicateExtractor.extract(node.getFilteringSource()));
+            Expression sourceEffectivePredicate = filterDeterministicConjuncts(effectivePredicateExtractor.extract(session, node.getSource()));
+            Expression filteringSourceEffectivePredicate = filterDeterministicConjuncts(effectivePredicateExtractor.extract(session, node.getFilteringSource()));
             Expression joinExpression = new ComparisonExpression(
                     ComparisonExpression.Operator.EQUAL,
                     node.getSourceJoinSymbol().toSymbolReference(),

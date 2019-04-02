@@ -29,7 +29,6 @@ import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.ProjectNode;
 import io.prestosql.sql.planner.plan.SimplePlanRewriter;
 import io.prestosql.sql.planner.plan.ValuesNode;
-import io.prestosql.sql.tree.BooleanLiteral;
 import io.prestosql.sql.tree.DefaultExpressionTraversalVisitor;
 import io.prestosql.sql.tree.DereferenceExpression;
 import io.prestosql.sql.tree.ExistsPredicate;
@@ -61,6 +60,7 @@ import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.sql.analyzer.SemanticExceptions.notSupportedException;
 import static io.prestosql.sql.planner.ExpressionNodeInliner.replaceExpression;
 import static io.prestosql.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
+import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.prestosql.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static io.prestosql.sql.util.AstUtils.nodeContains;
 import static java.lang.String.format;
@@ -227,10 +227,10 @@ class SubqueryPlanner
         }
 
         // The subquery's EnforceSingleRowNode always produces a row, so the join is effectively INNER
-        return appendLateralJoin(subPlan, subqueryPlan, scalarSubquery.getQuery(), correlationAllowed, LateralJoinNode.Type.INNER);
+        return appendLateralJoin(subPlan, subqueryPlan, scalarSubquery.getQuery(), correlationAllowed, LateralJoinNode.Type.INNER, TRUE_LITERAL);
     }
 
-    public PlanBuilder appendLateralJoin(PlanBuilder subPlan, PlanBuilder subqueryPlan, Query query, boolean correlationAllowed, LateralJoinNode.Type type)
+    public PlanBuilder appendLateralJoin(PlanBuilder subPlan, PlanBuilder subqueryPlan, Query query, boolean correlationAllowed, LateralJoinNode.Type type, Expression filterCondition)
     {
         PlanNode subqueryNode = subqueryPlan.getRoot();
         Map<Expression, Expression> correlation = extractCorrelation(subPlan, subqueryNode);
@@ -247,6 +247,7 @@ class SubqueryPlanner
                         subqueryNode,
                         ImmutableList.copyOf(SymbolsExtractor.extractUnique(correlation.values())),
                         type,
+                        filterCondition,
                         query),
                 analysis.getParameters());
     }
@@ -279,7 +280,7 @@ class SubqueryPlanner
 
         PlanNode subqueryPlanRoot = subqueryPlan.getRoot();
         if (isAggregationWithEmptyGroupBy(subqueryPlanRoot)) {
-            subPlan.getTranslations().put(existsPredicate, BooleanLiteral.TRUE_LITERAL);
+            subPlan.getTranslations().put(existsPredicate, TRUE_LITERAL);
             return subPlan;
         }
 
@@ -288,7 +289,7 @@ class SubqueryPlanner
 
         Symbol exists = symbolAllocator.newSymbol("exists", BOOLEAN);
         subPlan.getTranslations().put(existsPredicate, exists);
-        ExistsPredicate rewrittenExistsPredicate = new ExistsPredicate(BooleanLiteral.TRUE_LITERAL);
+        ExistsPredicate rewrittenExistsPredicate = new ExistsPredicate(TRUE_LITERAL);
         return appendApplyNode(
                 subPlan,
                 existsPredicate.getSubquery(),
@@ -499,7 +500,7 @@ class SubqueryPlanner
     private Set<Expression> extractOuterColumnReferences(PlanNode planNode)
     {
         // at this point all the column references are already rewritten to SymbolReference
-        // when reference expression is not rewritten that means it cannot be satisfied within given PlaNode
+        // when reference expression is not rewritten that means it cannot be satisfied within given PlanNode
         // see that TranslationMap only resolves (local) fields in current scope
         return ExpressionExtractor.extractExpressions(planNode).stream()
                 .flatMap(expression -> extractColumnReferences(expression, analysis.getColumnReferences()).stream())

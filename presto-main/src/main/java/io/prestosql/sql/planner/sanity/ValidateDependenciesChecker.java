@@ -646,6 +646,15 @@ public final class ValidateDependenciesChecker
                     node.getCorrelation(),
                     "not all LATERAL correlation symbols are used in subquery");
 
+            Set<Symbol> inputs = ImmutableSet.<Symbol>builder()
+                    .addAll(createInputs(node.getInput(), boundSymbols))
+                    .addAll(createInputs(node.getSubquery(), boundSymbols))
+                    .build();
+
+            Set<Symbol> filterSymbols = SymbolsExtractor.extractUnique(node.getFilter());
+
+            checkDependencies(inputs, filterSymbols, "filter symbols (%s) not in sources (%s)", filterSymbols, inputs);
+
             return null;
         }
 

@@ -50,6 +50,7 @@ import io.prestosql.spi.connector.ConnectorTableProperties;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 import io.prestosql.spi.connector.ConnectorViewDefinition;
 import io.prestosql.spi.connector.Constraint;
+import io.prestosql.spi.connector.ConstraintApplicationResult;
 import io.prestosql.spi.connector.LimitApplicationResult;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.SchemaTablePrefix;
@@ -1192,6 +1193,21 @@ public class MetadataManager
                 .map(result -> new LimitApplicationResult<>(
                         new TableHandle(catalogName, result.getHandle(), table.getTransaction(), Optional.empty()),
                         result.isLimitGuaranteed()));
+    }
+
+    @Override
+    public Optional<ConstraintApplicationResult<TableHandle>> applyFilter(Session session, TableHandle table, Constraint<ColumnHandle> constraint)
+    {
+        ConnectorMetadata metadata = getMetadata(session, table.getCatalogName());
+
+        if (metadata.usesLegacyTableLayouts()) {
+            return Optional.empty();
+        }
+
+        return metadata.applyFilter(table.getConnectorHandle(), constraint)
+                .map(result -> new ConstraintApplicationResult<>(
+                        new TableHandle(table.getCatalogName(), result.getHandle(), table.getTransaction(), Optional.empty()),
+                        result.getRemainingFilter()));
     }
 
     private ViewDefinition deserializeView(String data)

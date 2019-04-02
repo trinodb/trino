@@ -17,6 +17,8 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.sql.planner.Symbol;
+import io.prestosql.sql.tree.Expression;
+import io.prestosql.sql.tree.Join;
 import io.prestosql.sql.tree.Node;
 
 import javax.annotation.concurrent.Immutable;
@@ -40,7 +42,9 @@ public class LateralJoinNode
     public enum Type
     {
         INNER(JoinNode.Type.INNER),
-        LEFT(JoinNode.Type.LEFT);
+        LEFT(JoinNode.Type.LEFT),
+        RIGHT(JoinNode.Type.RIGHT),
+        FULL(JoinNode.Type.FULL);
 
         Type(JoinNode.Type joinNodeType)
         {
@@ -53,6 +57,24 @@ public class LateralJoinNode
         {
             return joinNodeType;
         }
+
+        public static Type typeConvert(Join.Type joinType)
+        {
+            switch (joinType) {
+                case CROSS:
+                case IMPLICIT:
+                case INNER:
+                    return Type.INNER;
+                case LEFT:
+                    return Type.LEFT;
+                case RIGHT:
+                    return Type.RIGHT;
+                case FULL:
+                    return Type.FULL;
+                default:
+                    throw new UnsupportedOperationException("Unsupported join type: " + joinType);
+            }
+        }
     }
 
     private final PlanNode input;
@@ -63,6 +85,7 @@ public class LateralJoinNode
      */
     private final List<Symbol> correlation;
     private final Type type;
+    private final Expression filter;
 
     /**
      * HACK!
@@ -77,12 +100,14 @@ public class LateralJoinNode
             @JsonProperty("subquery") PlanNode subquery,
             @JsonProperty("correlation") List<Symbol> correlation,
             @JsonProperty("type") Type type,
+            @JsonProperty("filter") Expression filter,
             @JsonProperty("originSubquery") Node originSubquery)
     {
         super(id);
         requireNonNull(input, "input is null");
         requireNonNull(subquery, "right is null");
         requireNonNull(correlation, "correlation is null");
+        requireNonNull(filter, "filter is null");
         requireNonNull(originSubquery, "originSubquery is null");
 
         checkArgument(input.getOutputSymbols().containsAll(correlation), "Input does not contain symbols from correlation");
@@ -91,6 +116,7 @@ public class LateralJoinNode
         this.subquery = subquery;
         this.correlation = ImmutableList.copyOf(correlation);
         this.type = type;
+        this.filter = filter;
         this.originSubquery = originSubquery;
     }
 
@@ -116,6 +142,12 @@ public class LateralJoinNode
     public Type getType()
     {
         return type;
+    }
+
+    @JsonProperty("filter")
+    public Expression getFilter()
+    {
+        return filter;
     }
 
     @JsonProperty("originSubquery")
@@ -144,7 +176,7 @@ public class LateralJoinNode
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
         checkArgument(newChildren.size() == 2, "expected newChildren to contain 2 nodes");
-        return new LateralJoinNode(getId(), newChildren.get(0), newChildren.get(1), correlation, type, originSubquery);
+        return new LateralJoinNode(getId(), newChildren.get(0), newChildren.get(1), correlation, type, filter, originSubquery);
     }
 
     @Override

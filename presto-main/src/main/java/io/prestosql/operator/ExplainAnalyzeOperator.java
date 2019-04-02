@@ -19,11 +19,13 @@ import io.prestosql.execution.QueryPerformanceFetcher;
 import io.prestosql.execution.StageId;
 import io.prestosql.execution.StageInfo;
 import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.metadata.Metadata;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -41,6 +43,7 @@ public class ExplainAnalyzeOperator
         private final PlanNodeId planNodeId;
         private final QueryPerformanceFetcher queryPerformanceFetcher;
         private final FunctionRegistry functionRegistry;
+        private final Metadata metadata;
         private final boolean verbose;
         private boolean closed;
 
@@ -49,12 +52,14 @@ public class ExplainAnalyzeOperator
                 PlanNodeId planNodeId,
                 QueryPerformanceFetcher queryPerformanceFetcher,
                 FunctionRegistry functionRegistry,
+                Metadata metadata,
                 boolean verbose)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
             this.queryPerformanceFetcher = requireNonNull(queryPerformanceFetcher, "queryPerformanceFetcher is null");
             this.functionRegistry = requireNonNull(functionRegistry, "functionRegistry is null");
+            this.metadata = requireNonNull(metadata, "metadata is null");
             this.verbose = verbose;
         }
 
@@ -63,7 +68,7 @@ public class ExplainAnalyzeOperator
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, ExplainAnalyzeOperator.class.getSimpleName());
-            return new ExplainAnalyzeOperator(operatorContext, queryPerformanceFetcher, functionRegistry, verbose);
+            return new ExplainAnalyzeOperator(operatorContext, queryPerformanceFetcher, functionRegistry, metadata, verbose);
         }
 
         @Override
@@ -75,13 +80,14 @@ public class ExplainAnalyzeOperator
         @Override
         public OperatorFactory duplicate()
         {
-            return new ExplainAnalyzeOperatorFactory(operatorId, planNodeId, queryPerformanceFetcher, functionRegistry, verbose);
+            return new ExplainAnalyzeOperatorFactory(operatorId, planNodeId, queryPerformanceFetcher, functionRegistry, metadata, verbose);
         }
     }
 
     private final OperatorContext operatorContext;
     private final QueryPerformanceFetcher queryPerformanceFetcher;
     private final FunctionRegistry functionRegistry;
+    private final Metadata metadata;
     private final boolean verbose;
     private boolean finishing;
     private boolean outputConsumed;
@@ -90,11 +96,13 @@ public class ExplainAnalyzeOperator
             OperatorContext operatorContext,
             QueryPerformanceFetcher queryPerformanceFetcher,
             FunctionRegistry functionRegistry,
+            Metadata metadata,
             boolean verbose)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.queryPerformanceFetcher = requireNonNull(queryPerformanceFetcher, "queryPerformanceFetcher is null");
         this.functionRegistry = requireNonNull(functionRegistry, "functionRegistry is null");
+        this.metadata = requireNonNull(metadata, "metadata is null");
         this.verbose = verbose;
     }
 
@@ -145,7 +153,7 @@ public class ExplainAnalyzeOperator
             return null;
         }
 
-        String plan = textDistributedPlan(queryInfo.getOutputStage().get().getSubStages().get(0), functionRegistry, operatorContext.getSession(), verbose);
+        String plan = textDistributedPlan(queryInfo.getOutputStage().get().getSubStages().get(0), functionRegistry, Optional.of(metadata), operatorContext.getSession(), verbose);
         BlockBuilder builder = VARCHAR.createBlockBuilder(null, 1);
         VARCHAR.writeString(builder, plan);
 

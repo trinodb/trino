@@ -61,7 +61,7 @@ final class TableScanMatcher
         return new MatchResult(
                 expectedTableName.equalsIgnoreCase(actualTableName) &&
                         ((!expectedConstraint.isPresent()) ||
-                                domainsMatch(expectedConstraint, tableScanNode.getCurrentConstraint(), tableScanNode.getTable(), session, metadata)));
+                                domainsMatch(expectedConstraint, tableScanNode.getEnforcedConstraint(), tableScanNode.getTable(), session, metadata)));
     }
 
     @Override

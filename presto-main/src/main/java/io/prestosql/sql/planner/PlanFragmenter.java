@@ -246,7 +246,7 @@ public class PlanFragmenter
                     properties.getPartitioningScheme(),
                     ungroupedExecution(),
                     statsAndCosts.getForSubplan(root),
-                    Optional.of(jsonFragmentPlan(root, symbols, metadata.getFunctionRegistry(), session)));
+                    Optional.of(jsonFragmentPlan(root, symbols, metadata.getFunctionRegistry(), Optional.of(metadata), session)));
 
             return new SubPlan(fragment, properties.getChildren());
         }
@@ -775,7 +775,6 @@ public class PlanFragmenter
                     newTable,
                     node.getOutputSymbols(),
                     node.getAssignments(),
-                    node.getCurrentConstraint(),
                     node.getEnforcedConstraint());
         }
     }

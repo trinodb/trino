@@ -20,10 +20,12 @@ import io.prestosql.matching.Capture;
 import io.prestosql.matching.Captures;
 import io.prestosql.matching.Pattern;
 import io.prestosql.metadata.Metadata;
+import io.prestosql.metadata.TableHandle;
 import io.prestosql.metadata.TableLayoutResult;
 import io.prestosql.operator.scalar.TryFunction;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.Constraint;
+import io.prestosql.spi.connector.ConstraintApplicationResult;
 import io.prestosql.spi.predicate.NullableValue;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.sql.planner.DomainTranslator;
@@ -137,8 +139,7 @@ public class PushPredicateIntoTableScan
 
         TableScanNode rewrittenTableScan = (TableScanNode) rewrittenFilter.getSource();
 
-        return Objects.equals(tableScan.getCurrentConstraint(), rewrittenTableScan.getCurrentConstraint())
-                && Objects.equals(tableScan.getEnforcedConstraint(), rewrittenTableScan.getEnforcedConstraint());
+        return Objects.equals(tableScan.getEnforcedConstraint(), rewrittenTableScan.getEnforcedConstraint());
     }
 
     public static Optional<PlanNode> pushFilterIntoTableScan(
@@ -152,10 +153,6 @@ public class PushPredicateIntoTableScan
             TypeAnalyzer typeAnalyzer,
             DomainTranslator domainTranslator)
     {
-        if (!metadata.usesLegacyTableLayouts(session, node.getTable())) {
-            return Optional.empty();
-        }
-
         // don't include non-deterministic predicates
         Expression deterministicPredicate = filterDeterministicConjuncts(predicate);
 
@@ -192,25 +189,41 @@ public class PushPredicateIntoTableScan
             constraint = new Constraint<>(newDomain);
         }
 
-        Optional<TableLayoutResult> layout = metadata.getLayout(
-                session,
-                node.getTable(),
-                constraint,
-                Optional.of(node.getOutputSymbols().stream()
-                        .map(node.getAssignments()::get)
-                        .collect(toImmutableSet())));
+        TableHandle newTable;
+        TupleDomain<ColumnHandle> remainingFilter;
+        if (!metadata.usesLegacyTableLayouts(session, node.getTable())) {
+            Optional<ConstraintApplicationResult<TableHandle>> result = metadata.applyFilter(session, node.getTable(), constraint);
 
-        if (!layout.isPresent() || layout.get().getTableProperties().getPredicate().isNone()) {
-            return Optional.of(new ValuesNode(idAllocator.getNextId(), node.getOutputSymbols(), ImmutableList.of()));
+            if (!result.isPresent()) {
+                return Optional.empty();
+            }
+
+            newTable = result.get().getHandle();
+            remainingFilter = result.get().getRemainingFilter();
+        }
+        else {
+            Optional<TableLayoutResult> layout = metadata.getLayout(
+                    session,
+                    node.getTable(),
+                    constraint,
+                    Optional.of(node.getOutputSymbols().stream()
+                            .map(node.getAssignments()::get)
+                            .collect(toImmutableSet())));
+
+            if (!layout.isPresent() || layout.get().getTableProperties().getPredicate().isNone()) {
+                return Optional.of(new ValuesNode(idAllocator.getNextId(), node.getOutputSymbols(), ImmutableList.of()));
+            }
+
+            newTable = layout.get().getNewTableHandle();
+            remainingFilter = layout.get().getUnenforcedConstraint();
         }
 
         TableScanNode tableScan = new TableScanNode(
                 node.getId(),
-                layout.get().getNewTableHandle(),
+                newTable,
                 node.getOutputSymbols(),
                 node.getAssignments(),
-                layout.get().getTableProperties().getPredicate(),
-                computeEnforced(newDomain, layout.get().getUnenforcedConstraint()));
+                computeEnforced(newDomain, remainingFilter));
 
         // The order of the arguments to combineConjuncts matters:
         // * Unenforced constraints go first because they can only be simple column references,
@@ -221,7 +234,7 @@ public class PushPredicateIntoTableScan
         //   and non-TupleDomain-expressible expressions should be retained. Changing the order can lead
         //   to failures of previously successful queries.
         Expression resultingPredicate = combineConjuncts(
-                domainTranslator.toPredicate(layout.get().getUnenforcedConstraint().transform(assignments::get)),
+                domainTranslator.toPredicate(remainingFilter.transform(assignments::get)),
                 filterNonDeterministicConjuncts(predicate),
                 decomposedPredicate.getRemainingExpression());
 
