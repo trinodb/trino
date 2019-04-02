@@ -35,6 +35,7 @@ import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.SemiJoinNode;
 import io.prestosql.sql.planner.plan.StatisticsWriterNode;
 import io.prestosql.sql.planner.plan.TableScanNode;
+import io.prestosql.sql.planner.plan.TopNNode;
 import io.prestosql.sql.planner.plan.ValuesNode;
 import io.prestosql.sql.tree.LongLiteral;
 import io.prestosql.tests.QueryTemplate;
@@ -77,6 +78,7 @@ import static io.prestosql.sql.planner.assertions.PlanMatchPattern.singleGroupin
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.sort;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.strictTableScan;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.tableScan;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.topN;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.values;
 import static io.prestosql.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static io.prestosql.sql.planner.plan.AggregationNode.Step.FINAL;
@@ -92,6 +94,7 @@ import static io.prestosql.sql.planner.plan.JoinNode.DistributionType.REPLICATED
 import static io.prestosql.sql.planner.plan.JoinNode.Type.INNER;
 import static io.prestosql.sql.planner.plan.JoinNode.Type.LEFT;
 import static io.prestosql.sql.tree.SortItem.NullOrdering.LAST;
+import static io.prestosql.sql.tree.SortItem.Ordering.ASCENDING;
 import static io.prestosql.sql.tree.SortItem.Ordering.DESCENDING;
 import static io.prestosql.tests.QueryTemplate.queryTemplate;
 import static io.prestosql.util.MorePredicates.isInstanceOfAny;
@@ -256,6 +259,22 @@ public class TestLogicalPlanner
     }
 
     @Test
+    public void testTopNPushdownToJoinSource()
+    {
+        assertPlan("SELECT n.name, r.name FROM nation n LEFT JOIN region r ON n.regionkey = r.regionkey ORDER BY n.comment LIMIT 1",
+                anyTree(
+                        project(
+                                topN(1, ImmutableList.of(sort("N_COMM", ASCENDING, LAST)), TopNNode.Step.FINAL,
+                                        anyTree(
+                                                join(LEFT, ImmutableList.of(equiJoinClause("N_KEY", "R_KEY")),
+                                                        project(
+                                                                topN(1, ImmutableList.of(sort("N_COMM", ASCENDING, LAST)), TopNNode.Step.PARTIAL,
+                                                                        tableScan("nation", ImmutableMap.of("N_NAME", "name", "N_KEY", "regionkey", "N_COMM", "comment")))),
+                                                        anyTree(
+                                                                tableScan("region", ImmutableMap.of("R_NAME", "name", "R_KEY", "regionkey")))))))));
+    }
+
+    @Test
     public void testUncorrelatedSubqueries()
     {
         assertPlan("SELECT * FROM orders WHERE orderkey = (SELECT orderkey FROM lineitem ORDER BY orderkey LIMIT 1)",
@@ -412,9 +431,14 @@ public class TestLogicalPlanner
 
     private void assertPlanContainsNoApplyOrAnyJoin(String sql)
     {
+        assertPlanDoesNotContain(sql, ApplyNode.class, JoinNode.class, IndexJoinNode.class, SemiJoinNode.class, LateralJoinNode.class);
+    }
+
+    private void assertPlanDoesNotContain(String sql, Class... classes)
+    {
         assertFalse(
                 searchFrom(plan(sql, LogicalPlanner.Stage.OPTIMIZED).getRoot())
-                        .where(isInstanceOfAny(ApplyNode.class, JoinNode.class, IndexJoinNode.class, SemiJoinNode.class, LateralJoinNode.class))
+                        .where(isInstanceOfAny(classes))
                         .matches(),
                 "Unexpected node for query: " + sql);
     }
@@ -800,5 +824,13 @@ public class TestLogicalPlanner
                                         exchange(REMOTE, GATHER,
                                                 tableScan("orders", ImmutableMap.of(
                                                         "ORDERKEY", "orderkey")))))));
+    }
+
+    @Test
+    public void testRemoveAggregationInSemiJoin()
+    {
+        assertPlanDoesNotContain(
+                "SELECT custkey FROM orders WHERE custkey IN (SELECT distinct custkey FROM customer)",
+                AggregationNode.class);
     }
 }

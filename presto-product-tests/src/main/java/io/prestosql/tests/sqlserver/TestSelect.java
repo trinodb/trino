@@ -50,11 +50,14 @@ import static java.sql.JDBCType.SMALLINT;
 import static java.sql.JDBCType.TIMESTAMP;
 import static java.sql.JDBCType.TINYINT;
 import static java.sql.JDBCType.VARCHAR;
+import static java.util.Collections.nCopies;
 
 public class TestSelect
         extends ProductTest
         implements RequirementsProvider
 {
+    private static final Logger log = Logger.get(TestSelect.class);
+
     @Override
     public Requirement getRequirements(Configuration configuration)
     {
@@ -76,19 +79,14 @@ public class TestSelect
             onPresto().executeQuery(format("DROP TABLE IF EXISTS %s", CREATE_TABLE_AS_SELECT));
         }
         catch (Exception e) {
-            Logger.get(getClass()).warn(e, "failed to drop table");
+            log.warn(e, "failed to drop table");
         }
     }
 
     @Test(groups = {SQL_SERVER, PROFILE_SPECIFIC_TESTS})
     public void testSelectNation()
     {
-        String sql = format(
-                "SELECT n_nationkey, n_name, n_regionkey, n_comment FROM %s",
-                NATION_TABLE_NAME);
-        QueryResult queryResult = onPresto()
-                .executeQuery(sql);
-
+        QueryResult queryResult = onPresto().executeQuery("SELECT n_nationkey, n_name, n_regionkey, n_comment FROM " + NATION_TABLE_NAME);
         assertThat(queryResult).matches(PRESTO_NATION_RESULT);
     }
 
@@ -129,41 +127,79 @@ public class TestSelect
     @Test(groups = {SQL_SERVER, PROFILE_SPECIFIC_TESTS})
     public void testAllDatatypes()
     {
-        String sql = format(
-                "SELECT bi, si, i, ti, f, r, c, vc, te, nc, nvc, nt, d, dt, dt2, sdt, pf30, pf22 " +
-                        "FROM %s", ALL_TYPES_TABLE_NAME);
-        QueryResult queryResult = onPresto()
-                .executeQuery(sql);
-
+        QueryResult queryResult = onPresto().executeQuery("SELECT * FROM " + ALL_TYPES_TABLE_NAME);
         assertThat(queryResult)
-                .hasColumns(BIGINT, SMALLINT, INTEGER, TINYINT, DOUBLE, REAL, CHAR, VARCHAR, VARCHAR,
-                        CHAR, VARCHAR, VARCHAR, DATE, TIMESTAMP, TIMESTAMP, TIMESTAMP, DOUBLE, REAL)
+                .hasColumns(
+                        BIGINT,
+                        SMALLINT,
+                        INTEGER,
+                        TINYINT,
+                        DOUBLE,
+                        REAL,
+                        CHAR,
+                        VARCHAR,
+                        VARCHAR,
+                        CHAR,
+                        VARCHAR,
+                        VARCHAR,
+                        DATE,
+                        TIMESTAMP,
+                        TIMESTAMP,
+                        TIMESTAMP,
+                        TIMESTAMP,
+                        DOUBLE,
+                        REAL)
                 .containsOnly(
-                        row(Long.MIN_VALUE, Short.MIN_VALUE, Integer.MIN_VALUE, Byte.MIN_VALUE, Double.MIN_VALUE,
-                                Float.valueOf("-3.40E+38"), "\0   ", "\0", "\0", "\0    ", "\0", "\0",
-                                Date.valueOf("1953-01-02"), Timestamp.valueOf("1753-01-01 00:00:00.000"),
-                                Timestamp.valueOf("0001-01-01 00:00:00.000"), Timestamp.valueOf("1900-01-01 00:00:00"),
-                                Double.MIN_VALUE, Float.valueOf("-3.40E+38")),
-                        row(Long.MAX_VALUE, Short.MAX_VALUE, Integer.MAX_VALUE, Byte.MAX_VALUE, Double.MAX_VALUE,
-                                Float.MAX_VALUE, "abcd", "abcdef", "abcd", "abcde", "abcdefg", "abcd",
-                                Date.valueOf("9999-12-31"), Timestamp.valueOf("9999-12-31 23:59:59.997"),
-                                Timestamp.valueOf("9999-12-31 23:59:59.999"), Timestamp.valueOf("2079-06-06 00:00:00"),
-                                Double.valueOf("12345678912.3456756"), Float.valueOf("12345678.6557")),
-                        row(null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null));
+                        row(
+                                Long.MIN_VALUE,
+                                Short.MIN_VALUE,
+                                Integer.MIN_VALUE,
+                                Byte.MIN_VALUE,
+                                Double.MIN_VALUE,
+                                -3.40E+38f,
+                                "\0   ",
+                                "\0",
+                                "\0",
+                                "\0    ",
+                                "\0",
+                                "\0",
+                                Date.valueOf("1953-01-02"),
+                                Timestamp.valueOf("1953-01-01 00:00:00.000"),
+                                Timestamp.valueOf("2001-01-01 00:00:00.123"),
+                                Timestamp.valueOf("1970-01-01 00:00:00.000"),
+                                Timestamp.valueOf("1960-01-01 00:00:00"),
+                                Double.MIN_VALUE,
+                                -3.40E+38f),
+                        row(
+                                Long.MAX_VALUE,
+                                Short.MAX_VALUE,
+                                Integer.MAX_VALUE,
+                                Byte.MAX_VALUE,
+                                Double.MAX_VALUE,
+                                Float.MAX_VALUE,
+                                "abcd",
+                                "abcdef",
+                                "abcd",
+                                "abcde",
+                                "abcdefg",
+                                "abcd",
+                                Date.valueOf("9999-12-31"),
+                                Timestamp.valueOf("9999-12-31 23:59:59.997"),
+                                Timestamp.valueOf("9999-12-31 23:59:59.999"),
+                                Timestamp.valueOf("9999-12-31 23:59:59.999"),
+                                Timestamp.valueOf("2079-06-06 00:00:00"),
+                                12345678912.3456756,
+                                12345678.6557f),
+                        row(nCopies(19, null).toArray()));
     }
 
     @Test(groups = {SQL_SERVER, PROFILE_SPECIFIC_TESTS})
     public void testCreateTableAsSelect()
     {
-        String sql = format(
-                "CREATE TABLE %s AS SELECT * FROM %s", CREATE_TABLE_AS_SELECT, NATION_TABLE_NAME);
-        onPresto().executeQuery(sql);
+        onPresto().executeQuery(format("CREATE TABLE %s AS SELECT * FROM %s", CREATE_TABLE_AS_SELECT, NATION_TABLE_NAME));
 
-        sql = format(
-                "SELECT n_nationkey, n_name, n_regionkey, n_comment FROM %s.%s.%s",
-                "master", KEY_SPACE, CTAS_TABLE_NAME);
         QueryResult queryResult = onSqlServer()
-                .executeQuery(sql);
+                .executeQuery(format("SELECT n_nationkey, n_name, n_regionkey, n_comment FROM %s.%s.%s", "master", KEY_SPACE, CTAS_TABLE_NAME));
 
         assertThat(queryResult).matches(PRESTO_NATION_RESULT);
     }

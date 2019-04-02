@@ -25,7 +25,7 @@ import io.prestosql.sql.planner.plan.PlanNode;
 
 import static io.prestosql.sql.planner.iterative.Lookup.noLookup;
 import static io.prestosql.sql.planner.iterative.Plans.resolveGroupReferences;
-import static io.prestosql.sql.planner.planPrinter.PlanPrinter.textLogicalPlan;
+import static io.prestosql.sql.planner.planprinter.PlanPrinter.textLogicalPlan;
 import static java.lang.String.format;
 
 public final class PlanAssert

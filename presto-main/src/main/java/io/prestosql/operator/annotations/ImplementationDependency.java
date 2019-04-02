@@ -18,12 +18,12 @@ import io.prestosql.metadata.FunctionRegistry;
 import io.prestosql.spi.function.Convention;
 import io.prestosql.spi.function.FunctionDependency;
 import io.prestosql.spi.function.InvocationConvention;
+import io.prestosql.spi.function.LiteralParameter;
 import io.prestosql.spi.function.OperatorDependency;
 import io.prestosql.spi.function.TypeParameter;
 import io.prestosql.spi.type.TypeManager;
 import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.spi.type.TypeSignatureParameter;
-import io.prestosql.type.LiteralParameter;
 
 import java.lang.annotation.Annotation;
 import java.lang.reflect.AnnotatedElement;

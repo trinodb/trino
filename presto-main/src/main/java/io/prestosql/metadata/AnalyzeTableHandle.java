@@ -15,7 +15,7 @@ package io.prestosql.metadata;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.prestosql.connector.ConnectorId;
+import io.prestosql.connector.CatalogName;
 import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 
@@ -25,25 +25,25 @@ import static java.util.Objects.requireNonNull;
 
 public class AnalyzeTableHandle
 {
-    private final ConnectorId connectorId;
+    private final CatalogName catalogName;
     private final ConnectorTransactionHandle transactionHandle;
     private final ConnectorTableHandle connectorHandle;
 
     @JsonCreator
     public AnalyzeTableHandle(
-            @JsonProperty("connectorId") ConnectorId connectorId,
+            @JsonProperty("connectorId") CatalogName catalogName,
             @JsonProperty("transactionHandle") ConnectorTransactionHandle transactionHandle,
             @JsonProperty("connectorHandle") ConnectorTableHandle connectorHandle)
     {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null");
+        this.catalogName = requireNonNull(catalogName, "connectorId is null");
         this.transactionHandle = requireNonNull(transactionHandle, "transactionHandle is null");
         this.connectorHandle = requireNonNull(connectorHandle, "connectorHandle is null");
     }
 
     @JsonProperty
-    public ConnectorId getConnectorId()
+    public CatalogName getCatalogName()
     {
-        return connectorId;
+        return catalogName;
     }
 
     @JsonProperty
@@ -68,7 +68,7 @@ public class AnalyzeTableHandle
             return false;
         }
         AnalyzeTableHandle that = (AnalyzeTableHandle) o;
-        return Objects.equals(connectorId, that.connectorId) &&
+        return Objects.equals(catalogName, that.catalogName) &&
                 Objects.equals(transactionHandle, that.transactionHandle) &&
                 Objects.equals(connectorHandle, that.connectorHandle);
     }
@@ -76,12 +76,12 @@ public class AnalyzeTableHandle
     @Override
     public int hashCode()
     {
-        return Objects.hash(connectorId, transactionHandle, connectorHandle);
+        return Objects.hash(catalogName, transactionHandle, connectorHandle);
     }
 
     @Override
     public String toString()
     {
-        return connectorId + ":" + connectorHandle + ":" + transactionHandle;
+        return catalogName + ":" + connectorHandle + ":" + transactionHandle;
     }
 }

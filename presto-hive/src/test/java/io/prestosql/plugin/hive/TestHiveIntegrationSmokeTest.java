@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Files;
 import io.prestosql.Session;
-import io.prestosql.connector.ConnectorId;
+import io.prestosql.connector.CatalogName;
 import io.prestosql.cost.StatsAndCosts;
 import io.prestosql.metadata.InsertTableHandle;
 import io.prestosql.metadata.Metadata;
@@ -48,12 +48,12 @@ import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.spi.type.VarcharType;
 import io.prestosql.sql.planner.Plan;
 import io.prestosql.sql.planner.plan.ExchangeNode;
-import io.prestosql.sql.planner.planPrinter.IoPlanPrinter.ColumnConstraint;
-import io.prestosql.sql.planner.planPrinter.IoPlanPrinter.FormattedDomain;
-import io.prestosql.sql.planner.planPrinter.IoPlanPrinter.FormattedMarker;
-import io.prestosql.sql.planner.planPrinter.IoPlanPrinter.FormattedRange;
-import io.prestosql.sql.planner.planPrinter.IoPlanPrinter.IoPlan;
-import io.prestosql.sql.planner.planPrinter.IoPlanPrinter.IoPlan.TableColumnInfo;
+import io.prestosql.sql.planner.planprinter.IoPlanPrinter.ColumnConstraint;
+import io.prestosql.sql.planner.planprinter.IoPlanPrinter.FormattedDomain;
+import io.prestosql.sql.planner.planprinter.IoPlanPrinter.FormattedMarker;
+import io.prestosql.sql.planner.planprinter.IoPlanPrinter.FormattedRange;
+import io.prestosql.sql.planner.planprinter.IoPlanPrinter.IoPlan;
+import io.prestosql.sql.planner.planprinter.IoPlanPrinter.IoPlan.TableColumnInfo;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.MaterializedRow;
 import io.prestosql.tests.AbstractTestIntegrationSmokeTest;
@@ -117,7 +117,7 @@ import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
 import static io.prestosql.sql.analyzer.FeaturesConfig.JoinDistributionType.BROADCAST;
 import static io.prestosql.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
-import static io.prestosql.sql.planner.planPrinter.PlanPrinter.textLogicalPlan;
+import static io.prestosql.sql.planner.planprinter.PlanPrinter.textLogicalPlan;
 import static io.prestosql.testing.MaterializedResult.resultBuilder;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
@@ -3776,7 +3776,7 @@ public class TestHiveIntegrationSmokeTest
 
     private static ConnectorSession getConnectorSession(Session session)
     {
-        return session.toConnectorSession(new ConnectorId(session.getCatalog().get()));
+        return session.toConnectorSession(new CatalogName(session.getCatalog().get()));
     }
 
     private void testWithAllStorageFormats(BiConsumer<Session, HiveStorageFormat> test)

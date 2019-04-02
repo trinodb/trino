@@ -69,14 +69,6 @@ public class TestBlockRetainedSizeBreakdown
     }
 
     @Test
-    public void testFixedWidthBlock()
-    {
-        BlockBuilder blockBuilder = new FixedWidthBlockBuilder(8, null, EXPECTED_ENTRIES);
-        writeEntries(EXPECTED_ENTRIES, blockBuilder, DOUBLE);
-        checkRetainedSize(blockBuilder.build(), true);
-    }
-
-    @Test
     public void testIntArrayBlock()
     {
         BlockBuilder blockBuilder = new IntArrayBlockBuilder(null, EXPECTED_ENTRIES);
@@ -114,6 +106,17 @@ public class TestBlockRetainedSizeBreakdown
     public void testVariableWidthBlock()
     {
         checkRetainedSize(createVariableWidthBlock(EXPECTED_ENTRIES), false);
+    }
+
+    @Test
+    public void testInt128ArrayBlock()
+    {
+        long[] longs = new long[EXPECTED_ENTRIES * 2];
+        for (int i = 0; i < longs.length; i++) {
+            longs[i] = i;
+        }
+        Block block = new Int128ArrayBlock(EXPECTED_ENTRIES, Optional.empty(), longs);
+        checkRetainedSize(block, false);
     }
 
     private static final class ObjectStrategy

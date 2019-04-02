@@ -15,7 +15,7 @@ package io.prestosql.metadata;
 
 import io.airlift.slice.Slice;
 import io.prestosql.Session;
-import io.prestosql.connector.ConnectorId;
+import io.prestosql.connector.CatalogName;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.BlockEncodingSerde;
 import io.prestosql.spi.connector.CatalogSchemaName;
@@ -218,7 +218,7 @@ public interface Metadata
     /**
      * Start a SELECT/UPDATE/INSERT/DELETE query
      */
-    void beginQuery(Session session, Set<ConnectorId> connectors);
+    void beginQuery(Session session, Set<CatalogName> connectors);
 
     /**
      * Cleanup after a query. This is the very last notification after the query finishes, regardless if it succeeds or fails.
@@ -266,14 +266,14 @@ public interface Metadata
     /**
      * Returns a connector id for the specified catalog name.
      */
-    Optional<ConnectorId> getCatalogHandle(Session session, String catalogName);
+    Optional<CatalogName> getCatalogHandle(Session session, String catalogName);
 
     /**
      * Gets all the loaded catalogs
      *
      * @return Map of catalog name to connector id
      */
-    Map<String, ConnectorId> getCatalogNames(Session session);
+    Map<String, CatalogName> getCatalogNames(Session session);
 
     /**
      * Get the names that match the specified table prefix (never null).
@@ -384,7 +384,7 @@ public interface Metadata
 
     AnalyzePropertyManager getAnalyzePropertyManager();
 
-    Set<ConnectorCapabilities> getConnectorCapabilities(Session session, ConnectorId catalogName);
+    Set<ConnectorCapabilities> getConnectorCapabilities(Session session, CatalogName catalogName);
 
     @Deprecated
     boolean usesLegacyTableLayouts(Session session, TableHandle table);

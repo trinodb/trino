@@ -26,7 +26,7 @@ import io.airlift.http.client.testing.TestingResponse;
 import io.airlift.node.NodeConfig;
 import io.airlift.node.NodeInfo;
 import io.prestosql.client.NodeVersion;
-import io.prestosql.failureDetector.NoOpFailureDetector;
+import io.prestosql.failuredetector.NoOpFailureDetector;
 import io.prestosql.server.InternalCommunicationConfig;
 import io.prestosql.spi.Node;
 import org.testng.annotations.BeforeMethod;

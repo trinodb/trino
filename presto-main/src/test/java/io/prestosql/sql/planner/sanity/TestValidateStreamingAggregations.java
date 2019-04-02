@@ -15,7 +15,7 @@ package io.prestosql.sql.planner.sanity;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.connector.ConnectorId;
+import io.prestosql.connector.CatalogName;
 import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.TableHandle;
@@ -51,9 +51,9 @@ public class TestValidateStreamingAggregations
         metadata = getQueryRunner().getMetadata();
         typeAnalyzer = new TypeAnalyzer(getQueryRunner().getSqlParser(), metadata);
 
-        ConnectorId connectorId = getCurrentConnectorId();
+        CatalogName catalogName = getCurrentConnectorId();
         nationTableHandle = new TableHandle(
-                connectorId,
+                catalogName,
                 new TpchTableHandle("nation", 1.0),
                 TpchTransactionHandle.INSTANCE,
                 Optional.empty());

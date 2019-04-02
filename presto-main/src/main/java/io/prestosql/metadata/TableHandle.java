@@ -15,7 +15,7 @@ package io.prestosql.metadata;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.prestosql.connector.ConnectorId;
+import io.prestosql.connector.CatalogName;
 import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTableLayoutHandle;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
@@ -26,7 +26,7 @@ import static java.util.Objects.requireNonNull;
 
 public final class TableHandle
 {
-    private final ConnectorId connectorId;
+    private final CatalogName catalogName;
     private final ConnectorTableHandle connectorHandle;
     private final ConnectorTransactionHandle transaction;
 
@@ -36,21 +36,21 @@ public final class TableHandle
 
     @JsonCreator
     public TableHandle(
-            @JsonProperty("connectorId") ConnectorId connectorId,
+            @JsonProperty("connectorId") CatalogName catalogName,
             @JsonProperty("connectorHandle") ConnectorTableHandle connectorHandle,
             @JsonProperty("transaction") ConnectorTransactionHandle transaction,
             @JsonProperty("layout") Optional<ConnectorTableLayoutHandle> layout)
     {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null");
+        this.catalogName = requireNonNull(catalogName, "connectorId is null");
         this.connectorHandle = requireNonNull(connectorHandle, "connectorHandle is null");
         this.transaction = requireNonNull(transaction, "transaction is null");
         this.layout = requireNonNull(layout, "layout is null");
     }
 
     @JsonProperty
-    public ConnectorId getConnectorId()
+    public CatalogName getCatalogName()
     {
-        return connectorId;
+        return catalogName;
     }
 
     @JsonProperty
@@ -74,6 +74,6 @@ public final class TableHandle
     @Override
     public String toString()
     {
-        return connectorId + ":" + connectorHandle;
+        return catalogName + ":" + connectorHandle;
     }
 }

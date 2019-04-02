@@ -16,7 +16,7 @@ package io.prestosql.operator.aggregation;
 import io.prestosql.metadata.MetadataManager;
 import io.prestosql.metadata.Signature;
 import io.prestosql.operator.GroupByIdBlock;
-import io.prestosql.operator.aggregation.groupByAggregations.GroupByAggregationTestUtils;
+import io.prestosql.operator.aggregation.groupby.GroupByAggregationTestUtils;
 import io.prestosql.operator.aggregation.histogram.HistogramGroupImplementation;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.block.Block;

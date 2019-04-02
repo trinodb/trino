@@ -16,7 +16,7 @@ package io.prestosql.split;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
-import io.prestosql.connector.ConnectorId;
+import io.prestosql.connector.CatalogName;
 import io.prestosql.spi.HostAddress;
 import io.prestosql.spi.connector.ConnectorSplit;
 
@@ -27,13 +27,13 @@ import static java.util.Objects.requireNonNull;
 public class EmptySplit
         implements ConnectorSplit
 {
-    private final ConnectorId connectorId;
+    private final CatalogName catalogName;
 
     @JsonCreator
     public EmptySplit(
-            @JsonProperty("connectorId") ConnectorId connectorId)
+            @JsonProperty("connectorId") CatalogName catalogName)
     {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null");
+        this.catalogName = requireNonNull(catalogName, "connectorId is null");
     }
 
     @Override
@@ -55,8 +55,8 @@ public class EmptySplit
     }
 
     @JsonProperty
-    public ConnectorId getConnectorId()
+    public CatalogName getCatalogName()
     {
-        return connectorId;
+        return catalogName;
     }
 }

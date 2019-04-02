@@ -27,6 +27,7 @@ import io.prestosql.sql.tree.FunctionCall;
 
 import javax.annotation.concurrent.Immutable;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -202,6 +203,14 @@ public class AggregationNode
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
         return new AggregationNode(getId(), Iterables.getOnlyElement(newChildren), aggregations, groupingSets, preGroupedSymbols, step, hashSymbol, groupIdSymbol);
+    }
+
+    public boolean producesDistinctRows()
+    {
+        return aggregations.isEmpty() &&
+                !groupingSets.getGroupingKeys().isEmpty() &&
+                outputs.size() == groupingSets.getGroupingKeys().size() &&
+                outputs.containsAll(new HashSet<>(groupingSets.getGroupingKeys()));
     }
 
     public boolean isDecomposable(FunctionRegistry functionRegistry)

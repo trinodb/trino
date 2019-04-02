@@ -80,6 +80,7 @@ The following provides a good starting point for creating ``etc/jvm.config``:
     -XX:+ExplicitGCInvokesConcurrent
     -XX:+HeapDumpOnOutOfMemoryError
     -XX:+ExitOnOutOfMemoryError
+    -Djdk.nio.maxCachedBufferSize=2000000
 
 Because an ``OutOfMemoryError`` will typically leave the JVM in an
 inconsistent state, we write a heap dump (for debugging) and forcibly

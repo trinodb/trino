@@ -20,8 +20,8 @@ import com.google.inject.Scopes;
 import io.prestosql.execution.QueryManager;
 import io.prestosql.execution.resourcegroups.NoOpResourceGroupManager;
 import io.prestosql.execution.resourcegroups.ResourceGroupManager;
-import io.prestosql.failureDetector.FailureDetector;
-import io.prestosql.failureDetector.NoOpFailureDetector;
+import io.prestosql.failuredetector.FailureDetector;
+import io.prestosql.failuredetector.NoOpFailureDetector;
 import io.prestosql.transaction.NoOpTransactionManager;
 import io.prestosql.transaction.TransactionManager;
 

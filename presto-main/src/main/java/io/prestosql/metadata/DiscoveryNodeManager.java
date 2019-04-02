@@ -27,9 +27,9 @@ import io.airlift.http.client.HttpClient;
 import io.airlift.log.Logger;
 import io.airlift.node.NodeInfo;
 import io.prestosql.client.NodeVersion;
-import io.prestosql.connector.ConnectorId;
+import io.prestosql.connector.CatalogName;
 import io.prestosql.connector.system.GlobalSystemConnector;
-import io.prestosql.failureDetector.FailureDetector;
+import io.prestosql.failuredetector.FailureDetector;
 import io.prestosql.server.InternalCommunicationConfig;
 import io.prestosql.spi.Node;
 import org.weakref.jmx.Managed;
@@ -83,7 +83,7 @@ public final class DiscoveryNodeManager
     private final PrestoNode currentNode;
 
     @GuardedBy("this")
-    private SetMultimap<ConnectorId, Node> activeNodesByConnectorId;
+    private SetMultimap<CatalogName, Node> activeNodesByConnectorId;
 
     @GuardedBy("this")
     private AllNodes allNodes;
@@ -209,7 +209,7 @@ public final class DiscoveryNodeManager
         ImmutableSet.Builder<Node> inactiveNodesBuilder = ImmutableSet.builder();
         ImmutableSet.Builder<Node> shuttingDownNodesBuilder = ImmutableSet.builder();
         ImmutableSet.Builder<Node> coordinatorsBuilder = ImmutableSet.builder();
-        ImmutableSetMultimap.Builder<ConnectorId, Node> byConnectorIdBuilder = ImmutableSetMultimap.builder();
+        ImmutableSetMultimap.Builder<CatalogName, Node> byConnectorIdBuilder = ImmutableSetMultimap.builder();
 
         for (ServiceDescriptor service : services) {
             URI uri = getHttpUri(service, httpsRequired);
@@ -231,12 +231,12 @@ public final class DiscoveryNodeManager
                         if (connectorIds != null) {
                             connectorIds = connectorIds.toLowerCase(ENGLISH);
                             for (String connectorId : CONNECTOR_ID_SPLITTER.split(connectorIds)) {
-                                byConnectorIdBuilder.put(new ConnectorId(connectorId), node);
+                                byConnectorIdBuilder.put(new CatalogName(connectorId), node);
                             }
                         }
 
                         // always add system connector
-                        byConnectorIdBuilder.put(new ConnectorId(GlobalSystemConnector.NAME), node);
+                        byConnectorIdBuilder.put(new CatalogName(GlobalSystemConnector.NAME), node);
                         break;
                     case INACTIVE:
                         inactiveNodesBuilder.add(node);
@@ -337,9 +337,9 @@ public final class DiscoveryNodeManager
     }
 
     @Override
-    public synchronized Set<Node> getActiveConnectorNodes(ConnectorId connectorId)
+    public synchronized Set<Node> getActiveConnectorNodes(CatalogName catalogName)
     {
-        return activeNodesByConnectorId.get(connectorId);
+        return activeNodesByConnectorId.get(catalogName);
     }
 
     @Override

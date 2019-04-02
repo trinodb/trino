@@ -16,7 +16,7 @@ package io.prestosql.tests;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableSet;
 import io.prestosql.spi.connector.CatalogSchemaTableName;
-import io.prestosql.sql.planner.planPrinter.IoPlanPrinter;
+import io.prestosql.sql.planner.planprinter.IoPlanPrinter;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.tests.tpch.TpchQueryRunnerBuilder;
 import org.intellij.lang.annotations.Language;

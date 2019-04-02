@@ -21,7 +21,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
 import io.prestosql.client.NodeVersion;
-import io.prestosql.connector.ConnectorId;
+import io.prestosql.connector.CatalogName;
 import io.prestosql.execution.scheduler.LegacyNetworkTopology;
 import io.prestosql.execution.scheduler.NetworkLocation;
 import io.prestosql.execution.scheduler.NetworkLocationCache;
@@ -67,7 +67,7 @@ import static org.testng.Assert.fail;
 @Test(singleThreaded = true)
 public class TestNodeScheduler
 {
-    private static final ConnectorId CONNECTOR_ID = new ConnectorId("connector_id");
+    private static final CatalogName CONNECTOR_ID = new CatalogName("connector_id");
     private FinalizerService finalizerService;
     private NodeTaskMap nodeTaskMap;
     private InMemoryNodeManager nodeManager;

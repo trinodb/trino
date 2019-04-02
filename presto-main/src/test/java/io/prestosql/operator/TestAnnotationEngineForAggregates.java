@@ -45,6 +45,7 @@ import io.prestosql.spi.function.BlockPosition;
 import io.prestosql.spi.function.CombineFunction;
 import io.prestosql.spi.function.Description;
 import io.prestosql.spi.function.InputFunction;
+import io.prestosql.spi.function.LiteralParameter;
 import io.prestosql.spi.function.LiteralParameters;
 import io.prestosql.spi.function.OperatorDependency;
 import io.prestosql.spi.function.OutputFunction;
@@ -60,7 +61,6 @@ import io.prestosql.spi.type.TypeSignatureParameter;
 import io.prestosql.spi.type.VarcharType;
 import io.prestosql.sql.analyzer.FeaturesConfig;
 import io.prestosql.type.Constraint;
-import io.prestosql.type.LiteralParameter;
 import io.prestosql.type.TypeRegistry;
 import org.testng.annotations.Test;
 

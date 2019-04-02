@@ -31,8 +31,8 @@ import io.prestosql.sql.planner.PlanOptimizers;
 import io.prestosql.sql.planner.SubPlan;
 import io.prestosql.sql.planner.TypeAnalyzer;
 import io.prestosql.sql.planner.optimizations.PlanOptimizer;
-import io.prestosql.sql.planner.planPrinter.IoPlanPrinter;
-import io.prestosql.sql.planner.planPrinter.PlanPrinter;
+import io.prestosql.sql.planner.planprinter.IoPlanPrinter;
+import io.prestosql.sql.planner.planprinter.PlanPrinter;
 import io.prestosql.sql.tree.ExplainType.Type;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.Statement;
@@ -44,7 +44,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
-import static io.prestosql.sql.planner.planPrinter.IoPlanPrinter.textIoPlan;
+import static io.prestosql.sql.planner.planprinter.IoPlanPrinter.textIoPlan;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 

@@ -15,7 +15,7 @@ package io.prestosql.execution;
 
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.Session;
-import io.prestosql.connector.ConnectorId;
+import io.prestosql.connector.CatalogName;
 import io.prestosql.server.SessionContext;
 import io.prestosql.spi.security.Identity;
 import io.prestosql.spi.session.ResourceEstimates;
@@ -132,7 +132,7 @@ public class TestingSessionContext
     public Map<String, Map<String, String>> getCatalogSessionProperties()
     {
         ImmutableMap.Builder<String, Map<String, String>> catalogSessionProperties = ImmutableMap.builder();
-        for (Entry<ConnectorId, Map<String, String>> entry : session.getConnectorProperties().entrySet()) {
+        for (Entry<CatalogName, Map<String, String>> entry : session.getConnectorProperties().entrySet()) {
             catalogSessionProperties.put(entry.getKey().getCatalogName(), entry.getValue());
         }
         return catalogSessionProperties.build();

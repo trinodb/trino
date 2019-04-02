@@ -14,7 +14,7 @@
 package io.prestosql.server;
 
 import com.google.common.collect.Maps;
-import io.prestosql.failureDetector.HeartbeatFailureDetector;
+import io.prestosql.failuredetector.HeartbeatFailureDetector;
 
 import javax.inject.Inject;
 import javax.ws.rs.GET;

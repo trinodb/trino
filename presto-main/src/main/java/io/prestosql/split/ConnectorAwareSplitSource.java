@@ -16,7 +16,7 @@ package io.prestosql.split;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.prestosql.connector.ConnectorId;
+import io.prestosql.connector.CatalogName;
 import io.prestosql.execution.Lifespan;
 import io.prestosql.metadata.Split;
 import io.prestosql.spi.connector.ConnectorPartitionHandle;
@@ -31,19 +31,19 @@ import static java.util.Objects.requireNonNull;
 public class ConnectorAwareSplitSource
         implements SplitSource
 {
-    private final ConnectorId connectorId;
+    private final CatalogName catalogName;
     private final ConnectorSplitSource source;
 
-    public ConnectorAwareSplitSource(ConnectorId connectorId, ConnectorSplitSource source)
+    public ConnectorAwareSplitSource(CatalogName catalogName, ConnectorSplitSource source)
     {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null");
+        this.catalogName = requireNonNull(catalogName, "connectorId is null");
         this.source = requireNonNull(source, "source is null");
     }
 
     @Override
-    public ConnectorId getConnectorId()
+    public CatalogName getCatalogName()
     {
-        return connectorId;
+        return catalogName;
     }
 
     @Override
@@ -53,7 +53,7 @@ public class ConnectorAwareSplitSource
         return Futures.transform(nextBatch, splitBatch -> {
             ImmutableList.Builder<Split> result = ImmutableList.builder();
             for (ConnectorSplit connectorSplit : splitBatch.getSplits()) {
-                result.add(new Split(connectorId, connectorSplit, lifespan));
+                result.add(new Split(catalogName, connectorSplit, lifespan));
             }
             return new SplitBatch(result.build(), splitBatch.isNoMoreSplits());
         }, directExecutor());
@@ -74,6 +74,6 @@ public class ConnectorAwareSplitSource
     @Override
     public String toString()
     {
-        return connectorId + ":" + source;
+        return catalogName + ":" + source;
     }
 }

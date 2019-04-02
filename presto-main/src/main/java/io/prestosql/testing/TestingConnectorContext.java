@@ -16,8 +16,8 @@ package io.prestosql.testing;
 import io.prestosql.GroupByHashPageIndexerFactory;
 import io.prestosql.PagesIndexPageSorter;
 import io.prestosql.block.BlockEncodingManager;
+import io.prestosql.connector.CatalogName;
 import io.prestosql.connector.ConnectorAwareNodeManager;
-import io.prestosql.connector.ConnectorId;
 import io.prestosql.metadata.FunctionRegistry;
 import io.prestosql.metadata.InMemoryNodeManager;
 import io.prestosql.metadata.MetadataManager;
@@ -34,7 +34,7 @@ import io.prestosql.type.TypeRegistry;
 public class TestingConnectorContext
         implements ConnectorContext
 {
-    private final NodeManager nodeManager = new ConnectorAwareNodeManager(new InMemoryNodeManager(), "testenv", new ConnectorId("test"));
+    private final NodeManager nodeManager = new ConnectorAwareNodeManager(new InMemoryNodeManager(), "testenv", new CatalogName("test"));
     private final TypeManager typeManager = new TypeRegistry();
     private final PageSorter pageSorter = new PagesIndexPageSorter(new PagesIndex.TestingFactory(false));
     private final PageIndexerFactory pageIndexerFactory = new GroupByHashPageIndexerFactory(new JoinCompiler(MetadataManager.createTestMetadataManager()));

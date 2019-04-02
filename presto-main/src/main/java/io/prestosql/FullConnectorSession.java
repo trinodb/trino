@@ -14,7 +14,7 @@
 package io.prestosql;
 
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.connector.ConnectorId;
+import io.prestosql.connector.CatalogName;
 import io.prestosql.metadata.SessionPropertyManager;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ConnectorSession;
@@ -36,7 +36,7 @@ public class FullConnectorSession
     private final Session session;
     private final ConnectorIdentity identity;
     private final Map<String, String> properties;
-    private final ConnectorId connectorId;
+    private final CatalogName catalogName;
     private final String catalog;
     private final SessionPropertyManager sessionPropertyManager;
     private final boolean isLegacyTimestamp;
@@ -46,7 +46,7 @@ public class FullConnectorSession
         this.session = requireNonNull(session, "session is null");
         this.identity = requireNonNull(identity, "identity is null");
         this.properties = null;
-        this.connectorId = null;
+        this.catalogName = null;
         this.catalog = null;
         this.sessionPropertyManager = null;
         this.isLegacyTimestamp = SystemSessionProperties.isLegacyTimestamp(session);
@@ -56,14 +56,14 @@ public class FullConnectorSession
             Session session,
             ConnectorIdentity identity,
             Map<String, String> properties,
-            ConnectorId connectorId,
+            CatalogName catalogName,
             String catalog,
             SessionPropertyManager sessionPropertyManager)
     {
         this.session = requireNonNull(session, "session is null");
         this.identity = requireNonNull(identity, "identity is null");
         this.properties = ImmutableMap.copyOf(requireNonNull(properties, "properties is null"));
-        this.connectorId = requireNonNull(connectorId, "connectorId is null");
+        this.catalogName = requireNonNull(catalogName, "connectorId is null");
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
         this.isLegacyTimestamp = SystemSessionProperties.isLegacyTimestamp(session);
@@ -129,7 +129,7 @@ public class FullConnectorSession
             throw new PrestoException(INVALID_SESSION_PROPERTY, format("Unknown session property: %s.%s", catalog, propertyName));
         }
 
-        return sessionPropertyManager.decodeCatalogPropertyValue(connectorId, catalog, propertyName, properties.get(propertyName), type);
+        return sessionPropertyManager.decodeCatalogPropertyValue(catalogName, catalog, propertyName, properties.get(propertyName), type);
     }
 
     @Override

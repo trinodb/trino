@@ -14,7 +14,7 @@
 package io.prestosql.metadata;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.connector.ConnectorId;
+import io.prestosql.connector.CatalogName;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorTableProperties;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
@@ -33,16 +33,16 @@ import static java.util.Objects.requireNonNull;
 public class TableProperties
 {
     private final ConnectorTableProperties tableProperties;
-    private final ConnectorId connectorId;
+    private final CatalogName catalogName;
     private final ConnectorTransactionHandle transaction;
 
-    public TableProperties(ConnectorId connectorId, ConnectorTransactionHandle transaction, ConnectorTableProperties tableProperties)
+    public TableProperties(CatalogName catalogName, ConnectorTransactionHandle transaction, ConnectorTableProperties tableProperties)
     {
-        requireNonNull(connectorId, "connectorId is null");
+        requireNonNull(catalogName, "connectorId is null");
         requireNonNull(transaction, "transaction is null");
         requireNonNull(tableProperties, "layout is null");
 
-        this.connectorId = connectorId;
+        this.catalogName = catalogName;
         this.transaction = transaction;
         this.tableProperties = tableProperties;
     }
@@ -62,7 +62,7 @@ public class TableProperties
         return tableProperties.getTablePartitioning()
                 .map(nodePartitioning -> new TablePartitioning(
                         new PartitioningHandle(
-                                Optional.of(connectorId),
+                                Optional.of(catalogName),
                                 Optional.of(transaction),
                                 nodePartitioning.getPartitioningHandle()),
                         nodePartitioning.getPartitioningColumns()));

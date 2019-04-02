@@ -19,48 +19,92 @@ import io.prestosql.tempto.fulfillment.table.jdbc.RelationalTableDefinition;
 
 import java.sql.Date;
 import java.sql.Timestamp;
-import java.util.Arrays;
 import java.util.List;
 
 import static io.prestosql.tests.sqlserver.TestConstants.CONNECTOR_NAME;
+import static java.util.Collections.nCopies;
 
-public class SqlServerDataTypesTableDefinition
+public final class SqlServerDataTypesTableDefinition
 {
+    private SqlServerDataTypesTableDefinition() {}
+
     public static final RelationalTableDefinition SQLSERVER_ALL_TYPES;
 
     public static final RelationalTableDefinition SQLSERVER_INSERT;
-
-    private SqlServerDataTypesTableDefinition() {}
 
     private static final String ALL_TYPES_TABLE_NAME = "all_types";
 
     private static final String INSERT_TABLE_NAME = "insert_table";
 
     private static final String ALL_TYPES_DDL =
-            "CREATE TABLE %NAME% (bi bigint, si smallint, i int, ti tinyint, f float, r real," +
-                    "c char(4), vc varchar(6), te text, nc nchar(5), nvc nvarchar(7), nt text," +
-                    "d date, dt datetime, dt2 datetime2, sdt smalldatetime, pf30 float(30), pf22 float(22))";
+            "CREATE TABLE %NAME% (" +
+                    "bi bigint, " +
+                    "si smallint, " +
+                    "i int, " +
+                    "ti tinyint, " +
+                    "f float, " +
+                    "r real," +
+                    "c char(4), " +
+                    "vc varchar(6), " +
+                    "te text, " +
+                    "nc nchar(5), " +
+                    "nvc nvarchar(7), " +
+                    "nt text," +
+                    "d date, " +
+                    "dt datetime, " +
+                    "dt2 datetime2, " +
+                    "dt3 datetime2, " +
+                    "sdt smalldatetime, " +
+                    "pf30 float(30), " +
+                    "pf22 float(22))";
 
     private static final String INSERT_DDL =
-            "CREATE TABLE %NAME% (bi bigint, si smallint, i int, f float," +
-                    "c char(4), vc varchar(6), " +
-                    "pf30 float(30), d date) ";
+            "CREATE TABLE %NAME% (bi bigint, si smallint, i int, f float,c char(4), vc varchar(6), pf30 float(30), d date) ";
 
     static {
         RelationalDataSource dataSource = () -> {
             return ImmutableList.<List<Object>>of(
-                    ImmutableList.of(Long.MIN_VALUE, Short.MIN_VALUE, Integer.MIN_VALUE, Byte.MIN_VALUE,
-                            Double.MIN_VALUE, Float.valueOf("-3.40E+38"), "\0", "\0", "\0", "\0", "\0", "\0",
-                            Date.valueOf("1953-01-02"), Timestamp.valueOf("1753-01-01 00:00:00.000"),
-                            Timestamp.valueOf("0001-01-01 00:00:00.000"), Timestamp.valueOf("1900-01-01 00:00:00"),
-                            Double.MIN_VALUE, Float.valueOf("-3.40E+38")),
-                    ImmutableList.of(Long.MAX_VALUE, Short.MAX_VALUE, Integer.MAX_VALUE, Byte.MAX_VALUE,
-                            Double.MAX_VALUE, Float.MAX_VALUE, "abcd", "abcdef", "abcd", "abcde", "abcdefg", "abcd",
-                            Date.valueOf("9999-12-31"), Timestamp.valueOf("9999-12-31 23:59:59.997"),
-                            Timestamp.valueOf("9999-12-31 23:59:59.999"), Timestamp.valueOf("2079-06-05 23:59:59"),
-                            Double.valueOf("12345678912.3456756"), Float.valueOf("12345678.6557")),
-                    Arrays.asList(null, null, null, null, null, null, null, null, null, null, null, null,
-                            null, null, null, null, null, null))
+                    ImmutableList.of(
+                            Long.MIN_VALUE,
+                            Short.MIN_VALUE,
+                            Integer.MIN_VALUE,
+                            Byte.MIN_VALUE,
+                            Double.MIN_VALUE,
+                            -3.40E+38f,
+                            "\0",
+                            "\0",
+                            "\0",
+                            "\0",
+                            "\0",
+                            "\0",
+                            Date.valueOf("1953-01-02"),
+                            Timestamp.valueOf("1953-01-01 00:00:00.000"),
+                            Timestamp.valueOf("2001-01-01 00:00:00.123"),
+                            Timestamp.valueOf("1970-01-01 00:00:00"),
+                            Timestamp.valueOf("1960-01-01 00:00:00"),
+                            Double.MIN_VALUE,
+                            -3.40E+38f),
+                    ImmutableList.of(
+                            Long.MAX_VALUE,
+                            Short.MAX_VALUE,
+                            Integer.MAX_VALUE,
+                            Byte.MAX_VALUE,
+                            Double.MAX_VALUE,
+                            Float.MAX_VALUE,
+                            "abcd",
+                            "abcdef",
+                            "abcd",
+                            "abcde",
+                            "abcdefg",
+                            "abcd",
+                            Date.valueOf("9999-12-31"),
+                            Timestamp.valueOf("9999-12-31 23:59:59.997"),
+                            Timestamp.valueOf("9999-12-31 23:59:59.999"),
+                            Timestamp.valueOf("9999-12-31 23:59:59.999"),
+                            Timestamp.valueOf("2079-06-05 23:59:59"),
+                            12345678912.3456756,
+                            12345678.6557f),
+                    nCopies(19, null))
                     .iterator();
         };
 

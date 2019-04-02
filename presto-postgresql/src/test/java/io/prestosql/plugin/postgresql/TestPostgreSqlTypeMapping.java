@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.testing.postgresql.TestingPostgreSqlServer;
 import io.prestosql.Session;
 import io.prestosql.spi.type.TimeZoneKey;
+import io.prestosql.testing.TestingSession;
 import io.prestosql.tests.AbstractTestQueryFramework;
 import io.prestosql.tests.datatype.CreateAndInsertDataSetup;
 import io.prestosql.tests.datatype.CreateAsSelectDataSetup;
@@ -26,12 +27,15 @@ import io.prestosql.tests.datatype.DataTypeTest;
 import io.prestosql.tests.sql.JdbcSqlExecutor;
 import io.prestosql.tests.sql.PrestoSqlExecutor;
 import org.testng.annotations.AfterClass;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -51,6 +55,7 @@ import static io.prestosql.tests.datatype.DataType.integerDataType;
 import static io.prestosql.tests.datatype.DataType.jsonDataType;
 import static io.prestosql.tests.datatype.DataType.realDataType;
 import static io.prestosql.tests.datatype.DataType.smallintDataType;
+import static io.prestosql.tests.datatype.DataType.timestampDataType;
 import static io.prestosql.tests.datatype.DataType.varbinaryDataType;
 import static io.prestosql.tests.datatype.DataType.varcharDataType;
 import static io.prestosql.type.JsonType.JSON;
@@ -239,13 +244,13 @@ public class TestPostgreSqlTypeMapping
         ZoneId jvmZone = ZoneId.systemDefault();
         checkState(jvmZone.getId().equals("America/Bahia_Banderas"), "This test assumes certain JVM time zone");
         LocalDate dateOfLocalTimeChangeForwardAtMidnightInJvmZone = LocalDate.of(1970, 1, 1);
-        verify(jvmZone.getRules().getValidOffsets(dateOfLocalTimeChangeForwardAtMidnightInJvmZone.atStartOfDay()).isEmpty());
+        checkIsGap(jvmZone, dateOfLocalTimeChangeForwardAtMidnightInJvmZone.atStartOfDay());
 
         ZoneId someZone = ZoneId.of("Europe/Vilnius");
         LocalDate dateOfLocalTimeChangeForwardAtMidnightInSomeZone = LocalDate.of(1983, 4, 1);
-        verify(someZone.getRules().getValidOffsets(dateOfLocalTimeChangeForwardAtMidnightInSomeZone.atStartOfDay()).isEmpty());
+        checkIsGap(someZone, dateOfLocalTimeChangeForwardAtMidnightInSomeZone.atStartOfDay());
         LocalDate dateOfLocalTimeChangeBackwardAtMidnightInSomeZone = LocalDate.of(1983, 10, 1);
-        verify(someZone.getRules().getValidOffsets(dateOfLocalTimeChangeBackwardAtMidnightInSomeZone.atStartOfDay().minusMinutes(1)).size() == 2);
+        checkIsDoubled(someZone, dateOfLocalTimeChangeBackwardAtMidnightInSomeZone.atStartOfDay().minusMinutes(1));
 
         DataTypeTest testCases = DataTypeTest.create()
                 .addRoundTrip(dateDataType(), LocalDate.of(1952, 4, 3)) // before epoch
@@ -286,11 +291,103 @@ public class TestPostgreSqlTypeMapping
         }
     }
 
-    @Test
-    public void testTimestamp()
+    @Test(dataProvider = "testTimestampDataProvider")
+    public void testTimestamp(boolean legacyTimestamp, boolean insertWithPresto)
     {
-        // TODO timestamp is not correctly read (see comment in StandardColumnMappings.timestampColumnMapping)
-        // testing this is hard because of https://github.com/prestodb/presto/issues/7122
+        LocalDateTime beforeEpoch = LocalDateTime.of(1958, 1, 1, 13, 18, 3, 123_000_000);
+        LocalDateTime epoch = LocalDateTime.of(1970, 1, 1, 0, 0, 0);
+        LocalDateTime afterEpoch = LocalDateTime.of(2019, 03, 18, 10, 01, 17, 987_000_000);
+
+        ZoneId jvmZone = ZoneId.systemDefault();
+
+        LocalDateTime timeGapInJvmZone1 = LocalDateTime.of(1970, 1, 1, 0, 13, 42);
+        checkIsGap(jvmZone, timeGapInJvmZone1);
+        LocalDateTime timeGapInJvmZone2 = LocalDateTime.of(2018, 4, 1, 2, 13, 55, 123_000_000);
+        checkIsGap(jvmZone, timeGapInJvmZone2);
+        LocalDateTime timeDoubledInJvmZone = LocalDateTime.of(2018, 10, 28, 1, 33, 17, 456_000_000);
+        checkIsDoubled(jvmZone, timeDoubledInJvmZone);
+
+        // no DST in 1970, but has DST in later years (e.g. 2018)
+        ZoneId vilnius = ZoneId.of("Europe/Vilnius");
+
+        LocalDateTime timeGapInVilnius = LocalDateTime.of(2018, 3, 25, 3, 17, 17);
+        checkIsGap(vilnius, timeGapInVilnius);
+        LocalDateTime timeDoubledInVilnius = LocalDateTime.of(2018, 10, 28, 3, 33, 33, 333_000_000);
+        checkIsDoubled(vilnius, timeDoubledInVilnius);
+
+        // minutes offset change since 1970-01-01, no DST
+        // using two non-JVM zones so that we don't need to worry what Postgres system zone is
+        ZoneId kathmandu = ZoneId.of("Asia/Kathmandu");
+
+        LocalDateTime timeGapInKathmandu = LocalDateTime.of(1986, 1, 1, 0, 13, 7);
+        checkIsGap(kathmandu, timeGapInKathmandu);
+
+        for (ZoneId sessionZone : ImmutableList.of(ZoneOffset.UTC, jvmZone, vilnius, kathmandu, ZoneId.of(TestingSession.DEFAULT_TIME_ZONE_KEY.getId()))) {
+            DataTypeTest tests = DataTypeTest.create()
+                    .addRoundTrip(timestampDataType(), beforeEpoch)
+                    .addRoundTrip(timestampDataType(), afterEpoch)
+                    .addRoundTrip(timestampDataType(), timeDoubledInJvmZone)
+                    .addRoundTrip(timestampDataType(), timeDoubledInVilnius);
+
+            if (!insertWithPresto) {
+                // when writing, Postgres JDBC driver converts LocalDateTime to string representing date-time in JVM zone
+                // TODO upgrade driver or find a different way to write timestamp values
+                addTimestampTestIfSupported(tests, legacyTimestamp, sessionZone, epoch); // epoch also is a gap in JVM zone
+                addTimestampTestIfSupported(tests, legacyTimestamp, sessionZone, timeGapInJvmZone1);
+                addTimestampTestIfSupported(tests, legacyTimestamp, sessionZone, timeGapInJvmZone2);
+            }
+
+            addTimestampTestIfSupported(tests, legacyTimestamp, sessionZone, timeGapInVilnius);
+            addTimestampTestIfSupported(tests, legacyTimestamp, sessionZone, timeGapInKathmandu);
+
+            Session session = Session.builder(getQueryRunner().getDefaultSession())
+                    .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
+                    .setSystemProperty("legacy_timestamp", Boolean.toString(legacyTimestamp))
+                    .build();
+
+            if (insertWithPresto) {
+                tests.execute(getQueryRunner(), session, prestoCreateAsSelect(session, "test_timestamp"));
+            }
+            else {
+                tests.execute(getQueryRunner(), session, postgresCreateAndInsert("tpch.test_timestamp"));
+            }
+        }
+    }
+
+    private void addTimestampTestIfSupported(DataTypeTest tests, boolean legacyTimestamp, ZoneId sessionZone, LocalDateTime dateTime)
+    {
+        if (legacyTimestamp && isGap(sessionZone, dateTime)) {
+            // in legacy timestamp semantics we cannot represent this dateTime
+            return;
+        }
+
+        tests.addRoundTrip(timestampDataType(), dateTime);
+    }
+
+    @DataProvider
+    public Object[][] testTimestampDataProvider()
+    {
+        return new Object[][] {
+                {true, true},
+                {false, true},
+                {true, false},
+                {false, false},
+        };
+    }
+
+    private static void checkIsGap(ZoneId zone, LocalDateTime dateTime)
+    {
+        verify(isGap(zone, dateTime), "Expected %s to be a gap in %s", dateTime, zone);
+    }
+
+    private static boolean isGap(ZoneId zone, LocalDateTime dateTime)
+    {
+        return zone.getRules().getValidOffsets(dateTime).isEmpty();
+    }
+
+    private static void checkIsDoubled(ZoneId zone, LocalDateTime dateTime)
+    {
+        verify(zone.getRules().getValidOffsets(dateTime).size() == 2, "Expected %s to be doubled in %s", dateTime, zone);
     }
 
     @Test
@@ -359,6 +456,11 @@ public class TestPostgreSqlTypeMapping
     private DataSetup prestoCreateAsSelect(String tableNamePrefix)
     {
         return new CreateAsSelectDataSetup(new PrestoSqlExecutor(getQueryRunner()), tableNamePrefix);
+    }
+
+    private DataSetup prestoCreateAsSelect(Session session, String tableNamePrefix)
+    {
+        return new CreateAsSelectDataSetup(new PrestoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
     }
 
     private DataSetup postgresCreateAndInsert(String tableNamePrefix)

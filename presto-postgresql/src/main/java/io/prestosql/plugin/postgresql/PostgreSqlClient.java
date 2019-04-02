@@ -58,10 +58,13 @@ import static com.fasterxml.jackson.databind.SerializationFeature.ORDER_MAP_ENTR
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.plugin.jdbc.ColumnMapping.DISABLE_PUSHDOWN;
 import static io.prestosql.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.timestampColumnMapping;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.timestampWriteFunction;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.varbinaryWriteFunction;
 import static io.prestosql.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -147,6 +150,9 @@ public class PostgreSqlClient
             // This can be e.g. an ENUM
             return Optional.of(typedVarcharColumnMapping(typeHandle.getJdbcTypeName()));
         }
+        if (typeHandle.getJdbcType() == Types.TIMESTAMP) {
+            return Optional.of(timestampColumnMapping(session));
+        }
         // TODO support PostgreSQL's TIMESTAMP WITH TIME ZONE and TIME WITH TIME ZONE explicitly, otherwise predicate pushdown for these types may be incorrect
         return super.toPrestoType(session, typeHandle);
     }
@@ -156,6 +162,9 @@ public class PostgreSqlClient
     {
         if (VARBINARY.equals(type)) {
             return WriteMapping.sliceMapping("bytea", varbinaryWriteFunction());
+        }
+        if (TIMESTAMP.equals(type)) {
+            return WriteMapping.longMapping("timestamp", timestampWriteFunction(session));
         }
         if (type.getTypeSignature().getBase().equals(StandardTypes.JSON)) {
             return WriteMapping.sliceMapping("jsonb", typedVarcharWriteFunction("json"));

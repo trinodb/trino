@@ -14,7 +14,7 @@
 package io.prestosql.connector.system;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.connector.ConnectorId;
+import io.prestosql.connector.CatalogName;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.connector.ConnectorSession;
@@ -94,17 +94,17 @@ public class TransactionsSystemTable
                     info.isAutoCommitContext(),
                     info.getCreateTime().getMillis(),
                     (long) info.getIdleTime().getValue(TimeUnit.SECONDS),
-                    info.getWrittenConnectorId().map(ConnectorId::getCatalogName).orElse(null),
-                    createStringsBlock(info.getConnectorIds()));
+                    info.getWrittenConnectorId().map(CatalogName::getCatalogName).orElse(null),
+                    createStringsBlock(info.getCatalogNames()));
         }
         return table.build().cursor();
     }
 
-    private static Block createStringsBlock(List<ConnectorId> values)
+    private static Block createStringsBlock(List<CatalogName> values)
     {
         VarcharType varchar = createUnboundedVarcharType();
         BlockBuilder builder = varchar.createBlockBuilder(null, values.size());
-        for (ConnectorId value : values) {
+        for (CatalogName value : values) {
             if (value == null) {
                 builder.appendNull();
             }
