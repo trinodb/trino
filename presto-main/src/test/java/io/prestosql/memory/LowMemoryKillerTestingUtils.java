@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import io.prestosql.client.NodeVersion;
-import io.prestosql.metadata.PrestoNode;
+import io.prestosql.metadata.InternalNode;
 import io.prestosql.spi.Node;
 import io.prestosql.spi.QueryId;
 import io.prestosql.spi.memory.MemoryPoolId;
@@ -46,7 +46,7 @@ public class LowMemoryKillerTestingUtils
             Map<String, Long> reservationByNode = entry.getValue();
 
             for (Map.Entry<String, Long> nodeEntry : reservationByNode.entrySet()) {
-                PrestoNode node = new PrestoNode(nodeEntry.getKey(), URI.create("http://localhost"), new NodeVersion("version"), false);
+                InternalNode node = new InternalNode(nodeEntry.getKey(), URI.create("http://localhost"), new NodeVersion("version"), false);
                 long bytes = nodeEntry.getValue();
                 if (bytes == 0) {
                     continue;
