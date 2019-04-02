@@ -24,10 +24,10 @@ import static io.prestosql.testing.assertions.Assert.assertEquals;
 //Integrations tests fail when parallel, due to a bug or configuration error in the embedded
 //cassandra instance. This problem results in either a hang in Thrift calls or broken sockets.
 @Test(singleThreaded = true)
-public class TestCassandraDistributed
+public class TestCassandraDistributedQueries
         extends AbstractTestDistributedQueries
 {
-    public TestCassandraDistributed()
+    public TestCassandraDistributedQueries()
     {
         super(CassandraQueryRunner::createCassandraQueryRunner);
     }
