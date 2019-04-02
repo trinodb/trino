@@ -14,9 +14,9 @@
 package io.prestosql.connector.system;
 
 import io.prestosql.metadata.AllNodes;
+import io.prestosql.metadata.InternalNode;
 import io.prestosql.metadata.InternalNodeManager;
 import io.prestosql.metadata.NodeState;
-import io.prestosql.metadata.PrestoNode;
 import io.prestosql.spi.Node;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
@@ -95,8 +95,8 @@ public class NodeSystemTable
 
     private static String getNodeVersion(Node node)
     {
-        if (node instanceof PrestoNode) {
-            return ((PrestoNode) node).getNodeVersion().toString();
+        if (node instanceof InternalNode) {
+            return ((InternalNode) node).getNodeVersion().toString();
         }
         return "";
     }

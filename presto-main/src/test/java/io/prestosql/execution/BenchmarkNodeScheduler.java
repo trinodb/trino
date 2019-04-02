@@ -28,7 +28,7 @@ import io.prestosql.execution.scheduler.NodeScheduler;
 import io.prestosql.execution.scheduler.NodeSchedulerConfig;
 import io.prestosql.execution.scheduler.NodeSelector;
 import io.prestosql.metadata.InMemoryNodeManager;
-import io.prestosql.metadata.PrestoNode;
+import io.prestosql.metadata.InternalNode;
 import io.prestosql.metadata.Split;
 import io.prestosql.spi.HostAddress;
 import io.prestosql.spi.Node;
@@ -147,7 +147,7 @@ public class BenchmarkNodeScheduler
 
             ImmutableList.Builder<Node> nodeBuilder = ImmutableList.builder();
             for (int i = 0; i < NODES; i++) {
-                nodeBuilder.add(new PrestoNode("node" + i, URI.create("http://" + addressForHost(i).getHostText()), NodeVersion.UNKNOWN, false));
+                nodeBuilder.add(new InternalNode("node" + i, URI.create("http://" + addressForHost(i).getHostText()), NodeVersion.UNKNOWN, false));
             }
             List<Node> nodes = nodeBuilder.build();
             MockRemoteTaskFactory remoteTaskFactory = new MockRemoteTaskFactory(

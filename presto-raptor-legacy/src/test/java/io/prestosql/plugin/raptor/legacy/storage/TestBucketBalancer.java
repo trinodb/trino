@@ -19,7 +19,7 @@ import com.google.common.collect.Multiset;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.prestosql.client.NodeVersion;
-import io.prestosql.metadata.PrestoNode;
+import io.prestosql.metadata.InternalNode;
 import io.prestosql.plugin.raptor.legacy.NodeSupplier;
 import io.prestosql.plugin.raptor.legacy.metadata.BucketNode;
 import io.prestosql.plugin.raptor.legacy.metadata.ColumnInfo;
@@ -306,6 +306,6 @@ public class TestBucketBalancer
 
     private static Node createTestingNode(String nodeIdentifier)
     {
-        return new PrestoNode(nodeIdentifier, URI.create("http://test"), NodeVersion.UNKNOWN, false);
+        return new InternalNode(nodeIdentifier, URI.create("http://test"), NodeVersion.UNKNOWN, false);
     }
 }

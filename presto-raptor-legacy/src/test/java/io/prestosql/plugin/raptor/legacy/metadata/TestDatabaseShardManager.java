@@ -24,7 +24,7 @@ import io.airlift.slice.Slice;
 import io.airlift.testing.TestingTicker;
 import io.airlift.units.Duration;
 import io.prestosql.client.NodeVersion;
-import io.prestosql.metadata.PrestoNode;
+import io.prestosql.metadata.InternalNode;
 import io.prestosql.plugin.raptor.legacy.NodeSupplier;
 import io.prestosql.plugin.raptor.legacy.RaptorColumnHandle;
 import io.prestosql.plugin.raptor.legacy.util.DaoSupplier;
@@ -821,7 +821,7 @@ public class TestDatabaseShardManager
 
     private static Node createTestingNode()
     {
-        return new PrestoNode(UUID.randomUUID().toString(), URI.create("http://test"), NodeVersion.UNKNOWN, false);
+        return new InternalNode(UUID.randomUUID().toString(), URI.create("http://test"), NodeVersion.UNKNOWN, false);
     }
 
     private int columnCount(long tableId)

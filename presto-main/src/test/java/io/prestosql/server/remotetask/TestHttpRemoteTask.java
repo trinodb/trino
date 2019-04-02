@@ -44,7 +44,7 @@ import io.prestosql.execution.TestSqlTaskManager;
 import io.prestosql.execution.buffer.OutputBuffers;
 import io.prestosql.metadata.HandleJsonModule;
 import io.prestosql.metadata.HandleResolver;
-import io.prestosql.metadata.PrestoNode;
+import io.prestosql.metadata.InternalNode;
 import io.prestosql.metadata.Split;
 import io.prestosql.server.HttpRemoteTaskFactory;
 import io.prestosql.server.TaskUpdateRequest;
@@ -207,7 +207,7 @@ public class TestHttpRemoteTask
         return httpRemoteTaskFactory.createRemoteTask(
                 TEST_SESSION,
                 new TaskId("test", 1, 2),
-                new PrestoNode("node-id", URI.create("http://fake.invalid/"), new NodeVersion("version"), false),
+                new InternalNode("node-id", URI.create("http://fake.invalid/"), new NodeVersion("version"), false),
                 TaskTestUtils.PLAN_FRAGMENT,
                 ImmutableMultimap.of(),
                 OptionalInt.empty(),

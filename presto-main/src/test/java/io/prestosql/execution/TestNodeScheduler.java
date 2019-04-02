@@ -30,7 +30,7 @@ import io.prestosql.execution.scheduler.NodeScheduler;
 import io.prestosql.execution.scheduler.NodeSchedulerConfig;
 import io.prestosql.execution.scheduler.NodeSelector;
 import io.prestosql.metadata.InMemoryNodeManager;
-import io.prestosql.metadata.PrestoNode;
+import io.prestosql.metadata.InternalNode;
 import io.prestosql.metadata.Split;
 import io.prestosql.spi.HostAddress;
 import io.prestosql.spi.Node;
@@ -84,9 +84,9 @@ public class TestNodeScheduler
         nodeManager = new InMemoryNodeManager();
 
         ImmutableList.Builder<Node> nodeBuilder = ImmutableList.builder();
-        nodeBuilder.add(new PrestoNode("other1", URI.create("http://127.0.0.1:11"), NodeVersion.UNKNOWN, false));
-        nodeBuilder.add(new PrestoNode("other2", URI.create("http://127.0.0.1:12"), NodeVersion.UNKNOWN, false));
-        nodeBuilder.add(new PrestoNode("other3", URI.create("http://127.0.0.1:13"), NodeVersion.UNKNOWN, false));
+        nodeBuilder.add(new InternalNode("other1", URI.create("http://127.0.0.1:11"), NodeVersion.UNKNOWN, false));
+        nodeBuilder.add(new InternalNode("other2", URI.create("http://127.0.0.1:12"), NodeVersion.UNKNOWN, false));
+        nodeBuilder.add(new InternalNode("other3", URI.create("http://127.0.0.1:13"), NodeVersion.UNKNOWN, false));
         ImmutableList<Node> nodes = nodeBuilder.build();
         nodeManager.addNode(CONNECTOR_ID, nodes);
         NodeSchedulerConfig nodeSchedulerConfig = new NodeSchedulerConfig()
@@ -131,9 +131,9 @@ public class TestNodeScheduler
         InMemoryNodeManager nodeManager = new InMemoryNodeManager();
 
         ImmutableList.Builder<Node> nodeBuilder = ImmutableList.builder();
-        nodeBuilder.add(new PrestoNode("node1", URI.create("http://host1.rack1:11"), NodeVersion.UNKNOWN, false));
-        nodeBuilder.add(new PrestoNode("node2", URI.create("http://host2.rack1:12"), NodeVersion.UNKNOWN, false));
-        nodeBuilder.add(new PrestoNode("node3", URI.create("http://host3.rack2:13"), NodeVersion.UNKNOWN, false));
+        nodeBuilder.add(new InternalNode("node1", URI.create("http://host1.rack1:11"), NodeVersion.UNKNOWN, false));
+        nodeBuilder.add(new InternalNode("node2", URI.create("http://host2.rack1:12"), NodeVersion.UNKNOWN, false));
+        nodeBuilder.add(new InternalNode("node3", URI.create("http://host3.rack2:13"), NodeVersion.UNKNOWN, false));
         ImmutableList<Node> nodes = nodeBuilder.build();
         nodeManager.addNode(CONNECTOR_ID, nodes);
 
@@ -288,7 +288,7 @@ public class TestNodeScheduler
     @Test
     public void testMaxSplitsPerNode()
     {
-        Node newNode = new PrestoNode("other4", URI.create("http://127.0.0.1:14"), NodeVersion.UNKNOWN, false);
+        Node newNode = new InternalNode("other4", URI.create("http://127.0.0.1:14"), NodeVersion.UNKNOWN, false);
         nodeManager.addNode(CONNECTOR_ID, newNode);
 
         ImmutableList.Builder<Split> initialSplits = ImmutableList.builder();
@@ -324,7 +324,7 @@ public class TestNodeScheduler
     @Test
     public void testMaxSplitsPerNodePerTask()
     {
-        Node newNode = new PrestoNode("other4", URI.create("http://127.0.0.1:14"), NodeVersion.UNKNOWN, false);
+        Node newNode = new InternalNode("other4", URI.create("http://127.0.0.1:14"), NodeVersion.UNKNOWN, false);
         nodeManager.addNode(CONNECTOR_ID, newNode);
 
         ImmutableList.Builder<Split> initialSplits = ImmutableList.builder();
