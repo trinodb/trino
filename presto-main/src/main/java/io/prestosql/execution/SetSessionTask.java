@@ -33,6 +33,7 @@ import java.util.List;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.prestosql.metadata.SessionPropertyManager.evaluatePropertyValue;
 import static io.prestosql.metadata.SessionPropertyManager.serializeSessionProperty;
+import static io.prestosql.spi.Name.createNonDelimitedName;
 import static io.prestosql.sql.analyzer.SemanticErrorCode.INVALID_SESSION_PROPERTY;
 import static io.prestosql.sql.analyzer.SemanticErrorCode.MISSING_CATALOG;
 import static java.lang.String.format;
@@ -66,7 +67,7 @@ public class SetSessionTask
         else {
             CatalogName catalogName = metadata.getCatalogHandle(stateMachine.getSession(), parts.get(0))
                     .orElseThrow(() -> new SemanticException(MISSING_CATALOG, statement, "Catalog %s does not exist", parts.get(0)));
-            accessControl.checkCanSetCatalogSessionProperty(session.getRequiredTransactionId(), session.getIdentity(), parts.get(0), parts.get(1));
+            accessControl.checkCanSetCatalogSessionProperty(session.getRequiredTransactionId(), session.getIdentity(), createNonDelimitedName(parts.get(0)), parts.get(1));
             propertyMetadata = metadata.getSessionPropertyManager().getConnectorSessionPropertyMetadata(catalogName, parts.get(1))
                     .orElseThrow(() -> new SemanticException(INVALID_SESSION_PROPERTY, statement, "Session property %s does not exist", statement.getName()));
         }

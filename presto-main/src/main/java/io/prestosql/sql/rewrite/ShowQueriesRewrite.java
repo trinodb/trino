@@ -76,6 +76,7 @@ import io.prestosql.sql.tree.Statement;
 import io.prestosql.sql.tree.StringLiteral;
 import io.prestosql.sql.tree.TableElement;
 import io.prestosql.sql.tree.Values;
+import io.prestosql.util.NameUtil;
 
 import java.util.Collections;
 import java.util.List;
@@ -128,7 +129,6 @@ import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.prestosql.sql.tree.ShowCreate.Type.TABLE;
 import static io.prestosql.sql.tree.ShowCreate.Type.VIEW;
 import static java.lang.String.format;
-import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
@@ -277,19 +277,19 @@ final class ShowQueriesRewrite
                 throw new SemanticException(CATALOG_NOT_SPECIFIED, node, "Catalog must be specified when session catalog is not set");
             }
 
-            String catalog = node.getCatalog().map(c -> c.getValue().toLowerCase(ENGLISH)).orElseGet(() -> session.getCatalog().get().getLegacyName());
+            Name catalog = node.getCatalog().map(NameUtil::createName).orElseGet(() -> session.getCatalog().get());
 
             if (node.isCurrent()) {
                 accessControl.checkCanShowCurrentRoles(session.getRequiredTransactionId(), session.getIdentity(), catalog);
                 return simpleQuery(
                         selectList(aliasedName("role_name", "Role")),
-                        from(catalog, TABLE_ENABLED_ROLES));
+                        from(catalog.getLegacyName(), TABLE_ENABLED_ROLES));
             }
             else {
                 accessControl.checkCanShowRoles(session.getRequiredTransactionId(), session.getIdentity(), catalog);
                 return simpleQuery(
                         selectList(aliasedName("role_name", "Role")),
-                        from(catalog, TABLE_ROLES));
+                        from(catalog.getLegacyName(), TABLE_ROLES));
             }
         }
 
@@ -300,11 +300,11 @@ final class ShowQueriesRewrite
                 throw new SemanticException(CATALOG_NOT_SPECIFIED, node, "Catalog must be specified when session catalog is not set");
             }
 
-            String catalog = node.getCatalog().map(c -> c.getValue().toLowerCase(ENGLISH)).orElseGet(() -> session.getCatalog().get().getLegacyName());
+            Name catalog = node.getCatalog().map(NameUtil::createName).orElseGet(() -> session.getCatalog().get());
             PrestoPrincipal principal = new PrestoPrincipal(PrincipalType.USER, session.getUser());
 
             accessControl.checkCanShowRoleGrants(session.getRequiredTransactionId(), session.getIdentity(), catalog);
-            List<Expression> rows = metadata.listRoleGrants(session, catalog, principal).stream()
+            List<Expression> rows = metadata.listRoleGrants(session, catalog.getLegacyName(), principal).stream()
                     .map(roleGrant -> row(new StringLiteral(roleGrant.getRoleName())))
                     .collect(toList());
 
@@ -321,7 +321,7 @@ final class ShowQueriesRewrite
                 throw new SemanticException(CATALOG_NOT_SPECIFIED, node, "Catalog must be specified when session catalog is not set");
             }
 
-            String catalog = node.getCatalog().map(Identifier::getValue).orElseGet(() -> session.getCatalog().get().getLegacyName());
+            Name catalog = node.getCatalog().map(NameUtil::createName).orElseGet(() -> session.getCatalog().get());
             accessControl.checkCanShowSchemas(session.getRequiredTransactionId(), session.getIdentity(), catalog);
 
             Optional<Expression> predicate = Optional.empty();
@@ -335,7 +335,7 @@ final class ShowQueriesRewrite
 
             return simpleQuery(
                     selectList(aliasedName("schema_name", "Schema")),
-                    from(catalog, TABLE_SCHEMATA),
+                    from(catalog.getLegacyName(), TABLE_SCHEMATA),
                     predicate,
                     Optional.of(ordering(ascending("schema_name"))));
         }

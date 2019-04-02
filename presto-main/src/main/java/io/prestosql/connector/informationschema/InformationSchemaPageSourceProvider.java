@@ -60,6 +60,7 @@ import static io.prestosql.metadata.MetadataListing.listTableColumns;
 import static io.prestosql.metadata.MetadataListing.listTablePrivileges;
 import static io.prestosql.metadata.MetadataListing.listTables;
 import static io.prestosql.metadata.MetadataListing.listViews;
+import static io.prestosql.spi.Name.createNonDelimitedName;
 import static io.prestosql.spi.security.PrincipalType.USER;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -247,7 +248,7 @@ public class InformationSchemaPageSourceProvider
         InternalTable.Builder table = InternalTable.builder(informationSchemaTableColumns(TABLE_ROLES));
 
         try {
-            accessControl.checkCanShowRoles(session.getRequiredTransactionId(), session.getIdentity(), catalog);
+            accessControl.checkCanShowRoles(session.getRequiredTransactionId(), session.getIdentity(), createNonDelimitedName(catalog));
         }
         catch (AccessDeniedException exception) {
             return table.build();

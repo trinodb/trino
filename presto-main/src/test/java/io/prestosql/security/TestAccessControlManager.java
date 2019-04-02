@@ -69,7 +69,7 @@ public class TestAccessControlManager
     public void testInitializing()
     {
         AccessControlManager accessControlManager = new AccessControlManager(createTestTransactionManager());
-        accessControlManager.checkCanSetUser(Optional.empty(), "foo");
+        accessControlManager.checkCanSetUser(Optional.empty(), createNonDelimitedName("foo"));
     }
 
     @Test
@@ -77,7 +77,7 @@ public class TestAccessControlManager
     {
         AccessControlManager accessControlManager = new AccessControlManager(createTestTransactionManager());
         accessControlManager.setSystemAccessControl(AllowAllSystemAccessControl.NAME, ImmutableMap.of());
-        accessControlManager.checkCanSetUser(Optional.empty(), USER_NAME.getName());
+        accessControlManager.checkCanSetUser(Optional.empty(), USER_NAME);
     }
 
     @Test
@@ -89,22 +89,22 @@ public class TestAccessControlManager
         AccessControlManager accessControlManager = new AccessControlManager(transactionManager);
 
         accessControlManager.setSystemAccessControl(ReadOnlySystemAccessControl.NAME, ImmutableMap.of());
-        accessControlManager.checkCanSetUser(Optional.of(PRINCIPAL), USER_NAME.getName());
+        accessControlManager.checkCanSetUser(Optional.of(PRINCIPAL), USER_NAME);
         accessControlManager.checkCanSetSystemSessionProperty(identity, "property");
 
         transaction(transactionManager, accessControlManager)
                 .execute(transactionId -> {
-                    accessControlManager.checkCanSetCatalogSessionProperty(transactionId, identity, "catalog", "property");
-                    accessControlManager.checkCanShowSchemas(transactionId, identity, "catalog");
+                    accessControlManager.checkCanSetCatalogSessionProperty(transactionId, identity, createNonDelimitedName("catalog"), "property");
+                    accessControlManager.checkCanShowSchemas(transactionId, identity, createNonDelimitedName("catalog"));
                     accessControlManager.checkCanShowTablesMetadata(transactionId, identity, new CatalogSchemaName(createNonDelimitedName("catalog"), createNonDelimitedName("schema")));
-                    accessControlManager.checkCanSelectFromColumns(transactionId, identity, tableName, ImmutableSet.of("column"));
-                    accessControlManager.checkCanCreateViewWithSelectFromColumns(transactionId, identity, tableName, ImmutableSet.of("column"));
-                    Set<String> catalogs = ImmutableSet.of("catalog");
+                    accessControlManager.checkCanSelectFromColumns(transactionId, identity, tableName, ImmutableSet.of(createNonDelimitedName("column")));
+                    accessControlManager.checkCanCreateViewWithSelectFromColumns(transactionId, identity, tableName, ImmutableSet.of(createNonDelimitedName("column")));
+                    Set<Name> catalogs = ImmutableSet.of(createNonDelimitedName("catalog"));
                     assertEquals(accessControlManager.filterCatalogs(identity, catalogs), catalogs);
-                    Set<String> schemas = ImmutableSet.of("schema");
-                    assertEquals(accessControlManager.filterSchemas(transactionId, identity, "catalog", schemas), schemas);
+                    Set<Name> schemas = ImmutableSet.of(createNonDelimitedName("schema"));
+                    assertEquals(accessControlManager.filterSchemas(transactionId, identity, createNonDelimitedName("catalog"), schemas), schemas);
                     Set<SchemaTableName> tableNames = ImmutableSet.of(new SchemaTableName("schema", "table"));
-                    assertEquals(accessControlManager.filterTables(transactionId, identity, "catalog", tableNames), tableNames);
+                    assertEquals(accessControlManager.filterTables(transactionId, identity, createNonDelimitedName("catalog"), tableNames), tableNames);
                 });
 
         try {
@@ -127,8 +127,8 @@ public class TestAccessControlManager
         accessControlManager.addSystemAccessControlFactory(accessControlFactory);
         accessControlManager.setSystemAccessControl("test", ImmutableMap.of());
 
-        accessControlManager.checkCanSetUser(Optional.of(PRINCIPAL), USER_NAME.getName());
-        assertEquals(accessControlFactory.getCheckedUserName(), USER_NAME);
+        accessControlManager.checkCanSetUser(Optional.of(PRINCIPAL), USER_NAME);
+        assertEquals(accessControlFactory.getCheckedUserName(), USER_NAME.getLegacyName());
         assertEquals(accessControlFactory.getCheckedPrincipal(), Optional.of(PRINCIPAL));
     }
 
@@ -144,7 +144,7 @@ public class TestAccessControlManager
 
         transaction(transactionManager, accessControlManager)
                 .execute(transactionId -> {
-                    accessControlManager.checkCanSelectFromColumns(transactionId, new Identity(USER_NAME, Optional.of(PRINCIPAL)), new QualifiedObjectName("catalog", "schema", "table"), ImmutableSet.of("column"));
+                    accessControlManager.checkCanSelectFromColumns(transactionId, new Identity(USER_NAME, Optional.of(PRINCIPAL)), new QualifiedObjectName("catalog", "schema", "table"), ImmutableSet.of(createNonDelimitedName("column")));
                 });
     }
 
@@ -164,7 +164,7 @@ public class TestAccessControlManager
 
         transaction(transactionManager, accessControlManager)
                 .execute(transactionId -> {
-                    accessControlManager.checkCanSelectFromColumns(transactionId, new Identity(USER_NAME, Optional.of(PRINCIPAL)), new QualifiedObjectName("catalog", "schema", "table"), ImmutableSet.of("column"));
+                    accessControlManager.checkCanSelectFromColumns(transactionId, new Identity(USER_NAME, Optional.of(PRINCIPAL)), new QualifiedObjectName("catalog", "schema", "table"), ImmutableSet.of(createNonDelimitedName("column")));
                 });
     }
 
@@ -184,7 +184,7 @@ public class TestAccessControlManager
 
         transaction(transactionManager, accessControlManager)
                 .execute(transactionId -> {
-                    accessControlManager.checkCanSelectFromColumns(transactionId, new Identity(USER_NAME, Optional.of(PRINCIPAL)), new QualifiedObjectName("secured_catalog", "schema", "table"), ImmutableSet.of("column"));
+                    accessControlManager.checkCanSelectFromColumns(transactionId, new Identity(USER_NAME, Optional.of(PRINCIPAL)), new QualifiedObjectName("secured_catalog", "schema", "table"), ImmutableSet.of(createNonDelimitedName("column")));
                 });
     }
 

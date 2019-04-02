@@ -935,21 +935,21 @@ public abstract class AbstractTestDistributedQueries
         assertAccessDenied(
                 "SELECT * FROM test_view_access",
                 "View owner 'test_view_access_owner' cannot create view that selects from .*.orders.*",
-                privilege(viewOwnerSession.getUser().getName(), "orders", CREATE_VIEW_WITH_SELECT_COLUMNS));
+                privilege(viewOwnerSession.getUser(), createNonDelimitedName("orders"), CREATE_VIEW_WITH_SELECT_COLUMNS));
 
         // verify the view owner can select from the view even without special view creation privileges
         assertAccessAllowed(
                 viewOwnerSession,
                 "SELECT * FROM test_view_access",
-                privilege(viewOwnerSession.getUser().getName(), "orders", CREATE_VIEW_WITH_SELECT_COLUMNS));
+                privilege(viewOwnerSession.getUser(), createNonDelimitedName("orders"), CREATE_VIEW_WITH_SELECT_COLUMNS));
 
         // verify selecting from a view over a table does not require the session user to have SELECT privileges on the underlying table
         assertAccessAllowed(
                 "SELECT * FROM test_view_access",
-                privilege(getSession().getUser().getName(), "orders", CREATE_VIEW_WITH_SELECT_COLUMNS));
+                privilege(getSession().getUser(), createNonDelimitedName("orders"), CREATE_VIEW_WITH_SELECT_COLUMNS));
         assertAccessAllowed(
                 "SELECT * FROM test_view_access",
-                privilege(getSession().getUser().getName(), "orders", SELECT_COLUMN));
+                privilege(getSession().getUser(), createNonDelimitedName("orders"), SELECT_COLUMN));
 
         Session nestedViewOwnerSession = TestingSession.testSessionBuilder()
                 .setIdentity(new Identity(createNonDelimitedName("test_nested_view_access_owner"), Optional.empty()))
@@ -967,15 +967,15 @@ public abstract class AbstractTestDistributedQueries
         assertAccessDenied(
                 "SELECT * FROM test_nested_view_access",
                 "View owner 'test_nested_view_access_owner' cannot create view that selects from .*.test_view_access.*",
-                privilege(nestedViewOwnerSession.getUser().getName(), "test_view_access", CREATE_VIEW_WITH_SELECT_COLUMNS));
+                privilege(nestedViewOwnerSession.getUser(), createNonDelimitedName("test_view_access"), CREATE_VIEW_WITH_SELECT_COLUMNS));
 
         // verify selecting from a view over a view does not require the session user to have SELECT privileges for the inner view
         assertAccessAllowed(
                 "SELECT * FROM test_nested_view_access",
-                privilege(getSession().getUser().getName(), "test_view_access", CREATE_VIEW_WITH_SELECT_COLUMNS));
+                privilege(getSession().getUser(), createNonDelimitedName("test_view_access"), CREATE_VIEW_WITH_SELECT_COLUMNS));
         assertAccessAllowed(
                 "SELECT * FROM test_nested_view_access",
-                privilege(getSession().getUser().getName(), "test_view_access", SELECT_COLUMN));
+                privilege(getSession().getUser(), createNonDelimitedName("test_view_access"), SELECT_COLUMN));
 
         // verify that INVOKER security runs as session user
         assertAccessAllowed(
@@ -984,11 +984,11 @@ public abstract class AbstractTestDistributedQueries
                 privilege("orders", CREATE_VIEW_WITH_SELECT_COLUMNS));
         assertAccessAllowed(
                 "SELECT * FROM test_invoker_view_access",
-                privilege(viewOwnerSession.getUser().getName(), "orders", SELECT_COLUMN));
+                privilege(viewOwnerSession.getUser(), createNonDelimitedName("orders"), SELECT_COLUMN));
         assertAccessDenied(
                 "SELECT * FROM test_invoker_view_access",
                 "Cannot select from columns \\[.*\\] in table .*.orders.*",
-                privilege(getSession().getUser().getName(), "orders", SELECT_COLUMN));
+                privilege(getSession().getUser(), createNonDelimitedName("orders"), SELECT_COLUMN));
 
         assertAccessAllowed(nestedViewOwnerSession, "DROP VIEW test_nested_view_access");
         assertAccessAllowed(viewOwnerSession, "DROP VIEW test_view_access");

@@ -18,15 +18,16 @@ import io.prestosql.Session;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.MetadataUtil;
 import io.prestosql.security.AccessControl;
+import io.prestosql.spi.Name;
 import io.prestosql.spi.security.PrestoPrincipal;
 import io.prestosql.sql.analyzer.SemanticException;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.GrantRoles;
 import io.prestosql.transaction.TransactionManager;
+import io.prestosql.util.NameUtil;
 
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
 
@@ -51,33 +52,33 @@ public class GrantRolesTask
     {
         Session session = stateMachine.getSession();
 
-        Set<String> roles = statement.getRoles().stream().map(role -> role.getValue().toLowerCase(Locale.ENGLISH)).collect(toImmutableSet());
+        Set<Name> roles = statement.getRoles().stream().map(NameUtil::createName).collect(toImmutableSet());
         Set<PrestoPrincipal> grantees = statement.getGrantees().stream()
                 .map(MetadataUtil::createPrincipal)
                 .collect(toImmutableSet());
         boolean withAdminOption = statement.isWithAdminOption();
         Optional<PrestoPrincipal> grantor = statement.getGrantor().map(specification -> createPrincipal(session, specification));
-        String catalog = createCatalogName(session, statement);
+        Name catalog = createCatalogName(session, statement);
 
-        Set<String> availableRoles = metadata.listRoles(session, catalog);
-        Set<String> specifiedRoles = new LinkedHashSet<>();
+        Set<Name> availableRoles = metadata.listRoles(session, catalog.getLegacyName()).stream().map(Name::createNonDelimitedName).collect(toImmutableSet());
+        Set<Name> specifiedRoles = new LinkedHashSet<>();
         specifiedRoles.addAll(roles);
         grantees.stream()
                 .filter(principal -> principal.getType() == ROLE)
-                .map(prestoPrincipal -> prestoPrincipal.getName().getLegacyName())
+                .map(prestoPrincipal -> prestoPrincipal.getName())
                 .forEach(specifiedRoles::add);
         if (grantor.isPresent() && grantor.get().getType() == ROLE) {
-            specifiedRoles.add(grantor.get().getName().getLegacyName());
+            specifiedRoles.add(grantor.get().getName());
         }
 
-        for (String role : specifiedRoles) {
+        for (Name role : specifiedRoles) {
             if (!availableRoles.contains(role)) {
                 throw new SemanticException(MISSING_ROLE, statement, "Role '%s' does not exist", role);
             }
         }
 
         accessControl.checkCanGrantRoles(session.getRequiredTransactionId(), session.getIdentity(), roles, grantees, withAdminOption, grantor, catalog);
-        metadata.grantRoles(session, roles, grantees, withAdminOption, grantor, catalog);
+        metadata.grantRoles(session, roles.stream().map(Name::getLegacyName).collect(toImmutableSet()), grantees, withAdminOption, grantor, catalog.getLegacyName());
 
         return immediateFuture(null);
     }

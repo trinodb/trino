@@ -14,6 +14,7 @@
 package io.prestosql.security;
 
 import io.prestosql.metadata.QualifiedObjectName;
+import io.prestosql.spi.Name;
 import io.prestosql.spi.connector.CatalogSchemaName;
 import io.prestosql.spi.connector.CatalogSchemaTableName;
 import io.prestosql.spi.connector.ColumnMetadata;
@@ -35,17 +36,17 @@ public interface AccessControl
      *
      * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
-    void checkCanSetUser(Optional<Principal> principal, String userName);
+    void checkCanSetUser(Optional<Principal> principal, Name userName);
 
     /**
      * Filter the list of catalogs to those visible to the identity.
      */
-    Set<String> filterCatalogs(Identity identity, Set<String> catalogs);
+    Set<Name> filterCatalogs(Identity identity, Set<Name> catalogs);
 
     /**
      * Check whether identity is allowed to access catalog
      */
-    void checkCanAccessCatalog(Identity identity, String catalogName);
+    void checkCanAccessCatalog(Identity identity, Name catalogName);
 
     /**
      * Check if identity is allowed to create the specified schema.
@@ -66,7 +67,7 @@ public interface AccessControl
      *
      * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
-    void checkCanRenameSchema(TransactionId transactionId, Identity identity, CatalogSchemaName schemaName, String newSchemaName);
+    void checkCanRenameSchema(TransactionId transactionId, Identity identity, CatalogSchemaName schemaName, Name newSchemaName);
 
     /**
      * Check if identity is allowed to execute SHOW SCHEMAS in a catalog.
@@ -77,12 +78,12 @@ public interface AccessControl
      *
      * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
-    void checkCanShowSchemas(TransactionId transactionId, Identity identity, String catalogName);
+    void checkCanShowSchemas(TransactionId transactionId, Identity identity, Name catalogName);
 
     /**
      * Filter the list of schemas in a catalog to those visible to the identity.
      */
-    Set<String> filterSchemas(TransactionId transactionId, Identity identity, String catalogName, Set<String> schemaNames);
+    Set<Name> filterSchemas(TransactionId transactionId, Identity identity, Name catalogName, Set<Name> schemaNames);
 
     /**
      * Check if identity is allowed to create the specified table.
@@ -125,7 +126,7 @@ public interface AccessControl
     /**
      * Filter the list of tables and views to those visible to the identity.
      */
-    Set<SchemaTableName> filterTables(TransactionId transactionId, Identity identity, String catalogName, Set<SchemaTableName> tableNames);
+    Set<SchemaTableName> filterTables(TransactionId transactionId, Identity identity, Name catalogName, Set<SchemaTableName> tableNames);
 
     /**
      * Check if identity is allowed to show columns of tables by executing SHOW COLUMNS, DESCRIBE etc.
@@ -197,7 +198,7 @@ public interface AccessControl
      *
      * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
-    void checkCanCreateViewWithSelectFromColumns(TransactionId transactionId, Identity identity, QualifiedObjectName tableName, Set<String> columnNames);
+    void checkCanCreateViewWithSelectFromColumns(TransactionId transactionId, Identity identity, QualifiedObjectName tableName, Set<Name> columnNames);
 
     /**
      * Check if identity is allowed to grant a privilege to the grantee on the specified table.
@@ -225,65 +226,65 @@ public interface AccessControl
      *
      * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
-    void checkCanSetCatalogSessionProperty(TransactionId transactionId, Identity identity, String catalogName, String propertyName);
+    void checkCanSetCatalogSessionProperty(TransactionId transactionId, Identity identity, Name catalogName, String propertyName);
 
     /**
      * Check if identity is allowed to select from the specified columns.  The column set can be empty.
      *
      * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
-    void checkCanSelectFromColumns(TransactionId transactionId, Identity identity, QualifiedObjectName tableName, Set<String> columnNames);
+    void checkCanSelectFromColumns(TransactionId transactionId, Identity identity, QualifiedObjectName tableName, Set<Name> columnNames);
 
     /**
      * Check if identity is allowed to create the specified role.
      *
      * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
-    void checkCanCreateRole(TransactionId transactionId, Identity identity, String role, Optional<PrestoPrincipal> grantor, String catalogName);
+    void checkCanCreateRole(TransactionId transactionId, Identity identity, Name role, Optional<PrestoPrincipal> grantor, Name catalogName);
 
     /**
      * Check if identity is allowed to drop the specified role.
      *
      * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
-    void checkCanDropRole(TransactionId transactionId, Identity identity, String role, String catalogName);
+    void checkCanDropRole(TransactionId transactionId, Identity identity, Name role, Name catalogName);
 
     /**
      * Check if identity is allowed to grant the specified roles to the specified principals.
      *
      * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
-    void checkCanGrantRoles(TransactionId transactionId, Identity identity, Set<String> roles, Set<PrestoPrincipal> grantees, boolean withAdminOption, Optional<PrestoPrincipal> grantor, String catalogName);
+    void checkCanGrantRoles(TransactionId transactionId, Identity identity, Set<Name> roles, Set<PrestoPrincipal> grantees, boolean withAdminOption, Optional<PrestoPrincipal> grantor, Name catalogName);
 
     /**
      * Check if identity is allowed to revoke the specified roles from the specified principals.
      *
      * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
-    void checkCanRevokeRoles(TransactionId transactionId, Identity identity, Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOptionFor, Optional<PrestoPrincipal> grantor, String catalogName);
+    void checkCanRevokeRoles(TransactionId transactionId, Identity identity, Set<Name> roles, Set<PrestoPrincipal> grantees, boolean adminOptionFor, Optional<PrestoPrincipal> grantor, Name catalogName);
 
     /**
      * Check if identity is allowed to set role for specified catalog.
      *
      * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
-    void checkCanSetRole(TransactionId requiredTransactionId, Identity identity, String role, String catalog);
+    void checkCanSetRole(TransactionId requiredTransactionId, Identity identity, Name role, Name catalog);
 
     /**
      * Check if identity is allowed to show roles on the specified catalog.
      * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
-    void checkCanShowRoles(TransactionId transactionId, Identity identity, String catalogName);
+    void checkCanShowRoles(TransactionId transactionId, Identity identity, Name catalogName);
 
     /**
      * Check if identity is allowed to show current roles on the specified catalog.
      * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
-    void checkCanShowCurrentRoles(TransactionId transactionId, Identity identity, String catalogName);
+    void checkCanShowCurrentRoles(TransactionId transactionId, Identity identity, Name catalogName);
 
     /**
      * Check if identity is allowed to show its own role grants on the specified catalog.
      * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
-    void checkCanShowRoleGrants(TransactionId transactionId, Identity identity, String catalogName);
+    void checkCanShowRoleGrants(TransactionId transactionId, Identity identity, Name catalogName);
 }

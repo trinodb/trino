@@ -20,6 +20,7 @@ import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.metadata.FunctionRegistry;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.security.AccessControl;
+import io.prestosql.spi.Name;
 import io.prestosql.sql.parser.SqlParser;
 import io.prestosql.sql.rewrite.StatementRewrite;
 import io.prestosql.sql.tree.Expression;
@@ -30,6 +31,7 @@ import io.prestosql.sql.tree.Statement;
 import java.util.List;
 import java.util.Optional;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.prestosql.sql.analyzer.ExpressionTreeUtils.extractAggregateFunctions;
 import static io.prestosql.sql.analyzer.ExpressionTreeUtils.extractExpressions;
 import static io.prestosql.sql.analyzer.ExpressionTreeUtils.extractWindowFunctions;
@@ -82,7 +84,7 @@ public class Analyzer
                                 session.getRequiredTransactionId(),
                                 accessControlInfo.getIdentity(),
                                 tableName,
-                                columns)));
+                                columns.stream().map(Name::createNonDelimitedName).collect(toImmutableSet()))));
         return analysis;
     }
 

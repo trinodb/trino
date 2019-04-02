@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableSortedSet;
 import io.prestosql.Session;
 import io.prestosql.connector.CatalogName;
 import io.prestosql.security.AccessControl;
+import io.prestosql.spi.Name;
 import io.prestosql.spi.connector.CatalogSchemaTableName;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.SchemaTableName;
@@ -34,6 +35,7 @@ import java.util.SortedSet;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.prestosql.spi.Name.createNonDelimitedName;
 
 public final class MetadataListing
 {
@@ -42,11 +44,11 @@ public final class MetadataListing
     public static SortedMap<String, CatalogName> listCatalogs(Session session, Metadata metadata, AccessControl accessControl)
     {
         Map<String, CatalogName> catalogNames = metadata.getCatalogNames(session);
-        Set<String> allowedCatalogs = accessControl.filterCatalogs(session.getIdentity(), catalogNames.keySet());
+        Set<Name> allowedCatalogs = accessControl.filterCatalogs(session.getIdentity(), catalogNames.values().stream().map(CatalogName::getCatalogName).collect(toImmutableSet()));
 
         ImmutableSortedMap.Builder<String, CatalogName> result = ImmutableSortedMap.naturalOrder();
         for (Map.Entry<String, CatalogName> entry : catalogNames.entrySet()) {
-            if (allowedCatalogs.contains(entry.getKey())) {
+            if (allowedCatalogs.contains(entry.getValue().getCatalogName())) {
                 result.put(entry);
             }
         }
@@ -55,8 +57,8 @@ public final class MetadataListing
 
     public static SortedSet<String> listSchemas(Session session, Metadata metadata, AccessControl accessControl, String catalogName)
     {
-        Set<String> schemaNames = ImmutableSet.copyOf(metadata.listSchemaNames(session, catalogName));
-        return ImmutableSortedSet.copyOf(accessControl.filterSchemas(session.getRequiredTransactionId(), session.getIdentity(), catalogName, schemaNames));
+        Set<Name> schemaNames = ImmutableSet.copyOf(metadata.listSchemaNames(session, catalogName).stream().map(Name::createNonDelimitedName).collect(toImmutableSet()));
+        return ImmutableSortedSet.copyOf(accessControl.filterSchemas(session.getRequiredTransactionId(), session.getIdentity(), createNonDelimitedName(catalogName), schemaNames).stream().map(Name::getLegacyName).iterator());
     }
 
     public static Set<SchemaTableName> listTables(Session session, Metadata metadata, AccessControl accessControl, QualifiedTablePrefix prefix)
@@ -64,7 +66,7 @@ public final class MetadataListing
         Set<SchemaTableName> tableNames = metadata.listTables(session, prefix).stream()
                 .map(QualifiedObjectName::asSchemaTableName)
                 .collect(toImmutableSet());
-        return accessControl.filterTables(session.getRequiredTransactionId(), session.getIdentity(), prefix.getCatalogName(), tableNames);
+        return accessControl.filterTables(session.getRequiredTransactionId(), session.getIdentity(), createNonDelimitedName(prefix.getCatalogName()), tableNames);
     }
 
     public static Set<SchemaTableName> listViews(Session session, Metadata metadata, AccessControl accessControl, QualifiedTablePrefix prefix)
@@ -72,7 +74,7 @@ public final class MetadataListing
         Set<SchemaTableName> tableNames = metadata.listViews(session, prefix).stream()
                 .map(QualifiedObjectName::asSchemaTableName)
                 .collect(toImmutableSet());
-        return accessControl.filterTables(session.getRequiredTransactionId(), session.getIdentity(), prefix.getCatalogName(), tableNames);
+        return accessControl.filterTables(session.getRequiredTransactionId(), session.getIdentity(), createNonDelimitedName(prefix.getCatalogName()), tableNames);
     }
 
     public static Set<GrantInfo> listTablePrivileges(Session session, Metadata metadata, AccessControl accessControl, QualifiedTablePrefix prefix)
@@ -81,7 +83,7 @@ public final class MetadataListing
         Set<SchemaTableName> allowedTables = accessControl.filterTables(
                 session.getRequiredTransactionId(),
                 session.getIdentity(),
-                prefix.getCatalogName(),
+                createNonDelimitedName(prefix.getCatalogName()),
                 grants.stream().map(GrantInfo::getSchemaTableName).collect(toImmutableSet()));
 
         return grants.stream()
@@ -96,7 +98,7 @@ public final class MetadataListing
         Set<SchemaTableName> allowedTables = accessControl.filterTables(
                 session.getRequiredTransactionId(),
                 session.getIdentity(),
-                prefix.getCatalogName(),
+                createNonDelimitedName(prefix.getCatalogName()),
                 tableColumns.keySet());
 
         ImmutableMap.Builder<SchemaTableName, List<ColumnMetadata>> result = ImmutableMap.builder();
@@ -105,7 +107,7 @@ public final class MetadataListing
                 result.put(entry.getKey(), accessControl.filterColumns(
                         session.getRequiredTransactionId(),
                         session.getIdentity(),
-                        new CatalogSchemaTableName(prefix.getCatalogName(), entry.getKey()),
+                        new CatalogSchemaTableName(createNonDelimitedName(prefix.getCatalogName()), entry.getKey()),
                         entry.getValue()));
             }
         }

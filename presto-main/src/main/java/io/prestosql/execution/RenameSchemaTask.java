@@ -31,6 +31,7 @@ import static io.prestosql.metadata.MetadataUtil.createCatalogSchemaName;
 import static io.prestosql.spi.Name.createNonDelimitedName;
 import static io.prestosql.sql.analyzer.SemanticErrorCode.MISSING_SCHEMA;
 import static io.prestosql.sql.analyzer.SemanticErrorCode.SCHEMA_ALREADY_EXISTS;
+import static io.prestosql.util.NameUtil.createName;
 
 public class RenameSchemaTask
         implements DataDefinitionTask<RenameSchema>
@@ -56,7 +57,7 @@ public class RenameSchemaTask
             throw new SemanticException(SCHEMA_ALREADY_EXISTS, statement, "Target schema '%s' already exists", target);
         }
 
-        accessControl.checkCanRenameSchema(session.getRequiredTransactionId(), session.getIdentity(), source, statement.getTarget().getValue());
+        accessControl.checkCanRenameSchema(session.getRequiredTransactionId(), session.getIdentity(), source, createName(statement.getTarget()));
 
         metadata.renameSchema(session, source, statement.getTarget().getValue());
 

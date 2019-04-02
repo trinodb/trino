@@ -112,7 +112,7 @@ public class QuerySystemTable
             table.addRow(
                     queryInfo.getQueryId().toString(),
                     queryInfo.getState().toString(),
-                    queryInfo.getSession().getUser(),
+                    queryInfo.getSession().getUser().getName(),
                     queryInfo.getSession().getSource().orElse(null),
                     queryInfo.getQuery(),
                     queryInfo.getResourceGroupId().map(QuerySystemTable::resourceGroupIdToBlock).orElse(null),

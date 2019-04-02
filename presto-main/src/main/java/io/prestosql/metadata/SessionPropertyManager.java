@@ -20,6 +20,7 @@ import io.airlift.json.JsonCodecFactory;
 import io.prestosql.Session;
 import io.prestosql.SystemSessionProperties;
 import io.prestosql.connector.CatalogName;
+import io.prestosql.spi.Name;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.session.PropertyMetadata;
@@ -191,7 +192,7 @@ public final class SessionPropertyManager
         decodePropertyValue(propertyName, propertyValue, propertyMetadata.getJavaType(), propertyMetadata);
     }
 
-    public void validateCatalogSessionProperty(CatalogName connectorId, String catalogName, String propertyName, String propertyValue)
+    public void validateCatalogSessionProperty(CatalogName connectorId, Name catalogName, String propertyName, String propertyValue)
     {
         String fullPropertyName = catalogName + "." + propertyName;
         PropertyMetadata<?> propertyMetadata = getConnectorSessionPropertyMetadata(connectorId, propertyName)

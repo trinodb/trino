@@ -16,6 +16,7 @@ package io.prestosql.security;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.prestosql.metadata.QualifiedObjectName;
+import io.prestosql.spi.Name;
 import io.prestosql.spi.connector.CatalogSchemaName;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.security.AccessDeniedException;
@@ -31,6 +32,7 @@ import java.io.File;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.io.Files.copy;
 import static io.prestosql.plugin.base.security.FileBasedAccessControlConfig.SECURITY_CONFIG_FILE;
 import static io.prestosql.plugin.base.security.FileBasedAccessControlConfig.SECURITY_REFRESH_PERIOD;
@@ -60,7 +62,7 @@ public class TestFileBasedSystemAccessControl
     private static final Identity bob = new Identity(createNonDelimitedName("bob"), Optional.empty());
     private static final Identity admin = new Identity(createNonDelimitedName("admin"), Optional.empty());
     private static final Identity nonAsciiUser = new Identity(createNonDelimitedName("\u0194\u0194\u0194"), Optional.empty());
-    private static final Set<String> allCatalogs = ImmutableSet.of("secret", "open-to-all", "all-allowed", "alice-catalog", "allowed-absent", "\u0200\u0200\u0200");
+    private static final Set<Name> allCatalogs = ImmutableSet.of("secret", "open-to-all", "all-allowed", "alice-catalog", "allowed-absent", "\u0201\u0201\u0201").stream().map(Name::createNonDelimitedName).collect(toImmutableSet());
     private static final QualifiedObjectName aliceTable = new QualifiedObjectName("alice-catalog", "schema", "table");
     private static final QualifiedObjectName aliceView = new QualifiedObjectName("alice-catalog", "schema", "view");
     private static final CatalogSchemaName aliceSchema = new CatalogSchemaName(createNonDelimitedName("alice-catalog"), createNonDelimitedName("schema"));
@@ -72,33 +74,33 @@ public class TestFileBasedSystemAccessControl
         AccessControlManager accessControlManager = newAccessControlManager(transactionManager, "catalog_principal.json");
 
         try {
-            accessControlManager.checkCanSetUser(Optional.empty(), alice.getUser().getName());
+            accessControlManager.checkCanSetUser(Optional.empty(), alice.getUser());
             throw new AssertionError("expected AccessDeniedExeption");
         }
         catch (AccessDeniedException expected) {
         }
 
-        accessControlManager.checkCanSetUser(kerberosValidAlice.getPrincipal(), kerberosValidAlice.getUser().getName());
-        accessControlManager.checkCanSetUser(kerberosValidNonAsciiUser.getPrincipal(), kerberosValidNonAsciiUser.getUser().getName());
+        accessControlManager.checkCanSetUser(kerberosValidAlice.getPrincipal(), kerberosValidAlice.getUser());
+        accessControlManager.checkCanSetUser(kerberosValidNonAsciiUser.getPrincipal(), kerberosValidNonAsciiUser.getUser());
         try {
-            accessControlManager.checkCanSetUser(kerberosInvalidAlice.getPrincipal(), kerberosInvalidAlice.getUser().getName());
+            accessControlManager.checkCanSetUser(kerberosInvalidAlice.getPrincipal(), kerberosInvalidAlice.getUser());
             throw new AssertionError("expected AccessDeniedExeption");
         }
         catch (AccessDeniedException expected) {
         }
 
-        accessControlManager.checkCanSetUser(kerberosValidShare.getPrincipal(), kerberosValidShare.getUser().getName());
+        accessControlManager.checkCanSetUser(kerberosValidShare.getPrincipal(), kerberosValidShare.getUser());
         try {
-            accessControlManager.checkCanSetUser(kerberosInValidShare.getPrincipal(), kerberosInValidShare.getUser().getName());
+            accessControlManager.checkCanSetUser(kerberosInValidShare.getPrincipal(), kerberosInValidShare.getUser());
             throw new AssertionError("expected AccessDeniedExeption");
         }
         catch (AccessDeniedException expected) {
         }
 
-        accessControlManager.checkCanSetUser(validSpecialRegexWildDot.getPrincipal(), validSpecialRegexWildDot.getUser().getName());
-        accessControlManager.checkCanSetUser(validSpecialRegexEndQuote.getPrincipal(), validSpecialRegexEndQuote.getUser().getName());
+        accessControlManager.checkCanSetUser(validSpecialRegexWildDot.getPrincipal(), validSpecialRegexWildDot.getUser());
+        accessControlManager.checkCanSetUser(validSpecialRegexEndQuote.getPrincipal(), validSpecialRegexEndQuote.getUser());
         try {
-            accessControlManager.checkCanSetUser(invalidSpecialRegex.getPrincipal(), invalidSpecialRegex.getUser().getName());
+            accessControlManager.checkCanSetUser(invalidSpecialRegex.getPrincipal(), invalidSpecialRegex.getUser());
             throw new AssertionError("expected AccessDeniedExeption");
         }
         catch (AccessDeniedException expected) {
@@ -106,7 +108,7 @@ public class TestFileBasedSystemAccessControl
 
         TransactionManager transactionManagerNoPatterns = createTestTransactionManager();
         AccessControlManager accessControlManagerNoPatterns = newAccessControlManager(transactionManager, "catalog.json");
-        accessControlManagerNoPatterns.checkCanSetUser(kerberosValidAlice.getPrincipal(), kerberosValidAlice.getUser().getName());
+        accessControlManagerNoPatterns.checkCanSetUser(kerberosValidAlice.getPrincipal(), kerberosValidAlice.getUser());
     }
 
     @Test
@@ -118,11 +120,11 @@ public class TestFileBasedSystemAccessControl
         transaction(transactionManager, accessControlManager)
                 .execute(transactionId -> {
                     assertEquals(accessControlManager.filterCatalogs(admin, allCatalogs), allCatalogs);
-                    Set<String> aliceCatalogs = ImmutableSet.of("open-to-all", "alice-catalog", "all-allowed");
+                    Set<Name> aliceCatalogs = ImmutableSet.of("open-to-all", "alice-catalog", "all-allowed").stream().map(Name::createNonDelimitedName).collect(toImmutableSet());
                     assertEquals(accessControlManager.filterCatalogs(alice, allCatalogs), aliceCatalogs);
-                    Set<String> bobCatalogs = ImmutableSet.of("open-to-all", "all-allowed");
+                    Set<Name> bobCatalogs = ImmutableSet.of("open-to-all", "all-allowed").stream().map(Name::createNonDelimitedName).collect(toImmutableSet());
                     assertEquals(accessControlManager.filterCatalogs(bob, allCatalogs), bobCatalogs);
-                    Set<String> nonAsciiUserCatalogs = ImmutableSet.of("open-to-all", "all-allowed", "\u0200\u0200\u0200");
+                    Set<Name> nonAsciiUserCatalogs = ImmutableSet.of("open-to-all", "all-allowed", "\u0201\u0201\u0201").stream().map(Name::createNonDelimitedName).collect(toImmutableSet());
                     assertEquals(accessControlManager.filterCatalogs(nonAsciiUser, allCatalogs), nonAsciiUserCatalogs);
                 });
     }
@@ -135,14 +137,14 @@ public class TestFileBasedSystemAccessControl
 
         transaction(transactionManager, accessControlManager)
                 .execute(transactionId -> {
-                    Set<String> aliceSchemas = ImmutableSet.of("schema");
-                    assertEquals(accessControlManager.filterSchemas(transactionId, alice, "alice-catalog", aliceSchemas), aliceSchemas);
-                    assertEquals(accessControlManager.filterSchemas(transactionId, bob, "alice-catalog", aliceSchemas), ImmutableSet.of());
+                    Set<Name> aliceSchemas = ImmutableSet.of(createNonDelimitedName("schema"));
+                    assertEquals(accessControlManager.filterSchemas(transactionId, alice, createNonDelimitedName("alice-catalog"), aliceSchemas), aliceSchemas);
+                    assertEquals(accessControlManager.filterSchemas(transactionId, bob, createNonDelimitedName("alice-catalog"), aliceSchemas), ImmutableSet.of());
 
                     accessControlManager.checkCanCreateSchema(transactionId, alice, aliceSchema);
                     accessControlManager.checkCanDropSchema(transactionId, alice, aliceSchema);
-                    accessControlManager.checkCanRenameSchema(transactionId, alice, aliceSchema, "new-schema");
-                    accessControlManager.checkCanShowSchemas(transactionId, alice, "alice-catalog");
+                    accessControlManager.checkCanRenameSchema(transactionId, alice, aliceSchema, createNonDelimitedName("new-schema"));
+                    accessControlManager.checkCanShowSchemas(transactionId, alice, createNonDelimitedName("alice-catalog"));
                 });
         assertThrows(AccessDeniedException.class, () -> transaction(transactionManager, accessControlManager).execute(transactionId -> {
             accessControlManager.checkCanCreateSchema(transactionId, bob, aliceSchema);
@@ -158,8 +160,8 @@ public class TestFileBasedSystemAccessControl
         transaction(transactionManager, accessControlManager)
                 .execute(transactionId -> {
                     Set<SchemaTableName> aliceTables = ImmutableSet.of(new SchemaTableName("schema", "table"));
-                    assertEquals(accessControlManager.filterTables(transactionId, alice, "alice-catalog", aliceTables), aliceTables);
-                    assertEquals(accessControlManager.filterTables(transactionId, bob, "alice-catalog", aliceTables), ImmutableSet.of());
+                    assertEquals(accessControlManager.filterTables(transactionId, alice, createNonDelimitedName("alice-catalog"), aliceTables), aliceTables);
+                    assertEquals(accessControlManager.filterTables(transactionId, bob, createNonDelimitedName("alice-catalog"), aliceTables), ImmutableSet.of());
 
                     accessControlManager.checkCanCreateTable(transactionId, alice, aliceTable);
                     accessControlManager.checkCanDropTable(transactionId, alice, aliceTable);
@@ -187,7 +189,7 @@ public class TestFileBasedSystemAccessControl
                     accessControlManager.checkCanSelectFromColumns(transactionId, alice, aliceView, ImmutableSet.of());
                     accessControlManager.checkCanCreateViewWithSelectFromColumns(transactionId, alice, aliceTable, ImmutableSet.of());
                     accessControlManager.checkCanCreateViewWithSelectFromColumns(transactionId, alice, aliceView, ImmutableSet.of());
-                    accessControlManager.checkCanSetCatalogSessionProperty(transactionId, alice, "alice-catalog", "property");
+                    accessControlManager.checkCanSetCatalogSessionProperty(transactionId, alice, createNonDelimitedName("alice-catalog"), "property");
                     accessControlManager.checkCanGrantTablePrivilege(transactionId, alice, SELECT, aliceTable, new PrestoPrincipal(USER, createNonDelimitedName("grantee")), true);
                     accessControlManager.checkCanRevokeTablePrivilege(transactionId, alice, SELECT, aliceTable, new PrestoPrincipal(USER, createNonDelimitedName("revokee")), true);
                 });

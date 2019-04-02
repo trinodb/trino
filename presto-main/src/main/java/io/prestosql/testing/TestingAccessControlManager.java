@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.security.AccessControlManager;
 import io.prestosql.security.AllowAllSystemAccessControl;
+import io.prestosql.spi.Name;
 import io.prestosql.spi.connector.CatalogSchemaName;
 import io.prestosql.spi.security.Identity;
 import io.prestosql.transaction.TransactionId;
@@ -32,6 +33,8 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.prestosql.spi.Name.createNonDelimitedName;
 import static io.prestosql.spi.security.AccessDeniedException.denyAddColumn;
 import static io.prestosql.spi.security.AccessDeniedException.denyCommentTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyCreateSchema;
@@ -85,10 +88,10 @@ public class TestingAccessControlManager
 
     public static TestingPrivilege privilege(String entityName, TestingPrivilegeType type)
     {
-        return new TestingPrivilege(Optional.empty(), entityName, type);
+        return new TestingPrivilege(Optional.empty(), createNonDelimitedName(entityName), type);
     }
 
-    public static TestingPrivilege privilege(String userName, String entityName, TestingPrivilegeType type)
+    public static TestingPrivilege privilege(Name userName, Name entityName, TestingPrivilegeType type)
     {
         return new TestingPrivilege(Optional.of(userName), entityName, type);
     }
@@ -104,10 +107,10 @@ public class TestingAccessControlManager
     }
 
     @Override
-    public void checkCanSetUser(Optional<Principal> principal, String userName)
+    public void checkCanSetUser(Optional<Principal> principal, Name userName)
     {
         if (shouldDenyPrivilege(userName, userName, SET_USER)) {
-            denySetUser(principal, userName);
+            denySetUser(principal, userName.getLegacyName());
         }
         if (denyPrivileges.isEmpty()) {
             super.checkCanSetUser(principal, userName);
@@ -117,7 +120,7 @@ public class TestingAccessControlManager
     @Override
     public void checkCanCreateSchema(TransactionId transactionId, Identity identity, CatalogSchemaName schemaName)
     {
-        if (shouldDenyPrivilege(identity.getUser().getName(), schemaName.getSchemaName().getLegacyName(), CREATE_SCHEMA)) {
+        if (shouldDenyPrivilege(identity.getUser(), schemaName.getSchemaName(), CREATE_SCHEMA)) {
             denyCreateSchema(schemaName.toString());
         }
         if (denyPrivileges.isEmpty()) {
@@ -128,7 +131,7 @@ public class TestingAccessControlManager
     @Override
     public void checkCanDropSchema(TransactionId transactionId, Identity identity, CatalogSchemaName schemaName)
     {
-        if (shouldDenyPrivilege(identity.getUser().getName(), schemaName.getSchemaName().getLegacyName(), DROP_SCHEMA)) {
+        if (shouldDenyPrivilege(identity.getUser(), schemaName.getSchemaName(), DROP_SCHEMA)) {
             denyDropSchema(schemaName.toString());
         }
         if (denyPrivileges.isEmpty()) {
@@ -137,10 +140,10 @@ public class TestingAccessControlManager
     }
 
     @Override
-    public void checkCanRenameSchema(TransactionId transactionId, Identity identity, CatalogSchemaName schemaName, String newSchemaName)
+    public void checkCanRenameSchema(TransactionId transactionId, Identity identity, CatalogSchemaName schemaName, Name newSchemaName)
     {
-        if (shouldDenyPrivilege(identity.getUser().getName(), schemaName.getSchemaName().getLegacyName(), RENAME_SCHEMA)) {
-            denyRenameSchema(schemaName.toString(), newSchemaName);
+        if (shouldDenyPrivilege(identity.getUser(), schemaName.getSchemaName(), RENAME_SCHEMA)) {
+            denyRenameSchema(schemaName.toString(), newSchemaName.getLegacyName());
         }
         if (denyPrivileges.isEmpty()) {
             super.checkCanRenameSchema(transactionId, identity, schemaName, newSchemaName);
@@ -150,7 +153,7 @@ public class TestingAccessControlManager
     @Override
     public void checkCanCreateTable(TransactionId transactionId, Identity identity, QualifiedObjectName tableName)
     {
-        if (shouldDenyPrivilege(identity.getUser().getName(), tableName.getObjectName(), CREATE_TABLE)) {
+        if (shouldDenyPrivilege(identity.getUser(), createNonDelimitedName(tableName.getObjectName()), CREATE_TABLE)) {
             denyCreateTable(tableName.toString());
         }
         if (denyPrivileges.isEmpty()) {
@@ -161,7 +164,7 @@ public class TestingAccessControlManager
     @Override
     public void checkCanDropTable(TransactionId transactionId, Identity identity, QualifiedObjectName tableName)
     {
-        if (shouldDenyPrivilege(identity.getUser().getName(), tableName.getObjectName(), DROP_TABLE)) {
+        if (shouldDenyPrivilege(identity.getUser(), createNonDelimitedName(tableName.getObjectName()), DROP_TABLE)) {
             denyDropTable(tableName.toString());
         }
         if (denyPrivileges.isEmpty()) {
@@ -172,7 +175,7 @@ public class TestingAccessControlManager
     @Override
     public void checkCanRenameTable(TransactionId transactionId, Identity identity, QualifiedObjectName tableName, QualifiedObjectName newTableName)
     {
-        if (shouldDenyPrivilege(identity.getUser().getName(), tableName.getObjectName(), RENAME_TABLE)) {
+        if (shouldDenyPrivilege(identity.getUser(), createNonDelimitedName(tableName.getObjectName()), RENAME_TABLE)) {
             denyRenameTable(tableName.toString(), newTableName.toString());
         }
         if (denyPrivileges.isEmpty()) {
@@ -183,7 +186,7 @@ public class TestingAccessControlManager
     @Override
     public void checkCanSetTableComment(TransactionId transactionId, Identity identity, QualifiedObjectName tableName)
     {
-        if (shouldDenyPrivilege(identity.getUser(), tableName.getObjectName(), COMMENT_TABLE)) {
+        if (shouldDenyPrivilege(identity.getUser(), createNonDelimitedName(tableName.getObjectName()), COMMENT_TABLE)) {
             denyCommentTable(tableName.toString());
         }
         if (denyPrivileges.isEmpty()) {
@@ -194,7 +197,7 @@ public class TestingAccessControlManager
     @Override
     public void checkCanAddColumns(TransactionId transactionId, Identity identity, QualifiedObjectName tableName)
     {
-        if (shouldDenyPrivilege(identity.getUser().getName(), tableName.getObjectName(), ADD_COLUMN)) {
+        if (shouldDenyPrivilege(identity.getUser(), createNonDelimitedName(tableName.getObjectName()), ADD_COLUMN)) {
             denyAddColumn(tableName.toString());
         }
         super.checkCanAddColumns(transactionId, identity, tableName);
@@ -203,7 +206,7 @@ public class TestingAccessControlManager
     @Override
     public void checkCanDropColumn(TransactionId transactionId, Identity identity, QualifiedObjectName tableName)
     {
-        if (shouldDenyPrivilege(identity.getUser().getName(), tableName.getObjectName(), DROP_COLUMN)) {
+        if (shouldDenyPrivilege(identity.getUser(), createNonDelimitedName(tableName.getObjectName()), DROP_COLUMN)) {
             denyDropColumn(tableName.toString());
         }
         super.checkCanDropColumn(transactionId, identity, tableName);
@@ -212,7 +215,7 @@ public class TestingAccessControlManager
     @Override
     public void checkCanRenameColumn(TransactionId transactionId, Identity identity, QualifiedObjectName tableName)
     {
-        if (shouldDenyPrivilege(identity.getUser().getName(), tableName.getObjectName(), RENAME_COLUMN)) {
+        if (shouldDenyPrivilege(identity.getUser(), createNonDelimitedName(tableName.getObjectName()), RENAME_COLUMN)) {
             denyRenameColumn(tableName.toString());
         }
         super.checkCanRenameColumn(transactionId, identity, tableName);
@@ -221,7 +224,7 @@ public class TestingAccessControlManager
     @Override
     public void checkCanInsertIntoTable(TransactionId transactionId, Identity identity, QualifiedObjectName tableName)
     {
-        if (shouldDenyPrivilege(identity.getUser().getName(), tableName.getObjectName(), INSERT_TABLE)) {
+        if (shouldDenyPrivilege(identity.getUser(), createNonDelimitedName(tableName.getObjectName()), INSERT_TABLE)) {
             denyInsertTable(tableName.toString());
         }
         if (denyPrivileges.isEmpty()) {
@@ -232,7 +235,7 @@ public class TestingAccessControlManager
     @Override
     public void checkCanDeleteFromTable(TransactionId transactionId, Identity identity, QualifiedObjectName tableName)
     {
-        if (shouldDenyPrivilege(identity.getUser().getName(), tableName.getObjectName(), DELETE_TABLE)) {
+        if (shouldDenyPrivilege(identity.getUser(), createNonDelimitedName(tableName.getObjectName()), DELETE_TABLE)) {
             denyDeleteTable(tableName.toString());
         }
         if (denyPrivileges.isEmpty()) {
@@ -243,7 +246,7 @@ public class TestingAccessControlManager
     @Override
     public void checkCanCreateView(TransactionId transactionId, Identity identity, QualifiedObjectName viewName)
     {
-        if (shouldDenyPrivilege(identity.getUser().getName(), viewName.getObjectName(), CREATE_VIEW)) {
+        if (shouldDenyPrivilege(identity.getUser(), createNonDelimitedName(viewName.getObjectName()), CREATE_VIEW)) {
             denyCreateView(viewName.toString());
         }
         if (denyPrivileges.isEmpty()) {
@@ -254,7 +257,7 @@ public class TestingAccessControlManager
     @Override
     public void checkCanDropView(TransactionId transactionId, Identity identity, QualifiedObjectName viewName)
     {
-        if (shouldDenyPrivilege(identity.getUser().getName(), viewName.getObjectName(), DROP_VIEW)) {
+        if (shouldDenyPrivilege(identity.getUser(), createNonDelimitedName(viewName.getObjectName()), DROP_VIEW)) {
             denyDropView(viewName.toString());
         }
         if (denyPrivileges.isEmpty()) {
@@ -265,7 +268,7 @@ public class TestingAccessControlManager
     @Override
     public void checkCanSetSystemSessionProperty(Identity identity, String propertyName)
     {
-        if (shouldDenyPrivilege(identity.getUser().getName(), propertyName, SET_SESSION)) {
+        if (shouldDenyPrivilege(identity.getUser(), createNonDelimitedName(propertyName), SET_SESSION)) {
             denySetSystemSessionProperty(propertyName);
         }
         if (denyPrivileges.isEmpty()) {
@@ -274,9 +277,9 @@ public class TestingAccessControlManager
     }
 
     @Override
-    public void checkCanCreateViewWithSelectFromColumns(TransactionId transactionId, Identity identity, QualifiedObjectName tableName, Set<String> columnNames)
+    public void checkCanCreateViewWithSelectFromColumns(TransactionId transactionId, Identity identity, QualifiedObjectName tableName, Set<Name> columnNames)
     {
-        if (shouldDenyPrivilege(identity.getUser().getName(), tableName.getObjectName(), CREATE_VIEW_WITH_SELECT_COLUMNS)) {
+        if (shouldDenyPrivilege(identity.getUser(), createNonDelimitedName(tableName.getObjectName()), CREATE_VIEW_WITH_SELECT_COLUMNS)) {
             denyCreateViewWithSelect(tableName.toString(), identity);
         }
         if (denyPrivileges.isEmpty()) {
@@ -285,10 +288,10 @@ public class TestingAccessControlManager
     }
 
     @Override
-    public void checkCanSetCatalogSessionProperty(TransactionId transactionId, Identity identity, String catalogName, String propertyName)
+    public void checkCanSetCatalogSessionProperty(TransactionId transactionId, Identity identity, Name catalogName, String propertyName)
     {
-        if (shouldDenyPrivilege(identity.getUser().getName(), catalogName + "." + propertyName, SET_SESSION)) {
-            denySetCatalogSessionProperty(catalogName, propertyName);
+        if (shouldDenyPrivilege(identity.getUser(), createNonDelimitedName(catalogName + "." + propertyName), SET_SESSION)) {
+            denySetCatalogSessionProperty(catalogName.getLegacyName(), propertyName);
         }
         if (denyPrivileges.isEmpty()) {
             super.checkCanSetCatalogSessionProperty(transactionId, identity, catalogName, propertyName);
@@ -296,14 +299,14 @@ public class TestingAccessControlManager
     }
 
     @Override
-    public void checkCanSelectFromColumns(TransactionId transactionId, Identity identity, QualifiedObjectName tableName, Set<String> columns)
+    public void checkCanSelectFromColumns(TransactionId transactionId, Identity identity, QualifiedObjectName tableName, Set<Name> columns)
     {
-        if (shouldDenyPrivilege(identity.getUser().getName(), tableName.getObjectName(), SELECT_COLUMN)) {
-            denySelectColumns(tableName.toString(), columns);
+        if (shouldDenyPrivilege(identity.getUser(), createNonDelimitedName(tableName.getObjectName()), SELECT_COLUMN)) {
+            denySelectColumns(tableName.toString(), columns.stream().map(Name::getLegacyName).collect(toImmutableSet()));
         }
-        for (String column : columns) {
-            if (shouldDenyPrivilege(identity.getUser().getName(), column, SELECT_COLUMN)) {
-                denySelectColumns(tableName.toString(), columns);
+        for (Name column : columns) {
+            if (shouldDenyPrivilege(identity.getUser(), column, SELECT_COLUMN)) {
+                denySelectColumns(tableName.toString(), columns.stream().map(Name::getName).collect(toImmutableSet()));
             }
         }
         if (denyPrivileges.isEmpty()) {
@@ -311,7 +314,7 @@ public class TestingAccessControlManager
         }
     }
 
-    private boolean shouldDenyPrivilege(String userName, String entityName, TestingPrivilegeType type)
+    private boolean shouldDenyPrivilege(Name userName, Name entityName, TestingPrivilegeType type)
     {
         TestingPrivilege testPrivilege = privilege(userName, entityName, type);
         for (TestingPrivilege denyPrivilege : denyPrivileges) {
@@ -334,11 +337,11 @@ public class TestingAccessControlManager
 
     public static class TestingPrivilege
     {
-        private final Optional<String> userName;
-        private final String entityName;
+        private final Optional<Name> userName;
+        private final Name entityName;
         private final TestingPrivilegeType type;
 
-        private TestingPrivilege(Optional<String> userName, String entityName, TestingPrivilegeType type)
+        private TestingPrivilege(Optional<Name> userName, Name entityName, TestingPrivilegeType type)
         {
             this.userName = requireNonNull(userName, "userName is null");
             this.entityName = requireNonNull(entityName, "entityName is null");

@@ -102,15 +102,13 @@ public final class MetadataUtil
         return null;
     }
 
-    public static String createCatalogName(Session session, Node node)
+    public static Name createCatalogName(Session session, Node node)
     {
-        Optional<String> sessionCatalog = session.getCatalog().map(Name::getLegacyName);
-
-        if (!sessionCatalog.isPresent()) {
+        if (!session.getCatalog().isPresent()) {
             throw new SemanticException(CATALOG_NOT_SPECIFIED, node, "Session catalog must be set");
         }
 
-        return sessionCatalog.get();
+        return session.getCatalog().get();
     }
 
     public static CatalogSchemaName createCatalogSchemaName(Session session, Node node, Optional<QualifiedName> schema)

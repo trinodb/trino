@@ -306,12 +306,12 @@ public final class Session
         // Now that there is a transaction, the catalog name can be resolved to a connector, and the catalog properties can be validated
         ImmutableMap.Builder<CatalogName, Map<String, String>> connectorProperties = ImmutableMap.builder();
         for (Entry<String, Map<String, String>> catalogEntry : unprocessedCatalogProperties.entrySet()) {
-            String catalogName = catalogEntry.getKey();
+            Name catalogName = createName(catalogEntry.getKey());
             Map<String, String> catalogProperties = catalogEntry.getValue();
             if (catalogProperties.isEmpty()) {
                 continue;
             }
-            CatalogName connectorId = transactionManager.getOptionalCatalogMetadata(transactionId, catalogName)
+            CatalogName connectorId = transactionManager.getOptionalCatalogMetadata(transactionId, catalogName.getLegacyName())
                     .orElseThrow(() -> new PrestoException(NOT_FOUND, "Session property catalog does not exist: " + catalogName))
                     .getCatalogName();
 
@@ -333,7 +333,7 @@ public final class Session
                     .orElseThrow(() -> new PrestoException(NOT_FOUND, "Catalog does not exist: " + catalogName))
                     .getCatalogName();
             if (role.getType() == SelectedRole.Type.ROLE) {
-                accessControl.checkCanSetRole(transactionId, identity, role.getRole().get().getLegacyName(), catalogName.getLegacyName());
+                accessControl.checkCanSetRole(transactionId, identity, role.getRole().get(), catalogName);
             }
             roles.put(connectorId.getCatalogName(), role);
 
