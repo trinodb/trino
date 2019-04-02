@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import io.prestosql.client.NodeVersion;
 import io.prestosql.metadata.InternalNode;
-import io.prestosql.spi.Node;
 import io.prestosql.spi.QueryId;
 import io.prestosql.spi.memory.MemoryPoolId;
 import io.prestosql.spi.memory.MemoryPoolInfo;
@@ -39,7 +38,7 @@ public class LowMemoryKillerTestingUtils
 
     static List<MemoryInfo> toNodeMemoryInfoList(long maxReservedPoolBytes, long maxGeneralPoolBytes, String reservedQuery, Map<String, Map<String, Long>> queries)
     {
-        Map<Node, NodeReservation> nodeReservations = new HashMap<>();
+        Map<InternalNode, NodeReservation> nodeReservations = new HashMap<>();
 
         for (Map.Entry<String, Map<String, Long>> entry : queries.entrySet()) {
             QueryId queryId = new QueryId(entry.getKey());
@@ -61,7 +60,7 @@ public class LowMemoryKillerTestingUtils
         }
 
         ImmutableList.Builder<MemoryInfo> result = ImmutableList.builder();
-        for (Map.Entry<Node, NodeReservation> entry : nodeReservations.entrySet()) {
+        for (Map.Entry<InternalNode, NodeReservation> entry : nodeReservations.entrySet()) {
             NodeReservation nodeReservation = entry.getValue();
             ImmutableMap.Builder<MemoryPoolId, MemoryPoolInfo> pools = ImmutableMap.builder();
             if (nodeReservation.getGeneral().getTotalReservedBytes() > 0) {

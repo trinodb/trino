@@ -14,8 +14,8 @@
 package io.prestosql.execution.scheduler;
 
 import io.prestosql.execution.RemoteTask;
+import io.prestosql.metadata.InternalNode;
 import io.prestosql.metadata.Split;
-import io.prestosql.spi.Node;
 
 import java.util.List;
 import java.util.Set;
@@ -48,7 +48,7 @@ public class DynamicSplitPlacementPolicy
     }
 
     @Override
-    public List<Node> allNodes()
+    public List<InternalNode> allNodes()
     {
         return nodeSelector.allNodes();
     }

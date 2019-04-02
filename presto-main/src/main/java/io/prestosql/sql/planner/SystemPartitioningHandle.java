@@ -19,12 +19,12 @@ import com.google.common.collect.ImmutableList;
 import io.prestosql.Session;
 import io.prestosql.execution.scheduler.NodeScheduler;
 import io.prestosql.execution.scheduler.NodeSelector;
+import io.prestosql.metadata.InternalNode;
 import io.prestosql.operator.BucketPartitionFunction;
 import io.prestosql.operator.HashGenerator;
 import io.prestosql.operator.InterpretedHashGenerator;
 import io.prestosql.operator.PartitionFunction;
 import io.prestosql.operator.PrecomputedHashGenerator;
-import io.prestosql.spi.Node;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.connector.BucketFunction;
 import io.prestosql.spi.connector.ConnectorPartitioningHandle;
@@ -137,7 +137,7 @@ public final class SystemPartitioningHandle
     public NodePartitionMap getNodePartitionMap(Session session, NodeScheduler nodeScheduler)
     {
         NodeSelector nodeSelector = nodeScheduler.createNodeSelector(null);
-        List<Node> nodes;
+        List<InternalNode> nodes;
         if (partitioning == SystemPartitioning.COORDINATOR_ONLY) {
             nodes = ImmutableList.of(nodeSelector.selectCurrentNode());
         }

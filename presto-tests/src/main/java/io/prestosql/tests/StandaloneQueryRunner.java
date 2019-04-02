@@ -19,11 +19,11 @@ import io.prestosql.Session;
 import io.prestosql.connector.CatalogName;
 import io.prestosql.cost.StatsCalculator;
 import io.prestosql.metadata.AllNodes;
+import io.prestosql.metadata.InternalNode;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.metadata.SessionPropertyManager;
 import io.prestosql.server.testing.TestingPrestoServer;
-import io.prestosql.spi.Node;
 import io.prestosql.spi.Plugin;
 import io.prestosql.split.PageSourceManager;
 import io.prestosql.split.SplitManager;
@@ -188,7 +188,7 @@ public final class StandaloneQueryRunner
 
     private void refreshNodes(CatalogName catalogName)
     {
-        Set<Node> activeNodesWithConnector;
+        Set<InternalNode> activeNodesWithConnector;
 
         do {
             try {

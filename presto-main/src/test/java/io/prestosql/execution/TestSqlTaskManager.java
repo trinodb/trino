@@ -29,9 +29,9 @@ import io.prestosql.execution.executor.TaskExecutor;
 import io.prestosql.memory.LocalMemoryManager;
 import io.prestosql.memory.NodeMemoryConfig;
 import io.prestosql.memory.context.LocalMemoryContext;
+import io.prestosql.metadata.InternalNode;
 import io.prestosql.operator.ExchangeClient;
 import io.prestosql.operator.ExchangeClientSupplier;
-import io.prestosql.spi.Node;
 import io.prestosql.spi.QueryId;
 import io.prestosql.spiller.LocalSpillManager;
 import io.prestosql.spiller.NodeSpillConfig;
@@ -302,13 +302,13 @@ public class TestSqlTaskManager
         }
 
         @Override
-        public URI createTaskLocation(Node node, TaskId taskId)
+        public URI createTaskLocation(InternalNode node, TaskId taskId)
         {
             return URI.create("http://fake.invalid/task/" + node.getNodeIdentifier() + "/" + taskId);
         }
 
         @Override
-        public URI createMemoryInfoLocation(Node node)
+        public URI createMemoryInfoLocation(InternalNode node)
         {
             return URI.create("http://fake.invalid/" + node.getNodeIdentifier() + "/memory");
         }

@@ -22,7 +22,7 @@ import io.airlift.http.client.Request;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
-import io.prestosql.spi.Node;
+import io.prestosql.metadata.InternalNode;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.ThreadSafe;
@@ -49,7 +49,7 @@ public class RemoteNodeMemory
 {
     private static final Logger log = Logger.get(RemoteNodeMemory.class);
 
-    private final Node node;
+    private final InternalNode node;
     private final HttpClient httpClient;
     private final URI memoryInfoUri;
     private final JsonCodec<MemoryInfo> memoryInfoCodec;
@@ -61,7 +61,7 @@ public class RemoteNodeMemory
     private final AtomicLong currentAssignmentVersion = new AtomicLong(-1);
 
     public RemoteNodeMemory(
-            Node node,
+            InternalNode node,
             HttpClient httpClient,
             JsonCodec<MemoryInfo> memoryInfoCodec,
             JsonCodec<MemoryPoolAssignmentsRequest> assignmentsRequestJsonCodec,
@@ -84,7 +84,7 @@ public class RemoteNodeMemory
         return memoryInfo.get();
     }
 
-    public Node getNode()
+    public InternalNode getNode()
     {
         return node;
     }

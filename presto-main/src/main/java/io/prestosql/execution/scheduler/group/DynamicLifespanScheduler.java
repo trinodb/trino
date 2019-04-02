@@ -18,7 +18,7 @@ import com.google.common.util.concurrent.SettableFuture;
 import io.prestosql.execution.Lifespan;
 import io.prestosql.execution.scheduler.BucketNodeMap;
 import io.prestosql.execution.scheduler.SourceScheduler;
-import io.prestosql.spi.Node;
+import io.prestosql.metadata.InternalNode;
 import io.prestosql.spi.connector.ConnectorPartitionHandle;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntListIterator;
@@ -43,7 +43,7 @@ public class DynamicLifespanScheduler
         implements LifespanScheduler
 {
     private final BucketNodeMap bucketNodeMap;
-    private final List<Node> allNodes;
+    private final List<InternalNode> allNodes;
     private final List<ConnectorPartitionHandle> partitionHandles;
     private final OptionalInt concurrentLifespansPerTask;
 
@@ -59,7 +59,7 @@ public class DynamicLifespanScheduler
     @GuardedBy("this")
     private final List<Lifespan> recentlyCompletedDriverGroups = new ArrayList<>();
 
-    public DynamicLifespanScheduler(BucketNodeMap bucketNodeMap, List<Node> allNodes, List<ConnectorPartitionHandle> partitionHandles, OptionalInt concurrentLifespansPerTask)
+    public DynamicLifespanScheduler(BucketNodeMap bucketNodeMap, List<InternalNode> allNodes, List<ConnectorPartitionHandle> partitionHandles, OptionalInt concurrentLifespansPerTask)
     {
         this.bucketNodeMap = requireNonNull(bucketNodeMap, "bucketNodeMap is null");
         this.allNodes = requireNonNull(allNodes, "allNodes is null");
@@ -137,7 +137,7 @@ public class DynamicLifespanScheduler
             }
             int driverGroupId = driverGroups.nextInt();
 
-            Node nodeForCompletedDriverGroup = bucketNodeMap.getAssignedNode(driverGroup.getId()).orElseThrow(IllegalStateException::new);
+            InternalNode nodeForCompletedDriverGroup = bucketNodeMap.getAssignedNode(driverGroup.getId()).orElseThrow(IllegalStateException::new);
             bucketNodeMap.assignBucketToNode(driverGroupId, nodeForCompletedDriverGroup);
             scheduler.startLifespan(Lifespan.driverGroup(driverGroupId), partitionHandles.get(driverGroupId));
         }

@@ -15,17 +15,17 @@ package io.prestosql.execution.scheduler;
 
 import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.prestosql.metadata.InternalNode;
 import io.prestosql.metadata.Split;
-import io.prestosql.spi.Node;
 
 import static java.util.Objects.requireNonNull;
 
 public final class SplitPlacementResult
 {
     private final ListenableFuture<?> blocked;
-    private final Multimap<Node, Split> assignments;
+    private final Multimap<InternalNode, Split> assignments;
 
-    public SplitPlacementResult(ListenableFuture<?> blocked, Multimap<Node, Split> assignments)
+    public SplitPlacementResult(ListenableFuture<?> blocked, Multimap<InternalNode, Split> assignments)
     {
         this.blocked = requireNonNull(blocked, "blocked is null");
         this.assignments = requireNonNull(assignments, "assignments is null");
@@ -36,7 +36,7 @@ public final class SplitPlacementResult
         return blocked;
     }
 
-    public Multimap<Node, Split> getAssignments()
+    public Multimap<InternalNode, Split> getAssignments()
     {
         return assignments;
     }

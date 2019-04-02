@@ -40,7 +40,7 @@ import io.prestosql.execution.TaskStatus;
 import io.prestosql.execution.buffer.OutputBuffers;
 import io.prestosql.execution.buffer.OutputBuffers.OutputBufferId;
 import io.prestosql.failuredetector.FailureDetector;
-import io.prestosql.spi.Node;
+import io.prestosql.metadata.InternalNode;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ConnectorPartitionHandle;
 import io.prestosql.split.SplitSource;
@@ -351,7 +351,7 @@ public class SqlQueryScheduler
                 }
 
                 BucketNodeMap bucketNodeMap;
-                List<Node> stageNodeList;
+                List<InternalNode> stageNodeList;
                 if (plan.getSubStages().isEmpty()) {
                     // no remote source
                     boolean preferDynamic = groupedExecutionForStage && isDynamicSchduleForGroupedExecution(session);
@@ -390,7 +390,7 @@ public class SqlQueryScheduler
             else {
                 // all sources are remote
                 NodePartitionMap nodePartitionMap = partitioningCache.apply(plan.getFragment().getPartitioning());
-                List<Node> partitionToNode = nodePartitionMap.getPartitionToNode();
+                List<InternalNode> partitionToNode = nodePartitionMap.getPartitionToNode();
                 // todo this should asynchronously wait a standard timeout period before failing
                 checkCondition(!partitionToNode.isEmpty(), NO_NODES_AVAILABLE, "No worker nodes available");
                 stageSchedulers.put(stageId, new FixedCountScheduler(stage, partitionToNode));

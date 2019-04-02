@@ -30,11 +30,11 @@ import io.prestosql.execution.TaskInfo;
 import io.prestosql.execution.TaskManagerConfig;
 import io.prestosql.execution.TaskStatus;
 import io.prestosql.execution.buffer.OutputBuffers;
+import io.prestosql.metadata.InternalNode;
 import io.prestosql.metadata.Split;
 import io.prestosql.operator.ForScheduler;
 import io.prestosql.server.remotetask.HttpRemoteTask;
 import io.prestosql.server.remotetask.RemoteTaskStats;
-import io.prestosql.spi.Node;
 import io.prestosql.sql.planner.PlanFragment;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 import org.weakref.jmx.Managed;
@@ -117,7 +117,7 @@ public class HttpRemoteTaskFactory
     @Override
     public RemoteTask createRemoteTask(Session session,
             TaskId taskId,
-            Node node,
+            InternalNode node,
             PlanFragment fragment,
             Multimap<PlanNodeId, Split> initialSplits,
             OptionalInt totalPartitions,
