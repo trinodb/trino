@@ -14,9 +14,11 @@
 package io.prestosql.orc.metadata.statistics;
 
 import com.google.common.annotations.VisibleForTesting;
+import io.airlift.slice.ByteArrays;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static java.lang.Double.doubleToLongBits;
 
 /**
@@ -295,19 +297,13 @@ public class BloomFilter
         public static long hash64(byte[] data)
         {
             long hash = DEFAULT_SEED;
-            int nblocks = data.length >> 3;
+            int fastLimit = (data.length - SIZE_OF_LONG) + 1;
 
             // body
-            for (int i = 0; i < nblocks; i++) {
-                int i8 = i << 3;
-                long k = ((long) data[i8] & 0xff)
-                        | (((long) data[i8 + 1] & 0xff) << 8)
-                        | (((long) data[i8 + 2] & 0xff) << 16)
-                        | (((long) data[i8 + 3] & 0xff) << 24)
-                        | (((long) data[i8 + 4] & 0xff) << 32)
-                        | (((long) data[i8 + 5] & 0xff) << 40)
-                        | (((long) data[i8 + 6] & 0xff) << 48)
-                        | (((long) data[i8 + 7] & 0xff) << 56);
+            int current = 0;
+            while (current < fastLimit) {
+                long k = ByteArrays.getLong(data, current);
+                current += SIZE_OF_LONG;
 
                 // mix functions
                 k *= C1;
@@ -319,7 +315,6 @@ public class BloomFilter
 
             // tail
             long k = 0;
-            int current = nblocks << 3;
             switch (data.length - current) {
                 case 7:
                     k ^= ((long) data[current + 6] & 0xff) << 48;
