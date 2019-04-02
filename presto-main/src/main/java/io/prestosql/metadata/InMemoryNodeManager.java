@@ -20,7 +20,6 @@ import com.google.common.collect.Multimaps;
 import com.google.common.collect.SetMultimap;
 import io.prestosql.client.NodeVersion;
 import io.prestosql.connector.CatalogName;
-import io.prestosql.spi.Node;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.inject.Inject;
@@ -36,8 +35,8 @@ import static java.util.Objects.requireNonNull;
 public class InMemoryNodeManager
         implements InternalNodeManager
 {
-    private final Node localNode;
-    private final SetMultimap<CatalogName, Node> remoteNodes = Multimaps.synchronizedSetMultimap(HashMultimap.create());
+    private final InternalNode localNode;
+    private final SetMultimap<CatalogName, InternalNode> remoteNodes = Multimaps.synchronizedSetMultimap(HashMultimap.create());
 
     @GuardedBy("this")
     private final List<Consumer<AllNodes>> listeners = new ArrayList<>();
@@ -58,12 +57,12 @@ public class InMemoryNodeManager
         addNode(catalogName, localNode);
     }
 
-    public void addNode(CatalogName catalogName, Node... nodes)
+    public void addNode(CatalogName catalogName, InternalNode... nodes)
     {
         addNode(catalogName, ImmutableList.copyOf(nodes));
     }
 
-    public void addNode(CatalogName catalogName, Iterable<Node> nodes)
+    public void addNode(CatalogName catalogName, Iterable<InternalNode> nodes)
     {
         remoteNodes.putAll(catalogName, nodes);
 
@@ -76,7 +75,7 @@ public class InMemoryNodeManager
     }
 
     @Override
-    public Set<Node> getNodes(NodeState state)
+    public Set<InternalNode> getNodes(NodeState state)
     {
         switch (state) {
             case ACTIVE:
@@ -91,7 +90,7 @@ public class InMemoryNodeManager
     }
 
     @Override
-    public Set<Node> getActiveConnectorNodes(CatalogName catalogName)
+    public Set<InternalNode> getActiveConnectorNodes(CatalogName catalogName)
     {
         return ImmutableSet.copyOf(remoteNodes.get(catalogName));
     }
@@ -99,17 +98,17 @@ public class InMemoryNodeManager
     @Override
     public AllNodes getAllNodes()
     {
-        return new AllNodes(ImmutableSet.<Node>builder().add(localNode).addAll(remoteNodes.values()).build(), ImmutableSet.of(), ImmutableSet.of(), ImmutableSet.of(localNode));
+        return new AllNodes(ImmutableSet.<InternalNode>builder().add(localNode).addAll(remoteNodes.values()).build(), ImmutableSet.of(), ImmutableSet.of(), ImmutableSet.of(localNode));
     }
 
     @Override
-    public Node getCurrentNode()
+    public InternalNode getCurrentNode()
     {
         return localNode;
     }
 
     @Override
-    public Set<Node> getCoordinators()
+    public Set<InternalNode> getCoordinators()
     {
         // always use localNode as coordinator
         return ImmutableSet.of(localNode);

@@ -16,8 +16,8 @@ package io.prestosql.sql.planner;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.execution.scheduler.BucketNodeMap;
 import io.prestosql.execution.scheduler.FixedBucketNodeMap;
+import io.prestosql.metadata.InternalNode;
 import io.prestosql.metadata.Split;
-import io.prestosql.spi.Node;
 
 import java.util.List;
 import java.util.function.ToIntFunction;
@@ -35,25 +35,25 @@ import static java.util.Objects.requireNonNull;
 //
 public class NodePartitionMap
 {
-    private final List<Node> partitionToNode;
+    private final List<InternalNode> partitionToNode;
     private final int[] bucketToPartition;
     private final ToIntFunction<Split> splitToBucket;
 
-    public NodePartitionMap(List<Node> partitionToNode, ToIntFunction<Split> splitToBucket)
+    public NodePartitionMap(List<InternalNode> partitionToNode, ToIntFunction<Split> splitToBucket)
     {
         this.partitionToNode = ImmutableList.copyOf(requireNonNull(partitionToNode, "partitionToNode is null"));
         this.bucketToPartition = IntStream.range(0, partitionToNode.size()).toArray();
         this.splitToBucket = requireNonNull(splitToBucket, "splitToBucket is null");
     }
 
-    public NodePartitionMap(List<Node> partitionToNode, int[] bucketToPartition, ToIntFunction<Split> splitToBucket)
+    public NodePartitionMap(List<InternalNode> partitionToNode, int[] bucketToPartition, ToIntFunction<Split> splitToBucket)
     {
         this.bucketToPartition = requireNonNull(bucketToPartition, "bucketToPartition is null");
         this.partitionToNode = ImmutableList.copyOf(requireNonNull(partitionToNode, "partitionToNode is null"));
         this.splitToBucket = requireNonNull(splitToBucket, "splitToBucket is null");
     }
 
-    public List<Node> getPartitionToNode()
+    public List<InternalNode> getPartitionToNode()
     {
         return partitionToNode;
     }
@@ -63,7 +63,7 @@ public class NodePartitionMap
         return bucketToPartition;
     }
 
-    public Node getNode(Split split)
+    public InternalNode getNode(Split split)
     {
         int bucket = splitToBucket.applyAsInt(split);
         int partition = bucketToPartition[bucket];
@@ -72,7 +72,7 @@ public class NodePartitionMap
 
     public BucketNodeMap asBucketNodeMap()
     {
-        ImmutableList.Builder<Node> bucketToNode = ImmutableList.builder();
+        ImmutableList.Builder<InternalNode> bucketToNode = ImmutableList.builder();
         for (int partition : bucketToPartition) {
             bucketToNode.add(partitionToNode.get(partition));
         }

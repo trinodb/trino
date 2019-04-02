@@ -17,9 +17,9 @@ import io.airlift.http.server.HttpServerInfo;
 import io.prestosql.execution.LocationFactory;
 import io.prestosql.execution.StageId;
 import io.prestosql.execution.TaskId;
+import io.prestosql.metadata.InternalNode;
 import io.prestosql.metadata.InternalNodeManager;
 import io.prestosql.server.InternalCommunicationConfig;
-import io.prestosql.spi.Node;
 import io.prestosql.spi.QueryId;
 
 import javax.inject.Inject;
@@ -74,7 +74,7 @@ public class HttpLocationFactory
     }
 
     @Override
-    public URI createTaskLocation(Node node, TaskId taskId)
+    public URI createTaskLocation(InternalNode node, TaskId taskId)
     {
         requireNonNull(node, "node is null");
         requireNonNull(taskId, "taskId is null");
@@ -85,7 +85,7 @@ public class HttpLocationFactory
     }
 
     @Override
-    public URI createMemoryInfoLocation(Node node)
+    public URI createMemoryInfoLocation(InternalNode node)
     {
         requireNonNull(node, "node is null");
         return uriBuilderFrom(node.getHttpUri())

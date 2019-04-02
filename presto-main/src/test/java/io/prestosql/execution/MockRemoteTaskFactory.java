@@ -33,10 +33,10 @@ import io.prestosql.execution.buffer.OutputBuffers;
 import io.prestosql.memory.MemoryPool;
 import io.prestosql.memory.QueryContext;
 import io.prestosql.memory.context.SimpleLocalMemoryContext;
+import io.prestosql.metadata.InternalNode;
 import io.prestosql.metadata.Split;
 import io.prestosql.operator.TaskContext;
 import io.prestosql.operator.TaskStats;
-import io.prestosql.spi.Node;
 import io.prestosql.spi.memory.MemoryPoolId;
 import io.prestosql.spiller.SpillSpaceTracker;
 import io.prestosql.sql.planner.Partitioning;
@@ -100,7 +100,7 @@ public class MockRemoteTaskFactory
         this.scheduledExecutor = scheduledExecutor;
     }
 
-    public MockRemoteTask createTableScanTask(TaskId taskId, Node newNode, List<Split> splits, PartitionedSplitCountTracker partitionedSplitCountTracker)
+    public MockRemoteTask createTableScanTask(TaskId taskId, InternalNode newNode, List<Split> splits, PartitionedSplitCountTracker partitionedSplitCountTracker)
     {
         Symbol symbol = new Symbol("column");
         PlanNodeId sourceId = new PlanNodeId("sourceId");
@@ -130,7 +130,7 @@ public class MockRemoteTaskFactory
     public MockRemoteTask createRemoteTask(
             Session session,
             TaskId taskId,
-            Node node,
+            InternalNode node,
             PlanFragment fragment,
             Multimap<PlanNodeId, Split> initialSplits,
             OptionalInt totalPartitions,

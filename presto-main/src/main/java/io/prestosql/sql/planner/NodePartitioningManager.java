@@ -21,10 +21,10 @@ import io.prestosql.execution.scheduler.BucketNodeMap;
 import io.prestosql.execution.scheduler.FixedBucketNodeMap;
 import io.prestosql.execution.scheduler.NodeScheduler;
 import io.prestosql.execution.scheduler.group.DynamicBucketNodeMap;
+import io.prestosql.metadata.InternalNode;
 import io.prestosql.metadata.Split;
 import io.prestosql.operator.BucketPartitionFunction;
 import io.prestosql.operator.PartitionFunction;
-import io.prestosql.spi.Node;
 import io.prestosql.spi.connector.BucketFunction;
 import io.prestosql.spi.connector.ConnectorBucketNodeMap;
 import io.prestosql.spi.connector.ConnectorNodePartitioningProvider;
@@ -136,9 +136,9 @@ public class NodePartitioningManager
         // safety check for crazy partitioning
         checkArgument(connectorBucketNodeMap.getBucketCount() < 1_000_000, "Too many buckets in partitioning: %s", connectorBucketNodeMap.getBucketCount());
 
-        List<Node> bucketToNode;
+        List<InternalNode> bucketToNode;
         if (connectorBucketNodeMap.hasFixedMapping()) {
-            bucketToNode = connectorBucketNodeMap.getFixedMapping();
+            bucketToNode = getFixedMapping(connectorBucketNodeMap);
         }
         else {
             bucketToNode = createArbitraryBucketToNode(
@@ -147,10 +147,10 @@ public class NodePartitioningManager
         }
 
         int[] bucketToPartition = new int[connectorBucketNodeMap.getBucketCount()];
-        BiMap<Node, Integer> nodeToPartition = HashBiMap.create();
+        BiMap<InternalNode, Integer> nodeToPartition = HashBiMap.create();
         int nextPartitionId = 0;
         for (int bucket = 0; bucket < bucketToNode.size(); bucket++) {
-            Node node = bucketToNode.get(bucket);
+            InternalNode node = bucketToNode.get(bucket);
             Integer partitionId = nodeToPartition.get(node);
             if (partitionId == null) {
                 partitionId = nextPartitionId++;
@@ -159,7 +159,7 @@ public class NodePartitioningManager
             bucketToPartition[bucket] = partitionId;
         }
 
-        List<Node> partitionToNode = IntStream.range(0, nodeToPartition.size())
+        List<InternalNode> partitionToNode = IntStream.range(0, nodeToPartition.size())
                 .mapToObj(partitionId -> nodeToPartition.inverse().get(partitionId))
                 .collect(toImmutableList());
 
@@ -171,7 +171,7 @@ public class NodePartitioningManager
         ConnectorBucketNodeMap connectorBucketNodeMap = getConnectorBucketNodeMap(session, partitioningHandle);
 
         if (connectorBucketNodeMap.hasFixedMapping()) {
-            return new FixedBucketNodeMap(getSplitToBucket(session, partitioningHandle), connectorBucketNodeMap.getFixedMapping());
+            return new FixedBucketNodeMap(getSplitToBucket(session, partitioningHandle), getFixedMapping(connectorBucketNodeMap));
         }
 
         if (preferDynamic) {
@@ -183,6 +183,13 @@ public class NodePartitioningManager
                 createArbitraryBucketToNode(
                         new ArrayList<>(nodeScheduler.createNodeSelector(partitioningHandle.getConnectorId().get()).allNodes()),
                         connectorBucketNodeMap.getBucketCount()));
+    }
+
+    private static List<InternalNode> getFixedMapping(ConnectorBucketNodeMap connectorBucketNodeMap)
+    {
+        return connectorBucketNodeMap.getFixedMapping().stream()
+                .map(InternalNode.class::cast)
+                .collect(toImmutableList());
     }
 
     private ConnectorBucketNodeMap getConnectorBucketNodeMap(Session session, PartitioningHandle partitioningHandle)
@@ -227,7 +234,7 @@ public class NodePartitioningManager
         };
     }
 
-    private static List<Node> createArbitraryBucketToNode(List<Node> nodes, int bucketCount)
+    private static List<InternalNode> createArbitraryBucketToNode(List<InternalNode> nodes, int bucketCount)
     {
         return cyclingShuffledStream(nodes)
                 .limit(bucketCount)

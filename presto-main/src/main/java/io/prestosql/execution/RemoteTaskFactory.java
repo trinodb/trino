@@ -17,8 +17,8 @@ import com.google.common.collect.Multimap;
 import io.prestosql.Session;
 import io.prestosql.execution.NodeTaskMap.PartitionedSplitCountTracker;
 import io.prestosql.execution.buffer.OutputBuffers;
+import io.prestosql.metadata.InternalNode;
 import io.prestosql.metadata.Split;
-import io.prestosql.spi.Node;
 import io.prestosql.sql.planner.PlanFragment;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 
@@ -28,7 +28,7 @@ public interface RemoteTaskFactory
 {
     RemoteTask createRemoteTask(Session session,
             TaskId taskId,
-            Node node,
+            InternalNode node,
             PlanFragment fragment,
             Multimap<PlanNodeId, Split> initialSplits,
             OptionalInt totalPartitions,

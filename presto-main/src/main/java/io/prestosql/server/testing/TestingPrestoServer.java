@@ -51,6 +51,7 @@ import io.prestosql.memory.ClusterMemoryManager;
 import io.prestosql.memory.LocalMemoryManager;
 import io.prestosql.metadata.AllNodes;
 import io.prestosql.metadata.CatalogManager;
+import io.prestosql.metadata.InternalNode;
 import io.prestosql.metadata.InternalNodeManager;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.security.AccessControl;
@@ -60,7 +61,6 @@ import io.prestosql.server.PluginManager;
 import io.prestosql.server.ServerMainModule;
 import io.prestosql.server.ShutdownAction;
 import io.prestosql.server.security.ServerSecurityModule;
-import io.prestosql.spi.Node;
 import io.prestosql.spi.Plugin;
 import io.prestosql.spi.QueryId;
 import io.prestosql.split.PageSourceManager;
@@ -477,7 +477,7 @@ public class TestingPrestoServer
         return nodeManager.getAllNodes();
     }
 
-    public Set<Node> getActiveNodesWithConnector(CatalogName catalogName)
+    public Set<InternalNode> getActiveNodesWithConnector(CatalogName catalogName)
     {
         return nodeManager.getActiveConnectorNodes(catalogName);
     }

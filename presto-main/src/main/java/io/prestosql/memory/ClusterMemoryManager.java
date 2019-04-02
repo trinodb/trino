@@ -30,10 +30,10 @@ import io.prestosql.execution.QueryExecution;
 import io.prestosql.execution.QueryIdGenerator;
 import io.prestosql.execution.scheduler.NodeSchedulerConfig;
 import io.prestosql.memory.LowMemoryKiller.QueryMemoryInfo;
+import io.prestosql.metadata.InternalNode;
 import io.prestosql.metadata.InternalNodeManager;
 import io.prestosql.server.BasicQueryInfo;
 import io.prestosql.server.ServerConfig;
-import io.prestosql.spi.Node;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.QueryId;
 import io.prestosql.spi.memory.ClusterMemoryPoolManager;
@@ -453,14 +453,14 @@ public class ClusterMemoryManager
 
     private synchronized void updateNodes(MemoryPoolAssignmentsRequest assignments)
     {
-        ImmutableSet.Builder<Node> builder = ImmutableSet.builder();
-        Set<Node> aliveNodes = builder
+        ImmutableSet.Builder<InternalNode> builder = ImmutableSet.builder();
+        Set<InternalNode> aliveNodes = builder
                 .addAll(nodeManager.getNodes(ACTIVE))
                 .addAll(nodeManager.getNodes(SHUTTING_DOWN))
                 .build();
 
         ImmutableSet<String> aliveNodeIds = aliveNodes.stream()
-                .map(Node::getNodeIdentifier)
+                .map(InternalNode::getNodeIdentifier)
                 .collect(toImmutableSet());
 
         // Remove nodes that don't exist anymore
@@ -469,7 +469,7 @@ public class ClusterMemoryManager
         nodes.keySet().removeAll(deadNodes);
 
         // Add new nodes
-        for (Node node : aliveNodes) {
+        for (InternalNode node : aliveNodes) {
             if (!nodes.containsKey(node.getNodeIdentifier())) {
                 nodes.put(node.getNodeIdentifier(), new RemoteNodeMemory(node, httpClient, memoryInfoCodec, assignmentsRequestJsonCodec, locationFactory.createMemoryInfoLocation(node)));
             }

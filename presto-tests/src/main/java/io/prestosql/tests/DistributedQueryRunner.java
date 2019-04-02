@@ -29,12 +29,12 @@ import io.prestosql.execution.QueryManager;
 import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.metadata.AllNodes;
 import io.prestosql.metadata.Catalog;
+import io.prestosql.metadata.InternalNode;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.metadata.SessionPropertyManager;
 import io.prestosql.server.BasicQueryInfo;
 import io.prestosql.server.testing.TestingPrestoServer;
-import io.prestosql.spi.Node;
 import io.prestosql.spi.Plugin;
 import io.prestosql.spi.QueryId;
 import io.prestosql.split.PageSourceManager;
@@ -331,7 +331,7 @@ public class DistributedQueryRunner
     {
         for (TestingPrestoServer server : servers) {
             server.refreshNodes();
-            Set<Node> activeNodesWithConnector = server.getActiveNodesWithConnector(catalogName);
+            Set<InternalNode> activeNodesWithConnector = server.getActiveNodesWithConnector(catalogName);
             if (activeNodesWithConnector.size() != servers.size()) {
                 return false;
             }
