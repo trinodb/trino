@@ -55,7 +55,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.predicate.Marker.Bound.EXACTLY;
-import static io.prestosql.sql.planner.planPrinter.PlanPrinterUtil.throwOrCastToVarchar;
+import static io.prestosql.sql.planner.planPrinter.PlanPrinterUtil.castToVarcharOrFail;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -560,12 +560,10 @@ public class IoPlanPrinter
         private String getVarcharValue(Type type, Object value)
         {
             try {
-                return throwOrCastToVarchar(type, value, metadata.getFunctionRegistry(), session);
+                return castToVarcharOrFail(type, value, metadata.getFunctionRegistry(), session);
             }
             catch (OperatorNotFoundException e) {
-                throw new PrestoException(
-                    NOT_SUPPORTED,
-                    format("Unsupported data type in EXPLAIN (TYPE IO): %s", type.getDisplayName()), e);
+                throw new PrestoException(NOT_SUPPORTED, format("Unsupported data type in EXPLAIN (TYPE IO): %s", type.getDisplayName()), e);
             }
         }
 

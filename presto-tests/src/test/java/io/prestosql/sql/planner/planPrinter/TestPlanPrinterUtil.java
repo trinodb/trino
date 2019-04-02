@@ -54,7 +54,7 @@ public class TestPlanPrinterUtil
         Object value = new IntArrayBlock(3, java.util.Optional.empty(), new int[] {1, 2, 3});
         Session session = getSession();
         Metadata metadata = getQueryRunner().getMetadata();
-        PlanPrinterUtil.throwOrCastToVarchar(type, value, metadata.getFunctionRegistry(), session);
+        PlanPrinterUtil.castToVarcharOrFail(type, value, metadata.getFunctionRegistry(), session);
     }
 
     @Test(expectedExceptions = OperatorNotFoundException.class)
@@ -70,7 +70,7 @@ public class TestPlanPrinterUtil
         Object value = createBlockWithValuesFromKeyValueBlock(createTestMap(1));
         Session session = getSession();
         Metadata metadata = getQueryRunner().getMetadata();
-        PlanPrinterUtil.throwOrCastToVarchar(type, value, metadata.getFunctionRegistry(), session);
+        PlanPrinterUtil.castToVarcharOrFail(type, value, metadata.getFunctionRegistry(), session);
     }
 
     public static void throwUnsupportedOperation()

@@ -30,14 +30,14 @@ public final class PlanPrinterUtil
     static String castToVarchar(Type type, Object value, FunctionRegistry functionRegistry, Session session)
     {
         try {
-            return throwOrCastToVarchar(type, value, functionRegistry, session);
+            return castToVarcharOrFail(type, value, functionRegistry, session);
         }
         catch (OperatorNotFoundException e) {
             return "<UNREPRESENTABLE VALUE>";
         }
     }
 
-    static String throwOrCastToVarchar(Type type, Object value, FunctionRegistry functionRegistry, Session session)
+    static String castToVarcharOrFail(Type type, Object value, FunctionRegistry functionRegistry, Session session)
             throws OperatorNotFoundException
     {
         if (value == null) {
