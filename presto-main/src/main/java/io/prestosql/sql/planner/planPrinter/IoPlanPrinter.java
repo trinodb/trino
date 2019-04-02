@@ -18,6 +18,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableSet;
 import io.prestosql.Session;
 import io.prestosql.metadata.Metadata;
+import io.prestosql.metadata.OperatorNotFoundException;
 import io.prestosql.metadata.TableHandle;
 import io.prestosql.metadata.TableMetadata;
 import io.prestosql.spi.PrestoException;
@@ -28,20 +29,8 @@ import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.Marker;
 import io.prestosql.spi.predicate.Marker.Bound;
 import io.prestosql.spi.predicate.TupleDomain;
-import io.prestosql.spi.type.BigintType;
-import io.prestosql.spi.type.BooleanType;
-import io.prestosql.spi.type.CharType;
-import io.prestosql.spi.type.DateType;
-import io.prestosql.spi.type.DecimalType;
-import io.prestosql.spi.type.DoubleType;
-import io.prestosql.spi.type.IntegerType;
-import io.prestosql.spi.type.SmallintType;
-import io.prestosql.spi.type.TimeType;
-import io.prestosql.spi.type.TimestampType;
-import io.prestosql.spi.type.TinyintType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignature;
-import io.prestosql.spi.type.VarcharType;
 import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.PlanVisitor;
 import io.prestosql.sql.planner.plan.TableFinishNode;
@@ -66,21 +55,12 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.predicate.Marker.Bound.EXACTLY;
-import static io.prestosql.sql.planner.planPrinter.PlanPrinterUtil.castToVarchar;
+import static io.prestosql.sql.planner.planPrinter.PlanPrinterUtil.throwOrCastToVarchar;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class IoPlanPrinter
 {
-    /**
-     * List of supported data types for column constraints appearing in
-     * EXPLAIN (TYPE IO). Other types would cause a NOT_SUPPORTED
-     * Presto exception to be thrown.
-     */
-    private static final Set<Class> WHITELISTED_TYPES_FOR_OUTPUT = ImmutableSet.of(
-            VarcharType.class, TinyintType.class, SmallintType.class, IntegerType.class, BigintType.class,
-            BooleanType.class, CharType.class, DecimalType.class, DoubleType.class, DateType.class,
-            TimeType.class, TimestampType.class);
     private final Metadata metadata;
     private final Session session;
 
@@ -579,12 +559,14 @@ public class IoPlanPrinter
 
         private String getVarcharValue(Type type, Object value)
         {
-            for (Class<Type> whitelistedType : WHITELISTED_TYPES_FOR_OUTPUT) {
-                if (whitelistedType.getClass().isInstance(type.getClass())) {
-                    return castToVarchar(type, value, metadata.getFunctionRegistry(), session);
-                }
+            try {
+                return throwOrCastToVarchar(type, value, metadata.getFunctionRegistry(), session);
             }
-            throw new PrestoException(NOT_SUPPORTED, format("Unsupported data type in EXPLAIN (TYPE IO): %s", type.getDisplayName()));
+            catch (OperatorNotFoundException e) {
+                throw new PrestoException(
+                    NOT_SUPPORTED,
+                    format("Unsupported data type in EXPLAIN (TYPE IO): %s", type.getDisplayName()), e);
+            }
         }
 
         private Void processChildren(PlanNode node, IoPlanBuilder context)

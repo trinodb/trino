@@ -29,17 +29,23 @@ public final class PlanPrinterUtil
 
     static String castToVarchar(Type type, Object value, FunctionRegistry functionRegistry, Session session)
     {
-        if (value == null) {
-            return "NULL";
-        }
-
         try {
-            Signature coercion = functionRegistry.getCoercion(type, VARCHAR);
-            Slice coerced = (Slice) new InterpretedFunctionInvoker(functionRegistry).invoke(coercion, session.toConnectorSession(), value);
-            return coerced.toStringUtf8();
+            return throwOrCastToVarchar(type, value, functionRegistry, session);
         }
         catch (OperatorNotFoundException e) {
             return "<UNREPRESENTABLE VALUE>";
         }
+    }
+
+    static String throwOrCastToVarchar(Type type, Object value, FunctionRegistry functionRegistry, Session session)
+            throws OperatorNotFoundException
+    {
+        if (value == null) {
+            return "NULL";
+        }
+
+        Signature coercion = functionRegistry.getCoercion(type, VARCHAR);
+        Slice coerced = (Slice) new InterpretedFunctionInvoker(functionRegistry).invoke(coercion, session.toConnectorSession(), value);
+        return coerced.toStringUtf8();
     }
 }
