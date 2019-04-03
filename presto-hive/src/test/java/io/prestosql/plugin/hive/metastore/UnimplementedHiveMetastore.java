@@ -131,6 +131,12 @@ class UnimplementedHiveMetastore
     }
 
     @Override
+    public void commentTable(String databaseName, String tableName, Optional<String> comment)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public void addColumn(String databaseName, String tableName, String columnName, HiveType columnType, String columnComment)
     {
         throw new UnsupportedOperationException();

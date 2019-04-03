@@ -79,11 +79,13 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_PARTITION_DROPPED_DURING_QUERY;
+import static io.prestosql.plugin.hive.HiveMetadata.TABLE_COMMENT;
 import static io.prestosql.plugin.hive.HivePartitionManager.extractPartitionValues;
 import static io.prestosql.plugin.hive.HiveUtil.toPartitionValues;
 import static io.prestosql.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege.OWNERSHIP;
@@ -477,6 +479,21 @@ public class FileHiveMetastore
         catch (IOException e) {
             throw new PrestoException(HIVE_METASTORE_ERROR, e);
         }
+    }
+
+    @Override
+    public synchronized void commentTable(String databaseName, String tableName, Optional<String> comment)
+    {
+        alterTable(databaseName, tableName, oldTable -> {
+            Map<String, String> parameters = oldTable.getParameters().entrySet().stream()
+                    .filter(entry -> !entry.getKey().equals(TABLE_COMMENT))
+                    .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+            comment.ifPresent(value -> parameters.put(TABLE_COMMENT, value));
+
+            return oldTable.withParameters(ImmutableMap.<String, String>builder()
+                    .putAll(parameters)
+                    .build());
+        });
     }
 
     @Override

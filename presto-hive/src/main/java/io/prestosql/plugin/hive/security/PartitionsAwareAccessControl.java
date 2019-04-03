@@ -96,6 +96,12 @@ public class PartitionsAwareAccessControl
     }
 
     @Override
+    public void checkCanSetTableComment(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, SchemaTableName tableName)
+    {
+        delegate.checkCanSetTableComment(transactionHandle, identity, tableName);
+    }
+
+    @Override
     public void checkCanShowTablesMetadata(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, String schemaName)
     {
         delegate.checkCanShowTablesMetadata(transactionHandle, identity, schemaName);
