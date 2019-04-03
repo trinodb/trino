@@ -119,6 +119,12 @@ public abstract class ForwardingSystemAccessControl
     }
 
     @Override
+    public void checkCanSetTableComment(Identity identity, CatalogSchemaTableName table)
+    {
+        delegate().checkCanSetTableComment(identity, table);
+    }
+
+    @Override
     public void checkCanShowTablesMetadata(Identity identity, CatalogSchemaName schema)
     {
         delegate().checkCanShowTablesMetadata(identity, schema);

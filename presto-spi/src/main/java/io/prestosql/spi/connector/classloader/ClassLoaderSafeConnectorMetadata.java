@@ -329,6 +329,14 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
+    public void setTableComment(ConnectorSession session, ConnectorTableHandle tableHandle, Optional<String> comment)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            delegate.setTableComment(session, tableHandle, comment);
+        }
+    }
+
+    @Override
     public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorNewTableLayout> layout)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {

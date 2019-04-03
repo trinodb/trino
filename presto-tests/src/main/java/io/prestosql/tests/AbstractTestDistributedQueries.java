@@ -353,6 +353,26 @@ public abstract class AbstractTestDistributedQueries
     }
 
     @Test
+    public void testCommentTable()
+    {
+        assertUpdate("CREATE TABLE test_comment(id integer)");
+
+        assertUpdate("COMMENT ON TABLE test_comment IS 'new comment'");
+        MaterializedResult materializedRows = computeActual("SHOW CREATE TABLE test_comment");
+        assertTrue(materializedRows.getMaterializedRows().get(0).getField(0).toString().contains("COMMENT 'new comment'"));
+
+        assertUpdate("COMMENT ON TABLE test_comment IS ''");
+        materializedRows = computeActual("SHOW CREATE TABLE test_comment");
+        assertTrue(materializedRows.getMaterializedRows().get(0).getField(0).toString().contains("COMMENT ''"));
+
+        assertUpdate("COMMENT ON TABLE test_comment IS NULL");
+        materializedRows = computeActual("SHOW CREATE TABLE test_comment");
+        assertFalse(materializedRows.getMaterializedRows().get(0).getField(0).toString().contains("COMMENT"));
+
+        assertUpdate("DROP TABLE test_comment");
+    }
+
+    @Test
     public void testRenameColumn()
     {
         assertUpdate("CREATE TABLE test_rename_column AS SELECT 123 x", 1);

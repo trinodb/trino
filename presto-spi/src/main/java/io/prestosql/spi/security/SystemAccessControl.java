@@ -24,6 +24,7 @@ import java.util.Set;
 
 import static io.prestosql.spi.security.AccessDeniedException.denyAddColumn;
 import static io.prestosql.spi.security.AccessDeniedException.denyCatalogAccess;
+import static io.prestosql.spi.security.AccessDeniedException.denyCommentTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyCreateSchema;
 import static io.prestosql.spi.security.AccessDeniedException.denyCreateTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyCreateView;
@@ -159,6 +160,16 @@ public interface SystemAccessControl
     default void checkCanRenameTable(Identity identity, CatalogSchemaTableName table, CatalogSchemaTableName newTable)
     {
         denyRenameTable(table.toString(), newTable.toString());
+    }
+
+    /**
+     * Check if identity is allowed to comment the specified table in a catalog.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanSetTableComment(Identity identity, CatalogSchemaTableName table)
+    {
+        denyCommentTable(table.toString());
     }
 
     /**

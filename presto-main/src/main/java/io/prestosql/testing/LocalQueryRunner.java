@@ -42,6 +42,7 @@ import io.prestosql.cost.CostComparator;
 import io.prestosql.cost.StatsCalculator;
 import io.prestosql.cost.TaskCountEstimator;
 import io.prestosql.eventlistener.EventListenerManager;
+import io.prestosql.execution.CommentTask;
 import io.prestosql.execution.CommitTask;
 import io.prestosql.execution.CreateTableTask;
 import io.prestosql.execution.CreateViewTask;
@@ -143,6 +144,7 @@ import io.prestosql.sql.planner.plan.PlanNodeId;
 import io.prestosql.sql.planner.plan.TableScanNode;
 import io.prestosql.sql.planner.planprinter.PlanPrinter;
 import io.prestosql.sql.planner.sanity.PlanSanityChecker;
+import io.prestosql.sql.tree.Comment;
 import io.prestosql.sql.tree.Commit;
 import io.prestosql.sql.tree.CreateTable;
 import io.prestosql.sql.tree.CreateView;
@@ -407,6 +409,7 @@ public class LocalQueryRunner
                 .put(DropView.class, new DropViewTask())
                 .put(RenameColumn.class, new RenameColumnTask())
                 .put(RenameTable.class, new RenameTableTask())
+                .put(Comment.class, new CommentTask())
                 .put(ResetSession.class, new ResetSessionTask())
                 .put(SetSession.class, new SetSessionTask())
                 .put(Prepare.class, new PrepareTask(sqlParser))

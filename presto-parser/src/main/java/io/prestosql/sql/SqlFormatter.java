@@ -23,6 +23,7 @@ import io.prestosql.sql.tree.AstVisitor;
 import io.prestosql.sql.tree.Call;
 import io.prestosql.sql.tree.CallArgument;
 import io.prestosql.sql.tree.ColumnDefinition;
+import io.prestosql.sql.tree.Comment;
 import io.prestosql.sql.tree.Commit;
 import io.prestosql.sql.tree.CreateRole;
 import io.prestosql.sql.tree.CreateSchema;
@@ -930,6 +931,21 @@ public final class SqlFormatter
                     .append(node.getSource())
                     .append(" RENAME TO ")
                     .append(node.getTarget());
+
+            return null;
+        }
+
+        @Override
+        protected Void visitComment(Comment node, Integer context)
+        {
+            String comment = node.getComment().isPresent() ? formatStringLiteral(node.getComment().get()) : "NULL";
+
+            if (node.getType() == Comment.Type.TABLE) {
+                builder.append("COMMENT ON TABLE ")
+                        .append(node.getName())
+                        .append(" IS ")
+                        .append(comment);
+            }
 
             return null;
         }

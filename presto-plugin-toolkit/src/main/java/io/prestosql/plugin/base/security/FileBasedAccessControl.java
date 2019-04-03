@@ -37,6 +37,7 @@ import static io.prestosql.plugin.base.security.TableAccessControlRule.TablePriv
 import static io.prestosql.plugin.base.security.TableAccessControlRule.TablePrivilege.OWNERSHIP;
 import static io.prestosql.plugin.base.security.TableAccessControlRule.TablePrivilege.SELECT;
 import static io.prestosql.spi.security.AccessDeniedException.denyAddColumn;
+import static io.prestosql.spi.security.AccessDeniedException.denyCommentTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyCreateSchema;
 import static io.prestosql.spi.security.AccessDeniedException.denyCreateTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyCreateView;
@@ -134,6 +135,14 @@ public class FileBasedAccessControl
     {
         if (!checkTablePermission(identity, tableName, OWNERSHIP)) {
             denyRenameTable(tableName.toString(), newTableName.toString());
+        }
+    }
+
+    @Override
+    public void checkCanSetTableComment(ConnectorTransactionHandle transaction, ConnectorIdentity identity, SchemaTableName tableName)
+    {
+        if (!checkTablePermission(identity, tableName, OWNERSHIP)) {
+            denyCommentTable(tableName.toString());
         }
     }
 

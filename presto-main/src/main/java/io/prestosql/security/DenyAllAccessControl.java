@@ -28,6 +28,7 @@ import java.util.Set;
 
 import static io.prestosql.spi.security.AccessDeniedException.denyAddColumn;
 import static io.prestosql.spi.security.AccessDeniedException.denyCatalogAccess;
+import static io.prestosql.spi.security.AccessDeniedException.denyCommentTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyCreateRole;
 import static io.prestosql.spi.security.AccessDeniedException.denyCreateSchema;
 import static io.prestosql.spi.security.AccessDeniedException.denyCreateTable;
@@ -113,6 +114,12 @@ public class DenyAllAccessControl
     public void checkCanRenameTable(TransactionId transactionId, Identity identity, QualifiedObjectName tableName, QualifiedObjectName newTableName)
     {
         denyRenameTable(tableName.toString(), newTableName.toString());
+    }
+
+    @Override
+    public void checkCanSetTableComment(TransactionId transactionId, Identity identity, QualifiedObjectName tableName)
+    {
+        denyCommentTable(tableName.toString());
     }
 
     @Override

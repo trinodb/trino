@@ -33,6 +33,7 @@ import java.util.Set;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.prestosql.spi.security.AccessDeniedException.denyAddColumn;
+import static io.prestosql.spi.security.AccessDeniedException.denyCommentTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyCreateSchema;
 import static io.prestosql.spi.security.AccessDeniedException.denyCreateTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyCreateView;
@@ -51,6 +52,7 @@ import static io.prestosql.spi.security.AccessDeniedException.denySetCatalogSess
 import static io.prestosql.spi.security.AccessDeniedException.denySetSystemSessionProperty;
 import static io.prestosql.spi.security.AccessDeniedException.denySetUser;
 import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.ADD_COLUMN;
+import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.COMMENT_TABLE;
 import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.CREATE_SCHEMA;
 import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.CREATE_TABLE;
 import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.CREATE_VIEW;
@@ -175,6 +177,17 @@ public class TestingAccessControlManager
         }
         if (denyPrivileges.isEmpty()) {
             super.checkCanRenameTable(transactionId, identity, tableName, newTableName);
+        }
+    }
+
+    @Override
+    public void checkCanSetTableComment(TransactionId transactionId, Identity identity, QualifiedObjectName tableName)
+    {
+        if (shouldDenyPrivilege(identity.getUser(), tableName.getObjectName(), COMMENT_TABLE)) {
+            denyCommentTable(tableName.toString());
+        }
+        if (denyPrivileges.isEmpty()) {
+            super.checkCanSetTableComment(transactionId, identity, tableName);
         }
     }
 
@@ -313,7 +326,7 @@ public class TestingAccessControlManager
     {
         SET_USER,
         CREATE_SCHEMA, DROP_SCHEMA, RENAME_SCHEMA,
-        CREATE_TABLE, DROP_TABLE, RENAME_TABLE, INSERT_TABLE, DELETE_TABLE,
+        CREATE_TABLE, DROP_TABLE, RENAME_TABLE, COMMENT_TABLE, INSERT_TABLE, DELETE_TABLE,
         ADD_COLUMN, DROP_COLUMN, RENAME_COLUMN, SELECT_COLUMN,
         CREATE_VIEW, DROP_VIEW, CREATE_VIEW_WITH_SELECT_COLUMNS,
         SET_SESSION

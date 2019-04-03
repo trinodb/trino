@@ -35,6 +35,7 @@ import io.prestosql.sql.tree.Cast;
 import io.prestosql.sql.tree.CharLiteral;
 import io.prestosql.sql.tree.CoalesceExpression;
 import io.prestosql.sql.tree.ColumnDefinition;
+import io.prestosql.sql.tree.Comment;
 import io.prestosql.sql.tree.Commit;
 import io.prestosql.sql.tree.ComparisonExpression;
 import io.prestosql.sql.tree.CreateRole;
@@ -354,6 +355,18 @@ class AstBuilder
     public Node visitRenameTable(SqlBaseParser.RenameTableContext context)
     {
         return new RenameTable(getLocation(context), getQualifiedName(context.from), getQualifiedName(context.to));
+    }
+
+    @Override
+    public Node visitCommentTable(SqlBaseParser.CommentTableContext context)
+    {
+        Optional<String> comment = Optional.empty();
+
+        if (context.string() != null) {
+            comment = Optional.of(((StringLiteral) visit(context.string())).getValue());
+        }
+
+        return new Comment(getLocation(context), Comment.Type.TABLE, getQualifiedName(context.qualifiedName()), comment);
     }
 
     @Override

@@ -23,6 +23,7 @@ import io.prestosql.spi.security.Privilege;
 import java.util.Set;
 
 import static io.prestosql.spi.security.AccessDeniedException.denyAddColumn;
+import static io.prestosql.spi.security.AccessDeniedException.denyCommentTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyCreateTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyCreateView;
 import static io.prestosql.spi.security.AccessDeniedException.denyDeleteTable;
@@ -77,6 +78,12 @@ public class ReadOnlyAccessControl
     public void checkCanRenameTable(ConnectorTransactionHandle transaction, ConnectorIdentity identity, SchemaTableName tableName, SchemaTableName newTableName)
     {
         denyRenameTable(tableName.toString(), newTableName.toString());
+    }
+
+    @Override
+    public void checkCanSetTableComment(ConnectorTransactionHandle transaction, ConnectorIdentity identity, SchemaTableName tableName)
+    {
+        denyCommentTable(tableName.toString());
     }
 
     @Override

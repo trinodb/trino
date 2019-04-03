@@ -21,6 +21,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static io.prestosql.spi.security.AccessDeniedException.denyAddColumn;
+import static io.prestosql.spi.security.AccessDeniedException.denyCommentTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyCreateRole;
 import static io.prestosql.spi.security.AccessDeniedException.denyCreateSchema;
 import static io.prestosql.spi.security.AccessDeniedException.denyCreateTable;
@@ -132,6 +133,16 @@ public interface ConnectorAccessControl
     default void checkCanRenameTable(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, SchemaTableName tableName, SchemaTableName newTableName)
     {
         denyRenameTable(tableName.toString(), newTableName.toString());
+    }
+
+    /**
+     * Check if identity is allowed to comment the specified table in this catalog.
+     *
+     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
+     */
+    default void checkCanSetTableComment(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, SchemaTableName tableName)
+    {
+        denyCommentTable(tableName.toString());
     }
 
     /**
