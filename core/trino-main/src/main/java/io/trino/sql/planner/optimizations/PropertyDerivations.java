@@ -35,6 +35,7 @@ import io.trino.sql.planner.DomainTranslator;
 import io.trino.sql.planner.ExpressionInterpreter;
 import io.trino.sql.planner.NoOpSymbolResolver;
 import io.trino.sql.planner.OrderingScheme;
+import io.trino.sql.planner.Partitioning;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
@@ -82,6 +83,7 @@ import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.SymbolReference;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
@@ -142,7 +144,7 @@ public final class PropertyDerivations
         ActualProperties output = node.accept(new Visitor(metadata, typeOperators, session, types, typeAnalyzer), inputProperties);
 
         output.getNodePartitioning().ifPresent(partitioning ->
-                verify(node.getOutputSymbols().containsAll(partitioning.getColumns()), "Node-level partitioning properties contain columns not present in node's output"));
+                verify(node.getOutputSymbols().containsAll(partitioning.getInputColumns()), "Node-level partitioning properties contain columns not present in node's output"));
 
         verify(node.getOutputSymbols().containsAll(output.getConstants().keySet()), "Node-level constant properties contain columns not present in node's output");
 
@@ -514,10 +516,58 @@ public final class PropertyDerivations
                             .unordered(true)
                             .build();
                 case FULL:
-                    // We can't say anything about the partitioning scheme because any partition of
-                    // a hash-partitioned join can produce nulls in case of a lack of matches
+                    // the join keys might not be output by the join node, so we need to see if we can express the partitioning scheme
+                    // for the join in terms of its outputs
+                    probeProperties = probeProperties.translate(column -> filterIfMissing(node.getOutputSymbols(), column));
+                    buildProperties = buildProperties.translate(column -> filterIfMissing(node.getOutputSymbols(), column));
+
+                    if (!SystemSessionProperties.isDeriveFullJoinProperties(session) ||
+                            !probeProperties.getNodePartitioning().isPresent() ||
+                            !buildProperties.getNodePartitioning().isPresent()) {
+                        return ActualProperties.builder()
+                                .global(probeProperties.isSingleNode() ? singleStreamPartition() : arbitraryPartition())
+                                .build();
+                    }
+
+                    checkState(
+                            probeProperties.getNodePartitioning().get().getArguments().size() == buildProperties.getNodePartitioning().get().getArguments().size(),
+                            "Inconsistent partitioning for left and right side of join: %s vs %s",
+                            probeProperties.getNodePartitioning().get(),
+                            buildProperties.getNodePartitioning().get());
+
+                    List<Partitioning.ArgumentBinding> newBindings = new ArrayList<>();
+                    for (int i = 0; i < probeProperties.getNodePartitioning().get().getArguments().size(); i++) {
+                        Partitioning.ArgumentBinding left = probeProperties.getNodePartitioning().get().getArguments().get(i);
+                        Partitioning.ArgumentBinding right = buildProperties.getNodePartitioning().get().getArguments().get(i);
+
+                        if (left.isVariable() && right.isVariable()) {
+                            boolean found = false;
+                            for (JoinNode.EquiJoinClause equality : node.getCriteria()) {
+                                if (equality.getLeft().equals(left.getColumn()) && equality.getRight().equals(right.getColumn())) {
+                                    found = true;
+                                    newBindings.add(Partitioning.ArgumentBinding.expressionBinding(new CoalesceExpression(ImmutableList.of(equality.getLeft().toSymbolReference(), equality.getRight().toSymbolReference()))));
+                                }
+                            }
+                            checkState(found, "Partitioning inconsistent with join criteria");
+                        }
+                        else if (left.isConstant() && right.isVariable()) {
+                            checkState(buildProperties.getConstants().get(right.getColumn()).equals(left.getConstant()));
+                            newBindings.add(Partitioning.ArgumentBinding.constantBinding(left.getConstant()));
+                        }
+                        else if (left.isVariable() && right.isConstant()) {
+                            checkState(probeProperties.getConstants().get(left.getColumn()).equals(right.getConstant()));
+                            newBindings.add(Partitioning.ArgumentBinding.constantBinding(right.getConstant()));
+                        }
+                        else {
+                            checkState(left.getConstant().equals(right.getConstant()));
+                            newBindings.add(Partitioning.ArgumentBinding.constantBinding(left.getConstant()));
+                        }
+                    }
+
                     return ActualProperties.builder()
-                            .global(probeProperties.isSingleNode() ? singleStreamPartition() : arbitraryPartition())
+                            .global(partitionedOn(
+                                    Partitioning.createWithBindings(probeProperties.getNodePartitioning().get().getHandle(), newBindings),
+                                    Optional.empty()))
                             .build();
             }
             throw new UnsupportedOperationException("Unsupported join type: " + node.getType());

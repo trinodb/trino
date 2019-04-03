@@ -123,6 +123,7 @@ public final class SystemSessionProperties
     public static final String DEFAULT_FILTER_FACTOR_ENABLED = "default_filter_factor_enabled";
     public static final String UNWRAP_CASTS = "unwrap_casts";
     public static final String SKIP_REDUNDANT_SORT = "skip_redundant_sort";
+    public static final String DERIVE_FULL_JOIN_PROPERTIES = "derive_full_join_properties";
     public static final String ALLOW_PUSHDOWN_INTO_CONNECTORS = "allow_pushdown_into_connectors";
     public static final String PREDICATE_PUSHDOWN_USE_TABLE_PROPERTIES = "predicate_pushdown_use_table_properties";
     public static final String LATE_MATERIALIZATION = "late_materialization";
@@ -550,6 +551,11 @@ public final class SystemSessionProperties
                         SKIP_REDUNDANT_SORT,
                         "Skip redundant sort operations",
                         featuresConfig.isSkipRedundantSort(),
+                        false),
+                booleanProperty(
+                        DERIVE_FULL_JOIN_PROPERTIES,
+                        "Use COALESCE to describe FULL JOIN partitioning properties",
+                        featuresConfig.isDeriveFullJoinProperties(),
                         false),
                 booleanProperty(
                         ALLOW_PUSHDOWN_INTO_CONNECTORS,
@@ -1072,6 +1078,11 @@ public final class SystemSessionProperties
     public static boolean isSkipRedundantSort(Session session)
     {
         return session.getSystemProperty(SKIP_REDUNDANT_SORT, Boolean.class);
+    }
+
+    public static boolean isDeriveFullJoinProperties(Session session)
+    {
+        return session.getSystemProperty(DERIVE_FULL_JOIN_PROPERTIES, Boolean.class);
     }
 
     public static boolean isAllowPushdownIntoConnectors(Session session)
