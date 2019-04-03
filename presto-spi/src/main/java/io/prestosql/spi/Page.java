@@ -34,7 +34,7 @@ import static java.util.Objects.requireNonNull;
 public class Page
 {
     public static final int INSTANCE_SIZE = ClassLayout.parseClass(Page.class).instanceSize() +
-            (2 * ClassLayout.parseClass(AtomicLong.class).instanceSize());
+            (3 * ClassLayout.parseClass(AtomicLong.class).instanceSize());
 
     private final Block[] blocks;
     private final int positionCount;
