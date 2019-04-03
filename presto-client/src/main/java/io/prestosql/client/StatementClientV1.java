@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.Duration;
-import io.prestosql.client.OkHttpUtil.NullCallback;
 import okhttp3.Headers;
 import okhttp3.HttpUrl;
 import okhttp3.MediaType;
@@ -31,6 +30,7 @@ import okhttp3.RequestBody;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.ThreadSafe;
 
+import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.URI;
 import java.net.URLDecoder;
@@ -493,7 +493,14 @@ class StatementClientV1
         Request request = prepareRequest(HttpUrl.get(uri))
                 .delete()
                 .build();
-        httpClient.newCall(request).enqueue(new NullCallback());
+        try {
+            httpClient.newCall(request)
+                    .execute()
+                    .close();
+        }
+        catch (IOException ignored) {
+            // callers expect this method not to throw
+        }
     }
 
     private static String urlEncode(String value)
