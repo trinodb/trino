@@ -16,13 +16,10 @@ package io.prestosql.client;
 import com.google.common.base.CharMatcher;
 import com.google.common.net.HostAndPort;
 import io.airlift.security.pem.PemReader;
-import okhttp3.Call;
-import okhttp3.Callback;
 import okhttp3.Credentials;
 import okhttp3.Interceptor;
 import okhttp3.JavaNetCookieJar;
 import okhttp3.OkHttpClient;
-import okhttp3.Response;
 
 import javax.net.ssl.KeyManager;
 import javax.net.ssl.KeyManagerFactory;
@@ -61,16 +58,6 @@ import static java.util.Objects.requireNonNull;
 public final class OkHttpUtil
 {
     private OkHttpUtil() {}
-
-    public static class NullCallback
-            implements Callback
-    {
-        @Override
-        public void onFailure(Call call, IOException e) {}
-
-        @Override
-        public void onResponse(Call call, Response response) {}
-    }
 
     public static Interceptor userAgent(String userAgent)
     {
