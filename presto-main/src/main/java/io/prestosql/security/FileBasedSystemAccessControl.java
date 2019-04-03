@@ -239,6 +239,11 @@ public class FileBasedSystemAccessControl
     }
 
     @Override
+    public void checkCanSetTableComment(Identity identity, CatalogSchemaTableName table)
+    {
+    }
+
+    @Override
     public void checkCanShowTablesMetadata(Identity identity, CatalogSchemaName schema)
     {
     }

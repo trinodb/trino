@@ -56,6 +56,7 @@ import io.prestosql.sql.tree.AliasedRelation;
 import io.prestosql.sql.tree.AllColumns;
 import io.prestosql.sql.tree.Analyze;
 import io.prestosql.sql.tree.Call;
+import io.prestosql.sql.tree.Comment;
 import io.prestosql.sql.tree.Commit;
 import io.prestosql.sql.tree.CreateSchema;
 import io.prestosql.sql.tree.CreateTable;
@@ -576,6 +577,12 @@ class StatementAnalyzer
 
         @Override
         protected Scope visitRenameTable(RenameTable node, Optional<Scope> scope)
+        {
+            return createAndAssignScope(node, scope);
+        }
+
+        @Override
+        protected Scope visitComment(Comment node, Optional<Scope> scope)
         {
             return createAndAssignScope(node, scope);
         }

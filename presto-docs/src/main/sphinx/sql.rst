@@ -11,6 +11,7 @@ This chapter describes the SQL syntax used in Presto.
     sql/alter-table
     sql/analyze
     sql/call
+    sql/comment
     sql/commit
     sql/create-role
     sql/create-schema

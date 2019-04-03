@@ -37,6 +37,12 @@ public class TestHiveDistributedQueries
         // Hive connector currently does not support row-by-row delete
     }
 
+    @Override
+    public void testCommentTable()
+    {
+        // Hive connector currently does not support comment on table
+    }
+
     @Test
     public void testExplainOfCreateTableAs()
     {

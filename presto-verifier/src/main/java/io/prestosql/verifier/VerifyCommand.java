@@ -32,6 +32,7 @@ import io.prestosql.sql.parser.ParsingOptions;
 import io.prestosql.sql.parser.SqlParser;
 import io.prestosql.sql.parser.SqlParserOptions;
 import io.prestosql.sql.tree.AddColumn;
+import io.prestosql.sql.tree.Comment;
 import io.prestosql.sql.tree.CreateTable;
 import io.prestosql.sql.tree.CreateTableAsSelect;
 import io.prestosql.sql.tree.CreateView;
@@ -398,6 +399,9 @@ public class VerifyCommand
             return MODIFY;
         }
         if (statement instanceof RenameTable) {
+            return MODIFY;
+        }
+        if (statement instanceof Comment) {
             return MODIFY;
         }
         if (statement instanceof ShowCatalogs) {

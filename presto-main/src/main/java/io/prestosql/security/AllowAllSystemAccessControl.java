@@ -118,6 +118,11 @@ public class AllowAllSystemAccessControl
     }
 
     @Override
+    public void checkCanSetTableComment(Identity identity, CatalogSchemaTableName table)
+    {
+    }
+
+    @Override
     public void checkCanShowTablesMetadata(Identity identity, CatalogSchemaName schema)
     {
     }

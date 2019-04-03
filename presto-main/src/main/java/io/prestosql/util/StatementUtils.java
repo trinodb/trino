@@ -18,6 +18,7 @@ import io.prestosql.spi.resourcegroups.QueryType;
 import io.prestosql.sql.tree.AddColumn;
 import io.prestosql.sql.tree.Analyze;
 import io.prestosql.sql.tree.Call;
+import io.prestosql.sql.tree.Comment;
 import io.prestosql.sql.tree.Commit;
 import io.prestosql.sql.tree.CreateRole;
 import io.prestosql.sql.tree.CreateSchema;
@@ -105,6 +106,7 @@ public final class StatementUtils
         builder.put(AddColumn.class, QueryType.DATA_DEFINITION);
         builder.put(CreateTable.class, QueryType.DATA_DEFINITION);
         builder.put(RenameTable.class, QueryType.DATA_DEFINITION);
+        builder.put(Comment.class, QueryType.DATA_DEFINITION);
         builder.put(RenameColumn.class, QueryType.DATA_DEFINITION);
         builder.put(DropColumn.class, QueryType.DATA_DEFINITION);
         builder.put(DropTable.class, QueryType.DATA_DEFINITION);
