@@ -419,7 +419,7 @@ class StatementAnalyzer
             }
 
             validateProperties(node.getProperties(), scope);
-            CatalogName catalogName = metadata.getCatalogHandle(session, tableName.getCatalogName())
+            CatalogName catalogName = metadata.getCatalogHandle(session, tableName.getCatalogName().getLegacyName())
                     .orElseThrow(() -> new PrestoException(NOT_FOUND, "Catalog not found: " + tableName.getCatalogName()));
 
             Map<String, Object> analyzeProperties = metadata.getAnalyzePropertyManager().getProperties(
@@ -894,10 +894,10 @@ class StatementAnalyzer
 
             Optional<TableHandle> tableHandle = metadata.getTableHandle(session, name);
             if (!tableHandle.isPresent()) {
-                if (!metadata.getCatalogHandle(session, name.getCatalogName()).isPresent()) {
+                if (!metadata.getCatalogHandle(session, name.getCatalogName().getLegacyName()).isPresent()) {
                     throw new SemanticException(MISSING_CATALOG, table, "Catalog %s does not exist", name.getCatalogName());
                 }
-                if (!metadata.schemaExists(session, new CatalogSchemaName(createNonDelimitedName(name.getCatalogName()), createNonDelimitedName(name.getSchemaName())))) {
+                if (!metadata.schemaExists(session, new CatalogSchemaName(name.getCatalogName(), name.getSchemaName()))) {
                     throw new SemanticException(MISSING_SCHEMA, table, "Schema %s does not exist", name.getSchemaName());
                 }
                 throw new SemanticException(MISSING_TABLE, table, "Table %s does not exist", name);
@@ -1932,7 +1932,7 @@ class StatementAnalyzer
 
                 StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, viewAccessControl, viewSession, WarningCollector.NOOP);
                 Scope queryScope = analyzer.analyze(query, Scope.create());
-                return queryScope.getRelationType().withAlias(name.getObjectName(), null);
+                return queryScope.getRelationType().withAlias(name.getObjectName().getLegacyName(), null);
             }
             catch (RuntimeException e) {
                 throwIfInstanceOf(e, PrestoException.class);

@@ -22,6 +22,8 @@ import io.prestosql.spi.predicate.TupleDomain;
 
 import java.util.Optional;
 
+import static io.prestosql.util.NameUtil.createName;
+
 final class FilterUtil
 {
     private FilterUtil() {}
@@ -46,11 +48,11 @@ final class FilterUtil
 
     public static QualifiedTablePrefix tablePrefix(String catalog, Optional<String> schema, Optional<String> table)
     {
-        QualifiedTablePrefix prefix = new QualifiedTablePrefix(catalog);
+        QualifiedTablePrefix prefix = new QualifiedTablePrefix(createName(catalog));
         if (schema.isPresent()) {
-            prefix = new QualifiedTablePrefix(catalog, schema.get());
+            prefix = new QualifiedTablePrefix(createName(catalog), createName(schema.get()));
             if (table.isPresent()) {
-                prefix = new QualifiedTablePrefix(catalog, schema.get(), table.get());
+                prefix = new QualifiedTablePrefix(createName(catalog), createName(schema.get()), createName(table.get()));
             }
         }
         return prefix;

@@ -66,7 +66,7 @@ public class AddColumnTask
             throw new SemanticException(MISSING_TABLE, statement, "Table '%s' does not exist", tableName);
         }
 
-        CatalogName catalogName = metadata.getCatalogHandle(session, tableName.getCatalogName())
+        CatalogName catalogName = metadata.getCatalogHandle(session, tableName.getCatalogName().getLegacyName())
                 .orElseThrow(() -> new PrestoException(NOT_FOUND, "Catalog does not exist: " + tableName.getCatalogName()));
 
         accessControl.checkCanAddColumns(session.getRequiredTransactionId(), session.getIdentity(), tableName);
@@ -94,7 +94,7 @@ public class AddColumnTask
         Map<String, Expression> sqlProperties = mapFromProperties(element.getProperties());
         Map<String, Object> columnProperties = metadata.getColumnPropertyManager().getProperties(
                 catalogName,
-                tableName.getCatalogName(),
+                tableName.getCatalogName().getLegacyName(),
                 sqlProperties,
                 session,
                 metadata,

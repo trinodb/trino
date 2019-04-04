@@ -436,7 +436,7 @@ public final class Session
 
         return new FullConnectorSession(
                 this,
-                identity.toConnectorIdentity(catalogName.getCatalogName().getLegacyName()),
+                identity.toConnectorIdentity(catalogName.getCatalogName()),
                 connectorProperties.getOrDefault(catalogName, ImmutableMap.of()),
                 catalogName,
                 catalogName.getCatalogName().getLegacyName(),

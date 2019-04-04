@@ -21,7 +21,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
-import static io.prestosql.spi.Name.createNonDelimitedName;
 import static java.util.Collections.emptyMap;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.Objects.requireNonNull;
@@ -76,10 +75,10 @@ public class Identity
         return new ConnectorIdentity(user.getName(), principal, Optional.empty(), extraCredentials);
     }
 
-    public ConnectorIdentity toConnectorIdentity(String catalog)
+    public ConnectorIdentity toConnectorIdentity(Name catalog)
     {
         requireNonNull(catalog, "catalog is null");
-        return new ConnectorIdentity(user.getName(), principal, Optional.ofNullable(roles.get(createNonDelimitedName(catalog))), extraCredentials);
+        return new ConnectorIdentity(user.getName(), principal, Optional.ofNullable(roles.get(catalog)), extraCredentials);
     }
 
     @Override

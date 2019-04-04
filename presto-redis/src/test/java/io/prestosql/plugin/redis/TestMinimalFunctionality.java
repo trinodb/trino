@@ -36,6 +36,7 @@ import java.util.UUID;
 
 import static io.prestosql.plugin.redis.util.RedisTestUtils.createEmptyTableDescription;
 import static io.prestosql.plugin.redis.util.RedisTestUtils.installRedisPlugin;
+import static io.prestosql.spi.Name.createNonDelimitedName;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
 import static io.prestosql.transaction.TransactionBuilder.transaction;
@@ -103,7 +104,7 @@ public class TestMinimalFunctionality
     @Test
     public void testTableExists()
     {
-        QualifiedObjectName name = new QualifiedObjectName("redis", "default", tableName);
+        QualifiedObjectName name = new QualifiedObjectName(createNonDelimitedName("redis"), createNonDelimitedName("default"), createNonDelimitedName(tableName));
         transaction(queryRunner.getTransactionManager(), new AllowAllAccessControl())
                 .singleStatement()
                 .execute(SESSION, session -> {

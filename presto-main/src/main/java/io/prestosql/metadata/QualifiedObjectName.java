@@ -14,10 +14,11 @@
 package io.prestosql.metadata;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonValue;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Function;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.spi.Name;
 import io.prestosql.spi.connector.CatalogSchemaTableName;
 import io.prestosql.spi.connector.SchemaTableName;
 
@@ -26,13 +27,12 @@ import javax.annotation.concurrent.Immutable;
 import java.util.Objects;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.prestosql.metadata.MetadataUtil.checkObjectName;
+import static io.prestosql.util.NameUtil.createName;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
 public class QualifiedObjectName
 {
-    @JsonCreator
     public static QualifiedObjectName valueOf(String name)
     {
         requireNonNull(name, "name is null");
@@ -40,44 +40,50 @@ public class QualifiedObjectName
         ImmutableList<String> ids = ImmutableList.copyOf(Splitter.on('.').split(name));
         checkArgument(ids.size() == 3, "Invalid name %s", name);
 
-        return new QualifiedObjectName(ids.get(0), ids.get(1), ids.get(2));
+        return new QualifiedObjectName(createName(ids.get(0)), createName(ids.get(1)), createName(ids.get(2)));
     }
 
-    private final String catalogName;
-    private final String schemaName;
-    private final String objectName;
+    private final Name catalogName;
+    private final Name schemaName;
+    private final Name objectName;
 
-    public QualifiedObjectName(String catalogName, String schemaName, String objectName)
+    @JsonCreator
+    public QualifiedObjectName(
+            @JsonProperty("catalogName") Name catalogName,
+            @JsonProperty("schemaName") Name schemaName,
+            @JsonProperty("objectName") Name objectName)
     {
-        checkObjectName(catalogName, schemaName, objectName);
-        this.catalogName = catalogName;
-        this.schemaName = schemaName;
-        this.objectName = objectName;
+        this.catalogName = requireNonNull(catalogName, "CatalogName is null");
+        this.schemaName = requireNonNull(schemaName, "SchemaName is null");
+        this.objectName = requireNonNull(objectName, "ObjectName is null");
     }
 
-    public String getCatalogName()
+    @JsonProperty
+    public Name getCatalogName()
     {
         return catalogName;
     }
 
-    public String getSchemaName()
+    @JsonProperty
+    public Name getSchemaName()
     {
         return schemaName;
     }
 
-    public String getObjectName()
+    @JsonProperty
+    public Name getObjectName()
     {
         return objectName;
     }
 
     public SchemaTableName asSchemaTableName()
     {
-        return new SchemaTableName(schemaName, objectName);
+        return new SchemaTableName(schemaName.getLegacyName(), objectName.getLegacyName());
     }
 
     public CatalogSchemaTableName asCatalogSchemaTableName()
     {
-        return new CatalogSchemaTableName(catalogName, schemaName, objectName);
+        return new CatalogSchemaTableName(catalogName, new SchemaTableName(schemaName.getLegacyName(), objectName.getLegacyName()));
     }
 
     public QualifiedTablePrefix asQualifiedTablePrefix()
@@ -106,15 +112,14 @@ public class QualifiedObjectName
         return Objects.hash(catalogName, schemaName, objectName);
     }
 
-    @JsonValue
     @Override
     public String toString()
     {
-        return catalogName + '.' + schemaName + '.' + objectName;
+        return catalogName.getLegacyName() + '.' + schemaName.getLegacyName() + '.' + objectName.getLegacyName();
     }
 
-    public static Function<SchemaTableName, QualifiedObjectName> convertFromSchemaTableName(String catalogName)
+    public static Function<SchemaTableName, QualifiedObjectName> convertFromSchemaTableName(Name catalogName)
     {
-        return input -> new QualifiedObjectName(catalogName, input.getSchemaName(), input.getTableName());
+        return input -> new QualifiedObjectName(catalogName, createName(input.getSchemaName()), createName(input.getTableName()));
     }
 }

@@ -20,6 +20,7 @@ import io.airlift.tpch.TpchTable;
 import io.prestosql.Session;
 import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.plugin.tpch.TpchPlugin;
+import io.prestosql.spi.Name;
 import io.prestosql.spi.security.Identity;
 import io.prestosql.testing.QueryRunner;
 import io.prestosql.tests.DistributedQueryRunner;
@@ -82,6 +83,7 @@ public final class SqlServerQueryRunner
     {
         Set<String> existingTables = queryRunner.listTables(session, CATALOG, TEST_SCHEMA).stream()
                 .map(QualifiedObjectName::getObjectName)
+                .map(Name::getLegacyName)
                 .collect(toImmutableSet());
 
         Streams.stream(tables)

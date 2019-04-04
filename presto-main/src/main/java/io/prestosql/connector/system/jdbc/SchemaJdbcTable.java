@@ -34,6 +34,7 @@ import static io.prestosql.connector.system.jdbc.FilterUtil.filter;
 import static io.prestosql.metadata.MetadataListing.listCatalogs;
 import static io.prestosql.metadata.MetadataListing.listSchemas;
 import static io.prestosql.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
+import static io.prestosql.spi.Name.createNonDelimitedName;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.util.Objects.requireNonNull;
 
@@ -71,7 +72,7 @@ public class SchemaJdbcTable
 
         Builder table = InMemoryRecordSet.builder(METADATA);
         for (String catalog : filter(listCatalogs(session, metadata, accessControl).keySet(), catalogFilter)) {
-            for (String schema : listSchemas(session, metadata, accessControl, catalog)) {
+            for (String schema : listSchemas(session, metadata, accessControl, createNonDelimitedName(catalog))) {
                 table.addRow(schema, catalog);
             }
         }

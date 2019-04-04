@@ -30,6 +30,7 @@ import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.metadata.Split;
 import io.prestosql.metadata.TableHandle;
+import io.prestosql.spi.Name;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ColumnHandle;
@@ -92,6 +93,7 @@ import static io.prestosql.sql.planner.plan.Patterns.join;
 import static io.prestosql.sql.planner.plan.Patterns.source;
 import static io.prestosql.sql.tree.ComparisonExpression.Operator.LESS_THAN;
 import static io.prestosql.sql.tree.ComparisonExpression.Operator.LESS_THAN_OR_EQUAL;
+import static io.prestosql.util.NameUtil.createName;
 import static io.prestosql.util.SpatialJoinUtils.extractSupportedSpatialComparisons;
 import static io.prestosql.util.SpatialJoinUtils.extractSupportedSpatialFunctions;
 import static java.lang.String.format;
@@ -444,7 +446,7 @@ public class ExtractSpatialJoins
 
     private static KdbTree loadKdbTree(String tableName, Session session, Metadata metadata, SplitManager splitManager, PageSourceManager pageSourceManager)
     {
-        QualifiedObjectName name = toQualifiedObjectName(tableName, session.getCatalog().get().getName(), session.getSchema().get().getLegacyName());
+        QualifiedObjectName name = toQualifiedObjectName(tableName, session.getCatalog().get(), session.getSchema().get());
         TableHandle tableHandle = metadata.getTableHandle(session, name)
                 .orElseThrow(() -> new PrestoException(INVALID_SPATIAL_PARTITIONING, format("Table not found: %s", name)));
         Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle);
@@ -502,19 +504,19 @@ public class ExtractSpatialJoins
         }
     }
 
-    private static QualifiedObjectName toQualifiedObjectName(String name, String catalog, String schema)
+    private static QualifiedObjectName toQualifiedObjectName(String name, Name catalog, Name schema)
     {
         ImmutableList<String> ids = ImmutableList.copyOf(Splitter.on('.').split(name));
         if (ids.size() == 3) {
-            return new QualifiedObjectName(ids.get(0), ids.get(1), ids.get(2));
+            return new QualifiedObjectName(createName(ids.get(0)), createName(ids.get(1)), createName(ids.get(2)));
         }
 
         if (ids.size() == 2) {
-            return new QualifiedObjectName(catalog, ids.get(0), ids.get(1));
+            return new QualifiedObjectName(catalog, createName(ids.get(0)), createName(ids.get(1)));
         }
 
         if (ids.size() == 1) {
-            return new QualifiedObjectName(catalog, schema, ids.get(0));
+            return new QualifiedObjectName(catalog, schema, createName(ids.get(0)));
         }
 
         throw new PrestoException(INVALID_SPATIAL_PARTITIONING, format("Invalid name: %s", name));

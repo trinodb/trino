@@ -193,6 +193,7 @@ import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.prestosql.cost.StatsCalculatorModule.createNewStatsCalculator;
+import static io.prestosql.spi.Name.createNonDelimitedName;
 import static io.prestosql.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.GROUPED_SCHEDULING;
 import static io.prestosql.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.UNGROUPED_SCHEDULING;
 import static io.prestosql.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
@@ -567,7 +568,7 @@ public class LocalQueryRunner
             return transaction(transactionManager, accessControl)
                     .readOnly()
                     .execute(session, transactionSession -> {
-                        return getMetadata().listTables(transactionSession, new QualifiedTablePrefix(catalog, schema));
+                        return getMetadata().listTables(transactionSession, new QualifiedTablePrefix(createNonDelimitedName(catalog), createNonDelimitedName(schema)));
                     });
         }
         finally {

@@ -51,6 +51,7 @@ import java.util.Optional;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.prestosql.connector.CatalogName.createInformationSchemaConnectorId;
 import static io.prestosql.connector.CatalogName.createSystemTablesConnectorId;
+import static io.prestosql.spi.Name.createNonDelimitedName;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static io.prestosql.transaction.InMemoryTransactionManager.createTestTransactionManager;
@@ -127,7 +128,7 @@ public class TestInformationSchemaMetadata
         ConnectorTableLayoutHandle handle = layoutResults.get(0).getTableLayout().getHandle();
         assertTrue(handle instanceof InformationSchemaTableLayoutHandle);
         InformationSchemaTableLayoutHandle tableHandle = (InformationSchemaTableLayoutHandle) handle;
-        assertEquals(tableHandle.getPrefixes(), ImmutableSet.of(new QualifiedTablePrefix("test_catalog", "test_schema", "test_view")));
+        assertEquals(tableHandle.getPrefixes(), ImmutableSet.of(new QualifiedTablePrefix(createNonDelimitedName("test_catalog"), createNonDelimitedName("test_schema"), createNonDelimitedName("test_view"))));
     }
 
     @Test
@@ -165,7 +166,7 @@ public class TestInformationSchemaMetadata
         ConnectorTableLayoutHandle handle = layoutResults.get(0).getTableLayout().getHandle();
         assertTrue(handle instanceof InformationSchemaTableLayoutHandle);
         InformationSchemaTableLayoutHandle tableHandle = (InformationSchemaTableLayoutHandle) handle;
-        assertEquals(tableHandle.getPrefixes(), ImmutableSet.of(new QualifiedTablePrefix("test_catalog", "test_schema", "test_view")));
+        assertEquals(tableHandle.getPrefixes(), ImmutableSet.of(new QualifiedTablePrefix(createNonDelimitedName("test_catalog"), createNonDelimitedName("test_schema"), createNonDelimitedName("test_view"))));
     }
 
     private ConnectorSession createNewSession(TransactionId transactionId)

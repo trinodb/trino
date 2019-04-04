@@ -37,6 +37,7 @@ import static io.airlift.units.Duration.nanosSince;
 import static io.prestosql.plugin.kafka.util.TestUtils.installKafkaPlugin;
 import static io.prestosql.plugin.kafka.util.TestUtils.loadTpchTopicDescription;
 import static io.prestosql.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
+import static io.prestosql.spi.Name.createNonDelimitedName;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -97,7 +98,7 @@ public final class KafkaQueryRunner
     {
         long start = System.nanoTime();
         log.info("Running import for %s", table.getTableName());
-        TestUtils.loadTpchTopic(embeddedKafka, prestoClient, kafkaTopicName(table), new QualifiedObjectName("tpch", TINY_SCHEMA_NAME, table.getTableName().toLowerCase(ENGLISH)));
+        TestUtils.loadTpchTopic(embeddedKafka, prestoClient, kafkaTopicName(table), new QualifiedObjectName(createNonDelimitedName("tpch"), createNonDelimitedName(TINY_SCHEMA_NAME), createNonDelimitedName(table.getTableName().toLowerCase(ENGLISH))));
         log.info("Imported %s in %s", 0, table.getTableName(), nanosSince(start).convertToMostSuccinctTimeUnit());
     }
 

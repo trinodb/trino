@@ -26,6 +26,7 @@ import io.prestosql.spi.connector.SystemTable;
 import java.util.Optional;
 import java.util.Set;
 
+import static io.prestosql.spi.Name.createNonDelimitedName;
 import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.prestosql.spi.connector.SystemTable.Distribution.SINGLE_COORDINATOR;
 import static java.util.Objects.requireNonNull;
@@ -53,7 +54,7 @@ public class MetadataBasedSystemTablesProvider
     {
         Optional<SystemTable> systemTable = metadata.getSystemTable(
                 ((FullConnectorSession) session).getSession(),
-                new QualifiedObjectName(catalogName, tableName.getSchemaName(), tableName.getTableName()));
+                new QualifiedObjectName(createNonDelimitedName(catalogName), createNonDelimitedName(tableName.getSchemaName()), createNonDelimitedName(tableName.getTableName())));
 
         // dynamic system tables require access to the transaction and thus can only run on the current coordinator
         if (systemTable.isPresent() && systemTable.get().getDistribution() != SINGLE_COORDINATOR) {

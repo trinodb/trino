@@ -56,6 +56,7 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.metadata.MetadataUtil.SchemaMetadataBuilder.schemaMetadataBuilder;
 import static io.prestosql.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
 import static io.prestosql.metadata.MetadataUtil.findColumnMetadata;
+import static io.prestosql.spi.Name.createNonDelimitedName;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.util.Locale.ENGLISH;
@@ -248,7 +249,7 @@ public class InformationSchemaMetadata
         }
         if (prefixes.size() > MAX_PREFIXES_COUNT) {
             // in case of high number of prefixes it is better to populate all data and then filter
-            prefixes = ImmutableSet.of(new QualifiedTablePrefix(catalogName));
+            prefixes = ImmutableSet.of(new QualifiedTablePrefix(createNonDelimitedName(catalogName)));
         }
 
         ConnectorTableLayout layout = new ConnectorTableLayout(new InformationSchemaTableLayoutHandle(handle, prefixes));
@@ -269,14 +270,14 @@ public class InformationSchemaMetadata
         if (schemas.isPresent()) {
             return schemas.get().stream()
                     .filter(this::isLowerCase)
-                    .map(schema -> new QualifiedTablePrefix(catalogName, schema))
+                    .map(schema -> new QualifiedTablePrefix(createNonDelimitedName(catalogName), createNonDelimitedName(schema)))
                     .collect(toImmutableSet());
         }
 
         Session session = ((FullConnectorSession) connectorSession).getSession();
         return metadata.listSchemaNames(session, catalogName).stream()
                 .filter(schema -> !predicate.isPresent() || predicate.get().test(schemaAsFixedValues(schema)))
-                .map(schema -> new QualifiedTablePrefix(catalogName, schema))
+                .map(schema -> new QualifiedTablePrefix(createNonDelimitedName(catalogName), createNonDelimitedName(schema)))
                 .collect(toImmutableSet());
     }
 
@@ -294,7 +295,7 @@ public class InformationSchemaMetadata
                     .flatMap(prefix -> tables.get().stream()
                             .filter(this::isLowerCase)
                             .map(table -> table.toLowerCase(ENGLISH))
-                            .map(table -> new QualifiedObjectName(catalogName, prefix.getSchemaName().get(), table)))
+                            .map(table -> new QualifiedObjectName(createNonDelimitedName(catalogName), prefix.getSchemaName().get(), createNonDelimitedName(table))))
                     .filter(objectName -> metadata.getTableHandle(session, objectName).isPresent() || metadata.getView(session, objectName).isPresent())
                     .map(QualifiedObjectName::asQualifiedTablePrefix)
                     .collect(toImmutableSet());
@@ -341,9 +342,9 @@ public class InformationSchemaMetadata
     private Map<ColumnHandle, NullableValue> asFixedValues(QualifiedObjectName objectName)
     {
         return ImmutableMap.of(
-                CATALOG_COLUMN_HANDLE, new NullableValue(createUnboundedVarcharType(), utf8Slice(objectName.getCatalogName())),
-                SCHEMA_COLUMN_HANDLE, new NullableValue(createUnboundedVarcharType(), utf8Slice(objectName.getSchemaName())),
-                TABLE_NAME_COLUMN_HANDLE, new NullableValue(createUnboundedVarcharType(), utf8Slice(objectName.getObjectName())));
+                CATALOG_COLUMN_HANDLE, new NullableValue(createUnboundedVarcharType(), utf8Slice(objectName.getCatalogName().getLegacyName())),
+                SCHEMA_COLUMN_HANDLE, new NullableValue(createUnboundedVarcharType(), utf8Slice(objectName.getSchemaName().getLegacyName())),
+                TABLE_NAME_COLUMN_HANDLE, new NullableValue(createUnboundedVarcharType(), utf8Slice(objectName.getObjectName().getLegacyName())));
     }
 
     @Override

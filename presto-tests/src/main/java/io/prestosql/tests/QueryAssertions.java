@@ -40,6 +40,7 @@ import java.util.function.Supplier;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
 import static io.airlift.units.Duration.nanosSince;
+import static io.prestosql.spi.Name.createNonDelimitedName;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -341,7 +342,7 @@ public final class QueryAssertions
 
     public static void copyTable(QueryRunner queryRunner, String sourceCatalog, String sourceSchema, String sourceTable, Session session)
     {
-        QualifiedObjectName table = new QualifiedObjectName(sourceCatalog, sourceSchema, sourceTable);
+        QualifiedObjectName table = new QualifiedObjectName(createNonDelimitedName(sourceCatalog), createNonDelimitedName(sourceSchema), createNonDelimitedName(sourceTable));
         copyTable(queryRunner, table, session);
     }
 

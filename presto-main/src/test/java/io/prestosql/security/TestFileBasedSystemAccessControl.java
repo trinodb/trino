@@ -63,8 +63,8 @@ public class TestFileBasedSystemAccessControl
     private static final Identity admin = new Identity(createNonDelimitedName("admin"), Optional.empty());
     private static final Identity nonAsciiUser = new Identity(createNonDelimitedName("\u0194\u0194\u0194"), Optional.empty());
     private static final Set<Name> allCatalogs = ImmutableSet.of("secret", "open-to-all", "all-allowed", "alice-catalog", "allowed-absent", "\u0201\u0201\u0201").stream().map(Name::createNonDelimitedName).collect(toImmutableSet());
-    private static final QualifiedObjectName aliceTable = new QualifiedObjectName("alice-catalog", "schema", "table");
-    private static final QualifiedObjectName aliceView = new QualifiedObjectName("alice-catalog", "schema", "view");
+    private static final QualifiedObjectName aliceTable = new QualifiedObjectName(createNonDelimitedName("alice-catalog"), createNonDelimitedName("schema"), createNonDelimitedName("table"));
+    private static final QualifiedObjectName aliceView = new QualifiedObjectName(createNonDelimitedName("alice-catalog"), createNonDelimitedName("schema"), createNonDelimitedName("view"));
     private static final CatalogSchemaName aliceSchema = new CatalogSchemaName(createNonDelimitedName("alice-catalog"), createNonDelimitedName("schema"));
 
     @Test

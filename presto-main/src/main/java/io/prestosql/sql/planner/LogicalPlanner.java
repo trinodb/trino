@@ -289,19 +289,19 @@ public class LogicalPlanner
                 analysis.getCreateTableProperties(),
                 analysis.getParameters(),
                 analysis.getCreateTableComment());
-        Optional<NewTableLayout> newTableLayout = metadata.getNewTableLayout(session, destination.getCatalogName(), tableMetadata);
+        Optional<NewTableLayout> newTableLayout = metadata.getNewTableLayout(session, destination.getCatalogName().getLegacyName(), tableMetadata);
 
         List<String> columnNames = tableMetadata.getColumns().stream()
                 .filter(column -> !column.isHidden())
                 .map(ColumnMetadata::getName)
                 .collect(toImmutableList());
 
-        TableStatisticsMetadata statisticsMetadata = metadata.getStatisticsCollectionMetadataForWrite(session, destination.getCatalogName(), tableMetadata);
+        TableStatisticsMetadata statisticsMetadata = metadata.getStatisticsCollectionMetadataForWrite(session, destination.getCatalogName().getLegacyName(), tableMetadata);
 
         return createTableWriterPlan(
                 analysis,
                 plan,
-                new CreateName(destination.getCatalogName(), tableMetadata, newTableLayout),
+                new CreateName(destination.getCatalogName().getLegacyName(), tableMetadata, newTableLayout),
                 columnNames,
                 newTableLayout,
                 statisticsMetadata);
@@ -511,12 +511,12 @@ public class LogicalPlanner
 
     private ConnectorTableMetadata createTableMetadata(QualifiedObjectName table, List<ColumnMetadata> columns, Map<String, Expression> propertyExpressions, List<Expression> parameters, Optional<String> comment)
     {
-        CatalogName catalogName = metadata.getCatalogHandle(session, table.getCatalogName())
+        CatalogName catalogName = metadata.getCatalogHandle(session, table.getCatalogName().getLegacyName())
                 .orElseThrow(() -> new PrestoException(NOT_FOUND, "Catalog does not exist: " + table.getCatalogName()));
 
         Map<String, Object> properties = metadata.getTablePropertyManager().getProperties(
                 catalogName,
-                table.getCatalogName(),
+                table.getCatalogName().getLegacyName(),
                 propertyExpressions,
                 session,
                 metadata,

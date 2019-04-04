@@ -197,7 +197,7 @@ public final class HiveQueryRunner
         log.info("Loading data from %s.%s...", sourceCatalog, sourceSchema);
         long startTime = System.nanoTime();
         for (TpchTable<?> table : tables) {
-            copyTableBucketed(queryRunner, new QualifiedObjectName(sourceCatalog, sourceSchema, table.getTableName().toLowerCase(ENGLISH)), session);
+            copyTableBucketed(queryRunner, new QualifiedObjectName(createNonDelimitedName(sourceCatalog), createNonDelimitedName(sourceSchema), createNonDelimitedName(table.getTableName().toLowerCase(ENGLISH))), session);
         }
         log.info("Loading from %s.%s complete in %s", sourceCatalog, sourceSchema, nanosSince(startTime).toString(SECONDS));
     }
@@ -207,7 +207,7 @@ public final class HiveQueryRunner
         long start = System.nanoTime();
         log.info("Running import for %s", table.getObjectName());
         @Language("SQL") String sql;
-        switch (table.getObjectName()) {
+        switch (table.getObjectName().getLegacyName()) {
             case "part":
             case "partsupp":
             case "supplier":

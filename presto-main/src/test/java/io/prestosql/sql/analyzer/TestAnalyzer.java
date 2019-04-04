@@ -71,6 +71,7 @@ import static io.prestosql.connector.CatalogName.createInformationSchemaConnecto
 import static io.prestosql.connector.CatalogName.createSystemTablesConnectorId;
 import static io.prestosql.metadata.ViewDefinition.ViewColumn;
 import static io.prestosql.operator.scalar.ApplyFunction.APPLY_FUNCTION;
+import static io.prestosql.spi.Name.createNonDelimitedName;
 import static io.prestosql.spi.session.PropertyMetadata.integerProperty;
 import static io.prestosql.spi.session.PropertyMetadata.stringProperty;
 import static io.prestosql.spi.type.BigintType.BIGINT;
@@ -130,11 +131,11 @@ import static org.testng.Assert.fail;
 @Test(singleThreaded = true)
 public class TestAnalyzer
 {
-    private static final String TPCH_CATALOG = "tpch";
+    private static final Name TPCH_CATALOG = createNonDelimitedName("tpch");
     private static final CatalogName TPCH_CONNECTOR_ID = new CatalogName(TPCH_CATALOG);
-    private static final String SECOND_CATALOG = "c2";
+    private static final Name SECOND_CATALOG = createNonDelimitedName("c2");
     private static final CatalogName SECOND_CONNECTOR_ID = new CatalogName(SECOND_CATALOG);
-    private static final String THIRD_CATALOG = "c3";
+    private static final Name THIRD_CATALOG = createNonDelimitedName("c3");
     private static final CatalogName THIRD_CONNECTOR_ID = new CatalogName(THIRD_CATALOG);
     private static final Session SETUP_SESSION = testSessionBuilder()
             .setCatalog("c1")
@@ -1531,7 +1532,7 @@ public class TestAnalyzer
         catalogManager.registerCatalog(createTestingCatalog(THIRD_CATALOG, THIRD_CONNECTOR_ID));
 
         SchemaTableName table1 = new SchemaTableName("s1", "t1");
-        inSetupTransaction(session -> metadata.createTable(session, TPCH_CATALOG,
+        inSetupTransaction(session -> metadata.createTable(session, TPCH_CATALOG.getLegacyName(),
                 new ConnectorTableMetadata(table1, ImmutableList.of(
                         new ColumnMetadata("a", BIGINT),
                         new ColumnMetadata("b", BIGINT),
@@ -1540,14 +1541,14 @@ public class TestAnalyzer
                 false));
 
         SchemaTableName table2 = new SchemaTableName("s1", "t2");
-        inSetupTransaction(session -> metadata.createTable(session, TPCH_CATALOG,
+        inSetupTransaction(session -> metadata.createTable(session, TPCH_CATALOG.getLegacyName(),
                 new ConnectorTableMetadata(table2, ImmutableList.of(
                         new ColumnMetadata("a", BIGINT),
                         new ColumnMetadata("b", BIGINT))),
                 false));
 
         SchemaTableName table3 = new SchemaTableName("s1", "t3");
-        inSetupTransaction(session -> metadata.createTable(session, TPCH_CATALOG,
+        inSetupTransaction(session -> metadata.createTable(session, TPCH_CATALOG.getLegacyName(),
                 new ConnectorTableMetadata(table3, ImmutableList.of(
                         new ColumnMetadata("a", BIGINT),
                         new ColumnMetadata("b", BIGINT),
@@ -1556,14 +1557,14 @@ public class TestAnalyzer
 
         // table in different catalog
         SchemaTableName table4 = new SchemaTableName("s2", "t4");
-        inSetupTransaction(session -> metadata.createTable(session, SECOND_CATALOG,
+        inSetupTransaction(session -> metadata.createTable(session, SECOND_CATALOG.getLegacyName(),
                 new ConnectorTableMetadata(table4, ImmutableList.of(
                         new ColumnMetadata("a", BIGINT))),
                 false));
 
         // table with a hidden column
         SchemaTableName table5 = new SchemaTableName("s1", "t5");
-        inSetupTransaction(session -> metadata.createTable(session, TPCH_CATALOG,
+        inSetupTransaction(session -> metadata.createTable(session, TPCH_CATALOG.getLegacyName(),
                 new ConnectorTableMetadata(table5, ImmutableList.of(
                         new ColumnMetadata("a", BIGINT),
                         new ColumnMetadata("b", BIGINT, null, true))),
@@ -1571,7 +1572,7 @@ public class TestAnalyzer
 
         // table with a varchar column
         SchemaTableName table6 = new SchemaTableName("s1", "t6");
-        inSetupTransaction(session -> metadata.createTable(session, TPCH_CATALOG,
+        inSetupTransaction(session -> metadata.createTable(session, TPCH_CATALOG.getLegacyName(),
                 new ConnectorTableMetadata(table6, ImmutableList.of(
                         new ColumnMetadata("a", BIGINT),
                         new ColumnMetadata("b", VARCHAR),
@@ -1581,7 +1582,7 @@ public class TestAnalyzer
 
         // table with bigint, double, array of bigints and array of doubles column
         SchemaTableName table7 = new SchemaTableName("s1", "t7");
-        inSetupTransaction(session -> metadata.createTable(session, TPCH_CATALOG,
+        inSetupTransaction(session -> metadata.createTable(session, TPCH_CATALOG.getLegacyName(),
                 new ConnectorTableMetadata(table7, ImmutableList.of(
                         new ColumnMetadata("a", BIGINT),
                         new ColumnMetadata("b", DOUBLE),
@@ -1593,34 +1594,34 @@ public class TestAnalyzer
         String viewData1 = JsonCodec.jsonCodec(ViewDefinition.class).toJson(
                 new ViewDefinition(
                         "select a from t1",
-                        Optional.of(TPCH_CATALOG),
+                        Optional.of(TPCH_CATALOG.getLegacyName()),
                         Optional.of("s1"),
                         ImmutableList.of(new ViewColumn("a", BIGINT)),
                         Optional.of("user"),
                         false));
-        inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName(TPCH_CATALOG, "s1", "v1"), viewData1, false));
+        inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName(TPCH_CATALOG, createNonDelimitedName("s1"), createNonDelimitedName("v1")), viewData1, false));
 
         // stale view (different column type)
         String viewData2 = JsonCodec.jsonCodec(ViewDefinition.class).toJson(
                 new ViewDefinition(
                         "select a from t1",
-                        Optional.of(TPCH_CATALOG),
+                        Optional.of(TPCH_CATALOG.getLegacyName()),
                         Optional.of("s1"),
                         ImmutableList.of(new ViewColumn("a", VARCHAR)),
                         Optional.of("user"),
                         false));
-        inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName(TPCH_CATALOG, "s1", "v2"), viewData2, false));
+        inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName(TPCH_CATALOG, createNonDelimitedName("s1"), createNonDelimitedName("v2")), viewData2, false));
 
         // view referencing table in different schema from itself and session
         String viewData3 = JsonCodec.jsonCodec(ViewDefinition.class).toJson(
                 new ViewDefinition(
                         "select a from t4",
-                        Optional.of(SECOND_CATALOG),
+                        Optional.of(SECOND_CATALOG.getLegacyName()),
                         Optional.of("s2"),
                         ImmutableList.of(new ViewColumn("a", BIGINT)),
                         Optional.of("owner"),
                         false));
-        inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName(THIRD_CATALOG, "s3", "v3"), viewData3, false));
+        inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName(THIRD_CATALOG, createNonDelimitedName("s3"), createNonDelimitedName("v3")), viewData3, false));
 
         // valid view with uppercase column name
         String viewData4 = JsonCodec.jsonCodec(ViewDefinition.class).toJson(
@@ -1631,18 +1632,18 @@ public class TestAnalyzer
                         ImmutableList.of(new ViewColumn("a", BIGINT)),
                         Optional.of("user"),
                         false));
-        inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName("tpch", "s1", "v4"), viewData4, false));
+        inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName(createNonDelimitedName("tpch"), createNonDelimitedName("s1"), createNonDelimitedName("v4")), viewData4, false));
 
         // recursive view referencing to itself
         String viewData5 = JsonCodec.jsonCodec(ViewDefinition.class).toJson(
                 new ViewDefinition(
                         "select * from v5",
-                        Optional.of(TPCH_CATALOG),
+                        Optional.of(TPCH_CATALOG.getLegacyName()),
                         Optional.of("s1"),
                         ImmutableList.of(new ViewColumn("a", BIGINT)),
                         Optional.of("user"),
                         false));
-        inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName(TPCH_CATALOG, "s1", "v5"), viewData5, false));
+        inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName(TPCH_CATALOG, createNonDelimitedName("s1"), createNonDelimitedName("v5")), viewData5, false));
     }
 
     private void inSetupTransaction(Consumer<Session> consumer)
@@ -1748,17 +1749,17 @@ public class TestAnalyzer
         }
     }
 
-    private Catalog createTestingCatalog(String catalogName, CatalogName connectorId)
+    private Catalog createTestingCatalog(Name catalogName, CatalogName connectorId)
     {
         CatalogName systemId = createSystemTablesConnectorId(connectorId);
         Connector connector = createTestingConnector();
         InternalNodeManager nodeManager = new InMemoryNodeManager();
         return new Catalog(
-                catalogName,
+                catalogName.getLegacyName(),
                 connectorId,
                 connector,
                 createInformationSchemaConnectorId(connectorId),
-                new InformationSchemaConnector(catalogName, nodeManager, metadata, accessControl),
+                new InformationSchemaConnector(catalogName.getLegacyName(), nodeManager, metadata, accessControl),
                 systemId,
                 new SystemConnector(
                         systemId,

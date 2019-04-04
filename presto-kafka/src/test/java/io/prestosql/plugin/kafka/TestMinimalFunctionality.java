@@ -37,6 +37,7 @@ import java.util.UUID;
 
 import static io.prestosql.plugin.kafka.util.EmbeddedKafka.CloseableProducer;
 import static io.prestosql.plugin.kafka.util.TestUtils.createEmptyTopicDescription;
+import static io.prestosql.spi.Name.createNonDelimitedName;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
 import static io.prestosql.transaction.TransactionBuilder.transaction;
@@ -107,7 +108,7 @@ public class TestMinimalFunctionality
     @Test
     public void testTopicExists()
     {
-        QualifiedObjectName name = new QualifiedObjectName("kafka", "default", topicName);
+        QualifiedObjectName name = new QualifiedObjectName(createNonDelimitedName("kafka"), createNonDelimitedName("default"), createNonDelimitedName(topicName));
 
         transaction(queryRunner.getTransactionManager(), new AllowAllAccessControl())
                 .singleStatement()

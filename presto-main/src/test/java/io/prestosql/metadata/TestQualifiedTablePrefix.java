@@ -17,6 +17,7 @@ import io.airlift.json.JsonCodec;
 import org.testng.annotations.Test;
 
 import static io.airlift.json.JsonCodec.jsonCodec;
+import static io.prestosql.spi.Name.createNonDelimitedName;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -29,8 +30,8 @@ public class TestQualifiedTablePrefix
     @Test
     public void testCatalog()
     {
-        QualifiedTablePrefix tableName = new QualifiedTablePrefix("catalog");
-        assertEquals("catalog", tableName.getCatalogName());
+        QualifiedTablePrefix tableName = new QualifiedTablePrefix(createNonDelimitedName("catalog"));
+        assertEquals(createNonDelimitedName("catalog"), tableName.getCatalogName());
 
         assertFalse(tableName.hasSchemaName());
         assertFalse(tableName.hasTableName());
@@ -39,33 +40,33 @@ public class TestQualifiedTablePrefix
     @Test
     public void testSchema()
     {
-        QualifiedTablePrefix tableName = new QualifiedTablePrefix("catalog", "schema");
+        QualifiedTablePrefix tableName = new QualifiedTablePrefix(createNonDelimitedName("catalog"), createNonDelimitedName("schema"));
 
-        assertEquals("catalog", tableName.getCatalogName());
+        assertEquals(createNonDelimitedName("catalog"), tableName.getCatalogName());
         assertTrue(tableName.hasSchemaName());
 
-        assertEquals("schema", tableName.getSchemaName().get());
+        assertEquals(createNonDelimitedName("schema"), tableName.getSchemaName().get());
         assertFalse(tableName.hasTableName());
     }
 
     @Test
     public void testTable()
     {
-        QualifiedTablePrefix tableName = new QualifiedTablePrefix("catalog", "schema", "table");
-        assertEquals("catalog", tableName.getCatalogName());
+        QualifiedTablePrefix tableName = new QualifiedTablePrefix(createNonDelimitedName("catalog"), createNonDelimitedName("schema"), createNonDelimitedName("table"));
+        assertEquals(createNonDelimitedName("catalog"), tableName.getCatalogName());
 
         assertTrue(tableName.hasSchemaName());
-        assertEquals("schema", tableName.getSchemaName().get());
+        assertEquals(createNonDelimitedName("schema"), tableName.getSchemaName().get());
 
         assertTrue(tableName.hasTableName());
-        assertEquals("table", tableName.getTableName().get());
+        assertEquals(createNonDelimitedName("table"), tableName.getTableName().get());
     }
 
     @Test
     public void testBadTable()
     {
         try {
-            new QualifiedTablePrefix("catalog", null, "table");
+            new QualifiedTablePrefix(createNonDelimitedName("catalog"), null, createNonDelimitedName("table"));
             fail();
         }
         catch (RuntimeException e) {
@@ -76,7 +77,7 @@ public class TestQualifiedTablePrefix
     @Test
     public void testRoundTrip()
     {
-        QualifiedTablePrefix table = new QualifiedTablePrefix("abc", "xyz", "fgh");
+        QualifiedTablePrefix table = new QualifiedTablePrefix(createNonDelimitedName("abc"), createNonDelimitedName("xyz"), createNonDelimitedName("fgh"));
         assertEquals(CODEC.fromJson(CODEC.toJson(table)), table);
     }
 }

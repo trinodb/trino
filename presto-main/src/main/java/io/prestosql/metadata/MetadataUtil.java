@@ -36,6 +36,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.prestosql.spi.Name.createNonDelimitedName;
 import static io.prestosql.spi.StandardErrorCode.SYNTAX_ERROR;
 import static io.prestosql.spi.security.PrincipalType.ROLE;
 import static io.prestosql.spi.security.PrincipalType.USER;
@@ -151,7 +152,7 @@ public final class MetadataUtil
         Name catalogName = (parts.size() > 2) ? createName(parts.get(2)) : session.getCatalog().orElseThrow(() ->
                 new SemanticException(CATALOG_NOT_SPECIFIED, node, "Catalog must be specified when session catalog is not set"));
 
-        return new QualifiedObjectName(catalogName.getLegacyName(), schemaName.getLegacyName(), objectName.getLegacyName());
+        return new QualifiedObjectName(catalogName, schemaName, objectName);
     }
 
     public static PrestoPrincipal createPrincipal(Session session, GrantorSpecification specification)
@@ -189,7 +190,7 @@ public final class MetadataUtil
         if (!session.getCatalog().isPresent() || !session.getSchema().isPresent()) {
             return false;
         }
-        QualifiedObjectName name = new QualifiedObjectName(session.getCatalog().get().getLegacyName(), session.getSchema().get().getName(), table);
+        QualifiedObjectName name = new QualifiedObjectName(session.getCatalog().get(), session.getSchema().get(), createNonDelimitedName(table));
         return metadata.getTableHandle(session, name).isPresent();
     }
 

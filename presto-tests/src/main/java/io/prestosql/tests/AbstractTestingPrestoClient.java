@@ -48,6 +48,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterables.transform;
 import static io.prestosql.client.StatementClientFactory.newStatementClient;
+import static io.prestosql.spi.Name.createNonDelimitedName;
 import static io.prestosql.spi.session.ResourceEstimates.CPU_TIME;
 import static io.prestosql.spi.session.ResourceEstimates.EXECUTION_TIME;
 import static io.prestosql.spi.session.ResourceEstimates.PEAK_MEMORY;
@@ -172,7 +173,7 @@ public abstract class AbstractTestingPrestoClient<T>
         return transaction(prestoServer.getTransactionManager(), prestoServer.getAccessControl())
                 .readOnly()
                 .execute(session, transactionSession -> {
-                    return prestoServer.getMetadata().listTables(transactionSession, new QualifiedTablePrefix(catalog, schema));
+                    return prestoServer.getMetadata().listTables(transactionSession, new QualifiedTablePrefix(createNonDelimitedName(catalog), createNonDelimitedName(schema)));
                 });
     }
 

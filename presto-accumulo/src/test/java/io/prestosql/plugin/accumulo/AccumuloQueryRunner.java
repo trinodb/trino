@@ -46,6 +46,7 @@ import static io.prestosql.plugin.accumulo.AccumuloErrorCode.MINI_ACCUMULO;
 import static io.prestosql.plugin.accumulo.AccumuloErrorCode.UNEXPECTED_ACCUMULO_ERROR;
 import static io.prestosql.plugin.accumulo.MiniAccumuloConfigUtil.setConfigClassPath;
 import static io.prestosql.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
+import static io.prestosql.spi.Name.createNonDelimitedName;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
@@ -115,7 +116,7 @@ public final class AccumuloQueryRunner
             String schema,
             TpchTable<?> table)
     {
-        QualifiedObjectName source = new QualifiedObjectName(catalog, schema, table.getTableName());
+        QualifiedObjectName source = new QualifiedObjectName(createNonDelimitedName(catalog), createNonDelimitedName(schema), createNonDelimitedName(table.getTableName()));
         String target = table.getTableName();
 
         @Language("SQL")

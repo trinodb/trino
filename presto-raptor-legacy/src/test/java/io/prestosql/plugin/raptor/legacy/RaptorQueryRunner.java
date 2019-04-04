@@ -33,6 +33,7 @@ import java.util.Map.Entry;
 
 import static io.airlift.units.Duration.nanosSince;
 import static io.prestosql.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
+import static io.prestosql.spi.Name.createNonDelimitedName;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static io.prestosql.tests.QueryAssertions.copyTpchTables;
 import static java.lang.String.format;
@@ -112,7 +113,7 @@ public final class RaptorQueryRunner
 
     private static void copyTable(QueryRunner queryRunner, String catalog, Session session, String schema, TpchTable<?> table, String properties)
     {
-        QualifiedObjectName source = new QualifiedObjectName(catalog, schema, table.getTableName());
+        QualifiedObjectName source = new QualifiedObjectName(createNonDelimitedName(catalog), createNonDelimitedName(schema), createNonDelimitedName(table.getTableName()));
         String target = table.getTableName();
 
         String with = properties.isEmpty() ? "" : format(" WITH (%s)", properties);

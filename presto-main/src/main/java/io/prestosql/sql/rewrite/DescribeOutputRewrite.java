@@ -19,6 +19,7 @@ import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.security.AccessControl;
+import io.prestosql.spi.Name;
 import io.prestosql.spi.type.FixedWidthType;
 import io.prestosql.sql.analyzer.Analysis;
 import io.prestosql.sql.analyzer.Analyzer;
@@ -150,9 +151,9 @@ final class DescribeOutputRewrite
 
             return row(
                     new StringLiteral(columnName),
-                    new StringLiteral(originTable.map(QualifiedObjectName::getCatalogName).orElse("")),
-                    new StringLiteral(originTable.map(QualifiedObjectName::getSchemaName).orElse("")),
-                    new StringLiteral(originTable.map(QualifiedObjectName::getObjectName).orElse("")),
+                    new StringLiteral(originTable.map(QualifiedObjectName::getCatalogName).map(Name::getLegacyName).orElse("")),
+                    new StringLiteral(originTable.map(QualifiedObjectName::getSchemaName).map(Name::getLegacyName).orElse("")),
+                    new StringLiteral(originTable.map(QualifiedObjectName::getObjectName).map(Name::getLegacyName).orElse("")),
                     new StringLiteral(field.getType().getDisplayName()),
                     typeSize,
                     new BooleanLiteral(String.valueOf(field.isAliased())));

@@ -219,7 +219,7 @@ final class ShowQueriesRewrite
         @Override
         protected Node visitShowGrants(ShowGrants showGrants, Void context)
         {
-            String catalogName = session.getCatalog().map(Name::getLegacyName).orElse(null);
+            Name catalogName = session.getCatalog().orElse(null);
             Optional<Expression> predicate = Optional.empty();
 
             Optional<QualifiedName> tableName = showGrants.getTableName();
@@ -236,11 +236,11 @@ final class ShowQueriesRewrite
                 accessControl.checkCanShowTablesMetadata(
                         session.getRequiredTransactionId(),
                         session.getIdentity(),
-                        new CatalogSchemaName(createNonDelimitedName(catalogName), createNonDelimitedName(qualifiedTableName.getSchemaName())));
+                        new CatalogSchemaName(catalogName, qualifiedTableName.getSchemaName()));
 
                 predicate = Optional.of(combineConjuncts(
-                        equal(identifier("table_schema"), new StringLiteral(qualifiedTableName.getSchemaName())),
-                        equal(identifier("table_name"), new StringLiteral(qualifiedTableName.getObjectName()))));
+                        equal(identifier("table_schema"), new StringLiteral(qualifiedTableName.getSchemaName().getLegacyName())),
+                        equal(identifier("table_name"), new StringLiteral(qualifiedTableName.getObjectName().getLegacyName()))));
             }
             else {
                 if (catalogName == null) {
@@ -249,7 +249,7 @@ final class ShowQueriesRewrite
 
                 Set<String> allowedSchemas = listSchemas(session, metadata, accessControl, catalogName);
                 for (String schema : allowedSchemas) {
-                    accessControl.checkCanShowTablesMetadata(session.getRequiredTransactionId(), session.getIdentity(), new CatalogSchemaName(createNonDelimitedName(catalogName), createNonDelimitedName(schema)));
+                    accessControl.checkCanShowTablesMetadata(session.getRequiredTransactionId(), session.getIdentity(), new CatalogSchemaName(catalogName, createNonDelimitedName(schema)));
                 }
             }
 
@@ -265,7 +265,7 @@ final class ShowQueriesRewrite
                             aliasedName("privilege_type", "Privilege"),
                             aliasedName("is_grantable", "Grantable"),
                             aliasedName("with_hierarchy", "With Hierarchy")),
-                    from(catalogName, TABLE_TABLE_PRIVILEGES),
+                    from(catalogName.getLegacyName(), TABLE_TABLE_PRIVILEGES),
                     predicate,
                     Optional.empty());
         }
@@ -378,10 +378,10 @@ final class ShowQueriesRewrite
                             aliasedName("data_type", "Type"),
                             aliasedNullToEmpty("extra_info", "Extra"),
                             aliasedNullToEmpty("comment", "Comment")),
-                    from(tableName.getCatalogName(), TABLE_COLUMNS),
+                    from(tableName.getCatalogName().getLegacyName(), TABLE_COLUMNS),
                     logicalAnd(
-                            equal(identifier("table_schema"), new StringLiteral(tableName.getSchemaName())),
-                            equal(identifier("table_name"), new StringLiteral(tableName.getObjectName()))),
+                            equal(identifier("table_schema"), new StringLiteral(tableName.getSchemaName().getLegacyName())),
+                            equal(identifier("table_name"), new StringLiteral(tableName.getObjectName().getLegacyName()))),
                     ordering(ascending("ordinal_position")));
         }
 
@@ -437,8 +437,8 @@ final class ShowQueriesRewrite
                 Query query = parseView(viewDefinition.get().getOriginalSql(), objectName, node);
                 List<Identifier> parts = Lists.reverse(node.getName().getParts());
                 Identifier tableName = parts.get(0);
-                Identifier schemaName = (parts.size() > 1) ? parts.get(1) : new Identifier(objectName.getSchemaName());
-                Identifier catalogName = (parts.size() > 2) ? parts.get(2) : new Identifier(objectName.getCatalogName());
+                Identifier schemaName = (parts.size() > 1) ? parts.get(1) : createIdentifier(objectName.getSchemaName());
+                Identifier catalogName = (parts.size() > 2) ? parts.get(2) : createIdentifier(objectName.getCatalogName());
                 String sql = formatSql(new CreateView(QualifiedName.of(ImmutableList.of(catalogName, schemaName, tableName)), query, false, Optional.empty()), Optional.of(parameters)).trim();
                 return singleValueQuery("Create View", sql);
             }
@@ -470,7 +470,7 @@ final class ShowQueriesRewrite
                 List<Property> propertyNodes = buildProperties(objectName, Optional.empty(), INVALID_TABLE_PROPERTY, properties, allTableProperties);
 
                 CreateTable createTable = new CreateTable(
-                        QualifiedName.of(objectName.getCatalogName(), objectName.getSchemaName(), objectName.getObjectName()),
+                        QualifiedName.of(createIdentifier(objectName.getCatalogName()), createIdentifier(objectName.getSchemaName()), createIdentifier(objectName.getObjectName())),
                         columns,
                         false,
                         propertyNodes,
@@ -632,6 +632,11 @@ final class ShowQueriesRewrite
         private static Relation from(String catalog, SchemaTableName table)
         {
             return table(QualifiedName.of(catalog, table.getSchemaName(), table.getTableName()));
+        }
+
+        private static Identifier createIdentifier(Name name)
+        {
+            return new Identifier(name.getName(), name.isDelimited());
         }
 
         @Override

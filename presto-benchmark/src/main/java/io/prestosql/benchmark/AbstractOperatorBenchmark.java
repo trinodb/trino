@@ -80,6 +80,7 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.prestosql.SystemSessionProperties.getFilterAndProjectMinOutputPageRowCount;
 import static io.prestosql.SystemSessionProperties.getFilterAndProjectMinOutputPageSize;
 import static io.prestosql.metadata.FunctionKind.SCALAR;
+import static io.prestosql.spi.Name.createNonDelimitedName;
 import static io.prestosql.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.UNGROUPED_SCHEDULING;
 import static io.prestosql.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static io.prestosql.spi.type.BigintType.BIGINT;
@@ -139,7 +140,7 @@ public abstract class AbstractOperatorBenchmark
 
         // look up the table
         Metadata metadata = localQueryRunner.getMetadata();
-        QualifiedObjectName qualifiedTableName = new QualifiedObjectName(session.getCatalog().get().getLegacyName(), session.getSchema().get().getLegacyName(), tableName);
+        QualifiedObjectName qualifiedTableName = new QualifiedObjectName(session.getCatalog().get(), session.getSchema().get(), createNonDelimitedName(tableName));
         TableHandle tableHandle = metadata.getTableHandle(session, qualifiedTableName)
                 .orElseThrow(() -> new IllegalArgumentException(format("Table %s does not exist", qualifiedTableName)));
 
@@ -157,7 +158,7 @@ public abstract class AbstractOperatorBenchmark
 
         // look up the table
         Metadata metadata = localQueryRunner.getMetadata();
-        QualifiedObjectName qualifiedTableName = new QualifiedObjectName(session.getCatalog().get().getLegacyName(), session.getSchema().get().getLegacyName(), tableName);
+        QualifiedObjectName qualifiedTableName = new QualifiedObjectName(session.getCatalog().get(), session.getSchema().get(), createNonDelimitedName(tableName));
         TableHandle tableHandle = metadata.getTableHandle(session, qualifiedTableName).orElse(null);
         checkArgument(tableHandle != null, "Table %s does not exist", qualifiedTableName);
 

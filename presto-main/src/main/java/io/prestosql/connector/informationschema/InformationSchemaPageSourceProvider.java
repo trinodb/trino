@@ -158,7 +158,7 @@ public class InformationSchemaPageSourceProvider
                         continue;
                     }
                     table.add(
-                            prefix.getCatalogName(),
+                            prefix.getCatalogName().getLegacyName(),
                             tableName.getSchemaName(),
                             tableName.getTableName(),
                             column.getName(),
@@ -187,7 +187,7 @@ public class InformationSchemaPageSourceProvider
                 // if table and view names overlap, the view wins
                 String type = views.contains(name) ? "VIEW" : "BASE TABLE";
                 table.add(
-                        prefix.getCatalogName(),
+                        prefix.getCatalogName().getLegacyName(),
                         name.getSchemaName(),
                         name.getTableName(),
                         type,
@@ -208,7 +208,7 @@ public class InformationSchemaPageSourceProvider
                         grant.getGrantor().map(principal -> principal.getType().toString()).orElse(null),
                         grant.getGrantee().getName().getLegacyName(),
                         grant.getGrantee().getType().toString(),
-                        prefix.getCatalogName(),
+                        prefix.getCatalogName().getLegacyName(),
                         grant.getSchemaTableName().getSchemaName(),
                         grant.getSchemaTableName().getTableName(),
                         grant.getPrivilegeInfo().getPrivilege().name(),
@@ -225,9 +225,9 @@ public class InformationSchemaPageSourceProvider
         for (QualifiedTablePrefix prefix : prefixes) {
             for (Entry<QualifiedObjectName, ViewDefinition> entry : metadata.getViews(session, prefix).entrySet()) {
                 table.add(
-                        entry.getKey().getCatalogName(),
-                        entry.getKey().getSchemaName(),
-                        entry.getKey().getObjectName(),
+                        entry.getKey().getCatalogName().getLegacyName(),
+                        entry.getKey().getSchemaName().getLegacyName(),
+                        entry.getKey().getObjectName().getLegacyName(),
                         entry.getValue().getOriginalSql());
             }
         }
@@ -237,7 +237,7 @@ public class InformationSchemaPageSourceProvider
     private InternalTable buildSchemata(Session session, String catalogName)
     {
         InternalTable.Builder table = InternalTable.builder(informationSchemaTableColumns(TABLE_SCHEMATA));
-        for (String schema : listSchemas(session, metadata, accessControl, catalogName)) {
+        for (String schema : listSchemas(session, metadata, accessControl, createNonDelimitedName(catalogName))) {
             table.add(catalogName, schema);
         }
         return table.build();

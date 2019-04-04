@@ -15,6 +15,7 @@ package io.prestosql.metadata;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.prestosql.spi.Name;
 import io.prestosql.spi.connector.SchemaTablePrefix;
 
 import javax.annotation.concurrent.Immutable;
@@ -22,64 +23,61 @@ import javax.annotation.concurrent.Immutable;
 import java.util.Objects;
 import java.util.Optional;
 
-import static io.prestosql.metadata.MetadataUtil.checkCatalogName;
-import static io.prestosql.metadata.MetadataUtil.checkSchemaName;
-import static io.prestosql.metadata.MetadataUtil.checkTableName;
+import static java.util.Objects.requireNonNull;
 
 @Immutable
 public class QualifiedTablePrefix
 {
-    private final String catalogName;
-    private final Optional<String> schemaName;
-    private final Optional<String> tableName;
+    private final Name catalogName;
+    private final Optional<Name> schemaName;
+    private final Optional<Name> tableName;
 
-    public QualifiedTablePrefix(String catalogName)
+    public QualifiedTablePrefix(Name catalogName)
     {
-        this.catalogName = checkCatalogName(catalogName);
+        this.catalogName = requireNonNull(catalogName, "CatalogName is null");
         this.schemaName = Optional.empty();
         this.tableName = Optional.empty();
     }
 
-    public QualifiedTablePrefix(String catalogName, String schemaName)
+    public QualifiedTablePrefix(Name catalogName, Name schemaName)
     {
-        this.catalogName = checkCatalogName(catalogName);
-        this.schemaName = Optional.of(checkSchemaName(schemaName));
+        this.catalogName = requireNonNull(catalogName, "CatalogName is null");
+        this.schemaName = Optional.of(requireNonNull(schemaName, "SchemaName is null"));
         this.tableName = Optional.empty();
     }
 
-    public QualifiedTablePrefix(String catalogName, String schemaName, String tableName)
+    public QualifiedTablePrefix(Name catalogName, Name schemaName, Name tableName)
     {
-        this.catalogName = checkCatalogName(catalogName);
-        this.schemaName = Optional.of(checkSchemaName(schemaName));
-        this.tableName = Optional.of(checkTableName(tableName));
+        this.catalogName = requireNonNull(catalogName, "CatalogName is null");
+        this.schemaName = Optional.of(requireNonNull(schemaName, "SchemaName is null"));
+        this.tableName = Optional.of(requireNonNull(tableName, "TableName is null"));
     }
 
     @JsonCreator
     public QualifiedTablePrefix(
-            @JsonProperty("catalogName") String catalogName,
-            @JsonProperty("schemaName") Optional<String> schemaName,
-            @JsonProperty("tableName") Optional<String> tableName)
+            @JsonProperty("catalogName") Name catalogName,
+            @JsonProperty("schemaName") Optional<Name> schemaName,
+            @JsonProperty("tableName") Optional<Name> tableName)
     {
-        checkTableName(catalogName, schemaName, tableName);
         this.catalogName = catalogName;
         this.schemaName = schemaName;
         this.tableName = tableName;
     }
 
     @JsonProperty
-    public String getCatalogName()
+    public Name getCatalogName()
     {
         return catalogName;
     }
 
     @JsonProperty
-    public Optional<String> getSchemaName()
+    public Optional<Name> getSchemaName()
     {
         return schemaName;
     }
 
     @JsonProperty
-    public Optional<String> getTableName()
+    public Optional<Name> getTableName()
     {
         return tableName;
     }
@@ -100,10 +98,10 @@ public class QualifiedTablePrefix
             return new SchemaTablePrefix();
         }
         else if (!tableName.isPresent()) {
-            return new SchemaTablePrefix(schemaName.get());
+            return new SchemaTablePrefix(schemaName.get().getLegacyName());
         }
         else {
-            return new SchemaTablePrefix(schemaName.get(), tableName.get());
+            return new SchemaTablePrefix(schemaName.get().getLegacyName(), tableName.get().getLegacyName());
         }
     }
 
@@ -138,6 +136,6 @@ public class QualifiedTablePrefix
     @Override
     public String toString()
     {
-        return catalogName + '.' + schemaName.orElse("*") + '.' + tableName.orElse("*");
+        return catalogName.getLegacyName() + '.' + schemaName.map(Name::getLegacyName).orElse("*") + '.' + tableName.map(Name::getLegacyName).orElse("*");
     }
 }

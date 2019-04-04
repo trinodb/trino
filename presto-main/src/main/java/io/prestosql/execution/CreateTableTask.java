@@ -96,7 +96,7 @@ public class CreateTableTask
             return immediateFuture(null);
         }
 
-        CatalogName catalogName = metadata.getCatalogHandle(session, tableName.getCatalogName())
+        CatalogName catalogName = metadata.getCatalogHandle(session, tableName.getCatalogName().getLegacyName())
                 .orElseThrow(() -> new PrestoException(NOT_FOUND, "Catalog does not exist: " + tableName.getCatalogName()));
 
         LinkedHashMap<String, ColumnMetadata> columns = new LinkedHashMap<>();
@@ -126,7 +126,7 @@ public class CreateTableTask
                 Map<String, Expression> sqlProperties = mapFromProperties(column.getProperties());
                 Map<String, Object> columnProperties = metadata.getColumnPropertyManager().getProperties(
                         catalogName,
-                        tableName.getCatalogName(),
+                        tableName.getCatalogName().getLegacyName(),
                         sqlProperties,
                         session,
                         metadata,
@@ -143,7 +143,7 @@ public class CreateTableTask
             else if (element instanceof LikeClause) {
                 LikeClause likeClause = (LikeClause) element;
                 QualifiedObjectName likeTableName = createQualifiedObjectName(session, statement, likeClause.getTableName());
-                if (!metadata.getCatalogHandle(session, likeTableName.getCatalogName()).isPresent()) {
+                if (!metadata.getCatalogHandle(session, likeTableName.getCatalogName().getLegacyName()).isPresent()) {
                     throw new SemanticException(MISSING_CATALOG, statement, "LIKE table catalog '%s' does not exist", likeTableName.getCatalogName());
                 }
                 if (!tableName.getCatalogName().equals(likeTableName.getCatalogName())) {
@@ -182,7 +182,7 @@ public class CreateTableTask
         Map<String, Expression> sqlProperties = mapFromProperties(statement.getProperties());
         Map<String, Object> properties = metadata.getTablePropertyManager().getProperties(
                 catalogName,
-                tableName.getCatalogName(),
+                tableName.getCatalogName().getLegacyName(),
                 sqlProperties,
                 session,
                 metadata,
@@ -192,7 +192,7 @@ public class CreateTableTask
 
         ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(tableName.asSchemaTableName(), ImmutableList.copyOf(columns.values()), finalProperties, statement.getComment());
         try {
-            metadata.createTable(session, tableName.getCatalogName(), tableMetadata, statement.isNotExists());
+            metadata.createTable(session, tableName.getCatalogName().getLegacyName(), tableMetadata, statement.isNotExists());
         }
         catch (PrestoException e) {
             // connectors are not required to handle the ignoreExisting flag

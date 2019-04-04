@@ -34,6 +34,7 @@ import static com.google.common.io.Resources.getResource;
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.airlift.units.Duration.nanosSince;
 import static io.prestosql.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
+import static io.prestosql.spi.Name.createNonDelimitedName;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
@@ -120,7 +121,7 @@ public final class ElasticsearchQueryRunner
         long start = System.nanoTime();
         LOG.info("Running import for %s", table.getTableName());
         ElasticsearchLoader loader = new ElasticsearchLoader(embeddedElasticsearchNode.getClient(), table.getTableName().toLowerCase(ENGLISH), prestoClient.getServer(), prestoClient.getDefaultSession());
-        loader.execute(format("SELECT * from %s", new QualifiedObjectName(TPCH_SCHEMA, TINY_SCHEMA_NAME, table.getTableName().toLowerCase(ENGLISH))));
+        loader.execute(format("SELECT * from %s", new QualifiedObjectName(createNonDelimitedName(TPCH_SCHEMA), createNonDelimitedName(TINY_SCHEMA_NAME), createNonDelimitedName(table.getTableName().toLowerCase(ENGLISH)))));
         LOG.info("Imported %s in %s", table.getTableName(), nanosSince(start).convertToMostSuccinctTimeUnit());
     }
 

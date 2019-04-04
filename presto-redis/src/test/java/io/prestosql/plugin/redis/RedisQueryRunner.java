@@ -36,6 +36,7 @@ import static io.airlift.units.Duration.nanosSince;
 import static io.prestosql.plugin.redis.util.RedisTestUtils.installRedisPlugin;
 import static io.prestosql.plugin.redis.util.RedisTestUtils.loadTpchTableDescription;
 import static io.prestosql.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
+import static io.prestosql.spi.Name.createNonDelimitedName;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -96,7 +97,7 @@ public final class RedisQueryRunner
                 embeddedRedis,
                 prestoClient,
                 redisTableName(table),
-                new QualifiedObjectName("tpch", TINY_SCHEMA_NAME, table.getTableName().toLowerCase(ENGLISH)),
+                new QualifiedObjectName(createNonDelimitedName("tpch"), createNonDelimitedName(TINY_SCHEMA_NAME), createNonDelimitedName(table.getTableName().toLowerCase(ENGLISH))),
                 dataFormat);
         log.info("Imported %s in %s", table.getTableName(), nanosSince(start).convertToMostSuccinctTimeUnit());
     }
