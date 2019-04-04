@@ -16,6 +16,7 @@ package io.prestosql.metadata;
 import io.airlift.slice.Slice;
 import io.prestosql.Session;
 import io.prestosql.connector.CatalogName;
+import io.prestosql.spi.Name;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.BlockEncodingSerde;
 import io.prestosql.spi.connector.CatalogSchemaName;
@@ -63,9 +64,9 @@ public interface Metadata
 
     boolean schemaExists(Session session, CatalogSchemaName schema);
 
-    boolean catalogExists(Session session, String catalogName);
+    boolean catalogExists(Session session, Name catalogName);
 
-    List<String> listSchemaNames(Session session, String catalogName);
+    List<Name> listSchemaNames(Session session, Name catalogName);
 
     /**
      * Returns a table handle for the specified table name.
@@ -119,7 +120,7 @@ public interface Metadata
      *
      * @throws RuntimeException if table handle is no longer valid
      */
-    Map<String, ColumnHandle> getColumnHandles(Session session, TableHandle tableHandle);
+    Map<Name, ColumnHandle> getColumnHandles(Session session, TableHandle tableHandle);
 
     /**
      * Gets the metadata for the specified table column.
@@ -146,14 +147,14 @@ public interface Metadata
     /**
      * Renames the specified schema.
      */
-    void renameSchema(Session session, CatalogSchemaName source, String target);
+    void renameSchema(Session session, CatalogSchemaName source, Name target);
 
     /**
      * Creates a table using the specified table metadata.
      *
      * @throws PrestoException with {@code ALREADY_EXISTS} if the table already exists and {@param ignoreExisting} is not set
      */
-    void createTable(Session session, String catalogName, ConnectorTableMetadata tableMetadata, boolean ignoreExisting);
+    void createTable(Session session, Name catalogName, ConnectorTableMetadata tableMetadata, boolean ignoreExisting);
 
     /**
      * Rename the specified table.
@@ -168,7 +169,7 @@ public interface Metadata
     /**
      * Rename the specified column.
      */
-    void renameColumn(Session session, TableHandle tableHandle, ColumnHandle source, String target);
+    void renameColumn(Session session, TableHandle tableHandle, ColumnHandle source, Name target);
 
     /**
      * Add the specified column to the table.
@@ -187,12 +188,12 @@ public interface Metadata
      */
     void dropTable(Session session, TableHandle tableHandle);
 
-    Optional<NewTableLayout> getNewTableLayout(Session session, String catalogName, ConnectorTableMetadata tableMetadata);
+    Optional<NewTableLayout> getNewTableLayout(Session session, Name catalogName, ConnectorTableMetadata tableMetadata);
 
     /**
      * Begin the atomic creation of a table with data.
      */
-    OutputTableHandle beginCreateTable(Session session, String catalogName, ConnectorTableMetadata tableMetadata, Optional<NewTableLayout> layout);
+    OutputTableHandle beginCreateTable(Session session, Name catalogName, ConnectorTableMetadata tableMetadata, Optional<NewTableLayout> layout);
 
     /**
      * Finish a table creation with data after the data is written.
@@ -204,12 +205,12 @@ public interface Metadata
     /**
      * Describes statistics that must be collected during a write.
      */
-    TableStatisticsMetadata getStatisticsCollectionMetadataForWrite(Session session, String catalogName, ConnectorTableMetadata tableMetadata);
+    TableStatisticsMetadata getStatisticsCollectionMetadataForWrite(Session session, Name catalogName, ConnectorTableMetadata tableMetadata);
 
     /**
      * Describe statistics that must be collected during a statistics collection
      */
-    TableStatisticsMetadata getStatisticsCollectionMetadata(Session session, String catalogName, ConnectorTableMetadata tableMetadata);
+    TableStatisticsMetadata getStatisticsCollectionMetadata(Session session, Name catalogName, ConnectorTableMetadata tableMetadata);
 
     /**
      * Begin statistics collection
@@ -272,7 +273,7 @@ public interface Metadata
     /**
      * Returns a connector id for the specified catalog name.
      */
-    Optional<CatalogName> getCatalogHandle(Session session, String catalogName);
+    Optional<CatalogName> getCatalogHandle(Session session, Name catalogName);
 
     /**
      * Gets all the loaded catalogs
@@ -316,46 +317,46 @@ public interface Metadata
      *
      * @param grantor represents the principal specified by WITH ADMIN statement
      */
-    void createRole(Session session, String role, Optional<PrestoPrincipal> grantor, String catalog);
+    void createRole(Session session, Name role, Optional<PrestoPrincipal> grantor, Name catalog);
 
     /**
      * Drops the specified role in the specified catalog.
      */
-    void dropRole(Session session, String role, String catalog);
+    void dropRole(Session session, Name role, Name catalog);
 
     /**
      * List available roles in specified catalog.
      */
-    Set<String> listRoles(Session session, String catalog);
+    Set<Name> listRoles(Session session, Name catalog);
 
     /**
      * List roles grants in the specified catalog for a given principal, not recursively.
      */
-    Set<RoleGrant> listRoleGrants(Session session, String catalog, PrestoPrincipal principal);
+    Set<RoleGrant> listRoleGrants(Session session, Name catalog, PrestoPrincipal principal);
 
     /**
      * Grants the specified roles to the specified grantees in the specified catalog
      *
      * @param grantor represents the principal specified by GRANTED BY statement
      */
-    void grantRoles(Session session, Set<String> roles, Set<PrestoPrincipal> grantees, boolean withAdminOption, Optional<PrestoPrincipal> grantor, String catalog);
+    void grantRoles(Session session, Set<Name> roles, Set<PrestoPrincipal> grantees, boolean withAdminOption, Optional<PrestoPrincipal> grantor, Name catalog);
 
     /**
      * Revokes the specified roles from the specified grantees in the specified catalog
      *
      * @param grantor represents the principal specified by GRANTED BY statement
      */
-    void revokeRoles(Session session, Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOptionFor, Optional<PrestoPrincipal> grantor, String catalog);
+    void revokeRoles(Session session, Set<Name> roles, Set<PrestoPrincipal> grantees, boolean adminOptionFor, Optional<PrestoPrincipal> grantor, Name catalog);
 
     /**
      * List applicable roles, including the transitive grants, for the specified principal
      */
-    Set<RoleGrant> listApplicableRoles(Session session, PrestoPrincipal principal, String catalog);
+    Set<RoleGrant> listApplicableRoles(Session session, PrestoPrincipal principal, Name catalog);
 
     /**
      * List applicable roles, including the transitive grants, in given session
      */
-    Set<String> listEnabledRoles(Session session, String catalog);
+    Set<Name> listEnabledRoles(Session session, Name catalog);
 
     /**
      * Grants the specified privilege to the specified user on the specified table

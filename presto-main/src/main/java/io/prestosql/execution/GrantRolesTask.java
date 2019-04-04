@@ -60,7 +60,7 @@ public class GrantRolesTask
         Optional<PrestoPrincipal> grantor = statement.getGrantor().map(specification -> createPrincipal(session, specification));
         Name catalog = createCatalogName(session, statement);
 
-        Set<Name> availableRoles = metadata.listRoles(session, catalog.getLegacyName()).stream().map(Name::createNonDelimitedName).collect(toImmutableSet());
+        Set<Name> availableRoles = metadata.listRoles(session, catalog);
         Set<Name> specifiedRoles = new LinkedHashSet<>();
         specifiedRoles.addAll(roles);
         grantees.stream()
@@ -78,7 +78,7 @@ public class GrantRolesTask
         }
 
         accessControl.checkCanGrantRoles(session.getRequiredTransactionId(), session.getIdentity(), roles, grantees, withAdminOption, grantor, catalog);
-        metadata.grantRoles(session, roles.stream().map(Name::getLegacyName).collect(toImmutableSet()), grantees, withAdminOption, grantor, catalog.getLegacyName());
+        metadata.grantRoles(session, roles, grantees, withAdminOption, grantor, catalog);
 
         return immediateFuture(null);
     }

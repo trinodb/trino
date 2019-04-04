@@ -20,6 +20,7 @@ import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.metadata.TableHandle;
 import io.prestosql.security.AccessControl;
+import io.prestosql.spi.Name;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
@@ -36,6 +37,7 @@ import java.util.Optional;
 
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.prestosql.metadata.MetadataUtil.createQualifiedObjectName;
+import static io.prestosql.spi.Name.equivalentNames;
 import static io.prestosql.spi.StandardErrorCode.NOT_FOUND;
 import static io.prestosql.spi.connector.ConnectorCapabilities.NOT_NULL_COLUMN_CONSTRAINT;
 import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
@@ -45,7 +47,7 @@ import static io.prestosql.sql.analyzer.SemanticErrorCode.MISSING_TABLE;
 import static io.prestosql.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
 import static io.prestosql.sql.analyzer.SemanticErrorCode.TYPE_MISMATCH;
 import static io.prestosql.type.UnknownType.UNKNOWN;
-import static java.util.Locale.ENGLISH;
+import static io.prestosql.util.NameUtil.createName;
 
 public class AddColumnTask
         implements DataDefinitionTask<AddColumn>
@@ -66,12 +68,12 @@ public class AddColumnTask
             throw new SemanticException(MISSING_TABLE, statement, "Table '%s' does not exist", tableName);
         }
 
-        CatalogName catalogName = metadata.getCatalogHandle(session, tableName.getCatalogName().getLegacyName())
+        CatalogName catalogName = metadata.getCatalogHandle(session, tableName.getCatalogName())
                 .orElseThrow(() -> new PrestoException(NOT_FOUND, "Catalog does not exist: " + tableName.getCatalogName()));
 
         accessControl.checkCanAddColumns(session.getRequiredTransactionId(), session.getIdentity(), tableName);
 
-        Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle.get());
+        Map<Name, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle.get());
 
         ColumnDefinition element = statement.getColumn();
         Type type;
@@ -84,7 +86,7 @@ public class AddColumnTask
         if (type.equals(UNKNOWN)) {
             throw new SemanticException(TYPE_MISMATCH, element, "Unknown type '%s' for column '%s'", element.getType(), element.getName());
         }
-        if (columnHandles.containsKey(element.getName().getValue().toLowerCase(ENGLISH))) {
+        if (columnHandles.keySet().stream().anyMatch(name -> equivalentNames(name, createName(element.getName())))) {
             throw new SemanticException(COLUMN_ALREADY_EXISTS, statement, "Column '%s' already exists", element.getName());
         }
         if (!element.isNullable() && !metadata.getConnectorCapabilities(session, catalogName).contains(NOT_NULL_COLUMN_CONSTRAINT)) {

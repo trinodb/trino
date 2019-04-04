@@ -17,6 +17,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.prestosql.Session;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.security.AccessControl;
+import io.prestosql.spi.Name;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.sql.analyzer.SemanticException;
 import io.prestosql.sql.tree.Expression;
@@ -28,6 +29,7 @@ import java.util.List;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.prestosql.spi.StandardErrorCode.NOT_FOUND;
 import static io.prestosql.sql.analyzer.SemanticErrorCode.CATALOG_NOT_SPECIFIED;
+import static io.prestosql.util.NameUtil.createName;
 import static java.util.Locale.ENGLISH;
 
 public class UseTask
@@ -49,11 +51,11 @@ public class UseTask
         }
 
         if (statement.getCatalog().isPresent()) {
-            String catalog = statement.getCatalog().get().getValue().toLowerCase(ENGLISH);
+            Name catalog = createName(statement.getCatalog().get());
             if (!metadata.getCatalogHandle(session, catalog).isPresent()) {
                 throw new PrestoException(NOT_FOUND, "Catalog does not exist: " + catalog);
             }
-            stateMachine.setSetCatalog(catalog);
+            stateMachine.setSetCatalog(catalog.getLegacyName());
         }
 
         stateMachine.setSetSchema(statement.getSchema().getValue().toLowerCase(ENGLISH));

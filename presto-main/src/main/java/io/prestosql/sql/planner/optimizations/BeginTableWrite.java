@@ -40,6 +40,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkState;
+import static io.prestosql.spi.Name.createNonDelimitedName;
 import static io.prestosql.sql.planner.optimizations.QueryCardinalityUtil.isAtMostScalar;
 import static io.prestosql.sql.planner.plan.ChildReplacer.replaceChildren;
 import static java.util.stream.Collectors.toSet;
@@ -170,7 +171,7 @@ public class BeginTableWrite
             // TODO: we shouldn't need to store the schemaTableName in the handles, but there isn't a good way to pass this around with the current architecture
             if (target instanceof TableWriterNode.CreateName) {
                 TableWriterNode.CreateName create = (TableWriterNode.CreateName) target;
-                return new TableWriterNode.CreateHandle(metadata.beginCreateTable(session, create.getCatalog(), create.getTableMetadata(), create.getLayout()), create.getTableMetadata().getTable());
+                return new TableWriterNode.CreateHandle(metadata.beginCreateTable(session, createNonDelimitedName(create.getCatalog()), create.getTableMetadata(), create.getLayout()), create.getTableMetadata().getTable());
             }
             if (target instanceof TableWriterNode.InsertReference) {
                 TableWriterNode.InsertReference insert = (TableWriterNode.InsertReference) target;

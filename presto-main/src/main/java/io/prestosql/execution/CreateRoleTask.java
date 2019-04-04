@@ -28,11 +28,9 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.prestosql.metadata.MetadataUtil.createCatalogName;
 import static io.prestosql.metadata.MetadataUtil.createPrincipal;
-import static io.prestosql.spi.Name.createNonDelimitedName;
 import static io.prestosql.spi.security.PrincipalType.ROLE;
 import static io.prestosql.sql.analyzer.SemanticErrorCode.MISSING_ROLE;
 import static io.prestosql.sql.analyzer.SemanticErrorCode.ROLE_ALREADY_EXIST;
@@ -55,14 +53,14 @@ public class CreateRoleTask
         Name role = createName(statement.getName());
         Optional<PrestoPrincipal> grantor = statement.getGrantor().map(specification -> createPrincipal(session, specification));
         accessControl.checkCanCreateRole(session.getRequiredTransactionId(), session.getIdentity(), role, grantor, catalog);
-        Set<Name> existingRoles = metadata.listRoles(session, catalog.getLegacyName()).stream().map(Name::createNonDelimitedName).collect(toImmutableSet());
+        Set<Name> existingRoles = metadata.listRoles(session, catalog);
         if (existingRoles.contains(role)) {
             throw new SemanticException(ROLE_ALREADY_EXIST, statement, "Role '%s' already exists", role);
         }
         if (grantor.isPresent() && grantor.get().getType() == ROLE && !existingRoles.contains(grantor.get().getName())) {
-            throw new SemanticException(MISSING_ROLE, statement, "Role '%s' does not exist", grantor.get().getName().getLegacyName());
+            throw new SemanticException(MISSING_ROLE, statement, "Role '%s' does not exist", grantor.get().getName());
         }
-        metadata.createRole(session, role.getLegacyName(), grantor, catalog.getLegacyName());
+        metadata.createRole(session, role, grantor, catalog);
         return immediateFuture(null);
     }
 }

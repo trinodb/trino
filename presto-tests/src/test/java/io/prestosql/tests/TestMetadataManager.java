@@ -20,6 +20,7 @@ import io.prestosql.execution.QueryInfo;
 import io.prestosql.execution.QueryManager;
 import io.prestosql.execution.TestingSessionContext;
 import io.prestosql.metadata.MetadataManager;
+import io.prestosql.spi.Name;
 import io.prestosql.spi.Plugin;
 import io.prestosql.spi.QueryId;
 import io.prestosql.spi.connector.ConnectorFactory;
@@ -35,6 +36,7 @@ import java.util.List;
 import static io.prestosql.SessionTestUtils.TEST_SESSION;
 import static io.prestosql.execution.QueryState.FAILED;
 import static io.prestosql.execution.QueryState.RUNNING;
+import static io.prestosql.spi.Name.createNonDelimitedName;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 
@@ -146,8 +148,8 @@ public class TestMetadataManager
                 .execute(
                         TEST_SESSION,
                         transactionSession -> {
-                            List<String> expectedSchemas = ImmutableList.of("information_schema", "upper_case_schema");
-                            assertEquals(queryRunner.getMetadata().listSchemaNames(transactionSession, "upper_case_schema_catalog"), expectedSchemas);
+                            List<Name> expectedSchemas = ImmutableList.of(createNonDelimitedName("information_schema"), createNonDelimitedName("upper_case_schema"));
+                            assertEquals(queryRunner.getMetadata().listSchemaNames(transactionSession, createNonDelimitedName("upper_case_schema_catalog")), expectedSchemas);
                             return null;
                         });
     }

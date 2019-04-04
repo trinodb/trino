@@ -22,6 +22,7 @@ import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.metadata.QualifiedTablePrefix;
 import io.prestosql.metadata.ViewDefinition;
 import io.prestosql.security.AccessControl;
+import io.prestosql.spi.Name;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.connector.ColumnHandle;
@@ -246,24 +247,26 @@ public class InformationSchemaPageSourceProvider
     private InternalTable buildRoles(Session session, String catalog)
     {
         InternalTable.Builder table = InternalTable.builder(informationSchemaTableColumns(TABLE_ROLES));
+        Name catalogName = createNonDelimitedName(catalog);
 
         try {
-            accessControl.checkCanShowRoles(session.getRequiredTransactionId(), session.getIdentity(), createNonDelimitedName(catalog));
+            accessControl.checkCanShowRoles(session.getRequiredTransactionId(), session.getIdentity(), catalogName);
         }
         catch (AccessDeniedException exception) {
             return table.build();
         }
 
-        for (String role : metadata.listRoles(session, catalog)) {
-            table.add(role);
+        for (Name role : metadata.listRoles(session, catalogName)) {
+            table.add(role.getLegacyName());
         }
         return table.build();
     }
 
     private InternalTable buildApplicableRoles(Session session, String catalog)
     {
+        Name catalogName = createNonDelimitedName(catalog);
         InternalTable.Builder table = InternalTable.builder(informationSchemaTableColumns(TABLE_APPLICABLE_ROLES));
-        for (RoleGrant grant : metadata.listApplicableRoles(session, new PrestoPrincipal(USER, session.getUser()), catalog)) {
+        for (RoleGrant grant : metadata.listApplicableRoles(session, new PrestoPrincipal(USER, session.getUser()), catalogName)) {
             PrestoPrincipal grantee = grant.getGrantee();
             table.add(
                     grantee.getName().getLegacyName(),
@@ -276,9 +279,10 @@ public class InformationSchemaPageSourceProvider
 
     private InternalTable buildEnabledRoles(Session session, String catalog)
     {
+        Name catalogName = createNonDelimitedName(catalog);
         InternalTable.Builder table = InternalTable.builder(informationSchemaTableColumns(TABLE_ENABLED_ROLES));
-        for (String role : metadata.listEnabledRoles(session, catalog)) {
-            table.add(role);
+        for (Name role : metadata.listEnabledRoles(session, catalogName)) {
+            table.add(role.getLegacyName());
         }
         return table.build();
     }

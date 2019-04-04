@@ -17,6 +17,7 @@ import io.prestosql.Session;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.TableHandle;
 import io.prestosql.metadata.TableMetadata;
+import io.prestosql.spi.Name;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.plan.IndexSourceNode;
@@ -27,19 +28,20 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
+import static io.prestosql.util.NameUtil.createName;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class ColumnReference
         implements RvalueMatcher
 {
-    private final String tableName;
-    private final String columnName;
+    private final Name tableName;
+    private final Name columnName;
 
     public ColumnReference(String tableName, String columnName)
     {
-        this.tableName = requireNonNull(tableName, "tableName is null");
-        this.columnName = requireNonNull(columnName, "columnName is null");
+        this.tableName = createName(requireNonNull(tableName, "tableName is null"));
+        this.columnName = createName(requireNonNull(columnName, "columnName is null"));
     }
 
     @Override
@@ -66,7 +68,7 @@ public class ColumnReference
         String actualTableName = tableMetadata.getTable().getTableName();
 
         // Wrong table -> doesn't match.
-        if (!tableName.equalsIgnoreCase(actualTableName)) {
+        if (!tableName.getLegacyName().equalsIgnoreCase(actualTableName)) {
             return Optional.empty();
         }
 

@@ -190,12 +190,12 @@ final class ShowQueriesRewrite
 
             accessControl.checkCanShowTablesMetadata(session.getRequiredTransactionId(), session.getIdentity(), schema);
 
-            if (!metadata.catalogExists(session, schema.getCatalogName().getLegacyName())) {
-                throw new SemanticException(MISSING_CATALOG, showTables, "Catalog '%s' does not exist", schema.getCatalogName());
+            if (!metadata.catalogExists(session, schema.getCatalogName())) {
+                throw new SemanticException(MISSING_CATALOG, showTables, "Catalog '%s' does not exist", schema.getCatalogName().getLegacyName());
             }
 
             if (!metadata.schemaExists(session, schema)) {
-                throw new SemanticException(MISSING_SCHEMA, showTables, "Schema '%s' does not exist", schema.getSchemaName());
+                throw new SemanticException(MISSING_SCHEMA, showTables, "Schema '%s' does not exist", schema.getSchemaName().getLegacyName());
             }
 
             Expression predicate = equal(identifier("table_schema"), new StringLiteral(schema.getSchemaName().getLegacyName()));
@@ -304,7 +304,7 @@ final class ShowQueriesRewrite
             PrestoPrincipal principal = new PrestoPrincipal(PrincipalType.USER, session.getUser());
 
             accessControl.checkCanShowRoleGrants(session.getRequiredTransactionId(), session.getIdentity(), catalog);
-            List<Expression> rows = metadata.listRoleGrants(session, catalog.getLegacyName(), principal).stream()
+            List<Expression> rows = metadata.listRoleGrants(session, catalog, principal).stream()
                     .map(roleGrant -> row(new StringLiteral(roleGrant.getRoleName())))
                     .collect(toList());
 

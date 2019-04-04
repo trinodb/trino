@@ -26,7 +26,6 @@ import io.prestosql.transaction.TransactionManager;
 import java.util.List;
 import java.util.Set;
 
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.prestosql.metadata.MetadataUtil.createCatalogName;
 import static io.prestosql.sql.analyzer.SemanticErrorCode.MISSING_ROLE;
@@ -48,11 +47,11 @@ public class DropRoleTask
         Name catalog = createCatalogName(session, statement);
         Name role = createName(statement.getName());
         accessControl.checkCanDropRole(session.getRequiredTransactionId(), session.getIdentity(), role, catalog);
-        Set<Name> existingRoles = metadata.listRoles(session, catalog.getLegacyName()).stream().map(Name::createNonDelimitedName).collect(toImmutableSet());
+        Set<Name> existingRoles = metadata.listRoles(session, catalog);
         if (!existingRoles.contains(role)) {
             throw new SemanticException(MISSING_ROLE, statement, "Role '%s' does not exist", role);
         }
-        metadata.dropRole(session, role.getLegacyName(), catalog.getLegacyName());
+        metadata.dropRole(session, role, catalog);
         return immediateFuture(null);
     }
 }

@@ -19,6 +19,7 @@ import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.metadata.TableHandle;
 import io.prestosql.security.AccessControl;
+import io.prestosql.spi.Name;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.sql.analyzer.SemanticException;
 import io.prestosql.sql.tree.DropColumn;
@@ -32,7 +33,7 @@ import static io.prestosql.metadata.MetadataUtil.createQualifiedObjectName;
 import static io.prestosql.sql.analyzer.SemanticErrorCode.MISSING_COLUMN;
 import static io.prestosql.sql.analyzer.SemanticErrorCode.MISSING_TABLE;
 import static io.prestosql.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
-import static java.util.Locale.ENGLISH;
+import static io.prestosql.util.NameUtil.createName;
 
 public class DropColumnTask
         implements DataDefinitionTask<DropColumn>
@@ -51,7 +52,7 @@ public class DropColumnTask
         TableHandle tableHandle = metadata.getTableHandle(session, tableName)
                 .orElseThrow(() -> new SemanticException(MISSING_TABLE, statement, "Table '%s' does not exist", tableName));
 
-        String column = statement.getColumn().getValue().toLowerCase(ENGLISH);
+        Name column = createName(statement.getColumn().getValue());
 
         accessControl.checkCanDropColumn(session.getRequiredTransactionId(), session.getIdentity(), tableName);
 

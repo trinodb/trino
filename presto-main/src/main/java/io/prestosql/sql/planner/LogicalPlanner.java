@@ -31,6 +31,7 @@ import io.prestosql.metadata.NewTableLayout;
 import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.metadata.TableHandle;
 import io.prestosql.metadata.TableMetadata;
+import io.prestosql.spi.Name;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
@@ -238,7 +239,7 @@ public class LogicalPlanner
         TableHandle targetTable = analysis.getAnalyzeTarget().get();
 
         // Plan table scan
-        Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, targetTable);
+        Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, targetTable).entrySet().stream().collect(toImmutableMap(entry -> entry.getKey().getLegacyName(), Map.Entry::getValue));
         ImmutableList.Builder<Symbol> tableScanOutputs = ImmutableList.builder();
         ImmutableMap.Builder<Symbol, ColumnHandle> symbolToColumnHandle = ImmutableMap.builder();
         ImmutableMap.Builder<String, Symbol> columnNameToSymbol = ImmutableMap.builder();
@@ -252,7 +253,7 @@ public class LogicalPlanner
 
         TableStatisticsMetadata tableStatisticsMetadata = metadata.getStatisticsCollectionMetadata(
                 session,
-                targetTable.getCatalogName().getCatalogName().getLegacyName(),
+                targetTable.getCatalogName().getCatalogName(),
                 tableMetadata.getMetadata());
 
         TableStatisticAggregation tableStatisticAggregation = statisticsAggregationPlanner.createStatisticsAggregation(tableStatisticsMetadata, columnNameToSymbol.build());
@@ -289,14 +290,14 @@ public class LogicalPlanner
                 analysis.getCreateTableProperties(),
                 analysis.getParameters(),
                 analysis.getCreateTableComment());
-        Optional<NewTableLayout> newTableLayout = metadata.getNewTableLayout(session, destination.getCatalogName().getLegacyName(), tableMetadata);
+        Optional<NewTableLayout> newTableLayout = metadata.getNewTableLayout(session, destination.getCatalogName(), tableMetadata);
 
         List<String> columnNames = tableMetadata.getColumns().stream()
                 .filter(column -> !column.isHidden())
                 .map(ColumnMetadata::getName)
                 .collect(toImmutableList());
 
-        TableStatisticsMetadata statisticsMetadata = metadata.getStatisticsCollectionMetadataForWrite(session, destination.getCatalogName().getLegacyName(), tableMetadata);
+        TableStatisticsMetadata statisticsMetadata = metadata.getStatisticsCollectionMetadataForWrite(session, destination.getCatalogName(), tableMetadata);
 
         return createTableWriterPlan(
                 analysis,
@@ -322,7 +323,7 @@ public class LogicalPlanner
 
         RelationPlan plan = createRelationPlan(analysis, insertStatement.getQuery());
 
-        Map<String, ColumnHandle> columns = metadata.getColumnHandles(session, insert.getTarget());
+        Map<String, ColumnHandle> columns = metadata.getColumnHandles(session, insert.getTarget()).entrySet().stream().collect(toImmutableMap(entry -> entry.getKey().getLegacyName(), Map.Entry::getValue));
         Assignments.Builder assignments = Assignments.builder();
         for (ColumnMetadata column : tableMetadata.getColumns()) {
             if (column.isHidden()) {
@@ -358,7 +359,7 @@ public class LogicalPlanner
         plan = new RelationPlan(projectNode, scope, projectNode.getOutputSymbols());
 
         Optional<NewTableLayout> newTableLayout = metadata.getInsertLayout(session, insert.getTarget());
-        String catalogName = insert.getTarget().getCatalogName().getCatalogName().getLegacyName();
+        Name catalogName = insert.getTarget().getCatalogName().getCatalogName();
         TableStatisticsMetadata statisticsMetadata = metadata.getStatisticsCollectionMetadataForWrite(session, catalogName, tableMetadata.getMetadata());
 
         return createTableWriterPlan(
@@ -511,7 +512,7 @@ public class LogicalPlanner
 
     private ConnectorTableMetadata createTableMetadata(QualifiedObjectName table, List<ColumnMetadata> columns, Map<String, Expression> propertyExpressions, List<Expression> parameters, Optional<String> comment)
     {
-        CatalogName catalogName = metadata.getCatalogHandle(session, table.getCatalogName().getLegacyName())
+        CatalogName catalogName = metadata.getCatalogHandle(session, table.getCatalogName())
                 .orElseThrow(() -> new PrestoException(NOT_FOUND, "Catalog does not exist: " + table.getCatalogName()));
 
         Map<String, Object> properties = metadata.getTablePropertyManager().getProperties(

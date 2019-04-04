@@ -59,7 +59,7 @@ public class RenameSchemaTask
 
         accessControl.checkCanRenameSchema(session.getRequiredTransactionId(), session.getIdentity(), source, createName(statement.getTarget()));
 
-        metadata.renameSchema(session, source, statement.getTarget().getValue());
+        metadata.renameSchema(session, source, createName(statement.getTarget()));
 
         return immediateFuture(null);
     }

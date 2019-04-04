@@ -25,6 +25,7 @@ import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.metadata.TableHandle;
 import io.prestosql.metadata.TablePropertyManager;
 import io.prestosql.security.AllowAllAccessControl;
+import io.prestosql.spi.Name;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
@@ -207,7 +208,7 @@ public class TestCreateTableTask
         }
 
         @Override
-        public void createTable(Session session, String catalogName, ConnectorTableMetadata tableMetadata, boolean ignoreExisting)
+        public void createTable(Session session, Name catalogName, ConnectorTableMetadata tableMetadata, boolean ignoreExisting)
         {
             tables.add(tableMetadata);
             if (!ignoreExisting) {
@@ -234,9 +235,9 @@ public class TestCreateTableTask
         }
 
         @Override
-        public Optional<CatalogName> getCatalogHandle(Session session, String catalogName)
+        public Optional<CatalogName> getCatalogHandle(Session session, Name catalogName)
         {
-            if (catalogHandle.getCatalogName().getLegacyName().equals(catalogName)) {
+            if (catalogHandle.getCatalogName().equals(catalogName)) {
                 return Optional.of(catalogHandle);
             }
             return Optional.empty();

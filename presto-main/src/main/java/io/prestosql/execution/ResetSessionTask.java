@@ -19,6 +19,7 @@ import io.prestosql.metadata.Metadata;
 import io.prestosql.security.AccessControl;
 import io.prestosql.sql.analyzer.SemanticException;
 import io.prestosql.sql.tree.Expression;
+import io.prestosql.sql.tree.Identifier;
 import io.prestosql.sql.tree.ResetSession;
 import io.prestosql.transaction.TransactionManager;
 
@@ -27,6 +28,8 @@ import java.util.List;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.prestosql.sql.analyzer.SemanticErrorCode.INVALID_SESSION_PROPERTY;
 import static io.prestosql.sql.analyzer.SemanticErrorCode.MISSING_CATALOG;
+import static io.prestosql.util.NameUtil.createName;
+import static java.util.Locale.ENGLISH;
 
 public class ResetSessionTask
         implements DataDefinitionTask<ResetSession>
@@ -40,20 +43,20 @@ public class ResetSessionTask
     @Override
     public ListenableFuture<?> execute(ResetSession statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters)
     {
-        List<String> parts = statement.getName().getLegacyParts();
+        List<Identifier> parts = statement.getName().getParts();
         if (parts.size() > 2) {
             throw new SemanticException(INVALID_SESSION_PROPERTY, statement, "Invalid session property '%s'", statement.getName());
         }
 
         // validate the property name
         if (parts.size() == 1) {
-            metadata.getSessionPropertyManager().getSystemSessionPropertyMetadata(parts.get(0))
+            metadata.getSessionPropertyManager().getSystemSessionPropertyMetadata(parts.get(0).getValue().toLowerCase(ENGLISH))
                     .orElseThrow(() -> new SemanticException(INVALID_SESSION_PROPERTY, statement, "Session property %s does not exist", statement.getName()));
         }
         else {
-            CatalogName catalogName = metadata.getCatalogHandle(stateMachine.getSession(), parts.get(0))
+            CatalogName catalogName = metadata.getCatalogHandle(stateMachine.getSession(), createName(parts.get(0)))
                     .orElseThrow(() -> new SemanticException(MISSING_CATALOG, statement, "Catalog %s does not exist", parts.get(0)));
-            metadata.getSessionPropertyManager().getConnectorSessionPropertyMetadata(catalogName, parts.get(1))
+            metadata.getSessionPropertyManager().getConnectorSessionPropertyMetadata(catalogName, parts.get(1).getValue().toLowerCase(ENGLISH))
                     .orElseThrow(() -> new SemanticException(INVALID_SESSION_PROPERTY, statement, "Session property %s does not exist", statement.getName()));
         }
 

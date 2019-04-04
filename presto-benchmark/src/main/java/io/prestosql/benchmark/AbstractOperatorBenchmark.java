@@ -72,6 +72,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.stats.CpuTimer.CpuDuration;
 import static io.airlift.units.DataSize.Unit.BYTE;
@@ -144,7 +145,7 @@ public abstract class AbstractOperatorBenchmark
         TableHandle tableHandle = metadata.getTableHandle(session, qualifiedTableName)
                 .orElseThrow(() -> new IllegalArgumentException(format("Table %s does not exist", qualifiedTableName)));
 
-        Map<String, ColumnHandle> allColumnHandles = metadata.getColumnHandles(session, tableHandle);
+        Map<String, ColumnHandle> allColumnHandles = metadata.getColumnHandles(session, tableHandle).entrySet().stream().collect(toImmutableMap(entry -> entry.getKey().getLegacyName(), Map.Entry::getValue));
         return Arrays.stream(columnNames)
                 .map(allColumnHandles::get)
                 .map(columnHandle -> metadata.getColumnMetadata(session, tableHandle, columnHandle).getType())
@@ -163,7 +164,7 @@ public abstract class AbstractOperatorBenchmark
         checkArgument(tableHandle != null, "Table %s does not exist", qualifiedTableName);
 
         // lookup the columns
-        Map<String, ColumnHandle> allColumnHandles = metadata.getColumnHandles(session, tableHandle);
+        Map<String, ColumnHandle> allColumnHandles = metadata.getColumnHandles(session, tableHandle).entrySet().stream().collect(toImmutableMap(entry -> entry.getKey().getLegacyName(), Map.Entry::getValue));
         ImmutableList.Builder<ColumnHandle> columnHandlesBuilder = ImmutableList.builder();
         for (String columnName : columnNames) {
             ColumnHandle columnHandle = allColumnHandles.get(columnName);

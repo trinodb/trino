@@ -19,6 +19,7 @@ import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.metadata.TableHandle;
 import io.prestosql.security.AccessControl;
+import io.prestosql.spi.Name;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.sql.analyzer.SemanticException;
 import io.prestosql.sql.tree.Expression;
@@ -30,11 +31,12 @@ import java.util.Map;
 
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.prestosql.metadata.MetadataUtil.createQualifiedObjectName;
+import static io.prestosql.spi.Name.equivalentNames;
 import static io.prestosql.sql.analyzer.SemanticErrorCode.COLUMN_ALREADY_EXISTS;
 import static io.prestosql.sql.analyzer.SemanticErrorCode.MISSING_COLUMN;
 import static io.prestosql.sql.analyzer.SemanticErrorCode.MISSING_TABLE;
 import static io.prestosql.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
-import static java.util.Locale.ENGLISH;
+import static io.prestosql.util.NameUtil.createName;
 
 public class RenameColumnTask
         implements DataDefinitionTask<RenameColumn>
@@ -53,18 +55,18 @@ public class RenameColumnTask
         TableHandle tableHandle = metadata.getTableHandle(session, tableName)
                 .orElseThrow(() -> new SemanticException(MISSING_TABLE, statement, "Table '%s' does not exist", tableName));
 
-        String source = statement.getSource().getValue().toLowerCase(ENGLISH);
-        String target = statement.getTarget().getValue().toLowerCase(ENGLISH);
+        Name source = createName(statement.getSource().getValue());
+        Name target = createName(statement.getTarget());
 
         accessControl.checkCanRenameColumn(session.getRequiredTransactionId(), session.getIdentity(), tableName);
 
-        Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle);
+        Map<Name, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle);
         ColumnHandle columnHandle = columnHandles.get(source);
         if (columnHandle == null) {
             throw new SemanticException(MISSING_COLUMN, statement, "Column '%s' does not exist", source);
         }
 
-        if (columnHandles.containsKey(target)) {
+        if (columnHandles.keySet().stream().anyMatch(name -> equivalentNames(name, target))) {
             throw new SemanticException(COLUMN_ALREADY_EXISTS, statement, "Column '%s' already exists", target);
         }
 

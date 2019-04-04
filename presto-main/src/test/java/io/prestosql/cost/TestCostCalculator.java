@@ -820,7 +820,7 @@ public class TestCostCalculator
                 .singleStatement()
                 .execute(session, session -> {
                     // metadata.getCatalogHandle() registers the catalog for the transaction
-                    session.getCatalog().ifPresent(catalog -> metadata.getCatalogHandle(session, catalog.getLegacyName()));
+                    session.getCatalog().ifPresent(catalog -> metadata.getCatalogHandle(session, catalog));
                     return transactionSessionConsumer.apply(session);
                 });
     }

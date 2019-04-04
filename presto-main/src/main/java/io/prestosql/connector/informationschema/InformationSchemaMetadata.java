@@ -275,9 +275,9 @@ public class InformationSchemaMetadata
         }
 
         Session session = ((FullConnectorSession) connectorSession).getSession();
-        return metadata.listSchemaNames(session, catalogName).stream()
-                .filter(schema -> !predicate.isPresent() || predicate.get().test(schemaAsFixedValues(schema)))
-                .map(schema -> new QualifiedTablePrefix(createNonDelimitedName(catalogName), createNonDelimitedName(schema)))
+        return metadata.listSchemaNames(session, createNonDelimitedName(catalogName)).stream()
+                .filter(schema -> !predicate.isPresent() || predicate.get().test(schemaAsFixedValues(schema.getLegacyName())))
+                .map(schema -> new QualifiedTablePrefix(createNonDelimitedName(catalogName), createNonDelimitedName(schema.getLegacyName())))
                 .collect(toImmutableSet());
     }
 

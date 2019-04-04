@@ -34,6 +34,7 @@ import io.prestosql.metadata.ViewDefinition;
 import io.prestosql.security.AccessControl;
 import io.prestosql.security.AllowAllAccessControl;
 import io.prestosql.security.ViewAccessControl;
+import io.prestosql.spi.Name;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.CatalogSchemaName;
 import io.prestosql.spi.connector.ColumnHandle;
@@ -148,6 +149,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getLast;
 import static com.google.common.collect.Iterables.transform;
@@ -312,24 +314,26 @@ class StatementAnalyzer
             accessControl.checkCanInsertIntoTable(session.getRequiredTransactionId(), session.getIdentity(), targetTable);
 
             TableMetadata tableMetadata = metadata.getTableMetadata(session, targetTableHandle.get());
-            List<String> tableColumns = tableMetadata.getColumns().stream()
+            List<Name> tableColumns = tableMetadata.getColumns().stream()
                     .filter(column -> !column.isHidden())
                     .map(ColumnMetadata::getName)
+                    .map(Name::createNonDelimitedName)
                     .collect(toImmutableList());
 
-            List<String> insertColumns;
+            List<Name> insertColumns;
             if (insert.getColumns().isPresent()) {
                 insertColumns = insert.getColumns().get().stream()
                         .map(Identifier::getValue)
                         .map(column -> column.toLowerCase(ENGLISH))
+                        .map(Name::createNonDelimitedName)
                         .collect(toImmutableList());
 
                 Set<String> columnNames = new HashSet<>();
-                for (String insertColumn : insertColumns) {
+                for (Name insertColumn : insertColumns) {
                     if (!tableColumns.contains(insertColumn)) {
                         throw new SemanticException(MISSING_COLUMN, insert, "Insert column name does not exist in target table: %s", insertColumn);
                     }
-                    if (!columnNames.add(insertColumn)) {
+                    if (!columnNames.add(insertColumn.getLegacyName())) {
                         throw new SemanticException(DUPLICATE_COLUMN_NAME, insert, "Insert column name is specified more than once: %s", insertColumn);
                     }
                 }
@@ -338,13 +342,13 @@ class StatementAnalyzer
                 insertColumns = tableColumns;
             }
 
-            Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, targetTableHandle.get());
+            Map<Name, ColumnHandle> columnHandles = metadata.getColumnHandles(session, targetTableHandle.get());
             analysis.setInsert(new Analysis.Insert(
                     targetTableHandle.get(),
                     insertColumns.stream().map(columnHandles::get).collect(toImmutableList())));
 
             Iterable<Type> tableTypes = insertColumns.stream()
-                    .map(insertColumn -> tableMetadata.getColumn(insertColumn).getType())
+                    .map(insertColumn -> tableMetadata.getColumn(insertColumn.getLegacyName()).getType())
                     .collect(toImmutableList());
 
             Iterable<Type> queryTypes = transform(queryScope.getRelationType().getVisibleFields(), Field::getType);
@@ -419,7 +423,7 @@ class StatementAnalyzer
             }
 
             validateProperties(node.getProperties(), scope);
-            CatalogName catalogName = metadata.getCatalogHandle(session, tableName.getCatalogName().getLegacyName())
+            CatalogName catalogName = metadata.getCatalogHandle(session, tableName.getCatalogName())
                     .orElseThrow(() -> new PrestoException(NOT_FOUND, "Catalog not found: " + tableName.getCatalogName()));
 
             Map<String, Object> analyzeProperties = metadata.getAnalyzePropertyManager().getProperties(
@@ -437,7 +441,7 @@ class StatementAnalyzer
                     accessControl,
                     session.getIdentity(),
                     ImmutableMultimap.<QualifiedObjectName, String>builder()
-                            .putAll(tableName, metadata.getColumnHandles(session, tableHandle).keySet())
+                            .putAll(tableName, metadata.getColumnHandles(session, tableHandle).keySet().stream().map(Name::getLegacyName).collect(toImmutableSet()))
                             .build());
             try {
                 accessControl.checkCanInsertIntoTable(session.getRequiredTransactionId(), session.getIdentity(), tableName);
@@ -894,7 +898,7 @@ class StatementAnalyzer
 
             Optional<TableHandle> tableHandle = metadata.getTableHandle(session, name);
             if (!tableHandle.isPresent()) {
-                if (!metadata.getCatalogHandle(session, name.getCatalogName().getLegacyName()).isPresent()) {
+                if (!metadata.getCatalogHandle(session, name.getCatalogName()).isPresent()) {
                     throw new SemanticException(MISSING_CATALOG, table, "Catalog %s does not exist", name.getCatalogName());
                 }
                 if (!metadata.schemaExists(session, new CatalogSchemaName(name.getCatalogName(), name.getSchemaName()))) {
@@ -903,7 +907,8 @@ class StatementAnalyzer
                 throw new SemanticException(MISSING_TABLE, table, "Table %s does not exist", name);
             }
             TableMetadata tableMetadata = metadata.getTableMetadata(session, tableHandle.get());
-            Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle.get());
+            Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle.get()).entrySet().stream()
+                    .collect(toImmutableMap(entry -> entry.getKey().getLegacyName(), Map.Entry::getValue));
 
             // TODO: discover columns lazily based on where they are needed (to support connectors that can't enumerate all tables)
             ImmutableList.Builder<Field> fields = ImmutableList.builder();

@@ -127,6 +127,6 @@ public class RuleTester
 
     public CatalogName getCurrentConnectorId()
     {
-        return queryRunner.inTransaction(transactionSession -> metadata.getCatalogHandle(transactionSession, session.getCatalog().get().getLegacyName())).get();
+        return queryRunner.inTransaction(transactionSession -> metadata.getCatalogHandle(transactionSession, session.getCatalog().get())).get();
     }
 }

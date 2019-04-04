@@ -16,6 +16,7 @@ package io.prestosql.sql.planner.assertions;
 import io.prestosql.Session;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.TableHandle;
+import io.prestosql.spi.Name;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.TupleDomain;
@@ -26,6 +27,8 @@ import io.prestosql.sql.planner.assertions.PlanMatchPattern.Ordering;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+
+import static io.prestosql.spi.Name.createNonDelimitedName;
 
 final class Util
 {
@@ -51,12 +54,12 @@ final class Util
             return true;
         }
 
-        Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle);
+        Map<Name, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle);
         for (Map.Entry<String, Domain> expectedColumnConstraint : expectedDomains.get().entrySet()) {
-            if (!columnHandles.containsKey(expectedColumnConstraint.getKey())) {
+            if (!columnHandles.containsKey(createNonDelimitedName(expectedColumnConstraint.getKey()))) {
                 return false;
             }
-            ColumnHandle columnHandle = columnHandles.get(expectedColumnConstraint.getKey());
+            ColumnHandle columnHandle = columnHandles.get(createNonDelimitedName(expectedColumnConstraint.getKey()));
             if (!actualDomains.get().containsKey(columnHandle)) {
                 return false;
             }

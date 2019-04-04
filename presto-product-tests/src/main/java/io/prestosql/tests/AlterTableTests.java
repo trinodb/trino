@@ -74,9 +74,9 @@ public class AlterTableTests
         assertThat(query(format("SELECT count(nationkey) FROM %s", TABLE_NAME)))
                 .containsExactly(row(25));
         assertThat(() -> query(format("ALTER TABLE %s RENAME COLUMN nationkey TO nATIoNkEy", TABLE_NAME)))
-                .failsWithMessage("Column 'nationkey' already exists");
+                .failsWithMessage("Column 'nATIoNkEy' already exists");
         assertThat(() -> query(format("ALTER TABLE %s RENAME COLUMN nationkey TO n_regionkeY", TABLE_NAME)))
-                .failsWithMessage("Column 'n_regionkey' already exists");
+                .failsWithMessage("Column 'n_regionkeY' already exists");
 
         assertThat(query(format("ALTER TABLE %s RENAME COLUMN nationkey TO n_nationkey", TABLE_NAME)));
     }

@@ -21,6 +21,7 @@ import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.metadata.TableHandle;
 import io.prestosql.metadata.TableMetadata;
 import io.prestosql.security.AccessControl;
+import io.prestosql.spi.Name;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.Constraint;
@@ -70,6 +71,7 @@ import java.util.Optional;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.metadata.MetadataUtil.createQualifiedObjectName;
+import static io.prestosql.spi.Name.createNonDelimitedName;
 import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.StandardTypes.DOUBLE;
 import static io.prestosql.spi.type.StandardTypes.VARCHAR;
@@ -169,7 +171,7 @@ public class ShowStatsRewrite
             List<String> statsColumnNames = buildColumnsNames();
             List<SelectItem> selectItems = buildSelectItems(statsColumnNames);
             TableMetadata tableMetadata = metadata.getTableMetadata(session, tableHandle);
-            Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle);
+            Map<Name, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle);
             List<Expression> resultRows = buildStatisticsRows(tableMetadata, columnHandles, tableStatistics);
 
             return simpleQuery(selectAll(selectItems),
@@ -231,7 +233,7 @@ public class ShowStatsRewrite
                     .collect(toImmutableList());
         }
 
-        private List<Expression> buildStatisticsRows(TableMetadata tableMetadata, Map<String, ColumnHandle> columnHandles, TableStatistics tableStatistics)
+        private List<Expression> buildStatisticsRows(TableMetadata tableMetadata, Map<Name, ColumnHandle> columnHandles, TableStatistics tableStatistics)
         {
             ImmutableList.Builder<Expression> rowsBuilder = ImmutableList.builder();
             for (ColumnMetadata columnMetadata : tableMetadata.getColumns()) {
@@ -240,7 +242,7 @@ public class ShowStatsRewrite
                 }
                 String columnName = columnMetadata.getName();
                 Type columnType = columnMetadata.getType();
-                ColumnHandle columnHandle = columnHandles.get(columnName);
+                ColumnHandle columnHandle = columnHandles.get(createNonDelimitedName(columnName));
                 ColumnStatistics columnStatistics = tableStatistics.getColumnStatistics().get(columnHandle);
                 if (columnStatistics != null) {
                     rowsBuilder.add(createColumnStatsRow(columnName, columnType, columnStatistics));

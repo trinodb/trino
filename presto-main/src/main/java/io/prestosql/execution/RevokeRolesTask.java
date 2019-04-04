@@ -35,7 +35,6 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.prestosql.metadata.MetadataUtil.createCatalogName;
 import static io.prestosql.metadata.MetadataUtil.createPrincipal;
-import static io.prestosql.spi.Name.createNonDelimitedName;
 import static io.prestosql.spi.security.PrincipalType.ROLE;
 import static io.prestosql.sql.analyzer.SemanticErrorCode.MISSING_ROLE;
 
@@ -61,7 +60,7 @@ public class RevokeRolesTask
         Optional<PrestoPrincipal> grantor = statement.getGrantor().map(specification -> createPrincipal(session, specification));
         Name catalog = createCatalogName(session, statement);
 
-        Set<Name> availableRoles = metadata.listRoles(session, catalog.getLegacyName()).stream().map(Name::createNonDelimitedName).collect(toImmutableSet());
+        Set<Name> availableRoles = metadata.listRoles(session, catalog);
         Set<Name> specifiedRoles = new LinkedHashSet<>();
         specifiedRoles.addAll(roles);
         grantees.stream()
@@ -79,7 +78,7 @@ public class RevokeRolesTask
         }
 
         accessControl.checkCanRevokeRoles(session.getRequiredTransactionId(), session.getIdentity(), roles, grantees, adminOptionFor, grantor, catalog);
-        metadata.revokeRoles(session, roles.stream().map(Name::getLegacyName).collect(toImmutableSet()), grantees, adminOptionFor, grantor, catalog.getLegacyName());
+        metadata.revokeRoles(session, roles, grantees, adminOptionFor, grantor, catalog);
 
         return immediateFuture(null);
     }

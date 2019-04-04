@@ -35,7 +35,6 @@ import java.util.SortedSet;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static io.prestosql.spi.Name.createNonDelimitedName;
 
 public final class MetadataListing
 {
@@ -57,7 +56,7 @@ public final class MetadataListing
 
     public static SortedSet<String> listSchemas(Session session, Metadata metadata, AccessControl accessControl, Name catalogName)
     {
-        Set<Name> schemaNames = ImmutableSet.copyOf(metadata.listSchemaNames(session, catalogName.getLegacyName()).stream().map(Name::createNonDelimitedName).collect(toImmutableSet()));
+        Set<Name> schemaNames = ImmutableSet.copyOf(metadata.listSchemaNames(session, catalogName));
         return ImmutableSortedSet.copyOf(accessControl.filterSchemas(session.getRequiredTransactionId(), session.getIdentity(), catalogName, schemaNames).stream().map(Name::getLegacyName).iterator());
     }
 

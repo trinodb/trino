@@ -37,6 +37,7 @@ import static io.prestosql.plugin.blackhole.BlackHoleConnector.PAGE_PROCESSING_D
 import static io.prestosql.plugin.blackhole.BlackHoleConnector.ROWS_PER_PAGE_PROPERTY;
 import static io.prestosql.plugin.blackhole.BlackHoleConnector.SPLIT_COUNT_PROPERTY;
 import static io.prestosql.plugin.blackhole.BlackHoleQueryRunner.createQueryRunner;
+import static io.prestosql.spi.Name.createNonDelimitedName;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -97,7 +98,7 @@ public class TestBlackHoleSmoke
 
         List<QualifiedObjectName> tableNames = listBlackHoleTables();
         assertTrue(tableNames.size() == 1, "Expected only one table.");
-        assertTrue(tableNames.get(0).getObjectName().equals("nation"), "Expected 'nation' table.");
+        assertTrue(tableNames.get(0).getObjectName().equals(createNonDelimitedName("nation")), "Expected 'nation' table.");
 
         assertThatQueryReturnsValue("INSERT INTO nation SELECT * FROM tpch.tiny.nation", 25L);
 
