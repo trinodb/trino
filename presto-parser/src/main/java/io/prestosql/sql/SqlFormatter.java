@@ -865,7 +865,7 @@ public final class SqlFormatter
 
         private static String formatName(QualifiedName name)
         {
-            return name.getOriginalParts().stream()
+            return name.getParts().stream()
                     .map(Formatter::formatName)
                     .collect(joining("."));
         }

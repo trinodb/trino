@@ -36,7 +36,6 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.prestosql.spi.Name.createNonDelimitedName;
 import static io.prestosql.spi.StandardErrorCode.SYNTAX_ERROR;
 import static io.prestosql.spi.security.PrincipalType.ROLE;
 import static io.prestosql.spi.security.PrincipalType.USER;
@@ -117,14 +116,14 @@ public final class MetadataUtil
         Name schemaName = session.getSchema().orElse(null);
 
         if (schema.isPresent()) {
-            List<Identifier> parts = schema.get().getOriginalParts();
+            List<Identifier> parts = schema.get().getParts();
             if (parts.size() > 2) {
                 throw new SemanticException(INVALID_SCHEMA_NAME, node, "Too many parts in schema name: %s", schema.get());
             }
             if (parts.size() == 2) {
                 catalogName = createName(parts.get(0));
             }
-            schemaName = createNonDelimitedName(schema.get().getSuffix());
+            schemaName = createName(schema.get().getSuffix());
         }
 
         if (catalogName == null) {
@@ -145,14 +144,14 @@ public final class MetadataUtil
             throw new PrestoException(SYNTAX_ERROR, format("Too many dots in table name: %s", name));
         }
 
-        List<String> parts = Lists.reverse(name.getParts());
-        String objectName = parts.get(0);
-        String schemaName = (parts.size() > 1) ? parts.get(1) : session.getSchema().map(Name::getLegacyName).orElseThrow(() ->
+        List<Identifier> parts = Lists.reverse(name.getParts());
+        Name objectName = createName(parts.get(0));
+        Name schemaName = (parts.size() > 1) ? createName(parts.get(1)) : session.getSchema().orElseThrow(() ->
                 new SemanticException(SCHEMA_NOT_SPECIFIED, node, "Schema must be specified when session schema is not set"));
-        String catalogName = (parts.size() > 2) ? parts.get(2) : session.getCatalog().map(Name::getLegacyName).orElseThrow(() ->
+        Name catalogName = (parts.size() > 2) ? createName(parts.get(2)) : session.getCatalog().orElseThrow(() ->
                 new SemanticException(CATALOG_NOT_SPECIFIED, node, "Catalog must be specified when session catalog is not set"));
 
-        return new QualifiedObjectName(catalogName, schemaName, objectName);
+        return new QualifiedObjectName(catalogName.getLegacyName(), schemaName.getLegacyName(), objectName.getLegacyName());
     }
 
     public static PrestoPrincipal createPrincipal(Session session, GrantorSpecification specification)

@@ -734,9 +734,9 @@ public class FunctionRegistry
             message = format("Unexpected parameters (%s) for function %s. Expected: %s", parameters, name, expected);
         }
 
-        if (name.getSuffix().startsWith(MAGIC_LITERAL_FUNCTION_PREFIX)) {
+        if (name.getLegacySuffix().startsWith(MAGIC_LITERAL_FUNCTION_PREFIX)) {
             // extract type from function name
-            String typeName = name.getSuffix().substring(MAGIC_LITERAL_FUNCTION_PREFIX.length());
+            String typeName = name.getLegacySuffix().substring(MAGIC_LITERAL_FUNCTION_PREFIX.length());
 
             // lookup the type
             Type type = typeManager.getType(parseTypeSignature(typeName));

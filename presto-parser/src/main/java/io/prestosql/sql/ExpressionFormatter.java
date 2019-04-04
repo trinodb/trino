@@ -119,6 +119,11 @@ public final class ExpressionFormatter
                 .collect(joining("."));
     }
 
+    public static String formatIdentifier(Identifier identifier)
+    {
+        return new Formatter(Optional.empty()).process(identifier);
+    }
+
     public static String formatIdentifier(String s)
     {
         return '"' + s.replace("\"", "\"\"") + '"';
@@ -361,7 +366,7 @@ public final class ExpressionFormatter
             StringBuilder builder = new StringBuilder();
 
             String arguments = joinExpressions(node.getArguments());
-            if (node.getArguments().isEmpty() && "count".equalsIgnoreCase(node.getName().getSuffix())) {
+            if (node.getArguments().isEmpty() && "count".equalsIgnoreCase(node.getName().getSuffix().getValue())) {
                 arguments = "*";
             }
             if (node.isDistinct()) {

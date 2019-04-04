@@ -40,7 +40,7 @@ public class ResetSessionTask
     @Override
     public ListenableFuture<?> execute(ResetSession statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters)
     {
-        List<String> parts = statement.getName().getParts();
+        List<String> parts = statement.getName().getLegacyParts();
         if (parts.size() > 2) {
             throw new SemanticException(INVALID_SESSION_PROPERTY, statement, "Invalid session property '%s'", statement.getName());
         }

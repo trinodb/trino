@@ -82,7 +82,7 @@ public class DereferenceExpression
             QualifiedName baseQualifiedName = getQualifiedName((DereferenceExpression) expression.base);
             if (baseQualifiedName != null) {
                 ImmutableList.Builder<Identifier> builder = ImmutableList.builder();
-                builder.addAll(baseQualifiedName.getOriginalParts());
+                builder.addAll(baseQualifiedName.getParts());
                 builder.add(expression.field);
                 parts = builder.build();
             }
@@ -95,12 +95,12 @@ public class DereferenceExpression
     {
         Expression result = null;
 
-        for (String part : name.getParts()) {
+        for (Identifier part : name.getParts()) {
             if (result == null) {
-                result = new Identifier(part);
+                result = part;
             }
             else {
-                result = new DereferenceExpression(result, new Identifier(part));
+                result = new DereferenceExpression(result, part);
             }
         }
 

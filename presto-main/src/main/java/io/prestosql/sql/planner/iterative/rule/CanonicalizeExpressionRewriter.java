@@ -20,6 +20,7 @@ import io.prestosql.sql.tree.ExpressionRewriter;
 import io.prestosql.sql.tree.ExpressionTreeRewriter;
 import io.prestosql.sql.tree.Extract;
 import io.prestosql.sql.tree.FunctionCall;
+import io.prestosql.sql.tree.Identifier;
 import io.prestosql.sql.tree.IfExpression;
 import io.prestosql.sql.tree.IsNotNullPredicate;
 import io.prestosql.sql.tree.IsNullPredicate;
@@ -69,15 +70,15 @@ public class CanonicalizeExpressionRewriter
 
             switch (node.getFunction()) {
                 case DATE:
-                    return new FunctionCall(QualifiedName.of("current_date"), ImmutableList.of());
+                    return new FunctionCall(QualifiedName.of(new Identifier("current_date", true)), ImmutableList.of());
                 case TIME:
-                    return new FunctionCall(QualifiedName.of("current_time"), ImmutableList.of());
+                    return new FunctionCall(QualifiedName.of(new Identifier("current_time", true)), ImmutableList.of());
                 case LOCALTIME:
-                    return new FunctionCall(QualifiedName.of("localtime"), ImmutableList.of());
+                    return new FunctionCall(QualifiedName.of(new Identifier("localtime", true)), ImmutableList.of());
                 case TIMESTAMP:
-                    return new FunctionCall(QualifiedName.of("current_timestamp"), ImmutableList.of());
+                    return new FunctionCall(QualifiedName.of(new Identifier("current_timestamp", true)), ImmutableList.of());
                 case LOCALTIMESTAMP:
-                    return new FunctionCall(QualifiedName.of("localtimestamp"), ImmutableList.of());
+                    return new FunctionCall(QualifiedName.of(new Identifier("localtimestamp", true)), ImmutableList.of());
                 default:
                     throw new UnsupportedOperationException("not yet implemented: " + node.getFunction());
             }

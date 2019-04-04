@@ -222,12 +222,16 @@ public class TestSqlParser
     public void testQualifiedName()
     {
         assertEquals(QualifiedName.of("a", "b", "c", "d").toString(), "a.b.c.d");
-        assertEquals(QualifiedName.of("A", "b", "C", "d").toString(), "a.b.c.d");
+        assertEquals(QualifiedName.of("A", "b", "C", "d").toString(), "A.b.C.d");
         assertTrue(QualifiedName.of("a", "b", "c", "d").hasSuffix(QualifiedName.of("b", "c", "d")));
         assertTrue(QualifiedName.of("a", "b", "c", "d").hasSuffix(QualifiedName.of("a", "b", "c", "d")));
         assertFalse(QualifiedName.of("a", "b", "c", "d").hasSuffix(QualifiedName.of("a", "c", "d")));
         assertFalse(QualifiedName.of("a", "b", "c", "d").hasSuffix(QualifiedName.of("z", "a", "b", "c", "d")));
         assertEquals(QualifiedName.of("a", "b", "c", "d"), QualifiedName.of("a", "b", "c", "d"));
+        assertTrue(QualifiedName.of("a", "B", "c", "d").hasSuffix(QualifiedName.of("b", "c", "d")));
+        assertTrue(QualifiedName.of("a", "b", "c", "d").hasSuffix(QualifiedName.of("B", "c", "d")));
+        assertTrue(QualifiedName.of(new Identifier("a"), new Identifier("b", true), new Identifier("c"), new Identifier("d")).hasSuffix(QualifiedName.of("B", "c", "d")));
+        assertTrue(QualifiedName.of(new Identifier("a"), new Identifier("B", true), new Identifier("c"), new Identifier("d")).hasSuffix(QualifiedName.of("B", "c", "d")));
     }
 
     @Test

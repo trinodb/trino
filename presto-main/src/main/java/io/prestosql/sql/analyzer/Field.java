@@ -151,7 +151,7 @@ public class Field
         }
 
         // TODO: need to know whether the qualified name and the name of this field were quoted
-        return matchesPrefix(name.getPrefix()) && this.name.get().equalsIgnoreCase(name.getSuffix());
+        return matchesPrefix(name.getPrefix()) && this.name.get().equalsIgnoreCase(name.getSuffix().getValue());
     }
 
     @Override

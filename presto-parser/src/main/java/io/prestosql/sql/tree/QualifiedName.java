@@ -30,8 +30,8 @@ import static java.util.Objects.requireNonNull;
 
 public class QualifiedName
 {
-    private final List<String> parts;
-    private final List<Identifier> originalParts;
+    private final List<Identifier> parts;
+    private final List<String> legacyParts;
 
     public static QualifiedName of(String first, String... rest)
     {
@@ -39,10 +39,22 @@ public class QualifiedName
         return of(ImmutableList.copyOf(Lists.asList(first, rest).stream().map(Identifier::new).collect(Collectors.toList())));
     }
 
+    public static QualifiedName of(Identifier first, Identifier... rest)
+    {
+        requireNonNull(first, "first is null");
+        return of(ImmutableList.copyOf(Lists.asList(first, rest)));
+    }
+
     public static QualifiedName of(String name)
     {
         requireNonNull(name, "name is null");
         return of(ImmutableList.of(new Identifier(name)));
+    }
+
+    public static QualifiedName of(Identifier name)
+    {
+        requireNonNull(name, "name is null");
+        return of(ImmutableList.of(name));
     }
 
     public static QualifiedName of(Iterable<Identifier> originalParts)
@@ -53,20 +65,20 @@ public class QualifiedName
         return new QualifiedName(ImmutableList.copyOf(originalParts));
     }
 
-    private QualifiedName(List<Identifier> originalParts)
+    private QualifiedName(List<Identifier> parts)
     {
-        this.originalParts = originalParts;
-        this.parts = originalParts.stream().map(identifier -> identifier.getValue().toLowerCase(ENGLISH)).collect(toImmutableList());
+        this.parts = ImmutableList.copyOf(parts);
+        this.legacyParts = parts.stream().map(identifier -> identifier.getValue().toLowerCase(ENGLISH)).collect(toImmutableList());
     }
 
-    public List<String> getParts()
+    public List<Identifier> getParts()
     {
         return parts;
     }
 
-    public List<Identifier> getOriginalParts()
+    public List<String> getLegacyParts()
     {
-        return originalParts;
+        return legacyParts;
     }
 
     @Override
@@ -85,7 +97,7 @@ public class QualifiedName
             return Optional.empty();
         }
 
-        List<Identifier> subList = originalParts.subList(0, originalParts.size() - 1);
+        List<Identifier> subList = parts.subList(0, parts.size() - 1);
         return Optional.of(new QualifiedName(subList));
     }
 
@@ -95,14 +107,19 @@ public class QualifiedName
             return false;
         }
 
-        int start = parts.size() - suffix.getParts().size();
+        int start = legacyParts.size() - suffix.getParts().size();
 
-        return parts.subList(start, parts.size()).equals(suffix.getParts());
+        return legacyParts.subList(start, legacyParts.size()).equals(suffix.legacyParts);
     }
 
-    public String getSuffix()
+    public Identifier getSuffix()
     {
         return Iterables.getLast(parts);
+    }
+
+    public String getLegacySuffix()
+    {
+        return Iterables.getLast(legacyParts);
     }
 
     @Override
@@ -114,12 +131,12 @@ public class QualifiedName
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        return parts.equals(((QualifiedName) o).parts);
+        return legacyParts.equals(((QualifiedName) o).legacyParts);
     }
 
     @Override
     public int hashCode()
     {
-        return parts.hashCode();
+        return legacyParts.hashCode();
     }
 }

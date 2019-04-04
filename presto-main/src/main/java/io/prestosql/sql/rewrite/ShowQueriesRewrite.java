@@ -435,7 +435,7 @@ final class ShowQueriesRewrite
                 }
 
                 Query query = parseView(viewDefinition.get().getOriginalSql(), objectName, node);
-                List<Identifier> parts = Lists.reverse(node.getName().getOriginalParts());
+                List<Identifier> parts = Lists.reverse(node.getName().getParts());
                 Identifier tableName = parts.get(0);
                 Identifier schemaName = (parts.size() > 1) ? parts.get(1) : new Identifier(objectName.getSchemaName());
                 Identifier catalogName = (parts.size() > 2) ? parts.get(2) : new Identifier(objectName.getCatalogName());

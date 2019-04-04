@@ -793,7 +793,7 @@ class StatementAnalyzer
         {
             if (!table.getName().getPrefix().isPresent()) {
                 // is this a reference to a WITH query?
-                String name = table.getName().getSuffix();
+                String name = table.getName().getLegacySuffix();
 
                 Optional<WithQuery> withQuery = createScope(scope).getNamedQuery(name);
                 if (withQuery.isPresent()) {
@@ -813,7 +813,7 @@ class StatementAnalyzer
                         for (Identifier columnName : columnNames.get()) {
                             Field inputField = queryDescriptor.getFieldByIndex(field);
                             fieldBuilder.add(Field.newQualified(
-                                    QualifiedName.of(name),
+                                    table.getName(),
                                     Optional.of(columnName.getValue()),
                                     inputField.getType(),
                                     false,
@@ -1680,7 +1680,7 @@ class StatementAnalyzer
 
                     if (!field.isPresent()) {
                         if (name != null) {
-                            field = Optional.of(getLast(name.getOriginalParts()));
+                            field = Optional.of(getLast(name.getParts()));
                         }
                     }
 

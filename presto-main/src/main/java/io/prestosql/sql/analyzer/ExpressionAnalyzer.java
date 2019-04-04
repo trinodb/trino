@@ -384,7 +384,7 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitIdentifier(Identifier node, StackableAstVisitorContext<Context> context)
         {
-            ResolvedField resolvedField = context.getContext().getScope().resolveField(node, QualifiedName.of(node.getValue()));
+            ResolvedField resolvedField = context.getContext().getScope().resolveField(node, QualifiedName.of(node));
             return handleResolvedField(node, resolvedField, context);
         }
 

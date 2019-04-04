@@ -143,12 +143,12 @@ public class QueryRewriter
     private QualifiedName generateTemporaryTableName(QualifiedName originalName)
     {
         List<Identifier> parts = new ArrayList<>();
-        int originalSize = originalName.getOriginalParts().size();
-        int prefixSize = rewritePrefix.getOriginalParts().size();
+        int originalSize = originalName.getParts().size();
+        int prefixSize = rewritePrefix.getParts().size();
         if (originalSize > prefixSize) {
-            parts.addAll(originalName.getOriginalParts().subList(0, originalSize - prefixSize));
+            parts.addAll(originalName.getParts().subList(0, originalSize - prefixSize));
         }
-        parts.addAll(rewritePrefix.getOriginalParts());
+        parts.addAll(rewritePrefix.getParts());
         parts.set(parts.size() - 1, new Identifier(createTemporaryTableName()));
         return QualifiedName.of(parts);
     }
@@ -170,7 +170,7 @@ public class QueryRewriter
 
     private String createTemporaryTableName()
     {
-        return rewritePrefix.getSuffix() + UUID.randomUUID().toString().replace("-", "");
+        return rewritePrefix.getLegacySuffix() + UUID.randomUUID().toString().replace("-", "");
     }
 
     private List<Column> getColumnsForTable(Connection connection, String catalog, String schema, String table)
