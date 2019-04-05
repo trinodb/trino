@@ -41,6 +41,7 @@ import java.util.Set;
 
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.prestosql.plugin.hive.metastore.CachingHiveMetastore.memoizeMetastore;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newFixedThreadPool;
 
@@ -65,6 +66,7 @@ public class HivePageSinkProvider
     private final HiveSessionProperties hiveSessionProperties;
     private final HiveWriterStats hiveWriterStats;
     private final OrcFileWriterFactory orcFileWriterFactory;
+    private final long perTransactionMetastoreCacheMaximumSize;
 
     @Inject
     public HivePageSinkProvider(
@@ -86,8 +88,6 @@ public class HivePageSinkProvider
         this.fileWriterFactories = ImmutableSet.copyOf(requireNonNull(fileWriterFactories, "fileWriterFactories is null"));
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.pageSorter = requireNonNull(pageSorter, "pageSorter is null");
-        // TODO: this metastore should not have global cache
-        // As a temporary workaround, always disable cache on the workers
         this.metastore = requireNonNull(metastore, "metastore is null");
         this.pageIndexerFactory = requireNonNull(pageIndexerFactory, "pageIndexerFactory is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
@@ -103,6 +103,7 @@ public class HivePageSinkProvider
         this.hiveSessionProperties = requireNonNull(hiveSessionProperties, "hiveSessionProperties is null");
         this.hiveWriterStats = requireNonNull(hiveWriterStats, "stats is null");
         this.orcFileWriterFactory = requireNonNull(orcFileWriterFactory, "orcFileWriterFactory is null");
+        this.perTransactionMetastoreCacheMaximumSize = config.getPerTransactionMetastoreCacheMaximumSize();
     }
 
     @Override
@@ -142,7 +143,7 @@ public class HivePageSinkProvider
                 handle.getLocationHandle(),
                 locationService,
                 handle.getFilePrefix(),
-                new HivePageSinkMetadataProvider(handle.getPageSinkMetadata(), metastore),
+                new HivePageSinkMetadataProvider(handle.getPageSinkMetadata(), memoizeMetastore(metastore, perTransactionMetastoreCacheMaximumSize)),
                 typeManager,
                 hdfsEnvironment,
                 pageSorter,
