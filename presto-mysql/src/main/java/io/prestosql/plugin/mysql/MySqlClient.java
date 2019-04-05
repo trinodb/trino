@@ -247,4 +247,16 @@ public class MySqlClient
         verify(handle.getSchemaName() == null);
         renameTable(identity, null, handle.getCatalogName(), handle.getTableName(), newTableName);
     }
+
+    @Override
+    protected String applyLimit(String sql, long limit)
+    {
+        return sql + " LIMIT " + limit;
+    }
+
+    @Override
+    public boolean isLimitGuaranteed()
+    {
+        return true;
+    }
 }

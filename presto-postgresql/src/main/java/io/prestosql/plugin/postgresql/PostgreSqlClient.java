@@ -172,6 +172,18 @@ public class PostgreSqlClient
         return super.toWriteMapping(session, type);
     }
 
+    @Override
+    protected String applyLimit(String sql, long limit)
+    {
+        return sql + " LIMIT " + limit;
+    }
+
+    @Override
+    public boolean isLimitGuaranteed()
+    {
+        return true;
+    }
+
     private ColumnMapping jsonColumnMapping()
     {
         return ColumnMapping.sliceMapping(
