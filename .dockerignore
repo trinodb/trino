@@ -1,0 +1,4 @@
+*
+!presto-docker-image/*
+!presto-server/target/presto-server-*.tar.gz
+!presto-cli/target/presto-cli-*-executable.jar

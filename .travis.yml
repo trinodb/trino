@@ -9,7 +9,7 @@ env:
     - ARTIFACTS_UPLOAD_PATH_PR=travis_build_artifacts_pr/${TRAVIS_REPO_SLUG}/${TRAVIS_BRANCH}/${TRAVIS_BUILD_NUMBER}
     - TEST_FLAGS=""
   matrix:
-    - MAVEN_CHECKS=true
+    - MAVEN_CHECKS=true BUILD_PRESTO_DOCKER=true
     - WEBUI_CHECKS=true
     - TEST_SPECIFIC_MODULES=presto-tests
     - TEST_SPECIFIC_MODULES=presto-tests TEST_FLAGS="-P ci-only"
@@ -84,6 +84,10 @@ script:
   - |
     if [[ -v MAVEN_CHECKS ]]; then
       ./mvnw install -DskipTests -B -T C1 -P ci
+    fi
+  - |
+    if [[ -v BUILD_PRESTO_DOCKER ]]; then
+      presto-docker-image/build-local.sh
     fi
   - |
     if [[ -v WEBUI_CHECKS ]]; then
