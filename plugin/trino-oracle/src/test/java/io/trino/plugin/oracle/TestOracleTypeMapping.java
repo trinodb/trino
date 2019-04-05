@@ -39,7 +39,6 @@ public class TestOracleTypeMapping
                         .put("connection-url", oracleServer.getJdbcUrl())
                         .put("connection-user", TEST_USER)
                         .put("connection-password", TEST_PASS)
-                        .put("allow-drop-table", "true")
                         .put("oracle.connection-pool.enabled", "false")
                         .put("oracle.remarks-reporting.enabled", "false")
                         .buildOrThrow(),
