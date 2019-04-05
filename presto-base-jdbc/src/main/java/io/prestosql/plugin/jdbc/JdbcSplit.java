@@ -17,9 +17,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.spi.HostAddress;
-import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorSplit;
-import io.prestosql.spi.predicate.TupleDomain;
 
 import java.util.List;
 import java.util.Optional;
@@ -29,22 +27,13 @@ import static java.util.Objects.requireNonNull;
 public class JdbcSplit
         implements ConnectorSplit
 {
-    private final TupleDomain<ColumnHandle> tupleDomain;
     private final Optional<String> additionalPredicate;
 
     @JsonCreator
     public JdbcSplit(
-            @JsonProperty("tupleDomain") TupleDomain<ColumnHandle> tupleDomain,
             @JsonProperty("additionalPredicate") Optional<String> additionalPredicate)
     {
-        this.tupleDomain = requireNonNull(tupleDomain, "tupleDomain is null");
         this.additionalPredicate = requireNonNull(additionalPredicate, "additionalPredicate is null");
-    }
-
-    @JsonProperty
-    public TupleDomain<ColumnHandle> getTupleDomain()
-    {
-        return tupleDomain;
     }
 
     @JsonProperty

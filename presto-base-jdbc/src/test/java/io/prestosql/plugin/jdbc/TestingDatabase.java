@@ -16,7 +16,6 @@ package io.prestosql.plugin.jdbc;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorSplitSource;
 import io.prestosql.spi.connector.SchemaTableName;
-import io.prestosql.spi.predicate.TupleDomain;
 import org.h2.Driver;
 
 import java.sql.Connection;
@@ -97,8 +96,7 @@ final class TestingDatabase
 
     public JdbcSplit getSplit(ConnectorSession session, JdbcTableHandle table)
     {
-        JdbcTableLayoutHandle jdbcLayoutHandle = new JdbcTableLayoutHandle(table, TupleDomain.all());
-        ConnectorSplitSource splits = jdbcClient.getSplits(JdbcIdentity.from(session), jdbcLayoutHandle);
+        ConnectorSplitSource splits = jdbcClient.getSplits(JdbcIdentity.from(session), table);
         return (JdbcSplit) getOnlyElement(getFutureValue(splits.getNextBatch(NOT_PARTITIONED, 1000)).getSplits());
     }
 

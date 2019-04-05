@@ -15,7 +15,6 @@ package io.prestosql.plugin.jdbc;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonCodec;
-import io.prestosql.spi.predicate.TupleDomain;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
@@ -25,7 +24,7 @@ import static org.testng.Assert.assertEquals;
 
 public class TestJdbcSplit
 {
-    private final JdbcSplit split = new JdbcSplit(TupleDomain.all(), Optional.of("additional predicate"));
+    private final JdbcSplit split = new JdbcSplit(Optional.of("additional predicate"));
 
     @Test
     public void testAddresses()
@@ -34,7 +33,7 @@ public class TestJdbcSplit
         assertEquals(split.getAddresses(), ImmutableList.of());
         assertEquals(split.isRemotelyAccessible(), true);
 
-        JdbcSplit jdbcSplit = new JdbcSplit(TupleDomain.all(), Optional.empty());
+        JdbcSplit jdbcSplit = new JdbcSplit(Optional.empty());
         assertEquals(jdbcSplit.getAddresses(), ImmutableList.of());
     }
 
@@ -44,7 +43,6 @@ public class TestJdbcSplit
         JsonCodec<JdbcSplit> codec = jsonCodec(JdbcSplit.class);
         String json = codec.toJson(split);
         JdbcSplit copy = codec.fromJson(json);
-        assertEquals(copy.getTupleDomain(), split.getTupleDomain());
         assertEquals(copy.getAdditionalPredicate(), split.getAdditionalPredicate());
 
         assertEquals(copy.getAddresses(), ImmutableList.of());
