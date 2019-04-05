@@ -28,7 +28,6 @@ public class TestJdbcMetadataConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(JdbcMetadataConfig.class)
-                .setAllowDropTable(false)
                 .setJoinPushdownEnabled(false)
                 .setAggregationPushdownEnabled(true)
                 .setTopNPushdownEnabled(true)
@@ -39,7 +38,6 @@ public class TestJdbcMetadataConfig
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
-                .put("allow-drop-table", "true")
                 .put("join-pushdown.enabled", "true")
                 .put("aggregation-pushdown.enabled", "false")
                 .put("domain-compaction-threshold", "42")
@@ -47,7 +45,6 @@ public class TestJdbcMetadataConfig
                 .buildOrThrow();
 
         JdbcMetadataConfig expected = new JdbcMetadataConfig()
-                .setAllowDropTable(true)
                 .setJoinPushdownEnabled(true)
                 .setAggregationPushdownEnabled(false)
                 .setTopNPushdownEnabled(false)

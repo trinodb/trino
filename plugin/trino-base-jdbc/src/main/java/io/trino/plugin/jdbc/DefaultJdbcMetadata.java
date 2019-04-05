@@ -79,7 +79,6 @@ import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.isAggregationPu
 import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.isJoinPushdownEnabled;
 import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.isTopNPushdownEnabled;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
-import static io.trino.spi.StandardErrorCode.PERMISSION_DENIED;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static java.lang.Math.max;
 import static java.util.Objects.requireNonNull;
@@ -90,14 +89,12 @@ public class DefaultJdbcMetadata
     private static final String SYNTHETIC_COLUMN_NAME_PREFIX = "_pfgnrtd_";
 
     private final JdbcClient jdbcClient;
-    private final boolean allowDropTable;
 
     private final AtomicReference<Runnable> rollbackAction = new AtomicReference<>();
 
-    public DefaultJdbcMetadata(JdbcClient jdbcClient, boolean allowDropTable)
+    public DefaultJdbcMetadata(JdbcClient jdbcClient)
     {
         this.jdbcClient = requireNonNull(jdbcClient, "jdbcClient is null");
-        this.allowDropTable = allowDropTable;
     }
 
     @Override
@@ -606,9 +603,6 @@ public class DefaultJdbcMetadata
     @Override
     public void dropTable(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        if (!allowDropTable) {
-            throw new TrinoException(PERMISSION_DENIED, "DROP TABLE is disabled in this catalog");
-        }
         JdbcTableHandle handle = (JdbcTableHandle) tableHandle;
         verify(!handle.isSynthetic(), "Not a table reference: %s", handle);
         jdbcClient.dropTable(session, handle);
