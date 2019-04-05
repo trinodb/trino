@@ -577,7 +577,7 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
-    public Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorTableHandle table, Constraint constraint)
+    public Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorTableHandle table, Constraint<ColumnHandle> constraint)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             return delegate.applyFilter(table, constraint);

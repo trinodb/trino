@@ -625,7 +625,7 @@ public interface ConnectorMetadata
      * to loop indefinitely.
      * </p>
      */
-    default Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorTableHandle handle, Constraint constraint)
+    default Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorTableHandle handle, Constraint<ColumnHandle> constraint)
     {
         return Optional.empty();
     }
