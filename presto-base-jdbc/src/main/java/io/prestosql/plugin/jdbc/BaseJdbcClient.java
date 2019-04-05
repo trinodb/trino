@@ -233,11 +233,9 @@ public class BaseJdbcClient
     }
 
     @Override
-    public ConnectorSplitSource getSplits(JdbcIdentity identity, JdbcTableLayoutHandle layoutHandle)
+    public ConnectorSplitSource getSplits(JdbcIdentity identity, JdbcTableHandle tableHandle)
     {
-        JdbcTableHandle tableHandle = layoutHandle.getTable();
-        JdbcSplit jdbcSplit = new JdbcSplit(layoutHandle.getTupleDomain(), Optional.empty());
-        return new FixedSplitSource(ImmutableList.of(jdbcSplit));
+        return new FixedSplitSource(ImmutableList.of(new JdbcSplit(Optional.empty())));
     }
 
     @Override
@@ -267,7 +265,7 @@ public class BaseJdbcClient
                 table.getSchemaName(),
                 table.getTableName(),
                 columns,
-                split.getTupleDomain(),
+                table.getConstraint(),
                 split.getAdditionalPredicate());
     }
 

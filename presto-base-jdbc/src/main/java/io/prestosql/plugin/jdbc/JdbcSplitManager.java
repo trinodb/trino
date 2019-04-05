@@ -16,7 +16,7 @@ package io.prestosql.plugin.jdbc;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorSplitManager;
 import io.prestosql.spi.connector.ConnectorSplitSource;
-import io.prestosql.spi.connector.ConnectorTableLayoutHandle;
+import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 
 import javax.inject.Inject;
@@ -35,9 +35,8 @@ public class JdbcSplitManager
     }
 
     @Override
-    public ConnectorSplitSource getSplits(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorTableLayoutHandle layout, SplitSchedulingStrategy splitSchedulingStrategy)
+    public ConnectorSplitSource getSplits(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorTableHandle table, SplitSchedulingStrategy splitSchedulingStrategy)
     {
-        JdbcTableLayoutHandle layoutHandle = (JdbcTableLayoutHandle) layout;
-        return jdbcClient.getSplits(JdbcIdentity.from(session), layoutHandle);
+        return jdbcClient.getSplits(JdbcIdentity.from(session), (JdbcTableHandle) table);
     }
 }

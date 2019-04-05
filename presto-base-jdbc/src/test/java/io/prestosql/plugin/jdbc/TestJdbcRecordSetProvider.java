@@ -179,8 +179,14 @@ public class TestJdbcRecordSetProvider
 
     private RecordCursor getCursor(JdbcTableHandle jdbcTableHandle, List<JdbcColumnHandle> columns, TupleDomain<ColumnHandle> domain)
     {
-        JdbcTableLayoutHandle layoutHandle = new JdbcTableLayoutHandle(jdbcTableHandle, domain);
-        ConnectorSplitSource splits = jdbcClient.getSplits(IDENTITY, layoutHandle);
+        jdbcTableHandle = new JdbcTableHandle(
+                jdbcTableHandle.getSchemaTableName(),
+                jdbcTableHandle.getCatalogName(),
+                jdbcTableHandle.getSchemaName(),
+                jdbcTableHandle.getTableName(),
+                domain);
+
+        ConnectorSplitSource splits = jdbcClient.getSplits(IDENTITY, jdbcTableHandle);
         JdbcSplit split = (JdbcSplit) getOnlyElement(getFutureValue(splits.getNextBatch(NOT_PARTITIONED, 1000)).getSplits());
 
         ConnectorTransactionHandle transaction = new JdbcTransactionHandle();

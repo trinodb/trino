@@ -173,6 +173,9 @@ public class QueryBuilder
 
     private List<String> toConjuncts(JdbcClient client, ConnectorSession session, List<JdbcColumnHandle> columns, TupleDomain<ColumnHandle> tupleDomain, List<TypeAndValue> accumulator)
     {
+        if (tupleDomain.isNone()) {
+            return ImmutableList.of(ALWAYS_FALSE);
+        }
         ImmutableList.Builder<String> builder = ImmutableList.builder();
         for (JdbcColumnHandle column : columns) {
             Domain domain = tupleDomain.getDomains().get().get(column);
