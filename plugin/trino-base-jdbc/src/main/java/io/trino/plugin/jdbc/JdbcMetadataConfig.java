@@ -15,13 +15,14 @@ package io.trino.plugin.jdbc;
 
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import io.airlift.configuration.DefunctConfig;
 import io.airlift.configuration.LegacyConfig;
 
 import javax.validation.constraints.Min;
 
+@DefunctConfig("allow-drop-table")
 public class JdbcMetadataConfig
 {
-    private boolean allowDropTable;
     /*
      * Join pushdown is disabled by default as this is the safer option.
      * Pushing down a join which substantially increases the row count vs
@@ -39,19 +40,6 @@ public class JdbcMetadataConfig
     // Use 32 as compaction threshold as it provides reasonable balance
     // between performance and pushdown capabilities
     private int domainCompactionThreshold = 32;
-
-    public boolean isAllowDropTable()
-    {
-        return allowDropTable;
-    }
-
-    @Config("allow-drop-table")
-    @ConfigDescription("Allow connector to drop tables")
-    public JdbcMetadataConfig setAllowDropTable(boolean allowDropTable)
-    {
-        this.allowDropTable = allowDropTable;
-        return this;
-    }
 
     public boolean isJoinPushdownEnabled()
     {

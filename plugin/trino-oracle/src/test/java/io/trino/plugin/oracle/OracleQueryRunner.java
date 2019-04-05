@@ -78,7 +78,6 @@ public final class OracleQueryRunner
                 .put("connection-url", server.getJdbcUrl())
                 .put("connection-user", TEST_USER)
                 .put("connection-password", TEST_PASS)
-                .put("allow-drop-table", "true")
                 .buildOrThrow();
     }
 
@@ -95,7 +94,6 @@ public final class OracleQueryRunner
                         .put("connection-url", server.getJdbcUrl())
                         .put("connection-user", TEST_USER)
                         .put("connection-password", TEST_PASS)
-                        .put("allow-drop-table", "true")
                         .put("oracle.connection-pool.enabled", "false")
                         .put("oracle.remarks-reporting.enabled", "false")
                         .buildOrThrow(),
