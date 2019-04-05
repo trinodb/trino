@@ -13,7 +13,6 @@
  */
 package io.prestosql.plugin.cassandra;
 
-import com.datastax.driver.core.ProtocolVersion;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
@@ -70,7 +69,6 @@ public class CassandraMetadata
     private final CassandraSession cassandraSession;
     private final CassandraPartitionManager partitionManager;
     private final boolean allowDropTable;
-    private final ProtocolVersion protocolVersion;
 
     private final JsonCodec<List<ExtraColumnMetadata>> extraColumnMetadataCodec;
 
@@ -84,7 +82,6 @@ public class CassandraMetadata
         this.partitionManager = requireNonNull(partitionManager, "partitionManager is null");
         this.cassandraSession = requireNonNull(cassandraSession, "cassandraSession is null");
         this.allowDropTable = requireNonNull(config, "config is null").getAllowDropTable();
-        this.protocolVersion = requireNonNull(config, "config is null").getProtocolVersion();
         this.extraColumnMetadataCodec = requireNonNull(extraColumnMetadataCodec, "extraColumnMetadataCodec is null");
     }
 
@@ -285,7 +282,7 @@ public class CassandraMetadata
             queryBuilder.append(", ")
                     .append(name)
                     .append(" ")
-                    .append(toCassandraType(type, protocolVersion).name().toLowerCase(ENGLISH));
+                    .append(toCassandraType(type, cassandraSession.getProtocolVersion()).name().toLowerCase(ENGLISH));
         }
         queryBuilder.append(") ");
 

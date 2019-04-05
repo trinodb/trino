@@ -313,6 +313,14 @@ public class TestSelect
         onCassandra(format("DROP MATERIALIZED VIEW IF EXISTS %s.%s", KEY_SPACE, mvName));
     }
 
+    @Test(groups = CASSANDRA)
+    public void testProtocolVersion()
+    {
+        QueryResult queryResult = onPresto()
+                .executeQuery(format("SELECT native_protocol_version FROM %s.system.local", CONNECTOR_NAME));
+        assertThat(queryResult).containsOnly(row("4"));
+    }
+
     private void onCassandra(String query)
     {
         try (CassandraQueryExecutor queryExecutor = new CassandraQueryExecutor(configuration)) {

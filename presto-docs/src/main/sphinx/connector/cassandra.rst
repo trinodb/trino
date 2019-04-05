@@ -69,7 +69,8 @@ Property Name                                      Description
                                                    of the user who is connected to Presto.
 
 ``cassandra.protocol-version``                     It is possible to override the protocol version for older Cassandra clusters.
-                                                   This property defaults to ``V3``. Possible values include ``V2``, ``V3`` and ``V4``.
+                                                   By default, the values from the highest protocol version the driver can use.
+                                                   Possible values include ``V2``, ``V3`` and ``V4``.
 ================================================== ======================================================================
 
 .. note::

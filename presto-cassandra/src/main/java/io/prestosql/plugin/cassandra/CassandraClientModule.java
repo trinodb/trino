@@ -68,8 +68,10 @@ public class CassandraClientModule
         requireNonNull(config, "config is null");
         requireNonNull(extraColumnMetadataCodec, "extraColumnMetadataCodec is null");
 
-        Cluster.Builder clusterBuilder = Cluster.builder()
-                .withProtocolVersion(config.getProtocolVersion());
+        Cluster.Builder clusterBuilder = Cluster.builder();
+        if (config.getProtocolVersion() != null) {
+            clusterBuilder.withProtocolVersion(config.getProtocolVersion());
+        }
 
         List<String> contactPoints = requireNonNull(config.getContactPoints(), "contactPoints is null");
         checkArgument(!contactPoints.isEmpty(), "empty contactPoints");
