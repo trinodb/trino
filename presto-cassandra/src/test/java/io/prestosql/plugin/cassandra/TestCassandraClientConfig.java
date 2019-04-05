@@ -23,7 +23,6 @@ import org.testng.annotations.Test;
 import java.util.Map;
 
 import static com.datastax.driver.core.ProtocolVersion.V2;
-import static com.datastax.driver.core.ProtocolVersion.V3;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -59,7 +58,7 @@ public class TestCassandraClientConfig
                 .setNoHostAvailableRetryTimeout(new Duration(1, MINUTES))
                 .setSpeculativeExecutionLimit(1)
                 .setSpeculativeExecutionDelay(new Duration(500, MILLISECONDS))
-                .setProtocolVersion(V3));
+                .setProtocolVersion(null));
     }
 
     @Test

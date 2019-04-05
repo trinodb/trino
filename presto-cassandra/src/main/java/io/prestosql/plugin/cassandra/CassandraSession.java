@@ -15,6 +15,7 @@ package io.prestosql.plugin.cassandra;
 
 import com.datastax.driver.core.Host;
 import com.datastax.driver.core.PreparedStatement;
+import com.datastax.driver.core.ProtocolVersion;
 import com.datastax.driver.core.RegularStatement;
 import com.datastax.driver.core.ResultSet;
 import com.datastax.driver.core.Statement;
@@ -33,6 +34,8 @@ public interface CassandraSession
     String PRESTO_COMMENT_METADATA = "Presto Metadata:";
 
     VersionNumber getCassandraVersion();
+
+    ProtocolVersion getProtocolVersion();
 
     String getPartitioner();
 

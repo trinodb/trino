@@ -26,6 +26,7 @@ import io.airlift.units.Duration;
 import io.airlift.units.MaxDuration;
 import io.airlift.units.MinDuration;
 
+import javax.annotation.Nullable;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Size;
@@ -69,7 +70,7 @@ public class CassandraClientConfig
     private Duration noHostAvailableRetryTimeout = new Duration(1, MINUTES);
     private int speculativeExecutionLimit = 1;
     private Duration speculativeExecutionDelay = new Duration(500, MILLISECONDS);
-    private ProtocolVersion protocolVersion = ProtocolVersion.V3;
+    private ProtocolVersion protocolVersion;
 
     @NotNull
     @Size(min = 1)
@@ -396,7 +397,7 @@ public class CassandraClientConfig
         return this;
     }
 
-    @NotNull
+    @Nullable
     public ProtocolVersion getProtocolVersion()
     {
         return protocolVersion;

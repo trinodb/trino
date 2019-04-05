@@ -22,6 +22,7 @@ import com.datastax.driver.core.IndexMetadata;
 import com.datastax.driver.core.KeyspaceMetadata;
 import com.datastax.driver.core.MaterializedViewMetadata;
 import com.datastax.driver.core.PreparedStatement;
+import com.datastax.driver.core.ProtocolVersion;
 import com.datastax.driver.core.RegularStatement;
 import com.datastax.driver.core.ResultSet;
 import com.datastax.driver.core.Row;
@@ -117,6 +118,12 @@ public class NativeCassandraSession
                     "and that the contact points are specified correctly.");
         }
         return VersionNumber.parse(versionRow.getString("release_version"));
+    }
+
+    @Override
+    public ProtocolVersion getProtocolVersion()
+    {
+        return executeWithSession(session -> session.getCluster().getConfiguration().getProtocolOptions().getProtocolVersion());
     }
 
     @Override
