@@ -775,7 +775,7 @@ public class BaseJdbcClient
         return name;
     }
 
-    private static ResultSet getColumns(JdbcTableHandle tableHandle, DatabaseMetaData metadata)
+    protected static ResultSet getColumns(JdbcTableHandle tableHandle, DatabaseMetaData metadata)
             throws SQLException
     {
         Optional<String> escape = Optional.ofNullable(metadata.getSearchStringEscape());
