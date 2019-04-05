@@ -39,6 +39,7 @@ import java.sql.SQLException;
 import java.util.Optional;
 import java.util.function.UnaryOperator;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.booleanWriteFunction;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.charWriteFunction;
@@ -144,6 +145,20 @@ public class SqlServerClient
 
         // TODO implement proper type mapping
         return super.toWriteMapping(session, type);
+    }
+
+    @Override
+    protected String applyLimit(String sql, long limit)
+    {
+        String start = "SELECT ";
+        checkArgument(sql.startsWith(start));
+        return "SELECT TOP " + limit + " " + sql.substring(start.length());
+    }
+
+    @Override
+    public boolean isLimitGuaranteed()
+    {
+        return true;
     }
 
     private static String singleQuote(String... objects)

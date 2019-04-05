@@ -69,4 +69,16 @@ public class RedshiftClient
         statement.setFetchSize(1000);
         return statement;
     }
+
+    @Override
+    protected String applyLimit(String sql, long limit)
+    {
+        return sql + " LIMIT " + limit;
+    }
+
+    @Override
+    public boolean isLimitGuaranteed()
+    {
+        return true;
+    }
 }

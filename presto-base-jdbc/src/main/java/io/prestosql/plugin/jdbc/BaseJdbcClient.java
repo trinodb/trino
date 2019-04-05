@@ -45,8 +45,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
@@ -84,6 +86,7 @@ import static java.sql.DatabaseMetaData.columnNoNulls;
 import static java.util.Collections.nCopies;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
+import static java.util.function.Function.identity;
 
 public class BaseJdbcClient
         implements JdbcClient
@@ -266,7 +269,8 @@ public class BaseJdbcClient
                 table.getTableName(),
                 columns,
                 table.getConstraint(),
-                split.getAdditionalPredicate());
+                split.getAdditionalPredicate(),
+                limitFunction(table.getLimit()));
     }
 
     @Override
@@ -595,6 +599,22 @@ public class BaseJdbcClient
             return writeMapping;
         }
         throw new PrestoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
+    }
+
+    private Function<String, String> limitFunction(OptionalLong limit)
+    {
+        return limit.isPresent() ? sql -> applyLimit(sql, limit.getAsLong()) : identity();
+    }
+
+    protected String applyLimit(String sql, long limit)
+    {
+        return sql;
+    }
+
+    @Override
+    public boolean isLimitGuaranteed()
+    {
+        return false;
     }
 
     protected String quoted(String name)
