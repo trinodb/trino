@@ -60,7 +60,7 @@ public class TestProgressMonitor
         server.start();
     }
 
-    @AfterMethod
+    @AfterMethod(alwaysRun = true)
     public void teardown()
             throws IOException
     {

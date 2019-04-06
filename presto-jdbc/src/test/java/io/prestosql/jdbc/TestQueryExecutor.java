@@ -46,7 +46,7 @@ public class TestQueryExecutor
         server.start();
     }
 
-    @AfterMethod
+    @AfterMethod(alwaysRun = true)
     public void teardown()
             throws IOException
     {

@@ -66,7 +66,7 @@ public class TestMarkDistinctOperator
                 .addDriverContext();
     }
 
-    @AfterMethod
+    @AfterMethod(alwaysRun = true)
     public void tearDown()
     {
         executor.shutdownNow();

@@ -103,7 +103,7 @@ public class TestNodeScheduler
         finalizerService.start();
     }
 
-    @AfterMethod
+    @AfterMethod(alwaysRun = true)
     public void tearDown()
     {
         remoteTaskExecutor.shutdown();

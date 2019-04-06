@@ -38,7 +38,6 @@ import io.prestosql.spi.connector.SchemaTablePrefix;
 import io.prestosql.spi.type.Type;
 import io.prestosql.testing.TestingConnectorContext;
 import io.prestosql.testing.TestingConnectorSession;
-import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -123,16 +122,6 @@ public class TestCassandraConnector
         table = new SchemaTableName(database, TABLE_ALL_TYPES.toLowerCase(ENGLISH));
         tableUnpartitioned = new SchemaTableName(database, "presto_test_unpartitioned");
         invalidTable = new SchemaTableName(database, "totally_invalid_table_name");
-    }
-
-    @AfterMethod
-    public void tearDown()
-    {
-    }
-
-    @Test
-    public void testGetClient()
-    {
     }
 
     @Test

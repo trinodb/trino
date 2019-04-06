@@ -133,7 +133,7 @@ public class TestRaptorSplitManager
         raptorSplitManager = new RaptorSplitManager(connectorId, nodeSupplier, shardManager, false);
     }
 
-    @AfterMethod
+    @AfterMethod(alwaysRun = true)
     public void teardown()
             throws IOException
     {

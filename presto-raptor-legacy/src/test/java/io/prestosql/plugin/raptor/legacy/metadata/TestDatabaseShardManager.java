@@ -113,7 +113,7 @@ public class TestDatabaseShardManager
         shardManager = createShardManager(dbi);
     }
 
-    @AfterMethod
+    @AfterMethod(alwaysRun = true)
     public void teardown()
             throws IOException
     {

@@ -66,7 +66,7 @@ public class TestDistinctLimitOperator
         joinCompiler = new JoinCompiler(MetadataManager.createTestMetadataManager());
     }
 
-    @AfterMethod
+    @AfterMethod(alwaysRun = true)
     public void tearDown()
     {
         executor.shutdownNow();
