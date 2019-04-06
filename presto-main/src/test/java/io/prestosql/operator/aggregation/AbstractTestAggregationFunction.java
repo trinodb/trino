@@ -13,7 +13,6 @@
  */
 package io.prestosql.operator.aggregation;
 
-import com.google.common.collect.Lists;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
 import io.prestosql.spi.block.Block;
@@ -28,10 +27,10 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.operator.aggregation.AggregationTestUtils.assertAggregation;
 import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
 import static io.prestosql.testing.assertions.PrestoExceptionAssert.assertPrestoExceptionThrownBy;
 
 public abstract class AbstractTestAggregationFunction
@@ -48,8 +47,10 @@ public abstract class AbstractTestAggregationFunction
 
     protected final InternalAggregationFunction getFunction()
     {
-        List<TypeSignatureProvider> parameterTypes = fromTypeSignatures(Lists.transform(getFunctionParameterTypes(), TypeSignature::parseTypeSignature));
-        Signature signature = metadata.getFunctionRegistry().resolveFunction(QualifiedName.of(getFunctionName()), parameterTypes);
+        Signature signature = metadata.getFunctionRegistry().resolveFunction(QualifiedName.of(getFunctionName()), getFunctionParameterTypes().stream()
+                .map(TypeSignature::parseTypeSignature)
+                .map(TypeSignatureProvider::new)
+                .collect(toImmutableList()));
         return metadata.getFunctionRegistry().getAggregateFunctionImplementation(signature);
     }
 
@@ -123,7 +124,7 @@ public abstract class AbstractTestAggregationFunction
         testAggregation(getExpectedValue(2, 4), getSequenceBlocks(2, 4));
     }
 
-    protected Block[] createAlternatingNullsBlock(List<Type> types, Block... sequenceBlocks)
+    protected static Block[] createAlternatingNullsBlock(List<Type> types, Block... sequenceBlocks)
     {
         Block[] alternatingNullsBlocks = new Block[sequenceBlocks.length];
         for (int i = 0; i < sequenceBlocks.length; i++) {
