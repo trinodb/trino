@@ -16,8 +16,8 @@ package io.prestosql.server;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.jetty.JettyHttpClient;
 import io.prestosql.server.testing.TestingPrestoServer;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -29,13 +29,12 @@ import static io.airlift.testing.Closeables.closeQuietly;
 import static io.prestosql.failuredetector.HeartbeatFailureDetector.Stats;
 import static org.testng.Assert.assertTrue;
 
-@Test(singleThreaded = true)
 public class TestNodeResource
 {
     private TestingPrestoServer server;
     private HttpClient client;
 
-    @BeforeMethod
+    @BeforeClass
     public void setup()
             throws Exception
     {
@@ -43,8 +42,8 @@ public class TestNodeResource
         client = new JettyHttpClient();
     }
 
-    @AfterMethod
-    public void teardown()
+    @AfterClass(alwaysRun = true)
+    public void tearDown()
     {
         closeQuietly(server);
         closeQuietly(client);

@@ -28,8 +28,8 @@ import io.prestosql.client.QueryResults;
 import io.prestosql.server.testing.TestingPrestoServer;
 import io.prestosql.spi.QueryId;
 import io.prestosql.spi.type.TimeZoneNotSupportedException;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.net.URI;
@@ -63,14 +63,13 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
 
-@Test(singleThreaded = true)
 public class TestServer
 {
     private static final JsonCodec<QueryResults> QUERY_RESULTS_CODEC = jsonCodec(QueryResults.class);
     private TestingPrestoServer server;
     private HttpClient client;
 
-    @BeforeMethod
+    @BeforeClass
     public void setup()
             throws Exception
     {
@@ -79,8 +78,8 @@ public class TestServer
     }
 
     @SuppressWarnings("deprecation")
-    @AfterMethod
-    public void teardown()
+    @AfterClass(alwaysRun = true)
+    public void tearDown()
     {
         Closeables.closeQuietly(server);
         Closeables.closeQuietly(client);
