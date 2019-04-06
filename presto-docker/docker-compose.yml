@@ -1,0 +1,21 @@
+version: '3'
+
+services:
+  coordinator:
+    image: prestosql/presto-coordinator:307
+    ports:
+      - "8080:8080"
+    container_name: "coordinator"
+    command: coordinator
+  worker0:
+    image: prestosql/presto-worker:307
+    container_name: "worker0"
+    ports:
+      - "8081:8081"
+    command: worker0
+  worker1:
+    image: prestosql/presto-worker:307
+    container_name: "worker1"
+    ports:
+      - "8082:8081"
+    command: worker1

@@ -1,0 +1,22 @@
+language: bash
+services: docker
+
+env:
+  - VERSION=307
+  - VERSION=306
+
+
+install:
+  # - pip install docker-admin
+
+before_script:
+  - env | sort
+  - 
+    
+script:
+  - 
+    
+after_script:
+  - 
+
+# vim:set et ts=2 sw=2:  
