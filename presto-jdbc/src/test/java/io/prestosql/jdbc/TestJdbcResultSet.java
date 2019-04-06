@@ -77,7 +77,7 @@ public class TestJdbcResultSet
         statement = connection.createStatement();
     }
 
-    @AfterMethod
+    @AfterMethod(alwaysRun = true)
     public void teardown()
     {
         closeQuietly(statement);

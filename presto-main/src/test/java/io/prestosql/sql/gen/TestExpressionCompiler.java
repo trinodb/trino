@@ -188,7 +188,7 @@ public class TestExpressionCompiler
         futures = new ArrayList<>();
     }
 
-    @AfterMethod
+    @AfterMethod(alwaysRun = true)
     public void tearDown(Method method)
     {
         assertTrue(Futures.allAsList(futures).isDone(), "Expression test futures are not complete");

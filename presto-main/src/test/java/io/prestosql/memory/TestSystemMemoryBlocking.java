@@ -83,7 +83,7 @@ public class TestSystemMemoryBlocking
                 .addDriverContext();
     }
 
-    @AfterMethod
+    @AfterMethod(alwaysRun = true)
     public void tearDown()
     {
         executor.shutdownNow();

@@ -80,7 +80,7 @@ public class TestOrderByOperator
         spillerFactory = new DummySpillerFactory();
     }
 
-    @AfterMethod
+    @AfterMethod(alwaysRun = true)
     public void tearDown()
     {
         executor.shutdownNow();

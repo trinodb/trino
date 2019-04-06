@@ -46,7 +46,7 @@ public class TestHiveRoles
         super(HiveQueryRunner::createQueryRunner);
     }
 
-    @AfterMethod
+    @AfterMethod(alwaysRun = true)
     public void afterMethod()
     {
         for (String role : listRoles()) {

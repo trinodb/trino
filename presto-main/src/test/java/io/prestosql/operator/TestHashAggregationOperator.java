@@ -145,7 +145,7 @@ public class TestHashAggregationOperator
         return new Object[][] {{VARCHAR}, {BIGINT}};
     }
 
-    @AfterMethod
+    @AfterMethod(alwaysRun = true)
     public void tearDown()
     {
         spillerFactory = null;

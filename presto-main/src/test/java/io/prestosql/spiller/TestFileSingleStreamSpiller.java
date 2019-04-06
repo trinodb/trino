@@ -53,7 +53,7 @@ public class TestFileSingleStreamSpiller
     private final ListeningExecutorService executor = listeningDecorator(newCachedThreadPool());
     private final File spillPath = Files.createTempDir();
 
-    @AfterMethod
+    @AfterMethod(alwaysRun = true)
     public void tearDown()
             throws Exception
     {

@@ -69,7 +69,7 @@ public class TestHashSemiJoinOperator
         taskContext = createTaskContext(executor, scheduledExecutor, TEST_SESSION);
     }
 
-    @AfterMethod
+    @AfterMethod(alwaysRun = true)
     public void tearDown()
     {
         executor.shutdownNow();

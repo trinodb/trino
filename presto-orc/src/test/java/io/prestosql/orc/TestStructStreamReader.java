@@ -75,7 +75,7 @@ public class TestStructStreamReader
         tempFile = new TempFile();
     }
 
-    @AfterMethod
+    @AfterMethod(alwaysRun = true)
     public void tearDown()
             throws IOException
     {

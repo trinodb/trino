@@ -103,7 +103,7 @@ public class TestMemoryRevokingScheduler
         allOperatorContexts = null;
     }
 
-    @AfterMethod
+    @AfterMethod(alwaysRun = true)
     public void tearDown()
     {
         memoryPool = null;
