@@ -75,7 +75,7 @@ public class TestBinaryFileSpiller
         memoryContext = newSimpleAggregatedMemoryContext();
     }
 
-    @AfterMethod
+    @AfterMethod(alwaysRun = true)
     public void tearDown()
             throws Exception
     {

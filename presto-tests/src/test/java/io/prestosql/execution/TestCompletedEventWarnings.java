@@ -39,6 +39,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static org.testng.Assert.fail;
 
+@Test(singleThreaded = true)
 public class TestCompletedEventWarnings
 {
     private static final int EXPECTED_EVENTS = 3;

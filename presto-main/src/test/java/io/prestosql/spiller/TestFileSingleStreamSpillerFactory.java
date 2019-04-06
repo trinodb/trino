@@ -48,7 +48,7 @@ import static org.testng.Assert.assertEquals;
 @Test(singleThreaded = true)
 public class TestFileSingleStreamSpillerFactory
 {
-    private final Closer closer = Closer.create();
+    private Closer closer;
     private ListeningExecutorService executor;
     private File spillPath1;
     private File spillPath2;
@@ -56,6 +56,7 @@ public class TestFileSingleStreamSpillerFactory
     @BeforeMethod
     public void setUp()
     {
+        closer = Closer.create();
         executor = MoreExecutors.listeningDecorator(Executors.newCachedThreadPool());
         closer.register(() -> executor.shutdownNow());
         spillPath1 = Files.createTempDir();
@@ -64,7 +65,7 @@ public class TestFileSingleStreamSpillerFactory
         closer.register(() -> deleteRecursively(spillPath2.toPath(), ALLOW_INSECURE));
     }
 
-    @AfterMethod
+    @AfterMethod(alwaysRun = true)
     public void tearDown()
             throws Exception
     {
