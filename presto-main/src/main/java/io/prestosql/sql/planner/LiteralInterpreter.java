@@ -140,7 +140,7 @@ public final class LiteralInterpreter
             }
 
             try {
-                Signature signature = metadata.getFunctionRegistry().getCoercion(VARCHAR, type);
+                Signature signature = metadata.getFunctionRegistry().getCoercion(VARCHAR.getTypeSignature(), type.getTypeSignature());
                 return functionInvoker.invoke(signature, session, ImmutableList.of(utf8Slice(node.getValue())));
             }
             catch (IllegalArgumentException e) {

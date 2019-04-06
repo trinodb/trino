@@ -81,7 +81,7 @@ public class TryCastFunction
 
         // the resulting method needs to return a boxed type
         FunctionRegistry functionRegistry = metadata.getFunctionRegistry();
-        Signature signature = functionRegistry.getCoercion(fromType, toType);
+        Signature signature = functionRegistry.getCoercion(fromType.getTypeSignature(), toType.getTypeSignature());
         ScalarFunctionImplementation implementation = functionRegistry.getScalarFunctionImplementation(signature);
         argumentProperties = ImmutableList.of(implementation.getArgumentProperty(0));
         MethodHandle coercion = implementation.getMethodHandle();

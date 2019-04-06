@@ -178,7 +178,7 @@ public class UnwrapCastInComparison
                 return expression;
             }
 
-            Signature sourceToTarget = metadata.getFunctionRegistry().getCoercion(sourceType, targetType);
+            Signature sourceToTarget = metadata.getFunctionRegistry().getCoercion(sourceType.getTypeSignature(), targetType.getTypeSignature());
 
             Optional<Type.Range> sourceRange = sourceType.getRange();
             if (sourceRange.isPresent()) {
@@ -269,7 +269,7 @@ public class UnwrapCastInComparison
 
             Signature targetToSource;
             try {
-                targetToSource = metadata.getFunctionRegistry().getCoercion(targetType, sourceType);
+                targetToSource = metadata.getFunctionRegistry().getCoercion(targetType.getTypeSignature(), sourceType.getTypeSignature());
             }
             catch (OperatorNotFoundException e) {
                 // Without a cast between target -> source, there's nothing more we can do

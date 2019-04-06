@@ -786,8 +786,8 @@ public class ExpressionInterpreter
 
             Type commonType = typeCoercion.getCommonSuperType(firstType, secondType).get();
 
-            Signature firstCast = metadata.getFunctionRegistry().getCoercion(firstType, commonType);
-            Signature secondCast = metadata.getFunctionRegistry().getCoercion(secondType, commonType);
+            Signature firstCast = metadata.getFunctionRegistry().getCoercion(firstType.getTypeSignature(), commonType.getTypeSignature());
+            Signature secondCast = metadata.getFunctionRegistry().getCoercion(secondType.getTypeSignature(), commonType.getTypeSignature());
 
             // cast(first as <common type>) == cast(second as <common type>)
             boolean equal = Boolean.TRUE.equals(invokeOperator(
@@ -1089,7 +1089,7 @@ public class ExpressionInterpreter
                 return null;
             }
 
-            Signature operator = metadata.getFunctionRegistry().getCoercion(sourceType, targetType);
+            Signature operator = metadata.getFunctionRegistry().getCoercion(sourceType.getTypeSignature(), targetType.getTypeSignature());
 
             try {
                 return functionInvoker.invoke(operator, session, ImmutableList.of(value));

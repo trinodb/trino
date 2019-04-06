@@ -19,6 +19,7 @@ import io.prestosql.annotation.UsedByGeneratedCode;
 import io.prestosql.metadata.BoundVariables;
 import io.prestosql.metadata.FunctionRegistry;
 import io.prestosql.metadata.Metadata;
+import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlOperator;
 import io.prestosql.operator.aggregation.TypedSet;
 import io.prestosql.spi.PrestoException;
@@ -107,7 +108,8 @@ public final class MapToMapCast
         MethodHandle getter = nativeValueGetter(fromType);
 
         // Adapt cast that takes ([ConnectorSession,] ?) to one that takes (?, ConnectorSession), where ? is the return type of getter.
-        ScalarFunctionImplementation castImplementation = functionRegistry.getScalarFunctionImplementation(functionRegistry.getCoercion(fromType, toType));
+        Signature signature = functionRegistry.getCoercion(fromType.getTypeSignature(), toType.getTypeSignature());
+        ScalarFunctionImplementation castImplementation = functionRegistry.getScalarFunctionImplementation(signature);
         MethodHandle cast = castImplementation.getMethodHandle();
         if (cast.type().parameterArray()[0] != ConnectorSession.class) {
             cast = MethodHandles.dropArguments(cast, 0, ConnectorSession.class);

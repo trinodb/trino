@@ -40,7 +40,7 @@ final class StatsUtil
     {
         if (convertibleToDoubleWithCast(type)) {
             InterpretedFunctionInvoker functionInvoker = new InterpretedFunctionInvoker(metadata.getFunctionRegistry());
-            Signature castSignature = metadata.getFunctionRegistry().getCoercion(type, DoubleType.DOUBLE);
+            Signature castSignature = metadata.getFunctionRegistry().getCoercion(type.getTypeSignature(), DoubleType.DOUBLE.getTypeSignature());
             return OptionalDouble.of((double) functionInvoker.invoke(castSignature, session.toConnectorSession(), singletonList(value)));
         }
 

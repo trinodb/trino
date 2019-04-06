@@ -244,7 +244,7 @@ public final class FormatFunction
     private static MethodHandle castToVarchar(FunctionRegistry functionRegistry, Type type)
     {
         try {
-            Signature cast = functionRegistry.getCoercion(type, VARCHAR);
+            Signature cast = functionRegistry.getCoercion(type.getTypeSignature(), VARCHAR.getTypeSignature());
             return functionRegistry.getScalarFunctionImplementation(cast).getMethodHandle();
         }
         catch (OperatorNotFoundException e) {

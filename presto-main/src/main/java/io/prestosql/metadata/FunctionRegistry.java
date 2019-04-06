@@ -1098,11 +1098,6 @@ public class FunctionRegistry
         }
     }
 
-    public Signature getCoercion(Type fromType, Type toType)
-    {
-        return getCoercion(fromType.getTypeSignature(), toType.getTypeSignature());
-    }
-
     public Signature getCoercion(TypeSignature fromType, TypeSignature toType)
     {
         Signature signature = internalOperator(OperatorType.CAST.name(), toType, ImmutableList.of(fromType));

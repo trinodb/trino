@@ -671,7 +671,7 @@ public final class DomainTranslator
 
         private int compareOriginalValueToCoerced(Type originalValueType, Object originalValue, Type coercedValueType, Object coercedValue)
         {
-            Signature castToOriginalTypeOperator = metadata.getFunctionRegistry().getCoercion(coercedValueType, originalValueType);
+            Signature castToOriginalTypeOperator = metadata.getFunctionRegistry().getCoercion(coercedValueType.getTypeSignature(), originalValueType.getTypeSignature());
             Object coercedValueInOriginalType = functionInvoker.invoke(castToOriginalTypeOperator, session.toConnectorSession(), coercedValue);
             Block originalValueBlock = Utils.nativeValueToBlock(originalValueType, originalValue);
             Block coercedValueBlock = Utils.nativeValueToBlock(originalValueType, coercedValueInOriginalType);
