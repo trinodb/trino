@@ -108,8 +108,7 @@ public class TestSqlToRowExpressionTranslator
     private Map<NodeRef<Expression>, Type> getExpressionTypes(Expression expression)
     {
         ExpressionAnalyzer expressionAnalyzer = ExpressionAnalyzer.createWithoutSubqueries(
-                metadata.getFunctionRegistry(),
-                metadata.getTypeManager(),
+                metadata,
                 TEST_SESSION,
                 TypeProvider.empty(),
                 emptyList(),

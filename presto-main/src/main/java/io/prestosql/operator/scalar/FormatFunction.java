@@ -136,9 +136,9 @@ public final class FormatFunction
         return "formats the input arguments using a format string";
     }
 
-    public static void validateType(FunctionRegistry functionRegistry, Type type)
+    public static void validateType(Metadata metadata, Type type)
     {
-        valueConverter(functionRegistry, type, 0);
+        valueConverter(metadata.getFunctionRegistry(), type, 0);
     }
 
     @UsedByGeneratedCode

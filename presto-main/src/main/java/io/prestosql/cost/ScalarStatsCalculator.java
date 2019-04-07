@@ -146,8 +146,7 @@ public class ScalarStatsCalculator
         private Map<NodeRef<Expression>, Type> getExpressionTypes(Session session, Expression expression, TypeProvider types)
         {
             ExpressionAnalyzer expressionAnalyzer = ExpressionAnalyzer.createWithoutSubqueries(
-                    metadata.getFunctionRegistry(),
-                    metadata.getTypeManager(),
+                    metadata,
                     session,
                     types,
                     emptyList(),

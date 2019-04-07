@@ -211,7 +211,7 @@ public final class MetadataManager
     {
         return new MetadataManager(
                 featuresConfig,
-                new TypeRegistry(ImmutableSet.of(), featuresConfig),
+                new TypeRegistry(),
                 new SessionPropertyManager(),
                 new SchemaPropertyManager(),
                 new TablePropertyManager(),
