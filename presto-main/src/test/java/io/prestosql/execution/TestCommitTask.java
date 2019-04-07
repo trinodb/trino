@@ -14,6 +14,7 @@
  */
 package io.prestosql.execution;
 
+import io.prestosql.NotInTransactionException;
 import io.prestosql.Session;
 import io.prestosql.Session.SessionBuilder;
 import io.prestosql.execution.warnings.WarningCollector;
@@ -112,7 +113,7 @@ public class TestCommitTask
             getFutureValue(new CommitTask().execute(new Commit(), transactionManager, metadata, new AllowAllAccessControl(), stateMachine, emptyList()));
             fail();
         }
-        catch (PrestoException e) {
+        catch (NotInTransactionException e) {
             assertEquals(e.getErrorCode(), UNKNOWN_TRANSACTION.toErrorCode());
         }
         assertTrue(stateMachine.getQueryInfo(Optional.empty()).isClearTransactionId()); // Still issue clear signal

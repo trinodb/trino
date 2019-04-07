@@ -234,9 +234,9 @@ public final class Session
     }
 
     public TransactionId getRequiredTransactionId()
+            throws NotInTransactionException
     {
-        checkState(transactionId.isPresent(), "Not in a transaction");
-        return transactionId.get();
+        return transactionId.orElseThrow(NotInTransactionException::new);
     }
 
     public boolean isClientTransactionSupport()
