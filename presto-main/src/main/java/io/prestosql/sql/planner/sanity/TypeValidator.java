@@ -19,7 +19,6 @@ import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
 import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeManager;
 import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.sql.planner.SimplePlanVisitor;
 import io.prestosql.sql.planner.Symbol;
@@ -34,6 +33,7 @@ import io.prestosql.sql.planner.plan.WindowNode;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.FunctionCall;
 import io.prestosql.sql.tree.SymbolReference;
+import io.prestosql.type.TypeCoercion;
 
 import java.util.List;
 import java.util.Map;
@@ -61,6 +61,7 @@ public final class TypeValidator
     {
         private final Session session;
         private final Metadata metadata;
+        private final TypeCoercion typeCoercion;
         private final TypeAnalyzer typeAnalyzer;
         private final TypeProvider types;
         private final WarningCollector warningCollector;
@@ -69,6 +70,7 @@ public final class TypeValidator
         {
             this.session = requireNonNull(session, "session is null");
             this.metadata = requireNonNull(metadata, "metadata is null");
+            this.typeCoercion = new TypeCoercion(metadata::getType);
             this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
             this.types = requireNonNull(types, "types is null");
             this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
@@ -182,8 +184,7 @@ public final class TypeValidator
         private void verifyTypeSignature(Symbol symbol, TypeSignature expected, TypeSignature actual)
         {
             // UNKNOWN should be considered as a wildcard type, which matches all the other types
-            TypeManager typeManager = metadata.getTypeManager();
-            if (!actual.equals(UNKNOWN.getTypeSignature()) && !typeManager.isTypeOnlyCoercion(typeManager.getType(actual), typeManager.getType(expected))) {
+            if (!actual.equals(UNKNOWN.getTypeSignature()) && !typeCoercion.isTypeOnlyCoercion(metadata.getType(actual), metadata.getType(expected))) {
                 checkArgument(expected.equals(actual), "type of symbol '%s' is expected to be %s, but the actual type is %s", symbol, expected, actual);
             }
         }

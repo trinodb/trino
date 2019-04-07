@@ -49,6 +49,7 @@ import io.prestosql.sql.tree.NodeRef;
 import io.prestosql.sql.tree.NotExpression;
 import io.prestosql.sql.tree.NullLiteral;
 import io.prestosql.sql.tree.SymbolReference;
+import io.prestosql.type.TypeCoercion;
 
 import javax.annotation.Nullable;
 
@@ -286,6 +287,7 @@ public final class DomainTranslator
         private final TypeProvider types;
         private final InterpretedFunctionInvoker functionInvoker;
         private final TypeAnalyzer typeAnalyzer;
+        private final TypeCoercion typeCoercion;
 
         private Visitor(Metadata metadata, Session session, TypeProvider types, TypeAnalyzer typeAnalyzer)
         {
@@ -295,6 +297,7 @@ public final class DomainTranslator
             this.types = requireNonNull(types, "types is null");
             this.functionInvoker = new InterpretedFunctionInvoker(metadata.getFunctionRegistry());
             this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
+            this.typeCoercion = new TypeCoercion(metadata::getType);
         }
 
         private Type checkedTypeLookup(Symbol symbol)
@@ -483,7 +486,7 @@ public final class DomainTranslator
             Map<NodeRef<Expression>, Type> expressionTypes = analyzeExpression(cast);
             Type actualType = expressionTypes.get(NodeRef.of(cast.getExpression()));
             Type expectedType = expressionTypes.get(NodeRef.<Expression>of(cast));
-            return metadata.getTypeManager().canCoerce(actualType, expectedType);
+            return typeCoercion.canCoerce(actualType, expectedType);
         }
 
         private Map<NodeRef<Expression>, Type> analyzeExpression(Expression expression)

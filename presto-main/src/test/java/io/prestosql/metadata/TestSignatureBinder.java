@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableSet;
 import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeManager;
 import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.sql.analyzer.TypeSignatureProvider;
 import io.prestosql.type.FunctionType;
@@ -55,7 +54,7 @@ import static org.testng.Assert.fail;
 
 public class TestSignatureBinder
 {
-    private final TypeManager typeRegistry = createTestMetadataManager().getTypeManager();
+    private final Metadata metadata = createTestMetadataManager();
 
     @Test
     public void testBindLiteralForDecimal()
@@ -1109,7 +1108,7 @@ public class TestSignatureBinder
     private Type type(String signature)
     {
         TypeSignature typeSignature = TypeSignature.parseTypeSignature(signature);
-        return requireNonNull(typeRegistry.getType(typeSignature));
+        return requireNonNull(metadata.getTypeManager().getType(typeSignature));
     }
 
     private List<Type> types(String... signatures)
@@ -1191,7 +1190,7 @@ public class TestSignatureBinder
         private Optional<BoundVariables> bindVariables()
         {
             assertNotNull(argumentTypes);
-            SignatureBinder signatureBinder = new SignatureBinder(typeRegistry, function, allowCoercion);
+            SignatureBinder signatureBinder = new SignatureBinder(metadata, function, allowCoercion);
             if (returnType == null) {
                 return signatureBinder.bindVariables(argumentTypes);
             }
