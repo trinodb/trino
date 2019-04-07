@@ -68,7 +68,7 @@ public class KerberosAuthenticator
                     .orElseGet(() -> getLocalHost().getCanonicalHostName())
                     .toLowerCase(Locale.US);
 
-            String servicePrincipal = config.getServiceName() + "/" + hostname;
+            String servicePrincipal = config.getNameType().makeServicePrincipal(config.getServiceName(), hostname);
             loginContext = new LoginContext("", null, null, new Configuration()
             {
                 @Override
@@ -93,8 +93,9 @@ public class KerberosAuthenticator
             });
             loginContext.login();
 
+            GSSName gssName = config.getNameType().getGSSName(gssManager, config.getServiceName(), hostname);
             serverCredential = doAs(loginContext.getSubject(), () -> gssManager.createCredential(
-                    gssManager.createName(config.getServiceName() + "@" + hostname, GSSName.NT_HOSTBASED_SERVICE),
+                    gssName,
                     INDEFINITE_LIFETIME,
                     new Oid[] {
                             new Oid("1.2.840.113554.1.2.2"), // kerberos 5
