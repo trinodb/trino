@@ -34,19 +34,20 @@ import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConv
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.USE_NULL_FLAG;
 import static io.prestosql.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 
 public class FunctionInvokerProvider
 {
-    private final FunctionRegistry functionRegistry;
+    private final Metadata metadata;
 
-    public FunctionInvokerProvider(FunctionRegistry functionRegistry)
+    public FunctionInvokerProvider(Metadata metadata)
     {
-        this.functionRegistry = functionRegistry;
+        this.metadata = requireNonNull(metadata, "metadata is null");
     }
 
     public FunctionInvoker createFunctionInvoker(Signature signature, Optional<InvocationConvention> invocationConvention)
     {
-        ScalarFunctionImplementation scalarFunctionImplementation = functionRegistry.getScalarFunctionImplementation(signature);
+        ScalarFunctionImplementation scalarFunctionImplementation = metadata.getScalarFunctionImplementation(signature);
         for (ScalarImplementationChoice choice : scalarFunctionImplementation.getAllChoices()) {
             if (checkChoice(choice.getArgumentProperties(), choice.isNullable(), choice.hasSession(), invocationConvention)) {
                 return new FunctionInvoker(choice.getMethodHandle());

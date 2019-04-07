@@ -23,6 +23,9 @@ import com.google.common.collect.Multimap;
 import io.airlift.slice.Slice;
 import io.prestosql.Session;
 import io.prestosql.connector.CatalogName;
+import io.prestosql.operator.aggregation.InternalAggregationFunction;
+import io.prestosql.operator.scalar.ScalarFunctionImplementation;
+import io.prestosql.operator.window.WindowFunctionSupplier;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.QueryId;
 import io.prestosql.spi.block.ArrayBlockEncoding;
@@ -81,6 +84,7 @@ import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeNotFoundException;
 import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.sql.analyzer.FeaturesConfig;
+import io.prestosql.sql.analyzer.TypeSignatureProvider;
 import io.prestosql.sql.planner.PartitioningHandle;
 import io.prestosql.sql.tree.QualifiedName;
 import io.prestosql.transaction.TransactionManager;
@@ -1229,29 +1233,62 @@ public final class MetadataManager
     @Override
     public void addFunctions(List<? extends SqlFunction> functionInfos)
     {
-        // TODO: transactional when FunctionRegistry is made transactional
         functions.addFunctions(functionInfos);
     }
 
     @Override
     public List<SqlFunction> listFunctions()
     {
-        // TODO: transactional when FunctionRegistry is made transactional
         return functions.list();
+    }
+
+    @Override
+    public FunctionInvokerProvider getFunctionInvokerProvider()
+    {
+        return new FunctionInvokerProvider(this);
+    }
+
+    @Override
+    public Signature resolveFunction(QualifiedName name, List<TypeSignatureProvider> parameterTypes)
+    {
+        return functions.resolveFunction(name, parameterTypes);
+    }
+
+    @Override
+    public Signature resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)
+            throws OperatorNotFoundException
+    {
+        return functions.resolveOperator(operatorType, argumentTypes);
+    }
+
+    @Override
+    public Signature getCoercion(TypeSignature fromType, TypeSignature toType)
+    {
+        return functions.getCoercion(fromType, toType);
     }
 
     @Override
     public boolean isAggregationFunction(QualifiedName name)
     {
-        // TODO: transactional when FunctionRegistry is made transactional
         return functions.isAggregationFunction(name);
     }
 
     @Override
-    public FunctionRegistry getFunctionRegistry()
+    public WindowFunctionSupplier getWindowFunctionImplementation(Signature signature)
     {
-        // TODO: transactional when FunctionRegistry is made transactional
-        return functions;
+        return functions.getWindowFunctionImplementation(signature);
+    }
+
+    @Override
+    public InternalAggregationFunction getAggregateFunctionImplementation(Signature signature)
+    {
+        return functions.getAggregateFunctionImplementation(signature);
+    }
+
+    @Override
+    public ScalarFunctionImplementation getScalarFunctionImplementation(Signature signature)
+    {
+        return functions.getScalarFunctionImplementation(signature);
     }
 
     @Override

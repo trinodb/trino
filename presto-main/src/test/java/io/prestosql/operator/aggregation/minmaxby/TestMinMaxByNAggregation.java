@@ -43,7 +43,7 @@ public class TestMinMaxByNAggregation
     @Test
     public void testMaxDoubleDouble()
     {
-        InternalAggregationFunction function = METADATA.getFunctionRegistry().getAggregateFunctionImplementation(
+        InternalAggregationFunction function = METADATA.getAggregateFunctionImplementation(
                 new Signature("max_by",
                         AGGREGATE,
                         parseTypeSignature("array(double)"),
@@ -103,7 +103,7 @@ public class TestMinMaxByNAggregation
     @Test
     public void testMinDoubleDouble()
     {
-        InternalAggregationFunction function = METADATA.getFunctionRegistry().getAggregateFunctionImplementation(
+        InternalAggregationFunction function = METADATA.getAggregateFunctionImplementation(
                 new Signature("min_by",
                         AGGREGATE,
                         parseTypeSignature("array(double)"),
@@ -142,7 +142,7 @@ public class TestMinMaxByNAggregation
     @Test
     public void testMinDoubleVarchar()
     {
-        InternalAggregationFunction function = METADATA.getFunctionRegistry().getAggregateFunctionImplementation(
+        InternalAggregationFunction function = METADATA.getAggregateFunctionImplementation(
                 new Signature("min_by",
                         AGGREGATE,
                         parseTypeSignature("array(varchar)"),
@@ -174,7 +174,7 @@ public class TestMinMaxByNAggregation
     @Test
     public void testMaxDoubleVarchar()
     {
-        InternalAggregationFunction function = METADATA.getFunctionRegistry().getAggregateFunctionImplementation(
+        InternalAggregationFunction function = METADATA.getAggregateFunctionImplementation(
                 new Signature("max_by",
                         AGGREGATE,
                         parseTypeSignature("array(varchar)"),
@@ -206,7 +206,7 @@ public class TestMinMaxByNAggregation
     @Test
     public void testMinVarcharDouble()
     {
-        InternalAggregationFunction function = METADATA.getFunctionRegistry().getAggregateFunctionImplementation(
+        InternalAggregationFunction function = METADATA.getAggregateFunctionImplementation(
                 new Signature("min_by",
                         AGGREGATE,
                         parseTypeSignature("array(double)"),
@@ -238,7 +238,7 @@ public class TestMinMaxByNAggregation
     @Test
     public void testMaxVarcharDouble()
     {
-        InternalAggregationFunction function = METADATA.getFunctionRegistry().getAggregateFunctionImplementation(
+        InternalAggregationFunction function = METADATA.getAggregateFunctionImplementation(
                 new Signature("max_by",
                         AGGREGATE,
                         parseTypeSignature("array(double)"),
@@ -270,7 +270,7 @@ public class TestMinMaxByNAggregation
     @Test
     public void testMinVarcharArray()
     {
-        InternalAggregationFunction function = METADATA.getFunctionRegistry().getAggregateFunctionImplementation(
+        InternalAggregationFunction function = METADATA.getAggregateFunctionImplementation(
                 new Signature("min_by",
                         AGGREGATE,
                         parseTypeSignature("array(array(bigint))"),
@@ -288,7 +288,7 @@ public class TestMinMaxByNAggregation
     @Test
     public void testMaxVarcharArray()
     {
-        InternalAggregationFunction function = METADATA.getFunctionRegistry().getAggregateFunctionImplementation(
+        InternalAggregationFunction function = METADATA.getAggregateFunctionImplementation(
                 new Signature("max_by",
                         AGGREGATE,
                         parseTypeSignature("array(array(bigint))"),
@@ -306,7 +306,7 @@ public class TestMinMaxByNAggregation
     @Test
     public void testMinArrayVarchar()
     {
-        InternalAggregationFunction function = METADATA.getFunctionRegistry().getAggregateFunctionImplementation(
+        InternalAggregationFunction function = METADATA.getAggregateFunctionImplementation(
                 new Signature("min_by",
                         AGGREGATE,
                         parseTypeSignature("array(varchar)"),
@@ -324,7 +324,7 @@ public class TestMinMaxByNAggregation
     @Test
     public void testMaxArrayVarchar()
     {
-        InternalAggregationFunction function = METADATA.getFunctionRegistry().getAggregateFunctionImplementation(
+        InternalAggregationFunction function = METADATA.getAggregateFunctionImplementation(
                 new Signature("max_by",
                         AGGREGATE,
                         parseTypeSignature("array(varchar)"),
@@ -342,7 +342,7 @@ public class TestMinMaxByNAggregation
     @Test
     public void testOutOfBound()
     {
-        InternalAggregationFunction function = METADATA.getFunctionRegistry().getAggregateFunctionImplementation(
+        InternalAggregationFunction function = METADATA.getAggregateFunctionImplementation(
                 new Signature("max_by",
                         AGGREGATE,
                         parseTypeSignature("array(varchar)"),

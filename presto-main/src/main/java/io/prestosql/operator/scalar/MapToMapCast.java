@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.prestosql.annotation.UsedByGeneratedCode;
 import io.prestosql.metadata.BoundVariables;
-import io.prestosql.metadata.FunctionRegistry;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlOperator;
@@ -92,9 +91,8 @@ public final class MapToMapCast
                         TypeSignatureParameter.of(toKeyType.getTypeSignature()),
                         TypeSignatureParameter.of(toValueType.getTypeSignature())));
 
-        FunctionRegistry functionRegistry = metadata.getFunctionRegistry();
-        MethodHandle keyProcessor = buildProcessor(functionRegistry, fromKeyType, toKeyType, true);
-        MethodHandle valueProcessor = buildProcessor(functionRegistry, fromValueType, toValueType, false);
+        MethodHandle keyProcessor = buildProcessor(metadata, fromKeyType, toKeyType, true);
+        MethodHandle valueProcessor = buildProcessor(metadata, fromValueType, toValueType, false);
         MethodHandle target = MethodHandles.insertArguments(METHOD_HANDLE, 0, keyProcessor, valueProcessor, toMapType);
         return new ScalarFunctionImplementation(true, ImmutableList.of(valueTypeArgumentProperty(RETURN_NULL_ON_NULL)), target, true);
     }
@@ -103,13 +101,13 @@ public final class MapToMapCast
      * The signature of the returned MethodHandle is (Block fromMap, int position, ConnectorSession session, BlockBuilder mapBlockBuilder)void.
      * The processor will get the value from fromMap, cast it and write to toBlock.
      */
-    private MethodHandle buildProcessor(FunctionRegistry functionRegistry, Type fromType, Type toType, boolean isKey)
+    private MethodHandle buildProcessor(Metadata metadata, Type fromType, Type toType, boolean isKey)
     {
         MethodHandle getter = nativeValueGetter(fromType);
 
         // Adapt cast that takes ([ConnectorSession,] ?) to one that takes (?, ConnectorSession), where ? is the return type of getter.
-        Signature signature = functionRegistry.getCoercion(fromType.getTypeSignature(), toType.getTypeSignature());
-        ScalarFunctionImplementation castImplementation = functionRegistry.getScalarFunctionImplementation(signature);
+        Signature signature = metadata.getCoercion(fromType.getTypeSignature(), toType.getTypeSignature());
+        ScalarFunctionImplementation castImplementation = metadata.getScalarFunctionImplementation(signature);
         MethodHandle cast = castImplementation.getMethodHandle();
         if (cast.type().parameterArray()[0] != ConnectorSession.class) {
             cast = MethodHandles.dropArguments(cast, 0, ConnectorSession.class);

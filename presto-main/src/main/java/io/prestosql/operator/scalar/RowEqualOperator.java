@@ -15,7 +15,6 @@ package io.prestosql.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
 import io.prestosql.metadata.BoundVariables;
-import io.prestosql.metadata.FunctionRegistry;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlOperator;
@@ -63,21 +62,21 @@ public class RowEqualOperator
                         valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
                 METHOD_HANDLE
                         .bindTo(type)
-                        .bindTo(resolveFieldEqualOperators(type, metadata.getFunctionRegistry())),
+                        .bindTo(resolveFieldEqualOperators(type, metadata)),
                 isDeterministic());
     }
 
-    public static List<MethodHandle> resolveFieldEqualOperators(RowType rowType, FunctionRegistry functionRegistry)
+    public static List<MethodHandle> resolveFieldEqualOperators(RowType rowType, Metadata metadata)
     {
         return rowType.getTypeParameters().stream()
-                .map(type -> resolveEqualOperator(type, functionRegistry))
+                .map(type -> resolveEqualOperator(type, metadata))
                 .collect(toImmutableList());
     }
 
-    private static MethodHandle resolveEqualOperator(Type type, FunctionRegistry functionRegistry)
+    private static MethodHandle resolveEqualOperator(Type type, Metadata metadata)
     {
-        Signature operator = functionRegistry.resolveOperator(EQUAL, ImmutableList.of(type, type));
-        ScalarFunctionImplementation implementation = functionRegistry.getScalarFunctionImplementation(operator);
+        Signature operator = metadata.resolveOperator(EQUAL, ImmutableList.of(type, type));
+        ScalarFunctionImplementation implementation = metadata.getScalarFunctionImplementation(operator);
         return implementation.getMethodHandle();
     }
 

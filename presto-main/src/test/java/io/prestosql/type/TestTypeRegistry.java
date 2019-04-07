@@ -14,7 +14,6 @@
 package io.prestosql.type;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.metadata.FunctionRegistry;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeNotFoundException;
@@ -35,7 +34,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 public class TestTypeRegistry
 {
     private final Metadata metadata = createTestMetadataManager();
-    private final FunctionRegistry functionRegistry = metadata.getFunctionRegistry();
 
     @Test
     public void testNonexistentType()
@@ -50,16 +48,16 @@ public class TestTypeRegistry
     {
         for (Type type : metadata.getTypes()) {
             if (type.isComparable()) {
-                functionRegistry.resolveOperator(EQUAL, ImmutableList.of(type, type));
-                functionRegistry.resolveOperator(NOT_EQUAL, ImmutableList.of(type, type));
-                functionRegistry.resolveOperator(IS_DISTINCT_FROM, ImmutableList.of(type, type));
-                functionRegistry.resolveOperator(HASH_CODE, ImmutableList.of(type));
+                metadata.resolveOperator(EQUAL, ImmutableList.of(type, type));
+                metadata.resolveOperator(NOT_EQUAL, ImmutableList.of(type, type));
+                metadata.resolveOperator(IS_DISTINCT_FROM, ImmutableList.of(type, type));
+                metadata.resolveOperator(HASH_CODE, ImmutableList.of(type));
             }
             if (type.isOrderable()) {
-                functionRegistry.resolveOperator(LESS_THAN, ImmutableList.of(type, type));
-                functionRegistry.resolveOperator(LESS_THAN_OR_EQUAL, ImmutableList.of(type, type));
-                functionRegistry.resolveOperator(GREATER_THAN_OR_EQUAL, ImmutableList.of(type, type));
-                functionRegistry.resolveOperator(GREATER_THAN, ImmutableList.of(type, type));
+                metadata.resolveOperator(LESS_THAN, ImmutableList.of(type, type));
+                metadata.resolveOperator(LESS_THAN_OR_EQUAL, ImmutableList.of(type, type));
+                metadata.resolveOperator(GREATER_THAN_OR_EQUAL, ImmutableList.of(type, type));
+                metadata.resolveOperator(GREATER_THAN, ImmutableList.of(type, type));
             }
         }
     }

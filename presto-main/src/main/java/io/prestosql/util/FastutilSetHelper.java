@@ -14,7 +14,7 @@
 package io.prestosql.util;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.metadata.Metadata;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.type.Type;
 import it.unimi.dsi.fastutil.Hash;
@@ -43,23 +43,23 @@ public final class FastutilSetHelper
     private FastutilSetHelper() {}
 
     @SuppressWarnings("unchecked")
-    public static Set<?> toFastutilHashSet(Set<?> set, Type type, FunctionRegistry registry)
+    public static Set<?> toFastutilHashSet(Set<?> set, Type type, Metadata metadata)
     {
         // 0.25 as the load factor is chosen because the argument set is assumed to be small (<10000),
         // and the return set is assumed to be read-heavy.
         // The performance of InCodeGenerator heavily depends on the load factor being small.
         Class<?> javaElementType = type.getJavaType();
         if (javaElementType == long.class) {
-            return new LongOpenCustomHashSet((Collection<Long>) set, 0.25f, new LongStrategy(registry, type));
+            return new LongOpenCustomHashSet((Collection<Long>) set, 0.25f, new LongStrategy(metadata, type));
         }
         if (javaElementType == double.class) {
-            return new DoubleOpenCustomHashSet((Collection<Double>) set, 0.25f, new DoubleStrategy(registry, type));
+            return new DoubleOpenCustomHashSet((Collection<Double>) set, 0.25f, new DoubleStrategy(metadata, type));
         }
         if (javaElementType == boolean.class) {
             return new BooleanOpenHashSet((Collection<Boolean>) set, 0.25f);
         }
         else if (!type.getJavaType().isPrimitive()) {
-            return new ObjectOpenCustomHashSet<>(set, 0.25f, new ObjectStrategy(registry, type));
+            return new ObjectOpenCustomHashSet<>(set, 0.25f, new ObjectStrategy(metadata, type));
         }
         else {
             throw new UnsupportedOperationException("Unsupported native type in set: " + type.getJavaType() + " with type " + type.getTypeSignature());
@@ -92,10 +92,10 @@ public final class FastutilSetHelper
         private final MethodHandle hashCodeHandle;
         private final MethodHandle equalsHandle;
 
-        private LongStrategy(FunctionRegistry registry, Type type)
+        private LongStrategy(Metadata metadata, Type type)
         {
-            hashCodeHandle = registry.getScalarFunctionImplementation(registry.resolveOperator(HASH_CODE, ImmutableList.of(type))).getMethodHandle();
-            equalsHandle = registry.getScalarFunctionImplementation(registry.resolveOperator(EQUAL, ImmutableList.of(type, type))).getMethodHandle();
+            hashCodeHandle = metadata.getScalarFunctionImplementation(metadata.resolveOperator(HASH_CODE, ImmutableList.of(type))).getMethodHandle();
+            equalsHandle = metadata.getScalarFunctionImplementation(metadata.resolveOperator(EQUAL, ImmutableList.of(type, type))).getMethodHandle();
         }
 
         @Override
@@ -134,10 +134,10 @@ public final class FastutilSetHelper
         private final MethodHandle hashCodeHandle;
         private final MethodHandle equalsHandle;
 
-        private DoubleStrategy(FunctionRegistry registry, Type type)
+        private DoubleStrategy(Metadata metadata, Type type)
         {
-            hashCodeHandle = registry.getScalarFunctionImplementation(registry.resolveOperator(HASH_CODE, ImmutableList.of(type))).getMethodHandle();
-            equalsHandle = registry.getScalarFunctionImplementation(registry.resolveOperator(EQUAL, ImmutableList.of(type, type))).getMethodHandle();
+            hashCodeHandle = metadata.getScalarFunctionImplementation(metadata.resolveOperator(HASH_CODE, ImmutableList.of(type))).getMethodHandle();
+            equalsHandle = metadata.getScalarFunctionImplementation(metadata.resolveOperator(EQUAL, ImmutableList.of(type, type))).getMethodHandle();
         }
 
         @Override
@@ -176,12 +176,12 @@ public final class FastutilSetHelper
         private final MethodHandle hashCodeHandle;
         private final MethodHandle equalsHandle;
 
-        private ObjectStrategy(FunctionRegistry registry, Type type)
+        private ObjectStrategy(Metadata metadata, Type type)
         {
-            hashCodeHandle = registry.getScalarFunctionImplementation(registry.resolveOperator(HASH_CODE, ImmutableList.of(type)))
+            hashCodeHandle = metadata.getScalarFunctionImplementation(metadata.resolveOperator(HASH_CODE, ImmutableList.of(type)))
                     .getMethodHandle()
                     .asType(MethodType.methodType(long.class, Object.class));
-            equalsHandle = registry.getScalarFunctionImplementation(registry.resolveOperator(EQUAL, ImmutableList.of(type, type)))
+            equalsHandle = metadata.getScalarFunctionImplementation(metadata.resolveOperator(EQUAL, ImmutableList.of(type, type)))
                     .getMethodHandle()
                     .asType(MethodType.methodType(Boolean.class, Object.class, Object.class));
         }

@@ -127,7 +127,7 @@ public class UnwrapCastInComparison
             this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
             this.session = requireNonNull(session, "session is null");
             this.types = requireNonNull(types, "types is null");
-            this.functionInvoker = new InterpretedFunctionInvoker(metadata.getFunctionRegistry());
+            this.functionInvoker = new InterpretedFunctionInvoker(metadata);
             this.literalEncoder = new LiteralEncoder(metadata.getBlockEncodingSerde());
         }
 
@@ -178,7 +178,7 @@ public class UnwrapCastInComparison
                 return expression;
             }
 
-            Signature sourceToTarget = metadata.getFunctionRegistry().getCoercion(sourceType.getTypeSignature(), targetType.getTypeSignature());
+            Signature sourceToTarget = metadata.getCoercion(sourceType.getTypeSignature(), targetType.getTypeSignature());
 
             Optional<Type.Range> sourceRange = sourceType.getRange();
             if (sourceRange.isPresent()) {
@@ -269,7 +269,7 @@ public class UnwrapCastInComparison
 
             Signature targetToSource;
             try {
-                targetToSource = metadata.getFunctionRegistry().getCoercion(targetType.getTypeSignature(), sourceType.getTypeSignature());
+                targetToSource = metadata.getCoercion(targetType.getTypeSignature(), sourceType.getTypeSignature());
             }
             catch (OperatorNotFoundException e) {
                 // Without a cast between target -> source, there's nothing more we can do

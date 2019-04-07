@@ -16,6 +16,9 @@ package io.prestosql.metadata;
 import io.airlift.slice.Slice;
 import io.prestosql.Session;
 import io.prestosql.connector.CatalogName;
+import io.prestosql.operator.aggregation.InternalAggregationFunction;
+import io.prestosql.operator.scalar.ScalarFunctionImplementation;
+import io.prestosql.operator.window.WindowFunctionSupplier;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.BlockEncoding;
 import io.prestosql.spi.block.BlockEncodingSerde;
@@ -31,6 +34,7 @@ import io.prestosql.spi.connector.ConstraintApplicationResult;
 import io.prestosql.spi.connector.LimitApplicationResult;
 import io.prestosql.spi.connector.SampleType;
 import io.prestosql.spi.connector.SystemTable;
+import io.prestosql.spi.function.OperatorType;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.security.GrantInfo;
 import io.prestosql.spi.security.PrestoPrincipal;
@@ -43,6 +47,7 @@ import io.prestosql.spi.type.ParametricType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.spi.type.TypeSignatureParameter;
+import io.prestosql.sql.analyzer.TypeSignatureProvider;
 import io.prestosql.sql.planner.PartitioningHandle;
 import io.prestosql.sql.tree.QualifiedName;
 
@@ -409,9 +414,26 @@ public interface Metadata
 
     List<SqlFunction> listFunctions();
 
+    FunctionInvokerProvider getFunctionInvokerProvider();
+
+    Signature resolveFunction(QualifiedName name, List<TypeSignatureProvider> parameterTypes);
+
+    Signature resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)
+            throws OperatorNotFoundException;
+
+    Signature getCoercion(TypeSignature fromType, TypeSignature toType);
+
+    /**
+     * Is the named function an aggregation function?  This does not need type parameters
+     * because overloads between aggregation and other function types are not allowed.
+     */
     boolean isAggregationFunction(QualifiedName name);
 
-    FunctionRegistry getFunctionRegistry();
+    WindowFunctionSupplier getWindowFunctionImplementation(Signature signature);
+
+    InternalAggregationFunction getAggregateFunctionImplementation(Signature signature);
+
+    ScalarFunctionImplementation getScalarFunctionImplementation(Signature signature);
 
     ProcedureRegistry getProcedureRegistry();
 

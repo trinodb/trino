@@ -22,6 +22,7 @@ import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.sql.analyzer.TypeSignatureProvider;
 import io.prestosql.sql.tree.QualifiedName;
+import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -43,15 +44,21 @@ public abstract class AbstractTestAggregationFunction
         metadata = createTestMetadataManager();
     }
 
+    @AfterClass(alwaysRun = true)
+    public final void destroyTestAggregationFunction()
+    {
+        metadata = null;
+    }
+
     protected abstract Block[] getSequenceBlocks(int start, int length);
 
     protected final InternalAggregationFunction getFunction()
     {
-        Signature signature = metadata.getFunctionRegistry().resolveFunction(QualifiedName.of(getFunctionName()), getFunctionParameterTypes().stream()
-                .map(TypeSignature::parseTypeSignature)
-                .map(TypeSignatureProvider::new)
-                .collect(toImmutableList()));
-        return metadata.getFunctionRegistry().getAggregateFunctionImplementation(signature);
+        Signature signature = metadata.resolveFunction(QualifiedName.of(getFunctionName()), getFunctionParameterTypes().stream()
+                        .map(TypeSignature::parseTypeSignature)
+                        .map(TypeSignatureProvider::new)
+                        .collect(toImmutableList()));
+        return metadata.getAggregateFunctionImplementation(signature);
     }
 
     protected abstract String getFunctionName();

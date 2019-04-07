@@ -60,8 +60,8 @@ public final class InternalTypeManager
     @Override
     public MethodHandle resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)
     {
-        Signature signature = metadata.getFunctionRegistry().resolveOperator(operatorType, argumentTypes);
-        return metadata.getFunctionRegistry().getScalarFunctionImplementation(signature).getMethodHandle();
+        Signature signature = metadata.resolveOperator(operatorType, argumentTypes);
+        return metadata.getScalarFunctionImplementation(signature).getMethodHandle();
     }
 
     @Override

@@ -77,7 +77,7 @@ public class SignatureBinder
     private final boolean allowCoercion;
     private final Map<String, TypeVariableConstraint> typeVariableConstraints;
 
-    public SignatureBinder(Metadata metadata, Signature declaredSignature, boolean allowCoercion)
+    SignatureBinder(Metadata metadata, Signature declaredSignature, boolean allowCoercion)
     {
         checkNoLiteralVariableUsageAcrossTypes(declaredSignature);
         this.metadata = requireNonNull(metadata, "metadata is null");

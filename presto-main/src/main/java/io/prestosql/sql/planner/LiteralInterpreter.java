@@ -72,7 +72,7 @@ public final class LiteralInterpreter
         private LiteralVisitor(Metadata metadata)
         {
             this.metadata = metadata;
-            this.functionInvoker = new InterpretedFunctionInvoker(metadata.getFunctionRegistry());
+            this.functionInvoker = new InterpretedFunctionInvoker(metadata);
         }
 
         @Override
@@ -140,7 +140,7 @@ public final class LiteralInterpreter
             }
 
             try {
-                Signature signature = metadata.getFunctionRegistry().getCoercion(VARCHAR.getTypeSignature(), type.getTypeSignature());
+                Signature signature = metadata.getCoercion(VARCHAR.getTypeSignature(), type.getTypeSignature());
                 return functionInvoker.invoke(signature, session, ImmutableList.of(utf8Slice(node.getValue())));
             }
             catch (IllegalArgumentException e) {

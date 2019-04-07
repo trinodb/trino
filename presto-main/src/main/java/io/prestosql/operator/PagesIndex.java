@@ -20,7 +20,6 @@ import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import io.prestosql.Session;
 import io.prestosql.geospatial.Rectangle;
-import io.prestosql.metadata.FunctionRegistry;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.operator.SpatialIndexBuilderOperator.SpatialPredicate;
 import io.prestosql.spi.Page;
@@ -79,7 +78,7 @@ public class PagesIndex
 
     private final OrderingCompiler orderingCompiler;
     private final JoinCompiler joinCompiler;
-    private final FunctionRegistry functionRegistry;
+    private final Metadata metadata;
 
     private final List<Type> types;
     private final LongArrayList valueAddresses;
@@ -94,14 +93,14 @@ public class PagesIndex
     private PagesIndex(
             OrderingCompiler orderingCompiler,
             JoinCompiler joinCompiler,
-            FunctionRegistry functionRegistry,
+            Metadata metadata,
             List<Type> types,
             int expectedPositions,
             boolean eagerCompact)
     {
         this.orderingCompiler = requireNonNull(orderingCompiler, "orderingCompiler is null");
         this.joinCompiler = requireNonNull(joinCompiler, "joinCompiler is null");
-        this.functionRegistry = requireNonNull(functionRegistry, "functionRegistry is null");
+        this.metadata = requireNonNull(metadata, "metadata is null");
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
         this.valueAddresses = new LongArrayList(expectedPositions);
         this.eagerCompact = eagerCompact;
@@ -124,7 +123,8 @@ public class PagesIndex
             implements Factory
     {
         private static final OrderingCompiler ORDERING_COMPILER = new OrderingCompiler();
-        private static final JoinCompiler JOIN_COMPILER = new JoinCompiler(createTestMetadataManager());
+        private static final Metadata METADATA = createTestMetadataManager();
+        private static final JoinCompiler JOIN_COMPILER = new JoinCompiler(METADATA);
         private final boolean eagerCompact;
 
         public TestingFactory(boolean eagerCompact)
@@ -135,7 +135,7 @@ public class PagesIndex
         @Override
         public PagesIndex newPagesIndex(List<Type> types, int expectedPositions)
         {
-            return new PagesIndex(ORDERING_COMPILER, JOIN_COMPILER, createTestMetadataManager().getFunctionRegistry(), types, expectedPositions, eagerCompact);
+            return new PagesIndex(ORDERING_COMPILER, JOIN_COMPILER, METADATA, types, expectedPositions, eagerCompact);
         }
     }
 
@@ -145,7 +145,7 @@ public class PagesIndex
         private final OrderingCompiler orderingCompiler;
         private final JoinCompiler joinCompiler;
         private final boolean eagerCompact;
-        private final FunctionRegistry functionRegistry;
+        private final Metadata metadata;
 
         @Inject
         public DefaultFactory(OrderingCompiler orderingCompiler, JoinCompiler joinCompiler, FeaturesConfig featuresConfig, Metadata metadata)
@@ -153,13 +153,13 @@ public class PagesIndex
             this.orderingCompiler = requireNonNull(orderingCompiler, "orderingCompiler is null");
             this.joinCompiler = requireNonNull(joinCompiler, "joinCompiler is null");
             this.eagerCompact = requireNonNull(featuresConfig, "featuresConfig is null").isPagesIndexEagerCompactionEnabled();
-            this.functionRegistry = requireNonNull(metadata, "metadata is null").getFunctionRegistry();
+            this.metadata = requireNonNull(metadata, "metadata is null");
         }
 
         @Override
         public PagesIndex newPagesIndex(List<Type> types, int expectedPositions)
         {
-            return new PagesIndex(orderingCompiler, joinCompiler, functionRegistry, types, expectedPositions, eagerCompact);
+            return new PagesIndex(orderingCompiler, joinCompiler, metadata, types, expectedPositions, eagerCompact);
         }
     }
 
@@ -435,7 +435,7 @@ public class PagesIndex
                 joinChannels,
                 hashChannel,
                 Optional.empty(),
-                functionRegistry);
+                metadata);
     }
 
     public LookupSourceSupplier createLookupSourceSupplier(
@@ -503,7 +503,7 @@ public class PagesIndex
                 joinChannels,
                 hashChannel,
                 sortChannel,
-                functionRegistry);
+                metadata);
 
         return new JoinHashSupplier(
                 session,

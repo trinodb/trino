@@ -23,7 +23,6 @@ import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
 import io.prestosql.spi.type.BigintType;
 import io.prestosql.spi.type.Type;
-import io.prestosql.sql.analyzer.TypeSignatureProvider;
 import io.prestosql.sql.planner.PlanNodeIdAllocator;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.SymbolAllocator;
@@ -56,6 +55,7 @@ import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.SystemSessionProperties.isOptimizeDistinctAggregationEnabled;
+import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.prestosql.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static io.prestosql.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static java.util.Objects.requireNonNull;
@@ -461,10 +461,7 @@ public class OptimizeMixedDistinctAggregations
 
         private Signature getFunctionSignature(QualifiedName functionName, Symbol argument)
         {
-            return metadata.getFunctionRegistry()
-                    .resolveFunction(
-                            functionName,
-                            ImmutableList.of(new TypeSignatureProvider(symbolAllocator.getTypes().get(argument).getTypeSignature())));
+            return metadata.resolveFunction(functionName, fromTypes(symbolAllocator.getTypes().get(argument)));
         }
 
         // creates if clause specific to use case here, default value always null

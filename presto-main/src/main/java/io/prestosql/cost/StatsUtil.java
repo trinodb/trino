@@ -39,8 +39,8 @@ final class StatsUtil
     static OptionalDouble toStatsRepresentation(Metadata metadata, Session session, Type type, Object value)
     {
         if (convertibleToDoubleWithCast(type)) {
-            InterpretedFunctionInvoker functionInvoker = new InterpretedFunctionInvoker(metadata.getFunctionRegistry());
-            Signature castSignature = metadata.getFunctionRegistry().getCoercion(type.getTypeSignature(), DoubleType.DOUBLE.getTypeSignature());
+            InterpretedFunctionInvoker functionInvoker = new InterpretedFunctionInvoker(metadata);
+            Signature castSignature = metadata.getCoercion(type.getTypeSignature(), DoubleType.DOUBLE.getTypeSignature());
             return OptionalDouble.of((double) functionInvoker.invoke(castSignature, session.toConnectorSession(), singletonList(value)));
         }
 

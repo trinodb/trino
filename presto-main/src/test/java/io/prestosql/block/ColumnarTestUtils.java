@@ -15,12 +15,10 @@ package io.prestosql.block;
 
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
-import io.prestosql.metadata.FunctionRegistry;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.DictionaryBlock;
 import io.prestosql.spi.block.RunLengthEncodedBlock;
-import io.prestosql.sql.analyzer.FeaturesConfig;
 
 import java.lang.reflect.Array;
 import java.util.Arrays;
@@ -33,11 +31,6 @@ import static org.testng.Assert.assertTrue;
 final class ColumnarTestUtils
 {
     private static final Metadata METADATA = createTestMetadataManager();
-
-    static {
-        // associate TYPE_MANAGER with a function registry
-        new FunctionRegistry(METADATA, new FeaturesConfig());
-    }
 
     private ColumnarTestUtils() {}
 

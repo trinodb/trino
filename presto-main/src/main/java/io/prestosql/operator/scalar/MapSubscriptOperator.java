@@ -81,7 +81,7 @@ public class MapSubscriptOperator
         else {
             methodHandle = METHOD_HANDLE_OBJECT;
         }
-        InterpretedFunctionInvoker functionInvoker = new InterpretedFunctionInvoker(metadata.getFunctionRegistry());
+        InterpretedFunctionInvoker functionInvoker = new InterpretedFunctionInvoker(metadata);
         methodHandle = methodHandle.bindTo(functionInvoker).bindTo(keyType).bindTo(valueType);
         methodHandle = methodHandle.asType(methodHandle.type().changeReturnType(Primitives.wrap(valueType.getJavaType())));
 

@@ -95,7 +95,7 @@ public class ExpressionOptimizer
             }
             Signature signature = call.getSignature();
 
-            ScalarFunctionImplementation function = metadata.getFunctionRegistry().getScalarFunctionImplementation(signature);
+            ScalarFunctionImplementation function = metadata.getScalarFunctionImplementation(signature);
             List<RowExpression> arguments = call.getArguments().stream()
                     .map(argument -> argument.accept(this, context))
                     .collect(toImmutableList());
@@ -250,7 +250,7 @@ public class ExpressionOptimizer
             }
 
             return call(
-                    metadata.getFunctionRegistry().getCoercion(call.getArguments().get(0).getType().getTypeSignature(), call.getType().getTypeSignature()),
+                    metadata.getCoercion(call.getArguments().get(0).getType().getTypeSignature(), call.getType().getTypeSignature()),
                     call.getType(),
                     call.getArguments());
         }

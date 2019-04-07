@@ -18,13 +18,11 @@ import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
-import io.prestosql.metadata.FunctionRegistry;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.block.BlockBuilderStatus;
 import io.prestosql.spi.block.DictionaryId;
-import io.prestosql.sql.analyzer.FeaturesConfig;
 import org.openjdk.jol.info.ClassLayout;
 import org.testng.annotations.Test;
 
@@ -60,11 +58,6 @@ import static org.testng.Assert.fail;
 public abstract class AbstractTestBlock
 {
     private static final Metadata METADATA = createTestMetadataManager();
-
-    static {
-        // associate TYPE_MANAGER with a function registry
-        new FunctionRegistry(METADATA, new FeaturesConfig());
-    }
 
     protected <T> void assertBlock(Block block, Supplier<BlockBuilder> newBlockBuilder, T[] expectedValues)
     {

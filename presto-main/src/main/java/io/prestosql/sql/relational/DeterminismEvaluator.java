@@ -13,33 +13,34 @@
  */
 package io.prestosql.sql.relational;
 
-import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
+import io.prestosql.spi.PrestoException;
 
 import static java.util.Objects.requireNonNull;
 
 public class DeterminismEvaluator
 {
-    final FunctionRegistry registry;
+    private final Metadata metadata;
 
-    public DeterminismEvaluator(FunctionRegistry registry)
+    public DeterminismEvaluator(Metadata metadata)
     {
-        this.registry = requireNonNull(registry, "registry is null");
+        this.metadata = requireNonNull(metadata, "metadata is null");
     }
 
     public boolean isDeterministic(RowExpression expression)
     {
-        return expression.accept(new Visitor(registry), null);
+        return expression.accept(new Visitor(metadata), null);
     }
 
     private static class Visitor
             implements RowExpressionVisitor<Boolean, Void>
     {
-        private final FunctionRegistry registry;
+        private final Metadata metadata;
 
-        public Visitor(FunctionRegistry registry)
+        public Visitor(Metadata metadata)
         {
-            this.registry = registry;
+            this.metadata = metadata;
         }
 
         @Override
@@ -58,12 +59,23 @@ public class DeterminismEvaluator
         public Boolean visitCall(CallExpression call, Void context)
         {
             Signature signature = call.getSignature();
-            if (registry.isRegistered(signature) && !registry.getScalarFunctionImplementation(signature).isDeterministic()) {
+            if (!isDeterministic(signature)) {
                 return false;
             }
 
             return call.getArguments().stream()
                     .allMatch(expression -> expression.accept(this, context));
+        }
+
+        private boolean isDeterministic(Signature signature)
+        {
+            try {
+                return metadata.getScalarFunctionImplementation(signature).isDeterministic();
+            }
+            catch (PrestoException ignored) {
+                // unknown functions are typically special forms and are deterministic
+                return true;
+            }
         }
 
         @Override

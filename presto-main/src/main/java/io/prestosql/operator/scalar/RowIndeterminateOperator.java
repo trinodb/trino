@@ -24,7 +24,6 @@ import io.airlift.bytecode.control.IfStatement;
 import io.airlift.bytecode.expression.BytecodeExpression;
 import io.airlift.bytecode.instruction.LabelNode;
 import io.prestosql.metadata.BoundVariables;
-import io.prestosql.metadata.FunctionRegistry;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlOperator;
@@ -73,7 +72,7 @@ public class RowIndeterminateOperator
     {
         checkArgument(arity == 1, "Expected arity to be 1");
         Type type = boundVariables.getTypeVariable("T");
-        Class<?> indeterminateOperatorClass = generateIndeterminate(type, metadata.getFunctionRegistry());
+        Class<?> indeterminateOperatorClass = generateIndeterminate(type, metadata);
         MethodHandle indeterminateMethod = methodHandle(indeterminateOperatorClass, "indeterminate", type.getJavaType(), boolean.class);
         return new ScalarFunctionImplementation(
                 false,
@@ -82,7 +81,7 @@ public class RowIndeterminateOperator
                 isDeterministic());
     }
 
-    private static Class<?> generateIndeterminate(Type type, FunctionRegistry functionRegistry)
+    private static Class<?> generateIndeterminate(Type type, Metadata metadata)
     {
         CallSiteBinder binder = new CallSiteBinder();
 
@@ -136,7 +135,7 @@ public class RowIndeterminateOperator
                         INDETERMINATE.name(),
                         BOOLEAN.getTypeSignature(),
                         ImmutableList.of(fieldTypes.get(i).getTypeSignature()));
-                ScalarFunctionImplementation function = functionRegistry.getScalarFunctionImplementation(signature);
+                ScalarFunctionImplementation function = metadata.getScalarFunctionImplementation(signature);
                 BytecodeExpression element = constantType(binder, fieldTypes.get(i)).getValue(value, constantInt(i));
 
                 ifNullField.ifFalse(new IfStatement("if the field is not null but indeterminate...")

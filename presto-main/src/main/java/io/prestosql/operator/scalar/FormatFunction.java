@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.prestosql.annotation.UsedByGeneratedCode;
 import io.prestosql.metadata.BoundVariables;
-import io.prestosql.metadata.FunctionRegistry;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.OperatorNotFoundException;
 import io.prestosql.metadata.Signature;
@@ -106,7 +105,7 @@ public final class FormatFunction
 
         List<BiFunction<ConnectorSession, Block, Object>> converters = mapWithIndex(
                 rowType.getTypeParameters().stream(),
-                (type, index) -> converter(metadata.getFunctionRegistry(), type, toIntExact(index)))
+                (type, index) -> converter(metadata, type, toIntExact(index)))
                 .collect(toImmutableList());
 
         return new ScalarFunctionImplementation(
@@ -138,7 +137,7 @@ public final class FormatFunction
 
     public static void validateType(Metadata metadata, Type type)
     {
-        valueConverter(metadata.getFunctionRegistry(), type, 0);
+        valueConverter(metadata, type, 0);
     }
 
     @UsedByGeneratedCode
@@ -163,13 +162,13 @@ public final class FormatFunction
         }
     }
 
-    private static BiFunction<ConnectorSession, Block, Object> converter(FunctionRegistry functionRegistry, Type type, int position)
+    private static BiFunction<ConnectorSession, Block, Object> converter(Metadata metadata, Type type, int position)
     {
-        BiFunction<ConnectorSession, Block, Object> converter = valueConverter(functionRegistry, type, position);
+        BiFunction<ConnectorSession, Block, Object> converter = valueConverter(metadata, type, position);
         return (session, block) -> block.isNull(position) ? null : converter.apply(session, block);
     }
 
-    private static BiFunction<ConnectorSession, Block, Object> valueConverter(FunctionRegistry functionRegistry, Type type, int position)
+    private static BiFunction<ConnectorSession, Block, Object> valueConverter(Metadata metadata, Type type, int position)
     {
         if (type.equals(UNKNOWN)) {
             return (session, block) -> null;
@@ -201,7 +200,7 @@ public final class FormatFunction
         // TODO: support TIME WITH TIME ZONE by making SqlTimeWithTimeZone implement TemporalAccessor
         if (type.equals(JSON)) {
             Signature signature = internalScalarFunction("json_format", VARCHAR.getTypeSignature(), JSON.getTypeSignature());
-            MethodHandle handle = functionRegistry.getScalarFunctionImplementation(signature).getMethodHandle();
+            MethodHandle handle = metadata.getScalarFunctionImplementation(signature).getMethodHandle();
             return (session, block) -> convertToString(handle, type.getSlice(block, position));
         }
         if (isShortDecimal(type)) {
@@ -233,7 +232,7 @@ public final class FormatFunction
             function = (session, block) -> type.getObject(block, position);
         }
 
-        MethodHandle handle = castToVarchar(functionRegistry, type);
+        MethodHandle handle = castToVarchar(metadata, type);
         if ((handle == null) || (handle.type().parameterCount() != 1)) {
             throw new PrestoException(NOT_SUPPORTED, "Type not supported for formatting: " + type.getDisplayName());
         }
@@ -241,11 +240,11 @@ public final class FormatFunction
         return (session, block) -> convertToString(handle, function.apply(session, block));
     }
 
-    private static MethodHandle castToVarchar(FunctionRegistry functionRegistry, Type type)
+    private static MethodHandle castToVarchar(Metadata metadata, Type type)
     {
         try {
-            Signature cast = functionRegistry.getCoercion(type.getTypeSignature(), VARCHAR.getTypeSignature());
-            return functionRegistry.getScalarFunctionImplementation(cast).getMethodHandle();
+            Signature cast = metadata.getCoercion(type.getTypeSignature(), VARCHAR.getTypeSignature());
+            return metadata.getScalarFunctionImplementation(cast).getMethodHandle();
         }
         catch (OperatorNotFoundException e) {
             return null;

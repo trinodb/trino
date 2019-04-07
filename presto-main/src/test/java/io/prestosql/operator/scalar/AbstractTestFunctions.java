@@ -17,8 +17,6 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.prestosql.Session;
 import io.prestosql.metadata.FunctionListBuilder;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.metadata.SqlFunction;
 import io.prestosql.metadata.SqlScalarFunction;
 import io.prestosql.spi.ErrorCodeSupplier;
 import io.prestosql.spi.Plugin;
@@ -173,26 +171,21 @@ public abstract class AbstractTestFunctions
 
     protected void registerScalarFunction(SqlScalarFunction sqlScalarFunction)
     {
-        Metadata metadata = functionAssertions.getMetadata();
-        metadata.getFunctionRegistry().addFunctions(ImmutableList.of(sqlScalarFunction));
+        functionAssertions.getMetadata().addFunctions(ImmutableList.of(sqlScalarFunction));
     }
 
     protected void registerScalar(Class<?> clazz)
     {
-        Metadata metadata = functionAssertions.getMetadata();
-        List<SqlFunction> functions = new FunctionListBuilder()
+        functionAssertions.getMetadata().addFunctions(new FunctionListBuilder()
                 .scalars(clazz)
-                .getFunctions();
-        metadata.getFunctionRegistry().addFunctions(functions);
+                .getFunctions());
     }
 
     protected void registerParametricScalar(Class<?> clazz)
     {
-        Metadata metadata = functionAssertions.getMetadata();
-        List<SqlFunction> functions = new FunctionListBuilder()
+        functionAssertions.getMetadata().addFunctions(new FunctionListBuilder()
                 .scalar(clazz)
-                .getFunctions();
-        metadata.getFunctionRegistry().addFunctions(functions);
+                .getFunctions());
     }
 
     protected void registerFunctions(Plugin plugin)

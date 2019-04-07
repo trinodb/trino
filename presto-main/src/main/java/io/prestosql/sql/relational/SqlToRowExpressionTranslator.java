@@ -95,7 +95,6 @@ import static io.prestosql.spi.type.CharType.createCharType;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
@@ -151,7 +150,6 @@ public final class SqlToRowExpressionTranslator
         Visitor visitor = new Visitor(
                 functionKind,
                 types,
-                metadata,
                 layout,
                 session.getTimeZoneKey(),
                 SystemSessionProperties.isLegacyTimestamp(session));
@@ -172,7 +170,6 @@ public final class SqlToRowExpressionTranslator
     {
         private final FunctionKind functionKind;
         private final Map<NodeRef<Expression>, Type> types;
-        private final Metadata metadata;
         private final Map<Symbol, Integer> layout;
         private final TimeZoneKey timeZoneKey;
         private final boolean isLegacyTimestamp;
@@ -180,14 +177,12 @@ public final class SqlToRowExpressionTranslator
         private Visitor(
                 FunctionKind functionKind,
                 Map<NodeRef<Expression>, Type> types,
-                Metadata metadata,
                 Map<Symbol, Integer> layout,
                 TimeZoneKey timeZoneKey,
                 boolean isLegacyTimestamp)
         {
             this.functionKind = functionKind;
             this.types = ImmutableMap.copyOf(requireNonNull(types, "types is null"));
-            this.metadata = metadata;
             this.layout = layout;
             this.timeZoneKey = timeZoneKey;
             this.isLegacyTimestamp = isLegacyTimestamp;
@@ -265,18 +260,18 @@ public final class SqlToRowExpressionTranslator
         @Override
         protected RowExpression visitGenericLiteral(GenericLiteral node, Void context)
         {
-            Type type = metadata.getType(parseTypeSignature(node.getType()));
+            Type type = getType(node);
 
             if (JSON.equals(type)) {
                 return call(
-                        new Signature("json_parse", SCALAR, getType(node).getTypeSignature(), VARCHAR.getTypeSignature()),
-                        getType(node),
+                        new Signature("json_parse", SCALAR, type.getTypeSignature(), VARCHAR.getTypeSignature()),
+                        type,
                         constant(utf8Slice(node.getValue()), VARCHAR));
             }
 
             return call(
-                    castSignature(getType(node), VARCHAR),
-                    getType(node),
+                    castSignature(type, VARCHAR),
+                    type,
                     constant(utf8Slice(node.getValue()), VARCHAR));
         }
 

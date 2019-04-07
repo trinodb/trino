@@ -25,11 +25,11 @@ import io.prestosql.Session;
 import io.prestosql.connector.CatalogName;
 import io.prestosql.metadata.AbstractMockMetadata;
 import io.prestosql.metadata.FunctionKind;
-import io.prestosql.metadata.FunctionRegistry;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.TableHandle;
 import io.prestosql.metadata.TableProperties;
+import io.prestosql.operator.scalar.ScalarFunctionImplementation;
 import io.prestosql.spi.block.BlockEncodingSerde;
 import io.prestosql.spi.block.SortOrder;
 import io.prestosql.spi.connector.ColumnHandle;
@@ -39,6 +39,7 @@ import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignature;
+import io.prestosql.sql.analyzer.TypeSignatureProvider;
 import io.prestosql.sql.parser.SqlParser;
 import io.prestosql.sql.planner.plan.AggregationNode;
 import io.prestosql.sql.planner.plan.AggregationNode.Aggregation;
@@ -132,15 +133,27 @@ public class TestEffectivePredicateExtractor
         }
 
         @Override
-        public FunctionRegistry getFunctionRegistry()
-        {
-            return delegate.getFunctionRegistry();
-        }
-
-        @Override
         public Type getType(TypeSignature signature)
         {
             return delegate.getType(signature);
+        }
+
+        @Override
+        public Signature resolveFunction(QualifiedName name, List<TypeSignatureProvider> parameterTypes)
+        {
+            return delegate.resolveFunction(name, parameterTypes);
+        }
+
+        @Override
+        public Signature getCoercion(TypeSignature fromType, TypeSignature toType)
+        {
+            return delegate.getCoercion(fromType, toType);
+        }
+
+        @Override
+        public ScalarFunctionImplementation getScalarFunctionImplementation(Signature signature)
+        {
+            return delegate.getScalarFunctionImplementation(signature);
         }
 
         @Override

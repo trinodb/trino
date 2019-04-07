@@ -45,7 +45,7 @@ public class TestDoubleHistogramAggregation
 
     public TestDoubleHistogramAggregation()
     {
-        InternalAggregationFunction function = createTestMetadataManager().getFunctionRegistry().getAggregateFunctionImplementation(
+        InternalAggregationFunction function = createTestMetadataManager().getAggregateFunctionImplementation(
                 new Signature("numeric_histogram",
                         AGGREGATE,
                         parseTypeSignature("map(double,double)"),

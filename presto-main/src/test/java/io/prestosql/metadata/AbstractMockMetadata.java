@@ -16,6 +16,9 @@ package io.prestosql.metadata;
 import io.airlift.slice.Slice;
 import io.prestosql.Session;
 import io.prestosql.connector.CatalogName;
+import io.prestosql.operator.aggregation.InternalAggregationFunction;
+import io.prestosql.operator.scalar.ScalarFunctionImplementation;
+import io.prestosql.operator.window.WindowFunctionSupplier;
 import io.prestosql.spi.block.BlockEncoding;
 import io.prestosql.spi.block.BlockEncodingSerde;
 import io.prestosql.spi.connector.CatalogSchemaName;
@@ -30,6 +33,7 @@ import io.prestosql.spi.connector.ConstraintApplicationResult;
 import io.prestosql.spi.connector.LimitApplicationResult;
 import io.prestosql.spi.connector.SampleType;
 import io.prestosql.spi.connector.SystemTable;
+import io.prestosql.spi.function.OperatorType;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.security.GrantInfo;
 import io.prestosql.spi.security.PrestoPrincipal;
@@ -41,6 +45,7 @@ import io.prestosql.spi.statistics.TableStatisticsMetadata;
 import io.prestosql.spi.type.ParametricType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignature;
+import io.prestosql.sql.analyzer.TypeSignatureProvider;
 import io.prestosql.sql.planner.PartitioningHandle;
 import io.prestosql.sql.tree.QualifiedName;
 
@@ -522,13 +527,50 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
+    public FunctionInvokerProvider getFunctionInvokerProvider()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Signature resolveFunction(QualifiedName name, List<TypeSignatureProvider> parameterTypes)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Signature resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)
+            throws OperatorNotFoundException
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Signature getCoercion(TypeSignature fromType, TypeSignature toType)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public boolean isAggregationFunction(QualifiedName name)
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public FunctionRegistry getFunctionRegistry()
+    public WindowFunctionSupplier getWindowFunctionImplementation(Signature signature)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public InternalAggregationFunction getAggregateFunctionImplementation(Signature signature)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public ScalarFunctionImplementation getScalarFunctionImplementation(Signature signature)
     {
         throw new UnsupportedOperationException();
     }

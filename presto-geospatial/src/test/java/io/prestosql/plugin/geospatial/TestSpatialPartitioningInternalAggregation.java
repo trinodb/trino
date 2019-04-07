@@ -98,15 +98,12 @@ public class TestSpatialPartitioningInternalAggregation
 
     private InternalAggregationFunction getFunction()
     {
-        return functionAssertions
-                .getMetadata()
-                .getFunctionRegistry()
-                .getAggregateFunctionImplementation(
-                        new Signature("spatial_partitioning",
-                                FunctionKind.AGGREGATE,
-                                TypeSignature.parseTypeSignature(VARCHAR),
-                                TypeSignature.parseTypeSignature(GEOMETRY_TYPE_NAME),
-                                TypeSignature.parseTypeSignature(INTEGER)));
+        return functionAssertions.getMetadata().getAggregateFunctionImplementation(new Signature(
+                "spatial_partitioning",
+                FunctionKind.AGGREGATE,
+                TypeSignature.parseTypeSignature(VARCHAR),
+                TypeSignature.parseTypeSignature(GEOMETRY_TYPE_NAME),
+                TypeSignature.parseTypeSignature(INTEGER)));
     }
 
     private List<OGCGeometry> makeGeometries()

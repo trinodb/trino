@@ -46,7 +46,7 @@ public class TestRealHistogramAggregation
 
     public TestRealHistogramAggregation()
     {
-        InternalAggregationFunction function = createTestMetadataManager().getFunctionRegistry().getAggregateFunctionImplementation(
+        InternalAggregationFunction function = createTestMetadataManager().getAggregateFunctionImplementation(
                 new Signature("numeric_histogram",
                         AGGREGATE,
                         parseTypeSignature("map(real, real)"),

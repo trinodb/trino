@@ -164,7 +164,7 @@ public class TestQuantileDigestAggregationFunction
     private InternalAggregationFunction getAggregationFunction(String... type)
     {
         TypeSignature[] typeSignatures = Arrays.stream(type).map(TypeSignature::parseTypeSignature).toArray(TypeSignature[]::new);
-        return METADATA.getFunctionRegistry().getAggregateFunctionImplementation(
+        return METADATA.getAggregateFunctionImplementation(
                 new Signature("qdigest_agg",
                         AGGREGATE,
                         parseTypeSignature(format("qdigest(%s)", type[0])),

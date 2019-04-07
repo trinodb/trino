@@ -29,7 +29,7 @@ public class TestApproximateCountDistinctTinyint
     @Override
     protected InternalAggregationFunction getAggregationFunction()
     {
-        return metadata.getFunctionRegistry().getAggregateFunctionImplementation(
+        return metadata.getAggregateFunctionImplementation(
                 new Signature("approx_distinct", AGGREGATE, BIGINT.getTypeSignature(), TINYINT.getTypeSignature(), DOUBLE.getTypeSignature()));
     }
 

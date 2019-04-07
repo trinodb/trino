@@ -16,7 +16,6 @@ package io.prestosql.sql.gen;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import io.prestosql.block.BlockAssertions;
-import io.prestosql.metadata.FunctionRegistry;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.operator.PagesHashStrategy;
 import io.prestosql.operator.SimplePagesHashStrategy;
@@ -50,7 +49,6 @@ public class TestJoinCompiler
 {
     private static final Metadata metadata = createTestMetadataManager();
     private static final JoinCompiler joinCompiler = new JoinCompiler(metadata);
-    private static final FunctionRegistry functionRegistry = metadata.getFunctionRegistry();
 
     @DataProvider(name = "hashEnabledValues")
     public static Object[][] hashEnabledValuesProvider()
@@ -193,7 +191,7 @@ public class TestJoinCompiler
         PagesHashStrategyFactory pagesHashStrategyFactory = joinCompiler.compilePagesHashStrategyFactory(types, joinChannels, Optional.of(outputChannels));
         PagesHashStrategy hashStrategy = pagesHashStrategyFactory.createPagesHashStrategy(channels, hashChannel);
         // todo add tests for filter function
-        PagesHashStrategy expectedHashStrategy = new SimplePagesHashStrategy(types, outputChannels, channels, joinChannels, hashChannel, Optional.empty(), functionRegistry);
+        PagesHashStrategy expectedHashStrategy = new SimplePagesHashStrategy(types, outputChannels, channels, joinChannels, hashChannel, Optional.empty(), metadata);
 
         // verify channel count
         assertEquals(hashStrategy.getChannelCount(), outputChannels.size());

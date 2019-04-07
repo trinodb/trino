@@ -58,7 +58,7 @@ public class RowNotEqualOperator
                         valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
                 METHOD_HANDLE
                         .bindTo(type)
-                        .bindTo(RowEqualOperator.resolveFieldEqualOperators(type, metadata.getFunctionRegistry())),
+                        .bindTo(RowEqualOperator.resolveFieldEqualOperators(type, metadata)),
                 isDeterministic());
     }
 

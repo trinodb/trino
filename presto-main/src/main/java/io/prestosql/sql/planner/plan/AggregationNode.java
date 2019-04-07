@@ -19,7 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
 import io.prestosql.operator.aggregation.InternalAggregationFunction;
 import io.prestosql.sql.planner.Symbol;
@@ -213,7 +213,7 @@ public class AggregationNode
                 outputs.containsAll(new HashSet<>(groupingSets.getGroupingKeys()));
     }
 
-    public boolean isDecomposable(FunctionRegistry functionRegistry)
+    public boolean isDecomposable(Metadata metadata)
     {
         boolean hasOrderBy = getAggregations().values().stream()
                 .map(Aggregation::getCall)
@@ -226,13 +226,13 @@ public class AggregationNode
 
         boolean decomposableFunctions = getAggregations().values().stream()
                 .map(Aggregation::getSignature)
-                .map(functionRegistry::getAggregateFunctionImplementation)
+                .map(metadata::getAggregateFunctionImplementation)
                 .allMatch(InternalAggregationFunction::isDecomposable);
 
         return !hasOrderBy && !hasDistinct && decomposableFunctions;
     }
 
-    public boolean hasSingleNodeExecutionPreference(FunctionRegistry functionRegistry)
+    public boolean hasSingleNodeExecutionPreference(Metadata metadata)
     {
         // There are two kinds of aggregations the have single node execution preference:
         //
@@ -244,7 +244,7 @@ public class AggregationNode
         // since all input have to be aggregated into one line output.
         //
         // 2. aggregations that must produce default output and are not decomposable, we can not distribute them.
-        return (hasEmptyGroupingSet() && !hasNonEmptyGroupingSet()) || (hasDefaultOutput() && !isDecomposable(functionRegistry));
+        return (hasEmptyGroupingSet() && !hasNonEmptyGroupingSet()) || (hasDefaultOutput() && !isDecomposable(metadata));
     }
 
     public boolean isStreamable()

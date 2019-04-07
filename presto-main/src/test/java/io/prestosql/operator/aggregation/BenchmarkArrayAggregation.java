@@ -106,7 +106,7 @@ public class BenchmarkArrayAggregation
             }
             ArrayType arrayType = new ArrayType(elementType);
             Signature signature = new Signature(name, AGGREGATE, arrayType.getTypeSignature(), elementType.getTypeSignature());
-            InternalAggregationFunction function = metadata.getFunctionRegistry().getAggregateFunctionImplementation(signature);
+            InternalAggregationFunction function = metadata.getAggregateFunctionImplementation(signature);
             accumulator = function.bind(ImmutableList.of(0), Optional.empty()).createAccumulator();
 
             block = createChannel(ARRAY_SIZE, elementType);

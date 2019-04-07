@@ -30,9 +30,9 @@ public class CastCodeGenerator
         RowExpression argument = arguments.get(0);
 
         Signature function = generatorContext
-                .getRegistry()
+                .getMetadata()
                 .getCoercion(argument.getType().getTypeSignature(), returnType.getTypeSignature());
 
-        return generatorContext.generateCall(function.getName(), generatorContext.getRegistry().getScalarFunctionImplementation(function), ImmutableList.of(generatorContext.generate(argument)));
+        return generatorContext.generateCall(function.getName(), generatorContext.getMetadata().getScalarFunctionImplementation(function), ImmutableList.of(generatorContext.generate(argument)));
     }
 }

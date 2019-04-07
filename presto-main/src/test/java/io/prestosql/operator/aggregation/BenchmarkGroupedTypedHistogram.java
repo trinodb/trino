@@ -163,11 +163,11 @@ public class BenchmarkGroupedTypedHistogram
         MapType mapType = mapType(VARCHAR, BIGINT);
         Metadata metadata = getMetadata(groupMode);
 
-        return metadata.getFunctionRegistry().getAggregateFunctionImplementation(
-                new Signature(NAME,
-                        AGGREGATE,
-                        mapType.getTypeSignature(),
-                        parseTypeSignature(StandardTypes.VARCHAR)));
+        return metadata.getAggregateFunctionImplementation(new Signature(
+                NAME,
+                AGGREGATE,
+                mapType.getTypeSignature(),
+                parseTypeSignature(StandardTypes.VARCHAR)));
     }
 
     private static Metadata getMetadata(HistogramGroupImplementation groupMode)

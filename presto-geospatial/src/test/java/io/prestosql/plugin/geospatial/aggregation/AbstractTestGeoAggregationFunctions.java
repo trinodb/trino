@@ -50,14 +50,11 @@ public abstract class AbstractTestGeoAggregationFunctions
             functionAssertions.addType(type);
         }
         functionAssertions.getMetadata().addFunctions(extractFunctions(plugin.getFunctions()));
-        function = functionAssertions
-                .getMetadata()
-                .getFunctionRegistry()
-                .getAggregateFunctionImplementation(new Signature(
-                        getFunctionName(),
-                        FunctionKind.AGGREGATE,
-                        parseTypeSignature(GeometryType.GEOMETRY_TYPE_NAME),
-                        parseTypeSignature(GeometryType.GEOMETRY_TYPE_NAME)));
+        function = functionAssertions.getMetadata().getAggregateFunctionImplementation(new Signature(
+                getFunctionName(),
+                FunctionKind.AGGREGATE,
+                parseTypeSignature(GeometryType.GEOMETRY_TYPE_NAME),
+                parseTypeSignature(GeometryType.GEOMETRY_TYPE_NAME)));
     }
 
     protected void assertAggregatedGeometries(String testDescription, String expectedWkt, String... wkts)

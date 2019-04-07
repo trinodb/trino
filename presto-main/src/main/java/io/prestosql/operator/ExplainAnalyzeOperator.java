@@ -18,7 +18,6 @@ import io.prestosql.execution.QueryInfo;
 import io.prestosql.execution.QueryPerformanceFetcher;
 import io.prestosql.execution.StageId;
 import io.prestosql.execution.StageInfo;
-import io.prestosql.metadata.FunctionRegistry;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.block.BlockBuilder;
@@ -41,7 +40,6 @@ public class ExplainAnalyzeOperator
         private final int operatorId;
         private final PlanNodeId planNodeId;
         private final QueryPerformanceFetcher queryPerformanceFetcher;
-        private final FunctionRegistry functionRegistry;
         private final Metadata metadata;
         private final boolean verbose;
         private boolean closed;
@@ -50,14 +48,12 @@ public class ExplainAnalyzeOperator
                 int operatorId,
                 PlanNodeId planNodeId,
                 QueryPerformanceFetcher queryPerformanceFetcher,
-                FunctionRegistry functionRegistry,
                 Metadata metadata,
                 boolean verbose)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
             this.queryPerformanceFetcher = requireNonNull(queryPerformanceFetcher, "queryPerformanceFetcher is null");
-            this.functionRegistry = requireNonNull(functionRegistry, "functionRegistry is null");
             this.metadata = requireNonNull(metadata, "metadata is null");
             this.verbose = verbose;
         }
@@ -67,7 +63,7 @@ public class ExplainAnalyzeOperator
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, ExplainAnalyzeOperator.class.getSimpleName());
-            return new ExplainAnalyzeOperator(operatorContext, queryPerformanceFetcher, functionRegistry, metadata, verbose);
+            return new ExplainAnalyzeOperator(operatorContext, queryPerformanceFetcher, metadata, verbose);
         }
 
         @Override
@@ -79,7 +75,7 @@ public class ExplainAnalyzeOperator
         @Override
         public OperatorFactory duplicate()
         {
-            return new ExplainAnalyzeOperatorFactory(operatorId, planNodeId, queryPerformanceFetcher, functionRegistry, metadata, verbose);
+            return new ExplainAnalyzeOperatorFactory(operatorId, planNodeId, queryPerformanceFetcher, metadata, verbose);
         }
     }
 
@@ -93,7 +89,6 @@ public class ExplainAnalyzeOperator
     public ExplainAnalyzeOperator(
             OperatorContext operatorContext,
             QueryPerformanceFetcher queryPerformanceFetcher,
-            FunctionRegistry functionRegistry,
             Metadata metadata,
             boolean verbose)
     {

@@ -14,7 +14,7 @@ package io.prestosql.operator.scalar;
  */
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlOperator;
 import io.prestosql.spi.block.Block;
@@ -44,12 +44,12 @@ public abstract class RowComparisonOperator
                 ImmutableList.of(parseTypeSignature("T"), parseTypeSignature("T")));
     }
 
-    protected List<MethodHandle> getMethodHandles(RowType type, FunctionRegistry functionRegistry, OperatorType operatorType)
+    protected List<MethodHandle> getMethodHandles(RowType type, Metadata metadata, OperatorType operatorType)
     {
         ImmutableList.Builder<MethodHandle> argumentMethods = ImmutableList.builder();
         for (Type parameterType : type.getTypeParameters()) {
-            Signature signature = functionRegistry.resolveOperator(operatorType, ImmutableList.of(parameterType, parameterType));
-            argumentMethods.add(functionRegistry.getScalarFunctionImplementation(signature).getMethodHandle());
+            Signature signature = metadata.resolveOperator(operatorType, ImmutableList.of(parameterType, parameterType));
+            argumentMethods.add(metadata.getScalarFunctionImplementation(signature).getMethodHandle());
         }
         return argumentMethods.build();
     }

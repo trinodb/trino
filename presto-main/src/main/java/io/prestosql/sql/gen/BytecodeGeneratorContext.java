@@ -17,7 +17,7 @@ import io.airlift.bytecode.BytecodeNode;
 import io.airlift.bytecode.FieldDefinition;
 import io.airlift.bytecode.Scope;
 import io.airlift.bytecode.Variable;
-import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.metadata.Metadata;
 import io.prestosql.operator.scalar.ScalarFunctionImplementation;
 import io.prestosql.sql.relational.RowExpression;
 
@@ -33,7 +33,7 @@ public class BytecodeGeneratorContext
     private final Scope scope;
     private final CallSiteBinder callSiteBinder;
     private final CachedInstanceBinder cachedInstanceBinder;
-    private final FunctionRegistry registry;
+    private final Metadata metadata;
     private final Variable wasNull;
 
     public BytecodeGeneratorContext(
@@ -41,19 +41,19 @@ public class BytecodeGeneratorContext
             Scope scope,
             CallSiteBinder callSiteBinder,
             CachedInstanceBinder cachedInstanceBinder,
-            FunctionRegistry registry)
+            Metadata metadata)
     {
         requireNonNull(rowExpressionCompiler, "bytecodeGenerator is null");
         requireNonNull(cachedInstanceBinder, "cachedInstanceBinder is null");
         requireNonNull(scope, "scope is null");
         requireNonNull(callSiteBinder, "callSiteBinder is null");
-        requireNonNull(registry, "registry is null");
+        requireNonNull(metadata, "metadata is null");
 
         this.rowExpressionCompiler = rowExpressionCompiler;
         this.scope = scope;
         this.callSiteBinder = callSiteBinder;
         this.cachedInstanceBinder = cachedInstanceBinder;
-        this.registry = registry;
+        this.metadata = metadata;
         this.wasNull = scope.getVariable("wasNull");
     }
 
@@ -77,9 +77,9 @@ public class BytecodeGeneratorContext
         return rowExpressionCompiler.compile(expression, scope, lambdaInterface);
     }
 
-    public FunctionRegistry getRegistry()
+    public Metadata getMetadata()
     {
-        return registry;
+        return metadata;
     }
 
     /**

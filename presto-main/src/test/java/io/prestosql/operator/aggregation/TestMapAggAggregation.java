@@ -53,7 +53,7 @@ public class TestMapAggAggregation
     public void testDuplicateKeysValues()
     {
         MapType mapType = mapType(DOUBLE, VARCHAR);
-        InternalAggregationFunction aggFunc = metadata.getFunctionRegistry().getAggregateFunctionImplementation(
+        InternalAggregationFunction aggFunc = metadata.getAggregateFunctionImplementation(
                 new Signature(NAME,
                         AGGREGATE,
                         mapType.getTypeSignature(),
@@ -66,7 +66,7 @@ public class TestMapAggAggregation
                 createStringsBlock("a", "b", "c"));
 
         mapType = mapType(DOUBLE, INTEGER);
-        aggFunc = metadata.getFunctionRegistry().getAggregateFunctionImplementation(
+        aggFunc = metadata.getAggregateFunctionImplementation(
                 new Signature(NAME,
                         AGGREGATE,
                         mapType.getTypeSignature(),
@@ -83,7 +83,7 @@ public class TestMapAggAggregation
     public void testSimpleMaps()
     {
         MapType mapType = mapType(DOUBLE, VARCHAR);
-        InternalAggregationFunction aggFunc = metadata.getFunctionRegistry().getAggregateFunctionImplementation(
+        InternalAggregationFunction aggFunc = metadata.getAggregateFunctionImplementation(
                 new Signature(NAME,
                         AGGREGATE,
                         mapType.getTypeSignature(),
@@ -96,7 +96,7 @@ public class TestMapAggAggregation
                 createStringsBlock("a", "b", "c"));
 
         mapType = mapType(DOUBLE, INTEGER);
-        aggFunc = metadata.getFunctionRegistry().getAggregateFunctionImplementation(
+        aggFunc = metadata.getAggregateFunctionImplementation(
                 new Signature(NAME,
                         AGGREGATE,
                         mapType.getTypeSignature(),
@@ -109,7 +109,7 @@ public class TestMapAggAggregation
                 createTypedLongsBlock(INTEGER, ImmutableList.of(3L, 2L, 1L)));
 
         mapType = mapType(DOUBLE, BOOLEAN);
-        aggFunc = metadata.getFunctionRegistry().getAggregateFunctionImplementation(
+        aggFunc = metadata.getAggregateFunctionImplementation(
                 new Signature(NAME,
                         AGGREGATE,
                         mapType.getTypeSignature(),
@@ -125,7 +125,7 @@ public class TestMapAggAggregation
     @Test
     public void testNull()
     {
-        InternalAggregationFunction doubleDouble = metadata.getFunctionRegistry().getAggregateFunctionImplementation(
+        InternalAggregationFunction doubleDouble = metadata.getAggregateFunctionImplementation(
                 new Signature(NAME,
                         AGGREGATE,
                         mapType(DOUBLE, DOUBLE).getTypeSignature(),
@@ -159,7 +159,7 @@ public class TestMapAggAggregation
     {
         ArrayType arrayType = new ArrayType(VARCHAR);
         MapType mapType = mapType(DOUBLE, arrayType);
-        InternalAggregationFunction aggFunc = metadata.getFunctionRegistry().getAggregateFunctionImplementation(new Signature(NAME,
+        InternalAggregationFunction aggFunc = metadata.getAggregateFunctionImplementation(new Signature(NAME,
                 AGGREGATE,
                 mapType.getTypeSignature(),
                 parseTypeSignature(StandardTypes.DOUBLE),
@@ -179,7 +179,7 @@ public class TestMapAggAggregation
     {
         MapType innerMapType = mapType(VARCHAR, VARCHAR);
         MapType mapType = mapType(DOUBLE, innerMapType);
-        InternalAggregationFunction aggFunc = metadata.getFunctionRegistry().getAggregateFunctionImplementation(new Signature(NAME,
+        InternalAggregationFunction aggFunc = metadata.getAggregateFunctionImplementation(new Signature(NAME,
                 AGGREGATE,
                 mapType.getTypeSignature(),
                 parseTypeSignature(StandardTypes.DOUBLE),
@@ -206,7 +206,7 @@ public class TestMapAggAggregation
                 RowType.field("f1", INTEGER),
                 RowType.field("f2", DOUBLE)));
         MapType mapType = mapType(DOUBLE, innerRowType);
-        InternalAggregationFunction aggFunc = metadata.getFunctionRegistry().getAggregateFunctionImplementation(new Signature(NAME,
+        InternalAggregationFunction aggFunc = metadata.getAggregateFunctionImplementation(new Signature(NAME,
                 AGGREGATE,
                 mapType.getTypeSignature(),
                 parseTypeSignature(StandardTypes.DOUBLE),
@@ -231,7 +231,7 @@ public class TestMapAggAggregation
     {
         ArrayType arrayType = new ArrayType(VARCHAR);
         MapType mapType = mapType(arrayType, DOUBLE);
-        InternalAggregationFunction aggFunc = metadata.getFunctionRegistry().getAggregateFunctionImplementation(new Signature(
+        InternalAggregationFunction aggFunc = metadata.getAggregateFunctionImplementation(new Signature(
                 NAME,
                 AGGREGATE,
                 mapType.getTypeSignature(),

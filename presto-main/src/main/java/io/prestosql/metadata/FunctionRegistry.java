@@ -372,7 +372,6 @@ public class FunctionRegistry
     private final LoadingCache<SpecializedFunctionKey, WindowFunctionSupplier> specializedWindowCache;
     private final MagicLiteralFunction magicLiteralFunction;
     private volatile FunctionMap functions = new FunctionMap();
-    private final FunctionInvokerProvider functionInvokerProvider;
 
     public FunctionRegistry(Metadata metadata, FeaturesConfig featuresConfig)
     {
@@ -666,13 +665,6 @@ public class FunctionRegistry
         }
 
         addFunctions(builder.getFunctions());
-
-        functionInvokerProvider = new FunctionInvokerProvider(this);
-    }
-
-    public FunctionInvokerProvider getFunctionInvokerProvider()
-    {
-        return functionInvokerProvider;
     }
 
     public final synchronized void addFunctions(List<? extends SqlFunction> functions)
@@ -695,7 +687,7 @@ public class FunctionRegistry
         return Iterables.any(functions.get(name), function -> function.getSignature().getKind() == AGGREGATE);
     }
 
-    public Signature resolveFunction(QualifiedName name, List<TypeSignatureProvider> parameterTypes)
+    Signature resolveFunction(QualifiedName name, List<TypeSignatureProvider> parameterTypes)
     {
         Collection<SqlFunction> allCandidates = functions.get(name);
         List<SqlFunction> exactCandidates = allCandidates.stream()
@@ -1060,11 +1052,6 @@ public class FunctionRegistry
     public boolean canResolveOperator(OperatorType operatorType, Type returnType, List<? extends Type> argumentTypes)
     {
         Signature signature = internalOperator(operatorType, returnType, argumentTypes);
-        return isRegistered(signature);
-    }
-
-    public boolean isRegistered(Signature signature)
-    {
         try {
             // TODO: this is hacky, but until the magic literal and row field reference hacks are cleaned up it's difficult to implement this.
             getScalarFunctionImplementation(signature);

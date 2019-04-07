@@ -59,8 +59,7 @@ public class TestFunctionRegistry
     @Test
     public void testIdentityCast()
     {
-        FunctionRegistry registry = createTestMetadataManager().getFunctionRegistry();
-        Signature exactOperator = registry.getCoercion(HYPER_LOG_LOG.getTypeSignature(), HYPER_LOG_LOG.getTypeSignature());
+        Signature exactOperator = createTestMetadataManager().getCoercion(HYPER_LOG_LOG.getTypeSignature(), HYPER_LOG_LOG.getTypeSignature());
         assertEquals(exactOperator.getName(), mangleOperatorName(OperatorType.CAST.name()));
         assertEquals(transform(exactOperator.getArgumentTypes(), Functions.toStringFunction()), ImmutableList.of(StandardTypes.HYPER_LOG_LOG));
         assertEquals(exactOperator.getReturnType().getBase(), StandardTypes.HYPER_LOG_LOG);
@@ -71,7 +70,7 @@ public class TestFunctionRegistry
     {
         Metadata metadata = createTestMetadataManager();
         boolean foundOperator = false;
-        for (SqlFunction function : listOperators(metadata.getFunctionRegistry())) {
+        for (SqlFunction function : listOperators(metadata)) {
             OperatorType operatorType = unmangleOperator(function.getSignature().getName());
             if (operatorType == OperatorType.CAST || operatorType == OperatorType.SATURATED_FLOOR_CAST) {
                 continue;
@@ -85,7 +84,7 @@ public class TestFunctionRegistry
             List<Type> argumentTypes = function.getSignature().getArgumentTypes().stream()
                     .map(metadata::getType)
                     .collect(toImmutableList());
-            Signature exactOperator = metadata.getFunctionRegistry().resolveOperator(operatorType, argumentTypes);
+            Signature exactOperator = metadata.resolveOperator(operatorType, argumentTypes);
             assertEquals(exactOperator, function.getSignature());
             foundOperator = true;
         }
@@ -100,8 +99,7 @@ public class TestFunctionRegistry
         assertEquals(signature.getArgumentTypes(), ImmutableList.of(parseTypeSignature(StandardTypes.BIGINT)));
         assertEquals(signature.getReturnType().getBase(), StandardTypes.TIMESTAMP_WITH_TIME_ZONE);
 
-        FunctionRegistry registry = createTestMetadataManager().getFunctionRegistry();
-        Signature function = registry.resolveFunction(QualifiedName.of(signature.getName()), fromTypeSignatures(signature.getArgumentTypes()));
+        Signature function = createTestMetadataManager().resolveFunction(QualifiedName.of(signature.getName()), fromTypeSignatures(signature.getArgumentTypes()));
         assertEquals(function.getArgumentTypes(), ImmutableList.of(parseTypeSignature(StandardTypes.BIGINT)));
         assertEquals(signature.getReturnType().getBase(), StandardTypes.TIMESTAMP_WITH_TIME_ZONE);
     }
@@ -116,9 +114,9 @@ public class TestFunctionRegistry
                 .filter(input -> input.getSignature().getName().equals("custom_add"))
                 .collect(toImmutableList());
 
-        FunctionRegistry registry = createTestMetadataManager().getFunctionRegistry();
-        registry.addFunctions(functions);
-        registry.addFunctions(functions);
+        Metadata metadata = createTestMetadataManager();
+        metadata.addFunctions(functions);
+        metadata.addFunctions(functions);
     }
 
     @Test(expectedExceptions = IllegalStateException.class, expectedExceptionsMessageRegExp = "'sum' is both an aggregation and a scalar function")
@@ -128,8 +126,7 @@ public class TestFunctionRegistry
                 .scalars(ScalarSum.class)
                 .getFunctions();
 
-        FunctionRegistry registry = createTestMetadataManager().getFunctionRegistry();
-        registry.addFunctions(functions);
+        createTestMetadataManager().addFunctions(functions);
     }
 
     @Test
@@ -273,13 +270,13 @@ public class TestFunctionRegistry
                 .failsWithMessage("Could not choose a best candidate operator. Explicit type casts must be added.");
     }
 
-    private static List<SqlFunction> listOperators(FunctionRegistry registry)
+    private static List<SqlFunction> listOperators(Metadata metadata)
     {
         Set<String> operatorNames = Arrays.stream(OperatorType.values())
                 .map(FunctionRegistry::mangleOperatorName)
                 .collect(toImmutableSet());
 
-        return registry.list().stream()
+        return metadata.listFunctions().stream()
                 .filter(function -> operatorNames.contains(function.getSignature().getName()))
                 .collect(toImmutableList());
     }
@@ -358,9 +355,9 @@ public class TestFunctionRegistry
 
         private Signature resolveSignature()
         {
-            FunctionRegistry functionRegistry = createTestMetadataManager().getFunctionRegistry();
-            functionRegistry.addFunctions(createFunctionsFromSignatures());
-            return functionRegistry.resolveFunction(QualifiedName.of(TEST_FUNCTION_NAME), fromTypeSignatures(parameterTypes));
+            Metadata metadata = createTestMetadataManager();
+            metadata.addFunctions(createFunctionsFromSignatures());
+            return metadata.resolveFunction(QualifiedName.of(TEST_FUNCTION_NAME), fromTypeSignatures(parameterTypes));
         }
 
         private List<SqlFunction> createFunctionsFromSignatures()
