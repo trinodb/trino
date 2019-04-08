@@ -74,6 +74,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.filter;
 import static com.google.common.collect.Iterables.transform;
 import static io.prestosql.plugin.cassandra.CassandraErrorCode.CASSANDRA_VERSION_ERROR;
+import static io.prestosql.plugin.cassandra.CassandraType.toCassandraType;
 import static io.prestosql.plugin.cassandra.util.CassandraCqlUtils.validSchemaName;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
@@ -319,16 +320,16 @@ public class NativeCassandraSession
 
     private CassandraColumnHandle buildColumnHandle(AbstractTableMetadata tableMetadata, ColumnMetadata columnMeta, boolean partitionKey, boolean clusteringKey, int ordinalPosition, boolean hidden)
     {
-        CassandraType cassandraType = CassandraType.getCassandraType(columnMeta.getType().getName());
+        CassandraType cassandraType = toCassandraType(columnMeta.getType().getName());
         List<CassandraType> typeArguments = null;
         if (cassandraType != null && cassandraType.getTypeArgumentSize() > 0) {
             List<DataType> typeArgs = columnMeta.getType().getTypeArguments();
             switch (cassandraType.getTypeArgumentSize()) {
                 case 1:
-                    typeArguments = ImmutableList.of(CassandraType.getCassandraType(typeArgs.get(0).getName()));
+                    typeArguments = ImmutableList.of(toCassandraType(typeArgs.get(0).getName()));
                     break;
                 case 2:
-                    typeArguments = ImmutableList.of(CassandraType.getCassandraType(typeArgs.get(0).getName()), CassandraType.getCassandraType(typeArgs.get(1).getName()));
+                    typeArguments = ImmutableList.of(toCassandraType(typeArgs.get(0).getName()), toCassandraType(typeArgs.get(1).getName()));
                     break;
                 default:
                     throw new IllegalArgumentException("Invalid type arguments: " + typeArgs);
