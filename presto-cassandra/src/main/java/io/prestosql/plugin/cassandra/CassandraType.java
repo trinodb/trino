@@ -119,7 +119,7 @@ public enum CassandraType
         }
     }
 
-    public static CassandraType getCassandraType(DataType.Name name)
+    public static CassandraType toCassandraType(DataType.Name name)
     {
         switch (name) {
             case ASCII:
