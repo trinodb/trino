@@ -397,6 +397,38 @@ public class TestCassandraIntegrationSmokeTest
     }
 
     @Test
+    public void testUnsupportedColumnType()
+    {
+        session.execute("CREATE KEYSPACE keyspace_6 WITH REPLICATION = {'class':'SimpleStrategy', 'replication_factor': 1}");
+        assertContainsEventually(() -> execute("SHOW SCHEMAS FROM cassandra"), resultBuilder(getSession(), createUnboundedVarcharType())
+                .row("keyspace_6")
+                .build(), new Duration(1, MINUTES));
+
+        session.execute("CREATE TABLE keyspace_6.table_6 (column_1 bigint, column_2 bigint, unsupported_3 tuple<bigint>, unsupported_4 set<frozen<tuple<bigint>>>, PRIMARY KEY (column_1))");
+        assertContainsEventually(() -> execute("SHOW TABLES FROM cassandra.keyspace_6"), resultBuilder(getSession(), createUnboundedVarcharType())
+                .row("table_6")
+                .build(), new Duration(1, MINUTES));
+
+        assertContains(execute("SHOW COLUMNS FROM cassandra.keyspace_6.table_6"), resultBuilder(getSession(), createUnboundedVarcharType(), createUnboundedVarcharType(), createUnboundedVarcharType(), createUnboundedVarcharType())
+                .row("column_1", "bigint", "", "")
+                .row("column_2", "bigint", "", "")
+                .build());
+        session.execute("DROP TABLE keyspace_6.table_6");
+
+        session.execute("CREATE TABLE keyspace_6.table_6 (unsupported_primary_key tuple<bigint>, column_2 bigint, PRIMARY KEY (unsupported_primary_key))");
+        assertContainsEventually(() -> execute("SHOW TABLES FROM cassandra.keyspace_6"), resultBuilder(getSession(), createUnboundedVarcharType())
+                .row("table_6")
+                .build(), new Duration(1, MINUTES));
+
+        assertQueryFailsEventually(
+                "SHOW COLUMNS FROM cassandra.keyspace_6.table_6",
+                "Unsupported partition key type: tuple",
+                new Duration(1, MINUTES));
+
+        session.execute("DROP KEYSPACE keyspace_6");
+    }
+
+    @Test
     public void testInsert()
     {
         String sql = "SELECT key, typeuuid, typeinteger, typelong, typebytes, typetimestamp, typeansi, typeboolean, typedecimal, " +

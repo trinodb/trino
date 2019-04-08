@@ -44,6 +44,7 @@ import java.util.Collection;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.google.common.net.InetAddresses.toAddrString;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -119,57 +120,57 @@ public enum CassandraType
         }
     }
 
-    public static CassandraType toCassandraType(DataType.Name name)
+    public static Optional<CassandraType> toCassandraType(DataType.Name name)
     {
         switch (name) {
             case ASCII:
-                return ASCII;
+                return Optional.of(ASCII);
             case BIGINT:
-                return BIGINT;
+                return Optional.of(BIGINT);
             case BLOB:
-                return BLOB;
+                return Optional.of(BLOB);
             case BOOLEAN:
-                return BOOLEAN;
+                return Optional.of(BOOLEAN);
             case COUNTER:
-                return COUNTER;
+                return Optional.of(COUNTER);
             case CUSTOM:
-                return CUSTOM;
+                return Optional.of(CUSTOM);
             case DATE:
-                return DATE;
+                return Optional.of(DATE);
             case DECIMAL:
-                return DECIMAL;
+                return Optional.of(DECIMAL);
             case DOUBLE:
-                return DOUBLE;
+                return Optional.of(DOUBLE);
             case FLOAT:
-                return FLOAT;
+                return Optional.of(FLOAT);
             case INET:
-                return INET;
+                return Optional.of(INET);
             case INT:
-                return INT;
+                return Optional.of(INT);
             case LIST:
-                return LIST;
+                return Optional.of(LIST);
             case MAP:
-                return MAP;
+                return Optional.of(MAP);
             case SET:
-                return SET;
+                return Optional.of(SET);
             case SMALLINT:
-                return SMALLINT;
+                return Optional.of(SMALLINT);
             case TEXT:
-                return TEXT;
+                return Optional.of(TEXT);
             case TIMESTAMP:
-                return TIMESTAMP;
+                return Optional.of(TIMESTAMP);
             case TIMEUUID:
-                return TIMEUUID;
+                return Optional.of(TIMEUUID);
             case TINYINT:
-                return TINYINT;
+                return Optional.of(TINYINT);
             case UUID:
-                return UUID;
+                return Optional.of(UUID);
             case VARCHAR:
-                return VARCHAR;
+                return Optional.of(VARCHAR);
             case VARINT:
-                return VARINT;
+                return Optional.of(VARINT);
             default:
-                return null;
+                return Optional.empty();
         }
     }
 

@@ -60,6 +60,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
 
@@ -221,7 +222,8 @@ public class NativeCassandraSession
         for (ColumnMetadata columnMeta : tableMeta.getPartitionKey()) {
             primaryKeySet.add(columnMeta.getName());
             boolean hidden = hiddenColumns.contains(columnMeta.getName());
-            CassandraColumnHandle columnHandle = buildColumnHandle(tableMeta, columnMeta, true, false, columnNames.indexOf(columnMeta.getName()), hidden);
+            CassandraColumnHandle columnHandle = buildColumnHandle(tableMeta, columnMeta, true, false, columnNames.indexOf(columnMeta.getName()), hidden)
+                    .orElseThrow(() -> new PrestoException(NOT_SUPPORTED, "Unsupported partition key type: " + columnMeta.getType().getName()));
             columnHandles.add(columnHandle);
         }
 
@@ -229,16 +231,16 @@ public class NativeCassandraSession
         for (ColumnMetadata columnMeta : tableMeta.getClusteringColumns()) {
             primaryKeySet.add(columnMeta.getName());
             boolean hidden = hiddenColumns.contains(columnMeta.getName());
-            CassandraColumnHandle columnHandle = buildColumnHandle(tableMeta, columnMeta, false, true, columnNames.indexOf(columnMeta.getName()), hidden);
-            columnHandles.add(columnHandle);
+            Optional<CassandraColumnHandle> columnHandle = buildColumnHandle(tableMeta, columnMeta, false, true, columnNames.indexOf(columnMeta.getName()), hidden);
+            columnHandle.ifPresent(columnHandles::add);
         }
 
         // add other columns
         for (ColumnMetadata columnMeta : columns) {
             if (!primaryKeySet.contains(columnMeta.getName())) {
                 boolean hidden = hiddenColumns.contains(columnMeta.getName());
-                CassandraColumnHandle columnHandle = buildColumnHandle(tableMeta, columnMeta, false, false, columnNames.indexOf(columnMeta.getName()), hidden);
-                columnHandles.add(columnHandle);
+                Optional<CassandraColumnHandle> columnHandle = buildColumnHandle(tableMeta, columnMeta, false, false, columnNames.indexOf(columnMeta.getName()), hidden);
+                columnHandle.ifPresent(columnHandles::add);
             }
         }
 
@@ -318,18 +320,34 @@ public class NativeCassandraSession
         }
     }
 
-    private CassandraColumnHandle buildColumnHandle(AbstractTableMetadata tableMetadata, ColumnMetadata columnMeta, boolean partitionKey, boolean clusteringKey, int ordinalPosition, boolean hidden)
+    private Optional<CassandraColumnHandle> buildColumnHandle(AbstractTableMetadata tableMetadata, ColumnMetadata columnMeta, boolean partitionKey, boolean clusteringKey, int ordinalPosition, boolean hidden)
     {
-        CassandraType cassandraType = toCassandraType(columnMeta.getType().getName());
+        Optional<CassandraType> cassandraType = toCassandraType(columnMeta.getType().getName());
+        if (!cassandraType.isPresent()) {
+            log.debug("Unsupported column type: %s", columnMeta.getType().getName());
+            return Optional.empty();
+        }
+
         List<CassandraType> typeArguments = null;
-        if (cassandraType != null && cassandraType.getTypeArgumentSize() > 0) {
+        if (cassandraType.get().getTypeArgumentSize() > 0) {
             List<DataType> typeArgs = columnMeta.getType().getTypeArguments();
-            switch (cassandraType.getTypeArgumentSize()) {
+            switch (cassandraType.get().getTypeArgumentSize()) {
                 case 1:
-                    typeArguments = ImmutableList.of(toCassandraType(typeArgs.get(0).getName()));
+                    Optional<CassandraType> typeArgument = toCassandraType(typeArgs.get(0).getName());
+                    if (!typeArgument.isPresent()) {
+                        log.debug("%s column has unsupported type: %s", columnMeta.getName(), typeArgs.get(0).getName());
+                        return Optional.empty();
+                    }
+                    typeArguments = ImmutableList.of(typeArgument.get());
                     break;
                 case 2:
-                    typeArguments = ImmutableList.of(toCassandraType(typeArgs.get(0).getName()), toCassandraType(typeArgs.get(1).getName()));
+                    Optional<CassandraType> firstArgument = toCassandraType(typeArgs.get(0).getName());
+                    Optional<CassandraType> secondArgument = toCassandraType(typeArgs.get(1).getName());
+                    if (!firstArgument.isPresent() || !secondArgument.isPresent()) {
+                        log.debug("%s column has unsupported type: %s, %s", columnMeta.getName(), typeArgs.get(0).getName(), typeArgs.get(1).getName());
+                        return Optional.empty();
+                    }
+                    typeArguments = ImmutableList.of(firstArgument.get(), secondArgument.get());
                     break;
                 default:
                     throw new IllegalArgumentException("Invalid type arguments: " + typeArgs);
@@ -346,7 +364,7 @@ public class NativeCassandraSession
                 }
             }
         }
-        return new CassandraColumnHandle(columnMeta.getName(), ordinalPosition, cassandraType, typeArguments, partitionKey, clusteringKey, indexed, hidden);
+        return Optional.of(new CassandraColumnHandle(columnMeta.getName(), ordinalPosition, cassandraType.get(), typeArguments, partitionKey, clusteringKey, indexed, hidden));
     }
 
     @Override
