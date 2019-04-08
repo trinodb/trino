@@ -23,6 +23,7 @@ import io.airlift.http.client.Response;
 import io.airlift.http.client.ResponseHandler;
 import io.airlift.http.client.StatusResponseHandler.StatusResponse;
 import io.airlift.slice.XxHash64;
+import io.prestosql.spi.NodeManager;
 import io.prestosql.spi.PrestoException;
 
 import javax.inject.Inject;
@@ -65,11 +66,11 @@ public class HttpBackupStore
     public HttpBackupStore(
             @ForHttpBackup HttpClient httpClient,
             @ForHttpBackup Supplier<URI> baseUriSupplier,
-            @ForHttpBackup String environment)
+            NodeManager nodeManager)
     {
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
         this.baseUriSupplier = requireNonNull(baseUriSupplier, "baseUriSupplier is null");
-        this.environment = requireNonNull(environment, "environment is null");
+        this.environment = requireNonNull(nodeManager, "nodeManager is null").getEnvironment();
     }
 
     @Override
