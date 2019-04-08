@@ -133,7 +133,7 @@ public class TestTpchMetadata
         testTableStats(schema, table, alwaysTrue(), expectedRowCount);
     }
 
-    private void testTableStats(String schema, TpchTable<?> table, Constraint<ColumnHandle> constraint, double expectedRowCount)
+    private void testTableStats(String schema, TpchTable<?> table, Constraint constraint, double expectedRowCount)
     {
         TpchTableHandle tableHandle = tpchMetadata.getTableHandle(session, new SchemaTableName(schema, table.getTableName()));
         TableStatistics tableStatistics = tpchMetadata.getTableStatistics(session, tableHandle, constraint);
@@ -234,7 +234,7 @@ public class TestTpchMetadata
         testColumnStats(schema, table, column, alwaysTrue(), expectedStatistics);
     }
 
-    private void testColumnStats(String schema, TpchTable<?> table, TpchColumn<?> column, Constraint<ColumnHandle> constraint, ColumnStatistics expected)
+    private void testColumnStats(String schema, TpchTable<?> table, TpchColumn<?> column, Constraint constraint, ColumnStatistics expected)
     {
         TpchTableHandle tableHandle = tpchMetadata.getTableHandle(session, new SchemaTableName(schema, table.getTableName()));
         TableStatistics tableStatistics = tpchMetadata.getTableStatistics(session, tableHandle, constraint);
@@ -259,12 +259,12 @@ public class TestTpchMetadata
         ConnectorTableLayoutResult tableLayout;
 
         domain = fixedValueTupleDomain(tpchMetadata, ORDER_STATUS, utf8Slice("P"));
-        tableLayout = getTableOnlyLayout(tpchMetadata, session, tableHandle, new Constraint<>(domain, convertToPredicate(domain, ORDER_STATUS)));
+        tableLayout = getTableOnlyLayout(tpchMetadata, session, tableHandle, new Constraint(domain, convertToPredicate(domain, ORDER_STATUS)));
         assertTupleDomainEquals(tableLayout.getUnenforcedConstraint(), TupleDomain.all(), session);
         assertTupleDomainEquals(tableLayout.getTableLayout().getPredicate(), domain, session);
 
         domain = fixedValueTupleDomain(tpchMetadata, ORDER_KEY, 42L);
-        tableLayout = getTableOnlyLayout(tpchMetadata, session, tableHandle, new Constraint<>(domain, convertToPredicate(domain, ORDER_STATUS)));
+        tableLayout = getTableOnlyLayout(tpchMetadata, session, tableHandle, new Constraint(domain, convertToPredicate(domain, ORDER_STATUS)));
         assertTupleDomainEquals(tableLayout.getUnenforcedConstraint(), domain, session);
         assertTupleDomainEquals(
                 tableLayout.getTableLayout().getPredicate(),
@@ -286,7 +286,7 @@ public class TestTpchMetadata
         ConnectorTableLayoutResult tableLayout;
 
         domain = fixedValueTupleDomain(tpchMetadata, PartColumn.TYPE, utf8Slice("SMALL BRUSHED COPPER"));
-        tableLayout = getTableOnlyLayout(tpchMetadata, session, tableHandle, new Constraint<>(domain, convertToPredicate(domain, PartColumn.TYPE)));
+        tableLayout = getTableOnlyLayout(tpchMetadata, session, tableHandle, new Constraint(domain, convertToPredicate(domain, PartColumn.TYPE)));
         assertTupleDomainEquals(tableLayout.getUnenforcedConstraint(), TupleDomain.all(), session);
         assertTupleDomainEquals(
                 filterOutColumnFromPredicate(tableLayout.getTableLayout().getPredicate(), tpchMetadata.toColumnHandle(PartColumn.CONTAINER)),
@@ -294,12 +294,12 @@ public class TestTpchMetadata
                 session);
 
         domain = fixedValueTupleDomain(tpchMetadata, PartColumn.TYPE, utf8Slice("UNKNOWN"));
-        tableLayout = getTableOnlyLayout(tpchMetadata, session, tableHandle, new Constraint<>(domain, convertToPredicate(domain, PartColumn.TYPE)));
+        tableLayout = getTableOnlyLayout(tpchMetadata, session, tableHandle, new Constraint(domain, convertToPredicate(domain, PartColumn.TYPE)));
         assertTupleDomainEquals(tableLayout.getUnenforcedConstraint(), TupleDomain.all(), session);
         assertTupleDomainEquals(tableLayout.getTableLayout().getPredicate(), TupleDomain.none(), session);
 
         domain = fixedValueTupleDomain(tpchMetadata, PartColumn.CONTAINER, utf8Slice("SM BAG"));
-        tableLayout = getTableOnlyLayout(tpchMetadata, session, tableHandle, new Constraint<>(domain, convertToPredicate(domain, PartColumn.CONTAINER)));
+        tableLayout = getTableOnlyLayout(tpchMetadata, session, tableHandle, new Constraint(domain, convertToPredicate(domain, PartColumn.CONTAINER)));
         assertTupleDomainEquals(tableLayout.getUnenforcedConstraint(), TupleDomain.all(), session);
         assertTupleDomainEquals(
                 filterOutColumnFromPredicate(tableLayout.getTableLayout().getPredicate(), tpchMetadata.toColumnHandle(PartColumn.TYPE)),
@@ -307,17 +307,17 @@ public class TestTpchMetadata
                 session);
 
         domain = fixedValueTupleDomain(tpchMetadata, PartColumn.CONTAINER, utf8Slice("UNKNOWN"));
-        tableLayout = getTableOnlyLayout(tpchMetadata, session, tableHandle, new Constraint<>(domain, convertToPredicate(domain, PartColumn.CONTAINER)));
+        tableLayout = getTableOnlyLayout(tpchMetadata, session, tableHandle, new Constraint(domain, convertToPredicate(domain, PartColumn.CONTAINER)));
         assertTupleDomainEquals(tableLayout.getUnenforcedConstraint(), TupleDomain.all(), session);
         assertTupleDomainEquals(tableLayout.getTableLayout().getPredicate(), TupleDomain.none(), session);
 
         domain = fixedValueTupleDomain(tpchMetadata, PartColumn.TYPE, utf8Slice("SMALL BRUSHED COPPER"), PartColumn.CONTAINER, utf8Slice("SM BAG"));
-        tableLayout = getTableOnlyLayout(tpchMetadata, session, tableHandle, new Constraint<>(domain, convertToPredicate(domain, PartColumn.CONTAINER)));
+        tableLayout = getTableOnlyLayout(tpchMetadata, session, tableHandle, new Constraint(domain, convertToPredicate(domain, PartColumn.CONTAINER)));
         assertTupleDomainEquals(tableLayout.getUnenforcedConstraint(), TupleDomain.all(), session);
         assertTupleDomainEquals(tableLayout.getTableLayout().getPredicate(), domain, session);
 
         domain = fixedValueTupleDomain(tpchMetadata, PartColumn.TYPE, utf8Slice("UNKNOWN"), PartColumn.CONTAINER, utf8Slice("UNKNOWN"));
-        tableLayout = getTableOnlyLayout(tpchMetadata, session, tableHandle, new Constraint<>(domain, convertToPredicate(domain, PartColumn.TYPE, PartColumn.CONTAINER)));
+        tableLayout = getTableOnlyLayout(tpchMetadata, session, tableHandle, new Constraint(domain, convertToPredicate(domain, PartColumn.TYPE, PartColumn.CONTAINER)));
         assertTupleDomainEquals(tableLayout.getUnenforcedConstraint(), TupleDomain.all(), session);
         assertTupleDomainEquals(tableLayout.getTableLayout().getPredicate(), TupleDomain.none(), session);
     }
@@ -346,13 +346,13 @@ public class TestTpchMetadata
         }
     }
 
-    private Constraint<ColumnHandle> constraint(TpchColumn<?> column, String... values)
+    private Constraint constraint(TpchColumn<?> column, String... values)
     {
         List<TupleDomain<ColumnHandle>> valueDomains = stream(values)
                 .map(value -> fixedValueTupleDomain(tpchMetadata, column, utf8Slice(value)))
                 .collect(toList());
         TupleDomain<ColumnHandle> domain = TupleDomain.columnWiseUnion(valueDomains);
-        return new Constraint<>(domain, convertToPredicate(domain, column));
+        return new Constraint(domain, convertToPredicate(domain, column));
     }
 
     private static TupleDomain<ColumnHandle> fixedValueTupleDomain(TpchMetadata tpchMetadata, TpchColumn<?> column, Object value)
@@ -371,7 +371,7 @@ public class TestTpchMetadata
                         tpchMetadata.toColumnHandle(column2), new NullableValue(getPrestoType(column2), value2)));
     }
 
-    private static ConnectorTableLayoutResult getTableOnlyLayout(TpchMetadata tpchMetadata, ConnectorSession session, ConnectorTableHandle tableHandle, Constraint<ColumnHandle> constraint)
+    private static ConnectorTableLayoutResult getTableOnlyLayout(TpchMetadata tpchMetadata, ConnectorSession session, ConnectorTableHandle tableHandle, Constraint constraint)
     {
         List<ConnectorTableLayoutResult> tableLayouts = tpchMetadata.getTableLayouts(session, tableHandle, constraint, Optional.empty());
         return getOnlyElement(tableLayouts);

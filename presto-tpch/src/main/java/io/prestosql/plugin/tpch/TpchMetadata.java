@@ -185,7 +185,7 @@ public class TpchMetadata
     public List<ConnectorTableLayoutResult> getTableLayouts(
             ConnectorSession session,
             ConnectorTableHandle table,
-            Constraint<ColumnHandle> constraint,
+            Constraint constraint,
             Optional<Set<ColumnHandle>> desiredColumns)
     {
         TpchTableHandle tableHandle = (TpchTableHandle) table;
@@ -251,7 +251,7 @@ public class TpchMetadata
         return ImmutableList.of(new ConnectorTableLayoutResult(layout, unenforcedConstraint));
     }
 
-    private Set<NullableValue> filterValues(Set<NullableValue> nullableValues, TpchColumn<?> column, Constraint<ColumnHandle> constraint)
+    private Set<NullableValue> filterValues(Set<NullableValue> nullableValues, TpchColumn<?> column, Constraint constraint)
     {
         return nullableValues.stream()
                 .filter(convertToPredicate(constraint.getSummary(), toColumnHandle(column)))
@@ -265,7 +265,7 @@ public class TpchMetadata
         TpchTableLayoutHandle layout = (TpchTableLayoutHandle) handle;
 
         // tables in this connector have a single layout
-        return getTableLayouts(session, layout.getTable(), new Constraint<>(layout.getPredicate()), Optional.empty())
+        return getTableLayouts(session, layout.getTable(), new Constraint(layout.getPredicate()), Optional.empty())
                 .get(0)
                 .getTableLayout();
     }
@@ -319,7 +319,7 @@ public class TpchMetadata
     }
 
     @Override
-    public TableStatistics getTableStatistics(ConnectorSession session, ConnectorTableHandle tableHandle, Constraint<ColumnHandle> constraint)
+    public TableStatistics getTableStatistics(ConnectorSession session, ConnectorTableHandle tableHandle, Constraint constraint)
     {
         TpchTableHandle tpchTableHandle = (TpchTableHandle) tableHandle;
         String tableName = tpchTableHandle.getTableName();
@@ -336,7 +336,7 @@ public class TpchMetadata
                 .orElse(TableStatistics.empty());
     }
 
-    private Map<TpchColumn<?>, List<Object>> getColumnValuesRestrictions(TpchTable<?> tpchTable, Constraint<ColumnHandle> constraint)
+    private Map<TpchColumn<?>, List<Object>> getColumnValuesRestrictions(TpchTable<?> tpchTable, Constraint constraint)
     {
         TupleDomain<ColumnHandle> constraintSummary = constraint.getSummary();
         if (constraintSummary.isAll()) {

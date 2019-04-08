@@ -78,7 +78,7 @@ public class SystemTablesMetadata
     }
 
     @Override
-    public List<ConnectorTableLayoutResult> getTableLayouts(ConnectorSession session, ConnectorTableHandle table, Constraint<ColumnHandle> constraint, Optional<Set<ColumnHandle>> desiredColumns)
+    public List<ConnectorTableLayoutResult> getTableLayouts(ConnectorSession session, ConnectorTableHandle table, Constraint constraint, Optional<Set<ColumnHandle>> desiredColumns)
     {
         SystemTableHandle tableHandle = (SystemTableHandle) table;
         ConnectorTableLayout layout = new ConnectorTableLayout(new SystemTableLayoutHandle(tableHandle, constraint.getSummary()));

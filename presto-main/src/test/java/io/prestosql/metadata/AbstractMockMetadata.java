@@ -117,7 +117,7 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public Optional<TableLayoutResult> getLayout(Session session, TableHandle tableHandle, Constraint<ColumnHandle> constraint, Optional<Set<ColumnHandle>> desiredColumns)
+    public Optional<TableLayoutResult> getLayout(Session session, TableHandle tableHandle, Constraint constraint, Optional<Set<ColumnHandle>> desiredColumns)
     {
         throw new UnsupportedOperationException();
     }
@@ -153,7 +153,7 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public TableStatistics getTableStatistics(Session session, TableHandle tableHandle, Constraint<ColumnHandle> constraint)
+    public TableStatistics getTableStatistics(Session session, TableHandle tableHandle, Constraint constraint)
     {
         throw new UnsupportedOperationException();
     }
@@ -537,7 +537,7 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public Optional<ConstraintApplicationResult<TableHandle>> applyFilter(Session session, TableHandle table, Constraint<ColumnHandle> constraint)
+    public Optional<ConstraintApplicationResult<TableHandle>> applyFilter(Session session, TableHandle table, Constraint constraint)
     {
         return Optional.empty();
     }

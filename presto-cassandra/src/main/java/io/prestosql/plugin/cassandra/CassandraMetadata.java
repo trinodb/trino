@@ -198,7 +198,7 @@ public class CassandraMetadata
     }
 
     @Override
-    public List<ConnectorTableLayoutResult> getTableLayouts(ConnectorSession session, ConnectorTableHandle table, Constraint<ColumnHandle> constraint, Optional<Set<ColumnHandle>> desiredColumns)
+    public List<ConnectorTableLayoutResult> getTableLayouts(ConnectorSession session, ConnectorTableHandle table, Constraint constraint, Optional<Set<ColumnHandle>> desiredColumns)
     {
         CassandraTableHandle handle = (CassandraTableHandle) table;
         CassandraPartitionResult partitionResult = partitionManager.getPartitions(handle, constraint.getSummary());

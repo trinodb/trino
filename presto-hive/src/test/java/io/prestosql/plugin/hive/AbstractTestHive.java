@@ -971,7 +971,7 @@ public abstract class AbstractTestHive
         try (Transaction transaction = newTransaction()) {
             ConnectorMetadata metadata = transaction.getMetadata();
             ConnectorTableHandle tableHandle = getTableHandle(metadata, tablePartitionFormat);
-            List<ConnectorTableLayoutResult> tableLayoutResults = metadata.getTableLayouts(newSession(), tableHandle, new Constraint<>(TupleDomain.withColumnDomains(ImmutableMap.of(intColumn, Domain.singleValue(BIGINT, 5L)))), Optional.empty());
+            List<ConnectorTableLayoutResult> tableLayoutResults = metadata.getTableLayouts(newSession(), tableHandle, new Constraint(TupleDomain.withColumnDomains(ImmutableMap.of(intColumn, Domain.singleValue(BIGINT, 5L)))), Optional.empty());
             assertExpectedTableLayout(getOnlyElement(tableLayoutResults).getTableLayout(), tableLayout);
         }
     }
@@ -1412,7 +1412,7 @@ public abstract class AbstractTestHive
 
             Domain domain = Domain.singleValue(createUnboundedVarcharType(), utf8Slice("2012-12-30"));
             TupleDomain<ColumnHandle> tupleDomain = TupleDomain.withColumnDomains(ImmutableMap.of(dsColumn, domain));
-            List<ConnectorTableLayoutResult> tableLayoutResults = metadata.getTableLayouts(session, tableHandle, new Constraint<>(tupleDomain), Optional.empty());
+            List<ConnectorTableLayoutResult> tableLayoutResults = metadata.getTableLayouts(session, tableHandle, new Constraint(tupleDomain), Optional.empty());
             try {
                 getSplitCount(splitManager.getSplits(transaction.getTransactionHandle(), session, getOnlyElement(tableLayoutResults).getTableLayout().getHandle(), UNGROUPED_SCHEDULING));
                 fail("Expected PartitionOfflineException");
@@ -1907,7 +1907,7 @@ public abstract class AbstractTestHive
             ConnectorTableHandle table = getTableHandle(metadata, tablePartitionSchemaChangeNonCanonical);
             ColumnHandle column = metadata.getColumnHandles(session, table).get("t_boolean");
             assertNotNull(column);
-            List<ConnectorTableLayoutResult> tableLayoutResults = metadata.getTableLayouts(session, table, new Constraint<>(TupleDomain.fromFixedValues(ImmutableMap.of(column, NullableValue.of(BOOLEAN, false)))), Optional.empty());
+            List<ConnectorTableLayoutResult> tableLayoutResults = metadata.getTableLayouts(session, table, new Constraint(TupleDomain.fromFixedValues(ImmutableMap.of(column, NullableValue.of(BOOLEAN, false)))), Optional.empty());
             ConnectorTableLayoutHandle layoutHandle = getOnlyElement(tableLayoutResults).getTableLayout().getHandle();
             assertEquals(getAllPartitions(layoutHandle).size(), 1);
             assertEquals(getPartitionId(getAllPartitions(layoutHandle).get(0)), "t_boolean=0");
@@ -3646,7 +3646,7 @@ public abstract class AbstractTestHive
             // delete ds=2015-07-03
             session = newSession();
             TupleDomain<ColumnHandle> tupleDomain = TupleDomain.fromFixedValues(ImmutableMap.of(dsColumnHandle, NullableValue.of(createUnboundedVarcharType(), utf8Slice("2015-07-03"))));
-            Constraint<ColumnHandle> constraint = new Constraint<>(tupleDomain, convertToPredicate(tupleDomain));
+            Constraint constraint = new Constraint(tupleDomain, convertToPredicate(tupleDomain));
             List<ConnectorTableLayoutResult> tableLayoutResults = metadata.getTableLayouts(session, tableHandle, constraint, Optional.empty());
             ConnectorTableLayoutHandle tableLayoutHandle = getOnlyElement(tableLayoutResults).getTableLayout().getHandle();
             metadata.metadataDelete(session, tableHandle, tableLayoutHandle);
@@ -3681,7 +3681,7 @@ public abstract class AbstractTestHive
             session = newSession();
             TupleDomain<ColumnHandle> tupleDomain2 = TupleDomain.withColumnDomains(
                     ImmutableMap.of(dsColumnHandle, Domain.create(ValueSet.ofRanges(Range.range(createUnboundedVarcharType(), utf8Slice("2015-07-01"), true, utf8Slice("2015-07-02"), true)), false)));
-            Constraint<ColumnHandle> constraint2 = new Constraint<>(tupleDomain2, convertToPredicate(tupleDomain2));
+            Constraint constraint2 = new Constraint(tupleDomain2, convertToPredicate(tupleDomain2));
             List<ConnectorTableLayoutResult> tableLayoutResults2 = metadata.getTableLayouts(session, tableHandle, constraint2, Optional.empty());
             ConnectorTableLayoutHandle tableLayoutHandle2 = getOnlyElement(tableLayoutResults2).getTableLayout().getHandle();
             metadata.metadataDelete(session, tableHandle, tableLayoutHandle2);
@@ -3994,7 +3994,7 @@ public abstract class AbstractTestHive
         List<ConnectorTableLayoutResult> tableLayoutResults = transaction.getMetadata().getTableLayouts(
                 session,
                 tableHandle,
-                new Constraint<>(tupleDomain),
+                new Constraint(tupleDomain),
                 Optional.empty());
         ConnectorTableLayoutHandle layoutHandle = getOnlyElement(tableLayoutResults).getTableLayout().getHandle();
         List<ConnectorSplit> splits = getAllSplits(splitManager.getSplits(transaction.getTransactionHandle(), session, layoutHandle, UNGROUPED_SCHEDULING));
@@ -4037,7 +4037,7 @@ public abstract class AbstractTestHive
         try (Transaction transaction = newTransaction()) {
             ConnectorSession session = newSession();
             ConnectorMetadata metadata = transaction.getMetadata();
-            List<ConnectorTableLayoutResult> tableLayoutResults = metadata.getTableLayouts(session, tableHandle, new Constraint<>(tupleDomain), Optional.empty());
+            List<ConnectorTableLayoutResult> tableLayoutResults = metadata.getTableLayouts(session, tableHandle, new Constraint(tupleDomain), Optional.empty());
             ConnectorTableLayoutHandle layoutHandle = getOnlyElement(tableLayoutResults).getTableLayout().getHandle();
             return getAllSplits(splitManager.getSplits(transaction.getTransactionHandle(), session, layoutHandle, UNGROUPED_SCHEDULING));
         }
@@ -4450,7 +4450,7 @@ public abstract class AbstractTestHive
                 HiveColumnHandle dsColumnHandle = (HiveColumnHandle) metadata.getColumnHandles(session, tableHandle).get("pk2");
                 TupleDomain<ColumnHandle> tupleDomain = TupleDomain.withColumnDomains(ImmutableMap.of(
                         dsColumnHandle, domainToDrop));
-                Constraint<ColumnHandle> constraint = new Constraint<>(tupleDomain, convertToPredicate(tupleDomain));
+                Constraint constraint = new Constraint(tupleDomain, convertToPredicate(tupleDomain));
                 List<ConnectorTableLayoutResult> tableLayoutResults = metadata.getTableLayouts(session, tableHandle, constraint, Optional.empty());
                 ConnectorTableLayoutHandle tableLayoutHandle = getOnlyElement(tableLayoutResults).getTableLayout().getHandle();
                 metadata.metadataDelete(session, tableHandle, tableLayoutHandle);

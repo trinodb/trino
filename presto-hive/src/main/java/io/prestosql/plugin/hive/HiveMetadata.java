@@ -388,7 +388,7 @@ public class HiveMetadata
             {
                 TupleDomain<ColumnHandle> targetTupleDomain = constraint.transform(fieldIdToColumnHandle::get);
                 Predicate<Map<ColumnHandle, NullableValue>> targetPredicate = convertToPredicate(targetTupleDomain);
-                Constraint<ColumnHandle> targetConstraint = new Constraint<>(targetTupleDomain, targetPredicate);
+                Constraint targetConstraint = new Constraint(targetTupleDomain, targetPredicate);
                 Iterable<List<Object>> records = () ->
                         stream(partitionManager.getPartitions(metastore, sourceTableHandle, targetConstraint).getPartitions())
                                 .map(hivePartition ->
@@ -569,7 +569,7 @@ public class HiveMetadata
     }
 
     @Override
-    public TableStatistics getTableStatistics(ConnectorSession session, ConnectorTableHandle tableHandle, Constraint<ColumnHandle> constraint)
+    public TableStatistics getTableStatistics(ConnectorSession session, ConnectorTableHandle tableHandle, Constraint constraint)
     {
         if (!isStatisticsEnabled(session)) {
             return TableStatistics.empty();
@@ -584,7 +584,7 @@ public class HiveMetadata
         return hiveStatisticsProvider.getTableStatistics(session, ((HiveTableHandle) tableHandle).getSchemaTableName(), columns, columnTypes, partitions);
     }
 
-    private List<HivePartition> getPartitionsAsList(ConnectorTableHandle tableHandle, Constraint<ColumnHandle> constraint)
+    private List<HivePartition> getPartitionsAsList(ConnectorTableHandle tableHandle, Constraint constraint)
     {
         HivePartitionResult partitions = partitionManager.getPartitions(metastore, tableHandle, constraint);
         return getPartitionsAsList(partitions);
@@ -1606,7 +1606,7 @@ public class HiveMetadata
         else {
             TupleDomain<ColumnHandle> promisedPredicate = layoutHandle.getPromisedPredicate();
             Predicate<Map<ColumnHandle, NullableValue>> predicate = convertToPredicate(promisedPredicate);
-            List<ConnectorTableLayoutResult> tableLayoutResults = getTableLayouts(session, tableHandle, new Constraint<>(promisedPredicate, predicate), Optional.empty());
+            List<ConnectorTableLayoutResult> tableLayoutResults = getTableLayouts(session, tableHandle, new Constraint(promisedPredicate, predicate), Optional.empty());
             return ((HiveTableLayoutHandle) Iterables.getOnlyElement(tableLayoutResults).getTableLayout().getHandle()).getPartitions().get();
         }
     }
@@ -1624,7 +1624,7 @@ public class HiveMetadata
     }
 
     @Override
-    public List<ConnectorTableLayoutResult> getTableLayouts(ConnectorSession session, ConnectorTableHandle tableHandle, Constraint<ColumnHandle> constraint, Optional<Set<ColumnHandle>> desiredColumns)
+    public List<ConnectorTableLayoutResult> getTableLayouts(ConnectorSession session, ConnectorTableHandle tableHandle, Constraint constraint, Optional<Set<ColumnHandle>> desiredColumns)
     {
         HiveTableHandle handle = (HiveTableHandle) tableHandle;
         HivePartitionResult hivePartitionResult;

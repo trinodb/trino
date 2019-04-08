@@ -254,7 +254,7 @@ public class AccumuloMetadata
     public List<ConnectorTableLayoutResult> getTableLayouts(
             ConnectorSession session,
             ConnectorTableHandle table,
-            Constraint<ColumnHandle> constraint,
+            Constraint constraint,
             Optional<Set<ColumnHandle>> desiredColumns)
     {
         AccumuloTableHandle tableHandle = (AccumuloTableHandle) table;

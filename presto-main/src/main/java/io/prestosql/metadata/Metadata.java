@@ -77,7 +77,7 @@ public interface Metadata
     Optional<TableHandle> getTableHandleForStatisticsCollection(Session session, QualifiedObjectName tableName, Map<String, Object> analyzeProperties);
 
     @Deprecated
-    Optional<TableLayoutResult> getLayout(Session session, TableHandle tableHandle, Constraint<ColumnHandle> constraint, Optional<Set<ColumnHandle>> desiredColumns);
+    Optional<TableLayoutResult> getLayout(Session session, TableHandle tableHandle, Constraint constraint, Optional<Set<ColumnHandle>> desiredColumns);
 
     TableProperties getTableProperties(Session session, TableHandle handle);
 
@@ -107,7 +107,7 @@ public interface Metadata
     /**
      * Return statistics for specified table for given filtering contraint.
      */
-    TableStatistics getTableStatistics(Session session, TableHandle tableHandle, Constraint<ColumnHandle> constraint);
+    TableStatistics getTableStatistics(Session session, TableHandle tableHandle, Constraint constraint);
 
     /**
      * Get the names that match the specified table prefix (never null).
@@ -397,5 +397,5 @@ public interface Metadata
 
     Optional<LimitApplicationResult<TableHandle>> applyLimit(Session session, TableHandle table, long limit);
 
-    Optional<ConstraintApplicationResult<TableHandle>> applyFilter(Session session, TableHandle table, Constraint<ColumnHandle> constraint);
+    Optional<ConstraintApplicationResult<TableHandle>> applyFilter(Session session, TableHandle table, Constraint constraint);
 }

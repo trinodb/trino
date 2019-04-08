@@ -129,7 +129,7 @@ public class RedisMetadata
     public List<ConnectorTableLayoutResult> getTableLayouts(
             ConnectorSession session,
             ConnectorTableHandle table,
-            Constraint<ColumnHandle> constraint,
+            Constraint constraint,
             Optional<Set<ColumnHandle>> desiredColumns)
     {
         RedisTableHandle tableHandle = convertTableHandle(table);

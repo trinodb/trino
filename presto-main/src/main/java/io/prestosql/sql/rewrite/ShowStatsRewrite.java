@@ -123,7 +123,7 @@ public class ShowStatsRewrite
                 Plan plan = queryExplainer.get().getLogicalPlan(session, new Query(Optional.empty(), specification, Optional.empty(), Optional.empty()), parameters, warningCollector);
                 validateShowStatsSubquery(node, query, specification, plan);
                 Table table = (Table) specification.getFrom().get();
-                Constraint<ColumnHandle> constraint = getConstraint(plan);
+                Constraint constraint = getConstraint(plan);
                 return rewriteShowStats(node, table, constraint);
             }
             else if (node.getRelation() instanceof Table) {
@@ -162,7 +162,7 @@ public class ShowStatsRewrite
             check(selectItems.size() == 1 && selectItems.get(0) instanceof AllColumns, node, "Only SELECT * is supported in SHOW STATS SELECT clause");
         }
 
-        private Node rewriteShowStats(ShowStats node, Table table, Constraint<ColumnHandle> constraint)
+        private Node rewriteShowStats(ShowStats node, Table table, Constraint constraint)
         {
             TableHandle tableHandle = getTableHandle(node, table.getName());
             TableStatistics tableStatistics = metadata.getTableStatistics(session, tableHandle, constraint);
@@ -191,7 +191,7 @@ public class ShowStatsRewrite
             return node;
         }
 
-        private Constraint<ColumnHandle> getConstraint(Plan plan)
+        private Constraint getConstraint(Plan plan)
         {
             Optional<TableScanNode> scanNode = searchFrom(plan.getRoot())
                     .where(TableScanNode.class::isInstance)
@@ -201,7 +201,7 @@ public class ShowStatsRewrite
                 return Constraint.alwaysFalse();
             }
 
-            return new Constraint<>(metadata.getTableProperties(session, scanNode.get().getTable()).getPredicate());
+            return new Constraint(metadata.getTableProperties(session, scanNode.get().getTable()).getPredicate());
         }
 
         private TableHandle getTableHandle(ShowStats node, QualifiedName table)

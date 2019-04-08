@@ -72,7 +72,7 @@ public class ClassLoaderSafeConnectorMetadata
     public List<ConnectorTableLayoutResult> getTableLayouts(
             ConnectorSession session,
             ConnectorTableHandle table,
-            Constraint<ColumnHandle> constraint,
+            Constraint constraint,
             Optional<Set<ColumnHandle>> desiredColumns)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
@@ -249,7 +249,7 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
-    public TableStatistics getTableStatistics(ConnectorSession session, ConnectorTableHandle tableHandle, Constraint<ColumnHandle> constraint)
+    public TableStatistics getTableStatistics(ConnectorSession session, ConnectorTableHandle tableHandle, Constraint constraint)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             return delegate.getTableStatistics(session, tableHandle, constraint);
@@ -577,7 +577,7 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
-    public Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorTableHandle table, Constraint<ColumnHandle> constraint)
+    public Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorTableHandle table, Constraint constraint)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             return delegate.applyFilter(table, constraint);

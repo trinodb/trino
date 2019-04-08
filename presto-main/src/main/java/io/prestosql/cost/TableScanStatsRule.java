@@ -59,7 +59,7 @@ public class TableScanStatsRule
     protected Optional<PlanNodeStatsEstimate> doCalculate(TableScanNode node, StatsProvider sourceStats, Lookup lookup, Session session, TypeProvider types)
     {
         // TODO Construct predicate like AddExchanges's LayoutConstraintEvaluator
-        Constraint<ColumnHandle> constraint = new Constraint<>(metadata.getTableProperties(session, node.getTable()).getPredicate());
+        Constraint constraint = new Constraint(metadata.getTableProperties(session, node.getTable()).getPredicate());
 
         TableStatistics tableStatistics = metadata.getTableStatistics(session, node.getTable(), constraint);
         verify(tableStatistics != null, "tableStatistics is null for %s", node);

@@ -114,7 +114,7 @@ public class TestInformationSchemaMetadata
         ImmutableMap.Builder<ColumnHandle, Domain> domains = new ImmutableMap.Builder<>();
         domains.put(new InformationSchemaColumnHandle("table_schema"), Domain.singleValue(VARCHAR, Slices.utf8Slice("test_schema")));
         domains.put(new InformationSchemaColumnHandle("table_name"), Domain.singleValue(VARCHAR, Slices.utf8Slice("test_view")));
-        Constraint<ColumnHandle> constraint = new Constraint<>(TupleDomain.withColumnDomains(domains.build()));
+        Constraint constraint = new Constraint(TupleDomain.withColumnDomains(domains.build()));
 
         InformationSchemaMetadata informationSchemaMetadata = new InformationSchemaMetadata("test_catalog", metadata);
         List<ConnectorTableLayoutResult> layoutResults = informationSchemaMetadata.getTableLayouts(
@@ -134,7 +134,7 @@ public class TestInformationSchemaMetadata
     public void testInformationSchemaPredicatePushdownWithConstraintPredicate()
     {
         TransactionId transactionId = transactionManager.beginTransaction(false);
-        Constraint<ColumnHandle> constraint = new Constraint<>(
+        Constraint constraint = new Constraint(
                 TupleDomain.all(),
                 // test_schema has a table named "another_table" and we filter that out in this predicate
                 bindings -> {
