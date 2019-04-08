@@ -106,7 +106,7 @@ public final class MetadataListing
                 result.put(entry.getKey(), accessControl.filterColumns(
                         session.getRequiredTransactionId(),
                         session.getIdentity(),
-                        new CatalogSchemaTableName(createNonDelimitedName(prefix.getCatalogName()), entry.getKey()),
+                        new CatalogSchemaTableName(prefix.getCatalogName(), entry.getKey()),
                         entry.getValue()));
             }
         }

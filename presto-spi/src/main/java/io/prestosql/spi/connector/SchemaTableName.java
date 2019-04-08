@@ -15,34 +15,65 @@ package io.prestosql.spi.connector;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.prestosql.spi.Name;
 
 import java.util.Objects;
 
+import static io.prestosql.spi.Name.createNonDelimitedName;
+import static io.prestosql.spi.Name.equivalentNames;
 import static io.prestosql.spi.connector.SchemaUtil.checkNotEmpty;
 import static java.util.Locale.ENGLISH;
 
 public class SchemaTableName
 {
-    private final String schemaName;
-    private final String tableName;
+    private final Name schemaName;
+    private final Name tableName;
 
     @JsonCreator
-    public SchemaTableName(@JsonProperty("schema") String schemaName, @JsonProperty("table") String tableName)
+    public SchemaTableName(@JsonProperty("schema") Name schemaName, @JsonProperty("table") Name tableName)
     {
-        this.schemaName = checkNotEmpty(schemaName, "schemaName").toLowerCase(ENGLISH);
-        this.tableName = checkNotEmpty(tableName, "tableName").toLowerCase(ENGLISH);
+        this.schemaName = checkNotEmpty(schemaName, "schemaName");
+        this.tableName = checkNotEmpty(tableName, "tableName");
+    }
+
+    public SchemaTableName(String schemaName, String tableName)
+    {
+        this.schemaName = createNonDelimitedName(checkNotEmpty(schemaName, "schemaName").toLowerCase(ENGLISH));
+        this.tableName = createNonDelimitedName(checkNotEmpty(tableName, "tableName").toLowerCase(ENGLISH));
     }
 
     @JsonProperty("schema")
-    public String getSchemaName()
+    public Name getOriginalSchemaName()
     {
         return schemaName;
     }
 
     @JsonProperty("table")
-    public String getTableName()
+    public Name getOriginalTableName()
     {
         return tableName;
+    }
+
+    public String getSchemaName()
+    {
+        return schemaName.getLegacyName();
+    }
+
+    @Deprecated
+    public String getLegacySchemaName()
+    {
+        return schemaName.getLegacyName();
+    }
+
+    public String getTableName()
+    {
+        return tableName.getLegacyName();
+    }
+
+    @Deprecated
+    public String getLegacyTableName()
+    {
+        return tableName.getLegacyName();
     }
 
     @Override
@@ -65,10 +96,16 @@ public class SchemaTableName
                 Objects.equals(this.tableName, other.tableName);
     }
 
+    public boolean isEquivalent(SchemaTableName schemaTableName)
+    {
+        return equivalentNames(this.schemaName, schemaTableName.schemaName) &&
+                equivalentNames(this.tableName, schemaTableName.tableName);
+    }
+
     @Override
     public String toString()
     {
-        return schemaName + '.' + tableName;
+        return schemaName.getLegacyName() + '.' + tableName.getLegacyName();
     }
 
     public SchemaTablePrefix toSchemaTablePrefix()

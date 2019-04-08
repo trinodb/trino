@@ -98,10 +98,10 @@ public class QualifiedTablePrefix
             return new SchemaTablePrefix();
         }
         else if (!tableName.isPresent()) {
-            return new SchemaTablePrefix(schemaName.get().getLegacyName());
+            return new SchemaTablePrefix(schemaName.get());
         }
         else {
-            return new SchemaTablePrefix(schemaName.get().getLegacyName(), tableName.get().getLegacyName());
+            return new SchemaTablePrefix(schemaName.get(), tableName.get());
         }
     }
 

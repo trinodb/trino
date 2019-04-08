@@ -13,15 +13,19 @@
  */
 package io.prestosql.spi.connector;
 
+import io.prestosql.spi.Name;
+
 import java.util.Objects;
 import java.util.Optional;
 
+import static io.prestosql.spi.Name.createNonDelimitedName;
+import static io.prestosql.spi.Name.equivalentNames;
 import static io.prestosql.spi.connector.SchemaUtil.checkNotEmpty;
 
 public class SchemaTablePrefix
 {
-    private final Optional<String> schemaName;
-    private final Optional<String> tableName;
+    private final Optional<Name> schemaName;
+    private final Optional<Name> tableName;
 
     public SchemaTablePrefix()
     {
@@ -31,11 +35,23 @@ public class SchemaTablePrefix
 
     public SchemaTablePrefix(String schemaName)
     {
-        this.schemaName = Optional.of(checkNotEmpty(schemaName, "schemaName"));
+        this.schemaName = Optional.of(createNonDelimitedName(checkNotEmpty(schemaName, "schemaName")));
         this.tableName = Optional.empty();
     }
 
     public SchemaTablePrefix(String schemaName, String tableName)
+    {
+        this.schemaName = Optional.of(createNonDelimitedName(checkNotEmpty(schemaName, "schemaName")));
+        this.tableName = Optional.of(createNonDelimitedName(checkNotEmpty(tableName, "tableName")));
+    }
+
+    public SchemaTablePrefix(Name schemaName)
+    {
+        this.schemaName = Optional.of(checkNotEmpty(schemaName, "schemaName"));
+        this.tableName = Optional.empty();
+    }
+
+    public SchemaTablePrefix(Name schemaName, Name tableName)
     {
         this.schemaName = Optional.of(checkNotEmpty(schemaName, "schemaName"));
         this.tableName = Optional.of(checkNotEmpty(tableName, "tableName"));
@@ -43,12 +59,22 @@ public class SchemaTablePrefix
 
     public Optional<String> getSchema()
     {
-        return schemaName;
+        return schemaName.map(Name::getLegacyName);
+    }
+
+    public Optional<String> getLegacySchema()
+    {
+        return schemaName.map(Name::getLegacyName);
     }
 
     public Optional<String> getTable()
     {
-        return tableName;
+        return tableName.map(Name::getLegacyName);
+    }
+
+    public Optional<String> getLegacyTable()
+    {
+        return tableName.map(Name::getLegacyName);
     }
 
     public boolean matches(SchemaTableName schemaTableName)
@@ -58,11 +84,11 @@ public class SchemaTablePrefix
             return true;
         }
 
-        if (!schemaName.get().equals(schemaTableName.getSchemaName())) {
+        if (!equivalentNames(schemaName.get(), schemaTableName.getOriginalSchemaName())) {
             return false;
         }
 
-        return !tableName.isPresent() || tableName.get().equals(schemaTableName.getTableName());
+        return !tableName.isPresent() || equivalentNames(tableName.get(), schemaTableName.getOriginalTableName());
     }
 
     public boolean isEmpty()
@@ -107,6 +133,6 @@ public class SchemaTablePrefix
     @Override
     public String toString()
     {
-        return schemaName.orElse("*") + '.' + tableName.orElse("*");
+        return schemaName.map(Name::getLegacyName).orElse("*") + '.' + tableName.map(Name::getLegacyName).orElse("*");
     }
 }

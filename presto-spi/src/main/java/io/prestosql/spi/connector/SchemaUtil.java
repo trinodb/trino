@@ -13,6 +13,8 @@
  */
 package io.prestosql.spi.connector;
 
+import io.prestosql.spi.Name;
+
 final class SchemaUtil
 {
     private SchemaUtil()
@@ -26,6 +28,14 @@ final class SchemaUtil
         }
         if (value.isEmpty()) {
             throw new IllegalArgumentException(name + " is empty");
+        }
+        return value;
+    }
+
+    static Name checkNotEmpty(Name value, String name)
+    {
+        if (value == null) {
+            throw new NullPointerException(name + " is null");
         }
         return value;
     }

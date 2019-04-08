@@ -166,7 +166,7 @@ public class InformationSchemaMetadata
     @Override
     public ConnectorTableHandle getTableHandle(ConnectorSession connectorSession, SchemaTableName tableName)
     {
-        if (!TABLES.containsKey(tableName)) {
+        if (TABLES.keySet().stream().noneMatch(schemaTableName -> schemaTableName.isEquivalent(tableName))) {
             return null;
         }
 

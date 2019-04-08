@@ -78,7 +78,7 @@ public class QualifiedObjectName
 
     public SchemaTableName asSchemaTableName()
     {
-        return new SchemaTableName(schemaName.getLegacyName(), objectName.getLegacyName());
+        return new SchemaTableName(schemaName, objectName);
     }
 
     public CatalogSchemaTableName asCatalogSchemaTableName()
@@ -120,6 +120,6 @@ public class QualifiedObjectName
 
     public static Function<SchemaTableName, QualifiedObjectName> convertFromSchemaTableName(Name catalogName)
     {
-        return input -> new QualifiedObjectName(catalogName, createName(input.getSchemaName()), createName(input.getTableName()));
+        return input -> new QualifiedObjectName(catalogName, input.getOriginalSchemaName(), input.getOriginalTableName());
     }
 }

@@ -203,7 +203,7 @@ public class ThriftMetadata
             return Optional.empty();
         }
         ThriftTableMetadata tableMetadata = new ThriftTableMetadata(thriftTableMetadata.getTableMetadata(), typeManager);
-        if (!Objects.equals(schemaTableName, tableMetadata.getSchemaTableName())) {
+        if (!schemaTableName.isEquivalent(tableMetadata.getSchemaTableName())) {
             throw new PrestoException(THRIFT_SERVICE_INVALID_RESPONSE, "Requested and actual table names are different");
         }
         return Optional.of(tableMetadata);
