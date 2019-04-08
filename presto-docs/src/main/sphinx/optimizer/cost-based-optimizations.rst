@@ -73,4 +73,4 @@ Connector Implementations
 -------------------------
 
 In order for the Presto optimizer to use the cost based strategies,
-the connection implementation must provide :doc:`statistics`.
+the connector implementation must provide :doc:`statistics`.
