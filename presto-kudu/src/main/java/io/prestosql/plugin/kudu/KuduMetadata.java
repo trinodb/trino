@@ -193,7 +193,7 @@ public class KuduMetadata
     @Override
     public List<ConnectorTableLayoutResult> getTableLayouts(ConnectorSession session,
             ConnectorTableHandle tableHandle,
-            Constraint<ColumnHandle> constraint,
+            Constraint constraint,
             Optional<Set<ColumnHandle>> desiredColumns)
     {
         KuduTableHandle handle = (KuduTableHandle) tableHandle;

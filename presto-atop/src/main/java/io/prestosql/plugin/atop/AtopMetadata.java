@@ -88,7 +88,7 @@ public class AtopMetadata
     @Override
     public List<ConnectorTableLayoutResult> getTableLayouts(ConnectorSession session,
             ConnectorTableHandle table,
-            Constraint<ColumnHandle> constraint,
+            Constraint constraint,
             Optional<Set<ColumnHandle>> desiredColumns)
     {
         AtopTableHandle tableHandle = (AtopTableHandle) table;

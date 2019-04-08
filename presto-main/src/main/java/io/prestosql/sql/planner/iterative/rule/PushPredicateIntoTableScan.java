@@ -168,7 +168,7 @@ public class PushPredicateIntoTableScan
 
         Map<ColumnHandle, Symbol> assignments = ImmutableBiMap.copyOf(node.getAssignments()).inverse();
 
-        Constraint<ColumnHandle> constraint;
+        Constraint constraint;
         if (pruneWithPredicateExpression) {
             LayoutConstraintEvaluator evaluator = new LayoutConstraintEvaluator(
                     metadata,
@@ -181,12 +181,12 @@ public class PushPredicateIntoTableScan
                             // Simplify the tuple domain to avoid creating an expression with too many nodes,
                             // which would be expensive to evaluate in the call to isCandidate below.
                             domainTranslator.toPredicate(newDomain.simplify().transform(assignments::get))));
-            constraint = new Constraint<>(newDomain, evaluator::isCandidate);
+            constraint = new Constraint(newDomain, evaluator::isCandidate);
         }
         else {
             // Currently, invoking the expression interpreter is very expensive.
             // TODO invoke the interpreter unconditionally when the interpreter becomes cheap enough.
-            constraint = new Constraint<>(newDomain);
+            constraint = new Constraint(newDomain);
         }
 
         TableHandle newTable;

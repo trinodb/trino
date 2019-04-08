@@ -93,7 +93,7 @@ public interface ConnectorMetadata
     default List<ConnectorTableLayoutResult> getTableLayouts(
             ConnectorSession session,
             ConnectorTableHandle table,
-            Constraint<ColumnHandle> constraint,
+            Constraint constraint,
             Optional<Set<ColumnHandle>> desiredColumns)
     {
         if (usesLegacyTableLayouts()) {
@@ -189,7 +189,7 @@ public interface ConnectorMetadata
     /**
      * Get statistics for table for given filtering constraint.
      */
-    default TableStatistics getTableStatistics(ConnectorSession session, ConnectorTableHandle tableHandle, Constraint<ColumnHandle> constraint)
+    default TableStatistics getTableStatistics(ConnectorSession session, ConnectorTableHandle tableHandle, Constraint constraint)
     {
         return TableStatistics.empty();
     }
@@ -625,7 +625,7 @@ public interface ConnectorMetadata
      * to loop indefinitely.
      * </p>
      */
-    default Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorTableHandle handle, Constraint<ColumnHandle> constraint)
+    default Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorTableHandle handle, Constraint constraint)
     {
         return Optional.empty();
     }

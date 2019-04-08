@@ -114,7 +114,7 @@ public class ThriftMetadata
     public List<ConnectorTableLayoutResult> getTableLayouts(
             ConnectorSession session,
             ConnectorTableHandle table,
-            Constraint<ColumnHandle> constraint,
+            Constraint constraint,
             Optional<Set<ColumnHandle>> desiredColumns)
     {
         ThriftTableHandle tableHandle = (ThriftTableHandle) table;
