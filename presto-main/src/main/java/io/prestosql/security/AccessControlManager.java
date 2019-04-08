@@ -723,7 +723,7 @@ public class AccessControlManager
 
     private CatalogAccessControlEntry getConnectorAccessControl(TransactionId transactionId, Name catalogName)
     {
-        return transactionManager.getOptionalCatalogMetadata(transactionId, catalogName.getLegacyName())
+        return transactionManager.getOptionalCatalogMetadata(transactionId, catalogName)
                 .map(metadata -> connectorAccessControl.get(metadata.getCatalogName()))
                 .orElse(null);
     }

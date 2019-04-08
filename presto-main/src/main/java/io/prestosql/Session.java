@@ -311,7 +311,7 @@ public final class Session
             if (catalogProperties.isEmpty()) {
                 continue;
             }
-            CatalogName connectorId = transactionManager.getOptionalCatalogMetadata(transactionId, catalogName.getLegacyName())
+            CatalogName connectorId = transactionManager.getOptionalCatalogMetadata(transactionId, catalogName)
                     .orElseThrow(() -> new PrestoException(NOT_FOUND, "Session property catalog does not exist: " + catalogName))
                     .getCatalogName();
 
@@ -329,7 +329,7 @@ public final class Session
         for (Entry<Name, SelectedRole> entry : identity.getRoles().entrySet()) {
             Name catalogName = entry.getKey();
             SelectedRole role = entry.getValue();
-            CatalogName connectorId = transactionManager.getOptionalCatalogMetadata(transactionId, catalogName.getLegacyName())
+            CatalogName connectorId = transactionManager.getOptionalCatalogMetadata(transactionId, catalogName)
                     .orElseThrow(() -> new PrestoException(NOT_FOUND, "Catalog does not exist: " + catalogName))
                     .getCatalogName();
             if (role.getType() == SelectedRole.Type.ROLE) {

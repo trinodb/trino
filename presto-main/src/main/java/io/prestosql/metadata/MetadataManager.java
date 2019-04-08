@@ -874,7 +874,7 @@ public class MetadataManager
     @Override
     public Optional<CatalogName> getCatalogHandle(Session session, Name catalogName)
     {
-        return transactionManager.getOptionalCatalogMetadata(session.getRequiredTransactionId(), catalogName.getLegacyName()).map(CatalogMetadata::getCatalogName);
+        return transactionManager.getOptionalCatalogMetadata(session.getRequiredTransactionId(), catalogName).map(CatalogMetadata::getCatalogName);
     }
 
     @Override
@@ -1234,7 +1234,7 @@ public class MetadataManager
 
     private Optional<CatalogMetadata> getOptionalCatalogMetadata(Session session, Name catalogName)
     {
-        return transactionManager.getOptionalCatalogMetadata(session.getRequiredTransactionId(), catalogName.getLegacyName());
+        return transactionManager.getOptionalCatalogMetadata(session.getRequiredTransactionId(), catalogName);
     }
 
     private CatalogMetadata getCatalogMetadata(Session session, CatalogName catalogName)
@@ -1244,7 +1244,7 @@ public class MetadataManager
 
     private CatalogMetadata getCatalogMetadataForWrite(Session session, Name catalogName)
     {
-        return transactionManager.getCatalogMetadataForWrite(session.getRequiredTransactionId(), catalogName.getLegacyName());
+        return transactionManager.getCatalogMetadataForWrite(session.getRequiredTransactionId(), catalogName);
     }
 
     private CatalogMetadata getCatalogMetadataForWrite(Session session, CatalogName catalogName)

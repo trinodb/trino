@@ -16,6 +16,7 @@ package io.prestosql.transaction;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.prestosql.connector.CatalogName;
 import io.prestosql.metadata.CatalogMetadata;
+import io.prestosql.spi.Name;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 import io.prestosql.spi.transaction.IsolationLevel;
 
@@ -66,7 +67,7 @@ public class NoOpTransactionManager
     }
 
     @Override
-    public Optional<CatalogMetadata> getOptionalCatalogMetadata(TransactionId transactionId, String catalogName)
+    public Optional<CatalogMetadata> getOptionalCatalogMetadata(TransactionId transactionId, Name catalogName)
     {
         throw new UnsupportedOperationException();
     }
@@ -84,7 +85,7 @@ public class NoOpTransactionManager
     }
 
     @Override
-    public CatalogMetadata getCatalogMetadataForWrite(TransactionId transactionId, String catalogName)
+    public CatalogMetadata getCatalogMetadataForWrite(TransactionId transactionId, Name catalogName)
     {
         throw new UnsupportedOperationException();
     }

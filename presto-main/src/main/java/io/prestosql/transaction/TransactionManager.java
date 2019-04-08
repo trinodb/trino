@@ -18,6 +18,7 @@ import io.prestosql.Session;
 import io.prestosql.connector.CatalogName;
 import io.prestosql.metadata.CatalogMetadata;
 import io.prestosql.security.AccessControl;
+import io.prestosql.spi.Name;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 import io.prestosql.spi.transaction.IsolationLevel;
 
@@ -47,13 +48,13 @@ public interface TransactionManager
 
     Map<String, CatalogName> getCatalogNames(TransactionId transactionId);
 
-    Optional<CatalogMetadata> getOptionalCatalogMetadata(TransactionId transactionId, String catalogName);
+    Optional<CatalogMetadata> getOptionalCatalogMetadata(TransactionId transactionId, Name catalogName);
 
     CatalogMetadata getCatalogMetadata(TransactionId transactionId, CatalogName catalogName);
 
     CatalogMetadata getCatalogMetadataForWrite(TransactionId transactionId, CatalogName catalogName);
 
-    CatalogMetadata getCatalogMetadataForWrite(TransactionId transactionId, String catalogName);
+    CatalogMetadata getCatalogMetadataForWrite(TransactionId transactionId, Name catalogName);
 
     ConnectorTransactionHandle getConnectorTransaction(TransactionId transactionId, CatalogName catalogName);
 

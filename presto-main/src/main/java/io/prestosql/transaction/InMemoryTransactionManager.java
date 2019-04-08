@@ -26,6 +26,7 @@ import io.prestosql.connector.CatalogName;
 import io.prestosql.metadata.Catalog;
 import io.prestosql.metadata.CatalogManager;
 import io.prestosql.metadata.CatalogMetadata;
+import io.prestosql.spi.Name;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.Connector;
 import io.prestosql.spi.connector.ConnectorMetadata;
@@ -188,7 +189,7 @@ public class InMemoryTransactionManager
     }
 
     @Override
-    public Optional<CatalogMetadata> getOptionalCatalogMetadata(TransactionId transactionId, String catalogName)
+    public Optional<CatalogMetadata> getOptionalCatalogMetadata(TransactionId transactionId, Name catalogName)
     {
         TransactionMetadata transactionMetadata = getTransactionMetadata(transactionId);
         return transactionMetadata.getConnectorId(catalogName)
@@ -210,7 +211,7 @@ public class InMemoryTransactionManager
     }
 
     @Override
-    public CatalogMetadata getCatalogMetadataForWrite(TransactionId transactionId, String catalogName)
+    public CatalogMetadata getCatalogMetadataForWrite(TransactionId transactionId, Name catalogName)
     {
         TransactionMetadata transactionMetadata = getTransactionMetadata(transactionId);
 
@@ -384,12 +385,12 @@ public class InMemoryTransactionManager
             return ImmutableMap.copyOf(catalogNames);
         }
 
-        private synchronized Optional<CatalogName> getConnectorId(String catalogName)
+        private synchronized Optional<CatalogName> getConnectorId(Name catalogName)
         {
-            Optional<Catalog> catalog = catalogByName.get(catalogName);
+            Optional<Catalog> catalog = catalogByName.get(catalogName.getLegacyName());
             if (catalog == null) {
-                catalog = catalogManager.getCatalog(catalogName);
-                catalogByName.put(catalogName, catalog);
+                catalog = catalogManager.getCatalog(catalogName.getLegacyName());
+                catalogByName.put(catalogName.getLegacyName(), catalog);
                 if (catalog.isPresent()) {
                     registerCatalog(catalog.get());
                 }
