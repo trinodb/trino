@@ -9,7 +9,7 @@ General Changes
 * Optimize queries containing ``ORDER BY`` together with ``LIMIT`` over an ``OUTER JOIN``
   by pushing ``ORDER BY`` and ``LIMIT`` to the outer side of the join. (:issue:`419`)
 * Improve performance of table scans for data sources that produce tiny pages. (:issue:`467`)
-* Improve performance of ``IN`` subquery expressions by removing distinct aggregations. (:issue:`551`)
+* Improve performance of ``IN`` subquery expressions that contain a ``DISTINCT`` clause. (:issue:`551`)
 * Expand support of types handled in ``EXPLAIN (TYPE IO)``. (:issue:`509`)
 * Add support for outer joins involving lateral derived tables (i.e., ``LATERAL``). (:issue:`390`)
 * Add support for setting table comments via the :doc:`/sql/comment` syntax. (:issue:`200`)
