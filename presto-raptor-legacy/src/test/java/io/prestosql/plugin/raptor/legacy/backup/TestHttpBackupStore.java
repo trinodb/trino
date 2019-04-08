@@ -25,6 +25,8 @@ import io.airlift.http.server.testing.TestingHttpServerModule;
 import io.airlift.jaxrs.JaxrsModule;
 import io.airlift.json.JsonModule;
 import io.airlift.node.testing.TestingNodeModule;
+import io.prestosql.spi.NodeManager;
+import io.prestosql.testing.TestingNodeManager;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -63,6 +65,7 @@ public class TestHttpBackupStore
                 new JsonModule(),
                 new JaxrsModule(true),
                 binder -> jaxrsBinder(binder).bind(TestingHttpBackupResource.class),
+                binder -> binder.bind(NodeManager.class).toInstance(new TestingNodeManager()),
                 override(new HttpBackupModule()).with(new TestingModule()));
 
         Injector injector = app
