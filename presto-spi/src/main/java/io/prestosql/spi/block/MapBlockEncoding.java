@@ -17,7 +17,6 @@ package io.prestosql.spi.block;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 import io.prestosql.spi.type.MapType;
-import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeManager;
 import io.prestosql.spi.type.TypeSerde;
 
@@ -25,6 +24,7 @@ import java.util.Optional;
 
 import static io.airlift.slice.Slices.wrappedIntArray;
 import static io.prestosql.spi.block.AbstractMapBlock.HASH_MULTIPLIER;
+import static io.prestosql.spi.block.MapBlock.createMapBlockInternal;
 import static java.lang.String.format;
 
 public class MapBlockEncoding
@@ -59,7 +59,7 @@ public class MapBlockEncoding
         int entriesStartOffset = offsets[offsetBase];
         int entriesEndOffset = offsets[offsetBase + positionCount];
 
-        TypeSerde.writeType(sliceOutput, mapBlock.keyType);
+        TypeSerde.writeType(sliceOutput, mapBlock.mapType);
 
         blockEncodingSerde.writeBlock(sliceOutput, mapBlock.getRawKeyBlock().getRegion(entriesStartOffset, entriesEndOffset - entriesStartOffset));
         blockEncodingSerde.writeBlock(sliceOutput, mapBlock.getRawValueBlock().getRegion(entriesStartOffset, entriesEndOffset - entriesStartOffset));
@@ -77,7 +77,7 @@ public class MapBlockEncoding
     @Override
     public Block readBlock(BlockEncodingSerde blockEncodingSerde, SliceInput sliceInput)
     {
-        Type keyType = TypeSerde.readType(typeManager, sliceInput);
+        MapType mapType = (MapType) TypeSerde.readType(typeManager, sliceInput);
 
         Block keyBlock = blockEncodingSerde.readBlock(sliceInput);
         Block valueBlock = blockEncodingSerde.readBlock(sliceInput);
@@ -94,6 +94,6 @@ public class MapBlockEncoding
         int[] offsets = new int[positionCount + 1];
         sliceInput.readBytes(wrappedIntArray(offsets));
         Optional<boolean[]> mapIsNull = EncoderUtil.decodeNullBits(sliceInput, positionCount);
-        return MapType.createMapBlockInternal(typeManager, keyType, 0, positionCount, mapIsNull, offsets, keyBlock, valueBlock, hashTable);
+        return createMapBlockInternal(mapType, 0, positionCount, mapIsNull, offsets, keyBlock, valueBlock, hashTable);
     }
 }

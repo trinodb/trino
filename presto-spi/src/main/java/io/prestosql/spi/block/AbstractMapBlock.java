@@ -14,11 +14,10 @@
 
 package io.prestosql.spi.block;
 
-import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.MapType;
 
 import javax.annotation.Nullable;
 
-import java.lang.invoke.MethodHandle;
 import java.util.Arrays;
 import java.util.Optional;
 
@@ -36,17 +35,11 @@ public abstract class AbstractMapBlock
     // inverse of hash fill ratio, must be integer
     static final int HASH_MULTIPLIER = 2;
 
-    protected final Type keyType;
-    protected final MethodHandle keyNativeHashCode;
-    protected final MethodHandle keyBlockNativeEquals;
+    protected final MapType mapType;
 
-    public AbstractMapBlock(Type keyType, MethodHandle keyNativeHashCode, MethodHandle keyBlockNativeEquals)
+    public AbstractMapBlock(MapType mapType)
     {
-        this.keyType = requireNonNull(keyType, "keyType is null");
-        // keyNativeHashCode can only be null due to map block kill switch. deprecated.new-map-block
-        this.keyNativeHashCode = keyNativeHashCode;
-        // keyBlockNativeEquals can only be null due to map block kill switch. deprecated.new-map-block
-        this.keyBlockNativeEquals = keyBlockNativeEquals;
+        this.mapType = requireNonNull(mapType, "mapType is null");
     }
 
     protected abstract Block getRawKeyBlock();
@@ -126,7 +119,7 @@ public abstract class AbstractMapBlock
 
         Block newKeys = getRawKeyBlock().copyPositions(entriesPositions.elements(), 0, entriesPositions.size());
         Block newValues = getRawValueBlock().copyPositions(entriesPositions.elements(), 0, entriesPositions.size());
-        return createMapBlockInternal(0, length, Optional.of(newMapIsNull), newOffsets, newKeys, newValues, newHashTable, keyType, keyBlockNativeEquals, keyNativeHashCode);
+        return createMapBlockInternal(mapType, 0, length, Optional.of(newMapIsNull), newOffsets, newKeys, newValues, newHashTable);
     }
 
     @Override
@@ -136,16 +129,14 @@ public abstract class AbstractMapBlock
         checkValidRegion(positionCount, position, length);
 
         return createMapBlockInternal(
+                mapType,
                 position + getOffsetBase(),
                 length,
                 Optional.ofNullable(getMapIsNull()),
                 getOffsets(),
                 getRawKeyBlock(),
                 getRawValueBlock(),
-                getHashTables(),
-                keyType,
-                keyBlockNativeEquals,
-                keyNativeHashCode);
+                getHashTables());
     }
 
     @Override
@@ -214,16 +205,14 @@ public abstract class AbstractMapBlock
             return this;
         }
         return createMapBlockInternal(
+                mapType,
                 0,
                 length,
                 Optional.ofNullable(newMapIsNull),
                 newOffsets,
                 newKeys,
                 newValues,
-                newHashTable,
-                keyType,
-                keyBlockNativeEquals,
-                keyNativeHashCode);
+                newHashTable);
     }
 
     @Override
@@ -237,14 +226,12 @@ public abstract class AbstractMapBlock
         int startEntryOffset = getOffset(position);
         int endEntryOffset = getOffset(position + 1);
         return clazz.cast(new SingleMapBlock(
+                mapType,
                 startEntryOffset * 2,
                 (endEntryOffset - startEntryOffset) * 2,
                 getRawKeyBlock(),
                 getRawValueBlock(),
-                getHashTables(),
-                keyType,
-                keyNativeHashCode,
-                keyBlockNativeEquals));
+                getHashTables()));
     }
 
     @Override
@@ -267,16 +254,14 @@ public abstract class AbstractMapBlock
         int[] newHashTable = Arrays.copyOfRange(getHashTables(), startValueOffset * HASH_MULTIPLIER, endValueOffset * HASH_MULTIPLIER);
 
         return createMapBlockInternal(
+                mapType,
                 0,
                 1,
                 Optional.of(new boolean[] {isNull(position)}),
                 new int[] {0, valueLength},
                 newKeys,
                 newValues,
-                newHashTable,
-                keyType,
-                keyBlockNativeEquals,
-                keyNativeHashCode);
+                newHashTable);
     }
 
     @Override
