@@ -251,6 +251,10 @@ public class PlanOptimizers
                 new PruneLimitColumns(),
                 new PruneTableScanColumns());
 
+        Set<Rule<?>> projectionPushdownRules = ImmutableSet.of(
+                new PushProjectionThroughUnion(),
+                new PushProjectionThroughExchange());
+
         IterativeOptimizer inlineProjections = new IterativeOptimizer(
                 ruleStats,
                 statsCalculator,
@@ -263,9 +267,7 @@ public class PlanOptimizers
                 ruleStats,
                 statsCalculator,
                 estimatedExchangesCostCalculator,
-                ImmutableSet.of(
-                        new PushProjectionThroughUnion(),
-                        new PushProjectionThroughExchange()));
+                projectionPushdownRules);
 
         IterativeOptimizer simplifyOptimizer = new IterativeOptimizer(
                 ruleStats,
@@ -306,6 +308,7 @@ public class PlanOptimizers
                         ImmutableSet.<Rule<?>>builder()
                                 .addAll(predicatePushDownRules)
                                 .addAll(columnPruningRules)
+                                .addAll(projectionPushdownRules)
                                 .addAll(ImmutableSet.of(
                                         new RemoveRedundantIdentityProjections(),
                                         new RemoveFullSample(),
