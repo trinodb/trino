@@ -13,6 +13,8 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
+
+        <air.test.thread-count>1</air.test.thread-count>
     </properties>
 
     <dependencies>
@@ -175,14 +177,6 @@
 
     <build>
         <plugins>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-surefire-plugin</artifactId>
-                <configuration>
-                    <threadCount>1</threadCount>
-                </configuration>
-            </plugin>
-
             <plugin>
                 <groupId>org.basepom.maven</groupId>
                 <artifactId>duplicate-finder-maven-plugin</artifactId>
