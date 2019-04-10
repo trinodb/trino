@@ -33,7 +33,6 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.prestosql.spi.Name.createNonDelimitedName;
 import static io.prestosql.spi.security.AccessDeniedException.denyAddColumn;
 import static io.prestosql.spi.security.AccessDeniedException.denyCommentTable;
@@ -110,7 +109,7 @@ public class TestingAccessControlManager
     public void checkCanSetUser(Optional<Principal> principal, Name userName)
     {
         if (shouldDenyPrivilege(userName, userName, SET_USER)) {
-            denySetUser(principal, userName.getLegacyName());
+            denySetUser(principal, userName);
         }
         if (denyPrivileges.isEmpty()) {
             super.checkCanSetUser(principal, userName);
@@ -121,7 +120,7 @@ public class TestingAccessControlManager
     public void checkCanCreateSchema(TransactionId transactionId, Identity identity, CatalogSchemaName schemaName)
     {
         if (shouldDenyPrivilege(identity.getUser(), schemaName.getSchemaName(), CREATE_SCHEMA)) {
-            denyCreateSchema(schemaName.toString());
+            denyCreateSchema(schemaName.getSchemaName());
         }
         if (denyPrivileges.isEmpty()) {
             super.checkCanCreateSchema(transactionId, identity, schemaName);
@@ -132,7 +131,7 @@ public class TestingAccessControlManager
     public void checkCanDropSchema(TransactionId transactionId, Identity identity, CatalogSchemaName schemaName)
     {
         if (shouldDenyPrivilege(identity.getUser(), schemaName.getSchemaName(), DROP_SCHEMA)) {
-            denyDropSchema(schemaName.toString());
+            denyDropSchema(schemaName.getSchemaName());
         }
         if (denyPrivileges.isEmpty()) {
             super.checkCanDropSchema(transactionId, identity, schemaName);
@@ -143,7 +142,7 @@ public class TestingAccessControlManager
     public void checkCanRenameSchema(TransactionId transactionId, Identity identity, CatalogSchemaName schemaName, Name newSchemaName)
     {
         if (shouldDenyPrivilege(identity.getUser(), schemaName.getSchemaName(), RENAME_SCHEMA)) {
-            denyRenameSchema(schemaName.toString(), newSchemaName.getLegacyName());
+            denyRenameSchema(schemaName.getSchemaName(), newSchemaName);
         }
         if (denyPrivileges.isEmpty()) {
             super.checkCanRenameSchema(transactionId, identity, schemaName, newSchemaName);
@@ -291,7 +290,7 @@ public class TestingAccessControlManager
     public void checkCanSetCatalogSessionProperty(TransactionId transactionId, Identity identity, Name catalogName, String propertyName)
     {
         if (shouldDenyPrivilege(identity.getUser(), createNonDelimitedName(catalogName + "." + propertyName), SET_SESSION)) {
-            denySetCatalogSessionProperty(catalogName.getLegacyName(), propertyName);
+            denySetCatalogSessionProperty(catalogName, propertyName);
         }
         if (denyPrivileges.isEmpty()) {
             super.checkCanSetCatalogSessionProperty(transactionId, identity, catalogName, propertyName);
@@ -302,11 +301,11 @@ public class TestingAccessControlManager
     public void checkCanSelectFromColumns(TransactionId transactionId, Identity identity, QualifiedObjectName tableName, Set<Name> columns)
     {
         if (shouldDenyPrivilege(identity.getUser(), tableName.getObjectName(), SELECT_COLUMN)) {
-            denySelectColumns(tableName.toString(), columns.stream().map(Name::getLegacyName).collect(toImmutableSet()));
+            denySelectColumns(tableName.toString(), columns);
         }
         for (Name column : columns) {
             if (shouldDenyPrivilege(identity.getUser(), column, SELECT_COLUMN)) {
-                denySelectColumns(tableName.toString(), columns.stream().map(Name::getName).collect(toImmutableSet()));
+                denySelectColumns(tableName.toString(), columns);
             }
         }
         if (denyPrivileges.isEmpty()) {

@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.prestosql.plugin.mongodb.MongoIndex.MongodbIndexKey;
+import io.prestosql.spi.Name;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorInsertTableHandle;
@@ -49,6 +50,8 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.prestosql.spi.Name.createNonDelimitedName;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -68,9 +71,9 @@ public class MongoMetadata
     }
 
     @Override
-    public List<String> listSchemaNames(ConnectorSession session)
+    public List<Name> listSchemaNames(ConnectorSession session)
     {
-        return mongoSession.getAllSchemas();
+        return mongoSession.getAllSchemas().stream().map(Name::createNonDelimitedName).collect(toImmutableList());
     }
 
     @Override
@@ -95,28 +98,28 @@ public class MongoMetadata
     }
 
     @Override
-    public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> optionalSchemaName)
+    public List<SchemaTableName> listTables(ConnectorSession session, Optional<Name> optionalSchemaName)
     {
-        List<String> schemaNames = optionalSchemaName.map(ImmutableList::of)
-                .orElseGet(() -> (ImmutableList<String>) listSchemaNames(session));
+        List<Name> schemaNames = optionalSchemaName.map(ImmutableList::of)
+                .orElseGet(() -> (ImmutableList<Name>) listSchemaNames(session));
         ImmutableList.Builder<SchemaTableName> tableNames = ImmutableList.builder();
-        for (String schemaName : schemaNames) {
-            for (String tableName : mongoSession.getAllTables(schemaName)) {
-                tableNames.add(new SchemaTableName(schemaName, tableName.toLowerCase(ENGLISH)));
+        for (Name schemaName : schemaNames) {
+            for (String tableName : mongoSession.getAllTables(schemaName.getLegacyName())) {
+                tableNames.add(new SchemaTableName(schemaName.getLegacyName(), tableName.toLowerCase(ENGLISH)));
             }
         }
         return tableNames.build();
     }
 
     @Override
-    public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
+    public Map<Name, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         MongoTableHandle table = (MongoTableHandle) tableHandle;
         List<MongoColumnHandle> columns = mongoSession.getTable(table.getSchemaTableName()).getColumns();
 
-        ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
+        ImmutableMap.Builder<Name, ColumnHandle> columnHandles = ImmutableMap.builder();
         for (MongoColumnHandle columnHandle : columns) {
-            columnHandles.put(columnHandle.getName(), columnHandle);
+            columnHandles.put(createNonDelimitedName(columnHandle.getName()), columnHandle);
         }
         return columnHandles.build();
     }
@@ -160,15 +163,15 @@ public class MongoMetadata
         ImmutableList.Builder<LocalProperty<ColumnHandle>> localProperties = ImmutableList.builder();
 
         MongoTable tableInfo = mongoSession.getTable(tableHandle.getSchemaTableName());
-        Map<String, ColumnHandle> columns = getColumnHandles(session, tableHandle);
+        Map<Name, ColumnHandle> columns = getColumnHandles(session, tableHandle);
 
         for (MongoIndex index : tableInfo.getIndexes()) {
             for (MongodbIndexKey key : index.getKeys()) {
                 if (!key.getSortOrder().isPresent()) {
                     continue;
                 }
-                if (columns.get(key.getName()) != null) {
-                    localProperties.add(new SortingProperty<>(columns.get(key.getName()), key.getSortOrder().get()));
+                if (columns.get(createNonDelimitedName(key.getName())) != null) {
+                    localProperties.add(new SortingProperty<>(columns.get(createNonDelimitedName(key.getName())), key.getSortOrder().get()));
                 }
             }
         }

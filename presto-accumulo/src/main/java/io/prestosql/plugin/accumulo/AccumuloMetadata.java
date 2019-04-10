@@ -22,6 +22,7 @@ import io.prestosql.plugin.accumulo.metadata.AccumuloView;
 import io.prestosql.plugin.accumulo.model.AccumuloColumnHandle;
 import io.prestosql.plugin.accumulo.model.AccumuloTableHandle;
 import io.prestosql.plugin.accumulo.model.AccumuloTableLayoutHandle;
+import io.prestosql.spi.Name;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
@@ -47,7 +48,6 @@ import javax.inject.Inject;
 
 import java.util.Collection;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -55,8 +55,10 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.prestosql.plugin.accumulo.AccumuloErrorCode.ACCUMULO_TABLE_EXISTS;
+import static io.prestosql.spi.Name.createNonDelimitedName;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -167,9 +169,9 @@ public class AccumuloMetadata
     }
 
     @Override
-    public List<SchemaTableName> listViews(ConnectorSession session, Optional<String> schemaName)
+    public List<SchemaTableName> listViews(ConnectorSession session, Optional<Name> schemaName)
     {
-        return listViews(schemaName);
+        return listViews(schemaName.map(Name::getLegacyName));
     }
 
     /**
@@ -227,12 +229,12 @@ public class AccumuloMetadata
     @Override
     public ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
     {
-        if (!listSchemaNames(session).contains(tableName.getSchemaName().toLowerCase(Locale.ENGLISH))) {
+        if (listSchemaNames(session).stream().map(Name::getName).noneMatch(name -> name.equals(tableName.getSchemaName().toLowerCase(ENGLISH)))) {
             return null;
         }
 
         // Need to validate that SchemaTableName is a table
-        if (!this.listViews(session, Optional.of(tableName.getSchemaName())).contains(tableName)) {
+        if (!this.listViews(session, Optional.of(tableName.getOriginalSchemaName())).contains(tableName)) {
             AccumuloTable table = client.getTable(tableName);
             if (table == null) {
                 return null;
@@ -281,7 +283,7 @@ public class AccumuloMetadata
     }
 
     @Override
-    public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
+    public Map<Name, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         AccumuloTableHandle handle = (AccumuloTableHandle) tableHandle;
 
@@ -290,9 +292,9 @@ public class AccumuloMetadata
             throw new TableNotFoundException(handle.toSchemaTableName());
         }
 
-        ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
+        ImmutableMap.Builder<Name, ColumnHandle> columnHandles = ImmutableMap.builder();
         for (AccumuloColumnHandle column : table.getColumns()) {
-            columnHandles.put(column.getName(), column);
+            columnHandles.put(createNonDelimitedName(column.getName().toLowerCase(ENGLISH)), column);
         }
         return columnHandles.build();
     }
@@ -304,7 +306,7 @@ public class AccumuloMetadata
     }
 
     @Override
-    public void renameColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle source, String target)
+    public void renameColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle source, Name target)
     {
         AccumuloTableHandle handle = (AccumuloTableHandle) tableHandle;
         AccumuloColumnHandle columnHandle = (AccumuloColumnHandle) source;
@@ -313,19 +315,19 @@ public class AccumuloMetadata
             throw new TableNotFoundException(new SchemaTableName(handle.getSchema(), handle.getTable()));
         }
 
-        client.renameColumn(table, columnHandle.getName(), target);
+        client.renameColumn(table, columnHandle.getName(), target.getLegacyName());
     }
 
     @Override
-    public List<String> listSchemaNames(ConnectorSession session)
+    public List<Name> listSchemaNames(ConnectorSession session)
     {
-        return ImmutableList.copyOf(client.getSchemaNames());
+        return ImmutableList.copyOf(client.getSchemaNames().stream().map(name -> createNonDelimitedName(name.toLowerCase(ENGLISH))).iterator());
     }
 
     @Override
-    public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> filterSchema)
+    public List<SchemaTableName> listTables(ConnectorSession session, Optional<Name> filterSchema)
     {
-        Set<String> schemaNames = filterSchema.<Set<String>>map(ImmutableSet::of)
+        Set<String> schemaNames = filterSchema.map(Name::getLegacyName).<Set<String>>map(ImmutableSet::of)
                 .orElseGet(client::getSchemaNames);
 
         ImmutableList.Builder<SchemaTableName> builder = ImmutableList.builder();

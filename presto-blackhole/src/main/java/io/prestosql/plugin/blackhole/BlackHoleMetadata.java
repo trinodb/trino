@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import io.airlift.slice.Slice;
 import io.airlift.units.Duration;
+import io.prestosql.spi.Name;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
@@ -49,9 +50,11 @@ import static io.prestosql.plugin.blackhole.BlackHoleConnector.PAGES_PER_SPLIT_P
 import static io.prestosql.plugin.blackhole.BlackHoleConnector.PAGE_PROCESSING_DELAY;
 import static io.prestosql.plugin.blackhole.BlackHoleConnector.ROWS_PER_PAGE_PROPERTY;
 import static io.prestosql.plugin.blackhole.BlackHoleConnector.SPLIT_COUNT_PROPERTY;
+import static io.prestosql.spi.Name.createNonDelimitedName;
 import static io.prestosql.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.prestosql.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 import static java.util.stream.Collectors.toSet;
@@ -59,9 +62,9 @@ import static java.util.stream.Collectors.toSet;
 public class BlackHoleMetadata
         implements ConnectorMetadata
 {
-    public static final String SCHEMA_NAME = "default";
+    public static final Name SCHEMA_NAME = createNonDelimitedName("default");
 
-    private final List<String> schemas = new ArrayList<>();
+    private final List<Name> schemas = new ArrayList<>();
     private final Map<String, BlackHoleTableHandle> tables = new ConcurrentHashMap<>();
 
     public BlackHoleMetadata()
@@ -70,13 +73,13 @@ public class BlackHoleMetadata
     }
 
     @Override
-    public List<String> listSchemaNames(ConnectorSession session)
+    public List<Name> listSchemaNames(ConnectorSession session)
     {
         return ImmutableList.copyOf(schemas);
     }
 
     @Override
-    public synchronized void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties)
+    public synchronized void createSchema(ConnectorSession session, Name schemaName, Map<String, Object> properties)
     {
         if (schemas.contains(schemaName)) {
             throw new PrestoException(ALREADY_EXISTS, format("Schema [%s] already exists", schemaName));
@@ -98,20 +101,20 @@ public class BlackHoleMetadata
     }
 
     @Override
-    public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
+    public List<SchemaTableName> listTables(ConnectorSession session, Optional<Name> schemaName)
     {
         return tables.values().stream()
-                .filter(table -> !schemaName.isPresent() || table.getSchemaName().equals(schemaName.get()))
+                .filter(table -> !schemaName.isPresent() || table.getSchemaName().equals(schemaName.get().getLegacyName()))
                 .map(BlackHoleTableHandle::toSchemaTableName)
                 .collect(toList());
     }
 
     @Override
-    public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
+    public Map<Name, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         BlackHoleTableHandle blackHoleTableHandle = (BlackHoleTableHandle) tableHandle;
         return blackHoleTableHandle.getColumnHandles().stream()
-                .collect(toMap(BlackHoleColumnHandle::getName, column -> column));
+                .collect(toMap(column -> createNonDelimitedName(column.getName().toLowerCase(ENGLISH)), column -> column));
     }
 
     @Override
@@ -253,7 +256,7 @@ public class BlackHoleMetadata
 
     private void checkSchemaExists(String schemaName)
     {
-        if (!schemas.contains(schemaName)) {
+        if (!schemas.contains(createNonDelimitedName(schemaName))) {
             throw new SchemaNotFoundException(schemaName);
         }
     }

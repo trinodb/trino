@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.prestosql.decoder.dummy.DummyRowDecoder;
+import io.prestosql.spi.Name;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorMetadata;
@@ -42,6 +43,7 @@ import java.util.function.Supplier;
 
 import static io.prestosql.plugin.kafka.KafkaHandleResolver.convertColumnHandle;
 import static io.prestosql.plugin.kafka.KafkaHandleResolver.convertTableHandle;
+import static io.prestosql.spi.Name.createNonDelimitedName;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -68,11 +70,11 @@ public class KafkaMetadata
     }
 
     @Override
-    public List<String> listSchemaNames(ConnectorSession session)
+    public List<Name> listSchemaNames(ConnectorSession session)
     {
-        ImmutableSet.Builder<String> builder = ImmutableSet.builder();
+        ImmutableSet.Builder<Name> builder = ImmutableSet.builder();
         for (SchemaTableName tableName : tableDescriptions.keySet()) {
-            builder.add(tableName.getSchemaName());
+            builder.add(createNonDelimitedName(tableName.getSchemaName()));
         }
         return ImmutableList.copyOf(builder.build());
     }
@@ -80,7 +82,7 @@ public class KafkaMetadata
     @Override
     public KafkaTableHandle getTableHandle(ConnectorSession session, SchemaTableName schemaTableName)
     {
-        KafkaTopicDescription table = tableDescriptions.get(schemaTableName);
+        KafkaTopicDescription table = tableDescriptions.get(new SchemaTableName(schemaTableName.getLegacySchemaName(), schemaTableName.getLegacyTableName()));
         if (table == null) {
             return null;
         }
@@ -107,11 +109,11 @@ public class KafkaMetadata
     }
 
     @Override
-    public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
+    public List<SchemaTableName> listTables(ConnectorSession session, Optional<Name> schemaName)
     {
         ImmutableList.Builder<SchemaTableName> builder = ImmutableList.builder();
         for (SchemaTableName tableName : tableDescriptions.keySet()) {
-            if (schemaName.map(tableName.getSchemaName()::equals).orElse(true)) {
+            if (schemaName.map(Name::getLegacyName).map(tableName.getSchemaName()::equals).orElse(true)) {
                 builder.add(tableName);
             }
         }
@@ -121,7 +123,7 @@ public class KafkaMetadata
 
     @SuppressWarnings("ValueOfIncrementOrDecrementUsed")
     @Override
-    public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
+    public Map<Name, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         KafkaTableHandle kafkaTableHandle = convertTableHandle(tableHandle);
 
@@ -130,7 +132,7 @@ public class KafkaMetadata
             throw new TableNotFoundException(kafkaTableHandle.toSchemaTableName());
         }
 
-        ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
+        ImmutableMap.Builder<Name, ColumnHandle> columnHandles = ImmutableMap.builder();
 
         AtomicInteger index = new AtomicInteger(0);
 
@@ -139,7 +141,7 @@ public class KafkaMetadata
             List<KafkaTopicFieldDescription> fields = key.getFields();
             if (fields != null) {
                 for (KafkaTopicFieldDescription kafkaTopicFieldDescription : fields) {
-                    columnHandles.put(kafkaTopicFieldDescription.getName(), kafkaTopicFieldDescription.getColumnHandle(true, index.getAndIncrement()));
+                    columnHandles.put(createNonDelimitedName(kafkaTopicFieldDescription.getName()), kafkaTopicFieldDescription.getColumnHandle(true, index.getAndIncrement()));
                 }
             }
         });
@@ -149,13 +151,13 @@ public class KafkaMetadata
             List<KafkaTopicFieldDescription> fields = message.getFields();
             if (fields != null) {
                 for (KafkaTopicFieldDescription kafkaTopicFieldDescription : fields) {
-                    columnHandles.put(kafkaTopicFieldDescription.getName(), kafkaTopicFieldDescription.getColumnHandle(false, index.getAndIncrement()));
+                    columnHandles.put(createNonDelimitedName(kafkaTopicFieldDescription.getName()), kafkaTopicFieldDescription.getColumnHandle(false, index.getAndIncrement()));
                 }
             }
         });
 
         for (KafkaInternalFieldDescription kafkaInternalFieldDescription : KafkaInternalFieldDescription.values()) {
-            columnHandles.put(kafkaInternalFieldDescription.getColumnName(), kafkaInternalFieldDescription.getColumnHandle(index.getAndIncrement(), hideInternalColumns));
+            columnHandles.put(createNonDelimitedName(kafkaInternalFieldDescription.getColumnName()), kafkaInternalFieldDescription.getColumnHandle(index.getAndIncrement(), hideInternalColumns));
         }
 
         return columnHandles.build();

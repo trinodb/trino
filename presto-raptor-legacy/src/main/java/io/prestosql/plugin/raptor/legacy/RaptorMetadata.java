@@ -32,6 +32,7 @@ import io.prestosql.plugin.raptor.legacy.metadata.Table;
 import io.prestosql.plugin.raptor.legacy.metadata.TableColumn;
 import io.prestosql.plugin.raptor.legacy.metadata.ViewResult;
 import io.prestosql.plugin.raptor.legacy.systemtables.ColumnRangesSystemTable;
+import io.prestosql.spi.Name;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
@@ -76,6 +77,7 @@ import java.util.function.LongConsumer;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.prestosql.plugin.raptor.legacy.RaptorBucketFunction.validateBucketType;
@@ -106,6 +108,7 @@ import static io.prestosql.plugin.raptor.legacy.util.DatabaseUtil.daoTransaction
 import static io.prestosql.plugin.raptor.legacy.util.DatabaseUtil.onDemandDao;
 import static io.prestosql.plugin.raptor.legacy.util.DatabaseUtil.runIgnoringConstraintViolation;
 import static io.prestosql.plugin.raptor.legacy.util.DatabaseUtil.runTransaction;
+import static io.prestosql.spi.Name.createNonDelimitedName;
 import static io.prestosql.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.prestosql.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static io.prestosql.spi.StandardErrorCode.NOT_FOUND;
@@ -149,9 +152,9 @@ public class RaptorMetadata
     }
 
     @Override
-    public List<String> listSchemaNames(ConnectorSession session)
+    public List<Name> listSchemaNames(ConnectorSession session)
     {
-        return dao.listSchemaNames();
+        return dao.listSchemaNames().stream().map(Name::createNonDelimitedName).collect(toImmutableList());
     }
 
     @Override
@@ -240,26 +243,26 @@ public class RaptorMetadata
     }
 
     @Override
-    public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
+    public List<SchemaTableName> listTables(ConnectorSession session, Optional<Name> schemaName)
     {
-        return dao.listTables(schemaName.orElse(null));
+        return dao.listTables(schemaName.map(Name::getLegacyName).orElse(null));
     }
 
     @Override
-    public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
+    public Map<Name, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         RaptorTableHandle raptorTableHandle = (RaptorTableHandle) tableHandle;
-        ImmutableMap.Builder<String, ColumnHandle> builder = ImmutableMap.builder();
+        ImmutableMap.Builder<Name, ColumnHandle> builder = ImmutableMap.builder();
         for (TableColumn tableColumn : dao.listTableColumns(raptorTableHandle.getTableId())) {
-            builder.put(tableColumn.getColumnName(), getRaptorColumnHandle(tableColumn));
+            builder.put(createNonDelimitedName(tableColumn.getColumnName()), getRaptorColumnHandle(tableColumn));
         }
 
         RaptorColumnHandle uuidColumn = shardUuidColumnHandle();
-        builder.put(uuidColumn.getColumnName(), uuidColumn);
+        builder.put(createNonDelimitedName(uuidColumn.getColumnName()), uuidColumn);
 
         if (raptorTableHandle.isBucketed()) {
             RaptorColumnHandle bucketNumberColumn = bucketNumberColumnHandle();
-            builder.put(bucketNumberColumn.getColumnName(), bucketNumberColumn);
+            builder.put(createNonDelimitedName(bucketNumberColumn.getColumnName()), bucketNumberColumn);
         }
 
         return builder.build();
@@ -283,7 +286,7 @@ public class RaptorMetadata
         requireNonNull(prefix, "prefix is null");
 
         ImmutableListMultimap.Builder<SchemaTableName, ColumnMetadata> columns = ImmutableListMultimap.builder();
-        for (TableColumn tableColumn : dao.listTableColumns(prefix.getSchema().orElse(null), prefix.getTable().orElse(null))) {
+        for (TableColumn tableColumn : dao.listTableColumns(prefix.getLegacySchema().orElse(null), prefix.getLegacyTable().orElse(null))) {
             ColumnMetadata columnMetadata = new ColumnMetadata(tableColumn.getColumnName(), tableColumn.getDataType());
             columns.put(tableColumn.getTable(), columnMetadata);
         }
@@ -468,12 +471,12 @@ public class RaptorMetadata
     }
 
     @Override
-    public void renameColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle source, String target)
+    public void renameColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle source, Name target)
     {
         RaptorTableHandle table = (RaptorTableHandle) tableHandle;
         RaptorColumnHandle sourceColumn = (RaptorColumnHandle) source;
         daoTransaction(dbi, MetadataDao.class, dao -> {
-            dao.renameColumn(table.getTableId(), sourceColumn.getColumnId(), target);
+            dao.renameColumn(table.getTableId(), sourceColumn.getColumnId(), target.getLegacyName());
             dao.updateTableVersion(table.getTableId(), session.getStartTime());
         });
     }
@@ -853,16 +856,16 @@ public class RaptorMetadata
     }
 
     @Override
-    public List<SchemaTableName> listViews(ConnectorSession session, Optional<String> schemaName)
+    public List<SchemaTableName> listViews(ConnectorSession session, Optional<Name> schemaName)
     {
-        return dao.listViews(schemaName.orElse(null));
+        return dao.listViews(schemaName.map(Name::getLegacyName).orElse(null));
     }
 
     @Override
     public Map<SchemaTableName, ConnectorViewDefinition> getViews(ConnectorSession session, SchemaTablePrefix prefix)
     {
         ImmutableMap.Builder<SchemaTableName, ConnectorViewDefinition> map = ImmutableMap.builder();
-        for (ViewResult view : dao.getViews(prefix.getSchema().orElse(null), prefix.getTable().orElse(null))) {
+        for (ViewResult view : dao.getViews(prefix.getLegacySchema().orElse(null), prefix.getLegacyTable().orElse(null))) {
             map.put(view.getName(), new ConnectorViewDefinition(view.getName(), Optional.empty(), view.getData()));
         }
         return map.build();

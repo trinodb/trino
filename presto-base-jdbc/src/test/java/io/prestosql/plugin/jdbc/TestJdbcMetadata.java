@@ -29,6 +29,7 @@ import java.util.Optional;
 
 import static io.prestosql.plugin.jdbc.TestingJdbcTypeHandle.JDBC_BIGINT;
 import static io.prestosql.plugin.jdbc.TestingJdbcTypeHandle.JDBC_VARCHAR;
+import static io.prestosql.spi.Name.createNonDelimitedName;
 import static io.prestosql.spi.StandardErrorCode.NOT_FOUND;
 import static io.prestosql.spi.StandardErrorCode.PERMISSION_DENIED;
 import static io.prestosql.spi.type.BigintType.BIGINT;
@@ -67,7 +68,7 @@ public class TestJdbcMetadata
     @Test
     public void testListSchemaNames()
     {
-        assertTrue(metadata.listSchemaNames(SESSION).containsAll(ImmutableSet.of("example", "tpch")));
+        assertTrue(metadata.listSchemaNames(SESSION).containsAll(ImmutableSet.of(createNonDelimitedName("example"), createNonDelimitedName("tpch"))));
     }
 
     @Test
@@ -85,9 +86,9 @@ public class TestJdbcMetadata
     {
         // known table
         assertEquals(metadata.getColumnHandles(SESSION, tableHandle), ImmutableMap.of(
-                "text", new JdbcColumnHandle("TEXT", JDBC_VARCHAR, VARCHAR, true),
-                "text_short", new JdbcColumnHandle("TEXT_SHORT", JDBC_VARCHAR, createVarcharType(32), true),
-                "value", new JdbcColumnHandle("VALUE", JDBC_BIGINT, BIGINT, true)));
+                createNonDelimitedName("text"), new JdbcColumnHandle("TEXT", JDBC_VARCHAR, VARCHAR, true),
+                createNonDelimitedName("text_short"), new JdbcColumnHandle("TEXT_SHORT", JDBC_VARCHAR, createVarcharType(32), true),
+                createNonDelimitedName("value"), new JdbcColumnHandle("VALUE", JDBC_BIGINT, BIGINT, true)));
 
         // unknown table
         unknownTableColumnHandle(new JdbcTableHandle(new SchemaTableName("unknown", "unknown"), "unknown", "unknown", "unknown"));
@@ -153,19 +154,19 @@ public class TestJdbcMetadata
                 new SchemaTableName("exa_ple", "num_ers")));
 
         // specific schema
-        assertEquals(ImmutableSet.copyOf(metadata.listTables(SESSION, Optional.of("example"))), ImmutableSet.of(
+        assertEquals(ImmutableSet.copyOf(metadata.listTables(SESSION, Optional.of(createNonDelimitedName("example")))), ImmutableSet.of(
                 new SchemaTableName("example", "numbers"),
                 new SchemaTableName("example", "view_source"),
                 new SchemaTableName("example", "view")));
-        assertEquals(ImmutableSet.copyOf(metadata.listTables(SESSION, Optional.of("tpch"))), ImmutableSet.of(
+        assertEquals(ImmutableSet.copyOf(metadata.listTables(SESSION, Optional.of(createNonDelimitedName("tpch")))), ImmutableSet.of(
                 new SchemaTableName("tpch", "orders"),
                 new SchemaTableName("tpch", "lineitem")));
-        assertEquals(ImmutableSet.copyOf(metadata.listTables(SESSION, Optional.of("exa_ple"))), ImmutableSet.of(
+        assertEquals(ImmutableSet.copyOf(metadata.listTables(SESSION, Optional.of(createNonDelimitedName("exa_ple")))), ImmutableSet.of(
                 new SchemaTableName("exa_ple", "num_ers"),
                 new SchemaTableName("exa_ple", "table_with_float_col")));
 
         // unknown schema
-        assertEquals(ImmutableSet.copyOf(metadata.listTables(SESSION, Optional.of("unknown"))), ImmutableSet.of());
+        assertEquals(ImmutableSet.copyOf(metadata.listTables(SESSION, Optional.of(createNonDelimitedName("unknown")))), ImmutableSet.of());
     }
 
     @Test

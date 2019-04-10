@@ -68,6 +68,7 @@ import static io.prestosql.plugin.raptor.legacy.RaptorTableProperties.ORGANIZED_
 import static io.prestosql.plugin.raptor.legacy.RaptorTableProperties.TEMPORAL_COLUMN_PROPERTY;
 import static io.prestosql.plugin.raptor.legacy.metadata.SchemaDaoUtil.createTablesWithRetry;
 import static io.prestosql.plugin.raptor.legacy.metadata.TestDatabaseShardManager.createShardManager;
+import static io.prestosql.spi.Name.createNonDelimitedName;
 import static io.prestosql.spi.StandardErrorCode.TRANSACTION_CONFLICT;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.DateType.DATE;
@@ -123,12 +124,12 @@ public class TestRaptorMetadata
         assertInstanceOf(tableHandle, RaptorTableHandle.class);
 
         RaptorTableHandle raptorTableHandle = (RaptorTableHandle) tableHandle;
-        ColumnHandle columnHandle = metadata.getColumnHandles(SESSION, tableHandle).get("orderkey");
+        ColumnHandle columnHandle = metadata.getColumnHandles(SESSION, tableHandle).get(createNonDelimitedName("orderkey"));
 
-        metadata.renameColumn(SESSION, raptorTableHandle, columnHandle, "orderkey_renamed");
+        metadata.renameColumn(SESSION, raptorTableHandle, columnHandle, createNonDelimitedName("orderkey_renamed"));
 
-        assertNull(metadata.getColumnHandles(SESSION, tableHandle).get("orderkey"));
-        assertNotNull(metadata.getColumnHandles(SESSION, tableHandle).get("orderkey_renamed"));
+        assertNull(metadata.getColumnHandles(SESSION, tableHandle).get(createNonDelimitedName("orderkey")));
+        assertNotNull(metadata.getColumnHandles(SESSION, tableHandle).get(createNonDelimitedName("orderkey_renamed")));
     }
 
     @Test
@@ -145,7 +146,7 @@ public class TestRaptorMetadata
         RaptorTableHandle raptorTableHandle = (RaptorTableHandle) tableHandle;
 
         metadata.addColumn(SESSION, raptorTableHandle, new ColumnMetadata("new_col", BIGINT));
-        assertNotNull(metadata.getColumnHandles(SESSION, raptorTableHandle).get("new_col"));
+        assertNotNull(metadata.getColumnHandles(SESSION, raptorTableHandle).get(createNonDelimitedName("new_col")));
     }
 
     @Test
@@ -161,9 +162,9 @@ public class TestRaptorMetadata
 
         RaptorTableHandle raptorTableHandle = (RaptorTableHandle) tableHandle;
 
-        ColumnHandle lastColumn = metadata.getColumnHandles(SESSION, tableHandle).get("orderkey");
+        ColumnHandle lastColumn = metadata.getColumnHandles(SESSION, tableHandle).get(createNonDelimitedName("orderkey"));
         metadata.dropColumn(SESSION, raptorTableHandle, lastColumn);
-        assertNull(metadata.getColumnHandles(SESSION, tableHandle).get("orderkey"));
+        assertNull(metadata.getColumnHandles(SESSION, tableHandle).get(createNonDelimitedName("orderkey")));
     }
 
     @Test
@@ -178,12 +179,12 @@ public class TestRaptorMetadata
         assertInstanceOf(tableHandle, RaptorTableHandle.class);
 
         RaptorTableHandle raptorTableHandle = (RaptorTableHandle) tableHandle;
-        ColumnHandle column = metadata.getColumnHandles(SESSION, tableHandle).get("orderkey");
+        ColumnHandle column = metadata.getColumnHandles(SESSION, tableHandle).get(createNonDelimitedName("orderkey"));
 
         metadata.dropColumn(SESSION, raptorTableHandle, column);
         metadata.addColumn(SESSION, raptorTableHandle, new ColumnMetadata("new_col", BIGINT));
-        assertNull(metadata.getColumnHandles(SESSION, tableHandle).get("orderkey"));
-        assertNotNull(metadata.getColumnHandles(SESSION, raptorTableHandle).get("new_col"));
+        assertNull(metadata.getColumnHandles(SESSION, tableHandle).get(createNonDelimitedName("orderkey")));
+        assertNotNull(metadata.getColumnHandles(SESSION, raptorTableHandle).get(createNonDelimitedName("new_col")));
     }
 
     @Test
@@ -210,19 +211,19 @@ public class TestRaptorMetadata
         assertInstanceOf(ordersRaptorTableHandle, RaptorTableHandle.class);
 
         // disallow dropping bucket, sort, temporal and highest-id columns
-        ColumnHandle bucketColumn = metadata.getColumnHandles(SESSION, ordersRaptorTableHandle).get("orderkey");
+        ColumnHandle bucketColumn = metadata.getColumnHandles(SESSION, ordersRaptorTableHandle).get(createNonDelimitedName("orderkey"));
         assertThrows("Cannot drop bucket columns", () ->
                 metadata.dropColumn(SESSION, ordersTableHandle, bucketColumn));
 
-        ColumnHandle sortColumn = metadata.getColumnHandles(SESSION, ordersRaptorTableHandle).get("totalprice");
+        ColumnHandle sortColumn = metadata.getColumnHandles(SESSION, ordersRaptorTableHandle).get(createNonDelimitedName("totalprice"));
         assertThrows("Cannot drop sort columns", () ->
                 metadata.dropColumn(SESSION, ordersTableHandle, sortColumn));
 
-        ColumnHandle temporalColumn = metadata.getColumnHandles(SESSION, ordersRaptorTableHandle).get("orderdate");
+        ColumnHandle temporalColumn = metadata.getColumnHandles(SESSION, ordersRaptorTableHandle).get(createNonDelimitedName("orderdate"));
         assertThrows("Cannot drop the temporal column", () ->
                 metadata.dropColumn(SESSION, ordersTableHandle, temporalColumn));
 
-        ColumnHandle highestColumn = metadata.getColumnHandles(SESSION, ordersRaptorTableHandle).get("highestid");
+        ColumnHandle highestColumn = metadata.getColumnHandles(SESSION, ordersRaptorTableHandle).get(createNonDelimitedName("highestid"));
         assertThrows("Cannot drop the column which has the largest column ID in the table", () ->
                 metadata.dropColumn(SESSION, ordersTableHandle, highestColumn));
     }
@@ -259,7 +260,7 @@ public class TestRaptorMetadata
         ConnectorTableMetadata table = metadata.getTableMetadata(SESSION, tableHandle);
         assertTableEqual(table, getOrdersTable());
 
-        ColumnHandle columnHandle = metadata.getColumnHandles(SESSION, tableHandle).get("orderkey");
+        ColumnHandle columnHandle = metadata.getColumnHandles(SESSION, tableHandle).get(createNonDelimitedName("orderkey"));
         assertInstanceOf(columnHandle, RaptorColumnHandle.class);
         assertEquals(((RaptorColumnHandle) columnHandle).getColumnId(), 1);
 
@@ -591,7 +592,7 @@ public class TestRaptorMetadata
         metadata.createView(SESSION, test2, "test2", false);
 
         // verify listing
-        List<SchemaTableName> list = metadata.listViews(SESSION, Optional.of("test"));
+        List<SchemaTableName> list = metadata.listViews(SESSION, Optional.of(createNonDelimitedName("test")));
         assertEqualsIgnoreOrder(list, ImmutableList.of(test1, test2));
 
         // verify getting data

@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static io.prestosql.spi.Name.createNonDelimitedName;
 import static io.prestosql.spi.StandardErrorCode.NOT_FOUND;
 import static io.prestosql.testing.TestingConnectorSession.SESSION;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -46,9 +47,9 @@ public class TestBlackHoleMetadata
     @Test
     public void testCreateSchema()
     {
-        assertEquals(metadata.listSchemaNames(SESSION), ImmutableList.of("default"));
-        metadata.createSchema(SESSION, "test", ImmutableMap.of());
-        assertEquals(metadata.listSchemaNames(SESSION), ImmutableList.of("default", "test"));
+        assertEquals(metadata.listSchemaNames(SESSION), ImmutableList.of(createNonDelimitedName("default")));
+        metadata.createSchema(SESSION, createNonDelimitedName("test"), ImmutableMap.of());
+        assertEquals(metadata.listSchemaNames(SESSION), ImmutableList.of(createNonDelimitedName("default"), createNonDelimitedName("test")));
     }
 
     @Test

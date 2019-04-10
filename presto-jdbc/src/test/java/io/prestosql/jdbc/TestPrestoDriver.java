@@ -23,6 +23,7 @@ import io.prestosql.plugin.blackhole.BlackHolePlugin;
 import io.prestosql.plugin.tpch.TpchMetadata;
 import io.prestosql.plugin.tpch.TpchPlugin;
 import io.prestosql.server.testing.TestingPrestoServer;
+import io.prestosql.spi.Name;
 import io.prestosql.spi.security.SelectedRole;
 import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.BigintType;
@@ -437,8 +438,8 @@ public class TestPrestoDriver
 
         List<List<String>> test = new ArrayList<>();
         test.add(list(TEST_CATALOG, "information_schema"));
-        for (String schema : TpchMetadata.SCHEMA_NAMES) {
-            test.add(list(TEST_CATALOG, schema));
+        for (Name schema : TpchMetadata.SCHEMA_NAMES) {
+            test.add(list(TEST_CATALOG, schema.getLegacyName()));
         }
 
         List<List<String>> all = new ArrayList<>();

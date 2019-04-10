@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.prestosql.plugin.base.security.ForwardingSystemAccessControl;
+import io.prestosql.spi.Name;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.CatalogSchemaName;
 import io.prestosql.spi.connector.CatalogSchemaTableName;
@@ -130,7 +131,7 @@ public class FileBasedSystemAccessControl
     }
 
     @Override
-    public void checkCanSetUser(Optional<Principal> principal, String userName)
+    public void checkCanSetUser(Optional<Principal> principal, Name userName)
     {
         requireNonNull(principal, "principal is null");
         requireNonNull(userName, "userName is null");
@@ -146,7 +147,7 @@ public class FileBasedSystemAccessControl
         String principalName = principal.get().getName();
 
         for (PrincipalUserMatchRule rule : principalUserMatchRules.get()) {
-            Optional<Boolean> allowed = rule.match(principalName, userName);
+            Optional<Boolean> allowed = rule.match(principalName, userName.getName());
             if (allowed.isPresent()) {
                 if (allowed.get()) {
                     return;
@@ -164,7 +165,7 @@ public class FileBasedSystemAccessControl
     }
 
     @Override
-    public void checkCanAccessCatalog(Identity identity, String catalogName)
+    public void checkCanAccessCatalog(Identity identity, Name catalogName)
     {
         if (!canAccessCatalog(identity, catalogName)) {
             denyCatalogAccess(catalogName);
@@ -172,10 +173,10 @@ public class FileBasedSystemAccessControl
     }
 
     @Override
-    public Set<String> filterCatalogs(Identity identity, Set<String> catalogs)
+    public Set<Name> filterCatalogs(Identity identity, Set<Name> catalogs)
     {
-        ImmutableSet.Builder<String> filteredCatalogs = ImmutableSet.builder();
-        for (String catalog : catalogs) {
+        ImmutableSet.Builder<Name> filteredCatalogs = ImmutableSet.builder();
+        for (Name catalog : catalogs) {
             if (canAccessCatalog(identity, catalog)) {
                 filteredCatalogs.add(catalog);
             }
@@ -183,10 +184,10 @@ public class FileBasedSystemAccessControl
         return filteredCatalogs.build();
     }
 
-    private boolean canAccessCatalog(Identity identity, String catalogName)
+    private boolean canAccessCatalog(Identity identity, Name catalogName)
     {
         for (CatalogAccessControlRule rule : catalogRules) {
-            Optional<Boolean> allowed = rule.match(identity.getUser().getName(), catalogName);
+            Optional<Boolean> allowed = rule.match(identity.getUser().getName(), catalogName.getLegacyName());
             if (allowed.isPresent()) {
                 return allowed.get();
             }
@@ -205,17 +206,17 @@ public class FileBasedSystemAccessControl
     }
 
     @Override
-    public void checkCanRenameSchema(Identity identity, CatalogSchemaName schema, String newSchemaName)
+    public void checkCanRenameSchema(Identity identity, CatalogSchemaName schema, Name newSchemaName)
     {
     }
 
     @Override
-    public void checkCanShowSchemas(Identity identity, String catalogName)
+    public void checkCanShowSchemas(Identity identity, Name catalogName)
     {
     }
 
     @Override
-    public Set<String> filterSchemas(Identity identity, String catalogName, Set<String> schemaNames)
+    public Set<Name> filterSchemas(Identity identity, Name catalogName, Set<Name> schemaNames)
     {
         if (!canAccessCatalog(identity, catalogName)) {
             return ImmutableSet.of();
@@ -250,7 +251,7 @@ public class FileBasedSystemAccessControl
     }
 
     @Override
-    public Set<SchemaTableName> filterTables(Identity identity, String catalogName, Set<SchemaTableName> tableNames)
+    public Set<SchemaTableName> filterTables(Identity identity, Name catalogName, Set<SchemaTableName> tableNames)
     {
         if (!canAccessCatalog(identity, catalogName)) {
             return ImmutableSet.of();
@@ -290,7 +291,7 @@ public class FileBasedSystemAccessControl
     }
 
     @Override
-    public void checkCanSelectFromColumns(Identity identity, CatalogSchemaTableName table, Set<String> columns)
+    public void checkCanSelectFromColumns(Identity identity, CatalogSchemaTableName table, Set<Name> columns)
     {
     }
 
@@ -315,12 +316,12 @@ public class FileBasedSystemAccessControl
     }
 
     @Override
-    public void checkCanCreateViewWithSelectFromColumns(Identity identity, CatalogSchemaTableName table, Set<String> columns)
+    public void checkCanCreateViewWithSelectFromColumns(Identity identity, CatalogSchemaTableName table, Set<Name> columns)
     {
     }
 
     @Override
-    public void checkCanSetCatalogSessionProperty(Identity identity, String catalogName, String propertyName)
+    public void checkCanSetCatalogSessionProperty(Identity identity, Name catalogName, String propertyName)
     {
     }
 
@@ -335,7 +336,7 @@ public class FileBasedSystemAccessControl
     }
 
     @Override
-    public void checkCanShowRoles(Identity identity, String catalogName)
+    public void checkCanShowRoles(Identity identity, Name catalogName)
     {
     }
 }

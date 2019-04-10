@@ -31,7 +31,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.prestosql.spi.security.AccessDeniedException.denyAddColumn;
 import static io.prestosql.spi.security.AccessDeniedException.denyCatalogAccess;
 import static io.prestosql.spi.security.AccessDeniedException.denyCommentTable;
@@ -72,7 +71,7 @@ public class DenyAllAccessControl
     @Override
     public void checkCanSetUser(Optional<Principal> principal, Name userName)
     {
-        denySetUser(principal, userName.getName());
+        denySetUser(principal, userName);
     }
 
     @Override
@@ -84,25 +83,25 @@ public class DenyAllAccessControl
     @Override
     public void checkCanAccessCatalog(Identity identity, Name catalogName)
     {
-        denyCatalogAccess(catalogName.getName());
+        denyCatalogAccess(catalogName);
     }
 
     @Override
     public void checkCanCreateSchema(TransactionId transactionId, Identity identity, CatalogSchemaName schemaName)
     {
-        denyCreateSchema(schemaName.toString());
+        denyCreateSchema(schemaName.getSchemaName());
     }
 
     @Override
     public void checkCanDropSchema(TransactionId transactionId, Identity identity, CatalogSchemaName schemaName)
     {
-        denyDropSchema(schemaName.toString());
+        denyDropSchema(schemaName.getSchemaName());
     }
 
     @Override
     public void checkCanRenameSchema(TransactionId transactionId, Identity identity, CatalogSchemaName schemaName, Name newSchemaName)
     {
-        denyRenameSchema(schemaName.toString(), newSchemaName.getLegacyName());
+        denyRenameSchema(schemaName.getSchemaName(), newSchemaName);
     }
 
     @Override
@@ -234,60 +233,60 @@ public class DenyAllAccessControl
     @Override
     public void checkCanSetCatalogSessionProperty(TransactionId transactionId, Identity identity, Name catalogName, String propertyName)
     {
-        denySetCatalogSessionProperty(catalogName.getLegacyName(), propertyName);
+        denySetCatalogSessionProperty(catalogName, propertyName);
     }
 
     @Override
     public void checkCanSelectFromColumns(TransactionId transactionId, Identity identity, QualifiedObjectName tableName, Set<Name> columnNames)
     {
-        denySelectColumns(tableName.toString(), columnNames.stream().map(Name::getLegacyName).collect(toImmutableSet()));
+        denySelectColumns(tableName.toString(), columnNames);
     }
 
     @Override
     public void checkCanCreateRole(TransactionId transactionId, Identity identity, Name role, Optional<PrestoPrincipal> grantor, Name catalogName)
     {
-        denyCreateRole(role.getLegacyName());
+        denyCreateRole(role);
     }
 
     @Override
     public void checkCanDropRole(TransactionId transactionId, Identity identity, Name role, Name catalogName)
     {
-        denyDropRole(role.getLegacyName());
+        denyDropRole(role);
     }
 
     @Override
     public void checkCanGrantRoles(TransactionId transactionId, Identity identity, Set<Name> roles, Set<PrestoPrincipal> grantees, boolean withAdminOption, Optional<PrestoPrincipal> grantor, Name catalogName)
     {
-        denyGrantRoles(roles.stream().map(Name::getLegacyName).collect(toImmutableSet()), grantees);
+        denyGrantRoles(roles, grantees);
     }
 
     @Override
     public void checkCanRevokeRoles(TransactionId transactionId, Identity identity, Set<Name> roles, Set<PrestoPrincipal> grantees, boolean adminOptionFor, Optional<PrestoPrincipal> grantor, Name catalogName)
     {
-        denyRevokeRoles(roles.stream().map(Name::getLegacyName).collect(toImmutableSet()), grantees);
+        denyRevokeRoles(roles, grantees);
     }
 
     @Override
     public void checkCanSetRole(TransactionId requiredTransactionId, Identity identity, Name role, Name catalog)
     {
-        denySetRole(role.getLegacyName());
+        denySetRole(role);
     }
 
     @Override
     public void checkCanShowRoles(TransactionId transactionId, Identity identity, Name catalogName)
     {
-        denyShowRoles(catalogName.getLegacyName());
+        denyShowRoles(catalogName);
     }
 
     @Override
     public void checkCanShowCurrentRoles(TransactionId transactionId, Identity identity, Name catalogName)
     {
-        denyShowCurrentRoles(catalogName.getLegacyName());
+        denyShowCurrentRoles(catalogName);
     }
 
     @Override
     public void checkCanShowRoleGrants(TransactionId transactionId, Identity identity, Name catalogName)
     {
-        denyShowRoleGrants(catalogName.getLegacyName());
+        denyShowRoleGrants(catalogName);
     }
 }

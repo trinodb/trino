@@ -51,6 +51,7 @@ import io.prestosql.plugin.hive.metastore.thrift.ThriftHiveMetastoreConfig;
 import io.prestosql.plugin.hive.orc.OrcPageSource;
 import io.prestosql.plugin.hive.parquet.ParquetPageSource;
 import io.prestosql.plugin.hive.rcfile.RcFilePageSource;
+import io.prestosql.spi.Name;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
@@ -217,6 +218,7 @@ import static io.prestosql.plugin.hive.metastore.HiveColumnStatistics.createDoub
 import static io.prestosql.plugin.hive.metastore.HiveColumnStatistics.createIntegerColumnStatistics;
 import static io.prestosql.plugin.hive.metastore.HiveColumnStatistics.createStringColumnStatistics;
 import static io.prestosql.plugin.hive.metastore.StorageFormat.fromHiveStorageFormat;
+import static io.prestosql.spi.Name.createNonDelimitedName;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.StandardErrorCode.TRANSACTION_CONFLICT;
 import static io.prestosql.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.UNGROUPED_SCHEDULING;
@@ -891,8 +893,8 @@ public abstract class AbstractTestHive
     {
         try (Transaction transaction = newTransaction()) {
             ConnectorMetadata metadata = transaction.getMetadata();
-            List<String> databases = metadata.listSchemaNames(newSession());
-            assertTrue(databases.contains(database));
+            List<Name> databases = metadata.listSchemaNames(newSession());
+            assertTrue(databases.contains(createNonDelimitedName(database)));
         }
     }
 
@@ -901,7 +903,7 @@ public abstract class AbstractTestHive
     {
         try (Transaction transaction = newTransaction()) {
             ConnectorMetadata metadata = transaction.getMetadata();
-            List<SchemaTableName> tables = metadata.listTables(newSession(), Optional.of(database));
+            List<SchemaTableName> tables = metadata.listTables(newSession(), Optional.of(createNonDelimitedName(database)));
             assertTrue(tables.contains(tablePartitionFormat));
             assertTrue(tables.contains(tableUnpartitioned));
         }
@@ -947,9 +949,9 @@ public abstract class AbstractTestHive
             ConnectorMetadata metadata = transaction.getMetadata();
             ConnectorSession session = newSession();
             assertNull(metadata.getTableHandle(session, new SchemaTableName(INVALID_DATABASE, INVALID_TABLE)));
-            assertEquals(metadata.listTables(session, Optional.of(INVALID_DATABASE)), ImmutableList.of());
+            assertEquals(metadata.listTables(session, Optional.of(createNonDelimitedName(INVALID_DATABASE))), ImmutableList.of());
             assertEquals(metadata.listTableColumns(session, new SchemaTablePrefix(INVALID_DATABASE, INVALID_TABLE)), ImmutableMap.of());
-            assertEquals(metadata.listViews(session, Optional.of(INVALID_DATABASE)), ImmutableList.of());
+            assertEquals(metadata.listViews(session, Optional.of(createNonDelimitedName(INVALID_DATABASE))), ImmutableList.of());
             assertEquals(metadata.getViews(session, new SchemaTablePrefix(INVALID_DATABASE, INVALID_TABLE)), ImmutableMap.of());
         }
     }
@@ -1317,9 +1319,9 @@ public abstract class AbstractTestHive
 
             assertEquals(columnsStatistics.keySet(), expectedColumnStatsColumns, "columns with statistics");
 
-            Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle);
+            Map<Name, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle);
             columnsStatistics.forEach((columnName, columnStatistics) -> {
-                ColumnHandle columnHandle = columnHandles.get(columnName);
+                ColumnHandle columnHandle = columnHandles.get(createNonDelimitedName(columnName));
                 Type columnType = metadata.getColumnMetadata(session, tableHandle, columnHandle).getType();
 
                 assertFalse(
@@ -1407,7 +1409,7 @@ public abstract class AbstractTestHive
             ConnectorTableHandle tableHandle = getTableHandle(metadata, tableOfflinePartition);
             assertNotNull(tableHandle);
 
-            ColumnHandle dsColumn = metadata.getColumnHandles(session, tableHandle).get("ds");
+            ColumnHandle dsColumn = metadata.getColumnHandles(session, tableHandle).get(createNonDelimitedName("ds"));
             assertNotNull(dsColumn);
 
             Domain domain = Domain.singleValue(createUnboundedVarcharType(), utf8Slice("2012-12-30"));
@@ -1434,7 +1436,7 @@ public abstract class AbstractTestHive
             ConnectorTableHandle tableHandle = getTableHandle(metadata, tableNotReadable);
             assertNotNull(tableHandle);
 
-            ColumnHandle dsColumn = metadata.getColumnHandles(session, tableHandle).get("ds");
+            ColumnHandle dsColumn = metadata.getColumnHandles(session, tableHandle).get(createNonDelimitedName("ds"));
             assertNotNull(dsColumn);
 
             List<ConnectorTableLayoutResult> tableLayoutResults = metadata.getTableLayouts(session, tableHandle, Constraint.alwaysTrue(), Optional.empty());
@@ -2906,7 +2908,7 @@ public abstract class AbstractTestHive
         try (Transaction transaction = newTransaction()) {
             ConnectorMetadata metadata = transaction.getMetadata();
             assertEquals(metadata.getViews(newSession(), temporaryCreateView.toSchemaTablePrefix()).size(), 0);
-            assertFalse(metadata.listViews(newSession(), Optional.of(temporaryCreateView.getSchemaName())).contains(temporaryCreateView));
+            assertFalse(metadata.listViews(newSession(), Optional.of(createNonDelimitedName(temporaryCreateView.getSchemaName()))).contains(temporaryCreateView));
         }
 
         // drop fails when view does not exist
@@ -2937,7 +2939,7 @@ public abstract class AbstractTestHive
             assertEquals(views.size(), 1);
             assertEquals(views.get(viewName).getViewData(), viewData);
 
-            assertTrue(metadata.listViews(newSession(), Optional.of(viewName.getSchemaName())).contains(viewName));
+            assertTrue(metadata.listViews(newSession(), Optional.of(createNonDelimitedName(viewName.getSchemaName()))).contains(viewName));
         }
     }
 
@@ -3641,7 +3643,7 @@ public abstract class AbstractTestHive
 
             // get ds column handle
             ConnectorTableHandle tableHandle = getTableHandle(metadata, tableName);
-            HiveColumnHandle dsColumnHandle = (HiveColumnHandle) metadata.getColumnHandles(session, tableHandle).get("ds");
+            HiveColumnHandle dsColumnHandle = (HiveColumnHandle) metadata.getColumnHandles(session, tableHandle).get(createNonDelimitedName("ds"));
 
             // delete ds=2015-07-03
             session = newSession();
@@ -3659,7 +3661,7 @@ public abstract class AbstractTestHive
             ConnectorMetadata metadata = transaction.getMetadata();
             ConnectorTableHandle tableHandle = getTableHandle(metadata, tableName);
             List<ColumnHandle> columnHandles = filterNonHiddenColumnHandles(metadata.getColumnHandles(session, tableHandle).values());
-            HiveColumnHandle dsColumnHandle = (HiveColumnHandle) metadata.getColumnHandles(session, tableHandle).get("ds");
+            HiveColumnHandle dsColumnHandle = (HiveColumnHandle) metadata.getColumnHandles(session, tableHandle).get(createNonDelimitedName("ds"));
             int dsColumnOrdinalPosition = columnHandles.indexOf(dsColumnHandle);
 
             // verify the data
@@ -3675,7 +3677,7 @@ public abstract class AbstractTestHive
             ConnectorSession session = newSession();
             ConnectorMetadata metadata = transaction.getMetadata();
             ConnectorTableHandle tableHandle = getTableHandle(metadata, tableName);
-            HiveColumnHandle dsColumnHandle = (HiveColumnHandle) metadata.getColumnHandles(session, tableHandle).get("ds");
+            HiveColumnHandle dsColumnHandle = (HiveColumnHandle) metadata.getColumnHandles(session, tableHandle).get(createNonDelimitedName("ds"));
 
             // delete ds=2015-07-01 and 2015-07-02
             session = newSession();
@@ -4447,7 +4449,7 @@ public abstract class AbstractTestHive
 
                 // Query 1: delete
                 session = newSession();
-                HiveColumnHandle dsColumnHandle = (HiveColumnHandle) metadata.getColumnHandles(session, tableHandle).get("pk2");
+                HiveColumnHandle dsColumnHandle = (HiveColumnHandle) metadata.getColumnHandles(session, tableHandle).get(createNonDelimitedName("pk2"));
                 TupleDomain<ColumnHandle> tupleDomain = TupleDomain.withColumnDomains(ImmutableMap.of(
                         dsColumnHandle, domainToDrop));
                 Constraint constraint = new Constraint(tupleDomain, convertToPredicate(tupleDomain));

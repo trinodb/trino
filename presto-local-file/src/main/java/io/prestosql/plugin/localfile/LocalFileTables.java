@@ -85,7 +85,7 @@ public class LocalFileTables
 
     public LocalFileTableHandle getTable(SchemaTableName tableName)
     {
-        return tables.get(tableName);
+        return tables.get(new SchemaTableName(tableName.getLegacySchemaName(), tableName.getLegacyTableName()));
     }
 
     public List<SchemaTableName> getTables()
@@ -135,7 +135,7 @@ public class LocalFileTables
 
         public static SchemaTableName getSchemaTableName()
         {
-            return new SchemaTableName(PRESTO_LOGS_SCHEMA, TABLE_NAME);
+            return new SchemaTableName(PRESTO_LOGS_SCHEMA.getLegacyName(), TABLE_NAME);
         }
 
         public static OptionalInt getTimestampColumn()

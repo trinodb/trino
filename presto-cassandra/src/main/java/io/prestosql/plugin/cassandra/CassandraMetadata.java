@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
 import io.prestosql.plugin.cassandra.util.CassandraCqlUtils;
+import io.prestosql.spi.Name;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
@@ -57,6 +58,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.plugin.cassandra.CassandraType.toCassandraType;
 import static io.prestosql.plugin.cassandra.util.CassandraCqlUtils.validSchemaName;
 import static io.prestosql.plugin.cassandra.util.CassandraCqlUtils.validTableName;
+import static io.prestosql.spi.Name.createNonDelimitedName;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.StandardErrorCode.PERMISSION_DENIED;
 import static java.lang.String.format;
@@ -89,10 +91,11 @@ public class CassandraMetadata
     }
 
     @Override
-    public List<String> listSchemaNames(ConnectorSession session)
+    public List<Name> listSchemaNames(ConnectorSession session)
     {
         return cassandraSession.getCaseSensitiveSchemaNames().stream()
                 .map(name -> name.toLowerCase(ENGLISH))
+                .map(Name::createNonDelimitedName)
                 .collect(toImmutableList());
     }
 
@@ -131,14 +134,14 @@ public class CassandraMetadata
     }
 
     @Override
-    public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName1)
+    public List<SchemaTableName> listTables(ConnectorSession session, Optional<Name> schemaName1)
     {
         ImmutableList.Builder<SchemaTableName> tableNames = ImmutableList.builder();
-        List<String> schemaNames = listSchemas(session, schemaName1);
-        for (String schemaName : schemaNames) {
+        List<Name> schemaNames = listSchemas(session, schemaName1);
+        for (Name schemaName : schemaNames) {
             try {
-                for (String tableName : cassandraSession.getCaseSensitiveTableNames(schemaName)) {
-                    tableNames.add(new SchemaTableName(schemaName, tableName.toLowerCase(ENGLISH)));
+                for (String tableName : cassandraSession.getCaseSensitiveTableNames(schemaName.getLegacyName())) {
+                    tableNames.add(new SchemaTableName(schemaName.getLegacyName(), tableName.toLowerCase(ENGLISH)));
                 }
             }
             catch (SchemaNotFoundException e) {
@@ -148,21 +151,21 @@ public class CassandraMetadata
         return tableNames.build();
     }
 
-    private List<String> listSchemas(ConnectorSession session, Optional<String> schemaName)
+    private List<Name> listSchemas(ConnectorSession session, Optional<Name> schemaName)
     {
         return schemaName.map(ImmutableList::of)
-                .orElseGet(() -> (ImmutableList<String>) listSchemaNames(session));
+                .orElseGet(() -> (ImmutableList<Name>) listSchemaNames(session));
     }
 
     @Override
-    public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
+    public Map<Name, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         requireNonNull(session, "session is null");
         requireNonNull(tableHandle, "tableHandle is null");
         CassandraTable table = cassandraSession.getTable(getTableName(tableHandle));
-        ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
+        ImmutableMap.Builder<Name, ColumnHandle> columnHandles = ImmutableMap.builder();
         for (CassandraColumnHandle columnHandle : table.getColumns()) {
-            columnHandles.put(CassandraCqlUtils.cqlNameToSqlName(columnHandle.getName()).toLowerCase(ENGLISH), columnHandle);
+            columnHandles.put(createNonDelimitedName(CassandraCqlUtils.cqlNameToSqlName(columnHandle.getName()).toLowerCase(ENGLISH)), columnHandle);
         }
         return columnHandles.build();
     }

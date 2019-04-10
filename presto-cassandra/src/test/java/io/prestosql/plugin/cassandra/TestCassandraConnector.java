@@ -16,6 +16,7 @@ package io.prestosql.plugin.cassandra;
 import com.datastax.driver.core.utils.Bytes;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.spi.Name;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.Connector;
@@ -52,6 +53,7 @@ import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.testing.Assertions.assertInstanceOf;
 import static io.prestosql.plugin.cassandra.CassandraTestingUtils.TABLE_ALL_TYPES;
 import static io.prestosql.plugin.cassandra.CassandraTestingUtils.createTestTables;
+import static io.prestosql.spi.Name.createNonDelimitedName;
 import static io.prestosql.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.UNGROUPED_SCHEDULING;
 import static io.prestosql.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static io.prestosql.spi.type.BigintType.BIGINT;
@@ -127,14 +129,14 @@ public class TestCassandraConnector
     @Test
     public void testGetDatabaseNames()
     {
-        List<String> databases = metadata.listSchemaNames(SESSION);
-        assertTrue(databases.contains(database.toLowerCase(ENGLISH)));
+        List<Name> databases = metadata.listSchemaNames(SESSION);
+        assertTrue(databases.contains(createNonDelimitedName(database.toLowerCase(ENGLISH))));
     }
 
     @Test
     public void testGetTableNames()
     {
-        List<SchemaTableName> tables = metadata.listTables(SESSION, Optional.of(database));
+        List<SchemaTableName> tables = metadata.listTables(SESSION, Optional.of(createNonDelimitedName(database)));
         assertTrue(tables.contains(table));
     }
 
@@ -142,14 +144,14 @@ public class TestCassandraConnector
     @Test(enabled = false, expectedExceptions = SchemaNotFoundException.class)
     public void testGetTableNamesException()
     {
-        metadata.listTables(SESSION, Optional.of(INVALID_DATABASE));
+        metadata.listTables(SESSION, Optional.of(createNonDelimitedName(INVALID_DATABASE)));
     }
 
     @Test
     public void testListUnknownSchema()
     {
         assertNull(metadata.getTableHandle(SESSION, new SchemaTableName("totally_invalid_database_name", "dual")));
-        assertEquals(metadata.listTables(SESSION, Optional.of("totally_invalid_database_name")), ImmutableList.of());
+        assertEquals(metadata.listTables(SESSION, Optional.of(createNonDelimitedName("totally_invalid_database_name"))), ImmutableList.of());
         assertEquals(metadata.listTableColumns(SESSION, new SchemaTablePrefix("totally_invalid_database_name", "dual")), ImmutableMap.of());
     }
 

@@ -23,6 +23,7 @@ import java.util.Optional;
 
 import static io.prestosql.plugin.jmx.JmxMetadata.HISTORY_SCHEMA_NAME;
 import static io.prestosql.plugin.jmx.JmxMetadata.JMX_SCHEMA_NAME;
+import static io.prestosql.spi.Name.createNonDelimitedName;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
@@ -43,14 +44,14 @@ public class TestJmxMetadata
     @Test
     public void testListSchemas()
     {
-        assertEquals(metadata.listSchemaNames(SESSION), ImmutableList.of(JMX_SCHEMA_NAME, HISTORY_SCHEMA_NAME));
+        assertEquals(metadata.listSchemaNames(SESSION), ImmutableList.of(createNonDelimitedName(JMX_SCHEMA_NAME), createNonDelimitedName(HISTORY_SCHEMA_NAME)));
     }
 
     @Test
     public void testListTables()
     {
-        assertTrue(metadata.listTables(SESSION, Optional.of(JMX_SCHEMA_NAME)).contains(RUNTIME_TABLE));
-        assertTrue(metadata.listTables(SESSION, Optional.of(HISTORY_SCHEMA_NAME)).contains(RUNTIME_HISTORY_TABLE));
+        assertTrue(metadata.listTables(SESSION, Optional.of(createNonDelimitedName(JMX_SCHEMA_NAME))).contains(RUNTIME_TABLE));
+        assertTrue(metadata.listTables(SESSION, Optional.of(createNonDelimitedName(HISTORY_SCHEMA_NAME))).contains(RUNTIME_HISTORY_TABLE));
     }
 
     @Test

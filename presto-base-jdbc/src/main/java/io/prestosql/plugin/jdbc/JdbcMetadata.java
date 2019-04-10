@@ -16,6 +16,7 @@ package io.prestosql.plugin.jdbc;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
+import io.prestosql.spi.Name;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
@@ -45,6 +46,7 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.base.Preconditions.checkState;
+import static io.prestosql.spi.Name.createNonDelimitedName;
 import static io.prestosql.spi.StandardErrorCode.PERMISSION_DENIED;
 import static java.util.Objects.requireNonNull;
 
@@ -63,15 +65,15 @@ public class JdbcMetadata
     }
 
     @Override
-    public boolean schemaExists(ConnectorSession session, String schemaName)
+    public boolean schemaExists(ConnectorSession session, Name schemaName)
     {
-        return jdbcClient.schemaExists(JdbcIdentity.from(session), schemaName);
+        return jdbcClient.schemaExists(JdbcIdentity.from(session), schemaName.getLegacyName());
     }
 
     @Override
-    public List<String> listSchemaNames(ConnectorSession session)
+    public List<Name> listSchemaNames(ConnectorSession session)
     {
-        return ImmutableList.copyOf(jdbcClient.getSchemaNames(JdbcIdentity.from(session)));
+        return ImmutableList.copyOf(jdbcClient.getSchemaNames(JdbcIdentity.from(session)).stream().map(Name::createNonDelimitedName).iterator());
     }
 
     @Override
@@ -108,19 +110,19 @@ public class JdbcMetadata
     }
 
     @Override
-    public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
+    public List<SchemaTableName> listTables(ConnectorSession session, Optional<Name> schemaName)
     {
-        return jdbcClient.getTableNames(JdbcIdentity.from(session), schemaName);
+        return jdbcClient.getTableNames(JdbcIdentity.from(session), schemaName.map(Name::getLegacyName));
     }
 
     @Override
-    public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
+    public Map<Name, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         JdbcTableHandle jdbcTableHandle = (JdbcTableHandle) tableHandle;
 
-        ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
+        ImmutableMap.Builder<Name, ColumnHandle> columnHandles = ImmutableMap.builder();
         for (JdbcColumnHandle column : jdbcClient.getColumns(session, jdbcTableHandle)) {
-            columnHandles.put(column.getColumnMetadata().getName(), column);
+            columnHandles.put(createNonDelimitedName(column.getColumnMetadata().getName()), column);
         }
         return columnHandles.build();
     }
@@ -230,11 +232,11 @@ public class JdbcMetadata
     }
 
     @Override
-    public void renameColumn(ConnectorSession session, ConnectorTableHandle table, ColumnHandle column, String target)
+    public void renameColumn(ConnectorSession session, ConnectorTableHandle table, ColumnHandle column, Name target)
     {
         JdbcTableHandle tableHandle = (JdbcTableHandle) table;
         JdbcColumnHandle columnHandle = (JdbcColumnHandle) column;
-        jdbcClient.renameColumn(JdbcIdentity.from(session), tableHandle, columnHandle, target);
+        jdbcClient.renameColumn(JdbcIdentity.from(session), tableHandle, columnHandle, target.getLegacyName());
     }
 
     @Override

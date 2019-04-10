@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import io.prestosql.spi.HostAddress;
+import io.prestosql.spi.Name;
 import io.prestosql.spi.Node;
 import io.prestosql.spi.NodeManager;
 import io.prestosql.spi.PrestoException;
@@ -56,6 +57,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static io.prestosql.spi.Name.createNonDelimitedName;
 import static io.prestosql.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.prestosql.spi.StandardErrorCode.NOT_FOUND;
 import static io.prestosql.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
@@ -71,7 +73,7 @@ public class MemoryMetadata
     public static final String SCHEMA_NAME = "default";
 
     private final NodeManager nodeManager;
-    private final List<String> schemas = new ArrayList<>();
+    private final List<Name> schemas = new ArrayList<>();
     private final AtomicLong nextTableId = new AtomicLong();
     private final Map<SchemaTableName, Long> tableIds = new HashMap<>();
     private final Map<Long, TableInfo> tables = new HashMap<>();
@@ -81,17 +83,17 @@ public class MemoryMetadata
     public MemoryMetadata(NodeManager nodeManager)
     {
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
-        this.schemas.add(SCHEMA_NAME);
+        this.schemas.add(createNonDelimitedName(SCHEMA_NAME));
     }
 
     @Override
-    public synchronized List<String> listSchemaNames(ConnectorSession session)
+    public synchronized List<Name> listSchemaNames(ConnectorSession session)
     {
         return ImmutableList.copyOf(schemas);
     }
 
     @Override
-    public synchronized void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties)
+    public synchronized void createSchema(ConnectorSession session, Name schemaName, Map<String, Object> properties)
     {
         if (schemas.contains(schemaName)) {
             throw new PrestoException(ALREADY_EXISTS, format("Schema [%s] already exists", schemaName));
@@ -100,14 +102,14 @@ public class MemoryMetadata
     }
 
     @Override
-    public synchronized void dropSchema(ConnectorSession session, String schemaName)
+    public synchronized void dropSchema(ConnectorSession session, Name schemaName)
     {
         if (!schemas.contains(schemaName)) {
             throw new PrestoException(NOT_FOUND, format("Schema [%s] does not exist", schemaName));
         }
 
         boolean tablesExist = tables.values().stream()
-                .anyMatch(table -> table.getSchemaName().equals(schemaName));
+                .anyMatch(table -> table.getSchemaName().equals(schemaName.getLegacyName()));
 
         if (tablesExist) {
             throw new PrestoException(SCHEMA_NOT_EMPTY, "Schema not empty: " + schemaName);
@@ -135,21 +137,21 @@ public class MemoryMetadata
     }
 
     @Override
-    public synchronized List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
+    public synchronized List<SchemaTableName> listTables(ConnectorSession session, Optional<Name> schemaName)
     {
         return tables.values().stream()
-                .filter(table -> schemaName.map(table.getSchemaName()::equals).orElse(true))
+                .filter(table -> schemaName.map(Name::getLegacyName).map(table.getSchemaName()::equals).orElse(true))
                 .map(TableInfo::getSchemaTableName)
                 .collect(toList());
     }
 
     @Override
-    public synchronized Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
+    public synchronized Map<Name, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         MemoryTableHandle handle = (MemoryTableHandle) tableHandle;
         return tables.get(handle.getId())
                 .getColumns().stream()
-                .collect(toMap(ColumnInfo::getName, ColumnInfo::getHandle));
+                .collect(toMap(columnInfo -> createNonDelimitedName(columnInfo.getName()), ColumnInfo::getHandle));
     }
 
     @Override
@@ -232,7 +234,7 @@ public class MemoryMetadata
 
     private void checkSchemaExists(String schemaName)
     {
-        if (!schemas.contains(schemaName)) {
+        if (!schemas.contains(createNonDelimitedName(schemaName))) {
             throw new SchemaNotFoundException(schemaName);
         }
     }
@@ -299,10 +301,10 @@ public class MemoryMetadata
     }
 
     @Override
-    public synchronized List<SchemaTableName> listViews(ConnectorSession session, Optional<String> schemaName)
+    public synchronized List<SchemaTableName> listViews(ConnectorSession session, Optional<Name> schemaName)
     {
         return views.keySet().stream()
-                .filter(viewName -> schemaName.map(viewName.getSchemaName()::equals).orElse(true))
+                .filter(viewName -> schemaName.map(Name::getLegacyName).map(viewName.getSchemaName()::equals).orElse(true))
                 .collect(toImmutableList());
     }
 

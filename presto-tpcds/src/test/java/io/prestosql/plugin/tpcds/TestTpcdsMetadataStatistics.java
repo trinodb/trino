@@ -17,6 +17,7 @@ package io.prestosql.plugin.tpcds;
 import com.teradata.tpcds.Table;
 import com.teradata.tpcds.column.CallCenterColumn;
 import com.teradata.tpcds.column.WebSiteColumn;
+import io.prestosql.spi.Name;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorTableHandle;
@@ -30,6 +31,7 @@ import org.testng.annotations.Test;
 import java.util.Map;
 import java.util.stream.Stream;
 
+import static io.prestosql.spi.Name.createNonDelimitedName;
 import static io.prestosql.spi.connector.Constraint.alwaysTrue;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -83,7 +85,7 @@ public class TestTpcdsMetadataStatistics
         estimateAssertion.assertClose(tableStatistics.getRowCount(), Estimate.of(6), "Row count does not match");
 
         // all columns have stats
-        Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle);
+        Map<Name, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle);
         for (ColumnHandle column : columnHandles.values()) {
             assertTrue(tableStatistics.getColumnStatistics().containsKey(column));
             assertNotNull(tableStatistics.getColumnStatistics().get(column));
@@ -91,7 +93,7 @@ public class TestTpcdsMetadataStatistics
 
         // identifier
         assertColumnStatistics(
-                tableStatistics.getColumnStatistics().get(columnHandles.get(CallCenterColumn.CC_CALL_CENTER_SK.getName())),
+                tableStatistics.getColumnStatistics().get(columnHandles.get(createNonDelimitedName(CallCenterColumn.CC_CALL_CENTER_SK.getName()))),
                 ColumnStatistics.builder()
                         .setNullsFraction(Estimate.of(0))
                         .setDistinctValuesCount(Estimate.of(6))
@@ -100,7 +102,7 @@ public class TestTpcdsMetadataStatistics
 
         // varchar
         assertColumnStatistics(
-                tableStatistics.getColumnStatistics().get(columnHandles.get(CallCenterColumn.CC_CALL_CENTER_ID.getName())),
+                tableStatistics.getColumnStatistics().get(columnHandles.get(createNonDelimitedName(CallCenterColumn.CC_CALL_CENTER_ID.getName()))),
                 ColumnStatistics.builder()
                         .setNullsFraction(Estimate.of(0))
                         .setDistinctValuesCount(Estimate.of(3))
@@ -109,7 +111,7 @@ public class TestTpcdsMetadataStatistics
 
         // char
         assertColumnStatistics(
-                tableStatistics.getColumnStatistics().get(columnHandles.get(CallCenterColumn.CC_ZIP.getName())),
+                tableStatistics.getColumnStatistics().get(columnHandles.get(createNonDelimitedName(CallCenterColumn.CC_ZIP.getName()))),
                 ColumnStatistics.builder()
                         .setNullsFraction(Estimate.of(0))
                         .setDistinctValuesCount(Estimate.of(1))
@@ -118,7 +120,7 @@ public class TestTpcdsMetadataStatistics
 
         // decimal
         assertColumnStatistics(
-                tableStatistics.getColumnStatistics().get(columnHandles.get(CallCenterColumn.CC_GMT_OFFSET.getName())),
+                tableStatistics.getColumnStatistics().get(columnHandles.get(createNonDelimitedName(CallCenterColumn.CC_GMT_OFFSET.getName()))),
                 ColumnStatistics.builder()
                         .setNullsFraction(Estimate.of(0))
                         .setDistinctValuesCount(Estimate.of(1))
@@ -127,7 +129,7 @@ public class TestTpcdsMetadataStatistics
 
         // date
         assertColumnStatistics(
-                tableStatistics.getColumnStatistics().get(columnHandles.get(CallCenterColumn.CC_REC_START_DATE.getName())),
+                tableStatistics.getColumnStatistics().get(columnHandles.get(createNonDelimitedName(CallCenterColumn.CC_REC_START_DATE.getName()))),
                 ColumnStatistics.builder()
                         .setNullsFraction(Estimate.of(0))
                         .setDistinctValuesCount(Estimate.of(4))
@@ -136,7 +138,7 @@ public class TestTpcdsMetadataStatistics
 
         // only null values
         assertColumnStatistics(
-                tableStatistics.getColumnStatistics().get(columnHandles.get(CallCenterColumn.CC_CLOSED_DATE_SK.getName())),
+                tableStatistics.getColumnStatistics().get(columnHandles.get(createNonDelimitedName(CallCenterColumn.CC_CLOSED_DATE_SK.getName()))),
                 ColumnStatistics.builder()
                         .setNullsFraction(Estimate.of(1))
                         .setDistinctValuesCount(Estimate.of(0))
@@ -150,11 +152,11 @@ public class TestTpcdsMetadataStatistics
         ConnectorTableHandle tableHandle = metadata.getTableHandle(session, schemaTableName);
         TableStatistics tableStatistics = metadata.getTableStatistics(session, tableHandle, alwaysTrue());
 
-        Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle);
+        Map<Name, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle);
 
         // some null values
         assertColumnStatistics(
-                tableStatistics.getColumnStatistics().get(columnHandles.get(WebSiteColumn.WEB_REC_END_DATE.getName())),
+                tableStatistics.getColumnStatistics().get(columnHandles.get(createNonDelimitedName(WebSiteColumn.WEB_REC_END_DATE.getName()))),
                 ColumnStatistics.builder()
                         .setNullsFraction(Estimate.of(0.5))
                         .setDistinctValuesCount(Estimate.of(3))

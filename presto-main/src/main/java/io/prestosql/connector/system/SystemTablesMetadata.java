@@ -16,6 +16,7 @@ package io.prestosql.connector.system;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.connector.CatalogName;
+import io.prestosql.spi.Name;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
@@ -38,8 +39,10 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.prestosql.connector.system.SystemColumnHandle.toSystemColumnHandles;
 import static io.prestosql.metadata.MetadataUtil.findColumnMetadata;
+import static io.prestosql.spi.Name.createNonDelimitedName;
 import static io.prestosql.spi.StandardErrorCode.NOT_FOUND;
 import static java.lang.String.format;
 import static java.util.Collections.singletonMap;
@@ -59,10 +62,10 @@ public class SystemTablesMetadata
     }
 
     @Override
-    public List<String> listSchemaNames(ConnectorSession session)
+    public List<Name> listSchemaNames(ConnectorSession session)
     {
         return tables.listSystemTables(session).stream()
-                .map(table -> table.getTableMetadata().getTable().getSchemaName())
+                .map(table -> createNonDelimitedName(table.getTableMetadata().getTable().getSchemaName()))
                 .distinct()
                 .collect(toImmutableList());
     }
@@ -98,12 +101,12 @@ public class SystemTablesMetadata
     }
 
     @Override
-    public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
+    public List<SchemaTableName> listTables(ConnectorSession session, Optional<Name> schemaName)
     {
         return tables.listSystemTables(session).stream()
                 .map(SystemTable::getTableMetadata)
                 .map(ConnectorTableMetadata::getTable)
-                .filter(table -> !schemaName.isPresent() || table.getSchemaName().equals(schemaName.get()))
+                .filter(table -> !schemaName.isPresent() || table.getSchemaName().equals(schemaName.get().getLegacyName()))
                 .collect(toImmutableList());
     }
 
@@ -120,10 +123,10 @@ public class SystemTablesMetadata
     }
 
     @Override
-    public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
+    public Map<Name, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         ConnectorTableMetadata tableMetadata = checkAndGetTable(session, tableHandle).getTableMetadata();
-        return toSystemColumnHandles(tableMetadata);
+        return toSystemColumnHandles(tableMetadata).entrySet().stream().collect(toImmutableMap(entry -> createNonDelimitedName(entry.getKey()), Map.Entry::getValue));
     }
 
     private SystemTable checkAndGetTable(ConnectorSession session, ConnectorTableHandle tableHandle)

@@ -18,6 +18,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
+import io.prestosql.spi.Name;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
@@ -56,7 +57,9 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.prestosql.spi.Name.createNonDelimitedName;
 import static io.prestosql.spi.StandardErrorCode.ALREADY_EXISTS;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public class TestingMetadata
@@ -66,12 +69,12 @@ public class TestingMetadata
     private final ConcurrentMap<SchemaTableName, String> views = new ConcurrentHashMap<>();
 
     @Override
-    public List<String> listSchemaNames(ConnectorSession session)
+    public List<Name> listSchemaNames(ConnectorSession session)
     {
-        Set<String> schemaNames = new HashSet<>();
+        Set<Name> schemaNames = new HashSet<>();
 
         for (SchemaTableName schemaTableName : tables.keySet()) {
-            schemaNames.add(schemaTableName.getSchemaName());
+            schemaNames.add(schemaTableName.getOriginalSchemaName());
         }
 
         return ImmutableList.copyOf(schemaNames);
@@ -116,12 +119,12 @@ public class TestingMetadata
     }
 
     @Override
-    public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
+    public Map<Name, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        ImmutableMap.Builder<String, ColumnHandle> builder = ImmutableMap.builder();
+        ImmutableMap.Builder<Name, ColumnHandle> builder = ImmutableMap.builder();
         int index = 0;
         for (ColumnMetadata columnMetadata : getTableMetadata(session, tableHandle).getColumns()) {
-            builder.put(columnMetadata.getName(), new TestingColumnHandle(columnMetadata.getName(), index, columnMetadata.getType()));
+            builder.put(createNonDelimitedName(columnMetadata.getName().toLowerCase(ENGLISH)), new TestingColumnHandle(columnMetadata.getName(), index, columnMetadata.getType()));
             index++;
         }
         return builder.build();
@@ -152,11 +155,11 @@ public class TestingMetadata
     }
 
     @Override
-    public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
+    public List<SchemaTableName> listTables(ConnectorSession session, Optional<Name> schemaName)
     {
         ImmutableList.Builder<SchemaTableName> builder = ImmutableList.builder();
         for (SchemaTableName tableName : tables.keySet()) {
-            if (schemaName.map(tableName.getSchemaName()::equals).orElse(true)) {
+            if (schemaName.map(Name::getLegacyName).map(tableName.getSchemaName()::equals).orElse(true)) {
                 builder.add(tableName);
             }
         }
@@ -209,7 +212,7 @@ public class TestingMetadata
     }
 
     @Override
-    public List<SchemaTableName> listViews(ConnectorSession session, Optional<String> schemaName)
+    public List<SchemaTableName> listViews(ConnectorSession session, Optional<Name> schemaName)
     {
         ImmutableList.Builder<SchemaTableName> builder = ImmutableList.builder();
         for (SchemaTableName viewName : views.keySet()) {
@@ -269,13 +272,13 @@ public class TestingMetadata
     }
 
     @Override
-    public void renameColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle source, String target)
+    public void renameColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle source, Name target)
     {
         ConnectorTableMetadata tableMetadata = getTableMetadata(session, tableHandle);
         SchemaTableName tableName = getTableName(tableHandle);
         ColumnMetadata columnMetadata = getColumnMetadata(session, tableHandle, source);
         List<ColumnMetadata> columns = new ArrayList<>(tableMetadata.getColumns());
-        columns.set(columns.indexOf(columnMetadata), new ColumnMetadata(target, columnMetadata.getType(), columnMetadata.getComment(), columnMetadata.isHidden()));
+        columns.set(columns.indexOf(columnMetadata), new ColumnMetadata(target.getLegacyName(), columnMetadata.getType(), columnMetadata.getComment(), columnMetadata.isHidden()));
         tables.put(tableName, new ConnectorTableMetadata(tableName, ImmutableList.copyOf(columns), tableMetadata.getProperties(), tableMetadata.getComment()));
     }
 

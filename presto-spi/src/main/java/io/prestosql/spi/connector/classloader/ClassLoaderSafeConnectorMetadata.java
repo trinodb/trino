@@ -14,6 +14,7 @@
 package io.prestosql.spi.connector.classloader;
 
 import io.airlift.slice.Slice;
+import io.prestosql.spi.Name;
 import io.prestosql.spi.classloader.ThreadContextClassLoader;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
@@ -153,7 +154,7 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
-    public boolean schemaExists(ConnectorSession session, String schemaName)
+    public boolean schemaExists(ConnectorSession session, Name schemaName)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             return delegate.schemaExists(session, schemaName);
@@ -161,7 +162,7 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
-    public List<String> listSchemaNames(ConnectorSession session)
+    public List<Name> listSchemaNames(ConnectorSession session)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             return delegate.listSchemaNames(session);
@@ -217,7 +218,7 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
-    public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
+    public List<SchemaTableName> listTables(ConnectorSession session, Optional<Name> schemaName)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             return delegate.listTables(session, schemaName);
@@ -225,7 +226,7 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
-    public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
+    public Map<Name, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             return delegate.getColumnHandles(session, tableHandle);
@@ -265,7 +266,7 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
-    public void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties)
+    public void createSchema(ConnectorSession session, Name schemaName, Map<String, Object> properties)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             delegate.createSchema(session, schemaName, properties);
@@ -273,7 +274,7 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
-    public void dropSchema(ConnectorSession session, String schemaName)
+    public void dropSchema(ConnectorSession session, Name schemaName)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             delegate.dropSchema(session, schemaName);
@@ -281,7 +282,7 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
-    public void renameSchema(ConnectorSession session, String source, String target)
+    public void renameSchema(ConnectorSession session, Name source, Name target)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             delegate.renameSchema(session, source, target);
@@ -305,7 +306,7 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
-    public void renameColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle source, String target)
+    public void renameColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle source, Name target)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             delegate.renameColumn(session, tableHandle, source, target);
@@ -401,7 +402,7 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
-    public List<SchemaTableName> listViews(ConnectorSession session, Optional<String> schemaName)
+    public List<SchemaTableName> listViews(ConnectorSession session, Optional<Name> schemaName)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             return delegate.listViews(session, schemaName);
@@ -465,7 +466,7 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
-    public void createRole(ConnectorSession session, String role, Optional<PrestoPrincipal> grantor)
+    public void createRole(ConnectorSession session, Name role, Optional<PrestoPrincipal> grantor)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             delegate.createRole(session, role, grantor);
@@ -473,7 +474,7 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
-    public void dropRole(ConnectorSession session, String role)
+    public void dropRole(ConnectorSession session, Name role)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             delegate.dropRole(session, role);
@@ -481,7 +482,7 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
-    public Set<String> listRoles(ConnectorSession session)
+    public Set<Name> listRoles(ConnectorSession session)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             return delegate.listRoles(session);
@@ -497,7 +498,7 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
-    public void grantRoles(ConnectorSession connectorSession, Set<String> roles, Set<PrestoPrincipal> grantees, boolean withAdminOption, Optional<PrestoPrincipal> grantor)
+    public void grantRoles(ConnectorSession connectorSession, Set<Name> roles, Set<PrestoPrincipal> grantees, boolean withAdminOption, Optional<PrestoPrincipal> grantor)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             delegate.grantRoles(connectorSession, roles, grantees, withAdminOption, grantor);
@@ -505,7 +506,7 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
-    public void revokeRoles(ConnectorSession connectorSession, Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOptionFor, Optional<PrestoPrincipal> grantor)
+    public void revokeRoles(ConnectorSession connectorSession, Set<Name> roles, Set<PrestoPrincipal> grantees, boolean adminOptionFor, Optional<PrestoPrincipal> grantor)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             delegate.revokeRoles(connectorSession, roles, grantees, adminOptionFor, grantor);
@@ -521,7 +522,7 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
-    public Set<String> listEnabledRoles(ConnectorSession session)
+    public Set<Name> listEnabledRoles(ConnectorSession session)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             return delegate.listEnabledRoles(session);

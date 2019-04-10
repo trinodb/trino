@@ -63,6 +63,7 @@ import static io.airlift.tpch.TpchTable.REGION;
 import static io.airlift.tpch.TpchTable.SUPPLIER;
 import static io.prestosql.plugin.tpch.TpchMetadata.getPrestoType;
 import static io.prestosql.plugin.tpch.util.PredicateUtils.filterOutColumnFromPredicate;
+import static io.prestosql.spi.Name.createNonDelimitedName;
 import static io.prestosql.spi.connector.Constraint.alwaysFalse;
 import static io.prestosql.spi.connector.Constraint.alwaysTrue;
 import static java.lang.String.format;
@@ -238,7 +239,7 @@ public class TestTpchMetadata
     {
         TpchTableHandle tableHandle = tpchMetadata.getTableHandle(session, new SchemaTableName(schema, table.getTableName()));
         TableStatistics tableStatistics = tpchMetadata.getTableStatistics(session, tableHandle, constraint);
-        ColumnHandle columnHandle = tpchMetadata.getColumnHandles(session, tableHandle).get(column.getSimplifiedColumnName());
+        ColumnHandle columnHandle = tpchMetadata.getColumnHandles(session, tableHandle).get(createNonDelimitedName(column.getSimplifiedColumnName()));
 
         ColumnStatistics actual = tableStatistics.getColumnStatistics().get(columnHandle);
 

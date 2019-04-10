@@ -25,6 +25,7 @@ import io.airlift.tpch.TpchTable;
 import io.prestosql.plugin.tpch.TpchMetadata;
 import io.prestosql.plugin.tpch.TpchRecordSetProvider;
 import io.prestosql.plugin.tpch.TpchTableHandle;
+import io.prestosql.spi.Name;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.RecordCursor;
 import io.prestosql.spi.connector.RecordSet;
@@ -64,7 +65,7 @@ public class TpchIndexedData
         for (TpchScaledTable table : tables) {
             SchemaTableName tableName = new SchemaTableName("sf" + table.getScaleFactor(), table.getTableName());
             TpchTableHandle tableHandle = tpchMetadata.getTableHandle(null, tableName);
-            Map<String, ColumnHandle> columnHandles = new LinkedHashMap<>(tpchMetadata.getColumnHandles(null, tableHandle));
+            Map<Name, ColumnHandle> columnHandles = new LinkedHashMap<>(tpchMetadata.getColumnHandles(null, tableHandle));
             for (Set<String> columnNames : tpchIndexSpec.getColumnIndexes(table)) {
                 List<String> keyColumnNames = ImmutableList.copyOf(columnNames); // Finalize the key order
                 Set<TpchScaledColumn> keyColumns = keyColumnNames.stream()
@@ -73,7 +74,7 @@ public class TpchIndexedData
 
                 TpchTable<?> tpchTable = TpchTable.getTable(table.getTableName());
                 RecordSet recordSet = tpchRecordSetProvider.getRecordSet(tpchTable, ImmutableList.copyOf(columnHandles.values()), table.getScaleFactor(), 0, 1, TupleDomain.all());
-                IndexedTable indexedTable = indexTable(recordSet, ImmutableList.copyOf(columnHandles.keySet()), keyColumnNames);
+                IndexedTable indexedTable = indexTable(recordSet, ImmutableList.copyOf(columnHandles.keySet().stream().map(Name::getLegacyName).iterator()), keyColumnNames);
                 indexedTablesBuilder.put(keyColumns, indexedTable);
             }
         }

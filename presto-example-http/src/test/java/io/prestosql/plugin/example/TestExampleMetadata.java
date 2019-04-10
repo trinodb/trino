@@ -29,6 +29,7 @@ import java.net.URL;
 import java.util.Optional;
 
 import static io.prestosql.plugin.example.MetadataUtil.CATALOG_CODEC;
+import static io.prestosql.spi.Name.createNonDelimitedName;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.prestosql.testing.TestingConnectorSession.SESSION;
@@ -56,7 +57,7 @@ public class TestExampleMetadata
     @Test
     public void testListSchemaNames()
     {
-        assertEquals(metadata.listSchemaNames(SESSION), ImmutableSet.of("example", "tpch"));
+        assertEquals(metadata.listSchemaNames(SESSION), ImmutableSet.of(createNonDelimitedName("example"), createNonDelimitedName("tpch")));
     }
 
     @Test
@@ -73,8 +74,8 @@ public class TestExampleMetadata
     {
         // known table
         assertEquals(metadata.getColumnHandles(SESSION, NUMBERS_TABLE_HANDLE), ImmutableMap.of(
-                "text", new ExampleColumnHandle("text", createUnboundedVarcharType(), 0),
-                "value", new ExampleColumnHandle("value", BIGINT, 1)));
+                createNonDelimitedName("text"), new ExampleColumnHandle("text", createUnboundedVarcharType(), 0),
+                createNonDelimitedName("value"), new ExampleColumnHandle("value", BIGINT, 1)));
 
         // unknown table
         try {
@@ -117,14 +118,14 @@ public class TestExampleMetadata
                 new SchemaTableName("tpch", "lineitem")));
 
         // specific schema
-        assertEquals(ImmutableSet.copyOf(metadata.listTables(SESSION, Optional.of("example"))), ImmutableSet.of(
+        assertEquals(ImmutableSet.copyOf(metadata.listTables(SESSION, Optional.of(createNonDelimitedName("example")))), ImmutableSet.of(
                 new SchemaTableName("example", "numbers")));
-        assertEquals(ImmutableSet.copyOf(metadata.listTables(SESSION, Optional.of("tpch"))), ImmutableSet.of(
+        assertEquals(ImmutableSet.copyOf(metadata.listTables(SESSION, Optional.of(createNonDelimitedName("tpch")))), ImmutableSet.of(
                 new SchemaTableName("tpch", "orders"),
                 new SchemaTableName("tpch", "lineitem")));
 
         // unknown schema
-        assertEquals(ImmutableSet.copyOf(metadata.listTables(SESSION, Optional.of("unknown"))), ImmutableSet.of());
+        assertEquals(ImmutableSet.copyOf(metadata.listTables(SESSION, Optional.of(createNonDelimitedName("unknown")))), ImmutableSet.of());
     }
 
     @Test

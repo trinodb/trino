@@ -57,9 +57,9 @@ public class SchemaTablePrefix
         this.tableName = Optional.of(checkNotEmpty(tableName, "tableName"));
     }
 
-    public Optional<String> getSchema()
+    public Optional<Name> getSchema()
     {
-        return schemaName.map(Name::getLegacyName);
+        return schemaName;
     }
 
     public Optional<String> getLegacySchema()
@@ -67,9 +67,9 @@ public class SchemaTablePrefix
         return schemaName.map(Name::getLegacyName);
     }
 
-    public Optional<String> getTable()
+    public Optional<Name> getTable()
     {
-        return tableName.map(Name::getLegacyName);
+        return tableName;
     }
 
     public Optional<String> getLegacyTable()

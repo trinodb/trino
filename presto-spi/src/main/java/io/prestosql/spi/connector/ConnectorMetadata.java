@@ -14,6 +14,7 @@
 package io.prestosql.spi.connector;
 
 import io.airlift.slice.Slice;
+import io.prestosql.spi.Name;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.security.GrantInfo;
@@ -47,7 +48,7 @@ public interface ConnectorMetadata
      * Checks if a schema exists. The connector may have schemas that exist
      * but are not enumerable via {@link #listSchemaNames}.
      */
-    default boolean schemaExists(ConnectorSession session, String schemaName)
+    default boolean schemaExists(ConnectorSession session, Name schemaName)
     {
         return listSchemaNames(session).contains(schemaName);
     }
@@ -55,7 +56,7 @@ public interface ConnectorMetadata
     /**
      * Returns the schemas provided by this connector.
      */
-    List<String> listSchemaNames(ConnectorSession session);
+    List<Name> listSchemaNames(ConnectorSession session);
 
     /**
      * Returns a table handle for the specified table name, or null if the connector does not contain the table.
@@ -162,7 +163,7 @@ public interface ConnectorMetadata
     /**
      * List table names, possibly filtered by schema. An empty list is returned if none match.
      */
-    default List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
+    default List<SchemaTableName> listTables(ConnectorSession session, Optional<Name> schemaName)
     {
         return emptyList();
     }
@@ -172,7 +173,7 @@ public interface ConnectorMetadata
      *
      * @throws RuntimeException if table handle is no longer valid
      */
-    Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle);
+    Map<Name, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle);
 
     /**
      * Gets the metadata for the specified table column.
@@ -197,7 +198,7 @@ public interface ConnectorMetadata
     /**
      * Creates a schema.
      */
-    default void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties)
+    default void createSchema(ConnectorSession session, Name schemaName, Map<String, Object> properties)
     {
         throw new PrestoException(NOT_SUPPORTED, "This connector does not support creating schemas");
     }
@@ -207,7 +208,7 @@ public interface ConnectorMetadata
      *
      * @throws PrestoException with {@code SCHEMA_NOT_EMPTY} if the schema is not empty
      */
-    default void dropSchema(ConnectorSession session, String schemaName)
+    default void dropSchema(ConnectorSession session, Name schemaName)
     {
         throw new PrestoException(NOT_SUPPORTED, "This connector does not support dropping schemas");
     }
@@ -215,7 +216,7 @@ public interface ConnectorMetadata
     /**
      * Renames the specified schema.
      */
-    default void renameSchema(ConnectorSession session, String source, String target)
+    default void renameSchema(ConnectorSession session, Name source, Name target)
     {
         throw new PrestoException(NOT_SUPPORTED, "This connector does not support renaming schemas");
     }
@@ -267,7 +268,7 @@ public interface ConnectorMetadata
     /**
      * Rename the specified column
      */
-    default void renameColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle source, String target)
+    default void renameColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle source, Name target)
     {
         throw new PrestoException(NOT_SUPPORTED, "This connector does not support renaming columns");
     }
@@ -297,7 +298,7 @@ public interface ConnectorMetadata
         return properties.getTablePartitioning()
                 .map(partitioning -> {
                     Map<ColumnHandle, String> columnNamesByHandle = getColumnHandles(session, tableHandle).entrySet().stream()
-                            .collect(Collectors.toMap(Map.Entry::getValue, Map.Entry::getKey));
+                            .collect(Collectors.toMap(Map.Entry::getValue, entry -> entry.getKey().getLegacyName()));
                     List<String> partitionColumns = partitioning.getPartitioningColumns().stream()
                             .map(columnNamesByHandle::get)
                             .collect(toList());
@@ -425,7 +426,7 @@ public interface ConnectorMetadata
         throw new PrestoException(NOT_SUPPORTED, "This connector does not support dropping views");
     }
 
-    default List<SchemaTableName> listViews(ConnectorSession session, Optional<String> schemaName)
+    default List<SchemaTableName> listViews(ConnectorSession session, Optional<Name> schemaName)
     {
         return emptyList();
     }
@@ -469,7 +470,7 @@ public interface ConnectorMetadata
      *
      * @param grantor represents the principal specified by WITH ADMIN statement
      */
-    default void createRole(ConnectorSession session, String role, Optional<PrestoPrincipal> grantor)
+    default void createRole(ConnectorSession session, Name role, Optional<PrestoPrincipal> grantor)
     {
         throw new PrestoException(NOT_SUPPORTED, "This connector does not support create role");
     }
@@ -477,7 +478,7 @@ public interface ConnectorMetadata
     /**
      * Drops the specified role.
      */
-    default void dropRole(ConnectorSession session, String role)
+    default void dropRole(ConnectorSession session, Name role)
     {
         throw new PrestoException(NOT_SUPPORTED, "This connector does not support drop role");
     }
@@ -485,7 +486,7 @@ public interface ConnectorMetadata
     /**
      * List available roles.
      */
-    default Set<String> listRoles(ConnectorSession session)
+    default Set<Name> listRoles(ConnectorSession session)
     {
         throw new PrestoException(NOT_SUPPORTED, "This connector does not support roles");
     }
@@ -503,7 +504,7 @@ public interface ConnectorMetadata
      *
      * @param grantor represents the principal specified by GRANTED BY statement
      */
-    default void grantRoles(ConnectorSession connectorSession, Set<String> roles, Set<PrestoPrincipal> grantees, boolean withAdminOption, Optional<PrestoPrincipal> grantor)
+    default void grantRoles(ConnectorSession connectorSession, Set<Name> roles, Set<PrestoPrincipal> grantees, boolean withAdminOption, Optional<PrestoPrincipal> grantor)
     {
         throw new PrestoException(NOT_SUPPORTED, "This connector does not support roles");
     }
@@ -513,7 +514,7 @@ public interface ConnectorMetadata
      *
      * @param grantor represents the principal specified by GRANTED BY statement
      */
-    default void revokeRoles(ConnectorSession connectorSession, Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOptionFor, Optional<PrestoPrincipal> grantor)
+    default void revokeRoles(ConnectorSession connectorSession, Set<Name> roles, Set<PrestoPrincipal> grantees, boolean adminOptionFor, Optional<PrestoPrincipal> grantor)
     {
         throw new PrestoException(NOT_SUPPORTED, "This connector does not support roles");
     }
@@ -529,7 +530,7 @@ public interface ConnectorMetadata
     /**
      * List applicable roles, including the transitive grants, in given session
      */
-    default Set<String> listEnabledRoles(ConnectorSession session)
+    default Set<Name> listEnabledRoles(ConnectorSession session)
     {
         throw new PrestoException(NOT_SUPPORTED, "This connector does not support roles");
     }

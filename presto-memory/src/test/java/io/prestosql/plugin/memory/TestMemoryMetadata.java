@@ -33,6 +33,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
+import static io.prestosql.spi.Name.createNonDelimitedName;
 import static io.prestosql.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.prestosql.spi.StandardErrorCode.NOT_FOUND;
 import static io.prestosql.testing.TestingConnectorSession.SESSION;
@@ -148,10 +149,10 @@ public class TestMemoryMetadata
     @Test
     public void testCreateSchema()
     {
-        assertEquals(metadata.listSchemaNames(SESSION), ImmutableList.of("default"));
-        metadata.createSchema(SESSION, "test", ImmutableMap.of());
-        assertEquals(metadata.listSchemaNames(SESSION), ImmutableList.of("default", "test"));
-        assertEquals(metadata.listTables(SESSION, Optional.of("test")), ImmutableList.of());
+        assertEquals(metadata.listSchemaNames(SESSION), ImmutableList.of(createNonDelimitedName("default")));
+        metadata.createSchema(SESSION, createNonDelimitedName("test"), ImmutableMap.of());
+        assertEquals(metadata.listSchemaNames(SESSION), ImmutableList.of(createNonDelimitedName("default"), createNonDelimitedName("test")));
+        assertEquals(metadata.listTables(SESSION, Optional.of(createNonDelimitedName("test"))), ImmutableList.of());
 
         SchemaTableName tableName = new SchemaTableName("test", "first_table");
         metadata.createTable(
@@ -163,15 +164,15 @@ public class TestMemoryMetadata
                 false);
 
         assertEquals(metadata.listTables(SESSION, Optional.empty()), ImmutableList.of(tableName));
-        assertEquals(metadata.listTables(SESSION, Optional.of("test")), ImmutableList.of(tableName));
-        assertEquals(metadata.listTables(SESSION, Optional.of("default")), ImmutableList.of());
+        assertEquals(metadata.listTables(SESSION, Optional.of(createNonDelimitedName("test"))), ImmutableList.of(tableName));
+        assertEquals(metadata.listTables(SESSION, Optional.of(createNonDelimitedName("default"))), ImmutableList.of());
     }
 
     @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "View already exists: test\\.test_view")
     public void testCreateViewWithoutReplace()
     {
         SchemaTableName test = new SchemaTableName("test", "test_view");
-        metadata.createSchema(SESSION, "test", ImmutableMap.of());
+        metadata.createSchema(SESSION, createNonDelimitedName("test"), ImmutableMap.of());
         try {
             metadata.createView(SESSION, test, "test", false);
         }
@@ -186,7 +187,7 @@ public class TestMemoryMetadata
     {
         SchemaTableName test = new SchemaTableName("test", "test_view");
 
-        metadata.createSchema(SESSION, "test", ImmutableMap.of());
+        metadata.createSchema(SESSION, createNonDelimitedName("test"), ImmutableMap.of());
         metadata.createView(SESSION, test, "aaa", true);
         metadata.createView(SESSION, test, "bbb", true);
 
@@ -200,14 +201,14 @@ public class TestMemoryMetadata
         SchemaTableName test2 = new SchemaTableName("test", "test_view2");
 
         // create schema
-        metadata.createSchema(SESSION, "test", ImmutableMap.of());
+        metadata.createSchema(SESSION, createNonDelimitedName("test"), ImmutableMap.of());
 
         // create views
         metadata.createView(SESSION, test1, "test1", false);
         metadata.createView(SESSION, test2, "test2", false);
 
         // verify listing
-        List<SchemaTableName> list = metadata.listViews(SESSION, Optional.of("test"));
+        List<SchemaTableName> list = metadata.listViews(SESSION, Optional.of(createNonDelimitedName("test")));
         assertEqualsIgnoreOrder(list, ImmutableList.of(test1, test2));
 
         // verify getting data
@@ -252,7 +253,7 @@ public class TestMemoryMetadata
     @Test
     public void testCreateTableAndViewInNotExistSchema()
     {
-        assertEquals(metadata.listSchemaNames(SESSION), ImmutableList.of("default"));
+        assertEquals(metadata.listSchemaNames(SESSION), ImmutableList.of(createNonDelimitedName("default")));
 
         SchemaTableName table1 = new SchemaTableName("test1", "test_schema_table1");
         try {
@@ -287,14 +288,14 @@ public class TestMemoryMetadata
         }
         assertEquals(metadata.getTableHandle(SESSION, view3), null);
 
-        assertEquals(metadata.listSchemaNames(SESSION), ImmutableList.of("default"));
+        assertEquals(metadata.listSchemaNames(SESSION), ImmutableList.of(createNonDelimitedName("default")));
     }
 
     @Test
     public void testRenameTable()
     {
         SchemaTableName tableName = new SchemaTableName("test_schema", "test_table_to_be_renamed");
-        metadata.createSchema(SESSION, "test_schema", ImmutableMap.of());
+        metadata.createSchema(SESSION, createNonDelimitedName("test_schema"), ImmutableMap.of());
         ConnectorOutputTableHandle table = metadata.beginCreateTable(
                 SESSION,
                 new ConnectorTableMetadata(tableName, ImmutableList.of(), ImmutableMap.of()),
@@ -310,14 +311,14 @@ public class TestMemoryMetadata
         // rename table to same schema
         SchemaTableName sameSchemaTableName = new SchemaTableName("test_schema", "test_renamed");
         metadata.renameTable(SESSION, metadata.getTableHandle(SESSION, tableName), sameSchemaTableName);
-        assertEquals(metadata.listTables(SESSION, Optional.of("test_schema")), ImmutableList.of(sameSchemaTableName));
+        assertEquals(metadata.listTables(SESSION, Optional.of(createNonDelimitedName("test_schema"))), ImmutableList.of(sameSchemaTableName));
 
         // rename table to different schema
-        metadata.createSchema(SESSION, "test_different_schema", ImmutableMap.of());
+        metadata.createSchema(SESSION, createNonDelimitedName("test_different_schema"), ImmutableMap.of());
         SchemaTableName differentSchemaTableName = new SchemaTableName("test_different_schema", "test_renamed");
         metadata.renameTable(SESSION, metadata.getTableHandle(SESSION, sameSchemaTableName), differentSchemaTableName);
-        assertEquals(metadata.listTables(SESSION, Optional.of("test_schema")), ImmutableList.of());
-        assertEquals(metadata.listTables(SESSION, Optional.of("test_different_schema")), ImmutableList.of(differentSchemaTableName));
+        assertEquals(metadata.listTables(SESSION, Optional.of(createNonDelimitedName("test_schema"))), ImmutableList.of());
+        assertEquals(metadata.listTables(SESSION, Optional.of(createNonDelimitedName("test_different_schema"))), ImmutableList.of(differentSchemaTableName));
     }
 
     private void assertNoTables()

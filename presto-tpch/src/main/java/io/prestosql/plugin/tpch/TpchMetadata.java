@@ -34,6 +34,7 @@ import io.prestosql.plugin.tpch.statistics.ColumnStatisticsData;
 import io.prestosql.plugin.tpch.statistics.StatisticsEstimator;
 import io.prestosql.plugin.tpch.statistics.TableStatisticsData;
 import io.prestosql.plugin.tpch.statistics.TableStatisticsDataRepository;
+import io.prestosql.spi.Name;
 import io.prestosql.spi.block.SortOrder;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
@@ -70,11 +71,13 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Maps.asMap;
 import static io.airlift.tpch.OrderColumn.ORDER_STATUS;
 import static io.prestosql.plugin.tpch.util.PredicateUtils.convertToPredicate;
 import static io.prestosql.plugin.tpch.util.PredicateUtils.filterOutColumnFromPredicate;
+import static io.prestosql.spi.Name.createNonDelimitedName;
 import static io.prestosql.spi.statistics.TableStatisticType.ROW_COUNT;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.DateType.DATE;
@@ -84,6 +87,7 @@ import static io.prestosql.spi.type.VarcharType.createVarcharType;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
@@ -94,8 +98,8 @@ public class TpchMetadata
     public static final String TINY_SCHEMA_NAME = "tiny";
     public static final double TINY_SCALE_FACTOR = 0.01;
 
-    public static final List<String> SCHEMA_NAMES = ImmutableList.of(
-            TINY_SCHEMA_NAME, "sf1", "sf100", "sf300", "sf1000", "sf3000", "sf10000", "sf30000", "sf100000");
+    public static final List<Name> SCHEMA_NAMES = ImmutableList.of(
+            TINY_SCHEMA_NAME, "sf1", "sf100", "sf300", "sf1000", "sf3000", "sf10000", "sf30000", "sf100000").stream().map(Name::createNonDelimitedName).collect(toImmutableList());
 
     public static final String ROW_NUMBER_COLUMN_NAME = "row_number";
 
@@ -153,7 +157,7 @@ public class TpchMetadata
     }
 
     @Override
-    public List<String> listSchemaNames(ConnectorSession session)
+    public List<Name> listSchemaNames(ConnectorSession session)
     {
         return SCHEMA_NAMES;
     }
@@ -196,10 +200,10 @@ public class TpchMetadata
 
         TupleDomain<ColumnHandle> predicate = TupleDomain.all();
         TupleDomain<ColumnHandle> unenforcedConstraint = constraint.getSummary();
-        Map<String, ColumnHandle> columns = getColumnHandles(session, tableHandle);
+        Map<Name, ColumnHandle> columns = getColumnHandles(session, tableHandle);
         if (tableHandle.getTableName().equals(TpchTable.ORDERS.getTableName())) {
             if (partitioningEnabled) {
-                ColumnHandle orderKeyColumn = columns.get(columnNaming.getName(OrderColumn.ORDER_KEY));
+                ColumnHandle orderKeyColumn = columns.get(createNonDelimitedName(columnNaming.getName(OrderColumn.ORDER_KEY)));
                 tablePartitioning = Optional.of(new ConnectorTablePartitioning(
                         new TpchPartitioningHandle(
                                 TpchTable.ORDERS.getTableName(),
@@ -226,7 +230,7 @@ public class TpchMetadata
         }
         else if (tableHandle.getTableName().equals(TpchTable.LINE_ITEM.getTableName())) {
             if (partitioningEnabled) {
-                ColumnHandle orderKeyColumn = columns.get(columnNaming.getName(LineItemColumn.ORDER_KEY));
+                ColumnHandle orderKeyColumn = columns.get(createNonDelimitedName(columnNaming.getName(LineItemColumn.ORDER_KEY)));
                 tablePartitioning = Optional.of(new ConnectorTablePartitioning(
                         new TpchPartitioningHandle(
                                 TpchTable.ORDERS.getTableName(),
@@ -235,7 +239,7 @@ public class TpchMetadata
                 partitioningColumns = Optional.of(ImmutableSet.of(orderKeyColumn));
                 localProperties = ImmutableList.of(
                         new SortingProperty<>(orderKeyColumn, SortOrder.ASC_NULLS_FIRST),
-                        new SortingProperty<>(columns.get(columnNaming.getName(LineItemColumn.LINE_NUMBER)), SortOrder.ASC_NULLS_FIRST));
+                        new SortingProperty<>(columns.get(createNonDelimitedName(columnNaming.getName(LineItemColumn.LINE_NUMBER))), SortOrder.ASC_NULLS_FIRST));
             }
         }
 
@@ -294,11 +298,11 @@ public class TpchMetadata
     }
 
     @Override
-    public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
+    public Map<Name, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        ImmutableMap.Builder<String, ColumnHandle> builder = ImmutableMap.builder();
+        ImmutableMap.Builder<Name, ColumnHandle> builder = ImmutableMap.builder();
         for (ColumnMetadata columnMetadata : getTableMetadata(session, tableHandle).getColumns()) {
-            builder.put(columnMetadata.getName(), new TpchColumnHandle(columnMetadata.getName(), columnMetadata.getType()));
+            builder.put(createNonDelimitedName(columnMetadata.getName().toLowerCase(ENGLISH)), new TpchColumnHandle(columnMetadata.getName(), columnMetadata.getType()));
         }
         return builder.build();
     }
@@ -307,11 +311,11 @@ public class TpchMetadata
     public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
     {
         ImmutableMap.Builder<SchemaTableName, List<ColumnMetadata>> tableColumns = ImmutableMap.builder();
-        for (String schemaName : getSchemaNames(session, prefix.getSchema())) {
+        for (Name schemaName : getSchemaNames(session, prefix.getSchema())) {
             for (TpchTable<?> tpchTable : TpchTable.getTables()) {
-                if (prefix.getTable().map(tpchTable.getTableName()::equals).orElse(true)) {
-                    ConnectorTableMetadata tableMetadata = getTableMetadata(schemaName, tpchTable, columnNaming);
-                    tableColumns.put(new SchemaTableName(schemaName, tpchTable.getTableName()), tableMetadata.getColumns());
+                if (prefix.getLegacyTable().map(tpchTable.getTableName()::equals).orElse(true)) {
+                    ConnectorTableMetadata tableMetadata = getTableMetadata(schemaName.getLegacyName(), tpchTable, columnNaming);
+                    tableColumns.put(new SchemaTableName(schemaName.getLegacyName(), tpchTable.getTableName()), tableMetadata.getColumns());
                 }
             }
         }
@@ -330,7 +334,7 @@ public class TpchMetadata
         }
         Optional<TableStatisticsData> optionalTableStatisticsData = statisticsEstimator.estimateStats(tpchTable, columnValuesRestrictions, tpchTableHandle.getScaleFactor());
 
-        Map<String, ColumnHandle> columnHandles = getColumnHandles(session, tpchTableHandle);
+        Map<Name, ColumnHandle> columnHandles = getColumnHandles(session, tpchTableHandle);
         return optionalTableStatisticsData
                 .map(tableStatisticsData -> toTableStatistics(optionalTableStatisticsData.get(), tpchTableHandle, columnHandles))
                 .orElse(TableStatistics.empty());
@@ -369,7 +373,7 @@ public class TpchMetadata
         }
     }
 
-    private TableStatistics toTableStatistics(TableStatisticsData tableStatisticsData, TpchTableHandle tpchTableHandle, Map<String, ColumnHandle> columnHandles)
+    private TableStatistics toTableStatistics(TableStatisticsData tableStatisticsData, TpchTableHandle tpchTableHandle, Map<Name, ColumnHandle> columnHandles)
     {
         TableStatistics.Builder builder = TableStatistics.builder()
                 .setRowCount(Estimate.of(tableStatisticsData.getRowCount()));
@@ -380,10 +384,10 @@ public class TpchMetadata
         return builder.build();
     }
 
-    private ColumnHandle getColumnHandle(TpchTableHandle tpchTableHandle, Map<String, ColumnHandle> columnHandles, String columnName)
+    private ColumnHandle getColumnHandle(TpchTableHandle tpchTableHandle, Map<Name, ColumnHandle> columnHandles, String columnName)
     {
         TpchTable<?> table = TpchTable.getTable(tpchTableHandle.getTableName());
-        return columnHandles.get(columnNaming.getName(table.getColumn(columnName)));
+        return columnHandles.get(createNonDelimitedName(columnNaming.getName(table.getColumn(columnName))));
     }
 
     private ColumnStatistics toColumnStatistics(ColumnStatisticsData stats, Type columnType)
@@ -460,12 +464,12 @@ public class TpchMetadata
     }
 
     @Override
-    public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> filterSchema)
+    public List<SchemaTableName> listTables(ConnectorSession session, Optional<Name> filterSchema)
     {
         ImmutableList.Builder<SchemaTableName> builder = ImmutableList.builder();
-        for (String schemaName : getSchemaNames(session, filterSchema)) {
+        for (Name schemaName : getSchemaNames(session, filterSchema)) {
             for (TpchTable<?> tpchTable : TpchTable.getTables()) {
-                builder.add(new SchemaTableName(schemaName, tpchTable.getTableName()));
+                builder.add(new SchemaTableName(schemaName.getLegacyName(), tpchTable.getTableName()));
             }
         }
         return builder.build();
@@ -483,12 +487,12 @@ public class TpchMetadata
                 })));
     }
 
-    private List<String> getSchemaNames(ConnectorSession session, Optional<String> schemaName)
+    private List<Name> getSchemaNames(ConnectorSession session, Optional<Name> schemaName)
     {
         if (!schemaName.isPresent()) {
             return listSchemaNames(session);
         }
-        if (schemaNameToScaleFactor(schemaName.get()) > 0) {
+        if (schemaNameToScaleFactor(schemaName.get().getLegacyName()) > 0) {
             return ImmutableList.of(schemaName.get());
         }
         return ImmutableList.of();

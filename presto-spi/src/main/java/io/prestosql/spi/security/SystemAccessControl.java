@@ -13,6 +13,7 @@
  */
 package io.prestosql.spi.security;
 
+import io.prestosql.spi.Name;
 import io.prestosql.spi.connector.CatalogSchemaName;
 import io.prestosql.spi.connector.CatalogSchemaTableName;
 import io.prestosql.spi.connector.ColumnMetadata;
@@ -56,7 +57,7 @@ public interface SystemAccessControl
      *
      * @throws AccessDeniedException if not allowed
      */
-    void checkCanSetUser(Optional<Principal> principal, String userName);
+    void checkCanSetUser(Optional<Principal> principal, Name userName);
 
     /**
      * Check if identity is allowed to set the specified system property.
@@ -70,7 +71,7 @@ public interface SystemAccessControl
      *
      * @throws AccessDeniedException if not allowed
      */
-    default void checkCanAccessCatalog(Identity identity, String catalogName)
+    default void checkCanAccessCatalog(Identity identity, Name catalogName)
     {
         denyCatalogAccess(catalogName);
     }
@@ -78,7 +79,7 @@ public interface SystemAccessControl
     /**
      * Filter the list of catalogs to those visible to the identity.
      */
-    default Set<String> filterCatalogs(Identity identity, Set<String> catalogs)
+    default Set<Name> filterCatalogs(Identity identity, Set<Name> catalogs)
     {
         return Collections.emptySet();
     }
@@ -90,7 +91,7 @@ public interface SystemAccessControl
      */
     default void checkCanCreateSchema(Identity identity, CatalogSchemaName schema)
     {
-        denyCreateSchema(schema.toString());
+        denyCreateSchema(schema.getSchemaName());
     }
 
     /**
@@ -100,7 +101,7 @@ public interface SystemAccessControl
      */
     default void checkCanDropSchema(Identity identity, CatalogSchemaName schema)
     {
-        denyDropSchema(schema.toString());
+        denyDropSchema(schema.getSchemaName());
     }
 
     /**
@@ -108,9 +109,9 @@ public interface SystemAccessControl
      *
      * @throws AccessDeniedException if not allowed
      */
-    default void checkCanRenameSchema(Identity identity, CatalogSchemaName schema, String newSchemaName)
+    default void checkCanRenameSchema(Identity identity, CatalogSchemaName schema, Name newSchemaName)
     {
-        denyRenameSchema(schema.toString(), newSchemaName);
+        denyRenameSchema(schema.getSchemaName(), newSchemaName);
     }
 
     /**
@@ -122,7 +123,7 @@ public interface SystemAccessControl
      *
      * @throws AccessDeniedException if not allowed
      */
-    default void checkCanShowSchemas(Identity identity, String catalogName)
+    default void checkCanShowSchemas(Identity identity, Name catalogName)
     {
         denyShowSchemas();
     }
@@ -130,7 +131,7 @@ public interface SystemAccessControl
     /**
      * Filter the list of schemas in a catalog to those visible to the identity.
      */
-    default Set<String> filterSchemas(Identity identity, String catalogName, Set<String> schemaNames)
+    default Set<Name> filterSchemas(Identity identity, Name catalogName, Set<Name> schemaNames)
     {
         return Collections.emptySet();
     }
@@ -192,7 +193,7 @@ public interface SystemAccessControl
     /**
      * Filter the list of tables and views to those visible to the identity.
      */
-    default Set<SchemaTableName> filterTables(Identity identity, String catalogName, Set<SchemaTableName> tableNames)
+    default Set<SchemaTableName> filterTables(Identity identity, Name catalogName, Set<SchemaTableName> tableNames)
     {
         return Collections.emptySet();
     }
@@ -254,7 +255,7 @@ public interface SystemAccessControl
      *
      * @throws AccessDeniedException if not allowed
      */
-    default void checkCanSelectFromColumns(Identity identity, CatalogSchemaTableName table, Set<String> columns)
+    default void checkCanSelectFromColumns(Identity identity, CatalogSchemaTableName table, Set<Name> columns)
     {
         denySelectColumns(table.toString(), columns);
     }
@@ -304,7 +305,7 @@ public interface SystemAccessControl
      *
      * @throws AccessDeniedException if not allowed
      */
-    default void checkCanCreateViewWithSelectFromColumns(Identity identity, CatalogSchemaTableName table, Set<String> columns)
+    default void checkCanCreateViewWithSelectFromColumns(Identity identity, CatalogSchemaTableName table, Set<Name> columns)
     {
         denyCreateViewWithSelect(table.toString(), identity);
     }
@@ -314,7 +315,7 @@ public interface SystemAccessControl
      *
      * @throws AccessDeniedException if not allowed
      */
-    default void checkCanSetCatalogSessionProperty(Identity identity, String catalogName, String propertyName)
+    default void checkCanSetCatalogSessionProperty(Identity identity, Name catalogName, String propertyName)
     {
         denySetCatalogSessionProperty(propertyName);
     }
@@ -344,7 +345,7 @@ public interface SystemAccessControl
      *
      * @throws AccessDeniedException if not allowed
      */
-    default void checkCanShowRoles(Identity identity, String catalogName)
+    default void checkCanShowRoles(Identity identity, Name catalogName)
     {
         denyShowRoles(catalogName);
     }

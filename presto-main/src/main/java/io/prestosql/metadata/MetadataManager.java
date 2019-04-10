@@ -83,7 +83,6 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
@@ -94,7 +93,6 @@ import java.util.concurrent.ConcurrentMap;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.prestosql.metadata.QualifiedObjectName.convertFromSchemaTableName;
 import static io.prestosql.metadata.ViewDefinition.ViewColumn;
 import static io.prestosql.spi.Name.createNonDelimitedName;
@@ -113,7 +111,6 @@ import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static java.lang.String.format;
-import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public class MetadataManager
@@ -292,7 +289,7 @@ public class MetadataManager
         ConnectorSession connectorSession = session.toConnectorSession(catalogMetadata.getCatalogName());
         return catalogMetadata.listConnectorIds().stream()
                 .map(catalogMetadata::getMetadataFor)
-                .anyMatch(metadata -> metadata.schemaExists(connectorSession, schema.getSchemaName().getLegacyName()));
+                .anyMatch(metadata -> metadata.schemaExists(connectorSession, schema.getSchemaName()));
     }
 
     @Override
@@ -312,9 +309,7 @@ public class MetadataManager
             ConnectorSession connectorSession = session.toConnectorSession(catalogMetadata.getCatalogName());
             for (CatalogName connectorId : catalogMetadata.listConnectorIds()) {
                 ConnectorMetadata metadata = catalogMetadata.getMetadataFor(connectorId);
-                metadata.listSchemaNames(connectorSession).stream()
-                        .map(schema -> schema.toLowerCase(Locale.ENGLISH))
-                        .map(Name::createNonDelimitedName)
+                metadata.listSchemaNames(connectorSession)
                         .forEach(schemaNames::add);
             }
         }
@@ -516,13 +511,7 @@ public class MetadataManager
     {
         CatalogName catalogName = tableHandle.getCatalogName();
         ConnectorMetadata metadata = getMetadata(session, catalogName);
-        Map<String, ColumnHandle> handles = metadata.getColumnHandles(session.toConnectorSession(catalogName), tableHandle.getConnectorHandle());
-
-        ImmutableMap.Builder<Name, ColumnHandle> map = ImmutableMap.builder();
-        for (Entry<String, ColumnHandle> mapEntry : handles.entrySet()) {
-            map.put(createNonDelimitedName(mapEntry.getKey().toLowerCase(ENGLISH)), mapEntry.getValue());
-        }
-        return map.build();
+        return ImmutableMap.copyOf(metadata.getColumnHandles(session.toConnectorSession(catalogName), tableHandle.getConnectorHandle()));
     }
 
     @Override
@@ -549,7 +538,7 @@ public class MetadataManager
             for (CatalogName catalogName : catalogMetadata.listConnectorIds()) {
                 ConnectorMetadata metadata = catalogMetadata.getMetadataFor(catalogName);
                 ConnectorSession connectorSession = session.toConnectorSession(catalogName);
-                metadata.listTables(connectorSession, prefix.getSchemaName().map(Name::getLegacyName)).stream()
+                metadata.listTables(connectorSession, prefix.getSchemaName()).stream()
                         .map(convertFromSchemaTableName(prefix.getCatalogName()))
                         .filter(prefix::matches)
                         .forEach(tables::add);
@@ -606,7 +595,7 @@ public class MetadataManager
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, schema.getCatalogName());
         CatalogName catalogName = catalogMetadata.getCatalogName();
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
-        metadata.createSchema(session.toConnectorSession(catalogName), schema.getSchemaName().getLegacyName(), properties);
+        metadata.createSchema(session.toConnectorSession(catalogName), schema.getSchemaName(), properties);
     }
 
     @Override
@@ -615,7 +604,7 @@ public class MetadataManager
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, schema.getCatalogName());
         CatalogName catalogName = catalogMetadata.getCatalogName();
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
-        metadata.dropSchema(session.toConnectorSession(catalogName), schema.getSchemaName().getLegacyName());
+        metadata.dropSchema(session.toConnectorSession(catalogName), schema.getSchemaName());
     }
 
     @Override
@@ -624,7 +613,7 @@ public class MetadataManager
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, source.getCatalogName());
         CatalogName catalogName = catalogMetadata.getCatalogName();
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
-        metadata.renameSchema(session.toConnectorSession(catalogName), source.getSchemaName().getLegacyName(), target.getLegacyName());
+        metadata.renameSchema(session.toConnectorSession(catalogName), source.getSchemaName(), target);
     }
 
     @Override
@@ -663,7 +652,7 @@ public class MetadataManager
     {
         CatalogName catalogName = tableHandle.getCatalogName();
         ConnectorMetadata metadata = getMetadataForWrite(session, catalogName);
-        metadata.renameColumn(session.toConnectorSession(catalogName), tableHandle.getConnectorHandle(), source, target.getLegacyName());
+        metadata.renameColumn(session.toConnectorSession(catalogName), tableHandle.getConnectorHandle(), source, target);
     }
 
     @Override
@@ -897,7 +886,7 @@ public class MetadataManager
             for (CatalogName catalogName : catalogMetadata.listConnectorIds()) {
                 ConnectorMetadata metadata = catalogMetadata.getMetadataFor(catalogName);
                 ConnectorSession connectorSession = session.toConnectorSession(catalogName);
-                metadata.listViews(connectorSession, prefix.getSchemaName().map(Name::getLegacyName)).stream()
+                metadata.listViews(connectorSession, prefix.getSchemaName()).stream()
                         .map(convertFromSchemaTableName(prefix.getCatalogName()))
                         .filter(prefix::matches)
                         .forEach(views::add);
@@ -996,7 +985,7 @@ public class MetadataManager
         CatalogName catalogName = catalogMetadata.getCatalogName();
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
 
-        metadata.createRole(session.toConnectorSession(catalogName), role.getName(), grantor);
+        metadata.createRole(session.toConnectorSession(catalogName), role, grantor);
     }
 
     @Override
@@ -1006,7 +995,7 @@ public class MetadataManager
         CatalogName catalogName = catalogMetadata.getCatalogName();
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
 
-        metadata.dropRole(session.toConnectorSession(catalogName), role.getName());
+        metadata.dropRole(session.toConnectorSession(catalogName), role);
     }
 
     @Override
@@ -1019,10 +1008,7 @@ public class MetadataManager
         CatalogName catalogName = catalogMetadata.get().getCatalogName();
         ConnectorSession connectorSession = session.toConnectorSession(catalogName);
         ConnectorMetadata metadata = catalogMetadata.get().getMetadataFor(catalogName);
-        return metadata.listRoles(connectorSession).stream()
-                .map(role -> role.toLowerCase(ENGLISH))
-                .map(Name::createNonDelimitedName)
-                .collect(toImmutableSet());
+        return ImmutableSet.copyOf(metadata.listRoles(connectorSession));
     }
 
     @Override
@@ -1045,7 +1031,7 @@ public class MetadataManager
         CatalogName catalogName = catalogMetadata.getCatalogName();
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
 
-        metadata.grantRoles(session.toConnectorSession(catalogName), roles.stream().map(Name::getName).collect(toImmutableSet()), grantees, withAdminOption, grantor);
+        metadata.grantRoles(session.toConnectorSession(catalogName), roles, grantees, withAdminOption, grantor);
     }
 
     @Override
@@ -1055,7 +1041,7 @@ public class MetadataManager
         CatalogName catalogName = catalogMetadata.getCatalogName();
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
 
-        metadata.revokeRoles(session.toConnectorSession(catalogName), roles.stream().map(Name::getName).collect(toImmutableSet()), grantees, adminOptionFor, grantor);
+        metadata.revokeRoles(session.toConnectorSession(catalogName), roles, grantees, adminOptionFor, grantor);
     }
 
     @Override
@@ -1081,7 +1067,7 @@ public class MetadataManager
         CatalogName catalogName = catalogMetadata.get().getCatalogName();
         ConnectorSession connectorSession = session.toConnectorSession(catalogName);
         ConnectorMetadata metadata = catalogMetadata.get().getMetadataFor(catalogName);
-        return ImmutableSet.copyOf(metadata.listEnabledRoles(connectorSession).stream().map(Name::createNonDelimitedName).iterator());
+        return ImmutableSet.copyOf(metadata.listEnabledRoles(connectorSession));
     }
 
     @Override

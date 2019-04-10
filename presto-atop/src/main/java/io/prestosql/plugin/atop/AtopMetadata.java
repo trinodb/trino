@@ -16,6 +16,7 @@ package io.prestosql.plugin.atop;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.plugin.atop.AtopTable.AtopColumn;
+import io.prestosql.spi.Name;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ColumnNotFoundException;
@@ -43,7 +44,9 @@ import java.util.stream.Stream;
 
 import static io.prestosql.plugin.atop.AtopTable.AtopColumn.END_TIME;
 import static io.prestosql.plugin.atop.AtopTable.AtopColumn.START_TIME;
+import static io.prestosql.spi.Name.createNonDelimitedName;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public class AtopMetadata
@@ -58,13 +61,13 @@ public class AtopMetadata
     public AtopMetadata(TypeManager typeManager, Environment environment)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
-        this.environment = requireNonNull(environment, "environment is null").toString();
+        this.environment = requireNonNull(environment, "environment is null").toString().toLowerCase(ENGLISH);
     }
 
     @Override
-    public List<String> listSchemaNames(ConnectorSession session)
+    public List<Name> listSchemaNames(ConnectorSession session)
     {
-        return ImmutableList.of("default", environment);
+        return ImmutableList.of(createNonDelimitedName("default"), createNonDelimitedName(environment));
     }
 
     @Override
@@ -72,13 +75,13 @@ public class AtopMetadata
     {
         requireNonNull(tableName, "tableName is null");
 
-        String schemaName = tableName.getSchemaName();
+        Name schemaName = tableName.getOriginalSchemaName();
         if (!listSchemaNames(session).contains(schemaName)) {
             return null;
         }
         try {
             AtopTable table = AtopTable.valueOf(tableName.getTableName().toUpperCase());
-            return new AtopTableHandle(schemaName, table);
+            return new AtopTableHandle(schemaName.getLegacyName(), table);
         }
         catch (IllegalArgumentException e) {
             return null;
@@ -127,7 +130,7 @@ public class AtopMetadata
     }
 
     @Override
-    public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
+    public List<SchemaTableName> listTables(ConnectorSession session, Optional<Name> schemaName)
     {
         if (!schemaName.isPresent()) {
             return Stream.of(AtopTable.values())
@@ -138,17 +141,17 @@ public class AtopMetadata
             return ImmutableList.of();
         }
         return Stream.of(AtopTable.values())
-                .map(table -> new SchemaTableName(schemaName.get(), table.getName()))
+                .map(table -> new SchemaTableName(schemaName.get().getLegacyName(), table.getName()))
                 .collect(Collectors.toList());
     }
 
     @Override
-    public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
+    public Map<Name, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         AtopTableHandle atopTableHandle = (AtopTableHandle) tableHandle;
-        ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
+        ImmutableMap.Builder<Name, ColumnHandle> columnHandles = ImmutableMap.builder();
         for (AtopColumn column : atopTableHandle.getTable().getColumns()) {
-            columnHandles.put(column.getName(), new AtopColumnHandle(column.getName()));
+            columnHandles.put(createNonDelimitedName(column.getName().toLowerCase(ENGLISH)), new AtopColumnHandle(column.getName()));
         }
         return columnHandles.build();
     }

@@ -20,6 +20,7 @@ import com.teradata.tpcds.Table;
 import com.teradata.tpcds.column.Column;
 import com.teradata.tpcds.column.ColumnType;
 import io.prestosql.plugin.tpcds.statistics.TpcdsTableStatisticsFactory;
+import io.prestosql.spi.Name;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorMetadata;
@@ -45,6 +46,9 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static io.prestosql.spi.Name.createNonDelimitedName;
 import static io.prestosql.spi.type.CharType.createCharType;
 import static io.prestosql.spi.type.DecimalType.createDecimalType;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
@@ -58,8 +62,8 @@ public class TpcdsMetadata
     public static final String TINY_SCHEMA_NAME = "tiny";
     public static final double TINY_SCALE_FACTOR = 0.01;
 
-    public static final List<String> SCHEMA_NAMES = ImmutableList.of(
-            TINY_SCHEMA_NAME, "sf1", "sf10", "sf100", "sf300", "sf1000", "sf3000", "sf10000", "sf30000", "sf100000");
+    public static final List<Name> SCHEMA_NAMES = ImmutableList.of(
+            TINY_SCHEMA_NAME, "sf1", "sf10", "sf100", "sf300", "sf1000", "sf3000", "sf10000", "sf30000", "sf100000").stream().map(Name::createNonDelimitedName).collect(toImmutableList());
 
     private final Set<String> tableNames;
     private final TpcdsTableStatisticsFactory tpcdsTableStatisticsFactory = new TpcdsTableStatisticsFactory();
@@ -74,7 +78,7 @@ public class TpcdsMetadata
     }
 
     @Override
-    public List<String> listSchemaNames(ConnectorSession session)
+    public List<Name> listSchemaNames(ConnectorSession session)
     {
         return SCHEMA_NAMES;
     }
@@ -155,15 +159,15 @@ public class TpcdsMetadata
         Table table = Table.getTable(tpcdsTableHandle.getTableName());
         String schemaName = scaleFactorSchemaName(tpcdsTableHandle.getScaleFactor());
 
-        return tpcdsTableStatisticsFactory.create(schemaName, table, getColumnHandles(session, tableHandle));
+        return tpcdsTableStatisticsFactory.create(schemaName, table, getColumnHandles(session, tableHandle).entrySet().stream().collect(toImmutableMap(entry -> entry.getKey().getLegacyName(), Map.Entry::getValue)));
     }
 
     @Override
-    public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
+    public Map<Name, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        ImmutableMap.Builder<String, ColumnHandle> builder = ImmutableMap.builder();
+        ImmutableMap.Builder<Name, ColumnHandle> builder = ImmutableMap.builder();
         for (ColumnMetadata columnMetadata : getTableMetadata(session, tableHandle).getColumns()) {
-            builder.put(columnMetadata.getName(), new TpcdsColumnHandle(columnMetadata.getName(), columnMetadata.getType()));
+            builder.put(createNonDelimitedName(columnMetadata.getName().toLowerCase(ENGLISH)), new TpcdsColumnHandle(columnMetadata.getName(), columnMetadata.getType()));
         }
         return builder.build();
     }
@@ -186,11 +190,11 @@ public class TpcdsMetadata
     public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
     {
         ImmutableMap.Builder<SchemaTableName, List<ColumnMetadata>> tableColumns = ImmutableMap.builder();
-        for (String schemaName : getSchemaNames(session, prefix.getSchema())) {
+        for (Name schemaName : getSchemaNames(session, prefix.getSchema())) {
             for (Table tpcdsTable : Table.getBaseTables()) {
                 if (prefix.getTable().map(tpcdsTable.getName()::equals).orElse(true)) {
-                    ConnectorTableMetadata tableMetadata = getTableMetadata(schemaName, tpcdsTable);
-                    tableColumns.put(new SchemaTableName(schemaName, tpcdsTable.getName()), tableMetadata.getColumns());
+                    ConnectorTableMetadata tableMetadata = getTableMetadata(schemaName.getLegacyName(), tpcdsTable);
+                    tableColumns.put(new SchemaTableName(schemaName.getLegacyName(), tpcdsTable.getName()), tableMetadata.getColumns());
                 }
             }
         }
@@ -198,23 +202,23 @@ public class TpcdsMetadata
     }
 
     @Override
-    public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> filterSchema)
+    public List<SchemaTableName> listTables(ConnectorSession session, Optional<Name> filterSchema)
     {
         ImmutableList.Builder<SchemaTableName> builder = ImmutableList.builder();
-        for (String schemaName : getSchemaNames(session, filterSchema)) {
+        for (Name schemaName : getSchemaNames(session, filterSchema)) {
             for (Table tpcdsTable : Table.getBaseTables()) {
-                builder.add(new SchemaTableName(schemaName, tpcdsTable.getName()));
+                builder.add(new SchemaTableName(schemaName.getLegacyName(), tpcdsTable.getName()));
             }
         }
         return builder.build();
     }
 
-    private List<String> getSchemaNames(ConnectorSession session, Optional<String> schemaName)
+    private List<Name> getSchemaNames(ConnectorSession session, Optional<Name> schemaName)
     {
         if (!schemaName.isPresent()) {
             return listSchemaNames(session);
         }
-        if (schemaNameToScaleFactor(schemaName.get()) > 0) {
+        if (schemaNameToScaleFactor(schemaName.get().getLegacyName()) > 0) {
             return ImmutableList.of(schemaName.get());
         }
         return ImmutableList.of();

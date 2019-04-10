@@ -16,6 +16,7 @@ package io.prestosql.connector.system;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.prestosql.spi.Name;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorMetadata;
@@ -75,7 +76,7 @@ public class GlobalSystemConnector
         return new ConnectorMetadata()
         {
             @Override
-            public List<String> listSchemaNames(ConnectorSession session)
+            public List<Name> listSchemaNames(ConnectorSession session)
             {
                 return ImmutableList.of();
             }
@@ -105,13 +106,13 @@ public class GlobalSystemConnector
             }
 
             @Override
-            public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
+            public List<SchemaTableName> listTables(ConnectorSession session, Optional<Name> schemaName)
             {
                 return ImmutableList.of();
             }
 
             @Override
-            public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
+            public Map<Name, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
             {
                 throw new UnsupportedOperationException();
             }

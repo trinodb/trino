@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.prestosql.decoder.dummy.DummyRowDecoder;
+import io.prestosql.spi.Name;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorMetadata;
@@ -47,6 +48,7 @@ import java.util.stream.Collectors;
 import static io.prestosql.plugin.redis.RedisHandleResolver.convertColumnHandle;
 import static io.prestosql.plugin.redis.RedisHandleResolver.convertLayout;
 import static io.prestosql.plugin.redis.RedisHandleResolver.convertTableHandle;
+import static io.prestosql.spi.Name.createNonDelimitedName;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -77,10 +79,10 @@ public class RedisMetadata
     }
 
     @Override
-    public List<String> listSchemaNames(ConnectorSession session)
+    public List<Name> listSchemaNames(ConnectorSession session)
     {
-        Set<String> schemas = getDefinedTables().keySet().stream()
-                .map(SchemaTableName::getSchemaName)
+        Set<Name> schemas = getDefinedTables().keySet().stream()
+                .map(SchemaTableName::getOriginalSchemaName)
                 .collect(Collectors.toCollection(LinkedHashSet::new));
 
         return ImmutableList.copyOf(schemas);
@@ -89,7 +91,7 @@ public class RedisMetadata
     @Override
     public RedisTableHandle getTableHandle(ConnectorSession session, SchemaTableName schemaTableName)
     {
-        RedisTableDescription table = getDefinedTables().get(schemaTableName);
+        RedisTableDescription table = getDefinedTables().get(new SchemaTableName(schemaTableName.getLegacySchemaName(), schemaTableName.getLegacyTableName()));
         if (table == null) {
             return null;
         }
@@ -151,11 +153,11 @@ public class RedisMetadata
     }
 
     @Override
-    public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
+    public List<SchemaTableName> listTables(ConnectorSession session, Optional<Name> schemaName)
     {
         ImmutableList.Builder<SchemaTableName> builder = ImmutableList.builder();
         for (SchemaTableName tableName : getDefinedTables().keySet()) {
-            if (schemaName.map(tableName.getSchemaName()::equals).orElse(true)) {
+            if (schemaName.map(Name::getLegacyName).map(tableName.getSchemaName()::equals).orElse(true)) {
                 builder.add(tableName);
             }
         }
@@ -164,7 +166,7 @@ public class RedisMetadata
     }
 
     @Override
-    public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
+    public Map<Name, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         RedisTableHandle redisTableHandle = convertTableHandle(tableHandle);
 
@@ -173,7 +175,7 @@ public class RedisMetadata
             throw new TableNotFoundException(redisTableHandle.toSchemaTableName());
         }
 
-        ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
+        ImmutableMap.Builder<Name, ColumnHandle> columnHandles = ImmutableMap.builder();
 
         int index = 0;
         RedisTableFieldGroup key = redisTableDescription.getKey();
@@ -181,7 +183,7 @@ public class RedisMetadata
             List<RedisTableFieldDescription> fields = key.getFields();
             if (fields != null) {
                 for (RedisTableFieldDescription field : fields) {
-                    columnHandles.put(field.getName(), field.getColumnHandle(true, index));
+                    columnHandles.put(createNonDelimitedName(field.getName()), field.getColumnHandle(true, index));
                     index++;
                 }
             }
@@ -192,14 +194,14 @@ public class RedisMetadata
             List<RedisTableFieldDescription> fields = value.getFields();
             if (fields != null) {
                 for (RedisTableFieldDescription field : fields) {
-                    columnHandles.put(field.getName(), field.getColumnHandle(false, index));
+                    columnHandles.put(createNonDelimitedName(field.getName()), field.getColumnHandle(false, index));
                     index++;
                 }
             }
         }
 
         for (RedisInternalFieldDescription field : RedisInternalFieldDescription.values()) {
-            columnHandles.put(field.getColumnName(), field.getColumnHandle(index, hideInternalColumns));
+            columnHandles.put(createNonDelimitedName(field.getColumnName()), field.getColumnHandle(index, hideInternalColumns));
             index++;
         }
 

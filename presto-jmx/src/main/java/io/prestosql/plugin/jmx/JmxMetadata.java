@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Streams;
+import io.prestosql.spi.Name;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorMetadata;
@@ -54,6 +55,7 @@ import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static io.prestosql.spi.Name.createNonDelimitedName;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
@@ -85,9 +87,9 @@ public class JmxMetadata
     }
 
     @Override
-    public List<String> listSchemaNames(ConnectorSession session)
+    public List<Name> listSchemaNames(ConnectorSession session)
     {
-        return ImmutableList.of(JMX_SCHEMA_NAME, HISTORY_SCHEMA_NAME);
+        return ImmutableList.of(JMX_SCHEMA_NAME, HISTORY_SCHEMA_NAME).stream().map(Name::createNonDelimitedName).collect(toImmutableList());
     }
 
     @Override
@@ -178,16 +180,16 @@ public class JmxMetadata
     }
 
     @Override
-    public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
+    public List<SchemaTableName> listTables(ConnectorSession session, Optional<Name> schemaName)
     {
-        Set<String> schemaNames = schemaName.map(ImmutableSet::of)
+        Set<Name> schemaNames = schemaName.map(ImmutableSet::of)
                 .orElseGet(() -> ImmutableSet.copyOf(listSchemaNames(session)));
         ImmutableList.Builder<SchemaTableName> schemaTableNames = ImmutableList.builder();
-        for (String schema : schemaNames) {
-            if (JMX_SCHEMA_NAME.equals(schema)) {
+        for (Name schema : schemaNames) {
+            if (JMX_SCHEMA_NAME.equals(schema.getLegacyName())) {
                 return listJmxTables();
             }
-            else if (HISTORY_SCHEMA_NAME.equals(schema)) {
+            else if (HISTORY_SCHEMA_NAME.equals(schema.getLegacyName())) {
                 return jmxHistoricalData.getTables().stream()
                         .map(tableName -> new SchemaTableName(JmxMetadata.HISTORY_SCHEMA_NAME, tableName))
                         .collect(toList());
@@ -207,10 +209,10 @@ public class JmxMetadata
     }
 
     @Override
-    public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
+    public Map<Name, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         JmxTableHandle jmxTableHandle = (JmxTableHandle) tableHandle;
-        return ImmutableMap.copyOf(Maps.uniqueIndex(jmxTableHandle.getColumnHandles(), column -> column.getColumnName().toLowerCase(ENGLISH)));
+        return ImmutableMap.copyOf(Maps.uniqueIndex(jmxTableHandle.getColumnHandles(), column -> createNonDelimitedName(column.getColumnName().toLowerCase(ENGLISH))));
     }
 
     @Override

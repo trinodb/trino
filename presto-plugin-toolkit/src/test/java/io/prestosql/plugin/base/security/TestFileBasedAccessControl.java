@@ -25,6 +25,7 @@ import org.testng.annotations.Test;
 import java.io.IOException;
 import java.util.Optional;
 
+import static io.prestosql.spi.Name.createNonDelimitedName;
 import static io.prestosql.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertThrows;
@@ -51,7 +52,7 @@ public class TestFileBasedAccessControl
         ConnectorAccessControl accessControl = createAccessControl("table.json");
         accessControl.checkCanSelectFromColumns(TRANSACTION_HANDLE, user("alice"), new SchemaTableName("test", "test"), ImmutableSet.of());
         accessControl.checkCanSelectFromColumns(TRANSACTION_HANDLE, user("alice"), new SchemaTableName("bobschema", "bobtable"), ImmutableSet.of());
-        accessControl.checkCanSelectFromColumns(TRANSACTION_HANDLE, user("alice"), new SchemaTableName("bobschema", "bobtable"), ImmutableSet.of("bobcolumn"));
+        accessControl.checkCanSelectFromColumns(TRANSACTION_HANDLE, user("alice"), new SchemaTableName("bobschema", "bobtable"), ImmutableSet.of(createNonDelimitedName("bobcolumn")));
         accessControl.checkCanSelectFromColumns(TRANSACTION_HANDLE, user("bob"), new SchemaTableName("bobschema", "bobtable"), ImmutableSet.of());
         accessControl.checkCanInsertIntoTable(TRANSACTION_HANDLE, user("bob"), new SchemaTableName("bobschema", "bobtable"));
         accessControl.checkCanDeleteFromTable(TRANSACTION_HANDLE, user("bob"), new SchemaTableName("bobschema", "bobtable"));

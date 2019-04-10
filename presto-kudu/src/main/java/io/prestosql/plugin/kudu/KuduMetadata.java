@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.prestosql.plugin.kudu.properties.KuduTableProperties;
 import io.prestosql.plugin.kudu.properties.PartitionDesign;
+import io.prestosql.spi.Name;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorInsertTableHandle;
@@ -55,6 +56,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.prestosql.spi.Name.createNonDelimitedName;
 import static java.util.Objects.requireNonNull;
 
 public class KuduMetadata
@@ -69,15 +71,15 @@ public class KuduMetadata
     }
 
     @Override
-    public List<String> listSchemaNames(ConnectorSession session)
+    public List<Name> listSchemaNames(ConnectorSession session)
     {
-        return clientSession.listSchemaNames();
+        return clientSession.listSchemaNames().stream().map(Name::createNonDelimitedName).collect(toImmutableList());
     }
 
     @Override
-    public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
+    public List<SchemaTableName> listTables(ConnectorSession session, Optional<Name> schemaName)
     {
-        return clientSession.listTables(schemaName);
+        return clientSession.listTables(schemaName.map(Name::getLegacyName));
     }
 
     @Override
@@ -149,17 +151,17 @@ public class KuduMetadata
     }
 
     @Override
-    public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle connectorTableHandle)
+    public Map<Name, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle connectorTableHandle)
     {
         KuduTableHandle tableHandle = (KuduTableHandle) connectorTableHandle;
         Schema schema = clientSession.getTableSchema(tableHandle);
 
-        ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
+        ImmutableMap.Builder<Name, ColumnHandle> columnHandles = ImmutableMap.builder();
         for (int ordinal = 0; ordinal < schema.getColumnCount(); ordinal++) {
             ColumnSchema col = schema.getColumnByIndex(ordinal);
-            String name = col.getName();
+            Name name = createNonDelimitedName(col.getName());
             Type type = TypeHelper.fromKuduColumn(col);
-            KuduColumnHandle columnHandle = new KuduColumnHandle(name, ordinal, type);
+            KuduColumnHandle columnHandle = new KuduColumnHandle(col.getName(), ordinal, type);
             columnHandles.put(name, columnHandle);
         }
 
@@ -216,15 +218,15 @@ public class KuduMetadata
     }
 
     @Override
-    public void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties)
+    public void createSchema(ConnectorSession session, Name schemaName, Map<String, Object> properties)
     {
-        clientSession.createSchema(schemaName);
+        clientSession.createSchema(schemaName.getLegacyName());
     }
 
     @Override
-    public void dropSchema(ConnectorSession session, String schemaName)
+    public void dropSchema(ConnectorSession session, Name schemaName)
     {
-        clientSession.dropSchema(schemaName);
+        clientSession.dropSchema(schemaName.getLegacyName());
     }
 
     @Override
@@ -263,11 +265,11 @@ public class KuduMetadata
     }
 
     @Override
-    public void renameColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle source, String target)
+    public void renameColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle source, Name target)
     {
         KuduTableHandle kuduTableHandle = (KuduTableHandle) tableHandle;
         KuduColumnHandle kuduColumnHandle = (KuduColumnHandle) source;
-        clientSession.renameColumn(kuduTableHandle.getSchemaTableName(), kuduColumnHandle.getName(), target);
+        clientSession.renameColumn(kuduTableHandle.getSchemaTableName(), kuduColumnHandle.getName(), target.getLegacyName());
     }
 
     @Override

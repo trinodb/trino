@@ -15,6 +15,7 @@ package io.prestosql.plugin.localfile;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.spi.Name;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorMetadata;
@@ -38,6 +39,7 @@ import java.util.Set;
 
 import static io.prestosql.plugin.localfile.LocalFileColumnHandle.SERVER_ADDRESS_COLUMN_NAME;
 import static io.prestosql.plugin.localfile.LocalFileColumnHandle.SERVER_ADDRESS_ORDINAL_POSITION;
+import static io.prestosql.spi.Name.createNonDelimitedName;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
@@ -46,9 +48,9 @@ import static java.util.Objects.requireNonNull;
 public class LocalFileMetadata
         implements ConnectorMetadata
 {
-    public static final String PRESTO_LOGS_SCHEMA = "logs";
+    public static final Name PRESTO_LOGS_SCHEMA = createNonDelimitedName("logs");
     public static final ColumnMetadata SERVER_ADDRESS_COLUMN = new ColumnMetadata("server_address", createUnboundedVarcharType());
-    private static final List<String> SCHEMA_NAMES = ImmutableList.of(PRESTO_LOGS_SCHEMA);
+    private static final List<Name> SCHEMA_NAMES = ImmutableList.of(PRESTO_LOGS_SCHEMA);
 
     private final LocalFileTables localFileTables;
 
@@ -59,7 +61,7 @@ public class LocalFileMetadata
     }
 
     @Override
-    public List<String> listSchemaNames(ConnectorSession session)
+    public List<Name> listSchemaNames(ConnectorSession session)
     {
         return SCHEMA_NAMES;
     }
@@ -79,7 +81,7 @@ public class LocalFileMetadata
     }
 
     @Override
-    public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
+    public List<SchemaTableName> listTables(ConnectorSession session, Optional<Name> schemaName)
     {
         return localFileTables.getTables();
     }
@@ -100,15 +102,15 @@ public class LocalFileMetadata
     }
 
     @Override
-    public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle table)
+    public Map<Name, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle table)
     {
         LocalFileTableHandle tableHandle = (LocalFileTableHandle) table;
         return getColumnHandles(tableHandle);
     }
 
-    private Map<String, ColumnHandle> getColumnHandles(LocalFileTableHandle tableHandle)
+    private Map<Name, ColumnHandle> getColumnHandles(LocalFileTableHandle tableHandle)
     {
-        ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
+        ImmutableMap.Builder<Name, ColumnHandle> columnHandles = ImmutableMap.builder();
         int index = 0;
         for (ColumnMetadata column : localFileTables.getColumns(tableHandle)) {
             int ordinalPosition;
@@ -119,7 +121,7 @@ public class LocalFileMetadata
                 ordinalPosition = index;
                 index++;
             }
-            columnHandles.put(column.getName(), new LocalFileColumnHandle(column.getName(), column.getType(), ordinalPosition));
+            columnHandles.put(createNonDelimitedName(column.getName()), new LocalFileColumnHandle(column.getName(), column.getType(), ordinalPosition));
         }
         return columnHandles.build();
     }
@@ -145,7 +147,7 @@ public class LocalFileMetadata
     }
 
     @Override
-    public List<SchemaTableName> listViews(ConnectorSession session, Optional<String> schemaName)
+    public List<SchemaTableName> listViews(ConnectorSession session, Optional<Name> schemaName)
     {
         return emptyList();
     }

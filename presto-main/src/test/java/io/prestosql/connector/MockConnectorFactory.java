@@ -19,6 +19,7 @@ import io.prestosql.plugin.tpch.TpchColumnHandle;
 import io.prestosql.plugin.tpch.TpchHandleResolver;
 import io.prestosql.plugin.tpch.TpchRecordSetProvider;
 import io.prestosql.plugin.tpch.TpchSplitManager;
+import io.prestosql.spi.Name;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.Connector;
@@ -53,6 +54,7 @@ import java.util.stream.IntStream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static io.prestosql.spi.Name.createNonDelimitedName;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.util.Objects.requireNonNull;
 
@@ -150,9 +152,9 @@ public class MockConnectorFactory
                 implements ConnectorMetadata
         {
             @Override
-            public List<String> listSchemaNames(ConnectorSession session)
+            public List<Name> listSchemaNames(ConnectorSession session)
             {
-                return listSchemaNames.apply(session);
+                return listSchemaNames.apply(session).stream().map(Name::createNonDelimitedName).collect(toImmutableList());
             }
 
             @Override
@@ -168,15 +170,15 @@ public class MockConnectorFactory
             }
 
             @Override
-            public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
+            public List<SchemaTableName> listTables(ConnectorSession session, Optional<Name> schemaName)
             {
-                return listTables.apply(session, schemaName.orElse(null));
+                return listTables.apply(session, schemaName.map(Name::getLegacyName).orElse(null));
             }
 
             @Override
-            public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
+            public Map<Name, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
             {
-                return (Map<String, ColumnHandle>) (Map) getColumnHandles.apply(session, tableHandle);
+                return ((Map<String, ColumnHandle>) (Map) getColumnHandles.apply(session, tableHandle)).entrySet().stream().collect(toImmutableMap(entry -> createNonDelimitedName(entry.getKey()), Map.Entry::getValue));
             }
 
             @Override

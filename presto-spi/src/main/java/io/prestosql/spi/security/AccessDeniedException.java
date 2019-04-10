@@ -13,12 +13,14 @@
  */
 package io.prestosql.spi.security;
 
+import io.prestosql.spi.Name;
 import io.prestosql.spi.PrestoException;
 
 import java.security.Principal;
 import java.util.Collection;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static io.prestosql.spi.StandardErrorCode.PERMISSION_DENIED;
 import static java.lang.String.format;
@@ -31,52 +33,52 @@ public class AccessDeniedException
         super(PERMISSION_DENIED, "Access Denied: " + message);
     }
 
-    public static void denySetUser(Optional<Principal> principal, String userName)
+    public static void denySetUser(Optional<Principal> principal, Name userName)
     {
         denySetUser(principal, userName, null);
     }
 
-    public static void denySetUser(Optional<Principal> principal, String userName, String extraInfo)
+    public static void denySetUser(Optional<Principal> principal, Name userName, String extraInfo)
     {
-        throw new AccessDeniedException(format("Principal %s cannot become user %s%s", principal.orElse(null), userName, formatExtraInfo(extraInfo)));
+        throw new AccessDeniedException(format("Principal %s cannot become user %s%s", principal.orElse(null), userName.getLegacyName(), formatExtraInfo(extraInfo)));
     }
 
-    public static void denyCatalogAccess(String catalogName)
+    public static void denyCatalogAccess(Name catalogName)
     {
         denyCatalogAccess(catalogName, null);
     }
 
-    public static void denyCatalogAccess(String catalogName, String extraInfo)
+    public static void denyCatalogAccess(Name catalogName, String extraInfo)
     {
-        throw new AccessDeniedException(format("Cannot access catalog %s%s", catalogName, formatExtraInfo(extraInfo)));
+        throw new AccessDeniedException(format("Cannot access catalog %s%s", catalogName.getLegacyName(), formatExtraInfo(extraInfo)));
     }
 
-    public static void denyCreateSchema(String schemaName)
+    public static void denyCreateSchema(Name schemaName)
     {
         denyCreateSchema(schemaName, null);
     }
 
-    public static void denyCreateSchema(String schemaName, String extraInfo)
+    public static void denyCreateSchema(Name schemaName, String extraInfo)
     {
-        throw new AccessDeniedException(format("Cannot create schema %s%s", schemaName, formatExtraInfo(extraInfo)));
+        throw new AccessDeniedException(format("Cannot create schema %s%s", schemaName.getLegacyName(), formatExtraInfo(extraInfo)));
     }
 
-    public static void denyDropSchema(String schemaName)
+    public static void denyDropSchema(Name schemaName)
     {
         denyDropSchema(schemaName, null);
     }
 
-    public static void denyDropSchema(String schemaName, String extraInfo)
+    public static void denyDropSchema(Name schemaName, String extraInfo)
     {
-        throw new AccessDeniedException(format("Cannot drop schema %s%s", schemaName, formatExtraInfo(extraInfo)));
+        throw new AccessDeniedException(format("Cannot drop schema %s%s", schemaName.getLegacyName(), formatExtraInfo(extraInfo)));
     }
 
-    public static void denyRenameSchema(String schemaName, String newSchemaName)
+    public static void denyRenameSchema(Name schemaName, Name newSchemaName)
     {
         denyRenameSchema(schemaName, newSchemaName, null);
     }
 
-    public static void denyRenameSchema(String schemaName, String newSchemaName, String extraInfo)
+    public static void denyRenameSchema(Name schemaName, Name newSchemaName, String extraInfo)
     {
         throw new AccessDeniedException(format("Cannot rename schema from %s to %s%s", schemaName, newSchemaName, formatExtraInfo(extraInfo)));
     }
@@ -271,19 +273,19 @@ public class AccessDeniedException
         throw new AccessDeniedException(format("Cannot revoke privilege %s on table %s%s", privilege, tableName, formatExtraInfo(extraInfo)));
     }
 
-    public static void denyShowRoles(String catalogName)
+    public static void denyShowRoles(Name catalogName)
     {
-        throw new AccessDeniedException(format("Cannot show roles from catalog %s", catalogName));
+        throw new AccessDeniedException(format("Cannot show roles from catalog %s", catalogName.getLegacyName()));
     }
 
-    public static void denyShowCurrentRoles(String catalogName)
+    public static void denyShowCurrentRoles(Name catalogName)
     {
-        throw new AccessDeniedException(format("Cannot show current roles from catalog %s", catalogName));
+        throw new AccessDeniedException(format("Cannot show current roles from catalog %s", catalogName.getLegacyName()));
     }
 
-    public static void denyShowRoleGrants(String catalogName)
+    public static void denyShowRoleGrants(Name catalogName)
     {
-        throw new AccessDeniedException(format("Cannot show role grants from catalog %s", catalogName));
+        throw new AccessDeniedException(format("Cannot show role grants from catalog %s", catalogName.getLegacyName()));
     }
 
     public static void denySetSystemSessionProperty(String propertyName)
@@ -296,14 +298,14 @@ public class AccessDeniedException
         throw new AccessDeniedException(format("Cannot set system session property %s%s", propertyName, formatExtraInfo(extraInfo)));
     }
 
-    public static void denySetCatalogSessionProperty(String catalogName, String propertyName)
+    public static void denySetCatalogSessionProperty(Name catalogName, String propertyName)
     {
         denySetCatalogSessionProperty(catalogName, propertyName, null);
     }
 
-    public static void denySetCatalogSessionProperty(String catalogName, String propertyName, String extraInfo)
+    public static void denySetCatalogSessionProperty(Name catalogName, String propertyName, String extraInfo)
     {
-        throw new AccessDeniedException(format("Cannot set catalog session property %s.%s%s", catalogName, propertyName, formatExtraInfo(extraInfo)));
+        throw new AccessDeniedException(format("Cannot set catalog session property %s.%s%s", catalogName.getLegacyName(), propertyName, formatExtraInfo(extraInfo)));
     }
 
     public static void denySetCatalogSessionProperty(String propertyName)
@@ -311,39 +313,39 @@ public class AccessDeniedException
         throw new AccessDeniedException(format("Cannot set catalog session property %s", propertyName));
     }
 
-    public static void denySelectColumns(String tableName, Collection<String> columnNames)
+    public static void denySelectColumns(String tableName, Collection<Name> columnNames)
     {
         denySelectColumns(tableName, columnNames, null);
     }
 
-    public static void denySelectColumns(String tableName, Collection<String> columnNames, String extraInfo)
+    public static void denySelectColumns(String tableName, Collection<Name> columnNames, String extraInfo)
     {
-        throw new AccessDeniedException(format("Cannot select from columns %s in table or view %s%s", columnNames, tableName, formatExtraInfo(extraInfo)));
+        throw new AccessDeniedException(format("Cannot select from columns %s in table or view %s%s", columnNames.stream().map(Name::getLegacyName).collect(Collectors.toSet()), tableName, formatExtraInfo(extraInfo)));
     }
 
-    public static void denyCreateRole(String roleName)
+    public static void denyCreateRole(Name roleName)
     {
-        throw new AccessDeniedException(format("Cannot create role %s", roleName));
+        throw new AccessDeniedException(format("Cannot create role %s", roleName.getLegacyName()));
     }
 
-    public static void denyDropRole(String roleName)
+    public static void denyDropRole(Name roleName)
     {
-        throw new AccessDeniedException(format("Cannot drop role %s", roleName));
+        throw new AccessDeniedException(format("Cannot drop role %s", roleName.getLegacyName()));
     }
 
-    public static void denyGrantRoles(Set<String> roles, Set<PrestoPrincipal> grantees)
+    public static void denyGrantRoles(Set<Name> roles, Set<PrestoPrincipal> grantees)
     {
-        throw new AccessDeniedException(format("Cannot grant roles %s to %s ", roles, grantees));
+        throw new AccessDeniedException(format("Cannot grant roles %s to %s ", roles.stream().map(Name::getLegacyName).collect(Collectors.toSet()), grantees));
     }
 
-    public static void denyRevokeRoles(Set<String> roles, Set<PrestoPrincipal> grantees)
+    public static void denyRevokeRoles(Set<Name> roles, Set<PrestoPrincipal> grantees)
     {
-        throw new AccessDeniedException(format("Cannot revoke roles %s from %s ", roles, grantees));
+        throw new AccessDeniedException(format("Cannot revoke roles %s from %s ", roles.stream().map(Name::getLegacyName).collect(Collectors.toSet()), grantees));
     }
 
-    public static void denySetRole(String role)
+    public static void denySetRole(Name role)
     {
-        throw new AccessDeniedException(format("Cannot set role %s", role));
+        throw new AccessDeniedException(format("Cannot set role %s", role.getLegacyName()));
     }
 
     private static Object formatExtraInfo(String extraInfo)

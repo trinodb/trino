@@ -254,14 +254,14 @@ public class TestAccessControlManager
             return new SystemAccessControl()
             {
                 @Override
-                public void checkCanSetUser(Optional<Principal> principal, String userName)
+                public void checkCanSetUser(Optional<Principal> principal, Name userName)
                 {
                     checkedPrincipal = principal;
-                    checkedUserName = userName;
+                    checkedUserName = userName.getName();
                 }
 
                 @Override
-                public void checkCanAccessCatalog(Identity identity, String catalogName)
+                public void checkCanAccessCatalog(Identity identity, Name catalogName)
                 {
                 }
 
@@ -272,7 +272,7 @@ public class TestAccessControlManager
                 }
 
                 @Override
-                public void checkCanSelectFromColumns(Identity identity, CatalogSchemaTableName table, Set<String> columns)
+                public void checkCanSelectFromColumns(Identity identity, CatalogSchemaTableName table, Set<Name> columns)
                 {
                     if (table.getCatalogName().getLegacyName().equals("secured_catalog")) {
                         denySelectTable(table.toString());
@@ -280,7 +280,7 @@ public class TestAccessControlManager
                 }
 
                 @Override
-                public Set<String> filterCatalogs(Identity identity, Set<String> catalogs)
+                public Set<Name> filterCatalogs(Identity identity, Set<Name> catalogs)
                 {
                     return catalogs;
                 }
@@ -292,25 +292,25 @@ public class TestAccessControlManager
             implements ConnectorAccessControl
     {
         @Override
-        public void checkCanSelectFromColumns(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, SchemaTableName tableName, Set<String> columnNames)
+        public void checkCanSelectFromColumns(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, SchemaTableName tableName, Set<Name> columnNames)
         {
             denySelectColumns(tableName.toString(), columnNames);
         }
 
         @Override
-        public void checkCanCreateSchema(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, String schemaName)
+        public void checkCanCreateSchema(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, Name schemaName)
         {
             throw new UnsupportedOperationException();
         }
 
         @Override
-        public void checkCanDropSchema(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, String schemaName)
+        public void checkCanDropSchema(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, Name schemaName)
         {
             throw new UnsupportedOperationException();
         }
 
         @Override
-        public void checkCanRenameSchema(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, String schemaName, String newSchemaName)
+        public void checkCanRenameSchema(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, Name schemaName, Name newSchemaName)
         {
             throw new UnsupportedOperationException();
         }
@@ -382,7 +382,7 @@ public class TestAccessControlManager
         }
 
         @Override
-        public void checkCanCreateViewWithSelectFromColumns(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, SchemaTableName tableName, Set<String> columnNames)
+        public void checkCanCreateViewWithSelectFromColumns(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, SchemaTableName tableName, Set<Name> columnNames)
         {
             throw new UnsupportedOperationException();
         }

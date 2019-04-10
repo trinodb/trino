@@ -22,6 +22,7 @@ import io.prestosql.Session;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.metadata.QualifiedTablePrefix;
+import io.prestosql.spi.Name;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorMetadata;
@@ -61,7 +62,6 @@ import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
-import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toMap;
 
 public class InformationSchemaMetadata
@@ -158,9 +158,9 @@ public class InformationSchemaMetadata
     }
 
     @Override
-    public List<String> listSchemaNames(ConnectorSession session)
+    public List<Name> listSchemaNames(ConnectorSession session)
     {
-        return ImmutableList.of(INFORMATION_SCHEMA);
+        return ImmutableList.of(INFORMATION_SCHEMA).stream().map(Name::createNonDelimitedName).collect(toImmutableList());
     }
 
     @Override
@@ -181,14 +181,14 @@ public class InformationSchemaMetadata
     }
 
     @Override
-    public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
+    public List<SchemaTableName> listTables(ConnectorSession session, Optional<Name> schemaName)
     {
         if (!schemaName.isPresent()) {
             return ImmutableList.copyOf(TABLES.keySet());
         }
 
         return TABLES.keySet().stream()
-                .filter(compose(schemaName.get()::equals, SchemaTableName::getSchemaName))
+                .filter(compose(schemaName.get().getLegacyName()::equals, SchemaTableName::getSchemaName))
                 .collect(toImmutableList());
     }
 
@@ -206,7 +206,7 @@ public class InformationSchemaMetadata
     }
 
     @Override
-    public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
+    public Map<Name, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         InformationSchemaTableHandle informationSchemaTableHandle = checkTableHandle(tableHandle);
 
@@ -214,7 +214,7 @@ public class InformationSchemaMetadata
 
         return tableMetadata.getColumns().stream()
                 .map(ColumnMetadata::getName)
-                .collect(toMap(identity(), InformationSchemaColumnHandle::new));
+                .collect(toMap(Name::createNonDelimitedName, InformationSchemaColumnHandle::new));
     }
 
     @Override

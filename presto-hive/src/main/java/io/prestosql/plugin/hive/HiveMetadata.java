@@ -44,6 +44,7 @@ import io.prestosql.plugin.hive.metastore.StorageFormat;
 import io.prestosql.plugin.hive.metastore.Table;
 import io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil;
 import io.prestosql.plugin.hive.statistics.HiveStatisticsProvider;
+import io.prestosql.spi.Name;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.StandardErrorCode;
 import io.prestosql.spi.block.Block;
@@ -197,6 +198,7 @@ import static io.prestosql.plugin.hive.util.Statistics.createComputedStatisticsT
 import static io.prestosql.plugin.hive.util.Statistics.createEmptyPartitionStatistics;
 import static io.prestosql.plugin.hive.util.Statistics.fromComputedStatistics;
 import static io.prestosql.plugin.hive.util.Statistics.reduce;
+import static io.prestosql.spi.Name.createNonDelimitedName;
 import static io.prestosql.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.prestosql.spi.StandardErrorCode.INVALID_ANALYZE_PROPERTY;
 import static io.prestosql.spi.StandardErrorCode.INVALID_SCHEMA_PROPERTY;
@@ -286,9 +288,9 @@ public class HiveMetadata
     }
 
     @Override
-    public List<String> listSchemaNames(ConnectorSession session)
+    public List<Name> listSchemaNames(ConnectorSession session)
     {
-        return metastore.getAllDatabases();
+        return metastore.getAllDatabases().stream().map(Name::createNonDelimitedName).collect(toImmutableList());
     }
 
     @Override
@@ -514,18 +516,18 @@ public class HiveMetadata
     }
 
     @Override
-    public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> optionalSchemaName)
+    public List<SchemaTableName> listTables(ConnectorSession session, Optional<Name> optionalSchemaName)
     {
         ImmutableList.Builder<SchemaTableName> tableNames = ImmutableList.builder();
-        for (String schemaName : listSchemas(session, optionalSchemaName)) {
-            for (String tableName : metastore.getAllTables(schemaName).orElse(emptyList())) {
-                tableNames.add(new SchemaTableName(schemaName, tableName));
+        for (Name schemaName : listSchemas(session, optionalSchemaName)) {
+            for (String tableName : metastore.getAllTables(schemaName.getLegacyName()).orElse(emptyList())) {
+                tableNames.add(new SchemaTableName(schemaName.getLegacyName(), tableName));
             }
         }
         return tableNames.build();
     }
 
-    private List<String> listSchemas(ConnectorSession session, Optional<String> schemaName)
+    private List<Name> listSchemas(ConnectorSession session, Optional<Name> schemaName)
     {
         if (schemaName.isPresent()) {
             return ImmutableList.of(schemaName.get());
@@ -534,16 +536,16 @@ public class HiveMetadata
     }
 
     @Override
-    public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
+    public Map<Name, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         SchemaTableName tableName = schemaTableName(tableHandle);
         Optional<Table> table = metastore.getTable(tableName.getSchemaName(), tableName.getTableName());
         if (!table.isPresent()) {
             throw new TableNotFoundException(tableName);
         }
-        ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
+        ImmutableMap.Builder<Name, ColumnHandle> columnHandles = ImmutableMap.builder();
         for (HiveColumnHandle columnHandle : hiveColumnHandles(table.get())) {
-            columnHandles.put(columnHandle.getName(), columnHandle);
+            columnHandles.put(createNonDelimitedName(columnHandle.getName()), columnHandle);
         }
         return columnHandles.build();
     }
@@ -577,7 +579,7 @@ public class HiveMetadata
         Map<String, ColumnHandle> columns = getColumnHandles(session, tableHandle)
                 .entrySet().stream()
                 .filter(entry -> !((HiveColumnHandle) entry.getValue()).isHidden())
-                .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
+                .collect(toImmutableMap(entry -> entry.getKey().getLegacyName(), Map.Entry::getValue));
         Map<String, Type> columnTypes = columns.entrySet().stream()
                 .collect(toImmutableMap(Map.Entry::getKey, entry -> getColumnMetadata(session, tableHandle, entry.getValue()).getType()));
         List<HivePartition> partitions = getPartitionsAsList(tableHandle, constraint);
@@ -627,11 +629,11 @@ public class HiveMetadata
     }
 
     @Override
-    public void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties)
+    public void createSchema(ConnectorSession session, Name schemaName, Map<String, Object> properties)
     {
         Optional<String> location = HiveSchemaProperties.getLocation(properties).map(locationUri -> {
             try {
-                hdfsEnvironment.getFileSystem(new HdfsContext(session, schemaName), new Path(locationUri));
+                hdfsEnvironment.getFileSystem(new HdfsContext(session, schemaName.getLegacyName()), new Path(locationUri));
             }
             catch (IOException e) {
                 throw new PrestoException(INVALID_SCHEMA_PROPERTY, "Invalid location URI: " + locationUri, e);
@@ -640,7 +642,7 @@ public class HiveMetadata
         });
 
         Database database = Database.builder()
-                .setDatabaseName(schemaName)
+                .setDatabaseName(schemaName.getLegacyName())
                 .setLocation(location)
                 .setOwnerType(USER)
                 .setOwnerName(session.getUser())
@@ -650,20 +652,20 @@ public class HiveMetadata
     }
 
     @Override
-    public void dropSchema(ConnectorSession session, String schemaName)
+    public void dropSchema(ConnectorSession session, Name schemaName)
     {
         // basic sanity check to provide a better error message
         if (!listTables(session, Optional.of(schemaName)).isEmpty() ||
                 !listViews(session, Optional.of(schemaName)).isEmpty()) {
-            throw new PrestoException(SCHEMA_NOT_EMPTY, "Schema not empty: " + schemaName);
+            throw new PrestoException(SCHEMA_NOT_EMPTY, "Schema not empty: " + schemaName.getLegacyName());
         }
-        metastore.dropDatabase(schemaName);
+        metastore.dropDatabase(schemaName.getLegacyName());
     }
 
     @Override
-    public void renameSchema(ConnectorSession session, String source, String target)
+    public void renameSchema(ConnectorSession session, Name source, Name target)
     {
-        metastore.renameDatabase(source, target);
+        metastore.renameDatabase(source.getLegacyName(), target.getLegacyName());
     }
 
     @Override
@@ -894,13 +896,13 @@ public class HiveMetadata
     }
 
     @Override
-    public void renameColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle source, String target)
+    public void renameColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle source, Name target)
     {
         HiveTableHandle hiveTableHandle = (HiveTableHandle) tableHandle;
         failIfAvroSchemaIsSet(hiveTableHandle);
         HiveColumnHandle sourceHandle = (HiveColumnHandle) source;
 
-        metastore.renameColumn(hiveTableHandle.getSchemaName(), hiveTableHandle.getTableName(), sourceHandle.getName(), target);
+        metastore.renameColumn(hiveTableHandle.getSchemaName(), hiveTableHandle.getTableName(), sourceHandle.getName(), target.getLegacyName());
     }
 
     @Override
@@ -1527,12 +1529,12 @@ public class HiveMetadata
     }
 
     @Override
-    public List<SchemaTableName> listViews(ConnectorSession session, Optional<String> optionalSchemaName)
+    public List<SchemaTableName> listViews(ConnectorSession session, Optional<Name> optionalSchemaName)
     {
         ImmutableList.Builder<SchemaTableName> tableNames = ImmutableList.builder();
-        for (String schemaName : listSchemas(session, optionalSchemaName)) {
-            for (String tableName : metastore.getAllViews(schemaName).orElse(emptyList())) {
-                tableNames.add(new SchemaTableName(schemaName, tableName));
+        for (Name schemaName : listSchemas(session, optionalSchemaName)) {
+            for (String tableName : metastore.getAllViews(schemaName.getLegacyName()).orElse(emptyList())) {
+                tableNames.add(new SchemaTableName(schemaName.getLegacyName(), tableName));
             }
         }
         return tableNames.build();
@@ -1926,26 +1928,26 @@ public class HiveMetadata
                 .collect(toImmutableList());
     }
 
-    public void createRole(ConnectorSession session, String role, Optional<PrestoPrincipal> grantor)
+    public void createRole(ConnectorSession session, Name role, Optional<PrestoPrincipal> grantor)
     {
         // roles are case insensitive in Hive
-        if (RESERVED_ROLES.contains(role)) {
+        if (RESERVED_ROLES.contains(role.getLegacyName())) {
             throw new PrestoException(ALREADY_EXISTS, "Role name cannot be one of the reserved roles: " + RESERVED_ROLES);
         }
-        metastore.createRole(role, null);
+        metastore.createRole(role.getLegacyName(), null);
     }
 
     @Override
-    public void dropRole(ConnectorSession session, String role)
+    public void dropRole(ConnectorSession session, Name role)
     {
         // roles are case insensitive in Hive
-        metastore.dropRole(role);
+        metastore.dropRole(role.getLegacyName());
     }
 
     @Override
-    public Set<String> listRoles(ConnectorSession session)
+    public Set<Name> listRoles(ConnectorSession session)
     {
-        return ImmutableSet.copyOf(metastore.listRoles());
+        return ImmutableSet.copyOf(metastore.listRoles().stream().map(Name::createNonDelimitedName).iterator());
     }
 
     @Override
@@ -1955,15 +1957,15 @@ public class HiveMetadata
     }
 
     @Override
-    public void grantRoles(ConnectorSession session, Set<String> roles, Set<PrestoPrincipal> grantees, boolean withAdminOption, Optional<PrestoPrincipal> grantor)
+    public void grantRoles(ConnectorSession session, Set<Name> roles, Set<PrestoPrincipal> grantees, boolean withAdminOption, Optional<PrestoPrincipal> grantor)
     {
-        metastore.grantRoles(roles, HivePrincipal.from(grantees), withAdminOption, grantor.map(HivePrincipal::from).orElse(new HivePrincipal(USER, session.getUser())));
+        metastore.grantRoles(roles.stream().map(Name::getLegacyName).collect(toImmutableSet()), HivePrincipal.from(grantees), withAdminOption, grantor.map(HivePrincipal::from).orElse(new HivePrincipal(USER, session.getUser())));
     }
 
     @Override
-    public void revokeRoles(ConnectorSession session, Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOptionFor, Optional<PrestoPrincipal> grantor)
+    public void revokeRoles(ConnectorSession session, Set<Name> roles, Set<PrestoPrincipal> grantees, boolean adminOptionFor, Optional<PrestoPrincipal> grantor)
     {
-        metastore.revokeRoles(roles, HivePrincipal.from(grantees), adminOptionFor, grantor.map(HivePrincipal::from).orElse(new HivePrincipal(USER, session.getUser())));
+        metastore.revokeRoles(roles.stream().map(Name::getLegacyName).collect(toImmutableSet()), HivePrincipal.from(grantees), adminOptionFor, grantor.map(HivePrincipal::from).orElse(new HivePrincipal(USER, session.getUser())));
     }
 
     @Override
@@ -1974,9 +1976,10 @@ public class HiveMetadata
     }
 
     @Override
-    public Set<String> listEnabledRoles(ConnectorSession session)
+    public Set<Name> listEnabledRoles(ConnectorSession session)
     {
         return ThriftMetastoreUtil.listEnabledRoles(session.getIdentity(), metastore::listRoleGrants)
+                .map(Name::createNonDelimitedName)
                 .collect(toImmutableSet());
     }
 

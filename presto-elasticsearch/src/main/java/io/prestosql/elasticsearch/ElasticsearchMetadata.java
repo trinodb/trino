@@ -15,6 +15,7 @@ package io.prestosql.elasticsearch;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.spi.Name;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorMetadata;
@@ -36,6 +37,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.prestosql.spi.Name.createNonDelimitedName;
 import static java.util.Objects.requireNonNull;
 
 public class ElasticsearchMetadata
@@ -50,9 +53,9 @@ public class ElasticsearchMetadata
     }
 
     @Override
-    public List<String> listSchemaNames(ConnectorSession session)
+    public List<Name> listSchemaNames(ConnectorSession session)
     {
-        return client.listSchemas();
+        return client.listSchemas().stream().map(Name::createNonDelimitedName).collect(toImmutableList());
     }
 
     @Override
@@ -90,13 +93,13 @@ public class ElasticsearchMetadata
     }
 
     @Override
-    public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
+    public List<SchemaTableName> listTables(ConnectorSession session, Optional<Name> schemaName)
     {
-        return client.listTables(schemaName);
+        return client.listTables(schemaName.map(Name::getLegacyName));
     }
 
     @Override
-    public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
+    public Map<Name, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         ElasticsearchTableHandle handle = (ElasticsearchTableHandle) tableHandle;
 
@@ -105,13 +108,13 @@ public class ElasticsearchMetadata
             throw new TableNotFoundException(handle.getSchemaTableName());
         }
 
-        ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
+        ImmutableMap.Builder<Name, ColumnHandle> columnHandles = ImmutableMap.builder();
         int index = 0;
         for (ColumnMetadata column : client.getColumnMetadata(table)) {
             Map<String, Object> properties = column.getProperties();
             int ordinalPosition = (Integer) properties.get("ordinalPosition");
             int position = ordinalPosition == -1 ? index : ordinalPosition;
-            columnHandles.put(column.getName(),
+            columnHandles.put(createNonDelimitedName(column.getName()),
                     new ElasticsearchColumnHandle(
                         column.getName(),
                         column.getType(),

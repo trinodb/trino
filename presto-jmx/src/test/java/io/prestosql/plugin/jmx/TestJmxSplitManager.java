@@ -49,6 +49,7 @@ import java.util.concurrent.TimeUnit;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.plugin.jmx.JmxMetadata.HISTORY_SCHEMA_NAME;
 import static io.prestosql.plugin.jmx.JmxMetadata.JMX_SCHEMA_NAME;
+import static io.prestosql.spi.Name.createNonDelimitedName;
 import static io.prestosql.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.UNGROUPED_SCHEDULING;
 import static io.prestosql.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
@@ -139,7 +140,7 @@ public class TestJmxSplitManager
     public void testRecordSetProvider()
             throws Exception
     {
-        for (SchemaTableName schemaTableName : metadata.listTables(SESSION, Optional.of(JMX_SCHEMA_NAME))) {
+        for (SchemaTableName schemaTableName : metadata.listTables(SESSION, Optional.of(createNonDelimitedName(JMX_SCHEMA_NAME)))) {
             RecordSet recordSet = getRecordSet(schemaTableName);
             try (RecordCursor cursor = recordSet.cursor()) {
                 while (cursor.advanceNextPosition()) {
@@ -155,7 +156,7 @@ public class TestJmxSplitManager
     public void testHistoryRecordSetProvider()
             throws Exception
     {
-        for (SchemaTableName schemaTableName : metadata.listTables(SESSION, Optional.of(HISTORY_SCHEMA_NAME))) {
+        for (SchemaTableName schemaTableName : metadata.listTables(SESSION, Optional.of(createNonDelimitedName(HISTORY_SCHEMA_NAME)))) {
             // wait for at least two samples
             List<Long> timeStamps = ImmutableList.of();
             for (int waited = 0; waited < TIMEOUT_TIME; waited += SLEEP_TIME) {

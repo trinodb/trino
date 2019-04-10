@@ -16,6 +16,7 @@ package io.prestosql.plugin.example;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.prestosql.spi.Name;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorMetadata;
@@ -34,6 +35,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.prestosql.spi.Name.createNonDelimitedName;
 import static java.util.Objects.requireNonNull;
 
 public class ExampleMetadata
@@ -48,9 +51,9 @@ public class ExampleMetadata
     }
 
     @Override
-    public List<String> listSchemaNames(ConnectorSession session)
+    public List<Name> listSchemaNames(ConnectorSession session)
     {
-        return listSchemaNames();
+        return listSchemaNames().stream().map(Name::createNonDelimitedName).collect(toImmutableList());
     }
 
     public List<String> listSchemaNames()
@@ -61,7 +64,7 @@ public class ExampleMetadata
     @Override
     public ExampleTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
     {
-        if (!listSchemaNames(session).contains(tableName.getSchemaName())) {
+        if (!listSchemaNames(session).contains(tableName.getOriginalSchemaName())) {
             return null;
         }
 
@@ -80,9 +83,9 @@ public class ExampleMetadata
     }
 
     @Override
-    public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> optionalSchemaName)
+    public List<SchemaTableName> listTables(ConnectorSession session, Optional<Name> optionalSchemaName)
     {
-        Set<String> schemaNames = optionalSchemaName.map(ImmutableSet::of)
+        Set<String> schemaNames = optionalSchemaName.map(Name::getLegacyName).map(ImmutableSet::of)
                 .orElseGet(() -> ImmutableSet.copyOf(exampleClient.getSchemaNames()));
 
         ImmutableList.Builder<SchemaTableName> builder = ImmutableList.builder();
@@ -95,7 +98,7 @@ public class ExampleMetadata
     }
 
     @Override
-    public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
+    public Map<Name, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         ExampleTableHandle exampleTableHandle = (ExampleTableHandle) tableHandle;
 
@@ -104,10 +107,10 @@ public class ExampleMetadata
             throw new TableNotFoundException(exampleTableHandle.toSchemaTableName());
         }
 
-        ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
+        ImmutableMap.Builder<Name, ColumnHandle> columnHandles = ImmutableMap.builder();
         int index = 0;
         for (ColumnMetadata column : table.getColumnsMetadata()) {
-            columnHandles.put(column.getName(), new ExampleColumnHandle(column.getName(), column.getType(), index));
+            columnHandles.put(createNonDelimitedName(column.getName()), new ExampleColumnHandle(column.getName(), column.getType(), index));
             index++;
         }
         return columnHandles.build();

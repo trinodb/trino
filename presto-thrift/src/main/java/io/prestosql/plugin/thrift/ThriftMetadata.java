@@ -26,6 +26,7 @@ import io.prestosql.plugin.thrift.api.PrestoThriftNullableTableMetadata;
 import io.prestosql.plugin.thrift.api.PrestoThriftSchemaTableName;
 import io.prestosql.plugin.thrift.api.PrestoThriftService;
 import io.prestosql.plugin.thrift.api.PrestoThriftServiceException;
+import io.prestosql.spi.Name;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
@@ -48,7 +49,6 @@ import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Executor;
@@ -58,6 +58,8 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.prestosql.plugin.thrift.ThriftErrorCode.THRIFT_SERVICE_INVALID_RESPONSE;
 import static io.prestosql.plugin.thrift.util.ThriftExceptions.toPrestoException;
+import static io.prestosql.spi.Name.createNonDelimitedName;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
@@ -91,10 +93,10 @@ public class ThriftMetadata
     }
 
     @Override
-    public List<String> listSchemaNames(ConnectorSession session)
+    public List<Name> listSchemaNames(ConnectorSession session)
     {
         try {
-            return client.get(thriftHeaderProvider.getHeaders(session)).listSchemaNames();
+            return client.get(thriftHeaderProvider.getHeaders(session)).listSchemaNames().stream().map(name -> createNonDelimitedName(name.toLowerCase(ENGLISH))).collect(toImmutableList());
         }
         catch (PrestoThriftServiceException | TException e) {
             throw toPrestoException(e);
@@ -104,7 +106,7 @@ public class ThriftMetadata
     @Override
     public ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
     {
-        return tableCache.getUnchecked(tableName)
+        return tableCache.getUnchecked(new SchemaTableName(tableName.getLegacySchemaName(), tableName.getLegacyTableName()))
                 .map(ThriftTableMetadata::getSchemaTableName)
                 .map(ThriftTableHandle::new)
                 .orElse(null);
@@ -140,10 +142,10 @@ public class ThriftMetadata
     }
 
     @Override
-    public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
+    public List<SchemaTableName> listTables(ConnectorSession session, Optional<Name> schemaName)
     {
         try {
-            return client.get(thriftHeaderProvider.getHeaders(session)).listTables(new PrestoThriftNullableSchemaName(schemaName.orElse(null))).stream()
+            return client.get(thriftHeaderProvider.getHeaders(session)).listTables(new PrestoThriftNullableSchemaName(schemaName.map(Name::getLegacyName).orElse(null))).stream()
                     .map(PrestoThriftSchemaTableName::toSchemaTableName)
                     .collect(toImmutableList());
         }
@@ -153,9 +155,9 @@ public class ThriftMetadata
     }
 
     @Override
-    public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
+    public Map<Name, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        return getTableMetadata(session, tableHandle).getColumns().stream().collect(toImmutableMap(ColumnMetadata::getName, ThriftColumnHandle::new));
+        return getTableMetadata(session, tableHandle).getColumns().stream().collect(toImmutableMap(columnMetadata -> createNonDelimitedName(columnMetadata.getName().toLowerCase(ENGLISH)), ThriftColumnHandle::new));
     }
 
     @Override
