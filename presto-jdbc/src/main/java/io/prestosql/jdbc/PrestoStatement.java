@@ -16,10 +16,8 @@ package io.prestosql.jdbc;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Ints;
 import io.prestosql.client.ClientException;
-import io.prestosql.client.ClientSelectedRole;
 import io.prestosql.client.QueryStatusInfo;
 import io.prestosql.client.StatementClient;
-import io.prestosql.spi.security.SelectedRole;
 
 import java.sql.Connection;
 import java.sql.ResultSet;
@@ -249,14 +247,6 @@ public class PrestoStatement
             WarningsManager warningsManager = new WarningsManager();
             currentWarningsManager.set(Optional.of(warningsManager));
             resultSet = new PrestoResultSet(client, maxRows.get(), progressConsumer, warningsManager);
-
-            for (Map.Entry<String, ClientSelectedRole> entry : client.getSetRoles().entrySet()) {
-                connection.get().setRole(
-                        entry.getKey(),
-                        new SelectedRole(
-                                SelectedRole.Type.valueOf(entry.getValue().getType().toString()),
-                                entry.getValue().getRole()));
-            }
 
             // check if this is a query
             if (client.currentStatusInfo().getUpdateType() == null) {
