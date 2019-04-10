@@ -42,6 +42,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.MoreCollectors.toOptional;
+import static io.airlift.testing.Closeables.closeAllSuppress;
 import static java.lang.String.format;
 import static java.time.temporal.ChronoUnit.MINUTES;
 import static java.time.temporal.ChronoUnit.SECONDS;
@@ -70,6 +71,7 @@ public final class DockerContainer
             startContainer(ports, healthCheck);
         }
         catch (Exception e) {
+            closeAllSuppress(e, this);
             throw new RuntimeException(e);
         }
     }
@@ -158,7 +160,7 @@ public final class DockerContainer
                 .withMaxDuration(Duration.of(10, MINUTES))
                 .withMaxAttempts(Integer.MAX_VALUE) // limited by MaxDuration
                 .abortOn(error -> !isContainerUp())
-                .onRetry(event -> LOG.info(format("Waiting for container for %s...", image)))
+                .onRetry(event -> LOG.info(format("Waiting for container for %s [%s]...", image, event.getLastFailure())))
                 .withDelay(Duration.of(10, SECONDS));
         Failsafe.with(retryPolicy).run(() -> healthCheck.accept(this::getHostPort));
     }
@@ -232,7 +234,10 @@ public final class DockerContainer
     @Override
     public void close()
     {
-        if (!DEBUG) {
+        if (dockerClient == null) {
+            return;
+        }
+        if (!DEBUG && containerId != null) {
             removeContainer(containerId);
         }
         dockerClient.close();
