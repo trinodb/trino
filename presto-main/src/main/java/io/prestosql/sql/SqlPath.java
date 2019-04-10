@@ -14,6 +14,7 @@
 package io.prestosql.sql;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Joiner;
 import io.prestosql.sql.parser.SqlParser;
@@ -45,6 +46,7 @@ public final class SqlPath
         return rawPath;
     }
 
+    @JsonIgnore
     public List<SqlPathElement> getParsedPath()
     {
         if (parsedPath == null) {
@@ -76,7 +78,7 @@ public final class SqlPath
             return false;
         }
         SqlPath that = (SqlPath) obj;
-        return Objects.equals(parsedPath, that.parsedPath);
+        return Objects.equals(rawPath, that.rawPath);
     }
 
     @Override

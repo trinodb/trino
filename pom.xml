@@ -106,6 +106,7 @@
         <module>presto-client</module>
         <module>presto-parser</module>
         <module>presto-main</module>
+        <module>presto-history-extension</module>
         <module>presto-ml</module>
         <module>presto-geospatial</module>
         <module>presto-geospatial-toolkit</module>

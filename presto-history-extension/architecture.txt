@@ -1,0 +1,27 @@
+# Architecture
+
+## Read a query
+ ________                                        __________________________________________                                   _______________
+|        |--- request for query with QueryId -->|                                          |--- getQueryInfo with QueryId -->|               |
+| Web ui |                                      | REST API                                 |                                 | QueryManager  |
+|        |                                      |                               YES ______ |                                 |(interact with |
+|        |<--- Serialized QueryInfo (json) -----<-- Serialize QueryInfo to json ---/Found?\|<------ QueryInfo if found ------| QueryTracker) |
+|________|                                      |__________________________________\______/|                                 |_______________|
+                                                 ^                                     /
+                                                  \                                   /NO
+                                                   \                                 /
+                                               QueryInfo as json                 QueryId
+                                                      \                            /
+                                                       \                          /
+ ____                                                   \________________________V
+|    |-------------- QueryInfo (json) ----------------->|                        |
+| DB |                                                  |    QueryHistoryStore   |
+|____|<---------------- SQL query ----------------------|________________________|
+
+
+## Write a query (maintained by presto background task)
+ ___________________                       ______________                                 ____
+|   QueryTracker    |                     |              |                               |    |
+| (event when query |-- Save QueryInfo -->| HistoryStore |--Serialize QueryInfo (json) ->| DB |
+| finished)         |                     |              |                               |    |
+|___________________|                     |______________|                               |____|

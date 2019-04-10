@@ -14,11 +14,13 @@
 package io.prestosql.server;
 
 import com.google.common.collect.ImmutableList;
+import io.airlift.log.Logger;
 import io.prestosql.execution.QueryInfo;
 import io.prestosql.execution.QueryManager;
 import io.prestosql.execution.QueryState;
 import io.prestosql.execution.StageId;
-import io.prestosql.spi.PrestoException;
+import io.prestosql.server.extension.query.history.QueryHistoryStore;
+import io.prestosql.server.extension.query.history.QueryHistoryStoreFactory;
 import io.prestosql.spi.QueryId;
 
 import javax.inject.Inject;
@@ -28,15 +30,17 @@ import javax.ws.rs.PUT;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.QueryParam;
+import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
 
 import java.util.List;
 import java.util.Locale;
 import java.util.NoSuchElementException;
+import java.util.Optional;
 
 import static io.prestosql.connector.system.KillQueryProcedure.createKillQueryException;
-import static io.prestosql.connector.system.KillQueryProcedure.createPreemptQueryException;
+import static io.prestosql.spi.StandardErrorCode.ADMINISTRATIVELY_KILLED;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -45,12 +49,16 @@ import static java.util.Objects.requireNonNull;
 @Path("/v1/query")
 public class QueryResource
 {
+    private static final Logger log = Logger.get(QueryResource.class);
+
     private final QueryManager queryManager;
+    private Optional<? extends QueryHistoryStore> queryHistoryStore;
 
     @Inject
     public QueryResource(QueryManager queryManager)
     {
         this.queryManager = requireNonNull(queryManager, "queryManager is null");
+        queryHistoryStore = QueryHistoryStoreFactory.getQueryHistoryStore();
     }
 
     @GET
@@ -74,10 +82,15 @@ public class QueryResource
 
         try {
             QueryInfo queryInfo = queryManager.getFullQueryInfo(queryId);
-            return Response.ok(queryInfo).build();
+            Response response = Response.ok(queryInfo).build();
+            return response;
         }
         catch (NoSuchElementException e) {
-            return Response.status(Status.GONE).build();
+            // Try to get query info (json) from history store
+            return queryHistoryStore.map(store -> store.getFullQueryInfo(queryId))
+                    .map(queryInfoJson -> Response.ok(queryInfoJson, MediaType.APPLICATION_JSON_TYPE))
+                    .orElseGet(() -> Response.status(Status.GONE))
+                    .build();
         }
     }
 
@@ -93,18 +106,6 @@ public class QueryResource
     @Path("{queryId}/killed")
     public Response killQuery(@PathParam("queryId") QueryId queryId, String message)
     {
-        return failQuery(queryId, createKillQueryException(message));
-    }
-
-    @PUT
-    @Path("{queryId}/preempted")
-    public Response preemptQuery(@PathParam("queryId") QueryId queryId, String message)
-    {
-        return failQuery(queryId, createPreemptQueryException(message));
-    }
-
-    private Response failQuery(QueryId queryId, PrestoException queryException)
-    {
         requireNonNull(queryId, "queryId is null");
 
         try {
@@ -115,10 +116,10 @@ public class QueryResource
                 return Response.status(Status.CONFLICT).build();
             }
 
-            queryManager.failQuery(queryId, queryException);
+            queryManager.failQuery(queryId, createKillQueryException(message));
 
-            // verify if the query was failed (if not, we lost the race)
-            if (!queryException.getErrorCode().equals(queryManager.getQueryInfo(queryId).getErrorCode())) {
+            // verify if the query was killed (if not, we lost the race)
+            if (!ADMINISTRATIVELY_KILLED.toErrorCode().equals(queryManager.getQueryInfo(queryId).getErrorCode())) {
                 return Response.status(Status.CONFLICT).build();
             }
 

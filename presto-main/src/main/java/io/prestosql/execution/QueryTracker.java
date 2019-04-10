@@ -18,6 +18,8 @@ import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.prestosql.Session;
 import io.prestosql.execution.QueryTracker.TrackedQuery;
+import io.prestosql.server.extension.query.history.QueryHistoryStore;
+import io.prestosql.server.extension.query.history.QueryHistoryStoreFactory;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.QueryId;
 import org.joda.time.DateTime;
@@ -63,6 +65,8 @@ public class QueryTracker<T extends TrackedQuery>
     @GuardedBy("this")
     private ScheduledFuture<?> backgroundTask;
 
+    private Optional<? extends QueryHistoryStore> queryHistoryStore;
+
     public QueryTracker(QueryManagerConfig queryManagerConfig, ScheduledExecutorService queryManagementExecutor)
     {
         requireNonNull(queryManagerConfig, "queryManagerConfig is null");
@@ -71,6 +75,7 @@ public class QueryTracker<T extends TrackedQuery>
         this.clientTimeout = queryManagerConfig.getClientTimeout();
 
         this.queryManagementExecutor = requireNonNull(queryManagementExecutor, "queryManagementExecutor is null");
+        queryHistoryStore = QueryHistoryStoreFactory.getQueryHistoryStore();
     }
 
     public synchronized void start()
@@ -163,8 +168,18 @@ public class QueryTracker<T extends TrackedQuery>
      */
     public void expireQuery(QueryId queryId)
     {
-        tryGetQuery(queryId)
-                .ifPresent(expirationQueue::add);
+        Optional<T> expiredQuery = tryGetQuery(queryId);
+        expiredQuery.ifPresent(expirationQueue::add);
+        saveQueryHistory(expiredQuery);
+    }
+
+    private void saveQueryHistory(Optional<T> expiredQuery)
+    {
+        // Save the expired query to the history store with help of the extension.
+        expiredQuery.filter(query -> query instanceof QueryExecution)
+                .map(QueryExecution.class::cast)
+                .ifPresent(query ->
+                        queryHistoryStore.ifPresent(store -> store.saveFullQueryInfo(query.getQueryInfo())));
     }
 
     /**
