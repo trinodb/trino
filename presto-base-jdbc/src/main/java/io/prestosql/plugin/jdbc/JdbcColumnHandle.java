@@ -15,13 +15,13 @@ package io.prestosql.plugin.jdbc;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.base.Joiner;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.type.Type;
 
 import java.util.Objects;
 
-import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
 
@@ -97,11 +97,9 @@ public final class JdbcColumnHandle
     @Override
     public String toString()
     {
-        return toStringHelper(this)
-                .add("columnName", columnName)
-                .add("jdbcTypeHandle", jdbcTypeHandle)
-                .add("columnType", columnType)
-                .add("nullable", nullable)
-                .toString();
+        return Joiner.on(":").join(
+                columnName,
+                columnType.getDisplayName(),
+                jdbcTypeHandle.getJdbcTypeName());
     }
 }
