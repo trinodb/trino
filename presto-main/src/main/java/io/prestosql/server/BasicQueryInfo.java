@@ -20,6 +20,7 @@ import io.prestosql.execution.QueryInfo;
 import io.prestosql.execution.QueryState;
 import io.prestosql.spi.ErrorCode;
 import io.prestosql.spi.ErrorType;
+import io.prestosql.spi.PrestoWarning;
 import io.prestosql.spi.QueryId;
 import io.prestosql.spi.memory.MemoryPoolId;
 import io.prestosql.spi.resourcegroups.ResourceGroupId;
@@ -28,6 +29,7 @@ import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 
 import java.net.URI;
+import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -51,6 +53,7 @@ public class BasicQueryInfo
     private final BasicQueryStats queryStats;
     private final ErrorType errorType;
     private final ErrorCode errorCode;
+    private final List<PrestoWarning> warnings;
 
     @JsonCreator
     public BasicQueryInfo(
@@ -64,7 +67,8 @@ public class BasicQueryInfo
             @JsonProperty("query") String query,
             @JsonProperty("queryStats") BasicQueryStats queryStats,
             @JsonProperty("errorType") ErrorType errorType,
-            @JsonProperty("errorCode") ErrorCode errorCode)
+            @JsonProperty("errorCode") ErrorCode errorCode,
+            @JsonProperty("warnings") List<PrestoWarning> warnings)
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.session = requireNonNull(session, "session is null");
@@ -77,6 +81,7 @@ public class BasicQueryInfo
         this.self = requireNonNull(self, "self is null");
         this.query = requireNonNull(query, "query is null");
         this.queryStats = requireNonNull(queryStats, "queryStats is null");
+        this.warnings = requireNonNull(warnings, "warnings is null");
     }
 
     public BasicQueryInfo(QueryInfo queryInfo)
@@ -91,7 +96,8 @@ public class BasicQueryInfo
                 queryInfo.getQuery(),
                 new BasicQueryStats(queryInfo.getQueryStats()),
                 queryInfo.getErrorType(),
-                queryInfo.getErrorCode());
+                queryInfo.getErrorCode(),
+                queryInfo.getWarnings());
     }
 
     @JsonProperty
@@ -160,6 +166,12 @@ public class BasicQueryInfo
     public ErrorCode getErrorCode()
     {
         return errorCode;
+    }
+
+    @JsonProperty
+    public List<PrestoWarning> getWarnings()
+    {
+        return warnings;
     }
 
     @Override

@@ -100,6 +100,7 @@ public class TestClusterMemoryLeakDetector
                         ImmutableSet.of(WAITING_FOR_MEMORY),
                         OptionalDouble.of(20)),
                 null,
-                null);
+                null,
+                ImmutableList.of());
     }
 }
