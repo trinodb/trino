@@ -40,6 +40,7 @@ import io.prestosql.sql.planner.iterative.rule.DesugarLambdaExpression;
 import io.prestosql.sql.planner.iterative.rule.DesugarTryExpression;
 import io.prestosql.sql.planner.iterative.rule.DetermineJoinDistributionType;
 import io.prestosql.sql.planner.iterative.rule.DetermineSemiJoinDistributionType;
+import io.prestosql.sql.planner.iterative.rule.DistinctAggregationToGroupBy;
 import io.prestosql.sql.planner.iterative.rule.EliminateCrossJoins;
 import io.prestosql.sql.planner.iterative.rule.EvaluateZeroLimit;
 import io.prestosql.sql.planner.iterative.rule.EvaluateZeroSample;
@@ -120,7 +121,6 @@ import io.prestosql.sql.planner.optimizations.IndexJoinOptimizer;
 import io.prestosql.sql.planner.optimizations.LimitPushDown;
 import io.prestosql.sql.planner.optimizations.MetadataDeleteOptimizer;
 import io.prestosql.sql.planner.optimizations.MetadataQueryOptimizer;
-import io.prestosql.sql.planner.optimizations.OptimizeMixedDistinctAggregations;
 import io.prestosql.sql.planner.optimizations.PlanOptimizer;
 import io.prestosql.sql.planner.optimizations.PredicatePushDown;
 import io.prestosql.sql.planner.optimizations.PruneUnreferencedOutputs;
@@ -275,6 +275,7 @@ public class PlanOptimizers
                         statsCalculator,
                         estimatedExchangesCostCalculator,
                         new CanonicalizeExpressions().rules()),
+                new UnaliasSymbolReferences(),
                 new IterativeOptimizer(
                         ruleStats,
                         statsCalculator,
@@ -299,6 +300,7 @@ public class PlanOptimizers
                                         new RemoveTrivialFilters(),
                                         new ImplementFilteredAggregations(),
                                         new SingleDistinctAggregationToGroupBy(),
+                                        new DistinctAggregationToGroupBy(metadata),
                                         new MultipleDistinctAggregationToMarkDistinct(),
                                         new ImplementBernoulliSampleAsFilter(),
                                         new MergeLimitWithDistinct(),
@@ -433,7 +435,6 @@ public class PlanOptimizers
                         estimatedExchangesCostCalculator,
                         ImmutableSet.of(new ReorderJoins(costComparator))));
 
-        builder.add(new OptimizeMixedDistinctAggregations(metadata));
         builder.add(new IterativeOptimizer(
                 ruleStats,
                 statsCalculator,
