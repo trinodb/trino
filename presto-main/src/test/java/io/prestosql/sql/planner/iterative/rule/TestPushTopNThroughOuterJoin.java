@@ -26,6 +26,7 @@ import static io.prestosql.sql.planner.assertions.PlanMatchPattern.topN;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.values;
 import static io.prestosql.sql.planner.plan.JoinNode.Type.FULL;
 import static io.prestosql.sql.planner.plan.JoinNode.Type.LEFT;
+import static io.prestosql.sql.planner.plan.JoinNode.Type.RIGHT;
 import static io.prestosql.sql.planner.plan.TopNNode.Step.FINAL;
 import static io.prestosql.sql.planner.plan.TopNNode.Step.PARTIAL;
 import static io.prestosql.sql.tree.SortItem.NullOrdering.FIRST;
@@ -60,7 +61,32 @@ public class TestPushTopNThroughOuterJoin
     }
 
     @Test
-    public void testPushRightwardsTopNThroughFullOuterJoin()
+    public void testPushTopNThroughRightJoin()
+    {
+        tester().assertThat(new PushTopNThroughOuterJoin())
+                .on(p -> {
+                    Symbol leftKey = p.symbol("leftKey");
+                    Symbol rightKey = p.symbol("rightKey");
+                    return p.topN(
+                            1,
+                            ImmutableList.of(rightKey),
+                            PARTIAL,
+                            p.join(
+                                    RIGHT,
+                                    p.values(5, leftKey),
+                                    p.values(5, rightKey),
+                                    new JoinNode.EquiJoinClause(leftKey, rightKey)));
+                })
+                .matches(
+                        join(
+                                RIGHT,
+                                ImmutableList.of(equiJoinClause("leftKey", "rightKey")),
+                                values("leftKey"),
+                                topN(1, ImmutableList.of(sort("rightKey", ASCENDING, FIRST)), PARTIAL, values("rightKey"))));
+    }
+
+    @Test
+    public void testFullJoin()
     {
         tester().assertThat(new PushTopNThroughOuterJoin())
                 .on(p -> {
@@ -76,17 +102,8 @@ public class TestPushTopNThroughOuterJoin
                                     p.values(5, rightKey),
                                     new JoinNode.EquiJoinClause(leftKey, rightKey)));
                 })
-                .matches(
-                        join(
-                                FULL,
-                                ImmutableList.of(equiJoinClause("leftKey", "rightKey")),
-                                values("leftKey"),
-                                topN(1, ImmutableList.of(sort("rightKey", ASCENDING, FIRST)), PARTIAL, values("rightKey"))));
-    }
+                .doesNotFire();
 
-    @Test
-    public void testPushLeftwardsTopNThroughFullOuterJoin()
-    {
         tester().assertThat(new PushTopNThroughOuterJoin())
                 .on(p -> {
                     Symbol leftKey = p.symbol("leftKey");
@@ -101,12 +118,7 @@ public class TestPushTopNThroughOuterJoin
                                     p.values(5, rightKey),
                                     new JoinNode.EquiJoinClause(leftKey, rightKey)));
                 })
-                .matches(
-                        join(
-                                FULL,
-                                ImmutableList.of(equiJoinClause("leftKey", "rightKey")),
-                                topN(1, ImmutableList.of(sort("leftKey", ASCENDING, FIRST)), PARTIAL, values("leftKey")),
-                                values("rightKey")));
+                .doesNotFire();
     }
 
     @Test

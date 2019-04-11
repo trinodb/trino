@@ -25,6 +25,7 @@ import static io.prestosql.sql.planner.assertions.PlanMatchPattern.limit;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.values;
 import static io.prestosql.sql.planner.plan.JoinNode.Type.FULL;
 import static io.prestosql.sql.planner.plan.JoinNode.Type.LEFT;
+import static io.prestosql.sql.planner.plan.JoinNode.Type.RIGHT;
 
 public class TestPushLimitThroughOuterJoin
         extends BaseRuleTest
@@ -53,6 +54,29 @@ public class TestPushLimitThroughOuterJoin
     }
 
     @Test
+    public void testPushLimitThroughRightJoin()
+    {
+        tester().assertThat(new PushLimitThroughOuterJoin())
+                .on(p -> {
+                    Symbol leftKey = p.symbol("leftKey");
+                    Symbol rightKey = p.symbol("rightKey");
+                    return p.limit(1,
+                            p.join(
+                                    RIGHT,
+                                    p.values(5, leftKey),
+                                    p.values(5, rightKey),
+                                    new EquiJoinClause(leftKey, rightKey)));
+                })
+                .matches(
+                        limit(1,
+                                join(
+                                        RIGHT,
+                                        ImmutableList.of(equiJoinClause("leftKey", "rightKey")),
+                                        values("leftKey"),
+                                        limit(1, true, values("rightKey")))));
+    }
+
+    @Test
     public void testPushLimitThroughFullOuterJoin()
     {
         tester().assertThat(new PushLimitThroughOuterJoin())
@@ -66,13 +90,7 @@ public class TestPushLimitThroughOuterJoin
                                     p.values(5, rightKey),
                                     new EquiJoinClause(leftKey, rightKey)));
                 })
-                .matches(
-                        limit(1,
-                                join(
-                                        FULL,
-                                        ImmutableList.of(equiJoinClause("leftKey", "rightKey")),
-                                        limit(1, true, values("leftKey")),
-                                        limit(1, true, values("rightKey")))));
+                .doesNotFire();
     }
 
     @Test
