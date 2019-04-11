@@ -35,7 +35,6 @@ import io.prestosql.sql.planner.DomainTranslator;
 import io.prestosql.sql.planner.ExpressionInterpreter;
 import io.prestosql.sql.planner.NoOpSymbolResolver;
 import io.prestosql.sql.planner.OrderingScheme;
-import io.prestosql.sql.planner.Partitioning;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.TypeAnalyzer;
 import io.prestosql.sql.planner.TypeProvider;
@@ -430,21 +429,8 @@ public class PropertyDerivations
                             .unordered(true)
                             .build();
                 case FULL:
-                    if (probeProperties.getNodePartitioning().isPresent()) {
-                        Partitioning nodePartitioning = probeProperties.getNodePartitioning().get();
-                        ImmutableList.Builder<Expression> coalesceExpressions = ImmutableList.builder();
-                        for (Symbol column : nodePartitioning.getColumns()) {
-                            for (JoinNode.EquiJoinClause equality : node.getCriteria()) {
-                                if (equality.getLeft().equals(column) || equality.getRight().equals(column)) {
-                                    coalesceExpressions.add(new CoalesceExpression(ImmutableList.of(equality.getLeft().toSymbolReference(), equality.getRight().toSymbolReference())));
-                                }
-                            }
-                        }
-
-                        return ActualProperties.builder()
-                                .global(partitionedOn(Partitioning.createWithExpressions(nodePartitioning.getHandle(), coalesceExpressions.build()), Optional.empty()))
-                                .build();
-                    }
+                    // We can't say anything about the partitioning scheme because any partition of
+                    // a hash-partitioned join can produce nulls in case of a lack of matches
                     return ActualProperties.builder()
                             .global(probeProperties.isSingleNode() ? singleStreamPartition() : arbitraryPartition())
                             .build();
