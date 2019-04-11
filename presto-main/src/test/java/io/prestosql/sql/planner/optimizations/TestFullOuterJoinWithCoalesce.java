@@ -36,7 +36,7 @@ import static io.prestosql.sql.planner.plan.JoinNode.Type.FULL;
 public class TestFullOuterJoinWithCoalesce
         extends BasePlanTest
 {
-    @Test
+    @Test(enabled = false) // TODO: re-enable once FULL join property derivations are re-introduced
     public void testFullOuterJoinWithCoalesce()
     {
         assertDistributedPlan(
@@ -64,7 +64,7 @@ public class TestFullOuterJoinWithCoalesce
                                         exchange(LOCAL, GATHER, anyTree(values(ImmutableList.of("r"))))))));
     }
 
-    @Test
+    @Test(enabled = false) // TODO: re-enable once FULL join property derivations are re-introduced
     public void testArgumentsInDifferentOrder()
     {
         // ensure properties for full outer join are derived properly regardless of the order of arguments to coalesce, since they
