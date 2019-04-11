@@ -40,6 +40,7 @@ import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.TableNotFoundException;
 import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.StandardTypes;
+import io.prestosql.spi.type.TinyintType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeManager;
 import io.prestosql.spi.type.TypeSignature;
@@ -74,6 +75,7 @@ import static io.prestosql.plugin.jdbc.ColumnMapping.DISABLE_PUSHDOWN;
 import static io.prestosql.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.timestampColumnMapping;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.timestampWriteFunction;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.tinyintWriteFunction;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.varbinaryWriteFunction;
 import static io.prestosql.plugin.postgresql.TypeUtils.getArrayElementPgTypeName;
 import static io.prestosql.plugin.postgresql.TypeUtils.getJdbcObjectArray;
@@ -261,6 +263,9 @@ public class PostgreSqlClient
         }
         if (TIMESTAMP.equals(type)) {
             return WriteMapping.longMapping("timestamp", timestampWriteFunction(session));
+        }
+        if (TinyintType.TINYINT.equals(type)) {
+            return WriteMapping.longMapping("smallint", tinyintWriteFunction());
         }
         if (type.getTypeSignature().getBase().equals(StandardTypes.JSON)) {
             return WriteMapping.sliceMapping("jsonb", typedVarcharWriteFunction("json"));
