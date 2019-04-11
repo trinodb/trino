@@ -13,6 +13,8 @@
  */
 package io.prestosql.sql.query;
 
+import com.google.common.base.Joiner;
+import com.google.common.collect.Iterables;
 import io.prestosql.Session;
 import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.sql.planner.Plan;
@@ -87,7 +89,7 @@ class QueryAssertions
     {
         MaterializedResult actualResults = null;
         try {
-            actualResults = runner.execute(runner.getDefaultSession(), actual).toTestTypes();
+            actualResults = execute(actual);
         }
         catch (RuntimeException ex) {
             fail("Execution of 'actual' query failed: " + actual, ex);
@@ -95,7 +97,7 @@ class QueryAssertions
 
         MaterializedResult expectedResults = null;
         try {
-            expectedResults = runner.execute(runner.getDefaultSession(), expected).toTestTypes();
+            expectedResults = execute(expected);
         }
         catch (RuntimeException ex) {
             fail("Execution of 'expected' query failed: " + expected, ex);
@@ -114,6 +116,27 @@ class QueryAssertions
         else {
             assertEqualsIgnoreOrder(actualRows, expectedRows, "For query: \n " + actual);
         }
+    }
+
+    public static void assertContains(MaterializedResult all, MaterializedResult expectedSubset)
+    {
+        for (MaterializedRow row : expectedSubset.getMaterializedRows()) {
+            if (!all.getMaterializedRows().contains(row)) {
+                fail(format("expected row missing: %s\nAll %s rows:\n    %s\nExpected subset %s rows:\n    %s\n",
+                        row,
+                        all.getMaterializedRows().size(),
+                        Joiner.on("\n    ").join(Iterables.limit(all, 100)),
+                        expectedSubset.getMaterializedRows().size(),
+                        Joiner.on("\n    ").join(Iterables.limit(expectedSubset, 100))));
+            }
+        }
+    }
+
+    public MaterializedResult execute(@Language("SQL") String query)
+    {
+        MaterializedResult actualResults;
+        actualResults = runner.execute(runner.getDefaultSession(), query).toTestTypes();
+        return actualResults;
     }
 
     @Override
