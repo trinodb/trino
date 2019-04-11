@@ -356,27 +356,29 @@ public class TestEffectivePredicateExtractor
                 makeTableHandle(TupleDomain.none()),
                 ImmutableList.copyOf(assignments.keySet()),
                 assignments,
-                TupleDomain.all());
+                TupleDomain.none());
         effectivePredicate = effectivePredicateExtractor.extract(SESSION, node);
         assertEquals(effectivePredicate, FALSE_LITERAL);
 
+        TupleDomain<ColumnHandle> predicate = TupleDomain.withColumnDomains(ImmutableMap.of(scanAssignments.get(A), Domain.singleValue(BIGINT, 1L)));
         node = new TableScanNode(
                 newId(),
-                makeTableHandle(TupleDomain.withColumnDomains(ImmutableMap.of(scanAssignments.get(A), Domain.singleValue(BIGINT, 1L)))),
+                makeTableHandle(predicate),
                 ImmutableList.copyOf(assignments.keySet()),
                 assignments,
-                TupleDomain.all());
+                predicate);
         effectivePredicate = effectivePredicateExtractor.extract(SESSION, node);
         assertEquals(normalizeConjuncts(effectivePredicate), normalizeConjuncts(equals(bigintLiteral(1L), AE)));
 
+        predicate = TupleDomain.withColumnDomains(ImmutableMap.of(
+                scanAssignments.get(A), Domain.singleValue(BIGINT, 1L),
+                scanAssignments.get(B), Domain.singleValue(BIGINT, 2L)));
         node = new TableScanNode(
                 newId(),
-                makeTableHandle(TupleDomain.withColumnDomains(ImmutableMap.of(
-                        scanAssignments.get(A), Domain.singleValue(BIGINT, 1L),
-                        scanAssignments.get(B), Domain.singleValue(BIGINT, 2L)))),
+                makeTableHandle(predicate),
                 ImmutableList.copyOf(assignments.keySet()),
                 assignments,
-                TupleDomain.all());
+                predicate);
         effectivePredicate = effectivePredicateExtractor.extract(SESSION, node);
         assertEquals(normalizeConjuncts(effectivePredicate), normalizeConjuncts(equals(bigintLiteral(2L), BE), equals(bigintLiteral(1L), AE)));
 
