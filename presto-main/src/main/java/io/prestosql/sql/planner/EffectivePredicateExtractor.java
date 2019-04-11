@@ -208,6 +208,7 @@ public class EffectivePredicateExtractor
         {
             Map<ColumnHandle, Symbol> assignments = ImmutableBiMap.copyOf(node.getAssignments()).inverse();
 
+            // TODO: replace with metadata.getTableProperties() when table layouts are fully removed
             TupleDomain<ColumnHandle> predicate = node.getEnforcedConstraint();
             return domainTranslator.toPredicate(predicate.simplify().transform(assignments::get));
         }
