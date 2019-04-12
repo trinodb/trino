@@ -101,6 +101,10 @@ Name                                   Description
                                        service principal by first resolving the hostname to an IP address
                                        and then doing a reverse DNS lookup for that IP address.
                                        This is enabled by default.
+``KerberosServicePrincipalPattern``    Presto coordinator Kerberos service principal pattern. The default is
+                                       ``${SERVICE}@${HOST}``. ``${SERVICE}`` is replaced with the value of
+                                       ``KerberosRemoteServiceName`` and ``${HOST}`` is replaced with the
+                                       hostname of the coordinator (after canonicalization if enabled).
 ``KerberosConfigPath``                 Kerberos configuration file.
 ``KerberosKeytabPath``                 Kerberos keytab file.
 ``KerberosCredentialCachePath``        Kerberos credential cache.
