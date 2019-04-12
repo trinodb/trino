@@ -63,6 +63,8 @@ public interface JdbcClient
     PreparedStatement buildSql(ConnectorSession session, Connection connection, JdbcSplit split, JdbcTableHandle table, List<JdbcColumnHandle> columns)
             throws SQLException;
 
+    boolean supportsLimit();
+
     boolean isLimitGuaranteed();
 
     void addColumn(ConnectorSession session, JdbcTableHandle handle, ColumnMetadata column);

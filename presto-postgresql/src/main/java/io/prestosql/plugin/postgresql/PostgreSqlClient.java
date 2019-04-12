@@ -66,6 +66,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.BiFunction;
 
 import static com.fasterxml.jackson.core.JsonFactory.Feature.CANONICALIZE_FIELD_NAMES;
 import static com.fasterxml.jackson.databind.SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS;
@@ -279,9 +280,9 @@ public class PostgreSqlClient
     }
 
     @Override
-    protected String applyLimit(String sql, long limit)
+    protected Optional<BiFunction<String, Long, String>> limitFunction()
     {
-        return sql + " LIMIT " + limit;
+        return Optional.of((sql, limit) -> sql + " LIMIT " + limit);
     }
 
     @Override
