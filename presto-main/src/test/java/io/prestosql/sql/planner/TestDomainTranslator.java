@@ -56,7 +56,7 @@ import java.util.concurrent.TimeUnit;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.SessionTestUtils.TEST_SESSION;
-import static io.prestosql.metadata.FunctionRegistry.getMagicLiteralFunctionSignature;
+import static io.prestosql.metadata.LiteralFunction.getLiteralFunctionSignature;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.spi.predicate.TupleDomain.withColumnDomains;
 import static io.prestosql.spi.type.BigintType.BIGINT;
@@ -1394,7 +1394,7 @@ public class TestDomainTranslator
 
     private static FunctionCall colorLiteral(long value)
     {
-        return new FunctionCall(QualifiedName.of(getMagicLiteralFunctionSignature(COLOR).getName()), ImmutableList.of(bigintLiteral(value)));
+        return new FunctionCall(QualifiedName.of(getLiteralFunctionSignature(COLOR).getName()), ImmutableList.of(bigintLiteral(value)));
     }
 
     private Expression varbinaryLiteral(Slice value)

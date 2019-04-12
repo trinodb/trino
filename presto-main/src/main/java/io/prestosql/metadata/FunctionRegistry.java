@@ -20,15 +20,11 @@ import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.Ordering;
-import com.google.common.primitives.Primitives;
 import com.google.common.util.concurrent.UncheckedExecutionException;
-import io.airlift.slice.Slice;
-import io.prestosql.block.BlockSerdeUtil;
 import io.prestosql.operator.aggregation.ApproximateCountDistinctAggregation;
 import io.prestosql.operator.aggregation.ApproximateDoublePercentileAggregations;
 import io.prestosql.operator.aggregation.ApproximateDoublePercentileArrayAggregations;
@@ -159,12 +155,9 @@ import io.prestosql.operator.window.RowNumberFunction;
 import io.prestosql.operator.window.SqlWindowFunction;
 import io.prestosql.operator.window.WindowFunctionSupplier;
 import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockEncodingSerde;
 import io.prestosql.spi.function.OperatorType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignature;
-import io.prestosql.spi.type.VarcharType;
 import io.prestosql.sql.DynamicFilters;
 import io.prestosql.sql.analyzer.FeaturesConfig;
 import io.prestosql.sql.analyzer.TypeSignatureProvider;
@@ -203,8 +196,6 @@ import io.prestosql.type.setdigest.SetDigestOperators;
 
 import javax.annotation.concurrent.ThreadSafe;
 
-import java.lang.invoke.MethodHandle;
-import java.lang.invoke.MethodHandles;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -222,6 +213,8 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.prestosql.metadata.FunctionKind.AGGREGATE;
 import static io.prestosql.metadata.FunctionKind.SCALAR;
 import static io.prestosql.metadata.FunctionKind.WINDOW;
+import static io.prestosql.metadata.LiteralFunction.LITERAL_FUNCTION_NAME;
+import static io.prestosql.metadata.LiteralFunction.getLiteralFunctionSignature;
 import static io.prestosql.metadata.Signature.internalOperator;
 import static io.prestosql.metadata.SignatureBinder.applyBoundVariables;
 import static io.prestosql.operator.aggregation.ArbitraryAggregationFunction.ARBITRARY_AGGREGATION;
@@ -293,7 +286,6 @@ import static io.prestosql.operator.scalar.RowLessThanOrEqualOperator.ROW_LESS_T
 import static io.prestosql.operator.scalar.RowNotEqualOperator.ROW_NOT_EQUAL;
 import static io.prestosql.operator.scalar.RowToJsonCast.ROW_TO_JSON;
 import static io.prestosql.operator.scalar.RowToRowCast.ROW_TO_ROW_CAST;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
 import static io.prestosql.operator.scalar.TryCastFunction.TRY_CAST;
 import static io.prestosql.operator.scalar.ZipFunction.ZIP_FUNCTIONS;
@@ -302,11 +294,7 @@ import static io.prestosql.operator.window.AggregateWindowFunction.supplier;
 import static io.prestosql.spi.StandardErrorCode.AMBIGUOUS_FUNCTION_CALL;
 import static io.prestosql.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_MISSING;
 import static io.prestosql.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.BooleanType.BOOLEAN;
-import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
-import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
 import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.prestosql.type.DecimalCasts.BIGINT_TO_DECIMAL_CAST;
@@ -358,11 +346,7 @@ import static java.util.concurrent.TimeUnit.HOURS;
 @ThreadSafe
 public class FunctionRegistry
 {
-    private static final String MAGIC_LITERAL_FUNCTION_PREFIX = "$literal$";
     private static final String OPERATOR_PREFIX = "$operator$";
-
-    // hack: java classes for types that can be used with magic literals
-    private static final Set<Class<?>> SUPPORTED_LITERAL_TYPES = ImmutableSet.of(long.class, double.class, Slice.class, boolean.class);
 
     private final Metadata metadata;
     private final TypeCoercion typeCoercion;
@@ -370,14 +354,14 @@ public class FunctionRegistry
     private final LoadingCache<SpecializedFunctionKey, ScalarFunctionImplementation> specializedScalarCache;
     private final LoadingCache<SpecializedFunctionKey, InternalAggregationFunction> specializedAggregationCache;
     private final LoadingCache<SpecializedFunctionKey, WindowFunctionSupplier> specializedWindowCache;
-    private final MagicLiteralFunction magicLiteralFunction;
+    private final LiteralFunction literalFunction;
     private volatile FunctionMap functions = new FunctionMap();
 
     public FunctionRegistry(Metadata metadata, FeaturesConfig featuresConfig)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.typeCoercion = new TypeCoercion(metadata::getType);
-        this.magicLiteralFunction = new MagicLiteralFunction(metadata.getBlockEncodingSerde());
+        this.literalFunction = new LiteralFunction();
 
         specializedFunctionKeyCache = CacheBuilder.newBuilder()
                 .maximumSize(1000)
@@ -727,9 +711,9 @@ public class FunctionRegistry
             message = format("Unexpected parameters (%s) for function %s. Expected: %s", parameters, name, expected);
         }
 
-        if (name.getSuffix().startsWith(MAGIC_LITERAL_FUNCTION_PREFIX)) {
+        if (name.getSuffix().startsWith(LITERAL_FUNCTION_NAME)) {
             // extract type from function name
-            String typeName = name.getSuffix().substring(MAGIC_LITERAL_FUNCTION_PREFIX.length());
+            String typeName = name.getSuffix().substring(LITERAL_FUNCTION_NAME.length());
 
             // lookup the type
             Type type = metadata.getType(parseTypeSignature(typeName));
@@ -738,7 +722,7 @@ public class FunctionRegistry
             checkArgument(parameterTypes.size() == 1, "Expected one argument to literal function, but got %s", parameterTypes);
             metadata.getType(parameterTypes.get(0).getTypeSignature());
 
-            return getMagicLiteralFunctionSignature(type);
+            return getLiteralFunctionSignature(type);
         }
 
         throw new PrestoException(FUNCTION_NOT_FOUND, message);
@@ -1024,10 +1008,10 @@ public class FunctionRegistry
         }
 
         // TODO: this is a hack and should be removed
-        if (signature.getName().startsWith(MAGIC_LITERAL_FUNCTION_PREFIX)) {
+        if (signature.getName().startsWith(LITERAL_FUNCTION_NAME)) {
             List<TypeSignature> parameterTypes = signature.getArgumentTypes();
             // extract type from function name
-            String typeName = signature.getName().substring(MAGIC_LITERAL_FUNCTION_PREFIX.length());
+            String typeName = signature.getName().substring(LITERAL_FUNCTION_NAME.length());
 
             // lookup the type
             Type type = metadata.getType(parseTypeSignature(typeName));
@@ -1038,7 +1022,7 @@ public class FunctionRegistry
             requireNonNull(parameterType, format("Type %s not found", parameterTypes.get(0)));
 
             return new SpecializedFunctionKey(
-                    magicLiteralFunction,
+                    literalFunction,
                     BoundVariables.builder()
                             .setTypeVariable("T", parameterType)
                             .setTypeVariable("R", type)
@@ -1098,46 +1082,6 @@ public class FunctionRegistry
             throw e;
         }
         return signature;
-    }
-
-    public static Type typeForMagicLiteral(Type type)
-    {
-        Class<?> clazz = type.getJavaType();
-        clazz = Primitives.unwrap(clazz);
-
-        if (clazz == long.class) {
-            return BIGINT;
-        }
-        if (clazz == double.class) {
-            return DOUBLE;
-        }
-        if (!clazz.isPrimitive()) {
-            if (type instanceof VarcharType) {
-                return type;
-            }
-            else {
-                return VARBINARY;
-            }
-        }
-        if (clazz == boolean.class) {
-            return BOOLEAN;
-        }
-        throw new IllegalArgumentException("Unhandled Java type: " + clazz.getName());
-    }
-
-    public static Signature getMagicLiteralFunctionSignature(Type type)
-    {
-        TypeSignature argumentType = typeForMagicLiteral(type).getTypeSignature();
-
-        return new Signature(MAGIC_LITERAL_FUNCTION_PREFIX + type.getTypeSignature(),
-                SCALAR,
-                type.getTypeSignature(),
-                argumentType);
-    }
-
-    public static boolean isSupportedLiteralType(Type type)
-    {
-        return SUPPORTED_LITERAL_TYPES.contains(type.getJavaType());
     }
 
     public static String mangleOperatorName(OperatorType operatorType)
@@ -1246,66 +1190,6 @@ public class FunctionRegistry
                     .add("declaredSignature", declaredSignature)
                     .add("boundSignature", boundSignature)
                     .toString();
-        }
-    }
-
-    private static class MagicLiteralFunction
-            extends SqlScalarFunction
-    {
-        private final BlockEncodingSerde blockEncodingSerde;
-
-        public MagicLiteralFunction(BlockEncodingSerde blockEncodingSerde)
-        {
-            super(new Signature(MAGIC_LITERAL_FUNCTION_PREFIX, FunctionKind.SCALAR, TypeSignature.parseTypeSignature("R"), TypeSignature.parseTypeSignature("T")));
-            this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
-        }
-
-        @Override
-        public boolean isHidden()
-        {
-            return true;
-        }
-
-        @Override
-        public boolean isDeterministic()
-        {
-            return true;
-        }
-
-        @Override
-        public String getDescription()
-        {
-            return "magic literal";
-        }
-
-        @Override
-        public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, Metadata metadata)
-        {
-            Type parameterType = boundVariables.getTypeVariable("T");
-            Type type = boundVariables.getTypeVariable("R");
-
-            MethodHandle methodHandle = null;
-            if (parameterType.getJavaType() == type.getJavaType()) {
-                methodHandle = MethodHandles.identity(parameterType.getJavaType());
-            }
-
-            if (parameterType.getJavaType() == Slice.class) {
-                if (type.getJavaType() == Block.class) {
-                    methodHandle = BlockSerdeUtil.READ_BLOCK.bindTo(blockEncodingSerde);
-                }
-            }
-
-            checkArgument(methodHandle != null,
-                    "Expected type %s to use (or can be converted into) Java type %s, but Java type is %s",
-                    type,
-                    parameterType.getJavaType(),
-                    type.getJavaType());
-
-            return new ScalarFunctionImplementation(
-                    false,
-                    ImmutableList.of(valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
-                    methodHandle,
-                    isDeterministic());
         }
     }
 }
