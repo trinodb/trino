@@ -297,6 +297,11 @@
             <scope>test</scope>
         </dependency>
 
+        <dependency>
+            <groupId>com.orbitz.consul</groupId>
+            <artifactId>consul-client</artifactId>
+        </dependency>
+
         <!-- for benchmark -->
         <dependency>
             <groupId>io.prestosql</groupId>

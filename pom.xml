@@ -58,6 +58,7 @@
         <dep.logback.version>1.2.3</dep.logback.version>
         <dep.jmxutils.version>1.21</dep.jmxutils.version>
         <dep.gcs.version>1.9.10</dep.gcs.version>
+        <dep.orbitz-consul.version>1.1.1</dep.orbitz-consul.version>
 
         <!--
           America/Bahia_Banderas has:
@@ -1107,6 +1108,12 @@
                 <groupId>io.prestosql.cassandra</groupId>
                 <artifactId>cassandra-driver</artifactId>
                 <version>3.1.4-2</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.orbitz.consul</groupId>
+                <artifactId>consul-client</artifactId>
+                <version>${dep.orbitz-consul.version}</version>
             </dependency>
 
             <!-- force newer version to be used for dependencies -->
