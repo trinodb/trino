@@ -52,6 +52,7 @@ import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
@@ -95,7 +96,6 @@ import static java.util.Collections.nCopies;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import static java.util.function.Function.identity;
 
 public class BaseJdbcClient
         implements JdbcClient
@@ -293,7 +293,7 @@ public class BaseJdbcClient
                 columns,
                 table.getConstraint(),
                 split.getAdditionalPredicate(),
-                limitFunction(table.getLimit()));
+                tryApplyLimit(table.getLimit()));
     }
 
     @Override
@@ -719,20 +719,31 @@ public class BaseJdbcClient
         throw new PrestoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
     }
 
-    private Function<String, String> limitFunction(OptionalLong limit)
+    private Function<String, String> tryApplyLimit(OptionalLong limit)
     {
-        return limit.isPresent() ? sql -> applyLimit(sql, limit.getAsLong()) : identity();
+        if (!limit.isPresent()) {
+            return Function.identity();
+        }
+        return limitFunction()
+                .map(limitFunction -> (Function<String, String>) sql -> limitFunction.apply(sql, limit.getAsLong()))
+                .orElseGet(Function::identity);
     }
 
-    protected String applyLimit(String sql, long limit)
+    @Override
+    public boolean supportsLimit()
     {
-        return sql;
+        return limitFunction().isPresent();
+    }
+
+    protected Optional<BiFunction<String, Long, String>> limitFunction()
+    {
+        return Optional.empty();
     }
 
     @Override
     public boolean isLimitGuaranteed()
     {
-        return false;
+        throw new PrestoException(JDBC_ERROR, "limitFunction() is implemented without isLimitGuaranteed()");
     }
 
     protected String quoted(String name)

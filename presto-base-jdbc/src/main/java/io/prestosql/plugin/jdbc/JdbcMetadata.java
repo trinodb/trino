@@ -109,6 +109,10 @@ public class JdbcMetadata
     {
         JdbcTableHandle handle = (JdbcTableHandle) table;
 
+        if (!jdbcClient.supportsLimit()) {
+            return Optional.empty();
+        }
+
         if (handle.getLimit().isPresent() && handle.getLimit().getAsLong() <= limit) {
             return Optional.empty();
         }

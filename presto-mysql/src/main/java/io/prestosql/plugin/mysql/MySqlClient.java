@@ -41,6 +41,7 @@ import java.sql.SQLException;
 import java.util.Collection;
 import java.util.Optional;
 import java.util.Properties;
+import java.util.function.BiFunction;
 
 import static com.google.common.base.Verify.verify;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
@@ -246,9 +247,9 @@ public class MySqlClient
     }
 
     @Override
-    protected String applyLimit(String sql, long limit)
+    protected Optional<BiFunction<String, Long, String>> limitFunction()
     {
-        return sql + " LIMIT " + limit;
+        return Optional.of((sql, limit) -> sql + " LIMIT " + limit);
     }
 
     @Override

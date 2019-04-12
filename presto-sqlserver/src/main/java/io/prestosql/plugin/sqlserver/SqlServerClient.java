@@ -37,6 +37,7 @@ import javax.inject.Inject;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.Optional;
+import java.util.function.BiFunction;
 import java.util.function.UnaryOperator;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -148,11 +149,13 @@ public class SqlServerClient
     }
 
     @Override
-    protected String applyLimit(String sql, long limit)
+    protected Optional<BiFunction<String, Long, String>> limitFunction()
     {
-        String start = "SELECT ";
-        checkArgument(sql.startsWith(start));
-        return "SELECT TOP " + limit + " " + sql.substring(start.length());
+        return Optional.of((sql, limit) -> {
+            String start = "SELECT ";
+            checkArgument(sql.startsWith(start));
+            return "SELECT TOP " + limit + " " + sql.substring(start.length());
+        });
     }
 
     @Override
