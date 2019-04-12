@@ -22,16 +22,15 @@ import static io.airlift.configuration.testing.ConfigAssertions.assertFullMappin
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 
+@Test
 public class TestDruidConfig
 {
-    @Test
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(DruidConfig.class)
                 .setSqlTimeZone("America/Los_Angeles"));
     }
 
-    @Test
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()

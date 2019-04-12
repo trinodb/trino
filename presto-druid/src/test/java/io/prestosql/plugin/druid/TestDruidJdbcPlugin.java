@@ -21,9 +21,9 @@ import org.testng.annotations.Test;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 
+@Test
 public class TestDruidJdbcPlugin
 {
-    @Test
     public void testCreateConnector()
     {
         Plugin plugin = new DruidJdbcPlugin();
