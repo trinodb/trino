@@ -120,7 +120,7 @@ public class AddExchanges
     public AddExchanges(Metadata metadata, TypeAnalyzer typeAnalyzer)
     {
         this.metadata = metadata;
-        this.domainTranslator = new DomainTranslator(new LiteralEncoder(metadata.getBlockEncodingSerde()));
+        this.domainTranslator = new DomainTranslator(new LiteralEncoder(metadata));
         this.typeAnalyzer = typeAnalyzer;
     }
 

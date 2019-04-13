@@ -14,16 +14,18 @@
 package io.prestosql.sql.planner;
 
 import com.google.common.collect.ImmutableList;
+import io.prestosql.operator.scalar.TryFunction;
 import io.prestosql.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.prestosql.sql.tree.ArithmeticBinaryExpression;
 import io.prestosql.sql.tree.DecimalLiteral;
 import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.FunctionCall;
 import io.prestosql.sql.tree.LambdaExpression;
 import io.prestosql.sql.tree.QualifiedName;
 import io.prestosql.sql.tree.TryExpression;
+import io.prestosql.type.FunctionType;
 import org.testng.annotations.Test;
 
+import static io.prestosql.spi.type.DecimalType.createDecimalType;
 import static io.prestosql.sql.tree.ArithmeticBinaryExpression.Operator.ADD;
 import static org.testng.Assert.assertEquals;
 
@@ -43,9 +45,17 @@ public class TestDesugarTryExpressionRewriter
         Expression after = new ArithmeticBinaryExpression(
                 ADD,
                 new DecimalLiteral("1"),
-                new FunctionCall(
-                        QualifiedName.of("$internal$try"),
-                        ImmutableList.of(new LambdaExpression(ImmutableList.of(), new DecimalLiteral("2")))));
-        assertEquals(DesugarTryExpressionRewriter.rewrite(before), after);
+                new FunctionCallBuilder(tester().getMetadata())
+                        .setName(QualifiedName.of(TryFunction.NAME))
+                        .addArgument(new FunctionType(ImmutableList.of(), createDecimalType(1)), new LambdaExpression(ImmutableList.of(), new DecimalLiteral("2")))
+                        .build());
+
+        assertEquals(DesugarTryExpressionRewriter.rewrite(
+                before,
+                tester().getMetadata(),
+                tester().getTypeAnalyzer(),
+                tester().getSession(),
+                new SymbolAllocator()),
+                after);
     }
 }

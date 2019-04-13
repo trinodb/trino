@@ -126,6 +126,7 @@ import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static io.prestosql.spi.type.TypeUtils.readNativeValue;
 import static io.prestosql.spi.type.TypeUtils.writeNativeValue;
+import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
 import static io.prestosql.sql.analyzer.ConstantExpressionVerifier.verifyExpressionIsConstant;
 import static io.prestosql.sql.analyzer.ExpressionAnalyzer.createConstantAnalyzer;
@@ -133,6 +134,7 @@ import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.prestosql.sql.gen.VarArgsToMapAdapterGenerator.generateVarArgsToMapAdapter;
 import static io.prestosql.sql.planner.DeterminismEvaluator.isDeterministic;
 import static io.prestosql.sql.planner.iterative.rule.CanonicalizeExpressionRewriter.canonicalizeExpression;
+import static io.prestosql.type.JsonType.JSON;
 import static io.prestosql.type.LikeFunctions.isLikePattern;
 import static io.prestosql.type.LikeFunctions.unescapeLiteralLikePattern;
 import static io.prestosql.util.Failures.checkCondition;
@@ -211,11 +213,16 @@ public class ExpressionInterpreter
         analyzer.analyze(rewrite, Scope.create());
 
         // remove syntax sugar
-        rewrite = DesugarAtTimeZoneRewriter.rewrite(rewrite, analyzer.getExpressionTypes());
+        rewrite = DesugarAtTimeZoneRewriter.rewrite(rewrite, analyzer.getExpressionTypes(), metadata);
+
+        // The optimization above may have rewritten the expression tree which breaks all the identity maps, so redo the analysis
+        // to re-analyze coercions that might be necessary
+        analyzer = createConstantAnalyzer(metadata, session, parameters, WarningCollector.NOOP);
+        analyzer.analyze(rewrite, Scope.create());
 
         // expressionInterpreter/optimizer only understands a subset of expression types
         // TODO: remove this when the new expression tree is implemented
-        Expression canonicalized = canonicalizeExpression(rewrite);
+        Expression canonicalized = canonicalizeExpression(rewrite, analyzer.getExpressionTypes(), metadata);
 
         // The optimization above may have rewritten the expression tree which breaks all the identity maps, so redo the analysis
         // to re-analyze coercions that might be necessary
@@ -232,7 +239,7 @@ public class ExpressionInterpreter
     {
         this.expression = requireNonNull(expression, "expression is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
-        this.literalEncoder = new LiteralEncoder(metadata.getBlockEncodingSerde());
+        this.literalEncoder = new LiteralEncoder(metadata);
         this.session = requireNonNull(session, "session is null").toConnectorSession();
         this.expressionTypes = ImmutableMap.copyOf(requireNonNull(expressionTypes, "expressionTypes is null"));
         verify((expressionTypes.containsKey(NodeRef.of(expression))));
@@ -431,7 +438,7 @@ public class ExpressionInterpreter
                 // HACK
                 // Certain operations like 0 / 0 or likeExpression may throw exceptions.
                 // Wrap them a FunctionCall that will throw the exception if the expression is actually executed
-                return createFailureFunction(e, type(expression));
+                return createFailureFunction(e, type(expression), ExpressionInterpreter.this.metadata);
             }
         }
 
@@ -900,7 +907,14 @@ public class ExpressionInterpreter
 
             // do not optimize non-deterministic functions
             if (optimize && (!function.isDeterministic() || hasUnresolvedValue(argumentValues) || node.getName().equals(QualifiedName.of("fail")))) {
-                return new FunctionCall(node.getName(), node.getWindow(), node.isDistinct(), toExpressions(argumentValues, argumentTypes));
+                verify(!node.isDistinct(), "window does not support distinct");
+                verify(!node.getOrderBy().isPresent(), "window does not support order by");
+                verify(!node.getFilter().isPresent(), "window does not support filter");
+                return new FunctionCallBuilder(metadata)
+                        .setName(node.getName())
+                        .setWindow(node.getWindow())
+                        .setArguments(argumentTypes, toExpressions(argumentValues, argumentTypes))
+                        .build();
             }
             return functionInvoker.invoke(functionSignature, session, argumentValues);
         }
@@ -1112,7 +1126,12 @@ public class ExpressionInterpreter
                 Object value = process(expression, context);
                 if (value instanceof Expression) {
                     checkCondition(node.getValues().size() <= 254, NOT_SUPPORTED, "Too many arguments for array constructor");
-                    return visitFunctionCall(new FunctionCall(QualifiedName.of(ArrayConstructor.ARRAY_CONSTRUCTOR), node.getValues()), context);
+                    return visitFunctionCall(
+                            new FunctionCallBuilder(metadata)
+                                    .setName(QualifiedName.of(ArrayConstructor.ARRAY_CONSTRUCTOR))
+                                    .setArguments(types(node.getValues()), node.getValues())
+                                    .build(),
+                            context);
                 }
                 writeNativeValue(elementType, arrayBlockBuilder, value);
             }
@@ -1123,13 +1142,13 @@ public class ExpressionInterpreter
         @Override
         protected Object visitCurrentUser(CurrentUser node, Object context)
         {
-            return visitFunctionCall(DesugarCurrentUser.getCall(node), context);
+            return visitFunctionCall(DesugarCurrentUser.getCall(node, metadata), context);
         }
 
         @Override
         protected Object visitCurrentPath(CurrentPath node, Object context)
         {
-            return visitFunctionCall(DesugarCurrentPath.getCall(node), context);
+            return visitFunctionCall(DesugarCurrentPath.getCall(node, metadata), context);
         }
 
         @Override
@@ -1213,9 +1232,17 @@ public class ExpressionInterpreter
             throw new UnsupportedOperationException("Evaluator visitor can only handle Expression nodes");
         }
 
-        private List<Type> types(Expression... types)
+        private List<Type> types(Expression... expressions)
         {
-            return Stream.of(types)
+            return Stream.of(expressions)
+                    .map(NodeRef::of)
+                    .map(expressionTypes::get)
+                    .collect(toImmutableList());
+        }
+
+        private List<Type> types(List<Expression> expressions)
+        {
+            return expressions.stream()
                     .map(NodeRef::of)
                     .map(expressionTypes::get)
                     .collect(toImmutableList());
@@ -1271,13 +1298,19 @@ public class ExpressionInterpreter
         }
     }
 
-    private static Expression createFailureFunction(RuntimeException exception, Type type)
+    private static Expression createFailureFunction(RuntimeException exception, Type type, Metadata metadata)
     {
         requireNonNull(exception, "Exception is null");
 
         String failureInfo = JsonCodec.jsonCodec(FailureInfo.class).toJson(Failures.toFailure(exception).toFailureInfo());
-        FunctionCall jsonParse = new FunctionCall(QualifiedName.of("json_parse"), ImmutableList.of(new StringLiteral(failureInfo)));
-        FunctionCall failureFunction = new FunctionCall(QualifiedName.of("fail"), ImmutableList.of(jsonParse));
+        FunctionCall jsonParse = new FunctionCallBuilder(metadata)
+                .setName(QualifiedName.of("json_parse"))
+                .addArgument(VARCHAR, new StringLiteral(failureInfo))
+                .build();
+        FunctionCall failureFunction = new FunctionCallBuilder(metadata)
+                .setName(QualifiedName.of("fail"))
+                .addArgument(JSON, jsonParse)
+                .build();
 
         return new Cast(failureFunction, type.getTypeSignature().toString());
     }

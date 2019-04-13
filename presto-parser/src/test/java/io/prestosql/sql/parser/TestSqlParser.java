@@ -2330,6 +2330,7 @@ public class TestSqlParser
                         new QuerySpecification(
                                 selectList(
                                         new FunctionCall(
+                                                Optional.empty(),
                                                 QualifiedName.of("SUM"),
                                                 Optional.empty(),
                                                 Optional.of(new ComparisonExpression(
@@ -2379,6 +2380,7 @@ public class TestSqlParser
     {
         assertExpression("array_agg(x ORDER BY x DESC)",
                 new FunctionCall(
+                        Optional.empty(),
                         QualifiedName.of("array_agg"),
                         Optional.empty(),
                         Optional.empty(),
@@ -2391,6 +2393,7 @@ public class TestSqlParser
                         new QuerySpecification(
                                 selectList(
                                         new FunctionCall(
+                                                Optional.empty(),
                                                 QualifiedName.of("array_agg"),
                                                 Optional.empty(),
                                                 Optional.empty(),

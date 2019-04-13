@@ -153,6 +153,7 @@ public class ExpressionRewriteRuleSet
                 Aggregation aggregation = entry.getValue();
                 FunctionCall call = (FunctionCall) rewriter.rewrite(
                         new FunctionCall(
+                                Optional.empty(),
                                 QualifiedName.of(aggregation.getSignature().getName()),
                                 Optional.empty(),
                                 aggregation.getFilter().map(symbol -> new SymbolReference(symbol.getName())),

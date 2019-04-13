@@ -294,7 +294,7 @@ public final class DomainTranslator
         private Visitor(Metadata metadata, Session session, TypeProvider types, TypeAnalyzer typeAnalyzer)
         {
             this.metadata = requireNonNull(metadata, "metadata is null");
-            this.literalEncoder = new LiteralEncoder(metadata.getBlockEncodingSerde());
+            this.literalEncoder = new LiteralEncoder(metadata);
             this.session = requireNonNull(session, "session is null");
             this.types = requireNonNull(types, "types is null");
             this.functionInvoker = new InterpretedFunctionInvoker(metadata);

@@ -25,6 +25,7 @@ import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.resourcegroups.ResourceGroupId;
 import io.prestosql.spi.session.PropertyMetadata;
 import io.prestosql.sql.analyzer.FeaturesConfig;
+import io.prestosql.sql.planner.FunctionCallBuilder;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.FunctionCall;
 import io.prestosql.sql.tree.LongLiteral;
@@ -37,7 +38,6 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import java.net.URI;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -50,6 +50,7 @@ import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
 import static io.prestosql.spi.session.PropertyMetadata.stringProperty;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
+import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.testing.TestingSession.createBogusTestingCatalog;
 import static io.prestosql.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static java.lang.String.format;
@@ -124,9 +125,13 @@ public class TestSetSessionTask
     public void testSetSession()
     {
         testSetSession(new StringLiteral("baz"), "baz");
-        testSetSession(new FunctionCall(QualifiedName.of("concat"), ImmutableList.of(
-                new StringLiteral("ban"),
-                new StringLiteral("ana"))), "banana");
+        testSetSession(
+                new FunctionCallBuilder(metadata)
+                        .setName(QualifiedName.of("concat"))
+                        .addArgument(VARCHAR, new StringLiteral("ban"))
+                        .addArgument(VARCHAR, new StringLiteral("ana"))
+                        .build(),
+                "banana");
     }
 
     @Test
@@ -147,10 +152,12 @@ public class TestSetSessionTask
     @Test
     public void testSetSessionWithParameters()
     {
-        List<Expression> expressionList = new ArrayList<>();
-        expressionList.add(new StringLiteral("ban"));
-        expressionList.add(new Parameter(0));
-        testSetSessionWithParameters("bar", new FunctionCall(QualifiedName.of("concat"), expressionList), "banana", ImmutableList.of(new StringLiteral("ana")));
+        FunctionCall functionCall = new FunctionCallBuilder(metadata)
+                .setName(QualifiedName.of("concat"))
+                .addArgument(VARCHAR, new StringLiteral("ban"))
+                .addArgument(VARCHAR, new Parameter(0))
+                .build();
+        testSetSessionWithParameters("bar", functionCall, "banana", ImmutableList.of(new StringLiteral("ana")));
     }
 
     private void testSetSession(Expression expression, String expectedValue)

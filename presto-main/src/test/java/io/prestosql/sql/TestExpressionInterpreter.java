@@ -14,7 +14,6 @@
 package io.prestosql.sql;
 
 import com.google.common.base.Joiner;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -28,6 +27,7 @@ import io.prestosql.spi.type.VarbinaryType;
 import io.prestosql.sql.parser.ParsingOptions;
 import io.prestosql.sql.parser.SqlParser;
 import io.prestosql.sql.planner.ExpressionInterpreter;
+import io.prestosql.sql.planner.FunctionCallBuilder;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.TypeAnalyzer;
 import io.prestosql.sql.planner.TypeProvider;
@@ -866,9 +866,9 @@ public class TestExpressionInterpreter
                         "end");
 
         assertOptimizedMatches("case when 0 / 0 = 0 then 1 end",
-                "case when cast(fail() as boolean) then 1 end");
+                "case when cast(fail('fail') as boolean) then 1 end");
 
-        assertOptimizedMatches("if(false, 1, 0 / 0)", "cast(fail() as integer)");
+        assertOptimizedMatches("if(false, 1, 0 / 0)", "cast(fail('fail') as integer)");
 
         assertOptimizedEquals("case " +
                         "when false then 2.2 " +
@@ -1089,7 +1089,7 @@ public class TestExpressionInterpreter
                 "" +
                         "case BIGINT '1' " +
                         "when unbound_long then 1 " +
-                        "when cast(fail() AS integer) then 2 " +
+                        "when cast(fail('fail') AS integer) then 2 " +
                         "else 1 " +
                         "end");
 
@@ -1100,8 +1100,8 @@ public class TestExpressionInterpreter
                         "end",
                 "" +
                         "case 1 " +
-                        "when cast(fail() as integer) then 1 " +
-                        "when cast(fail() as integer) then 2 " +
+                        "when cast(fail('fail') as integer) then 1 " +
+                        "when cast(fail('fail') as integer) then 2 " +
                         "else 1 " +
                         "end");
 
@@ -1139,7 +1139,7 @@ public class TestExpressionInterpreter
         assertOptimizedEquals("coalesce(unbound_integer * (2 * 3), 1.0E0/2.0E0, null)", "coalesce(6 * unbound_integer, 0.5E0)");
         assertOptimizedEquals("coalesce(unbound_integer, 2, 1.0E0/2.0E0, 12.34E0, null)", "coalesce(unbound_integer, 2.0E0, 0.5E0, 12.34E0)");
         assertOptimizedMatches("coalesce(0 / 0 > 1, unbound_boolean, 0 / 0 = 0)",
-                "coalesce(cast(fail() as boolean), unbound_boolean)");
+                "coalesce(cast(fail('fail') as boolean), unbound_boolean)");
         assertOptimizedMatches("coalesce(unbound_long, unbound_long)", "unbound_long");
         assertOptimizedMatches("coalesce(2 * unbound_long, 2 * unbound_long)", "unbound_long * BIGINT '2'");
         assertOptimizedMatches("coalesce(unbound_long, unbound_long2, unbound_long)", "coalesce(unbound_long, unbound_long2)");
@@ -1298,22 +1298,22 @@ public class TestExpressionInterpreter
         assertOptimizedEquals("if(unbound_boolean, 0 / 0, 1)", "CASE WHEN unbound_boolean THEN 0 / 0 ELSE 1 END");
 
         assertOptimizedMatches("CASE unbound_long WHEN 1 THEN 1 WHEN 0 / 0 THEN 2 END",
-                "CASE unbound_long WHEN BIGINT '1' THEN 1 WHEN cast(fail() as bigint) THEN 2 END");
+                "CASE unbound_long WHEN BIGINT '1' THEN 1 WHEN cast(fail('fail') as bigint) THEN 2 END");
 
         assertOptimizedMatches("CASE unbound_boolean WHEN true THEN 1 ELSE 0 / 0 END",
-                "CASE unbound_boolean WHEN true THEN 1 ELSE cast(fail() as integer) END");
+                "CASE unbound_boolean WHEN true THEN 1 ELSE cast(fail('fail') as integer) END");
 
         assertOptimizedMatches("CASE bound_long WHEN unbound_long THEN 1 WHEN 0 / 0 THEN 2 ELSE 1 END",
-                "CASE BIGINT '1234' WHEN unbound_long THEN 1 WHEN cast(fail() as bigint) THEN 2 ELSE 1 END");
+                "CASE BIGINT '1234' WHEN unbound_long THEN 1 WHEN cast(fail('fail') as bigint) THEN 2 ELSE 1 END");
 
         assertOptimizedMatches("case when unbound_boolean then 1 when 0 / 0 = 0 then 2 end",
-                "case when unbound_boolean then 1 when cast(fail() as boolean) then 2 end");
+                "case when unbound_boolean then 1 when cast(fail('fail') as boolean) then 2 end");
 
         assertOptimizedMatches("case when unbound_boolean then 1 else 0 / 0  end",
-                "case when unbound_boolean then 1 else cast(fail() as integer) end");
+                "case when unbound_boolean then 1 else cast(fail('fail') as integer) end");
 
         assertOptimizedMatches("case when unbound_boolean then 0 / 0 else 1 end",
-                "case when unbound_boolean then cast(fail() as integer) else 1 end");
+                "case when unbound_boolean then cast(fail('fail') as integer) else 1 end");
     }
 
     @Test(expectedExceptions = PrestoException.class)
@@ -1534,7 +1534,10 @@ public class TestExpressionInterpreter
         public Expression rewriteFunctionCall(FunctionCall node, Object context, ExpressionTreeRewriter<Object> treeRewriter)
         {
             if (node.getName().equals(QualifiedName.of("fail"))) {
-                return new FunctionCall(QualifiedName.of("fail"), ImmutableList.of());
+                return new FunctionCallBuilder(METADATA)
+                        .setName(QualifiedName.of("fail"))
+                        .addArgument(VARCHAR, new StringLiteral("fail"))
+                        .build();
             }
             return node;
         }

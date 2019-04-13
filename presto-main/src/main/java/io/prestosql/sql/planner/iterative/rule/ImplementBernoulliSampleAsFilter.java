@@ -13,20 +13,21 @@
  */
 package io.prestosql.sql.planner.iterative.rule;
 
-import com.google.common.collect.ImmutableList;
 import io.prestosql.matching.Captures;
 import io.prestosql.matching.Pattern;
+import io.prestosql.metadata.Metadata;
+import io.prestosql.sql.planner.FunctionCallBuilder;
 import io.prestosql.sql.planner.iterative.Rule;
 import io.prestosql.sql.planner.plan.FilterNode;
 import io.prestosql.sql.planner.plan.SampleNode;
 import io.prestosql.sql.tree.ComparisonExpression;
 import io.prestosql.sql.tree.DoubleLiteral;
-import io.prestosql.sql.tree.FunctionCall;
 import io.prestosql.sql.tree.QualifiedName;
 
 import static io.prestosql.sql.planner.plan.Patterns.Sample.sampleType;
 import static io.prestosql.sql.planner.plan.Patterns.sample;
 import static io.prestosql.sql.planner.plan.SampleNode.Type.BERNOULLI;
+import static java.util.Objects.requireNonNull;
 
 /**
  * Transforms:
@@ -45,6 +46,12 @@ public class ImplementBernoulliSampleAsFilter
 {
     private static final Pattern<SampleNode> PATTERN = sample()
             .with(sampleType().equalTo(BERNOULLI));
+    private final Metadata metadata;
+
+    public ImplementBernoulliSampleAsFilter(Metadata metadata)
+    {
+        this.metadata = requireNonNull(metadata, "metadata is null");
+    }
 
     @Override
     public Pattern<SampleNode> getPattern()
@@ -60,7 +67,9 @@ public class ImplementBernoulliSampleAsFilter
                 sample.getSource(),
                 new ComparisonExpression(
                         ComparisonExpression.Operator.LESS_THAN,
-                        new FunctionCall(QualifiedName.of("rand"), ImmutableList.of()),
+                        new FunctionCallBuilder(metadata)
+                                .setName(QualifiedName.of("rand"))
+                                .build(),
                         new DoubleLiteral(Double.toString(sample.getSampleRatio())))));
     }
 }

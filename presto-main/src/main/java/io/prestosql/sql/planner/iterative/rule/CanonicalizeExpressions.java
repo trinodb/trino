@@ -13,13 +13,16 @@
  */
 package io.prestosql.sql.planner.iterative.rule;
 
-import static io.prestosql.sql.planner.iterative.rule.CanonicalizeExpressionRewriter.canonicalizeExpression;
+import io.prestosql.metadata.Metadata;
+import io.prestosql.sql.planner.TypeAnalyzer;
+
+import static io.prestosql.sql.planner.iterative.rule.CanonicalizeExpressionRewriter.rewrite;
 
 public class CanonicalizeExpressions
         extends ExpressionRewriteRuleSet
 {
-    public CanonicalizeExpressions()
+    public CanonicalizeExpressions(Metadata metadata, TypeAnalyzer typeAnalyzer)
     {
-        super((expression, context) -> canonicalizeExpression(expression));
+        super((expression, context) -> rewrite(expression, context.getSession(), metadata, typeAnalyzer, context.getSymbolAllocator().getTypes()));
     }
 }

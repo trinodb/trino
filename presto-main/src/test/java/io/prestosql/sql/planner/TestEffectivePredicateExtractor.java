@@ -169,7 +169,7 @@ public class TestEffectivePredicateExtractor
     };
 
     private final TypeAnalyzer typeAnalyzer = new TypeAnalyzer(new SqlParser(), metadata);
-    private final EffectivePredicateExtractor effectivePredicateExtractor = new EffectivePredicateExtractor(new DomainTranslator(new LiteralEncoder(metadata.getBlockEncodingSerde())), metadata);
+    private final EffectivePredicateExtractor effectivePredicateExtractor = new EffectivePredicateExtractor(new DomainTranslator(new LiteralEncoder(metadata)), metadata);
 
     private Map<Symbol, ColumnHandle> scanAssignments;
     private TableScanNode baseTableScan;
@@ -265,7 +265,9 @@ public class TestEffectivePredicateExtractor
     {
         PlanNode node = filter(baseTableScan,
                 and(
-                        greaterThan(AE, new FunctionCall(QualifiedName.of("rand"), ImmutableList.of())),
+                        greaterThan(AE, new FunctionCallBuilder(metadata)
+                                .setName(QualifiedName.of("rand"))
+                                .build()),
                         lessThan(BE, bigintLiteral(10))));
 
         Expression effectivePredicate = effectivePredicateExtractor.extract(SESSION, node, TypeProvider.empty(), typeAnalyzer);
@@ -953,11 +955,6 @@ public class TestEffectivePredicateExtractor
     private static IsNullPredicate isNull(Expression expression)
     {
         return new IsNullPredicate(expression);
-    }
-
-    private static FunctionCall fakeFunction()
-    {
-        return new FunctionCall(QualifiedName.of("test"), ImmutableList.of());
     }
 
     private static Signature fakeFunctionHandle(String name, FunctionKind kind)

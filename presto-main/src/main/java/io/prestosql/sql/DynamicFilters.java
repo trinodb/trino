@@ -15,10 +15,14 @@ package io.prestosql.sql;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
+import io.prestosql.metadata.Metadata;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.function.ScalarFunction;
 import io.prestosql.spi.function.SqlType;
 import io.prestosql.spi.function.TypeParameter;
+import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.VarcharType;
+import io.prestosql.sql.planner.FunctionCallBuilder;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.FunctionCall;
 import io.prestosql.sql.tree.QualifiedName;
@@ -40,9 +44,13 @@ public final class DynamicFilters
 {
     private DynamicFilters() {}
 
-    public static Expression createDynamicFilterExpression(String id, SymbolReference input)
+    public static Expression createDynamicFilterExpression(Metadata metadata, String id, Type inputType, SymbolReference input)
     {
-        return new FunctionCall(QualifiedName.of(Function.NAME), ImmutableList.of(new StringLiteral(id), input));
+        return new FunctionCallBuilder(metadata)
+                .setName(QualifiedName.of(Function.NAME))
+                .addArgument(VarcharType.VARCHAR, new StringLiteral(id))
+                .addArgument(inputType, input)
+                .build();
     }
 
     public static ExtractResult extractDynamicFilters(Expression expression)

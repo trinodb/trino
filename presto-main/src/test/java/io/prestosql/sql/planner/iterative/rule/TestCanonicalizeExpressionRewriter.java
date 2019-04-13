@@ -13,14 +13,27 @@
  */
 package io.prestosql.sql.planner.iterative.rule;
 
+import com.google.common.collect.ImmutableMap;
+import io.prestosql.metadata.Metadata;
+import io.prestosql.metadata.MetadataManager;
+import io.prestosql.spi.type.Type;
+import io.prestosql.sql.parser.SqlParser;
+import io.prestosql.sql.planner.Symbol;
+import io.prestosql.sql.planner.TypeAnalyzer;
+import io.prestosql.sql.planner.TypeProvider;
 import io.prestosql.sql.planner.iterative.rule.test.PlanBuilder;
 import org.testng.annotations.Test;
 
-import static io.prestosql.sql.planner.iterative.rule.CanonicalizeExpressionRewriter.canonicalizeExpression;
+import static io.prestosql.SessionTestUtils.TEST_SESSION;
+import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.sql.planner.iterative.rule.CanonicalizeExpressionRewriter.rewrite;
 import static org.testng.Assert.assertEquals;
 
 public class TestCanonicalizeExpressionRewriter
 {
+    private static final Metadata METADATA = MetadataManager.createTestMetadataManager();
+    private static final TypeAnalyzer TYPE_ANALYZER = new TypeAnalyzer(new SqlParser(), METADATA);
+
     @Test
     public void testRewriteIsNotNullPredicate()
     {
@@ -42,7 +55,7 @@ public class TestCanonicalizeExpressionRewriter
     @Test
     public void testRewriteYearExtract()
     {
-        assertRewritten("EXTRACT(YEAR FROM '2017-07-20')", "year('2017-07-20')");
+        assertRewritten("EXTRACT(YEAR FROM DATE '2017-07-20')", "year(DATE '2017-07-20')");
     }
 
     @Test
@@ -94,6 +107,16 @@ public class TestCanonicalizeExpressionRewriter
 
     private static void assertRewritten(String from, String to)
     {
-        assertEquals(canonicalizeExpression(PlanBuilder.expression(from)), PlanBuilder.expression(to));
+        assertEquals(
+                rewrite(
+                        PlanBuilder.expression(from),
+                        TEST_SESSION,
+                        METADATA,
+                        TYPE_ANALYZER,
+                        TypeProvider.copyOf(ImmutableMap.<Symbol, Type>builder()
+                                .put(new Symbol("x"), BIGINT)
+                                .put(new Symbol("a"), BIGINT)
+                                .build())),
+                PlanBuilder.expression(to));
     }
 }

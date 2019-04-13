@@ -279,7 +279,7 @@ public class PlanOptimizers
                         .addAll(new SimplifyExpressions(metadata, typeAnalyzer).rules())
                         .addAll(new UnwrapCastInComparison(metadata, typeAnalyzer).rules())
                         .addAll(new RemoveDuplicateConditions().rules())
-                        .addAll(new CanonicalizeExpressions().rules())
+                        .addAll(new CanonicalizeExpressions(metadata, typeAnalyzer).rules())
                         .build());
 
         PlanOptimizer predicatePushDown = new StatsRecordingPlanOptimizer(optimizerStats, new PredicatePushDown(metadata, typeAnalyzer));
@@ -293,16 +293,16 @@ public class PlanOptimizers
                         ImmutableSet.<Rule<?>>builder()
                                 .addAll(new DesugarLambdaExpression().rules())
                                 .addAll(new DesugarAtTimeZone(metadata, typeAnalyzer).rules())
-                                .addAll(new DesugarCurrentUser().rules())
-                                .addAll(new DesugarCurrentPath().rules())
-                                .addAll(new DesugarTryExpression().rules())
+                                .addAll(new DesugarCurrentUser(metadata).rules())
+                                .addAll(new DesugarCurrentPath(metadata).rules())
+                                .addAll(new DesugarTryExpression(metadata, typeAnalyzer).rules())
                                 .addAll(new DesugarRowSubscript(typeAnalyzer).rules())
                                 .build()),
                 new IterativeOptimizer(
                         ruleStats,
                         statsCalculator,
                         estimatedExchangesCostCalculator,
-                        new CanonicalizeExpressions().rules()),
+                        new CanonicalizeExpressions(metadata, typeAnalyzer).rules()),
                 new IterativeOptimizer(
                         ruleStats,
                         statsCalculator,
@@ -393,7 +393,7 @@ public class PlanOptimizers
                         ImmutableSet.of(
                                 new RemoveUnreferencedScalarApplyNodes(),
                                 new TransformCorrelatedInPredicateToJoin(), // must be run after PruneUnreferencedOutputs
-                                new TransformCorrelatedScalarSubquery(), // must be run after TransformCorrelatedScalarAggregationToJoin
+                                new TransformCorrelatedScalarSubquery(metadata), // must be run after TransformCorrelatedScalarAggregationToJoin
                                 new TransformCorrelatedLateralJoinToJoin(),
                                 new ImplementFilteredAggregations())),
                 new IterativeOptimizer(
@@ -423,7 +423,7 @@ public class PlanOptimizers
                         estimatedExchangesCostCalculator,
                         // Temporary hack: separate optimizer step to avoid the sample node being replaced by filter before pushing
                         // it to table scan node
-                        ImmutableSet.of(new ImplementBernoulliSampleAsFilter())),
+                        ImmutableSet.of(new ImplementBernoulliSampleAsFilter(metadata))),
                 new PruneUnreferencedOutputs(),
                 new IterativeOptimizer(
                         ruleStats,
@@ -593,7 +593,7 @@ public class PlanOptimizers
         // DO NOT add optimizers that change the plan shape (computations) after this point
 
         // Precomputed hashes - this assumes that partitioning will not change
-        builder.add(new HashGenerationOptimizer());
+        builder.add(new HashGenerationOptimizer(metadata));
 
         builder.add(new TableDeleteOptimizer(metadata));
         builder.add(new BeginTableWrite(metadata)); // HACK! see comments in BeginTableWrite

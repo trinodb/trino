@@ -56,7 +56,6 @@ import java.util.concurrent.TimeUnit;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.SessionTestUtils.TEST_SESSION;
-import static io.prestosql.metadata.LiteralFunction.getLiteralFunctionSignature;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.spi.predicate.TupleDomain.withColumnDomains;
 import static io.prestosql.spi.type.BigintType.BIGINT;
@@ -161,7 +160,7 @@ public class TestDomainTranslator
     public void setup()
     {
         metadata = createTestMetadataManager();
-        literalEncoder = new LiteralEncoder(metadata.getBlockEncodingSerde());
+        literalEncoder = new LiteralEncoder(metadata);
         domainTranslator = new DomainTranslator(literalEncoder);
     }
 
@@ -995,7 +994,11 @@ public class TestDomainTranslator
     @Test
     public void testExpressionConstantFolding()
     {
-        Expression originalExpression = comparison(GREATER_THAN, C_VARBINARY.toSymbolReference(), function("from_hex", stringLiteral("123456")));
+        FunctionCall fromHex = new FunctionCallBuilder(metadata)
+                        .setName(QualifiedName.of("from_hex"))
+                        .addArgument(VARCHAR, stringLiteral("123456"))
+                        .build();
+        Expression originalExpression = comparison(GREATER_THAN, C_VARBINARY.toSymbolReference(), fromHex);
         ExtractionResult result = fromPredicate(originalExpression);
         assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
         Slice value = Slices.wrappedBuffer(BaseEncoding.base16().decode("123456"));
@@ -1222,9 +1225,12 @@ public class TestDomainTranslator
         return comparison(LESS_THAN, symbol.toSymbolReference(), symbol.toSymbolReference());
     }
 
-    private static Expression randPredicate(Symbol symbol, Type type)
+    private Expression randPredicate(Symbol symbol, Type type)
     {
-        return comparison(GREATER_THAN, symbol.toSymbolReference(), cast(new FunctionCall(QualifiedName.of("rand"), ImmutableList.of()), type));
+        FunctionCall rand = new FunctionCallBuilder(metadata)
+                .setName(QualifiedName.of("rand"))
+                .build();
+        return comparison(GREATER_THAN, symbol.toSymbolReference(), cast(rand, type));
     }
 
     private static ComparisonExpression equal(Symbol symbol, Expression expression)
@@ -1392,19 +1398,14 @@ public class TestDomainTranslator
         return new Cast(expression, type.getTypeSignature().toString());
     }
 
-    private static FunctionCall colorLiteral(long value)
+    private Expression colorLiteral(long value)
     {
-        return new FunctionCall(QualifiedName.of(getLiteralFunctionSignature(COLOR).getName()), ImmutableList.of(bigintLiteral(value)));
+        return literalEncoder.toExpression(value, COLOR);
     }
 
     private Expression varbinaryLiteral(Slice value)
     {
         return toExpression(value, VARBINARY);
-    }
-
-    private static FunctionCall function(String functionName, Expression... args)
-    {
-        return new FunctionCall(QualifiedName.of(functionName), ImmutableList.copyOf(args));
     }
 
     private static Long shortDecimal(String value)
@@ -1441,11 +1442,6 @@ public class TestDomainTranslator
     private Expression toExpression(Object object, Type type)
     {
         return literalEncoder.toExpression(object, type);
-    }
-
-    private List<Expression> toExpressions(List<?> objects, List<? extends Type> types)
-    {
-        return literalEncoder.toExpressions(objects, types);
     }
 
     private static class NumericValues<T>

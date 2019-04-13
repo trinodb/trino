@@ -46,7 +46,7 @@ public class TestSimplifyExpressions
 {
     private static final SqlParser SQL_PARSER = new SqlParser();
     private static final Metadata METADATA = createTestMetadataManager();
-    private static final LiteralEncoder LITERAL_ENCODER = new LiteralEncoder(METADATA.getBlockEncodingSerde());
+    private static final LiteralEncoder LITERAL_ENCODER = new LiteralEncoder(METADATA);
 
     @Test
     public void testPushesDownNegations()

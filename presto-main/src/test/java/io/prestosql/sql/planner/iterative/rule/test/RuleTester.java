@@ -110,6 +110,11 @@ public class RuleTester
         return metadata;
     }
 
+    public Session getSession()
+    {
+        return session;
+    }
+
     public SplitManager getSplitManager()
     {
         return splitManager;

@@ -116,7 +116,7 @@ public class PushProjectionIntoTableScan
         // TODO: ensure newProjections.size == original projections.size
 
         List<Expression> newProjections = result.get().getProjections().stream()
-                .map(expression -> ConnectorExpressionTranslator.translate(expression, variableMappings, new LiteralEncoder(metadata.getBlockEncodingSerde())))
+                .map(expression -> ConnectorExpressionTranslator.translate(expression, variableMappings, new LiteralEncoder(metadata)))
                 .collect(toImmutableList());
 
         Assignments.Builder newProjectionAssignments = Assignments.builder();

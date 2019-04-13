@@ -51,6 +51,7 @@ import io.prestosql.spiller.SpillSpaceTracker;
 import io.prestosql.split.SplitSource;
 import io.prestosql.sql.gen.PageFunctionCompiler;
 import io.prestosql.sql.planner.Symbol;
+import io.prestosql.sql.planner.SymbolAllocator;
 import io.prestosql.sql.planner.TypeAnalyzer;
 import io.prestosql.sql.planner.TypeProvider;
 import io.prestosql.sql.planner.optimizations.HashGenerationOptimizer;
@@ -215,21 +216,24 @@ public abstract class AbstractOperatorBenchmark
 
     protected final OperatorFactory createHashProjectOperator(int operatorId, PlanNodeId planNodeId, List<Type> types)
     {
-        ImmutableMap.Builder<Symbol, Type> symbolTypes = ImmutableMap.builder();
+        SymbolAllocator symbolAllocator = new SymbolAllocator();
         ImmutableMap.Builder<Symbol, Integer> symbolToInputMapping = ImmutableMap.builder();
         ImmutableList.Builder<PageProjection> projections = ImmutableList.builder();
         for (int channel = 0; channel < types.size(); channel++) {
-            Symbol symbol = new Symbol("h" + channel);
-            symbolTypes.put(symbol, types.get(channel));
+            Symbol symbol = symbolAllocator.newSymbol("h" + channel, types.get(channel));
             symbolToInputMapping.put(symbol, channel);
             projections.add(new InputPageProjection(channel, types.get(channel)));
         }
 
-        Optional<Expression> hashExpression = HashGenerationOptimizer.getHashExpression(ImmutableList.copyOf(symbolTypes.build().keySet()));
+        Map<Symbol, Type> symbolTypes = symbolAllocator.getTypes().allTypes();
+        Optional<Expression> hashExpression = HashGenerationOptimizer.getHashExpression(
+                localQueryRunner.getMetadata(),
+                symbolAllocator,
+                ImmutableList.copyOf(symbolTypes.keySet()));
         verify(hashExpression.isPresent());
 
         Map<NodeRef<Expression>, Type> expressionTypes = new TypeAnalyzer(localQueryRunner.getSqlParser(), localQueryRunner.getMetadata())
-                .getTypes(session, TypeProvider.copyOf(symbolTypes.build()), hashExpression.get());
+                .getTypes(session, TypeProvider.copyOf(symbolTypes), hashExpression.get());
 
         RowExpression translated = translate(hashExpression.get(), SCALAR, expressionTypes, symbolToInputMapping.build(), localQueryRunner.getMetadata(), session, false);
 

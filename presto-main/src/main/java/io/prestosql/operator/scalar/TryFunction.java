@@ -26,15 +26,18 @@ import io.prestosql.sql.gen.lambda.LambdaFunctionInterface;
 
 import java.util.function.Supplier;
 
+import static io.prestosql.operator.scalar.TryFunction.NAME;
 import static io.prestosql.spi.StandardErrorCode.DIVISION_BY_ZERO;
 import static io.prestosql.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.prestosql.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 
 @Description("internal try function for desugaring TRY")
-@ScalarFunction(value = "$internal$try", hidden = true, deterministic = false)
+@ScalarFunction(value = NAME, hidden = true, deterministic = false)
 public final class TryFunction
 {
+    public static final String NAME = "$internal$try";
+
     private TryFunction() {}
 
     @TypeParameter("T")

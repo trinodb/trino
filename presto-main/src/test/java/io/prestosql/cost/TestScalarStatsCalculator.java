@@ -13,12 +13,12 @@
  */
 package io.prestosql.cost;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slices;
 import io.prestosql.Session;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.sql.parser.SqlParser;
+import io.prestosql.sql.planner.FunctionCallBuilder;
 import io.prestosql.sql.planner.LiteralEncoder;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.TypeProvider;
@@ -26,7 +26,6 @@ import io.prestosql.sql.tree.Cast;
 import io.prestosql.sql.tree.DecimalLiteral;
 import io.prestosql.sql.tree.DoubleLiteral;
 import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.FunctionCall;
 import io.prestosql.sql.tree.GenericLiteral;
 import io.prestosql.sql.tree.NullLiteral;
 import io.prestosql.sql.tree.QualifiedName;
@@ -114,18 +113,20 @@ public class TestScalarStatsCalculator
     public void testFunctionCall()
     {
         assertCalculate(
-                new FunctionCall(
-                        QualifiedName.of("length"),
-                        ImmutableList.of(new Cast(new NullLiteral(), "VARCHAR(10)"))))
+                new FunctionCallBuilder(metadata)
+                        .setName(QualifiedName.of("length"))
+                        .addArgument(createVarcharType(10), new Cast(new NullLiteral(), "VARCHAR(10)"))
+                        .build())
                 .distinctValuesCount(0.0)
                 .lowValueUnknown()
                 .highValueUnknown()
                 .nullsFraction(1.0);
 
         assertCalculate(
-                new FunctionCall(
-                        QualifiedName.of("length"),
-                        ImmutableList.of(new SymbolReference("x"))),
+                new FunctionCallBuilder(metadata)
+                        .setName(QualifiedName.of("length"))
+                        .addArgument(createVarcharType(2), new SymbolReference("x"))
+                        .build(),
                 PlanNodeStatsEstimate.unknown(),
                 TypeProvider.viewOf(ImmutableMap.of(new Symbol("x"), createVarcharType(2))))
                 .distinctValuesCountUnknown()
@@ -137,7 +138,7 @@ public class TestScalarStatsCalculator
     @Test
     public void testVarbinaryConstant()
     {
-        LiteralEncoder literalEncoder = new LiteralEncoder(metadata.getBlockEncodingSerde());
+        LiteralEncoder literalEncoder = new LiteralEncoder(metadata);
         Expression expression = literalEncoder.toExpression(Slices.utf8Slice("ala ma kota"), VARBINARY);
 
         assertCalculate(expression)

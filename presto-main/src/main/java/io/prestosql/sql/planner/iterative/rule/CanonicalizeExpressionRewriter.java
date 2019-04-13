@@ -14,7 +14,13 @@
 package io.prestosql.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
+import io.prestosql.Session;
+import io.prestosql.metadata.Metadata;
 import io.prestosql.operator.scalar.FormatFunction;
+import io.prestosql.spi.type.Type;
+import io.prestosql.sql.planner.FunctionCallBuilder;
+import io.prestosql.sql.planner.TypeAnalyzer;
+import io.prestosql.sql.planner.TypeProvider;
 import io.prestosql.sql.tree.ArithmeticBinaryExpression;
 import io.prestosql.sql.tree.Cast;
 import io.prestosql.sql.tree.ComparisonExpression;
@@ -29,31 +35,57 @@ import io.prestosql.sql.tree.IfExpression;
 import io.prestosql.sql.tree.IsNotNullPredicate;
 import io.prestosql.sql.tree.IsNullPredicate;
 import io.prestosql.sql.tree.Literal;
+import io.prestosql.sql.tree.NodeRef;
 import io.prestosql.sql.tree.NotExpression;
 import io.prestosql.sql.tree.QualifiedName;
 import io.prestosql.sql.tree.Row;
 import io.prestosql.sql.tree.SearchedCaseExpression;
+import io.prestosql.sql.tree.SymbolReference;
 import io.prestosql.sql.tree.WhenClause;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.sql.tree.ArithmeticBinaryExpression.Operator.ADD;
 import static io.prestosql.sql.tree.ArithmeticBinaryExpression.Operator.MULTIPLY;
+import static java.util.Objects.requireNonNull;
 
 public class CanonicalizeExpressionRewriter
 {
+    public static Expression canonicalizeExpression(Expression expression, Map<NodeRef<Expression>, Type> expressionTypes, Metadata metadata)
+    {
+        return ExpressionTreeRewriter.rewriteWith(new Visitor(metadata, expressionTypes), expression);
+    }
+
     private CanonicalizeExpressionRewriter() {}
 
-    public static Expression canonicalizeExpression(Expression expression)
+    public static Expression rewrite(Expression expression, Session session, Metadata metadata, TypeAnalyzer typeAnalyzer, TypeProvider types)
     {
-        return ExpressionTreeRewriter.rewriteWith(new Visitor(), expression);
+        requireNonNull(metadata, "metadata is null");
+        requireNonNull(typeAnalyzer, "typeAnalyzer is null");
+
+        if (expression instanceof SymbolReference) {
+            return expression;
+        }
+        Map<NodeRef<Expression>, Type> expressionTypes = typeAnalyzer.getTypes(session, types, expression);
+
+        return ExpressionTreeRewriter.rewriteWith(new Visitor(metadata, expressionTypes), expression);
     }
 
     private static class Visitor
             extends ExpressionRewriter<Void>
     {
+        private final Metadata metadata;
+        private final Map<NodeRef<Expression>, Type> expressionTypes;
+
+        public Visitor(Metadata metadata, Map<NodeRef<Expression>, Type> expressionTypes)
+        {
+            this.metadata = metadata;
+            this.expressionTypes = expressionTypes;
+        }
+
         @Override
         public Expression rewriteComparisonExpression(ComparisonExpression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
         {
@@ -107,15 +139,25 @@ public class CanonicalizeExpressionRewriter
 
             switch (node.getFunction()) {
                 case DATE:
-                    return new FunctionCall(QualifiedName.of("current_date"), ImmutableList.of());
+                    return new FunctionCallBuilder(metadata)
+                            .setName(QualifiedName.of("current_date"))
+                            .build();
                 case TIME:
-                    return new FunctionCall(QualifiedName.of("current_time"), ImmutableList.of());
+                    return new FunctionCallBuilder(metadata)
+                            .setName(QualifiedName.of("current_time"))
+                            .build();
                 case LOCALTIME:
-                    return new FunctionCall(QualifiedName.of("localtime"), ImmutableList.of());
+                    return new FunctionCallBuilder(metadata)
+                            .setName(QualifiedName.of("localtime"))
+                            .build();
                 case TIMESTAMP:
-                    return new FunctionCall(QualifiedName.of("current_timestamp"), ImmutableList.of());
+                    return new FunctionCallBuilder(metadata)
+                            .setName(QualifiedName.of("current_timestamp"))
+                            .build();
                 case LOCALTIMESTAMP:
-                    return new FunctionCall(QualifiedName.of("localtimestamp"), ImmutableList.of());
+                    return new FunctionCallBuilder(metadata)
+                            .setName(QualifiedName.of("localtimestamp"))
+                            .build();
                 default:
                     throw new UnsupportedOperationException("not yet implemented: " + node.getFunction());
             }
@@ -125,38 +167,78 @@ public class CanonicalizeExpressionRewriter
         public Expression rewriteExtract(Extract node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
         {
             Expression value = treeRewriter.rewrite(node.getExpression(), context);
+            Type type = expressionTypes.get(NodeRef.of(node.getExpression()));
 
             switch (node.getField()) {
                 case YEAR:
-                    return new FunctionCall(QualifiedName.of("year"), ImmutableList.of(value));
+                    return new FunctionCallBuilder(metadata)
+                            .setName(QualifiedName.of("year"))
+                            .addArgument(type, value)
+                            .build();
                 case QUARTER:
-                    return new FunctionCall(QualifiedName.of("quarter"), ImmutableList.of(value));
+                    return new FunctionCallBuilder(metadata)
+                            .setName(QualifiedName.of("quarter"))
+                            .addArgument(type, value)
+                            .build();
                 case MONTH:
-                    return new FunctionCall(QualifiedName.of("month"), ImmutableList.of(value));
+                    return new FunctionCallBuilder(metadata)
+                            .setName(QualifiedName.of("month"))
+                            .addArgument(type, value)
+                            .build();
                 case WEEK:
-                    return new FunctionCall(QualifiedName.of("week"), ImmutableList.of(value));
+                    return new FunctionCallBuilder(metadata)
+                            .setName(QualifiedName.of("week"))
+                            .addArgument(type, value)
+                            .build();
                 case DAY:
                 case DAY_OF_MONTH:
-                    return new FunctionCall(QualifiedName.of("day"), ImmutableList.of(value));
+                    return new FunctionCallBuilder(metadata)
+                            .setName(QualifiedName.of("day"))
+                            .addArgument(type, value)
+                            .build();
                 case DAY_OF_WEEK:
                 case DOW:
-                    return new FunctionCall(QualifiedName.of("day_of_week"), ImmutableList.of(value));
+                    return new FunctionCallBuilder(metadata)
+                            .setName(QualifiedName.of("day_of_week"))
+                            .addArgument(type, value)
+                            .build();
                 case DAY_OF_YEAR:
                 case DOY:
-                    return new FunctionCall(QualifiedName.of("day_of_year"), ImmutableList.of(value));
+                    return new FunctionCallBuilder(metadata)
+                            .setName(QualifiedName.of("day_of_year"))
+                            .addArgument(type, value)
+                            .build();
                 case YEAR_OF_WEEK:
                 case YOW:
-                    return new FunctionCall(QualifiedName.of("year_of_week"), ImmutableList.of(value));
+                    return new FunctionCallBuilder(metadata)
+                            .setName(QualifiedName.of("year_of_week"))
+                            .addArgument(type, value)
+                            .build();
                 case HOUR:
-                    return new FunctionCall(QualifiedName.of("hour"), ImmutableList.of(value));
+                    return new FunctionCallBuilder(metadata)
+                            .setName(QualifiedName.of("hour"))
+                            .addArgument(type, value)
+                            .build();
                 case MINUTE:
-                    return new FunctionCall(QualifiedName.of("minute"), ImmutableList.of(value));
+                    return new FunctionCallBuilder(metadata)
+                            .setName(QualifiedName.of("minute"))
+                            .addArgument(type, value)
+                            .build();
                 case SECOND:
-                    return new FunctionCall(QualifiedName.of("second"), ImmutableList.of(value));
+                    return new FunctionCallBuilder(metadata)
+                            .setName(QualifiedName.of("second"))
+                            .addArgument(type, value)
+                            .build();
                 case TIMEZONE_MINUTE:
-                    return new FunctionCall(QualifiedName.of("timezone_minute"), ImmutableList.of(value));
+                    return new FunctionCallBuilder(metadata)
+                            .setName(QualifiedName.of("timezone_minute"))
+                            .addArgument(type, value)
+                            .build();
                 case TIMEZONE_HOUR:
-                    return new FunctionCall(QualifiedName.of("timezone_hour"), ImmutableList.of(value));
+                    return new FunctionCallBuilder(metadata)
+                            .setName(QualifiedName.of("timezone_hour"))
+                            .addArgument(type, value)
+                            .build();
             }
 
             throw new UnsupportedOperationException("not yet implemented: " + node.getField());

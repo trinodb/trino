@@ -48,7 +48,7 @@ import static java.util.Collections.emptyList;
 public class TestSqlToRowExpressionTranslator
 {
     private final Metadata metadata = createTestMetadataManager();
-    private final LiteralEncoder literalEncoder = new LiteralEncoder(metadata.getBlockEncodingSerde());
+    private final LiteralEncoder literalEncoder = new LiteralEncoder(metadata);
 
     @Test(timeOut = 10_000)
     public void testPossibleExponentialOptimizationTime()

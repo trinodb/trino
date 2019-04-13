@@ -19,6 +19,9 @@ import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import io.prestosql.metadata.Metadata;
+import io.prestosql.metadata.MetadataManager;
+import io.prestosql.operator.scalar.TryFunction;
 import io.prestosql.sql.ExpressionUtils;
 import io.prestosql.sql.tree.ArithmeticBinaryExpression;
 import io.prestosql.sql.tree.ArrayConstructor;
@@ -26,11 +29,11 @@ import io.prestosql.sql.tree.Cast;
 import io.prestosql.sql.tree.ComparisonExpression;
 import io.prestosql.sql.tree.DereferenceExpression;
 import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.FunctionCall;
 import io.prestosql.sql.tree.IfExpression;
 import io.prestosql.sql.tree.InListExpression;
 import io.prestosql.sql.tree.InPredicate;
 import io.prestosql.sql.tree.IsNotNullPredicate;
+import io.prestosql.sql.tree.LambdaExpression;
 import io.prestosql.sql.tree.LongLiteral;
 import io.prestosql.sql.tree.NullIfExpression;
 import io.prestosql.sql.tree.NullLiteral;
@@ -40,6 +43,7 @@ import io.prestosql.sql.tree.SimpleCaseExpression;
 import io.prestosql.sql.tree.SubscriptExpression;
 import io.prestosql.sql.tree.SymbolReference;
 import io.prestosql.sql.tree.WhenClause;
+import io.prestosql.type.FunctionType;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
@@ -50,6 +54,7 @@ import java.util.Set;
 
 import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.sql.QueryUtil.identifier;
 import static io.prestosql.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static io.prestosql.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
@@ -60,6 +65,8 @@ import static org.testng.Assert.assertTrue;
 
 public class TestEqualityInference
 {
+    private final Metadata metadata = MetadataManager.createTestMetadataManager();
+
     @Test
     public void testTransitivity()
     {
@@ -329,7 +336,10 @@ public class TestEqualityInference
     {
         List<Expression> candidates = ImmutableList.of(
                 new Cast(nameReference("b"), "BIGINT", true), // try_cast
-                new FunctionCall(QualifiedName.of("try"), ImmutableList.of(nameReference("b"))),
+                new FunctionCallBuilder(metadata)
+                    .setName(QualifiedName.of(TryFunction.NAME))
+                    .addArgument(new FunctionType(ImmutableList.of(), VARCHAR), new LambdaExpression(ImmutableList.of(), nameReference("b")))
+                    .build(),
                 new NullIfExpression(nameReference("b"), number(1)),
                 new IfExpression(nameReference("b"), number(1), new NullLiteral()),
                 new DereferenceExpression(nameReference("b"), identifier("x")),

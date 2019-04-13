@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.spi.type.BigintType;
 import io.prestosql.spi.type.DateType;
+import io.prestosql.sql.planner.FunctionCallBuilder;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.assertions.PlanMatchPattern;
 import io.prestosql.sql.planner.iterative.rule.test.BaseRuleTest;
@@ -28,6 +29,7 @@ import io.prestosql.sql.tree.QualifiedName;
 import io.prestosql.sql.tree.SymbolReference;
 import org.testng.annotations.Test;
 
+import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.project;
@@ -38,9 +40,6 @@ public class TestExpressionRewriteRuleSet
 {
     private ExpressionRewriteRuleSet zeroRewriter = new ExpressionRewriteRuleSet(
             (expression, context) -> new LongLiteral("0"));
-
-    private static final FunctionCall nowCall = new FunctionCall(QualifiedName.of("now"), ImmutableList.of());
-    private ExpressionRewriteRuleSet functionCallRewriter = new ExpressionRewriteRuleSet((expression, context) -> nowCall);
 
     @Test
     public void testProjectionExpressionRewrite()
@@ -66,28 +65,39 @@ public class TestExpressionRewriteRuleSet
     @Test
     public void testAggregationExpressionRewrite()
     {
-        ExpressionRewriteRuleSet functionCallRewriter = new ExpressionRewriteRuleSet((expression, context) ->
-                new FunctionCall(QualifiedName.of("count"), ImmutableList.of(new SymbolReference("y"))));
+        ExpressionRewriteRuleSet functionCallRewriter = new ExpressionRewriteRuleSet((expression, context) -> new FunctionCallBuilder(tester().getMetadata())
+                .setName(QualifiedName.of("count"))
+                .addArgument(VARCHAR, new SymbolReference("y"))
+                .build());
         tester().assertThat(functionCallRewriter.aggregationExpressionRewrite())
                 .on(p -> p.aggregation(a -> a
                         .globalGrouping()
                         .addAggregation(
                                 p.symbol("count_1", BigintType.BIGINT),
-                                new FunctionCall(QualifiedName.of("count"), ImmutableList.of(PlanBuilder.expression("x"))),
+                                new FunctionCallBuilder(tester().getMetadata())
+                                        .setName(QualifiedName.of("count"))
+                                        .addArgument(VARCHAR, new SymbolReference("x"))
+                                        .build(),
                                 ImmutableList.of(BigintType.BIGINT))
                         .source(
                                 p.values(p.symbol("x"), p.symbol("y")))))
                 .matches(
                         PlanMatchPattern.aggregation(
-                                ImmutableMap.of("count_1", aliases -> new FunctionCall(
-                                        QualifiedName.of("count"),
-                                        ImmutableList.of(new SymbolReference("y")))),
+                                ImmutableMap.of("count_1", aliases -> new FunctionCallBuilder(tester().getMetadata())
+                                        .setName(QualifiedName.of("count"))
+                                        .addArgument(VARCHAR, new SymbolReference("y"))
+                                        .build()),
                                 values("x", "y")));
     }
 
     @Test
     public void testAggregationExpressionNotRewritten()
     {
+        FunctionCall nowCall = new FunctionCallBuilder(tester().getMetadata())
+                .setName(QualifiedName.of("now"))
+                .build();
+        ExpressionRewriteRuleSet functionCallRewriter = new ExpressionRewriteRuleSet((expression, context) -> nowCall);
+
         tester().assertThat(functionCallRewriter.aggregationExpressionRewrite())
                 .on(p -> p.aggregation(a -> a
                         .globalGrouping()

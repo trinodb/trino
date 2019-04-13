@@ -1552,7 +1552,7 @@ class AstBuilder
         }
 
         return new FunctionCall(
-                getLocation(context),
+                Optional.of(getLocation(context)),
                 getQualifiedName(context.qualifiedName()),
                 window,
                 filter,

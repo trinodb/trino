@@ -20,6 +20,7 @@ import io.prestosql.matching.Pattern;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
 import io.prestosql.spi.type.TypeSignature;
+import io.prestosql.sql.planner.FunctionCallBuilder;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.iterative.Rule;
 import io.prestosql.sql.planner.plan.AggregationNode;
@@ -102,7 +103,10 @@ public class RewriteSpatialPartitioningAggregation
                     envelopeAssignments.put(envelopeSymbol, geometry);
                 }
                 else {
-                    envelopeAssignments.put(envelopeSymbol, new FunctionCall(QualifiedName.of("ST_Envelope"), ImmutableList.of(geometry)));
+                    envelopeAssignments.put(envelopeSymbol, new FunctionCallBuilder(metadata)
+                            .setName(QualifiedName.of("ST_Envelope"))
+                            .addArgument(GEOMETRY_TYPE_SIGNATURE, geometry)
+                            .build());
                 }
                 aggregations.put(entry.getKey(),
                         new Aggregation(
