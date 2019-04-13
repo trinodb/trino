@@ -101,7 +101,7 @@ public class JmxTableHandle
     public String toString()
     {
         return toStringHelper(this)
-                .add("tableName", objectNames)
+                .add("tableName", tableName)
                 .add("objectNames", objectNames)
                 .add("columnHandles", columnHandles)
                 .add("liveData", liveData)
