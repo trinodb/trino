@@ -83,7 +83,7 @@ public class JdbcMetadata
     }
 
     @Override
-    public Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorTableHandle table, Constraint constraint)
+    public Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorSession session, ConnectorTableHandle table, Constraint constraint)
     {
         JdbcTableHandle handle = (JdbcTableHandle) table;
 
@@ -105,7 +105,7 @@ public class JdbcMetadata
     }
 
     @Override
-    public Optional<LimitApplicationResult<ConnectorTableHandle>> applyLimit(ConnectorTableHandle table, long limit)
+    public Optional<LimitApplicationResult<ConnectorTableHandle>> applyLimit(ConnectorSession session, ConnectorTableHandle table, long limit)
     {
         JdbcTableHandle handle = (JdbcTableHandle) table;
 

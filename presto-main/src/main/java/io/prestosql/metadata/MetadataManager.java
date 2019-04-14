@@ -1197,7 +1197,8 @@ public class MetadataManager
             return Optional.empty();
         }
 
-        return metadata.applyLimit(table.getConnectorHandle(), limit)
+        ConnectorSession connectorSession = session.toConnectorSession(catalogName);
+        return metadata.applyLimit(connectorSession, table.getConnectorHandle(), limit)
                 .map(result -> new LimitApplicationResult<>(
                         new TableHandle(catalogName, result.getHandle(), table.getTransaction(), Optional.empty()),
                         result.isLimitGuaranteed()));
@@ -1206,15 +1207,17 @@ public class MetadataManager
     @Override
     public Optional<ConstraintApplicationResult<TableHandle>> applyFilter(Session session, TableHandle table, Constraint constraint)
     {
-        ConnectorMetadata metadata = getMetadata(session, table.getCatalogName());
+        CatalogName catalogName = table.getCatalogName();
+        ConnectorMetadata metadata = getMetadata(session, catalogName);
 
         if (metadata.usesLegacyTableLayouts()) {
             return Optional.empty();
         }
 
-        return metadata.applyFilter(table.getConnectorHandle(), constraint)
+        ConnectorSession connectorSession = session.toConnectorSession(catalogName);
+        return metadata.applyFilter(connectorSession, table.getConnectorHandle(), constraint)
                 .map(result -> new ConstraintApplicationResult<>(
-                        new TableHandle(table.getCatalogName(), result.getHandle(), table.getTransaction(), Optional.empty()),
+                        new TableHandle(catalogName, result.getHandle(), table.getTransaction(), Optional.empty()),
                         result.getRemainingFilter()));
     }
 

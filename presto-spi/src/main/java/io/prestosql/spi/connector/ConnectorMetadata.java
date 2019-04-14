@@ -606,7 +606,7 @@ public interface ConnectorMetadata
      * If the connector can guarantee it will produce fewer rows than the provided limit, it should return a
      * non-empty result with the "limit guaranteed" flag set to true.
      */
-    default Optional<LimitApplicationResult<ConnectorTableHandle>> applyLimit(ConnectorTableHandle handle, long limit)
+    default Optional<LimitApplicationResult<ConnectorTableHandle>> applyLimit(ConnectorSession session, ConnectorTableHandle handle, long limit)
     {
         return Optional.empty();
     }
@@ -625,7 +625,7 @@ public interface ConnectorMetadata
      * to loop indefinitely.
      * </p>
      */
-    default Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorTableHandle handle, Constraint constraint)
+    default Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorSession session, ConnectorTableHandle handle, Constraint constraint)
     {
         return Optional.empty();
     }
