@@ -30,7 +30,7 @@ Hive Connector Changes
 
 * Fix regression that could cause queries to fail with ``Query can potentially
   read more than X partitions`` error. (:issue:`619`)
-* Improve ORC read performance significantly. For TCP-DS, this saves about 9.5% of
+* Improve ORC read performance significantly. For TPC-DS, this saves about 9.5% of
   total CPU when running over gzip-compressed data. (:issue:`555`)
 * Require access to a table (any privilege) in order to list the columns. (:issue:`507`)
 * Add directory listing cache for specific tables. The list of tables is specified
