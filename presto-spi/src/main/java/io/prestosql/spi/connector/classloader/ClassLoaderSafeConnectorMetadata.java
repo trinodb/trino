@@ -569,18 +569,18 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
-    public Optional<LimitApplicationResult<ConnectorTableHandle>> applyLimit(ConnectorTableHandle table, long limit)
+    public Optional<LimitApplicationResult<ConnectorTableHandle>> applyLimit(ConnectorSession session, ConnectorTableHandle table, long limit)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.applyLimit(table, limit);
+            return delegate.applyLimit(session, table, limit);
         }
     }
 
     @Override
-    public Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorTableHandle table, Constraint constraint)
+    public Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorSession session, ConnectorTableHandle table, Constraint constraint)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.applyFilter(table, constraint);
+            return delegate.applyFilter(session, table, constraint);
         }
     }
 }

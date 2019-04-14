@@ -352,7 +352,7 @@ public class MemoryMetadata
     }
 
     @Override
-    public Optional<LimitApplicationResult<ConnectorTableHandle>> applyLimit(ConnectorTableHandle handle, long limit)
+    public Optional<LimitApplicationResult<ConnectorTableHandle>> applyLimit(ConnectorSession session, ConnectorTableHandle handle, long limit)
     {
         MemoryTableHandle table = (MemoryTableHandle) handle;
 
