@@ -39,6 +39,8 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.function.Function;
 
@@ -48,6 +50,7 @@ import static com.google.common.io.BaseEncoding.base16;
 import static io.prestosql.plugin.postgresql.PostgreSqlQueryRunner.createPostgreSqlQueryRunner;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
+import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.tests.datatype.DataType.bigintDataType;
 import static io.prestosql.tests.datatype.DataType.booleanDataType;
@@ -67,6 +70,7 @@ import static io.prestosql.type.JsonType.JSON;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_16LE;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.time.ZoneOffset.UTC;
 import static java.util.Arrays.asList;
 import static java.util.Collections.singletonList;
 import static java.util.function.Function.identity;
@@ -572,6 +576,52 @@ public class TestPostgreSqlTypeMapping
         };
     }
 
+    @Test(dataProvider = "testTimestampWithTimeZoneDataProvider")
+    public void testTimestampWithTimeZone(boolean insertWithPresto)
+    {
+        DataType<ZonedDateTime> dataType;
+        DataSetup dataSetup;
+        if (insertWithPresto) {
+            dataType = prestoTimestampWithTimeZoneDataType();
+            dataSetup = prestoCreateAsSelect("test_timestamp_with_time_zone");
+        }
+        else {
+            dataType = postgreSqlTimestampWithTimeZoneDataType();
+            dataSetup = postgresCreateAndInsert("tpch.test_timestamp_with_time_zone");
+        }
+
+        DataTypeTest tests = DataTypeTest.create()
+                .addRoundTrip(dataType, epoch.atZone(UTC))
+                .addRoundTrip(dataType, epoch.atZone(kathmandu))
+                .addRoundTrip(dataType, beforeEpoch.atZone(UTC))
+                .addRoundTrip(dataType, beforeEpoch.atZone(kathmandu))
+                .addRoundTrip(dataType, afterEpoch.atZone(UTC))
+                .addRoundTrip(dataType, afterEpoch.atZone(kathmandu))
+                .addRoundTrip(dataType, timeDoubledInJvmZone.atZone(UTC))
+                .addRoundTrip(dataType, timeDoubledInJvmZone.atZone(jvmZone))
+                .addRoundTrip(dataType, timeDoubledInJvmZone.atZone(kathmandu))
+                .addRoundTrip(dataType, timeDoubledInVilnius.atZone(UTC))
+                .addRoundTrip(dataType, timeDoubledInVilnius.atZone(vilnius))
+                .addRoundTrip(dataType, timeDoubledInVilnius.atZone(kathmandu))
+                .addRoundTrip(dataType, timeGapInJvmZone1.atZone(UTC))
+                .addRoundTrip(dataType, timeGapInJvmZone1.atZone(kathmandu))
+                .addRoundTrip(dataType, timeGapInJvmZone2.atZone(UTC))
+                .addRoundTrip(dataType, timeGapInJvmZone2.atZone(kathmandu))
+                .addRoundTrip(dataType, timeGapInVilnius.atZone(kathmandu))
+                .addRoundTrip(dataType, timeGapInKathmandu.atZone(vilnius));
+
+        tests.execute(getQueryRunner(), dataSetup);
+    }
+
+    @DataProvider
+    public Object[][] testTimestampWithTimeZoneDataProvider()
+    {
+        return new Object[][] {
+                {true},
+                {false},
+        };
+    }
+
     @Test
     public void testJson()
     {
@@ -615,6 +665,27 @@ public class TestPostgreSqlTypeMapping
         finally {
             jdbcSqlExecutor.execute("DROP TABLE tpch.test_unsupported_data_type");
         }
+    }
+
+    public static DataType<ZonedDateTime> prestoTimestampWithTimeZoneDataType()
+    {
+        return dataType(
+                "timestamp with time zone",
+                TIMESTAMP_WITH_TIME_ZONE,
+                DateTimeFormatter.ofPattern("'TIMESTAMP '''yyyy-MM-dd HH:mm:ss.SSS VV''")::format,
+                // PostgreSQL does not store zone, only the point in time
+                zonedDateTime -> zonedDateTime.withZoneSameInstant(ZoneId.of("UTC")));
+    }
+
+    public static DataType<ZonedDateTime> postgreSqlTimestampWithTimeZoneDataType()
+    {
+        return dataType(
+                "timestamp with time zone",
+                TIMESTAMP_WITH_TIME_ZONE,
+                // PostgreSQL never examines the content of a literal string before determining its type, so `TIMESTAMP '.... {zone}'` won't work.
+                // PostgreSQL does not store zone, only the point in time
+                zonedDateTime -> DateTimeFormatter.ofPattern("'TIMESTAMP WITH TIME ZONE '''yyyy-MM-dd HH:mm:ss.SSS VV''").format(zonedDateTime.withZoneSameInstant(UTC)),
+                zonedDateTime -> zonedDateTime.withZoneSameInstant(ZoneId.of("UTC")));
     }
 
     public static DataType<String> jsonbDataType()
