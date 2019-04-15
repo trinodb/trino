@@ -55,6 +55,7 @@ import java.util.ServiceLoader;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import static com.google.common.base.Preconditions.checkState;
 import static io.prestosql.metadata.FunctionExtractor.extractFunctions;
 import static io.prestosql.server.PluginDiscovery.discoverPlugins;
 import static io.prestosql.server.PluginDiscovery.writePluginServices;
@@ -162,11 +163,7 @@ public class PluginManager
     {
         ServiceLoader<Plugin> serviceLoader = ServiceLoader.load(Plugin.class, pluginClassLoader);
         List<Plugin> plugins = ImmutableList.copyOf(serviceLoader);
-
-        if (plugins.isEmpty()) {
-            log.warn("No service providers of type %s", Plugin.class.getName());
-        }
-
+        checkState(!plugins.isEmpty(), "No service providers of type %s", Plugin.class.getName());
         for (Plugin plugin : plugins) {
             log.info("Installing %s", plugin.getClass().getName());
             installPlugin(plugin);
