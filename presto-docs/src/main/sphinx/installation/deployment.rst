@@ -74,12 +74,14 @@ The following provides a good starting point for creating ``etc/jvm.config``:
 
     -server
     -Xmx16G
+    -XX:-UseBiasedLocking
     -XX:+UseG1GC
     -XX:G1HeapRegionSize=32M
     -XX:+UseGCOverheadLimit
     -XX:+ExplicitGCInvokesConcurrent
     -XX:+HeapDumpOnOutOfMemoryError
     -XX:+ExitOnOutOfMemoryError
+    -XX:ReservedCodeCacheSize=512M
     -Djdk.nio.maxCachedBufferSize=2000000
 
 Because an ``OutOfMemoryError`` will typically leave the JVM in an
