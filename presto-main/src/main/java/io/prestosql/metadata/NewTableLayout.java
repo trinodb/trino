@@ -35,11 +35,11 @@ public class NewTableLayout
 
     @JsonCreator
     public NewTableLayout(
-            @JsonProperty("connectorId") CatalogName catalogName,
+            @JsonProperty("catalogName") CatalogName catalogName,
             @JsonProperty("transactionHandle") ConnectorTransactionHandle transactionHandle,
             @JsonProperty("layout") ConnectorNewTableLayout layout)
     {
-        this.catalogName = requireNonNull(catalogName, "connectorId is null");
+        this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.transactionHandle = requireNonNull(transactionHandle, "transactionHandle is null");
         this.layout = requireNonNull(layout, "layout is null");
     }

@@ -63,7 +63,7 @@ public class NodePartitioningManager
 
     public void addPartitioningProvider(CatalogName catalogName, ConnectorNodePartitioningProvider nodePartitioningProvider)
     {
-        requireNonNull(catalogName, "connectorId is null");
+        requireNonNull(catalogName, "catalogName is null");
         requireNonNull(nodePartitioningProvider, "nodePartitioningProvider is null");
         checkArgument(partitioningProviders.putIfAbsent(catalogName, nodePartitioningProvider) == null,
                 "NodePartitioningProvider for connector '%s' is already registered", catalogName);

@@ -38,7 +38,7 @@ public class TableProperties
 
     public TableProperties(CatalogName catalogName, ConnectorTransactionHandle transaction, ConnectorTableProperties tableProperties)
     {
-        requireNonNull(catalogName, "connectorId is null");
+        requireNonNull(catalogName, "catalogName is null");
         requireNonNull(transaction, "transaction is null");
         requireNonNull(tableProperties, "layout is null");
 

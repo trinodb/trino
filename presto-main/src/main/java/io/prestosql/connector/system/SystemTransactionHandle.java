@@ -39,7 +39,7 @@ public class SystemTransactionHandle
             TransactionId transactionId,
             Function<TransactionId, ConnectorTransactionHandle> transactionHandleFunction)
     {
-        this.catalogName = requireNonNull(catalogName, "connectorId is null");
+        this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.transactionId = requireNonNull(transactionId, "transactionId is null");
         requireNonNull(transactionHandleFunction, "transactionHandleFunction is null");
         this.connectorTransactionHandle = Suppliers.memoize(() -> transactionHandleFunction.apply(transactionId));
@@ -47,11 +47,11 @@ public class SystemTransactionHandle
 
     @JsonCreator
     public SystemTransactionHandle(
-            @JsonProperty("connectorId") CatalogName catalogName,
+            @JsonProperty("catalogName") CatalogName catalogName,
             @JsonProperty("transactionId") TransactionId transactionId,
             @JsonProperty("connectorTransactionHandle") ConnectorTransactionHandle connectorTransactionHandle)
     {
-        this.catalogName = requireNonNull(catalogName, "connectorId is null");
+        this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.transactionId = requireNonNull(transactionId, "transactionId is null");
         requireNonNull(connectorTransactionHandle, "connectorTransactionHandle is null");
         this.connectorTransactionHandle = () -> connectorTransactionHandle;

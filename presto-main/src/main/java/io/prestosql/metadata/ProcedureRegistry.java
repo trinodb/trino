@@ -57,7 +57,7 @@ public class ProcedureRegistry
 
     public void addProcedures(CatalogName catalogName, Collection<Procedure> procedures)
     {
-        requireNonNull(catalogName, "connectorId is null");
+        requireNonNull(catalogName, "catalogName is null");
         requireNonNull(procedures, "procedures is null");
 
         procedures.forEach(this::validateProcedure);

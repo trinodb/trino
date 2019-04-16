@@ -91,7 +91,7 @@ public final class SessionPropertyManager
 
     public void addConnectorSessionProperties(CatalogName catalogName, List<PropertyMetadata<?>> properties)
     {
-        requireNonNull(catalogName, "connectorId is null");
+        requireNonNull(catalogName, "catalogName is null");
         requireNonNull(properties, "properties is null");
 
         Map<String, PropertyMetadata<?>> propertiesByName = Maps.uniqueIndex(properties, PropertyMetadata::getName);
@@ -112,7 +112,7 @@ public final class SessionPropertyManager
 
     public Optional<PropertyMetadata<?>> getConnectorSessionPropertyMetadata(CatalogName catalogName, String propertyName)
     {
-        requireNonNull(catalogName, "connectorId is null");
+        requireNonNull(catalogName, "catalogName is null");
         requireNonNull(propertyName, "propertyName is null");
         Map<String, PropertyMetadata<?>> properties = connectorSessionProperties.get(catalogName);
         if (properties == null || properties.isEmpty()) {

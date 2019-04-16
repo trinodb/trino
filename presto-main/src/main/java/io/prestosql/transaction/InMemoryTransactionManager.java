@@ -567,7 +567,7 @@ public class InMemoryTransactionManager
 
             public ConnectorTransactionMetadata(CatalogName catalogName, Connector connector, ConnectorTransactionHandle transactionHandle)
             {
-                this.catalogName = requireNonNull(catalogName, "connectorId is null");
+                this.catalogName = requireNonNull(catalogName, "catalogName is null");
                 this.connector = requireNonNull(connector, "connector is null");
                 this.transactionHandle = requireNonNull(transactionHandle, "transactionHandle is null");
                 this.connectorMetadata = connector.getMetadata(transactionHandle);

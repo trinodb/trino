@@ -28,7 +28,7 @@ public final class ResolvedIndex
 
     public ResolvedIndex(CatalogName catalogName, ConnectorTransactionHandle transactionHandle, ConnectorResolvedIndex index)
     {
-        requireNonNull(catalogName, "connectorId is null");
+        requireNonNull(catalogName, "catalogName is null");
         requireNonNull(index, "index is null");
 
         indexHandle = new IndexHandle(catalogName, transactionHandle, index.getIndexHandle());

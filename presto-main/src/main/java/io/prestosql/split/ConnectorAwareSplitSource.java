@@ -36,7 +36,7 @@ public class ConnectorAwareSplitSource
 
     public ConnectorAwareSplitSource(CatalogName catalogName, ConnectorSplitSource source)
     {
-        this.catalogName = requireNonNull(catalogName, "connectorId is null");
+        this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.source = requireNonNull(source, "source is null");
     }
 

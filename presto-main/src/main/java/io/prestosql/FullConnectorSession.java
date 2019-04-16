@@ -63,7 +63,7 @@ public class FullConnectorSession
         this.session = requireNonNull(session, "session is null");
         this.identity = requireNonNull(identity, "identity is null");
         this.properties = ImmutableMap.copyOf(requireNonNull(properties, "properties is null"));
-        this.catalogName = requireNonNull(catalogName, "connectorId is null");
+        this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
         this.isLegacyTimestamp = SystemSessionProperties.isLegacyTimestamp(session);

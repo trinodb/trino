@@ -55,7 +55,7 @@ abstract class AbstractPropertyManager
 
     public final void addProperties(CatalogName catalogName, List<PropertyMetadata<?>> properties)
     {
-        requireNonNull(catalogName, "connectorId is null");
+        requireNonNull(catalogName, "catalogName is null");
         requireNonNull(properties, "properties is null");
 
         Map<String, PropertyMetadata<?>> propertiesByName = Maps.uniqueIndex(properties, PropertyMetadata::getName);

@@ -31,9 +31,9 @@ public class EmptySplit
 
     @JsonCreator
     public EmptySplit(
-            @JsonProperty("connectorId") CatalogName catalogName)
+            @JsonProperty("catalogName") CatalogName catalogName)
     {
-        this.catalogName = requireNonNull(catalogName, "connectorId is null");
+        this.catalogName = requireNonNull(catalogName, "catalogName is null");
     }
 
     @Override

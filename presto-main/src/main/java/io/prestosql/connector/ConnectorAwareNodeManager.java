@@ -33,7 +33,7 @@ public class ConnectorAwareNodeManager
     {
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.environment = requireNonNull(environment, "environment is null");
-        this.catalogName = requireNonNull(catalogName, "connectorId is null");
+        this.catalogName = requireNonNull(catalogName, "catalogName is null");
     }
 
     @Override

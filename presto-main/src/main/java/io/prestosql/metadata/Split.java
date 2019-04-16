@@ -33,11 +33,11 @@ public final class Split
 
     @JsonCreator
     public Split(
-            @JsonProperty("connectorId") CatalogName catalogName,
+            @JsonProperty("catalogName") CatalogName catalogName,
             @JsonProperty("connectorSplit") ConnectorSplit connectorSplit,
             @JsonProperty("lifespan") Lifespan lifespan)
     {
-        this.catalogName = requireNonNull(catalogName, "connectorId is null");
+        this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.connectorSplit = requireNonNull(connectorSplit, "connectorSplit is null");
         this.lifespan = requireNonNull(lifespan, "lifespan is null");
     }

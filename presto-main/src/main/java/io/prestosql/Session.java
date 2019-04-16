@@ -430,7 +430,7 @@ public final class Session
 
     public ConnectorSession toConnectorSession(CatalogName catalogName)
     {
-        requireNonNull(catalogName, "connectorId is null");
+        requireNonNull(catalogName, "catalogName is null");
 
         return new FullConnectorSession(
                 this,
