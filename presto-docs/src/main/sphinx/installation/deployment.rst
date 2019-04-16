@@ -77,10 +77,10 @@ The following provides a good starting point for creating ``etc/jvm.config``:
     -XX:-UseBiasedLocking
     -XX:+UseG1GC
     -XX:G1HeapRegionSize=32M
-    -XX:+UseGCOverheadLimit
     -XX:+ExplicitGCInvokesConcurrent
-    -XX:+HeapDumpOnOutOfMemoryError
     -XX:+ExitOnOutOfMemoryError
+    -XX:+UseGCOverheadLimit
+    -XX:+HeapDumpOnOutOfMemoryError
     -XX:ReservedCodeCacheSize=512M
     -Djdk.nio.maxCachedBufferSize=2000000
 
