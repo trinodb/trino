@@ -72,6 +72,7 @@ import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_PARTITION_READ_ONLY;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_PARTITION_SCHEMA_MISMATCH;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_PATH_ALREADY_EXISTS;
+import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_TABLE_READ_ONLY;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_WRITER_OPEN_ERROR;
 import static io.prestosql.plugin.hive.HiveType.toHiveTypes;
@@ -310,7 +311,7 @@ public class HiveWriterFactory
 
                 if (!partitionName.isPresent()) {
                     // new unpartitioned table
-                    writeInfo = locationService.getTableWriteInfo(locationHandle);
+                    writeInfo = locationService.getTableWriteInfo(locationHandle, false);
                 }
                 else {
                     // a new partition in a new partitioned table
@@ -339,14 +340,24 @@ public class HiveWriterFactory
                     writeInfo = locationService.getPartitionWriteInfo(locationHandle, partition, partitionName.get());
                 }
                 else {
-                    if (bucketNumber.isPresent()) {
-                        throw new PrestoException(HIVE_PARTITION_READ_ONLY, "Cannot insert into bucketed unpartitioned Hive table");
+                    switch (insertExistingPartitionsBehavior) {
+                        case APPEND:
+                            checkState(!immutablePartitions);
+                            if (bucketNumber.isPresent()) {
+                                throw new PrestoException(HIVE_TABLE_READ_ONLY, "Cannot insert into bucketed unpartitioned Hive table");
+                            }
+                            updateMode = UpdateMode.APPEND;
+                            writeInfo = locationService.getTableWriteInfo(locationHandle, false);
+                            break;
+                        case OVERWRITE:
+                            updateMode = UpdateMode.OVERWRITE;
+                            writeInfo = locationService.getTableWriteInfo(locationHandle, true);
+                            break;
+                        case ERROR:
+                            throw new PrestoException(HIVE_TABLE_READ_ONLY, "Unpartitioned Hive tables are immutable");
+                        default:
+                            throw new IllegalArgumentException("Unsupported insert existing table behavior: " + insertExistingPartitionsBehavior);
                     }
-                    if (immutablePartitions) {
-                        throw new PrestoException(HIVE_PARTITION_READ_ONLY, "Unpartitioned Hive tables are immutable");
-                    }
-                    updateMode = UpdateMode.APPEND;
-                    writeInfo = locationService.getTableWriteInfo(locationHandle);
                 }
 
                 schema = getHiveSchema(table);
