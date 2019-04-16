@@ -49,8 +49,8 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static io.prestosql.connector.CatalogName.createInformationSchemaConnectorId;
-import static io.prestosql.connector.CatalogName.createSystemTablesConnectorId;
+import static io.prestosql.connector.CatalogName.createInformationSchemaCatalogName;
+import static io.prestosql.connector.CatalogName.createSystemTablesCatalogName;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static io.prestosql.transaction.InMemoryTransactionManager.createTestTransactionManager;
@@ -81,14 +81,14 @@ public class TestInformationSchemaMetadata
         Connector testConnector = mockConnectorFactory.create("test", ImmutableMap.of(), new TestingConnectorContext());
         CatalogManager catalogManager = new CatalogManager();
         String catalogName = "test_catalog";
-        CatalogName connectorId = new CatalogName(catalogName);
+        CatalogName catalog = new CatalogName("test_catalog");
         catalogManager.registerCatalog(new Catalog(
                 catalogName,
-                connectorId,
+                catalog,
                 testConnector,
-                createInformationSchemaConnectorId(connectorId),
+                createInformationSchemaCatalogName(catalog),
                 testConnector,
-                createSystemTablesConnectorId(connectorId),
+                createSystemTablesCatalogName(catalog),
                 testConnector));
         transactionManager = createTestTransactionManager(catalogManager);
         metadata = new MetadataManager(

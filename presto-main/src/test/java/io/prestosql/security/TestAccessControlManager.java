@@ -48,8 +48,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static io.prestosql.connector.CatalogName.createInformationSchemaConnectorId;
-import static io.prestosql.connector.CatalogName.createSystemTablesConnectorId;
+import static io.prestosql.connector.CatalogName.createInformationSchemaCatalogName;
+import static io.prestosql.connector.CatalogName.createSystemTablesCatalogName;
 import static io.prestosql.spi.security.AccessDeniedException.denySelectColumns;
 import static io.prestosql.spi.security.AccessDeniedException.denySelectTable;
 import static io.prestosql.transaction.InMemoryTransactionManager.createTestTransactionManager;
@@ -188,26 +188,26 @@ public class TestAccessControlManager
 
     private static CatalogName registerBogusConnector(CatalogManager catalogManager, TransactionManager transactionManager, AccessControl accessControl, String catalogName)
     {
-        CatalogName connectorId = new CatalogName(catalogName);
+        CatalogName catalog = new CatalogName(catalogName);
         Connector connector = new TpchConnectorFactory().create(catalogName, ImmutableMap.of(), new TestingConnectorContext());
 
         InMemoryNodeManager nodeManager = new InMemoryNodeManager();
         MetadataManager metadata = MetadataManager.createTestMetadataManager(catalogManager);
-        CatalogName systemId = createSystemTablesConnectorId(connectorId);
+        CatalogName systemId = createSystemTablesCatalogName(catalog);
         catalogManager.registerCatalog(new Catalog(
                 catalogName,
-                connectorId,
+                catalog,
                 connector,
-                createInformationSchemaConnectorId(connectorId),
+                createInformationSchemaCatalogName(catalog),
                 new InformationSchemaConnector(catalogName, nodeManager, metadata, accessControl),
                 systemId,
                 new SystemConnector(
                         systemId,
                         nodeManager,
                         connector.getSystemTables(),
-                        transactionId -> transactionManager.getConnectorTransaction(transactionId, connectorId))));
+                        transactionId -> transactionManager.getConnectorTransaction(transactionId, catalog))));
 
-        return connectorId;
+        return catalog;
     }
 
     private static class TestSystemAccessControlFactory

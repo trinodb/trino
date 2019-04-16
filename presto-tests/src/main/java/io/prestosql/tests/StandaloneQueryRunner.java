@@ -215,9 +215,9 @@ public final class StandaloneQueryRunner
 
     public void createCatalog(String catalogName, String connectorName, Map<String, String> properties)
     {
-        CatalogName connectorId = server.createCatalog(catalogName, connectorName, properties);
+        CatalogName catalog = server.createCatalog(catalogName, connectorName, properties);
 
-        refreshNodes(connectorId);
+        refreshNodes(catalog);
     }
 
     @Override

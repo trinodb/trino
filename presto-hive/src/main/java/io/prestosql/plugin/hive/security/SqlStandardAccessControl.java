@@ -86,15 +86,15 @@ public class SqlStandardAccessControl
     private static final String INFORMATION_SCHEMA_NAME = "information_schema";
     private static final SchemaTableName ROLES = new SchemaTableName(INFORMATION_SCHEMA_NAME, "roles");
 
-    private final String connectorId;
+    private final String catalogName;
     private final Function<HiveTransactionHandle, SemiTransactionalHiveMetastore> metastoreProvider;
 
     @Inject
     public SqlStandardAccessControl(
-            HiveCatalogName connectorId,
+            HiveCatalogName catalogName,
             Function<HiveTransactionHandle, SemiTransactionalHiveMetastore> metastoreProvider)
     {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
+        this.catalogName = requireNonNull(catalogName, "catalogName is null").toString();
         this.metastoreProvider = requireNonNull(metastoreProvider, "metastoreProvider is null");
     }
 
@@ -273,7 +273,7 @@ public class SqlStandardAccessControl
     public void checkCanSetCatalogSessionProperty(ConnectorTransactionHandle transaction, ConnectorIdentity identity, String propertyName)
     {
         if (!isAdmin(transaction, identity)) {
-            denySetCatalogSessionProperty(connectorId, propertyName);
+            denySetCatalogSessionProperty(catalogName, propertyName);
         }
     }
 

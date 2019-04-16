@@ -357,9 +357,9 @@ public class TestingPrestoServer
 
     public CatalogName createCatalog(String catalogName, String connectorName, Map<String, String> properties)
     {
-        CatalogName connectorId = connectorManager.createConnection(catalogName, connectorName, properties);
-        updateConnectorIdAnnouncement(announcer, connectorId, nodeManager);
-        return connectorId;
+        CatalogName catalog = connectorManager.createConnection(catalogName, connectorName, properties);
+        updateConnectorIdAnnouncement(announcer, catalog, nodeManager);
+        return catalog;
     }
 
     public Path getBaseDataDir()

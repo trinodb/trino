@@ -69,8 +69,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static io.prestosql.connector.CatalogName.createInformationSchemaConnectorId;
-import static io.prestosql.connector.CatalogName.createSystemTablesConnectorId;
+import static io.prestosql.connector.CatalogName.createInformationSchemaCatalogName;
+import static io.prestosql.connector.CatalogName.createSystemTablesCatalogName;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -181,30 +181,30 @@ public class ConnectorManager
         requireNonNull(connectorFactory, "connectorFactory is null");
         checkArgument(!catalogManager.getCatalog(catalogName).isPresent(), "A catalog already exists for %s", catalogName);
 
-        CatalogName connectorId = new CatalogName(catalogName);
-        checkState(!connectors.containsKey(connectorId), "A connector %s already exists", connectorId);
+        CatalogName catalog = new CatalogName(catalogName);
+        checkState(!connectors.containsKey(catalog), "A catalog %s already exists", catalog);
 
-        addCatalogConnector(catalogName, connectorId, connectorFactory, properties);
+        addCatalogConnector(catalog, connectorFactory, properties);
 
-        return connectorId;
+        return catalog;
     }
 
-    private synchronized void addCatalogConnector(String catalogName, CatalogName connectorId, ConnectorFactory factory, Map<String, String> properties)
+    private synchronized void addCatalogConnector(CatalogName catalogName, ConnectorFactory factory, Map<String, String> properties)
     {
         // create all connectors before adding, so a broken connector does not leave the system half updated
-        MaterializedConnector connector = new MaterializedConnector(connectorId, createConnector(connectorId, factory, properties));
+        MaterializedConnector connector = new MaterializedConnector(catalogName, createConnector(catalogName, factory, properties));
 
         MaterializedConnector informationSchemaConnector = new MaterializedConnector(
-                createInformationSchemaConnectorId(connectorId),
-                new InformationSchemaConnector(catalogName, nodeManager, metadataManager, accessControlManager));
+                createInformationSchemaCatalogName(catalogName),
+                new InformationSchemaConnector(catalogName.getCatalogName(), nodeManager, metadataManager, accessControlManager));
 
-        CatalogName systemId = createSystemTablesConnectorId(connectorId);
+        CatalogName systemId = createSystemTablesCatalogName(catalogName);
         SystemTablesProvider systemTablesProvider;
 
         if (nodeManager.getCurrentNode().isCoordinator()) {
             systemTablesProvider = new DelegatingSystemTablesProvider(
                     new StaticSystemTablesProvider(connector.getSystemTables()),
-                    new MetadataBasedSystemTablesProvider(metadataManager, catalogName));
+                    new MetadataBasedSystemTablesProvider(metadataManager, catalogName.getCatalogName()));
         }
         else {
             systemTablesProvider = new StaticSystemTablesProvider(connector.getSystemTables());
@@ -214,10 +214,10 @@ public class ConnectorManager
                 systemId,
                 nodeManager,
                 systemTablesProvider,
-                transactionId -> transactionManager.getConnectorTransaction(transactionId, connectorId)));
+                transactionId -> transactionManager.getConnectorTransaction(transactionId, catalogName)));
 
         Catalog catalog = new Catalog(
-                catalogName,
+                catalogName.getCatalogName(),
                 connector.getCatalogName(),
                 connector.getConnector(),
                 informationSchemaConnector.getCatalogName(),
@@ -275,11 +275,11 @@ public class ConnectorManager
     {
         requireNonNull(catalogName, "catalogName is null");
 
-        catalogManager.removeCatalog(catalogName).ifPresent(connectorId -> {
+        catalogManager.removeCatalog(catalogName).ifPresent(catalog -> {
             // todo wait for all running transactions using the connector to complete before removing the services
-            removeConnectorInternal(connectorId);
-            removeConnectorInternal(createInformationSchemaConnectorId(connectorId));
-            removeConnectorInternal(createSystemTablesConnectorId(connectorId));
+            removeConnectorInternal(catalog);
+            removeConnectorInternal(createInformationSchemaCatalogName(catalog));
+            removeConnectorInternal(createSystemTablesCatalogName(catalog));
         });
     }
 

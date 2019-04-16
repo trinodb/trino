@@ -79,7 +79,7 @@ public final class Split
     public String toString()
     {
         return toStringHelper(this)
-                .add("connectorId", catalogName)
+                .add("catalogName", catalogName)
                 .add("connectorSplit", connectorSplit)
                 .add("lifespan", lifespan)
                 .toString();

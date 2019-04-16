@@ -628,9 +628,9 @@ public class MetadataManager
     public void createTable(Session session, String catalogName, ConnectorTableMetadata tableMetadata, boolean ignoreExisting)
     {
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalogName);
-        CatalogName connectorId = catalogMetadata.getCatalogName();
+        CatalogName catalog = catalogMetadata.getCatalogName();
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
-        metadata.createTable(session.toConnectorSession(connectorId), tableMetadata, ignoreExisting);
+        metadata.createTable(session.toConnectorSession(catalog), tableMetadata, ignoreExisting);
     }
 
     @Override
@@ -638,13 +638,13 @@ public class MetadataManager
     {
         String catalogName = newTableName.getCatalogName();
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalogName);
-        CatalogName connectorId = catalogMetadata.getCatalogName();
-        if (!tableHandle.getCatalogName().equals(connectorId)) {
+        CatalogName catalog = catalogMetadata.getCatalogName();
+        if (!tableHandle.getCatalogName().equals(catalog)) {
             throw new PrestoException(SYNTAX_ERROR, "Cannot rename tables across catalogs");
         }
 
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
-        metadata.renameTable(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle(), newTableName.asSchemaTableName());
+        metadata.renameTable(session.toConnectorSession(catalog), tableHandle.getConnectorHandle(), newTableName.asSchemaTableName());
     }
 
     @Override
@@ -703,8 +703,8 @@ public class MetadataManager
     {
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalogName);
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
-        CatalogName connectorId = catalogMetadata.getCatalogName();
-        return metadata.getStatisticsCollectionMetadataForWrite(session.toConnectorSession(connectorId), tableMetadata);
+        CatalogName catalog = catalogMetadata.getCatalogName();
+        return metadata.getStatisticsCollectionMetadataForWrite(session.toConnectorSession(catalog), tableMetadata);
     }
 
     @Override
@@ -712,8 +712,8 @@ public class MetadataManager
     {
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalogName);
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
-        CatalogName connectorId = catalogMetadata.getCatalogName();
-        return metadata.getStatisticsCollectionMetadata(session.toConnectorSession(connectorId), tableMetadata);
+        CatalogName catalog = catalogMetadata.getCatalogName();
+        return metadata.getStatisticsCollectionMetadata(session.toConnectorSession(catalog), tableMetadata);
     }
 
     @Override
@@ -740,13 +740,13 @@ public class MetadataManager
     public Optional<NewTableLayout> getNewTableLayout(Session session, String catalogName, ConnectorTableMetadata tableMetadata)
     {
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalogName);
-        CatalogName connectorId = catalogMetadata.getCatalogName();
+        CatalogName catalog = catalogMetadata.getCatalogName();
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
 
-        ConnectorTransactionHandle transactionHandle = catalogMetadata.getTransactionHandleFor(connectorId);
-        ConnectorSession connectorSession = session.toConnectorSession(connectorId);
+        ConnectorTransactionHandle transactionHandle = catalogMetadata.getTransactionHandleFor(catalog);
+        ConnectorSession connectorSession = session.toConnectorSession(catalog);
         return metadata.getNewTableLayout(connectorSession, tableMetadata)
-                .map(layout -> new NewTableLayout(connectorId, transactionHandle, layout));
+                .map(layout -> new NewTableLayout(catalog, transactionHandle, layout));
     }
 
     @Override
@@ -788,13 +788,13 @@ public class MetadataManager
     public OutputTableHandle beginCreateTable(Session session, String catalogName, ConnectorTableMetadata tableMetadata, Optional<NewTableLayout> layout)
     {
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalogName);
-        CatalogName connectorId = catalogMetadata.getCatalogName();
+        CatalogName catalog = catalogMetadata.getCatalogName();
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
 
-        ConnectorTransactionHandle transactionHandle = catalogMetadata.getTransactionHandleFor(connectorId);
-        ConnectorSession connectorSession = session.toConnectorSession(connectorId);
+        ConnectorTransactionHandle transactionHandle = catalogMetadata.getTransactionHandleFor(catalog);
+        ConnectorSession connectorSession = session.toConnectorSession(catalog);
         ConnectorOutputTableHandle handle = metadata.beginCreateTable(connectorSession, tableMetadata, layout.map(NewTableLayout::getLayout));
-        return new OutputTableHandle(connectorId, transactionHandle, handle);
+        return new OutputTableHandle(catalog, transactionHandle, handle);
     }
 
     @Override

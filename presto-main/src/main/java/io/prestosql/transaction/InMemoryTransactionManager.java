@@ -215,10 +215,10 @@ public class InMemoryTransactionManager
         TransactionMetadata transactionMetadata = getTransactionMetadata(transactionId);
 
         // there is no need to ask for a connector specific id since the overlay connectors are read only
-        CatalogName connectorId = transactionMetadata.getConnectorId(catalogName)
+        CatalogName catalog = transactionMetadata.getConnectorId(catalogName)
                 .orElseThrow(() -> new PrestoException(NOT_FOUND, "Catalog does not exist: " + catalogName));
 
-        return getCatalogMetadataForWrite(transactionId, connectorId);
+        return getCatalogMetadataForWrite(transactionId, catalog);
     }
 
     @Override
@@ -319,7 +319,7 @@ public class InMemoryTransactionManager
         @GuardedBy("this")
         private final Map<String, Optional<Catalog>> catalogByName = new ConcurrentHashMap<>();
         @GuardedBy("this")
-        private final Map<CatalogName, Catalog> catalogsByConnectorId = new ConcurrentHashMap<>();
+        private final Map<CatalogName, Catalog> catalogsByName = new ConcurrentHashMap<>();
         @GuardedBy("this")
         private final Map<CatalogName, CatalogMetadata> catalogMetadata = new ConcurrentHashMap<>();
 
@@ -399,9 +399,9 @@ public class InMemoryTransactionManager
 
         private synchronized void registerCatalog(Catalog catalog)
         {
-            catalogsByConnectorId.put(catalog.getConnectorCatalogName(), catalog);
-            catalogsByConnectorId.put(catalog.getInformationSchemaId(), catalog);
-            catalogsByConnectorId.put(catalog.getSystemTablesId(), catalog);
+            catalogsByName.put(catalog.getConnectorCatalogName(), catalog);
+            catalogsByName.put(catalog.getInformationSchemaId(), catalog);
+            catalogsByName.put(catalog.getSystemTablesId(), catalog);
         }
 
         private synchronized CatalogMetadata getTransactionCatalogMetadata(CatalogName catalogName)
@@ -410,8 +410,8 @@ public class InMemoryTransactionManager
 
             CatalogMetadata catalogMetadata = this.catalogMetadata.get(catalogName);
             if (catalogMetadata == null) {
-                Catalog catalog = catalogsByConnectorId.get(catalogName);
-                verify(catalog != null, "Unknown connectorId: %s", catalogName);
+                Catalog catalog = catalogsByName.get(catalogName);
+                verify(catalog != null, "Unknown catalog: %s", catalogName);
                 Connector connector = catalog.getConnector(catalogName);
 
                 ConnectorTransactionMetadata metadata = createConnectorTransactionMetadata(catalog.getConnectorCatalogName(), catalog);

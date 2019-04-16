@@ -33,8 +33,8 @@ import io.prestosql.sql.SqlPath;
 
 import java.util.Optional;
 
-import static io.prestosql.connector.CatalogName.createInformationSchemaConnectorId;
-import static io.prestosql.connector.CatalogName.createSystemTablesConnectorId;
+import static io.prestosql.connector.CatalogName.createInformationSchemaCatalogName;
+import static io.prestosql.connector.CatalogName.createSystemTablesCatalogName;
 import static java.util.Locale.ENGLISH;
 
 public final class TestingSession
@@ -75,14 +75,14 @@ public final class TestingSession
 
     public static Catalog createBogusTestingCatalog(String catalogName)
     {
-        CatalogName connectorId = new CatalogName(catalogName);
+        CatalogName catalog = new CatalogName(catalogName);
         return new Catalog(
                 catalogName,
-                connectorId,
+                catalog,
                 createTestSessionConnector(),
-                createInformationSchemaConnectorId(connectorId),
+                createInformationSchemaCatalogName(catalog),
                 createTestSessionConnector(),
-                createSystemTablesConnectorId(connectorId),
+                createSystemTablesCatalogName(catalog),
                 createTestSessionConnector());
     }
 

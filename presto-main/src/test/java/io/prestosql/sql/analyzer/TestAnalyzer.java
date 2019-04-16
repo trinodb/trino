@@ -66,8 +66,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.function.Consumer;
 
-import static io.prestosql.connector.CatalogName.createInformationSchemaConnectorId;
-import static io.prestosql.connector.CatalogName.createSystemTablesConnectorId;
+import static io.prestosql.connector.CatalogName.createInformationSchemaCatalogName;
+import static io.prestosql.connector.CatalogName.createSystemTablesCatalogName;
 import static io.prestosql.metadata.ViewDefinition.ViewColumn;
 import static io.prestosql.operator.scalar.ApplyFunction.APPLY_FUNCTION;
 import static io.prestosql.spi.session.PropertyMetadata.integerProperty;
@@ -130,11 +130,11 @@ import static org.testng.Assert.fail;
 public class TestAnalyzer
 {
     private static final String TPCH_CATALOG = "tpch";
-    private static final CatalogName TPCH_CONNECTOR_ID = new CatalogName(TPCH_CATALOG);
+    private static final CatalogName TPCH_CATALOG_NAME = new CatalogName(TPCH_CATALOG);
     private static final String SECOND_CATALOG = "c2";
-    private static final CatalogName SECOND_CONNECTOR_ID = new CatalogName(SECOND_CATALOG);
+    private static final CatalogName SECOND_CATALOG_NAME = new CatalogName(SECOND_CATALOG);
     private static final String THIRD_CATALOG = "c3";
-    private static final CatalogName THIRD_CONNECTOR_ID = new CatalogName(THIRD_CATALOG);
+    private static final CatalogName THIRD_CATALOG_NAME = new CatalogName(THIRD_CATALOG);
     private static final Session SETUP_SESSION = testSessionBuilder()
             .setCatalog("c1")
             .setSchema("s1")
@@ -1522,12 +1522,12 @@ public class TestAnalyzer
 
         metadata.getFunctionRegistry().addFunctions(ImmutableList.of(APPLY_FUNCTION));
 
-        Catalog tpchTestCatalog = createTestingCatalog(TPCH_CATALOG, TPCH_CONNECTOR_ID);
+        Catalog tpchTestCatalog = createTestingCatalog(TPCH_CATALOG, TPCH_CATALOG_NAME);
         catalogManager.registerCatalog(tpchTestCatalog);
-        metadata.getAnalyzePropertyManager().addProperties(TPCH_CONNECTOR_ID, tpchTestCatalog.getConnector(TPCH_CONNECTOR_ID).getAnalyzeProperties());
+        metadata.getAnalyzePropertyManager().addProperties(TPCH_CATALOG_NAME, tpchTestCatalog.getConnector(TPCH_CATALOG_NAME).getAnalyzeProperties());
 
-        catalogManager.registerCatalog(createTestingCatalog(SECOND_CATALOG, SECOND_CONNECTOR_ID));
-        catalogManager.registerCatalog(createTestingCatalog(THIRD_CATALOG, THIRD_CONNECTOR_ID));
+        catalogManager.registerCatalog(createTestingCatalog(SECOND_CATALOG, SECOND_CATALOG_NAME));
+        catalogManager.registerCatalog(createTestingCatalog(THIRD_CATALOG, THIRD_CATALOG_NAME));
 
         SchemaTableName table1 = new SchemaTableName("s1", "t1");
         inSetupTransaction(session -> metadata.createTable(session, TPCH_CATALOG,
@@ -1747,23 +1747,23 @@ public class TestAnalyzer
         }
     }
 
-    private Catalog createTestingCatalog(String catalogName, CatalogName connectorId)
+    private Catalog createTestingCatalog(String catalogName, CatalogName catalog)
     {
-        CatalogName systemId = createSystemTablesConnectorId(connectorId);
+        CatalogName systemId = createSystemTablesCatalogName(catalog);
         Connector connector = createTestingConnector();
         InternalNodeManager nodeManager = new InMemoryNodeManager();
         return new Catalog(
                 catalogName,
-                connectorId,
+                catalog,
                 connector,
-                createInformationSchemaConnectorId(connectorId),
+                createInformationSchemaCatalogName(catalog),
                 new InformationSchemaConnector(catalogName, nodeManager, metadata, accessControl),
                 systemId,
                 new SystemConnector(
                         systemId,
                         nodeManager,
                         connector.getSystemTables(),
-                        transactionId -> transactionManager.getConnectorTransaction(transactionId, connectorId)));
+                        transactionId -> transactionManager.getConnectorTransaction(transactionId, catalog)));
     }
 
     private static Connector createTestingConnector()
