@@ -337,12 +337,12 @@ public final class Session
 
             String informationSchemaCatalogName = createInformationSchemaConnectorId(connectorId).getCatalogName();
             if (transactionManager.getCatalogNames(transactionId).containsKey(informationSchemaCatalogName)) {
-                roles.put(createInformationSchemaConnectorId(connectorId).getCatalogName(), role);
+                roles.put(informationSchemaCatalogName, role);
             }
 
             String systemTablesCatalogName = createSystemTablesConnectorId(connectorId).getCatalogName();
             if (transactionManager.getCatalogNames(transactionId).containsKey(systemTablesCatalogName)) {
-                roles.put(createSystemTablesConnectorId(connectorId).getCatalogName(), role);
+                roles.put(systemTablesCatalogName, role);
             }
         }
 
