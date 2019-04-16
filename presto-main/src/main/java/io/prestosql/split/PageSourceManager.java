@@ -36,7 +36,7 @@ public class PageSourceManager
 
     public void addConnectorPageSourceProvider(CatalogName catalogName, ConnectorPageSourceProvider pageSourceProvider)
     {
-        requireNonNull(catalogName, "connectorId is null");
+        requireNonNull(catalogName, "catalogName is null");
         requireNonNull(pageSourceProvider, "pageSourceProvider is null");
         checkState(pageSourceProviders.put(catalogName, pageSourceProvider) == null, "PageSourceProvider for connector '%s' is already registered", catalogName);
     }

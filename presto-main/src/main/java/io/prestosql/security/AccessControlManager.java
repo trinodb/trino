@@ -98,7 +98,7 @@ public class AccessControlManager
 
     public void addCatalogAccessControl(CatalogName catalogName, ConnectorAccessControl accessControl)
     {
-        requireNonNull(catalogName, "connectorId is null");
+        requireNonNull(catalogName, "catalogName is null");
         requireNonNull(accessControl, "accessControl is null");
         checkState(connectorAccessControl.putIfAbsent(catalogName, new CatalogAccessControlEntry(catalogName, accessControl)) == null,
                 "Access control for connector '%s' is already registered", catalogName);
@@ -784,7 +784,7 @@ public class AccessControlManager
 
         public CatalogAccessControlEntry(CatalogName catalogName, ConnectorAccessControl accessControl)
         {
-            this.catalogName = requireNonNull(catalogName, "connectorId is null");
+            this.catalogName = requireNonNull(catalogName, "catalogName is null");
             this.accessControl = requireNonNull(accessControl, "accessControl is null");
         }
 

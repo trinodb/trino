@@ -38,13 +38,13 @@ public final class Input
 
     @JsonCreator
     public Input(
-            @JsonProperty("connectorId") CatalogName catalogName,
+            @JsonProperty("catalogName") CatalogName catalogName,
             @JsonProperty("schema") String schema,
             @JsonProperty("table") String table,
             @JsonProperty("connectorInfo") Optional<Object> connectorInfo,
             @JsonProperty("columns") List<Column> columns)
     {
-        requireNonNull(catalogName, "connectorId is null");
+        requireNonNull(catalogName, "catalogName is null");
         requireNonNull(schema, "schema is null");
         requireNonNull(table, "table is null");
         requireNonNull(connectorInfo, "connectorInfo is null");

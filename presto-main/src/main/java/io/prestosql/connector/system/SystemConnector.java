@@ -53,7 +53,7 @@ public class SystemConnector
             SystemTablesProvider tables,
             Function<TransactionId, ConnectorTransactionHandle> transactionHandleFunction)
     {
-        requireNonNull(catalogName, "connectorId is null");
+        requireNonNull(catalogName, "catalogName is null");
         requireNonNull(nodeManager, "nodeManager is null");
         requireNonNull(tables, "tables is null");
         requireNonNull(transactionHandleFunction, "transactionHandleFunction is null");

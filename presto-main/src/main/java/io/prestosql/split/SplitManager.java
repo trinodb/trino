@@ -54,7 +54,7 @@ public class SplitManager
 
     public void addConnectorSplitManager(CatalogName catalogName, ConnectorSplitManager connectorSplitManager)
     {
-        requireNonNull(catalogName, "connectorId is null");
+        requireNonNull(catalogName, "catalogName is null");
         requireNonNull(connectorSplitManager, "connectorSplitManager is null");
         checkState(splitManagers.putIfAbsent(catalogName, connectorSplitManager) == null, "SplitManager for connector '%s' is already registered", catalogName);
     }

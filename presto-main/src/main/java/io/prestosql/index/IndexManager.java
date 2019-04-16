@@ -35,7 +35,7 @@ public class IndexManager
 
     public void addIndexProvider(CatalogName catalogName, ConnectorIndexProvider indexProvider)
     {
-        requireNonNull(catalogName, "connectorId is null");
+        requireNonNull(catalogName, "catalogName is null");
         requireNonNull(indexProvider, "indexProvider is null");
         checkState(providers.putIfAbsent(catalogName, indexProvider) == null, "IndexProvider for connector '%s' is already registered", catalogName);
     }

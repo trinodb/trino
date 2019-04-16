@@ -343,7 +343,7 @@ public class ConnectorManager
 
         public MaterializedConnector(CatalogName catalogName, Connector connector)
         {
-            this.catalogName = requireNonNull(catalogName, "connectorId is null");
+            this.catalogName = requireNonNull(catalogName, "catalogName is null");
             this.connector = requireNonNull(connector, "connector is null");
 
             splitManager = connector.getSplitManager();

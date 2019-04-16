@@ -36,12 +36,12 @@ public final class TableHandle
 
     @JsonCreator
     public TableHandle(
-            @JsonProperty("connectorId") CatalogName catalogName,
+            @JsonProperty("catalogName") CatalogName catalogName,
             @JsonProperty("connectorHandle") ConnectorTableHandle connectorHandle,
             @JsonProperty("transaction") ConnectorTransactionHandle transaction,
             @JsonProperty("layout") Optional<ConnectorTableLayoutHandle> layout)
     {
-        this.catalogName = requireNonNull(catalogName, "connectorId is null");
+        this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.connectorHandle = requireNonNull(connectorHandle, "connectorHandle is null");
         this.transaction = requireNonNull(transaction, "transaction is null");
         this.layout = requireNonNull(layout, "layout is null");
