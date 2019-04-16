@@ -144,6 +144,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Lists.newArrayList;
+import static com.google.common.collect.Lists.reverse;
 import static com.google.common.collect.Maps.uniqueIndex;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.collect.Sets.difference;
@@ -777,7 +778,13 @@ public abstract class AbstractTestHive
 
     protected ConnectorSession newSession()
     {
-        return new TestingConnectorSession(new HiveSessionProperties(getHiveConfig(), new OrcFileWriterConfig(), new ParquetFileWriterConfig()).getSessionProperties());
+        return newSession(ImmutableMap.of());
+    }
+
+    protected ConnectorSession newSession(Map<String, Object> propertyValues)
+    {
+        HiveSessionProperties properties = new HiveSessionProperties(getHiveConfig(), new OrcFileWriterConfig(), new ParquetFileWriterConfig());
+        return new TestingConnectorSession(properties.getSessionProperties(), propertyValues);
     }
 
     protected Transaction newTransaction()
@@ -2348,6 +2355,19 @@ public abstract class AbstractTestHive
     }
 
     @Test
+    public void testInsertOverwriteUnpartitioned()
+            throws Exception
+    {
+        SchemaTableName table = temporaryTable("insert_overwrite");
+        try {
+            doInsertOverwriteUnpartitioned(table);
+        }
+        finally {
+            dropTable(table);
+        }
+    }
+
+    @Test
     public void testInsertIntoNewPartition()
             throws Exception
     {
@@ -3080,6 +3100,7 @@ public abstract class AbstractTestHive
                 // load the new table
                 ConnectorTableHandle tableHandle = getTableHandle(metadata, tableName);
                 List<ColumnHandle> columnHandles = filterNonHiddenColumnHandles(metadata.getColumnHandles(session, tableHandle).values());
+
                 // verify the metadata
                 ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(session, getTableHandle(metadata, tableName));
                 assertEquals(filterNonHiddenColumnMetadata(tableMetadata.getColumns()), CREATE_TABLE_COLUMNS);
@@ -3169,6 +3190,126 @@ public abstract class AbstractTestHive
             HiveBasicStatistics statistics = getBasicStatisticsForTable(transaction, tableName);
             assertEquals(statistics.getRowCount().getAsLong(), CREATE_TABLE_DATA.getRowCount() * 3L);
             assertEquals(statistics.getFileCount().getAsLong(), 3L);
+        }
+    }
+
+    private void doInsertOverwriteUnpartitioned(SchemaTableName tableName)
+            throws Exception
+    {
+        // create table with data
+        doCreateEmptyTable(tableName, ORC, CREATE_TABLE_COLUMNS);
+        insertData(tableName, CREATE_TABLE_DATA);
+
+        // overwrite table with new data
+        MaterializedResult.Builder overwriteDataBuilder = MaterializedResult.resultBuilder(SESSION, CREATE_TABLE_DATA.getTypes());
+        MaterializedResult overwriteData = null;
+
+        Map<String, Object> overwriteProperties = ImmutableMap.of("insert_existing_partitions_behavior", "OVERWRITE");
+
+        for (int i = 0; i < 3; i++) {
+            overwriteDataBuilder.rows(reverse(CREATE_TABLE_DATA.getMaterializedRows()));
+            overwriteData = overwriteDataBuilder.build();
+
+            insertData(tableName, overwriteData, overwriteProperties);
+
+            // verify overwrite
+            try (Transaction transaction = newTransaction()) {
+                ConnectorSession session = newSession();
+                ConnectorMetadata metadata = transaction.getMetadata();
+
+                // load the new table
+                ConnectorTableHandle tableHandle = getTableHandle(metadata, tableName);
+                List<ColumnHandle> columnHandles = filterNonHiddenColumnHandles(metadata.getColumnHandles(session, tableHandle).values());
+
+                // verify the metadata
+                ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(session, getTableHandle(metadata, tableName));
+                assertEquals(filterNonHiddenColumnMetadata(tableMetadata.getColumns()), CREATE_TABLE_COLUMNS);
+
+                // verify the data
+                MaterializedResult result = readTable(transaction, tableHandle, columnHandles, session, TupleDomain.all(), OptionalInt.empty(), Optional.empty());
+                assertEqualsIgnoreOrder(result.getMaterializedRows(), overwriteData.getMaterializedRows());
+
+                // statistics
+                HiveBasicStatistics tableStatistics = getBasicStatisticsForTable(transaction, tableName);
+                assertEquals(tableStatistics.getRowCount().getAsLong(), overwriteData.getRowCount());
+                assertEquals(tableStatistics.getFileCount().getAsLong(), 1L);
+                assertGreaterThan(tableStatistics.getInMemoryDataSizeInBytes().getAsLong(), 0L);
+                assertGreaterThan(tableStatistics.getOnDiskDataSizeInBytes().getAsLong(), 0L);
+            }
+        }
+
+        // test rollback
+        Set<String> existingFiles;
+        try (Transaction transaction = newTransaction()) {
+            existingFiles = listAllDataFiles(transaction, tableName.getSchemaName(), tableName.getTableName());
+            assertFalse(existingFiles.isEmpty());
+        }
+
+        Path stagingPathRoot;
+        try (Transaction transaction = newTransaction()) {
+            ConnectorSession session = newSession(overwriteProperties);
+            ConnectorMetadata metadata = transaction.getMetadata();
+
+            ConnectorTableHandle tableHandle = getTableHandle(metadata, tableName);
+
+            // "stage" insert data
+            ConnectorInsertTableHandle insertTableHandle = metadata.beginInsert(session, tableHandle);
+            ConnectorPageSink sink = pageSinkProvider.createPageSink(transaction.getTransactionHandle(), session, insertTableHandle);
+            for (int i = 0; i < 4; i++) {
+                sink.appendPage(overwriteData.toPage());
+            }
+            Collection<Slice> fragments = getFutureValue(sink.finish());
+            metadata.finishInsert(session, insertTableHandle, fragments, ImmutableList.of());
+
+            // statistics, visible from within transaction
+            HiveBasicStatistics tableStatistics = getBasicStatisticsForTable(transaction, tableName);
+            assertEquals(tableStatistics.getRowCount().getAsLong(), overwriteData.getRowCount() * 4L);
+
+            try (Transaction otherTransaction = newTransaction()) {
+                // statistics, not visible from outside transaction
+                HiveBasicStatistics otherTableStatistics = getBasicStatisticsForTable(otherTransaction, tableName);
+                assertEquals(otherTableStatistics.getRowCount().getAsLong(), overwriteData.getRowCount());
+            }
+
+            // verify we did not modify the table directory
+            assertEquals(listAllDataFiles(transaction, tableName.getSchemaName(), tableName.getTableName()), existingFiles);
+
+            // verify all temp files start with the unique prefix
+            stagingPathRoot = getStagingPathRoot(insertTableHandle);
+            HdfsContext context = new HdfsContext(session, tableName.getSchemaName(), tableName.getTableName());
+            Set<String> tempFiles = listAllDataFiles(context, stagingPathRoot);
+            assertTrue(!tempFiles.isEmpty());
+            for (String filePath : tempFiles) {
+                assertThat(new Path(filePath).getName()).startsWith(session.getQueryId());
+            }
+
+            // rollback insert
+            transaction.rollback();
+        }
+
+        // verify temp directory is empty
+        HdfsContext context = new HdfsContext(newSession(), tableName.getSchemaName(), tableName.getTableName());
+        assertTrue(listAllDataFiles(context, stagingPathRoot).isEmpty());
+
+        // verify the data is unchanged
+        try (Transaction transaction = newTransaction()) {
+            ConnectorSession session = newSession();
+            ConnectorMetadata metadata = transaction.getMetadata();
+
+            ConnectorTableHandle tableHandle = getTableHandle(metadata, tableName);
+            List<ColumnHandle> columnHandles = filterNonHiddenColumnHandles(metadata.getColumnHandles(session, tableHandle).values());
+            MaterializedResult result = readTable(transaction, tableHandle, columnHandles, session, TupleDomain.all(), OptionalInt.empty(), Optional.empty());
+            assertEqualsIgnoreOrder(result.getMaterializedRows(), overwriteData.getMaterializedRows());
+
+            // verify we did not modify the table directory
+            assertEquals(listAllDataFiles(transaction, tableName.getSchemaName(), tableName.getTableName()), existingFiles);
+        }
+
+        // verify statistics unchanged
+        try (Transaction transaction = newTransaction()) {
+            HiveBasicStatistics statistics = getBasicStatisticsForTable(transaction, tableName);
+            assertEquals(statistics.getRowCount().getAsLong(), overwriteData.getRowCount());
+            assertEquals(statistics.getFileCount().getAsLong(), 1L);
         }
     }
 
@@ -3558,12 +3699,18 @@ public abstract class AbstractTestHive
     private String insertData(SchemaTableName tableName, MaterializedResult data)
             throws Exception
     {
+        return insertData(tableName, data, ImmutableMap.of());
+    }
+
+    private String insertData(SchemaTableName tableName, MaterializedResult data, Map<String, Object> sessionProperties)
+            throws Exception
+    {
         Path writePath;
         Path targetPath;
         String queryId;
         try (Transaction transaction = newTransaction()) {
             ConnectorMetadata metadata = transaction.getMetadata();
-            ConnectorSession session = newSession();
+            ConnectorSession session = newSession(sessionProperties);
             ConnectorTableHandle tableHandle = getTableHandle(metadata, tableName);
             ConnectorInsertTableHandle insertTableHandle = metadata.beginInsert(session, tableHandle);
             queryId = session.getQueryId();

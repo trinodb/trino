@@ -189,6 +189,7 @@ import static io.prestosql.plugin.hive.metastore.HivePrivilegeInfo.toHivePrivile
 import static io.prestosql.plugin.hive.metastore.MetastoreUtil.getHiveSchema;
 import static io.prestosql.plugin.hive.metastore.MetastoreUtil.getProtectMode;
 import static io.prestosql.plugin.hive.metastore.MetastoreUtil.verifyOnline;
+import static io.prestosql.plugin.hive.metastore.PrincipalPrivileges.fromHivePrivilegeInfos;
 import static io.prestosql.plugin.hive.metastore.StorageFormat.VIEW_STORAGE_FORMAT;
 import static io.prestosql.plugin.hive.metastore.StorageFormat.fromHiveStorageFormat;
 import static io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil.listEnabledPrincipals;
@@ -1351,18 +1352,39 @@ public class HiveMetadata
         for (PartitionUpdate partitionUpdate : partitionUpdates) {
             if (partitionUpdate.getName().isEmpty()) {
                 // insert into unpartitioned table
+                if (!table.getStorage().getStorageFormat().getInputFormat().equals(handle.getPartitionStorageFormat().getInputFormat()) && isRespectTableFormat(session)) {
+                    throw new PrestoException(HIVE_CONCURRENT_MODIFICATION_DETECTED, "Table format changed during insert");
+                }
+
                 PartitionStatistics partitionStatistics = createPartitionStatistics(
                         session,
                         partitionUpdate.getStatistics(),
                         columnTypes,
                         getColumnStatistics(partitionComputedStatistics, ImmutableList.of()));
-                metastore.finishInsertIntoExistingTable(
-                        session,
-                        handle.getSchemaName(),
-                        handle.getTableName(),
-                        partitionUpdate.getWritePath(),
-                        partitionUpdate.getFileNames(),
-                        partitionStatistics);
+
+                if (partitionUpdate.getUpdateMode() == OVERWRITE) {
+                    // get privileges from existing table
+                    PrincipalPrivileges principalPrivileges = fromHivePrivilegeInfos(metastore.listTablePrivileges(handle.getSchemaName(), handle.getTableName(), null));
+
+                    // first drop it
+                    metastore.dropTable(session, handle.getSchemaName(), handle.getTableName());
+
+                    // create the table with the new location
+                    metastore.createTable(session, table, principalPrivileges, Optional.of(partitionUpdate.getWritePath()), false, partitionStatistics);
+                }
+                else if (partitionUpdate.getUpdateMode() == NEW || partitionUpdate.getUpdateMode() == APPEND) {
+                    // insert into unpartitioned table
+                    metastore.finishInsertIntoExistingTable(
+                            session,
+                            handle.getSchemaName(),
+                            handle.getTableName(),
+                            partitionUpdate.getWritePath(),
+                            partitionUpdate.getFileNames(),
+                            partitionStatistics);
+                }
+                else {
+                    throw new IllegalArgumentException("Unsupported update mode: " + partitionUpdate.getUpdateMode());
+                }
             }
             else if (partitionUpdate.getUpdateMode() == APPEND) {
                 // insert into existing partition
