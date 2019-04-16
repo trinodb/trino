@@ -99,7 +99,7 @@ public class SystemTransactionHandle
     public String toString()
     {
         return toStringHelper(this)
-                .add("connectorId", catalogName)
+                .add("catalogName", catalogName)
                 .add("transactionHandle", transactionId)
                 .toString();
     }

@@ -92,7 +92,7 @@ public class NewTableLayout
     public String toString()
     {
         return toStringHelper(this)
-                .add("connectorId", catalogName)
+                .add("catalogName", catalogName)
                 .add("transactionHandle", transactionHandle)
                 .add("layout", layout)
                 .toString();

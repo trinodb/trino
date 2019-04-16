@@ -72,12 +72,12 @@ public final class CatalogName
                 catalogName.getCatalogName().startsWith(INFORMATION_SCHEMA_CONNECTOR_PREFIX);
     }
 
-    public static CatalogName createInformationSchemaConnectorId(CatalogName catalogName)
+    public static CatalogName createInformationSchemaCatalogName(CatalogName catalogName)
     {
         return new CatalogName(INFORMATION_SCHEMA_CONNECTOR_PREFIX + catalogName.getCatalogName());
     }
 
-    public static CatalogName createSystemTablesConnectorId(CatalogName catalogName)
+    public static CatalogName createSystemTablesCatalogName(CatalogName catalogName)
     {
         return new CatalogName(SYSTEM_TABLES_CONNECTOR_PREFIX + catalogName.getCatalogName());
     }

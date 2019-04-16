@@ -133,7 +133,7 @@ public class CatalogMetadata
     public String toString()
     {
         return toStringHelper(this)
-                .add("connectorId", catalogName)
+                .add("catalogName", catalogName)
                 .toString();
     }
 }

@@ -95,7 +95,7 @@ public final class SessionPropertyManager
         requireNonNull(properties, "properties is null");
 
         Map<String, PropertyMetadata<?>> propertiesByName = Maps.uniqueIndex(properties, PropertyMetadata::getName);
-        checkState(connectorSessionProperties.putIfAbsent(catalogName, propertiesByName) == null, "Session properties for connectorId '%s' are already registered", catalogName);
+        checkState(connectorSessionProperties.putIfAbsent(catalogName, propertiesByName) == null, "Session properties for catalog '%s' are already registered", catalogName);
     }
 
     public void removeConnectorSessionProperties(CatalogName catalogName)
@@ -174,10 +174,10 @@ public final class SessionPropertyManager
         return decodePropertyValue(name, value, type, property);
     }
 
-    public <T> T decodeCatalogPropertyValue(CatalogName connectorId, String catalogName, String propertyName, @Nullable String propertyValue, Class<T> type)
+    public <T> T decodeCatalogPropertyValue(CatalogName catalog, String catalogName, String propertyName, @Nullable String propertyValue, Class<T> type)
     {
         String fullPropertyName = catalogName + "." + propertyName;
-        PropertyMetadata<?> property = getConnectorSessionPropertyMetadata(connectorId, propertyName)
+        PropertyMetadata<?> property = getConnectorSessionPropertyMetadata(catalog, propertyName)
                 .orElseThrow(() -> new PrestoException(INVALID_SESSION_PROPERTY, "Unknown session property " + fullPropertyName));
 
         return decodePropertyValue(fullPropertyName, propertyValue, type, property);
@@ -191,10 +191,10 @@ public final class SessionPropertyManager
         decodePropertyValue(propertyName, propertyValue, propertyMetadata.getJavaType(), propertyMetadata);
     }
 
-    public void validateCatalogSessionProperty(CatalogName connectorId, String catalogName, String propertyName, String propertyValue)
+    public void validateCatalogSessionProperty(CatalogName catalog, String catalogName, String propertyName, String propertyValue)
     {
         String fullPropertyName = catalogName + "." + propertyName;
-        PropertyMetadata<?> propertyMetadata = getConnectorSessionPropertyMetadata(connectorId, propertyName)
+        PropertyMetadata<?> propertyMetadata = getConnectorSessionPropertyMetadata(catalog, propertyName)
                 .orElseThrow(() -> new PrestoException(INVALID_SESSION_PROPERTY, "Unknown session property " + fullPropertyName));
 
         decodePropertyValue(fullPropertyName, propertyValue, propertyMetadata.getJavaType(), propertyMetadata);

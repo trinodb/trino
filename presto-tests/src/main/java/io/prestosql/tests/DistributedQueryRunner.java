@@ -309,13 +309,13 @@ public class DistributedQueryRunner
         for (TestingPrestoServer server : servers) {
             catalogNames.add(server.createCatalog(catalogName, connectorName, properties));
         }
-        CatalogName connectorId = getOnlyElement(catalogNames);
-        log.info("Created catalog %s (%s) in %s", catalogName, connectorId, nanosSince(start));
+        CatalogName catalog = getOnlyElement(catalogNames);
+        log.info("Created catalog %s (%s) in %s", catalogName, catalog, nanosSince(start));
 
         // wait for all nodes to announce the new catalog
         start = System.nanoTime();
-        while (!isConnectionVisibleToAllNodes(connectorId)) {
-            Assertions.assertLessThan(nanosSince(start), new Duration(100, SECONDS), "waiting for connector " + connectorId + " to be initialized in every node");
+        while (!isConnectionVisibleToAllNodes(catalog)) {
+            Assertions.assertLessThan(nanosSince(start), new Duration(100, SECONDS), "waiting for connector " + catalog + " to be initialized in every node");
             try {
                 MILLISECONDS.sleep(10);
             }
@@ -324,7 +324,7 @@ public class DistributedQueryRunner
                 throw new RuntimeException(e);
             }
         }
-        log.info("Announced catalog %s (%s) in %s", catalogName, connectorId, nanosSince(start));
+        log.info("Announced catalog %s (%s) in %s", catalogName, catalog, nanosSince(start));
     }
 
     private boolean isConnectionVisibleToAllNodes(CatalogName catalogName)
