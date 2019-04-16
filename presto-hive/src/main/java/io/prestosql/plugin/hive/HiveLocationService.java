@@ -98,9 +98,23 @@ public class HiveLocationService
     }
 
     @Override
-    public WriteInfo getTableWriteInfo(LocationHandle locationHandle)
+    public WriteInfo getTableWriteInfo(LocationHandle locationHandle, boolean overwrite)
     {
-        return new WriteInfo(locationHandle.getTargetPath(), locationHandle.getWritePath(), locationHandle.getWriteMode());
+        if (overwrite) {
+            WriteMode writeMode = locationHandle.getWriteMode();
+            switch (writeMode) {
+                case STAGE_AND_MOVE_TO_TARGET_DIRECTORY:
+                    return new WriteInfo(locationHandle.getTargetPath(), locationHandle.getWritePath(), locationHandle.getWriteMode());
+                case DIRECT_TO_TARGET_EXISTING_DIRECTORY:
+                case DIRECT_TO_TARGET_NEW_DIRECTORY:
+                default:
+                    throw new UnsupportedOperationException(format(
+                            "inserting overwrite existing unpartitioned table using %s writeMode is not supported!", writeMode));
+            }
+        }
+        else {
+            return new WriteInfo(locationHandle.getTargetPath(), locationHandle.getWritePath(), locationHandle.getWriteMode());
+        }
     }
 
     @Override

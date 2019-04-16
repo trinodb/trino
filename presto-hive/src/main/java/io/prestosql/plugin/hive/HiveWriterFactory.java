@@ -72,6 +72,7 @@ import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_PARTITION_READ_ONLY;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_PARTITION_SCHEMA_MISMATCH;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_PATH_ALREADY_EXISTS;
+import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_TABLE_READ_ONLY;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_WRITER_OPEN_ERROR;
 import static io.prestosql.plugin.hive.HiveType.toHiveTypes;
@@ -95,6 +96,7 @@ import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.META_
 
 public class HiveWriterFactory
 {
+    private static final io.airlift.log.Logger LOG = io.airlift.log.Logger.get(HiveWriterFactory.class);
     private static final int MAX_BUCKET_COUNT = 100_000;
     private static final int BUCKET_NUMBER_PADDING = Integer.toString(MAX_BUCKET_COUNT - 1).length();
 
@@ -345,8 +347,23 @@ public class HiveWriterFactory
                     if (immutablePartitions) {
                         throw new PrestoException(HIVE_PARTITION_READ_ONLY, "Unpartitioned Hive tables are immutable");
                     }
-                    updateMode = UpdateMode.APPEND;
-                    writeInfo = locationService.getTableWriteInfo(locationHandle);
+
+                    if (insertExistingPartitionsBehavior == InsertExistingPartitionsBehavior.APPEND) {
+                        updateMode = UpdateMode.APPEND;
+                        writeInfo = locationService.getTableWriteInfo(locationHandle);
+                    }
+                    else if (insertExistingPartitionsBehavior == InsertExistingPartitionsBehavior.OVERWRITE) {
+                        updateMode = UpdateMode.OVERWRITE;
+                        writeInfo = locationService.getTableWriteInfo(locationHandle, true);
+                    }
+                    else if (insertExistingPartitionsBehavior == InsertExistingPartitionsBehavior.ERROR) {
+                        throw new PrestoException(HIVE_TABLE_READ_ONLY,
+                                "Cannot insert into an readonly unpartitioned Hive table.");
+                    }
+                    else {
+                        throw new IllegalArgumentException(format("Unsupported insert existing table behavior: %s",
+                                insertExistingPartitionsBehavior));
+                    }
                 }
 
                 schema = getHiveSchema(table);

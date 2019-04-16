@@ -24,9 +24,12 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.LinkedListMultimap;
 import com.google.common.collect.Maps;
+import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
 import io.airlift.json.JsonCodec;
+import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.prestosql.plugin.hive.HdfsEnvironment.HdfsContext;
 import io.prestosql.plugin.hive.LocationService.WriteInfo;
@@ -204,6 +207,7 @@ import static io.prestosql.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
 import static io.prestosql.spi.predicate.TupleDomain.withColumnDomains;
+import static io.prestosql.spi.security.PrincipalType.ROLE;
 import static io.prestosql.spi.security.PrincipalType.USER;
 import static io.prestosql.spi.statistics.TableStatisticType.ROW_COUNT;
 import static io.prestosql.spi.type.BigintType.BIGINT;
@@ -220,6 +224,7 @@ import static org.apache.hadoop.hive.metastore.TableType.MANAGED_TABLE;
 public class HiveMetadata
         implements TransactionalMetadata
 {
+    private static final Logger log = Logger.get(HiveMetadata.class);
     public static final String PRESTO_VERSION_NAME = "presto_version";
     public static final String PRESTO_QUERY_ID_NAME = "presto_query_id";
     public static final String TABLE_COMMENT = "comment";
@@ -1347,18 +1352,37 @@ public class HiveMetadata
         for (PartitionUpdate partitionUpdate : partitionUpdates) {
             if (partitionUpdate.getName().isEmpty()) {
                 // insert into unpartitioned table
+                if (!table.get().getStorage().getStorageFormat().getInputFormat().equals(
+                        handle.getPartitionStorageFormat().getInputFormat()) && isRespectTableFormat(session)) {
+                    throw new PrestoException(HIVE_CONCURRENT_MODIFICATION_DETECTED, "Table format changed during insert");
+                }
+
                 PartitionStatistics partitionStatistics = createPartitionStatistics(
                         session,
                         partitionUpdate.getStatistics(),
                         columnTypes,
                         getColumnStatistics(partitionComputedStatistics, ImmutableList.of()));
-                metastore.finishInsertIntoExistingTable(
-                        session,
-                        handle.getSchemaName(),
-                        handle.getTableName(),
-                        partitionUpdate.getWritePath(),
-                        partitionUpdate.getFileNames(),
-                        partitionStatistics);
+
+                if (partitionUpdate.getUpdateMode() == OVERWRITE) {
+                    PrincipalPrivileges principalPrivileges = getTablePrincipalPrivileges(
+                            handle.getSchemaName(), handle.getTableName());
+                    // first drop it
+                    metastore.dropTable(session, handle.getSchemaName(), handle.getTableName());
+
+                    // create the table with the new location
+                    metastore.createTable(session, table.get(), principalPrivileges,
+                            Optional.of(partitionUpdate.getWritePath()), false, partitionStatistics);
+                }
+                else {
+                    // insert into unpartitioned table
+                    metastore.finishInsertIntoExistingTable(
+                            session,
+                            handle.getSchemaName(),
+                            handle.getTableName(),
+                            partitionUpdate.getWritePath(),
+                            partitionUpdate.getFileNames(),
+                            partitionStatistics);
+                }
             }
             else if (partitionUpdate.getUpdateMode() == APPEND) {
                 // insert into existing partition
@@ -1402,6 +1426,24 @@ public class HiveMetadata
                 partitionUpdates.stream()
                         .map(PartitionUpdate::getName)
                         .collect(Collectors.toList())));
+    }
+
+    @VisibleForTesting
+    PrincipalPrivileges getTablePrincipalPrivileges(String databaseName, String tableName)
+    {
+        // fetch the privilege info.
+        Set<HivePrivilegeInfo> allPrivileges = metastore.listTablePrivileges(databaseName, tableName, null);
+        Multimap<String, HivePrivilegeInfo> userPrivileges = LinkedListMultimap.create();
+        Multimap<String, HivePrivilegeInfo> rolePrivileges = LinkedListMultimap.create();
+        allPrivileges.forEach(privilege -> {
+            if (privilege.getGrantee().getType() == ROLE) {
+                rolePrivileges.put(privilege.getGrantee().getName(), privilege);
+            }
+            else {
+                userPrivileges.put(privilege.getGrantee().getName(), privilege);
+            }
+        });
+        return new PrincipalPrivileges(userPrivileges, rolePrivileges);
     }
 
     private Partition buildPartitionObject(ConnectorSession session, Table table, PartitionUpdate partitionUpdate)
