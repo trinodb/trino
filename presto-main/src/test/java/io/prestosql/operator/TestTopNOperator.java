@@ -18,10 +18,13 @@ import io.airlift.units.DataSize;
 import io.prestosql.ExceededMemoryLimitException;
 import io.prestosql.operator.TopNOperator.TopNOperatorFactory;
 import io.prestosql.spi.Page;
+import io.prestosql.spi.block.SortOrder;
+import io.prestosql.spi.type.Type;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 import io.prestosql.testing.MaterializedResult;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -40,9 +43,11 @@ import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.testing.MaterializedResult.resultBuilder;
 import static io.prestosql.testing.TestingTaskContext.createTaskContext;
-import static io.prestosql.testing.assertions.Assert.assertEquals;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNull;
+import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
 @Test(singleThreaded = true)
@@ -69,8 +74,14 @@ public class TestTopNOperator
         scheduledExecutor.shutdownNow();
     }
 
-    @Test
-    public void testSingleFieldKey()
+    @DataProvider(name = "useWorkProcessorOperator")
+    public static Object[][] useWorkProcessorOperator()
+    {
+        return new Object[][] {{true}, {false}};
+    }
+
+    @Test(dataProvider = "useWorkProcessorOperator")
+    public void testSingleFieldKey(boolean useWorkProcessorOperator)
     {
         List<Page> input = rowPagesBuilder(BIGINT, DOUBLE)
                 .row(1L, 0.1)
@@ -85,9 +96,8 @@ public class TestTopNOperator
                 .pageBreak()
                 .build();
 
-        TopNOperatorFactory operatorFactory = new TopNOperatorFactory(
-                0,
-                new PlanNodeId("test"),
+        OperatorFactory operatorFactory = topNOperatorFactory(
+                useWorkProcessorOperator,
                 ImmutableList.of(BIGINT, DOUBLE),
                 2,
                 ImmutableList.of(0),
@@ -101,8 +111,8 @@ public class TestTopNOperator
         assertOperatorEquals(operatorFactory, driverContext, input, expected);
     }
 
-    @Test
-    public void testMultiFieldKey()
+    @Test(dataProvider = "useWorkProcessorOperator")
+    public void testMultiFieldKey(boolean useWorkProcessorOperator)
     {
         List<Page> input = rowPagesBuilder(VARCHAR, BIGINT)
                 .row("a", 1L)
@@ -116,9 +126,8 @@ public class TestTopNOperator
                 .row("e", 6L)
                 .build();
 
-        TopNOperatorFactory operatorFactory = new TopNOperatorFactory(
-                0,
-                new PlanNodeId("test"),
+        OperatorFactory operatorFactory = topNOperatorFactory(
+                useWorkProcessorOperator,
                 ImmutableList.of(VARCHAR, BIGINT),
                 3,
                 ImmutableList.of(0, 1),
@@ -133,8 +142,8 @@ public class TestTopNOperator
         assertOperatorEquals(operatorFactory, driverContext, input, expected);
     }
 
-    @Test
-    public void testReverseOrder()
+    @Test(dataProvider = "useWorkProcessorOperator")
+    public void testReverseOrder(boolean useWorkProcessorOperator)
     {
         List<Page> input = rowPagesBuilder(BIGINT, DOUBLE)
                 .row(1L, 0.1)
@@ -149,9 +158,8 @@ public class TestTopNOperator
                 .pageBreak()
                 .build();
 
-        TopNOperatorFactory operatorFactory = new TopNOperatorFactory(
-                0,
-                new PlanNodeId("test"),
+        OperatorFactory operatorFactory = topNOperatorFactory(
+                useWorkProcessorOperator,
                 ImmutableList.of(BIGINT, DOUBLE),
                 2,
                 ImmutableList.of(0),
@@ -165,29 +173,27 @@ public class TestTopNOperator
         assertOperatorEquals(operatorFactory, driverContext, input, expected);
     }
 
-    @Test
-    public void testLimitZero()
+    @Test(dataProvider = "useWorkProcessorOperator")
+    public void testLimitZero(boolean useWorkProcessorOperator)
             throws Exception
     {
-        List<Page> input = rowPagesBuilder(BIGINT).row(1L).build();
-
-        TopNOperatorFactory factory = new TopNOperatorFactory(
-                0,
-                new PlanNodeId("test"),
+        OperatorFactory factory = topNOperatorFactory(
+                useWorkProcessorOperator,
                 ImmutableList.of(BIGINT),
                 0,
                 ImmutableList.of(0),
                 ImmutableList.of(DESC_NULLS_LAST));
 
         try (Operator operator = factory.createOperator(driverContext)) {
-            assertEquals(operator.isFinished(), true);
-            assertEquals(operator.needsInput(), false);
-            assertEquals(operator.getOutput(), null);
+            assertNull(operator.getOutput());
+            assertTrue(operator.isFinished());
+            assertFalse(operator.needsInput());
+            assertNull(operator.getOutput());
         }
     }
 
-    @Test
-    public void testExceedMemoryLimit()
+    @Test(dataProvider = "useWorkProcessorOperator")
+    public void testExceedMemoryLimit(boolean useWorkProcessorOperator)
             throws Exception
     {
         List<Page> input = rowPagesBuilder(BIGINT)
@@ -198,18 +204,42 @@ public class TestTopNOperator
                 .addPipelineContext(0, true, true, false)
                 .addDriverContext();
 
-        TopNOperatorFactory operatorFactory = new TopNOperatorFactory(
-                0,
-                new PlanNodeId("test"),
+        OperatorFactory operatorFactory = topNOperatorFactory(
+                useWorkProcessorOperator,
                 ImmutableList.of(BIGINT),
                 100,
                 ImmutableList.of(0),
                 ImmutableList.of(ASC_NULLS_LAST));
         try (Operator operator = operatorFactory.createOperator(smallDiverContext)) {
             operator.addInput(input.get(0));
+            operator.getOutput();
             fail("must fail because of exceeding local memory limit");
         }
         catch (ExceededMemoryLimitException ignore) {
         }
+    }
+
+    private OperatorFactory topNOperatorFactory(
+            boolean workProcessorOperator,
+            List<? extends Type> types,
+            int n,
+            List<Integer> sortChannels,
+            List<SortOrder> sortOrders)
+    {
+        OperatorFactory factory = new TopNOperatorFactory(
+                0,
+                new PlanNodeId("test"),
+                types,
+                n,
+                sortChannels,
+                sortOrders);
+        if (workProcessorOperator) {
+            factory = new TestWorkProcessorOperator.TestWorkProcessorOperatorFactory(
+                    99,
+                    new PlanNodeId("test"),
+                    (WorkProcessorOperatorFactory) factory);
+        }
+
+        return factory;
     }
 }
