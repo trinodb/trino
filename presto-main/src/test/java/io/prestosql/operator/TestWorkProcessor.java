@@ -250,6 +250,32 @@ public class TestWorkProcessor
     }
 
     @Test(timeOut = 5000)
+    public void testFinishWheb()
+    {
+        AtomicBoolean finished = new AtomicBoolean();
+        SettableFuture<?> future = SettableFuture.create();
+
+        List<ProcessState<Integer>> scenario = ImmutableList.of(
+                ProcessState.ofResult(1),
+                ProcessState.yield(),
+                ProcessState.blocked(future),
+                ProcessState.ofResult(2));
+
+        WorkProcessor<Integer> processor = processorFrom(scenario)
+                .finishWhen(finished::get);
+
+        assertResult(processor, 1);
+        assertYields(processor);
+        assertBlocks(processor);
+
+        finished.set(true);
+        assertBlocks(processor);
+
+        assertUnblocks(processor, future);
+        assertFinishes(processor);
+    }
+
+    @Test(timeOut = 5000)
     public void testFlatMap()
     {
         List<ProcessState<Integer>> baseScenario = ImmutableList.of(

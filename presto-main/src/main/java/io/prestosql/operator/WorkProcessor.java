@@ -71,6 +71,11 @@ public interface WorkProcessor<T>
         return WorkProcessorUtils.processStateMonitor(this, monitor);
     }
 
+    default WorkProcessor<T> finishWhen(BooleanSupplier finishSignal)
+    {
+        return WorkProcessorUtils.finishWhen(this, finishSignal);
+    }
+
     default <R> WorkProcessor<R> flatMap(Function<T, WorkProcessor<R>> mapper)
     {
         return WorkProcessorUtils.flatMap(this, mapper);

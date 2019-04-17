@@ -193,6 +193,19 @@ public final class WorkProcessorUtils
         });
     }
 
+    static <T> WorkProcessor<T> finishWhen(WorkProcessor<T> processor, BooleanSupplier finishSignal)
+    {
+        requireNonNull(processor, "processor is null");
+        requireNonNull(finishSignal, "finishSignal is null");
+        return WorkProcessor.create(() -> {
+            if (finishSignal.getAsBoolean()) {
+                return ProcessState.finished();
+            }
+
+            return getNextState(processor);
+        });
+    }
+
     private static <T> ProcessState<T> getNextState(WorkProcessor<T> processor)
     {
         if (processor.process()) {
