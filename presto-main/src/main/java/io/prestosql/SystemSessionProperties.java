@@ -114,6 +114,7 @@ public final class SystemSessionProperties
     public static final String IGNORE_STATS_CALCULATOR_FAILURES = "ignore_stats_calculator_failures";
     public static final String MAX_DRIVERS_PER_TASK = "max_drivers_per_task";
     public static final String DEFAULT_FILTER_FACTOR_ENABLED = "default_filter_factor_enabled";
+    public static final String WORK_PROCESSOR_PIPELINES = "work_processor_pipelines";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -541,6 +542,11 @@ public final class SystemSessionProperties
                         DEFAULT_FILTER_FACTOR_ENABLED,
                         "use a default filter factor for unknown filters in a filter node",
                         featuresConfig.isDefaultFilterFactorEnabled(),
+                        false),
+                booleanProperty(
+                        WORK_PROCESSOR_PIPELINES,
+                        "Experimental: Use WorkProcessor pipelines",
+                        featuresConfig.isWorkProcessorPipelines(),
                         false));
     }
 
@@ -917,5 +923,10 @@ public final class SystemSessionProperties
     public static boolean isDefaultFilterFactorEnabled(Session session)
     {
         return session.getSystemProperty(DEFAULT_FILTER_FACTOR_ENABLED, Boolean.class);
+    }
+
+    public static boolean isWorkProcessorPipelines(Session session)
+    {
+        return session.getSystemProperty(WORK_PROCESSOR_PIPELINES, Boolean.class);
     }
 }
