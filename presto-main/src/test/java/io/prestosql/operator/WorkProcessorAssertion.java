@@ -14,9 +14,15 @@
 package io.prestosql.operator;
 
 import com.google.common.util.concurrent.SettableFuture;
+import io.prestosql.operator.WorkProcessor.ProcessState;
+import io.prestosql.operator.WorkProcessor.TransformationState;
 
+import java.util.Iterator;
+import java.util.List;
+import java.util.Optional;
 import java.util.function.Consumer;
 
+import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -65,5 +71,46 @@ public final class WorkProcessorAssertion
         assertFalse(processor.isBlocked());
         assertTrue(processor.isFinished());
         assertTrue(processor.process());
+    }
+
+    public static <T, R> WorkProcessor.Transformation<T, R> transformationFrom(List<Transform<T, R>> transformations)
+    {
+        Iterator<Transform<T, R>> iterator = transformations.iterator();
+        return element -> {
+            assertTrue(iterator.hasNext());
+            return iterator.next().transform(Optional.ofNullable(element));
+        };
+    }
+
+    public static <T> WorkProcessor<T> processorFrom(List<ProcessState<T>> states)
+    {
+        Iterator<ProcessState<T>> iterator = states.iterator();
+        return WorkProcessorUtils.create(() -> {
+            assertTrue(iterator.hasNext());
+            return iterator.next();
+        });
+    }
+
+    public static class Transform<T, R>
+    {
+        private final Optional<T> from;
+        private final TransformationState<R> to;
+
+        public static <T, R> Transform<T, R> of(Optional<T> from, TransformationState<R> to)
+        {
+            return new Transform<>(from, to);
+        }
+
+        private Transform(Optional<T> from, TransformationState<R> to)
+        {
+            this.from = requireNonNull(from);
+            this.to = requireNonNull(to);
+        }
+
+        private TransformationState<R> transform(Optional<T> from)
+        {
+            assertEquals(from, this.from);
+            return to;
+        }
     }
 }

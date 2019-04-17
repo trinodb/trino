@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.SettableFuture;
 import io.prestosql.operator.WorkProcessor.ProcessState;
 import io.prestosql.operator.WorkProcessor.TransformationState;
+import io.prestosql.operator.WorkProcessorAssertion.Transform;
 import org.testng.annotations.Test;
 
 import java.util.Comparator;
@@ -34,7 +35,8 @@ import static io.prestosql.operator.WorkProcessorAssertion.assertFinishes;
 import static io.prestosql.operator.WorkProcessorAssertion.assertResult;
 import static io.prestosql.operator.WorkProcessorAssertion.assertUnblocks;
 import static io.prestosql.operator.WorkProcessorAssertion.assertYields;
-import static java.util.Objects.requireNonNull;
+import static io.prestosql.operator.WorkProcessorAssertion.processorFrom;
+import static io.prestosql.operator.WorkProcessorAssertion.transformationFrom;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -484,51 +486,5 @@ public class TestWorkProcessor
         assertYields(processor);
         assertResult(processor, 2);
         assertFinishes(processor);
-    }
-
-    private static <T, R> WorkProcessor.Transformation<T, R> transformationFrom(List<Transform<T, R>> transformations)
-    {
-        Iterator<Transform<T, R>> iterator = transformations.iterator();
-        return element -> {
-            assertTrue(iterator.hasNext());
-            return iterator.next().transform(Optional.ofNullable(element));
-        };
-    }
-
-    private static <T> WorkProcessor<T> processorFrom(List<ProcessState<T>> states)
-    {
-        return WorkProcessorUtils.create(processFrom(states));
-    }
-
-    private static <T> WorkProcessor.Process<T> processFrom(List<ProcessState<T>> states)
-    {
-        Iterator<ProcessState<T>> iterator = states.iterator();
-        return () -> {
-            assertTrue(iterator.hasNext());
-            return iterator.next();
-        };
-    }
-
-    private static class Transform<T, R>
-    {
-        final Optional<T> from;
-        final TransformationState<R> to;
-
-        Transform(Optional<T> from, TransformationState<R> to)
-        {
-            this.from = requireNonNull(from);
-            this.to = requireNonNull(to);
-        }
-
-        static <T, R> Transform<T, R> of(Optional<T> from, TransformationState<R> to)
-        {
-            return new Transform<>(from, to);
-        }
-
-        TransformationState<R> transform(Optional<T> from)
-        {
-            assertEquals(from, this.from);
-            return to;
-        }
     }
 }
