@@ -282,9 +282,21 @@ public class OperatorContext
     }
 
     // caller should close this context as it's a new context
+    public AggregatedMemoryContext newAggregateUserMemoryContext()
+    {
+        return new InternalAggregatedMemoryContext(operatorMemoryContext.newAggregateUserMemoryContext(), memoryFuture, this::updatePeakMemoryReservations, true);
+    }
+
+    // caller should close this context as it's a new context
     public AggregatedMemoryContext newAggregateSystemMemoryContext()
     {
         return new InternalAggregatedMemoryContext(operatorMemoryContext.newAggregateSystemMemoryContext(), memoryFuture, this::updatePeakMemoryReservations, true);
+    }
+
+    // caller should close this context as it's a new context
+    public AggregatedMemoryContext newAggregateRevocableMemoryContext()
+    {
+        return new InternalAggregatedMemoryContext(operatorMemoryContext.newAggregateRevocableMemoryContext(), revocableMemoryFuture, this::updatePeakMemoryReservations, true);
     }
 
     // listen to all memory allocations and update the peak memory reservations accordingly
