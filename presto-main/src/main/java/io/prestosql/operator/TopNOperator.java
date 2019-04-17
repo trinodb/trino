@@ -14,6 +14,8 @@
 package io.prestosql.operator;
 
 import com.google.common.collect.ImmutableList;
+import io.prestosql.Session;
+import io.prestosql.memory.context.MemoryTrackingContext;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.block.SortOrder;
 import io.prestosql.spi.type.Type;
@@ -31,7 +33,7 @@ public class TopNOperator
         implements Operator
 {
     public static class TopNOperatorFactory
-            implements OperatorFactory
+            implements OperatorFactory, WorkProcessorOperatorFactory
     {
         private final int operatorId;
         private final PlanNodeId planNodeId;
@@ -58,6 +60,12 @@ public class TopNOperator
         }
 
         @Override
+        public int getOperatorId()
+        {
+            return operatorId;
+        }
+
+        @Override
         public Operator createOperator(DriverContext driverContext)
         {
             checkState(!closed, "Factory is already closed");
@@ -80,6 +88,16 @@ public class TopNOperator
         public OperatorFactory duplicate()
         {
             return new TopNOperatorFactory(operatorId, planNodeId, sourceTypes, n, sortChannels, sortOrders);
+        }
+
+        @Override
+        public WorkProcessorOperator create(
+                Session session,
+                MemoryTrackingContext memoryTrackingContext,
+                DriverYieldSignal yieldSignal,
+                WorkProcessor<Page> sourcePages)
+        {
+            return new TopNWorkProcessorOperator(memoryTrackingContext, sourcePages, sourceTypes, n, sortChannels, sortOrders);
         }
     }
 
