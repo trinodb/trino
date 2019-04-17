@@ -3816,6 +3816,28 @@ public class TestHiveIntegrationSmokeTest
                 });
     }
 
+    @Test
+    public void testSelectWithNoColumns()
+    {
+        testWithAllStorageFormats(this::testSelectWithNoColumns);
+    }
+
+    private void testSelectWithNoColumns(Session session, HiveStorageFormat storageFormat)
+    {
+        String tableName = "test_select_with_no_columns";
+        @Language("SQL") String createTable = format(
+                "CREATE TABLE %s (col0) WITH (format = '%s') AS VALUES 5, 6, 7",
+                tableName,
+                storageFormat);
+        assertUpdate(session, createTable, 3);
+        assertTrue(getQueryRunner().tableExists(getSession(), tableName));
+
+        assertQuery("SELECT 1 FROM " + tableName, "VALUES 1, 1, 1");
+        assertQuery("SELECT count(*) FROM " + tableName, "SELECT 3");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
     private Session getParallelWriteSession()
     {
         return Session.builder(getSession())
