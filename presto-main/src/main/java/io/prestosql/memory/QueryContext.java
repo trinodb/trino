@@ -347,6 +347,7 @@ public class QueryContext
         String topConsumers = queryAllocations.entrySet().stream()
                 .sorted(comparingByValue(Comparator.reverseOrder()))
                 .limit(3)
+                .filter(e -> e.getValue() >= 0)
                 .collect(toImmutableMap(Entry::getKey, e -> succinctBytes(e.getValue())))
                 .toString();
 
