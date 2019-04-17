@@ -119,6 +119,7 @@ public class FeaturesConfig
     private boolean useMarkDistinct = true;
     private boolean preferPartialAggregation = true;
     private boolean optimizeTopNRowNumber = true;
+    private boolean workProcessorPipelines;
 
     private Duration iterativeOptimizerTimeout = new Duration(3, MINUTES); // by default let optimizer wait a long time in case it retrieves some data from ConnectorMetadata
 
@@ -864,6 +865,18 @@ public class FeaturesConfig
     public FeaturesConfig setMaxGroupingSets(int maxGroupingSets)
     {
         this.maxGroupingSets = maxGroupingSets;
+        return this;
+    }
+
+    public boolean isWorkProcessorPipelines()
+    {
+        return workProcessorPipelines;
+    }
+
+    @Config("experimental.work-processor-pipelines")
+    public FeaturesConfig setWorkProcessorPipelines(boolean workProcessorPipelines)
+    {
+        this.workProcessorPipelines = workProcessorPipelines;
         return this;
     }
 }

@@ -103,7 +103,8 @@ public class TestFeaturesConfig
                 .setArrayAggGroupImplementation(ArrayAggGroupImplementation.NEW)
                 .setMultimapAggGroupImplementation(MultimapAggGroupImplementation.NEW)
                 .setDistributedSortEnabled(true)
-                .setMaxGroupingSets(2048));
+                .setMaxGroupingSets(2048)
+                .setWorkProcessorPipelines(false));
     }
 
     @Test
@@ -167,6 +168,7 @@ public class TestFeaturesConfig
                 .put("optimizer.optimize-top-n-row-number", "false")
                 .put("distributed-sort", "false")
                 .put("analyzer.max-grouping-sets", "2047")
+                .put("experimental.work-processor-pipelines", "true")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -226,7 +228,8 @@ public class TestFeaturesConfig
                 .setMultimapAggGroupImplementation(MultimapAggGroupImplementation.LEGACY)
                 .setDistributedSortEnabled(false)
                 .setMaxGroupingSets(2047)
-                .setDefaultFilterFactorEnabled(true);
+                .setDefaultFilterFactorEnabled(true)
+                .setWorkProcessorPipelines(true);
         assertFullMapping(properties, expected);
     }
 
