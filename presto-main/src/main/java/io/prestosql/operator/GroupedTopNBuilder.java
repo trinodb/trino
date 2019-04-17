@@ -133,7 +133,6 @@ public class GroupedTopNBuilder
 
         // save the new page
         PageReference newPageReference = new PageReference(newPage);
-        memorySizeInBytes += newPageReference.getEstimatedSizeInBytes();
         int newPageId;
         if (emptyPageReferenceSlots.isEmpty()) {
             // all the previous slots are full; create a new one
@@ -195,10 +194,20 @@ public class GroupedTopNBuilder
             memorySizeInBytes += rows.getEstimatedSizeInBytes();
         }
 
-        // may compact the new page as well
-        if (newPageReference.getUsedPositionCount() * COMPACT_THRESHOLD < newPage.getPositionCount()) {
-            verify(!pagesToCompact.contains(newPageId));
-            pagesToCompact.add(newPageId);
+        // unreference new page if it was not used
+        if (newPageReference.getUsedPositionCount() == 0) {
+            pageReferences.set(newPageId, null);
+        }
+        else {
+            // assure new page is loaded
+            newPageReference.loadPage();
+            memorySizeInBytes += newPageReference.getEstimatedSizeInBytes();
+
+            // may compact the new page as well
+            if (newPageReference.getUsedPositionCount() * COMPACT_THRESHOLD < newPage.getPositionCount()) {
+                verify(!pagesToCompact.contains(newPageId));
+                pagesToCompact.add(newPageId);
+            }
         }
 
         // compact pages
@@ -329,6 +338,11 @@ public class GroupedTopNBuilder
             }
             page = new Page(usedPositionCount, blocks);
             reference = newReference;
+        }
+
+        public void loadPage()
+        {
+            page = page.getLoadedPage();
         }
 
         public Page getPage()
