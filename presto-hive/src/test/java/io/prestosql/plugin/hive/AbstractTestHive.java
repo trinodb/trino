@@ -986,17 +986,6 @@ public abstract class AbstractTestHive
     }
 
     @Test
-    public void testGetPartitionNames()
-    {
-        try (Transaction transaction = newTransaction()) {
-            ConnectorMetadata metadata = transaction.getMetadata();
-            ConnectorTableHandle tableHandle = getTableHandle(metadata, tablePartitionFormat);
-            List<ConnectorTableLayoutResult> tableLayoutResults = metadata.getTableLayouts(newSession(), tableHandle, Constraint.alwaysTrue(), Optional.empty());
-            assertExpectedTableLayout(getOnlyElement(tableLayoutResults).getTableLayout(), tableLayout);
-        }
-    }
-
-    @Test
     public void testMismatchSchemaTable()
             throws Exception
     {
