@@ -26,9 +26,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Supplier;
 
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
-import static io.prestosql.operator.Operator.NOT_BLOCKED;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -49,14 +49,6 @@ import static java.util.Objects.requireNonNull;
  * SpatialIndexBuilderOperator has to stay active until all the SpatialJoinOperators
  * have finished.
  * <p>
- * This factory keeps track of the number of active SpatialJoinOperators in cooperation
- * with SpatialJoinOperatorFactory and SpatialJoinOperators. Initially, the number of
- * active SpatialJoinOperators is set to 1. When SpatialJoinOperator is created, it calls
- * {@link #createPagesSpatialIndex()} and the counter goes up by 1. When SpatialJoinOperator
- * finishes, it calls {@link #probeOperatorFinished()} and the counter goes down by 1.
- * In addition SpatialJoinOperatorFactory calls {@link #noMoreProbeOperators()} when done
- * creating operators and the counter goes down by 1.
- * <p>
  * {@link #lendPagesSpatialIndex(Supplier)} returns a Future that completes once all
  * the SpatialJoinOperators completed. SpatialIndexBuilderOperator uses that Future
  * to decide on its own completion.
@@ -74,7 +66,7 @@ public class PagesSpatialIndexFactory
     @Nullable
     private Supplier<PagesSpatialIndex> pagesSpatialIndex;
 
-    private final ReferenceCount activeProbeOperators = new ReferenceCount(1);
+    private final SettableFuture<?> destroyed = SettableFuture.create();
 
     public PagesSpatialIndexFactory(List<Type> types, List<Type> outputTypes)
     {
@@ -92,16 +84,21 @@ public class PagesSpatialIndexFactory
         return outputTypes;
     }
 
+    public void destroy()
+    {
+        destroyed.set(null);
+        synchronized (this) {
+            pagesSpatialIndex = null;
+            pagesSpatialIndexFutures.clear();
+        }
+    }
+
     /**
      * Called by {@link SpatialJoinOperator}.
-     * <p>
-     * {@link SpatialJoinOperator} must call {@link #probeOperatorFinished()} on completion
-     * to signal that spatial index is no longer needed.
      */
     public synchronized ListenableFuture<PagesSpatialIndex> createPagesSpatialIndex()
     {
-        activeProbeOperators.retain();
-
+        checkState(!destroyed.isDone(), "already destroyed");
         if (pagesSpatialIndex != null) {
             return immediateFuture(pagesSpatialIndex.get());
         }
@@ -109,30 +106,6 @@ public class PagesSpatialIndexFactory
         SettableFuture<PagesSpatialIndex> future = SettableFuture.create();
         pagesSpatialIndexFutures.add(future);
         return future;
-    }
-
-    /**
-     * Called by SpatialJoinOperatorFactory to indicate that all
-     * {@link SpatialJoinOperator} have been created.
-     */
-    public synchronized void noMoreProbeOperators()
-    {
-        activeProbeOperators.release();
-        if (activeProbeOperators.getFreeFuture().isDone()) {
-            pagesSpatialIndex = null;
-        }
-    }
-
-    /**
-     * Called by {@link SpatialJoinOperator} on completion to signal that spatial index
-     * is no longer needed.
-     */
-    public synchronized void probeOperatorFinished()
-    {
-        activeProbeOperators.release();
-        if (activeProbeOperators.getFreeFuture().isDone()) {
-            pagesSpatialIndex = null;
-        }
     }
 
     /**
@@ -145,12 +118,12 @@ public class PagesSpatialIndexFactory
     {
         requireNonNull(pagesSpatialIndex, "pagesSpatialIndex is null");
 
-        if (activeProbeOperators.getFreeFuture().isDone()) {
-            return NOT_BLOCKED;
-        }
-
         List<SettableFuture<PagesSpatialIndex>> settableFutures;
         synchronized (this) {
+            if (destroyed.isDone()) {
+                return destroyed;
+            }
+
             verify(this.pagesSpatialIndex == null);
             this.pagesSpatialIndex = pagesSpatialIndex;
             settableFutures = ImmutableList.copyOf(pagesSpatialIndexFutures);
@@ -161,6 +134,6 @@ public class PagesSpatialIndexFactory
             settableFuture.set(pagesSpatialIndex.get());
         }
 
-        return activeProbeOperators.getFreeFuture();
+        return destroyed;
     }
 }
