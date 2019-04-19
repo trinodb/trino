@@ -66,13 +66,13 @@ public class SpatialJoinOperator
         {
             checkArgument(joinType == INNER || joinType == LEFT, "unsupported join type: %s", joinType);
             this.operatorId = operatorId;
-            this.planNodeId = planNodeId;
+            this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
             this.joinType = joinType;
             this.probeTypes = ImmutableList.copyOf(probeTypes);
             this.probeOutputChannels = ImmutableList.copyOf(probeOutputChannels);
             this.probeGeometryChannel = probeGeometryChannel;
             this.partitionChannel = requireNonNull(partitionChannel, "partitionChannel is null");
-            this.pagesSpatialIndexFactory = pagesSpatialIndexFactory;
+            this.pagesSpatialIndexFactory = requireNonNull(pagesSpatialIndexFactory, "pagesSpatialIndexFactory is null");
         }
 
         @Override
@@ -145,14 +145,14 @@ public class SpatialJoinOperator
             Optional<Integer> partitionChannel,
             PagesSpatialIndexFactory pagesSpatialIndexFactory)
     {
-        this.operatorContext = operatorContext;
+        this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.localUserMemoryContext = operatorContext.localUserMemoryContext();
-        this.joinType = joinType;
+        this.joinType = requireNonNull(joinType, "joinType is null");
         this.probeTypes = ImmutableList.copyOf(probeTypes);
         this.probeOutputChannels = ImmutableList.copyOf(probeOutputChannels);
         this.probeGeometryChannel = probeGeometryChannel;
         this.partitionChannel = requireNonNull(partitionChannel, "partitionChannel is null");
-        this.pagesSpatialIndexFactory = pagesSpatialIndexFactory;
+        this.pagesSpatialIndexFactory = requireNonNull(pagesSpatialIndexFactory, "pagesSpatialIndexFactory is null");
         this.pagesSpatialIndexFuture = pagesSpatialIndexFactory.createPagesSpatialIndex();
         this.pageBuilder = new PageBuilder(ImmutableList.<Type>builder()
                 .addAll(probeOutputChannels.stream()
@@ -291,14 +291,14 @@ public class SpatialJoinOperator
     }
 
     @Override
-    public void close()
-    {
-        pagesSpatialIndexFuture = null;
-    }
-
-    @Override
     public boolean isFinished()
     {
         return finished;
+    }
+
+    @Override
+    public void close()
+    {
+        pagesSpatialIndexFuture = null;
     }
 }
