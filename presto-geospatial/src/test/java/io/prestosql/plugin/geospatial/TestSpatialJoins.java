@@ -332,4 +332,26 @@ public class TestSpatialJoins
                         "ON a.name > b.name AND ST_Intersects(ST_GeometryFromText(b.wkt), ST_GeometryFromText(a.wkt))",
                 "VALUES ('a', null), ('b', null), ('c', 'a'), ('c', 'b'), ('d', null), ('empty', null), ('null', null)");
     }
+
+    @Test
+    public void testBroadcastSpatialRightJoin()
+    {
+        // Test ST_Intersects(build, probe)
+        assertQuery("SELECT a.name, b.name " +
+                        "FROM (" + POLYGONS_SQL + ") AS a (wkt, name, id) RIGHT JOIN (" + POLYGONS_SQL + ") AS b (wkt, name, id) " +
+                        "ON ST_Intersects(ST_GeometryFromText(b.wkt), ST_GeometryFromText(a.wkt))",
+                "VALUES ('a', 'a'), ('b', 'b'), ('c', 'c'), ('d', 'd'), ('a', 'c'), ('c', 'a'), ('c', 'b'), ('b', 'c'), (null, 'empty'), (null, 'null')");
+
+        // Empty build side
+        assertQuery("SELECT a.name, b.name " +
+                        "FROM (" + POLYGONS_SQL + ") AS a (wkt, name, id) RIGHT JOIN (VALUES (null, 'null', 1)) AS b (wkt, name, id) " +
+                        "ON ST_Intersects(ST_GeometryFromText(b.wkt), ST_GeometryFromText(a.wkt))",
+                "VALUES (null, 'null')");
+
+        // Extra condition
+        assertQuery("SELECT a.name, b.name " +
+                        "FROM (" + POLYGONS_SQL + ") AS a (wkt, name, id) RIGHT JOIN (" + POLYGONS_SQL + ") AS b (wkt, name, id) " +
+                        "ON a.name > b.name AND ST_Intersects(ST_GeometryFromText(b.wkt), ST_GeometryFromText(a.wkt))",
+                "VALUES (null, 'c'), (null, 'd'), ('c', 'a'), ('c', 'b'), (null, 'empty'), (null, 'null')");
+    }
 }
