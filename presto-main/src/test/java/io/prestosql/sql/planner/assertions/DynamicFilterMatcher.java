@@ -22,15 +22,18 @@ import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.plan.FilterNode;
 import io.prestosql.sql.planner.plan.JoinNode;
 import io.prestosql.sql.planner.plan.PlanNode;
+import io.prestosql.sql.tree.Expression;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.prestosql.sql.DynamicFilters.extractDynamicFilters;
+import static io.prestosql.sql.ExpressionUtils.combineConjuncts;
 import static java.util.Objects.requireNonNull;
 
 public class DynamicFilterMatcher
@@ -40,18 +43,20 @@ public class DynamicFilterMatcher
     private final Map<SymbolAlias, SymbolAlias> expectedDynamicFilters;
     private final Map<String, String> joinExpectedMappings;
     private final Map<String, String> filterExpectedMappings;
+    private final Optional<Expression> expectedStaticFilter;
 
     private JoinNode joinNode;
     private SymbolAliases symbolAliases;
     private FilterNode filterNode;
 
-    public DynamicFilterMatcher(Map<SymbolAlias, SymbolAlias> expectedDynamicFilters)
+    public DynamicFilterMatcher(Map<SymbolAlias, SymbolAlias> expectedDynamicFilters, Optional<Expression> expectedStaticFilter)
     {
         this.expectedDynamicFilters = requireNonNull(expectedDynamicFilters, "expectedDynamicFilters is null");
         this.joinExpectedMappings = expectedDynamicFilters.values().stream()
                 .collect(toImmutableMap(rightSymbol -> rightSymbol.toString() + "_alias", SymbolAlias::toString));
         this.filterExpectedMappings = expectedDynamicFilters.entrySet().stream()
                 .collect(toImmutableMap(entry -> entry.getKey().toString(), entry -> entry.getValue().toString() + "_alias"));
+        this.expectedStaticFilter = requireNonNull(expectedStaticFilter, "expectedStaticFilter is null");
     }
 
     public MatchResult match(JoinNode joinNode, SymbolAliases symbolAliases)
@@ -67,7 +72,14 @@ public class DynamicFilterMatcher
         checkState(this.filterNode == null, "filterNode must be null at this point");
         this.filterNode = filterNode;
         this.symbolAliases = symbolAliases;
-        return new MatchResult(match());
+
+        boolean staticFilterMatches = expectedStaticFilter.map(filter -> {
+            ExpressionVerifier verifier = new ExpressionVerifier(symbolAliases);
+            Expression staticFilter = combineConjuncts(extractDynamicFilters(filterNode.getPredicate()).getStaticConjuncts());
+            return verifier.process(staticFilter, filter);
+        }).orElse(true);
+
+        return new MatchResult(match() && staticFilterMatches);
     }
 
     private boolean match()
@@ -137,7 +149,8 @@ public class DynamicFilterMatcher
                         .map(entry -> entry.getKey() + " = " + entry.getValue())
                         .collect(toImmutableList()));
         return toStringHelper(this)
-                .add("predicate", predicate)
+                .add("dynamicPredicate", predicate)
+                .add("staticPredicate", expectedStaticFilter)
                 .toString();
     }
 }

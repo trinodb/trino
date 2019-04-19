@@ -70,7 +70,7 @@ public final class DynamicFilters
         return getDescriptor(expression).isPresent();
     }
 
-    private static Optional<Descriptor> getDescriptor(Expression expression)
+    public static Optional<Descriptor> getDescriptor(Expression expression)
     {
         if (!(expression instanceof FunctionCall)) {
             return Optional.empty();
