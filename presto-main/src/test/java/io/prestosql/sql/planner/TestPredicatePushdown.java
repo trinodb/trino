@@ -23,7 +23,9 @@ import io.prestosql.sql.planner.plan.WindowNode;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Optional;
 
+import static io.prestosql.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.assignUniqueId;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
@@ -43,6 +45,11 @@ import static io.prestosql.sql.planner.plan.JoinNode.Type.LEFT;
 public class TestPredicatePushdown
         extends BasePlanTest
 {
+    TestPredicatePushdown()
+    {
+        super(ImmutableMap.of(ENABLE_DYNAMIC_FILTERING, "true"));
+    }
+
     @Test
     public void testCoercions()
     {
@@ -59,10 +66,9 @@ public class TestPredicatePushdown
                         "WHERE t.v = 'x'",
                 anyTree(
                         join(INNER, ImmutableList.of(equiJoinClause("t_k", "u_k")),
-                                project(
-                                        filter(
-                                                "CAST('x' AS varchar(4)) = CAST(t_v AS varchar(4))",
-                                                tableScan("nation", ImmutableMap.of("t_k", "nationkey", "t_v", "name")))),
+                                ImmutableMap.of("t_k", "u_k"),
+                                Optional.of("CAST('x' AS varchar(4)) = CAST(t_v AS varchar(4))"),
+                                tableScan("nation", ImmutableMap.of("t_k", "nationkey", "t_v", "name")),
                                 anyTree(
                                         project(
                                                 filter(
@@ -79,10 +85,9 @@ public class TestPredicatePushdown
                         "WHERE t.v = 'x'",
                 anyTree(
                         join(INNER, ImmutableList.of(equiJoinClause("t_k", "u_k")),
-                                project(
-                                        filter(
-                                                "CAST('x' AS varchar(4)) = CAST(t_v AS varchar(4))",
-                                                tableScan("nation", ImmutableMap.of("t_k", "nationkey", "t_v", "name")))),
+                                ImmutableMap.of("t_k", "u_k"),
+                                Optional.of("CAST('x' AS varchar(4)) = CAST(t_v AS varchar(4))"),
+                                tableScan("nation", ImmutableMap.of("t_k", "nationkey", "t_v", "name")),
                                 anyTree(
                                         project(
                                                 filter(
