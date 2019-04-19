@@ -354,4 +354,14 @@ public class TestSpatialJoins
                         "ON a.name > b.name AND ST_Intersects(ST_GeometryFromText(b.wkt), ST_GeometryFromText(a.wkt))",
                 "VALUES (null, 'c'), (null, 'd'), ('c', 'a'), ('c', 'b'), (null, 'empty'), (null, 'null')");
     }
+
+    @Test
+    public void testSpatialJoinOverRightJoin()
+    {
+        assertQuery("SELECT a.name, b.name, c.name " +
+                        "FROM (" + POINTS_SQL + ") AS a (latitude, longitude, name, id) " +
+                        "RIGHT JOIN (" + POINTS_SQL + ") AS b (latitude, longitude, name, id) ON a.latitude = b.latitude AND a.longitude = b.longitude AND a.latitude > 0 " +
+                        "JOIN (" + POINTS_SQL + ") AS c (latitude, longitude, name, id) ON ST_Distance(ST_Point(a.latitude, b.longitude), ST_Point(c.latitude, c.longitude)) < 1 ",
+                "VALUES ('y', 'y', 'y'), ('z', 'z', 'z')");
+    }
 }

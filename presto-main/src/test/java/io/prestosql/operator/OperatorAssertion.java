@@ -163,6 +163,7 @@ public final class OperatorAssertion
     public static List<Page> toPages(OperatorFactory operatorFactory, DriverContext driverContext, List<Page> input, boolean revokeMemoryWhenAddingPages)
     {
         try (Operator operator = operatorFactory.createOperator(driverContext)) {
+            operatorFactory.noMoreOperators();
             return toPages(operator, input.iterator(), revokeMemoryWhenAddingPages);
         }
         catch (Exception e) {
