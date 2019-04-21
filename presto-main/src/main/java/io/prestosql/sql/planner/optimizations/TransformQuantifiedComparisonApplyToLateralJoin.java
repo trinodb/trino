@@ -39,7 +39,6 @@ import io.prestosql.sql.tree.BooleanLiteral;
 import io.prestosql.sql.tree.Cast;
 import io.prestosql.sql.tree.ComparisonExpression;
 import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.FunctionCall;
 import io.prestosql.sql.tree.GenericLiteral;
 import io.prestosql.sql.tree.NullLiteral;
 import io.prestosql.sql.tree.QualifiedName;
@@ -145,20 +144,32 @@ public class TransformQuantifiedComparisonApplyToLateralJoin
                     subqueryPlan,
                     ImmutableMap.of(
                             minValue, new Aggregation(
-                                    new FunctionCall(MIN, outputColumnReferences),
                                     metadata.resolveFunction(MIN, fromTypeSignatures(outputColumnTypeSignature)),
+                                    outputColumnReferences,
+                                    false,
+                                    Optional.empty(),
+                                    Optional.empty(),
                                     Optional.empty()),
                             maxValue, new Aggregation(
-                                    new FunctionCall(MAX, outputColumnReferences),
                                     metadata.resolveFunction(MAX, fromTypeSignatures(outputColumnTypeSignature)),
+                                    outputColumnReferences,
+                                    false,
+                                    Optional.empty(),
+                                    Optional.empty(),
                                     Optional.empty()),
                             countAllValue, new Aggregation(
-                                    new FunctionCall(COUNT, emptyList()),
                                     metadata.resolveFunction(COUNT, emptyList()),
+                                    ImmutableList.of(),
+                                    false,
+                                    Optional.empty(),
+                                    Optional.empty(),
                                     Optional.empty()),
                             countNonNullValue, new Aggregation(
-                                    new FunctionCall(COUNT, outputColumnReferences),
                                     metadata.resolveFunction(COUNT, fromTypeSignatures(outputColumnTypeSignature)),
+                                    outputColumnReferences,
+                                    false,
+                                    Optional.empty(),
+                                    Optional.empty(),
                                     Optional.empty())),
                     globalAggregation(),
                     ImmutableList.of(),

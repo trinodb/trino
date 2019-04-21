@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.prestosql.matching.Captures;
 import io.prestosql.matching.Pattern;
+import io.prestosql.sql.planner.OrderingScheme;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.iterative.Rule;
 import io.prestosql.sql.planner.plan.AggregationNode;
@@ -29,17 +30,26 @@ import io.prestosql.sql.planner.plan.ProjectNode;
 import io.prestosql.sql.planner.plan.ValuesNode;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.FunctionCall;
+import io.prestosql.sql.tree.OrderBy;
+import io.prestosql.sql.tree.QualifiedName;
+import io.prestosql.sql.tree.SortItem;
+import io.prestosql.sql.tree.SortItem.NullOrdering;
+import io.prestosql.sql.tree.SymbolReference;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.sql.planner.plan.Patterns.aggregation;
 import static io.prestosql.sql.planner.plan.Patterns.filter;
 import static io.prestosql.sql.planner.plan.Patterns.join;
 import static io.prestosql.sql.planner.plan.Patterns.project;
 import static io.prestosql.sql.planner.plan.Patterns.values;
+import static io.prestosql.sql.tree.SortItem.Ordering.ASCENDING;
+import static io.prestosql.sql.tree.SortItem.Ordering.DESCENDING;
 import static java.util.Objects.requireNonNull;
 
 public class ExpressionRewriteRuleSet
@@ -141,11 +151,30 @@ public class ExpressionRewriteRuleSet
             ImmutableMap.Builder<Symbol, Aggregation> aggregations = ImmutableMap.builder();
             for (Map.Entry<Symbol, Aggregation> entry : aggregationNode.getAggregations().entrySet()) {
                 Aggregation aggregation = entry.getValue();
-                FunctionCall call = (FunctionCall) rewriter.rewrite(aggregation.getCall(), context);
-                aggregations.put(
-                        entry.getKey(),
-                        new Aggregation(call, aggregation.getSignature(), aggregation.getMask()));
-                if (!aggregation.getCall().equals(call)) {
+                FunctionCall call = (FunctionCall) rewriter.rewrite(
+                        new FunctionCall(
+                                QualifiedName.of(aggregation.getSignature().getName()),
+                                Optional.empty(),
+                                aggregation.getFilter(),
+                                aggregation.getOrderingScheme().map(orderBy -> new OrderBy(orderBy.getOrderBy().stream()
+                                        .map(symbol -> new SortItem(
+                                                new SymbolReference(symbol.getName()),
+                                                orderBy.getOrdering(symbol).isAscending() ? ASCENDING : DESCENDING,
+                                                orderBy.getOrdering(symbol).isNullsFirst() ? NullOrdering.FIRST : NullOrdering.LAST))
+                                        .collect(toImmutableList()))),
+                                aggregation.isDistinct(),
+                                aggregation.getArguments()),
+                        context);
+                verify(call.getName().equals(QualifiedName.of(aggregation.getSignature().getName())), "Aggregation function name changed");
+                Aggregation newAggregation = new Aggregation(
+                        aggregation.getSignature(),
+                        call.getArguments(),
+                        call.isDistinct(),
+                        call.getFilter(),
+                        call.getOrderBy().map(OrderingScheme::fromOrderBy),
+                        aggregation.getMask());
+                aggregations.put(entry.getKey(), newAggregation);
+                if (!aggregation.equals(newAggregation)) {
                     anyRewritten = true;
                 }
             }

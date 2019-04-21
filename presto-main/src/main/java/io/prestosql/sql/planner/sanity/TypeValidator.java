@@ -32,6 +32,7 @@ import io.prestosql.sql.planner.plan.UnionNode;
 import io.prestosql.sql.planner.plan.WindowNode;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.FunctionCall;
+import io.prestosql.sql.tree.QualifiedName;
 import io.prestosql.sql.tree.SymbolReference;
 import io.prestosql.type.TypeCoercion;
 
@@ -83,14 +84,18 @@ public final class TypeValidator
 
             AggregationNode.Step step = node.getStep();
 
-            switch (step) {
-                case SINGLE:
-                    checkFunctionSignature(node.getAggregations());
-                    checkFunctionCall(node.getAggregations());
-                    break;
-                case FINAL:
-                    checkFunctionSignature(node.getAggregations());
-                    break;
+            for (Map.Entry<Symbol, Aggregation> entry : node.getAggregations().entrySet()) {
+                Symbol symbol = entry.getKey();
+                Aggregation aggregation = entry.getValue();
+                switch (step) {
+                    case SINGLE:
+                        checkSignature(symbol, aggregation.getSignature());
+                        checkCall(symbol, aggregation.getSignature().getName(), aggregation.getArguments());
+                        break;
+                    case FINAL:
+                        checkSignature(symbol, aggregation.getSignature());
+                        break;
+                }
             }
 
             return null;
@@ -167,18 +172,14 @@ public final class TypeValidator
             verifyTypeSignature(symbol, expectedType.getTypeSignature(), actualType.getTypeSignature());
         }
 
-        private void checkFunctionSignature(Map<Symbol, Aggregation> aggregations)
+        private void checkCall(Symbol symbol, String name, List<Expression> arguments)
         {
-            for (Map.Entry<Symbol, Aggregation> entry : aggregations.entrySet()) {
-                checkSignature(entry.getKey(), entry.getValue().getSignature());
-            }
-        }
+            Type expectedType = types.get(symbol);
 
-        private void checkFunctionCall(Map<Symbol, Aggregation> aggregations)
-        {
-            for (Map.Entry<Symbol, Aggregation> entry : aggregations.entrySet()) {
-                checkCall(entry.getKey(), entry.getValue().getCall());
-            }
+            Signature function = metadata.resolveFunction(QualifiedName.of(name), typeAnalyzer.getCallArgumentTypes(session, types, arguments));
+            Type actualType = metadata.getType(function.getReturnType());
+
+            verifyTypeSignature(symbol, expectedType.getTypeSignature(), actualType.getTypeSignature());
         }
 
         private void verifyTypeSignature(Symbol symbol, TypeSignature expected, TypeSignature actual)

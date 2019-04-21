@@ -20,9 +20,9 @@ import io.prestosql.metadata.Metadata;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.iterative.Rule;
 import io.prestosql.sql.planner.plan.AggregationNode;
-import io.prestosql.sql.tree.FunctionCall;
 
 import java.util.Map;
+import java.util.Optional;
 
 import static io.prestosql.sql.planner.plan.AggregationNode.Aggregation;
 import static io.prestosql.sql.planner.plan.Patterns.aggregation;
@@ -56,7 +56,7 @@ public class PruneOrderByInAggregation
         ImmutableMap.Builder<Symbol, Aggregation> aggregations = ImmutableMap.builder();
         for (Map.Entry<Symbol, Aggregation> entry : node.getAggregations().entrySet()) {
             Aggregation aggregation = entry.getValue();
-            if (!aggregation.getCall().getOrderBy().isPresent()) {
+            if (!aggregation.getOrderingScheme().isPresent()) {
                 aggregations.put(entry);
             }
             // getAggregateFunctionImplementation can be expensive, so check it last.
@@ -65,13 +65,13 @@ public class PruneOrderByInAggregation
             }
             else {
                 anyRewritten = true;
-                FunctionCall rewritten = new FunctionCall(
-                        aggregation.getCall().getName(),
-                        aggregation.getCall().isDistinct(),
-                        aggregation.getCall().getArguments(),
-                        aggregation.getCall().getFilter());
-
-                aggregations.put(entry.getKey(), new Aggregation(rewritten, aggregation.getSignature(), aggregation.getMask()));
+                aggregations.put(entry.getKey(), new Aggregation(
+                        aggregation.getSignature(),
+                        aggregation.getArguments(),
+                        aggregation.isDistinct(),
+                        aggregation.getFilter(),
+                        Optional.empty(),
+                        aggregation.getMask()));
             }
         }
 

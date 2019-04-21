@@ -72,6 +72,7 @@ import java.util.stream.Collectors;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Maps.immutableEnumMap;
 import static io.prestosql.sql.planner.plan.ExchangeNode.Type.REPARTITION;
+import static io.prestosql.sql.planner.planprinter.PlanPrinter.formatAggregation;
 import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static java.lang.String.format;
 
@@ -339,12 +340,7 @@ public final class GraphvizPrinter
         {
             StringBuilder builder = new StringBuilder();
             for (Map.Entry<Symbol, Aggregation> entry : node.getAggregations().entrySet()) {
-                if (entry.getValue().getMask().isPresent()) {
-                    builder.append(format("%s := %s (mask = %s)\\n", entry.getKey(), entry.getValue().getCall(), entry.getValue().getMask().get()));
-                }
-                else {
-                    builder.append(format("%s := %s\\n", entry.getKey(), entry.getValue().getCall()));
-                }
+                builder.append(format("%s := %s\\n", entry.getKey(), formatAggregation(entry.getValue())));
             }
             printNode(node, format("Aggregate[%s]", node.getStep()), builder.toString(), NODE_COLORS.get(NodeType.AGGREGATE));
             return node.getSource().accept(this, context);

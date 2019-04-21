@@ -23,8 +23,6 @@ import io.prestosql.operator.aggregation.InternalAggregationFunction;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.SymbolAllocator;
 import io.prestosql.sql.planner.plan.AggregationNode.Aggregation;
-import io.prestosql.sql.tree.FunctionCall;
-import io.prestosql.sql.tree.QualifiedName;
 
 import java.util.List;
 import java.util.Map;
@@ -69,11 +67,20 @@ public class StatisticAggregations
             InternalAggregationFunction function = metadata.getAggregateFunctionImplementation(signature);
             Symbol partialSymbol = symbolAllocator.newSymbol(signature.getName(), function.getIntermediateType());
             mappings.put(entry.getKey(), partialSymbol);
-            partialAggregation.put(partialSymbol, new Aggregation(originalAggregation.getCall(), signature, originalAggregation.getMask()));
+            partialAggregation.put(partialSymbol, new Aggregation(
+                    signature,
+                    originalAggregation.getArguments(),
+                    originalAggregation.isDistinct(),
+                    originalAggregation.getFilter(),
+                    originalAggregation.getOrderingScheme(),
+                    originalAggregation.getMask()));
             finalAggregation.put(entry.getKey(),
                     new Aggregation(
-                            new FunctionCall(QualifiedName.of(signature.getName()), ImmutableList.of(partialSymbol.toSymbolReference())),
                             signature,
+                            ImmutableList.of(partialSymbol.toSymbolReference()),
+                            false,
+                            Optional.empty(),
+                            Optional.empty(),
                             Optional.empty()));
         }
         groupingSymbols.forEach(symbol -> mappings.put(symbol, symbol));

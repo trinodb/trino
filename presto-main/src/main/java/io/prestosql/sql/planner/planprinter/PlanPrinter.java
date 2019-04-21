@@ -51,6 +51,7 @@ import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.TypeProvider;
 import io.prestosql.sql.planner.iterative.GroupReference;
 import io.prestosql.sql.planner.plan.AggregationNode;
+import io.prestosql.sql.planner.plan.AggregationNode.Aggregation;
 import io.prestosql.sql.planner.plan.ApplyNode;
 import io.prestosql.sql.planner.plan.AssignUniqueId;
 import io.prestosql.sql.planner.plan.Assignments;
@@ -527,14 +528,7 @@ public class PlanPrinter
             NodeRepresentation nodeOutput = addNode(node,
                     format("Aggregate%s%s%s", type, key, formatHash(node.getHashSymbol())));
 
-            for (Map.Entry<Symbol, AggregationNode.Aggregation> entry : node.getAggregations().entrySet()) {
-                if (entry.getValue().getMask().isPresent()) {
-                    nodeOutput.appendDetailsLine("%s := %s (mask = %s)", entry.getKey(), entry.getValue().getCall(), entry.getValue().getMask().get());
-                }
-                else {
-                    nodeOutput.appendDetailsLine("%s := %s", entry.getKey(), entry.getValue().getCall());
-                }
-            }
+            node.getAggregations().forEach((symbol, aggregation) -> nodeOutput.appendDetailsLine("%s := %s", symbol, formatAggregation(aggregation)));
 
             return processChildren(node, context);
         }
@@ -993,7 +987,7 @@ public class PlanPrinter
                 nodeOutput.appendDetailsLine(indentString(1) + "%s => [%s := %s]",
                         tableStatistic.getValue(),
                         tableStatistic.getKey(),
-                        aggregations.get(tableStatistic.getValue()).getCall());
+                        formatAggregation(aggregations.get(tableStatistic.getValue())));
             }
 
             for (Map.Entry<ColumnStatisticMetadata, Symbol> columnStatistic : columnStatistics.entrySet()) {
@@ -1002,7 +996,7 @@ public class PlanPrinter
                         columnStatistic.getKey().getStatisticType(),
                         columnStatistic.getKey().getColumnName(),
                         columnStatistic.getValue(),
-                        aggregations.get(columnStatistic.getValue()).getCall());
+                        formatAggregation(aggregations.get(columnStatistic.getValue())));
             }
         }
 
@@ -1275,5 +1269,32 @@ public class PlanPrinter
         return Streams.stream(outputs)
                 .map(input -> input + ":" + types.get(input).getDisplayName())
                 .collect(Collectors.joining(", "));
+    }
+
+    public static String formatAggregation(Aggregation aggregation)
+    {
+        StringBuilder builder = new StringBuilder();
+
+        String arguments = Joiner.on(", ").join(aggregation.getArguments());
+        if (aggregation.getArguments().isEmpty() && "count".equalsIgnoreCase(aggregation.getSignature().getName())) {
+            arguments = "*";
+        }
+        if (aggregation.isDistinct()) {
+            arguments = "DISTINCT " + arguments;
+        }
+
+        builder.append(aggregation.getSignature().getName())
+                .append('(').append(arguments);
+
+        aggregation.getOrderingScheme().ifPresent(orderingScheme -> builder.append(' ').append(orderingScheme.getOrderBy().stream()
+                .map(input -> input + " " + orderingScheme.getOrdering(input))
+                .collect(joining(", "))));
+
+        builder.append(')');
+
+        aggregation.getFilter().ifPresent(expression -> builder.append(" FILTER (WHERE ").append(expression).append(")"));
+
+        aggregation.getMask().ifPresent(symbol -> builder.append(" (mask = ").append(symbol).append(")"));
+        return builder.toString();
     }
 }

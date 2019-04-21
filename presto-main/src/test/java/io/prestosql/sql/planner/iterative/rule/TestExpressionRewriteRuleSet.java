@@ -29,7 +29,6 @@ import org.testng.annotations.Test;
 
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.filter;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.functionCall;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.project;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.values;
 
@@ -66,19 +65,23 @@ public class TestExpressionRewriteRuleSet
     @Test
     public void testAggregationExpressionRewrite()
     {
+        ExpressionRewriteRuleSet functionCallRewriter = new ExpressionRewriteRuleSet((expression, context) ->
+                new FunctionCall(QualifiedName.of("count"), ImmutableList.of(new LongLiteral("42"))));
         tester().assertThat(functionCallRewriter.aggregationExpressionRewrite())
                 .on(p -> p.aggregation(a -> a
                         .globalGrouping()
                         .addAggregation(
                                 p.symbol("count_1", BigintType.BIGINT),
-                                new FunctionCall(QualifiedName.of("count"), ImmutableList.of()),
+                                new FunctionCall(QualifiedName.of("count"), ImmutableList.of(PlanBuilder.expression("x"))),
                                 ImmutableList.of(BigintType.BIGINT))
                         .source(
-                                p.values())))
+                                p.values(p.symbol("x")))))
                 .matches(
                         PlanMatchPattern.aggregation(
-                                ImmutableMap.of("count_1", functionCall("now", ImmutableList.of())),
-                                values()));
+                                ImmutableMap.of("count_1", aliases -> new FunctionCall(
+                                        QualifiedName.of("count"),
+                                        ImmutableList.of(new LongLiteral("42")))),
+                                values("x")));
     }
 
     @Test

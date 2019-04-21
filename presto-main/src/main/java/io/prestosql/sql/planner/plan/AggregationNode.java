@@ -22,14 +22,18 @@ import com.google.common.collect.Iterables;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
 import io.prestosql.operator.aggregation.InternalAggregationFunction;
+import io.prestosql.sql.planner.OrderingScheme;
 import io.prestosql.sql.planner.Symbol;
-import io.prestosql.sql.tree.FunctionCall;
+import io.prestosql.sql.tree.Expression;
+import io.prestosql.sql.tree.LambdaExpression;
+import io.prestosql.sql.tree.SymbolReference;
 
 import javax.annotation.concurrent.Immutable;
 
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
@@ -73,8 +77,7 @@ public class AggregationNode
         this.groupIdSymbol = requireNonNull(groupIdSymbol);
 
         boolean noOrderBy = aggregations.values().stream()
-                .map(Aggregation::getCall)
-                .map(FunctionCall::getOrderBy)
+                .map(Aggregation::getOrderingScheme)
                 .noneMatch(Optional::isPresent);
         checkArgument(noOrderBy || step == SINGLE, "ORDER BY does not support distributed aggregation");
 
@@ -188,8 +191,7 @@ public class AggregationNode
     public boolean hasOrderings()
     {
         return aggregations.values().stream()
-                .map(Aggregation::getCall)
-                .map(FunctionCall::getOrderBy)
+                .map(Aggregation::getOrderingScheme)
                 .anyMatch(Optional::isPresent);
     }
 
@@ -216,13 +218,11 @@ public class AggregationNode
     public boolean isDecomposable(Metadata metadata)
     {
         boolean hasOrderBy = getAggregations().values().stream()
-                .map(Aggregation::getCall)
-                .map(FunctionCall::getOrderBy)
+                .map(Aggregation::getOrderingScheme)
                 .anyMatch(Optional::isPresent);
 
         boolean hasDistinct = getAggregations().values().stream()
-                .map(Aggregation::getCall)
-                .anyMatch(FunctionCall::isDistinct);
+                .anyMatch(Aggregation::isDistinct);
 
         boolean decomposableFunctions = getAggregations().values().stream()
                 .map(Aggregation::getSignature)
@@ -367,25 +367,32 @@ public class AggregationNode
 
     public static class Aggregation
     {
-        private final FunctionCall call;
         private final Signature signature;
+        private final List<Expression> arguments;
+        private final boolean distinct;
+        private final Optional<Expression> filter;
+        private final Optional<OrderingScheme> orderingScheme;
         private final Optional<Symbol> mask;
 
         @JsonCreator
         public Aggregation(
-                @JsonProperty("call") FunctionCall call,
                 @JsonProperty("signature") Signature signature,
+                @JsonProperty("arguments") List<Expression> arguments,
+                @JsonProperty("distinct") boolean distinct,
+                @JsonProperty("filter") Optional<Expression> filter,
+                @JsonProperty("orderingScheme") Optional<OrderingScheme> orderingScheme,
                 @JsonProperty("mask") Optional<Symbol> mask)
         {
-            this.call = requireNonNull(call, "call is null");
             this.signature = requireNonNull(signature, "signature is null");
+            this.arguments = ImmutableList.copyOf(requireNonNull(arguments, "arguments is null"));
+            for (Expression argument : arguments) {
+                checkArgument(argument instanceof SymbolReference || argument instanceof LambdaExpression,
+                        "argument must be symbol or lambda expression: %s", argument.getClass().getSimpleName());
+            }
+            this.distinct = distinct;
+            this.filter = requireNonNull(filter, "filter is null");
+            this.orderingScheme = requireNonNull(orderingScheme, "orderingScheme is null");
             this.mask = requireNonNull(mask, "mask is null");
-        }
-
-        @JsonProperty
-        public FunctionCall getCall()
-        {
-            return call;
         }
 
         @JsonProperty
@@ -395,9 +402,57 @@ public class AggregationNode
         }
 
         @JsonProperty
+        public List<Expression> getArguments()
+        {
+            return arguments;
+        }
+
+        @JsonProperty
+        public boolean isDistinct()
+        {
+            return distinct;
+        }
+
+        @JsonProperty
+        public Optional<Expression> getFilter()
+        {
+            return filter;
+        }
+
+        @JsonProperty
+        public Optional<OrderingScheme> getOrderingScheme()
+        {
+            return orderingScheme;
+        }
+
+        @JsonProperty
         public Optional<Symbol> getMask()
         {
             return mask;
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            Aggregation that = (Aggregation) o;
+            return distinct == that.distinct &&
+                    Objects.equals(signature, that.signature) &&
+                    Objects.equals(arguments, that.arguments) &&
+                    Objects.equals(filter, that.filter) &&
+                    Objects.equals(orderingScheme, that.orderingScheme) &&
+                    Objects.equals(mask, that.mask);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(signature, arguments, distinct, filter, orderingScheme, mask);
         }
     }
 }

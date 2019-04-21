@@ -280,6 +280,12 @@ public class ExpressionAnalyzer
         return visitor.process(expression, new StackableAstVisitor.StackableAstVisitorContext<>(context));
     }
 
+    private List<TypeSignatureProvider> getCallArgumentTypes(List<Expression> arguments, Scope scope)
+    {
+        Visitor visitor = new Visitor(scope, warningCollector);
+        return visitor.getCallArgumentTypes(arguments, new StackableAstVisitor.StackableAstVisitorContext<>(Context.notInLambda(scope)));
+    }
+
     public Set<NodeRef<SubqueryExpression>> getScalarSubqueries()
     {
         return unmodifiableSet(scalarSubqueries);
@@ -851,33 +857,7 @@ public class ExpressionAnalyzer
                 process(expression, context);
             }
 
-            ImmutableList.Builder<TypeSignatureProvider> argumentTypesBuilder = ImmutableList.builder();
-            for (Expression expression : node.getArguments()) {
-                if (expression instanceof LambdaExpression || expression instanceof BindExpression) {
-                    argumentTypesBuilder.add(new TypeSignatureProvider(
-                            types -> {
-                                ExpressionAnalyzer innerExpressionAnalyzer = new ExpressionAnalyzer(
-                                        metadata,
-                                        statementAnalyzerFactory,
-                                        session,
-                                        symbolTypes,
-                                        parameters,
-                                        warningCollector,
-                                        isDescribe);
-                                if (context.getContext().isInLambda()) {
-                                    for (LambdaArgumentDeclaration argument : context.getContext().getFieldToLambdaArgumentDeclaration().values()) {
-                                        innerExpressionAnalyzer.setExpressionType(argument, getExpressionType(argument));
-                                    }
-                                }
-                                return innerExpressionAnalyzer.analyze(expression, baseScope, context.getContext().expectingLambda(types)).getTypeSignature();
-                            }));
-                }
-                else {
-                    argumentTypesBuilder.add(new TypeSignatureProvider(process(expression, context).getTypeSignature()));
-                }
-            }
-
-            ImmutableList<TypeSignatureProvider> argumentTypes = argumentTypesBuilder.build();
+            List<TypeSignatureProvider> argumentTypes = getCallArgumentTypes(node.getArguments(), context);
             Signature function = resolveFunction(node, argumentTypes, metadata);
 
             if (function.getName().equalsIgnoreCase(ARRAY_CONSTRUCTOR)) {
@@ -920,6 +900,37 @@ public class ExpressionAnalyzer
 
             Type type = metadata.getType(function.getReturnType());
             return setExpressionType(node, type);
+        }
+
+        public List<TypeSignatureProvider> getCallArgumentTypes(List<Expression> arguments, StackableAstVisitorContext<Context> context)
+        {
+            ImmutableList.Builder<TypeSignatureProvider> argumentTypesBuilder = ImmutableList.builder();
+            for (Expression argument : arguments) {
+                if (argument instanceof LambdaExpression || argument instanceof BindExpression) {
+                    argumentTypesBuilder.add(new TypeSignatureProvider(
+                            types -> {
+                                ExpressionAnalyzer innerExpressionAnalyzer = new ExpressionAnalyzer(
+                                        metadata,
+                                        statementAnalyzerFactory,
+                                        session,
+                                        symbolTypes,
+                                        parameters,
+                                        warningCollector,
+                                        isDescribe);
+                                if (context.getContext().isInLambda()) {
+                                    for (LambdaArgumentDeclaration lambdaArgument : context.getContext().getFieldToLambdaArgumentDeclaration().values()) {
+                                        innerExpressionAnalyzer.setExpressionType(lambdaArgument, getExpressionType(lambdaArgument));
+                                    }
+                                }
+                                return innerExpressionAnalyzer.analyze(argument, baseScope, context.getContext().expectingLambda(types)).getTypeSignature();
+                            }));
+                }
+                else {
+                    argumentTypesBuilder.add(new TypeSignatureProvider(process(argument, context).getTypeSignature()));
+                }
+            }
+
+            return argumentTypesBuilder.build();
         }
 
         @Override
@@ -1551,6 +1562,23 @@ public class ExpressionAnalyzer
                 analyzer.getQuantifiedComparisons(),
                 analyzer.getLambdaArgumentReferences(),
                 analyzer.getWindowFunctions());
+    }
+
+    public static List<TypeSignatureProvider> getCallArgumentTypes(
+            Session session,
+            Metadata metadata,
+            SqlParser sqlParser,
+            TypeProvider types,
+            List<Expression> callArguments,
+            List<Expression> parameters,
+            WarningCollector warningCollector,
+            boolean isDescribe)
+    {
+        // Expressions at this point can not have sub queries, so deny all access checks.
+        // In the future, we will need a full access controller here to verify access to functions.
+        Analysis analysis = new Analysis(null, parameters, isDescribe);
+        ExpressionAnalyzer analyzer = create(analysis, session, metadata, sqlParser, new DenyAllAccessControl(), types, warningCollector);
+        return analyzer.getCallArgumentTypes(callArguments, Scope.builder().withRelationType(RelationId.anonymous(), new RelationType()).build());
     }
 
     public static ExpressionAnalyzer create(

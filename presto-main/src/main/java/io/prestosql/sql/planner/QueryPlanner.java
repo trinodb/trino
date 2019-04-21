@@ -62,8 +62,6 @@ import io.prestosql.sql.tree.OrderBy;
 import io.prestosql.sql.tree.Query;
 import io.prestosql.sql.tree.QuerySpecification;
 import io.prestosql.sql.tree.SortItem;
-import io.prestosql.sql.tree.SortItem.NullOrdering;
-import io.prestosql.sql.tree.SortItem.Ordering;
 import io.prestosql.sql.tree.SymbolReference;
 import io.prestosql.sql.tree.Window;
 import io.prestosql.sql.tree.WindowFrame;
@@ -88,6 +86,7 @@ import static io.prestosql.SystemSessionProperties.isSkipRedundantSort;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.sql.NodeUtils.getSortItemsFromOrderBy;
+import static io.prestosql.sql.planner.OrderingScheme.sortItemToSortOrder;
 import static io.prestosql.sql.planner.plan.AggregationNode.groupingSets;
 import static io.prestosql.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static java.util.Objects.requireNonNull;
@@ -566,7 +565,14 @@ class QueryPlanner
             }
             aggregationTranslations.put(aggregate, newSymbol);
 
-            aggregationsBuilder.put(newSymbol, new Aggregation((FunctionCall) rewritten, analysis.getFunctionSignature(aggregate), Optional.empty()));
+            FunctionCall functionCall = (FunctionCall) rewritten;
+            aggregationsBuilder.put(newSymbol, new Aggregation(
+                    analysis.getFunctionSignature(aggregate),
+                    functionCall.getArguments(),
+                    functionCall.isDistinct(),
+                    functionCall.getFilter(),
+                    functionCall.getOrderBy().map(OrderingScheme::fromOrderBy),
+                    Optional.empty()));
         }
         Map<Symbol, Aggregation> aggregations = aggregationsBuilder.build();
 
@@ -761,7 +767,7 @@ class QueryPlanner
             for (SortItem item : getSortItemsFromOrderBy(window.getOrderBy())) {
                 Symbol symbol = subPlan.translate(item.getSortKey());
                 // don't override existing keys, i.e. when "ORDER BY a ASC, a DESC" is specified
-                orderings.putIfAbsent(symbol, toSortOrder(item));
+                orderings.putIfAbsent(symbol, sortItemToSortOrder(item));
             }
 
             // Rewrite frame bounds in terms of pre-projected inputs
@@ -881,7 +887,7 @@ class QueryPlanner
             SortItem sortItem = sortItems.next();
             if (!orderings.containsKey(symbol)) {
                 orderBySymbols.add(symbol);
-                orderings.put(symbol, toSortOrder(sortItem));
+                orderings.put(symbol, sortItemToSortOrder(sortItem));
             }
         }
         return Optional.of(new OrderingScheme(orderBySymbols.build(), orderings));
@@ -944,25 +950,5 @@ class QueryPlanner
         return stream(expressions)
                 .distinct()
                 .collect(toImmutableMap(expression -> expression, builder::translate));
-    }
-
-    public static SortOrder toSortOrder(SortItem sortItem)
-    {
-        if (sortItem.getOrdering() == Ordering.ASCENDING) {
-            if (sortItem.getNullOrdering() == NullOrdering.FIRST) {
-                return SortOrder.ASC_NULLS_FIRST;
-            }
-            else {
-                return SortOrder.ASC_NULLS_LAST;
-            }
-        }
-        else {
-            if (sortItem.getNullOrdering() == NullOrdering.FIRST) {
-                return SortOrder.DESC_NULLS_FIRST;
-            }
-            else {
-                return SortOrder.DESC_NULLS_LAST;
-            }
-        }
     }
 }

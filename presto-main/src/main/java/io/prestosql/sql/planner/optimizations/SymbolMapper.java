@@ -34,7 +34,6 @@ import io.prestosql.sql.planner.plan.TopNNode;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.ExpressionRewriter;
 import io.prestosql.sql.tree.ExpressionTreeRewriter;
-import io.prestosql.sql.tree.FunctionCall;
 import io.prestosql.sql.tree.SymbolReference;
 
 import java.util.HashSet;
@@ -113,8 +112,13 @@ public class SymbolMapper
     private Aggregation map(Aggregation aggregation)
     {
         return new Aggregation(
-                (FunctionCall) map(aggregation.getCall()),
                 aggregation.getSignature(),
+                aggregation.getArguments().stream()
+                        .map(this::map)
+                        .collect(toImmutableList()),
+                aggregation.isDistinct(),
+                aggregation.getFilter().map(this::map),
+                aggregation.getOrderingScheme().map(this::map),
                 aggregation.getMask().map(this::map));
     }
 

@@ -21,7 +21,6 @@ import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.iterative.Rule;
 import io.prestosql.sql.planner.plan.AggregationNode;
 import io.prestosql.sql.planner.plan.ValuesNode;
-import io.prestosql.sql.tree.FunctionCall;
 import io.prestosql.sql.tree.LongLiteral;
 
 import java.util.Map;
@@ -56,8 +55,7 @@ public class PruneCountAggregationOverScalar
             AggregationNode.Aggregation aggregation = entry.getValue();
             requireNonNull(aggregation, "aggregation is null");
             Signature signature = aggregation.getSignature();
-            FunctionCall functionCall = aggregation.getCall();
-            if (!"count".equals(signature.getName()) || !functionCall.getArguments().isEmpty()) {
+            if (!"count".equals(signature.getName()) || !aggregation.getArguments().isEmpty()) {
                 return Result.empty();
             }
         }
