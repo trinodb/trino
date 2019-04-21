@@ -124,7 +124,7 @@ public final class ValidateDependenciesChecker
             checkDependencies(inputs, node.getGroupingKeys(), "Invalid node. Grouping key symbols (%s) not in source plan output (%s)", node.getGroupingKeys(), node.getSource().getOutputSymbols());
 
             for (Aggregation aggregation : node.getAggregations().values()) {
-                Set<Symbol> dependencies = SymbolsExtractor.extractUnique(aggregation.getCall());
+                Set<Symbol> dependencies = SymbolsExtractor.extractUnique(aggregation);
                 checkDependencies(inputs, dependencies, "Invalid node. Aggregation dependencies (%s) not in source plan output (%s)", dependencies, node.getSource().getOutputSymbols());
                 aggregation.getMask().ifPresent(mask -> {
                     checkDependencies(inputs, ImmutableSet.of(mask), "Invalid node. Aggregation mask symbol (%s) not in source plan output (%s)", mask, node.getSource().getOutputSymbols());

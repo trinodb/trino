@@ -185,7 +185,6 @@ public class TestTypeValidator
                 newId(),
                 baseTableScan,
                 ImmutableMap.of(aggregationSymbol, new Aggregation(
-                        new FunctionCall(QualifiedName.of("sum"), ImmutableList.of(columnC.toSymbolReference())),
                         new Signature(
                                 "sum",
                                 FunctionKind.AGGREGATE,
@@ -194,6 +193,10 @@ public class TestTypeValidator
                                 DOUBLE.getTypeSignature(),
                                 ImmutableList.of(DOUBLE.getTypeSignature()),
                                 false),
+                        ImmutableList.of(columnC.toSymbolReference()),
+                        false,
+                        Optional.empty(),
+                        Optional.empty(),
                         Optional.empty())),
                 singleGroupingSet(ImmutableList.of(columnA, columnB)),
                 ImmutableList.of(),
@@ -243,7 +246,6 @@ public class TestTypeValidator
                 newId(),
                 baseTableScan,
                 ImmutableMap.of(aggregationSymbol, new Aggregation(
-                        new FunctionCall(QualifiedName.of("sum"), ImmutableList.of(columnA.toSymbolReference())),
                         new Signature(
                                 "sum",
                                 FunctionKind.AGGREGATE,
@@ -252,6 +254,10 @@ public class TestTypeValidator
                                 DOUBLE.getTypeSignature(),
                                 ImmutableList.of(DOUBLE.getTypeSignature()),
                                 false),
+                        ImmutableList.of(columnA.toSymbolReference()),
+                        false,
+                        Optional.empty(),
+                        Optional.empty(),
                         Optional.empty())),
                 singleGroupingSet(ImmutableList.of(columnA, columnB)),
                 ImmutableList.of(),
@@ -271,7 +277,6 @@ public class TestTypeValidator
                 newId(),
                 baseTableScan,
                 ImmutableMap.of(aggregationSymbol, new Aggregation(
-                        new FunctionCall(QualifiedName.of("sum"), ImmutableList.of(columnC.toSymbolReference())),
                         new Signature(
                                 "sum",
                                 FunctionKind.AGGREGATE,
@@ -280,6 +285,10 @@ public class TestTypeValidator
                                 BIGINT.getTypeSignature(), // should be DOUBLE
                                 ImmutableList.of(DOUBLE.getTypeSignature()),
                                 false),
+                        ImmutableList.of(columnC.toSymbolReference()),
+                        false,
+                        Optional.empty(),
+                        Optional.empty(),
                         Optional.empty())),
                 singleGroupingSet(ImmutableList.of(columnA, columnB)),
                 ImmutableList.of(),

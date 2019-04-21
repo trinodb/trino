@@ -25,15 +25,14 @@ import io.prestosql.sql.planner.plan.AggregationNode;
 import io.prestosql.sql.planner.plan.Assignments;
 import io.prestosql.sql.planner.plan.ProjectNode;
 import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.FunctionCall;
 import io.prestosql.sql.tree.Literal;
 import io.prestosql.sql.tree.NullLiteral;
-import io.prestosql.sql.tree.QualifiedName;
 import io.prestosql.sql.tree.SymbolReference;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Optional;
 
 import static io.prestosql.matching.Capture.newCapture;
 import static io.prestosql.metadata.FunctionKind.AGGREGATE;
@@ -71,8 +70,11 @@ public class SimplifyCountOverConstant
             if (isCountOverConstant(aggregation, child.getAssignments())) {
                 changed = true;
                 aggregations.put(symbol, new AggregationNode.Aggregation(
-                        new FunctionCall(QualifiedName.of("count"), ImmutableList.of()),
                         new Signature("count", AGGREGATE, parseTypeSignature(StandardTypes.BIGINT)),
+                        ImmutableList.of(),
+                        false,
+                        Optional.empty(),
+                        Optional.empty(),
                         aggregation.getMask()));
             }
         }
@@ -99,7 +101,7 @@ public class SimplifyCountOverConstant
             return false;
         }
 
-        Expression argument = aggregation.getCall().getArguments().get(0);
+        Expression argument = aggregation.getArguments().get(0);
         if (argument instanceof SymbolReference) {
             argument = inputs.get(Symbol.from(argument));
         }

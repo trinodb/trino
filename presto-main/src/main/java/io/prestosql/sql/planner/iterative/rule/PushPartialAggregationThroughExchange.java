@@ -31,9 +31,7 @@ import io.prestosql.sql.planner.plan.ExchangeNode;
 import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.ProjectNode;
 import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.FunctionCall;
 import io.prestosql.sql.tree.LambdaExpression;
-import io.prestosql.sql.tree.QualifiedName;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -206,22 +204,31 @@ public class PushPartialAggregationThroughExchange
             InternalAggregationFunction function = metadata.getAggregateFunctionImplementation(signature);
             Symbol intermediateSymbol = context.getSymbolAllocator().newSymbol(signature.getName(), function.getIntermediateType());
 
-            checkState(!originalAggregation.getCall().getOrderBy().isPresent(), "Aggregate with ORDER BY does not support partial aggregation");
-            intermediateAggregation.put(intermediateSymbol, new AggregationNode.Aggregation(originalAggregation.getCall(), signature, originalAggregation.getMask()));
+            checkState(!originalAggregation.getOrderingScheme().isPresent(), "Aggregate with ORDER BY does not support partial aggregation");
+            intermediateAggregation.put(
+                    intermediateSymbol,
+                    new AggregationNode.Aggregation(
+                            signature,
+                            originalAggregation.getArguments(),
+                            originalAggregation.isDistinct(),
+                            originalAggregation.getFilter(),
+                            originalAggregation.getOrderingScheme(),
+                            originalAggregation.getMask()));
 
             // rewrite final aggregation in terms of intermediate function
-            finalAggregation.put(entry.getKey(),
+            finalAggregation.put(
+                    entry.getKey(),
                     new AggregationNode.Aggregation(
-                            new FunctionCall(
-                                    QualifiedName.of(signature.getName()),
-                                    ImmutableList.<Expression>builder()
-                                            .add(intermediateSymbol.toSymbolReference())
-                                            .addAll(originalAggregation.getCall().getArguments().stream()
-                                                    .filter(LambdaExpression.class::isInstance)
-                                                    .collect(toImmutableList()))
-                                            .build()),
-
                             signature,
+                            ImmutableList.<Expression>builder()
+                                    .add(intermediateSymbol.toSymbolReference())
+                                    .addAll(originalAggregation.getArguments().stream()
+                                            .filter(LambdaExpression.class::isInstance)
+                                            .collect(toImmutableList()))
+                                    .build(),
+                            false,
+                            Optional.empty(),
+                            Optional.empty(),
                             Optional.empty()));
         }
 

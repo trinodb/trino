@@ -181,7 +181,8 @@ final class PlanMatchingVisitor
         SymbolAliases.Builder allSourceAliases = SymbolAliases.builder();
         for (PlanNode source : node.getSources()) {
             // Match sources to patterns 1:1
-            MatchResult matchResult = source.accept(this, sourcePatterns.get(i++));
+            PlanMatchPattern pattern = sourcePatterns.get(i++);
+            MatchResult matchResult = source.accept(this, pattern);
             if (!matchResult.isMatch()) {
                 return NO_MATCH;
             }

@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.prestosql.sql.planner.iterative.GroupReference;
 import io.prestosql.sql.planner.iterative.Lookup;
 import io.prestosql.sql.planner.plan.AggregationNode;
+import io.prestosql.sql.planner.plan.AggregationNode.Aggregation;
 import io.prestosql.sql.planner.plan.ApplyNode;
 import io.prestosql.sql.planner.plan.FilterNode;
 import io.prestosql.sql.planner.plan.JoinNode;
@@ -94,8 +95,10 @@ public final class ExpressionExtractor
         @Override
         public Void visitAggregation(AggregationNode node, Consumer<Expression> context)
         {
-            node.getAggregations().values()
-                    .forEach(aggregation -> context.accept(aggregation.getCall()));
+            for (Aggregation aggregation : node.getAggregations().values()) {
+                aggregation.getArguments().forEach(context);
+                aggregation.getFilter().ifPresent(context);
+            }
             return super.visitAggregation(node, context);
         }
 

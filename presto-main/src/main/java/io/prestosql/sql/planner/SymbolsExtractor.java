@@ -16,6 +16,7 @@ package io.prestosql.sql.planner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.prestosql.sql.planner.iterative.Lookup;
+import io.prestosql.sql.planner.plan.AggregationNode.Aggregation;
 import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.tree.DefaultExpressionTraversalVisitor;
 import io.prestosql.sql.tree.DefaultTraversalVisitor;
@@ -78,10 +79,26 @@ public final class SymbolsExtractor
         return unique.build();
     }
 
+    public static Set<Symbol> extractUnique(Aggregation aggregation)
+    {
+        return ImmutableSet.copyOf(extractAll(aggregation));
+    }
+
     public static List<Symbol> extractAll(Expression expression)
     {
         ImmutableList.Builder<Symbol> builder = ImmutableList.builder();
         new SymbolBuilderVisitor().process(expression, builder);
+        return builder.build();
+    }
+
+    public static List<Symbol> extractAll(Aggregation aggregation)
+    {
+        ImmutableList.Builder<Symbol> builder = ImmutableList.builder();
+        for (Expression argument : aggregation.getArguments()) {
+            builder.addAll(extractAll(argument));
+        }
+        aggregation.getFilter().ifPresent(filter -> builder.addAll(extractAll(filter)));
+        aggregation.getOrderingScheme().ifPresent(orderBy -> builder.addAll(orderBy.getOrderBy()));
         return builder.build();
     }
 

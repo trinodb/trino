@@ -39,14 +39,12 @@ import io.prestosql.sql.tree.BooleanLiteral;
 import io.prestosql.sql.tree.Cast;
 import io.prestosql.sql.tree.ComparisonExpression;
 import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.FunctionCall;
 import io.prestosql.sql.tree.InPredicate;
 import io.prestosql.sql.tree.IsNotNullPredicate;
 import io.prestosql.sql.tree.IsNullPredicate;
 import io.prestosql.sql.tree.LongLiteral;
 import io.prestosql.sql.tree.NotExpression;
 import io.prestosql.sql.tree.NullLiteral;
-import io.prestosql.sql.tree.QualifiedName;
 import io.prestosql.sql.tree.SearchedCaseExpression;
 import io.prestosql.sql.tree.SymbolReference;
 import io.prestosql.sql.tree.WhenClause;
@@ -245,17 +243,12 @@ public class TransformCorrelatedInPredicateToJoin
 
     private static AggregationNode.Aggregation countWithFilter(Expression condition)
     {
-        FunctionCall countCall = new FunctionCall(
-                QualifiedName.of("count"),
-                Optional.empty(),
+        return new AggregationNode.Aggregation(
+                new Signature("count", FunctionKind.AGGREGATE, BIGINT.getTypeSignature()),
+                ImmutableList.of(),
+                false,
                 Optional.of(condition),
                 Optional.empty(),
-                false,
-                ImmutableList.of()); /* arguments */
-
-        return new AggregationNode.Aggregation(
-                countCall,
-                new Signature("count", FunctionKind.AGGREGATE, BIGINT.getTypeSignature()),
                 Optional.empty()); /* mask */
     }
 

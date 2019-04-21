@@ -189,8 +189,6 @@ import io.prestosql.sql.tree.FunctionCall;
 import io.prestosql.sql.tree.LambdaArgumentDeclaration;
 import io.prestosql.sql.tree.LambdaExpression;
 import io.prestosql.sql.tree.NodeRef;
-import io.prestosql.sql.tree.OrderBy;
-import io.prestosql.sql.tree.SortItem;
 import io.prestosql.sql.tree.SymbolReference;
 import io.prestosql.type.FunctionType;
 
@@ -2502,7 +2500,7 @@ public class LocalExecutionPlanner
             InternalAggregationFunction internalAggregationFunction = metadata.getAggregateFunctionImplementation(aggregation.getSignature());
 
             List<Integer> valueChannels = new ArrayList<>();
-            for (Expression argument : aggregation.getCall().getArguments()) {
+            for (Expression argument : aggregation.getArguments()) {
                 if (!(argument instanceof LambdaExpression)) {
                     Symbol argumentSymbol = Symbol.from(argument);
                     valueChannels.add(source.getLayout().get(argumentSymbol));
@@ -2510,7 +2508,7 @@ public class LocalExecutionPlanner
             }
 
             List<LambdaProvider> lambdaProviders = new ArrayList<>();
-            List<LambdaExpression> lambdaExpressions = aggregation.getCall().getArguments().stream()
+            List<LambdaExpression> lambdaExpressions = aggregation.getArguments().stream()
                     .filter(LambdaExpression.class::isInstance)
                     .map(LambdaExpression.class::cast)
                     .collect(toImmutableList());
@@ -2572,16 +2570,11 @@ public class LocalExecutionPlanner
             Optional<Integer> maskChannel = aggregation.getMask().map(value -> source.getLayout().get(value));
             List<SortOrder> sortOrders = ImmutableList.of();
             List<Symbol> sortKeys = ImmutableList.of();
-            if (aggregation.getCall().getOrderBy().isPresent()) {
-                OrderBy orderBy = aggregation.getCall().getOrderBy().get();
-
-                sortKeys = orderBy.getSortItems().stream()
-                        .map(SortItem::getSortKey)
-                        .map(Symbol::from)
-                        .collect(toImmutableList());
-
-                sortOrders = orderBy.getSortItems().stream()
-                        .map(QueryPlanner::toSortOrder)
+            if (aggregation.getOrderingScheme().isPresent()) {
+                OrderingScheme orderingScheme = aggregation.getOrderingScheme().get();
+                sortKeys = orderingScheme.getOrderBy();
+                sortOrders = sortKeys.stream()
+                        .map(orderingScheme::getOrdering)
                         .collect(toImmutableList());
             }
 
@@ -2592,7 +2585,7 @@ public class LocalExecutionPlanner
                     getChannelsForSymbols(sortKeys, source.getLayout()),
                     sortOrders,
                     pagesIndexFactory,
-                    aggregation.getCall().isDistinct(),
+                    aggregation.isDistinct(),
                     joinCompiler,
                     lambdaProviders,
                     session);

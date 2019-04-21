@@ -19,6 +19,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.prestosql.spi.block.SortOrder;
+import io.prestosql.sql.tree.OrderBy;
+import io.prestosql.sql.tree.SortItem;
+import io.prestosql.sql.tree.SortItem.NullOrdering;
+import io.prestosql.sql.tree.SortItem.Ordering;
 
 import java.util.List;
 import java.util.Map;
@@ -27,6 +31,7 @@ import java.util.Objects;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.Objects.requireNonNull;
 
 public class OrderingScheme
@@ -97,5 +102,31 @@ public class OrderingScheme
                 .add("orderBy", orderBy)
                 .add("orderings", orderings)
                 .toString();
+    }
+
+    public static OrderingScheme fromOrderBy(OrderBy orderBy)
+    {
+        return new OrderingScheme(
+                orderBy.getSortItems().stream()
+                        .map(SortItem::getSortKey)
+                        .map(Symbol::from)
+                        .collect(toImmutableList()),
+                orderBy.getSortItems().stream()
+                        .collect(toImmutableMap(sortItem -> Symbol.from(sortItem.getSortKey()), OrderingScheme::sortItemToSortOrder)));
+    }
+
+    public static SortOrder sortItemToSortOrder(SortItem sortItem)
+    {
+        if (sortItem.getOrdering() == Ordering.ASCENDING) {
+            if (sortItem.getNullOrdering() == NullOrdering.FIRST) {
+                return SortOrder.ASC_NULLS_FIRST;
+            }
+            return SortOrder.ASC_NULLS_LAST;
+        }
+
+        if (sortItem.getNullOrdering() == NullOrdering.FIRST) {
+            return SortOrder.DESC_NULLS_FIRST;
+        }
+        return SortOrder.DESC_NULLS_LAST;
     }
 }

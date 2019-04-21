@@ -32,6 +32,7 @@ import io.prestosql.sql.tree.LongLiteral;
 import io.prestosql.sql.tree.QualifiedName;
 
 import java.util.Map;
+import java.util.Optional;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.prestosql.SystemSessionProperties.getHashPartitionCount;
@@ -73,11 +74,10 @@ public class RewriteSpatialPartitioningAggregation
         this.metadata = requireNonNull(metadata, "metadata is null");
     }
 
-    private static boolean hasSpatialPartitioningAggregation(AggregationNode aggregation)
+    private static boolean hasSpatialPartitioningAggregation(AggregationNode aggregationNode)
     {
-        return aggregation.getAggregations().values().stream()
-                .map(Aggregation::getCall)
-                .anyMatch(call -> call.getName().toString().equals(NAME) && call.getArguments().size() == 1);
+        return aggregationNode.getAggregations().values().stream()
+                .anyMatch(aggregation -> aggregation.getSignature().getName().equals(NAME) && aggregation.getArguments().size() == 1);
     }
 
     @Override
@@ -94,10 +94,9 @@ public class RewriteSpatialPartitioningAggregation
         ImmutableMap.Builder<Symbol, Expression> envelopeAssignments = ImmutableMap.builder();
         for (Map.Entry<Symbol, Aggregation> entry : node.getAggregations().entrySet()) {
             Aggregation aggregation = entry.getValue();
-            FunctionCall call = aggregation.getCall();
-            QualifiedName name = call.getName();
-            if (name.toString().equals(NAME) && call.getArguments().size() == 1) {
-                Expression geometry = getOnlyElement(call.getArguments());
+            String name = aggregation.getSignature().getName();
+            if (name.equals(NAME) && aggregation.getArguments().size() == 1) {
+                Expression geometry = getOnlyElement(aggregation.getArguments());
                 Symbol envelopeSymbol = context.getSymbolAllocator().newSymbol("envelope", metadata.getType(GEOMETRY_TYPE_SIGNATURE));
                 if (geometry instanceof FunctionCall && ((FunctionCall) geometry).getName().toString().equalsIgnoreCase("ST_Envelope")) {
                     envelopeAssignments.put(envelopeSymbol, geometry);
@@ -107,8 +106,11 @@ public class RewriteSpatialPartitioningAggregation
                 }
                 aggregations.put(entry.getKey(),
                         new Aggregation(
-                                new FunctionCall(name, ImmutableList.of(envelopeSymbol.toSymbolReference(), partitionCountSymbol.toSymbolReference())),
                                 INTERNAL_SIGNATURE,
+                                ImmutableList.of(envelopeSymbol.toSymbolReference(), partitionCountSymbol.toSymbolReference()),
+                                false,
+                                Optional.empty(),
+                                Optional.empty(),
                                 aggregation.getMask()));
             }
             else {

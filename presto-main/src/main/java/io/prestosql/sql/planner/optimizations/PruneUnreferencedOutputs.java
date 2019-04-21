@@ -357,7 +357,7 @@ public class PruneUnreferencedOutputs
 
                 if (context.get().contains(symbol)) {
                     Aggregation aggregation = entry.getValue();
-                    expectedInputs.addAll(SymbolsExtractor.extractUnique(aggregation.getCall()));
+                    expectedInputs.addAll(SymbolsExtractor.extractUnique(aggregation));
                     aggregation.getMask().ifPresent(expectedInputs::add);
                     aggregations.put(symbol, aggregation);
                 }
@@ -664,7 +664,7 @@ public class PruneUnreferencedOutputs
             if (node.getStatisticsAggregation().isPresent()) {
                 StatisticAggregations aggregations = node.getStatisticsAggregation().get();
                 expectedInputs.addAll(aggregations.getGroupingSymbols());
-                aggregations.getAggregations().values().forEach(aggregation -> expectedInputs.addAll(SymbolsExtractor.extractUnique(aggregation.getCall())));
+                aggregations.getAggregations().values().forEach(aggregation -> expectedInputs.addAll(SymbolsExtractor.extractUnique(aggregation)));
             }
             PlanNode source = context.rewrite(node.getSource(), expectedInputs.build());
             return new TableWriterNode(

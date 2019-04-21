@@ -36,7 +36,6 @@ import io.prestosql.sql.tree.CoalesceExpression;
 import io.prestosql.sql.tree.ComparisonExpression;
 import io.prestosql.sql.tree.ExistsPredicate;
 import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.FunctionCall;
 import io.prestosql.sql.tree.LongLiteral;
 import io.prestosql.sql.tree.QualifiedName;
 
@@ -80,7 +79,6 @@ public class TransformExistsApplyToLateralNode
     private static final Pattern<ApplyNode> PATTERN = applyNode();
 
     private static final QualifiedName COUNT = QualifiedName.of("count");
-    private static final FunctionCall COUNT_CALL = new FunctionCall(COUNT, ImmutableList.of());
     private final Signature countSignature;
 
     public TransformExistsApplyToLateralNode(Metadata metadata)
@@ -163,7 +161,13 @@ public class TransformExistsApplyToLateralNode
                         new AggregationNode(
                                 context.getIdAllocator().getNextId(),
                                 parent.getSubquery(),
-                                ImmutableMap.of(count, new Aggregation(COUNT_CALL, countSignature, Optional.empty())),
+                                ImmutableMap.of(count, new Aggregation(
+                                        countSignature,
+                                        ImmutableList.of(),
+                                        false,
+                                        Optional.empty(),
+                                        Optional.empty(),
+                                        Optional.empty())),
                                 globalAggregation(),
                                 ImmutableList.of(),
                                 AggregationNode.Step.SINGLE,

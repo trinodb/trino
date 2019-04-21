@@ -333,7 +333,13 @@ public class PlanBuilder
             checkArgument(expression instanceof FunctionCall);
             FunctionCall aggregation = (FunctionCall) expression;
             Signature signature = metadata.resolveFunction(aggregation.getName(), TypeSignatureProvider.fromTypes(inputTypes));
-            return addAggregation(output, new Aggregation(aggregation, signature, mask));
+            return addAggregation(output, new Aggregation(
+                    signature,
+                    aggregation.getArguments(),
+                    aggregation.isDistinct(),
+                    aggregation.getFilter(),
+                    aggregation.getOrderBy().map(OrderingScheme::fromOrderBy),
+                    mask));
         }
 
         public AggregationBuilder addAggregation(Symbol output, Aggregation aggregation)

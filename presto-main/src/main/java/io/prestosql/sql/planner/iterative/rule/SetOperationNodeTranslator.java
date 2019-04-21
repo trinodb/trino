@@ -31,11 +31,9 @@ import io.prestosql.sql.planner.plan.UnionNode;
 import io.prestosql.sql.tree.Cast;
 import io.prestosql.sql.tree.ComparisonExpression;
 import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.FunctionCall;
 import io.prestosql.sql.tree.GenericLiteral;
 import io.prestosql.sql.tree.Literal;
 import io.prestosql.sql.tree.NullLiteral;
-import io.prestosql.sql.tree.QualifiedName;
 import io.prestosql.sql.tree.SymbolReference;
 
 import java.util.List;
@@ -144,8 +142,11 @@ public class SetOperationNodeTranslator
         for (int i = 0; i < markers.size(); i++) {
             Symbol output = aggregationOutputs.get(i);
             aggregations.put(output, new AggregationNode.Aggregation(
-                    new FunctionCall(QualifiedName.of("count"), ImmutableList.of(markers.get(i).toSymbolReference())),
                     COUNT_AGGREGATION,
+                    ImmutableList.of(markers.get(i).toSymbolReference()),
+                    false,
+                    Optional.empty(),
+                    Optional.empty(),
                     Optional.empty()));
         }
 

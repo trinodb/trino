@@ -734,7 +734,7 @@ public final class ExpressionFormatter
         return builder.toString();
     }
 
-    static String formatOrderBy(OrderBy orderBy, Optional<List<Expression>> parameters)
+    public static String formatOrderBy(OrderBy orderBy, Optional<List<Expression>> parameters)
     {
         return "ORDER BY " + formatSortItems(orderBy.getSortItems(), parameters);
     }
@@ -798,7 +798,7 @@ public final class ExpressionFormatter
                 .iterator()));
     }
 
-    private static Function<SortItem, String> sortItemFormatterFunction(Optional<List<Expression>> parameters)
+    public static Function<SortItem, String> sortItemFormatterFunction(Optional<List<Expression>> parameters)
     {
         return input -> {
             StringBuilder builder = new StringBuilder();

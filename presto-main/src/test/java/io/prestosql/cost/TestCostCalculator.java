@@ -51,9 +51,7 @@ import io.prestosql.sql.planner.plan.TableScanNode;
 import io.prestosql.sql.planner.plan.UnionNode;
 import io.prestosql.sql.tree.Cast;
 import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.FunctionCall;
 import io.prestosql.sql.tree.IsNullPredicate;
-import io.prestosql.sql.tree.QualifiedName;
 import io.prestosql.sql.tree.SymbolReference;
 import io.prestosql.testing.LocalQueryRunner;
 import org.testng.annotations.AfterClass;
@@ -813,8 +811,11 @@ public class TestCostCalculator
     private AggregationNode aggregation(String id, PlanNode source)
     {
         AggregationNode.Aggregation aggregation = new AggregationNode.Aggregation(
-                new FunctionCall(QualifiedName.of("count"), ImmutableList.of()),
                 new Signature("count", AGGREGATE, parseTypeSignature(StandardTypes.BIGINT)),
+                ImmutableList.of(),
+                false,
+                Optional.empty(),
+                Optional.empty(),
                 Optional.empty());
 
         return new AggregationNode(

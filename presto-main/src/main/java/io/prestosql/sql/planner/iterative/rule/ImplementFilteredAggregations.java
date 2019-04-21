@@ -25,7 +25,6 @@ import io.prestosql.sql.planner.plan.Assignments;
 import io.prestosql.sql.planner.plan.FilterNode;
 import io.prestosql.sql.planner.plan.ProjectNode;
 import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.FunctionCall;
 
 import java.util.Map;
 import java.util.Optional;
@@ -67,7 +66,7 @@ public class ImplementFilteredAggregations
     {
         return aggregation.getAggregations()
                 .values().stream()
-                .anyMatch(e -> e.getCall().getFilter().isPresent() &&
+                .anyMatch(e -> e.getFilter().isPresent() &&
                         !e.getMask().isPresent()); // can't handle filtered aggregations with DISTINCT (conservatively, if they have a mask)
     }
 
@@ -78,22 +77,22 @@ public class ImplementFilteredAggregations
     }
 
     @Override
-    public Result apply(AggregationNode aggregation, Captures captures, Context context)
+    public Result apply(AggregationNode aggregationNode, Captures captures, Context context)
     {
         Assignments.Builder newAssignments = Assignments.builder();
         ImmutableMap.Builder<Symbol, Aggregation> aggregations = ImmutableMap.builder();
         ImmutableList.Builder<Expression> maskSymbols = ImmutableList.builder();
         boolean aggregateWithoutFilterPresent = false;
 
-        for (Map.Entry<Symbol, Aggregation> entry : aggregation.getAggregations().entrySet()) {
+        for (Map.Entry<Symbol, Aggregation> entry : aggregationNode.getAggregations().entrySet()) {
             Symbol output = entry.getKey();
 
             // strip the filters
-            FunctionCall call = entry.getValue().getCall();
-            Optional<Symbol> mask = entry.getValue().getMask();
+            Aggregation aggregation = entry.getValue();
+            Optional<Symbol> mask = aggregation.getMask();
 
-            if (call.getFilter().isPresent()) {
-                Expression filter = call.getFilter().get();
+            if (aggregation.getFilter().isPresent()) {
+                Expression filter = aggregation.getFilter().get();
                 Symbol symbol = context.getSymbolAllocator().newSymbol(filter, BOOLEAN);
                 verify(!mask.isPresent(), "Expected aggregation without mask symbols, see Rule pattern");
                 newAssignments.put(symbol, filter);
@@ -106,18 +105,21 @@ public class ImplementFilteredAggregations
             }
 
             aggregations.put(output, new Aggregation(
-                    new FunctionCall(call.getName(), call.getWindow(), Optional.empty(), call.getOrderBy(), call.isDistinct(), call.getArguments()),
-                    entry.getValue().getSignature(),
+                    aggregation.getSignature(),
+                    aggregation.getArguments(),
+                    aggregation.isDistinct(),
+                    Optional.empty(),
+                    aggregation.getOrderingScheme(),
                     mask));
         }
 
         Expression predicate = TRUE_LITERAL;
-        if (!aggregation.hasNonEmptyGroupingSet() && !aggregateWithoutFilterPresent) {
+        if (!aggregationNode.hasNonEmptyGroupingSet() && !aggregateWithoutFilterPresent) {
             predicate = combineDisjunctsWithDefault(maskSymbols.build(), TRUE_LITERAL);
         }
 
         // identity projection for all existing inputs
-        newAssignments.putIdentities(aggregation.getSource().getOutputSymbols());
+        newAssignments.putIdentities(aggregationNode.getSource().getOutputSymbols());
 
         return Result.ofPlanNode(
                 new AggregationNode(
@@ -126,14 +128,14 @@ public class ImplementFilteredAggregations
                                 context.getIdAllocator().getNextId(),
                                 new ProjectNode(
                                         context.getIdAllocator().getNextId(),
-                                        aggregation.getSource(),
+                                        aggregationNode.getSource(),
                                         newAssignments.build()),
                                 predicate),
                         aggregations.build(),
-                        aggregation.getGroupingSets(),
+                        aggregationNode.getGroupingSets(),
                         ImmutableList.of(),
-                        aggregation.getStep(),
-                        aggregation.getHashSymbol(),
-                        aggregation.getGroupIdSymbol()));
+                        aggregationNode.getStep(),
+                        aggregationNode.getHashSymbol(),
+                        aggregationNode.getGroupIdSymbol()));
     }
 }

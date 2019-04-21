@@ -30,8 +30,6 @@ import io.prestosql.sql.planner.plan.AggregationNode;
 import io.prestosql.sql.planner.plan.ExchangeNode;
 import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.ProjectNode;
-import io.prestosql.sql.tree.FunctionCall;
-import io.prestosql.sql.tree.QualifiedName;
 
 import java.util.Map;
 import java.util.Optional;
@@ -179,12 +177,15 @@ public class AddIntermediateAggregations
         for (Map.Entry<Symbol, AggregationNode.Aggregation> entry : assignments.entrySet()) {
             Symbol output = entry.getKey();
             AggregationNode.Aggregation aggregation = entry.getValue();
-            checkState(!aggregation.getCall().getOrderBy().isPresent(), "Intermediate aggregation does not support ORDER BY");
+            checkState(!aggregation.getOrderingScheme().isPresent(), "Intermediate aggregation does not support ORDER BY");
             builder.put(
                     output,
                     new AggregationNode.Aggregation(
-                            new FunctionCall(QualifiedName.of(aggregation.getSignature().getName()), ImmutableList.of(output.toSymbolReference())),
                             aggregation.getSignature(),
+                            ImmutableList.of(output.toSymbolReference()),
+                            false,
+                            Optional.empty(),
+                            Optional.empty(),
                             Optional.empty()));  // No mask for INTERMEDIATE
         }
         return builder.build();
@@ -203,7 +204,7 @@ public class AddIntermediateAggregations
         ImmutableMap.Builder<Symbol, AggregationNode.Aggregation> builder = ImmutableMap.builder();
         for (Map.Entry<Symbol, AggregationNode.Aggregation> entry : assignments.entrySet()) {
             // Should only have one input symbol
-            Symbol input = getOnlyElement(SymbolsExtractor.extractAll(entry.getValue().getCall()));
+            Symbol input = getOnlyElement(SymbolsExtractor.extractAll(entry.getValue()));
             builder.put(input, entry.getValue());
         }
         return builder.build();

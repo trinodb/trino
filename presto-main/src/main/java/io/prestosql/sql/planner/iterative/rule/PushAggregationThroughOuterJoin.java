@@ -25,6 +25,7 @@ import io.prestosql.sql.planner.SymbolAllocator;
 import io.prestosql.sql.planner.iterative.Lookup;
 import io.prestosql.sql.planner.iterative.Rule;
 import io.prestosql.sql.planner.plan.AggregationNode;
+import io.prestosql.sql.planner.plan.AggregationNode.Aggregation;
 import io.prestosql.sql.planner.plan.Assignments;
 import io.prestosql.sql.planner.plan.JoinNode;
 import io.prestosql.sql.planner.plan.PlanNode;
@@ -32,7 +33,6 @@ import io.prestosql.sql.planner.plan.ProjectNode;
 import io.prestosql.sql.planner.plan.ValuesNode;
 import io.prestosql.sql.tree.CoalesceExpression;
 import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.FunctionCall;
 import io.prestosql.sql.tree.NullLiteral;
 import io.prestosql.sql.tree.SymbolReference;
 
@@ -302,11 +302,16 @@ public class PushAggregationThroughOuterJoin
                 return Optional.empty();
             }
 
-            AggregationNode.Aggregation overNullAggregation = new AggregationNode.Aggregation(
-                    (FunctionCall) inlineSymbols(sourcesSymbolMapping, aggregation.getCall()),
+            Aggregation overNullAggregation = new Aggregation(
                     aggregation.getSignature(),
-                    aggregation.getMask().map(x -> Symbol.from(sourcesSymbolMapping.get(x))));
-            Symbol overNullSymbol = symbolAllocator.newSymbol(overNullAggregation.getCall(), symbolAllocator.getTypes().get(aggregationSymbol));
+                    aggregation.getArguments().stream()
+                            .map(argument -> inlineSymbols(sourcesSymbolMapping, argument))
+                            .collect(toImmutableList()),
+                    aggregation.isDistinct(),
+                    aggregation.getFilter(),
+                    aggregation.getOrderingScheme(),
+                    aggregation.getMask());
+            Symbol overNullSymbol = symbolAllocator.newSymbol(overNullAggregation.getSignature().getName(), symbolAllocator.getTypes().get(aggregationSymbol));
             aggregationsOverNullBuilder.put(overNullSymbol, overNullAggregation);
             aggregationsSymbolMappingBuilder.put(aggregationSymbol, overNullSymbol);
         }
@@ -328,7 +333,7 @@ public class PushAggregationThroughOuterJoin
 
     private static boolean isUsingSymbols(AggregationNode.Aggregation aggregation, Set<Symbol> sourceSymbols)
     {
-        List<Expression> functionArguments = aggregation.getCall().getArguments();
+        List<Expression> functionArguments = aggregation.getArguments();
         return sourceSymbols.stream()
                 .map(Symbol::toSymbolReference)
                 .anyMatch(functionArguments::contains);

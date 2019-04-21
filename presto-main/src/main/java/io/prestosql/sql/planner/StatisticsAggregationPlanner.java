@@ -28,7 +28,6 @@ import io.prestosql.spi.type.Type;
 import io.prestosql.sql.planner.plan.AggregationNode;
 import io.prestosql.sql.planner.plan.StatisticAggregations;
 import io.prestosql.sql.planner.plan.StatisticAggregationsDescriptor;
-import io.prestosql.sql.tree.FunctionCall;
 import io.prestosql.sql.tree.QualifiedName;
 import io.prestosql.sql.tree.SymbolReference;
 
@@ -75,10 +74,12 @@ public class StatisticsAggregationPlanner
             if (type != ROW_COUNT) {
                 throw new PrestoException(NOT_SUPPORTED, "Table-wide statistic type not supported: " + type);
             }
-            QualifiedName count = QualifiedName.of("count");
             AggregationNode.Aggregation aggregation = new AggregationNode.Aggregation(
-                    new FunctionCall(count, ImmutableList.of()),
-                    metadata.resolveFunction(count, ImmutableList.of()),
+                    metadata.resolveFunction(QualifiedName.of("count"), ImmutableList.of()),
+                    ImmutableList.of(),
+                    false,
+                    Optional.empty(),
+                    Optional.empty(),
                     Optional.empty());
             Symbol symbol = symbolAllocator.newSymbol("rowCount", BIGINT);
             aggregations.put(symbol, aggregation);
@@ -131,8 +132,11 @@ public class StatisticsAggregationPlanner
         verify(resolvedType.equals(inputType), "resolved function input type does not match the input type: %s != %s", resolvedType, inputType);
         return new ColumnStatisticsAggregation(
                 new AggregationNode.Aggregation(
-                        new FunctionCall(functionName, ImmutableList.of(input)),
                         signature,
+                        ImmutableList.of(input),
+                        false,
+                        Optional.empty(),
+                        Optional.empty(),
                         Optional.empty()),
                 outputType);
     }

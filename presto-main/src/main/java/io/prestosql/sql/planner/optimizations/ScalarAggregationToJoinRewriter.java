@@ -34,7 +34,6 @@ import io.prestosql.sql.planner.plan.LateralJoinNode;
 import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.ProjectNode;
 import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.FunctionCall;
 import io.prestosql.sql.tree.QualifiedName;
 
 import java.util.HashSet;
@@ -53,8 +52,6 @@ import static java.util.Objects.requireNonNull;
 // TODO: move this class to TransformCorrelatedScalarAggregationToJoin when old optimizer is gone
 public class ScalarAggregationToJoinRewriter
 {
-    private static final QualifiedName COUNT = QualifiedName.of("count");
-
     private final Metadata metadata;
     private final SymbolAllocator symbolAllocator;
     private final PlanNodeIdAllocator idAllocator;
@@ -175,22 +172,23 @@ public class ScalarAggregationToJoinRewriter
     {
         ImmutableMap.Builder<Symbol, Aggregation> aggregations = ImmutableMap.builder();
         for (Map.Entry<Symbol, Aggregation> entry : scalarAggregation.getAggregations().entrySet()) {
-            FunctionCall call = entry.getValue().getCall();
+            Aggregation aggregation = entry.getValue();
             Symbol symbol = entry.getKey();
-            if (call.getName().equals(COUNT)) {
+            if (aggregation.getSignature().getName().equals("count")) {
                 List<TypeSignature> scalarAggregationSourceTypeSignatures = ImmutableList.of(
                         symbolAllocator.getTypes().get(nonNullableAggregationSourceSymbol).getTypeSignature());
                 aggregations.put(symbol, new Aggregation(
-                        new FunctionCall(
-                                COUNT,
-                                ImmutableList.of(nonNullableAggregationSourceSymbol.toSymbolReference())),
                         metadata.resolveFunction(
-                                COUNT,
+                                QualifiedName.of("count"),
                                 fromTypeSignatures(scalarAggregationSourceTypeSignatures)),
-                        entry.getValue().getMask()));
+                        ImmutableList.of(nonNullableAggregationSourceSymbol.toSymbolReference()),
+                        false,
+                        Optional.empty(),
+                        Optional.empty(),
+                        aggregation.getMask()));
             }
             else {
-                aggregations.put(symbol, entry.getValue());
+                aggregations.put(symbol, aggregation);
             }
         }
 
