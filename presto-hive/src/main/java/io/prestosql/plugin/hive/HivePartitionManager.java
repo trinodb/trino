@@ -208,6 +208,26 @@ public class HivePartitionManager
         return partitionList.build();
     }
 
+    public HiveTableHandle applyPartitionResult(HiveTableHandle handle, HivePartitionResult partitions)
+    {
+        return new HiveTableHandle(
+                handle.getSchemaName(),
+                handle.getTableName(),
+                ImmutableList.copyOf(partitions.getPartitionColumns()),
+                Optional.of(getPartitionsAsList(partitions)),
+                partitions.getCompactEffectivePredicate(),
+                partitions.getEnforcedConstraint(),
+                partitions.getBucketHandle(),
+                partitions.getBucketFilter(),
+                handle.getAnalyzePartitionValues());
+    }
+
+    public List<HivePartition> getOrLoadPartitions(SemiTransactionalHiveMetastore metastore, HiveTableHandle table)
+    {
+        return table.getPartitions().orElseGet(() ->
+                getPartitionsAsList(getPartitions(metastore, table, new Constraint(table.getEnforcedConstraint()))));
+    }
+
     private static TupleDomain<HiveColumnHandle> toCompactTupleDomain(TupleDomain<ColumnHandle> effectivePredicate, int threshold)
     {
         ImmutableMap.Builder<HiveColumnHandle, Domain> builder = ImmutableMap.builder();

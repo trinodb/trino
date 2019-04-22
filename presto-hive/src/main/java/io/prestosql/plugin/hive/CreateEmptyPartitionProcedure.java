@@ -23,6 +23,8 @@ import io.prestosql.plugin.hive.metastore.HiveMetastore;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.classloader.ThreadContextClassLoader;
 import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.connector.ConnectorTableHandle;
+import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.procedure.Procedure;
 import io.prestosql.spi.procedure.Procedure.Argument;
 import org.apache.hadoop.hive.common.FileUtils;
@@ -94,7 +96,8 @@ public class CreateEmptyPartitionProcedure
     {
         TransactionalMetadata hiveMetadata = hiveMetadataFactory.get();
 
-        HiveInsertTableHandle hiveInsertTableHandle = (HiveInsertTableHandle) hiveMetadata.beginInsert(session, new HiveTableHandle(schema, table));
+        ConnectorTableHandle tableHandle = hiveMetadata.getTableHandle(session, new SchemaTableName(schema, table));
+        HiveInsertTableHandle hiveInsertTableHandle = (HiveInsertTableHandle) hiveMetadata.beginInsert(session, tableHandle);
 
         List<String> actualPartitionColumnNames = hiveInsertTableHandle.getInputColumns().stream()
                 .filter(HiveColumnHandle::isPartitionKey)

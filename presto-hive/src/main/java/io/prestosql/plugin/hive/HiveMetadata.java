@@ -55,14 +55,13 @@ import io.prestosql.spi.connector.ConnectorOutputTableHandle;
 import io.prestosql.spi.connector.ConnectorPartitioningHandle;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorTableHandle;
-import io.prestosql.spi.connector.ConnectorTableLayout;
-import io.prestosql.spi.connector.ConnectorTableLayoutHandle;
-import io.prestosql.spi.connector.ConnectorTableLayoutResult;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
 import io.prestosql.spi.connector.ConnectorTablePartitioning;
+import io.prestosql.spi.connector.ConnectorTableProperties;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 import io.prestosql.spi.connector.ConnectorViewDefinition;
 import io.prestosql.spi.connector.Constraint;
+import io.prestosql.spi.connector.ConstraintApplicationResult;
 import io.prestosql.spi.connector.DiscretePredicates;
 import io.prestosql.spi.connector.InMemoryRecordSet;
 import io.prestosql.spi.connector.RecordCursor;
@@ -301,7 +300,11 @@ public class HiveMetadata
         }
 
         verifyOnline(tableName, Optional.empty(), getProtectMode(table.get()), table.get().getParameters());
-        return new HiveTableHandle(tableName.getSchemaName(), tableName.getTableName());
+        return new HiveTableHandle(
+                tableName.getSchemaName(),
+                tableName.getTableName(),
+                getPartitionKeyColumnHandles(table.get()),
+                getHiveBucketHandle(table.get()));
     }
 
     @Override
@@ -328,7 +331,11 @@ public class HiveMetadata
             }
         });
 
-        return handle;
+        HiveTableHandle table = handle;
+        return partitionValuesList
+                .map(values -> partitionManager.getPartitions(metastore, table, values))
+                .map(result -> partitionManager.applyPartitionResult(table, result))
+                .orElse(table);
     }
 
     @Override
@@ -369,9 +376,7 @@ public class HiveMetadata
             return Optional.empty();
         }
 
-        Table sourceTable = metastore.getTable(sourceTableName.getSchemaName(), sourceTableName.getTableName())
-                .orElseThrow(() -> new TableNotFoundException(sourceTableName));
-        List<HiveColumnHandle> partitionColumns = getPartitionKeyColumnHandles(sourceTable);
+        List<HiveColumnHandle> partitionColumns = sourceTableHandle.getPartitionColumns();
         if (partitionColumns.isEmpty()) {
             return Optional.empty();
         }
@@ -499,18 +504,14 @@ public class HiveMetadata
     }
 
     @Override
-    public Optional<Object> getInfo(ConnectorTableLayoutHandle layoutHandle)
+    public Optional<Object> getInfo(ConnectorTableHandle table)
     {
-        HiveTableLayoutHandle tableLayoutHandle = (HiveTableLayoutHandle) layoutHandle;
-        if (tableLayoutHandle.getPartitions().isPresent()) {
-            return Optional.of(new HiveInputInfo(
-                    tableLayoutHandle.getPartitions().get().stream()
-                            .map(HivePartition::getPartitionId)
-                            .collect(toList()),
-                    false));
-        }
-
-        return Optional.empty();
+        return ((HiveTableHandle) table).getPartitions()
+                .map(partitions -> new HiveInputInfo(
+                        partitions.stream()
+                                .map(HivePartition::getPartitionId)
+                                .collect(toImmutableList()),
+                        false));
     }
 
     @Override
@@ -1527,10 +1528,15 @@ public class HiveMetadata
     }
 
     @Override
-    public OptionalLong metadataDelete(ConnectorSession session, ConnectorTableHandle tableHandle, ConnectorTableLayoutHandle tableLayoutHandle)
+    public Optional<ConnectorTableHandle> applyDelete(ConnectorSession session, ConnectorTableHandle handle)
     {
-        HiveTableHandle handle = (HiveTableHandle) tableHandle;
-        HiveTableLayoutHandle layoutHandle = (HiveTableLayoutHandle) tableLayoutHandle;
+        return Optional.of(handle);
+    }
+
+    @Override
+    public OptionalLong executeDelete(ConnectorSession session, ConnectorTableHandle deleteHandle)
+    {
+        HiveTableHandle handle = (HiveTableHandle) deleteHandle;
 
         Optional<Table> table = metastore.getTable(handle.getSchemaName(), handle.getTableName());
         if (!table.isPresent()) {
@@ -1541,25 +1547,12 @@ public class HiveMetadata
             metastore.truncateUnpartitionedTable(session, handle.getSchemaName(), handle.getTableName());
         }
         else {
-            for (HivePartition hivePartition : getOrComputePartitions(layoutHandle, session, tableHandle)) {
+            for (HivePartition hivePartition : partitionManager.getOrLoadPartitions(metastore, handle)) {
                 metastore.dropPartition(session, handle.getSchemaName(), handle.getTableName(), toPartitionValues(hivePartition.getPartitionId()));
             }
         }
         // it is too expensive to determine the exact number of deleted rows
         return OptionalLong.empty();
-    }
-
-    private List<HivePartition> getOrComputePartitions(HiveTableLayoutHandle layoutHandle, ConnectorSession session, ConnectorTableHandle tableHandle)
-    {
-        if (layoutHandle.getPartitions().isPresent()) {
-            return layoutHandle.getPartitions().get();
-        }
-        else {
-            TupleDomain<ColumnHandle> promisedPredicate = layoutHandle.getPromisedPredicate();
-            Predicate<Map<ColumnHandle, NullableValue>> predicate = convertToPredicate(promisedPredicate);
-            List<ConnectorTableLayoutResult> tableLayoutResults = getTableLayouts(session, tableHandle, new Constraint(promisedPredicate, predicate), Optional.empty());
-            return ((HiveTableLayoutHandle) Iterables.getOnlyElement(tableLayoutResults).getTableLayout().getHandle()).getPartitions().get();
-        }
     }
 
     @VisibleForTesting
@@ -1569,44 +1562,18 @@ public class HiveMetadata
     }
 
     @Override
-    public boolean supportsMetadataDelete(ConnectorSession session, ConnectorTableHandle tableHandle, ConnectorTableLayoutHandle tableLayoutHandle)
+    public boolean usesLegacyTableLayouts()
     {
-        return true;
+        return false;
     }
 
     @Override
-    public List<ConnectorTableLayoutResult> getTableLayouts(ConnectorSession session, ConnectorTableHandle tableHandle, Constraint constraint, Optional<Set<ColumnHandle>> desiredColumns)
+    public ConnectorTableProperties getTableProperties(ConnectorSession session, ConnectorTableHandle table)
     {
-        HiveTableHandle handle = (HiveTableHandle) tableHandle;
-        HivePartitionResult hivePartitionResult;
-        if (handle.getAnalyzePartitionValues().isPresent()) {
-            verify(constraint.getSummary().isAll(), "There shouldn't be any constraint for ANALYZE operation");
-            hivePartitionResult = partitionManager.getPartitions(metastore, tableHandle, handle.getAnalyzePartitionValues().get());
-        }
-        else {
-            hivePartitionResult = partitionManager.getPartitions(metastore, tableHandle, constraint);
-        }
+        HiveTableHandle hiveTable = (HiveTableHandle) table;
 
-        return ImmutableList.of(new ConnectorTableLayoutResult(
-                getTableLayout(
-                        session,
-                        new HiveTableLayoutHandle(
-                                handle.getSchemaTableName(),
-                                ImmutableList.copyOf(hivePartitionResult.getPartitionColumns()),
-                                partitionManager.getPartitionsAsList(hivePartitionResult),
-                                hivePartitionResult.getCompactEffectivePredicate(),
-                                hivePartitionResult.getEnforcedConstraint(),
-                                hivePartitionResult.getBucketHandle(),
-                                hivePartitionResult.getBucketFilter())),
-                hivePartitionResult.getUnenforcedConstraint()));
-    }
-
-    @Override
-    public ConnectorTableLayout getTableLayout(ConnectorSession session, ConnectorTableLayoutHandle layoutHandle)
-    {
-        HiveTableLayoutHandle hiveLayoutHandle = (HiveTableLayoutHandle) layoutHandle;
-        List<ColumnHandle> partitionColumns = hiveLayoutHandle.getPartitionColumns();
-        List<HivePartition> partitions = hiveLayoutHandle.getPartitions().get();
+        List<ColumnHandle> partitionColumns = ImmutableList.copyOf(hiveTable.getPartitionColumns());
+        List<HivePartition> partitions = partitionManager.getOrLoadPartitions(metastore, hiveTable);
 
         TupleDomain<ColumnHandle> predicate = createPredicate(partitionColumns, partitions);
 
@@ -1620,27 +1587,47 @@ public class HiveMetadata
         }
 
         Optional<ConnectorTablePartitioning> tablePartitioning = Optional.empty();
-        if (isBucketExecutionEnabled(session) && hiveLayoutHandle.getBucketHandle().isPresent()) {
-            tablePartitioning = hiveLayoutHandle.getBucketHandle().map(hiveBucketHandle -> new ConnectorTablePartitioning(
+        if (isBucketExecutionEnabled(session) && hiveTable.getBucketHandle().isPresent()) {
+            tablePartitioning = hiveTable.getBucketHandle().map(bucketing -> new ConnectorTablePartitioning(
                     new HivePartitioningHandle(
-                            hiveBucketHandle.getReadBucketCount(),
-                            hiveBucketHandle.getColumns().stream()
+                            bucketing.getReadBucketCount(),
+                            bucketing.getColumns().stream()
                                     .map(HiveColumnHandle::getHiveType)
-                                    .collect(toList()),
+                                    .collect(toImmutableList()),
                             OptionalInt.empty()),
-                    hiveBucketHandle.getColumns().stream()
+                    bucketing.getColumns().stream()
                             .map(ColumnHandle.class::cast)
                             .collect(toList())));
         }
 
-        return new ConnectorTableLayout(
-                hiveLayoutHandle,
-                Optional.empty(),
+        return new ConnectorTableProperties(
                 predicate,
                 tablePartitioning,
                 Optional.empty(),
                 discretePredicates,
                 ImmutableList.of());
+    }
+
+    @Override
+    public Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorSession session, ConnectorTableHandle tableHandle, Constraint constraint)
+    {
+        HiveTableHandle handle = (HiveTableHandle) tableHandle;
+        checkArgument(!handle.getAnalyzePartitionValues().isPresent() || constraint.getSummary().isAll(), "Analyze should not have a constraint");
+
+        if (handle.getPartitions().isPresent()) {
+            return Optional.empty(); // TODO: optimize multiple calls to applyFilter
+        }
+
+        HivePartitionResult partitionResult = partitionManager.getPartitions(metastore, handle, constraint);
+        HiveTableHandle newHandle = partitionManager.applyPartitionResult(handle, partitionResult);
+
+        if (handle.getPartitions().equals(newHandle.getPartitions()) &&
+                handle.getCompactEffectivePredicate().equals(newHandle.getCompactEffectivePredicate()) &&
+                handle.getBucketFilter().equals(newHandle.getBucketFilter())) {
+            return Optional.empty();
+        }
+
+        return Optional.of(new ConstraintApplicationResult<>(newHandle, partitionResult.getUnenforcedConstraint()));
     }
 
     @Override
@@ -1695,17 +1682,17 @@ public class HiveMetadata
     }
 
     @Override
-    public ConnectorTableLayoutHandle makeCompatiblePartitioning(ConnectorSession session, ConnectorTableLayoutHandle tableLayoutHandle, ConnectorPartitioningHandle partitioningHandle)
+    public ConnectorTableHandle makeCompatiblePartitioning(ConnectorSession session, ConnectorTableHandle tableHandle, ConnectorPartitioningHandle partitioningHandle)
     {
-        HiveTableLayoutHandle hiveLayoutHandle = (HiveTableLayoutHandle) tableLayoutHandle;
+        HiveTableHandle hiveTable = (HiveTableHandle) tableHandle;
         HivePartitioningHandle hivePartitioningHandle = (HivePartitioningHandle) partitioningHandle;
 
-        checkArgument(hiveLayoutHandle.getBucketHandle().isPresent(), "Hive connector only provides alternative layout for bucketed table");
-        HiveBucketHandle bucketHandle = hiveLayoutHandle.getBucketHandle().get();
+        checkArgument(hiveTable.getBucketHandle().isPresent(), "Hive connector only provides alternative layout for bucketed table");
+        HiveBucketHandle bucketHandle = hiveTable.getBucketHandle().get();
         ImmutableList<HiveType> bucketTypes = bucketHandle.getColumns().stream().map(HiveColumnHandle::getHiveType).collect(toImmutableList());
         checkArgument(
                 hivePartitioningHandle.getHiveTypes().equals(bucketTypes),
-                "Types from the new PartitioningHandle (%s) does not match the TableLayoutHandle (%s)",
+                "Types from the new PartitioningHandle (%s) does not match the TableHandle (%s)",
                 hivePartitioningHandle.getHiveTypes(),
                 bucketTypes);
         int largerBucketCount = Math.max(bucketHandle.getTableBucketCount(), hivePartitioningHandle.getBucketCount());
@@ -1714,14 +1701,19 @@ public class HiveMetadata
                 largerBucketCount % smallerBucketCount == 0 && Integer.bitCount(largerBucketCount / smallerBucketCount) == 1,
                 "The requested partitioning is not a valid alternative for the table layout");
 
-        return new HiveTableLayoutHandle(
-                hiveLayoutHandle.getSchemaTableName(),
-                hiveLayoutHandle.getPartitionColumns(),
-                hiveLayoutHandle.getPartitions().get(),
-                hiveLayoutHandle.getCompactEffectivePredicate(),
-                hiveLayoutHandle.getPromisedPredicate(),
-                Optional.of(new HiveBucketHandle(bucketHandle.getColumns(), bucketHandle.getTableBucketCount(), hivePartitioningHandle.getBucketCount())),
-                hiveLayoutHandle.getBucketFilter());
+        return new HiveTableHandle(
+                hiveTable.getSchemaName(),
+                hiveTable.getTableName(),
+                hiveTable.getPartitionColumns(),
+                hiveTable.getPartitions(),
+                hiveTable.getCompactEffectivePredicate(),
+                hiveTable.getEnforcedConstraint(),
+                Optional.of(new HiveBucketHandle(
+                        bucketHandle.getColumns(),
+                        bucketHandle.getTableBucketCount(),
+                        hivePartitioningHandle.getBucketCount())),
+                hiveTable.getBucketFilter(),
+                hiveTable.getAnalyzePartitionValues());
     }
 
     @VisibleForTesting

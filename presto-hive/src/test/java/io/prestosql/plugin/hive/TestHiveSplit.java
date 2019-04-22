@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
 import io.prestosql.plugin.hive.HiveColumnHandle.ColumnType;
 import io.prestosql.spi.HostAddress;
-import io.prestosql.spi.predicate.TupleDomain;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
@@ -56,7 +55,6 @@ public class TestHiveSplit
                 addresses,
                 OptionalInt.empty(),
                 true,
-                TupleDomain.all(),
                 ImmutableMap.of(1, HIVE_STRING),
                 Optional.of(new HiveSplit.BucketConversion(
                         32,
