@@ -337,7 +337,7 @@ public class PlanBuilder
                     signature,
                     aggregation.getArguments(),
                     aggregation.isDistinct(),
-                    aggregation.getFilter(),
+                    aggregation.getFilter().map(Symbol::from),
                     aggregation.getOrderBy().map(OrderingScheme::fromOrderBy),
                     mask));
         }

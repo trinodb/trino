@@ -97,7 +97,6 @@ public final class ExpressionExtractor
         {
             for (Aggregation aggregation : node.getAggregations().values()) {
                 aggregation.getArguments().forEach(context);
-                aggregation.getFilter().ifPresent(context);
             }
             return super.visitAggregation(node, context);
         }

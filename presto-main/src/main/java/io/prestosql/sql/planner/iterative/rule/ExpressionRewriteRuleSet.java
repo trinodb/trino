@@ -155,7 +155,7 @@ public class ExpressionRewriteRuleSet
                         new FunctionCall(
                                 QualifiedName.of(aggregation.getSignature().getName()),
                                 Optional.empty(),
-                                aggregation.getFilter(),
+                                aggregation.getFilter().map(symbol -> new SymbolReference(symbol.getName())),
                                 aggregation.getOrderingScheme().map(orderBy -> new OrderBy(orderBy.getOrderBy().stream()
                                         .map(symbol -> new SortItem(
                                                 new SymbolReference(symbol.getName()),
@@ -170,7 +170,7 @@ public class ExpressionRewriteRuleSet
                         aggregation.getSignature(),
                         call.getArguments(),
                         call.isDistinct(),
-                        call.getFilter(),
+                        call.getFilter().map(Symbol::from),
                         call.getOrderBy().map(OrderingScheme::fromOrderBy),
                         aggregation.getMask());
                 aggregations.put(entry.getKey(), newAggregation);

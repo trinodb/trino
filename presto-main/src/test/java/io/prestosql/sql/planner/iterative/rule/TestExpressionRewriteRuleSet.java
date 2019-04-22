@@ -25,6 +25,7 @@ import io.prestosql.sql.planner.plan.Assignments;
 import io.prestosql.sql.tree.FunctionCall;
 import io.prestosql.sql.tree.LongLiteral;
 import io.prestosql.sql.tree.QualifiedName;
+import io.prestosql.sql.tree.SymbolReference;
 import org.testng.annotations.Test;
 
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.expression;
@@ -66,7 +67,7 @@ public class TestExpressionRewriteRuleSet
     public void testAggregationExpressionRewrite()
     {
         ExpressionRewriteRuleSet functionCallRewriter = new ExpressionRewriteRuleSet((expression, context) ->
-                new FunctionCall(QualifiedName.of("count"), ImmutableList.of(new LongLiteral("42"))));
+                new FunctionCall(QualifiedName.of("count"), ImmutableList.of(new SymbolReference("y"))));
         tester().assertThat(functionCallRewriter.aggregationExpressionRewrite())
                 .on(p -> p.aggregation(a -> a
                         .globalGrouping()
@@ -75,13 +76,13 @@ public class TestExpressionRewriteRuleSet
                                 new FunctionCall(QualifiedName.of("count"), ImmutableList.of(PlanBuilder.expression("x"))),
                                 ImmutableList.of(BigintType.BIGINT))
                         .source(
-                                p.values(p.symbol("x")))))
+                                p.values(p.symbol("x"), p.symbol("y")))))
                 .matches(
                         PlanMatchPattern.aggregation(
                                 ImmutableMap.of("count_1", aliases -> new FunctionCall(
                                         QualifiedName.of("count"),
-                                        ImmutableList.of(new LongLiteral("42")))),
-                                values("x")));
+                                        ImmutableList.of(new SymbolReference("y")))),
+                                values("x", "y")));
     }
 
     @Test

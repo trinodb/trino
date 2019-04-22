@@ -570,7 +570,7 @@ class QueryPlanner
                     analysis.getFunctionSignature(aggregate),
                     functionCall.getArguments(),
                     functionCall.isDistinct(),
-                    functionCall.getFilter(),
+                    functionCall.getFilter().map(Symbol::from),
                     functionCall.getOrderBy().map(OrderingScheme::fromOrderBy),
                     Optional.empty()));
         }
