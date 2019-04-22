@@ -182,23 +182,34 @@ public class TransformCorrelatedInPredicateToJoin
 
         JoinNode leftOuterJoin = leftOuterJoin(idAllocator, probeSide, buildSide, joinExpression);
 
-        Symbol countMatchesSymbol = symbolAllocator.newSymbol("countMatches", BIGINT);
-        Symbol countNullMatchesSymbol = symbolAllocator.newSymbol("countNullMatches", BIGINT);
-
+        Symbol matchConditionSymbol = symbolAllocator.newSymbol("matchConditionSymbol", BOOLEAN);
         Expression matchCondition = and(
                 isNotNull(probeSideSymbol),
                 isNotNull(buildSideSymbol));
 
+        Symbol nullMatchConditionSymbol = symbolAllocator.newSymbol("nullMatchConditionSymbol", BOOLEAN);
         Expression nullMatchCondition = and(
                 isNotNull(buildSideKnownNonNull),
                 not(matchCondition));
 
-        AggregationNode aggregation = new AggregationNode(
+        ProjectNode preProjection = new ProjectNode(
                 idAllocator.getNextId(),
                 leftOuterJoin,
+                Assignments.builder()
+                        .putIdentities(leftOuterJoin.getOutputSymbols())
+                        .put(matchConditionSymbol, matchCondition)
+                        .put(nullMatchConditionSymbol, nullMatchCondition)
+                        .build());
+
+        Symbol countMatchesSymbol = symbolAllocator.newSymbol("countMatches", BIGINT);
+        Symbol countNullMatchesSymbol = symbolAllocator.newSymbol("countNullMatches", BIGINT);
+
+        AggregationNode aggregation = new AggregationNode(
+                idAllocator.getNextId(),
+                preProjection,
                 ImmutableMap.<Symbol, AggregationNode.Aggregation>builder()
-                        .put(countMatchesSymbol, countWithFilter(matchCondition))
-                        .put(countNullMatchesSymbol, countWithFilter(nullMatchCondition))
+                        .put(countMatchesSymbol, countWithFilter(matchConditionSymbol))
+                        .put(countNullMatchesSymbol, countWithFilter(nullMatchConditionSymbol))
                         .build(),
                 singleGroupingSet(probeSide.getOutputSymbols()),
                 ImmutableList.of(),
@@ -241,13 +252,13 @@ public class TransformCorrelatedInPredicateToJoin
                 ImmutableMap.of());
     }
 
-    private static AggregationNode.Aggregation countWithFilter(Expression condition)
+    private static AggregationNode.Aggregation countWithFilter(Symbol filter)
     {
         return new AggregationNode.Aggregation(
                 new Signature("count", FunctionKind.AGGREGATE, BIGINT.getTypeSignature()),
                 ImmutableList.of(),
                 false,
-                Optional.of(condition),
+                Optional.of(filter),
                 Optional.empty(),
                 Optional.empty()); /* mask */
     }

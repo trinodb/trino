@@ -25,6 +25,7 @@ import io.prestosql.sql.planner.plan.Assignments;
 import io.prestosql.sql.planner.plan.FilterNode;
 import io.prestosql.sql.planner.plan.ProjectNode;
 import io.prestosql.sql.tree.Expression;
+import io.prestosql.sql.tree.SymbolReference;
 
 import java.util.Map;
 import java.util.Optional;
@@ -92,10 +93,10 @@ public class ImplementFilteredAggregations
             Optional<Symbol> mask = aggregation.getMask();
 
             if (aggregation.getFilter().isPresent()) {
-                Expression filter = aggregation.getFilter().get();
-                Symbol symbol = context.getSymbolAllocator().newSymbol(filter, BOOLEAN);
+                Symbol filter = aggregation.getFilter().get();
+                Symbol symbol = context.getSymbolAllocator().newSymbol(filter.getName(), BOOLEAN);
                 verify(!mask.isPresent(), "Expected aggregation without mask symbols, see Rule pattern");
-                newAssignments.put(symbol, filter);
+                newAssignments.put(symbol, new SymbolReference(filter.getName()));
                 mask = Optional.of(symbol);
 
                 maskSymbols.add(symbol.toSymbolReference());

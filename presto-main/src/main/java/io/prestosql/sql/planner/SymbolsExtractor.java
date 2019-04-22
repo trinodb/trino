@@ -97,7 +97,7 @@ public final class SymbolsExtractor
         for (Expression argument : aggregation.getArguments()) {
             builder.addAll(extractAll(argument));
         }
-        aggregation.getFilter().ifPresent(filter -> builder.addAll(extractAll(filter)));
+        aggregation.getFilter().ifPresent(builder::add);
         aggregation.getOrderingScheme().ifPresent(orderBy -> builder.addAll(orderBy.getOrderBy()));
         return builder.build();
     }

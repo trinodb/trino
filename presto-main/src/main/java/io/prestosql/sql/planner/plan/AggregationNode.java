@@ -370,7 +370,7 @@ public class AggregationNode
         private final Signature signature;
         private final List<Expression> arguments;
         private final boolean distinct;
-        private final Optional<Expression> filter;
+        private final Optional<Symbol> filter;
         private final Optional<OrderingScheme> orderingScheme;
         private final Optional<Symbol> mask;
 
@@ -379,7 +379,7 @@ public class AggregationNode
                 @JsonProperty("signature") Signature signature,
                 @JsonProperty("arguments") List<Expression> arguments,
                 @JsonProperty("distinct") boolean distinct,
-                @JsonProperty("filter") Optional<Expression> filter,
+                @JsonProperty("filter") Optional<Symbol> filter,
                 @JsonProperty("orderingScheme") Optional<OrderingScheme> orderingScheme,
                 @JsonProperty("mask") Optional<Symbol> mask)
         {
@@ -414,7 +414,7 @@ public class AggregationNode
         }
 
         @JsonProperty
-        public Optional<Expression> getFilter()
+        public Optional<Symbol> getFilter()
         {
             return filter;
         }
