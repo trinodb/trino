@@ -85,7 +85,9 @@ public class TestHiveConfig
                 .setTemporaryStagingDirectoryPath("/tmp/presto-${USER}")
                 .setFileStatusCacheExpireAfterWrite(new Duration(1, TimeUnit.MINUTES))
                 .setFileStatusCacheMaxSize(1000 * 1000)
-                .setFileStatusCacheTables(""));
+                .setFileStatusCacheTables("")
+                .setHiveTransactionHeartbeatInterval(null)
+                .setHiveTransactionHeartbeatThreads(20));
     }
 
     @Test
@@ -144,6 +146,8 @@ public class TestHiveConfig
                 .put("hive.file-status-cache-tables", "foo.bar1, foo.bar2")
                 .put("hive.file-status-cache-size", "1000")
                 .put("hive.file-status-cache-expire-time", "30m")
+                .put("hive.transaction-heartbeat-interval", "10s")
+                .put("hive.transaction-heartbeat-threads", "10")
                 .build();
 
         HiveConfig expected = new HiveConfig()
@@ -198,7 +202,9 @@ public class TestHiveConfig
                 .setTemporaryStagingDirectoryPath("updated")
                 .setFileStatusCacheTables("foo.bar1,foo.bar2")
                 .setFileStatusCacheMaxSize(1000)
-                .setFileStatusCacheExpireAfterWrite(new Duration(30, TimeUnit.MINUTES));
+                .setFileStatusCacheExpireAfterWrite(new Duration(30, TimeUnit.MINUTES))
+                .setHiveTransactionHeartbeatInterval(new Duration(10, TimeUnit.SECONDS))
+                .setHiveTransactionHeartbeatThreads(10);
 
         assertFullMapping(properties, expected);
     }

@@ -30,6 +30,7 @@ import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 
@@ -117,6 +118,9 @@ public class HiveConfig
     private Duration fileStatusCacheExpireAfterWrite = new Duration(1, TimeUnit.MINUTES);
     private long fileStatusCacheMaxSize = 1000 * 1000;
     private List<String> fileStatusCacheTables = ImmutableList.of();
+
+    private Optional<Duration> hiveTransactionHeartbeatInterval = Optional.empty();
+    private int hiveTransactionHeartbeatThreads = 5;
 
     public int getMaxInitialSplits()
     {
@@ -804,5 +808,32 @@ public class HiveConfig
     public String getTemporaryStagingDirectoryPath()
     {
         return temporaryStagingDirectoryPath;
+    }
+
+    @Config("hive.transaction-heartbeat-interval")
+    @ConfigDescription("Interval after which heartbeat is sent for open Hive transaction")
+    public HiveConfig setHiveTransactionHeartbeatInterval(Duration interval)
+    {
+        this.hiveTransactionHeartbeatInterval = Optional.ofNullable(interval);
+        return this;
+    }
+
+    @NotNull
+    public Optional<Duration> getHiveTransactionHeartbeatInterval()
+    {
+        return hiveTransactionHeartbeatInterval;
+    }
+
+    public int getHiveTransactionHeartbeatThreads()
+    {
+        return hiveTransactionHeartbeatThreads;
+    }
+
+    @Config("hive.transaction-heartbeat-threads")
+    @ConfigDescription("Number of threads to run in the Hive transaction heartbeat service")
+    public HiveConfig setHiveTransactionHeartbeatThreads(int hiveTransactionHeartbeatThreads)
+    {
+        this.hiveTransactionHeartbeatThreads = hiveTransactionHeartbeatThreads;
+        return this;
     }
 }

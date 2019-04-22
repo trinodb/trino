@@ -13,17 +13,21 @@
  */
 package io.prestosql.plugin.hive.metastore.thrift;
 
+import org.apache.hadoop.hive.metastore.api.AllocateTableWriteIdsRequest;
 import org.apache.hadoop.hive.metastore.api.ColumnStatisticsObj;
 import org.apache.hadoop.hive.metastore.api.Database;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
 import org.apache.hadoop.hive.metastore.api.HiveObjectPrivilege;
 import org.apache.hadoop.hive.metastore.api.HiveObjectRef;
+import org.apache.hadoop.hive.metastore.api.LockRequest;
+import org.apache.hadoop.hive.metastore.api.LockResponse;
 import org.apache.hadoop.hive.metastore.api.Partition;
 import org.apache.hadoop.hive.metastore.api.PrincipalType;
 import org.apache.hadoop.hive.metastore.api.PrivilegeBag;
 import org.apache.hadoop.hive.metastore.api.Role;
 import org.apache.hadoop.hive.metastore.api.RolePrincipalGrant;
 import org.apache.hadoop.hive.metastore.api.Table;
+import org.apache.hadoop.hive.metastore.api.TxnToWriteId;
 import org.apache.thrift.TException;
 
 import java.io.Closeable;
@@ -145,6 +149,33 @@ public interface ThriftMetastoreClient
             throws TException;
 
     void setUGI(String userName)
+            throws TException;
+
+    long openTransaction(String user)
+            throws TException;
+
+    void commitTransaction(long transactionId)
+            throws TException;
+
+    void rollbackTransaction(long transactionId)
+            throws TException;
+
+    boolean sendTransactionHeartbeatAndFindIfValid(long transactionId)
+            throws TException;
+
+    LockResponse acquireLock(LockRequest lockRequest)
+            throws TException;
+
+    LockResponse checkLock(long lockId)
+            throws TException;
+
+    String getValidWriteIds(List<String> tableList, long currentTransactionId)
+            throws TException;
+
+    List<TxnToWriteId> allocateTableWriteIds(AllocateTableWriteIdsRequest rqst)
+            throws TException;
+
+    String get_config_value(String name, String defaultValue)
             throws TException;
 
     String getDelegationToken(String userName)

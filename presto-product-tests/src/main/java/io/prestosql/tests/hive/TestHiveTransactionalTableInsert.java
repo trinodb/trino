@@ -22,25 +22,9 @@ import static io.prestosql.tempto.query.QueryExecutor.query;
 import static io.prestosql.tests.utils.QueryExecutors.onHive;
 import static java.util.Locale.ENGLISH;
 
-public class TestHiveTransactionalTable
+public class TestHiveTransactionalTableInsert
         extends ProductTest
 {
-    @Test(dataProvider = "transactionalTableType")
-    public void testSelectFromTransactionalTable(TransactionalTableType type)
-    {
-        String tableName = "test_select_from_transactional_table_" + type.name().toLowerCase(ENGLISH);
-        onHive().executeQuery("" +
-                "CREATE TABLE " + tableName + "(a bigint)" +
-                "CLUSTERED BY(a) INTO 4 BUCKETS STORED AS ORC TBLPROPERTIES (" + type.getTableProperties() + ")");
-        try {
-            assertThat(() -> query("SELECT * FROM " + tableName))
-                    .failsWithMessage("Hive transactional tables are not supported: default." + tableName);
-        }
-        finally {
-            onHive().executeQuery("DROP TABLE " + tableName);
-        }
-    }
-
     @Test(dataProvider = "transactionalTableType")
     public void testInsertIntoTransactionalTable(TransactionalTableType type)
     {

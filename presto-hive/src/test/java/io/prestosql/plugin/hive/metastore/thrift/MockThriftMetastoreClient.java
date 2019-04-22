@@ -19,11 +19,14 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import org.apache.hadoop.hive.metastore.TableType;
 import org.apache.hadoop.hive.metastore.Warehouse;
+import org.apache.hadoop.hive.metastore.api.AllocateTableWriteIdsRequest;
 import org.apache.hadoop.hive.metastore.api.ColumnStatisticsObj;
 import org.apache.hadoop.hive.metastore.api.Database;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
 import org.apache.hadoop.hive.metastore.api.HiveObjectPrivilege;
 import org.apache.hadoop.hive.metastore.api.HiveObjectRef;
+import org.apache.hadoop.hive.metastore.api.LockRequest;
+import org.apache.hadoop.hive.metastore.api.LockResponse;
 import org.apache.hadoop.hive.metastore.api.MetaException;
 import org.apache.hadoop.hive.metastore.api.NoSuchObjectException;
 import org.apache.hadoop.hive.metastore.api.Partition;
@@ -34,6 +37,7 @@ import org.apache.hadoop.hive.metastore.api.RolePrincipalGrant;
 import org.apache.hadoop.hive.metastore.api.SerDeInfo;
 import org.apache.hadoop.hive.metastore.api.StorageDescriptor;
 import org.apache.hadoop.hive.metastore.api.Table;
+import org.apache.hadoop.hive.metastore.api.TxnToWriteId;
 import org.apache.thrift.TException;
 
 import java.util.List;
@@ -391,6 +395,69 @@ public class MockThriftMetastoreClient
     public void setUGI(String userName)
     {
         // No-op
+    }
+
+    @Override
+    public long openTransaction(String user)
+            throws TException
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void commitTransaction(long transactionId)
+            throws TException
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void rollbackTransaction(long transactionId)
+            throws TException
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public boolean sendTransactionHeartbeatAndFindIfValid(long transactionId)
+            throws TException
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public LockResponse acquireLock(LockRequest lockRequest)
+            throws TException
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public LockResponse checkLock(long lockId)
+            throws TException
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public String getValidWriteIds(List<String> tableList, long currentTransactionId)
+            throws TException
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public List<TxnToWriteId> allocateTableWriteIds(AllocateTableWriteIdsRequest rqst)
+            throws TException
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public String get_config_value(String name, String defaultValue)
+            throws TException
+    {
+        throw new UnsupportedOperationException();
     }
 
     @Override

@@ -22,6 +22,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.SetMultimap;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.units.Duration;
+import io.prestosql.plugin.hive.HivePartition;
 import io.prestosql.plugin.hive.HiveType;
 import io.prestosql.plugin.hive.PartitionStatistics;
 import io.prestosql.plugin.hive.authentication.HiveIdentity;
@@ -39,6 +40,7 @@ import io.prestosql.plugin.hive.metastore.Table;
 import io.prestosql.plugin.hive.metastore.TablesWithParameterCacheKey;
 import io.prestosql.plugin.hive.metastore.UserTableKey;
 import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.security.RoleGrant;
 import io.prestosql.spi.statistics.ColumnStatisticType;
 import io.prestosql.spi.type.Type;
@@ -100,6 +102,7 @@ public class CachingHiveMetastore
     private final LoadingCache<UserTableKey, Set<HivePrivilegeInfo>> tablePrivilegesCache;
     private final LoadingCache<String, Set<String>> rolesCache;
     private final LoadingCache<HivePrincipal, Set<RoleGrant>> roleGrantsCache;
+    private final LoadingCache<String, Optional<String>> configValuesCache;
 
     @Inject
     public CachingHiveMetastore(@ForCachingHiveMetastore HiveMetastore delegate, @ForCachingHiveMetastore Executor executor, CachingHiveMetastoreConfig config)
@@ -204,6 +207,9 @@ public class CachingHiveMetastore
 
         roleGrantsCache = newCacheBuilder(expiresAfterWriteMillis, refreshMills, maximumSize)
                 .build(asyncReloading(CacheLoader.from(this::loadRoleGrants), executor));
+
+        configValuesCache = newCacheBuilder(expiresAfterWriteMillis, refreshMills, maximumSize)
+                .build(asyncReloading(CacheLoader.from(this::loadConfigValue), executor));
     }
 
     @Managed
@@ -802,6 +808,53 @@ public class CachingHiveMetastore
     public Set<HivePrivilegeInfo> listTablePrivileges(String databaseName, String tableName, String tableOwner, HivePrincipal principal)
     {
         return get(tablePrivilegesCache, new UserTableKey(principal, databaseName, tableName, tableOwner));
+    }
+
+    @Override
+    public Optional<String> getConfigValue(String name)
+    {
+        return get(configValuesCache, name);
+    }
+
+    private Optional<String> loadConfigValue(String name)
+    {
+        return delegate.getConfigValue(name);
+    }
+
+    @Override
+    public long openTransaction(HiveIdentity identity)
+    {
+        return delegate.openTransaction(identity);
+    }
+
+    @Override
+    public void commitTransaction(HiveIdentity identity, long transactionId)
+    {
+        delegate.commitTransaction(identity, transactionId);
+    }
+
+    @Override
+    public void rollbackTransaction(HiveIdentity identity, long transactionId)
+    {
+        delegate.rollbackTransaction(identity, transactionId);
+    }
+
+    @Override
+    public boolean sendTransactionHeartbeatAndFindIfValid(HiveIdentity identity, long transactionId)
+    {
+        return delegate.sendTransactionHeartbeatAndFindIfValid(identity, transactionId);
+    }
+
+    @Override
+    public void acquireSharedReadLock(HiveIdentity identity, String queryId, long transactionId, List<SchemaTableName> fullTables, List<HivePartition> partitions)
+    {
+        delegate.acquireSharedReadLock(identity, queryId, transactionId, fullTables, partitions);
+    }
+
+    @Override
+    public String getValidWriteIds(HiveIdentity identity, List<SchemaTableName> tables, long currentTransactionId)
+    {
+        return delegate.getValidWriteIds(identity, tables, currentTransactionId);
     }
 
     @Override

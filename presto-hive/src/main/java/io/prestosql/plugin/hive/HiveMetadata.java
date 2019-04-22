@@ -230,7 +230,6 @@ import static java.util.stream.Collectors.toMap;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.hadoop.hive.metastore.TableType.EXTERNAL_TABLE;
 import static org.apache.hadoop.hive.metastore.TableType.MANAGED_TABLE;
-import static org.apache.hadoop.hive.ql.io.AcidUtils.isTransactionalTable;
 
 public class HiveMetadata
         implements TransactionalMetadata
@@ -327,11 +326,6 @@ public class HiveMetadata
         }
 
         verifyOnline(tableName, Optional.empty(), getProtectMode(table.get()), table.get().getParameters());
-
-        if (isTransactionalTable(table.get().getParameters())) {
-            // TODO support reading from transactional tables
-            throw new PrestoException(NOT_SUPPORTED, "Hive transactional tables are not supported: " + tableName);
-        }
 
         return new HiveTableHandle(
                 tableName.getSchemaName(),
@@ -2260,6 +2254,22 @@ public class HiveMetadata
     public void commit()
     {
         metastore.commit();
+    }
+
+    @Override
+    public void beginQuery(ConnectorSession session, Collection<ConnectorTableHandle> tableHandles)
+    {
+        metastore.beginQuery(
+                session,
+                tableHandles.stream()
+                        .map(HiveTableHandle.class::cast)
+                        .collect(toImmutableList()));
+    }
+
+    @Override
+    public void cleanupQuery(ConnectorSession session)
+    {
+        metastore.cleanupQuery(session);
     }
 
     public static Optional<SchemaTableName> getSourceTableNameFromSystemTable(SchemaTableName tableName)
