@@ -29,7 +29,6 @@ import io.prestosql.plugin.hive.HiveSessionProperties.InsertExistingPartitionsBe
 import io.prestosql.spi.connector.CatalogSchemaTableName;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.connector.ConnectorTableLayoutHandle;
 import io.prestosql.spi.connector.Constraint;
 import io.prestosql.spi.security.Identity;
 import io.prestosql.spi.security.SelectedRole;
@@ -158,11 +157,6 @@ public class TestHiveIntegrationSmokeTest
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.bucketedSession = requireNonNull(bucketedSession, "bucketSession is null");
         this.typeTranslator = requireNonNull(typeTranslator, "typeTranslator is null");
-    }
-
-    private List<?> getPartitions(HiveTableLayoutHandle tableLayoutHandle)
-    {
-        return tableLayoutHandle.getPartitions().get();
     }
 
     @Test
@@ -1750,7 +1744,7 @@ public class TestHiveIntegrationSmokeTest
                 });
     }
 
-    private Object getHiveTableProperty(String tableName, Function<HiveTableLayoutHandle, Object> propertyGetter)
+    private Object getHiveTableProperty(String tableName, Function<HiveTableHandle, Object> propertyGetter)
     {
         Session session = getSession();
         Metadata metadata = ((DistributedQueryRunner) getQueryRunner()).getCoordinator().getMetadata();
@@ -1758,27 +1752,24 @@ public class TestHiveIntegrationSmokeTest
         return transaction(getQueryRunner().getTransactionManager(), getQueryRunner().getAccessControl())
                 .readOnly()
                 .execute(session, transactionSession -> {
-                    Optional<TableHandle> tableHandle = metadata.getTableHandle(transactionSession, new QualifiedObjectName(catalog, TPCH_SCHEMA, tableName));
-                    assertTrue(tableHandle.isPresent());
-
-                    ConnectorTableLayoutHandle connectorLayout = metadata.getLayout(transactionSession, tableHandle.get(), Constraint.alwaysTrue(), Optional.empty())
-                            .get()
-                            .getNewTableHandle()
-                            .getLayout()
-                            .get();
-
-                    return propertyGetter.apply((HiveTableLayoutHandle) connectorLayout);
+                    QualifiedObjectName name = new QualifiedObjectName(catalog, TPCH_SCHEMA, tableName);
+                    TableHandle table = metadata.getTableHandle(transactionSession, name)
+                            .orElseThrow(() -> new AssertionError("table not found: " + name));
+                    table = metadata.applyFilter(transactionSession, table, Constraint.alwaysTrue())
+                            .orElseThrow(() -> new AssertionError("applyFilter did not return a result"))
+                            .getHandle();
+                    return propertyGetter.apply((HiveTableHandle) table.getConnectorHandle());
                 });
     }
 
     private List<?> getPartitions(String tableName)
     {
-        return (List<?>) getHiveTableProperty(tableName, (HiveTableLayoutHandle table) -> getPartitions(table));
+        return (List<?>) getHiveTableProperty(tableName, handle -> handle.getPartitions().get());
     }
 
     private int getBucketCount(String tableName)
     {
-        return (int) getHiveTableProperty(tableName, (HiveTableLayoutHandle table) -> table.getBucketHandle().get().getTableBucketCount());
+        return (int) getHiveTableProperty(tableName, table -> table.getBucketHandle().get().getTableBucketCount());
     }
 
     @Test

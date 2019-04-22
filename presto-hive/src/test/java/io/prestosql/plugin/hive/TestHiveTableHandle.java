@@ -13,8 +13,11 @@
  */
 package io.prestosql.plugin.hive;
 
+import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonCodec;
 import org.testng.annotations.Test;
+
+import java.util.Optional;
 
 import static org.testng.Assert.assertEquals;
 
@@ -25,7 +28,7 @@ public class TestHiveTableHandle
     @Test
     public void testRoundTrip()
     {
-        HiveTableHandle expected = new HiveTableHandle("schema", "table");
+        HiveTableHandle expected = new HiveTableHandle("schema", "table", ImmutableList.of(), Optional.empty());
 
         String json = codec.toJson(expected);
         HiveTableHandle actual = codec.fromJson(json);
