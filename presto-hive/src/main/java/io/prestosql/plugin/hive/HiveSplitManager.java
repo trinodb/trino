@@ -218,7 +218,8 @@ public class HiveSplitManager
                 directoryLister,
                 executor,
                 splitLoaderConcurrency,
-                recursiveDfsWalkerEnabled);
+                recursiveDfsWalkerEnabled,
+                metastore.getValidWriteIds(session, hiveTable));
 
         HiveSplitSource splitSource;
         switch (splitSchedulingStrategy) {

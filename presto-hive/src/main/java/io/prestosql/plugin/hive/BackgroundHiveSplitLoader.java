@@ -42,6 +42,8 @@ import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.hive.common.ValidTxnWriteIdList;
+import org.apache.hadoop.hive.ql.io.AcidUtils;
 import org.apache.hadoop.hive.ql.io.SymlinkTextInputFormat;
 import org.apache.hadoop.mapred.FileInputFormat;
 import org.apache.hadoop.mapred.FileSplit;
@@ -123,6 +125,7 @@ public class BackgroundHiveSplitLoader
     private final ConnectorSession session;
     private final ConcurrentLazyQueue<HivePartitionMetadata> partitions;
     private final Deque<Iterator<InternalHiveSplit>> fileIterators = new ConcurrentLinkedDeque<>();
+    private final Optional<ValidTxnWriteIdList> validWriteIds;
 
     // Purpose of this lock:
     // * Write lock: when you need a consistent view across partitions, fileIterators, and hiveSplitSource.
@@ -155,7 +158,8 @@ public class BackgroundHiveSplitLoader
             DirectoryLister directoryLister,
             Executor executor,
             int loaderConcurrency,
-            boolean recursiveDirWalkerEnabled)
+            boolean recursiveDirWalkerEnabled,
+            Optional<ValidTxnWriteIdList> validWriteIds)
     {
         this.table = table;
         this.compactEffectivePredicate = compactEffectivePredicate;
@@ -169,6 +173,7 @@ public class BackgroundHiveSplitLoader
         this.executor = executor;
         this.partitions = new ConcurrentLazyQueue<>(partitions);
         this.hdfsContext = new HdfsContext(session, table.getDatabaseName(), table.getTableName());
+        this.validWriteIds = requireNonNull(validWriteIds, "validWriteIds is null");
     }
 
     @Override
@@ -373,6 +378,11 @@ public class BackgroundHiveSplitLoader
             if (tableBucketInfo.isPresent()) {
                 throw new PrestoException(NOT_SUPPORTED, "Presto cannot read bucketed partition in an input format with UseFileSplitsFromInputFormat annotation: " + inputFormat.getClass().getSimpleName());
             }
+
+            if (AcidUtils.isTransactionalTable(table.getParameters())) {
+                throw new PrestoException(NOT_SUPPORTED, "Hive transactional tables in an input format with UseFileSplitsFromInputFormat annotation are not supported: " + inputFormat.getClass().getSimpleName());
+            }
+
             JobConf jobConf = toJobConf(configuration);
             FileInputFormat.setInputPaths(jobConf, path);
             InputSplit[] splits = inputFormat.getSplits(jobConf, 0);
@@ -382,13 +392,52 @@ public class BackgroundHiveSplitLoader
 
         // Bucketed partitions are fully loaded immediately since all files must be loaded to determine the file to bucket mapping
         if (tableBucketInfo.isPresent()) {
+            if (AcidUtils.isTransactionalTable(table.getParameters())) {
+                throw new PrestoException(NOT_SUPPORTED, format("Bucketed Hive transactional tables are not supported: %s.%s", table.getDatabaseName(), table.getTableName()));
+            }
             return hiveSplitSource.addToQueue(getBucketedSplits(path, fs, splitFactory, tableBucketInfo.get(), bucketConversion));
         }
 
         // S3 Select pushdown works at the granularity of individual S3 objects,
         // therefore we must not split files when it is enabled.
         boolean splittable = getHeaderCount(schema) == 0 && getFooterCount(schema) == 0 && !s3SelectPushdownEnabled;
-        fileIterators.addLast(createInternalHiveSplitIterator(path, fs, splitFactory, splittable));
+        if (!AcidUtils.isTransactionalTable(table.getParameters())) {
+            fileIterators.addLast(createInternalHiveSplitIterator(path, fs, splitFactory, splittable));
+            return COMPLETED_FUTURE;
+        }
+
+        if (AcidUtils.isFullAcidTable(table.getParameters())) {
+            throw new PrestoException(NOT_SUPPORTED, format("Full ACID tables are not supported: %s.%s", table.getDatabaseName(), table.getTableName()));
+        }
+
+        // Now we should only have insert only table
+        if (!AcidUtils.isInsertOnlyTable(table.getParameters())) {
+            throw new PrestoException(HIVE_INVALID_METADATA, format("Unknown transactional table type [%s] : neither Insert Only nor Full ACID", table.getTableName()));
+        }
+        AcidUtils.Directory directory = AcidUtils.getAcidState(
+                path,
+                configuration,
+                validWriteIds.orElseThrow(() -> new IllegalStateException("No validWriteIds present"))
+                        .getTableValidWriteIdList(table.getDatabaseName() + "." + table.getTableName()),
+                false,
+                true);
+
+        if (!directory.getOriginalFiles().isEmpty()) {
+            throw new PrestoException(
+                    NOT_SUPPORTED,
+                    format("%s.%s table has files in non-acid form which is not yet supported in ACID tables", table.getSchemaTableName().getSchemaName(), table.getTableName()));
+        }
+
+        // delta directories
+        for (AcidUtils.ParsedDelta delta : directory.getCurrentDirectories()) {
+            fileIterators.addLast(createInternalHiveSplitIterator(delta.getPath(), fs, splitFactory, splittable));
+        }
+
+        // base
+        if (directory.getBaseDirectory() != null) {
+            fileIterators.addLast(createInternalHiveSplitIterator(directory.getBaseDirectory(), fs, splitFactory, splittable));
+        }
+
         return COMPLETED_FUTURE;
     }
 
