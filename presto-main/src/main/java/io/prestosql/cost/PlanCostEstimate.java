@@ -23,6 +23,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Double.NaN;
 import static java.lang.Double.POSITIVE_INFINITY;
 import static java.lang.Double.isNaN;
+import static java.util.Objects.requireNonNull;
 
 public final class PlanCostEstimate
 {
@@ -34,6 +35,7 @@ public final class PlanCostEstimate
     private final double maxMemory;
     private final double maxMemoryWhenOutputting;
     private final double networkCost;
+    private final LocalCostEstimate rootNodeLocalCostEstimate;
 
     public static PlanCostEstimate infinite()
     {
@@ -50,12 +52,22 @@ public final class PlanCostEstimate
         return ZERO;
     }
 
+    public PlanCostEstimate(
+            double cpuCost,
+            double maxMemory,
+            double maxMemoryWhenOutputting,
+            double networkCost)
+    {
+        this(cpuCost, maxMemory, maxMemoryWhenOutputting, networkCost, LocalCostEstimate.unknown());
+    }
+
     @JsonCreator
     public PlanCostEstimate(
             @JsonProperty("cpuCost") double cpuCost,
             @JsonProperty("maxMemory") double maxMemory,
             @JsonProperty("maxMemoryWhenOutputting") double maxMemoryWhenOutputting,
-            @JsonProperty("networkCost") double networkCost)
+            @JsonProperty("networkCost") double networkCost,
+            @JsonProperty("rootNodeLocalCostEstimate") LocalCostEstimate rootNodeLocalCostEstimate)
     {
         checkArgument(!(cpuCost < 0), "cpuCost cannot be negative: %s", cpuCost);
         checkArgument(!(maxMemory < 0), "maxMemory cannot be negative: %s", maxMemory);
@@ -66,6 +78,7 @@ public final class PlanCostEstimate
         this.maxMemory = maxMemory;
         this.maxMemoryWhenOutputting = maxMemoryWhenOutputting;
         this.networkCost = networkCost;
+        this.rootNodeLocalCostEstimate = requireNonNull(rootNodeLocalCostEstimate, "rootNodeLocalCostEstimate is null");
     }
 
     /**
@@ -115,6 +128,15 @@ public final class PlanCostEstimate
     }
 
     /**
+     * Returns local cost estimate for the root plan node.
+     */
+    @JsonProperty
+    public LocalCostEstimate getRootNodeLocalCostEstimate()
+    {
+        return rootNodeLocalCostEstimate;
+    }
+
+    /**
      * Returns true if this cost has unknown components.
      */
     public boolean hasUnknownComponents()
@@ -130,6 +152,7 @@ public final class PlanCostEstimate
                 .add("memory", maxMemory)
                 // maxMemoryWhenOutputting is not that useful in toString
                 .add("network", networkCost)
+                .add("rootNodeLocalCostEstimate", rootNodeLocalCostEstimate)
                 .toString();
     }
 
@@ -146,12 +169,13 @@ public final class PlanCostEstimate
         return Double.compare(that.cpuCost, cpuCost) == 0 &&
                 Double.compare(that.maxMemory, maxMemory) == 0 &&
                 Double.compare(that.maxMemoryWhenOutputting, maxMemoryWhenOutputting) == 0 &&
-                Double.compare(that.networkCost, networkCost) == 0;
+                Double.compare(that.networkCost, networkCost) == 0 &&
+                Objects.equals(rootNodeLocalCostEstimate, that.rootNodeLocalCostEstimate);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(cpuCost, maxMemory, maxMemoryWhenOutputting, networkCost);
+        return Objects.hash(cpuCost, maxMemory, maxMemoryWhenOutputting, networkCost, rootNodeLocalCostEstimate);
     }
 }

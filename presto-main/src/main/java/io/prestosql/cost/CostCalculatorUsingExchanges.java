@@ -305,7 +305,7 @@ public class CostCalculatorUsingExchanges
         private PlanCostEstimate costForSource(PlanNode node, LocalCostEstimate localCost)
         {
             verify(node.getSources().isEmpty(), "Unexpected sources for %s: %s", node, node.getSources());
-            return new PlanCostEstimate(localCost.getCpuCost(), localCost.getMaxMemory(), localCost.getMaxMemory(), localCost.getNetworkCost());
+            return new PlanCostEstimate(localCost.getCpuCost(), localCost.getMaxMemory(), localCost.getMaxMemory(), localCost.getNetworkCost(), localCost);
         }
 
         private PlanCostEstimate costForAccumulation(PlanNode node, LocalCostEstimate localCost)
@@ -318,7 +318,8 @@ public class CostCalculatorUsingExchanges
                             sourcesCost.getMaxMemory(), // Accumulating operator allocates insignificant amount of memory (usually none) before first input page is received
                             sourcesCost.getMaxMemoryWhenOutputting() + localCost.getMaxMemory()),
                     localCost.getMaxMemory(), // Source freed its memory allocations when finished its output
-                    sourcesCost.getNetworkCost() + localCost.getNetworkCost());
+                    sourcesCost.getNetworkCost() + localCost.getNetworkCost(),
+                    localCost);
         }
 
         private PlanCostEstimate costForStreaming(PlanNode node, LocalCostEstimate localCost)
@@ -331,7 +332,8 @@ public class CostCalculatorUsingExchanges
                             sourcesCost.getMaxMemory(), // Streaming operator allocates insignificant amount of memory (usually none) before first input page is received
                             sourcesCost.getMaxMemoryWhenOutputting() + localCost.getMaxMemory()),
                     sourcesCost.getMaxMemoryWhenOutputting() + localCost.getMaxMemory(),
-                    sourcesCost.getNetworkCost() + localCost.getNetworkCost());
+                    sourcesCost.getNetworkCost() + localCost.getNetworkCost(),
+                    localCost);
         }
 
         private PlanCostEstimate costForLookupJoin(PlanNode node, LocalCostEstimate localCost)
@@ -348,7 +350,8 @@ public class CostCalculatorUsingExchanges
                             probeCost.getMaxMemory() + buildCost.getMaxMemory(), // Probe and build execute independently, so their max memory allocations can be realized at the same time
                             probeCost.getMaxMemory() + buildCost.getMaxMemoryWhenOutputting() + localCost.getMaxMemory()),
                     probeCost.getMaxMemoryWhenOutputting() + localCost.getMaxMemory(), // Build side finished and freed its memory allocations
-                    probeCost.getNetworkCost() + buildCost.getNetworkCost() + localCost.getNetworkCost());
+                    probeCost.getNetworkCost() + buildCost.getNetworkCost() + localCost.getNetworkCost(),
+                    localCost);
         }
 
         private PlanNodeStatsEstimate getStats(PlanNode node)

@@ -13,8 +13,11 @@
  */
 package io.prestosql.cost;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import io.prestosql.sql.planner.plan.PlanNode;
 
+import java.util.Objects;
 import java.util.stream.Stream;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -54,23 +57,30 @@ public class LocalCostEstimate
         return new LocalCostEstimate(cpuCost, maxMemory, networkCost);
     }
 
-    private LocalCostEstimate(double cpuCost, double maxMemory, double networkCost)
+    @JsonCreator
+    public LocalCostEstimate(
+            @JsonProperty("cpuCost") double cpuCost,
+            @JsonProperty("maxMemory") double maxMemory,
+            @JsonProperty("networkCost") double networkCost)
     {
         this.cpuCost = cpuCost;
         this.maxMemory = maxMemory;
         this.networkCost = networkCost;
     }
 
+    @JsonProperty
     public double getCpuCost()
     {
         return cpuCost;
     }
 
+    @JsonProperty
     public double getMaxMemory()
     {
         return maxMemory;
     }
 
+    @JsonProperty
     public double getNetworkCost()
     {
         return networkCost;
@@ -82,7 +92,7 @@ public class LocalCostEstimate
     @Deprecated
     public PlanCostEstimate toPlanCost()
     {
-        return new PlanCostEstimate(cpuCost, maxMemory, maxMemory, networkCost);
+        return new PlanCostEstimate(cpuCost, maxMemory, maxMemory, networkCost, this);
     }
 
     @Override
@@ -93,6 +103,27 @@ public class LocalCostEstimate
                 .add("maxMemory", maxMemory)
                 .add("networkCost", networkCost)
                 .toString();
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        LocalCostEstimate that = (LocalCostEstimate) o;
+        return Double.compare(that.cpuCost, cpuCost) == 0 &&
+                Double.compare(that.maxMemory, maxMemory) == 0 &&
+                Double.compare(that.networkCost, networkCost) == 0;
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(cpuCost, maxMemory, networkCost);
     }
 
     /**
