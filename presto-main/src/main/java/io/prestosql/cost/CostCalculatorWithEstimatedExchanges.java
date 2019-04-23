@@ -80,7 +80,8 @@ public class CostCalculatorWithEstimatedExchanges
                 // exchange memory allocation will actually be freed before node is outputting. Conservatively we assume the exchanges can still
                 // hold the memory when the node is outputting.
                 costEstimate.getMaxMemoryWhenOutputting() + estimatedExchangeCost.getMaxMemory(),
-                costEstimate.getNetworkCost() + estimatedExchangeCost.getNetworkCost());
+                costEstimate.getNetworkCost() + estimatedExchangeCost.getNetworkCost(),
+                addPartialComponents(costEstimate.getRootNodeLocalCostEstimate(), estimatedExchangeCost));
     }
 
     private static class ExchangeCostEstimator
