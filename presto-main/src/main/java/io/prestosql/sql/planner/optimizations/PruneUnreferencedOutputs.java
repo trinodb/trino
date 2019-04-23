@@ -71,7 +71,6 @@ import io.prestosql.sql.planner.plan.UnnestNode;
 import io.prestosql.sql.planner.plan.ValuesNode;
 import io.prestosql.sql.planner.plan.WindowNode;
 import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.FunctionCall;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -405,9 +404,7 @@ public class PruneUnreferencedOutputs
                 WindowNode.Function function = entry.getValue();
 
                 if (context.get().contains(symbol)) {
-                    FunctionCall call = function.getFunctionCall();
-                    expectedInputs.addAll(SymbolsExtractor.extractUnique(call));
-
+                    expectedInputs.addAll(SymbolsExtractor.extractUnique(function));
                     functionsBuilder.put(symbol, entry.getValue());
                 }
             }

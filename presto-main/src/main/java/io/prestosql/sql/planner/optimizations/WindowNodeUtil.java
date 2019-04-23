@@ -27,7 +27,6 @@ public final class WindowNodeUtil
         return parent.getPartitionBy().stream().anyMatch(child.getCreatedSymbols()::contains)
                 || (parent.getOrderingScheme().isPresent() && parent.getOrderingScheme().get().getOrderBy().stream().anyMatch(child.getCreatedSymbols()::contains))
                 || parent.getWindowFunctions().values().stream()
-                .map(WindowNode.Function::getFunctionCall)
                 .map(SymbolsExtractor::extractUnique)
                 .flatMap(Collection::stream)
                 .anyMatch(child.getCreatedSymbols()::contains);

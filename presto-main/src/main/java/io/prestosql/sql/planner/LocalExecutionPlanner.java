@@ -900,10 +900,9 @@ public class LocalExecutionPlanner
 
                 FrameInfo frameInfo = new FrameInfo(frame.getType(), frame.getStartType(), frameStartChannel, frame.getEndType(), frameEndChannel);
 
-                FunctionCall functionCall = entry.getValue().getFunctionCall();
                 Signature signature = entry.getValue().getSignature();
                 ImmutableList.Builder<Integer> arguments = ImmutableList.builder();
-                for (Expression argument : functionCall.getArguments()) {
+                for (Expression argument : entry.getValue().getArguments()) {
                     Symbol argumentSymbol = Symbol.from(argument);
                     arguments.add(source.getLayout().get(argumentSymbol));
                 }

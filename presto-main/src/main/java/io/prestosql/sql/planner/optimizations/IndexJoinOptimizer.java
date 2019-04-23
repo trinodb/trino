@@ -24,6 +24,7 @@ import io.prestosql.Session;
 import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.ResolvedIndex;
+import io.prestosql.metadata.Signature;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.sql.planner.DomainTranslator;
@@ -45,8 +46,10 @@ import io.prestosql.sql.planner.plan.SimplePlanRewriter;
 import io.prestosql.sql.planner.plan.SortNode;
 import io.prestosql.sql.planner.plan.TableScanNode;
 import io.prestosql.sql.planner.plan.WindowNode;
+import io.prestosql.sql.planner.plan.WindowNode.Function;
 import io.prestosql.sql.tree.BooleanLiteral;
 import io.prestosql.sql.tree.Expression;
+import io.prestosql.sql.tree.QualifiedName;
 import io.prestosql.sql.tree.SymbolReference;
 import io.prestosql.sql.tree.WindowFrame;
 
@@ -349,7 +352,9 @@ public class IndexJoinOptimizer
         public PlanNode visitWindow(WindowNode node, RewriteContext<Context> context)
         {
             if (!node.getWindowFunctions().values().stream()
-                    .map(function -> function.getFunctionCall().getName())
+                    .map(Function::getSignature)
+                    .map(Signature::getName)
+                    .map(QualifiedName::of)
                     .allMatch(metadata::isAggregationFunction)) {
                 return node;
             }

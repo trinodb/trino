@@ -60,9 +60,7 @@ public class PruneWindowColumns
         windowNode.getHashSymbol().ifPresent(referencedInputs::add);
 
         for (WindowNode.Function windowFunction : referencedFunctions.values()) {
-            referencedInputs.addAll(SymbolsExtractor.extractUnique(windowFunction.getFunctionCall()));
-            windowFunction.getFrame().getStartValue().ifPresent(referencedInputs::add);
-            windowFunction.getFrame().getEndValue().ifPresent(referencedInputs::add);
+            referencedInputs.addAll(SymbolsExtractor.extractUnique(windowFunction));
         }
 
         PlanNode prunedWindowNode = new WindowNode(

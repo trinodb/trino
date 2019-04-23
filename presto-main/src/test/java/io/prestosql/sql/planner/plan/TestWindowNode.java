@@ -32,7 +32,6 @@ import io.prestosql.sql.planner.SymbolAllocator;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.FrameBound;
 import io.prestosql.sql.tree.FunctionCall;
-import io.prestosql.sql.tree.QualifiedName;
 import io.prestosql.sql.tree.WindowFrame;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -97,7 +96,6 @@ public class TestWindowNode
                 BIGINT.getTypeSignature(),
                 ImmutableList.of(BIGINT.getTypeSignature()),
                 false);
-        FunctionCall functionCall = new FunctionCall(QualifiedName.of("sum"), ImmutableList.of(columnC.toSymbolReference()));
         WindowNode.Frame frame = new WindowNode.Frame(
                 WindowFrame.Type.RANGE,
                 FrameBound.Type.UNBOUNDED_PRECEDING,
@@ -113,7 +111,7 @@ public class TestWindowNode
                 Optional.of(new OrderingScheme(
                         ImmutableList.of(columnB),
                         ImmutableMap.of(columnB, SortOrder.ASC_NULLS_FIRST))));
-        Map<Symbol, WindowNode.Function> functions = ImmutableMap.of(windowSymbol, new WindowNode.Function(functionCall, signature, frame));
+        Map<Symbol, WindowNode.Function> functions = ImmutableMap.of(windowSymbol, new WindowNode.Function(signature, ImmutableList.of(columnC.toSymbolReference()), frame));
         Optional<Symbol> hashSymbol = Optional.of(columnB);
         Set<Symbol> prePartitionedInputs = ImmutableSet.of(columnA);
         WindowNode windowNode = new WindowNode(

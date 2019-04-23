@@ -24,7 +24,6 @@ import io.prestosql.sql.planner.OrderingScheme;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.FrameBound;
-import io.prestosql.sql.tree.FunctionCall;
 import io.prestosql.sql.tree.WindowFrame;
 
 import javax.annotation.concurrent.Immutable;
@@ -325,31 +324,31 @@ public class WindowNode
     @Immutable
     public static final class Function
     {
-        private final FunctionCall functionCall;
         private final Signature signature;
+        private final List<Expression> arguments;
         private final Frame frame;
 
         @JsonCreator
         public Function(
-                @JsonProperty("functionCall") FunctionCall functionCall,
                 @JsonProperty("signature") Signature signature,
+                @JsonProperty("arguments") List<Expression> arguments,
                 @JsonProperty("frame") Frame frame)
         {
-            this.functionCall = requireNonNull(functionCall, "functionCall is null");
             this.signature = requireNonNull(signature, "Signature is null");
+            this.arguments = requireNonNull(arguments, "arguments is null");
             this.frame = requireNonNull(frame, "Frame is null");
-        }
-
-        @JsonProperty
-        public FunctionCall getFunctionCall()
-        {
-            return functionCall;
         }
 
         @JsonProperty
         public Signature getSignature()
         {
             return signature;
+        }
+
+        @JsonProperty
+        public List<Expression> getArguments()
+        {
+            return arguments;
         }
 
         @JsonProperty
@@ -361,7 +360,7 @@ public class WindowNode
         @Override
         public int hashCode()
         {
-            return Objects.hash(functionCall, signature, frame);
+            return Objects.hash(signature, arguments, frame);
         }
 
         @Override
@@ -374,8 +373,8 @@ public class WindowNode
                 return false;
             }
             Function other = (Function) obj;
-            return Objects.equals(this.functionCall, other.functionCall) &&
-                    Objects.equals(this.signature, other.signature) &&
+            return Objects.equals(this.signature, other.signature) &&
+                    Objects.equals(this.arguments, other.arguments) &&
                     Objects.equals(this.frame, other.frame);
         }
     }

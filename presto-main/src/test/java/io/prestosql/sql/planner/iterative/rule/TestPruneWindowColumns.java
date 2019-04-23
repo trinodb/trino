@@ -30,8 +30,6 @@ import io.prestosql.sql.planner.iterative.rule.test.PlanBuilder;
 import io.prestosql.sql.planner.plan.Assignments;
 import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.WindowNode;
-import io.prestosql.sql.tree.FunctionCall;
-import io.prestosql.sql.tree.QualifiedName;
 import io.prestosql.sql.tree.WindowFrame;
 import org.testng.annotations.Test;
 
@@ -220,8 +218,8 @@ public class TestPruneWindowColumns
                         ImmutableMap.of(
                                 output1,
                                 new WindowNode.Function(
-                                        new FunctionCall(QualifiedName.of("min"), ImmutableList.of(input1.toSymbolReference())),
                                         signature,
+                                        ImmutableList.of(input1.toSymbolReference()),
                                         new WindowNode.Frame(
                                                 WindowFrame.Type.RANGE,
                                                 UNBOUNDED_PRECEDING,
@@ -232,8 +230,8 @@ public class TestPruneWindowColumns
                                                 Optional.of(endValue2.toSymbolReference()))),
                                 output2,
                                 new WindowNode.Function(
-                                        new FunctionCall(QualifiedName.of("min"), ImmutableList.of(input2.toSymbolReference())),
                                         signature,
+                                        ImmutableList.of(input2.toSymbolReference()),
                                         new WindowNode.Frame(
                                                 WindowFrame.Type.RANGE,
                                                 UNBOUNDED_PRECEDING,

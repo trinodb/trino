@@ -33,10 +33,7 @@ import io.prestosql.sql.planner.plan.ProjectNode;
 import io.prestosql.sql.planner.plan.WindowNode;
 import io.prestosql.sql.tree.ComparisonExpression;
 import io.prestosql.sql.tree.FrameBound;
-import io.prestosql.sql.tree.FunctionCall;
 import io.prestosql.sql.tree.GenericLiteral;
-import io.prestosql.sql.tree.QualifiedName;
-import io.prestosql.sql.tree.Window;
 import io.prestosql.sql.tree.WindowFrame;
 
 import java.util.Optional;
@@ -80,16 +77,6 @@ public class ImplementLimitWithTies
         PlanNode child = captures.get(CHILD);
         Symbol rankSymbol = context.getSymbolAllocator().newSymbol("rank_num", BIGINT);
 
-        FunctionCall functionCall = new FunctionCall(
-                QualifiedName.of("rank"),
-                Optional.of(
-                        new Window(
-                                ImmutableList.of(),
-                                Optional.empty(),
-                                Optional.empty())),
-                false,
-                ImmutableList.of());
-
         Signature signature = new Signature(
                 "rank",
                 FunctionKind.WINDOW,
@@ -106,8 +93,8 @@ public class ImplementLimitWithTies
                 Optional.empty());
 
         WindowNode.Function rankFunction = new WindowNode.Function(
-                functionCall,
                 signature,
+                ImmutableList.of(),
                 frame);
 
         WindowNode windowNode = new WindowNode(

@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableSet;
 import io.prestosql.sql.planner.iterative.Lookup;
 import io.prestosql.sql.planner.plan.AggregationNode.Aggregation;
 import io.prestosql.sql.planner.plan.PlanNode;
+import io.prestosql.sql.planner.plan.WindowNode;
 import io.prestosql.sql.tree.DefaultExpressionTraversalVisitor;
 import io.prestosql.sql.tree.DefaultTraversalVisitor;
 import io.prestosql.sql.tree.DereferenceExpression;
@@ -84,6 +85,11 @@ public final class SymbolsExtractor
         return ImmutableSet.copyOf(extractAll(aggregation));
     }
 
+    public static Set<Symbol> extractUnique(WindowNode.Function function)
+    {
+        return ImmutableSet.copyOf(extractAll(function));
+    }
+
     public static List<Symbol> extractAll(Expression expression)
     {
         ImmutableList.Builder<Symbol> builder = ImmutableList.builder();
@@ -99,6 +105,17 @@ public final class SymbolsExtractor
         }
         aggregation.getFilter().ifPresent(builder::add);
         aggregation.getOrderingScheme().ifPresent(orderBy -> builder.addAll(orderBy.getOrderBy()));
+        return builder.build();
+    }
+
+    public static List<Symbol> extractAll(WindowNode.Function function)
+    {
+        ImmutableList.Builder<Symbol> builder = ImmutableList.builder();
+        for (Expression argument : function.getArguments()) {
+            builder.addAll(extractAll(argument));
+        }
+        function.getFrame().getEndValue().ifPresent(builder::add);
+        function.getFrame().getStartValue().ifPresent(builder::add);
         return builder.build();
     }
 

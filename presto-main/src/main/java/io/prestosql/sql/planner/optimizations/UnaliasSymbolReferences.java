@@ -76,7 +76,6 @@ import io.prestosql.sql.planner.plan.WindowNode;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.ExpressionRewriter;
 import io.prestosql.sql.tree.ExpressionTreeRewriter;
-import io.prestosql.sql.tree.FunctionCall;
 import io.prestosql.sql.tree.NullLiteral;
 import io.prestosql.sql.tree.SymbolReference;
 
@@ -196,11 +195,11 @@ public class UnaliasSymbolReferences
             for (Map.Entry<Symbol, WindowNode.Function> entry : node.getWindowFunctions().entrySet()) {
                 Symbol symbol = entry.getKey();
 
-                FunctionCall canonicalFunctionCall = (FunctionCall) canonicalize(entry.getValue().getFunctionCall());
                 Signature signature = entry.getValue().getSignature();
+                List<Expression> arguments = canonicalize(entry.getValue().getArguments());
                 WindowNode.Frame canonicalFrame = canonicalize(entry.getValue().getFrame());
 
-                functions.put(canonicalize(symbol), new WindowNode.Function(canonicalFunctionCall, signature, canonicalFrame));
+                functions.put(canonicalize(symbol), new WindowNode.Function(signature, arguments, canonicalFrame));
             }
 
             return new WindowNode(
