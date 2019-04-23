@@ -368,7 +368,7 @@ public class PostgreSqlClient
 
     private static Slice jsonParse(Slice slice)
     {
-        try (JsonParser parser = createJsonParser(JSON_FACTORY, slice)) {
+        try (JsonParser parser = createJsonParser(slice)) {
             byte[] in = slice.getBytes();
             SliceOutput dynamicSliceOutput = new DynamicSliceOutput(in.length);
             SORTED_MAPPER.writeValue((OutputStream) dynamicSliceOutput, SORTED_MAPPER.readValue(parser, Object.class));
@@ -382,11 +382,11 @@ public class PostgreSqlClient
         }
     }
 
-    private static JsonParser createJsonParser(JsonFactory factory, Slice json)
+    private static JsonParser createJsonParser(Slice json)
             throws IOException
     {
         // Jackson tries to detect the character encoding automatically when using InputStream
         // so we pass an InputStreamReader instead.
-        return factory.createParser(new InputStreamReader(json.getInput(), UTF_8));
+        return JSON_FACTORY.createParser(new InputStreamReader(json.getInput(), UTF_8));
     }
 }
