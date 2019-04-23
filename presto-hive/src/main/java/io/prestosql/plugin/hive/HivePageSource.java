@@ -15,6 +15,7 @@ package io.prestosql.plugin.hive;
 
 import io.prestosql.plugin.hive.HivePageSourceProvider.BucketAdaptation;
 import io.prestosql.plugin.hive.HivePageSourceProvider.ColumnMapping;
+import io.prestosql.plugin.hive.coercions.DoubleToFloatCoercer;
 import io.prestosql.plugin.hive.coercions.FloatToDoubleCoercer;
 import io.prestosql.plugin.hive.coercions.IntegerNumberToVarcharCoercer;
 import io.prestosql.plugin.hive.coercions.IntegerNumberUpscaleCoercer;
@@ -344,6 +345,9 @@ public class HivePageSource
         }
         if (fromHiveType.equals(HIVE_FLOAT) && toHiveType.equals(HIVE_DOUBLE)) {
             return new FloatToDoubleCoercer();
+        }
+        if (fromHiveType.equals(HIVE_DOUBLE) && toHiveType.equals(HIVE_FLOAT)) {
+            return new DoubleToFloatCoercer();
         }
         if (fromType instanceof DecimalType && toType instanceof DecimalType) {
             return createDecimalToDecimalCoercer((DecimalType) fromType, (DecimalType) toType);

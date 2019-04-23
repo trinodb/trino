@@ -71,7 +71,7 @@ public class HiveCoercionPolicy
             return toHiveType.equals(HIVE_DOUBLE) || toType instanceof DecimalType;
         }
         if (fromHiveType.equals(HIVE_DOUBLE)) {
-            return toType instanceof DecimalType;
+            return toHiveType.equals(HIVE_FLOAT) || toType instanceof DecimalType;
         }
         if (fromType instanceof DecimalType) {
             return toType instanceof DecimalType || toHiveType.equals(HIVE_FLOAT) || toHiveType.equals(HIVE_DOUBLE);
