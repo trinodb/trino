@@ -96,7 +96,7 @@ public class PostgreSqlClient
 {
     private static final String DUPLICATE_TABLE_SQLSTATE = "42P07";
 
-    protected final Type jsonType;
+    private final Type jsonType;
 
     @Inject
     public PostgreSqlClient(BaseJdbcConfig config, TypeManager typeManager)
@@ -366,7 +366,7 @@ public class PostgreSqlClient
 
     private static final ObjectMapper SORTED_MAPPER = new ObjectMapperProvider().get().configure(ORDER_MAP_ENTRIES_BY_KEYS, true);
 
-    public static Slice jsonParse(Slice slice)
+    private static Slice jsonParse(Slice slice)
     {
         try (JsonParser parser = createJsonParser(JSON_FACTORY, slice)) {
             byte[] in = slice.getBytes();
@@ -382,7 +382,7 @@ public class PostgreSqlClient
         }
     }
 
-    public static JsonParser createJsonParser(JsonFactory factory, Slice json)
+    private static JsonParser createJsonParser(JsonFactory factory, Slice json)
             throws IOException
     {
         // Jackson tries to detect the character encoding automatically when using InputStream
