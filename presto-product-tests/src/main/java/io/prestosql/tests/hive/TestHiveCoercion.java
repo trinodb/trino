@@ -33,6 +33,7 @@ import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
 import java.sql.Connection;
+import java.sql.JDBCType;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -61,6 +62,7 @@ import static java.sql.JDBCType.DECIMAL;
 import static java.sql.JDBCType.DOUBLE;
 import static java.sql.JDBCType.INTEGER;
 import static java.sql.JDBCType.JAVA_OBJECT;
+import static java.sql.JDBCType.REAL;
 import static java.sql.JDBCType.SMALLINT;
 import static java.sql.JDBCType.VARCHAR;
 import static java.util.stream.Collectors.toList;
@@ -96,7 +98,7 @@ public class TestHiveCoercion
     private static HiveTableDefinition.HiveTableDefinitionBuilder tableDefinitionBuilder(String fileFormat, Optional<String> recommendTableName, Optional<String> rowFormat)
     {
         String tableName = format("%s_hive_coercion", recommendTableName.orElse(fileFormat).toLowerCase(Locale.ENGLISH));
-        String floatToDoubleType = fileFormat.toLowerCase(Locale.ENGLISH).contains("parquet") ? "DOUBLE" : "FLOAT";
+        String floatType = fileFormat.toLowerCase(Locale.ENGLISH).contains("parquet") ? "DOUBLE" : "FLOAT";
         return HiveTableDefinition.builder(tableName)
                 .setCreateTableDDLTemplate("" +
                         "CREATE TABLE %NAME%(" +
@@ -107,15 +109,19 @@ public class TestHiveCoercion
                         "    smallint_to_bigint         SMALLINT," +
                         "    int_to_bigint              INT," +
                         "    bigint_to_varchar          BIGINT," +
-                        "    float_to_double            " + floatToDoubleType + "," +
+                        "    float_to_double            " + floatType + "," +
                         "    shortdecimal_to_shortdecimal          DECIMAL(10,2)," +
                         "    shortdecimal_to_longdecimal          DECIMAL(10,2)," +
                         "    longdecimal_to_shortdecimal          DECIMAL(20,12)," +
                         "    longdecimal_to_longdecimal          DECIMAL(20,12)," +
+                        "    float_to_decimal            " + floatType + "," +
+                        "    double_to_decimal           DOUBLE," +
+                        "    decimal_to_float            DECIMAL(10,5)," +
+                        "    decimal_to_double           DECIMAL(10,5)," +
                         // all nested primitive/varchar coercions and adding/removing tailing nested fields are covered across row_to_row, list_to_list, and map_to_map
                         "    row_to_row                 STRUCT<keep: STRING, ti2si: TINYINT, si2int: SMALLINT, int2bi: INT, bi2vc: BIGINT>," +
                         "    list_to_list               ARRAY<STRUCT<ti2int: TINYINT, si2bi: SMALLINT, bi2vc: BIGINT, remove: STRING>>," +
-                        "    map_to_map                 MAP<TINYINT, STRUCT<ti2bi: TINYINT, int2bi: INT, float2double: " + floatToDoubleType + ">>" +
+                        "    map_to_map                 MAP<TINYINT, STRUCT<ti2bi: TINYINT, int2bi: INT, float2double: " + floatType + ">>" +
                         ") " +
                         "PARTITIONED BY (id BIGINT) " +
                         rowFormat.map(s -> format("ROW FORMAT %s ", s)).orElse("") +
@@ -263,27 +269,29 @@ public class TestHiveCoercion
         String tableName = mutableTableInstanceOf(tableDefinition).getNameInDatabase();
 
         String floatToDoubleType = tableName.toLowerCase(Locale.ENGLISH).contains("parquet") ? "DOUBLE" : "REAL";
+        String floatToDecimalVal = tableName.toLowerCase(Locale.ENGLISH).contains("parquet") ? "12345.12345" : "12345.12300";
+        String decimalToFloatVal = tableName.toLowerCase(Locale.ENGLISH).contains("parquet") ? "12345.12345" : "12345.124";
 
         query(format(
                 "INSERT INTO %s\n" +
                         "VALUES\n" +
-                        "  (TINYINT '-1', TINYINT '2', TINYINT '-3', SMALLINT '100', SMALLINT '-101', INTEGER '2323', 12345, REAL '0.5', DECIMAL '12345678.12', DECIMAL '12345678.12', DECIMAL '12345678.123456123456', DECIMAL '12345678.123456123456',\n" +
+                        "  (TINYINT '-1', TINYINT '2', TINYINT '-3', SMALLINT '100', SMALLINT '-101', INTEGER '2323', 12345, REAL '0.5', DECIMAL '12345678.12', DECIMAL '12345678.12', DECIMAL '12345678.123456123456', DECIMAL '12345678.123456123456', %s '12345.12345', DOUBLE '12345.12345', DECIMAL '12345.12345', DECIMAL '12345.12345',\n" +
                         "    CAST(ROW ('as is', -1, 100, 2323, 12345) AS ROW(keep VARCHAR, ti2si TINYINT, si2int SMALLINT, int2bi INTEGER, bi2vc BIGINT)),\n" +
                         "    ARRAY [CAST(ROW (2, -101, 12345, 'removed') AS ROW (ti2int TINYINT, si2bi SMALLINT, bi2vc BIGINT, remove VARCHAR))],\n" +
                         "    MAP (ARRAY [TINYINT '2'], ARRAY [CAST(ROW (-3, 2323, REAL '0.5') AS ROW (ti2bi TINYINT, int2bi INTEGER, float2double %s))]),\n" +
                         "    1),\n" +
-                        "  (TINYINT '1', TINYINT '-2', NULL, SMALLINT '-100', SMALLINT '101', INTEGER '-2323', -12345, REAL '-1.5', DECIMAL '-12345678.12', DECIMAL '-12345678.12', DECIMAL '-12345678.123456123456', DECIMAL '-12345678.123456123456',\n" +
+                        "  (TINYINT '1', TINYINT '-2', NULL, SMALLINT '-100', SMALLINT '101', INTEGER '-2323', -12345, REAL '-1.5', DECIMAL '-12345678.12', DECIMAL '-12345678.12', DECIMAL '-12345678.123456123456', DECIMAL '-12345678.123456123456', %s '-12345.12345', DOUBLE '-12345.12345', DECIMAL '-12345.12345', DECIMAL '-12345.12345',\n" +
                         "    CAST(ROW (NULL, 1, -100, -2323, -12345) AS ROW(keep VARCHAR, ti2si TINYINT, si2int SMALLINT, int2bi INTEGER, bi2vc BIGINT)),\n" +
                         "    ARRAY [CAST(ROW (-2, 101, -12345, NULL) AS ROW (ti2int TINYINT, si2bi SMALLINT, bi2vc BIGINT, remove VARCHAR))],\n" +
                         "    MAP (ARRAY [TINYINT '-2'], ARRAY [CAST(ROW (null, -2323, REAL '-1.5') AS ROW (ti2bi TINYINT, int2bi INTEGER, float2double %s))]),\n" +
                         "    1)",
-                tableName, floatToDoubleType, floatToDoubleType));
+                tableName, floatToDoubleType, floatToDoubleType, floatToDoubleType, floatToDoubleType));
 
         alterTableColumnTypes(tableName);
         assertProperAlteredTableSchema(tableName);
 
         QueryResult queryResult = query(format("SELECT * FROM %s", tableName));
-        assertColumnTypes(queryResult);
+        assertColumnTypes(queryResult, tableName);
         List<Row> expectedRows;
         Connection connection = defaultQueryExecutor().getConnection();
         if (usingPrestoJdbcDriver(connection)) {
@@ -301,6 +309,10 @@ public class TestHiveCoercion
                             new BigDecimal("12345678.1200"),
                             new BigDecimal("12345678.12"),
                             new BigDecimal("12345678.12345612345600"),
+                            new BigDecimal(floatToDecimalVal),
+                            new BigDecimal("12345.12345"),
+                            Float.parseFloat(decimalToFloatVal),
+                            12345.12345,
                             asMap("keep", "as is", "ti2si", (short) -1, "si2int", 100, "int2bi", 2323L, "bi2vc", "12345"),
                             ImmutableList.of(asMap("ti2int", 2, "si2bi", -101L, "bi2vc", "12345")),
                             asMap(2, asMap("ti2bi", -3L, "int2bi", 2323L, "float2double", 0.5, "add", null)),
@@ -318,6 +330,10 @@ public class TestHiveCoercion
                             new BigDecimal("-12345678.1200"),
                             new BigDecimal("-12345678.12"),
                             new BigDecimal("-12345678.12345612345600"),
+                            new BigDecimal("-" + floatToDecimalVal),
+                            new BigDecimal("-12345.12345"),
+                            -Float.parseFloat(decimalToFloatVal),
+                            -12345.12345,
                             asMap("keep", null, "ti2si", (short) 1, "si2int", -100, "int2bi", -2323L, "bi2vc", "-12345"),
                             ImmutableList.of(asMap("ti2int", -2, "si2bi", 101L, "bi2vc", "-12345")),
                             ImmutableMap.of(-2, asMap("ti2bi", null, "int2bi", -2323L, "float2double", -1.5, "add", null)),
@@ -338,6 +354,10 @@ public class TestHiveCoercion
                             12345678.1200,
                             12345678.12,
                             12345678.12345612345600,
+                            Float.parseFloat(floatToDecimalVal),
+                            12345.12345,
+                            Float.parseFloat(decimalToFloatVal),
+                            12345.12345,
                             "[\"as is\",-1,100,2323,\"12345\"]",
                             "[[2,-101,\"12345\"]]",
                             "{\"2\":[-3,2323,0.5,null]}",
@@ -355,6 +375,10 @@ public class TestHiveCoercion
                             -12345678.1200,
                             -12345678.12,
                             -12345678.12345612345600,
+                            -Float.parseFloat(floatToDecimalVal),
+                            -12345.12345,
+                            -Float.parseFloat(decimalToFloatVal),
+                            -12345.12345,
                             "[null,1,-100,-2323,\"-12345\"]",
                             "[[-2,101,\"-12345\"]]",
                             "{\"-2\":[null,-2323,-1.5,null]}",
@@ -364,23 +388,25 @@ public class TestHiveCoercion
             throw new IllegalStateException();
         }
         // test primitive values
-        assertThat(queryResult.project(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 16)).containsOnly(project(expectedRows, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 16));
+        assertThat(queryResult.project(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 20)).containsOnly(project(expectedRows, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 20));
         // test structural values (tempto can't handle map and row)
-        assertEqualsIgnoreOrder(queryResult.column(13), column(expectedRows, 13), "row_to_row field is not equal");
+        assertEqualsIgnoreOrder(queryResult.column(17), column(expectedRows, 17), "row_to_row field is not equal");
         if (usingPrestoJdbcDriver(connection)) {
-            assertEqualsIgnoreOrder(extract(queryResult.column(14)), column(expectedRows, 14), "list_to_list field is not equal");
+            assertEqualsIgnoreOrder(extract(queryResult.column(18)), column(expectedRows, 18), "list_to_list field is not equal");
         }
         else if (usingTeradataJdbcDriver(connection)) {
-            assertEqualsIgnoreOrder(queryResult.column(14), column(expectedRows, 14), "list_to_list field is not equal");
+            assertEqualsIgnoreOrder(queryResult.column(18), column(expectedRows, 18), "list_to_list field is not equal");
         }
         else {
             throw new IllegalStateException();
         }
-        assertEqualsIgnoreOrder(queryResult.column(15), column(expectedRows, 15), "map_to_map field is not equal");
+        assertEqualsIgnoreOrder(queryResult.column(19), column(expectedRows, 19), "map_to_map field is not equal");
     }
 
     private void assertProperAlteredTableSchema(String tableName)
     {
+        String floatType = tableName.toLowerCase(Locale.ENGLISH).contains("parquet") ? "double" : "real";
+
         assertThat(query("SHOW COLUMNS FROM " + tableName).project(1, 2)).containsExactly(
                 row("tinyint_to_smallint", "smallint"),
                 row("tinyint_to_int", "integer"),
@@ -394,14 +420,20 @@ public class TestHiveCoercion
                 row("shortdecimal_to_longdecimal", "decimal(20,4)"),
                 row("longdecimal_to_shortdecimal", "decimal(12,2)"),
                 row("longdecimal_to_longdecimal", "decimal(38,14)"),
+                row("float_to_decimal", "decimal(10,5)"),
+                row("double_to_decimal", "decimal(10,5)"),
+                row("decimal_to_float", floatType),
+                row("decimal_to_double", "double"),
                 row("row_to_row", "row(keep varchar, ti2si smallint, si2int integer, int2bi bigint, bi2vc varchar)"),
                 row("list_to_list", "array(row(ti2int integer, si2bi bigint, bi2vc varchar))"),
                 row("map_to_map", "map(integer, row(ti2bi bigint, int2bi bigint, float2double double, add tinyint))"),
                 row("id", "bigint"));
     }
 
-    private void assertColumnTypes(QueryResult queryResult)
+    private void assertColumnTypes(QueryResult queryResult, String tableName)
     {
+        JDBCType floatType = tableName.toLowerCase(Locale.ENGLISH).contains("parquet") ? DOUBLE : REAL;
+
         Connection connection = defaultQueryExecutor().getConnection();
         if (usingPrestoJdbcDriver(connection)) {
             assertThat(queryResult).hasColumns(
@@ -417,6 +449,10 @@ public class TestHiveCoercion
                     DECIMAL,
                     DECIMAL,
                     DECIMAL,
+                    DECIMAL,
+                    DECIMAL,
+                    floatType,
+                    DOUBLE,
                     JAVA_OBJECT,
                     ARRAY,
                     JAVA_OBJECT,
@@ -436,6 +472,10 @@ public class TestHiveCoercion
                     DECIMAL,
                     DECIMAL,
                     DECIMAL,
+                    DECIMAL,
+                    DECIMAL,
+                    floatType,
+                    DOUBLE,
                     VARCHAR,
                     VARCHAR,
                     VARCHAR,
@@ -448,6 +488,8 @@ public class TestHiveCoercion
 
     private static void alterTableColumnTypes(String tableName)
     {
+        String floatType = tableName.toLowerCase(Locale.ENGLISH).contains("parquet") ? "double" : "float";
+
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN tinyint_to_smallint tinyint_to_smallint smallint", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN tinyint_to_int tinyint_to_int int", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN tinyint_to_bigint tinyint_to_bigint bigint", tableName));
@@ -460,6 +502,10 @@ public class TestHiveCoercion
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN shortdecimal_to_longdecimal shortdecimal_to_longdecimal DECIMAL(20,4)", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN longdecimal_to_shortdecimal longdecimal_to_shortdecimal DECIMAL(12,2)", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN longdecimal_to_longdecimal longdecimal_to_longdecimal DECIMAL(38,14)", tableName));
+        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN float_to_decimal float_to_decimal DECIMAL(10,5)", tableName));
+        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN double_to_decimal double_to_decimal DECIMAL(10,5)", tableName));
+        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN decimal_to_float decimal_to_float %s", tableName, floatType));
+        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN decimal_to_double decimal_to_double double", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN row_to_row row_to_row struct<keep:string, ti2si:smallint, si2int:int, int2bi:bigint, bi2vc:string>", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN list_to_list list_to_list array<struct<ti2int:int, si2bi:bigint, bi2vc:string>>", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN map_to_map map_to_map map<int,struct<ti2bi:bigint, int2bi:bigint, float2double:double, add:tinyint>>", tableName));

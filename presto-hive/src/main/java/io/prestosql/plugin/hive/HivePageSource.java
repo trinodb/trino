@@ -80,6 +80,10 @@ import static io.prestosql.plugin.hive.HiveUtil.timestampPartitionKey;
 import static io.prestosql.plugin.hive.HiveUtil.tinyintPartitionKey;
 import static io.prestosql.plugin.hive.HiveUtil.varcharPartitionKey;
 import static io.prestosql.plugin.hive.coercions.DecimalCoercers.createDecimalToDecimalCoercer;
+import static io.prestosql.plugin.hive.coercions.DecimalCoercers.createDecimalToDoubleCoercer;
+import static io.prestosql.plugin.hive.coercions.DecimalCoercers.createDecimalToRealCoercer;
+import static io.prestosql.plugin.hive.coercions.DecimalCoercers.createDoubleToDecimalCoercer;
+import static io.prestosql.plugin.hive.coercions.DecimalCoercers.createRealToDecimalCoercer;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.block.ColumnarArray.toColumnarArray;
 import static io.prestosql.spi.block.ColumnarMap.toColumnarMap;
@@ -343,6 +347,18 @@ public class HivePageSource
         }
         if (fromType instanceof DecimalType && toType instanceof DecimalType) {
             return createDecimalToDecimalCoercer((DecimalType) fromType, (DecimalType) toType);
+        }
+        if (fromType instanceof DecimalType && toType == DOUBLE) {
+            return createDecimalToDoubleCoercer((DecimalType) fromType);
+        }
+        if (fromType instanceof DecimalType && toType == REAL) {
+            return createDecimalToRealCoercer((DecimalType) fromType);
+        }
+        if (fromType == DOUBLE && toType instanceof DecimalType) {
+            return createDoubleToDecimalCoercer((DecimalType) toType);
+        }
+        if (fromType == REAL && toType instanceof DecimalType) {
+            return createRealToDecimalCoercer((DecimalType) toType);
         }
         if (isArrayType(fromType) && isArrayType(toType)) {
             return new ListCoercer(typeManager, fromHiveType, toHiveType);

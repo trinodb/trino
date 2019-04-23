@@ -68,10 +68,13 @@ public class HiveCoercionPolicy
             return toHiveType.equals(HIVE_LONG);
         }
         if (fromHiveType.equals(HIVE_FLOAT)) {
-            return toHiveType.equals(HIVE_DOUBLE);
+            return toHiveType.equals(HIVE_DOUBLE) || toType instanceof DecimalType;
+        }
+        if (fromHiveType.equals(HIVE_DOUBLE)) {
+            return toType instanceof DecimalType;
         }
         if (fromType instanceof DecimalType) {
-            return toType instanceof DecimalType;
+            return toType instanceof DecimalType || toHiveType.equals(HIVE_FLOAT) || toHiveType.equals(HIVE_DOUBLE);
         }
 
         return canCoerceForList(fromHiveType, toHiveType) || canCoerceForMap(fromHiveType, toHiveType) || canCoerceForStruct(fromHiveType, toHiveType);
