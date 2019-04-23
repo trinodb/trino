@@ -25,7 +25,7 @@ import static java.util.Objects.requireNonNull;
 public final class JdbcTypeHandle
 {
     private final int jdbcType;
-    private final String jdbcTypeName;
+    private final Optional<String> jdbcTypeName;
     private final int columnSize;
     private final int decimalDigits;
     private final Optional<Integer> arrayDimensions;
@@ -33,7 +33,7 @@ public final class JdbcTypeHandle
     @JsonCreator
     public JdbcTypeHandle(
             @JsonProperty("jdbcType") int jdbcType,
-            @JsonProperty("jdbcTypeName") String jdbcTypeName,
+            @JsonProperty("jdbcTypeName") Optional<String> jdbcTypeName,
             @JsonProperty("columnSize") int columnSize,
             @JsonProperty("decimalDigits") int decimalDigits,
             @JsonProperty("arrayDimensions") Optional<Integer> arrayDimensions)
@@ -52,7 +52,7 @@ public final class JdbcTypeHandle
     }
 
     @JsonProperty
-    public String getJdbcTypeName()
+    public Optional<String> getJdbcTypeName()
     {
         return jdbcTypeName;
     }
@@ -104,7 +104,7 @@ public final class JdbcTypeHandle
         return toStringHelper(this)
                 .omitNullValues()
                 .add("jdbcType", jdbcType)
-                .add("jdbcTypeName", jdbcTypeName)
+                .add("jdbcTypeName", jdbcTypeName.orElse(null))
                 .add("columnSize", columnSize)
                 .add("decimalDigits", decimalDigits)
                 .add("arrayDimensions", arrayDimensions.orElse(null))
