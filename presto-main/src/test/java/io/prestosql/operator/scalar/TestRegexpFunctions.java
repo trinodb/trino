@@ -90,6 +90,9 @@ public class TestRegexpFunctions
         assertFunction("REGEXP_LIKE('Hello', '^[a-z]+$')", BOOLEAN, false);
         assertFunction("REGEXP_LIKE('Hello', '^(?i)[a-z]+$')", BOOLEAN, true);
         assertFunction("REGEXP_LIKE('Hello', '^[a-zA-Z]+$')", BOOLEAN, true);
+
+        // verify word boundaries at end of pattern (https://github.com/airlift/joni/pull/11)
+        assertFunction("REGEXP_LIKE('test', 'test\\b')", BOOLEAN, true);
     }
 
     @Test
