@@ -18,6 +18,8 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.graph.Traverser;
+import io.prestosql.execution.StageInfo;
+import io.prestosql.sql.planner.PlanFragment;
 import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 
@@ -86,5 +88,28 @@ public class StatsAndCosts
             costs.put(node.getId(), costProvider.getCost(node));
         }
         return new StatsAndCosts(stats.build(), costs.build());
+    }
+
+    public static StatsAndCosts create(StageInfo stageInfo)
+    {
+        ImmutableMap.Builder<PlanNodeId, PlanNodeStatsEstimate> planNodeStats = ImmutableMap.builder();
+        ImmutableMap.Builder<PlanNodeId, PlanCostEstimate> planNodeCosts = ImmutableMap.builder();
+        reconstructStatsAndCosts(stageInfo, planNodeStats, planNodeCosts);
+        return new StatsAndCosts(planNodeStats.build(), planNodeCosts.build());
+    }
+
+    private static void reconstructStatsAndCosts(
+            StageInfo stage,
+            ImmutableMap.Builder<PlanNodeId, PlanNodeStatsEstimate> planNodeStats,
+            ImmutableMap.Builder<PlanNodeId, PlanCostEstimate> planNodeCosts)
+    {
+        PlanFragment planFragment = stage.getPlan();
+        if (planFragment != null) {
+            planNodeStats.putAll(planFragment.getStatsAndCosts().getStats());
+            planNodeCosts.putAll(planFragment.getStatsAndCosts().getCosts());
+        }
+        for (StageInfo subStage : stage.getSubStages()) {
+            reconstructStatsAndCosts(subStage, planNodeStats, planNodeCosts);
+        }
     }
 }

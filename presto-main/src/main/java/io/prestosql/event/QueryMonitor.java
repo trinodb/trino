@@ -23,8 +23,6 @@ import io.airlift.stats.Distribution.DistributionSnapshot;
 import io.prestosql.SessionRepresentation;
 import io.prestosql.client.NodeVersion;
 import io.prestosql.connector.CatalogName;
-import io.prestosql.cost.PlanCostEstimate;
-import io.prestosql.cost.PlanNodeStatsEstimate;
 import io.prestosql.cost.StatsAndCosts;
 import io.prestosql.eventlistener.EventListenerManager;
 import io.prestosql.execution.Column;
@@ -54,8 +52,6 @@ import io.prestosql.spi.eventlistener.QueryOutputMetadata;
 import io.prestosql.spi.eventlistener.QueryStatistics;
 import io.prestosql.spi.eventlistener.StageCpuDistribution;
 import io.prestosql.spi.resourcegroups.ResourceGroupId;
-import io.prestosql.sql.planner.PlanFragment;
-import io.prestosql.sql.planner.plan.PlanNodeId;
 import io.prestosql.transaction.TransactionId;
 import org.joda.time.DateTime;
 
@@ -222,7 +218,7 @@ public class QueryMonitor
             operatorSummaries.add(operatorStatsCodec.toJson(summary));
         }
 
-        Optional<StatsAndCosts> planNodeStatsAndCosts = queryInfo.getOutputStage().map(QueryMonitor::reconstructStatsAndCosts);
+        Optional<StatsAndCosts> planNodeStatsAndCosts = queryInfo.getOutputStage().map(StatsAndCosts::create);
         Optional<String> serializedPlanNodeStatsAndCosts = planNodeStatsAndCosts.map(statsAndCostsCodec::toJson);
 
         QueryStats queryStats = queryInfo.getQueryStats();
@@ -254,29 +250,6 @@ public class QueryMonitor
                 getCpuDistributions(queryInfo),
                 operatorSummaries.build(),
                 serializedPlanNodeStatsAndCosts);
-    }
-
-    private static StatsAndCosts reconstructStatsAndCosts(StageInfo stageInfo)
-    {
-        ImmutableMap.Builder<PlanNodeId, PlanNodeStatsEstimate> planNodeStats = ImmutableMap.builder();
-        ImmutableMap.Builder<PlanNodeId, PlanCostEstimate> planNodeCosts = ImmutableMap.builder();
-        reconstructStatsAndCosts(stageInfo, planNodeStats, planNodeCosts);
-        return new StatsAndCosts(planNodeStats.build(), planNodeCosts.build());
-    }
-
-    private static void reconstructStatsAndCosts(
-            StageInfo stage,
-            ImmutableMap.Builder<PlanNodeId, PlanNodeStatsEstimate> planNodeStats,
-            ImmutableMap.Builder<PlanNodeId, PlanCostEstimate> planNodeCosts)
-    {
-        PlanFragment planFragment = stage.getPlan();
-        if (planFragment != null) {
-            planNodeStats.putAll(planFragment.getStatsAndCosts().getStats());
-            planNodeCosts.putAll(planFragment.getStatsAndCosts().getCosts());
-        }
-        for (StageInfo subStage : stage.getSubStages()) {
-            reconstructStatsAndCosts(subStage, planNodeStats, planNodeCosts);
-        }
     }
 
     private QueryContext createQueryContext(SessionRepresentation session, Optional<ResourceGroupId> resourceGroup)
