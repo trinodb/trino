@@ -100,7 +100,6 @@ import io.prestosql.sql.planner.plan.WindowNode;
 import io.prestosql.sql.planner.planprinter.NodeRepresentation.TypedSymbol;
 import io.prestosql.sql.tree.ComparisonExpression;
 import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.FunctionCall;
 import io.prestosql.sql.tree.SymbolReference;
 import io.prestosql.util.GraphvizPrinter;
 
@@ -606,10 +605,15 @@ public class PlanPrinter
             NodeRepresentation nodeOutput = addNode(node, "Window", format("[%s]%s", Joiner.on(", ").join(args), formatHash(node.getHashSymbol())));
 
             for (Map.Entry<Symbol, WindowNode.Function> entry : node.getWindowFunctions().entrySet()) {
-                FunctionCall call = entry.getValue().getFunctionCall();
-                String frameInfo = formatFrame(entry.getValue().getFrame());
+                WindowNode.Function function = entry.getValue();
+                String frameInfo = formatFrame(function.getFrame());
 
-                nodeOutput.appendDetailsLine("%s := %s(%s) %s", entry.getKey(), call.getName(), Joiner.on(", ").join(call.getArguments()), frameInfo);
+                nodeOutput.appendDetailsLine(
+                        "%s := %s(%s) %s",
+                        entry.getKey(),
+                        function.getSignature().getName(),
+                        Joiner.on(", ").join(function.getArguments()),
+                        frameInfo);
             }
             return processChildren(node, context);
         }

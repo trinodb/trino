@@ -19,15 +19,16 @@ import io.prestosql.metadata.Signature;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.WindowNode;
+import io.prestosql.sql.planner.plan.WindowNode.Function;
 import io.prestosql.sql.tree.FunctionCall;
+import io.prestosql.sql.tree.QualifiedName;
 
-import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 public class WindowFunctionMatcher
@@ -65,20 +66,28 @@ public class WindowFunctionMatcher
         FunctionCall expectedCall = callMaker.getExpectedValue(symbolAliases);
         Optional<WindowNode.Frame> expectedFrame = frameMaker.map(maker -> maker.getExpectedValue(symbolAliases));
 
-        List<Symbol> matchedOutputs = windowNode.getWindowFunctions().entrySet().stream()
-                .filter(assignment ->
-                        expectedCall.equals(assignment.getValue().getFunctionCall())
-                                && signature.map(assignment.getValue().getSignature()::equals).orElse(true)
-                                && expectedFrame.map(assignment.getValue().getFrame()::equals).orElse(true))
-                .map(Map.Entry::getKey)
-                .collect(toImmutableList());
-
-        checkState(matchedOutputs.size() <= 1, "Ambiguous function calls in %s", windowNode);
-
-        if (matchedOutputs.isEmpty()) {
-            return Optional.empty();
+        for (Map.Entry<Symbol, Function> assignment : windowNode.getWindowFunctions().entrySet()) {
+            Function function = assignment.getValue();
+            boolean signatureMatches = signature.map(assignment.getValue().getSignature()::equals).orElse(true);
+            if (signatureMatches && windowFunctionMatches(function, expectedCall, expectedFrame)) {
+                checkState(!result.isPresent(), "Ambiguous function calls in %s", windowNode);
+                result = Optional.of(assignment.getKey());
+            }
         }
-        return Optional.of(matchedOutputs.get(0));
+
+        return result;
+    }
+
+    private boolean windowFunctionMatches(Function windowFunction, FunctionCall expectedCall, Optional<WindowNode.Frame> expectedFrame)
+    {
+        if (expectedCall.getWindow().isPresent()) {
+            return false;
+        }
+
+        return signature.map(windowFunction.getSignature()::equals).orElse(true) &&
+                expectedFrame.map(windowFunction.getFrame()::equals).orElse(true) &&
+                Objects.equals(expectedCall.getName(), QualifiedName.of(windowFunction.getSignature().getName())) &&
+                Objects.equals(expectedCall.getArguments(), windowFunction.getArguments());
     }
 
     @Override
