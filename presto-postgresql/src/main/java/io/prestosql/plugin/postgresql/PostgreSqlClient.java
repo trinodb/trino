@@ -171,7 +171,7 @@ public class PostgreSqlClient
                     String columnName = resultSet.getString("COLUMN_NAME");
                     JdbcTypeHandle typeHandle = new JdbcTypeHandle(
                             resultSet.getInt("DATA_TYPE"),
-                            resultSet.getString("TYPE_NAME"),
+                            Optional.of(resultSet.getString("TYPE_NAME")),
                             resultSet.getInt("COLUMN_SIZE"),
                             resultSet.getInt("DECIMAL_DIGITS"),
                             Optional.ofNullable(arrayColumnDimensions.get(columnName)));
@@ -222,20 +222,25 @@ public class PostgreSqlClient
     @Override
     public Optional<ColumnMapping> toPrestoType(ConnectorSession session, JdbcTypeHandle typeHandle)
     {
-        switch (typeHandle.getJdbcTypeName()) {
+        String jdbcTypeName = typeHandle.getJdbcTypeName()
+                .orElseThrow(() -> new PrestoException(JDBC_ERROR, "Type name is missing: " + typeHandle));
+
+        switch (jdbcTypeName) {
             case "jsonb":
             case "json":
                 return Optional.of(jsonColumnMapping());
         }
-        if (typeHandle.getJdbcType() == Types.VARCHAR && !typeHandle.getJdbcTypeName().equals("varchar")) {
+        if (typeHandle.getJdbcType() == Types.VARCHAR && !jdbcTypeName.equals("varchar")) {
             // This can be e.g. an ENUM
-            return Optional.of(typedVarcharColumnMapping(typeHandle.getJdbcTypeName()));
+            return Optional.of(typedVarcharColumnMapping(jdbcTypeName));
         }
         if (typeHandle.getJdbcType() == Types.TIMESTAMP) {
             return Optional.of(timestampColumnMapping(session));
         }
         if (typeHandle.getJdbcType() == Types.ARRAY) {
             JdbcTypeHandle elementTypeHandle = getArrayElementTypeHandle(session, typeHandle);
+            String elementTypeName = typeHandle.getJdbcTypeName()
+                    .orElseThrow(() -> new PrestoException(JDBC_ERROR, "Element type name is missing: " + elementTypeHandle));
             if (elementTypeHandle.getJdbcType() == Types.VARBINARY) {
                 // PostgreSQL jdbc driver doesn't currently support array of varbinary (bytea[])
                 // https://github.com/pgjdbc/pgjdbc/pull/1184
@@ -249,7 +254,7 @@ public class PostgreSqlClient
                         for (int i = 1; i < arrayDimensions; i++) {
                             prestoArrayType = new ArrayType(prestoArrayType);
                         }
-                        return arrayColumnMapping(session, prestoArrayType, elementTypeHandle.getJdbcTypeName());
+                        return arrayColumnMapping(session, prestoArrayType, elementTypeName);
                     });
         }
         // TODO support PostgreSQL's TIMESTAMP WITH TIME ZONE and TIME WITH TIME ZONE explicitly, otherwise predicate pushdown for these types may be incorrect
@@ -317,14 +322,16 @@ public class PostgreSqlClient
 
     private JdbcTypeHandle getArrayElementTypeHandle(ConnectorSession session, JdbcTypeHandle arrayTypeHandle)
     {
+        String jdbcTypeName = arrayTypeHandle.getJdbcTypeName()
+                .orElseThrow(() -> new PrestoException(JDBC_ERROR, "Type name is missing: " + arrayTypeHandle));
         // PostgreSql array type names are the base element type prepended with "_"
-        checkArgument(arrayTypeHandle.getJdbcTypeName().startsWith("_"), "array type must start with '_'");
-        String elementPgTypeName = arrayTypeHandle.getJdbcTypeName().substring(1);
+        checkArgument(jdbcTypeName.startsWith("_"), "array type must start with '_'");
+        String elementPgTypeName = jdbcTypeName.substring(1);
         try (Connection connection = connectionFactory.openConnection(JdbcIdentity.from(session))) {
             int elementJdbcType = connection.unwrap(PgConnection.class).getTypeInfo().getSQLType(elementPgTypeName);
             return new JdbcTypeHandle(
                     elementJdbcType,
-                    elementPgTypeName,
+                    Optional.of(elementPgTypeName),
                     arrayTypeHandle.getColumnSize(),
                     arrayTypeHandle.getDecimalDigits(),
                     arrayTypeHandle.getArrayDimensions());
