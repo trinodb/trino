@@ -14,6 +14,7 @@
 package io.prestosql.orc.stream;
 
 import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import io.prestosql.orc.OrcCorruptionException;
 import io.prestosql.orc.checkpoint.DecimalStreamCheckpoint;
 
@@ -32,7 +33,7 @@ public class DecimalInputStream
 
     private final OrcChunkLoader chunkLoader;
 
-    private Slice block; // reference to current (decoded) data block. Can be either a reference to the buffer or to current chunk
+    private Slice block = Slices.EMPTY_SLICE; // reference to current (decoded) data block. Can be either a reference to the buffer or to current chunk
     private int blockOffset; // position within current data block
     private long lastCheckpoint;
 
@@ -53,7 +54,9 @@ public class DecimalInputStream
     {
         long newCheckpoint = checkpoint.getInputStreamCheckpoint();
         // if checkpoint starts at the same compressed position...
-        if (block != null && decodeCompressedBlockOffset(newCheckpoint) == decodeCompressedBlockOffset(lastCheckpoint)) {
+        // (we're checking for an empty block because empty blocks signify that we possibly read all the data in the existing
+        // buffer, so last checkpoint is no longer valid)
+        if (block.length() > 0 && decodeCompressedBlockOffset(newCheckpoint) == decodeCompressedBlockOffset(lastCheckpoint)) {
             // and decompressed position is within our block, reposition in the block directly
             int blockOffset = decodeDecompressedOffset(newCheckpoint) - decodeDecompressedOffset(lastCheckpoint);
             if (blockOffset >= 0 && blockOffset < block.length()) {
@@ -64,7 +67,7 @@ public class DecimalInputStream
         }
         chunkLoader.seekToCheckpoint(newCheckpoint);
         lastCheckpoint = newCheckpoint;
-        block = null;
+        block = Slices.EMPTY_SLICE;
         blockOffset = 0;
     }
 
@@ -78,7 +81,7 @@ public class DecimalInputStream
         int count = 0;
 
         while (count < batchSize) {
-            if (block == null) {
+            if (blockOffset == block.length()) {
                 advance();
             }
 
@@ -212,8 +215,6 @@ public class DecimalInputStream
                 if (blockOffset == block.length()) {
                     // the last value aligns with the end of the block, so just
                     // reset the block and loop around to optimized decoding
-                    block = null;
-                    blockOffset = 0;
                     break;
                 }
 
@@ -256,7 +257,7 @@ public class DecimalInputStream
         int count = 0;
 
         while (count < batchSize) {
-            if (block == null) {
+            if (blockOffset == block.length()) {
                 advance();
             }
 
@@ -361,8 +362,6 @@ public class DecimalInputStream
                 if (blockOffset == block.length()) {
                     // the last value aligns with the end of the block, so just
                     // reset the block and loop around to optimized decoding
-                    block = null;
-                    blockOffset = 0;
                     break;
                 }
 
@@ -399,7 +398,7 @@ public class DecimalInputStream
             return;
         }
 
-        if (block == null) {
+        if (blockOffset == block.length()) {
             advance();
         }
 
