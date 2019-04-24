@@ -75,6 +75,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.filter;
 import static com.google.common.collect.Iterables.transform;
 import static io.prestosql.plugin.cassandra.CassandraErrorCode.CASSANDRA_VERSION_ERROR;
+import static io.prestosql.plugin.cassandra.CassandraType.isFullySupported;
 import static io.prestosql.plugin.cassandra.CassandraType.toCassandraType;
 import static io.prestosql.plugin.cassandra.util.CassandraCqlUtils.validSchemaName;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -328,29 +329,11 @@ public class NativeCassandraSession
             return Optional.empty();
         }
 
-        List<CassandraType> typeArguments = null;
-        if (cassandraType.get().getTypeArgumentSize() > 0) {
-            List<DataType> typeArgs = columnMeta.getType().getTypeArguments();
-            switch (cassandraType.get().getTypeArgumentSize()) {
-                case 1:
-                    Optional<CassandraType> typeArgument = toCassandraType(typeArgs.get(0).getName());
-                    if (!typeArgument.isPresent()) {
-                        log.debug("%s column has unsupported type: %s", columnMeta.getName(), typeArgs.get(0).getName());
-                        return Optional.empty();
-                    }
-                    typeArguments = ImmutableList.of(typeArgument.get());
-                    break;
-                case 2:
-                    Optional<CassandraType> firstArgument = toCassandraType(typeArgs.get(0).getName());
-                    Optional<CassandraType> secondArgument = toCassandraType(typeArgs.get(1).getName());
-                    if (!firstArgument.isPresent() || !secondArgument.isPresent()) {
-                        log.debug("%s column has unsupported type: %s, %s", columnMeta.getName(), typeArgs.get(0).getName(), typeArgs.get(1).getName());
-                        return Optional.empty();
-                    }
-                    typeArguments = ImmutableList.of(firstArgument.get(), secondArgument.get());
-                    break;
-                default:
-                    throw new IllegalArgumentException("Invalid type arguments: " + typeArgs);
+        List<DataType> typeArgs = columnMeta.getType().getTypeArguments();
+        for (DataType typeArgument : typeArgs) {
+            if (!isFullySupported(typeArgument)) {
+                log.debug("%s column has unsupported type: %s", columnMeta.getName(), typeArgument);
+                return Optional.empty();
             }
         }
         boolean indexed = false;
@@ -364,7 +347,7 @@ public class NativeCassandraSession
                 }
             }
         }
-        return Optional.of(new CassandraColumnHandle(columnMeta.getName(), ordinalPosition, cassandraType.get(), typeArguments, partitionKey, clusteringKey, indexed, hidden));
+        return Optional.of(new CassandraColumnHandle(columnMeta.getName(), ordinalPosition, cassandraType.get(), partitionKey, clusteringKey, indexed, hidden));
     }
 
     @Override
@@ -416,7 +399,7 @@ public class NativeCassandraSession
                     buffer.put(component);
                 }
                 CassandraColumnHandle columnHandle = partitionKeyColumns.get(i);
-                NullableValue keyPart = CassandraType.getColumnValueForPartitionKey(row, i, columnHandle.getCassandraType(), columnHandle.getTypeArguments());
+                NullableValue keyPart = CassandraType.getColumnValueForPartitionKey(row, i, columnHandle.getCassandraType());
                 map.put(columnHandle, keyPart);
                 if (i > 0) {
                     stringBuilder.append(" AND ");
