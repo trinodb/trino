@@ -46,6 +46,7 @@ import io.prestosql.sql.tree.ExplainFormat;
 import io.prestosql.sql.tree.ExplainOption;
 import io.prestosql.sql.tree.ExplainType;
 import io.prestosql.sql.tree.Expression;
+import io.prestosql.sql.tree.FetchFirst;
 import io.prestosql.sql.tree.Grant;
 import io.prestosql.sql.tree.GrantRoles;
 import io.prestosql.sql.tree.GrantorSpecification;
@@ -59,6 +60,7 @@ import io.prestosql.sql.tree.JoinOn;
 import io.prestosql.sql.tree.JoinUsing;
 import io.prestosql.sql.tree.Lateral;
 import io.prestosql.sql.tree.LikeClause;
+import io.prestosql.sql.tree.Limit;
 import io.prestosql.sql.tree.NaturalJoin;
 import io.prestosql.sql.tree.Node;
 import io.prestosql.sql.tree.OrderBy;
@@ -262,10 +264,8 @@ public final class SqlFormatter
             }
 
             if (node.getLimit().isPresent()) {
-                append(indent, "LIMIT " + node.getLimit().get())
-                        .append('\n');
+                process(node.getLimit().get(), indent);
             }
-
             return null;
         }
 
@@ -302,8 +302,7 @@ public final class SqlFormatter
             }
 
             if (node.getLimit().isPresent()) {
-                append(indent, "LIMIT " + node.getLimit().get())
-                        .append('\n');
+                process(node.getLimit().get(), indent);
             }
             return null;
         }
@@ -312,6 +311,22 @@ public final class SqlFormatter
         protected Void visitOrderBy(OrderBy node, Integer indent)
         {
             append(indent, formatOrderBy(node, parameters))
+                    .append('\n');
+            return null;
+        }
+
+        @Override
+        protected Void visitFetchFirst(FetchFirst node, Integer indent)
+        {
+            append(indent, "FETCH FIRST " + node.getRowCount().map(c -> c + " ROWS ONLY").orElse("ROW ONLY"))
+                    .append('\n');
+            return null;
+        }
+
+        @Override
+        protected Void visitLimit(Limit node, Integer indent)
+        {
+            append(indent, "LIMIT " + node.getLimit())
                     .append('\n');
             return null;
         }

@@ -78,6 +78,7 @@ import io.prestosql.sql.tree.ExplainType;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.ExpressionRewriter;
 import io.prestosql.sql.tree.ExpressionTreeRewriter;
+import io.prestosql.sql.tree.FetchFirst;
 import io.prestosql.sql.tree.FieldReference;
 import io.prestosql.sql.tree.FrameBound;
 import io.prestosql.sql.tree.FunctionCall;
@@ -94,6 +95,7 @@ import io.prestosql.sql.tree.JoinCriteria;
 import io.prestosql.sql.tree.JoinOn;
 import io.prestosql.sql.tree.JoinUsing;
 import io.prestosql.sql.tree.Lateral;
+import io.prestosql.sql.tree.Limit;
 import io.prestosql.sql.tree.LongLiteral;
 import io.prestosql.sql.tree.NaturalJoin;
 import io.prestosql.sql.tree.Node;
@@ -141,6 +143,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -176,6 +179,8 @@ import static io.prestosql.sql.analyzer.SemanticErrorCode.COLUMN_TYPE_UNKNOWN;
 import static io.prestosql.sql.analyzer.SemanticErrorCode.DUPLICATE_COLUMN_NAME;
 import static io.prestosql.sql.analyzer.SemanticErrorCode.DUPLICATE_PROPERTY;
 import static io.prestosql.sql.analyzer.SemanticErrorCode.DUPLICATE_RELATION;
+import static io.prestosql.sql.analyzer.SemanticErrorCode.INVALID_FETCH_FIRST_ROW_COUNT;
+import static io.prestosql.sql.analyzer.SemanticErrorCode.INVALID_LIMIT_ROW_COUNT;
 import static io.prestosql.sql.analyzer.SemanticErrorCode.INVALID_ORDINAL;
 import static io.prestosql.sql.analyzer.SemanticErrorCode.INVALID_PROCEDURE_ARGUMENTS;
 import static io.prestosql.sql.analyzer.SemanticErrorCode.INVALID_WINDOW_FRAME;
@@ -735,6 +740,10 @@ class StatementAnalyzer
                 analysis.setOrderByExpressions(node, emptyList());
             }
 
+            if (node.getLimit().isPresent()) {
+                analyzeLimit(node.getLimit().get());
+            }
+
             // Input fields == Output fields
             analysis.setOutputExpressions(node, descriptorToFields(queryBodyScope));
 
@@ -1026,6 +1035,10 @@ class StatementAnalyzer
             }
             else {
                 analysis.setOrderByExpressions(node, emptyList());
+            }
+
+            if (node.getLimit().isPresent()) {
+                analyzeLimit(node.getLimit().get());
             }
 
             List<Expression> sourceExpressions = new ArrayList<>(outputExpressions);
@@ -2111,6 +2124,56 @@ class StatementAnalyzer
             List<Expression> orderByFields = orderByFieldsBuilder.build();
             analysis.setOrderByExpressions(node, orderByFields);
             return orderByFields;
+        }
+
+        private void analyzeLimit(Node node)
+        {
+            checkState(
+                    node instanceof FetchFirst || node instanceof Limit,
+                    "Invalid limit node type. Expected: FetchFirst or Limit. Actual: %s", node.getClass().getName());
+            if (node instanceof FetchFirst) {
+                analyzeLimit((FetchFirst) node);
+            }
+            else {
+                analyzeLimit((Limit) node);
+            }
+        }
+
+        private void analyzeLimit(FetchFirst node)
+        {
+            if (!node.getRowCount().isPresent()) {
+                analysis.setLimit(node, 1);
+            }
+            else {
+                long rowCount;
+                try {
+                    rowCount = Long.parseLong(node.getRowCount().get());
+                }
+                catch (NumberFormatException e) {
+                    throw new SemanticException(INVALID_FETCH_FIRST_ROW_COUNT, node, "Invalid FETCH FIRST row count: %s", node.getRowCount().get());
+                }
+                if (rowCount <= 0) {
+                    throw new SemanticException(INVALID_FETCH_FIRST_ROW_COUNT, node, "FETCH FIRST row count must be positive (actual value: %s)", rowCount);
+                }
+                analysis.setLimit(node, rowCount);
+            }
+        }
+
+        private void analyzeLimit(Limit node)
+        {
+            if (node.getLimit().equalsIgnoreCase("all")) {
+                analysis.setLimit(node, OptionalLong.empty());
+            }
+            else {
+                long rowCount;
+                try {
+                    rowCount = Long.parseLong(node.getLimit());
+                }
+                catch (NumberFormatException e) {
+                    throw new SemanticException(INVALID_LIMIT_ROW_COUNT, node, "Invalid LIMIT row count: %s", node.getLimit());
+                }
+                analysis.setLimit(node, rowCount);
+            }
         }
 
         private Scope createAndAssignScope(Node node, Optional<Scope> parentScope)

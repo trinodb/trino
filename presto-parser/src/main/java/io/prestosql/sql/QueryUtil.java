@@ -23,6 +23,7 @@ import io.prestosql.sql.tree.FunctionCall;
 import io.prestosql.sql.tree.GroupBy;
 import io.prestosql.sql.tree.Identifier;
 import io.prestosql.sql.tree.LogicalBinaryExpression;
+import io.prestosql.sql.tree.Node;
 import io.prestosql.sql.tree.OrderBy;
 import io.prestosql.sql.tree.QualifiedName;
 import io.prestosql.sql.tree.Query;
@@ -199,7 +200,7 @@ public final class QueryUtil
         return simpleQuery(select, from, where, Optional.empty(), Optional.empty(), orderBy, Optional.empty());
     }
 
-    public static Query simpleQuery(Select select, Relation from, Optional<Expression> where, Optional<GroupBy> groupBy, Optional<Expression> having, Optional<OrderBy> orderBy, Optional<String> limit)
+    public static Query simpleQuery(Select select, Relation from, Optional<Expression> where, Optional<GroupBy> groupBy, Optional<Expression> having, Optional<OrderBy> orderBy, Optional<Node> limit)
     {
         return query(new QuerySpecification(
                 select,
