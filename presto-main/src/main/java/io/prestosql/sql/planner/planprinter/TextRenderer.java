@@ -60,11 +60,13 @@ public class TextRenderer
                 .append("- ")
                 .append(node.getName())
                 .append(node.getIdentifier())
-                .append(" => [")
-                .append(node.getOutputs().stream()
-                        .map(s -> s.getSymbol() + ":" + s.getType())
-                        .collect(joining(", ")))
-                .append("]\n");
+                .append("\n");
+
+        String columns = node.getOutputs().stream()
+                .map(s -> s.getSymbol() + ":" + s.getType())
+                .collect(joining(", "));
+
+        output.append(indentMultilineString("Layout: [" + columns + "]\n", level + 2));
 
         String estimates = printEstimates(plan, node);
         if (!estimates.isEmpty()) {
