@@ -17,7 +17,7 @@ import com.google.inject.Injector;
 import com.google.inject.Module;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.drift.transport.netty.client.DriftNettyClientModule;
-import io.prestosql.plugin.thrift.util.RebindSafeMBeanServer;
+import io.prestosql.plugin.base.jmx.RebindSafeMBeanServer;
 import io.prestosql.spi.connector.Connector;
 import io.prestosql.spi.connector.ConnectorContext;
 import io.prestosql.spi.connector.ConnectorFactory;
