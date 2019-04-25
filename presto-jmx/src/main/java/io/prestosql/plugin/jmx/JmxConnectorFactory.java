@@ -16,7 +16,7 @@ package io.prestosql.plugin.jmx;
 import com.google.inject.Injector;
 import com.google.inject.Scopes;
 import io.airlift.bootstrap.Bootstrap;
-import io.prestosql.plugin.jmx.util.RebindSafeMBeanServer;
+import io.prestosql.plugin.base.jmx.RebindSafeMBeanServer;
 import io.prestosql.spi.NodeManager;
 import io.prestosql.spi.connector.Connector;
 import io.prestosql.spi.connector.ConnectorContext;
