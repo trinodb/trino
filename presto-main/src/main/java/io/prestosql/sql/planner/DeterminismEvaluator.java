@@ -14,9 +14,12 @@
 package io.prestosql.sql.planner;
 
 import com.google.common.collect.ImmutableSet;
+import io.prestosql.metadata.ResolvedFunction;
+import io.prestosql.metadata.Signature;
 import io.prestosql.sql.tree.DefaultExpressionTraversalVisitor;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.FunctionCall;
+import io.prestosql.sql.tree.QualifiedName;
 
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -48,7 +51,12 @@ public final class DeterminismEvaluator
         protected Void visitFunctionCall(FunctionCall node, AtomicBoolean deterministic)
         {
             // TODO: total hack to figure out if a function is deterministic. martint should fix this when he refactors the planning code
-            if (FUNCTIONS.contains(node.getName().toString())) {
+            QualifiedName name = ResolvedFunction.fromQualifiedName(node.getName())
+                    .map(ResolvedFunction::getSignature)
+                    .map(Signature::getName)
+                    .map(QualifiedName::of)
+                    .orElse(node.getName());
+            if (FUNCTIONS.contains(name.getSuffix())) {
                 deterministic.set(false);
             }
             return super.visitFunctionCall(node, deterministic);

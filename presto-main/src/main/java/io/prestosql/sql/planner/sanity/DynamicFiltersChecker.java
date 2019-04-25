@@ -85,7 +85,7 @@ public class DynamicFiltersChecker
             public Set<String> visitFilter(FilterNode node, Void context)
             {
                 ImmutableSet.Builder<String> consumed = ImmutableSet.builder();
-                List<DynamicFilters.Descriptor> dynamicFilters = extractDynamicFilters(node.getPredicate()).getDynamicConjuncts();
+                List<DynamicFilters.Descriptor> dynamicFilters = extractDynamicFilters(metadata, node.getPredicate()).getDynamicConjuncts();
                 dynamicFilters.stream()
                         .map(DynamicFilters.Descriptor::getId)
                         .forEach(consumed::add);

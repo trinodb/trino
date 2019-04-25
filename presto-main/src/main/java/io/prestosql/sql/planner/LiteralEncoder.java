@@ -20,9 +20,8 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.SliceUtf8;
 import io.prestosql.block.BlockSerdeUtil;
-import io.prestosql.metadata.LiteralFunction;
 import io.prestosql.metadata.Metadata;
-import io.prestosql.metadata.Signature;
+import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.operator.scalar.VarbinaryFunctions;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.type.CharType;
@@ -47,7 +46,8 @@ import io.prestosql.sql.tree.StringLiteral;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.prestosql.metadata.LiteralFunction.typeForLiteralFunctionArgument;
+import static io.prestosql.metadata.LiteralFunction.LITERAL_FUNCTION_NAME;
+import static io.prestosql.metadata.LiteralFunction.typeForMagicLiteral;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DateType.DATE;
@@ -216,9 +216,7 @@ public final class LiteralEncoder
             // This if condition will evaluate to true: object instanceof Slice && !type.equals(VARCHAR)
         }
 
-        Signature signature = LiteralFunction.getLiteralFunctionSignature(type);
-
-        Type argumentType = typeForLiteralFunctionArgument(type);
+        Type argumentType = typeForMagicLiteral(type);
         Expression argument;
         if (object instanceof Slice) {
             // HACK: we need to serialize VARBINARY in a format that can be embedded in an expression to be
@@ -234,8 +232,9 @@ public final class LiteralEncoder
             argument = toExpression(object, argumentType);
         }
 
+        ResolvedFunction resolvedFunction = metadata.getCoercion(QualifiedName.of(LITERAL_FUNCTION_NAME), argumentType, type);
         return new FunctionCallBuilder(metadata)
-                .setName(QualifiedName.of(signature.getName()))
+                .setName(resolvedFunction.toQualifiedName())
                 .addArgument(argumentType, argument)
                 .build();
     }

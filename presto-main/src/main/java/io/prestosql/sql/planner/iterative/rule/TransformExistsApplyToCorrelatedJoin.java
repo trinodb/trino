@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import io.prestosql.matching.Captures;
 import io.prestosql.matching.Pattern;
 import io.prestosql.metadata.Metadata;
-import io.prestosql.metadata.Signature;
+import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.iterative.Rule;
 import io.prestosql.sql.planner.optimizations.PlanNodeDecorrelator;
@@ -79,12 +79,12 @@ public class TransformExistsApplyToCorrelatedJoin
     private static final Pattern<ApplyNode> PATTERN = applyNode();
 
     private static final QualifiedName COUNT = QualifiedName.of("count");
-    private final Signature countSignature;
+    private final ResolvedFunction countFunction;
 
     public TransformExistsApplyToCorrelatedJoin(Metadata metadata)
     {
         requireNonNull(metadata, "metadata is null");
-        countSignature = metadata.resolveFunction(COUNT, ImmutableList.of());
+        countFunction = metadata.resolveFunction(COUNT, ImmutableList.of());
     }
 
     @Override
@@ -162,7 +162,7 @@ public class TransformExistsApplyToCorrelatedJoin
                                 context.getIdAllocator().getNextId(),
                                 parent.getSubquery(),
                                 ImmutableMap.of(count, new Aggregation(
-                                        countSignature,
+                                        countFunction,
                                         ImmutableList.of(),
                                         false,
                                         Optional.empty(),

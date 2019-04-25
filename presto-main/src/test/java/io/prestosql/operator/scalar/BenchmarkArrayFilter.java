@@ -19,6 +19,7 @@ import io.prestosql.metadata.BoundVariables;
 import io.prestosql.metadata.FunctionKind;
 import io.prestosql.metadata.FunctionListBuilder;
 import io.prestosql.metadata.Metadata;
+import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlScalarFunction;
 import io.prestosql.operator.DriverYieldSignal;
@@ -35,6 +36,8 @@ import io.prestosql.sql.relational.CallExpression;
 import io.prestosql.sql.relational.LambdaDefinitionExpression;
 import io.prestosql.sql.relational.RowExpression;
 import io.prestosql.sql.relational.VariableReferenceExpression;
+import io.prestosql.sql.tree.QualifiedName;
+import io.prestosql.type.FunctionType;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -71,6 +74,7 @@ import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.TypeSignature.arrayType;
 import static io.prestosql.spi.type.TypeSignature.functionType;
 import static io.prestosql.spi.type.TypeUtils.readNativeValue;
+import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.prestosql.sql.relational.Expressions.constant;
 import static io.prestosql.sql.relational.Expressions.field;
 import static io.prestosql.testing.TestingConnectorSession.SESSION;
@@ -128,14 +132,11 @@ public class BenchmarkArrayFilter
             for (int i = 0; i < TYPES.size(); i++) {
                 Type elementType = TYPES.get(i);
                 ArrayType arrayType = new ArrayType(elementType);
-                Signature signature = new Signature(
-                        name,
-                        FunctionKind.SCALAR,
-                        arrayType.getTypeSignature(),
-                        arrayType.getTypeSignature(),
-                        functionType(BIGINT.getTypeSignature(), BOOLEAN.getTypeSignature()));
-                Signature greaterThan = new Signature("$operator$" + GREATER_THAN.name(), FunctionKind.SCALAR, BOOLEAN.getTypeSignature(), BIGINT.getTypeSignature(), BIGINT.getTypeSignature());
-                projectionsBuilder.add(new CallExpression(signature, arrayType, ImmutableList.of(
+                ResolvedFunction resolvedFunction = metadata.resolveFunction(
+                        QualifiedName.of(name),
+                        fromTypes(arrayType, new FunctionType(ImmutableList.of(BIGINT), BOOLEAN)));
+                ResolvedFunction greaterThan = metadata.resolveOperator(GREATER_THAN, ImmutableList.of(BIGINT, BIGINT));
+                projectionsBuilder.add(new CallExpression(resolvedFunction, arrayType, ImmutableList.of(
                         field(0, arrayType),
                         new LambdaDefinitionExpression(
                                 ImmutableList.of(BIGINT),

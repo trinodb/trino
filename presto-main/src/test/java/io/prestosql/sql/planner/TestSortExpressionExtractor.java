@@ -13,7 +13,11 @@
  */
 package io.prestosql.sql.planner;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.prestosql.metadata.Metadata;
+import io.prestosql.spi.type.Type;
+import io.prestosql.sql.ExpressionTestUtils;
 import io.prestosql.sql.parser.SqlParser;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.SymbolReference;
@@ -25,13 +29,24 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.prestosql.SessionTestUtils.TEST_SESSION;
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
+import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.sql.ExpressionUtils.extractConjuncts;
 import static io.prestosql.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
 import static org.testng.Assert.assertEquals;
 
 public class TestSortExpressionExtractor
 {
+    private static final TypeProvider TYPE_PROVIDER = TypeProvider.copyOf(ImmutableMap.<Symbol, Type>builder()
+            .put(new Symbol("b1"), DOUBLE)
+            .put(new Symbol("b2"), DOUBLE)
+            .put(new Symbol("p1"), BIGINT)
+            .put(new Symbol("p2"), DOUBLE)
+            .build());
     private static final Set<Symbol> BUILD_SYMBOLS = ImmutableSet.of(new Symbol("b1"), new Symbol("b2"));
+    private final Metadata metadata = createTestMetadataManager();
 
     @Test
     public void testGetSortExpression()
@@ -69,7 +84,7 @@ public class TestSortExpressionExtractor
 
     private Expression expression(String sql)
     {
-        return rewriteIdentifiersToSymbolReferences(new SqlParser().createExpression(sql));
+        return ExpressionTestUtils.planExpression(metadata, TEST_SESSION, TYPE_PROVIDER, rewriteIdentifiersToSymbolReferences(new SqlParser().createExpression(sql)));
     }
 
     private void assertNoSortExpression(String expression)

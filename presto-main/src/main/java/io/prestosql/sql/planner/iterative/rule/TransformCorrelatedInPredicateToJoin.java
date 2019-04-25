@@ -18,8 +18,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.prestosql.matching.Captures;
 import io.prestosql.matching.Pattern;
-import io.prestosql.metadata.FunctionKind;
-import io.prestosql.metadata.Signature;
+import io.prestosql.metadata.Metadata;
+import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.sql.planner.PlanNodeIdAllocator;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.SymbolAllocator;
@@ -45,6 +45,7 @@ import io.prestosql.sql.tree.IsNullPredicate;
 import io.prestosql.sql.tree.LongLiteral;
 import io.prestosql.sql.tree.NotExpression;
 import io.prestosql.sql.tree.NullLiteral;
+import io.prestosql.sql.tree.QualifiedName;
 import io.prestosql.sql.tree.SearchedCaseExpression;
 import io.prestosql.sql.tree.SymbolReference;
 import io.prestosql.sql.tree.WhenClause;
@@ -94,6 +95,13 @@ public class TransformCorrelatedInPredicateToJoin
 {
     private static final Pattern<ApplyNode> PATTERN = applyNode()
             .with(nonEmpty(correlation()));
+
+    private final ResolvedFunction resolvedFunction;
+
+    public TransformCorrelatedInPredicateToJoin(Metadata metadata)
+    {
+        resolvedFunction = metadata.resolveFunction(QualifiedName.of("count"), ImmutableList.of());
+    }
 
     @Override
     public Pattern<ApplyNode> getPattern()
@@ -252,10 +260,10 @@ public class TransformCorrelatedInPredicateToJoin
                 ImmutableMap.of());
     }
 
-    private static AggregationNode.Aggregation countWithFilter(Symbol filter)
+    private AggregationNode.Aggregation countWithFilter(Symbol filter)
     {
         return new AggregationNode.Aggregation(
-                new Signature("count", FunctionKind.AGGREGATE, BIGINT.getTypeSignature()),
+                resolvedFunction,
                 ImmutableList.of(),
                 false,
                 Optional.of(filter),

@@ -59,7 +59,7 @@ public class TestFunctionRegistry
     @Test
     public void testIdentityCast()
     {
-        Signature exactOperator = createTestMetadataManager().getCoercion(HYPER_LOG_LOG, HYPER_LOG_LOG);
+        Signature exactOperator = createTestMetadataManager().getCoercion(HYPER_LOG_LOG, HYPER_LOG_LOG).getSignature();
         assertEquals(exactOperator.getName(), mangleOperatorName(OperatorType.CAST));
         assertEquals(
                 exactOperator.getArgumentTypes().stream()
@@ -88,7 +88,7 @@ public class TestFunctionRegistry
             List<Type> argumentTypes = function.getSignature().getArgumentTypes().stream()
                     .map(metadata::getType)
                     .collect(toImmutableList());
-            Signature exactOperator = metadata.resolveOperator(operatorType, argumentTypes);
+            Signature exactOperator = metadata.resolveOperator(operatorType, argumentTypes).getSignature();
             assertEquals(exactOperator, function.getSignature());
             foundOperator = true;
         }
@@ -348,7 +348,7 @@ public class TestFunctionRegistry
         {
             Metadata metadata = createTestMetadataManager();
             metadata.addFunctions(createFunctionsFromSignatures());
-            return metadata.resolveFunction(QualifiedName.of(TEST_FUNCTION_NAME), fromTypeSignatures(parameterTypes));
+            return metadata.resolveFunction(QualifiedName.of(TEST_FUNCTION_NAME), fromTypeSignatures(parameterTypes)).getSignature();
         }
 
         private List<SqlFunction> createFunctionsFromSignatures()

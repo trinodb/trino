@@ -19,6 +19,7 @@ import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.log.Logger;
+import io.prestosql.metadata.Metadata;
 import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.sql.DynamicFilters;
@@ -104,7 +105,7 @@ public class LocalDynamicFilter
         return TupleDomain.withColumnDomains(builder.build());
     }
 
-    public static Optional<LocalDynamicFilter> create(JoinNode planNode, int partitionCount)
+    public static Optional<LocalDynamicFilter> create(Metadata metadata, JoinNode planNode, int partitionCount)
     {
         Set<String> joinDynamicFilters = planNode.getDynamicFilters().keySet();
         List<FilterNode> filterNodes = PlanNodeSearcher
@@ -115,7 +116,7 @@ public class LocalDynamicFilter
         // Mapping from probe-side dynamic filters' IDs to their matching probe symbols.
         ImmutableMultimap.Builder<String, Symbol> probeSymbolsBuilder = ImmutableMultimap.builder();
         for (FilterNode filterNode : filterNodes) {
-            DynamicFilters.ExtractResult extractResult = extractDynamicFilters(filterNode.getPredicate());
+            DynamicFilters.ExtractResult extractResult = extractDynamicFilters(metadata, filterNode.getPredicate());
             for (Descriptor descriptor : extractResult.getDynamicConjuncts()) {
                 if (descriptor.getInput() instanceof SymbolReference) {
                     // Add descriptors that match the local dynamic filter (from the current join node).

@@ -16,7 +16,7 @@ package io.prestosql.sql.planner;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.prestosql.metadata.Metadata;
-import io.prestosql.metadata.Signature;
+import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.type.Decimals;
 import io.prestosql.spi.type.Type;
@@ -34,16 +34,17 @@ import io.prestosql.sql.tree.IntervalLiteral;
 import io.prestosql.sql.tree.Literal;
 import io.prestosql.sql.tree.LongLiteral;
 import io.prestosql.sql.tree.NullLiteral;
+import io.prestosql.sql.tree.QualifiedName;
 import io.prestosql.sql.tree.StringLiteral;
 import io.prestosql.sql.tree.TimeLiteral;
 import io.prestosql.sql.tree.TimestampLiteral;
 
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.prestosql.metadata.FunctionKind.SCALAR;
 import static io.prestosql.spi.StandardErrorCode.INVALID_LITERAL;
 import static io.prestosql.spi.StandardErrorCode.TYPE_NOT_FOUND;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.sql.analyzer.SemanticExceptions.semanticException;
+import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.prestosql.type.JsonType.JSON;
 import static io.prestosql.util.DateTimeUtils.parseDayTimeInterval;
 import static io.prestosql.util.DateTimeUtils.parseTimeLiteral;
@@ -134,13 +135,13 @@ public final class LiteralInterpreter
             }
 
             if (JSON.equals(type)) {
-                Signature operatorSignature = new Signature("json_parse", SCALAR, JSON.getTypeSignature(), VARCHAR.getTypeSignature());
-                return functionInvoker.invoke(operatorSignature, session, ImmutableList.of(utf8Slice(node.getValue())));
+                ResolvedFunction resolvedFunction = metadata.resolveFunction(QualifiedName.of("json_parse"), fromTypes(VARCHAR));
+                return functionInvoker.invoke(resolvedFunction, session, ImmutableList.of(utf8Slice(node.getValue())));
             }
 
             try {
-                Signature signature = metadata.getCoercion(VARCHAR, type);
-                return functionInvoker.invoke(signature, session, ImmutableList.of(utf8Slice(node.getValue())));
+                ResolvedFunction resolvedFunction = metadata.getCoercion(VARCHAR, type);
+                return functionInvoker.invoke(resolvedFunction, session, ImmutableList.of(utf8Slice(node.getValue())));
             }
             catch (IllegalArgumentException e) {
                 throw semanticException(INVALID_LITERAL, node, "No literal form for type %s", type);

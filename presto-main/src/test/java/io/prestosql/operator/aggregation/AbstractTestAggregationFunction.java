@@ -16,7 +16,7 @@ package io.prestosql.operator.aggregation;
 import com.google.common.primitives.Ints;
 import io.prestosql.block.BlockAssertions;
 import io.prestosql.metadata.Metadata;
-import io.prestosql.metadata.Signature;
+import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.operator.PagesIndex;
 import io.prestosql.operator.window.PagesWindowIndex;
 import io.prestosql.spi.Page;
@@ -25,7 +25,6 @@ import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.block.RunLengthEncodedBlock;
 import io.prestosql.spi.function.WindowIndex;
 import io.prestosql.spi.type.Type;
-import io.prestosql.sql.analyzer.TypeSignatureProvider;
 import io.prestosql.sql.tree.QualifiedName;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -34,13 +33,13 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.Optional;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.operator.aggregation.AggregationTestUtils.assertAggregation;
 import static io.prestosql.operator.aggregation.AggregationTestUtils.createArgs;
 import static io.prestosql.operator.aggregation.AggregationTestUtils.getFinalBlock;
 import static io.prestosql.operator.aggregation.AggregationTestUtils.makeValidityAssertion;
 import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.prestosql.testing.assertions.PrestoExceptionAssert.assertPrestoExceptionThrownBy;
 
 public abstract class AbstractTestAggregationFunction
@@ -63,13 +62,10 @@ public abstract class AbstractTestAggregationFunction
 
     protected final InternalAggregationFunction getFunction()
     {
-        Signature signature = metadata.resolveFunction(
+        ResolvedFunction resolvedFunction = metadata.resolveFunction(
                 QualifiedName.of(getFunctionName()),
-                getFunctionParameterTypes().stream()
-                        .map(Type::getTypeSignature)
-                        .map(TypeSignatureProvider::new)
-                        .collect(toImmutableList()));
-        return metadata.getAggregateFunctionImplementation(signature);
+                fromTypes(getFunctionParameterTypes()));
+        return metadata.getAggregateFunctionImplementation(resolvedFunction);
     }
 
     protected abstract String getFunctionName();

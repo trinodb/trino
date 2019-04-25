@@ -565,7 +565,7 @@ class QueryPlanner
 
             FunctionCall functionCall = (FunctionCall) rewritten;
             aggregationsBuilder.put(newSymbol, new Aggregation(
-                    analysis.getFunctionSignature(aggregate),
+                    analysis.getResolvedFunction(aggregate),
                     functionCall.getArguments(),
                     functionCall.isDistinct(),
                     functionCall.getFilter().map(Symbol::from),
@@ -816,7 +816,7 @@ class QueryPlanner
                     .orElse(NullTreatment.RESPECT);
 
             WindowNode.Function function = new WindowNode.Function(
-                    analysis.getFunctionSignature(windowFunction),
+                    analysis.getResolvedFunction(windowFunction),
                     ((FunctionCall) rewritten).getArguments(),
                     frame,
                     nullTreatment == NullTreatment.IGNORE);

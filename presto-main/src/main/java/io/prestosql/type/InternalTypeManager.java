@@ -15,7 +15,7 @@ package io.prestosql.type;
 
 import com.google.common.collect.ImmutableList;
 import io.prestosql.metadata.Metadata;
-import io.prestosql.metadata.Signature;
+import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.spi.function.OperatorType;
 import io.prestosql.spi.type.ParametricType;
 import io.prestosql.spi.type.Type;
@@ -60,7 +60,7 @@ public final class InternalTypeManager
     @Override
     public MethodHandle resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)
     {
-        Signature signature = metadata.resolveOperator(operatorType, argumentTypes);
+        ResolvedFunction signature = metadata.resolveOperator(operatorType, argumentTypes);
         return metadata.getScalarFunctionImplementation(signature).getMethodHandle();
     }
 
@@ -103,7 +103,7 @@ public final class InternalTypeManager
     @Override
     public MethodHandle getCoercion(Type fromType, Type toType)
     {
-        Signature signature = metadata.getCoercion(fromType, toType);
-        return metadata.getScalarFunctionImplementation(signature).getMethodHandle();
+        ResolvedFunction function = metadata.getCoercion(fromType, toType);
+        return metadata.getScalarFunctionImplementation(function).getMethodHandle();
     }
 }

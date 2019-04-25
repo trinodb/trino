@@ -31,9 +31,8 @@ import io.prestosql.sql.planner.plan.ProjectNode;
 import io.prestosql.sql.planner.plan.UnionNode;
 import io.prestosql.sql.planner.plan.WindowNode;
 import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.FunctionCall;
-import io.prestosql.sql.tree.QualifiedName;
 import io.prestosql.sql.tree.SymbolReference;
+import io.prestosql.type.FunctionType;
 import io.prestosql.type.TypeCoercion;
 
 import java.util.List;
@@ -89,11 +88,11 @@ public final class TypeValidator
                 Aggregation aggregation = entry.getValue();
                 switch (step) {
                     case SINGLE:
-                        checkSignature(symbol, aggregation.getSignature());
-                        checkCall(symbol, aggregation.getSignature().getName(), aggregation.getArguments());
+                        checkSignature(symbol, aggregation.getResolvedFunction().getSignature());
+                        checkCall(symbol, aggregation.getResolvedFunction().getSignature(), aggregation.getArguments());
                         break;
                     case FINAL:
-                        checkSignature(symbol, aggregation.getSignature());
+                        checkSignature(symbol, aggregation.getResolvedFunction().getSignature());
                         break;
                 }
             }
@@ -150,8 +149,8 @@ public final class TypeValidator
         private void checkWindowFunctions(Map<Symbol, WindowNode.Function> functions)
         {
             functions.forEach((symbol, function) -> {
-                checkSignature(symbol, function.getSignature());
-                checkCall(symbol, function.getSignature().getName(), function.getArguments());
+                checkSignature(symbol, function.getResolvedFunction().getSignature());
+                checkCall(symbol, function.getResolvedFunction().getSignature(), function.getArguments());
             });
         }
 
@@ -162,21 +161,25 @@ public final class TypeValidator
             verifyTypeSignature(symbol, expectedTypeSignature, actualTypeSignature);
         }
 
-        private void checkCall(Symbol symbol, FunctionCall call)
+        private void checkCall(Symbol symbol, Signature signature, List<Expression> arguments)
         {
             Type expectedType = types.get(symbol);
-            Type actualType = typeAnalyzer.getType(session, types, call);
+            Type actualType = metadata.getType(signature.getReturnType());
             verifyTypeSignature(symbol, expectedType.getTypeSignature(), actualType.getTypeSignature());
-        }
 
-        private void checkCall(Symbol symbol, String name, List<Expression> arguments)
-        {
-            Type expectedType = types.get(symbol);
+            checkArgument(signature.getArgumentTypes().size() == arguments.size(),
+                    "expected %s arguments, but found %s arguments",
+                    signature.getArgumentTypes().size(),
+                    arguments.size());
 
-            Signature function = metadata.resolveFunction(QualifiedName.of(name), typeAnalyzer.getCallArgumentTypes(session, types, arguments));
-            Type actualType = metadata.getType(function.getReturnType());
-
-            verifyTypeSignature(symbol, expectedType.getTypeSignature(), actualType.getTypeSignature());
+            for (int i = 0; i < arguments.size(); i++) {
+                TypeSignature expectedTypeSignature = signature.getArgumentTypes().get(i);
+                if (expectedTypeSignature.getBase().equals(FunctionType.NAME)) {
+                    continue;
+                }
+                TypeSignature actualTypeSignature = typeAnalyzer.getType(session, types, arguments.get(i)).getTypeSignature();
+                verifyTypeSignature(symbol, expectedTypeSignature, actualTypeSignature);
+            }
         }
 
         private void verifyTypeSignature(Symbol symbol, TypeSignature expected, TypeSignature actual)

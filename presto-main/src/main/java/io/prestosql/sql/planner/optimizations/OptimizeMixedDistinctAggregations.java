@@ -20,7 +20,6 @@ import com.google.common.collect.Iterables;
 import io.prestosql.Session;
 import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.metadata.Metadata;
-import io.prestosql.metadata.Signature;
 import io.prestosql.spi.type.BigintType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.planner.PlanNodeIdAllocator;
@@ -158,7 +157,7 @@ public class OptimizeMixedDistinctAggregations
                 Aggregation aggregation = entry.getValue();
                 if (aggregation.getMask().isPresent()) {
                     aggregations.put(entry.getKey(), new Aggregation(
-                            aggregation.getSignature(),
+                            aggregation.getResolvedFunction(),
                             ImmutableList.of(aggregateInfo.getNewDistinctAggregateSymbol().toSymbolReference()),
                             false,
                             Optional.empty(),
@@ -169,14 +168,14 @@ public class OptimizeMixedDistinctAggregations
                     // Aggregations on non-distinct are already done by new node, just extract the non-null value
                     Symbol argument = aggregateInfo.getNewNonDistinctAggregateSymbols().get(entry.getKey());
                     QualifiedName functionName = QualifiedName.of("arbitrary");
-                    String signatureName = aggregation.getSignature().getName();
                     Aggregation newAggregation = new Aggregation(
-                            getFunctionSignature(functionName, argument),
+                            metadata.resolveFunction(functionName, fromTypes(symbolAllocator.getTypes().get(argument))),
                             ImmutableList.of(argument.toSymbolReference()),
                             false,
                             Optional.empty(),
                             Optional.empty(),
                             Optional.empty());
+                    String signatureName = aggregation.getResolvedFunction().getSignature().getName();
                     if (signatureName.equals("count") || signatureName.equals("count_if") || signatureName.equals("approx_distinct")) {
                         Symbol newSymbol = symbolAllocator.newSymbol("expr", symbolAllocator.getTypes().get(entry.getKey()));
                         aggregations.put(newSymbol, newAggregation);
@@ -443,7 +442,7 @@ public class OptimizeMixedDistinctAggregations
                                 }
                             }
                             aggregation = new Aggregation(
-                                    aggregation.getSignature(),
+                                    aggregation.getResolvedFunction(),
                                     arguments.build(),
                                     false,
                                     Optional.empty(),
@@ -463,11 +462,6 @@ public class OptimizeMixedDistinctAggregations
                     SINGLE,
                     originalNode.getHashSymbol(),
                     Optional.empty());
-        }
-
-        private Signature getFunctionSignature(QualifiedName functionName, Symbol argument)
-        {
-            return metadata.resolveFunction(functionName, fromTypes(symbolAllocator.getTypes().get(argument)));
         }
 
         // creates if clause specific to use case here, default value always null

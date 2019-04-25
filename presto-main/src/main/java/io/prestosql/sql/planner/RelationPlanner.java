@@ -616,6 +616,7 @@ class RelationPlanner
         }
         ImmutableList<Symbol> unnestedSymbols = unnestedSymbolsBuilder.build();
 
+        // TODO do these need translation
         // Add a projection for all the unnest arguments
         PlanBuilder planBuilder = initializePlanBuilder(leftPlan);
         planBuilder = planBuilder.appendProjections(node.getExpressions(), symbolAllocator, idAllocator);
@@ -709,26 +710,28 @@ class RelationPlanner
             Symbol symbol = symbolAllocator.newSymbol(field);
             outputSymbolsBuilder.add(symbol);
         }
+        List<Symbol> outputSymbols = outputSymbolsBuilder.build();
+        TranslationMap translationMap = translationMapFromSourceOutputs(ImmutableList.of(), node, outputSymbols);
 
         ImmutableList.Builder<List<Expression>> rows = ImmutableList.builder();
         for (Expression row : node.getRows()) {
             ImmutableList.Builder<Expression> values = ImmutableList.builder();
             if (row instanceof Row) {
                 for (Expression item : ((Row) row).getItems()) {
-                    Expression expression = Coercer.addCoercions(item, analysis);
+                    Expression expression = translationMap.rewrite(item);
                     values.add(ExpressionTreeRewriter.rewriteWith(new ParameterRewriter(analysis), expression));
                 }
             }
             else {
-                Expression expression = Coercer.addCoercions(row, analysis);
+                Expression expression = translationMap.rewrite(row);
                 values.add(ExpressionTreeRewriter.rewriteWith(new ParameterRewriter(analysis), expression));
             }
 
             rows.add(values.build());
         }
 
-        ValuesNode valuesNode = new ValuesNode(idAllocator.getNextId(), outputSymbolsBuilder.build(), rows.build());
-        return new RelationPlan(valuesNode, scope, outputSymbolsBuilder.build());
+        ValuesNode valuesNode = new ValuesNode(idAllocator.getNextId(), outputSymbols, rows.build());
+        return new RelationPlan(valuesNode, scope, outputSymbols);
     }
 
     @Override
@@ -743,13 +746,14 @@ class RelationPlanner
         List<Symbol> unnestedSymbols = outputSymbolsBuilder.build();
 
         // If we got here, then we must be unnesting a constant, and not be in a join (where there could be column references)
+        TranslationMap translationMap = translationMapFromSourceOutputs(ImmutableList.of(), node, unnestedSymbols);
         ImmutableList.Builder<Symbol> argumentSymbols = ImmutableList.builder();
         ImmutableList.Builder<Expression> values = ImmutableList.builder();
         ImmutableMap.Builder<Symbol, List<Symbol>> unnestSymbols = ImmutableMap.builder();
         Iterator<Symbol> unnestedSymbolsIterator = unnestedSymbols.iterator();
         for (Expression expression : node.getExpressions()) {
             Type type = analysis.getType(expression);
-            Expression rewritten = Coercer.addCoercions(expression, analysis);
+            Expression rewritten = translationMap.rewrite(expression);
             rewritten = ExpressionTreeRewriter.rewriteWith(new ParameterRewriter(analysis), rewritten);
             values.add(rewritten);
             Symbol inputSymbol = symbolAllocator.newSymbol(rewritten, type);

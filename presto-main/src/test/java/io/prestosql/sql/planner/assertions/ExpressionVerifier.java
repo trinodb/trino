@@ -31,6 +31,7 @@ import io.prestosql.sql.tree.InListExpression;
 import io.prestosql.sql.tree.InPredicate;
 import io.prestosql.sql.tree.IsNotNullPredicate;
 import io.prestosql.sql.tree.IsNullPredicate;
+import io.prestosql.sql.tree.LambdaExpression;
 import io.prestosql.sql.tree.LikePredicate;
 import io.prestosql.sql.tree.LogicalBinaryExpression;
 import io.prestosql.sql.tree.LongLiteral;
@@ -38,6 +39,7 @@ import io.prestosql.sql.tree.Node;
 import io.prestosql.sql.tree.NotExpression;
 import io.prestosql.sql.tree.NullLiteral;
 import io.prestosql.sql.tree.Row;
+import io.prestosql.sql.tree.SearchedCaseExpression;
 import io.prestosql.sql.tree.SimpleCaseExpression;
 import io.prestosql.sql.tree.StringLiteral;
 import io.prestosql.sql.tree.SymbolReference;
@@ -48,6 +50,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
+import static io.prestosql.sql.ExpressionTestUtils.getFunctionName;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -75,12 +78,12 @@ import static java.util.Objects.requireNonNull;
  * NOT (X = 3 AND X = 3 AND X < 10)
  * </pre>
  */
-final class ExpressionVerifier
+public final class ExpressionVerifier
         extends AstVisitor<Boolean, Node>
 {
     private final SymbolAliases symbolAliases;
 
-    ExpressionVerifier(SymbolAliases symbolAliases)
+    public ExpressionVerifier(SymbolAliases symbolAliases)
     {
         this.symbolAliases = requireNonNull(symbolAliases, "symbolAliases is null");
     }
@@ -88,7 +91,7 @@ final class ExpressionVerifier
     @Override
     protected Boolean visitNode(Node node, Node expectedExpression)
     {
-        throw new IllegalStateException(format("Node %s is not supported", node));
+        throw new IllegalStateException(format("Node %s is not supported", node.getClass().getSimpleName()));
     }
 
     @Override
@@ -419,6 +422,25 @@ final class ExpressionVerifier
     }
 
     @Override
+    protected Boolean visitSearchedCaseExpression(SearchedCaseExpression actual, Node expected)
+    {
+        if (!(expected instanceof SearchedCaseExpression)) {
+            return false;
+        }
+
+        SearchedCaseExpression expectedCase = (SearchedCaseExpression) expected;
+        if (!process(actual.getWhenClauses(), expectedCase.getWhenClauses())) {
+            return false;
+        }
+
+        if (actual.getDefaultValue().isPresent() != expectedCase.getDefaultValue().isPresent()) {
+            return false;
+        }
+
+        return process(actual.getDefaultValue(), expectedCase.getDefaultValue());
+    }
+
+    @Override
     protected Boolean visitWhenClause(WhenClause actual, Node expectedExpression)
     {
         if (!(expectedExpression instanceof WhenClause)) {
@@ -441,10 +463,27 @@ final class ExpressionVerifier
         FunctionCall expected = (FunctionCall) expectedExpression;
 
         return actual.isDistinct() == expected.isDistinct() &&
-                actual.getName().equals(expected.getName()) &&
+                getFunctionName(actual).equals(getFunctionName(expected)) &&
                 process(actual.getArguments(), expected.getArguments()) &&
                 process(actual.getFilter(), expected.getFilter()) &&
                 process(actual.getWindow(), expected.getWindow());
+    }
+
+    @Override
+    protected Boolean visitLambdaExpression(LambdaExpression actual, Node expected)
+    {
+        if (!(expected instanceof LambdaExpression)) {
+            return false;
+        }
+
+        LambdaExpression lambdaExpression = (LambdaExpression) expected;
+
+        // todo this should allow the arguments to have different names
+        if (!actual.getArguments().equals(lambdaExpression.getArguments())) {
+            return false;
+        }
+
+        return process(actual.getBody(), lambdaExpression.getBody());
     }
 
     @Override

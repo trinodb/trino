@@ -15,9 +15,7 @@ package io.prestosql.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slices;
-import io.prestosql.metadata.FunctionKind;
 import io.prestosql.metadata.Metadata;
-import io.prestosql.metadata.Signature;
 import io.prestosql.operator.DriverYieldSignal;
 import io.prestosql.operator.project.PageProcessor;
 import io.prestosql.spi.Page;
@@ -28,6 +26,7 @@ import io.prestosql.sql.gen.ExpressionCompiler;
 import io.prestosql.sql.gen.PageFunctionCompiler;
 import io.prestosql.sql.relational.CallExpression;
 import io.prestosql.sql.relational.RowExpression;
+import io.prestosql.sql.tree.QualifiedName;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -52,6 +51,7 @@ import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggre
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.prestosql.sql.relational.Expressions.constant;
 import static io.prestosql.sql.relational.Expressions.field;
 import static io.prestosql.testing.TestingConnectorSession.SESSION;
@@ -89,14 +89,13 @@ public class BenchmarkArrayJoin
         @Setup
         public void setup()
         {
-            Signature signature = new Signature("array_join", FunctionKind.SCALAR, VARCHAR.getTypeSignature(), new ArrayType(BIGINT).getTypeSignature(), VARCHAR.getTypeSignature());
-
-            List<RowExpression> projections = ImmutableList.of(
-                    new CallExpression(signature, VARCHAR, ImmutableList.of(
-                            field(0, new ArrayType(BIGINT)),
-                            constant(Slices.wrappedBuffer(",".getBytes(UTF_8)), VARCHAR))));
-
             Metadata metadata = createTestMetadataManager();
+
+            List<RowExpression> projections = ImmutableList.of(new CallExpression(
+                    metadata.resolveFunction(QualifiedName.of("array_join"), fromTypes(new ArrayType(BIGINT), VARCHAR)),
+                    VARCHAR,
+                    ImmutableList.of(field(0, new ArrayType(BIGINT)), constant(Slices.wrappedBuffer(",".getBytes(UTF_8)), VARCHAR))));
+
             pageProcessor = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0))
                     .compilePageProcessor(Optional.empty(), projections)
                     .get();

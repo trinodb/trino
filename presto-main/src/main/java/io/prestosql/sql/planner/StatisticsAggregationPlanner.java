@@ -16,7 +16,7 @@ package io.prestosql.sql.planner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.metadata.Metadata;
-import io.prestosql.metadata.Signature;
+import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.operator.aggregation.MaxDataSizeForStats;
 import io.prestosql.operator.aggregation.SumDataSizeForStats;
 import io.prestosql.spi.PrestoException;
@@ -128,12 +128,12 @@ public class StatisticsAggregationPlanner
 
     private ColumnStatisticsAggregation createAggregation(QualifiedName functionName, SymbolReference input, Type inputType, Type outputType)
     {
-        Signature signature = metadata.resolveFunction(functionName, fromTypes(inputType));
-        Type resolvedType = metadata.getType(getOnlyElement(signature.getArgumentTypes()));
+        ResolvedFunction resolvedFunction = metadata.resolveFunction(functionName, fromTypes(inputType));
+        Type resolvedType = metadata.getType(getOnlyElement(resolvedFunction.getSignature().getArgumentTypes()));
         verify(resolvedType.equals(inputType), "resolved function input type does not match the input type: %s != %s", resolvedType, inputType);
         return new ColumnStatisticsAggregation(
                 new AggregationNode.Aggregation(
-                        signature,
+                        resolvedFunction,
                         ImmutableList.of(input),
                         false,
                         Optional.empty(),

@@ -18,8 +18,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.PeekingIterator;
 import io.prestosql.Session;
 import io.prestosql.metadata.Metadata;
-import io.prestosql.metadata.Signature;
-import io.prestosql.spi.PrestoException;
+import io.prestosql.metadata.OperatorNotFoundException;
+import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.predicate.DiscreteValues;
 import io.prestosql.spi.predicate.Domain;
@@ -64,8 +64,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Iterators.peekingIterator;
-import static io.prestosql.metadata.Signature.internalOperator;
-import static io.prestosql.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_MISSING;
 import static io.prestosql.spi.function.OperatorType.SATURATED_FLOOR_CAST;
 import static io.prestosql.sql.ExpressionUtils.and;
 import static io.prestosql.sql.ExpressionUtils.combineConjuncts;
@@ -661,24 +659,19 @@ public final class DomainTranslator
                     .map((operator) -> functionInvoker.invoke(operator, session.toConnectorSession(), value));
         }
 
-        private Optional<Signature> getSaturatedFloorCastOperator(Type fromType, Type toType)
+        private Optional<ResolvedFunction> getSaturatedFloorCastOperator(Type fromType, Type toType)
         {
-            Signature signature = internalOperator(SATURATED_FLOOR_CAST, toType, ImmutableList.of(fromType));
             try {
-                metadata.getScalarFunctionImplementation(signature);
-                return Optional.of(signature);
+                return Optional.of(metadata.getCoercion(SATURATED_FLOOR_CAST, fromType, toType));
             }
-            catch (PrestoException e) {
-                if (e.getErrorCode().getCode() == FUNCTION_IMPLEMENTATION_MISSING.toErrorCode().getCode()) {
-                    return Optional.empty();
-                }
-                throw e;
+            catch (OperatorNotFoundException e) {
+                return Optional.empty();
             }
         }
 
         private int compareOriginalValueToCoerced(Type originalValueType, Object originalValue, Type coercedValueType, Object coercedValue)
         {
-            Signature castToOriginalTypeOperator = metadata.getCoercion(coercedValueType, originalValueType);
+            ResolvedFunction castToOriginalTypeOperator = metadata.getCoercion(coercedValueType, originalValueType);
             Object coercedValueInOriginalType = functionInvoker.invoke(castToOriginalTypeOperator, session.toConnectorSession(), coercedValue);
             Block originalValueBlock = Utils.nativeValueToBlock(originalValueType, originalValue);
             Block coercedValueBlock = Utils.nativeValueToBlock(originalValueType, coercedValueInOriginalType);

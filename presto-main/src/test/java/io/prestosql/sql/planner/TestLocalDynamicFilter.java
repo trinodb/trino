@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.prestosql.Session;
+import io.prestosql.metadata.Metadata;
 import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.sql.planner.assertions.BasePlanTest;
@@ -37,6 +38,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
 import static io.prestosql.SystemSessionProperties.FORCE_SINGLE_NODE_OUTPUT;
 import static io.prestosql.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
@@ -45,6 +47,8 @@ import static org.testng.Assert.assertFalse;
 public class TestLocalDynamicFilter
         extends BasePlanTest
 {
+    private static final Metadata METADATA = createTestMetadataManager();
+
     public TestLocalDynamicFilter()
     {
         super(ImmutableMap.of(
@@ -194,7 +198,7 @@ public class TestLocalDynamicFilter
                 LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED,
                 false);
         JoinNode joinNode = searchJoins(subplan.getChildren().get(0).getFragment()).findOnlyElement();
-        LocalDynamicFilter filter = LocalDynamicFilter.create(joinNode, 1).get();
+        LocalDynamicFilter filter = LocalDynamicFilter.create(METADATA, joinNode, 1).get();
         String filterId = Iterables.getOnlyElement(filter.getBuildChannels().keySet());
         Symbol probeSymbol = Iterables.getOnlyElement(joinNode.getCriteria()).getLeft();
 
@@ -218,7 +222,7 @@ public class TestLocalDynamicFilter
                 session);
         JoinNode joinNode = searchJoins(subplan.getChildren().get(0).getFragment()).findOnlyElement();
         assertEquals(joinNode.getDynamicFilters().isEmpty(), false);
-        assertEquals(LocalDynamicFilter.create(joinNode, 1), Optional.empty());
+        assertEquals(LocalDynamicFilter.create(METADATA, joinNode, 1), Optional.empty());
     }
 
     @Test
@@ -232,7 +236,7 @@ public class TestLocalDynamicFilter
                 LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED,
                 false);
         JoinNode joinNode = searchJoins(subplan.getChildren().get(0).getFragment()).findOnlyElement();
-        LocalDynamicFilter filter = LocalDynamicFilter.create(joinNode, 1).get();
+        LocalDynamicFilter filter = LocalDynamicFilter.create(METADATA, joinNode, 1).get();
         List<String> filterIds = filter
                 .getBuildChannels()
                 .entrySet()
@@ -263,7 +267,7 @@ public class TestLocalDynamicFilter
         List<JoinNode> joinNodes = searchJoins(subplan.getChildren().get(0).getFragment()).findAll();
         assertEquals(joinNodes.size(), 2);
         for (JoinNode joinNode : joinNodes) {
-            LocalDynamicFilter filter = LocalDynamicFilter.create(joinNode, 1).get();
+            LocalDynamicFilter filter = LocalDynamicFilter.create(METADATA, joinNode, 1).get();
             String filterId = Iterables.getOnlyElement(filter.getBuildChannels().keySet());
             Symbol probeSymbol = Iterables.getOnlyElement(joinNode.getCriteria()).getLeft();
 
@@ -286,7 +290,7 @@ public class TestLocalDynamicFilter
                 LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED,
                 true);
         JoinNode joinNode = searchJoins(subplan.getFragment()).findOnlyElement();
-        LocalDynamicFilter filter = LocalDynamicFilter.create(joinNode, 1).get();
+        LocalDynamicFilter filter = LocalDynamicFilter.create(METADATA, joinNode, 1).get();
         String filterId = Iterables.getOnlyElement(filter.getBuildChannels().keySet());
 
         filter.getTupleDomainConsumer().accept(TupleDomain.withColumnDomains(ImmutableMap.of(

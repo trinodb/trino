@@ -15,14 +15,15 @@ package io.prestosql.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.metadata.FunctionKind;
-import io.prestosql.metadata.Signature;
+import io.prestosql.metadata.MetadataManager;
+import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.sql.planner.assertions.ExpectedValueProvider;
 import io.prestosql.sql.planner.assertions.PlanMatchPattern;
 import io.prestosql.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.prestosql.sql.planner.iterative.rule.test.PlanBuilder;
 import io.prestosql.sql.planner.plan.Assignments;
 import io.prestosql.sql.planner.plan.WindowNode;
+import io.prestosql.sql.tree.QualifiedName;
 import io.prestosql.sql.tree.SymbolReference;
 import io.prestosql.sql.tree.WindowFrame;
 import org.testng.annotations.Test;
@@ -31,8 +32,10 @@ import java.util.Arrays;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
+import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.functionCall;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.specification;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.strictProject;
@@ -54,9 +57,10 @@ public class TestMergeAdjacentWindows
             Optional.empty(),
             Optional.empty());
 
-    private static final Signature AVG = createWindowFunctionSignature("avg");
-    private static final Signature SUM = createWindowFunctionSignature("sum");
-    private static final Signature LAG = createWindowFunctionSignature("lag");
+    private static final MetadataManager METADATA = createTestMetadataManager();
+    private static final ResolvedFunction AVG = createWindowFunctionSignature("avg");
+    private static final ResolvedFunction SUM = createWindowFunctionSignature("sum");
+    private static final ResolvedFunction LAG = createWindowFunctionSignature("lag");
 
     private static final String columnAAlias = "ALIAS_A";
     private static final ExpectedValueProvider<WindowNode.Specification> specificationA =
@@ -159,8 +163,8 @@ public class TestMergeAdjacentWindows
                 .matches(
                         window(windowMatcherBuilder -> windowMatcherBuilder
                                         .specification(specificationA)
-                                        .addFunction(functionCall(AVG.getName(), Optional.empty(), ImmutableList.of(columnAAlias)))
-                                        .addFunction(functionCall(SUM.getName(), Optional.empty(), ImmutableList.of(columnAAlias))),
+                                        .addFunction(functionCall(AVG.getSignature().getName(), Optional.empty(), ImmutableList.of(columnAAlias)))
+                                        .addFunction(functionCall(SUM.getSignature().getName(), Optional.empty(), ImmutableList.of(columnAAlias))),
                                 values(ImmutableMap.of(columnAAlias, 0))));
     }
 
@@ -197,8 +201,8 @@ public class TestMergeAdjacentWindows
                                         avgOutputAlias, PlanMatchPattern.expression(avgOutputAlias)),
                                 window(windowMatcherBuilder -> windowMatcherBuilder
                                                 .specification(specificationA)
-                                                .addFunction(lagOutputAlias, functionCall(LAG.getName(), Optional.empty(), ImmutableList.of(columnAAlias, oneAlias)))
-                                                .addFunction(avgOutputAlias, functionCall(AVG.getName(), Optional.empty(), ImmutableList.of(columnAAlias))),
+                                                .addFunction(lagOutputAlias, functionCall(LAG.getSignature().getName(), Optional.empty(), ImmutableList.of(columnAAlias, oneAlias)))
+                                                .addFunction(avgOutputAlias, functionCall(AVG.getSignature().getName(), Optional.empty(), ImmutableList.of(columnAAlias))),
                                         strictProject(
                                                 ImmutableMap.of(
                                                         oneAlias, PlanMatchPattern.expression("CAST(1 AS bigint)"),
@@ -216,24 +220,17 @@ public class TestMergeAdjacentWindows
         return new WindowNode.Specification(ImmutableList.of(planBuilder.symbol(symbolName, BIGINT)), Optional.empty());
     }
 
-    private static WindowNode.Function newWindowNodeFunction(Signature signature, String... symbols)
+    private static WindowNode.Function newWindowNodeFunction(ResolvedFunction resolvedFunction, String... symbols)
     {
         return new WindowNode.Function(
-                signature,
+                resolvedFunction,
                 Arrays.stream(symbols).map(SymbolReference::new).collect(Collectors.toList()),
                 frame,
                 false);
     }
 
-    private static Signature createWindowFunctionSignature(String name)
+    private static ResolvedFunction createWindowFunctionSignature(String name)
     {
-        return new Signature(
-                name,
-                FunctionKind.WINDOW,
-                ImmutableList.of(),
-                ImmutableList.of(),
-                DOUBLE.getTypeSignature(),
-                ImmutableList.of(DOUBLE.getTypeSignature()),
-                false);
+        return METADATA.resolveFunction(QualifiedName.of(name), fromTypes(DOUBLE));
     }
 }

@@ -16,6 +16,8 @@ package io.prestosql.sql;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.prestosql.metadata.Metadata;
+import io.prestosql.metadata.ResolvedFunction;
+import io.prestosql.metadata.Signature;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.function.ScalarFunction;
 import io.prestosql.spi.function.SqlType;
@@ -53,7 +55,7 @@ public final class DynamicFilters
                 .build();
     }
 
-    public static ExtractResult extractDynamicFilters(Expression expression)
+    public static ExtractResult extractDynamicFilters(Metadata metadata, Expression expression)
     {
         List<Expression> conjuncts = extractConjuncts(expression);
 
@@ -61,7 +63,7 @@ public final class DynamicFilters
         ImmutableList.Builder<Descriptor> dynamicConjuncts = ImmutableList.builder();
 
         for (Expression conjunct : conjuncts) {
-            Optional<Descriptor> descriptor = getDescriptor(conjunct);
+            Optional<Descriptor> descriptor = getDescriptor(metadata, conjunct);
             if (descriptor.isPresent()) {
                 dynamicConjuncts.add(descriptor.get());
             }
@@ -73,20 +75,24 @@ public final class DynamicFilters
         return new ExtractResult(staticConjuncts.build(), dynamicConjuncts.build());
     }
 
-    public static boolean isDynamicFilter(Expression expression)
+    public static boolean isDynamicFilter(Metadata metadata, Expression expression)
     {
-        return getDescriptor(expression).isPresent();
+        return getDescriptor(metadata, expression).isPresent();
     }
 
-    public static Optional<Descriptor> getDescriptor(Expression expression)
+    public static Optional<Descriptor> getDescriptor(Metadata metadata, Expression expression)
     {
         if (!(expression instanceof FunctionCall)) {
             return Optional.empty();
         }
 
         FunctionCall functionCall = (FunctionCall) expression;
-
-        if (!functionCall.getName().getSuffix().equals(Function.NAME)) {
+        boolean isDynamicFilterFunction = ResolvedFunction.fromQualifiedName(functionCall.getName())
+                .map(ResolvedFunction::getSignature)
+                .map(Signature::getName)
+                .map(Function.NAME::equals)
+                .orElse(false);
+        if (!isDynamicFilterFunction) {
             return Optional.empty();
         }
 

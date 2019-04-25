@@ -25,6 +25,7 @@ import io.prestosql.connector.CatalogName;
 import io.prestosql.metadata.AbstractMockMetadata;
 import io.prestosql.metadata.FunctionKind;
 import io.prestosql.metadata.Metadata;
+import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.TableHandle;
 import io.prestosql.metadata.TableProperties;
@@ -88,6 +89,7 @@ import java.util.UUID;
 import java.util.stream.IntStream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.prestosql.metadata.FunctionId.toFunctionId;
 import static io.prestosql.metadata.FunctionKind.AGGREGATE;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.spi.type.BigintType.BIGINT;
@@ -138,21 +140,21 @@ public class TestEffectivePredicateExtractor
         }
 
         @Override
-        public Signature resolveFunction(QualifiedName name, List<TypeSignatureProvider> parameterTypes)
+        public ResolvedFunction resolveFunction(QualifiedName name, List<TypeSignatureProvider> parameterTypes)
         {
             return delegate.resolveFunction(name, parameterTypes);
         }
 
         @Override
-        public Signature getCoercion(Type fromType, Type toType)
+        public ResolvedFunction getCoercion(Type fromType, Type toType)
         {
             return delegate.getCoercion(fromType, toType);
         }
 
         @Override
-        public ScalarFunctionImplementation getScalarFunctionImplementation(Signature signature)
+        public ScalarFunctionImplementation getScalarFunctionImplementation(ResolvedFunction resolvedFunction)
         {
-            return delegate.getScalarFunctionImplementation(signature);
+            return delegate.getScalarFunctionImplementation(resolvedFunction);
         }
 
         @Override
@@ -211,14 +213,14 @@ public class TestEffectivePredicateExtractor
                                 equals(EE, FE))),
                 ImmutableMap.of(
                         C, new Aggregation(
-                                fakeFunctionHandle("test", AGGREGATE),
+                                fakeFunction("test", AGGREGATE),
                                 ImmutableList.of(),
                                 false,
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty()),
                         D, new Aggregation(
-                                fakeFunctionHandle("test", AGGREGATE),
+                                fakeFunction("test", AGGREGATE),
                                 ImmutableList.of(),
                                 false,
                                 Optional.empty(),
@@ -956,9 +958,10 @@ public class TestEffectivePredicateExtractor
         return new IsNullPredicate(expression);
     }
 
-    private static Signature fakeFunctionHandle(String name, FunctionKind kind)
+    private static ResolvedFunction fakeFunction(String name, FunctionKind kind)
     {
-        return new Signature(name, kind, UNKNOWN.getTypeSignature(), ImmutableList.of());
+        Signature boundSignature = new Signature(name, kind, UNKNOWN.getTypeSignature(), ImmutableList.of());
+        return new ResolvedFunction(boundSignature, toFunctionId(boundSignature));
     }
 
     private Set<Expression> normalizeConjuncts(Expression... conjuncts)

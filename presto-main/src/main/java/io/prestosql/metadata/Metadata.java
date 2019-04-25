@@ -63,6 +63,8 @@ import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
 
+import static io.prestosql.spi.function.OperatorType.CAST;
+
 public interface Metadata
 {
     Set<ConnectorCapabilities> getConnectorCapabilities(Session session, CatalogName catalogName);
@@ -433,12 +435,19 @@ public interface Metadata
 
     FunctionInvokerProvider getFunctionInvokerProvider();
 
-    Signature resolveFunction(QualifiedName name, List<TypeSignatureProvider> parameterTypes);
+    ResolvedFunction resolveFunction(QualifiedName name, List<TypeSignatureProvider> parameterTypes);
 
-    Signature resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)
+    ResolvedFunction resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)
             throws OperatorNotFoundException;
 
-    Signature getCoercion(Type fromType, Type toType);
+    default ResolvedFunction getCoercion(Type fromType, Type toType)
+    {
+        return getCoercion(CAST, fromType, toType);
+    }
+
+    ResolvedFunction getCoercion(OperatorType operatorType, Type fromType, Type toType);
+
+    ResolvedFunction getCoercion(QualifiedName name, Type fromType, Type toType);
 
     /**
      * Is the named function an aggregation function?  This does not need type parameters
@@ -446,11 +455,11 @@ public interface Metadata
      */
     boolean isAggregationFunction(QualifiedName name);
 
-    WindowFunctionSupplier getWindowFunctionImplementation(Signature signature);
+    WindowFunctionSupplier getWindowFunctionImplementation(ResolvedFunction resolvedFunction);
 
-    InternalAggregationFunction getAggregateFunctionImplementation(Signature signature);
+    InternalAggregationFunction getAggregateFunctionImplementation(ResolvedFunction resolvedFunction);
 
-    ScalarFunctionImplementation getScalarFunctionImplementation(Signature signature);
+    ScalarFunctionImplementation getScalarFunctionImplementation(ResolvedFunction resolvedFunction);
 
     ProcedureRegistry getProcedureRegistry();
 
