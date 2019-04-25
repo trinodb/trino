@@ -235,6 +235,9 @@ public class PostgreSqlClient
             return Optional.of(timestampColumnMapping(session));
         }
         if (typeHandle.getJdbcType() == Types.ARRAY) {
+            if (!typeHandle.getArrayDimensions().isPresent()) {
+                return Optional.empty();
+            }
             JdbcTypeHandle elementTypeHandle = getArrayElementTypeHandle(session, typeHandle);
             if (elementTypeHandle.getJdbcType() == Types.VARBINARY) {
                 // PostgreSQL jdbc driver doesn't currently support array of varbinary (bytea[])
@@ -244,8 +247,7 @@ public class PostgreSqlClient
             return toPrestoType(session, elementTypeHandle)
                     .map(elementMapping -> {
                         ArrayType prestoArrayType = new ArrayType(elementMapping.getType());
-                        int arrayDimensions = typeHandle.getArrayDimensions()
-                                .orElseThrow(() -> new PrestoException(JDBC_ERROR, "No array dimensions for ARRAY type: " + typeHandle));
+                        int arrayDimensions = typeHandle.getArrayDimensions().get();
                         for (int i = 1; i < arrayDimensions; i++) {
                             prestoArrayType = new ArrayType(prestoArrayType);
                         }
