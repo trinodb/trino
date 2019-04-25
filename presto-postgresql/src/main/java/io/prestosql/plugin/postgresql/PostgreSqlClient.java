@@ -46,6 +46,7 @@ import io.prestosql.spi.type.TypeManager;
 import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.spi.type.VarcharType;
 import org.postgresql.Driver;
+import org.postgresql.core.TypeInfo;
 import org.postgresql.jdbc.PgConnection;
 import org.postgresql.util.PGobject;
 
@@ -70,7 +71,6 @@ import java.util.function.BiFunction;
 
 import static com.fasterxml.jackson.core.JsonFactory.Feature.CANONICALIZE_FIELD_NAMES;
 import static com.fasterxml.jackson.databind.SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS;
-import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.plugin.jdbc.ColumnMapping.DISABLE_PUSHDOWN;
 import static io.prestosql.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
@@ -326,14 +326,12 @@ public class PostgreSqlClient
     {
         String jdbcTypeName = arrayTypeHandle.getJdbcTypeName()
                 .orElseThrow(() -> new PrestoException(JDBC_ERROR, "Type name is missing: " + arrayTypeHandle));
-        // PostgreSql array type names are the base element type prepended with "_"
-        checkArgument(jdbcTypeName.startsWith("_"), "array type must start with '_'");
-        String elementPgTypeName = jdbcTypeName.substring(1);
         try (Connection connection = connectionFactory.openConnection(JdbcIdentity.from(session))) {
-            int elementJdbcType = connection.unwrap(PgConnection.class).getTypeInfo().getSQLType(elementPgTypeName);
+            TypeInfo typeInfo = connection.unwrap(PgConnection.class).getTypeInfo();
+            int pgElementOid = typeInfo.getPGArrayElement(typeInfo.getPGType(jdbcTypeName));
             return new JdbcTypeHandle(
-                    elementJdbcType,
-                    Optional.of(elementPgTypeName),
+                    typeInfo.getSQLType(pgElementOid),
+                    Optional.of(typeInfo.getPGType(pgElementOid)),
                     arrayTypeHandle.getColumnSize(),
                     arrayTypeHandle.getDecimalDigits(),
                     arrayTypeHandle.getArrayDimensions());
