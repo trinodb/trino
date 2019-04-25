@@ -20,6 +20,8 @@ import io.prestosql.sql.planner.assertions.PlanMatchPattern;
 import io.prestosql.sql.planner.optimizations.PlanOptimizer;
 import io.prestosql.sql.planner.plan.ExchangeNode;
 import io.prestosql.sql.planner.plan.WindowNode;
+import io.prestosql.sql.tree.LongLiteral;
+import io.prestosql.sql.tree.StringLiteral;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -45,6 +47,63 @@ public class TestPredicatePushdown
         extends BasePlanTest
 {
     @Test
+    public void testCoercions()
+    {
+        // Ensure constant equality predicate is pushed to the other side of the join
+        // when type coercions are involved
+
+        // values have the same type (varchar(4)) in both tables
+        assertPlan(
+                "WITH " +
+                        "    t(k, v) AS (VALUES (1, 'aaaa'))," +
+                        "    u(k, v) AS (VALUES (1, 'bbbb')) " +
+                        "SELECT 1 " +
+                        "FROM t JOIN u ON t.k = u.k AND t.v = u.v " +
+                        "WHERE t.v = 'x'",
+                anyTree(
+                        join(INNER, ImmutableList.of(equiJoinClause("t_k", "u_k")),
+                                project(
+                                        filter(
+                                                "CAST('x' AS varchar(4)) = t_v",
+                                                values(
+                                                        ImmutableList.of("t_k", "t_v"),
+                                                        ImmutableList.of(
+                                                                ImmutableList.of(new LongLiteral("1"), new StringLiteral("aaaa")))))),
+                                project(
+                                        filter(
+                                                "CAST('x' AS varchar(4)) = u_v",
+                                                values(
+                                                        ImmutableList.of("u_k", "u_v"),
+                                                        ImmutableList.of(
+                                                                ImmutableList.of(new LongLiteral("1"), new StringLiteral("bbbb")))))))));
+
+        // values have different types (varchar(4) vs varchar(5)) in each table
+        assertPlan(
+                "WITH " +
+                        "    t(k, v) AS (VALUES (1, 'aaaa'))," +
+                        "    u(k, v) AS (VALUES (1, 'bbbbb')) " +
+                        "SELECT 1 " +
+                        "FROM t JOIN u ON t.k = u.k AND t.v = u.v " +
+                        "WHERE t.v = 'x'",
+                anyTree(
+                        join(INNER, ImmutableList.of(equiJoinClause("t_k", "u_k")),
+                                project(
+                                        filter(
+                                                "CAST('x' AS varchar(4)) = t_v",
+                                                values(
+                                                        ImmutableList.of("t_k", "t_v"),
+                                                        ImmutableList.of(
+                                                                ImmutableList.of(new LongLiteral("1"), new StringLiteral("aaaa")))))),
+                                project(
+                                        filter(
+                                                "CAST('x' AS varchar(5)) = u_v",
+                                                values(
+                                                        ImmutableList.of("u_k", "u_v"),
+                                                        ImmutableList.of(
+                                                                ImmutableList.of(new LongLiteral("1"), new StringLiteral("bbbbb")))))))));
+    }
+
+    @Test
     public void testNonStraddlingJoinExpression()
     {
         assertPlan("SELECT * FROM orders JOIN lineitem ON orders.orderkey = lineitem.orderkey AND cast(lineitem.linenumber AS varchar) = '2'",
@@ -53,7 +112,7 @@ public class TestPredicatePushdown
                                 any(
                                         tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey"))),
                                 anyTree(
-                                        filter("cast(LINEITEM_LINENUMBER as varchar) = cast('2' as varchar)",
+                                        filter("cast('2' as varchar) = cast(LINEITEM_LINENUMBER as varchar)",
                                                 tableScan("lineitem", ImmutableMap.of(
                                                         "LINEITEM_OK", "orderkey",
                                                         "LINEITEM_LINENUMBER", "linenumber")))))));
