@@ -29,6 +29,7 @@ import io.prestosql.sql.tree.AstVisitor;
 import io.prestosql.sql.tree.BooleanLiteral;
 import io.prestosql.sql.tree.DescribeOutput;
 import io.prestosql.sql.tree.Expression;
+import io.prestosql.sql.tree.Limit;
 import io.prestosql.sql.tree.LongLiteral;
 import io.prestosql.sql.tree.Node;
 import io.prestosql.sql.tree.NullLiteral;
@@ -103,12 +104,12 @@ final class DescribeOutputRewrite
             Analyzer analyzer = new Analyzer(session, metadata, parser, accessControl, queryExplainer, parameters, warningCollector);
             Analysis analysis = analyzer.analyze(statement, true);
 
-            Optional<String> limit = Optional.empty();
+            Optional<Node> limit = Optional.empty();
             Row[] rows = analysis.getRootScope().getRelationType().getVisibleFields().stream().map(field -> createDescribeOutputRow(field, analysis)).toArray(Row[]::new);
             if (rows.length == 0) {
                 NullLiteral nullLiteral = new NullLiteral();
                 rows = new Row[] {row(nullLiteral, nullLiteral, nullLiteral, nullLiteral, nullLiteral, nullLiteral, nullLiteral)};
-                limit = Optional.of("0");
+                limit = Optional.of(new Limit("0"));
             }
             return simpleQuery(
                     selectList(

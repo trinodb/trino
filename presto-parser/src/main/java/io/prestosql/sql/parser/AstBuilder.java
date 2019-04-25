@@ -68,6 +68,7 @@ import io.prestosql.sql.tree.ExplainOption;
 import io.prestosql.sql.tree.ExplainType;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.Extract;
+import io.prestosql.sql.tree.FetchFirst;
 import io.prestosql.sql.tree.FrameBound;
 import io.prestosql.sql.tree.FunctionCall;
 import io.prestosql.sql.tree.GenericLiteral;
@@ -97,6 +98,7 @@ import io.prestosql.sql.tree.LambdaExpression;
 import io.prestosql.sql.tree.Lateral;
 import io.prestosql.sql.tree.LikeClause;
 import io.prestosql.sql.tree.LikePredicate;
+import io.prestosql.sql.tree.Limit;
 import io.prestosql.sql.tree.LogicalBinaryExpression;
 import io.prestosql.sql.tree.LongLiteral;
 import io.prestosql.sql.tree.NaturalJoin;
@@ -580,10 +582,19 @@ class AstBuilder
             orderBy = Optional.of(new OrderBy(getLocation(context.ORDER()), visit(context.sortItem(), SortItem.class)));
         }
 
+        Optional<Node> limit = Optional.empty();
+        if (context.FETCH() != null) {
+            limit = Optional.of(new FetchFirst(getTextIfPresent(context.fetchFirst)));
+        }
+        else if (context.LIMIT() != null) {
+            limit = Optional.of(new Limit(getTextIfPresent(context.limit).orElseThrow(() -> new IllegalStateException("Missing LIMIT value"))));
+        }
+
         if (term instanceof QuerySpecification) {
             // When we have a simple query specification
-            // followed by order by limit, fold the order by and limit
-            // clauses into the query specification (analyzer/planner
+            // followed by order by limit or fetch,
+            // fold the order by and limit or fetch clauses
+            // into the query specification (analyzer/planner
             // expects this structure to resolve references with respect
             // to columns defined in the query specification)
             QuerySpecification query = (QuerySpecification) term;
@@ -599,7 +610,7 @@ class AstBuilder
                             query.getGroupBy(),
                             query.getHaving(),
                             orderBy,
-                            getTextIfPresent(context.limit)),
+                            limit),
                     Optional.empty(),
                     Optional.empty());
         }
@@ -609,7 +620,7 @@ class AstBuilder
                 Optional.empty(),
                 term,
                 orderBy,
-                getTextIfPresent(context.limit));
+                limit);
     }
 
     @Override

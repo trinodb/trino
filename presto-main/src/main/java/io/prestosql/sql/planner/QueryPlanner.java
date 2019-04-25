@@ -865,7 +865,7 @@ class QueryPlanner
         return sort(subPlan, node.getOrderBy(), node.getLimit(), analysis.getOrderByExpressions(node));
     }
 
-    private PlanBuilder sort(PlanBuilder subPlan, Optional<OrderBy> orderBy, Optional<String> limit, List<Expression> orderByExpressions)
+    private PlanBuilder sort(PlanBuilder subPlan, Optional<OrderBy> orderBy, Optional<Node> limit, List<Expression> orderByExpressions)
     {
         if (!orderBy.isPresent()) {
             return subPlan;
@@ -887,8 +887,8 @@ class QueryPlanner
 
         PlanNode planNode;
         OrderingScheme orderingScheme = new OrderingScheme(orderBySymbols.build(), orderings);
-        if (limit.isPresent() && !limit.get().equalsIgnoreCase("all")) {
-            planNode = new TopNNode(idAllocator.getNextId(), subPlan.getRoot(), Long.parseLong(limit.get()), orderingScheme, TopNNode.Step.SINGLE);
+        if (limit.isPresent() && analysis.getLimit(limit.get()).isPresent()) {
+            planNode = new TopNNode(idAllocator.getNextId(), subPlan.getRoot(), analysis.getLimit(limit.get()).getAsLong(), orderingScheme, TopNNode.Step.SINGLE);
         }
         else {
             planNode = new SortNode(idAllocator.getNextId(), subPlan.getRoot(), orderingScheme);
@@ -907,13 +907,10 @@ class QueryPlanner
         return limit(subPlan, node.getOrderBy(), node.getLimit());
     }
 
-    private PlanBuilder limit(PlanBuilder subPlan, Optional<OrderBy> orderBy, Optional<String> limit)
+    private PlanBuilder limit(PlanBuilder subPlan, Optional<OrderBy> orderBy, Optional<Node> limit)
     {
-        if (!orderBy.isPresent() && limit.isPresent()) {
-            if (!limit.get().equalsIgnoreCase("all")) {
-                long limitValue = Long.parseLong(limit.get());
-                subPlan = subPlan.withNewRoot(new LimitNode(idAllocator.getNextId(), subPlan.getRoot(), limitValue, false));
-            }
+        if (!orderBy.isPresent() && limit.isPresent() && analysis.getLimit(limit.get()).isPresent()) {
+            return subPlan.withNewRoot(new LimitNode(idAllocator.getNextId(), subPlan.getRoot(), analysis.getLimit(limit.get()).getAsLong(), false));
         }
 
         return subPlan;

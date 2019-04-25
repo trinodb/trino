@@ -69,6 +69,7 @@ import static io.prestosql.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.functionCall;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.join;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.limit;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.markDistinct;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.node;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.output;
@@ -832,5 +833,31 @@ public class TestLogicalPlanner
         assertPlanDoesNotContain(
                 "SELECT custkey FROM orders WHERE custkey IN (SELECT distinct custkey FROM customer)",
                 AggregationNode.class);
+    }
+
+    @Test
+    public void testOrderByFetch()
+    {
+        assertPlan(
+                "SELECT * FROM nation ORDER BY name FETCH FIRST 2 ROWS ONLY",
+                anyTree(
+                        topN(
+                                2,
+                                ImmutableList.of(sort("NAME", ASCENDING, LAST)),
+                                TopNNode.Step.PARTIAL,
+                                tableScan("nation", ImmutableMap.of(
+                                        "NAME", "name")))));
+    }
+
+    @Test
+    public void testFetch()
+    {
+        assertPlan(
+                "SELECT * FROM nation FETCH FIRST 2 ROWS ONLY",
+                anyTree(
+                        limit(
+                                2,
+                                any(
+                                        tableScan("nation")))));
     }
 }

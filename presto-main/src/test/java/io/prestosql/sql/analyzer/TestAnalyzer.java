@@ -83,6 +83,8 @@ import static io.prestosql.sql.analyzer.SemanticErrorCode.COLUMN_TYPE_UNKNOWN;
 import static io.prestosql.sql.analyzer.SemanticErrorCode.DUPLICATE_COLUMN_NAME;
 import static io.prestosql.sql.analyzer.SemanticErrorCode.DUPLICATE_PROPERTY;
 import static io.prestosql.sql.analyzer.SemanticErrorCode.DUPLICATE_RELATION;
+import static io.prestosql.sql.analyzer.SemanticErrorCode.INVALID_FETCH_FIRST_ROW_COUNT;
+import static io.prestosql.sql.analyzer.SemanticErrorCode.INVALID_LIMIT_ROW_COUNT;
 import static io.prestosql.sql.analyzer.SemanticErrorCode.INVALID_LITERAL;
 import static io.prestosql.sql.analyzer.SemanticErrorCode.INVALID_ORDINAL;
 import static io.prestosql.sql.analyzer.SemanticErrorCode.INVALID_PARAMETER_USAGE;
@@ -327,6 +329,19 @@ public class TestAnalyzer
         assertFails(TYPE_MISMATCH, "SELECT x FROM (SELECT approx_set(1) x) ORDER BY 1");
         assertFails(TYPE_MISMATCH, "SELECT * FROM (SELECT approx_set(1) x) ORDER BY 1");
         assertFails(TYPE_MISMATCH, "SELECT x FROM (SELECT approx_set(1) x) ORDER BY x");
+    }
+
+    @Test
+    public void testFetchFirstInvalidRowCount()
+    {
+        assertFails(INVALID_FETCH_FIRST_ROW_COUNT, "SELECT * FROM t1 FETCH FIRST 987654321098765432109876543210 ROWS ONLY");
+        assertFails(INVALID_FETCH_FIRST_ROW_COUNT, "SELECT * FROM t1 FETCH FIRST 0 ROWS ONLY");
+    }
+
+    @Test
+    public void testLimitInvalidRowCount()
+    {
+        assertFails(INVALID_LIMIT_ROW_COUNT, "SELECT * FROM t1 LIMIT 987654321098765432109876543210");
     }
 
     @Test

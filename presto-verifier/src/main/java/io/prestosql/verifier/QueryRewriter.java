@@ -29,6 +29,7 @@ import io.prestosql.sql.tree.FunctionCall;
 import io.prestosql.sql.tree.Identifier;
 import io.prestosql.sql.tree.Insert;
 import io.prestosql.sql.tree.LikeClause;
+import io.prestosql.sql.tree.Limit;
 import io.prestosql.sql.tree.LongLiteral;
 import io.prestosql.sql.tree.QualifiedName;
 import io.prestosql.sql.tree.QueryBody;
@@ -203,12 +204,12 @@ public class QueryRewriter
                     querySpecification.getGroupBy(),
                     querySpecification.getHaving(),
                     querySpecification.getOrderBy(),
-                    Optional.of("0"));
+                    Optional.of(new Limit("0")));
 
             zeroRowsQuery = new io.prestosql.sql.tree.Query(createSelectClause.getWith(), innerQuery, Optional.empty(), Optional.empty());
         }
         else {
-            zeroRowsQuery = new io.prestosql.sql.tree.Query(createSelectClause.getWith(), innerQuery, Optional.empty(), Optional.of("0"));
+            zeroRowsQuery = new io.prestosql.sql.tree.Query(createSelectClause.getWith(), innerQuery, Optional.empty(), Optional.of(new Limit("0")));
         }
 
         ImmutableList.Builder<Column> columns = ImmutableList.builder();

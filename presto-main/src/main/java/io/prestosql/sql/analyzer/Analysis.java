@@ -58,6 +58,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -97,6 +98,7 @@ public class Analysis
     private final Map<NodeRef<Node>, List<Expression>> outputExpressions = new LinkedHashMap<>();
     private final Map<NodeRef<QuerySpecification>, List<FunctionCall>> windowFunctions = new LinkedHashMap<>();
     private final Map<NodeRef<OrderBy>, List<FunctionCall>> orderByWindowFunctions = new LinkedHashMap<>();
+    private final Map<NodeRef<Node>, OptionalLong> limit = new LinkedHashMap<>();
 
     private final Map<NodeRef<Join>, Expression> joins = new LinkedHashMap<>();
     private final Map<NodeRef<Join>, JoinUsingAnalysis> joinUsing = new LinkedHashMap<>();
@@ -314,6 +316,22 @@ public class Analysis
     public List<Expression> getOrderByExpressions(Node node)
     {
         return orderByExpressions.get(NodeRef.of(node));
+    }
+
+    public void setLimit(Node node, OptionalLong rowCount)
+    {
+        limit.put(NodeRef.of(node), rowCount);
+    }
+
+    public void setLimit(Node node, long rowCount)
+    {
+        limit.put(NodeRef.of(node), OptionalLong.of(rowCount));
+    }
+
+    public OptionalLong getLimit(Node node)
+    {
+        checkState(limit.containsKey(NodeRef.of(node)), "missing LIMIT value for node %s", node);
+        return limit.get(NodeRef.of(node));
     }
 
     public void setOutputExpressions(Node node, List<Expression> expressions)
