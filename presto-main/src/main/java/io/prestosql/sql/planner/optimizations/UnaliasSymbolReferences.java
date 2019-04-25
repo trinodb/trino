@@ -21,7 +21,7 @@ import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Lists;
 import io.prestosql.Session;
 import io.prestosql.execution.warnings.WarningCollector;
-import io.prestosql.metadata.Signature;
+import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.spi.block.SortOrder;
 import io.prestosql.sql.planner.DeterminismEvaluator;
 import io.prestosql.sql.planner.OrderingScheme;
@@ -200,11 +200,11 @@ public class UnaliasSymbolReferences
 
             ImmutableMap.Builder<Symbol, WindowNode.Function> functions = ImmutableMap.builder();
             node.getWindowFunctions().forEach((symbol, function) -> {
-                Signature signature = function.getSignature();
+                ResolvedFunction resolvedFunction = function.getResolvedFunction();
                 List<Expression> arguments = canonicalize(function.getArguments());
                 WindowNode.Frame canonicalFrame = canonicalize(function.getFrame());
 
-                functions.put(canonicalize(symbol), new WindowNode.Function(signature, arguments, canonicalFrame, function.isIgnoreNulls()));
+                functions.put(canonicalize(symbol), new WindowNode.Function(resolvedFunction, arguments, canonicalFrame, function.isIgnoreNulls()));
             });
 
             return new WindowNode(

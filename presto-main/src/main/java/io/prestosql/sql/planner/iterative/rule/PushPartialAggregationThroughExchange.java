@@ -18,7 +18,7 @@ import io.prestosql.matching.Capture;
 import io.prestosql.matching.Captures;
 import io.prestosql.matching.Pattern;
 import io.prestosql.metadata.Metadata;
-import io.prestosql.metadata.Signature;
+import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.operator.aggregation.InternalAggregationFunction;
 import io.prestosql.sql.planner.Partitioning;
 import io.prestosql.sql.planner.PartitioningScheme;
@@ -200,15 +200,15 @@ public class PushPartialAggregationThroughExchange
         Map<Symbol, AggregationNode.Aggregation> finalAggregation = new HashMap<>();
         for (Map.Entry<Symbol, AggregationNode.Aggregation> entry : node.getAggregations().entrySet()) {
             AggregationNode.Aggregation originalAggregation = entry.getValue();
-            Signature signature = originalAggregation.getSignature();
-            InternalAggregationFunction function = metadata.getAggregateFunctionImplementation(signature);
-            Symbol intermediateSymbol = context.getSymbolAllocator().newSymbol(signature.getName(), function.getIntermediateType());
+            ResolvedFunction resolvedFunction = originalAggregation.getResolvedFunction();
+            InternalAggregationFunction function = metadata.getAggregateFunctionImplementation(resolvedFunction);
+            Symbol intermediateSymbol = context.getSymbolAllocator().newSymbol(resolvedFunction.getSignature().getName(), function.getIntermediateType());
 
             checkState(!originalAggregation.getOrderingScheme().isPresent(), "Aggregate with ORDER BY does not support partial aggregation");
             intermediateAggregation.put(
                     intermediateSymbol,
                     new AggregationNode.Aggregation(
-                            signature,
+                            resolvedFunction,
                             originalAggregation.getArguments(),
                             originalAggregation.isDistinct(),
                             originalAggregation.getFilter(),
@@ -219,7 +219,7 @@ public class PushPartialAggregationThroughExchange
             finalAggregation.put(
                     entry.getKey(),
                     new AggregationNode.Aggregation(
-                            signature,
+                            resolvedFunction,
                             ImmutableList.<Expression>builder()
                                     .add(intermediateSymbol.toSymbolReference())
                                     .addAll(originalAggregation.getArguments().stream()

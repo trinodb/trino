@@ -25,7 +25,7 @@ import io.airlift.bytecode.expression.BytecodeExpression;
 import io.airlift.bytecode.instruction.LabelNode;
 import io.prestosql.metadata.BoundVariables;
 import io.prestosql.metadata.Metadata;
-import io.prestosql.metadata.Signature;
+import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.metadata.SqlOperator;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignature;
@@ -44,7 +44,6 @@ import static io.airlift.bytecode.Parameter.arg;
 import static io.airlift.bytecode.ParameterizedType.type;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantFalse;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantInt;
-import static io.prestosql.metadata.Signature.internalOperator;
 import static io.prestosql.metadata.Signature.withVariadicBound;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.USE_NULL_FLAG;
@@ -131,15 +130,12 @@ public class RowIndeterminateOperator
                                 .push(true)
                                 .gotoLabel(end));
 
-                Signature signature = internalOperator(
-                        INDETERMINATE,
-                        BOOLEAN.getTypeSignature(),
-                        ImmutableList.of(fieldTypes.get(i).getTypeSignature()));
-                ScalarFunctionImplementation function = metadata.getScalarFunctionImplementation(signature);
+                ResolvedFunction resolvedFunction = metadata.resolveOperator(INDETERMINATE, ImmutableList.of(fieldTypes.get(i)));
+                ScalarFunctionImplementation function = metadata.getScalarFunctionImplementation(resolvedFunction);
                 BytecodeExpression element = constantType(binder, fieldTypes.get(i)).getValue(value, constantInt(i));
 
                 ifNullField.ifFalse(new IfStatement("if the field is not null but indeterminate...")
-                        .condition(invokeFunction(scope, cachedInstanceBinder, signature.getName(), function, element))
+                        .condition(invokeFunction(scope, cachedInstanceBinder, resolvedFunction.getSignature().getName(), function, element))
                         .ifTrue(new BytecodeBlock()
                                 .push(true)
                                 .gotoLabel(end)));

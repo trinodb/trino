@@ -23,6 +23,7 @@ import com.google.common.collect.Maps;
 import io.prestosql.Session;
 import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.metadata.Metadata;
+import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.metadata.ResolvedIndex;
 import io.prestosql.metadata.Signature;
 import io.prestosql.spi.connector.ColumnHandle;
@@ -352,7 +353,8 @@ public class IndexJoinOptimizer
         public PlanNode visitWindow(WindowNode node, RewriteContext<Context> context)
         {
             if (!node.getWindowFunctions().values().stream()
-                    .map(Function::getSignature)
+                    .map(Function::getResolvedFunction)
+                    .map(ResolvedFunction::getSignature)
                     .map(Signature::getName)
                     .map(QualifiedName::of)
                     .allMatch(metadata::isAggregationFunction)) {

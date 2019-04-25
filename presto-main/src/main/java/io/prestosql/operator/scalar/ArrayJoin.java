@@ -39,14 +39,12 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.prestosql.metadata.Signature.internalOperator;
 import static io.prestosql.metadata.Signature.typeVariable;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.USE_BOXED_TYPE;
 import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static io.prestosql.spi.function.OperatorType.CAST;
 import static io.prestosql.spi.type.TypeSignature.arrayType;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.util.Reflection.methodHandle;
@@ -58,7 +56,6 @@ public final class ArrayJoin
     public static final ArrayJoin ARRAY_JOIN = new ArrayJoin();
     public static final ArrayJoinWithNullReplacement ARRAY_JOIN_WITH_NULL_REPLACEMENT = new ArrayJoinWithNullReplacement();
 
-    private static final TypeSignature VARCHAR_TYPE_SIGNATURE = VARCHAR.getTypeSignature();
     private static final String FUNCTION_NAME = "array_join";
     private static final String DESCRIPTION = "Concatenates the elements of the given array using a delimiter and an optional string to replace nulls";
     private static final MethodHandle METHOD_HANDLE = methodHandle(
@@ -186,7 +183,7 @@ public final class ArrayJoin
         }
         else {
             try {
-                ScalarFunctionImplementation castFunction = metadata.getScalarFunctionImplementation(internalOperator(CAST, VARCHAR_TYPE_SIGNATURE, ImmutableList.of(type.getTypeSignature())));
+                ScalarFunctionImplementation castFunction = metadata.getScalarFunctionImplementation(metadata.getCoercion(type, VARCHAR));
 
                 MethodHandle getter;
                 Class<?> elementType = type.getJavaType();

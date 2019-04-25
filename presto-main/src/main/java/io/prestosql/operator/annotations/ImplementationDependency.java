@@ -23,6 +23,7 @@ import io.prestosql.spi.function.OperatorDependency;
 import io.prestosql.spi.function.TypeParameter;
 import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.spi.type.TypeSignatureParameter;
+import io.prestosql.sql.tree.QualifiedName;
 
 import java.lang.annotation.Annotation;
 import java.lang.reflect.AnnotatedElement;
@@ -103,8 +104,7 @@ public interface ImplementationDependency
             if (annotation instanceof FunctionDependency) {
                 FunctionDependency functionDependency = (FunctionDependency) annotation;
                 return new FunctionImplementationDependency(
-                        functionDependency.name(),
-                        parseTypeSignature(functionDependency.returnType(), literalParameters),
+                        QualifiedName.of(functionDependency.name()),
                         Arrays.stream(functionDependency.argumentTypes())
                                 .map(signature -> parseTypeSignature(signature, literalParameters))
                                 .collect(toImmutableList()),
@@ -114,7 +114,6 @@ public interface ImplementationDependency
                 OperatorDependency operatorDependency = (OperatorDependency) annotation;
                 return new OperatorImplementationDependency(
                         operatorDependency.operator(),
-                        parseTypeSignature(operatorDependency.returnType(), literalParameters),
                         Arrays.stream(operatorDependency.argumentTypes())
                                 .map(signature -> parseTypeSignature(signature, literalParameters))
                                 .collect(toImmutableList()),

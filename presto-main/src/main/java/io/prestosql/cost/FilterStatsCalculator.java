@@ -393,7 +393,7 @@ public class FilterStatsCalculator
         @Override
         protected PlanNodeStatsEstimate visitFunctionCall(FunctionCall node, Void context)
         {
-            if (isDynamicFilter(node)) {
+            if (isDynamicFilter(metadata, node)) {
                 return process(BooleanLiteral.TRUE_LITERAL, context);
             }
             return PlanNodeStatsEstimate.unknown();

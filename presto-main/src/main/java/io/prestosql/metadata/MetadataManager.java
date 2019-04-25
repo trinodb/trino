@@ -1293,22 +1293,29 @@ public final class MetadataManager
     }
 
     @Override
-    public Signature resolveFunction(QualifiedName name, List<TypeSignatureProvider> parameterTypes)
+    public ResolvedFunction resolveFunction(QualifiedName name, List<TypeSignatureProvider> parameterTypes)
     {
-        return functions.resolveFunction(name, parameterTypes);
+        return ResolvedFunction.fromQualifiedName(name)
+                .orElseGet(() -> functions.resolveFunction(name, parameterTypes));
     }
 
     @Override
-    public Signature resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)
+    public ResolvedFunction resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)
             throws OperatorNotFoundException
     {
         return functions.resolveOperator(operatorType, argumentTypes);
     }
 
     @Override
-    public Signature getCoercion(Type fromType, Type toType)
+    public ResolvedFunction getCoercion(OperatorType operatorType, Type fromType, Type toType)
     {
-        return functions.getCoercion(fromType.getTypeSignature(), toType.getTypeSignature());
+        return functions.getCoercion(operatorType, fromType, toType);
+    }
+
+    @Override
+    public ResolvedFunction getCoercion(QualifiedName name, Type fromType, Type toType)
+    {
+        return functions.getCoercion(name, fromType, toType);
     }
 
     @Override
@@ -1318,21 +1325,21 @@ public final class MetadataManager
     }
 
     @Override
-    public WindowFunctionSupplier getWindowFunctionImplementation(Signature signature)
+    public WindowFunctionSupplier getWindowFunctionImplementation(ResolvedFunction resolvedFunction)
     {
-        return functions.getWindowFunctionImplementation(signature);
+        return functions.getWindowFunctionImplementation(resolvedFunction);
     }
 
     @Override
-    public InternalAggregationFunction getAggregateFunctionImplementation(Signature signature)
+    public InternalAggregationFunction getAggregateFunctionImplementation(ResolvedFunction resolvedFunction)
     {
-        return functions.getAggregateFunctionImplementation(signature);
+        return functions.getAggregateFunctionImplementation(resolvedFunction);
     }
 
     @Override
-    public ScalarFunctionImplementation getScalarFunctionImplementation(Signature signature)
+    public ScalarFunctionImplementation getScalarFunctionImplementation(ResolvedFunction resolvedFunction)
     {
-        return functions.getScalarFunctionImplementation(signature);
+        return functions.getScalarFunctionImplementation(resolvedFunction);
     }
 
     @Override

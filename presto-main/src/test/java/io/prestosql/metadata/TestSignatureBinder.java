@@ -1199,7 +1199,7 @@ public class TestSignatureBinder
                 return signatureBinder.bindVariables(argumentTypes);
             }
             else {
-                return signatureBinder.bindVariables(argumentTypes, returnType);
+                return signatureBinder.bindVariables(argumentTypes, returnType.getTypeSignature());
             }
         }
     }

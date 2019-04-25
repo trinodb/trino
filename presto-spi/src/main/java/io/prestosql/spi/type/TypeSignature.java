@@ -313,6 +313,9 @@ public class TypeSignature
         if (isDigit(signature.charAt(begin))) {
             return TypeSignatureParameter.numericParameter(Long.parseLong(parameterName));
         }
+        else if (signature.charAt(begin) == '@') {
+            return TypeSignatureParameter.typeVariable(parameterName.substring(1));
+        }
         else if (literalCalculationParameters.contains(parameterName)) {
             return TypeSignatureParameter.typeVariable(parameterName);
         }
@@ -329,8 +332,18 @@ public class TypeSignature
     }
 
     @Override
-    @JsonValue
     public String toString()
+    {
+        return formatValue(false);
+    }
+
+    @JsonValue
+    public String jsonValue()
+    {
+        return formatValue(true);
+    }
+
+    private String formatValue(boolean json)
     {
         if (parameters.isEmpty()) {
             return base;
@@ -344,9 +357,9 @@ public class TypeSignature
         }
 
         StringBuilder typeName = new StringBuilder(base);
-        typeName.append("(").append(parameters.get(0));
+        typeName.append("(").append(json ? parameters.get(0).jsonValue() : parameters.get(0).toString());
         for (int i = 1; i < parameters.size(); i++) {
-            typeName.append(",").append(parameters.get(i));
+            typeName.append(",").append(json ? parameters.get(i).jsonValue() : parameters.get(i).toString());
         }
         typeName.append(")");
         return typeName.toString();

@@ -328,7 +328,7 @@ public class PlanOptimizers
                                         new SingleDistinctAggregationToGroupBy(),
                                         new MultipleDistinctAggregationToMarkDistinct(),
                                         new MergeLimitWithDistinct(),
-                                        new PruneCountAggregationOverScalar(),
+                                        new PruneCountAggregationOverScalar(metadata),
                                         new PruneOrderByInAggregation(metadata),
                                         new RewriteSpatialPartitioningAggregation(metadata)))
                                 .build()),
@@ -338,7 +338,7 @@ public class PlanOptimizers
                         estimatedExchangesCostCalculator,
                         ImmutableSet.of(
                                 new ImplementOffset(),
-                                new ImplementLimitWithTies())),
+                                new ImplementLimitWithTies(metadata))),
                 simplifyOptimizer,
                 new UnaliasSymbolReferences(),
                 new IterativeOptimizer(
@@ -351,10 +351,10 @@ public class PlanOptimizers
                         ruleStats,
                         statsCalculator,
                         estimatedExchangesCostCalculator,
-                        ImmutableList.of(new ImplementIntersectAndExceptAsUnion()),
+                        ImmutableList.of(new ImplementIntersectAndExceptAsUnion(metadata)),
                         ImmutableSet.of(
-                                new ImplementIntersectAsUnion(),
-                                new ImplementExceptAsUnion())),
+                                new ImplementIntersectAsUnion(metadata),
+                                new ImplementExceptAsUnion(metadata))),
                 new LimitPushDown(), // Run the LimitPushDown after flattening set operators to make it easier to do the set flattening
                 new PruneUnreferencedOutputs(),
                 inlineProjections,
@@ -385,7 +385,7 @@ public class PlanOptimizers
                         estimatedExchangesCostCalculator,
                         ImmutableSet.of(
                                 new RemoveUnreferencedScalarApplyNodes(),
-                                new TransformCorrelatedInPredicateToJoin(), // must be run after PruneUnreferencedOutputs
+                                new TransformCorrelatedInPredicateToJoin(metadata), // must be run after PruneUnreferencedOutputs
                                 new TransformCorrelatedScalarSubquery(metadata), // must be run after TransformCorrelatedScalarAggregationToJoin
                                 new TransformCorrelatedJoinToJoin(),
                                 new ImplementFilteredAggregations())),
@@ -435,7 +435,7 @@ public class PlanOptimizers
                         ruleStats,
                         statsCalculator,
                         estimatedExchangesCostCalculator,
-                        ImmutableSet.of(new SimplifyCountOverConstant())),
+                        ImmutableSet.of(new SimplifyCountOverConstant(metadata))),
                 new LimitPushDown(), // Run LimitPushDown before WindowFilterPushDown
                 new WindowFilterPushDown(metadata), // This must run after PredicatePushDown and LimitPushDown so that it squashes any successive filter nodes and limits
                 new IterativeOptimizer(
@@ -541,7 +541,7 @@ public class PlanOptimizers
                         ImmutableSet.of(new RemoveEmptyDelete()))); // Run RemoveEmptyDelete after table scan is removed by PickTableLayout/AddExchanges
 
         builder.add(predicatePushDown); // Run predicate push down one more time in case we can leverage new information from layouts' effective predicate
-        builder.add(new RemoveUnsupportedDynamicFilters());
+        builder.add(new RemoveUnsupportedDynamicFilters(metadata));
         builder.add(simplifyOptimizer); // Should be always run after PredicatePushDown
         builder.add(new IterativeOptimizer(
                 ruleStats,

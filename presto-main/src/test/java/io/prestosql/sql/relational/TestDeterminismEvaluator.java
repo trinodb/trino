@@ -14,15 +14,16 @@
 package io.prestosql.sql.relational;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.metadata.Signature;
+import io.prestosql.metadata.Metadata;
+import io.prestosql.metadata.ResolvedFunction;
+import io.prestosql.sql.tree.QualifiedName;
 import org.testng.annotations.Test;
 
-import static io.prestosql.metadata.FunctionKind.SCALAR;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
-import static io.prestosql.metadata.Signature.internalOperator;
 import static io.prestosql.spi.function.OperatorType.LESS_THAN;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
+import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.prestosql.sql.relational.Expressions.constant;
 import static io.prestosql.sql.relational.Expressions.field;
 import static java.util.Collections.singletonList;
@@ -34,20 +35,17 @@ public class TestDeterminismEvaluator
     @Test
     public void testDeterminismEvaluator()
     {
-        DeterminismEvaluator determinismEvaluator = new DeterminismEvaluator(createTestMetadataManager());
+        Metadata metadata = createTestMetadataManager();
+        DeterminismEvaluator determinismEvaluator = new DeterminismEvaluator(metadata);
 
         CallExpression random = new CallExpression(
-                new Signature(
-                        "random",
-                        SCALAR,
-                        BIGINT.getTypeSignature(),
-                        BIGINT.getTypeSignature()),
+                metadata.resolveFunction(QualifiedName.of("random"), fromTypes(BIGINT)),
                 BIGINT,
                 singletonList(constant(10L, BIGINT)));
         assertFalse(determinismEvaluator.isDeterministic(random));
 
         InputReferenceExpression col0 = field(0, BIGINT);
-        Signature lessThan = internalOperator(LESS_THAN, BOOLEAN, ImmutableList.of(BIGINT, BIGINT));
+        ResolvedFunction lessThan = metadata.resolveOperator(LESS_THAN, ImmutableList.of(BIGINT, BIGINT));
 
         CallExpression lessThanExpression = new CallExpression(lessThan, BOOLEAN, ImmutableList.of(col0, constant(10L, BIGINT)));
         assertTrue(determinismEvaluator.isDeterministic(lessThanExpression));

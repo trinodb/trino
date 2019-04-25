@@ -17,14 +17,13 @@ import com.google.common.base.Joiner;
 import com.google.common.primitives.Floats;
 import io.airlift.stats.QuantileDigest;
 import io.prestosql.metadata.Metadata;
-import io.prestosql.metadata.Signature;
 import io.prestosql.operator.scalar.AbstractTestFunctions;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.type.SqlVarbinary;
 import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeSignature;
+import io.prestosql.sql.tree.QualifiedName;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
@@ -41,7 +40,6 @@ import static io.prestosql.block.BlockAssertions.createLongSequenceBlock;
 import static io.prestosql.block.BlockAssertions.createLongsBlock;
 import static io.prestosql.block.BlockAssertions.createRLEBlock;
 import static io.prestosql.block.BlockAssertions.createSequenceBlockOfReal;
-import static io.prestosql.metadata.FunctionKind.AGGREGATE;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.operator.aggregation.AggregationTestUtils.assertAggregation;
 import static io.prestosql.operator.aggregation.FloatingPointBitsConverterUtil.doubleToSortableLong;
@@ -52,7 +50,7 @@ import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.TypeSignature.arrayType;
-import static io.prestosql.spi.type.TypeSignature.parametricType;
+import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static java.lang.Double.NaN;
 import static java.lang.Integer.max;
 import static java.lang.Integer.min;
@@ -166,14 +164,9 @@ public class TestQuantileDigestAggregationFunction
                 LongStream.range(-1000, 1000).toArray());
     }
 
-    private InternalAggregationFunction getAggregationFunction(Type... type)
+    private InternalAggregationFunction getAggregationFunction(Type... types)
     {
-        TypeSignature[] typeSignatures = Arrays.stream(type).map(Type::getTypeSignature).toArray(TypeSignature[]::new);
-        return METADATA.getAggregateFunctionImplementation(
-                new Signature("qdigest_agg",
-                        AGGREGATE,
-                        parametricType("qdigest", type[0].getTypeSignature()),
-                        typeSignatures));
+        return METADATA.getAggregateFunctionImplementation(METADATA.resolveFunction(QualifiedName.of("qdigest_agg"), fromTypes(types)));
     }
 
     private void testAggregationBigint(Block inputBlock, Block weightsBlock, double maxError, long... inputs)

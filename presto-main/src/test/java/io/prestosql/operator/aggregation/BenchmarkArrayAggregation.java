@@ -16,12 +16,12 @@ package io.prestosql.operator.aggregation;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slices;
 import io.prestosql.metadata.Metadata;
-import io.prestosql.metadata.Signature;
+import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.Type;
+import io.prestosql.sql.tree.QualifiedName;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -44,12 +44,12 @@ import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
-import static io.prestosql.metadata.FunctionKind.AGGREGATE;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static org.openjdk.jmh.annotations.Level.Invocation;
 
 @SuppressWarnings("MethodMayBeStatic")
@@ -74,8 +74,6 @@ public class BenchmarkArrayAggregation
     @State(Scope.Thread)
     public static class BenchmarkData
     {
-        private String name = "array_agg";
-
         @Param({"BIGINT", "VARCHAR", "DOUBLE", "BOOLEAN"})
         private String type = "BIGINT";
 
@@ -104,9 +102,8 @@ public class BenchmarkArrayAggregation
                 default:
                     throw new UnsupportedOperationException();
             }
-            ArrayType arrayType = new ArrayType(elementType);
-            Signature signature = new Signature(name, AGGREGATE, arrayType.getTypeSignature(), elementType.getTypeSignature());
-            InternalAggregationFunction function = metadata.getAggregateFunctionImplementation(signature);
+            ResolvedFunction resolvedFunction = metadata.resolveFunction(QualifiedName.of("array_agg"), fromTypes(elementType));
+            InternalAggregationFunction function = metadata.getAggregateFunctionImplementation(resolvedFunction);
             accumulator = function.bind(ImmutableList.of(0), Optional.empty()).createAccumulator();
 
             block = createChannel(ARRAY_SIZE, elementType);

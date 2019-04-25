@@ -63,6 +63,7 @@ import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
 
+import static io.prestosql.metadata.FunctionId.toFunctionId;
 import static io.prestosql.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 
@@ -543,24 +544,31 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public Signature resolveFunction(QualifiedName name, List<TypeSignatureProvider> parameterTypes)
+    public ResolvedFunction resolveFunction(QualifiedName name, List<TypeSignatureProvider> parameterTypes)
     {
         String nameSuffix = name.getSuffix();
         if (nameSuffix.equals("rand") && parameterTypes.isEmpty()) {
-            return new Signature(nameSuffix, FunctionKind.SCALAR, DOUBLE.getTypeSignature(), ImmutableList.of());
+            Signature boundSignature = new Signature(nameSuffix, FunctionKind.SCALAR, DOUBLE.getTypeSignature(), ImmutableList.of());
+            return new ResolvedFunction(boundSignature, toFunctionId(boundSignature));
         }
         throw new PrestoException(FUNCTION_NOT_FOUND, name + "(" + Joiner.on(", ").join(parameterTypes) + ")");
     }
 
     @Override
-    public Signature resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)
+    public ResolvedFunction resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)
             throws OperatorNotFoundException
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public Signature getCoercion(Type fromType, Type toType)
+    public ResolvedFunction getCoercion(OperatorType operatorType, Type fromType, Type toType)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public ResolvedFunction getCoercion(QualifiedName name, Type fromType, Type toType)
     {
         throw new UnsupportedOperationException();
     }
@@ -572,19 +580,19 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public WindowFunctionSupplier getWindowFunctionImplementation(Signature signature)
+    public WindowFunctionSupplier getWindowFunctionImplementation(ResolvedFunction resolvedFunction)
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public InternalAggregationFunction getAggregateFunctionImplementation(Signature signature)
+    public InternalAggregationFunction getAggregateFunctionImplementation(ResolvedFunction resolvedFunction)
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public ScalarFunctionImplementation getScalarFunctionImplementation(Signature signature)
+    public ScalarFunctionImplementation getScalarFunctionImplementation(ResolvedFunction resolvedFunction)
     {
         throw new UnsupportedOperationException();
     }

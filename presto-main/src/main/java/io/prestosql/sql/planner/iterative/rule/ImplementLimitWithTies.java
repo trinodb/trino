@@ -19,8 +19,8 @@ import com.google.common.collect.ImmutableSet;
 import io.prestosql.matching.Capture;
 import io.prestosql.matching.Captures;
 import io.prestosql.matching.Pattern;
-import io.prestosql.metadata.FunctionKind;
-import io.prestosql.metadata.Signature;
+import io.prestosql.metadata.Metadata;
+import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.iterative.Rule;
 import io.prestosql.sql.planner.plan.Assignments;
@@ -32,6 +32,7 @@ import io.prestosql.sql.planner.plan.WindowNode;
 import io.prestosql.sql.tree.ComparisonExpression;
 import io.prestosql.sql.tree.FrameBound;
 import io.prestosql.sql.tree.GenericLiteral;
+import io.prestosql.sql.tree.QualifiedName;
 import io.prestosql.sql.tree.WindowFrame;
 
 import java.util.Optional;
@@ -40,6 +41,7 @@ import static io.prestosql.matching.Capture.newCapture;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.sql.planner.plan.Patterns.limit;
 import static io.prestosql.sql.planner.plan.Patterns.source;
+import static java.util.Objects.requireNonNull;
 
 /**
  * Transforms:
@@ -63,6 +65,13 @@ public class ImplementLimitWithTies
             .matching(LimitNode::isWithTies)
             .with(source().capturedAs(CHILD));
 
+    private final Metadata metadata;
+
+    public ImplementLimitWithTies(Metadata metadata)
+    {
+        this.metadata = requireNonNull(metadata, "metadata is null");
+    }
+
     @Override
     public Pattern<LimitNode> getPattern()
     {
@@ -75,11 +84,7 @@ public class ImplementLimitWithTies
         PlanNode child = captures.get(CHILD);
         Symbol rankSymbol = context.getSymbolAllocator().newSymbol("rank_num", BIGINT);
 
-        Signature signature = new Signature(
-                "rank",
-                FunctionKind.WINDOW,
-                BIGINT.getTypeSignature(),
-                ImmutableList.of());
+        ResolvedFunction function = metadata.resolveFunction(QualifiedName.of("rank"), ImmutableList.of());
 
         WindowNode.Frame frame = new WindowNode.Frame(
                 WindowFrame.Type.RANGE,
@@ -91,7 +96,7 @@ public class ImplementLimitWithTies
                 Optional.empty());
 
         WindowNode.Function rankFunction = new WindowNode.Function(
-                signature,
+                function,
                 ImmutableList.of(),
                 frame,
                 false);

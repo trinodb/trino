@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.prestosql.Session;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.operator.scalar.FormatFunction;
+import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.planner.FunctionCallBuilder;
 import io.prestosql.sql.planner.TypeAnalyzer;
@@ -30,7 +31,6 @@ import io.prestosql.sql.tree.ExpressionRewriter;
 import io.prestosql.sql.tree.ExpressionTreeRewriter;
 import io.prestosql.sql.tree.Extract;
 import io.prestosql.sql.tree.Format;
-import io.prestosql.sql.tree.FunctionCall;
 import io.prestosql.sql.tree.IfExpression;
 import io.prestosql.sql.tree.IsNotNullPredicate;
 import io.prestosql.sql.tree.IsNullPredicate;
@@ -48,6 +48,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.sql.tree.ArithmeticBinaryExpression.Operator.ADD;
 import static io.prestosql.sql.tree.ArithmeticBinaryExpression.Operator.MULTIPLY;
 import static java.util.Objects.requireNonNull;
@@ -250,10 +251,16 @@ public final class CanonicalizeExpressionRewriter
             List<Expression> arguments = node.getArguments().stream()
                     .map(value -> treeRewriter.rewrite(value, context))
                     .collect(toImmutableList());
+            List<Type> argumentTypes = node.getArguments().stream()
+                    .map(NodeRef::of)
+                    .map(expressionTypes::get)
+                    .collect(toImmutableList());
 
-            return new FunctionCall(QualifiedName.of(FormatFunction.NAME), ImmutableList.of(
-                    arguments.get(0),
-                    new Row(arguments.subList(1, arguments.size()))));
+            return new FunctionCallBuilder(metadata)
+                    .setName(QualifiedName.of(FormatFunction.NAME))
+                    .addArgument(VARCHAR, arguments.get(0))
+                    .addArgument(RowType.anonymous(argumentTypes.subList(1, arguments.size())), new Row(arguments.subList(1, arguments.size())))
+                    .build();
         }
     }
 

@@ -19,7 +19,7 @@ import io.airlift.bytecode.Variable;
 import io.airlift.bytecode.control.IfStatement;
 import io.airlift.bytecode.expression.BytecodeExpression;
 import io.airlift.bytecode.instruction.LabelNode;
-import io.prestosql.metadata.Signature;
+import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.relational.ConstantExpression;
@@ -35,7 +35,7 @@ public class DereferenceCodeGenerator
         implements BytecodeGenerator
 {
     @Override
-    public BytecodeNode generateExpression(Signature signature, BytecodeGeneratorContext generator, Type returnType, List<RowExpression> arguments)
+    public BytecodeNode generateExpression(ResolvedFunction resolvedFunction, BytecodeGeneratorContext generator, Type returnType, List<RowExpression> arguments)
     {
         checkArgument(arguments.size() == 2);
         CallSiteBinder callSiteBinder = generator.getCallSiteBinder();

@@ -303,7 +303,7 @@ public class PushAggregationThroughOuterJoin
             }
 
             Aggregation overNullAggregation = new Aggregation(
-                    aggregation.getSignature(),
+                    aggregation.getResolvedFunction(),
                     aggregation.getArguments().stream()
                             .map(argument -> inlineSymbols(sourcesSymbolMapping, argument))
                             .collect(toImmutableList()),
@@ -311,7 +311,7 @@ public class PushAggregationThroughOuterJoin
                     aggregation.getFilter(),
                     aggregation.getOrderingScheme(),
                     aggregation.getMask());
-            Symbol overNullSymbol = symbolAllocator.newSymbol(overNullAggregation.getSignature().getName(), symbolAllocator.getTypes().get(aggregationSymbol));
+            Symbol overNullSymbol = symbolAllocator.newSymbol(overNullAggregation.getResolvedFunction().getSignature().getName(), symbolAllocator.getTypes().get(aggregationSymbol));
             aggregationsOverNullBuilder.put(overNullSymbol, overNullAggregation);
             aggregationsSymbolMappingBuilder.put(aggregationSymbol, overNullSymbol);
         }

@@ -66,6 +66,24 @@ public class TypeSignatureParameter
         return value.toString();
     }
 
+    public String jsonValue()
+    {
+        String prefix = "";
+        if (kind == ParameterKind.VARIABLE) {
+            prefix = "@";
+        }
+
+        String valueJson;
+        if (value instanceof TypeSignature) {
+            TypeSignature typeSignature = (TypeSignature) value;
+            valueJson = typeSignature.jsonValue();
+        }
+        else {
+            valueJson = value.toString();
+        }
+        return prefix + valueJson;
+    }
+
     public ParameterKind getKind()
     {
         return kind;

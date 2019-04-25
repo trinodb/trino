@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import io.airlift.units.DataSize;
 import io.prestosql.benchmark.HandTpchQuery1.TpchQuery1Operator.TpchQuery1OperatorFactory;
-import io.prestosql.metadata.Signature;
+import io.prestosql.metadata.Metadata;
 import io.prestosql.operator.DriverContext;
 import io.prestosql.operator.HashAggregationOperator.HashAggregationOperatorFactory;
 import io.prestosql.operator.Operator;
@@ -30,6 +30,7 @@ import io.prestosql.spi.block.Block;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.planner.plan.AggregationNode.Step;
 import io.prestosql.sql.planner.plan.PlanNodeId;
+import io.prestosql.sql.tree.QualifiedName;
 import io.prestosql.testing.LocalQueryRunner;
 import io.prestosql.util.DateTimeUtils;
 
@@ -39,11 +40,11 @@ import java.util.Optional;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.prestosql.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
-import static io.prestosql.metadata.FunctionKind.AGGREGATE;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static java.util.Objects.requireNonNull;
 
 public class HandTpchQuery1
@@ -58,14 +59,11 @@ public class HandTpchQuery1
     {
         super(localQueryRunner, "hand_tpch_query_1", 1, 5);
 
-        longAverage = localQueryRunner.getMetadata().getAggregateFunctionImplementation(
-                new Signature("avg", AGGREGATE, DOUBLE.getTypeSignature(), BIGINT.getTypeSignature()));
-        doubleAverage = localQueryRunner.getMetadata().getAggregateFunctionImplementation(
-                new Signature("avg", AGGREGATE, DOUBLE.getTypeSignature(), DOUBLE.getTypeSignature()));
-        doubleSum = localQueryRunner.getMetadata().getAggregateFunctionImplementation(
-                new Signature("sum", AGGREGATE, DOUBLE.getTypeSignature(), DOUBLE.getTypeSignature()));
-        countFunction = localQueryRunner.getMetadata().getAggregateFunctionImplementation(
-                new Signature("count", AGGREGATE, BIGINT.getTypeSignature()));
+        Metadata metadata = localQueryRunner.getMetadata();
+        longAverage = metadata.getAggregateFunctionImplementation(metadata.resolveFunction(QualifiedName.of("avg"), fromTypes(BIGINT)));
+        doubleAverage = metadata.getAggregateFunctionImplementation(metadata.resolveFunction(QualifiedName.of("avg"), fromTypes(DOUBLE)));
+        doubleSum = metadata.getAggregateFunctionImplementation(metadata.resolveFunction(QualifiedName.of("sum"), fromTypes(DOUBLE)));
+        countFunction = metadata.getAggregateFunctionImplementation(metadata.resolveFunction(QualifiedName.of("count"), ImmutableList.of()));
     }
 
     @Override

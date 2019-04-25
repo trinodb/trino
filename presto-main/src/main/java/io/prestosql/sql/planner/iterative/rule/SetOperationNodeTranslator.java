@@ -16,7 +16,8 @@ package io.prestosql.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.metadata.Signature;
+import io.prestosql.metadata.Metadata;
+import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.planner.PlanNodeIdAllocator;
@@ -34,6 +35,7 @@ import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.GenericLiteral;
 import io.prestosql.sql.tree.Literal;
 import io.prestosql.sql.tree.NullLiteral;
+import io.prestosql.sql.tree.QualifiedName;
 import io.prestosql.sql.tree.SymbolReference;
 
 import java.util.List;
@@ -43,9 +45,9 @@ import java.util.Optional;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.concat;
-import static io.prestosql.metadata.FunctionKind.AGGREGATE;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
+import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.prestosql.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.prestosql.sql.tree.ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL;
@@ -54,15 +56,17 @@ import static java.util.Objects.requireNonNull;
 public class SetOperationNodeTranslator
 {
     private static final String MARKER = "marker";
-    private static final Signature COUNT_AGGREGATION = new Signature("count", AGGREGATE, BIGINT.getTypeSignature(), BOOLEAN.getTypeSignature());
     private static final Literal GENERIC_LITERAL = new GenericLiteral("BIGINT", "1");
     private final SymbolAllocator symbolAllocator;
     private final PlanNodeIdAllocator idAllocator;
+    private final ResolvedFunction countAggregation;
 
-    public SetOperationNodeTranslator(SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
+    public SetOperationNodeTranslator(Metadata metadata, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
     {
         this.symbolAllocator = requireNonNull(symbolAllocator, "SymbolAllocator is null");
         this.idAllocator = requireNonNull(idAllocator, "PlanNodeIdAllocator is null");
+        requireNonNull(metadata, "metadata is null");
+        this.countAggregation = metadata.resolveFunction(QualifiedName.of("count"), fromTypes(BOOLEAN));
     }
 
     public TranslationResult makeSetContainmentPlan(SetOperationNode node)
@@ -141,7 +145,7 @@ public class SetOperationNodeTranslator
         for (int i = 0; i < markers.size(); i++) {
             Symbol output = aggregationOutputs.get(i);
             aggregations.put(output, new AggregationNode.Aggregation(
-                    COUNT_AGGREGATION,
+                    countAggregation,
                     ImmutableList.of(markers.get(i).toSymbolReference()),
                     false,
                     Optional.empty(),

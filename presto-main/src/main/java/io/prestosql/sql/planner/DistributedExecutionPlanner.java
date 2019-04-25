@@ -72,6 +72,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.prestosql.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.GROUPED_SCHEDULING;
 import static io.prestosql.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.UNGROUPED_SCHEDULING;
+import static io.prestosql.sql.DynamicFilters.extractDynamicFilters;
 import static io.prestosql.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static java.util.Objects.requireNonNull;
 
@@ -176,7 +177,7 @@ public class DistributedExecutionPlanner
         {
             List<DynamicFilters.Descriptor> dynamicFilters = filter
                     .map(FilterNode::getPredicate)
-                    .map(DynamicFilters::extractDynamicFilters)
+                    .map(expression -> extractDynamicFilters(metadata, expression))
                     .map(DynamicFilters.ExtractResult::getDynamicConjuncts)
                     .orElse(ImmutableList.of());
 

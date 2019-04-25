@@ -21,7 +21,6 @@ import io.prestosql.Session;
 import io.prestosql.connector.CatalogName;
 import io.prestosql.execution.QueryManagerConfig;
 import io.prestosql.execution.warnings.WarningCollector;
-import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.TableHandle;
 import io.prestosql.plugin.tpch.TpchColumnHandle;
 import io.prestosql.plugin.tpch.TpchConnectorFactory;
@@ -51,6 +50,7 @@ import io.prestosql.sql.planner.plan.UnionNode;
 import io.prestosql.sql.tree.Cast;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.IsNullPredicate;
+import io.prestosql.sql.tree.QualifiedName;
 import io.prestosql.sql.tree.SymbolReference;
 import io.prestosql.testing.LocalQueryRunner;
 import org.testng.annotations.AfterClass;
@@ -66,7 +66,6 @@ import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.prestosql.metadata.FunctionKind.AGGREGATE;
 import static io.prestosql.plugin.tpch.TpchTransactionHandle.INSTANCE;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
@@ -809,7 +808,7 @@ public class TestCostCalculator
     private AggregationNode aggregation(String id, PlanNode source)
     {
         AggregationNode.Aggregation aggregation = new AggregationNode.Aggregation(
-                new Signature("count", AGGREGATE, BIGINT.getTypeSignature()),
+                localQueryRunner.getMetadata().resolveFunction(QualifiedName.of("count"), ImmutableList.of()),
                 ImmutableList.of(),
                 false,
                 Optional.empty(),

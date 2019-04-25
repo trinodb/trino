@@ -17,22 +17,22 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.RowPageBuilder;
 import io.prestosql.metadata.Metadata;
-import io.prestosql.metadata.Signature;
 import io.prestosql.operator.aggregation.Accumulator;
 import io.prestosql.operator.aggregation.InternalAggregationFunction;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.sql.tree.QualifiedName;
 import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.Optional;
 
 import static io.prestosql.metadata.FunctionExtractor.extractFunctions;
-import static io.prestosql.metadata.FunctionKind.AGGREGATE;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static org.testng.Assert.assertEquals;
 
 public class TestEvaluateClassifierPredictions
@@ -44,9 +44,7 @@ public class TestEvaluateClassifierPredictions
     {
         metadata.addFunctions(extractFunctions(new MLPlugin().getFunctions()));
         InternalAggregationFunction aggregation = metadata.getAggregateFunctionImplementation(
-                new Signature("evaluate_classifier_predictions",
-                        AGGREGATE,
-                        VARCHAR.getTypeSignature(), BIGINT.getTypeSignature(), BIGINT.getTypeSignature()));
+                metadata.resolveFunction(QualifiedName.of("evaluate_classifier_predictions"), fromTypes(BIGINT, BIGINT)));
         Accumulator accumulator = aggregation.bind(ImmutableList.of(0, 1), Optional.empty()).createAccumulator();
         accumulator.addInput(getPage());
         BlockBuilder finalOut = accumulator.getFinalType().createBlockBuilder(null, 1);

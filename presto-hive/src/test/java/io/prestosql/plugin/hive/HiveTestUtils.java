@@ -19,7 +19,7 @@ import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import io.prestosql.PagesIndexPageSorter;
 import io.prestosql.metadata.Metadata;
-import io.prestosql.metadata.Signature;
+import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.operator.PagesIndex;
 import io.prestosql.plugin.hive.authentication.NoHdfsAuthentication;
 import io.prestosql.plugin.hive.gcs.GoogleGcsConfigurationInitializer;
@@ -186,8 +186,8 @@ public final class HiveTestUtils
 
     public static MethodHandle distinctFromOperator(Type type)
     {
-        Signature signature = METADATA.resolveOperator(IS_DISTINCT_FROM, ImmutableList.of(type, type));
-        return METADATA.getScalarFunctionImplementation(signature).getMethodHandle();
+        ResolvedFunction function = METADATA.resolveOperator(IS_DISTINCT_FROM, ImmutableList.of(type, type));
+        return METADATA.getScalarFunctionImplementation(function).getMethodHandle();
     }
 
     public static boolean isDistinctFrom(MethodHandle handle, Block left, Block right)

@@ -23,6 +23,7 @@ import io.airlift.bytecode.Scope;
 import io.airlift.bytecode.Variable;
 import io.prestosql.metadata.BoundVariables;
 import io.prestosql.metadata.Metadata;
+import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlOperator;
 import io.prestosql.spi.block.Block;
@@ -44,7 +45,6 @@ import static io.airlift.bytecode.Access.a;
 import static io.airlift.bytecode.Parameter.arg;
 import static io.airlift.bytecode.ParameterizedType.type;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantBoolean;
-import static io.prestosql.metadata.Signature.internalOperator;
 import static io.prestosql.metadata.Signature.typeVariable;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
@@ -75,9 +75,9 @@ public class ArrayToArrayCast
         Type fromType = boundVariables.getTypeVariable("F");
         Type toType = boundVariables.getTypeVariable("T");
 
-        Signature signature = internalOperator(CAST, toType.getTypeSignature(), ImmutableList.of(fromType.getTypeSignature()));
-        ScalarFunctionImplementation function = metadata.getScalarFunctionImplementation(signature);
-        Class<?> castOperatorClass = generateArrayCast(metadata, signature, function);
+        ResolvedFunction resolvedFunction = metadata.getCoercion(fromType, toType);
+        ScalarFunctionImplementation function = metadata.getScalarFunctionImplementation(resolvedFunction);
+        Class<?> castOperatorClass = generateArrayCast(metadata, resolvedFunction.getSignature(), function);
         MethodHandle methodHandle = methodHandle(castOperatorClass, "castArray", ConnectorSession.class, Block.class);
         return new ScalarFunctionImplementation(
                 false,

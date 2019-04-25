@@ -16,12 +16,15 @@ package io.prestosql.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.matching.Captures;
 import io.prestosql.matching.Pattern;
-import io.prestosql.metadata.Signature;
+import io.prestosql.metadata.FunctionId;
+import io.prestosql.metadata.Metadata;
+import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.iterative.Rule;
 import io.prestosql.sql.planner.plan.AggregationNode;
 import io.prestosql.sql.planner.plan.ValuesNode;
 import io.prestosql.sql.tree.LongLiteral;
+import io.prestosql.sql.tree.QualifiedName;
 
 import java.util.Map;
 
@@ -37,6 +40,12 @@ public class PruneCountAggregationOverScalar
         implements Rule<AggregationNode>
 {
     private static final Pattern<AggregationNode> PATTERN = aggregation();
+    private final Metadata metadata;
+
+    public PruneCountAggregationOverScalar(Metadata metadata)
+    {
+        this.metadata = metadata;
+    }
 
     @Override
     public Pattern<AggregationNode> getPattern()
@@ -50,12 +59,13 @@ public class PruneCountAggregationOverScalar
         if (!parent.hasDefaultOutput() || parent.getOutputSymbols().size() != 1) {
             return Result.empty();
         }
+        FunctionId countFunctionId = metadata.resolveFunction(QualifiedName.of("count"), ImmutableList.of()).getFunctionId();
         Map<Symbol, AggregationNode.Aggregation> assignments = parent.getAggregations();
         for (Map.Entry<Symbol, AggregationNode.Aggregation> entry : assignments.entrySet()) {
             AggregationNode.Aggregation aggregation = entry.getValue();
             requireNonNull(aggregation, "aggregation is null");
-            Signature signature = aggregation.getSignature();
-            if (!"count".equals(signature.getName()) || !aggregation.getArguments().isEmpty()) {
+            ResolvedFunction resolvedFunction = aggregation.getResolvedFunction();
+            if (!countFunctionId.equals(resolvedFunction.getFunctionId())) {
                 return Result.empty();
             }
         }

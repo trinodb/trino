@@ -14,6 +14,7 @@
 package io.prestosql.sql.planner;
 
 import com.google.common.collect.ImmutableList;
+import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.analyzer.Analysis;
 import io.prestosql.sql.analyzer.ResolvedField;
@@ -23,6 +24,7 @@ import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.ExpressionRewriter;
 import io.prestosql.sql.tree.ExpressionTreeRewriter;
 import io.prestosql.sql.tree.FieldReference;
+import io.prestosql.sql.tree.FunctionCall;
 import io.prestosql.sql.tree.Identifier;
 import io.prestosql.sql.tree.LambdaArgumentDeclaration;
 import io.prestosql.sql.tree.LambdaExpression;
@@ -215,6 +217,25 @@ class TranslationMap
                 return getSymbol(rewriteBase, node)
                         .map(symbol -> coerceIfNecessary(node, symbol.toSymbolReference()))
                         .orElse(coerceIfNecessary(node, node));
+            }
+
+            @Override
+            public Expression rewriteFunctionCall(FunctionCall node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+            {
+                ResolvedFunction resolvedFunction = getAnalysis().getResolvedFunction(node);
+                checkArgument(resolvedFunction != null, "Function has not been analyzed: %s", node);
+
+                FunctionCall rewritten = treeRewriter.defaultRewrite(node, context);
+                rewritten = new FunctionCall(
+                        rewritten.getLocation(),
+                        resolvedFunction.toQualifiedName(),
+                        rewritten.getWindow(),
+                        rewritten.getFilter(),
+                        rewritten.getOrderBy(),
+                        rewritten.isDistinct(),
+                        rewritten.getNullTreatment(),
+                        rewritten.getArguments());
+                return coerceIfNecessary(node, rewritten);
             }
 
             @Override

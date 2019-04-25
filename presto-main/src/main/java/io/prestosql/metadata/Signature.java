@@ -19,7 +19,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.spi.function.OperatorType;
-import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignature;
 
 import java.util.List;
@@ -27,12 +26,10 @@ import java.util.Objects;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.prestosql.metadata.FunctionKind.SCALAR;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Stream.concat;
 
-public final class Signature
+public class Signature
 {
     private static final String OPERATOR_PREFIX = "$operator$";
 
@@ -75,31 +72,6 @@ public final class Signature
     public Signature(String name, FunctionKind kind, TypeSignature returnType, List<TypeSignature> argumentTypes)
     {
         this(name, kind, ImmutableList.of(), ImmutableList.of(), returnType, argumentTypes, false);
-    }
-
-    public static Signature internalOperator(OperatorType operator, Type returnType, List<? extends Type> argumentTypes)
-    {
-        return internalScalarFunction(mangleOperatorName(operator), returnType.getTypeSignature(), argumentTypes.stream().map(Type::getTypeSignature).collect(toImmutableList()));
-    }
-
-    public static Signature internalOperator(OperatorType operator, TypeSignature returnType, TypeSignature... argumentTypes)
-    {
-        return internalOperator(operator, returnType, ImmutableList.copyOf(argumentTypes));
-    }
-
-    public static Signature internalOperator(OperatorType operator, TypeSignature returnType, List<TypeSignature> argumentTypes)
-    {
-        return internalScalarFunction(mangleOperatorName(operator), returnType, argumentTypes);
-    }
-
-    public static Signature internalScalarFunction(String name, TypeSignature returnType, TypeSignature... argumentTypes)
-    {
-        return internalScalarFunction(name, returnType, ImmutableList.copyOf(argumentTypes));
-    }
-
-    public static Signature internalScalarFunction(String name, TypeSignature returnType, List<TypeSignature> argumentTypes)
-    {
-        return new Signature(name, SCALAR, ImmutableList.of(), ImmutableList.of(), returnType, argumentTypes, false);
     }
 
     public static String mangleOperatorName(OperatorType operatorType)
@@ -173,7 +145,7 @@ public final class Signature
         if (this == obj) {
             return true;
         }
-        if (obj == null || getClass() != obj.getClass()) {
+        if (!(obj instanceof Signature)) {
             return false;
         }
         Signature other = (Signature) obj;

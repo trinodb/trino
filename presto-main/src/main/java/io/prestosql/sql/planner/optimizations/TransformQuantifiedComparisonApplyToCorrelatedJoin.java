@@ -21,7 +21,6 @@ import io.prestosql.metadata.Metadata;
 import io.prestosql.spi.type.BigintType;
 import io.prestosql.spi.type.BooleanType;
 import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.sql.ExpressionUtils;
 import io.prestosql.sql.planner.PlanNodeIdAllocator;
 import io.prestosql.sql.planner.Symbol;
@@ -55,7 +54,7 @@ import java.util.function.Function;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.prestosql.sql.ExpressionUtils.combineConjuncts;
-import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
+import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.prestosql.sql.planner.plan.AggregationNode.globalAggregation;
 import static io.prestosql.sql.planner.plan.SimplePlanRewriter.rewriteWith;
 import static io.prestosql.sql.tree.BooleanLiteral.FALSE_LITERAL;
@@ -137,21 +136,20 @@ public class TransformQuantifiedComparisonApplyToCorrelatedJoin
             Symbol countNonNullValue = symbolAllocator.newSymbol("count_non_null", BigintType.BIGINT);
 
             List<Expression> outputColumnReferences = ImmutableList.of(outputColumn.toSymbolReference());
-            List<TypeSignature> outputColumnTypeSignature = ImmutableList.of(outputColumnType.getTypeSignature());
 
             subqueryPlan = new AggregationNode(
                     idAllocator.getNextId(),
                     subqueryPlan,
                     ImmutableMap.of(
                             minValue, new Aggregation(
-                                    metadata.resolveFunction(MIN, fromTypeSignatures(outputColumnTypeSignature)),
+                                    metadata.resolveFunction(MIN, fromTypes(outputColumnType)),
                                     outputColumnReferences,
                                     false,
                                     Optional.empty(),
                                     Optional.empty(),
                                     Optional.empty()),
                             maxValue, new Aggregation(
-                                    metadata.resolveFunction(MAX, fromTypeSignatures(outputColumnTypeSignature)),
+                                    metadata.resolveFunction(MAX, fromTypes(outputColumnType)),
                                     outputColumnReferences,
                                     false,
                                     Optional.empty(),
@@ -165,7 +163,7 @@ public class TransformQuantifiedComparisonApplyToCorrelatedJoin
                                     Optional.empty(),
                                     Optional.empty()),
                             countNonNullValue, new Aggregation(
-                                    metadata.resolveFunction(COUNT, fromTypeSignatures(outputColumnTypeSignature)),
+                                    metadata.resolveFunction(COUNT, fromTypes(outputColumnType)),
                                     outputColumnReferences,
                                     false,
                                     Optional.empty(),

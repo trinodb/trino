@@ -19,8 +19,8 @@ import io.prestosql.RowPagesBuilder;
 import io.prestosql.Session;
 import io.prestosql.connector.CatalogName;
 import io.prestosql.memory.context.MemoryTrackingContext;
+import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.OutputTableHandle;
-import io.prestosql.metadata.Signature;
 import io.prestosql.operator.AggregationOperator.AggregationOperatorFactory;
 import io.prestosql.operator.DevNullOperator.DevNullOperatorFactory;
 import io.prestosql.operator.TableWriterOperator.TableWriterInfo;
@@ -39,6 +39,7 @@ import io.prestosql.split.PageSinkManager;
 import io.prestosql.sql.planner.plan.AggregationNode;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 import io.prestosql.sql.planner.plan.TableWriterNode.CreateTarget;
+import io.prestosql.sql.tree.QualifiedName;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -54,11 +55,11 @@ import java.util.concurrent.ScheduledExecutorService;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.prestosql.RowPagesBuilder.rowPagesBuilder;
 import static io.prestosql.SessionTestUtils.TEST_SESSION;
-import static io.prestosql.metadata.FunctionKind.AGGREGATE;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.operator.PageAssertions.assertPageEquals;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
+import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static io.prestosql.testing.TestingTaskContext.createTaskContext;
 import static java.util.concurrent.CompletableFuture.completedFuture;
@@ -74,8 +75,9 @@ import static org.testng.Assert.assertTrue;
 public class TestTableWriterOperator
 {
     private static final CatalogName CONNECTOR_ID = new CatalogName("testConnectorId");
-    private static final InternalAggregationFunction LONG_MAX = createTestMetadataManager().getAggregateFunctionImplementation(
-            new Signature("max", AGGREGATE, BIGINT.getTypeSignature(), BIGINT.getTypeSignature()));
+    private static final Metadata METADATA = createTestMetadataManager();
+    private static final InternalAggregationFunction LONG_MAX = METADATA.getAggregateFunctionImplementation(
+            METADATA.resolveFunction(QualifiedName.of("max"), fromTypes(BIGINT)));
     private ExecutorService executor;
     private ScheduledExecutorService scheduledExecutor;
 

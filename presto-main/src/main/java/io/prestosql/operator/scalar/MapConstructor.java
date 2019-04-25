@@ -37,13 +37,11 @@ import java.lang.invoke.MethodHandle;
 import java.util.Optional;
 
 import static io.prestosql.metadata.Signature.comparableTypeParameter;
-import static io.prestosql.metadata.Signature.internalOperator;
 import static io.prestosql.metadata.Signature.typeVariable;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
 import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.prestosql.spi.function.OperatorType.INDETERMINATE;
-import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.StandardTypes.MAP;
 import static io.prestosql.spi.type.TypeSignature.arrayType;
 import static io.prestosql.spi.type.TypeUtils.readNativeValue;
@@ -110,7 +108,7 @@ public final class MapConstructor
         Type mapType = metadata.getParameterizedType(MAP, ImmutableList.of(TypeSignatureParameter.typeParameter(keyType.getTypeSignature()), TypeSignatureParameter.typeParameter(valueType.getTypeSignature())));
         MethodHandle keyHashCode = metadata.getScalarFunctionImplementation(metadata.resolveOperator(OperatorType.HASH_CODE, ImmutableList.of(keyType))).getMethodHandle();
         MethodHandle keyEqual = metadata.getScalarFunctionImplementation(metadata.resolveOperator(OperatorType.EQUAL, ImmutableList.of(keyType, keyType))).getMethodHandle();
-        MethodHandle keyIndeterminate = metadata.getScalarFunctionImplementation(internalOperator(INDETERMINATE, BOOLEAN.getTypeSignature(), ImmutableList.of(keyType.getTypeSignature()))).getMethodHandle();
+        MethodHandle keyIndeterminate = metadata.getScalarFunctionImplementation(metadata.resolveOperator(INDETERMINATE, ImmutableList.of(keyType))).getMethodHandle();
         MethodHandle instanceFactory = constructorMethodHandle(State.class, MapType.class).bindTo(mapType);
 
         return new ScalarFunctionImplementation(

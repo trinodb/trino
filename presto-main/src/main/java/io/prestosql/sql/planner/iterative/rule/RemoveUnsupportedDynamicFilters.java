@@ -16,6 +16,7 @@ package io.prestosql.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableSet;
 import io.prestosql.Session;
 import io.prestosql.execution.warnings.WarningCollector;
+import io.prestosql.metadata.Metadata;
 import io.prestosql.sql.DynamicFilters;
 import io.prestosql.sql.planner.PlanNodeIdAllocator;
 import io.prestosql.sql.planner.Symbol;
@@ -43,6 +44,7 @@ import static io.prestosql.sql.ExpressionUtils.combineConjuncts;
 import static io.prestosql.sql.ExpressionUtils.extractConjuncts;
 import static io.prestosql.sql.planner.plan.ChildReplacer.replaceChildren;
 import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
+import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
 /**
@@ -52,6 +54,13 @@ import static java.util.stream.Collectors.toList;
 public class RemoveUnsupportedDynamicFilters
         implements PlanOptimizer
 {
+    private final Metadata metadata;
+
+    public RemoveUnsupportedDynamicFilters(Metadata metadata)
+    {
+        this.metadata = requireNonNull(metadata, "metadata is null");
+    }
+
     @Override
     public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
     {
@@ -159,7 +168,7 @@ public class RemoveUnsupportedDynamicFilters
             return combineConjuncts(extractConjuncts(expression)
                     .stream()
                     .filter(conjunct ->
-                            getDescriptor(conjunct)
+                            getDescriptor(metadata, conjunct)
                                     .map(descriptor -> {
                                         if (allowedDynamicFilterIds.contains(descriptor.getId())) {
                                             consumedDynamicFilterIds.add(descriptor.getId());
@@ -172,7 +181,7 @@ public class RemoveUnsupportedDynamicFilters
 
         private Expression removeAllDynamicFilters(Expression expression)
         {
-            DynamicFilters.ExtractResult extractResult = extractDynamicFilters(expression);
+            DynamicFilters.ExtractResult extractResult = extractDynamicFilters(metadata, expression);
             if (extractResult.getDynamicConjuncts().isEmpty()) {
                 return expression;
             }

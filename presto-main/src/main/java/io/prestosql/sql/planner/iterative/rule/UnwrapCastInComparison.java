@@ -17,7 +17,7 @@ import io.prestosql.Session;
 import io.prestosql.SystemSessionProperties;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.OperatorNotFoundException;
-import io.prestosql.metadata.Signature;
+import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.predicate.Utils;
 import io.prestosql.spi.type.BooleanType;
@@ -178,7 +178,7 @@ public class UnwrapCastInComparison
                 return expression;
             }
 
-            Signature sourceToTarget = metadata.getCoercion(sourceType, targetType);
+            ResolvedFunction sourceToTarget = metadata.getCoercion(sourceType, targetType);
 
             Optional<Type.Range> sourceRange = sourceType.getRange();
             if (sourceRange.isPresent()) {
@@ -267,7 +267,7 @@ public class UnwrapCastInComparison
                 }
             }
 
-            Signature targetToSource;
+            ResolvedFunction targetToSource;
             try {
                 targetToSource = metadata.getCoercion(targetType, sourceType);
             }
@@ -375,7 +375,7 @@ public class UnwrapCastInComparison
             return new TypeCoercion(metadata::getType).canCoerce(source, target);
         }
 
-        private Object coerce(Object value, Signature coercion)
+        private Object coerce(Object value, ResolvedFunction coercion)
         {
             return functionInvoker.invoke(coercion, session.toConnectorSession(), value);
         }
