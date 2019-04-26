@@ -120,7 +120,7 @@ public class QueryBuilder
 
         List<TypeAndValue> accumulator = new ArrayList<>();
 
-        List<String> clauses = toConjuncts(client, session, columns, tupleDomain, accumulator);
+        List<String> clauses = toConjuncts(client, session, connection, columns, tupleDomain, accumulator);
         if (additionalPredicate.isPresent()) {
             clauses = ImmutableList.<String>builder()
                     .addAll(clauses)
@@ -139,7 +139,7 @@ public class QueryBuilder
             TypeAndValue typeAndValue = accumulator.get(i);
             int parameterIndex = i + 1;
             Type type = typeAndValue.getType();
-            WriteFunction writeFunction = client.toPrestoType(session, typeAndValue.getTypeHandle())
+            WriteFunction writeFunction = client.toPrestoType(session, connection, typeAndValue.getTypeHandle())
                     .orElseThrow(() -> new VerifyException(format("Unsupported type %s with handle %s", type, typeAndValue.getTypeHandle())))
                     .getWriteFunction();
             Class<?> javaType = type.getJavaType();
@@ -167,14 +167,20 @@ public class QueryBuilder
         return statement;
     }
 
-    private static Domain pushDownDomain(JdbcClient client, ConnectorSession session, JdbcColumnHandle column, Domain domain)
+    private static Domain pushDownDomain(JdbcClient client, ConnectorSession session, Connection connection, JdbcColumnHandle column, Domain domain)
     {
-        return client.toPrestoType(session, column.getJdbcTypeHandle())
+        return client.toPrestoType(session, connection, column.getJdbcTypeHandle())
                 .orElseThrow(() -> new IllegalStateException(format("Unsupported type %s with handle %s", column.getColumnType(), column.getJdbcTypeHandle())))
                 .getPushdownConverter().apply(domain);
     }
 
-    private List<String> toConjuncts(JdbcClient client, ConnectorSession session, List<JdbcColumnHandle> columns, TupleDomain<ColumnHandle> tupleDomain, List<TypeAndValue> accumulator)
+    private List<String> toConjuncts(
+            JdbcClient client,
+            ConnectorSession session,
+            Connection connection,
+            List<JdbcColumnHandle> columns,
+            TupleDomain<ColumnHandle> tupleDomain,
+            List<TypeAndValue> accumulator)
     {
         if (tupleDomain.isNone()) {
             return ImmutableList.of(ALWAYS_FALSE);
@@ -183,7 +189,7 @@ public class QueryBuilder
         for (JdbcColumnHandle column : columns) {
             Domain domain = tupleDomain.getDomains().get().get(column);
             if (domain != null) {
-                domain = pushDownDomain(client, session, column, domain);
+                domain = pushDownDomain(client, session, connection, column, domain);
                 builder.add(toPredicate(column.getColumnName(), domain, column, accumulator));
             }
         }
