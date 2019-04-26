@@ -53,8 +53,7 @@
                                     <artifactId>presto-server</artifactId>
                                     <version>${project.version}</version>
                                     <type>tar.gz</type>
-                                    <outputDirectory>${project.build.outputDirectory}
-                                    </outputDirectory>
+                                    <outputDirectory>${project.build.outputDirectory}</outputDirectory>
                                 </artifactItem>
                             </artifactItems>
                         </configuration>
