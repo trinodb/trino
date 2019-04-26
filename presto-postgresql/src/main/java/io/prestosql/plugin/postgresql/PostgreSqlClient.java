@@ -257,7 +257,7 @@ public class PostgreSqlClient
             if (!typeHandle.getArrayDimensions().isPresent()) {
                 return Optional.empty();
             }
-            JdbcTypeHandle elementTypeHandle = getArrayElementTypeHandle(session, typeHandle);
+            JdbcTypeHandle elementTypeHandle = getArrayElementTypeHandle(connection, typeHandle);
             String elementTypeName = typeHandle.getJdbcTypeName()
                     .orElseThrow(() -> new PrestoException(JDBC_ERROR, "Element type name is missing: " + elementTypeHandle));
             if (elementTypeHandle.getJdbcType() == Types.VARBINARY) {
@@ -338,11 +338,11 @@ public class PostgreSqlClient
         };
     }
 
-    private JdbcTypeHandle getArrayElementTypeHandle(ConnectorSession session, JdbcTypeHandle arrayTypeHandle)
+    private JdbcTypeHandle getArrayElementTypeHandle(Connection connection, JdbcTypeHandle arrayTypeHandle)
     {
         String jdbcTypeName = arrayTypeHandle.getJdbcTypeName()
                 .orElseThrow(() -> new PrestoException(JDBC_ERROR, "Type name is missing: " + arrayTypeHandle));
-        try (Connection connection = connectionFactory.openConnection(JdbcIdentity.from(session))) {
+        try {
             TypeInfo typeInfo = connection.unwrap(PgConnection.class).getTypeInfo();
             int pgElementOid = typeInfo.getPGArrayElement(typeInfo.getPGType(jdbcTypeName));
             return new JdbcTypeHandle(
