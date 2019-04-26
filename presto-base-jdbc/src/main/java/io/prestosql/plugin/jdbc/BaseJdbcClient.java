@@ -233,7 +233,7 @@ public class BaseJdbcClient
                             resultSet.getInt("COLUMN_SIZE"),
                             resultSet.getInt("DECIMAL_DIGITS"),
                             Optional.empty());
-                    Optional<ColumnMapping> columnMapping = toPrestoType(session, typeHandle);
+                    Optional<ColumnMapping> columnMapping = toPrestoType(session, connection, typeHandle);
                     // skip unsupported column types
                     if (columnMapping.isPresent()) {
                         String columnName = resultSet.getString("COLUMN_NAME");
@@ -254,7 +254,7 @@ public class BaseJdbcClient
     }
 
     @Override
-    public Optional<ColumnMapping> toPrestoType(ConnectorSession session, JdbcTypeHandle typeHandle)
+    public Optional<ColumnMapping> toPrestoType(ConnectorSession session, Connection connection, JdbcTypeHandle typeHandle)
     {
         return jdbcTypeToPrestoType(session, typeHandle);
     }

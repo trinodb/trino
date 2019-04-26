@@ -188,7 +188,7 @@ public class PostgreSqlClient
                             resultSet.getInt("COLUMN_SIZE"),
                             resultSet.getInt("DECIMAL_DIGITS"),
                             Optional.ofNullable(arrayColumnDimensions.get(columnName)));
-                    Optional<ColumnMapping> columnMapping = toPrestoType(session, typeHandle);
+                    Optional<ColumnMapping> columnMapping = toPrestoType(session, connection, typeHandle);
                     // skip unsupported column types
                     if (columnMapping.isPresent()) {
                         boolean nullable = (resultSet.getInt("NULLABLE") != columnNoNulls);
@@ -236,7 +236,7 @@ public class PostgreSqlClient
     }
 
     @Override
-    public Optional<ColumnMapping> toPrestoType(ConnectorSession session, JdbcTypeHandle typeHandle)
+    public Optional<ColumnMapping> toPrestoType(ConnectorSession session, Connection connection, JdbcTypeHandle typeHandle)
     {
         String jdbcTypeName = typeHandle.getJdbcTypeName()
                 .orElseThrow(() -> new PrestoException(JDBC_ERROR, "Type name is missing: " + typeHandle));
@@ -265,7 +265,7 @@ public class PostgreSqlClient
                 // https://github.com/pgjdbc/pgjdbc/pull/1184
                 return Optional.empty();
             }
-            return toPrestoType(session, elementTypeHandle)
+            return toPrestoType(session, connection, elementTypeHandle)
                     .map(elementMapping -> {
                         ArrayType prestoArrayType = new ArrayType(elementMapping.getType());
                         int arrayDimensions = typeHandle.getArrayDimensions().get();
@@ -276,7 +276,7 @@ public class PostgreSqlClient
                     });
         }
         // TODO support PostgreSQL's TIMESTAMP WITH TIME ZONE and TIME WITH TIME ZONE explicitly, otherwise predicate pushdown for these types may be incorrect
-        return super.toPrestoType(session, typeHandle);
+        return super.toPrestoType(session, connection, typeHandle);
     }
 
     @Override
