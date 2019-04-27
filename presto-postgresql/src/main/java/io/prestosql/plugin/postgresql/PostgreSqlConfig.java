@@ -13,22 +13,30 @@
  */
 package io.prestosql.plugin.postgresql;
 
-import com.google.inject.Binder;
-import com.google.inject.Module;
-import com.google.inject.Scopes;
-import io.prestosql.plugin.jdbc.BaseJdbcConfig;
-import io.prestosql.plugin.jdbc.JdbcClient;
+import io.airlift.configuration.Config;
 
-import static io.airlift.configuration.ConfigBinder.configBinder;
+import javax.validation.constraints.NotNull;
 
-public class PostgreSqlClientModule
-        implements Module
+public class PostgreSqlConfig
 {
-    @Override
-    public void configure(Binder binder)
+    private ArrayMapping arrayMapping = ArrayMapping.DISABLED;
+
+    public enum ArrayMapping {
+        DISABLED,
+        @Deprecated // TODO https://github.com/prestosql/presto/issues/682
+        AS_ARRAY,
+    }
+
+    @NotNull
+    public ArrayMapping getArrayMapping()
     {
-        binder.bind(JdbcClient.class).to(PostgreSqlClient.class).in(Scopes.SINGLETON);
-        configBinder(binder).bindConfig(BaseJdbcConfig.class);
-        configBinder(binder).bindConfig(PostgreSqlConfig.class);
+        return arrayMapping;
+    }
+
+    @Config("postgresql.experimental.array-mapping")
+    public PostgreSqlConfig setArrayMapping(ArrayMapping arrayMapping)
+    {
+        this.arrayMapping = arrayMapping;
+        return this;
     }
 }
