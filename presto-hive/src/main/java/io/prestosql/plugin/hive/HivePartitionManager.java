@@ -55,6 +55,7 @@ import org.joda.time.format.ISODateTimeFormat;
 import javax.inject.Inject;
 
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -65,6 +66,7 @@ import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.plugin.hive.HiveBucketing.getHiveBucketFilter;
 import static io.prestosql.plugin.hive.HiveBucketing.getHiveBucketHandle;
+import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_EXCEEDED_PARTITION_LIMIT;
 import static io.prestosql.plugin.hive.HiveUtil.getPartitionKeyColumnHandles;
 import static io.prestosql.plugin.hive.HiveUtil.parsePartitionValue;
 import static io.prestosql.plugin.hive.metastore.MetastoreUtil.getProtectMode;
@@ -84,6 +86,7 @@ public class HivePartitionManager
     private static final String PARTITION_VALUE_WILDCARD = "";
 
     private final DateTimeZone timeZone;
+    private final int maxPartitions;
     private final boolean assumeCanonicalPartitionKeys;
     private final int domainCompactionThreshold;
     private final TypeManager typeManager;
@@ -96,6 +99,7 @@ public class HivePartitionManager
         this(
                 typeManager,
                 hiveConfig.getDateTimeZone(),
+                hiveConfig.getMaxPartitionsPerScan(),
                 hiveConfig.isAssumeCanonicalPartitionKeys(),
                 hiveConfig.getDomainCompactionThreshold());
     }
@@ -103,10 +107,13 @@ public class HivePartitionManager
     public HivePartitionManager(
             TypeManager typeManager,
             DateTimeZone timeZone,
+            int maxPartitions,
             boolean assumeCanonicalPartitionKeys,
             int domainCompactionThreshold)
     {
         this.timeZone = requireNonNull(timeZone, "timeZone is null");
+        checkArgument(maxPartitions >= 1, "maxPartitions must be at least 1");
+        this.maxPartitions = maxPartitions;
         this.assumeCanonicalPartitionKeys = assumeCanonicalPartitionKeys;
         checkArgument(domainCompactionThreshold >= 1, "domainCompactionThreshold must be at least 1");
         this.domainCompactionThreshold = domainCompactionThreshold;
@@ -180,6 +187,25 @@ public class HivePartitionManager
                 .collect(toImmutableList());
 
         return new HivePartitionResult(partitionColumns, partitionList, all(), all(), none(), getHiveBucketHandle(table), Optional.empty());
+    }
+
+    public List<HivePartition> getPartitionsAsList(HivePartitionResult partitionResult)
+    {
+        ImmutableList.Builder<HivePartition> partitionList = ImmutableList.builder();
+        int count = 0;
+        Iterator<HivePartition> iterator = partitionResult.getPartitions();
+        while (iterator.hasNext()) {
+            HivePartition partition = iterator.next();
+            if (count == maxPartitions) {
+                throw new PrestoException(HIVE_EXCEEDED_PARTITION_LIMIT, format(
+                        "Query over table '%s' can potentially read more than %s partitions",
+                        partition.getTableName(),
+                        maxPartitions));
+            }
+            partitionList.add(partition);
+            count++;
+        }
+        return partitionList.build();
     }
 
     private static TupleDomain<HiveColumnHandle> toCompactTupleDomain(TupleDomain<ColumnHandle> effectivePredicate, int threshold)
