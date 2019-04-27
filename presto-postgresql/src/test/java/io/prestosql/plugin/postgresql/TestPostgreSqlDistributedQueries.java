@@ -56,6 +56,13 @@ public class TestPostgreSqlDistributedQueries
     }
 
     @Override
+    protected boolean supportsArrays()
+    {
+        // Arrays are supported conditionally. Check the defaults.
+        return new PostgreSqlConfig().getArrayMapping() != PostgreSqlConfig.ArrayMapping.DISABLED;
+    }
+
+    @Override
     public void testCommentTable()
     {
         // PostgreSQL connector currently does not support comment on table

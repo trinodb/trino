@@ -17,6 +17,7 @@ import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.json.ObjectMapperProvider;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
@@ -97,12 +98,24 @@ public class PostgreSqlClient
     private static final String DUPLICATE_TABLE_SQLSTATE = "42P07";
 
     private final Type jsonType;
+    private final boolean supportArrays;
 
     @Inject
-    public PostgreSqlClient(BaseJdbcConfig config, TypeManager typeManager)
+    public PostgreSqlClient(BaseJdbcConfig config, PostgreSqlConfig postgreSqlConfig, TypeManager typeManager)
     {
         super(config, "\"", new DriverConnectionFactory(new Driver(), config));
         this.jsonType = typeManager.getType(new TypeSignature(StandardTypes.JSON));
+
+        switch (postgreSqlConfig.getArrayMapping()) {
+            case DISABLED:
+                supportArrays = false;
+                break;
+            case AS_ARRAY:
+                supportArrays = true;
+                break;
+            default:
+                throw new IllegalArgumentException("Unsupported ArrayMapping: " + postgreSqlConfig.getArrayMapping());
+        }
     }
 
     @Override
@@ -197,6 +210,9 @@ public class PostgreSqlClient
     private Map<String, Integer> getArrayColumnDimensions(Connection connection, JdbcTableHandle tableHandle)
             throws SQLException
     {
+        if (!supportArrays) {
+            return ImmutableMap.of();
+        }
         String sql = "" +
                 "SELECT att.attname, att.attndims " +
                 "FROM pg_attribute att " +
@@ -237,7 +253,7 @@ public class PostgreSqlClient
         if (typeHandle.getJdbcType() == Types.TIMESTAMP) {
             return Optional.of(timestampColumnMapping(session));
         }
-        if (typeHandle.getJdbcType() == Types.ARRAY) {
+        if (typeHandle.getJdbcType() == Types.ARRAY && supportArrays) {
             if (!typeHandle.getArrayDimensions().isPresent()) {
                 return Optional.empty();
             }
@@ -278,7 +294,7 @@ public class PostgreSqlClient
         if (type.getTypeSignature().getBase().equals(StandardTypes.JSON)) {
             return WriteMapping.sliceMapping("jsonb", typedVarcharWriteFunction("json"));
         }
-        if (type instanceof ArrayType) {
+        if (type instanceof ArrayType && supportArrays) {
             Type elementType = ((ArrayType) type).getElementType();
             String elementDataType = toWriteMapping(session, elementType).getDataType();
             return WriteMapping.blockMapping(elementDataType + "[]", arrayWriteFunction(session, elementType, getArrayElementPgTypeName(session, this, elementType)));
