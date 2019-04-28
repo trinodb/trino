@@ -108,7 +108,6 @@ import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.metastore.TableType;
-import org.iq80.leveldb.table.TableBuilder;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.testng.annotations.AfterClass;
@@ -2660,6 +2659,7 @@ public abstract class AbstractTestHive
             String tableName = schemaTableName.getTableName();
             LocationHandle locationHandle = locationService.forNewTable(transaction.getMetastore(schemaName), session, schemaName, tableName);
             Path targetPath = locationService.getQueryWriteInfo(locationHandle).getTargetPath();
+            //create table whose storage format is null
             Table.Builder tableBuilder = Table.builder()
                     .setDatabaseName(schemaName)
                     .setTableName(tableName)
@@ -2684,6 +2684,9 @@ public abstract class AbstractTestHive
             ConnectorMetadata metadata = transaction.getMetadata();
             Map<SchemaTableName, List<ColumnMetadata>> allColumns = metadata.listTableColumns(newSession(), new SchemaTablePrefix(schemaTableName.getSchemaName()));
             assertTrue(allColumns.containsKey(schemaTableName));
+        }
+        finally {
+            dropTable(schemaTableName);
         }
     }
 
