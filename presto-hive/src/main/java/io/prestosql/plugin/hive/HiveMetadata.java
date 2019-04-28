@@ -301,9 +301,9 @@ public class HiveMetadata
             return null;
         }
 
+        // we must not allow system tables due to how permissions are checked in SystemTableAwareAccessControl
         if (getSourceTableNameFromSystemTable(tableName).isPresent()) {
-            // We must not allow system table due to how permissions are checked in SystemTableAwareAccessControl.checkCanSelectFromTable()
-            throw new PrestoException(NOT_SUPPORTED, "Unexpected table present in Hive metastore: " + tableName);
+            throw new PrestoException(HIVE_INVALID_METADATA, "Unexpected table present in Hive metastore: " + tableName);
         }
 
         verifyOnline(tableName, Optional.empty(), getProtectMode(table.get()), table.get().getParameters());
