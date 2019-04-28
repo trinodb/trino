@@ -307,7 +307,7 @@ public class CostCalculatorUsingExchanges
         public PlanCostEstimate visitSample(SampleNode node, Void context)
         {
             LocalCostEstimate localCost = LocalCostEstimate.ofCpu(getStats(node).getOutputRowCount());
-            return costForSource(node, localCost);
+            return costForStreaming(node, localCost);
         }
 
         private PlanCostEstimate costForSource(PlanNode node, LocalCostEstimate localCost)
