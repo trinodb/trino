@@ -55,6 +55,7 @@ import static java.util.concurrent.TimeUnit.MINUTES;
         "experimental-syntax-enabled",
         "analyzer.experimental-syntax-enabled",
         "optimizer.processing-optimization",
+        "experimental.iterative-optimizer-enabled",
         "deprecated.legacy-order-by",
         "deprecated.legacy-join-using"})
 public class FeaturesConfig
@@ -107,7 +108,6 @@ public class FeaturesConfig
     private List<Path> spillerSpillPaths = ImmutableList.of();
     private int spillerThreads = 4;
     private double spillMaxUsedSpaceThreshold = 0.9;
-    private boolean iterativeOptimizerEnabled = true;
     private boolean enableStatsCalculator = true;
     private boolean ignoreStatsCalculatorFailures = true;
     private boolean defaultFilterFactorEnabled;
@@ -535,18 +535,6 @@ public class FeaturesConfig
     public FeaturesConfig setSpillWindowOperator(boolean spillWindowOperator)
     {
         this.spillWindowOperator = spillWindowOperator;
-        return this;
-    }
-
-    public boolean isIterativeOptimizerEnabled()
-    {
-        return iterativeOptimizerEnabled;
-    }
-
-    @Config("experimental.iterative-optimizer-enabled")
-    public FeaturesConfig setIterativeOptimizerEnabled(boolean value)
-    {
-        this.iterativeOptimizerEnabled = value;
         return this;
     }
 
