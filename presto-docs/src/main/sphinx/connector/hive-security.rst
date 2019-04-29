@@ -248,6 +248,8 @@ Property Name                                      Description
                                                    to HDFS.
 
 ``hive.hdfs.presto.keytab``                        HDFS client keytab location.
+
+``hive.hdfs.wire-encryption.enabled``              Enable HDFS wire encryption.
 ================================================== ============================================================
 
 ``hive.hdfs.authentication.type``
@@ -295,6 +297,13 @@ The path to the keytab file that contains a key for the principal specified by
 system user running Presto.
 
 This property is optional; no default value.
+
+``hive.hdfs.wire-encryption.enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+In a Kerberized Hadoop cluster that uses HDFS wire encryption, this should be
+set to ``true`` to enable Presto to access HDFS. Note that using wire encryption
+may impact query execution performance.
 
 .. _hive-security-simple:
 
@@ -520,21 +529,3 @@ See below for an example.
         }
       ]
     }
-
-HDFS wire encryption
---------------------
-
-In a Kerberized Hadoop cluster with enabled HDFS wire encryption you can enable
-Presto to access HDFS by using below property.
-
-===================================== ==========================================
-Property Name                         Description
-===================================== ==========================================
-``hive.hdfs.wire-encryption.enabled`` Enables HDFS wire encryption.
-                                      Possible values are ``true`` or ``false``.
-===================================== ==========================================
-
-.. note::
-
-    Depending on Presto installation configuration, using wire encryption may
-    impact query execution performance.
