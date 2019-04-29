@@ -31,6 +31,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.Duration.nanosSince;
+import static io.airlift.units.Duration.succinctDuration;
 import static io.prestosql.cli.FormatUtils.formatCount;
 import static io.prestosql.cli.FormatUtils.formatCountRate;
 import static io.prestosql.cli.FormatUtils.formatDataRate;
@@ -150,10 +151,10 @@ Spilled: 20GB
 
     public void printFinalInfo()
     {
-        Duration wallTime = nanosSince(start);
-
         QueryStatusInfo results = client.finalStatusInfo();
         StatementStats stats = results.getStats();
+
+        Duration wallTime = succinctDuration(stats.getElapsedTimeMillis(), MILLISECONDS);
 
         int nodes = stats.getNodes();
         if ((nodes == 0) || (stats.getTotalSplits() == 0)) {
