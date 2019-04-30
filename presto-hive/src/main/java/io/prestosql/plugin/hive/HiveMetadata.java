@@ -317,9 +317,17 @@ public class HiveMetadata
 
         List<String> partitionedBy = getPartitionedBy(tableMetadata.getProperties());
 
-        if (partitionValuesList.isPresent() && partitionedBy.isEmpty()) {
-            throw new PrestoException(INVALID_ANALYZE_PROPERTY, "Only partitioned table can be analyzed with a partition list");
-        }
+        partitionValuesList.ifPresent(list -> {
+            if (partitionedBy.isEmpty()) {
+                throw new PrestoException(INVALID_ANALYZE_PROPERTY, "Partition list provided but table is not partitioned");
+            }
+            for (List<String> values : list) {
+                if (values.size() != partitionedBy.size()) {
+                    throw new PrestoException(INVALID_ANALYZE_PROPERTY, "Partition value count does not match partition column count");
+                }
+            }
+        });
+
         return handle;
     }
 
