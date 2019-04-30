@@ -34,16 +34,12 @@ import io.prestosql.failuredetector.HeartbeatFailureDetector.Stats;
 import io.prestosql.server.InternalCommunicationConfig;
 import org.testng.annotations.Test;
 
-import javax.ws.rs.GET;
-import javax.ws.rs.Path;
-
 import java.net.SocketTimeoutException;
 import java.net.URI;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.discovery.client.DiscoveryBinder.discoveryBinder;
 import static io.airlift.discovery.client.ServiceTypes.serviceType;
-import static io.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -72,10 +68,6 @@ public class TestHeartbeatFailureDetector
                         configBinder(binder).bindConfig(QueryManagerConfig.class);
                         discoveryBinder(binder).bindSelector("presto");
                         discoveryBinder(binder).bindHttpAnnouncement("presto");
-
-                        // Jersey with jetty 9 requires at least one resource
-                        // todo add a dummy resource to airlift jaxrs in this case
-                        jaxrsBinder(binder).bind(FooResource.class);
                     }
                 });
 
@@ -112,15 +104,5 @@ public class TestHeartbeatFailureDetector
         deserialized = objectMapper.readTree(serialized);
         assertFalse(deserialized.get("lastFailureInfo").isNull());
         assertEquals(deserialized.get("lastFailureInfo").get("type").asText(), SocketTimeoutException.class.getName());
-    }
-
-    @Path("/foo")
-    public static class FooResource
-    {
-        @GET
-        public static String hello()
-        {
-            return "hello";
-        }
     }
 }
