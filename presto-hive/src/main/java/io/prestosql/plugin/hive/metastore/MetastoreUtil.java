@@ -179,8 +179,8 @@ public class MetastoreUtil
 
     public static String makePartName(List<Column> partitionColumns, List<String> values)
     {
-        checkArgument(partitionColumns.size() == values.size(), "Partition value count does not match the partition column count");
-        checkArgument(values.stream().allMatch(Objects::nonNull), "partitionValue must not have null elements");
+        checkArgument(partitionColumns.size() == values.size(), "partition value count must match partition column count");
+        checkArgument(values.stream().allMatch(Objects::nonNull), "partition value must not be null");
 
         List<String> partitionColumnNames = partitionColumns.stream().map(Column::getName).collect(toList());
         return FileUtils.makePartName(partitionColumnNames, values);

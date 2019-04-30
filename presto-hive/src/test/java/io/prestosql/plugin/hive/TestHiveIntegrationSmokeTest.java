@@ -3348,8 +3348,8 @@ public class TestHiveIntegrationSmokeTest
         assertQueryFails(format("ANALYZE %s WITH (partitions = ARRAY[ARRAY['p4', '10']])", tableName), ".*Partition no longer exists.*");
 
         // Test partition schema mismatch
-        assertQueryFails(format("ANALYZE %s WITH (partitions = ARRAY[ARRAY['p4']])", tableName), ".*Partition value count does not match the partition column count.*");
-        assertQueryFails(format("ANALYZE %s WITH (partitions = ARRAY[ARRAY['p4', '10', 'error']])", tableName), ".*Partition value count does not match the partition column count.*");
+        assertQueryFails(format("ANALYZE %s WITH (partitions = ARRAY[ARRAY['p4']])", tableName), "Partition value count does not match partition column count");
+        assertQueryFails(format("ANALYZE %s WITH (partitions = ARRAY[ARRAY['p4', '10', 'error']])", tableName), "Partition value count does not match partition column count");
 
         // Drop the partitioned test table
         assertUpdate(format("DROP TABLE %s", tableName));
@@ -3366,8 +3366,8 @@ public class TestHiveIntegrationSmokeTest
         createUnpartitionedTableForAnalyzeTest(tableName);
 
         // Test partition properties on unpartitioned table
-        assertQueryFails(format("ANALYZE %s WITH (partitions = ARRAY[])", tableName), ".*Only partitioned table can be analyzed with a partition list.*");
-        assertQueryFails(format("ANALYZE %s WITH (partitions = ARRAY[ARRAY['p1']])", tableName), ".*Only partitioned table can be analyzed with a partition list.*");
+        assertQueryFails(format("ANALYZE %s WITH (partitions = ARRAY[])", tableName), "Partition list provided but table is not partitioned");
+        assertQueryFails(format("ANALYZE %s WITH (partitions = ARRAY[ARRAY['p1']])", tableName), "Partition list provided but table is not partitioned");
 
         // Drop the partitioned test table
         assertUpdate(format("DROP TABLE %s", tableName));
