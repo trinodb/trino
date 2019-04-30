@@ -338,12 +338,14 @@ public class MemoryPool
         Map<String, Long> allocations = taggedMemoryAllocations.computeIfAbsent(queryId, ignored -> new HashMap<>());
         allocations.compute(allocationTag, (ignored, oldValue) -> {
             if (oldValue == null) {
+                checkArgument(delta > 0, "negative delta (%s) for new tag [%s]", delta, allocationTag);
                 return delta;
             }
             long newValue = oldValue.longValue() + delta;
             if (newValue == 0) {
                 return null;
             }
+            checkArgument(newValue > 0, "delta (%s) greater than value (%s) for tag [%s]", delta, oldValue, allocationTag);
             return newValue;
         });
     }
