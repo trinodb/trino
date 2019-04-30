@@ -27,14 +27,25 @@ import static java.util.Objects.requireNonNull;
 
 public class MemoryInfo
 {
+    private final int availableProcessors;
     private final DataSize totalNodeMemory;
     private final Map<MemoryPoolId, MemoryPoolInfo> pools;
 
     @JsonCreator
-    public MemoryInfo(@JsonProperty("totalNodeMemory") DataSize totalNodeMemory, @JsonProperty("pools") Map<MemoryPoolId, MemoryPoolInfo> pools)
+    public MemoryInfo(
+            @JsonProperty("availableProcessors") int availableProcessors,
+            @JsonProperty("totalNodeMemory") DataSize totalNodeMemory,
+            @JsonProperty("pools") Map<MemoryPoolId, MemoryPoolInfo> pools)
     {
         this.totalNodeMemory = requireNonNull(totalNodeMemory, "totalNodeMemory is null");
         this.pools = ImmutableMap.copyOf(requireNonNull(pools, "pools is null"));
+        this.availableProcessors = availableProcessors;
+    }
+
+    @JsonProperty
+    public int getAvailableProcessors()
+    {
+        return availableProcessors;
     }
 
     @JsonProperty
@@ -53,6 +64,7 @@ public class MemoryInfo
     public String toString()
     {
         return toStringHelper(this)
+                .add("availableProcessors", availableProcessors)
                 .add("totalNodeMemory", totalNodeMemory)
                 .add("pools", pools)
                 .toString();

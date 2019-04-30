@@ -85,7 +85,7 @@ public class LowMemoryKillerTestingUtils
                                 ImmutableMap.of(),
                                 ImmutableMap.of()));
             }
-            result.add(new MemoryInfo(new DataSize(maxReservedPoolBytes + maxGeneralPoolBytes, BYTE), pools.build()));
+            result.add(new MemoryInfo(7, new DataSize(maxReservedPoolBytes + maxGeneralPoolBytes, BYTE), pools.build()));
         }
         return result.build();
     }

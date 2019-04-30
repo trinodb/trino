@@ -22,6 +22,8 @@ import io.prestosql.spi.memory.MemoryPoolInfo;
 
 import javax.inject.Inject;
 
+import java.lang.management.ManagementFactory;
+import java.lang.management.OperatingSystemMXBean;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -38,6 +40,7 @@ public final class LocalMemoryManager
 {
     public static final MemoryPoolId GENERAL_POOL = new MemoryPoolId("general");
     public static final MemoryPoolId RESERVED_POOL = new MemoryPoolId("reserved");
+    private static final OperatingSystemMXBean OPERATING_SYSTEM_MX_BEAN = ManagementFactory.getOperatingSystemMXBean();
 
     private DataSize maxMemory;
     private Map<MemoryPoolId, MemoryPool> pools;
@@ -96,7 +99,7 @@ public final class LocalMemoryManager
         for (Map.Entry<MemoryPoolId, MemoryPool> entry : pools.entrySet()) {
             builder.put(entry.getKey(), entry.getValue().getInfo());
         }
-        return new MemoryInfo(maxMemory, builder.build());
+        return new MemoryInfo(OPERATING_SYSTEM_MX_BEAN.getAvailableProcessors(), maxMemory, builder.build());
     }
 
     public List<MemoryPool> getPools()

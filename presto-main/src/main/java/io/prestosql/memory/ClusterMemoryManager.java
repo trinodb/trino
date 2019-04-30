@@ -104,6 +104,7 @@ public class ClusterMemoryManager
     private final LowMemoryKiller lowMemoryKiller;
     private final Duration killOnOutOfMemoryDelay;
     private final String coordinatorId;
+    private final AtomicLong totalAvailableProcessors = new AtomicLong();
     private final AtomicLong memoryPoolAssignmentsVersion = new AtomicLong();
     private final AtomicLong clusterUserMemoryReservation = new AtomicLong();
     private final AtomicLong clusterTotalMemoryReservation = new AtomicLong();
@@ -496,6 +497,11 @@ public class ClusterMemoryManager
                 .map(Optional::get)
                 .collect(toImmutableList());
 
+        long totalProcessors = nodeMemoryInfos.stream()
+                .mapToLong(MemoryInfo::getAvailableProcessors)
+                .sum();
+        totalAvailableProcessors.set(totalProcessors);
+
         long totalClusterMemory = nodeMemoryInfos.stream()
                 .map(MemoryInfo::getTotalNodeMemory)
                 .mapToLong(DataSize::toBytes)
@@ -534,6 +540,12 @@ public class ClusterMemoryManager
             }
             closer.register(listenerExecutor::shutdownNow);
         }
+    }
+
+    @Managed
+    public long getTotalAvailableProcessors()
+    {
+        return totalAvailableProcessors.get();
     }
 
     @Managed

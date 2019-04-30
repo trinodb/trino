@@ -62,6 +62,8 @@ public class ClusterStatsResource
             activeNodes -= 1;
         }
 
+        long totalAvailableProcessors = clusterMemoryManager.getTotalAvailableProcessors();
+
         long runningDrivers = 0;
         double memoryReservation = 0;
 
@@ -92,7 +94,17 @@ public class ClusterStatsResource
             }
         }
 
-        return new ClusterStats(runningQueries, blockedQueries, queuedQueries, activeNodes, runningDrivers, memoryReservation, totalInputRows, totalInputBytes, totalCpuTimeSecs);
+        return new ClusterStats(
+                runningQueries,
+                blockedQueries,
+                queuedQueries,
+                activeNodes,
+                runningDrivers,
+                totalAvailableProcessors,
+                memoryReservation,
+                totalInputRows,
+                totalInputBytes,
+                totalCpuTimeSecs);
     }
 
     @GET
@@ -121,6 +133,9 @@ public class ClusterStatsResource
 
         private final long activeWorkers;
         private final long runningDrivers;
+
+        private final long totalAvailableProcessors;
+
         private final double reservedMemory;
 
         private final long totalInputRows;
@@ -134,6 +149,7 @@ public class ClusterStatsResource
                 @JsonProperty("queuedQueries") long queuedQueries,
                 @JsonProperty("activeWorkers") long activeWorkers,
                 @JsonProperty("runningDrivers") long runningDrivers,
+                @JsonProperty("totalAvailableProcessors") long totalAvailableProcessors,
                 @JsonProperty("reservedMemory") double reservedMemory,
                 @JsonProperty("totalInputRows") long totalInputRows,
                 @JsonProperty("totalInputBytes") long totalInputBytes,
@@ -144,6 +160,7 @@ public class ClusterStatsResource
             this.queuedQueries = queuedQueries;
             this.activeWorkers = activeWorkers;
             this.runningDrivers = runningDrivers;
+            this.totalAvailableProcessors = totalAvailableProcessors;
             this.reservedMemory = reservedMemory;
             this.totalInputRows = totalInputRows;
             this.totalInputBytes = totalInputBytes;
@@ -178,6 +195,12 @@ public class ClusterStatsResource
         public long getRunningDrivers()
         {
             return runningDrivers;
+        }
+
+        @JsonProperty
+        public long getTotalAvailableProcessors()
+        {
+            return totalAvailableProcessors;
         }
 
         @JsonProperty
