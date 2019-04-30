@@ -16,6 +16,7 @@ package io.prestosql.cost;
 import com.google.common.collect.Iterables;
 import io.prestosql.Session;
 import io.prestosql.matching.Pattern;
+import io.prestosql.metadata.Metadata;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.TypeProvider;
 import io.prestosql.sql.planner.iterative.Lookup;
@@ -48,11 +49,13 @@ public class SimpleFilterProjectSemiJoinStatsRule
 {
     private static final Pattern<FilterNode> PATTERN = filter();
 
+    private final Metadata metadata;
     private final FilterStatsCalculator filterStatsCalculator;
 
-    public SimpleFilterProjectSemiJoinStatsRule(StatsNormalizer normalizer, FilterStatsCalculator filterStatsCalculator)
+    public SimpleFilterProjectSemiJoinStatsRule(Metadata metadata, StatsNormalizer normalizer, FilterStatsCalculator filterStatsCalculator)
     {
         super(normalizer);
+        this.metadata = requireNonNull(metadata, "metadata is null");
         this.filterStatsCalculator = requireNonNull(filterStatsCalculator, "filterStatsCalculator can not be null");
     }
 
@@ -121,7 +124,7 @@ public class SimpleFilterProjectSemiJoinStatsRule
         return Optional.of(filteredStats);
     }
 
-    private static Optional<SemiJoinOutputFilter> extractSemiJoinOutputFilter(Expression predicate, Symbol semiJoinOutput)
+    private Optional<SemiJoinOutputFilter> extractSemiJoinOutputFilter(Expression predicate, Symbol semiJoinOutput)
     {
         List<Expression> conjuncts = extractConjuncts(predicate);
         List<Expression> semiJoinOutputReferences = conjuncts.stream()
@@ -133,7 +136,7 @@ public class SimpleFilterProjectSemiJoinStatsRule
         }
 
         Expression semiJoinOutputReference = Iterables.getOnlyElement(semiJoinOutputReferences);
-        Expression remainingPredicate = combineConjuncts(conjuncts.stream()
+        Expression remainingPredicate = combineConjuncts(metadata, conjuncts.stream()
                 .filter(conjunct -> conjunct != semiJoinOutputReference)
                 .collect(toImmutableList()));
         boolean negated = semiJoinOutputReference instanceof NotExpression;

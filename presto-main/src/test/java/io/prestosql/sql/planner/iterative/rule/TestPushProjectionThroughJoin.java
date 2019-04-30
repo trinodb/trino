@@ -15,6 +15,7 @@ package io.prestosql.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.metadata.Metadata;
 import io.prestosql.sql.planner.Plan;
 import io.prestosql.sql.planner.PlanNodeIdAllocator;
 import io.prestosql.sql.planner.Symbol;
@@ -33,6 +34,7 @@ import java.util.Optional;
 import static io.prestosql.cost.PlanNodeStatsEstimate.unknown;
 import static io.prestosql.cost.StatsAndCosts.empty;
 import static io.prestosql.metadata.AbstractMockMetadata.dummyMetadata;
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.sql.planner.assertions.PlanAssert.assertPlan;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.join;
@@ -50,6 +52,8 @@ import static org.testng.Assert.assertTrue;
 
 public class TestPushProjectionThroughJoin
 {
+    private final Metadata metadata = createTestMetadataManager();
+
     @Test
     public void testPushesProjectionThroughJoin()
     {
@@ -83,7 +87,7 @@ public class TestPushProjectionThroughJoin
                         p.values(b0, b1),
                         new JoinNode.EquiJoinClause(a1, b1)));
 
-        Optional<PlanNode> rewritten = pushProjectionThroughJoin(planNode, noLookup(), idAllocator);
+        Optional<PlanNode> rewritten = pushProjectionThroughJoin(metadata, planNode, noLookup(), idAllocator);
         assertTrue(rewritten.isPresent());
         assertPlan(
                 testSessionBuilder().build(),
@@ -122,7 +126,7 @@ public class TestPushProjectionThroughJoin
                         INNER,
                         p.values(a),
                         p.values(b)));
-        Optional<PlanNode> rewritten = pushProjectionThroughJoin(planNode, noLookup(), new PlanNodeIdAllocator());
+        Optional<PlanNode> rewritten = pushProjectionThroughJoin(metadata, planNode, noLookup(), new PlanNodeIdAllocator());
         assertThat(rewritten).isEmpty();
     }
 
@@ -141,7 +145,7 @@ public class TestPushProjectionThroughJoin
                         LEFT,
                         p.values(a),
                         p.values(b)));
-        Optional<PlanNode> rewritten = pushProjectionThroughJoin(planNode, noLookup(), new PlanNodeIdAllocator());
+        Optional<PlanNode> rewritten = pushProjectionThroughJoin(metadata, planNode, noLookup(), new PlanNodeIdAllocator());
         assertThat(rewritten).isEmpty();
     }
 }

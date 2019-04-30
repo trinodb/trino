@@ -58,6 +58,7 @@ import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.sql.QueryUtil.identifier;
 import static io.prestosql.sql.analyzer.TypeSignatureTranslator.toSqlType;
+import static io.prestosql.sql.planner.EqualityInference.isInferenceCandidate;
 import static io.prestosql.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static io.prestosql.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
 import static org.testng.Assert.assertEquals;
@@ -73,6 +74,7 @@ public class TestEqualityInference
     public void testTransitivity()
     {
         EqualityInference inference = EqualityInference.newInstance(
+                metadata,
                 equals("a1", "b1"),
                 equals("b1", "c1"),
                 equals("d1", "c1"),
@@ -109,7 +111,7 @@ public class TestEqualityInference
     @Test
     public void testTriviallyRewritable()
     {
-        Expression expression = EqualityInference.newInstance()
+        Expression expression = EqualityInference.newInstance(metadata)
                 .rewrite(someExpression("a1", "a2"), symbols("a1", "a2"));
 
         assertEquals(expression, someExpression("a1", "a2"));
@@ -119,6 +121,7 @@ public class TestEqualityInference
     public void testUnrewritable()
     {
         EqualityInference inference = EqualityInference.newInstance(
+                metadata,
                 equals("a1", "b1"),
                 equals("a2", "b2"));
 
@@ -130,6 +133,7 @@ public class TestEqualityInference
     public void testParseEqualityExpression()
     {
         EqualityInference inference = EqualityInference.newInstance(
+                metadata,
                 equals("a1", "b1"),
                 equals("a1", "c1"),
                 equals("c1", "a1"));
@@ -142,6 +146,7 @@ public class TestEqualityInference
     public void testExtractInferrableEqualities()
     {
         EqualityInference inference = EqualityInference.newInstance(
+                metadata,
                 ExpressionUtils.and(equals("a1", "b1"), equals("b1", "c1"), someExpression("c1", "d1")));
 
         // Able to rewrite to c1 due to equalities
@@ -155,6 +160,7 @@ public class TestEqualityInference
     public void testEqualityPartitionGeneration()
     {
         EqualityInference inference = EqualityInference.newInstance(
+                metadata,
                 equals(nameReference("a1"), nameReference("b1")),
                 equals(add("a1", "a1"), multiply(nameReference("a1"), number(2))),
                 equals(nameReference("b1"), nameReference("c1")),
@@ -174,21 +180,22 @@ public class TestEqualityInference
         // There should be equalities in the scope, that only use c1 and are all inferrable equalities
         assertFalse(equalityPartition.getScopeEqualities().isEmpty());
         assertTrue(Iterables.all(equalityPartition.getScopeEqualities(), matchesSymbolScope(matchesSymbols("c1"))));
-        assertTrue(Iterables.all(equalityPartition.getScopeEqualities(), EqualityInference::isInferenceCandidate));
+        assertTrue(Iterables.all(equalityPartition.getScopeEqualities(), expression -> isInferenceCandidate(metadata, expression)));
 
         // There should be equalities in the inverse scope, that never use c1 and are all inferrable equalities
         assertFalse(equalityPartition.getScopeComplementEqualities().isEmpty());
         assertTrue(Iterables.all(equalityPartition.getScopeComplementEqualities(), matchesSymbolScope(not(matchesSymbols("c1")))));
-        assertTrue(Iterables.all(equalityPartition.getScopeComplementEqualities(), EqualityInference::isInferenceCandidate));
+        assertTrue(Iterables.all(equalityPartition.getScopeComplementEqualities(), expression -> isInferenceCandidate(metadata, expression)));
 
         // There should be equalities in the straddling scope, that should use both c1 and not c1 symbols
         assertFalse(equalityPartition.getScopeStraddlingEqualities().isEmpty());
         assertTrue(Iterables.any(equalityPartition.getScopeStraddlingEqualities(), matchesStraddlingScope(matchesSymbols("c1"))));
-        assertTrue(Iterables.all(equalityPartition.getScopeStraddlingEqualities(), EqualityInference::isInferenceCandidate));
+        assertTrue(Iterables.all(equalityPartition.getScopeStraddlingEqualities(), expression -> isInferenceCandidate(metadata, expression)));
 
         // There should be a "full cover" of all of the equalities used
         // THUS, we should be able to plug the generated equalities back in and get an equivalent set of equalities back the next time around
         EqualityInference newInference = EqualityInference.newInstance(
+                metadata,
                 ImmutableList.<Expression>builder()
                         .addAll(equalityPartition.getScopeEqualities())
                         .addAll(equalityPartition.getScopeComplementEqualities())
@@ -206,6 +213,7 @@ public class TestEqualityInference
     public void testMultipleEqualitySetsPredicateGeneration()
     {
         EqualityInference inference = EqualityInference.newInstance(
+                metadata,
                 equals("a1", "b1"),
                 equals("b1", "c1"),
                 equals("c1", "d1"),
@@ -219,21 +227,22 @@ public class TestEqualityInference
         // There should be equalities in the scope, that only use a* and b* symbols and are all inferrable equalities
         assertFalse(equalityPartition.getScopeEqualities().isEmpty());
         assertTrue(Iterables.all(equalityPartition.getScopeEqualities(), matchesSymbolScope(symbolBeginsWith("a", "b"))));
-        assertTrue(Iterables.all(equalityPartition.getScopeEqualities(), EqualityInference::isInferenceCandidate));
+        assertTrue(Iterables.all(equalityPartition.getScopeEqualities(), expression -> isInferenceCandidate(metadata, expression)));
 
         // There should be equalities in the inverse scope, that never use a* and b* symbols and are all inferrable equalities
         assertFalse(equalityPartition.getScopeComplementEqualities().isEmpty());
         assertTrue(Iterables.all(equalityPartition.getScopeComplementEqualities(), matchesSymbolScope(not(symbolBeginsWith("a", "b")))));
-        assertTrue(Iterables.all(equalityPartition.getScopeComplementEqualities(), EqualityInference::isInferenceCandidate));
+        assertTrue(Iterables.all(equalityPartition.getScopeComplementEqualities(), expression -> isInferenceCandidate(metadata, expression)));
 
         // There should be equalities in the straddling scope, that should use both c1 and not c1 symbols
         assertFalse(equalityPartition.getScopeStraddlingEqualities().isEmpty());
         assertTrue(Iterables.any(equalityPartition.getScopeStraddlingEqualities(), matchesStraddlingScope(symbolBeginsWith("a", "b"))));
-        assertTrue(Iterables.all(equalityPartition.getScopeStraddlingEqualities(), EqualityInference::isInferenceCandidate));
+        assertTrue(Iterables.all(equalityPartition.getScopeStraddlingEqualities(), expression -> isInferenceCandidate(metadata, expression)));
 
         // Again, there should be a "full cover" of all of the equalities used
         // THUS, we should be able to plug the generated equalities back in and get an equivalent set of equalities back the next time around
         EqualityInference newInference = EqualityInference.newInstance(
+                metadata,
                 ImmutableList.<Expression>builder()
                         .addAll(equalityPartition.getScopeEqualities())
                         .addAll(equalityPartition.getScopeComplementEqualities())
@@ -251,6 +260,7 @@ public class TestEqualityInference
     public void testSubExpressionRewrites()
     {
         EqualityInference inference = EqualityInference.newInstance(
+                metadata,
                 equals(nameReference("a1"), add("b", "c")), // a1 = b + c
                 equals(nameReference("a2"), multiply(nameReference("b"), add("b", "c"))), // a2 = b * (b + c)
                 equals(nameReference("a3"), multiply(nameReference("a1"), add("b", "c")))); // a3 = a1 * (b + c)
@@ -269,6 +279,7 @@ public class TestEqualityInference
     public void testConstantEqualities()
     {
         EqualityInference inference = EqualityInference.newInstance(
+                metadata,
                 equals("a1", "b1"),
                 equals("b1", "c1"),
                 equals(nameReference("c1"), number(1)));
@@ -291,6 +302,7 @@ public class TestEqualityInference
     public void testEqualityGeneration()
     {
         EqualityInference inference = EqualityInference.newInstance(
+                metadata,
                 equals(nameReference("a1"), add("b", "c")), // a1 = b + c
                 equals(nameReference("e1"), add("b", "d")), // e1 = b + d
                 equals("c", "d"));
@@ -318,6 +330,7 @@ public class TestEqualityInference
 
         for (Expression candidate : candidates) {
             EqualityInference inference = EqualityInference.newInstance(
+                    metadata,
                     equals(nameReference("b"), nameReference("x")),
                     equals(nameReference("a"), candidate));
 

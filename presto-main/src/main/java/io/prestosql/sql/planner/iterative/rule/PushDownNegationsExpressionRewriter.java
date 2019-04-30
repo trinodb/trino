@@ -13,6 +13,7 @@
  */
 package io.prestosql.sql.planner.iterative.rule;
 
+import io.prestosql.metadata.Metadata;
 import io.prestosql.sql.tree.ComparisonExpression;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.ExpressionRewriter;
@@ -26,12 +27,13 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.sql.ExpressionUtils.combinePredicates;
 import static io.prestosql.sql.ExpressionUtils.extractPredicates;
 import static io.prestosql.sql.tree.ComparisonExpression.Operator.IS_DISTINCT_FROM;
+import static java.util.Objects.requireNonNull;
 
 public final class PushDownNegationsExpressionRewriter
 {
-    public static Expression pushDownNegations(Expression expression)
+    public static Expression pushDownNegations(Metadata metadata, Expression expression)
     {
-        return ExpressionTreeRewriter.rewriteWith(new Visitor(), expression);
+        return ExpressionTreeRewriter.rewriteWith(new Visitor(metadata), expression);
     }
 
     private PushDownNegationsExpressionRewriter() {}
@@ -39,6 +41,13 @@ public final class PushDownNegationsExpressionRewriter
     private static class Visitor
             extends ExpressionRewriter<Void>
     {
+        private final Metadata metadata;
+
+        public Visitor(Metadata metadata)
+        {
+            this.metadata = requireNonNull(metadata, "metadata is null");
+        }
+
         @Override
         public Expression rewriteNotExpression(NotExpression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
         {
@@ -46,7 +55,7 @@ public final class PushDownNegationsExpressionRewriter
                 LogicalBinaryExpression child = (LogicalBinaryExpression) node.getValue();
                 List<Expression> predicates = extractPredicates(child);
                 List<Expression> negatedPredicates = predicates.stream().map(predicate -> treeRewriter.rewrite((Expression) new NotExpression(predicate), context)).collect(toImmutableList());
-                return combinePredicates(child.getOperator().flip(), negatedPredicates);
+                return combinePredicates(metadata, child.getOperator().flip(), negatedPredicates);
             }
             if (node.getValue() instanceof ComparisonExpression && ((ComparisonExpression) node.getValue()).getOperator() != IS_DISTINCT_FROM) {
                 ComparisonExpression child = (ComparisonExpression) node.getValue();

@@ -194,9 +194,16 @@ public class TransformQuantifiedComparisonApplyToCorrelatedJoin
 
         public Expression rewriteUsingBounds(QuantifiedComparisonExpression quantifiedComparison, Symbol minValue, Symbol maxValue, Symbol countAllValue, Symbol countNonNullValue)
         {
-            BooleanLiteral emptySetResult = quantifiedComparison.getQuantifier().equals(ALL) ? TRUE_LITERAL : FALSE_LITERAL;
-            Function<List<Expression>, Expression> quantifier = quantifiedComparison.getQuantifier().equals(ALL) ?
-                    ExpressionUtils::combineConjuncts : ExpressionUtils::combineDisjuncts;
+            BooleanLiteral emptySetResult;
+            Function<List<Expression>, Expression> quantifier;
+            if (quantifiedComparison.getQuantifier() == ALL) {
+                emptySetResult = TRUE_LITERAL;
+                quantifier = expressions -> ExpressionUtils.combineConjuncts(metadata, expressions);
+            }
+            else {
+                emptySetResult = FALSE_LITERAL;
+                quantifier = expressions -> ExpressionUtils.combineDisjuncts(metadata, expressions);
+            }
             Expression comparisonWithExtremeValue = getBoundComparisons(quantifiedComparison, minValue, maxValue);
 
             return new SimpleCaseExpression(
@@ -219,6 +226,7 @@ public class TransformQuantifiedComparisonApplyToCorrelatedJoin
             if (quantifiedComparison.getOperator() == EQUAL && quantifiedComparison.getQuantifier() == ALL) {
                 // A = ALL B <=> min B = max B && A = min B
                 return combineConjuncts(
+                        metadata,
                         new ComparisonExpression(EQUAL, minValue.toSymbolReference(), maxValue.toSymbolReference()),
                         new ComparisonExpression(EQUAL, quantifiedComparison.getValue(), maxValue.toSymbolReference()));
             }

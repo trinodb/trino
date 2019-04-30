@@ -70,7 +70,7 @@ public class DeterminismEvaluator
         private boolean isDeterministic(ResolvedFunction resolvedFunction)
         {
             try {
-                return metadata.getScalarFunctionImplementation(resolvedFunction).isDeterministic();
+                return metadata.getFunctionMetadata(resolvedFunction).isDeterministic();
             }
             catch (PrestoException ignored) {
                 // unknown functions are typically special forms and are deterministic

@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
+import io.prestosql.metadata.Metadata;
 import io.prestosql.spi.block.SortOrder;
 import io.prestosql.sql.ExpressionUtils;
 import io.prestosql.sql.planner.OrderingScheme;
@@ -63,11 +64,13 @@ import static java.util.Objects.requireNonNull;
 
 public class PlanNodeDecorrelator
 {
+    private final Metadata metadata;
     private final SymbolAllocator symbolAllocator;
     private final Lookup lookup;
 
-    public PlanNodeDecorrelator(SymbolAllocator symbolAllocator, Lookup lookup)
+    public PlanNodeDecorrelator(Metadata metadata, SymbolAllocator symbolAllocator, Lookup lookup)
     {
+        this.metadata = requireNonNull(metadata, "metadata is null");
         this.symbolAllocator = requireNonNull(symbolAllocator, "symbolAllocator is null");
         this.lookup = requireNonNull(lookup, "lookup is null");
     }
@@ -78,7 +81,7 @@ public class PlanNodeDecorrelator
         // right now, because for nested subqueries correlation list is empty while there might exists usages
         // of the outer most correlated symbols
 
-        Optional<DecorrelationResult> decorrelationResultOptional = node.accept(new DecorrelatingVisitor(correlation), null);
+        Optional<DecorrelationResult> decorrelationResultOptional = node.accept(new DecorrelatingVisitor(metadata, correlation), null);
         return decorrelationResultOptional.flatMap(decorrelationResult -> decorrelatedNode(
                 decorrelationResult.correlatedPredicates,
                 decorrelationResult.node,
@@ -88,10 +91,12 @@ public class PlanNodeDecorrelator
     private class DecorrelatingVisitor
             extends PlanVisitor<Optional<DecorrelationResult>, Void>
     {
+        private final Metadata metadata;
         private final List<Symbol> correlation;
 
-        DecorrelatingVisitor(List<Symbol> correlation)
+        DecorrelatingVisitor(Metadata metadata, List<Symbol> correlation)
         {
+            this.metadata = metadata;
             this.correlation = requireNonNull(correlation, "correlation is null");
         }
 
@@ -141,7 +146,7 @@ public class PlanNodeDecorrelator
             FilterNode newFilterNode = new FilterNode(
                     node.getId(),
                     childDecorrelationResult.node,
-                    ExpressionUtils.combineConjuncts(uncorrelatedPredicates));
+                    ExpressionUtils.combineConjuncts(metadata, uncorrelatedPredicates));
 
             Set<Symbol> symbolsToPropagate = Sets.difference(SymbolsExtractor.extractUnique(correlatedPredicates), ImmutableSet.copyOf(correlation));
             return Optional.of(new DecorrelationResult(

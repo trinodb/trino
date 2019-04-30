@@ -162,7 +162,7 @@ public class TestDomainTranslator
     {
         metadata = createTestMetadataManager();
         literalEncoder = new LiteralEncoder(metadata);
-        domainTranslator = new DomainTranslator(literalEncoder);
+        domainTranslator = new DomainTranslator(metadata);
     }
 
     @AfterClass(alwaysRun = true)

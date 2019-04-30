@@ -545,7 +545,7 @@ public class ExpressionInterpreter
             Set<Expression> visitedExpression = new HashSet<>();
             for (Object value : values) {
                 Expression expression = toExpression(value, type);
-                if (!isDeterministic(expression) || visitedExpression.add(expression)) {
+                if (!isDeterministic(expression, metadata) || visitedExpression.add(expression)) {
                     operandsBuilder.add(expression);
                 }
                 // TODO: Replace this logic with an anlyzer which specifies whether it evaluates to null
@@ -642,10 +642,10 @@ public class ExpressionInterpreter
                 List<Expression> expressionValues = toExpressions(values, types);
                 List<Expression> simplifiedExpressionValues = Stream.concat(
                         expressionValues.stream()
-                                .filter(DeterminismEvaluator::isDeterministic)
+                                .filter(expression -> isDeterministic(expression, metadata))
                                 .distinct(),
                         expressionValues.stream()
-                                .filter((expression -> !isDeterministic(expression))))
+                                .filter((expression -> !isDeterministic(expression, metadata))))
                         .collect(toImmutableList());
 
                 if (simplifiedExpressionValues.size() == 1) {

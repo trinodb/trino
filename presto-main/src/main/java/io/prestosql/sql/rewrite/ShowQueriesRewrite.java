@@ -234,6 +234,7 @@ final class ShowQueriesRewrite
                         new CatalogSchemaName(catalogName, qualifiedTableName.getSchemaName()));
 
                 predicate = Optional.of(combineConjuncts(
+                        metadata,
                         equal(identifier("table_schema"), new StringLiteral(qualifiedTableName.getSchemaName())),
                         equal(identifier("table_name"), new StringLiteral(qualifiedTableName.getObjectName()))));
             }

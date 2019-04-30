@@ -165,7 +165,7 @@ public class RemoveUnsupportedDynamicFilters
 
         private Expression removeDynamicFilters(Expression expression, Set<String> allowedDynamicFilterIds, ImmutableSet.Builder<String> consumedDynamicFilterIds)
         {
-            return combineConjuncts(extractConjuncts(expression)
+            return combineConjuncts(metadata, extractConjuncts(expression)
                     .stream()
                     .filter(conjunct ->
                             getDescriptor(metadata, conjunct)
@@ -185,7 +185,7 @@ public class RemoveUnsupportedDynamicFilters
             if (extractResult.getDynamicConjuncts().isEmpty()) {
                 return expression;
             }
-            return combineConjuncts(extractResult.getStaticConjuncts());
+            return combineConjuncts(metadata, extractResult.getStaticConjuncts());
         }
     }
 
