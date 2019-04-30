@@ -190,8 +190,8 @@ public class TestEffectivePredicateExtractor
     };
 
     private final TypeAnalyzer typeAnalyzer = new TypeAnalyzer(new SqlParser(), metadata);
-    private final EffectivePredicateExtractor effectivePredicateExtractor = new EffectivePredicateExtractor(new DomainTranslator(new LiteralEncoder(metadata)), metadata, true);
-    private final EffectivePredicateExtractor effectivePredicateExtractorWithoutTableProperties = new EffectivePredicateExtractor(new DomainTranslator(new LiteralEncoder(metadata)), metadata, false);
+    private final EffectivePredicateExtractor effectivePredicateExtractor = new EffectivePredicateExtractor(new DomainTranslator(metadata), metadata, true);
+    private final EffectivePredicateExtractor effectivePredicateExtractorWithoutTableProperties = new EffectivePredicateExtractor(new DomainTranslator(metadata), metadata, false);
 
     private Map<Symbol, ColumnHandle> scanAssignments;
     private TableScanNode baseTableScan;
@@ -582,13 +582,14 @@ public class TestEffectivePredicateExtractor
                         or(new ComparisonExpression(EQUAL, BE, bigintLiteral(200)), new IsNullPredicate(BE))));
 
         // non-deterministic
+        ResolvedFunction rand = metadata.resolveFunction(QualifiedName.of("rand"), ImmutableList.of());
         assertEquals(effectivePredicateExtractor.extract(
                 SESSION,
                 new ValuesNode(
                         newId(),
                         ImmutableList.of(A, B),
                         ImmutableList.of(
-                                ImmutableList.of(bigintLiteral(1), new FunctionCall(QualifiedName.of("rand"), ImmutableList.of())))),
+                                ImmutableList.of(bigintLiteral(1), new FunctionCall(rand.toQualifiedName(), ImmutableList.of())))),
                 types,
                 typeAnalyzer),
                 new ComparisonExpression(EQUAL, AE, bigintLiteral(1)));
@@ -1012,7 +1013,7 @@ public class TestEffectivePredicateExtractor
 
     private Set<Expression> normalizeConjuncts(Collection<Expression> conjuncts)
     {
-        return normalizeConjuncts(combineConjuncts(conjuncts));
+        return normalizeConjuncts(combineConjuncts(metadata, conjuncts));
     }
 
     private Set<Expression> normalizeConjuncts(Expression predicate)
@@ -1022,11 +1023,11 @@ public class TestEffectivePredicateExtractor
         predicate = expressionNormalizer.normalize(predicate);
 
         // Equality inference rewrites and equality generation will always be stable across multiple runs in the same JVM
-        EqualityInference inference = EqualityInference.newInstance(predicate);
+        EqualityInference inference = EqualityInference.newInstance(metadata, predicate);
 
         Set<Symbol> scope = SymbolsExtractor.extractUnique(predicate);
         Set<Expression> rewrittenSet = new HashSet<>();
-        for (Expression expression : EqualityInference.nonInferrableConjuncts(predicate)) {
+        for (Expression expression : EqualityInference.nonInferrableConjuncts(metadata, predicate)) {
             Expression rewritten = inference.rewrite(expression, scope);
             Preconditions.checkState(rewritten != null, "Rewrite with full symbol scope should always be possible");
             rewrittenSet.add(rewritten);

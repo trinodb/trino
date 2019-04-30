@@ -15,6 +15,7 @@ package io.prestosql.sql.planner;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.metadata.Metadata;
 import io.prestosql.sql.planner.assertions.BasePlanTest;
 import io.prestosql.sql.planner.plan.EnforceSingleRowNode;
 import io.prestosql.sql.planner.plan.FilterNode;
@@ -24,6 +25,7 @@ import org.testng.annotations.Test;
 import java.util.Optional;
 
 import static io.prestosql.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.anyNot;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
@@ -40,6 +42,8 @@ import static io.prestosql.sql.planner.plan.JoinNode.Type.LEFT;
 public class TestDynamicFilter
         extends BasePlanTest
 {
+    private final Metadata metadata = createTestMetadataManager();
+
     TestDynamicFilter()
     {
         // in order to test testUncorrelatedSubqueries with Dynamic Filtering, enable it
@@ -82,7 +86,7 @@ public class TestDynamicFilter
                                 tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey")),
                                 exchange(
                                         project(
-                                                tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey")))))));
+                                                tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey")))), metadata)));
     }
 
     @Test
@@ -111,7 +115,7 @@ public class TestDynamicFilter
                                 tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey", "ORDERS_CK", "custkey")),
                                 exchange(
                                         project(
-                                                tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey", "LINEITEM_PK", "partkey")))))));
+                                                tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey", "LINEITEM_PK", "partkey")))), metadata)));
     }
 
     @Test
@@ -125,7 +129,7 @@ public class TestDynamicFilter
                                 tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey")),
                                 exchange(
                                         project(
-                                                tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey")))))));
+                                                tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey")))), metadata)));
     }
 
     @Test
@@ -140,7 +144,7 @@ public class TestDynamicFilter
                                 project(
                                         node(EnforceSingleRowNode.class,
                                                 anyTree(
-                                                        tableScan("lineitem", ImmutableMap.of("Y", "orderkey"))))))));
+                                                        tableScan("lineitem", ImmutableMap.of("Y", "orderkey"))))), metadata)));
 
         assertPlan("SELECT * FROM orders WHERE orderkey IN (SELECT orderkey FROM lineitem WHERE linenumber % 4 = 0)",
                 anyTree(
@@ -195,7 +199,7 @@ public class TestDynamicFilter
                                                 Optional.empty(),
                                                 tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey")),
                                                 exchange(
-                                                        project(tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey")))))))));
+                                                        project(tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey")))), metadata)), metadata)));
     }
 
     @Test

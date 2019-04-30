@@ -46,8 +46,8 @@ public class SimplifyExpressions
         if (expression instanceof SymbolReference) {
             return expression;
         }
-        expression = pushDownNegations(expression);
-        expression = extractCommonPredicates(expression);
+        expression = pushDownNegations(metadata, expression);
+        expression = extractCommonPredicates(metadata, expression);
         Map<NodeRef<Expression>, Type> expressionTypes = typeAnalyzer.getTypes(session, symbolAllocator.getTypes(), expression);
         ExpressionInterpreter interpreter = ExpressionInterpreter.expressionOptimizer(expression, metadata, session, expressionTypes);
         Object optimized = interpreter.optimize(NoOpSymbolResolver.INSTANCE);

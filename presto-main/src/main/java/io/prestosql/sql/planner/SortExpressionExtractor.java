@@ -14,6 +14,7 @@
 package io.prestosql.sql.planner;
 
 import com.google.common.collect.ImmutableList;
+import io.prestosql.metadata.Metadata;
 import io.prestosql.sql.ExpressionUtils;
 import io.prestosql.sql.tree.AstVisitor;
 import io.prestosql.sql.tree.ComparisonExpression;
@@ -57,13 +58,13 @@ public final class SortExpressionExtractor
      */
     private SortExpressionExtractor() {}
 
-    public static Optional<SortExpressionContext> extractSortExpression(Set<Symbol> buildSymbols, Expression filter)
+    public static Optional<SortExpressionContext> extractSortExpression(Metadata metadata, Set<Symbol> buildSymbols, Expression filter)
     {
         List<Expression> filterConjuncts = ExpressionUtils.extractConjuncts(filter);
         SortExpressionVisitor visitor = new SortExpressionVisitor(buildSymbols);
 
         List<SortExpressionContext> sortExpressionCandidates = filterConjuncts.stream()
-                .filter(DeterminismEvaluator::isDeterministic)
+                .filter(expression -> DeterminismEvaluator.isDeterministic(expression, metadata))
                 .map(visitor::process)
                 .filter(Optional::isPresent)
                 .map(Optional::get)

@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Ordering;
+import io.prestosql.metadata.Metadata;
 import io.prestosql.sql.tree.ComparisonExpression;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.SymbolReference;
@@ -179,10 +180,10 @@ public class EqualityInference
     /**
      * Determines whether an Expression may be successfully applied to the equality inference
      */
-    public static boolean isInferenceCandidate(Expression expression)
+    public static boolean isInferenceCandidate(Metadata metadata, Expression expression)
     {
         if (expression instanceof ComparisonExpression &&
-                isDeterministic(expression) &&
+                isDeterministic(expression, metadata) &&
                 !mayReturnNullOnNonNullInput(expression)) {
             ComparisonExpression comparison = (ComparisonExpression) expression;
             if (comparison.getOperator() == ComparisonExpression.Operator.EQUAL) {
@@ -193,17 +194,17 @@ public class EqualityInference
         return false;
     }
 
-    public static EqualityInference newInstance(Expression... expressions)
+    public static EqualityInference newInstance(Metadata metadata, Expression... expressions)
     {
-        return newInstance(Arrays.asList(expressions));
+        return newInstance(metadata, Arrays.asList(expressions));
     }
 
-    public static EqualityInference newInstance(Collection<Expression> expressions)
+    public static EqualityInference newInstance(Metadata metadata, Collection<Expression> expressions)
     {
         DisjointSet<Expression> equalities = new DisjointSet<>();
         List<Expression> candidates = expressions.stream()
                 .flatMap(expression -> extractConjuncts(expression).stream())
-                .filter(EqualityInference::isInferenceCandidate)
+                .filter(expression -> isInferenceCandidate(metadata, expression))
                 .collect(Collectors.toList());
 
         for (Expression expression : candidates) {
@@ -262,10 +263,10 @@ public class EqualityInference
     /**
      * Provides a convenience Iterable of Expression conjuncts which have not been added to the inference
      */
-    public static List<Expression> nonInferrableConjuncts(Expression expression)
+    public static List<Expression> nonInferrableConjuncts(Metadata metadata, Expression expression)
     {
         return extractConjuncts(expression).stream()
-            .filter(e -> !isInferenceCandidate(e))
+            .filter(e -> !isInferenceCandidate(metadata, e))
             .collect(Collectors.toList());
     }
 

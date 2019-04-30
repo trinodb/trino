@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.matching.Captures;
 import io.prestosql.matching.Pattern;
+import io.prestosql.metadata.Metadata;
 import io.prestosql.sql.planner.iterative.Rule;
 import io.prestosql.sql.planner.optimizations.PlanNodeDecorrelator;
 import io.prestosql.sql.planner.optimizations.PlanNodeDecorrelator.DecorrelatedNode;
@@ -43,6 +44,13 @@ public class TransformCorrelatedJoinToJoin
     private static final Pattern<CorrelatedJoinNode> PATTERN = correlatedJoin()
             .with(nonEmpty(correlation()));
 
+    private final Metadata metadata;
+
+    public TransformCorrelatedJoinToJoin(Metadata metadata)
+    {
+        this.metadata = metadata;
+    }
+
     @Override
     public Pattern<CorrelatedJoinNode> getPattern()
     {
@@ -54,12 +62,13 @@ public class TransformCorrelatedJoinToJoin
     {
         PlanNode subquery = correlatedJoinNode.getSubquery();
 
-        PlanNodeDecorrelator planNodeDecorrelator = new PlanNodeDecorrelator(context.getSymbolAllocator(), context.getLookup());
+        PlanNodeDecorrelator planNodeDecorrelator = new PlanNodeDecorrelator(metadata, context.getSymbolAllocator(), context.getLookup());
         Optional<DecorrelatedNode> decorrelatedNodeOptional = planNodeDecorrelator.decorrelateFilters(subquery, correlatedJoinNode.getCorrelation());
 
         return decorrelatedNodeOptional
                 .map(decorrelatedNode -> {
                     Expression joinFilter = combineConjuncts(
+                            metadata,
                             decorrelatedNode.getCorrelatedPredicates().orElse(TRUE_LITERAL),
                             correlatedJoinNode.getFilter());
                     return Result.ofPlanNode(new JoinNode(

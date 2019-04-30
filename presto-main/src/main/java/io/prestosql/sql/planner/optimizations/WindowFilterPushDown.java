@@ -25,7 +25,6 @@ import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.predicate.ValueSet;
 import io.prestosql.sql.ExpressionUtils;
 import io.prestosql.sql.planner.DomainTranslator;
-import io.prestosql.sql.planner.LiteralEncoder;
 import io.prestosql.sql.planner.PlanNodeIdAllocator;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.SymbolAllocator;
@@ -70,7 +69,7 @@ public class WindowFilterPushDown
     public WindowFilterPushDown(Metadata metadata)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
-        this.domainTranslator = new DomainTranslator(new LiteralEncoder(metadata));
+        this.domainTranslator = new DomainTranslator(metadata);
     }
 
     @Override
@@ -202,6 +201,7 @@ public class WindowFilterPushDown
             // Construct a new predicate
             TupleDomain<Symbol> newTupleDomain = TupleDomain.withColumnDomains(newDomains);
             Expression newPredicate = ExpressionUtils.combineConjuncts(
+                    metadata,
                     extractionResult.getRemainingExpression(),
                     domainTranslator.toPredicate(newTupleDomain));
 

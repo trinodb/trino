@@ -28,7 +28,6 @@ import io.prestosql.spi.connector.DiscretePredicates;
 import io.prestosql.spi.predicate.NullableValue;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.type.Type;
-import io.prestosql.sql.planner.DeterminismEvaluator;
 import io.prestosql.sql.planner.LiteralEncoder;
 import io.prestosql.sql.planner.PlanNodeIdAllocator;
 import io.prestosql.sql.planner.Symbol;
@@ -53,6 +52,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static io.prestosql.sql.planner.DeterminismEvaluator.isDeterministic;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -174,7 +174,7 @@ public class MetadataQueryOptimizer
             return SimplePlanRewriter.rewriteWith(new Replacer(valuesNode), node);
         }
 
-        private static Optional<TableScanNode> findTableScan(PlanNode source)
+        private Optional<TableScanNode> findTableScan(PlanNode source)
         {
             while (true) {
                 // allow any chain of linear transformations
@@ -188,7 +188,7 @@ public class MetadataQueryOptimizer
                 else if (source instanceof ProjectNode) {
                     // verify projections are deterministic
                     ProjectNode project = (ProjectNode) source;
-                    if (!Iterables.all(project.getAssignments().getExpressions(), DeterminismEvaluator::isDeterministic)) {
+                    if (!Iterables.all(project.getAssignments().getExpressions(), expression -> isDeterministic(expression, metadata))) {
                         return Optional.empty();
                     }
                     source = project.getSource();

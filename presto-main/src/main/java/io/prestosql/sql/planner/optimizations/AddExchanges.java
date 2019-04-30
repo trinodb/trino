@@ -27,7 +27,6 @@ import io.prestosql.spi.connector.GroupingProperty;
 import io.prestosql.spi.connector.LocalProperty;
 import io.prestosql.spi.connector.SortingProperty;
 import io.prestosql.sql.planner.DomainTranslator;
-import io.prestosql.sql.planner.LiteralEncoder;
 import io.prestosql.sql.planner.Partitioning;
 import io.prestosql.sql.planner.PartitioningScheme;
 import io.prestosql.sql.planner.PlanNodeIdAllocator;
@@ -120,7 +119,7 @@ public class AddExchanges
     public AddExchanges(Metadata metadata, TypeAnalyzer typeAnalyzer)
     {
         this.metadata = metadata;
-        this.domainTranslator = new DomainTranslator(new LiteralEncoder(metadata));
+        this.domainTranslator = new DomainTranslator(metadata);
         this.typeAnalyzer = typeAnalyzer;
     }
 

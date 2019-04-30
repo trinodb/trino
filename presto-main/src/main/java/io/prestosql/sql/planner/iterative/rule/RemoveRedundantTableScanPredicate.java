@@ -25,7 +25,6 @@ import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.sql.planner.DomainTranslator;
-import io.prestosql.sql.planner.LiteralEncoder;
 import io.prestosql.sql.planner.PlanNodeIdAllocator;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.TypeProvider;
@@ -65,7 +64,7 @@ public class RemoveRedundantTableScanPredicate
     public RemoveRedundantTableScanPredicate(Metadata metadata)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
-        this.domainTranslator = new DomainTranslator(new LiteralEncoder(metadata));
+        this.domainTranslator = new DomainTranslator(metadata);
     }
 
     @Override
@@ -101,8 +100,8 @@ public class RemoveRedundantTableScanPredicate
             TypeProvider types,
             PlanNodeIdAllocator idAllocator)
     {
-        Expression deterministicPredicate = filterDeterministicConjuncts(predicate);
-        Expression nonDeterministicPredicate = filterNonDeterministicConjuncts(predicate);
+        Expression deterministicPredicate = filterDeterministicConjuncts(metadata, predicate);
+        Expression nonDeterministicPredicate = filterNonDeterministicConjuncts(metadata, predicate);
 
         DomainTranslator.ExtractionResult decomposedPredicate = DomainTranslator.fromPredicate(
                 metadata,
@@ -143,6 +142,7 @@ public class RemoveRedundantTableScanPredicate
 
         Map<ColumnHandle, Symbol> assignments = ImmutableBiMap.copyOf(node.getAssignments()).inverse();
         Expression resultingPredicate = createResultingPredicate(
+                metadata,
                 domainTranslator.toPredicate(unenforcedDomain.transform(assignments::get)),
                 nonDeterministicPredicate,
                 decomposedPredicate.getRemainingExpression());

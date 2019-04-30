@@ -222,7 +222,7 @@ public class PlanOptimizers
         ImmutableList.Builder<PlanOptimizer> builder = ImmutableList.builder();
 
         Set<Rule<?>> predicatePushDownRules = ImmutableSet.of(
-                new MergeFilters());
+                new MergeFilters(metadata));
 
         // TODO: Once we've migrated handling all the plan node types, replace uses of PruneUnreferencedOutputs with an IterativeOptimizer containing these rules.
         Set<Rule<?>> columnPruningRules = ImmutableSet.of(
@@ -271,7 +271,7 @@ public class PlanOptimizers
                 ImmutableSet.<Rule<?>>builder()
                         .addAll(new SimplifyExpressions(metadata, typeAnalyzer).rules())
                         .addAll(new UnwrapCastInComparison(metadata, typeAnalyzer).rules())
-                        .addAll(new RemoveDuplicateConditions().rules())
+                        .addAll(new RemoveDuplicateConditions(metadata).rules())
                         .addAll(new CanonicalizeExpressions(metadata, typeAnalyzer).rules())
                         .build());
 
@@ -324,7 +324,7 @@ public class PlanOptimizers
                                         new RemoveRedundantSort(),
                                         new RemoveRedundantTopN(),
                                         new RemoveRedundantDistinctLimit(),
-                                        new ImplementFilteredAggregations(),
+                                        new ImplementFilteredAggregations(metadata),
                                         new SingleDistinctAggregationToGroupBy(),
                                         new MultipleDistinctAggregationToMarkDistinct(),
                                         new MergeLimitWithDistinct(),
@@ -340,7 +340,7 @@ public class PlanOptimizers
                                 new ImplementOffset(),
                                 new ImplementLimitWithTies(metadata))),
                 simplifyOptimizer,
-                new UnaliasSymbolReferences(),
+                new UnaliasSymbolReferences(metadata),
                 new IterativeOptimizer(
                         ruleStats,
                         statsCalculator,
@@ -378,7 +378,7 @@ public class PlanOptimizers
                                 new TransformUncorrelatedSubqueryToJoin(),
                                 new TransformUncorrelatedInPredicateSubqueryToSemiJoin(),
                                 new TransformCorrelatedScalarAggregationToJoin(metadata),
-                                new TransformCorrelatedJoinToJoin())),
+                                new TransformCorrelatedJoinToJoin(metadata))),
                 new IterativeOptimizer(
                         ruleStats,
                         statsCalculator,
@@ -387,8 +387,8 @@ public class PlanOptimizers
                                 new RemoveUnreferencedScalarApplyNodes(),
                                 new TransformCorrelatedInPredicateToJoin(metadata), // must be run after PruneUnreferencedOutputs
                                 new TransformCorrelatedScalarSubquery(metadata), // must be run after TransformCorrelatedScalarAggregationToJoin
-                                new TransformCorrelatedJoinToJoin(),
-                                new ImplementFilteredAggregations())),
+                                new TransformCorrelatedJoinToJoin(metadata),
+                                new ImplementFilteredAggregations(metadata))),
                 new IterativeOptimizer(
                         ruleStats,
                         statsCalculator,
@@ -430,7 +430,7 @@ public class PlanOptimizers
                 inlineProjections,
                 simplifyOptimizer, // Re-run the SimplifyExpressions to simplify any recomposed expressions from other optimizations
                 projectionPushDown,
-                new UnaliasSymbolReferences(), // Run again because predicate pushdown and projection pushdown might add more projections
+                new UnaliasSymbolReferences(metadata), // Run again because predicate pushdown and projection pushdown might add more projections
                 new PruneUnreferencedOutputs(), // Make sure to run this before index join. Filtered projections may not have all the columns.
                 new IndexJoinOptimizer(metadata), // Run this after projections and filters have been fully simplified and pushed down
                 new IterativeOptimizer(
@@ -461,7 +461,7 @@ public class PlanOptimizers
                         ruleStats,
                         statsCalculator,
                         estimatedExchangesCostCalculator,
-                        ImmutableSet.of(new EliminateCrossJoins())), // This can pull up Filter and Project nodes from between Joins, so we need to push them down again
+                        ImmutableSet.of(new EliminateCrossJoins(metadata))), // This can pull up Filter and Project nodes from between Joins, so we need to push them down again
                 predicatePushDown,
                 simplifyOptimizer, // Should be always run after PredicatePushDown
                 new IterativeOptimizer(
@@ -485,7 +485,7 @@ public class PlanOptimizers
                         ruleStats,
                         statsCalculator,
                         estimatedExchangesCostCalculator,
-                        ImmutableSet.of(new ReorderJoins(costComparator))));
+                        ImmutableSet.of(new ReorderJoins(metadata, costComparator))));
 
         builder.add(new OptimizeMixedDistinctAggregations(metadata));
         builder.add(new IterativeOptimizer(
@@ -552,7 +552,7 @@ public class PlanOptimizers
                 ImmutableSet.of(new RemoveRedundantTableScanPredicate(metadata))));
         builder.add(projectionPushDown);
         builder.add(inlineProjections);
-        builder.add(new UnaliasSymbolReferences()); // Run unalias after merging projections to simplify projections more efficiently
+        builder.add(new UnaliasSymbolReferences(metadata)); // Run unalias after merging projections to simplify projections more efficiently
         builder.add(new PruneUnreferencedOutputs());
 
         builder.add(new IterativeOptimizer(

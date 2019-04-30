@@ -24,10 +24,12 @@ import io.prestosql.Session;
 import io.prestosql.connector.CatalogName;
 import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.metadata.FunctionKind;
+import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.NewTableLayout;
 import io.prestosql.metadata.OperatorNotFoundException;
 import io.prestosql.metadata.QualifiedObjectName;
+import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.metadata.TableHandle;
 import io.prestosql.metadata.TableMetadata;
 import io.prestosql.security.AccessControl;
@@ -51,6 +53,7 @@ import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeNotFoundException;
 import io.prestosql.sql.parser.ParsingException;
 import io.prestosql.sql.parser.SqlParser;
+import io.prestosql.sql.planner.DeterminismEvaluator;
 import io.prestosql.sql.planner.ExpressionInterpreter;
 import io.prestosql.sql.planner.SymbolsExtractor;
 import io.prestosql.sql.planner.TypeProvider;
@@ -153,6 +156,7 @@ import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getLast;
@@ -206,7 +210,6 @@ import static io.prestosql.sql.analyzer.ExpressionTreeUtils.extractWindowFunctio
 import static io.prestosql.sql.analyzer.ScopeReferenceExtractor.hasReferencesToScope;
 import static io.prestosql.sql.analyzer.SemanticExceptions.semanticException;
 import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
-import static io.prestosql.sql.planner.DeterminismEvaluator.isDeterministic;
 import static io.prestosql.sql.planner.ExpressionInterpreter.expressionOptimizer;
 import static io.prestosql.sql.tree.ExplainType.Type.DISTRIBUTED;
 import static io.prestosql.sql.tree.FrameBound.Type.CURRENT_ROW;
@@ -1100,14 +1103,14 @@ class StatementAnalyzer
             List<Expression> orderByExpressions = emptyList();
             Optional<Scope> orderByScope = Optional.empty();
             if (node.getOrderBy().isPresent()) {
-                if (node.getSelect().isDistinct()) {
-                    verifySelectDistinct(node, outputExpressions);
-                }
-
                 OrderBy orderBy = node.getOrderBy().get();
                 orderByScope = Optional.of(computeAndAssignOrderByScope(orderBy, sourceScope, outputScope));
 
                 orderByExpressions = analyzeOrderBy(node, orderBy.getSortItems(), orderByScope.get());
+
+                if (node.getSelect().isDistinct()) {
+                    verifySelectDistinct(node, outputExpressions);
+                }
 
                 if (sourceScope.getOuterQueryParent().isPresent() && !node.getLimit().isPresent() && !node.getOffset().isPresent()) {
                     // not the root scope and ORDER BY is ineffective
@@ -2203,10 +2206,17 @@ class StatementAnalyzer
                     throw semanticException(EXPRESSION_NOT_IN_DISTINCT, node.getSelect(), "For SELECT DISTINCT, ORDER BY expressions must appear in select list");
                 }
 
-                if (!isDeterministic(expression)) {
+                if (!DeterminismEvaluator.isDeterministic(expression, this::getFunctionMetadata)) {
                     throw semanticException(EXPRESSION_NOT_IN_DISTINCT, expression, "Non deterministic ORDER BY expression is not supported with SELECT DISTINCT");
                 }
             }
+        }
+
+        private FunctionMetadata getFunctionMetadata(FunctionCall functionCall)
+        {
+            ResolvedFunction resolvedFunction = analysis.getResolvedFunction(functionCall);
+            verify(resolvedFunction != null, "function has not been analyzed yet: %s", functionCall);
+            return metadata.getFunctionMetadata(resolvedFunction);
         }
 
         private List<Expression> analyzeOrderBy(Node node, List<SortItem> sortItems, Scope orderByScope)

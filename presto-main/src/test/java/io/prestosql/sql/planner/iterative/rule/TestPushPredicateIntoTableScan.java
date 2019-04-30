@@ -31,7 +31,9 @@ import io.prestosql.sql.parser.SqlParser;
 import io.prestosql.sql.planner.FunctionCallBuilder;
 import io.prestosql.sql.planner.TypeAnalyzer;
 import io.prestosql.sql.planner.iterative.rule.test.BaseRuleTest;
+import io.prestosql.sql.tree.ArithmeticBinaryExpression;
 import io.prestosql.sql.tree.ComparisonExpression;
+import io.prestosql.sql.tree.GenericLiteral;
 import io.prestosql.sql.tree.LogicalBinaryExpression;
 import io.prestosql.sql.tree.LongLiteral;
 import io.prestosql.sql.tree.QualifiedName;
@@ -51,8 +53,10 @@ import static io.prestosql.sql.planner.assertions.PlanMatchPattern.constrainedTa
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.values;
 import static io.prestosql.sql.planner.iterative.rule.test.PlanBuilder.expression;
+import static io.prestosql.sql.tree.ArithmeticBinaryExpression.Operator.MODULUS;
 import static io.prestosql.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static io.prestosql.sql.tree.LogicalBinaryExpression.Operator.AND;
+import static io.prestosql.sql.tree.LogicalBinaryExpression.Operator.OR;
 
 public class TestPushPredicateIntoTableScan
         extends BaseRuleTest
@@ -179,7 +183,34 @@ public class TestPushPredicateIntoTableScan
     {
         ColumnHandle columnHandle = new TpchColumnHandle("nationkey", BIGINT);
         tester().assertThat(pushPredicateIntoTableScan)
-                .on(p -> p.filter(expression("rand() = 42 AND nationkey % 17 =  BIGINT '44' AND (nationkey = BIGINT '44' OR nationkey = BIGINT '45')"),
+                .on(p -> p.filter(
+                        new LogicalBinaryExpression(
+                                AND,
+                                new LogicalBinaryExpression(
+                                        AND,
+                                        new ComparisonExpression(
+                                                EQUAL,
+                                                new FunctionCallBuilder(tester().getMetadata())
+                                                        .setName(QualifiedName.of("rand"))
+                                                        .build(),
+                                                new GenericLiteral("BIGINT", "42")),
+                                        new ComparisonExpression(
+                                                EQUAL,
+                                                new ArithmeticBinaryExpression(
+                                                        MODULUS,
+                                                        new SymbolReference("nationkey"),
+                                                        new GenericLiteral("BIGINT", "17")),
+                                                new GenericLiteral("BIGINT", "44"))),
+                                new LogicalBinaryExpression(
+                                        OR,
+                                        new ComparisonExpression(
+                                                EQUAL,
+                                                new SymbolReference("nationkey"),
+                                                new GenericLiteral("BIGINT", "44")),
+                                        new ComparisonExpression(
+                                                EQUAL,
+                                                new SymbolReference("nationkey"),
+                                                new GenericLiteral("BIGINT", "45")))),
                         p.tableScan(
                                 nationTableHandle,
                                 ImmutableList.of(p.symbol("nationkey", BIGINT)),
@@ -188,7 +219,21 @@ public class TestPushPredicateIntoTableScan
                                         columnHandle, NullableValue.of(BIGINT, (long) 44))))))
                 .matches(
                         filter(
-                                expression("rand() = 42 AND nationkey % 17 =  BIGINT '44'"),
+                                new LogicalBinaryExpression(
+                                        AND,
+                                        new ComparisonExpression(
+                                                EQUAL,
+                                                new FunctionCallBuilder(tester().getMetadata())
+                                                        .setName(QualifiedName.of("rand"))
+                                                        .build(),
+                                                new GenericLiteral("BIGINT", "42")),
+                                        new ComparisonExpression(
+                                                EQUAL,
+                                                new ArithmeticBinaryExpression(
+                                                        MODULUS,
+                                                        new SymbolReference("nationkey"),
+                                                        new GenericLiteral("BIGINT", "17")),
+                                                new GenericLiteral("BIGINT", "44"))),
                                 constrainedTableScanWithTableLayout(
                                         "nation",
                                         ImmutableMap.of("nationkey", singleValue(BIGINT, (long) 44)),
@@ -200,7 +245,13 @@ public class TestPushPredicateIntoTableScan
     {
         ColumnHandle columnHandle = new TpchColumnHandle("nationkey", BIGINT);
         tester().assertThat(pushPredicateIntoTableScan)
-                .on(p -> p.filter(expression("rand() = 42"),
+                .on(p -> p.filter(
+                        new ComparisonExpression(
+                                EQUAL,
+                                new FunctionCallBuilder(tester().getMetadata())
+                                        .setName(QualifiedName.of("rand"))
+                                        .build(),
+                                new LongLiteral("42")),
                         p.tableScan(
                                 nationTableHandle,
                                 ImmutableList.of(p.symbol("nationkey", BIGINT)),
