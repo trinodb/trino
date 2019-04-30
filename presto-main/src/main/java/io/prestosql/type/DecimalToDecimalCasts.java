@@ -14,30 +14,17 @@
 package io.prestosql.type;
 
 import com.google.common.collect.ImmutableList;
-import io.airlift.slice.Slice;
-import io.prestosql.annotation.UsedByGeneratedCode;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlScalarFunction;
-import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.type.DecimalConversions;
 import io.prestosql.spi.type.DecimalType;
-import io.prestosql.spi.type.Decimals;
-
-import java.math.BigInteger;
 
 import static io.prestosql.metadata.FunctionKind.SCALAR;
 import static io.prestosql.metadata.Signature.withVariadicBound;
-import static io.prestosql.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.prestosql.spi.function.OperatorType.CAST;
 import static io.prestosql.spi.type.Decimals.longTenToNth;
-import static io.prestosql.spi.type.Decimals.overflows;
 import static io.prestosql.spi.type.StandardTypes.DECIMAL;
 import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
-import static io.prestosql.spi.type.UnscaledDecimal128Arithmetic.overflows;
-import static io.prestosql.spi.type.UnscaledDecimal128Arithmetic.rescale;
-import static io.prestosql.spi.type.UnscaledDecimal128Arithmetic.unscaledDecimal;
-import static io.prestosql.spi.type.UnscaledDecimal128Arithmetic.unscaledDecimalToBigInteger;
-import static io.prestosql.spi.type.UnscaledDecimal128Arithmetic.unscaledDecimalToUnscaledLongUnsafe;
-import static java.lang.String.format;
 
 public final class DecimalToDecimalCasts
 {
@@ -50,7 +37,7 @@ public final class DecimalToDecimalCasts
             .build();
 
     // TODO: filtering mechanism could be used to return NoOp method when only precision is increased
-    public static final SqlScalarFunction DECIMAL_TO_DECIMAL_CAST = SqlScalarFunction.builder(DecimalToDecimalCasts.class)
+    public static final SqlScalarFunction DECIMAL_TO_DECIMAL_CAST = SqlScalarFunction.builder(DecimalConversions.class)
             .signature(SIGNATURE)
             .deterministic(true)
             .choice(choice -> choice
@@ -77,93 +64,4 @@ public final class DecimalToDecimalCasts
             .build();
 
     private DecimalToDecimalCasts() {}
-
-    @UsedByGeneratedCode
-    public static long shortToShortCast(
-            long value,
-            long sourcePrecision,
-            long sourceScale,
-            long resultPrecision,
-            long resultScale,
-            long scalingFactor,
-            long halfOfScalingFactor)
-    {
-        long returnValue;
-        if (resultScale >= sourceScale) {
-            returnValue = value * scalingFactor;
-        }
-        else {
-            returnValue = value / scalingFactor;
-            if (value >= 0) {
-                if (value % scalingFactor >= halfOfScalingFactor) {
-                    returnValue++;
-                }
-            }
-            else {
-                if (value % scalingFactor <= -halfOfScalingFactor) {
-                    returnValue--;
-                }
-            }
-        }
-        if (overflows(returnValue, (int) resultPrecision)) {
-            throw throwCastException(value, sourcePrecision, sourceScale, resultPrecision, resultScale);
-        }
-        return returnValue;
-    }
-
-    @UsedByGeneratedCode
-    public static Slice shortToLongCast(
-            long value,
-            long sourcePrecision,
-            long sourceScale,
-            long resultPrecision,
-            long resultScale)
-    {
-        return longToLongCast(unscaledDecimal(value), sourcePrecision, sourceScale, resultPrecision, resultScale);
-    }
-
-    @UsedByGeneratedCode
-    public static long longToShortCast(
-            Slice value,
-            long sourcePrecision,
-            long sourceScale,
-            long resultPrecision,
-            long resultScale)
-    {
-        return unscaledDecimalToUnscaledLongUnsafe(longToLongCast(value, sourcePrecision, sourceScale, resultPrecision, resultScale));
-    }
-
-    @UsedByGeneratedCode
-    public static Slice longToLongCast(
-            Slice value,
-            long sourcePrecision,
-            long sourceScale,
-            long resultPrecision,
-            long resultScale)
-    {
-        try {
-            Slice result = rescale(value, (int) (resultScale - sourceScale));
-            if (overflows(result, (int) resultPrecision)) {
-                throw throwCastException(unscaledDecimalToBigInteger(value), sourcePrecision, sourceScale, resultPrecision, resultScale);
-            }
-            return result;
-        }
-        catch (ArithmeticException e) {
-            throw throwCastException(unscaledDecimalToBigInteger(value), sourcePrecision, sourceScale, resultPrecision, resultScale);
-        }
-    }
-
-    private static PrestoException throwCastException(long value, long sourcePrecision, long sourceScale, long resultPrecision, long resultScale)
-    {
-        return new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast DECIMAL '%s' to DECIMAL(%d, %d)",
-                Decimals.toString(value, (int) sourceScale),
-                resultPrecision, resultScale));
-    }
-
-    private static PrestoException throwCastException(BigInteger value, long sourcePrecision, long sourceScale, long resultPrecision, long resultScale)
-    {
-        return new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast DECIMAL '%s' to DECIMAL(%d, %d)",
-                Decimals.toString(value, (int) sourceScale),
-                resultPrecision, resultScale));
-    }
 }

@@ -26,18 +26,17 @@ import io.prestosql.annotation.UsedByGeneratedCode;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlScalarFunction;
 import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.type.DecimalConversions;
 import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.Decimals;
 import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.TypeSignature;
-import io.prestosql.spi.type.UnscaledDecimal128Arithmetic;
 import io.prestosql.util.JsonCastException;
 
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 
-import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.metadata.FunctionKind.SCALAR;
 import static io.prestosql.operator.scalar.JsonOperators.JSON_FACTORY;
@@ -57,23 +56,17 @@ import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
-import static io.prestosql.spi.type.UnscaledDecimal128Arithmetic.compareAbsolute;
 import static io.prestosql.spi.type.UnscaledDecimal128Arithmetic.multiply;
 import static io.prestosql.spi.type.UnscaledDecimal128Arithmetic.overflows;
 import static io.prestosql.spi.type.UnscaledDecimal128Arithmetic.rescale;
 import static io.prestosql.spi.type.UnscaledDecimal128Arithmetic.unscaledDecimal;
 import static io.prestosql.spi.type.UnscaledDecimal128Arithmetic.unscaledDecimalToUnscaledLong;
-import static io.prestosql.spi.type.UnscaledDecimal128Arithmetic.unscaledDecimalToUnscaledLongUnsafe;
 import static io.prestosql.type.JsonType.JSON;
 import static io.prestosql.util.Failures.checkCondition;
 import static io.prestosql.util.JsonUtil.createJsonGenerator;
 import static io.prestosql.util.JsonUtil.createJsonParser;
 import static io.prestosql.util.JsonUtil.currentTokenAsLongDecimal;
 import static io.prestosql.util.JsonUtil.currentTokenAsShortDecimal;
-import static java.lang.Double.parseDouble;
-import static java.lang.Float.floatToRawIntBits;
-import static java.lang.Float.intBitsToFloat;
-import static java.lang.Float.parseFloat;
 import static java.lang.Math.multiplyExact;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
@@ -102,27 +95,6 @@ public final class DecimalCasts
     public static final SqlScalarFunction DECIMAL_TO_JSON_CAST = castFunctionFromDecimalTo(JSON.getTypeSignature(), "shortDecimalToJson", "longDecimalToJson");
     public static final SqlScalarFunction JSON_TO_DECIMAL_CAST = castFunctionToDecimalFromBuilder(JSON.getTypeSignature(), true, "jsonToShortDecimal", "jsonToLongDecimal");
 
-    /**
-     * Powers of 10 which can be represented exactly in double.
-     */
-    private static final double[] DOUBLE_10_POW = {
-            1.0e0, 1.0e1, 1.0e2, 1.0e3, 1.0e4, 1.0e5,
-            1.0e6, 1.0e7, 1.0e8, 1.0e9, 1.0e10, 1.0e11,
-            1.0e12, 1.0e13, 1.0e14, 1.0e15, 1.0e16, 1.0e17,
-            1.0e18, 1.0e19, 1.0e20, 1.0e21, 1.0e22
-    };
-
-    /**
-     * Powers of 10 which can be represented exactly in float.
-     */
-    private static final float[] FLOAT_10_POW = {
-            1.0e0f, 1.0e1f, 1.0e2f, 1.0e3f, 1.0e4f, 1.0e5f,
-            1.0e6f, 1.0e7f, 1.0e8f, 1.0e9f, 1.0e10f
-    };
-
-    private static final Slice MAX_EXACT_DOUBLE = unscaledDecimal((1L << 52) - 1);
-    private static final Slice MAX_EXACT_FLOAT = unscaledDecimal((1L << 22) - 1);
-
     private static SqlScalarFunction castFunctionFromDecimalTo(TypeSignature to, String... methodNames)
     {
         Signature signature = Signature.builder()
@@ -142,10 +114,10 @@ public final class DecimalCasts
                                     long scale = context.getLiteral("scale");
                                     Number tenToScale;
                                     if (isShortDecimal(context.getParameterTypes().get(0))) {
-                                        tenToScale = longTenToNth(intScale(scale));
+                                        tenToScale = longTenToNth(DecimalConversions.intScale(scale));
                                     }
                                     else {
-                                        tenToScale = bigIntegerTenToNth(intScale(scale));
+                                        tenToScale = bigIntegerTenToNth(DecimalConversions.intScale(scale));
                                     }
                                     return ImmutableList.of(precision, scale, tenToScale);
                                 })))
@@ -225,10 +197,10 @@ public final class DecimalCasts
     public static long longDecimalToBigint(Slice decimal, long precision, long scale, BigInteger tenToScale)
     {
         try {
-            return unscaledDecimalToUnscaledLong(rescale(decimal, intScale(-scale)));
+            return unscaledDecimalToUnscaledLong(rescale(decimal, DecimalConversions.intScale(-scale)));
         }
         catch (ArithmeticException e) {
-            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to BIGINT", Decimals.toString(decimal, intScale(scale))));
+            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to BIGINT", Decimals.toString(decimal, DecimalConversions.intScale(scale))));
         }
     }
 
@@ -237,7 +209,7 @@ public final class DecimalCasts
     {
         try {
             long decimal = multiplyExact(value, tenToScale);
-            if (overflows(decimal, intScale(precision))) {
+            if (overflows(decimal, DecimalConversions.intScale(precision))) {
                 throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast BIGINT '%s' to DECIMAL(%s, %s)", value, precision, scale));
             }
             return decimal;
@@ -252,7 +224,7 @@ public final class DecimalCasts
     {
         try {
             Slice decimal = multiply(unscaledDecimal(value), unscaledDecimal(tenToScale));
-            if (overflows(decimal, intScale(precision))) {
+            if (overflows(decimal, DecimalConversions.intScale(precision))) {
                 throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast BIGINT '%s' to DECIMAL(%s, %s)", value, precision, scale));
             }
             return decimal;
@@ -283,10 +255,10 @@ public final class DecimalCasts
     public static long longDecimalToInteger(Slice decimal, long precision, long scale, BigInteger tenToScale)
     {
         try {
-            return toIntExact(unscaledDecimalToUnscaledLong(rescale(decimal, intScale(-scale))));
+            return toIntExact(unscaledDecimalToUnscaledLong(rescale(decimal, DecimalConversions.intScale(-scale))));
         }
         catch (ArithmeticException e) {
-            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to INTEGER", Decimals.toString(decimal, intScale(scale))));
+            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to INTEGER", Decimals.toString(decimal, DecimalConversions.intScale(scale))));
         }
     }
 
@@ -295,7 +267,7 @@ public final class DecimalCasts
     {
         try {
             long decimal = multiplyExact(value, tenToScale);
-            if (overflows(decimal, intScale(precision))) {
+            if (overflows(decimal, DecimalConversions.intScale(precision))) {
                 throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast INTEGER '%s' to DECIMAL(%s, %s)", value, precision, scale));
             }
             return decimal;
@@ -310,7 +282,7 @@ public final class DecimalCasts
     {
         try {
             Slice decimal = multiply(unscaledDecimal(value), unscaledDecimal(tenToScale));
-            if (overflows(decimal, intScale(precision))) {
+            if (overflows(decimal, DecimalConversions.intScale(precision))) {
                 throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast INTEGER '%s' to DECIMAL(%s, %s)", value, precision, scale));
             }
             return decimal;
@@ -341,10 +313,10 @@ public final class DecimalCasts
     public static long longDecimalToSmallint(Slice decimal, long precision, long scale, BigInteger tenToScale)
     {
         try {
-            return Shorts.checkedCast(unscaledDecimalToUnscaledLong(rescale(decimal, intScale(-scale))));
+            return Shorts.checkedCast(unscaledDecimalToUnscaledLong(rescale(decimal, DecimalConversions.intScale(-scale))));
         }
         catch (ArithmeticException | IllegalArgumentException e) {
-            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to SMALLINT", Decimals.toString(decimal, intScale(scale))));
+            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to SMALLINT", Decimals.toString(decimal, DecimalConversions.intScale(scale))));
         }
     }
 
@@ -353,7 +325,7 @@ public final class DecimalCasts
     {
         try {
             long decimal = multiplyExact(value, tenToScale);
-            if (overflows(decimal, intScale(precision))) {
+            if (overflows(decimal, DecimalConversions.intScale(precision))) {
                 throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast SMALLINT '%s' to DECIMAL(%s, %s)", value, precision, scale));
             }
             return decimal;
@@ -368,7 +340,7 @@ public final class DecimalCasts
     {
         try {
             Slice decimal = multiply(unscaledDecimal(value), unscaledDecimal(tenToScale));
-            if (overflows(decimal, intScale(precision))) {
+            if (overflows(decimal, DecimalConversions.intScale(precision))) {
                 throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast SMALLINT '%s' to DECIMAL(%s, %s)", value, precision, scale));
             }
             return decimal;
@@ -399,10 +371,10 @@ public final class DecimalCasts
     public static long longDecimalToTinyint(Slice decimal, long precision, long scale, BigInteger tenToScale)
     {
         try {
-            return SignedBytes.checkedCast(unscaledDecimalToUnscaledLong(rescale(decimal, intScale(-scale))));
+            return SignedBytes.checkedCast(unscaledDecimalToUnscaledLong(rescale(decimal, DecimalConversions.intScale(-scale))));
         }
         catch (ArithmeticException | IllegalArgumentException e) {
-            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to TINYINT", Decimals.toString(decimal, intScale(scale))));
+            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to TINYINT", Decimals.toString(decimal, DecimalConversions.intScale(scale))));
         }
     }
 
@@ -411,7 +383,7 @@ public final class DecimalCasts
     {
         try {
             long decimal = multiplyExact(value, tenToScale);
-            if (overflows(decimal, intScale(precision))) {
+            if (overflows(decimal, DecimalConversions.intScale(precision))) {
                 throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast TINYINT '%s' to DECIMAL(%s, %s)", value, precision, scale));
             }
             return decimal;
@@ -426,7 +398,7 @@ public final class DecimalCasts
     {
         try {
             Slice decimal = multiply(unscaledDecimal(value), unscaledDecimal(tenToScale));
-            if (overflows(decimal, intScale(precision))) {
+            if (overflows(decimal, DecimalConversions.intScale(precision))) {
                 throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast TINYINT '%s' to DECIMAL(%s, %s)", value, precision, scale));
             }
             return decimal;
@@ -445,134 +417,55 @@ public final class DecimalCasts
     @UsedByGeneratedCode
     public static double longDecimalToDouble(Slice decimal, long precision, long scale, BigInteger tenToScale)
     {
-        // If both decimal and scale can be represented exactly in double then compute rescaled and rounded result directly in double.
-        if (scale < DOUBLE_10_POW.length && compareAbsolute(decimal, MAX_EXACT_DOUBLE) <= 0) {
-            return (double) unscaledDecimalToUnscaledLongUnsafe(decimal) / DOUBLE_10_POW[intScale(scale)];
-        }
-
-        // TODO: optimize and convert directly to double in similar fashion as in double to decimal casts
-        return parseDouble(Decimals.toString(decimal, intScale(scale)));
+        return DecimalConversions.longDecimalToDouble(decimal, scale);
     }
 
     @UsedByGeneratedCode
     public static long shortDecimalToReal(long decimal, long precision, long scale, long tenToScale)
     {
-        return floatToRawIntBits(((float) decimal) / tenToScale);
+        return DecimalConversions.shortDecimalToReal(decimal, tenToScale);
     }
 
     @UsedByGeneratedCode
     public static long longDecimalToReal(Slice decimal, long precision, long scale, BigInteger tenToScale)
     {
-        // If both decimal and scale can be represented exactly in float then compute rescaled and rounded result directly in float.
-        if (scale < FLOAT_10_POW.length && compareAbsolute(decimal, MAX_EXACT_FLOAT) <= 0) {
-            return floatToRawIntBits((float) unscaledDecimalToUnscaledLongUnsafe(decimal) / FLOAT_10_POW[intScale(scale)]);
-        }
-
-        // TODO: optimize and convert directly to float in similar fashion as in double to decimal casts
-        return floatToRawIntBits(parseFloat(Decimals.toString(decimal, intScale(scale))));
+        return DecimalConversions.longDecimalToReal(decimal, scale);
     }
 
     @UsedByGeneratedCode
     public static long doubleToShortDecimal(double value, long precision, long scale, long tenToScale)
     {
-        // TODO: implement specialized version for short decimals
-        Slice decimal = internalDoubleToLongDecimal(value, precision, scale);
-
-        long low = UnscaledDecimal128Arithmetic.getLong(decimal, 0);
-        long high = UnscaledDecimal128Arithmetic.getLong(decimal, 1);
-
-        checkState(high == 0 && low >= 0, "Unexpected long decimal");
-
-        if (UnscaledDecimal128Arithmetic.isNegative(decimal)) {
-            return -low;
-        }
-        else {
-            return low;
-        }
+        return DecimalConversions.doubleToShortDecimal(value, precision, scale);
     }
 
     @UsedByGeneratedCode
     public static Slice doubleToLongDecimal(double value, long precision, long scale, BigInteger tenToScale)
     {
-        return internalDoubleToLongDecimal(value, precision, scale);
-    }
-
-    private static Slice internalDoubleToLongDecimal(double value, long precision, long scale)
-    {
-        if (Double.isInfinite(value) || Double.isNaN(value)) {
-            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast DOUBLE '%s' to DECIMAL(%s, %s)", value, precision, scale));
-        }
-
-        try {
-            // todo consider changing this implementation to more performant one which does not use intermediate String objects
-            BigDecimal bigDecimal = BigDecimal.valueOf(value).setScale(intScale(scale), HALF_UP);
-            Slice decimal = Decimals.encodeScaledValue(bigDecimal);
-            if (overflows(decimal, intScale(precision))) {
-                throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast DOUBLE '%s' to DECIMAL(%s, %s)", value, precision, scale));
-            }
-            return decimal;
-        }
-        catch (ArithmeticException e) {
-            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast DOUBLE '%s' to DECIMAL(%s, %s)", value, precision, scale));
-        }
+        return DecimalConversions.doubleToLongDecimal(value, precision, scale);
     }
 
     @UsedByGeneratedCode
     public static long realToShortDecimal(long value, long precision, long scale, long tenToScale)
     {
-        // TODO: implement specialized version for short decimals
-        Slice decimal = realToLongDecimal(value, precision, scale);
-
-        long low = UnscaledDecimal128Arithmetic.getLong(decimal, 0);
-        long high = UnscaledDecimal128Arithmetic.getLong(decimal, 1);
-
-        checkState(high == 0 && low >= 0, "Unexpected long decimal");
-
-        if (UnscaledDecimal128Arithmetic.isNegative(decimal)) {
-            return -low;
-        }
-        else {
-            return low;
-        }
+        return DecimalConversions.realToShortDecimal(value, precision, scale);
     }
 
     @UsedByGeneratedCode
     public static Slice realToLongDecimal(long value, long precision, long scale, BigInteger tenToScale)
     {
-        return realToLongDecimal(value, precision, scale);
-    }
-
-    private static Slice realToLongDecimal(long value, long precision, long scale)
-    {
-        float floatValue = intBitsToFloat(intScale(value));
-        if (Float.isInfinite(floatValue) || Float.isNaN(floatValue)) {
-            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast REAL '%s' to DECIMAL(%s, %s)", floatValue, precision, scale));
-        }
-
-        try {
-            // todo consider changing this implementation to more performant one which does not use intermediate String objects
-            BigDecimal bigDecimal = new BigDecimal(String.valueOf(floatValue)).setScale(intScale(scale), HALF_UP);
-            Slice decimal = Decimals.encodeScaledValue(bigDecimal);
-            if (overflows(decimal, intScale(precision))) {
-                throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast REAL '%s' to DECIMAL(%s, %s)", floatValue, precision, scale));
-            }
-            return decimal;
-        }
-        catch (ArithmeticException e) {
-            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast REAL '%s' to DECIMAL(%s, %s)", floatValue, precision, scale));
-        }
+        return DecimalConversions.realToLongDecimal(value, precision, scale);
     }
 
     @UsedByGeneratedCode
     public static Slice shortDecimalToVarchar(long decimal, long precision, long scale, long tenToScale)
     {
-        return utf8Slice(Decimals.toString(decimal, intScale(scale)));
+        return utf8Slice(Decimals.toString(decimal, DecimalConversions.intScale(scale)));
     }
 
     @UsedByGeneratedCode
     public static Slice longDecimalToVarchar(Slice decimal, long precision, long scale, BigInteger tenToScale)
     {
-        return utf8Slice(Decimals.toString(decimal, intScale(scale)));
+        return utf8Slice(Decimals.toString(decimal, DecimalConversions.intScale(scale)));
     }
 
     @UsedByGeneratedCode
@@ -581,7 +474,7 @@ public final class DecimalCasts
         BigDecimal result;
         String stringValue = value.toString(UTF_8);
         try {
-            result = new BigDecimal(stringValue).setScale(intScale(scale), HALF_UP);
+            result = new BigDecimal(stringValue).setScale(DecimalConversions.intScale(scale), HALF_UP);
         }
         catch (NumberFormatException e) {
             throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast VARCHAR '%s' to DECIMAL(%s, %s). Value is not a number.", stringValue, precision, scale));
@@ -600,7 +493,7 @@ public final class DecimalCasts
         BigDecimal result;
         String stringValue = value.toString(UTF_8);
         try {
-            result = new BigDecimal(stringValue).setScale(intScale(scale), HALF_UP);
+            result = new BigDecimal(stringValue).setScale(DecimalConversions.intScale(scale), HALF_UP);
         }
         catch (NumberFormatException e) {
             throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast VARCHAR '%s' to DECIMAL(%s, %s). Value is not a number.", stringValue, precision, scale));
@@ -616,13 +509,13 @@ public final class DecimalCasts
     @UsedByGeneratedCode
     public static Slice shortDecimalToJson(long decimal, long precision, long scale, long tenToScale)
     {
-        return decimalToJson(BigDecimal.valueOf(decimal, intScale(scale)));
+        return decimalToJson(BigDecimal.valueOf(decimal, DecimalConversions.intScale(scale)));
     }
 
     @UsedByGeneratedCode
     public static Slice longDecimalToJson(Slice decimal, long precision, long scale, BigInteger tenToScale)
     {
-        return decimalToJson(new BigDecimal(decodeUnscaledValue(decimal), intScale(scale)));
+        return decimalToJson(new BigDecimal(decodeUnscaledValue(decimal), DecimalConversions.intScale(scale)));
     }
 
     private static Slice decimalToJson(BigDecimal bigDecimal)
@@ -644,7 +537,7 @@ public final class DecimalCasts
     {
         try (JsonParser parser = createJsonParser(JSON_FACTORY, json)) {
             parser.nextToken();
-            Slice result = currentTokenAsLongDecimal(parser, intPrecision(precision), intScale(scale));
+            Slice result = currentTokenAsLongDecimal(parser, intPrecision(precision), DecimalConversions.intScale(scale));
             checkCondition(parser.nextToken() == null, INVALID_CAST_ARGUMENT, "Cannot cast input json to DECIMAL(%s,%s)", precision, scale); // check no trailing token
             return result;
         }
@@ -658,7 +551,7 @@ public final class DecimalCasts
     {
         try (JsonParser parser = createJsonParser(JSON_FACTORY, json)) {
             parser.nextToken();
-            Long result = currentTokenAsShortDecimal(parser, intPrecision(precision), intScale(scale));
+            Long result = currentTokenAsShortDecimal(parser, intPrecision(precision), DecimalConversions.intScale(scale));
             checkCondition(parser.nextToken() == null, INVALID_CAST_ARGUMENT, "Cannot cast input json to DECIMAL(%s,%s)", precision, scale); // check no trailing token
             return result;
         }
@@ -671,11 +564,5 @@ public final class DecimalCasts
     private static int intPrecision(long precision)
     {
         return (int) precision;
-    }
-
-    @SuppressWarnings("NumericCastThatLosesPrecision")
-    private static int intScale(long scale)
-    {
-        return (int) scale;
     }
 }
