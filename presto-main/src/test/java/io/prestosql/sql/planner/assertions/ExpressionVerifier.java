@@ -176,9 +176,8 @@ final class ExpressionVerifier
     {
         if (expectedExpression instanceof ComparisonExpression) {
             ComparisonExpression expected = (ComparisonExpression) expectedExpression;
-            if (actual.getOperator() == expected.getOperator()) {
-                return process(actual.getLeft(), expected.getLeft()) && process(actual.getRight(), expected.getRight());
-            }
+            return (actual.getOperator() == expected.getOperator() && process(actual.getLeft(), expected.getLeft()) && process(actual.getRight(), expected.getRight())) ||
+                    (actual.getOperator() == expected.getOperator().flip() && process(actual.getLeft(), expected.getRight()) && process(actual.getRight(), expected.getLeft()));
         }
         return false;
     }
