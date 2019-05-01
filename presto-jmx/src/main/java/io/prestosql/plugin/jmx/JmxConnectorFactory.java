@@ -16,31 +16,21 @@ package io.prestosql.plugin.jmx;
 import com.google.inject.Injector;
 import com.google.inject.Scopes;
 import io.airlift.bootstrap.Bootstrap;
-import io.prestosql.plugin.base.jmx.RebindSafeMBeanServer;
+import io.prestosql.plugin.base.jmx.MBeanServerModule;
 import io.prestosql.spi.NodeManager;
 import io.prestosql.spi.connector.Connector;
 import io.prestosql.spi.connector.ConnectorContext;
 import io.prestosql.spi.connector.ConnectorFactory;
 import io.prestosql.spi.connector.ConnectorHandleResolver;
 
-import javax.management.MBeanServer;
-
 import java.util.Map;
 
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static io.airlift.configuration.ConfigBinder.configBinder;
-import static java.util.Objects.requireNonNull;
 
 public class JmxConnectorFactory
         implements ConnectorFactory
 {
-    private final MBeanServer mbeanServer;
-
-    public JmxConnectorFactory(MBeanServer mbeanServer)
-    {
-        this.mbeanServer = requireNonNull(mbeanServer, "mbeanServer is null");
-    }
-
     @Override
     public String getName()
     {
@@ -58,9 +48,9 @@ public class JmxConnectorFactory
     {
         try {
             Bootstrap app = new Bootstrap(
+                    new MBeanServerModule(),
                     binder -> {
                         configBinder(binder).bindConfig(JmxConnectorConfig.class);
-                        binder.bind(MBeanServer.class).toInstance(new RebindSafeMBeanServer(mbeanServer));
                         binder.bind(NodeManager.class).toInstance(context.getNodeManager());
                         binder.bind(JmxConnector.class).in(Scopes.SINGLETON);
                         binder.bind(JmxHistoricalData.class).in(Scopes.SINGLETON);

@@ -11,18 +11,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.plugin.jmx;
+package io.prestosql.plugin.base.jmx;
 
-import com.google.common.collect.ImmutableList;
-import io.prestosql.spi.Plugin;
-import io.prestosql.spi.connector.ConnectorFactory;
+import com.google.inject.Binder;
+import com.google.inject.Module;
 
-public class JmxPlugin
-        implements Plugin
+import javax.management.MBeanServer;
+
+import java.lang.management.ManagementFactory;
+
+public class MBeanServerModule
+        implements Module
 {
     @Override
-    public Iterable<ConnectorFactory> getConnectorFactories()
+    public void configure(Binder binder)
     {
-        return ImmutableList.of(new JmxConnectorFactory());
+        MBeanServer platformMBeanServer = ManagementFactory.getPlatformMBeanServer();
+        binder.bind(MBeanServer.class).toInstance(new RebindSafeMBeanServer(platformMBeanServer));
     }
 }
