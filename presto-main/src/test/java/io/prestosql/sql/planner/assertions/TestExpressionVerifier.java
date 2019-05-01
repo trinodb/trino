@@ -76,6 +76,51 @@ public class TestExpressionVerifier
         assertFalse(verifier.process(expression("orderkey BETWEEN 1 AND 2"), expression("X BETWEEN 4 AND 7")));
     }
 
+    @Test
+    public void testSymmetry()
+    {
+        SymbolAliases symbolAliases = SymbolAliases.builder()
+                .put("a", new SymbolReference("x"))
+                .put("b", new SymbolReference("y"))
+                .build();
+
+        ExpressionVerifier verifier = new ExpressionVerifier(symbolAliases);
+
+        assertTrue(verifier.process(expression("x > y"), expression("a > b")));
+        assertTrue(verifier.process(expression("x > y"), expression("b < a")));
+        assertTrue(verifier.process(expression("y < x"), expression("a > b")));
+        assertTrue(verifier.process(expression("y < x"), expression("b < a")));
+
+        assertFalse(verifier.process(expression("x < y"), expression("a > b")));
+        assertFalse(verifier.process(expression("x < y"), expression("b < a")));
+        assertFalse(verifier.process(expression("y > x"), expression("a > b")));
+        assertFalse(verifier.process(expression("y > x"), expression("b < a")));
+
+        assertTrue(verifier.process(expression("x >= y"), expression("a >= b")));
+        assertTrue(verifier.process(expression("x >= y"), expression("b <= a")));
+        assertTrue(verifier.process(expression("y <= x"), expression("a >= b")));
+        assertTrue(verifier.process(expression("y <= x"), expression("b <= a")));
+
+        assertFalse(verifier.process(expression("x <= y"), expression("a >= b")));
+        assertFalse(verifier.process(expression("x <= y"), expression("b <= a")));
+        assertFalse(verifier.process(expression("y >= x"), expression("a >= b")));
+        assertFalse(verifier.process(expression("y >= x"), expression("b <= a")));
+
+        assertTrue(verifier.process(expression("x = y"), expression("a = b")));
+        assertTrue(verifier.process(expression("x = y"), expression("b = a")));
+        assertTrue(verifier.process(expression("y = x"), expression("a = b")));
+        assertTrue(verifier.process(expression("y = x"), expression("b = a")));
+        assertTrue(verifier.process(expression("x <> y"), expression("a <> b")));
+        assertTrue(verifier.process(expression("x <> y"), expression("b <> a")));
+        assertTrue(verifier.process(expression("y <> x"), expression("a <> b")));
+        assertTrue(verifier.process(expression("y <> x"), expression("b <> a")));
+
+        assertTrue(verifier.process(expression("x IS DISTINCT FROM y"), expression("a IS DISTINCT FROM b")));
+        assertTrue(verifier.process(expression("x IS DISTINCT FROM y"), expression("b IS DISTINCT FROM a")));
+        assertTrue(verifier.process(expression("y IS DISTINCT FROM x"), expression("a IS DISTINCT FROM b")));
+        assertTrue(verifier.process(expression("y IS DISTINCT FROM x"), expression("b IS DISTINCT FROM a")));
+    }
+
     private Expression expression(String sql)
     {
         return rewriteIdentifiersToSymbolReferences(parser.createExpression(sql));
