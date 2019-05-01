@@ -127,7 +127,7 @@ public class MetadataDeleteOperator
         }
         finished = true;
 
-        OptionalLong rowsDeletedCount = metadata.metadataDelete(session, tableHandle);
+        OptionalLong rowsDeletedCount = metadata.executeDelete(session, tableHandle);
 
         // output page will only be constructed once,
         // so a new PageBuilder is constructed (instead of using PageBuilder.reset)

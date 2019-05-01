@@ -254,11 +254,14 @@ public interface Metadata
     boolean supportsMetadataDelete(Session session, TableHandle tableHandle);
 
     /**
-     * Delete the provide table layout
-     *
-     * @return number of rows deleted, or empty for unknown
+     * Push delete into connector
      */
-    OptionalLong metadataDelete(Session session, TableHandle tableHandle);
+    Optional<TableHandle> applyDelete(Session session, TableHandle tableHandle);
+
+    /**
+     * Execute delete in connector
+     */
+    OptionalLong executeDelete(Session session, TableHandle tableHandle);
 
     /**
      * Begin delete query

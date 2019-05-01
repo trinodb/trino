@@ -55,6 +55,7 @@ import io.prestosql.sql.planner.plan.JoinNode;
 import io.prestosql.sql.planner.plan.LateralJoinNode;
 import io.prestosql.sql.planner.plan.LimitNode;
 import io.prestosql.sql.planner.plan.MarkDistinctNode;
+import io.prestosql.sql.planner.plan.MetadataDeleteNode;
 import io.prestosql.sql.planner.plan.OutputNode;
 import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.PlanVisitor;
@@ -373,6 +374,14 @@ public class PropertyDerivations
 
         @Override
         public ActualProperties visitTableFinish(TableFinishNode node, List<ActualProperties> inputProperties)
+        {
+            return ActualProperties.builder()
+                    .global(coordinatorSingleStreamPartition())
+                    .build();
+        }
+
+        @Override
+        public ActualProperties visitMetadataDelete(MetadataDeleteNode node, List<ActualProperties> context)
         {
             return ActualProperties.builder()
                     .global(coordinatorSingleStreamPartition())

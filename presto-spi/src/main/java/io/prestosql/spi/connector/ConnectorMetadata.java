@@ -457,6 +457,25 @@ public interface ConnectorMetadata
     }
 
     /**
+     * Attempt to push down a delete operation into the connector. If a connector
+     * can execute a delete for the table handle on its own, it should return a
+     * table handle, which will be passed back to {@link #executeDelete} during
+     * query executing to actually execute the delete.
+     */
+    default Optional<ConnectorTableHandle> applyDelete(ConnectorSession session, ConnectorTableHandle handle)
+    {
+        return Optional.empty();
+    }
+
+    /**
+     * Execute the delete operation on the handle returned from {@link #applyDelete}.
+     */
+    default OptionalLong executeDelete(ConnectorSession session, ConnectorTableHandle handle)
+    {
+        throw new PrestoException(GENERIC_INTERNAL_ERROR, "ConnectorMetadata applyDelete() is implemented without executeDelete()");
+    }
+
+    /**
      * Try to locate a table index that can lookup results by indexableColumns and provide the requested outputColumns.
      */
     default Optional<ConnectorResolvedIndex> resolveIndex(ConnectorSession session, ConnectorTableHandle tableHandle, Set<ColumnHandle> indexableColumns, Set<ColumnHandle> outputColumns, TupleDomain<ColumnHandle> tupleDomain)
