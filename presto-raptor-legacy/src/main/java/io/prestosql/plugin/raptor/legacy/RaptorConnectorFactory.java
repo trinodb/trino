@@ -18,7 +18,7 @@ import com.google.inject.Injector;
 import com.google.inject.Module;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.json.JsonModule;
-import io.prestosql.plugin.base.jmx.RebindSafeMBeanServer;
+import io.prestosql.plugin.base.jmx.MBeanServerModule;
 import io.prestosql.plugin.raptor.legacy.backup.BackupModule;
 import io.prestosql.plugin.raptor.legacy.security.RaptorSecurityModule;
 import io.prestosql.plugin.raptor.legacy.storage.StorageModule;
@@ -31,14 +31,11 @@ import io.prestosql.spi.connector.ConnectorHandleResolver;
 import io.prestosql.spi.type.TypeManager;
 import org.weakref.jmx.guice.MBeanModule;
 
-import javax.management.MBeanServer;
-
 import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Throwables.throwIfUnchecked;
-import static java.lang.management.ManagementFactory.getPlatformMBeanServer;
 import static java.util.Objects.requireNonNull;
 
 public class RaptorConnectorFactory
@@ -77,9 +74,8 @@ public class RaptorConnectorFactory
                     new JsonModule(),
                     new MBeanModule(),
                     new ConnectorObjectNameGeneratorModule(catalogName),
+                    new MBeanServerModule(),
                     binder -> {
-                        MBeanServer mbeanServer = new RebindSafeMBeanServer(getPlatformMBeanServer());
-                        binder.bind(MBeanServer.class).toInstance(mbeanServer);
                         binder.bind(NodeManager.class).toInstance(nodeManager);
                         binder.bind(PageSorter.class).toInstance(context.getPageSorter());
                         binder.bind(TypeManager.class).toInstance(context.getTypeManager());

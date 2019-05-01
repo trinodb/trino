@@ -54,7 +54,6 @@ import static io.prestosql.spi.connector.NotPartitionedPartitionHandle.NOT_PARTI
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.prestosql.testing.TestingConnectorSession.SESSION;
 import static java.lang.String.format;
-import static java.lang.management.ManagementFactory.getPlatformMBeanServer;
 import static java.util.stream.Collectors.toSet;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
@@ -71,7 +70,7 @@ public class TestJmxSplitManager
     private final NodeManager nodeManager = new TestingNodeManager(localNode, nodes);
 
     private final JmxConnector jmxConnector =
-            (JmxConnector) new JmxConnectorFactory(getPlatformMBeanServer())
+            (JmxConnector) new JmxConnectorFactory()
                     .create(CONNECTOR_ID, ImmutableMap.of(
                             "jmx.dump-tables", TEST_BEANS,
                             "jmx.dump-period", format("%dms", JMX_STATS_DUMP.toMillis()),
