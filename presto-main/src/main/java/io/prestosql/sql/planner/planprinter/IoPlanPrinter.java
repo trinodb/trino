@@ -35,11 +35,11 @@ import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.PlanVisitor;
 import io.prestosql.sql.planner.plan.TableFinishNode;
 import io.prestosql.sql.planner.plan.TableScanNode;
-import io.prestosql.sql.planner.plan.TableWriterNode.CreateHandle;
-import io.prestosql.sql.planner.plan.TableWriterNode.CreateName;
-import io.prestosql.sql.planner.plan.TableWriterNode.DeleteHandle;
-import io.prestosql.sql.planner.plan.TableWriterNode.InsertHandle;
+import io.prestosql.sql.planner.plan.TableWriterNode.CreateReference;
+import io.prestosql.sql.planner.plan.TableWriterNode.CreateTarget;
+import io.prestosql.sql.planner.plan.TableWriterNode.DeleteTarget;
 import io.prestosql.sql.planner.plan.TableWriterNode.InsertReference;
+import io.prestosql.sql.planner.plan.TableWriterNode.InsertTarget;
 import io.prestosql.sql.planner.plan.TableWriterNode.WriterTarget;
 import io.prestosql.sql.planner.planprinter.IoPlanPrinter.IoPlan.IoPlanBuilder;
 
@@ -483,28 +483,28 @@ public class IoPlanPrinter
         public Void visitTableFinish(TableFinishNode node, IoPlanBuilder context)
         {
             WriterTarget writerTarget = node.getTarget();
-            if (writerTarget instanceof CreateHandle) {
-                CreateHandle createHandle = (CreateHandle) writerTarget;
+            if (writerTarget instanceof CreateTarget) {
+                CreateTarget target = (CreateTarget) writerTarget;
                 context.setOutputTable(new CatalogSchemaTableName(
-                        createHandle.getHandle().getCatalogName().getCatalogName(),
-                        createHandle.getSchemaTableName().getSchemaName(),
-                        createHandle.getSchemaTableName().getTableName()));
+                        target.getHandle().getCatalogName().getCatalogName(),
+                        target.getSchemaTableName().getSchemaName(),
+                        target.getSchemaTableName().getTableName()));
             }
-            else if (writerTarget instanceof InsertHandle) {
-                InsertHandle insertHandle = (InsertHandle) writerTarget;
+            else if (writerTarget instanceof InsertTarget) {
+                InsertTarget target = (InsertTarget) writerTarget;
                 context.setOutputTable(new CatalogSchemaTableName(
-                        insertHandle.getHandle().getCatalogName().getCatalogName(),
-                        insertHandle.getSchemaTableName().getSchemaName(),
-                        insertHandle.getSchemaTableName().getTableName()));
+                        target.getHandle().getCatalogName().getCatalogName(),
+                        target.getSchemaTableName().getSchemaName(),
+                        target.getSchemaTableName().getTableName()));
             }
-            else if (writerTarget instanceof DeleteHandle) {
-                DeleteHandle deleteHandle = (DeleteHandle) writerTarget;
+            else if (writerTarget instanceof DeleteTarget) {
+                DeleteTarget target = (DeleteTarget) writerTarget;
                 context.setOutputTable(new CatalogSchemaTableName(
-                        deleteHandle.getHandle().getCatalogName().getCatalogName(),
-                        deleteHandle.getSchemaTableName().getSchemaName(),
-                        deleteHandle.getSchemaTableName().getTableName()));
+                        target.getHandle().getCatalogName().getCatalogName(),
+                        target.getSchemaTableName().getSchemaName(),
+                        target.getSchemaTableName().getTableName()));
             }
-            else if (writerTarget instanceof CreateName || writerTarget instanceof InsertReference) {
+            else if (writerTarget instanceof CreateReference || writerTarget instanceof InsertReference) {
                 throw new IllegalStateException(format("%s should not appear in final plan", writerTarget.getClass().getSimpleName()));
             }
             else {

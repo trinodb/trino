@@ -72,6 +72,7 @@ import io.prestosql.sql.planner.plan.SortNode;
 import io.prestosql.sql.planner.plan.TableFinishNode;
 import io.prestosql.sql.planner.plan.TableScanNode;
 import io.prestosql.sql.planner.plan.TableWriterNode;
+import io.prestosql.sql.planner.plan.TableWriterNode.DeleteTarget;
 import io.prestosql.sql.planner.plan.TopNNode;
 import io.prestosql.sql.planner.plan.UnionNode;
 import io.prestosql.sql.planner.plan.ValuesNode;
@@ -434,7 +435,7 @@ public class PlanBuilder
 
     public TableFinishNode tableDelete(SchemaTableName schemaTableName, PlanNode deleteSource, Symbol deleteRowId)
     {
-        TableWriterNode.DeleteHandle deleteHandle = new TableWriterNode.DeleteHandle(
+        DeleteTarget deleteTarget = new DeleteTarget(
                 new TableHandle(
                         new CatalogName("testConnector"),
                         new TestingTableHandle(),
@@ -447,12 +448,12 @@ public class PlanBuilder
                         .addSource(new DeleteNode(
                                 idAllocator.getNextId(),
                                 deleteSource,
-                                deleteHandle,
+                                deleteTarget,
                                 deleteRowId,
                                 ImmutableList.of(deleteRowId)))
                         .addInputsSet(deleteRowId)
                         .singleDistributionPartitioningScheme(deleteRowId)),
-                deleteHandle,
+                deleteTarget,
                 deleteRowId,
                 Optional.empty(),
                 Optional.empty());

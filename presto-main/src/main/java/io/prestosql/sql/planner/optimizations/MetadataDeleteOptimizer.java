@@ -27,7 +27,7 @@ import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.SimplePlanRewriter;
 import io.prestosql.sql.planner.plan.TableFinishNode;
 import io.prestosql.sql.planner.plan.TableScanNode;
-import io.prestosql.sql.planner.plan.TableWriterNode;
+import io.prestosql.sql.planner.plan.TableWriterNode.DeleteTarget;
 
 import java.util.List;
 import java.util.Optional;
@@ -95,7 +95,7 @@ public class MetadataDeleteOptimizer
             }
             return new MetadataDeleteNode(
                     idAllocator.getNextId(),
-                    new TableWriterNode.DeleteHandle(tableScanNode.getTable(), delete.get().getTarget().getSchemaTableName()),
+                    new DeleteTarget(tableScanNode.getTable(), delete.get().getTarget().getSchemaTableName()),
                     Iterables.getOnlyElement(node.getOutputSymbols()));
         }
 
