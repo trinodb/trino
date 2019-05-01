@@ -322,7 +322,13 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public OptionalLong metadataDelete(Session session, TableHandle tableHandle)
+    public Optional<TableHandle> applyDelete(Session session, TableHandle tableHandle)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public OptionalLong executeDelete(Session session, TableHandle tableHandle)
     {
         throw new UnsupportedOperationException();
     }

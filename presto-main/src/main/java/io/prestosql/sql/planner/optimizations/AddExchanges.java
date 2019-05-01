@@ -52,6 +52,7 @@ import io.prestosql.sql.planner.plan.JoinNode;
 import io.prestosql.sql.planner.plan.LateralJoinNode;
 import io.prestosql.sql.planner.plan.LimitNode;
 import io.prestosql.sql.planner.plan.MarkDistinctNode;
+import io.prestosql.sql.planner.plan.MetadataDeleteNode;
 import io.prestosql.sql.planner.plan.OutputNode;
 import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.PlanVisitor;
@@ -543,6 +544,16 @@ public class AddExchanges
 
         @Override
         public PlanWithProperties visitValues(ValuesNode node, PreferredProperties preferredProperties)
+        {
+            return new PlanWithProperties(
+                    node,
+                    ActualProperties.builder()
+                            .global(singleStreamPartition())
+                            .build());
+        }
+
+        @Override
+        public PlanWithProperties visitMetadataDelete(MetadataDeleteNode node, PreferredProperties context)
         {
             return new PlanWithProperties(
                     node,
