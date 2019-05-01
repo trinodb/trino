@@ -17,7 +17,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.sql.planner.Symbol;
-import io.prestosql.sql.planner.plan.TableWriterNode.DeleteHandle;
+import io.prestosql.sql.planner.plan.TableWriterNode.DeleteTarget;
 
 import javax.annotation.concurrent.Immutable;
 
@@ -29,13 +29,13 @@ import static java.util.Objects.requireNonNull;
 public class MetadataDeleteNode
         extends PlanNode
 {
-    private final DeleteHandle target;
+    private final DeleteTarget target;
     private final Symbol output;
 
     @JsonCreator
     public MetadataDeleteNode(
             @JsonProperty("id") PlanNodeId id,
-            @JsonProperty("target") DeleteHandle target,
+            @JsonProperty("target") DeleteTarget target,
             @JsonProperty("output") Symbol output)
     {
         super(id);
@@ -45,7 +45,7 @@ public class MetadataDeleteNode
     }
 
     @JsonProperty
-    public DeleteHandle getTarget()
+    public DeleteTarget getTarget()
     {
         return target;
     }

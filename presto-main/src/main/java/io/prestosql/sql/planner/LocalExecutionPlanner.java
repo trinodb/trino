@@ -170,7 +170,7 @@ import io.prestosql.sql.planner.plan.StatisticsWriterNode;
 import io.prestosql.sql.planner.plan.TableFinishNode;
 import io.prestosql.sql.planner.plan.TableScanNode;
 import io.prestosql.sql.planner.plan.TableWriterNode;
-import io.prestosql.sql.planner.plan.TableWriterNode.DeleteHandle;
+import io.prestosql.sql.planner.plan.TableWriterNode.DeleteTarget;
 import io.prestosql.sql.planner.plan.TopNNode;
 import io.prestosql.sql.planner.plan.TopNRowNumberNode;
 import io.prestosql.sql.planner.plan.UnionNode;
@@ -262,8 +262,8 @@ import static io.prestosql.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static io.prestosql.sql.planner.plan.JoinNode.Type.FULL;
 import static io.prestosql.sql.planner.plan.JoinNode.Type.INNER;
 import static io.prestosql.sql.planner.plan.JoinNode.Type.RIGHT;
-import static io.prestosql.sql.planner.plan.TableWriterNode.CreateHandle;
-import static io.prestosql.sql.planner.plan.TableWriterNode.InsertHandle;
+import static io.prestosql.sql.planner.plan.TableWriterNode.CreateTarget;
+import static io.prestosql.sql.planner.plan.TableWriterNode.InsertTarget;
 import static io.prestosql.sql.planner.plan.TableWriterNode.WriterTarget;
 import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.prestosql.sql.tree.ComparisonExpression.Operator.LESS_THAN;
@@ -2753,14 +2753,14 @@ public class LocalExecutionPlanner
     {
         WriterTarget target = node.getTarget();
         return (fragments, statistics) -> {
-            if (target instanceof CreateHandle) {
-                return metadata.finishCreateTable(session, ((CreateHandle) target).getHandle(), fragments, statistics);
+            if (target instanceof CreateTarget) {
+                return metadata.finishCreateTable(session, ((CreateTarget) target).getHandle(), fragments, statistics);
             }
-            else if (target instanceof InsertHandle) {
-                return metadata.finishInsert(session, ((InsertHandle) target).getHandle(), fragments, statistics);
+            else if (target instanceof InsertTarget) {
+                return metadata.finishInsert(session, ((InsertTarget) target).getHandle(), fragments, statistics);
             }
-            else if (target instanceof DeleteHandle) {
-                metadata.finishDelete(session, ((DeleteHandle) target).getHandle(), fragments);
+            else if (target instanceof DeleteTarget) {
+                metadata.finishDelete(session, ((DeleteTarget) target).getHandle(), fragments);
                 return Optional.empty();
             }
             else {

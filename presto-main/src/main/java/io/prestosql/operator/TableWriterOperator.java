@@ -50,8 +50,8 @@ import static io.airlift.concurrent.MoreFutures.toListenableFuture;
 import static io.prestosql.SystemSessionProperties.isStatisticsCpuTimerEnabled;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
-import static io.prestosql.sql.planner.plan.TableWriterNode.CreateHandle;
-import static io.prestosql.sql.planner.plan.TableWriterNode.InsertHandle;
+import static io.prestosql.sql.planner.plan.TableWriterNode.CreateTarget;
+import static io.prestosql.sql.planner.plan.TableWriterNode.InsertTarget;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
@@ -88,7 +88,7 @@ public class TableWriterOperator
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
             this.columnChannels = requireNonNull(columnChannels, "columnChannels is null");
             this.pageSinkManager = requireNonNull(pageSinkManager, "pageSinkManager is null");
-            checkArgument(writerTarget instanceof CreateHandle || writerTarget instanceof InsertHandle, "writerTarget must be CreateHandle or InsertHandle");
+            checkArgument(writerTarget instanceof CreateTarget || writerTarget instanceof InsertTarget, "writerTarget must be CreateTarget or InsertTarget");
             this.target = requireNonNull(writerTarget, "writerTarget is null");
             this.session = session;
             this.statisticsAggregationOperatorFactory = requireNonNull(statisticsAggregationOperatorFactory, "statisticsAggregationOperatorFactory is null");
@@ -107,11 +107,11 @@ public class TableWriterOperator
 
         private ConnectorPageSink createPageSink()
         {
-            if (target instanceof CreateHandle) {
-                return pageSinkManager.createPageSink(session, ((CreateHandle) target).getHandle());
+            if (target instanceof CreateTarget) {
+                return pageSinkManager.createPageSink(session, ((CreateTarget) target).getHandle());
             }
-            if (target instanceof InsertHandle) {
-                return pageSinkManager.createPageSink(session, ((InsertHandle) target).getHandle());
+            if (target instanceof InsertTarget) {
+                return pageSinkManager.createPageSink(session, ((InsertTarget) target).getHandle());
             }
             throw new UnsupportedOperationException("Unhandled target type: " + target.getClass().getName());
         }
