@@ -16,9 +16,16 @@ package io.prestosql.metadata;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
-import io.prestosql.index.IndexHandleJacksonModule;
-
-import static io.airlift.json.JsonBinder.jsonBinder;
+import com.google.inject.multibindings.ProvidesIntoSet;
+import io.prestosql.spi.connector.ColumnHandle;
+import io.prestosql.spi.connector.ConnectorIndexHandle;
+import io.prestosql.spi.connector.ConnectorInsertTableHandle;
+import io.prestosql.spi.connector.ConnectorOutputTableHandle;
+import io.prestosql.spi.connector.ConnectorPartitioningHandle;
+import io.prestosql.spi.connector.ConnectorSplit;
+import io.prestosql.spi.connector.ConnectorTableHandle;
+import io.prestosql.spi.connector.ConnectorTableLayoutHandle;
+import io.prestosql.spi.connector.ConnectorTransactionHandle;
 
 public class HandleJsonModule
         implements Module
@@ -26,16 +33,60 @@ public class HandleJsonModule
     @Override
     public void configure(Binder binder)
     {
-        jsonBinder(binder).addModuleBinding().to(TableHandleJacksonModule.class);
-        jsonBinder(binder).addModuleBinding().to(TableLayoutHandleJacksonModule.class);
-        jsonBinder(binder).addModuleBinding().to(ColumnHandleJacksonModule.class);
-        jsonBinder(binder).addModuleBinding().to(SplitJacksonModule.class);
-        jsonBinder(binder).addModuleBinding().to(OutputTableHandleJacksonModule.class);
-        jsonBinder(binder).addModuleBinding().to(InsertTableHandleJacksonModule.class);
-        jsonBinder(binder).addModuleBinding().to(IndexHandleJacksonModule.class);
-        jsonBinder(binder).addModuleBinding().to(TransactionHandleJacksonModule.class);
-        jsonBinder(binder).addModuleBinding().to(PartitioningHandleJacksonModule.class);
-
         binder.bind(HandleResolver.class).in(Scopes.SINGLETON);
+    }
+
+    @ProvidesIntoSet
+    public static com.fasterxml.jackson.databind.Module tableHandleModule(HandleResolver resolver)
+    {
+        return new AbstractTypedJacksonModule<ConnectorTableHandle>(ConnectorTableHandle.class, resolver::getId, resolver::getTableHandleClass) {};
+    }
+
+    @ProvidesIntoSet
+    public static com.fasterxml.jackson.databind.Module tableLayoutHandleModule(HandleResolver resolver)
+    {
+        return new AbstractTypedJacksonModule<ConnectorTableLayoutHandle>(ConnectorTableLayoutHandle.class, resolver::getId, resolver::getTableLayoutHandleClass) {};
+    }
+
+    @ProvidesIntoSet
+    public static com.fasterxml.jackson.databind.Module columnHandleModule(HandleResolver resolver)
+    {
+        return new AbstractTypedJacksonModule<ColumnHandle>(ColumnHandle.class, resolver::getId, resolver::getColumnHandleClass) {};
+    }
+
+    @ProvidesIntoSet
+    public static com.fasterxml.jackson.databind.Module splitModule(HandleResolver resolver)
+    {
+        return new AbstractTypedJacksonModule<ConnectorSplit>(ConnectorSplit.class, resolver::getId, resolver::getSplitClass) {};
+    }
+
+    @ProvidesIntoSet
+    public static com.fasterxml.jackson.databind.Module outputTableHandleModule(HandleResolver resolver)
+    {
+        return new AbstractTypedJacksonModule<ConnectorOutputTableHandle>(ConnectorOutputTableHandle.class, resolver::getId, resolver::getOutputTableHandleClass) {};
+    }
+
+    @ProvidesIntoSet
+    public static com.fasterxml.jackson.databind.Module insertTableHandleModule(HandleResolver resolver)
+    {
+        return new AbstractTypedJacksonModule<ConnectorInsertTableHandle>(ConnectorInsertTableHandle.class, resolver::getId, resolver::getInsertTableHandleClass) {};
+    }
+
+    @ProvidesIntoSet
+    public static com.fasterxml.jackson.databind.Module indexHandleModule(HandleResolver resolver)
+    {
+        return new AbstractTypedJacksonModule<ConnectorIndexHandle>(ConnectorIndexHandle.class, resolver::getId, resolver::getIndexHandleClass) {};
+    }
+
+    @ProvidesIntoSet
+    public static com.fasterxml.jackson.databind.Module transactionHandleModule(HandleResolver resolver)
+    {
+        return new AbstractTypedJacksonModule<ConnectorTransactionHandle>(ConnectorTransactionHandle.class, resolver::getId, resolver::getTransactionHandleClass) {};
+    }
+
+    @ProvidesIntoSet
+    public static com.fasterxml.jackson.databind.Module partitioningHandleModule(HandleResolver resolver)
+    {
+        return new AbstractTypedJacksonModule<ConnectorPartitioningHandle>(ConnectorPartitioningHandle.class, resolver::getId, resolver::getPartitioningHandleClass) {};
     }
 }
