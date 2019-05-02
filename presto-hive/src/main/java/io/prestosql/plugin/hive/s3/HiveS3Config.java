@@ -140,6 +140,7 @@ public class HiveS3Config
     }
 
     @Config("hive.s3.iam-role")
+    @ConfigDescription("ARN of an IAM role to assume when connecting to the S3")
     public HiveS3Config setS3IamRole(String s3IamRole)
     {
         this.s3IamRole = s3IamRole;
