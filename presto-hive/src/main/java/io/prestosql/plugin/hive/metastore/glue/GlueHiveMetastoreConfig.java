@@ -87,7 +87,7 @@ public class GlueHiveMetastoreConfig
     }
 
     @Config("hive.metastore.glue.iam-role")
-    @ConfigDescription("IAM role to assume when connecting to the Hive Glue metastore")
+    @ConfigDescription("ARN of an IAM role to assume when connecting to the Hive Glue metastore")
     public GlueHiveMetastoreConfig setIamRole(String iamRole)
     {
         this.iamRole = Optional.ofNullable(iamRole);
