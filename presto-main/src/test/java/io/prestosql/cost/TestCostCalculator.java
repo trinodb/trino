@@ -47,8 +47,11 @@ import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.TypeProvider;
 import io.prestosql.sql.planner.plan.AggregationNode;
 import io.prestosql.sql.planner.plan.Assignments;
+import io.prestosql.sql.planner.plan.EnforceSingleRowNode;
 import io.prestosql.sql.planner.plan.ExchangeNode;
+import io.prestosql.sql.planner.plan.FilterNode;
 import io.prestosql.sql.planner.plan.JoinNode;
+import io.prestosql.sql.planner.plan.LimitNode;
 import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 import io.prestosql.sql.planner.plan.ProjectNode;
@@ -57,6 +60,7 @@ import io.prestosql.sql.planner.plan.UnionNode;
 import io.prestosql.sql.tree.Cast;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.FunctionCall;
+import io.prestosql.sql.tree.IsNullPredicate;
 import io.prestosql.sql.tree.QualifiedName;
 import io.prestosql.sql.tree.SymbolReference;
 import io.prestosql.transaction.TransactionManager;
@@ -204,6 +208,37 @@ public class TestCostCalculator
                 .network(0);
 
         assertCostHasUnknownComponentsForUnknownStats(project, types);
+    }
+
+    @Test
+    public void testFilter()
+    {
+        TableScanNode tableScan = tableScan("ts", "string");
+        IsNullPredicate expression = new IsNullPredicate(new SymbolReference("string"));
+        FilterNode filter = new FilterNode(new PlanNodeId("filter"), tableScan, expression);
+        Map<String, PlanCostEstimate> costs = ImmutableMap.of("ts", cpuCost(1000));
+        Map<String, PlanNodeStatsEstimate> stats = ImmutableMap.of(
+                "filter", statsEstimate(filter, 4000),
+                "ts", statsEstimate(tableScan, 1000));
+        Map<String, Type> types = ImmutableMap.of(
+                "string", VARCHAR);
+
+        assertCost(filter, costs, stats, types)
+                .cpu(1000 + 1000 * OFFSET_AND_IS_NULL_OVERHEAD)
+                .memory(0)
+                .network(0);
+
+        assertCostEstimatedExchanges(filter, costs, stats, types)
+                .cpu(1000 + 1000 * OFFSET_AND_IS_NULL_OVERHEAD)
+                .memory(0)
+                .network(0);
+
+        assertCostFragmentedPlan(filter, costs, stats, types)
+                .cpu(1000 + 1000 * OFFSET_AND_IS_NULL_OVERHEAD)
+                .memory(0)
+                .network(0);
+
+        assertCostHasUnknownComponentsForUnknownStats(filter, types);
     }
 
     @Test
@@ -504,6 +539,51 @@ public class TestCostCalculator
                 .cpu(2000)
                 .memory(0)
                 .network(5000 * IS_NULL_OVERHEAD);
+    }
+
+    @Test
+    public void testLimit()
+    {
+        TableScanNode ts1 = tableScan("ts1", "orderkey");
+        LimitNode limit = new LimitNode(new PlanNodeId("limit"), ts1, 5, false);
+        Map<String, PlanNodeStatsEstimate> stats = ImmutableMap.of(
+                "ts1", statsEstimate(ts1, 4000),
+                "limit", statsEstimate(ts1, 40)); // 5 * average row size
+        Map<String, PlanCostEstimate> costs = ImmutableMap.of(
+                "ts1", cpuCost(1000));
+        Map<String, Type> types = ImmutableMap.of(
+                "orderkey", BIGINT);
+        // Do not estimate cost other than CPU for limit node.
+        assertCost(limit, costs, stats, types)
+                .cpu(1045) // 1000 + (is null boolean array) + 40
+                .memory(0)
+                .network(0);
+        assertCostEstimatedExchanges(limit, costs, stats, types)
+                .cpu(1045)
+                .memory(0)
+                .network(0);
+    }
+
+    @Test
+    public void testEnforceSingleRow()
+    {
+        TableScanNode ts1 = tableScan("ts1", "orderkey");
+        EnforceSingleRowNode singleRow = new EnforceSingleRowNode(new PlanNodeId("singleRow"), ts1);
+        Map<String, PlanNodeStatsEstimate> stats = ImmutableMap.of(
+                "ts1", statsEstimate(ts1, 4000),
+                "singleRow", statsEstimate(ts1, 8)); // 1 * Average Row Size
+        Map<String, PlanCostEstimate> costs = ImmutableMap.of(
+                "ts1", cpuCost(1000));
+        Map<String, Type> types = ImmutableMap.of(
+                "orderkey", BIGINT);
+        assertCost(singleRow, costs, stats, types)
+                .cpu(1000) // Only count the accumulated cost of source nodes
+                .memory(0)
+                .network(0);
+        assertCostEstimatedExchanges(singleRow, costs, stats, types)
+                .cpu(1000)
+                .memory(0)
+                .network(0);
     }
 
     private CostAssertionBuilder assertCost(
