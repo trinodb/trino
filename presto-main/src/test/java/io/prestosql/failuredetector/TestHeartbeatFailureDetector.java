@@ -61,7 +61,7 @@ public class TestHeartbeatFailureDetector
                 new TestingHttpServerModule(),
                 new TraceTokenModule(),
                 new JsonModule(),
-                new JaxrsModule(true),
+                new JaxrsModule(),
                 new FailureDetectorModule(),
                 new Module()
                 {
