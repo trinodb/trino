@@ -1211,7 +1211,7 @@ public class HiveConfig
         return replay;
     }
 
-    @Config("hive.metastore-recoding-duration")
+    @Config("hive.metastore-recording-duration")
     public HiveConfig setRecordingDuration(Duration recordingDuration)
     {
         this.recordingDuration = recordingDuration;
