@@ -200,7 +200,7 @@ public class TestHiveConfig
                 .put("hive.partition-statistics-sample-size", "1234")
                 .put("hive.ignore-corrupted-statistics", "true")
                 .put("hive.metastore-recording-path", "/foo/bar")
-                .put("hive.metastore-recoding-duration", "42s")
+                .put("hive.metastore-recording-duration", "42s")
                 .put("hive.replay-metastore-recording", "true")
                 .put("hive.collect-column-statistics-on-write", "true")
                 .put("hive.s3select-pushdown.enabled", "true")
