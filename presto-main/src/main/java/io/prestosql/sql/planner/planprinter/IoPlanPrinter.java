@@ -17,6 +17,9 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableSet;
 import io.prestosql.Session;
+import io.prestosql.cost.PlanCostEstimate;
+import io.prestosql.cost.PlanNodeStatsEstimate;
+import io.prestosql.cost.StatsAndCosts;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.OperatorNotFoundException;
 import io.prestosql.metadata.TableHandle;
@@ -31,6 +34,7 @@ import io.prestosql.spi.predicate.Marker.Bound;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignature;
+import io.prestosql.sql.planner.TypeProvider;
 import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.PlanVisitor;
 import io.prestosql.sql.planner.plan.TableFinishNode;
@@ -63,16 +67,20 @@ public class IoPlanPrinter
 {
     private final Metadata metadata;
     private final Session session;
+    private final StatsAndCosts statsAndCosts;
+    private final TypeProvider types;
 
-    private IoPlanPrinter(Metadata metadata, Session session)
+    private IoPlanPrinter(Metadata metadata, Session session, StatsAndCosts statsAndCosts, TypeProvider types)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.session = requireNonNull(session, "session is null");
+        this.statsAndCosts = requireNonNull(statsAndCosts, "statsAndCosts is null");
+        this.types = requireNonNull(types, "types is null");
     }
 
-    public static String textIoPlan(PlanNode plan, Metadata metadata, Session session)
+    public static String textIoPlan(PlanNode plan, Metadata metadata, StatsAndCosts statsAndCosts, TypeProvider types, Session session)
     {
-        return new IoPlanPrinter(metadata, session).print(plan);
+        return new IoPlanPrinter(metadata, session, statsAndCosts, types).print(plan);
     }
 
     private String print(PlanNode plan)
@@ -168,14 +176,17 @@ public class IoPlanPrinter
         {
             private final CatalogSchemaTableName table;
             private final Set<ColumnConstraint> columnConstraints;
+            private final EstimatedStatsAndCost estimate;
 
             @JsonCreator
             public TableColumnInfo(
                     @JsonProperty("table") CatalogSchemaTableName table,
-                    @JsonProperty("columnConstraints") Set<ColumnConstraint> columnConstraints)
+                    @JsonProperty("columnConstraints") Set<ColumnConstraint> columnConstraints,
+                    @JsonProperty("estimate") EstimatedStatsAndCost estimate)
             {
                 this.table = requireNonNull(table, "table is null");
                 this.columnConstraints = requireNonNull(columnConstraints, "columnConstraints is null");
+                this.estimate = requireNonNull(estimate, "estimate is null");
             }
 
             @JsonProperty
@@ -190,6 +201,12 @@ public class IoPlanPrinter
                 return columnConstraints;
             }
 
+            @JsonProperty
+            public EstimatedStatsAndCost getEstimate()
+            {
+                return estimate;
+            }
+
             @Override
             public boolean equals(Object obj)
             {
@@ -201,13 +218,14 @@ public class IoPlanPrinter
                 }
                 TableColumnInfo o = (TableColumnInfo) obj;
                 return Objects.equals(table, o.table) &&
-                        Objects.equals(columnConstraints, o.columnConstraints);
+                        Objects.equals(columnConstraints, o.columnConstraints) &&
+                        Objects.equals(estimate, o.estimate);
             }
 
             @Override
             public int hashCode()
             {
-                return Objects.hash(table, columnConstraints);
+                return Objects.hash(table, columnConstraints, estimate);
             }
 
             @Override
@@ -216,6 +234,7 @@ public class IoPlanPrinter
                 return toStringHelper(this)
                         .add("table", table)
                         .add("columnConstraints", columnConstraints)
+                        .add("estimate", estimate)
                         .toString();
             }
         }
@@ -284,6 +303,95 @@ public class IoPlanPrinter
                     .add("columnName", columnName)
                     .add("typeSignature", typeSignature)
                     .add("domain", domain)
+                    .toString();
+        }
+    }
+
+    public static class EstimatedStatsAndCost
+    {
+        private final double outputRowCount;
+        private final double outputSizeInBytes;
+        private final double cpuCost;
+        private final double maxMemory;
+        private final double networkCost;
+
+        @JsonCreator
+        public EstimatedStatsAndCost(
+                @JsonProperty("outputRowCount") double outputRowCount,
+                @JsonProperty("outputSizeInBytes") double outputSizeInBytes,
+                @JsonProperty("cpuCost") double cpuCost,
+                @JsonProperty("maxMemory") double maxMemory,
+                @JsonProperty("networkCost") double networkCost)
+        {
+            this.outputRowCount = requireNonNull(outputRowCount, "outputRowCount is null");
+            this.outputSizeInBytes = requireNonNull(outputSizeInBytes, "outputSizeInBytes is null");
+            this.cpuCost = requireNonNull(cpuCost, "cpuCost is null");
+            this.maxMemory = requireNonNull(maxMemory, "maxMemory is null");
+            this.networkCost = requireNonNull(networkCost, "networkCost is null");
+        }
+
+        @JsonProperty
+        public double getOutputRowCount()
+        {
+            return outputRowCount;
+        }
+
+        @JsonProperty
+        public double getOutputSizeInBytes()
+        {
+            return outputSizeInBytes;
+        }
+
+        @JsonProperty
+        public double getCpuCost()
+        {
+            return cpuCost;
+        }
+
+        @JsonProperty
+        public double getMaxMemory()
+        {
+            return maxMemory;
+        }
+
+        @JsonProperty
+        public double getNetworkCost()
+        {
+            return networkCost;
+        }
+
+        @Override
+        public boolean equals(Object obj)
+        {
+            if (this == obj) {
+                return true;
+            }
+            if (obj == null || getClass() != obj.getClass()) {
+                return false;
+            }
+            EstimatedStatsAndCost o = (EstimatedStatsAndCost) obj;
+            return Objects.equals(outputRowCount, o.outputRowCount) &&
+                    Objects.equals(outputSizeInBytes, o.outputSizeInBytes) &&
+                    Objects.equals(cpuCost, o.cpuCost) &&
+                    Objects.equals(maxMemory, o.maxMemory) &&
+                    Objects.equals(networkCost, o.networkCost);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(outputRowCount, outputSizeInBytes, cpuCost, maxMemory, networkCost);
+        }
+
+        @Override
+        public String toString()
+        {
+            return toStringHelper(this)
+                    .add("outputRowCount", outputRowCount)
+                    .add("outputSizeInBytes", outputSizeInBytes)
+                    .add("cpuCost", cpuCost)
+                    .add("maxMemory", maxMemory)
+                    .add("networkCost", networkCost)
                     .toString();
         }
     }
@@ -470,12 +578,25 @@ public class IoPlanPrinter
         {
             TableMetadata tableMetadata = metadata.getTableMetadata(session, node.getTable());
             TupleDomain<ColumnHandle> predicate = metadata.getTableProperties(session, node.getTable()).getPredicate();
+
+            PlanNodeStatsEstimate stats = statsAndCosts.getStats().get(node.getId());
+            PlanCostEstimate cost = statsAndCosts.getCosts().get(node.getId());
+
+            EstimatedStatsAndCost estimatedStatsAndCost = new EstimatedStatsAndCost(
+                    stats.getOutputRowCount(),
+                    stats.getOutputSizeInBytes(node.getOutputSymbols(), types),
+                    cost.getCpuCost(),
+                    cost.getMaxMemory(),
+                    cost.getNetworkCost());
+
             context.addInputTableColumnInfo(new IoPlan.TableColumnInfo(
                     new CatalogSchemaTableName(
                             tableMetadata.getCatalogName().getCatalogName(),
                             tableMetadata.getTable().getSchemaName(),
                             tableMetadata.getTable().getTableName()),
-                    parseConstraints(node.getTable(), predicate)));
+                    parseConstraints(node.getTable(), predicate),
+                    estimatedStatsAndCost));
+
             return null;
         }
 

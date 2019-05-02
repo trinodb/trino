@@ -139,7 +139,14 @@ IO:
                }
              } ]
            }
-         } ]
+         } ],
+         "estimate" : {
+           "outputRowCount" : 25.0,
+           "outputSizeInBytes" : 2734.0,
+           "cpuCost" : 2734.0,
+           "maxMemory" : 0.0,
+           "networkCost" : 0.0
+         }
        } ],
        "outputTable" : {
          "catalog" : "hive",

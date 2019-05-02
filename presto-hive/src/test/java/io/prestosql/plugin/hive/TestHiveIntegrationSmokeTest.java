@@ -48,6 +48,7 @@ import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.spi.type.VarcharType;
 import io.prestosql.sql.planner.Plan;
 import io.prestosql.sql.planner.plan.ExchangeNode;
+import io.prestosql.sql.planner.planprinter.IoPlanPrinter;
 import io.prestosql.sql.planner.planprinter.IoPlanPrinter.ColumnConstraint;
 import io.prestosql.sql.planner.planprinter.IoPlanPrinter.FormattedDomain;
 import io.prestosql.sql.planner.planprinter.IoPlanPrinter.FormattedMarker;
@@ -216,7 +217,8 @@ public class TestHiveIntegrationSmokeTest
                                                         ImmutableSet.of(
                                                                 new FormattedRange(
                                                                         new FormattedMarker(Optional.of("false"), EXACTLY),
-                                                                        new FormattedMarker(Optional.of("false"), EXACTLY)))))))),
+                                                                        new FormattedMarker(Optional.of("false"), EXACTLY)))))),
+                                new IoPlanPrinter.EstimatedStatsAndCost(2.0, 40.0, 40.0, 0.0, 0.0))),
                         Optional.of(new CatalogSchemaTableName(catalog, "tpch", "test_orders"))));
 
         assertUpdate("DROP TABLE test_orders");
@@ -239,7 +241,8 @@ public class TestHiveIntegrationSmokeTest
                                                         ImmutableSet.of(
                                                                 new FormattedRange(
                                                                         new FormattedMarker(Optional.of("1"), EXACTLY),
-                                                                        new FormattedMarker(Optional.of("199"), EXACTLY)))))))),
+                                                                        new FormattedMarker(Optional.of("199"), EXACTLY)))))),
+                                new IoPlanPrinter.EstimatedStatsAndCost(55.0, 990.0, 990.0, 0.0, 0.0))),
                         Optional.of(new CatalogSchemaTableName(catalog, "tpch", "test_orders"))));
 
         assertUpdate("DROP TABLE test_orders");
@@ -283,7 +286,8 @@ public class TestHiveIntegrationSmokeTest
                                                             ImmutableSet.of(
                                                                     new FormattedRange(
                                                                             new FormattedMarker(Optional.of(entry.getKey().toString()), EXACTLY),
-                                                                            new FormattedMarker(Optional.of(entry.getKey().toString()), EXACTLY)))))))),
+                                                                            new FormattedMarker(Optional.of(entry.getKey().toString()), EXACTLY)))))),
+                                    new IoPlanPrinter.EstimatedStatsAndCost(15000.0, 1597294.0, 1597294.0, 0.0, 0.0))),
                             Optional.empty()));
 
             assertUpdate("DROP TABLE test_types_table");
