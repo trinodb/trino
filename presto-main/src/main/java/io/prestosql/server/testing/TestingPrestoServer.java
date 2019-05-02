@@ -217,7 +217,7 @@ public class TestingPrestoServer
                 .add(new TestingNodeModule(Optional.ofNullable(environment)))
                 .add(new TestingHttpServerModule(parseInt(coordinator ? coordinatorPort : "0")))
                 .add(new JsonModule())
-                .add(new JaxrsModule(true))
+                .add(new JaxrsModule())
                 .add(new MBeanModule())
                 .add(new TestingJmxModule())
                 .add(new EventModule())

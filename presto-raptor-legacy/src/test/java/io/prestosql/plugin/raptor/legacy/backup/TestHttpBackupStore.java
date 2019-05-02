@@ -63,7 +63,7 @@ public class TestHttpBackupStore
                 new TestingNodeModule(),
                 new TestingHttpServerModule(),
                 new JsonModule(),
-                new JaxrsModule(true),
+                new JaxrsModule(),
                 binder -> jaxrsBinder(binder).bind(TestingHttpBackupResource.class),
                 binder -> binder.bind(NodeManager.class).toInstance(new TestingNodeManager()),
                 override(new HttpBackupModule()).with(new TestingModule()));

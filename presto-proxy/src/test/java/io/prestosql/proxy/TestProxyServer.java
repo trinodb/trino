@@ -85,7 +85,7 @@ public class TestProxyServer
                 new TestingNodeModule("test"),
                 new TestingHttpServerModule(),
                 new JsonModule(),
-                new JaxrsModule(true),
+                new JaxrsModule(),
                 new TestingJmxModule(),
                 new ProxyModule());
 
