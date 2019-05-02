@@ -111,7 +111,7 @@ public class TestHiveConfig
                 .setPartitionStatisticsSampleSize(100)
                 .setIgnoreCorruptedStatistics(false)
                 .setRecordingPath(null)
-                .setRecordingDuration(new Duration(0, TimeUnit.MINUTES))
+                .setRecordingDuration(new Duration(10, TimeUnit.MINUTES))
                 .setReplay(false)
                 .setCollectColumnStatisticsOnWrite(false)
                 .setS3SelectPushdownEnabled(false)
