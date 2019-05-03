@@ -22,12 +22,12 @@ env:
     - TEST_SPECIFIC_MODULES=presto-mongodb
     - TEST_SPECIFIC_MODULES=presto-redis
     - TEST_SPECIFIC_MODULES=presto-sqlserver,presto-postgresql,presto-mysql
+    - TEST_SPECIFIC_MODULES=presto-kudu
     - TEST_OTHER_MODULES=!presto-tests,!presto-raptor-legacy,!presto-accumulo,!presto-cassandra,!presto-hive,!presto-kudu,!presto-docs,!presto-server,!presto-server-rpm,!presto-main,!presto-orc,!presto-parquet,!presto-mongodb,!presto-redis,!presto-sqlserver,!presto-postgresql,!presto-mysql
     - PRODUCT_TESTS_BASIC_ENVIRONMENT=true
     - PRODUCT_TESTS_SPECIFIC_ENVIRONMENT=true
     - PRODUCT_TESTS_SPECIFIC_ENVIRONMENT_2=true
     - HIVE_TESTS=true
-    - KUDU_TESTS=true
 
 dist: xenial
 jdk: openjdk8
@@ -57,10 +57,6 @@ install:
   - |
     if [[ -v HIVE_TESTS ]]; then
       ./mvnw install $MAVEN_FAST_INSTALL -pl presto-hive-hadoop2 -am
-    fi
-  - |
-    if [[ -v KUDU_TESTS ]]; then
-      ./mvnw install $MAVEN_FAST_INSTALL -pl presto-kudu -am
     fi
 
 before_script:
@@ -190,7 +186,7 @@ script:
         ./mvnw test $MAVEN_SKIP_CHECKS_AND_DOCS -B -pl presto-hive -P test-hive-glue
     fi
   - |
-    if [[ -v KUDU_TESTS ]]; then
+    if [[ "${TEST_SPECIFIC_MODULES}" = "presto-kudu" ]]; then
       presto-kudu/bin/run_kudu_tests.sh 3 null &&
       presto-kudu/bin/run_kudu_tests.sh 1 "" &&
       presto-kudu/bin/run_kudu_tests.sh 1 presto:: &&

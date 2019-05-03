@@ -167,4 +167,56 @@
             </plugins>
         </pluginManagement>
     </build>
+    <profiles>
+        <profile>
+            <id>default</id>
+            <activation>
+                <activeByDefault>true</activeByDefault>
+            </activation>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <excludes>
+                                <exclude>**/TestKuduIntegrationDecimalColumns.java</exclude>
+                                <exclude>**/TestKuduIntegrationHashPartitioning.java</exclude>
+                                <exclude>**/TestKuduIntegrationIntegerColumns.java</exclude>
+                                <exclude>**/TestKuduIntegrationRangePartitioning.java</exclude>
+                                <exclude>**/TestKuduIntegrationSchemaNotExisting.java</exclude>
+                                <exclude>**/TestKuduIntegrationSmoke.java</exclude>
+                            </excludes>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+        <profile>
+            <id>integration-tests</id>
+            <activation>
+                <property>
+                    <name>kudu.client.master-addresses</name>
+                </property>
+            </activation>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <includes>
+                                <include>**/TestKuduIntegrationDecimalColumns.java</include>
+                                <include>**/TestKuduIntegrationHashPartitioning.java</include>
+                                <include>**/TestKuduIntegrationIntegerColumns.java</include>
+                                <include>**/TestKuduIntegrationRangePartitioning.java</include>
+                                <include>**/TestKuduIntegrationSchemaNotExisting.java</include>
+                                <include>**/TestKuduIntegrationSmoke.java</include>
+                            </includes>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>
