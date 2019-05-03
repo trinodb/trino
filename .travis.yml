@@ -21,7 +21,7 @@ env:
     - TEST_SPECIFIC_MODULES=presto-orc,presto-parquet
     - TEST_SPECIFIC_MODULES=presto-mongodb
     - TEST_SPECIFIC_MODULES=presto-redis
-    - TEST_SPECIFIC_MODULES=presto-sqlserver,presto-postgresql,presto-mysql
+    - TEST_SPECIFIC_MODULES=presto-sqlserver,presto-postgresql,presto-mysql MODULES_WITH_EXTRA_TESTS=presto-sqlserver,presto-postgresql,presto-mysql
     - TEST_SPECIFIC_MODULES=presto-kudu MODULES_WITH_EXTRA_TESTS=presto-kudu
     - TEST_SPECIFIC_MODULES=presto-kafka MODULES_WITH_EXTRA_TESTS=presto-kafka
     - TEST_OTHER_MODULES=!presto-tests,!presto-raptor-legacy,!presto-accumulo,!presto-cassandra,!presto-hive,!presto-kudu,!presto-docs,!presto-server,!presto-server-rpm,!presto-main,!presto-orc,!presto-parquet,!presto-mongodb,!presto-redis,!presto-sqlserver,!presto-postgresql,!presto-mysql
@@ -120,24 +120,9 @@ script:
         singlenode-ldap -g ldap -x simba_jdbc
     fi
   - |
-    if [[ -v PRODUCT_TESTS_SPECIFIC_ENVIRONMENT ]]; then
-      presto-product-tests/bin/run_on_docker.sh \
-        singlenode-sqlserver -g sqlserver
-    fi
-  - |
     if [[ -v PRODUCT_TESTS_SPECIFIC_ENVIRONMENT_2 ]]; then
       presto-product-tests/bin/run_on_docker.sh \
         multinode-tls -g smoke,cli,group-by,join,tls
-    fi
-  - |
-    if [[ -v PRODUCT_TESTS_SPECIFIC_ENVIRONMENT_2 ]]; then
-      presto-product-tests/bin/run_on_docker.sh \
-        singlenode-mysql -g mysql_connector,mysql
-    fi
-  - |
-    if [[ -v PRODUCT_TESTS_SPECIFIC_ENVIRONMENT_2 ]]; then
-      presto-product-tests/bin/run_on_docker.sh \
-        singlenode-postgresql -g postgresql_connector
     fi
   - |
     if [[ -v PRODUCT_TESTS_SPECIFIC_ENVIRONMENT ]]; then
