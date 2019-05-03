@@ -16,7 +16,7 @@ env:
     - TEST_SPECIFIC_MODULES=presto-raptor-legacy
     - TEST_SPECIFIC_MODULES=presto-accumulo
     - TEST_SPECIFIC_MODULES=presto-cassandra
-    - TEST_SPECIFIC_MODULES=presto-hive
+    - TEST_SPECIFIC_MODULES=presto-hive,presto-hive-hadoop2 MODULES_WITH_EXTRA_TESTS=presto-hive-hadoop2
     - TEST_SPECIFIC_MODULES=presto-main
     - TEST_SPECIFIC_MODULES=presto-orc,presto-parquet
     - TEST_SPECIFIC_MODULES=presto-mongodb
@@ -27,7 +27,6 @@ env:
     - PRODUCT_TESTS_BASIC_ENVIRONMENT=true
     - PRODUCT_TESTS_SPECIFIC_ENVIRONMENT=true
     - PRODUCT_TESTS_SPECIFIC_ENVIRONMENT_2=true
-    - HIVE_TESTS=true
 
 dist: xenial
 jdk: openjdk8
@@ -49,10 +48,6 @@ install:
   - |
     if [[ -v TEST_SPECIFIC_MODULES || -v PRODUCT_TESTS_BASIC_ENVIRONMENT || -v PRODUCT_TESTS_SPECIFIC_ENVIRONMENT || -v PRODUCT_TESTS_SPECIFIC_ENVIRONMENT_2 ]]; then
       ./mvnw install $MAVEN_FAST_INSTALL -pl '!presto-docs,!presto-server-rpm'
-    fi
-  - |
-    if [[ -v HIVE_TESTS ]]; then
-      ./mvnw install $MAVEN_FAST_INSTALL -pl presto-hive-hadoop2 -am
     fi
 
 before_script:
@@ -164,26 +159,8 @@ script:
         singlenode-kafka -g kafka
     fi
   - |
-    if [[ -v HIVE_TESTS ]]; then
-      presto-hive-hadoop2/bin/run_hive_tests.sh
-    fi
-  - |
-    if [[ -v HIVE_TESTS && -v HIVE_TESTS_AWS_ACCESS_KEY_ID ]]; then
-      env AWS_ACCESS_KEY_ID="${HIVE_TESTS_AWS_ACCESS_KEY_ID}" \
-        AWS_SECRET_ACCESS_KEY="${HIVE_TESTS_AWS_SECRET_ACCESS_KEY}" \
-        S3_BUCKET_ENDPOINT="${S3_TESTS_BUCKET_ENDPOINT}" \
-        S3_BUCKET="${S3_TESTS_BUCKET}" \
-        presto-hive-hadoop2/bin/run_hive_s3_tests.sh
-    fi
-  - |
-    if [[ -v HIVE_TESTS && -v HIVE_TESTS_AWS_ACCESS_KEY_ID ]]; then
-      env AWS_ACCESS_KEY_ID="${HIVE_TESTS_AWS_ACCESS_KEY_ID}" \
-        AWS_SECRET_ACCESS_KEY="${HIVE_TESTS_AWS_SECRET_ACCESS_KEY}" \
-        ./mvnw test $MAVEN_SKIP_CHECKS_AND_DOCS -B -pl presto-hive -P test-hive-glue
-    fi
-  - |
-    if [[ -v MODULES_WITH_EXTRA_TESTS ]]; then
-        ./bin/run_tests_for_modules.sh "${MODULES_WITH_EXTRA_TESTS}"
+    if [[ -v TEST_SPECIFIC_MODULES ]]; then
+        ./bin/run_tests_for_modules.sh "${TEST_SPECIFIC_MODULES}"
     fi
 
 before_cache:
