@@ -63,6 +63,7 @@ import io.prestosql.sql.tree.LikeClause;
 import io.prestosql.sql.tree.Limit;
 import io.prestosql.sql.tree.NaturalJoin;
 import io.prestosql.sql.tree.Node;
+import io.prestosql.sql.tree.Offset;
 import io.prestosql.sql.tree.OrderBy;
 import io.prestosql.sql.tree.Prepare;
 import io.prestosql.sql.tree.PrincipalSpecification;
@@ -263,6 +264,10 @@ public final class SqlFormatter
                 process(node.getOrderBy().get(), indent);
             }
 
+            if (node.getOffset().isPresent()) {
+                process(node.getOffset().get(), indent);
+            }
+
             if (node.getLimit().isPresent()) {
                 process(node.getLimit().get(), indent);
             }
@@ -301,6 +306,10 @@ public final class SqlFormatter
                 process(node.getOrderBy().get(), indent);
             }
 
+            if (node.getOffset().isPresent()) {
+                process(node.getOffset().get(), indent);
+            }
+
             if (node.getLimit().isPresent()) {
                 process(node.getLimit().get(), indent);
             }
@@ -311,6 +320,14 @@ public final class SqlFormatter
         protected Void visitOrderBy(OrderBy node, Integer indent)
         {
             append(indent, formatOrderBy(node, parameters))
+                    .append('\n');
+            return null;
+        }
+
+        @Override
+        protected Void visitOffset(Offset node, Integer indent)
+        {
+            append(indent, "OFFSET " + node.getRowCount() + " ROWS")
                     .append('\n');
             return null;
         }

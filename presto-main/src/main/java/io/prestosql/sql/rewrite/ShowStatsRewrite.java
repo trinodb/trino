@@ -120,7 +120,7 @@ public class ShowStatsRewrite
             if (node.getRelation() instanceof TableSubquery) {
                 Query query = ((TableSubquery) node.getRelation()).getQuery();
                 QuerySpecification specification = (QuerySpecification) query.getQueryBody();
-                Plan plan = queryExplainer.get().getLogicalPlan(session, new Query(Optional.empty(), specification, Optional.empty(), Optional.empty()), parameters, warningCollector);
+                Plan plan = queryExplainer.get().getLogicalPlan(session, new Query(Optional.empty(), specification, Optional.empty(), Optional.empty(), Optional.empty()), parameters, warningCollector);
                 validateShowStatsSubquery(node, query, specification, plan);
                 Table table = (Table) specification.getFrom().get();
                 Constraint constraint = getConstraint(plan);

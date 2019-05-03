@@ -107,6 +107,7 @@ import io.prestosql.sql.tree.NodeLocation;
 import io.prestosql.sql.tree.NotExpression;
 import io.prestosql.sql.tree.NullIfExpression;
 import io.prestosql.sql.tree.NullLiteral;
+import io.prestosql.sql.tree.Offset;
 import io.prestosql.sql.tree.OrderBy;
 import io.prestosql.sql.tree.Parameter;
 import io.prestosql.sql.tree.PathElement;
@@ -548,6 +549,7 @@ class AstBuilder
                 visitIfPresent(context.with(), With.class),
                 body.getQueryBody(),
                 body.getOrderBy(),
+                body.getOffset(),
                 body.getLimit());
     }
 
@@ -590,10 +592,15 @@ class AstBuilder
             limit = Optional.of(new Limit(getTextIfPresent(context.limit).orElseThrow(() -> new IllegalStateException("Missing LIMIT value"))));
         }
 
+        Optional<Offset> offset = Optional.empty();
+        if (context.OFFSET() != null) {
+            offset = Optional.of(new Offset(getTextIfPresent(context.offset).orElseThrow(() -> new IllegalStateException("Missing OFFSET row count"))));
+        }
+
         if (term instanceof QuerySpecification) {
             // When we have a simple query specification
-            // followed by order by limit or fetch,
-            // fold the order by and limit or fetch clauses
+            // followed by order by, offset, limit or fetch,
+            // fold the order by, limit, offset or fetch clauses
             // into the query specification (analyzer/planner
             // expects this structure to resolve references with respect
             // to columns defined in the query specification)
@@ -610,7 +617,9 @@ class AstBuilder
                             query.getGroupBy(),
                             query.getHaving(),
                             orderBy,
+                            offset,
                             limit),
+                    Optional.empty(),
                     Optional.empty(),
                     Optional.empty());
         }
@@ -620,6 +629,7 @@ class AstBuilder
                 Optional.empty(),
                 term,
                 orderBy,
+                offset,
                 limit);
     }
 
@@ -649,6 +659,7 @@ class AstBuilder
                 visitIfPresent(context.where, Expression.class),
                 visitIfPresent(context.groupBy(), GroupBy.class),
                 visitIfPresent(context.having, Expression.class),
+                Optional.empty(),
                 Optional.empty(),
                 Optional.empty());
     }
@@ -829,7 +840,7 @@ class AstBuilder
     public Node visitShowStatsForQuery(SqlBaseParser.ShowStatsForQueryContext context)
     {
         QuerySpecification specification = (QuerySpecification) visitQuerySpecification(context.querySpecification());
-        Query query = new Query(Optional.empty(), specification, Optional.empty(), Optional.empty());
+        Query query = new Query(Optional.empty(), specification, Optional.empty(), Optional.empty(), Optional.empty());
         return new ShowStats(Optional.of(getLocation(context)), new TableSubquery(query));
     }
 
