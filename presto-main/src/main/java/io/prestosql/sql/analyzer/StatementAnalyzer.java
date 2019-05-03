@@ -100,6 +100,7 @@ import io.prestosql.sql.tree.LongLiteral;
 import io.prestosql.sql.tree.NaturalJoin;
 import io.prestosql.sql.tree.Node;
 import io.prestosql.sql.tree.NodeRef;
+import io.prestosql.sql.tree.Offset;
 import io.prestosql.sql.tree.OrderBy;
 import io.prestosql.sql.tree.Prepare;
 import io.prestosql.sql.tree.Property;
@@ -740,6 +741,10 @@ class StatementAnalyzer
                 analysis.setOrderByExpressions(node, emptyList());
             }
 
+            if (node.getOffset().isPresent()) {
+                analyzeOffset(node.getOffset().get());
+            }
+
             if (node.getLimit().isPresent()) {
                 analyzeLimit(node.getLimit().get());
             }
@@ -1035,6 +1040,10 @@ class StatementAnalyzer
             }
             else {
                 analysis.setOrderByExpressions(node, emptyList());
+            }
+
+            if (node.getOffset().isPresent()) {
+                analyzeOffset(node.getOffset().get());
             }
 
             if (node.getLimit().isPresent()) {
@@ -2124,6 +2133,11 @@ class StatementAnalyzer
             List<Expression> orderByFields = orderByFieldsBuilder.build();
             analysis.setOrderByExpressions(node, orderByFields);
             return orderByFields;
+        }
+
+        private void analyzeOffset(Offset node)
+        {
+            throw new SemanticException(NOT_SUPPORTED, node, "OFFSET not yet implemented");
         }
 
         private void analyzeLimit(Node node)
