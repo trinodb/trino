@@ -42,7 +42,6 @@ import io.prestosql.sql.planner.plan.ProjectNode;
 import io.prestosql.sql.planner.plan.SortNode;
 import io.prestosql.sql.planner.plan.TableScanNode;
 import io.prestosql.sql.planner.plan.TableWriterNode.DeleteHandle;
-import io.prestosql.sql.planner.plan.TopNNode;
 import io.prestosql.sql.planner.plan.ValuesNode;
 import io.prestosql.sql.planner.plan.WindowNode;
 import io.prestosql.sql.tree.Cast;
@@ -132,9 +131,9 @@ class QueryPlanner
         builder = handleSubqueries(builder, query, outputs);
         builder = project(builder, Iterables.concat(orderBy, outputs));
 
-        builder = sort(builder, query);
+        builder = sort(builder, query.getOrderBy(), analysis.getOrderByExpressions(query));
         builder = project(builder, analysis.getOutputExpressions(query));
-        builder = limit(builder, query);
+        builder = limit(builder, query.getLimit());
 
         return new RelationPlan(
                 builder.getRoot(),
@@ -182,9 +181,9 @@ class QueryPlanner
         builder = project(builder, Iterables.concat(orderBy, outputs));
 
         builder = distinct(builder, node);
-        builder = sort(builder, node);
+        builder = sort(builder, node.getOrderBy(), analysis.getOrderByExpressions(node));
         builder = project(builder, outputs);
-        builder = limit(builder, node);
+        builder = limit(builder, node.getLimit());
 
         return new RelationPlan(
                 builder.getRoot(),
@@ -855,17 +854,7 @@ class QueryPlanner
         return subPlan;
     }
 
-    private PlanBuilder sort(PlanBuilder subPlan, Query node)
-    {
-        return sort(subPlan, node.getOrderBy(), node.getLimit(), analysis.getOrderByExpressions(node));
-    }
-
-    private PlanBuilder sort(PlanBuilder subPlan, QuerySpecification node)
-    {
-        return sort(subPlan, node.getOrderBy(), node.getLimit(), analysis.getOrderByExpressions(node));
-    }
-
-    private PlanBuilder sort(PlanBuilder subPlan, Optional<OrderBy> orderBy, Optional<Node> limit, List<Expression> orderByExpressions)
+    private PlanBuilder sort(PlanBuilder subPlan, Optional<OrderBy> orderBy, List<Expression> orderByExpressions)
     {
         if (!orderBy.isPresent()) {
             return subPlan;
@@ -885,32 +874,22 @@ class QueryPlanner
             }
         }
 
-        PlanNode planNode;
-        OrderingScheme orderingScheme = new OrderingScheme(orderBySymbols.build(), orderings);
+        return subPlan.withNewRoot(
+                new SortNode(
+                        idAllocator.getNextId(),
+                        subPlan.getRoot(),
+                        new OrderingScheme(orderBySymbols.build(), orderings)));
+    }
+
+    private PlanBuilder limit(PlanBuilder subPlan, Optional<Node> limit)
+    {
         if (limit.isPresent() && analysis.getLimit(limit.get()).isPresent()) {
-            planNode = new TopNNode(idAllocator.getNextId(), subPlan.getRoot(), analysis.getLimit(limit.get()).getAsLong(), orderingScheme, TopNNode.Step.SINGLE);
-        }
-        else {
-            planNode = new SortNode(idAllocator.getNextId(), subPlan.getRoot(), orderingScheme);
-        }
-
-        return subPlan.withNewRoot(planNode);
-    }
-
-    private PlanBuilder limit(PlanBuilder subPlan, Query node)
-    {
-        return limit(subPlan, node.getOrderBy(), node.getLimit());
-    }
-
-    private PlanBuilder limit(PlanBuilder subPlan, QuerySpecification node)
-    {
-        return limit(subPlan, node.getOrderBy(), node.getLimit());
-    }
-
-    private PlanBuilder limit(PlanBuilder subPlan, Optional<OrderBy> orderBy, Optional<Node> limit)
-    {
-        if (!orderBy.isPresent() && limit.isPresent() && analysis.getLimit(limit.get()).isPresent()) {
-            return subPlan.withNewRoot(new LimitNode(idAllocator.getNextId(), subPlan.getRoot(), analysis.getLimit(limit.get()).getAsLong(), false));
+            return subPlan.withNewRoot(
+                    new LimitNode(
+                            idAllocator.getNextId(),
+                            subPlan.getRoot(),
+                            analysis.getLimit(limit.get()).getAsLong(),
+                            false));
         }
 
         return subPlan;
