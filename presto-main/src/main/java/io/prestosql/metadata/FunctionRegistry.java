@@ -73,6 +73,7 @@ import io.prestosql.operator.aggregation.arrayagg.ArrayAggregationFunction;
 import io.prestosql.operator.aggregation.histogram.Histogram;
 import io.prestosql.operator.aggregation.multimapagg.MultimapAggregationFunction;
 import io.prestosql.operator.scalar.ArrayCardinalityFunction;
+import io.prestosql.operator.scalar.ArrayCombinationsFunction;
 import io.prestosql.operator.scalar.ArrayContains;
 import io.prestosql.operator.scalar.ArrayDistinctFromOperator;
 import io.prestosql.operator.scalar.ArrayDistinctFunction;
@@ -576,6 +577,7 @@ public class FunctionRegistry
                 .scalar(ArrayExceptFunction.class)
                 .scalar(ArraySliceFunction.class)
                 .scalar(ArrayIndeterminateOperator.class)
+                .scalar(ArrayCombinationsFunction.class)
                 .scalar(ArrayNgramsFunction.class)
                 .scalar(MapDistinctFromOperator.class)
                 .scalar(MapEqualOperator.class)

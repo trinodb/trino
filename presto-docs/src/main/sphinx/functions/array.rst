@@ -107,6 +107,19 @@ Array Functions
     Concatenates the arrays ``array1``, ``array2``, ``...``, ``arrayN``.
     This function provides the same functionality as the SQL-standard concatenation operator (``||``).
 
+.. function:: combinations(array(T), n) -> array(array(T))
+
+    Returns n-element subgroups of input array. If the input array has no duplicates,
+    ``combinations`` returns n-element subsets::
+
+         SELECT combinations(ARRAY['foo', 'bar', 'baz'], 2); -- [['foo', 'bar'], ['foo', 'baz'], ['bar', 'baz']]
+         SELECT combinations(ARRAY[1, 2, 3], 2); -- [[1, 2], [1, 3], [2, 3]]
+         SELECT combinations(ARRAY[1, 2, 2], 2); -- [[1, 2], [1, 2], [2, 2]]
+
+    Order of subgroups is deterministic but unspecified. Order of elements within
+    a subgroup deterministic but unspecified. ``n`` must be not be greater than 5,
+    and the total size of subgroups generated must be smaller than 100000.
+
 .. function:: contains(x, element) -> boolean
 
     Returns true if the array ``x`` contains the ``element``.
