@@ -2,7 +2,7 @@ version: '2'
 services:
   hadoop-master:
     hostname: hadoop-master
-    image: 'prestodb/hdp2.6-hive:5'
+    image: 'prestodev/hdp2.6-hive:13'
     ports:
       - '1180:1180'
       - '8020:8020'

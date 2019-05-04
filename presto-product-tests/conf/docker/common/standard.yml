@@ -2,7 +2,7 @@ version: '2'
 services:
 
   java-8-base:
-    image: 'prestodb/centos6-oj8:${DOCKER_IMAGES_VERSION}'
+    image: 'prestodev/centos6-oj8:${DOCKER_IMAGES_VERSION}'
     volumes:
       - ../..:/docker/volumes/conf
       - ../../target:/docker/volumes/logs
