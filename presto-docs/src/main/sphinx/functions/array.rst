@@ -131,7 +131,7 @@ Array Functions
 
 .. function:: ngrams(array(T), n) -> array(array(T))
 
-    Returns ``n``-grams for the ``array``::
+    Returns ``n``-grams(sets of adjacent ``n`` elements) for the ``array``::
 
         SELECT ngrams(ARRAY['foo', 'bar', 'baz', 'foo'], 2); -- [['foo', 'bar'], ['bar', 'baz'], ['baz', 'foo']]
         SELECT ngrams(ARRAY['foo', 'bar', 'baz', 'foo'], 3); -- [['foo', 'bar', 'baz'], ['bar', 'baz', 'foo']]
