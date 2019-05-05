@@ -26,11 +26,12 @@ import io.prestosql.sql.planner.plan.ValuesNode;
 import io.prestosql.sql.tree.Expression;
 
 import java.util.List;
+import java.util.function.Consumer;
 
 import static io.prestosql.sql.planner.iterative.Lookup.noLookup;
 import static java.util.Objects.requireNonNull;
 
-public class ExpressionExtractor
+public final class ExpressionExtractor
 {
     public static List<Expression> extractExpressions(PlanNode plan)
     {
@@ -43,15 +44,20 @@ public class ExpressionExtractor
         requireNonNull(lookup, "lookup is null");
 
         ImmutableList.Builder<Expression> expressionsBuilder = ImmutableList.builder();
-        plan.accept(new Visitor(true, lookup), expressionsBuilder);
+        plan.accept(new Visitor(true, lookup), expressionsBuilder::add);
         return expressionsBuilder.build();
     }
 
     public static List<Expression> extractExpressionsNonRecursive(PlanNode plan)
     {
         ImmutableList.Builder<Expression> expressionsBuilder = ImmutableList.builder();
-        plan.accept(new Visitor(false, noLookup()), expressionsBuilder);
+        plan.accept(new Visitor(false, noLookup()), expressionsBuilder::add);
         return expressionsBuilder.build();
+    }
+
+    public static void forEachExpression(PlanNode plan, Consumer<Expression> expressionConsumer)
+    {
+        plan.accept(new Visitor(true, noLookup()), expressionConsumer);
     }
 
     private ExpressionExtractor()
@@ -59,7 +65,7 @@ public class ExpressionExtractor
     }
 
     private static class Visitor
-            extends SimplePlanVisitor<ImmutableList.Builder<Expression>>
+            extends SimplePlanVisitor<Consumer<Expression>>
     {
         private final boolean recursive;
         private final Lookup lookup;
@@ -71,7 +77,7 @@ public class ExpressionExtractor
         }
 
         @Override
-        protected Void visitPlan(PlanNode node, ImmutableList.Builder<Expression> context)
+        protected Void visitPlan(PlanNode node, Consumer<Expression> context)
         {
             if (recursive) {
                 return super.visitPlan(node, context);
@@ -80,51 +86,51 @@ public class ExpressionExtractor
         }
 
         @Override
-        public Void visitGroupReference(GroupReference node, ImmutableList.Builder<Expression> context)
+        public Void visitGroupReference(GroupReference node, Consumer<Expression> context)
         {
             return lookup.resolve(node).accept(this, context);
         }
 
         @Override
-        public Void visitAggregation(AggregationNode node, ImmutableList.Builder<Expression> context)
+        public Void visitAggregation(AggregationNode node, Consumer<Expression> context)
         {
             node.getAggregations().values()
-                    .forEach(aggregation -> context.add(aggregation.getCall()));
+                    .forEach(aggregation -> context.accept(aggregation.getCall()));
             return super.visitAggregation(node, context);
         }
 
         @Override
-        public Void visitFilter(FilterNode node, ImmutableList.Builder<Expression> context)
+        public Void visitFilter(FilterNode node, Consumer<Expression> context)
         {
-            context.add(node.getPredicate());
+            context.accept(node.getPredicate());
             return super.visitFilter(node, context);
         }
 
         @Override
-        public Void visitProject(ProjectNode node, ImmutableList.Builder<Expression> context)
+        public Void visitProject(ProjectNode node, Consumer<Expression> context)
         {
-            context.addAll(node.getAssignments().getExpressions());
+            node.getAssignments().getExpressions().forEach(context);
             return super.visitProject(node, context);
         }
 
         @Override
-        public Void visitJoin(JoinNode node, ImmutableList.Builder<Expression> context)
+        public Void visitJoin(JoinNode node, Consumer<Expression> context)
         {
-            node.getFilter().ifPresent(context::add);
+            node.getFilter().ifPresent(context);
             return super.visitJoin(node, context);
         }
 
         @Override
-        public Void visitValues(ValuesNode node, ImmutableList.Builder<Expression> context)
+        public Void visitValues(ValuesNode node, Consumer<Expression> context)
         {
-            node.getRows().forEach(context::addAll);
+            node.getRows().forEach(row -> row.forEach(context));
             return super.visitValues(node, context);
         }
 
         @Override
-        public Void visitApply(ApplyNode node, ImmutableList.Builder<Expression> context)
+        public Void visitApply(ApplyNode node, Consumer<Expression> context)
         {
-            context.addAll(node.getSubqueryAssignments().getExpressions());
+            node.getSubqueryAssignments().getExpressions().forEach(context);
             return super.visitApply(node, context);
         }
     }

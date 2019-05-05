@@ -46,6 +46,7 @@ public final class PlanSanityChecker
                         Stage.FINAL,
                         new ValidateDependenciesChecker(),
                         new NoDuplicatePlanNodeIdsChecker(),
+                        new SugarFreeChecker(),
                         new TypeValidator(),
                         new NoSubqueryExpressionLeftChecker(),
                         new NoIdentifierLeftChecker(),
