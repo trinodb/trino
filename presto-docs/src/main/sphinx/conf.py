@@ -62,7 +62,7 @@ def get_version():
 
 needs_sphinx = '1.1'
 
-extensions = ['backquote', 'download', 'issue']
+extensions = ['backquote', 'download', 'issue', 'sitemap']
 
 templates_path = ['_templates']
 
