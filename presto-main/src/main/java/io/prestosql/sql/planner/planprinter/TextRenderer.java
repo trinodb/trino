@@ -15,6 +15,7 @@ package io.prestosql.sql.planner.planprinter;
 
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.units.DataSize;
 import io.prestosql.cost.PlanCostEstimate;
 import io.prestosql.cost.PlanNodeStatsEstimate;
 import io.prestosql.sql.planner.Symbol;
@@ -27,7 +28,9 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.airlift.units.DataSize.succinctBytes;
+import static io.airlift.units.DataSize.Unit.BYTE;
+import static java.lang.Double.NEGATIVE_INFINITY;
+import static java.lang.Double.POSITIVE_INFINITY;
 import static java.lang.Double.isFinite;
 import static java.lang.Double.isNaN;
 import static java.lang.String.format;
@@ -228,10 +231,10 @@ public class TextRenderer
 
             output.append(format("{rows: %s (%s), cpu: %s, memory: %s, network: %s}",
                     formatAsLong(stats.getOutputRowCount()),
-                    formatEstimateAsDataSize(stats.getOutputSizeInBytes(outputSymbols, plan.getTypes())),
-                    formatDouble(cost.getCpuCost()),
-                    formatDouble(cost.getMaxMemory()),
-                    formatDouble(cost.getNetworkCost())));
+                    formatAsDataSize(stats.getOutputSizeInBytes(outputSymbols, plan.getTypes())),
+                    formatAsCpuCost(cost.getCpuCost()),
+                    formatAsDataSize(cost.getMaxMemory()),
+                    formatAsDataSize(cost.getNetworkCost())));
 
             if (i < estimateCount - 1) {
                 output.append("/");
@@ -242,11 +245,6 @@ public class TextRenderer
         return output.toString();
     }
 
-    private static String formatEstimateAsDataSize(double value)
-    {
-        return isNaN(value) ? "?" : succinctBytes((long) value).toString();
-    }
-
     private static String formatAsLong(double value)
     {
         if (isFinite(value)) {
@@ -254,6 +252,26 @@ public class TextRenderer
         }
 
         return "?";
+    }
+
+    private static String formatAsCpuCost(double value)
+    {
+        return formatAsDataSize(value).replaceAll("B$", "");
+    }
+
+    private static String formatAsDataSize(double value)
+    {
+        if (isNaN(value)) {
+            return "?";
+        }
+        if (value == POSITIVE_INFINITY) {
+            return "+\u221E";
+        }
+        if (value == NEGATIVE_INFINITY) {
+            return "-\u221E";
+        }
+
+        return DataSize.succinctDataSize(value, BYTE).toString();
     }
 
     static String formatDouble(double value)
