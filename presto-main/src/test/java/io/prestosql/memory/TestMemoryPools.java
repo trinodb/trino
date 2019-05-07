@@ -279,6 +279,20 @@ public class TestMemoryPools
         assertEquals(pool2.getFreeBytes(), 1000);
     }
 
+    @Test
+    public void testMoveUnknownQuery()
+    {
+        QueryId testQuery = new QueryId("test_query");
+        MemoryPool pool1 = new MemoryPool(new MemoryPoolId("test"), new DataSize(1000, BYTE));
+        MemoryPool pool2 = new MemoryPool(new MemoryPoolId("test"), new DataSize(1000, BYTE));
+
+        assertNull(pool1.getTaggedMemoryAllocations().get(testQuery));
+
+        pool1.moveQuery(testQuery, pool2);
+        assertNull(pool1.getTaggedMemoryAllocations().get(testQuery));
+        assertNull(pool2.getTaggedMemoryAllocations().get(testQuery));
+    }
+
     private long runDriversUntilBlocked(Predicate<OperatorContext> reason)
     {
         long iterationsCount = 0;
