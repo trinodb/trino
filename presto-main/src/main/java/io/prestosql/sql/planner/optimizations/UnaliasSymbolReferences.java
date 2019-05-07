@@ -50,6 +50,7 @@ import io.prestosql.sql.planner.plan.JoinNode;
 import io.prestosql.sql.planner.plan.LateralJoinNode;
 import io.prestosql.sql.planner.plan.LimitNode;
 import io.prestosql.sql.planner.plan.MarkDistinctNode;
+import io.prestosql.sql.planner.plan.OffsetNode;
 import io.prestosql.sql.planner.plan.OutputNode;
 import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.ProjectNode;
@@ -322,6 +323,12 @@ public class UnaliasSymbolReferences
                     canonicalizeAndDistinct(node.getOutputSymbols()),
                     node.getOrderingScheme().map(this::canonicalizeAndDistinct),
                     node.getExchangeType());
+        }
+
+        @Override
+        public PlanNode visitOffset(OffsetNode node, RewriteContext<Void> context)
+        {
+            return context.defaultRewrite(node);
         }
 
         @Override

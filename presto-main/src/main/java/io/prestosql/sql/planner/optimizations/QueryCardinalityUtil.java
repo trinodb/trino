@@ -21,6 +21,7 @@ import io.prestosql.sql.planner.plan.EnforceSingleRowNode;
 import io.prestosql.sql.planner.plan.ExchangeNode;
 import io.prestosql.sql.planner.plan.FilterNode;
 import io.prestosql.sql.planner.plan.LimitNode;
+import io.prestosql.sql.planner.plan.OffsetNode;
 import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.PlanVisitor;
 import io.prestosql.sql.planner.plan.ProjectNode;
@@ -29,6 +30,7 @@ import io.prestosql.sql.planner.plan.ValuesNode;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.prestosql.sql.planner.iterative.Lookup.noLookup;
+import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
 
@@ -139,6 +141,21 @@ public final class QueryCardinalityUtil
         public Range<Long> visitValues(ValuesNode node, Void context)
         {
             return Range.singleton((long) node.getRows().size());
+        }
+
+        @Override
+        public Range<Long> visitOffset(OffsetNode node, Void context)
+        {
+            Range<Long> sourceCardinalityRange = node.getSource().accept(this, null);
+
+            long lower = max(sourceCardinalityRange.lowerEndpoint() - node.getCount(), 0L);
+
+            if (sourceCardinalityRange.hasUpperBound()) {
+                return Range.closed(lower, max(sourceCardinalityRange.upperEndpoint() - node.getCount(), 0L));
+            }
+            else {
+                return Range.atLeast(lower);
+            }
         }
 
         @Override

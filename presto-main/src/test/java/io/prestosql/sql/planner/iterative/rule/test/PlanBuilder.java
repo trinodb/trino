@@ -57,6 +57,7 @@ import io.prestosql.sql.planner.plan.JoinNode;
 import io.prestosql.sql.planner.plan.LateralJoinNode;
 import io.prestosql.sql.planner.plan.LimitNode;
 import io.prestosql.sql.planner.plan.MarkDistinctNode;
+import io.prestosql.sql.planner.plan.OffsetNode;
 import io.prestosql.sql.planner.plan.OutputNode;
 import io.prestosql.sql.planner.plan.PlanFragmentId;
 import io.prestosql.sql.planner.plan.PlanNode;
@@ -207,6 +208,11 @@ public class PlanBuilder
                 new OrderingScheme(
                         orderBy,
                         Maps.toMap(orderBy, Functions.constant(SortOrder.ASC_NULLS_FIRST))));
+    }
+
+    public OffsetNode offset(long rowCount, PlanNode source)
+    {
+        return new OffsetNode(idAllocator.getNextId(), source, rowCount);
     }
 
     public LimitNode limit(long limit, PlanNode source)

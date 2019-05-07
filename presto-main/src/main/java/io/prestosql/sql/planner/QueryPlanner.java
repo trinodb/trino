@@ -37,6 +37,7 @@ import io.prestosql.sql.planner.plan.DeleteNode;
 import io.prestosql.sql.planner.plan.FilterNode;
 import io.prestosql.sql.planner.plan.GroupIdNode;
 import io.prestosql.sql.planner.plan.LimitNode;
+import io.prestosql.sql.planner.plan.OffsetNode;
 import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.ProjectNode;
 import io.prestosql.sql.planner.plan.SortNode;
@@ -55,6 +56,7 @@ import io.prestosql.sql.tree.LambdaArgumentDeclaration;
 import io.prestosql.sql.tree.LambdaExpression;
 import io.prestosql.sql.tree.Node;
 import io.prestosql.sql.tree.NodeRef;
+import io.prestosql.sql.tree.Offset;
 import io.prestosql.sql.tree.OrderBy;
 import io.prestosql.sql.tree.Query;
 import io.prestosql.sql.tree.QuerySpecification;
@@ -133,6 +135,7 @@ class QueryPlanner
 
         builder = sort(builder, query.getOrderBy(), analysis.getOrderByExpressions(query));
         builder = project(builder, analysis.getOutputExpressions(query));
+        builder = offset(builder, query.getOffset());
         builder = limit(builder, query.getLimit());
 
         return new RelationPlan(
@@ -183,6 +186,7 @@ class QueryPlanner
         builder = distinct(builder, node);
         builder = sort(builder, node.getOrderBy(), analysis.getOrderByExpressions(node));
         builder = project(builder, outputs);
+        builder = offset(builder, node.getOffset());
         builder = limit(builder, node.getLimit());
 
         return new RelationPlan(
@@ -879,6 +883,19 @@ class QueryPlanner
                         idAllocator.getNextId(),
                         subPlan.getRoot(),
                         new OrderingScheme(orderBySymbols.build(), orderings)));
+    }
+
+    private PlanBuilder offset(PlanBuilder subPlan, Optional<Offset> offset)
+    {
+        if (!offset.isPresent()) {
+            return subPlan;
+        }
+
+        return subPlan.withNewRoot(
+                new OffsetNode(
+                        idAllocator.getNextId(),
+                        subPlan.getRoot(),
+                        analysis.getOffset(offset.get())));
     }
 
     private PlanBuilder limit(PlanBuilder subPlan, Optional<Node> limit)
