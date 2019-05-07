@@ -18,7 +18,9 @@ import com.google.common.collect.ImmutableMap;
 import io.prestosql.Session;
 import io.prestosql.sql.analyzer.FeaturesConfig.JoinDistributionType;
 import io.prestosql.sql.planner.assertions.BasePlanTest;
+import io.prestosql.sql.planner.assertions.ExpressionMatcher;
 import io.prestosql.sql.planner.assertions.PlanMatchPattern;
+import io.prestosql.sql.planner.assertions.RowNumberSymbolMatcher;
 import io.prestosql.sql.planner.optimizations.AddLocalExchanges;
 import io.prestosql.sql.planner.optimizations.CheckSubqueryNodesAreRewritten;
 import io.prestosql.sql.planner.optimizations.PlanOptimizer;
@@ -74,9 +76,11 @@ import static io.prestosql.sql.planner.assertions.PlanMatchPattern.markDistinct;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.node;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.output;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.project;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.rowNumber;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.semiJoin;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.singleGroupingSet;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.sort;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.strictProject;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.strictTableScan;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.topN;
@@ -94,6 +98,7 @@ import static io.prestosql.sql.planner.plan.JoinNode.DistributionType.PARTITIONE
 import static io.prestosql.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
 import static io.prestosql.sql.planner.plan.JoinNode.Type.INNER;
 import static io.prestosql.sql.planner.plan.JoinNode.Type.LEFT;
+import static io.prestosql.sql.tree.SortItem.NullOrdering.FIRST;
 import static io.prestosql.sql.tree.SortItem.NullOrdering.LAST;
 import static io.prestosql.sql.tree.SortItem.Ordering.ASCENDING;
 import static io.prestosql.sql.tree.SortItem.Ordering.DESCENDING;
@@ -859,5 +864,83 @@ public class TestLogicalPlanner
                                 2,
                                 any(
                                         tableScan("nation")))));
+    }
+
+    @Test
+    public void testOffset()
+    {
+        assertPlan(
+                "SELECT name FROM nation OFFSET 2 ROWS",
+                any(
+                        strictProject(
+                                ImmutableMap.of("name", new ExpressionMatcher("name")),
+                                filter(
+                                        "(row_num > BIGINT '2')",
+                                        rowNumber(
+                                                pattern -> pattern
+                                                        .partitionBy(ImmutableList.of()),
+                                                any(
+                                                        tableScan("nation", ImmutableMap.of("NAME", "name"))))
+                                                .withAlias("row_num", new RowNumberSymbolMatcher())))));
+
+        assertPlan(
+                "SELECT name FROM nation ORDER BY regionkey OFFSET 2 ROWS",
+                any(
+                        strictProject(
+                                ImmutableMap.of("name", new ExpressionMatcher("name")),
+                                any(
+                                        sort(
+                                                ImmutableList.of(sort("row_num", ASCENDING, FIRST)),
+                                                any(
+                                                        filter(
+                                                                "(row_num > BIGINT '2')",
+                                                                rowNumber(
+                                                                        pattern -> pattern
+                                                                                .partitionBy(ImmutableList.of()),
+                                                                        any(
+                                                                                sort(
+                                                                                        ImmutableList.of(sort("regionkey", ASCENDING, LAST)),
+                                                                                        any(
+                                                                                                tableScan("nation", ImmutableMap.of("NAME", "name", "REGIONKEY", "regionkey"))))))
+                                                                        .withAlias("row_num", new RowNumberSymbolMatcher()))))))));
+
+        assertPlan(
+                "SELECT name FROM nation ORDER BY regionkey OFFSET 2 ROWS FETCH NEXT 5 ROWS ONLY",
+                any(
+                        strictProject(
+                                ImmutableMap.of("name", new ExpressionMatcher("name")),
+                                any(
+                                        sort(
+                                                ImmutableList.of(sort("row_num", ASCENDING, FIRST)),
+                                                any(
+                                                        filter(
+                                                                "(row_num > BIGINT '2')",
+                                                                rowNumber(
+                                                                        pattern -> pattern
+                                                                                .partitionBy(ImmutableList.of()),
+                                                                        topN(
+                                                                                7,
+                                                                                ImmutableList.of(sort("regionkey", ASCENDING, LAST)),
+                                                                                TopNNode.Step.FINAL,
+                                                                                anyTree(
+                                                                                        tableScan("nation", ImmutableMap.of("NAME", "name", "REGIONKEY", "regionkey")))))
+                                                                        .withAlias("row_num", new RowNumberSymbolMatcher()))))))));
+
+        assertPlan(
+                "SELECT name FROM nation OFFSET 2 ROWS FETCH NEXT 5 ROWS ONLY",
+                any(
+                        strictProject(
+                                ImmutableMap.of("name", new ExpressionMatcher("name")),
+                                filter(
+                                        "(row_num > BIGINT '2')",
+                                        rowNumber(
+                                                pattern -> pattern
+                                                        .partitionBy(ImmutableList.of()),
+                                                limit(
+                                                        7,
+                                                        false,
+                                                        any(
+                                                                tableScan("nation", ImmutableMap.of("NAME", "name")))))
+                                                .withAlias("row_num", new RowNumberSymbolMatcher())))));
     }
 }

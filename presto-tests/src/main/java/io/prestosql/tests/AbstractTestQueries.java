@@ -843,6 +843,49 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testOffset()
+    {
+        String values = "(VALUES ('A', 3), ('D', 2), ('C', 1), ('B', 4)) AS t(x, y)";
+
+        MaterializedResult actual = computeActual("SELECT x FROM " + values + " OFFSET 2 ROWS");
+        MaterializedResult all = computeExpected("SELECT x FROM " + values, actual.getTypes());
+
+        assertEquals(actual.getMaterializedRows().size(), 2);
+        assertNotEquals(actual.getMaterializedRows().get(0), actual.getMaterializedRows().get(1));
+        assertContains(all, actual);
+    }
+
+    @Test
+    public void testOffsetWithFetch()
+    {
+        String values = "(VALUES ('A', 3), ('D', 2), ('C', 1), ('B', 4)) AS t(x, y)";
+
+        MaterializedResult actual = computeActual("SELECT x FROM " + values + " OFFSET 2 ROWS FETCH NEXT ROW ONLY");
+        MaterializedResult all = computeExpected("SELECT x FROM " + values, actual.getTypes());
+
+        assertEquals(actual.getMaterializedRows().size(), 1);
+        assertContains(all, actual);
+    }
+
+    @Test
+    public void testOffsetWithOrderBy()
+    {
+        String values = "(VALUES ('A', 3), ('D', 2), ('C', 1), ('B', 4)) AS t(x, y)";
+
+        assertQuery("SELECT x FROM " + values + " ORDER BY y OFFSET 2 ROWS", "VALUES 'A', 'B'");
+        assertQuery("SELECT x FROM " + values + " ORDER BY y OFFSET 2 ROWS FETCH NEXT 1 ROW ONLY", "VALUES 'A'");
+    }
+
+    @Test
+    public void testOffsetEmptyResult()
+    {
+        assertQueryReturnsEmptyResult("SELECT name FROM nation OFFSET 100 ROWS");
+        assertQueryReturnsEmptyResult("SELECT name FROM nation ORDER BY regionkey OFFSET 100 ROWS");
+        assertQueryReturnsEmptyResult("SELECT name FROM nation OFFSET 100 ROWS LIMIT 20");
+        assertQueryReturnsEmptyResult("SELECT name FROM nation ORDER BY regionkey OFFSET 100 ROWS LIMIT 20");
+    }
+
+    @Test
     public void testRepeatedAggregations()
     {
         assertQuery("SELECT SUM(orderkey), SUM(orderkey) FROM orders");

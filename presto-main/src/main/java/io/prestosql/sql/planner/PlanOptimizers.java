@@ -48,6 +48,11 @@ import io.prestosql.sql.planner.iterative.rule.ExtractSpatialJoins;
 import io.prestosql.sql.planner.iterative.rule.GatherAndMergeWindows;
 import io.prestosql.sql.planner.iterative.rule.ImplementBernoulliSampleAsFilter;
 import io.prestosql.sql.planner.iterative.rule.ImplementFilteredAggregations;
+import io.prestosql.sql.planner.iterative.rule.ImplementOffsetOverOther;
+import io.prestosql.sql.planner.iterative.rule.ImplementOffsetOverProjectSort;
+import io.prestosql.sql.planner.iterative.rule.ImplementOffsetOverProjectTopN;
+import io.prestosql.sql.planner.iterative.rule.ImplementOffsetOverSort;
+import io.prestosql.sql.planner.iterative.rule.ImplementOffsetOverTopN;
 import io.prestosql.sql.planner.iterative.rule.InlineProjections;
 import io.prestosql.sql.planner.iterative.rule.MergeFilters;
 import io.prestosql.sql.planner.iterative.rule.MergeLimitOverProjectWithSort;
@@ -78,9 +83,11 @@ import io.prestosql.sql.planner.iterative.rule.PruneWindowColumns;
 import io.prestosql.sql.planner.iterative.rule.PushAggregationThroughOuterJoin;
 import io.prestosql.sql.planner.iterative.rule.PushLimitIntoTableScan;
 import io.prestosql.sql.planner.iterative.rule.PushLimitThroughMarkDistinct;
+import io.prestosql.sql.planner.iterative.rule.PushLimitThroughOffset;
 import io.prestosql.sql.planner.iterative.rule.PushLimitThroughOuterJoin;
 import io.prestosql.sql.planner.iterative.rule.PushLimitThroughProject;
 import io.prestosql.sql.planner.iterative.rule.PushLimitThroughSemiJoin;
+import io.prestosql.sql.planner.iterative.rule.PushOffsetThroughProject;
 import io.prestosql.sql.planner.iterative.rule.PushPartialAggregationThroughExchange;
 import io.prestosql.sql.planner.iterative.rule.PushPartialAggregationThroughJoin;
 import io.prestosql.sql.planner.iterative.rule.PushPredicateIntoTableScan;
@@ -289,6 +296,8 @@ public class PlanOptimizers
                                         new EvaluateZeroLimit(),
                                         new EvaluateZeroTopN(),
                                         new EvaluateZeroSample(),
+                                        new PushOffsetThroughProject(),
+                                        new PushLimitThroughOffset(),
                                         new PushLimitThroughProject(),
                                         new MergeLimits(),
                                         new MergeLimitWithSort(),
@@ -308,6 +317,16 @@ public class PlanOptimizers
                                         new PruneOrderByInAggregation(metadata.getFunctionRegistry()),
                                         new RewriteSpatialPartitioningAggregation(metadata)))
                                 .build()),
+                new IterativeOptimizer(
+                        ruleStats,
+                        statsCalculator,
+                        estimatedExchangesCostCalculator,
+                        ImmutableSet.of(
+                                new ImplementOffsetOverTopN(),
+                                new ImplementOffsetOverProjectTopN(),
+                                new ImplementOffsetOverSort(),
+                                new ImplementOffsetOverProjectSort(),
+                                new ImplementOffsetOverOther())),
                 simplifyOptimizer,
                 new UnaliasSymbolReferences(),
                 new IterativeOptimizer(

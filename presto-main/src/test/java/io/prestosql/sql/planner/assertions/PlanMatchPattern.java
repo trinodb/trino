@@ -42,6 +42,7 @@ import io.prestosql.sql.planner.plan.JoinNode;
 import io.prestosql.sql.planner.plan.LateralJoinNode;
 import io.prestosql.sql.planner.plan.LimitNode;
 import io.prestosql.sql.planner.plan.MarkDistinctNode;
+import io.prestosql.sql.planner.plan.OffsetNode;
 import io.prestosql.sql.planner.plan.OutputNode;
 import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.ProjectNode;
@@ -523,6 +524,11 @@ public final class PlanMatchPattern
     public static PlanMatchPattern values(List<String> aliases)
     {
         return values(aliases, Optional.empty());
+    }
+
+    public static PlanMatchPattern offset(long rowCount, PlanMatchPattern source)
+    {
+        return node(OffsetNode.class, source).with(new OffsetMatcher(rowCount));
     }
 
     public static PlanMatchPattern limit(long limit, PlanMatchPattern source)

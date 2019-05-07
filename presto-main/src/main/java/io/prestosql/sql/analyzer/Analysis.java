@@ -35,6 +35,7 @@ import io.prestosql.sql.tree.Join;
 import io.prestosql.sql.tree.LambdaArgumentDeclaration;
 import io.prestosql.sql.tree.Node;
 import io.prestosql.sql.tree.NodeRef;
+import io.prestosql.sql.tree.Offset;
 import io.prestosql.sql.tree.OrderBy;
 import io.prestosql.sql.tree.QuantifiedComparisonExpression;
 import io.prestosql.sql.tree.Query;
@@ -98,6 +99,7 @@ public class Analysis
     private final Map<NodeRef<Node>, List<Expression>> outputExpressions = new LinkedHashMap<>();
     private final Map<NodeRef<QuerySpecification>, List<FunctionCall>> windowFunctions = new LinkedHashMap<>();
     private final Map<NodeRef<OrderBy>, List<FunctionCall>> orderByWindowFunctions = new LinkedHashMap<>();
+    private final Map<NodeRef<Offset>, Long> offset = new LinkedHashMap<>();
     private final Map<NodeRef<Node>, OptionalLong> limit = new LinkedHashMap<>();
 
     private final Map<NodeRef<Join>, Expression> joins = new LinkedHashMap<>();
@@ -316,6 +318,17 @@ public class Analysis
     public List<Expression> getOrderByExpressions(Node node)
     {
         return orderByExpressions.get(NodeRef.of(node));
+    }
+
+    public void setOffset(Offset node, long rowCount)
+    {
+        offset.put(NodeRef.of(node), rowCount);
+    }
+
+    public long getOffset(Offset node)
+    {
+        checkState(offset.containsKey(NodeRef.of(node)), "missing OFFSET value for node %s", node);
+        return offset.get(NodeRef.of(node));
     }
 
     public void setLimit(Node node, OptionalLong rowCount)
