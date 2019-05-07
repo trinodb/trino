@@ -90,6 +90,7 @@ import static io.prestosql.type.MapParametricType.MAP;
 import static io.prestosql.type.Re2JRegexpType.RE2J_REGEXP;
 import static io.prestosql.type.RowParametricType.ROW;
 import static io.prestosql.type.UnknownType.UNKNOWN;
+import static io.prestosql.type.UuidType.UUID;
 import static io.prestosql.type.setdigest.SetDigestType.SET_DIGEST;
 import static java.util.Objects.requireNonNull;
 
@@ -147,6 +148,7 @@ public final class TypeRegistry
         addType(JSON);
         addType(CODE_POINTS);
         addType(IPADDRESS);
+        addType(UUID);
         addParametricType(VarcharParametricType.VARCHAR);
         addParametricType(CharParametricType.CHAR);
         addParametricType(DecimalParametricType.DECIMAL);
