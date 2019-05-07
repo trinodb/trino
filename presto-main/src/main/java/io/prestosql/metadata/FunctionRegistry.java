@@ -192,6 +192,7 @@ import io.prestosql.type.TimestampWithTimeZoneOperators;
 import io.prestosql.type.TinyintOperators;
 import io.prestosql.type.TypeRegistry;
 import io.prestosql.type.UnknownOperators;
+import io.prestosql.type.UuidOperators;
 import io.prestosql.type.VarbinaryOperators;
 import io.prestosql.type.VarcharOperators;
 import io.prestosql.type.setdigest.BuildSetDigestAggregation;
@@ -532,6 +533,8 @@ public class FunctionRegistry
                 .scalars(QuantileDigestOperators.class)
                 .scalars(IpAddressOperators.class)
                 .scalar(IpAddressOperators.IpAddressDistinctFromOperator.class)
+                .scalars(UuidOperators.class)
+                .scalar(UuidOperators.UuidDistinctFromOperator.class)
                 .scalars(LikeFunctions.class)
                 .scalars(ArrayFunctions.class)
                 .scalars(HmacFunctions.class)
