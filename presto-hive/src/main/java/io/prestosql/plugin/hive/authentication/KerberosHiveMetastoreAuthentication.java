@@ -15,7 +15,6 @@ package io.prestosql.plugin.hive.authentication;
 
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.plugin.hive.ForHiveMetastore;
-import io.prestosql.plugin.hive.HiveConfig;
 import org.apache.hadoop.hive.thrift.client.TUGIAssumingTransport;
 import org.apache.hadoop.security.SaslRpcServer;
 import org.apache.thrift.transport.TSaslClientTransport;
@@ -38,22 +37,19 @@ public class KerberosHiveMetastoreAuthentication
 {
     private final String hiveMetastoreServicePrincipal;
     private final HadoopAuthentication authentication;
-    private final boolean hdfsWireEncryptionEnabled;
 
     @Inject
     public KerberosHiveMetastoreAuthentication(
             MetastoreKerberosConfig config,
-            @ForHiveMetastore HadoopAuthentication authentication,
-            HiveConfig hiveConfig)
+            @ForHiveMetastore HadoopAuthentication authentication)
     {
-        this(config.getHiveMetastoreServicePrincipal(), authentication, hiveConfig.isHdfsWireEncryptionEnabled());
+        this(config.getHiveMetastoreServicePrincipal(), authentication);
     }
 
-    public KerberosHiveMetastoreAuthentication(String hiveMetastoreServicePrincipal, HadoopAuthentication authentication, boolean hdfsWireEncryptionEnabled)
+    public KerberosHiveMetastoreAuthentication(String hiveMetastoreServicePrincipal, HadoopAuthentication authentication)
     {
         this.hiveMetastoreServicePrincipal = requireNonNull(hiveMetastoreServicePrincipal, "hiveMetastoreServicePrincipal is null");
         this.authentication = requireNonNull(authentication, "authentication is null");
-        this.hdfsWireEncryptionEnabled = hdfsWireEncryptionEnabled;
     }
 
     @Override
@@ -66,7 +62,7 @@ public class KerberosHiveMetastoreAuthentication
                     "Kerberos principal name does NOT have the expected hostname part: %s", serverPrincipal);
 
             Map<String, String> saslProps = ImmutableMap.of(
-                    Sasl.QOP, hdfsWireEncryptionEnabled ? "auth-conf" : "auth",
+                    Sasl.QOP, "auth-conf,auth",
                     Sasl.SERVER_AUTH, "true");
 
             TTransport saslTransport = new TSaslClientTransport(
