@@ -21,6 +21,8 @@ import io.prestosql.spi.block.ByteArrayBlockBuilder;
 import io.prestosql.spi.block.PageBuilderStatus;
 import io.prestosql.spi.connector.ConnectorSession;
 
+import java.util.Optional;
+
 import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static java.lang.Long.rotateLeft;
@@ -114,6 +116,12 @@ public final class TinyintType
         byte leftValue = leftBlock.getByte(leftPosition, 0);
         byte rightValue = rightBlock.getByte(rightPosition, 0);
         return Byte.compare(leftValue, rightValue);
+    }
+
+    @Override
+    public Optional<Range> getRange()
+    {
+        return Optional.of(new Range((long) Byte.MIN_VALUE, (long) Byte.MAX_VALUE));
     }
 
     @Override

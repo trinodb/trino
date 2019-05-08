@@ -121,6 +121,7 @@ import io.prestosql.sql.planner.iterative.rule.TransformCorrelatedSingleRowSubqu
 import io.prestosql.sql.planner.iterative.rule.TransformExistsApplyToLateralNode;
 import io.prestosql.sql.planner.iterative.rule.TransformUncorrelatedInPredicateSubqueryToSemiJoin;
 import io.prestosql.sql.planner.iterative.rule.TransformUncorrelatedLateralToJoin;
+import io.prestosql.sql.planner.iterative.rule.UnwrapCastInComparison;
 import io.prestosql.sql.planner.optimizations.AddExchanges;
 import io.prestosql.sql.planner.optimizations.AddLocalExchanges;
 import io.prestosql.sql.planner.optimizations.BeginTableWrite;
@@ -266,6 +267,7 @@ public class PlanOptimizers
                 estimatedExchangesCostCalculator,
                 ImmutableSet.<Rule<?>>builder()
                     .addAll(new SimplifyExpressions(metadata, typeAnalyzer).rules())
+                    .addAll(new UnwrapCastInComparison(metadata, typeAnalyzer).rules())
                     .addAll(new RemoveDuplicateConditions().rules())
                     .addAll(new CanonicalizeExpressions().rules())
                     .build());

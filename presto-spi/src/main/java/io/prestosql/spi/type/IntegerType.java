@@ -18,6 +18,8 @@ import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.connector.ConnectorSession;
 
+import java.util.Optional;
+
 import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static java.lang.String.format;
@@ -53,6 +55,12 @@ public final class IntegerType
         }
 
         blockBuilder.writeInt((int) value).closeEntry();
+    }
+
+    @Override
+    public Optional<Range> getRange()
+    {
+        return Optional.of(new Range((long) Integer.MIN_VALUE, (long) Integer.MAX_VALUE));
     }
 
     @Override
