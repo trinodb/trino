@@ -30,10 +30,15 @@ import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
 import io.prestosql.spi.connector.ConnectorTableProperties;
+import io.prestosql.spi.connector.Constraint;
 import io.prestosql.spi.connector.SchemaNotFoundException;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.SchemaTablePrefix;
+import io.prestosql.spi.statistics.ColumnStatistics;
 import io.prestosql.spi.statistics.ComputedStatistics;
+import io.prestosql.spi.statistics.DoubleRange;
+import io.prestosql.spi.statistics.Estimate;
+import io.prestosql.spi.statistics.TableStatistics;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -49,6 +54,7 @@ import static io.prestosql.plugin.blackhole.BlackHoleConnector.PAGES_PER_SPLIT_P
 import static io.prestosql.plugin.blackhole.BlackHoleConnector.PAGE_PROCESSING_DELAY;
 import static io.prestosql.plugin.blackhole.BlackHoleConnector.ROWS_PER_PAGE_PROPERTY;
 import static io.prestosql.plugin.blackhole.BlackHoleConnector.SPLIT_COUNT_PROPERTY;
+import static io.prestosql.plugin.blackhole.BlackHolePageSourceProvider.isNumericType;
 import static io.prestosql.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.prestosql.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static java.lang.String.format;
@@ -127,6 +133,28 @@ public class BlackHoleMetadata
         return tables.values().stream()
                 .filter(table -> prefix.matches(table.toSchemaTableName()))
                 .collect(toMap(BlackHoleTableHandle::toSchemaTableName, handle -> handle.toTableMetadata().getColumns()));
+    }
+
+    @Override
+    public TableStatistics getTableStatistics(ConnectorSession session, ConnectorTableHandle tableHandle, Constraint constraint)
+    {
+        BlackHoleTableHandle table = (BlackHoleTableHandle) tableHandle;
+        TableStatistics.Builder tableStats = TableStatistics.builder();
+
+        double rows = (double) table.getSplitCount() * table.getPagesPerSplit() * table.getRowsPerPage();
+        tableStats.setRowCount(Estimate.of(rows));
+
+        for (BlackHoleColumnHandle column : table.getColumnHandles()) {
+            ColumnStatistics.Builder stats = ColumnStatistics.builder()
+                    .setDistinctValuesCount(Estimate.of(1))
+                    .setNullsFraction(Estimate.of(0));
+            if (isNumericType(column.getColumnType())) {
+                stats.setRange(new DoubleRange(0, 0));
+            }
+            tableStats.setColumnStatistics(column, stats.build());
+        }
+
+        return tableStats.build();
     }
 
     @Override
