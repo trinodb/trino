@@ -66,6 +66,7 @@ import io.prestosql.sql.planner.plan.RemoteSourceNode;
 import io.prestosql.sql.planner.plan.RowNumberNode;
 import io.prestosql.sql.planner.plan.SampleNode;
 import io.prestosql.sql.planner.plan.SemiJoinNode;
+import io.prestosql.sql.planner.plan.SortNode;
 import io.prestosql.sql.planner.plan.TableFinishNode;
 import io.prestosql.sql.planner.plan.TableScanNode;
 import io.prestosql.sql.planner.plan.TableWriterNode;
@@ -196,6 +197,16 @@ public class PlanBuilder
     public EnforceSingleRowNode enforceSingleRow(PlanNode source)
     {
         return new EnforceSingleRowNode(idAllocator.getNextId(), source);
+    }
+
+    public SortNode sort(List<Symbol> orderBy, PlanNode source)
+    {
+        return new SortNode(
+                idAllocator.getNextId(),
+                source,
+                new OrderingScheme(
+                        orderBy,
+                        Maps.toMap(orderBy, Functions.constant(SortOrder.ASC_NULLS_FIRST))));
     }
 
     public LimitNode limit(long limit, PlanNode source)

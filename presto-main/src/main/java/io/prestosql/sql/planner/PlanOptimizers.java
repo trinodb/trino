@@ -50,6 +50,7 @@ import io.prestosql.sql.planner.iterative.rule.ImplementBernoulliSampleAsFilter;
 import io.prestosql.sql.planner.iterative.rule.ImplementFilteredAggregations;
 import io.prestosql.sql.planner.iterative.rule.InlineProjections;
 import io.prestosql.sql.planner.iterative.rule.MergeFilters;
+import io.prestosql.sql.planner.iterative.rule.MergeLimitOverProjectWithSort;
 import io.prestosql.sql.planner.iterative.rule.MergeLimitWithDistinct;
 import io.prestosql.sql.planner.iterative.rule.MergeLimitWithSort;
 import io.prestosql.sql.planner.iterative.rule.MergeLimitWithTopN;
@@ -291,6 +292,7 @@ public class PlanOptimizers
                                         new PushLimitThroughProject(),
                                         new MergeLimits(),
                                         new MergeLimitWithSort(),
+                                        new MergeLimitOverProjectWithSort(),
                                         new MergeLimitWithTopN(),
                                         new PushLimitThroughMarkDistinct(),
                                         new PushLimitThroughOuterJoin(),
