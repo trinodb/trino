@@ -296,6 +296,7 @@ public class PlanOptimizers
                                         new PushLimitThroughOuterJoin(),
                                         new PushLimitThroughSemiJoin(),
                                         new PushLimitIntoTableScan(metadata),
+                                        new PushPredicateIntoTableScan(metadata, typeAnalyzer),
                                         new RemoveTrivialFilters(),
                                         new ImplementFilteredAggregations(),
                                         new SingleDistinctAggregationToGroupBy(),
