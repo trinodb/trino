@@ -157,4 +157,10 @@ public final class BlackHoleTableHandle
         return Objects.equals(this.getSchemaName(), other.getSchemaName()) &&
                 Objects.equals(this.getTableName(), other.getTableName());
     }
+
+    @Override
+    public String toString()
+    {
+        return schemaName + ":" + tableName;
+    }
 }

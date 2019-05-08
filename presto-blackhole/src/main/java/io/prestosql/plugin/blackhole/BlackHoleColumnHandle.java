@@ -77,4 +77,10 @@ public final class BlackHoleColumnHandle
         return Objects.equals(this.name, other.name) &&
                 Objects.equals(this.columnType, other.columnType);
     }
+
+    @Override
+    public String toString()
+    {
+        return name + ":" + columnType;
+    }
 }
