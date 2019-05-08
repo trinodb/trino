@@ -71,7 +71,6 @@ public final class BlackHolePageSourceProvider
             ConnectorTableHandle tableHandle,
             List<ColumnHandle> columns)
     {
-        BlackHoleSplit blackHoleSplit = (BlackHoleSplit) split;
         BlackHoleTableHandle table = (BlackHoleTableHandle) tableHandle;
 
         ImmutableList.Builder<Type> builder = ImmutableList.builder();
