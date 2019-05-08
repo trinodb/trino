@@ -28,7 +28,6 @@ import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorSplit;
 import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
-import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.FixedWidthType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.VarcharType;
@@ -37,18 +36,20 @@ import java.util.Arrays;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.BooleanType.BOOLEAN;
-import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.Decimals.encodeScaledValue;
 import static io.prestosql.spi.type.Decimals.isLongDecimal;
-import static io.prestosql.spi.type.DoubleType.DOUBLE;
-import static io.prestosql.spi.type.IntegerType.INTEGER;
-import static io.prestosql.spi.type.RealType.REAL;
-import static io.prestosql.spi.type.SmallintType.SMALLINT;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
-import static io.prestosql.spi.type.TinyintType.TINYINT;
-import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
+import static io.prestosql.spi.type.StandardTypes.BIGINT;
+import static io.prestosql.spi.type.StandardTypes.BOOLEAN;
+import static io.prestosql.spi.type.StandardTypes.DATE;
+import static io.prestosql.spi.type.StandardTypes.DECIMAL;
+import static io.prestosql.spi.type.StandardTypes.DOUBLE;
+import static io.prestosql.spi.type.StandardTypes.INTEGER;
+import static io.prestosql.spi.type.StandardTypes.REAL;
+import static io.prestosql.spi.type.StandardTypes.SMALLINT;
+import static io.prestosql.spi.type.StandardTypes.TIMESTAMP;
+import static io.prestosql.spi.type.StandardTypes.TINYINT;
+import static io.prestosql.spi.type.StandardTypes.VARBINARY;
+import static io.prestosql.spi.type.StandardTypes.VARCHAR;
 import static io.prestosql.spi.type.Varchars.isVarcharType;
 import static java.math.BigDecimal.ZERO;
 import static java.util.Objects.requireNonNull;
@@ -144,9 +145,18 @@ public final class BlackHolePageSourceProvider
         return builder.build();
     }
 
-    private boolean isSupportedType(Type type)
+    private static boolean isSupportedType(Type type)
     {
-        return ImmutableSet.<Type>of(TINYINT, SMALLINT, INTEGER, BIGINT, REAL, DOUBLE, BOOLEAN, DATE, TIMESTAMP, VARBINARY).contains(type)
-                || isVarcharType(type) || type instanceof DecimalType;
+        return isNumericType(type) || isTypeOneOf(type, BOOLEAN, DATE, TIMESTAMP, VARCHAR, VARBINARY);
+    }
+
+    public static boolean isNumericType(Type type)
+    {
+        return isTypeOneOf(type, TINYINT, SMALLINT, INTEGER, BIGINT, REAL, DOUBLE, DECIMAL);
+    }
+
+    private static boolean isTypeOneOf(Type type, String... typeNames)
+    {
+        return ImmutableSet.copyOf(typeNames).contains(type.getTypeSignature().getBase());
     }
 }
