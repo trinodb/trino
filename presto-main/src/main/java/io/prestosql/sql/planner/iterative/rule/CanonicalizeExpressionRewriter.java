@@ -14,6 +14,8 @@
 package io.prestosql.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
+import io.prestosql.sql.tree.ArithmeticBinaryExpression;
+import io.prestosql.sql.tree.ComparisonExpression;
 import io.prestosql.sql.tree.CurrentTime;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.ExpressionRewriter;
@@ -23,12 +25,16 @@ import io.prestosql.sql.tree.FunctionCall;
 import io.prestosql.sql.tree.IfExpression;
 import io.prestosql.sql.tree.IsNotNullPredicate;
 import io.prestosql.sql.tree.IsNullPredicate;
+import io.prestosql.sql.tree.Literal;
 import io.prestosql.sql.tree.NotExpression;
 import io.prestosql.sql.tree.QualifiedName;
 import io.prestosql.sql.tree.SearchedCaseExpression;
 import io.prestosql.sql.tree.WhenClause;
 
 import java.util.Optional;
+
+import static io.prestosql.sql.tree.ArithmeticBinaryExpression.Operator.ADD;
+import static io.prestosql.sql.tree.ArithmeticBinaryExpression.Operator.MULTIPLY;
 
 public class CanonicalizeExpressionRewriter
 {
@@ -42,6 +48,32 @@ public class CanonicalizeExpressionRewriter
     private static class Visitor
             extends ExpressionRewriter<Void>
     {
+        @Override
+        public Expression rewriteComparisonExpression(ComparisonExpression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+        {
+            // if we have a comparison of the form <constant> <op> <expr>, normalize it to
+            // <expr> <op-flipped> <constant>
+            if (node.getLeft() instanceof Literal && !(node.getRight() instanceof Literal)) {
+                node = new ComparisonExpression(node.getOperator().flip(), node.getRight(), node.getLeft());
+            }
+
+            return treeRewriter.defaultRewrite(node, context);
+        }
+
+        @Override
+        public Expression rewriteArithmeticBinary(ArithmeticBinaryExpression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+        {
+            if (node.getOperator() == MULTIPLY || node.getOperator() == ADD) {
+                // if we have a operation of the form <constant> [+|*] <expr>, normalize it to
+                // <expr> [+|*] <constant>
+                if (node.getLeft() instanceof Literal && !(node.getRight() instanceof Literal)) {
+                    node = new ArithmeticBinaryExpression(node.getOperator(), node.getRight(), node.getLeft());
+                }
+            }
+
+            return treeRewriter.defaultRewrite(node, context);
+        }
+
         @Override
         public Expression rewriteIsNotNullPredicate(IsNotNullPredicate node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
         {

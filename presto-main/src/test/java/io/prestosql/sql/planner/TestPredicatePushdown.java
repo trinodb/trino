@@ -451,7 +451,7 @@ public class TestPredicatePushdown
                         "FROM orders" +
                         ") WHERE custkey > 100*rand()",
                 anyTree(
-                        filter("CAST(\"CUST_KEY\" AS double) > (1E2 * \"rand\"())",
+                        filter("CAST(\"CUST_KEY\" AS double) > (\"rand\"() * 1E2)",
                                 anyTree(
                                         node(WindowNode.class,
                                                 anyTree(

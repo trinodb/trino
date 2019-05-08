@@ -97,6 +97,7 @@ import io.prestosql.sql.planner.iterative.rule.PushTopNThroughOuterJoin;
 import io.prestosql.sql.planner.iterative.rule.PushTopNThroughProject;
 import io.prestosql.sql.planner.iterative.rule.PushTopNThroughUnion;
 import io.prestosql.sql.planner.iterative.rule.RemoveAggregationInSemiJoin;
+import io.prestosql.sql.planner.iterative.rule.RemoveDuplicateConditions;
 import io.prestosql.sql.planner.iterative.rule.RemoveEmptyDelete;
 import io.prestosql.sql.planner.iterative.rule.RemoveFullSample;
 import io.prestosql.sql.planner.iterative.rule.RemoveRedundantDistinctLimit;
@@ -263,7 +264,11 @@ public class PlanOptimizers
                 ruleStats,
                 statsCalculator,
                 estimatedExchangesCostCalculator,
-                new SimplifyExpressions(metadata, typeAnalyzer).rules());
+                ImmutableSet.<Rule<?>>builder()
+                    .addAll(new SimplifyExpressions(metadata, typeAnalyzer).rules())
+                    .addAll(new RemoveDuplicateConditions().rules())
+                    .addAll(new CanonicalizeExpressions().rules())
+                    .build());
 
         PlanOptimizer predicatePushDown = new StatsRecordingPlanOptimizer(optimizerStats, new PredicatePushDown(metadata, typeAnalyzer));
 

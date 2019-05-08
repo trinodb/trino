@@ -235,7 +235,7 @@ public class TestBigintOperators
     @Test
     public void testOverflowAdd()
     {
-        assertNumericOverflow(format("%s + 1", Long.MAX_VALUE), "bigint addition overflow: 9223372036854775807 + 1");
+        assertNumericOverflow(format("%s + BIGINT '1'", Long.MAX_VALUE), "bigint addition overflow: 9223372036854775807 + 1");
     }
 
     @Test
@@ -248,7 +248,7 @@ public class TestBigintOperators
     @Test
     public void testOverflowMultiply()
     {
-        assertNumericOverflow(format("%s * 2", Long.MAX_VALUE), "bigint multiplication overflow: 9223372036854775807 * 2");
+        assertNumericOverflow(format("%s * BIGINT '2'", Long.MAX_VALUE), "bigint multiplication overflow: 9223372036854775807 * 2");
         // TODO: uncomment when https://github.com/prestodb/presto/issues/4571 is fixed
         //assertNumericOverflow(format("%s * -1", Long.MAX_VALUE), "bigint multiplication overflow: 9223372036854775807 * -1");
     }
