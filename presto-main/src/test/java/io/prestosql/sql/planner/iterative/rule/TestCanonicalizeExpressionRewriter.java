@@ -45,6 +45,41 @@ public class TestCanonicalizeExpressionRewriter
         assertRewritten("EXTRACT(YEAR FROM '2017-07-20')", "year('2017-07-20')");
     }
 
+    @Test
+    public void testCanonicalizeArithmetic()
+    {
+        assertRewritten("a + 1", "a + 1");
+        assertRewritten("1 + a", "a + 1");
+
+        assertRewritten("a * 1", "a * 1");
+        assertRewritten("1 * a", "a * 1");
+    }
+
+    @Test
+    public void testCanonicalizeComparison()
+    {
+        assertRewritten("a = 1", "a = 1");
+        assertRewritten("1 = a", "a = 1");
+
+        assertRewritten("a <> 1", "a <> 1");
+        assertRewritten("1 <> a", "a <> 1");
+
+        assertRewritten("a > 1", "a > 1");
+        assertRewritten("1 > a", "a < 1");
+
+        assertRewritten("a < 1", "a < 1");
+        assertRewritten("1 < a", "a > 1");
+
+        assertRewritten("a >= 1", "a >= 1");
+        assertRewritten("1 >= a", "a <= 1");
+
+        assertRewritten("a <= 1", "a <= 1");
+        assertRewritten("1 <= a", "a >= 1");
+
+        assertRewritten("a IS DISTINCT FROM 1", "a IS DISTINCT FROM 1");
+        assertRewritten("1 IS DISTINCT FROM a", "a IS DISTINCT FROM 1");
+    }
+
     private static void assertRewritten(String from, String to)
     {
         assertEquals(canonicalizeExpression(PlanBuilder.expression(from)), PlanBuilder.expression(to));
