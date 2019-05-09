@@ -1654,7 +1654,7 @@ class StatementAnalyzer
                 return expressions;
             }
 
-            if (hasAggregates(node)) {
+            if (hasAggregates(node) || node.getHaving().isPresent()) {
                 analysis.setGroupByExpressions(node, ImmutableList.of());
             }
 
@@ -1911,8 +1911,6 @@ class StatementAnalyzer
                     .collect(toImmutableList()));
 
             toExtractBuilder.addAll(getSortItemsFromOrderBy(node.getOrderBy()));
-
-            node.getHaving().ifPresent(toExtractBuilder::add);
 
             List<FunctionCall> aggregates = extractAggregateFunctions(toExtractBuilder.build(), metadata.getFunctionRegistry());
 
