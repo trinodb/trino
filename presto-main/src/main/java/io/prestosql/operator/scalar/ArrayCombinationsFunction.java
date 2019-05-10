@@ -70,12 +70,12 @@ public final class ArrayCombinationsFunction
         int[] ids = new int[combinationCount * combinationLength];
         int idsPosition = 0;
 
-        int[] combination = firstCombination(combinationLength);
+        int[] combination = firstCombination(arrayLength, combinationLength);
         do {
             arraycopy(combination, 0, ids, idsPosition, combinationLength);
             idsPosition += combinationLength;
         }
-        while (nextCombination(combination, arrayLength));
+        while (nextCombination(combination, combinationLength));
         verify(idsPosition == ids.length, "idsPosition != ids.length, %s and %s respectively", idsPosition, ids.length);
 
         int[] offsets = new int[combinationCount + 1];
@@ -104,26 +104,22 @@ public final class ArrayCombinationsFunction
         }
     }
 
-    private static int[] firstCombination(int combinationLength)
+    private static int[] firstCombination(int arrayLength, int combinationLength)
     {
-        int[] combination = new int[combinationLength];
+        int[] combination = new int[combinationLength + 1];
         setAll(combination, i -> i);
+        combination[combinationLength] = arrayLength; // sentinel
         return combination;
     }
 
-    private static boolean nextCombination(int[] combination, int arrayLength)
+    private static boolean nextCombination(int[] combination, int combinationLength)
     {
-        for (int i = 0; i < combination.length - 1; i++) {
+        for (int i = 0; i < combinationLength; i++) {
             if (combination[i] + 1 < combination[i + 1]) {
                 combination[i]++;
                 resetCombination(combination, i);
                 return true;
             }
-        }
-        if (combination.length > 0 && combination[combination.length - 1] + 1 < arrayLength) {
-            combination[combination.length - 1]++;
-            resetCombination(combination, combination.length - 1);
-            return true;
         }
         return false;
     }
