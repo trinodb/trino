@@ -216,6 +216,9 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <configuration>
+                    <systemPropertyVariables>
+                        <io.prestosql.sql.planner.iterative.IterativeOptimizer.SHUFFLE_RULES>true</io.prestosql.sql.planner.iterative.IterativeOptimizer.SHUFFLE_RULES>
+                    </systemPropertyVariables>
                     <!-- these tests take a very long time so only run them in the CI server -->
                     <excludes>
                         <exclude>**/TestDistributedQueriesNoHashGeneration.java</exclude>

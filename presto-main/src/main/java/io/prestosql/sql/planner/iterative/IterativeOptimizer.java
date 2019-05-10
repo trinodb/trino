@@ -14,6 +14,7 @@
 package io.prestosql.sql.planner.iterative;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.units.Duration;
 import io.prestosql.Session;
 import io.prestosql.SystemSessionProperties;
@@ -35,6 +36,8 @@ import io.prestosql.sql.planner.TypeProvider;
 import io.prestosql.sql.planner.optimizations.PlanOptimizer;
 import io.prestosql.sql.planner.plan.PlanNode;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
@@ -52,6 +55,8 @@ import static java.util.concurrent.TimeUnit.NANOSECONDS;
 public class IterativeOptimizer
         implements PlanOptimizer
 {
+    private static final boolean SHUFFLE_RULES = Boolean.valueOf(System.getProperty("io.prestosql.sql.planner.iterative.IterativeOptimizer.SHUFFLE_RULES", "false"));
+
     private final RuleStatsRecorder stats;
     private final StatsCalculator statsCalculator;
     private final CostCalculator costCalculator;
@@ -70,10 +75,17 @@ public class IterativeOptimizer
         this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
         this.legacyRules = ImmutableList.copyOf(legacyRules);
         this.ruleIndex = RuleIndex.builder()
-                .register(newRules)
+                .register(SHUFFLE_RULES ? shuffle(newRules) : newRules)
                 .build();
 
         stats.registerAll(newRules);
+    }
+
+    private static <T> Set<T> shuffle(Set<T> set)
+    {
+        List<T> list = new ArrayList<>(set);
+        Collections.shuffle(list);
+        return ImmutableSet.copyOf(list);
     }
 
     @Override

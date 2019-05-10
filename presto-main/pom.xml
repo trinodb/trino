@@ -398,6 +398,7 @@
                 <configuration>
                     <systemPropertyVariables>
                         <org.joda.time.DateTimeZone.Provider>io.airlift.jodabridge.JdkBasedZoneInfoProvider</org.joda.time.DateTimeZone.Provider>
+                        <io.prestosql.sql.planner.iterative.IterativeOptimizer.SHUFFLE_RULES>true</io.prestosql.sql.planner.iterative.IterativeOptimizer.SHUFFLE_RULES>
                     </systemPropertyVariables>
                 </configuration>
             </plugin>
