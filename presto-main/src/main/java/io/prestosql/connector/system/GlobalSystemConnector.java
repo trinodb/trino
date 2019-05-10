@@ -26,12 +26,9 @@ import io.prestosql.spi.connector.ConnectorSplit;
 import io.prestosql.spi.connector.ConnectorSplitManager;
 import io.prestosql.spi.connector.ConnectorSplitSource;
 import io.prestosql.spi.connector.ConnectorTableHandle;
-import io.prestosql.spi.connector.ConnectorTableLayout;
-import io.prestosql.spi.connector.ConnectorTableLayoutHandle;
-import io.prestosql.spi.connector.ConnectorTableLayoutResult;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
+import io.prestosql.spi.connector.ConnectorTableProperties;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
-import io.prestosql.spi.connector.Constraint;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.SchemaTablePrefix;
 import io.prestosql.spi.connector.SystemTable;
@@ -85,18 +82,6 @@ public class GlobalSystemConnector
             }
 
             @Override
-            public List<ConnectorTableLayoutResult> getTableLayouts(ConnectorSession session, ConnectorTableHandle table, Constraint constraint, Optional<Set<ColumnHandle>> desiredColumns)
-            {
-                throw new UnsupportedOperationException();
-            }
-
-            @Override
-            public ConnectorTableLayout getTableLayout(ConnectorSession session, ConnectorTableLayoutHandle handle)
-            {
-                throw new UnsupportedOperationException();
-            }
-
-            @Override
             public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle table)
             {
                 throw new UnsupportedOperationException();
@@ -124,6 +109,18 @@ public class GlobalSystemConnector
             public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
             {
                 return ImmutableMap.of();
+            }
+
+            @Override
+            public boolean usesLegacyTableLayouts()
+            {
+                return false;
+            }
+
+            @Override
+            public ConnectorTableProperties getTableProperties(ConnectorSession session, ConnectorTableHandle table)
+            {
+                throw new UnsupportedOperationException();
             }
         };
     }
