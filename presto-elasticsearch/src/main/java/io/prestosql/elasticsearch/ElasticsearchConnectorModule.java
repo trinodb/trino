@@ -19,6 +19,7 @@ import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
+import io.airlift.json.ObjectMapperProvider;
 import io.prestosql.decoder.DecoderModule;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeManager;
@@ -44,6 +45,8 @@ public class ElasticsearchConnectorModule
         binder.bind(ElasticsearchMetadata.class).in(Scopes.SINGLETON);
         binder.bind(ElasticsearchSplitManager.class).in(Scopes.SINGLETON);
         binder.bind(ElasticsearchRecordSetProvider.class).in(Scopes.SINGLETON);
+        binder.bind(ElasticsearchMetadataFetcher.class).in(Scopes.SINGLETON);
+        binder.bind(ObjectMapperProvider.class).in(Scopes.SINGLETON);
 
         configBinder(binder).bindConfig(ElasticsearchConnectorConfig.class);
 
@@ -55,10 +58,11 @@ public class ElasticsearchConnectorModule
 
     @Singleton
     @Provides
-    public static ElasticsearchClient createElasticsearchClient(ElasticsearchConnectorConfig config, ElasticsearchTableDescriptionProvider elasticsearchTableDescriptionProvider)
+    public static ElasticsearchClient createElasticsearchClient(ElasticsearchConnectorConfig config,
+            ElasticsearchTableDescriptionProvider elasticsearchTableDescriptionProvider, ElasticsearchMetadataFetcher metadataFetcher)
             throws IOException
     {
-        return new ElasticsearchClient(elasticsearchTableDescriptionProvider, config);
+        return new ElasticsearchClient(elasticsearchTableDescriptionProvider, metadataFetcher);
     }
 
     private static final class TypeDeserializer

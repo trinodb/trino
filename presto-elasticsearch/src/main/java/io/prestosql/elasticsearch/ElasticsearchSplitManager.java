@@ -21,9 +21,6 @@ import io.prestosql.spi.connector.ConnectorSplitSource;
 import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 import io.prestosql.spi.connector.FixedSplitSource;
-import org.elasticsearch.action.admin.cluster.shards.ClusterSearchShardsGroup;
-import org.elasticsearch.action.admin.cluster.shards.ClusterSearchShardsResponse;
-import org.elasticsearch.cluster.node.DiscoveryNode;
 
 import javax.inject.Inject;
 
@@ -53,16 +50,14 @@ public class ElasticsearchSplitManager
         List<String> indices = client.getIndices(tableDescription);
         ImmutableList.Builder<ConnectorSplit> splits = ImmutableList.builder();
         for (String index : indices) {
-            ClusterSearchShardsResponse response = client.getSearchShards(index, tableDescription);
-            DiscoveryNode[] nodes = response.getNodes();
-            for (ClusterSearchShardsGroup group : response.getGroups()) {
-                int nodeIndex = group.getShardId().getId() % nodes.length;
+            List<ElasticsearchShard> shards = client.getShards(index, tableDescription);
+            for (ElasticsearchShard shard : shards) {
                 ElasticsearchSplit split = new ElasticsearchSplit(
-                        index,
-                        tableDescription.getType(),
-                        group.getShardId().getId(),
-                        nodes[nodeIndex].getHostName(),
-                        nodes[nodeIndex].getAddress().getPort());
+                        shard.getIndex(),
+                        shard.getType(),
+                        shard.getId(),
+                        shard.getHost(),
+                        shard.getPort());
                 splits.add(split);
             }
         }

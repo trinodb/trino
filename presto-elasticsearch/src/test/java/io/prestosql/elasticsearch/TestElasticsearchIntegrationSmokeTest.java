@@ -106,11 +106,7 @@ public class TestElasticsearchIntegrationSmokeTest
                 .get();
 
         // ensure the index is up to date
-        embeddedElasticsearchNode.getClient()
-                .admin()
-                .indices()
-                .refresh(refreshRequest("person"))
-                .actionGet();
+        refreshIndex("person");
 
         assertQuery(
                 "SELECT Name, Age FROM test.person",
@@ -134,14 +130,38 @@ public class TestElasticsearchIntegrationSmokeTest
                         .build())
                 .get();
 
-        embeddedElasticsearchNode.getClient()
-                .admin()
-                .indices()
-                .refresh(refreshRequest(indexName))
-                .actionGet();
+        refreshIndex(indexName);
 
         assertQuery(
                 "SELECT name, fields.fielda, fields.fieldb FROM nested.data",
                 "VALUES ('nestfield', 32, 'valueb')");
+    }
+
+    @Test
+    public void testHttpTransport()
+    {
+        String indexName = "http";
+        embeddedElasticsearchNode.getClient()
+                .prepareIndex(indexName, "doc")
+                .setSource(ImmutableMap.<String, Object>builder()
+                        .put("Name", "John")
+                        .put("Age", 20)
+                        .build())
+                .get();
+
+        refreshIndex(indexName);
+
+        assertQuery(
+                "SELECT Name, Age FROM test.http",
+                "VALUES ('John', 20)");
+    }
+
+    private void refreshIndex(String index)
+    {
+        embeddedElasticsearchNode.getClient()
+                .admin()
+                .indices()
+                .refresh(refreshRequest(index))
+                .actionGet();
     }
 }

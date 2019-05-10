@@ -16,7 +16,6 @@ package io.prestosql.elasticsearch;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.airlift.units.Duration;
-import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.Range;
@@ -25,7 +24,6 @@ import io.prestosql.spi.type.Type;
 import org.elasticsearch.action.search.SearchRequestBuilder;
 import org.elasticsearch.action.search.SearchScrollRequestBuilder;
 import org.elasticsearch.client.transport.TransportClient;
-import org.elasticsearch.common.transport.TransportAddress;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.ExistsQueryBuilder;
@@ -34,8 +32,6 @@ import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.RangeQueryBuilder;
 import org.elasticsearch.index.query.TermQueryBuilder;
 
-import java.net.InetAddress;
-import java.net.UnknownHostException;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -43,14 +39,12 @@ import java.util.Set;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.prestosql.elasticsearch.ElasticsearchClient.createTransportClient;
-import static io.prestosql.elasticsearch.ElasticsearchErrorCode.ELASTICSEARCH_CONNECTION_ERROR;
+import static io.prestosql.elasticsearch.ElasticsearchMetadataFetcher.createNettyTransportClient;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static org.elasticsearch.action.search.SearchType.QUERY_THEN_FETCH;
@@ -79,14 +73,7 @@ public class ElasticsearchQueryBuilder
         index = split.getIndex();
         shard = split.getShard();
         type = split.getType();
-        InetAddress address;
-        try {
-            address = InetAddress.getByName(split.getSearchNode());
-        }
-        catch (UnknownHostException e) {
-            throw new PrestoException(ELASTICSEARCH_CONNECTION_ERROR, format("Failed to resolve search node (%s:%d)", split.getSearchNode(), split.getPort()), e);
-        }
-        client = createTransportClient(config, new TransportAddress(address, split.getPort()));
+        client = createNettyTransportClient(config, split.getSearchNode(), split.getPort());
         scrollTimeout = config.getScrollTimeout();
         scrollSize = config.getScrollSize();
     }

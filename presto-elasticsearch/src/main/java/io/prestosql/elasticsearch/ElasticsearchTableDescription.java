@@ -17,6 +17,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -30,6 +31,9 @@ public class ElasticsearchTableDescription
     private final String schemaName;
     private final String host;
     private final int port;
+    private final Optional<Boolean> isHttpPort;
+    private final Optional<String> pathPrefix;
+    private final Optional<Map<String, String>> headers;
     private final String clusterName;
     private final String index;
     private final boolean indexExactMatch;
@@ -42,6 +46,9 @@ public class ElasticsearchTableDescription
             @JsonProperty("schemaName") String schemaName,
             @JsonProperty("host") String host,
             @JsonProperty("port") int port,
+            @JsonProperty("isHttpPort") Optional<Boolean> isHttpPort,
+            @JsonProperty("pathPrefix") Optional<String> pathPrefix,
+            @JsonProperty("headers") Optional<Map<String, String>> headers,
             @JsonProperty("clusterName") String clusterName,
             @JsonProperty("index") String index,
             @JsonProperty("indexExactMatch") boolean indexExactMatch,
@@ -59,6 +66,9 @@ public class ElasticsearchTableDescription
         this.schemaName = schemaName;
         this.host = host;
         this.port = port;
+        this.isHttpPort = requireNonNull(isHttpPort, "isHttpPort is null");
+        this.pathPrefix = requireNonNull(pathPrefix, "pathPrefix is null");
+        this.headers = requireNonNull(headers, "headers is null");
         this.clusterName = clusterName;
         this.index = index;
         this.indexExactMatch = indexExactMatch;
@@ -88,6 +98,24 @@ public class ElasticsearchTableDescription
     public int getPort()
     {
         return port;
+    }
+
+    @JsonProperty
+    public Optional<Boolean> isHttpPort()
+    {
+        return isHttpPort;
+    }
+
+    @JsonProperty
+    public Optional<String> getPathPrefix()
+    {
+        return pathPrefix;
+    }
+
+    @JsonProperty
+    public Optional<Map<String, String>> getHeaders()
+    {
+        return headers;
     }
 
     @JsonProperty
@@ -128,6 +156,8 @@ public class ElasticsearchTableDescription
                 .add("schemaName", schemaName)
                 .add("host", host)
                 .add("port", port)
+                .add("isHttpPort", isHttpPort)
+                .add("pathPrefix", pathPrefix)
                 .add("clusterName", clusterName)
                 .add("index", index)
                 .add("indexExactMatch", indexExactMatch)
