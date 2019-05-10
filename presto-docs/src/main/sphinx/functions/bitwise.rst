@@ -28,4 +28,16 @@ Bitwise Functions
 
     Returns the bitwise XOR of ``x`` and ``y`` in 2's complement representation.
 
+.. function:: bitwise_left_shift(value, shift) -> [same as value]
+
+    Returns the left shifted value of ``value``.
+
+.. function:: bitwise_right_shift(value, shift, digits) -> [same as value]
+
+    Returns the logical right shifted value of ``value``.
+
+.. function:: bitwise_right_shift_arithmetic(value, shift) -> [same as value]
+
+    Returns the arithmetic right shifted value of ``value``.
+
 See also :func:`bitwise_and_agg` and :func:`bitwise_or_agg`.
