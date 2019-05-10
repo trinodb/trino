@@ -65,11 +65,11 @@ public class TestSubqueries
     public void testCorrelatedExistsSubqueriesWithOrPredicateAndNull()
     {
         assertExistsRewrittenToAggregationAboveJoin(
-                "SELECT EXISTS(SELECT 1 FROM (VALUES null, 10) t(x) WHERE y > x OR y + 10 > x) FROM (VALUES (11)) t2(y)",
+                "SELECT EXISTS(SELECT 1 FROM (VALUES null, 10) t(x) WHERE y > x OR y + 10 > x) FROM (values 11 + if(rand() >= 0, 0)) t2(y)",
                 "VALUES true",
                 false);
         assertExistsRewrittenToAggregationAboveJoin(
-                "SELECT EXISTS(SELECT 1 FROM (VALUES null) t(x) WHERE y > x OR y + 10 > x) FROM (VALUES (11)) t2(y)",
+                "SELECT EXISTS(SELECT 1 FROM (VALUES null) t(x) WHERE y > x OR y + 10 > x) FROM (VALUES 11 + if(rand() >= 0, 0)) t2(y)",
                 "VALUES false",
                 false);
     }

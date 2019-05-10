@@ -789,11 +789,11 @@ public class TestLogicalPlanner
                 false,
                 anyTree(
                         node(JoinNode.class,
-                                anyTree(
-                                        node(ValuesNode.class)),
+                                node(ValuesNode.class),
                                 anyTree(
                                         exchange(REMOTE, GATHER,
-                                                node(TableScanNode.class))))));
+                                                anyTree(
+                                                        node(TableScanNode.class)))))));
 
         // replicated join is preserved if there are no equality criteria
         assertPlanWithSession(
