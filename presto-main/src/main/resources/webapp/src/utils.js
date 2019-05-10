@@ -231,7 +231,7 @@ export function getChildren(nodeInfo: any)
         case 'sample':
         case 'tablewriter':
         case 'delete':
-        case 'metadatadelete':
+        case 'tableDelete':
         case 'tablecommit':
         case 'groupid':
         case 'unnest':

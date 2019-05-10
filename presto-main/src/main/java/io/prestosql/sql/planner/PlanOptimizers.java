@@ -129,7 +129,6 @@ import io.prestosql.sql.planner.optimizations.HashGenerationOptimizer;
 import io.prestosql.sql.planner.optimizations.ImplementIntersectAndExceptAsUnion;
 import io.prestosql.sql.planner.optimizations.IndexJoinOptimizer;
 import io.prestosql.sql.planner.optimizations.LimitPushDown;
-import io.prestosql.sql.planner.optimizations.MetadataDeleteOptimizer;
 import io.prestosql.sql.planner.optimizations.MetadataQueryOptimizer;
 import io.prestosql.sql.planner.optimizations.OptimizeMixedDistinctAggregations;
 import io.prestosql.sql.planner.optimizations.PlanOptimizer;
@@ -138,6 +137,7 @@ import io.prestosql.sql.planner.optimizations.PruneUnreferencedOutputs;
 import io.prestosql.sql.planner.optimizations.ReplicateSemiJoinInDelete;
 import io.prestosql.sql.planner.optimizations.SetFlatteningOptimizer;
 import io.prestosql.sql.planner.optimizations.StatsRecordingPlanOptimizer;
+import io.prestosql.sql.planner.optimizations.TableDeleteOptimizer;
 import io.prestosql.sql.planner.optimizations.TransformQuantifiedComparisonApplyToLateralJoin;
 import io.prestosql.sql.planner.optimizations.UnaliasSymbolReferences;
 import io.prestosql.sql.planner.optimizations.WindowFilterPushDown;
@@ -572,7 +572,7 @@ public class PlanOptimizers
         // Precomputed hashes - this assumes that partitioning will not change
         builder.add(new HashGenerationOptimizer());
 
-        builder.add(new MetadataDeleteOptimizer(metadata));
+        builder.add(new TableDeleteOptimizer(metadata));
         builder.add(new BeginTableWrite(metadata)); // HACK! see comments in BeginTableWrite
 
         // TODO: consider adding a formal final plan sanitization optimizer that prepares the plan for transmission/execution/logging

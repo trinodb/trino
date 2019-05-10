@@ -43,7 +43,6 @@ import io.prestosql.sql.planner.plan.JoinNode;
 import io.prestosql.sql.planner.plan.LateralJoinNode;
 import io.prestosql.sql.planner.plan.LimitNode;
 import io.prestosql.sql.planner.plan.MarkDistinctNode;
-import io.prestosql.sql.planner.plan.MetadataDeleteNode;
 import io.prestosql.sql.planner.plan.OutputNode;
 import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.PlanVisitor;
@@ -54,6 +53,7 @@ import io.prestosql.sql.planner.plan.SemiJoinNode;
 import io.prestosql.sql.planner.plan.SortNode;
 import io.prestosql.sql.planner.plan.SpatialJoinNode;
 import io.prestosql.sql.planner.plan.StatisticsWriterNode;
+import io.prestosql.sql.planner.plan.TableDeleteNode;
 import io.prestosql.sql.planner.plan.TableFinishNode;
 import io.prestosql.sql.planner.plan.TableScanNode;
 import io.prestosql.sql.planner.plan.TableWriterNode;
@@ -401,9 +401,9 @@ public final class StreamPropertyDerivations
         }
 
         @Override
-        public StreamProperties visitMetadataDelete(MetadataDeleteNode node, List<StreamProperties> inputProperties)
+        public StreamProperties visitTableDelete(TableDeleteNode node, List<StreamProperties> inputProperties)
         {
-            // metadata delete only outputs a single row count
+            // delete only outputs a single row count
             return StreamProperties.singleStream();
         }
 
