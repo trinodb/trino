@@ -202,7 +202,6 @@ public class TestAccessControlManager
                 new InformationSchemaConnector(catalogName, nodeManager, metadata, accessControl),
                 systemId,
                 new SystemConnector(
-                        systemId,
                         nodeManager,
                         connector.getSystemTables(),
                         transactionId -> transactionManager.getConnectorTransaction(transactionId, catalog))));

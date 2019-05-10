@@ -17,11 +17,9 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
-import io.prestosql.connector.CatalogName;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 import io.prestosql.transaction.TransactionId;
 
-import java.util.Objects;
 import java.util.function.Function;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -30,16 +28,13 @@ import static java.util.Objects.requireNonNull;
 public class SystemTransactionHandle
         implements ConnectorTransactionHandle
 {
-    private final CatalogName catalogName;
     private final TransactionId transactionId;
     private final Supplier<ConnectorTransactionHandle> connectorTransactionHandle;
 
     SystemTransactionHandle(
-            CatalogName catalogName,
             TransactionId transactionId,
             Function<TransactionId, ConnectorTransactionHandle> transactionHandleFunction)
     {
-        this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.transactionId = requireNonNull(transactionId, "transactionId is null");
         requireNonNull(transactionHandleFunction, "transactionHandleFunction is null");
         this.connectorTransactionHandle = Suppliers.memoize(() -> transactionHandleFunction.apply(transactionId));
@@ -47,20 +42,12 @@ public class SystemTransactionHandle
 
     @JsonCreator
     public SystemTransactionHandle(
-            @JsonProperty("catalogName") CatalogName catalogName,
             @JsonProperty("transactionId") TransactionId transactionId,
             @JsonProperty("connectorTransactionHandle") ConnectorTransactionHandle connectorTransactionHandle)
     {
-        this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.transactionId = requireNonNull(transactionId, "transactionId is null");
         requireNonNull(connectorTransactionHandle, "connectorTransactionHandle is null");
         this.connectorTransactionHandle = () -> connectorTransactionHandle;
-    }
-
-    @JsonProperty
-    public CatalogName getCatalogName()
-    {
-        return catalogName;
     }
 
     @JsonProperty
@@ -78,7 +65,7 @@ public class SystemTransactionHandle
     @Override
     public int hashCode()
     {
-        return Objects.hash(catalogName, transactionId);
+        return transactionId.hashCode();
     }
 
     @Override
@@ -90,16 +77,14 @@ public class SystemTransactionHandle
         if (obj == null || getClass() != obj.getClass()) {
             return false;
         }
-        final SystemTransactionHandle other = (SystemTransactionHandle) obj;
-        return Objects.equals(this.catalogName, other.catalogName) &&
-                Objects.equals(this.transactionId, other.transactionId);
+        SystemTransactionHandle other = (SystemTransactionHandle) obj;
+        return transactionId.equals(other.transactionId);
     }
 
     @Override
     public String toString()
     {
         return toStringHelper(this)
-                .add("catalogName", catalogName)
                 .add("transactionHandle", transactionId)
                 .toString();
     }

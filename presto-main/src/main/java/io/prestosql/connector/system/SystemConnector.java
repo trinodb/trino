@@ -13,7 +13,6 @@
  */
 package io.prestosql.connector.system;
 
-import io.prestosql.connector.CatalogName;
 import io.prestosql.metadata.InternalNodeManager;
 import io.prestosql.spi.connector.ConnectorMetadata;
 import io.prestosql.spi.connector.ConnectorPageSourceProvider;
@@ -32,34 +31,29 @@ import static java.util.Objects.requireNonNull;
 public class SystemConnector
         implements InternalConnector
 {
-    private final CatalogName catalogName;
     private final ConnectorMetadata metadata;
     private final ConnectorSplitManager splitManager;
     private final ConnectorPageSourceProvider pageSourceProvider;
     private final Function<TransactionId, ConnectorTransactionHandle> transactionHandleFunction;
 
     public SystemConnector(
-            CatalogName catalogName,
             InternalNodeManager nodeManager,
             Set<SystemTable> tables,
             Function<TransactionId, ConnectorTransactionHandle> transactionHandleFunction)
     {
-        this(catalogName, nodeManager, new StaticSystemTablesProvider(tables), transactionHandleFunction);
+        this(nodeManager, new StaticSystemTablesProvider(tables), transactionHandleFunction);
     }
 
     public SystemConnector(
-            CatalogName catalogName,
             InternalNodeManager nodeManager,
             SystemTablesProvider tables,
             Function<TransactionId, ConnectorTransactionHandle> transactionHandleFunction)
     {
-        requireNonNull(catalogName, "catalogName is null");
         requireNonNull(nodeManager, "nodeManager is null");
         requireNonNull(tables, "tables is null");
         requireNonNull(transactionHandleFunction, "transactionHandleFunction is null");
 
-        this.catalogName = catalogName;
-        this.metadata = new SystemTablesMetadata(catalogName, tables);
+        this.metadata = new SystemTablesMetadata(tables);
         this.splitManager = new SystemSplitManager(nodeManager, tables);
         this.pageSourceProvider = new SystemPageSourceProvider(tables);
         this.transactionHandleFunction = transactionHandleFunction;
@@ -68,7 +62,7 @@ public class SystemConnector
     @Override
     public ConnectorTransactionHandle beginTransaction(TransactionId transactionId, IsolationLevel isolationLevel, boolean readOnly)
     {
-        return new SystemTransactionHandle(catalogName, transactionId, transactionHandleFunction);
+        return new SystemTransactionHandle(transactionId, transactionHandleFunction);
     }
 
     @Override

@@ -214,7 +214,6 @@ public class TestTransactionManager
                 new InformationSchemaConnector(catalogName, nodeManager, metadata, new AllowAllAccessControl()),
                 systemId,
                 new SystemConnector(
-                        systemId,
                         nodeManager,
                         connector.getSystemTables(),
                         transactionId -> transactionManager.getConnectorTransaction(transactionId, catalog))));
