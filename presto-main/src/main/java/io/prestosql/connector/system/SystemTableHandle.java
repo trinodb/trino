@@ -15,8 +15,10 @@ package io.prestosql.connector.system;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.SchemaTableName;
+import io.prestosql.spi.predicate.TupleDomain;
 
 import java.util.Objects;
 
@@ -29,20 +31,23 @@ public class SystemTableHandle
 {
     private final String schemaName;
     private final String tableName;
+    private final TupleDomain<ColumnHandle> constraint;
 
     @JsonCreator
     public SystemTableHandle(
             @JsonProperty("schemaName") String schemaName,
-            @JsonProperty("tableName") String tableName)
+            @JsonProperty("tableName") String tableName,
+            @JsonProperty("constraint") TupleDomain<ColumnHandle> constraint)
     {
         this.schemaName = checkSchemaName(schemaName);
         this.tableName = checkTableName(tableName);
+        this.constraint = requireNonNull(constraint, "constraint is null");
     }
 
     public static SystemTableHandle fromSchemaTableName(SchemaTableName tableName)
     {
         requireNonNull(tableName, "tableName is null");
-        return new SystemTableHandle(tableName.getSchemaName(), tableName.getTableName());
+        return new SystemTableHandle(tableName.getSchemaName(), tableName.getTableName(), TupleDomain.all());
     }
 
     @JsonProperty
@@ -60,6 +65,12 @@ public class SystemTableHandle
     public SchemaTableName getSchemaTableName()
     {
         return new SchemaTableName(schemaName, tableName);
+    }
+
+    @JsonProperty
+    public TupleDomain<ColumnHandle> getConstraint()
+    {
+        return constraint;
     }
 
     @Override
