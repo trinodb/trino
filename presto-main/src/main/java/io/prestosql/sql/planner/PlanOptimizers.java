@@ -326,8 +326,12 @@ public class PlanOptimizers
                                 new ImplementOffsetOverTopN(),
                                 new ImplementOffsetOverProjectTopN(),
                                 new ImplementOffsetOverSort(),
-                                new ImplementOffsetOverProjectSort(),
-                                new ImplementOffsetOverOther())),
+                                new ImplementOffsetOverProjectSort())),
+                new IterativeOptimizer(
+                        ruleStats,
+                        statsCalculator,
+                        estimatedExchangesCostCalculator,
+                        ImmutableSet.of(new ImplementOffsetOverOther())),
                 simplifyOptimizer,
                 new UnaliasSymbolReferences(),
                 new IterativeOptimizer(
