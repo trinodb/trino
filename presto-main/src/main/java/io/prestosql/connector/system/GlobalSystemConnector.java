@@ -52,13 +52,11 @@ public class GlobalSystemConnector
 {
     public static final String NAME = "system";
 
-    private final String connectorId;
     private final Set<SystemTable> systemTables;
     private final Set<Procedure> procedures;
 
-    public GlobalSystemConnector(String connectorId, Set<SystemTable> systemTables, Set<Procedure> procedures)
+    public GlobalSystemConnector(Set<SystemTable> systemTables, Set<Procedure> procedures)
     {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.systemTables = ImmutableSet.copyOf(requireNonNull(systemTables, "systemTables is null"));
         this.procedures = ImmutableSet.copyOf(requireNonNull(procedures, "procedures is null"));
     }
@@ -66,7 +64,7 @@ public class GlobalSystemConnector
     @Override
     public ConnectorTransactionHandle beginTransaction(TransactionId transactionId, IsolationLevel isolationLevel, boolean readOnly)
     {
-        return new GlobalSystemTransactionHandle(connectorId, transactionId);
+        return new GlobalSystemTransactionHandle(transactionId);
     }
 
     @Override

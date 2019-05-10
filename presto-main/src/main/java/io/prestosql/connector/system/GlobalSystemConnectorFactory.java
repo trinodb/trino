@@ -56,6 +56,6 @@ public class GlobalSystemConnectorFactory
     @Override
     public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
     {
-        return new GlobalSystemConnector(catalogName, tables, procedures);
+        return new GlobalSystemConnector(tables, procedures);
     }
 }
