@@ -15,7 +15,6 @@ package io.prestosql.connector.system;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.connector.CatalogName;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
@@ -48,13 +47,10 @@ import static java.util.Objects.requireNonNull;
 public class SystemTablesMetadata
         implements ConnectorMetadata
 {
-    private final CatalogName catalogName;
-
     private final SystemTablesProvider tables;
 
-    public SystemTablesMetadata(CatalogName catalogName, SystemTablesProvider tables)
+    public SystemTablesMetadata(SystemTablesProvider tables)
     {
-        this.catalogName = requireNonNull(catalogName, "connectorId");
         this.tables = requireNonNull(tables, "tables is null");
     }
 

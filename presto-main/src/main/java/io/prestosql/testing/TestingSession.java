@@ -99,7 +99,7 @@ public final class TestingSession
             @Override
             public ConnectorMetadata getMetadata(ConnectorTransactionHandle transaction)
             {
-                return new SystemTablesMetadata(new CatalogName("test_session_connector"), new StaticSystemTablesProvider(ImmutableSet.of()));
+                return new SystemTablesMetadata(new StaticSystemTablesProvider(ImmutableSet.of()));
             }
 
             @Override

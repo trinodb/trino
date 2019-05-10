@@ -211,7 +211,6 @@ public class ConnectorManager
         }
 
         MaterializedConnector systemConnector = new MaterializedConnector(systemId, new SystemConnector(
-                systemId,
                 nodeManager,
                 systemTablesProvider,
                 transactionId -> transactionManager.getConnectorTransaction(transactionId, catalogName)));
