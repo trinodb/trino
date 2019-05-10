@@ -18,30 +18,19 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 import io.prestosql.transaction.TransactionId;
 
-import java.util.Objects;
-
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 public class GlobalSystemTransactionHandle
         implements ConnectorTransactionHandle
 {
-    private final String connectorId;
     private final TransactionId transactionId;
 
     @JsonCreator
     public GlobalSystemTransactionHandle(
-            @JsonProperty("connectorId") String connectorId,
             @JsonProperty("transactionId") TransactionId transactionId)
     {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.transactionId = requireNonNull(transactionId, "transactionId is null");
-    }
-
-    @JsonProperty
-    public String getConnectorId()
-    {
-        return connectorId;
     }
 
     @JsonProperty
@@ -53,7 +42,7 @@ public class GlobalSystemTransactionHandle
     @Override
     public int hashCode()
     {
-        return Objects.hash(connectorId, transactionId);
+        return transactionId.hashCode();
     }
 
     @Override
@@ -65,16 +54,14 @@ public class GlobalSystemTransactionHandle
         if (obj == null || getClass() != obj.getClass()) {
             return false;
         }
-        final GlobalSystemTransactionHandle other = (GlobalSystemTransactionHandle) obj;
-        return Objects.equals(this.connectorId, other.connectorId) &&
-                Objects.equals(this.transactionId, other.transactionId);
+        GlobalSystemTransactionHandle other = (GlobalSystemTransactionHandle) obj;
+        return transactionId.equals(other.transactionId);
     }
 
     @Override
     public String toString()
     {
         return toStringHelper(this)
-                .add("connectorId", connectorId)
                 .add("transactionId", transactionId)
                 .toString();
     }
