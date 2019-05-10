@@ -718,6 +718,11 @@ public class TestAnalyzer
     {
         // TODO: verify output
         analyze("SELECT sum(a) FROM t1 HAVING avg(a) - avg(b) > 10");
+
+        assertFails(
+                MUST_BE_AGGREGATE_OR_GROUP_BY,
+                "line 1:8: 'a' must be an aggregate expression or appear in GROUP BY clause",
+                "SELECT a FROM t1 HAVING a = 1");
     }
 
     @Test
