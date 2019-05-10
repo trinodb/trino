@@ -1004,20 +1004,16 @@ public class FunctionRegistry
 
     public boolean canResolveOperator(OperatorType operatorType, Type returnType, List<? extends Type> argumentTypes)
     {
+        FunctionId functionId = toFunctionId(new Signature(
+                mangleOperatorName(operatorType),
+                returnType.getTypeSignature(),
+                argumentTypes.stream().map(Type::getTypeSignature).collect(toImmutableList())));
         try {
-            Signature signature = new Signature(
-                    mangleOperatorName(operatorType),
-                    returnType.getTypeSignature(),
-                    argumentTypes.stream().map(Type::getTypeSignature).collect(toImmutableList()));
-            // TODO: this is hacky, but until the magic literal and row field reference hacks are cleaned up it's difficult to implement this.
-            getScalarFunctionImplementation(new ResolvedFunction(signature, toFunctionId(signature)));
+            functions.get(functionId);
             return true;
         }
-        catch (PrestoException e) {
-            if (e.getErrorCode().getCode() == FUNCTION_IMPLEMENTATION_MISSING.toErrorCode().getCode()) {
-                return false;
-            }
-            throw e;
+        catch (IllegalStateException e) {
+            return false;
         }
     }
 
@@ -1041,10 +1037,7 @@ public class FunctionRegistry
     {
         checkArgument(operatorType == OperatorType.CAST || operatorType == OperatorType.SATURATED_FLOOR_CAST);
         try {
-            Signature signature = new Signature(mangleOperatorName(operatorType), toType.getTypeSignature(), ImmutableList.of(fromType.getTypeSignature()));
-            ResolvedFunction resolvedFunction = resolveCoercion(signature);
-            getScalarFunctionImplementation(resolvedFunction);
-            return resolvedFunction;
+            return resolveCoercion(new Signature(mangleOperatorName(operatorType), toType.getTypeSignature(), ImmutableList.of(fromType.getTypeSignature())));
         }
         catch (PrestoException e) {
             if (e.getErrorCode().getCode() == FUNCTION_IMPLEMENTATION_MISSING.toErrorCode().getCode()) {
@@ -1056,9 +1049,7 @@ public class FunctionRegistry
 
     public ResolvedFunction getCoercion(QualifiedName name, Type fromType, Type toType)
     {
-        ResolvedFunction resolvedFunction = resolveCoercion(new Signature(name.getSuffix(), toType.getTypeSignature(), ImmutableList.of(fromType.getTypeSignature())));
-        getScalarFunctionImplementation(resolvedFunction);
-        return resolvedFunction;
+        return resolveCoercion(new Signature(name.getSuffix(), toType.getTypeSignature(), ImmutableList.of(fromType.getTypeSignature())));
     }
 
     private ResolvedFunction resolveCoercion(Signature signature)
