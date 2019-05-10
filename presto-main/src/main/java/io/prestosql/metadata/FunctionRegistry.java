@@ -158,11 +158,8 @@ import io.prestosql.operator.window.RowNumberFunction;
 import io.prestosql.operator.window.SqlWindowFunction;
 import io.prestosql.operator.window.WindowFunctionSupplier;
 import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.function.OperatorType;
-import io.prestosql.spi.type.Type;
 import io.prestosql.sql.DynamicFilters;
 import io.prestosql.sql.analyzer.FeaturesConfig;
-import io.prestosql.sql.analyzer.TypeSignatureProvider;
 import io.prestosql.sql.tree.QualifiedName;
 import io.prestosql.type.BigintOperators;
 import io.prestosql.type.BooleanOperators;
@@ -205,10 +202,7 @@ import java.util.Optional;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
-import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.prestosql.metadata.FunctionId.toFunctionId;
 import static io.prestosql.metadata.FunctionKind.AGGREGATE;
-import static io.prestosql.metadata.Signature.mangleOperatorName;
 import static io.prestosql.operator.aggregation.ArbitraryAggregationFunction.ARBITRARY_AGGREGATION;
 import static io.prestosql.operator.aggregation.ChecksumAggregationFunction.CHECKSUM_AGGREGATION;
 import static io.prestosql.operator.aggregation.CountColumn.COUNT_COLUMN;
@@ -284,10 +278,7 @@ import static io.prestosql.operator.scalar.TryCastFunction.TRY_CAST;
 import static io.prestosql.operator.scalar.ZipFunction.ZIP_FUNCTIONS;
 import static io.prestosql.operator.scalar.ZipWithFunction.ZIP_WITH_FUNCTION;
 import static io.prestosql.operator.window.AggregateWindowFunction.supplier;
-import static io.prestosql.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_MISSING;
-import static io.prestosql.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
-import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.prestosql.type.DecimalCasts.BIGINT_TO_DECIMAL_CAST;
 import static io.prestosql.type.DecimalCasts.BOOLEAN_TO_DECIMAL_CAST;
 import static io.prestosql.type.DecimalCasts.DECIMAL_TO_BIGINT_CAST;
@@ -330,7 +321,6 @@ import static io.prestosql.type.DecimalSaturatedFloorCasts.SMALLINT_TO_DECIMAL_S
 import static io.prestosql.type.DecimalSaturatedFloorCasts.TINYINT_TO_DECIMAL_SATURATED_FLOOR_CAST;
 import static io.prestosql.type.DecimalToDecimalCasts.DECIMAL_TO_DECIMAL_CAST;
 import static java.lang.Math.min;
-import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.HOURS;
 
@@ -678,44 +668,14 @@ public class FunctionRegistry
         return functions.list();
     }
 
-    public boolean isAggregationFunction(QualifiedName name)
+    public Collection<FunctionMetadata> get(QualifiedName name)
     {
-        return functions.get(name).stream()
-                .map(FunctionMetadata::getKind)
-                .anyMatch(AGGREGATE::equals);
+        return functions.get(name);
     }
 
-    ResolvedFunction resolveFunction(QualifiedName name, List<TypeSignatureProvider> parameterTypes)
+    public FunctionMetadata get(FunctionId functionId)
     {
-        return new FunctionResolver(metadata).resolveFunction(functions.get(name), name, parameterTypes);
-    }
-
-    public FunctionMetadata getFunctionMetadata(ResolvedFunction resolvedFunction)
-    {
-        FunctionMetadata functionMetadata = getSpecializedFunctionKey(resolvedFunction).getFunction().getFunctionMetadata();
-
-        // specialize function metadata to resolvedFunction
-        List<FunctionArgumentDefinition> argumentDefinitions;
-        if (functionMetadata.getSignature().isVariableArity()) {
-            List<FunctionArgumentDefinition> fixedArguments = functionMetadata.getArgumentDefinitions().subList(0, functionMetadata.getArgumentDefinitions().size() - 1);
-            int variableArgumentCount = resolvedFunction.getSignature().getArgumentTypes().size() - fixedArguments.size();
-            argumentDefinitions = ImmutableList.<FunctionArgumentDefinition>builder()
-                    .addAll(fixedArguments)
-                    .addAll(nCopies(variableArgumentCount, functionMetadata.getArgumentDefinitions().get(functionMetadata.getArgumentDefinitions().size() - 1)))
-                    .build();
-        }
-        else {
-            argumentDefinitions = functionMetadata.getArgumentDefinitions();
-        }
-        return new FunctionMetadata(
-                functionMetadata.getFunctionId(),
-                resolvedFunction.getSignature(),
-                functionMetadata.isNullable(),
-                argumentDefinitions,
-                functionMetadata.isHidden(),
-                functionMetadata.isDeterministic(),
-                functionMetadata.getDescription(),
-                functionMetadata.getKind());
+        return functions.get(functionId).getFunctionMetadata();
     }
 
     public AggregationFunctionMetadata getAggregationFunctionMetadata(ResolvedFunction resolvedFunction)
@@ -776,61 +736,6 @@ public class FunctionRegistry
                 function,
                 boundVariables,
                 signature.getArgumentTypes().size());
-    }
-
-    public boolean canResolveOperator(OperatorType operatorType, Type returnType, List<? extends Type> argumentTypes)
-    {
-        FunctionId functionId = toFunctionId(new Signature(
-                mangleOperatorName(operatorType),
-                returnType.getTypeSignature(),
-                argumentTypes.stream().map(Type::getTypeSignature).collect(toImmutableList())));
-        try {
-            functions.get(functionId);
-            return true;
-        }
-        catch (IllegalStateException e) {
-            return false;
-        }
-    }
-
-    public ResolvedFunction resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)
-            throws OperatorNotFoundException
-    {
-        try {
-            return resolveFunction(QualifiedName.of(mangleOperatorName(operatorType)), fromTypes(argumentTypes));
-        }
-        catch (PrestoException e) {
-            if (e.getErrorCode().getCode() == FUNCTION_NOT_FOUND.toErrorCode().getCode()) {
-                throw new OperatorNotFoundException(operatorType, argumentTypes);
-            }
-            else {
-                throw e;
-            }
-        }
-    }
-
-    public ResolvedFunction getCoercion(OperatorType operatorType, Type fromType, Type toType)
-    {
-        checkArgument(operatorType == OperatorType.CAST || operatorType == OperatorType.SATURATED_FLOOR_CAST);
-        try {
-            return resolveCoercion(new Signature(mangleOperatorName(operatorType), toType.getTypeSignature(), ImmutableList.of(fromType.getTypeSignature())));
-        }
-        catch (PrestoException e) {
-            if (e.getErrorCode().getCode() == FUNCTION_IMPLEMENTATION_MISSING.toErrorCode().getCode()) {
-                throw new OperatorNotFoundException(operatorType, ImmutableList.of(fromType), toType.getTypeSignature());
-            }
-            throw e;
-        }
-    }
-
-    public ResolvedFunction getCoercion(QualifiedName name, Type fromType, Type toType)
-    {
-        return resolveCoercion(new Signature(name.getSuffix(), toType.getTypeSignature(), ImmutableList.of(fromType.getTypeSignature())));
-    }
-
-    private ResolvedFunction resolveCoercion(Signature signature)
-    {
-        return new FunctionResolver(metadata).resolveCoercion(functions.get(QualifiedName.of(signature.getName())), signature);
     }
 
     private static class FunctionMap
