@@ -18,7 +18,7 @@ import io.prestosql.matching.Captures;
 import io.prestosql.matching.Pattern;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.sql.planner.iterative.Rule;
-import io.prestosql.sql.planner.plan.MetadataDeleteNode;
+import io.prestosql.sql.planner.plan.TableDeleteNode;
 import io.prestosql.sql.planner.plan.TableFinishNode;
 import io.prestosql.sql.planner.plan.TableScanNode;
 
@@ -58,7 +58,7 @@ public class PushDeleteIntoConnector
         TableScanNode tableScan = captures.get(TABLE_SCAN);
 
         return metadata.applyDelete(context.getSession(), tableScan.getTable())
-                .map(newHandle -> new MetadataDeleteNode(
+                .map(newHandle -> new TableDeleteNode(
                         context.getIdAllocator().getNextId(),
                         newHandle,
                         getOnlyElement(node.getOutputSymbols())))

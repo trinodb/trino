@@ -62,7 +62,6 @@ import io.prestosql.operator.LookupOuterOperator.LookupOuterOperatorFactory;
 import io.prestosql.operator.LookupSourceFactory;
 import io.prestosql.operator.MarkDistinctOperator.MarkDistinctOperatorFactory;
 import io.prestosql.operator.MergeOperator.MergeOperatorFactory;
-import io.prestosql.operator.MetadataDeleteOperator.MetadataDeleteOperatorFactory;
 import io.prestosql.operator.NestedLoopJoinBridge;
 import io.prestosql.operator.NestedLoopJoinPagesSupplier;
 import io.prestosql.operator.OperatorFactory;
@@ -85,6 +84,7 @@ import io.prestosql.operator.SpatialJoinOperator.SpatialJoinOperatorFactory;
 import io.prestosql.operator.StageExecutionDescriptor;
 import io.prestosql.operator.StatisticsWriterOperator.StatisticsWriterOperatorFactory;
 import io.prestosql.operator.StreamingAggregationOperator.StreamingAggregationOperatorFactory;
+import io.prestosql.operator.TableDeleteOperator.TableDeleteOperatorFactory;
 import io.prestosql.operator.TableScanOperator.TableScanOperatorFactory;
 import io.prestosql.operator.TaskContext;
 import io.prestosql.operator.TaskOutputOperator.TaskOutputFactory;
@@ -153,7 +153,6 @@ import io.prestosql.sql.planner.plan.IndexSourceNode;
 import io.prestosql.sql.planner.plan.JoinNode;
 import io.prestosql.sql.planner.plan.LimitNode;
 import io.prestosql.sql.planner.plan.MarkDistinctNode;
-import io.prestosql.sql.planner.plan.MetadataDeleteNode;
 import io.prestosql.sql.planner.plan.OutputNode;
 import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.PlanNodeId;
@@ -167,6 +166,7 @@ import io.prestosql.sql.planner.plan.SortNode;
 import io.prestosql.sql.planner.plan.SpatialJoinNode;
 import io.prestosql.sql.planner.plan.StatisticAggregationsDescriptor;
 import io.prestosql.sql.planner.plan.StatisticsWriterNode;
+import io.prestosql.sql.planner.plan.TableDeleteNode;
 import io.prestosql.sql.planner.plan.TableFinishNode;
 import io.prestosql.sql.planner.plan.TableScanNode;
 import io.prestosql.sql.planner.plan.TableWriterNode;
@@ -2287,9 +2287,9 @@ public class LocalExecutionPlanner
         }
 
         @Override
-        public PhysicalOperation visitMetadataDelete(MetadataDeleteNode node, LocalExecutionPlanContext context)
+        public PhysicalOperation visitTableDelete(TableDeleteNode node, LocalExecutionPlanContext context)
         {
-            OperatorFactory operatorFactory = new MetadataDeleteOperatorFactory(context.getNextOperatorId(), node.getId(), metadata, session, node.getTarget());
+            OperatorFactory operatorFactory = new TableDeleteOperatorFactory(context.getNextOperatorId(), node.getId(), metadata, session, node.getTarget());
 
             return new PhysicalOperation(operatorFactory, makeLayout(node), context, UNGROUPED_EXECUTION);
         }

@@ -22,9 +22,9 @@ import io.prestosql.sql.planner.SymbolAllocator;
 import io.prestosql.sql.planner.TypeProvider;
 import io.prestosql.sql.planner.plan.DeleteNode;
 import io.prestosql.sql.planner.plan.ExchangeNode;
-import io.prestosql.sql.planner.plan.MetadataDeleteNode;
 import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.SimplePlanRewriter;
+import io.prestosql.sql.planner.plan.TableDeleteNode;
 import io.prestosql.sql.planner.plan.TableFinishNode;
 import io.prestosql.sql.planner.plan.TableScanNode;
 
@@ -34,7 +34,7 @@ import java.util.Optional;
 import static java.util.Objects.requireNonNull;
 
 /**
- * Converts delete followed immediately by table scan to a special metadata-only delete node
+ * Converts delete followed immediately by table scan to a special table-only delete node
  * <p>
  * Turn
  * <pre>
@@ -42,15 +42,15 @@ import static java.util.Objects.requireNonNull;
  * </pre>
  * into
  * <pre>
- *     MetadataDelete
+ *     TableDelete
  * </pre>
  */
-public class MetadataDeleteOptimizer
+public class TableDeleteOptimizer
         implements PlanOptimizer
 {
     private final Metadata metadata;
 
-    public MetadataDeleteOptimizer(Metadata metadata)
+    public TableDeleteOptimizer(Metadata metadata)
     {
         requireNonNull(metadata, "metadata is null");
 
@@ -92,7 +92,7 @@ public class MetadataDeleteOptimizer
             if (!metadata.supportsMetadataDelete(session, tableScanNode.getTable())) {
                 return context.defaultRewrite(node);
             }
-            return new MetadataDeleteNode(
+            return new TableDeleteNode(
                     idAllocator.getNextId(),
                     tableScanNode.getTable(),
                     Iterables.getOnlyElement(node.getOutputSymbols()));

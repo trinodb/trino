@@ -30,12 +30,12 @@ import static com.google.common.base.Preconditions.checkState;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static java.util.Objects.requireNonNull;
 
-public class MetadataDeleteOperator
+public class TableDeleteOperator
         implements Operator
 {
     public static final List<Type> TYPES = ImmutableList.of(BIGINT);
 
-    public static class MetadataDeleteOperatorFactory
+    public static class TableDeleteOperatorFactory
             implements OperatorFactory
     {
         private final int operatorId;
@@ -45,7 +45,7 @@ public class MetadataDeleteOperator
         private final TableHandle tableHandle;
         private boolean closed;
 
-        public MetadataDeleteOperatorFactory(int operatorId, PlanNodeId planNodeId, Metadata metadata, Session session, TableHandle tableHandle)
+        public TableDeleteOperatorFactory(int operatorId, PlanNodeId planNodeId, Metadata metadata, Session session, TableHandle tableHandle)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
@@ -58,8 +58,8 @@ public class MetadataDeleteOperator
         public Operator createOperator(DriverContext driverContext)
         {
             checkState(!closed, "Factory is already closed");
-            OperatorContext context = driverContext.addOperatorContext(operatorId, planNodeId, MetadataDeleteOperator.class.getSimpleName());
-            return new MetadataDeleteOperator(context, metadata, session, tableHandle);
+            OperatorContext context = driverContext.addOperatorContext(operatorId, planNodeId, TableDeleteOperator.class.getSimpleName());
+            return new TableDeleteOperator(context, metadata, session, tableHandle);
         }
 
         @Override
@@ -71,7 +71,7 @@ public class MetadataDeleteOperator
         @Override
         public OperatorFactory duplicate()
         {
-            return new MetadataDeleteOperatorFactory(operatorId, planNodeId, metadata, session, tableHandle);
+            return new TableDeleteOperatorFactory(operatorId, planNodeId, metadata, session, tableHandle);
         }
     }
 
@@ -82,7 +82,7 @@ public class MetadataDeleteOperator
 
     private boolean finished;
 
-    public MetadataDeleteOperator(OperatorContext operatorContext, Metadata metadata, Session session, TableHandle tableHandle)
+    public TableDeleteOperator(OperatorContext operatorContext, Metadata metadata, Session session, TableHandle tableHandle)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.metadata = requireNonNull(metadata, "metadata is null");

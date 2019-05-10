@@ -26,14 +26,14 @@ import java.util.List;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
-public class MetadataDeleteNode
+public class TableDeleteNode
         extends PlanNode
 {
     private final TableHandle target;
     private final Symbol output;
 
     @JsonCreator
-    public MetadataDeleteNode(
+    public TableDeleteNode(
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("target") TableHandle target,
             @JsonProperty("output") Symbol output)
@@ -70,12 +70,12 @@ public class MetadataDeleteNode
     @Override
     public <R, C> R accept(PlanVisitor<R, C> visitor, C context)
     {
-        return visitor.visitMetadataDelete(this, context);
+        return visitor.visitTableDelete(this, context);
     }
 
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new MetadataDeleteNode(getId(), target, output);
+        return new TableDeleteNode(getId(), target, output);
     }
 }
