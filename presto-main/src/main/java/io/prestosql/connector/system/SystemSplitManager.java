@@ -18,27 +18,25 @@ import com.google.common.collect.ImmutableSet;
 import io.prestosql.metadata.InternalNode;
 import io.prestosql.metadata.InternalNodeManager;
 import io.prestosql.spi.HostAddress;
-import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorSplit;
 import io.prestosql.spi.connector.ConnectorSplitManager;
 import io.prestosql.spi.connector.ConnectorSplitSource;
-import io.prestosql.spi.connector.ConnectorTableLayoutHandle;
+import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 import io.prestosql.spi.connector.FixedSplitSource;
 import io.prestosql.spi.connector.SystemTable;
 import io.prestosql.spi.connector.SystemTable.Distribution;
+import io.prestosql.spi.connector.TableNotFoundException;
 import io.prestosql.spi.predicate.TupleDomain;
 
 import java.util.Set;
 
 import static io.prestosql.metadata.NodeState.ACTIVE;
-import static io.prestosql.spi.StandardErrorCode.NOT_FOUND;
 import static io.prestosql.spi.connector.SystemTable.Distribution.ALL_COORDINATORS;
 import static io.prestosql.spi.connector.SystemTable.Distribution.ALL_NODES;
 import static io.prestosql.spi.connector.SystemTable.Distribution.SINGLE_COORDINATOR;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class SystemSplitManager
@@ -54,15 +52,18 @@ public class SystemSplitManager
     }
 
     @Override
-    public ConnectorSplitSource getSplits(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorTableLayoutHandle layout, SplitSchedulingStrategy splitSchedulingStrategy)
+    public ConnectorSplitSource getSplits(
+            ConnectorTransactionHandle transaction,
+            ConnectorSession session,
+            ConnectorTableHandle tableHandle,
+            SplitSchedulingStrategy splitSchedulingStrategy)
     {
-        SystemTableLayoutHandle layoutHandle = (SystemTableLayoutHandle) layout;
-        SystemTableHandle tableHandle = layoutHandle.getTable();
+        SystemTableHandle table = (SystemTableHandle) tableHandle;
+        TupleDomain<ColumnHandle> constraint = table.getConstraint();
 
-        TupleDomain<ColumnHandle> constraint = layoutHandle.getConstraint();
-        SystemTable systemTable = tables.getSystemTable(session, tableHandle.getSchemaTableName())
+        SystemTable systemTable = tables.getSystemTable(session, table.getSchemaTableName())
                 // table might disappear in the meantime
-                .orElseThrow(() -> new PrestoException(NOT_FOUND, format("Table %s not found", tableHandle.getSchemaTableName())));
+                .orElseThrow(() -> new TableNotFoundException(table.getSchemaTableName()));
 
         Distribution tableDistributionMode = systemTable.getDistribution();
         if (tableDistributionMode == SINGLE_COORDINATOR) {
