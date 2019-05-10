@@ -15,7 +15,9 @@ package io.prestosql.metadata;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.inject.Guice;
 import com.google.inject.Injector;
 import io.airlift.json.JsonModule;
@@ -37,7 +39,8 @@ public class TestInformationSchemaTableHandle
             "@type", "$info_schema",
             "catalogName", "information_schema_catalog",
             "schemaName", "information_schema_schema",
-            "tableName", "information_schema_table");
+            "tableName", "information_schema_table",
+            "prefixes", ImmutableList.of(ImmutableMap.of("catalogName", "abc", "schemaName", "xyz")));
 
     private ObjectMapper objectMapper;
 
@@ -56,7 +59,8 @@ public class TestInformationSchemaTableHandle
         InformationSchemaTableHandle informationSchemaTableHandle = new InformationSchemaTableHandle(
                 "information_schema_catalog",
                 "information_schema_schema",
-                "information_schema_table");
+                "information_schema_table",
+                ImmutableSet.of(new QualifiedTablePrefix("abc", "xyz")));
 
         assertTrue(objectMapper.canSerialize(InformationSchemaTableHandle.class));
         String json = objectMapper.writeValueAsString(informationSchemaTableHandle);

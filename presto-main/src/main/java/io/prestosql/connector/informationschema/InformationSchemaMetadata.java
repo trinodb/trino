@@ -29,9 +29,10 @@ import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTableLayout;
 import io.prestosql.spi.connector.ConnectorTableLayoutHandle;
-import io.prestosql.spi.connector.ConnectorTableLayoutResult;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
+import io.prestosql.spi.connector.ConnectorTableProperties;
 import io.prestosql.spi.connector.Constraint;
+import io.prestosql.spi.connector.ConstraintApplicationResult;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.SchemaTablePrefix;
 import io.prestosql.spi.predicate.Domain;
@@ -169,7 +170,7 @@ public class InformationSchemaMetadata
             return null;
         }
 
-        return new InformationSchemaTableHandle(catalogName, tableName.getSchemaName(), tableName.getTableName());
+        return new InformationSchemaTableHandle(catalogName, tableName.getSchemaName(), tableName.getTableName(), defaultPrefixes());
     }
 
     @Override
@@ -230,13 +231,45 @@ public class InformationSchemaMetadata
     }
 
     @Override
-    public List<ConnectorTableLayoutResult> getTableLayouts(ConnectorSession session, ConnectorTableHandle table, Constraint constraint, Optional<Set<ColumnHandle>> desiredColumns)
+    public boolean usesLegacyTableLayouts()
     {
-        if (constraint.getSummary().isNone()) {
-            return ImmutableList.of();
+        return false;
+    }
+
+    @Override
+    public ConnectorTableProperties getTableProperties(ConnectorSession session, ConnectorTableHandle table)
+    {
+        return new ConnectorTableProperties();
+    }
+
+    @Override
+    public Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorSession session, ConnectorTableHandle handle, Constraint constraint)
+    {
+        InformationSchemaTableHandle table = (InformationSchemaTableHandle) handle;
+
+        if (!table.getPrefixes().equals(defaultPrefixes())) {
+            return Optional.empty();
         }
 
+        Set<QualifiedTablePrefix> prefixes = getPrefixes(session, table, constraint);
+
+        table = new InformationSchemaTableHandle(table.getCatalogName(), table.getSchemaName(), table.getTableName(), prefixes);
+
+        return Optional.of(new ConstraintApplicationResult<>(table, constraint.getSummary()));
+    }
+
+    private Set<QualifiedTablePrefix> defaultPrefixes()
+    {
+        return ImmutableSet.of(new QualifiedTablePrefix(catalogName));
+    }
+
+    private Set<QualifiedTablePrefix> getPrefixes(ConnectorSession session, InformationSchemaTableHandle table, Constraint constraint)
+    {
         InformationSchemaTableHandle handle = checkTableHandle(table);
+
+        if (constraint.getSummary().isNone()) {
+            return ImmutableSet.of();
+        }
 
         Set<QualifiedTablePrefix> prefixes = calculatePrefixesWithSchemaName(session, constraint.getSummary(), constraint.predicate());
         if (isTablesEnumeratingTable(handle.getSchemaTableName())) {
@@ -248,11 +281,10 @@ public class InformationSchemaMetadata
         }
         if (prefixes.size() > MAX_PREFIXES_COUNT) {
             // in case of high number of prefixes it is better to populate all data and then filter
-            prefixes = ImmutableSet.of(new QualifiedTablePrefix(catalogName));
+            prefixes = defaultPrefixes();
         }
 
-        ConnectorTableLayout layout = new ConnectorTableLayout(new InformationSchemaTableLayoutHandle(handle, prefixes));
-        return ImmutableList.of(new ConnectorTableLayoutResult(layout, constraint.getSummary()));
+        return prefixes;
     }
 
     private boolean isTablesEnumeratingTable(SchemaTableName schemaTableName)

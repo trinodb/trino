@@ -84,7 +84,7 @@ public class InformationSchemaPageSourceProvider
             ConnectorTableHandle tableHandle,
             List<ColumnHandle> columns)
     {
-        InternalTable table = getInternalTable(session, split);
+        InternalTable table = getInternalTable(session, tableHandle);
 
         List<Integer> channels = new ArrayList<>();
         for (ColumnHandle column : columns) {
@@ -104,13 +104,11 @@ public class InformationSchemaPageSourceProvider
         return new FixedPageSource(pages.build());
     }
 
-    private InternalTable getInternalTable(ConnectorSession connectorSession, ConnectorSplit connectorSplit)
+    private InternalTable getInternalTable(ConnectorSession connectorSession, ConnectorTableHandle tablehandle)
     {
         Session session = ((FullConnectorSession) connectorSession).getSession();
-        InformationSchemaSplit split = (InformationSchemaSplit) connectorSplit;
-
-        InformationSchemaTableHandle handle = split.getTableHandle();
-        Set<QualifiedTablePrefix> prefixes = split.getPrefixes();
+        InformationSchemaTableHandle handle = (InformationSchemaTableHandle) tablehandle;
+        Set<QualifiedTablePrefix> prefixes = handle.getPrefixes();
 
         return getInformationSchemaTable(session, handle.getCatalogName(), handle.getSchemaTableName(), prefixes);
     }
