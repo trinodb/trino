@@ -19,21 +19,19 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.prestosql.block.BlockEncodingManager;
 import io.prestosql.client.ClientCapabilities;
 import io.prestosql.connector.CatalogName;
 import io.prestosql.connector.MockConnectorFactory;
 import io.prestosql.connector.informationschema.InformationSchemaColumnHandle;
 import io.prestosql.connector.informationschema.InformationSchemaMetadata;
 import io.prestosql.connector.informationschema.InformationSchemaTableHandle;
-import io.prestosql.connector.informationschema.InformationSchemaTableLayoutHandle;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.Connector;
+import io.prestosql.spi.connector.ConnectorMetadata;
 import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.connector.ConnectorTableLayoutHandle;
-import io.prestosql.spi.connector.ConnectorTableLayoutResult;
 import io.prestosql.spi.connector.ConnectorViewDefinition;
 import io.prestosql.spi.connector.Constraint;
+import io.prestosql.spi.connector.ConstraintApplicationResult;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.NullableValue;
@@ -42,21 +40,19 @@ import io.prestosql.sql.analyzer.FeaturesConfig;
 import io.prestosql.testing.TestingConnectorContext;
 import io.prestosql.transaction.TransactionId;
 import io.prestosql.transaction.TransactionManager;
-import io.prestosql.type.TypeRegistry;
 import org.testng.annotations.Test;
 
-import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.prestosql.connector.CatalogName.createInformationSchemaCatalogName;
 import static io.prestosql.connector.CatalogName.createSystemTablesCatalogName;
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static io.prestosql.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static java.util.Arrays.stream;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
 
 public class TestInformationSchemaMetadata
 {
@@ -91,16 +87,7 @@ public class TestInformationSchemaMetadata
                 createSystemTablesCatalogName(catalog),
                 testConnector));
         transactionManager = createTestTransactionManager(catalogManager);
-        metadata = new MetadataManager(
-                new FeaturesConfig(),
-                new TypeRegistry(),
-                new BlockEncodingManager(new TypeRegistry()),
-                new SessionPropertyManager(),
-                new SchemaPropertyManager(),
-                new TablePropertyManager(),
-                new ColumnPropertyManager(),
-                new AnalyzePropertyManager(),
-                transactionManager);
+        metadata = createTestMetadataManager(transactionManager, new FeaturesConfig());
     }
 
     /**
@@ -116,17 +103,14 @@ public class TestInformationSchemaMetadata
         domains.put(new InformationSchemaColumnHandle("table_name"), Domain.singleValue(VARCHAR, Slices.utf8Slice("test_view")));
         Constraint constraint = new Constraint(TupleDomain.withColumnDomains(domains.build()));
 
-        InformationSchemaMetadata informationSchemaMetadata = new InformationSchemaMetadata("test_catalog", metadata);
-        List<ConnectorTableLayoutResult> layoutResults = informationSchemaMetadata.getTableLayouts(
-                createNewSession(transactionId),
-                new InformationSchemaTableHandle("test_catalog", "information_schema", "views"),
-                constraint,
-                Optional.empty());
-
-        assertEquals(layoutResults.size(), 1);
-        ConnectorTableLayoutHandle handle = layoutResults.get(0).getTableLayout().getHandle();
-        assertTrue(handle instanceof InformationSchemaTableLayoutHandle);
-        InformationSchemaTableLayoutHandle tableHandle = (InformationSchemaTableLayoutHandle) handle;
+        ConnectorSession session = createNewSession(transactionId);
+        ConnectorMetadata metadata = new InformationSchemaMetadata("test_catalog", this.metadata);
+        InformationSchemaTableHandle tableHandle = (InformationSchemaTableHandle)
+                metadata.getTableHandle(session, new SchemaTableName("information_schema", "views"));
+        tableHandle = metadata.applyFilter(session, tableHandle, constraint)
+                .map(ConstraintApplicationResult::getHandle)
+                .map(InformationSchemaTableHandle.class::cast)
+                .orElseThrow(AssertionError::new);
         assertEquals(tableHandle.getPrefixes(), ImmutableSet.of(new QualifiedTablePrefix("test_catalog", "test_schema", "test_view")));
     }
 
@@ -154,21 +138,19 @@ public class TestInformationSchemaMetadata
                     return isValid;
                 });
 
-        InformationSchemaMetadata informationSchemaMetadata = new InformationSchemaMetadata("test_catalog", metadata);
-        List<ConnectorTableLayoutResult> layoutResults = informationSchemaMetadata.getTableLayouts(
-                createNewSession(transactionId),
-                new InformationSchemaTableHandle("test_catalog", "information_schema", "views"),
-                constraint,
-                Optional.empty());
+        ConnectorSession session = createNewSession(transactionId);
+        ConnectorMetadata metadata = new InformationSchemaMetadata("test_catalog", this.metadata);
+        InformationSchemaTableHandle tableHandle = (InformationSchemaTableHandle)
+                metadata.getTableHandle(session, new SchemaTableName("information_schema", "views"));
+        tableHandle = metadata.applyFilter(session, tableHandle, constraint)
+                .map(ConstraintApplicationResult::getHandle)
+                .map(InformationSchemaTableHandle.class::cast)
+                .orElseThrow(AssertionError::new);
 
-        assertEquals(layoutResults.size(), 1);
-        ConnectorTableLayoutHandle handle = layoutResults.get(0).getTableLayout().getHandle();
-        assertTrue(handle instanceof InformationSchemaTableLayoutHandle);
-        InformationSchemaTableLayoutHandle tableHandle = (InformationSchemaTableLayoutHandle) handle;
         assertEquals(tableHandle.getPrefixes(), ImmutableSet.of(new QualifiedTablePrefix("test_catalog", "test_schema", "test_view")));
     }
 
-    private ConnectorSession createNewSession(TransactionId transactionId)
+    private static ConnectorSession createNewSession(TransactionId transactionId)
     {
         return testSessionBuilder()
                 .setCatalog("test_catalog")
