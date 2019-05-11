@@ -15,6 +15,7 @@ package io.prestosql.plugin.hive.metastore.glue;
 
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import io.airlift.configuration.ConfigSecuritySensitive;
 
 import javax.validation.constraints.Min;
 
@@ -27,6 +28,8 @@ public class GlueHiveMetastoreConfig
     private int maxGlueConnections = 5;
     private Optional<String> defaultWarehouseDir = Optional.empty();
     private Optional<String> iamRole = Optional.empty();
+    private Optional<String> awsAccessKey = Optional.empty();
+    private Optional<String> awsSecretKey = Optional.empty();
 
     public Optional<String> getGlueRegion()
     {
@@ -91,6 +94,33 @@ public class GlueHiveMetastoreConfig
     public GlueHiveMetastoreConfig setIamRole(String iamRole)
     {
         this.iamRole = Optional.ofNullable(iamRole);
+        return this;
+    }
+
+    public Optional<String> getAwsAccessKey()
+    {
+        return awsAccessKey;
+    }
+
+    @Config("hive.metastore.glue.aws-access-key")
+    @ConfigDescription("Hive Glue metastore AWS access key")
+    public GlueHiveMetastoreConfig setAwsAccessKey(String awsAccessKey)
+    {
+        this.awsAccessKey = Optional.ofNullable(awsAccessKey);
+        return this;
+    }
+
+    public Optional<String> getAwsSecretKey()
+    {
+        return awsSecretKey;
+    }
+
+    @Config("hive.metastore.glue.aws-secret-key")
+    @ConfigDescription("Hive Glue metastore AWS secret key")
+    @ConfigSecuritySensitive
+    public GlueHiveMetastoreConfig setAwsSecretKey(String awsSecretKey)
+    {
+        this.awsSecretKey = Optional.ofNullable(awsSecretKey);
         return this;
     }
 }
