@@ -149,7 +149,7 @@ property
 queryNoWith:
       queryTerm
       (ORDER BY sortItem (',' sortItem)*)?
-      (OFFSET offset=INTEGER_VALUE (ROW | ROWS))?
+      (OFFSET offset=INTEGER_VALUE (ROW | ROWS)?)?
       ((LIMIT limit=(INTEGER_VALUE | ALL)) | (FETCH (FIRST | NEXT) (fetchFirst=INTEGER_VALUE)? (ROW | ROWS) ONLY))?
     ;
 
