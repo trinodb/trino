@@ -32,7 +32,9 @@ public class TestGlueHiveMetastoreConfig
                 .setPinGlueClientToCurrentRegion(false)
                 .setMaxGlueConnections(5)
                 .setDefaultWarehouseDir(null)
-                .setIamRole(null));
+                .setIamRole(null)
+                .setAwsAccessKey(null)
+                .setAwsSecretKey(null));
     }
 
     @Test
@@ -44,6 +46,8 @@ public class TestGlueHiveMetastoreConfig
                 .put("hive.metastore.glue.max-connections", "10")
                 .put("hive.metastore.glue.default-warehouse-dir", "/location")
                 .put("hive.metastore.glue.iam-role", "role")
+                .put("hive.metastore.glue.aws-access-key", "ABC")
+                .put("hive.metastore.glue.aws-secret-key", "DEF")
                 .build();
 
         GlueHiveMetastoreConfig expected = new GlueHiveMetastoreConfig()
@@ -51,7 +55,9 @@ public class TestGlueHiveMetastoreConfig
                 .setPinGlueClientToCurrentRegion(true)
                 .setMaxGlueConnections(10)
                 .setDefaultWarehouseDir("/location")
-                .setIamRole("role");
+                .setIamRole("role")
+                .setAwsAccessKey("ABC")
+                .setAwsSecretKey("DEF");
 
         assertFullMapping(properties, expected);
     }

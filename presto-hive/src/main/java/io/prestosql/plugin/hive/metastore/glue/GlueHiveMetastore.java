@@ -16,6 +16,8 @@ package io.prestosql.plugin.hive.metastore.glue;
 import com.amazonaws.AmazonServiceException;
 import com.amazonaws.ClientConfiguration;
 import com.amazonaws.auth.AWSCredentialsProvider;
+import com.amazonaws.auth.AWSStaticCredentialsProvider;
+import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.auth.STSAssumeRoleSessionCredentialsProvider;
 import com.amazonaws.regions.Region;
 import com.amazonaws.regions.Regions;
@@ -166,7 +168,12 @@ public class GlueHiveMetastore
             }
         }
 
-        if (config.getIamRole().isPresent()) {
+        if (config.getAwsAccessKey().isPresent() && config.getAwsSecretKey().isPresent()) {
+            AWSCredentialsProvider credentialsProvider = new AWSStaticCredentialsProvider(
+                    new BasicAWSCredentials(config.getAwsAccessKey().get(), config.getAwsSecretKey().get()));
+            asyncGlueClientBuilder.setCredentials(credentialsProvider);
+        }
+        else if (config.getIamRole().isPresent()) {
             AWSCredentialsProvider credentialsProvider = new STSAssumeRoleSessionCredentialsProvider
                     .Builder(config.getIamRole().get(), "presto-session")
                     .build();
