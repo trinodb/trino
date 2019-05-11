@@ -27,6 +27,7 @@ import io.airlift.bytecode.control.IfStatement;
 import io.prestosql.annotation.UsedByGeneratedCode;
 import io.prestosql.metadata.BoundVariables;
 import io.prestosql.metadata.FunctionKind;
+import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlScalarFunction;
@@ -85,34 +86,20 @@ public final class MapTransformValueFunction
 
     private MapTransformValueFunction()
     {
-        super(new Signature(
-                "transform_values",
-                FunctionKind.SCALAR,
-                ImmutableList.of(typeVariable("K"), typeVariable("V1"), typeVariable("V2")),
-                ImmutableList.of(),
-                mapType(new TypeSignature("K"), new TypeSignature("V2")),
-                ImmutableList.of(
-                        mapType(new TypeSignature("K"), new TypeSignature("V1")),
-                        functionType(new TypeSignature("K"), new TypeSignature("V1"), new TypeSignature("V2"))),
-                false));
-    }
-
-    @Override
-    public boolean isHidden()
-    {
-        return false;
-    }
-
-    @Override
-    public boolean isDeterministic()
-    {
-        return false;
-    }
-
-    @Override
-    public String getDescription()
-    {
-        return "apply lambda to each entry of the map and transform the value";
+        super(new FunctionMetadata(
+                new Signature(
+                        "transform_values",
+                        FunctionKind.SCALAR,
+                        ImmutableList.of(typeVariable("K"), typeVariable("V1"), typeVariable("V2")),
+                        ImmutableList.of(),
+                        mapType(new TypeSignature("K"), new TypeSignature("V2")),
+                        ImmutableList.of(
+                                mapType(new TypeSignature("K"), new TypeSignature("V1")),
+                                functionType(new TypeSignature("K"), new TypeSignature("V1"), new TypeSignature("V2"))),
+                        false),
+                false,
+                false,
+                "apply lambda to each entry of the map and transform the value"));
     }
 
     @Override
@@ -131,7 +118,7 @@ public final class MapTransformValueFunction
                         functionTypeArgumentProperty(BinaryFunctionInterface.class)),
                 generateTransform(keyType, valueType, transformedValueType, resultMapType),
                 Optional.of(STATE_FACTORY.bindTo(resultMapType)),
-                isDeterministic());
+                false);
     }
 
     @UsedByGeneratedCode

@@ -85,7 +85,7 @@ public class ArrayToArrayCast
                         valueTypeArgumentProperty(RETURN_NULL_ON_NULL),
                         valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
                 methodHandle,
-                isDeterministic());
+                true);
     }
 
     private static Class<?> generateArrayCast(Metadata metadata, Signature elementCastSignature, ScalarFunctionImplementation elementCast)

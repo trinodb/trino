@@ -18,8 +18,9 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.bytecode.DynamicClassLoader;
 import io.airlift.slice.Slice;
 import io.prestosql.metadata.BoundVariables;
-import io.prestosql.metadata.FunctionKind;
+import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Metadata;
+import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlAggregationFunction;
 import io.prestosql.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
 import io.prestosql.operator.aggregation.state.LongDecimalWithOverflowState;
@@ -40,6 +41,7 @@ import java.util.Optional;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.prestosql.metadata.FunctionKind.AGGREGATE;
 import static io.prestosql.metadata.SignatureBinder.applyBoundVariables;
 import static io.prestosql.operator.TypeSignatureParser.parseTypeSignature;
 import static io.prestosql.operator.aggregation.AggregationMetadata.ParameterMetadata;
@@ -66,25 +68,23 @@ public class DecimalSumAggregation
 
     public DecimalSumAggregation()
     {
-        super(NAME,
-                ImmutableList.of(),
-                ImmutableList.of(),
-                parseTypeSignature("decimal(38,s)", ImmutableSet.of("s")),
-                ImmutableList.of(parseTypeSignature("decimal(p,s)", ImmutableSet.of("p", "s"))),
-                FunctionKind.AGGREGATE);
-    }
-
-    @Override
-    public String getDescription()
-    {
-        return "Calculates the sum over the input values";
+        super(new FunctionMetadata(
+                new Signature(
+                        NAME,
+                        AGGREGATE,
+                        parseTypeSignature("decimal(38,s)", ImmutableSet.of("s")),
+                        ImmutableList.of(parseTypeSignature("decimal(p,s)", ImmutableSet.of("p", "s")))),
+                false,
+                true,
+                "Calculates the sum over the input values"));
     }
 
     @Override
     public InternalAggregationFunction specialize(BoundVariables boundVariables, int arity, Metadata metadata)
     {
-        Type inputType = metadata.getType(getOnlyElement(applyBoundVariables(getSignature().getArgumentTypes(), boundVariables)));
-        Type outputType = metadata.getType(applyBoundVariables(getSignature().getReturnType(), boundVariables));
+        Signature signature = getFunctionMetadata().getSignature();
+        Type inputType = metadata.getType(getOnlyElement(applyBoundVariables(signature.getArgumentTypes(), boundVariables)));
+        Type outputType = metadata.getType(applyBoundVariables(signature.getReturnType(), boundVariables));
         return generateAggregation(inputType, outputType);
     }
 

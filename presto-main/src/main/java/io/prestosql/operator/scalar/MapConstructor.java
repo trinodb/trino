@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.prestosql.annotation.UsedByGeneratedCode;
 import io.prestosql.metadata.BoundVariables;
 import io.prestosql.metadata.FunctionKind;
+import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlScalarFunction;
@@ -71,32 +72,18 @@ public final class MapConstructor
 
     public MapConstructor()
     {
-        super(new Signature(
-                "map",
-                FunctionKind.SCALAR,
-                ImmutableList.of(comparableTypeParameter("K"), typeVariable("V")),
-                ImmutableList.of(),
-                TypeSignature.mapType(new TypeSignature("K"), new TypeSignature("V")),
-                ImmutableList.of(arrayType(new TypeSignature("K")), arrayType(new TypeSignature("V"))),
-                false));
-    }
-
-    @Override
-    public boolean isHidden()
-    {
-        return false;
-    }
-
-    @Override
-    public boolean isDeterministic()
-    {
-        return true;
-    }
-
-    @Override
-    public String getDescription()
-    {
-        return DESCRIPTION;
+        super(new FunctionMetadata(
+                new Signature(
+                        "map",
+                        FunctionKind.SCALAR,
+                        ImmutableList.of(comparableTypeParameter("K"), typeVariable("V")),
+                        ImmutableList.of(),
+                        TypeSignature.mapType(new TypeSignature("K"), new TypeSignature("V")),
+                        ImmutableList.of(arrayType(new TypeSignature("K")), arrayType(new TypeSignature("V"))),
+                        false),
+                false,
+                true,
+                DESCRIPTION));
     }
 
     @Override
@@ -118,7 +105,7 @@ public final class MapConstructor
                         valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
                 METHOD_HANDLE.bindTo(mapType).bindTo(keyEqual).bindTo(keyHashCode).bindTo(keyIndeterminate),
                 Optional.of(instanceFactory),
-                isDeterministic());
+                true);
     }
 
     @UsedByGeneratedCode

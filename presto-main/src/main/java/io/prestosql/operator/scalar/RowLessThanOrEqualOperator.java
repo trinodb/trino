@@ -50,7 +50,7 @@ public final class RowLessThanOrEqualOperator
                         valueTypeArgumentProperty(RETURN_NULL_ON_NULL),
                         valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
                 METHOD_HANDLE.bindTo(type).bindTo(getMethodHandles((RowType) type, metadata, LESS_THAN)),
-                isDeterministic());
+                true);
     }
 
     public static boolean lessOrEqual(

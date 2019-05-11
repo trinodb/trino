@@ -17,6 +17,7 @@ package io.prestosql.operator.scalar;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.metadata.BoundVariables;
 import io.prestosql.metadata.FunctionKind;
+import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlScalarFunction;
@@ -44,32 +45,18 @@ public final class InvokeFunction
 
     private InvokeFunction()
     {
-        super(new Signature(
-                "invoke",
-                FunctionKind.SCALAR,
-                ImmutableList.of(typeVariable("T")),
-                ImmutableList.of(),
-                new TypeSignature("T"),
-                ImmutableList.of(functionType(new TypeSignature("T"))),
-                false));
-    }
-
-    @Override
-    public boolean isHidden()
-    {
-        return true;
-    }
-
-    @Override
-    public boolean isDeterministic()
-    {
-        return true;
-    }
-
-    @Override
-    public String getDescription()
-    {
-        return "lambda invoke function";
+        super(new FunctionMetadata(
+                new Signature(
+                        "invoke",
+                        FunctionKind.SCALAR,
+                        ImmutableList.of(typeVariable("T")),
+                        ImmutableList.of(),
+                        new TypeSignature("T"),
+                        ImmutableList.of(functionType(new TypeSignature("T"))),
+                        false),
+                true,
+                true,
+                "lambda invoke function"));
     }
 
     @Override
@@ -82,7 +69,7 @@ public final class InvokeFunction
                 METHOD_HANDLE.asType(
                         METHOD_HANDLE.type()
                                 .changeReturnType(wrap(returnType.getJavaType()))),
-                isDeterministic());
+                true);
     }
 
     public static Object invoke(InvokeLambda function)

@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import io.prestosql.metadata.BoundVariables;
 import io.prestosql.metadata.FunctionKind;
 import io.prestosql.metadata.FunctionListBuilder;
+import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.metadata.Signature;
@@ -203,34 +204,20 @@ public class BenchmarkArrayFilter
 
         private ExactArrayFilterFunction()
         {
-            super(new Signature(
-                    "exact_filter",
-                    FunctionKind.SCALAR,
-                    ImmutableList.of(typeVariable("T")),
-                    ImmutableList.of(),
-                    arrayType(new TypeSignature("T")),
-                    ImmutableList.of(
+            super(new FunctionMetadata(
+                    new Signature(
+                            "exact_filter",
+                            FunctionKind.SCALAR,
+                            ImmutableList.of(typeVariable("T")),
+                            ImmutableList.of(),
                             arrayType(new TypeSignature("T")),
-                            functionType(new TypeSignature("T"), BOOLEAN.getTypeSignature())),
-                    false));
-        }
-
-        @Override
-        public boolean isHidden()
-        {
-            return false;
-        }
-
-        @Override
-        public boolean isDeterministic()
-        {
-            return false;
-        }
-
-        @Override
-        public String getDescription()
-        {
-            return "return array containing elements that match the given predicate";
+                            ImmutableList.of(
+                                    arrayType(new TypeSignature("T")),
+                                    functionType(new TypeSignature("T"), BOOLEAN.getTypeSignature())),
+                            false),
+                    false,
+                    false,
+                    "return array containing elements that match the given predicate"));
         }
 
         @Override
@@ -243,7 +230,7 @@ public class BenchmarkArrayFilter
                             valueTypeArgumentProperty(RETURN_NULL_ON_NULL),
                             valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
                     METHOD_HANDLE.bindTo(type),
-                    isDeterministic());
+                    false);
         }
 
         public static Block filter(Type type, Block block, MethodHandle function)

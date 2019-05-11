@@ -16,6 +16,7 @@ package io.prestosql.operator.scalar;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.metadata.BoundVariables;
 import io.prestosql.metadata.FunctionKind;
+import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlScalarFunction;
@@ -52,35 +53,21 @@ public final class ZipWithFunction
 
     private ZipWithFunction()
     {
-        super(new Signature(
-                "zip_with",
-                FunctionKind.SCALAR,
-                ImmutableList.of(typeVariable("T"), typeVariable("U"), typeVariable("R")),
-                ImmutableList.of(),
-                arrayType(new TypeSignature("R")),
-                ImmutableList.of(
-                        arrayType(new TypeSignature("T")),
-                        arrayType(new TypeSignature("U")),
-                        functionType(new TypeSignature("T"), new TypeSignature("U"), new TypeSignature("R"))),
-                false));
-    }
-
-    @Override
-    public boolean isHidden()
-    {
-        return false;
-    }
-
-    @Override
-    public boolean isDeterministic()
-    {
-        return false;
-    }
-
-    @Override
-    public String getDescription()
-    {
-        return "merge two arrays, element-wise, into a single array using the lambda function";
+        super(new FunctionMetadata(
+                new Signature(
+                        "zip_with",
+                        FunctionKind.SCALAR,
+                        ImmutableList.of(typeVariable("T"), typeVariable("U"), typeVariable("R")),
+                        ImmutableList.of(),
+                        arrayType(new TypeSignature("R")),
+                        ImmutableList.of(
+                                arrayType(new TypeSignature("T")),
+                                arrayType(new TypeSignature("U")),
+                                functionType(new TypeSignature("T"), new TypeSignature("U"), new TypeSignature("R"))),
+                        false),
+                false,
+                false,
+                "merge two arrays, element-wise, into a single array using the lambda function"));
     }
 
     @Override
@@ -98,7 +85,7 @@ public final class ZipWithFunction
                         functionTypeArgumentProperty(BinaryFunctionInterface.class)),
                 METHOD_HANDLE.bindTo(leftElementType).bindTo(rightElementType).bindTo(outputArrayType),
                 Optional.of(STATE_FACTORY.bindTo(outputArrayType)),
-                isDeterministic());
+                false);
     }
 
     public static Object createState(ArrayType arrayType)

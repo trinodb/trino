@@ -63,7 +63,7 @@ public class RowEqualOperator
                 METHOD_HANDLE
                         .bindTo(type)
                         .bindTo(resolveFieldEqualOperators(type, metadata)),
-                isDeterministic());
+                true);
     }
 
     public static List<MethodHandle> resolveFieldEqualOperators(RowType rowType, Metadata metadata)

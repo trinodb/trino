@@ -27,6 +27,7 @@ import io.airlift.bytecode.control.IfStatement;
 import io.airlift.bytecode.expression.BytecodeExpression;
 import io.prestosql.metadata.BoundVariables;
 import io.prestosql.metadata.FunctionKind;
+import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlScalarFunction;
@@ -73,32 +74,18 @@ public final class ArrayConstructor
 
     public ArrayConstructor()
     {
-        super(new Signature("array_constructor",
-                FunctionKind.SCALAR,
-                ImmutableList.of(typeVariable("E")),
-                ImmutableList.of(),
-                arrayType(new TypeSignature("E")),
-                ImmutableList.of(new TypeSignature("E"), new TypeSignature("E")),
-                true));
-    }
-
-    @Override
-    public boolean isHidden()
-    {
-        return true;
-    }
-
-    @Override
-    public boolean isDeterministic()
-    {
-        return true;
-    }
-
-    @Override
-    public String getDescription()
-    {
-        // Internal function, doesn't need a description
-        return null;
+        super(new FunctionMetadata(
+                new Signature(
+                        "array_constructor",
+                        FunctionKind.SCALAR,
+                        ImmutableList.of(typeVariable("E")),
+                        ImmutableList.of(),
+                        arrayType(new TypeSignature("E")),
+                        ImmutableList.of(new TypeSignature("E"), new TypeSignature("E")),
+                        true),
+                true,
+                true,
+                ""));
     }
 
     @Override
@@ -130,7 +117,7 @@ public final class ArrayConstructor
                 false,
                 nCopies(stackTypes.size(), valueTypeArgumentProperty(USE_BOXED_TYPE)),
                 methodHandle,
-                isDeterministic());
+                true);
     }
 
     private static Class<?> generateArrayConstructor(List<Class<?>> stackTypes, Type elementType)

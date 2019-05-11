@@ -24,6 +24,7 @@ import io.prestosql.Session;
 import io.prestosql.connector.CatalogName;
 import io.prestosql.metadata.AbstractMockMetadata;
 import io.prestosql.metadata.FunctionKind;
+import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.metadata.Signature;
@@ -156,6 +157,12 @@ public class TestEffectivePredicateExtractor
         public ResolvedFunction resolveFunction(QualifiedName name, List<TypeSignatureProvider> parameterTypes)
         {
             return delegate.resolveFunction(name, parameterTypes);
+        }
+
+        @Override
+        public FunctionMetadata getFunctionMetadata(ResolvedFunction resolvedFunction)
+        {
+            return delegate.getFunctionMetadata(resolvedFunction);
         }
 
         @Override

@@ -53,6 +53,6 @@ public class IdentityCast
                 false,
                 ImmutableList.of(valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
                 identity,
-                isDeterministic());
+                true);
     }
 }

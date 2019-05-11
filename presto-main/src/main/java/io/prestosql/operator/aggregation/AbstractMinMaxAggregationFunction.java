@@ -17,7 +17,9 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.DynamicClassLoader;
 import io.prestosql.annotation.UsedByGeneratedCode;
 import io.prestosql.metadata.BoundVariables;
+import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Metadata;
+import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlAggregationFunction;
 import io.prestosql.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
 import io.prestosql.operator.aggregation.state.BlockPositionState;
@@ -40,6 +42,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.prestosql.metadata.FunctionKind.AGGREGATE;
 import static io.prestosql.metadata.Signature.orderableTypeParameter;
 import static io.prestosql.operator.aggregation.AggregationMetadata.ParameterMetadata;
 import static io.prestosql.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INDEX;
@@ -75,13 +78,20 @@ public abstract class AbstractMinMaxAggregationFunction
     private final OperatorType operatorType;
     private final boolean min;
 
-    protected AbstractMinMaxAggregationFunction(String name, boolean min)
+    protected AbstractMinMaxAggregationFunction(String name, boolean min, String description)
     {
-        super(name,
-                ImmutableList.of(orderableTypeParameter("E")),
-                ImmutableList.of(),
-                new TypeSignature("E"),
-                ImmutableList.of(new TypeSignature("E")));
+        super(new FunctionMetadata(
+                new Signature(
+                        name,
+                        AGGREGATE,
+                        ImmutableList.of(orderableTypeParameter("E")),
+                        ImmutableList.of(),
+                        new TypeSignature("E"),
+                        ImmutableList.of(new TypeSignature("E")),
+                        false),
+                false,
+                true,
+                description));
         this.min = min;
         this.operatorType = min ? LESS_THAN : GREATER_THAN;
     }
@@ -139,8 +149,9 @@ public abstract class AbstractMinMaxAggregationFunction
         AccumulatorStateFactory<?> stateFactory = StateCompiler.generateStateFactory(stateInterface, classLoader);
 
         Type intermediateType = stateSerializer.getSerializedType();
+        String name = getFunctionMetadata().getSignature().getName();
         AggregationMetadata metadata = new AggregationMetadata(
-                generateAggregationName(getSignature().getName(), type.getTypeSignature(), inputTypes.stream().map(Type::getTypeSignature).collect(toImmutableList())),
+                generateAggregationName(name, type.getTypeSignature(), inputTypes.stream().map(Type::getTypeSignature).collect(toImmutableList())),
                 createParameterMetadata(type),
                 inputFunction,
                 Optional.empty(),
@@ -153,7 +164,7 @@ public abstract class AbstractMinMaxAggregationFunction
                 type);
 
         GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata, classLoader);
-        return new InternalAggregationFunction(getSignature().getName(), inputTypes, ImmutableList.of(intermediateType), type, true, false, factory);
+        return new InternalAggregationFunction(name, inputTypes, ImmutableList.of(intermediateType), type, true, false, factory);
     }
 
     private static List<ParameterMetadata> createParameterMetadata(Type type)

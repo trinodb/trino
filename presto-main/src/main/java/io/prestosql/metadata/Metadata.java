@@ -425,7 +425,7 @@ public interface Metadata
 
     void addFunctions(List<? extends SqlFunction> functions);
 
-    List<SqlFunction> listFunctions();
+    List<FunctionMetadata> listFunctions();
 
     FunctionInvokerProvider getFunctionInvokerProvider();
 
@@ -448,6 +448,8 @@ public interface Metadata
      * because overloads between aggregation and other function types are not allowed.
      */
     boolean isAggregationFunction(QualifiedName name);
+
+    FunctionMetadata getFunctionMetadata(ResolvedFunction resolvedFunction);
 
     WindowFunctionSupplier getWindowFunctionImplementation(ResolvedFunction resolvedFunction);
 

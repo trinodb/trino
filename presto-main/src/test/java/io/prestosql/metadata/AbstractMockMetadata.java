@@ -545,7 +545,7 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public List<SqlFunction> listFunctions()
+    public List<FunctionMetadata> listFunctions()
     {
         throw new UnsupportedOperationException();
     }
@@ -590,6 +590,16 @@ public abstract class AbstractMockMetadata
     public boolean isAggregationFunction(QualifiedName name)
     {
         throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public FunctionMetadata getFunctionMetadata(ResolvedFunction resolvedFunction)
+    {
+        Signature signature = resolvedFunction.getSignature();
+        if (signature.getName().equals("rand") && signature.getArgumentTypes().isEmpty()) {
+            return new FunctionMetadata(signature, false, false, "");
+        }
+        throw new PrestoException(FUNCTION_NOT_FOUND, signature.toString());
     }
 
     @Override

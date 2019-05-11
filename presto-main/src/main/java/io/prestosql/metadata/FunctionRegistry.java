@@ -23,7 +23,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
-import com.google.common.collect.Multimaps;
 import com.google.common.collect.Ordering;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.prestosql.operator.aggregation.ApproximateCountDistinctAggregation;
@@ -380,7 +379,7 @@ public class FunctionRegistry
                 .build(CacheLoader.from(key ->
                 {
                     if (key.getFunction() instanceof SqlAggregationFunction) {
-                        return supplier(key.getFunction().getSignature(), specializedAggregationCache.getUnchecked(key));
+                        return supplier(key.getFunction().getFunctionMetadata().getSignature(), specializedAggregationCache.getUnchecked(key));
                     }
                     return ((SqlWindowFunction) key.getFunction())
                             .specialize(key.getBoundVariables(), key.getArity(), metadata);
@@ -644,15 +643,17 @@ public class FunctionRegistry
     public final synchronized void addFunctions(List<? extends SqlFunction> functions)
     {
         for (SqlFunction function : functions) {
-            checkArgument(!function.getSignature().getName().contains("|"), "Function name can not contain '|' character: %s", function.getSignature());
-            for (SqlFunction existingFunction : this.functions.list()) {
-                checkArgument(!function.getSignature().equals(existingFunction.getSignature()), "Function already registered: %s", function.getSignature());
+            FunctionMetadata functionMetadata = function.getFunctionMetadata();
+            checkArgument(!functionMetadata.getSignature().getName().contains("|"), "Function name can not contain '|' character: %s", functionMetadata.getSignature());
+            for (FunctionMetadata existingFunction : this.functions.list()) {
+                checkArgument(!functionMetadata.getFunctionId().equals(existingFunction.getFunctionId()), "Function already registered: %s", functionMetadata.getFunctionId());
+                checkArgument(!functionMetadata.getSignature().equals(existingFunction.getSignature()), "Function already registered: %s", functionMetadata.getSignature());
             }
         }
         this.functions = new FunctionMap(this.functions, functions);
     }
 
-    public List<SqlFunction> list()
+    public List<FunctionMetadata> list()
     {
         return functions.list();
     }
@@ -664,8 +665,8 @@ public class FunctionRegistry
 
     ResolvedFunction resolveFunction(QualifiedName name, List<TypeSignatureProvider> parameterTypes)
     {
-        Collection<SqlFunction> allCandidates = functions.get(name);
-        List<SqlFunction> exactCandidates = allCandidates.stream()
+        Collection<FunctionMetadata> allCandidates = functions.get(name);
+        List<FunctionMetadata> exactCandidates = allCandidates.stream()
                 .filter(function -> function.getSignature().getTypeVariableConstraints().isEmpty())
                 .collect(Collectors.toList());
 
@@ -674,7 +675,7 @@ public class FunctionRegistry
             return match.get();
         }
 
-        List<SqlFunction> genericCandidates = allCandidates.stream()
+        List<FunctionMetadata> genericCandidates = allCandidates.stream()
                 .filter(function -> !function.getSignature().getTypeVariableConstraints().isEmpty())
                 .collect(Collectors.toList());
 
@@ -689,7 +690,7 @@ public class FunctionRegistry
         }
 
         List<String> expectedParameters = new ArrayList<>();
-        for (SqlFunction function : allCandidates) {
+        for (FunctionMetadata function : allCandidates) {
             expectedParameters.add(format("%s(%s) %s",
                     name,
                     Joiner.on(", ").join(function.getSignature().getArgumentTypes()),
@@ -705,17 +706,17 @@ public class FunctionRegistry
         throw new PrestoException(FUNCTION_NOT_FOUND, message);
     }
 
-    private Optional<ResolvedFunction> matchFunctionExact(List<SqlFunction> candidates, List<TypeSignatureProvider> actualParameters)
+    private Optional<ResolvedFunction> matchFunctionExact(List<FunctionMetadata> candidates, List<TypeSignatureProvider> actualParameters)
     {
         return matchFunction(candidates, actualParameters, false);
     }
 
-    private Optional<ResolvedFunction> matchFunctionWithCoercion(Collection<SqlFunction> candidates, List<TypeSignatureProvider> actualParameters)
+    private Optional<ResolvedFunction> matchFunctionWithCoercion(Collection<FunctionMetadata> candidates, List<TypeSignatureProvider> actualParameters)
     {
         return matchFunction(candidates, actualParameters, true);
     }
 
-    private Optional<ResolvedFunction> matchFunction(Collection<SqlFunction> candidates, List<TypeSignatureProvider> parameters, boolean coercionAllowed)
+    private Optional<ResolvedFunction> matchFunction(Collection<FunctionMetadata> candidates, List<TypeSignatureProvider> parameters, boolean coercionAllowed)
     {
         List<ApplicableFunction> applicableFunctions = identifyApplicableFunctions(candidates, parameters, coercionAllowed);
         if (applicableFunctions.isEmpty()) {
@@ -742,10 +743,10 @@ public class FunctionRegistry
         throw new PrestoException(AMBIGUOUS_FUNCTION_CALL, errorMessageBuilder.toString());
     }
 
-    private List<ApplicableFunction> identifyApplicableFunctions(Collection<SqlFunction> candidates, List<TypeSignatureProvider> actualParameters, boolean allowCoercion)
+    private List<ApplicableFunction> identifyApplicableFunctions(Collection<FunctionMetadata> candidates, List<TypeSignatureProvider> actualParameters, boolean allowCoercion)
     {
         ImmutableList.Builder<ApplicableFunction> applicableFunctions = ImmutableList.builder();
-        for (SqlFunction function : candidates) {
+        for (FunctionMetadata function : candidates) {
             new SignatureBinder(metadata, function.getSignature(), allowCoercion)
                     .bind(actualParameters)
                     .ifPresent(signature -> applicableFunctions.add(new ApplicableFunction(function.getFunctionId(), function.getSignature(), signature)));
@@ -883,6 +884,11 @@ public class FunctionRegistry
         return true;
     }
 
+    public FunctionMetadata getFunctionMetadata(ResolvedFunction resolvedFunction)
+    {
+        return getSpecializedFunctionKey(resolvedFunction).getFunction().getFunctionMetadata();
+    }
+
     public WindowFunctionSupplier getWindowFunctionImplementation(ResolvedFunction resolvedFunction)
     {
         try {
@@ -920,7 +926,7 @@ public class FunctionRegistry
     {
         SqlFunction function = functions.get(resolvedFunction.getFunctionId());
         Signature signature = resolvedFunction.getSignature();
-        BoundVariables boundVariables = new SignatureBinder(metadata, function.getSignature(), false)
+        BoundVariables boundVariables = new SignatureBinder(metadata, function.getFunctionMetadata().getSignature(), false)
                 .bindVariables(fromTypeSignatures(signature.getArgumentTypes()), signature.getReturnType())
                 .orElseThrow(() -> new IllegalArgumentException("Could not extract bound variables"));
         return new SpecializedFunctionKey(
@@ -995,14 +1001,14 @@ public class FunctionRegistry
 
     private ResolvedFunction resolveCoercion(Signature signature)
     {
-        Collection<SqlFunction> allCandidates = functions.get(QualifiedName.of(signature.getName()));
+        Collection<FunctionMetadata> allCandidates = functions.get(QualifiedName.of(signature.getName()));
 
         List<TypeSignatureProvider> argumentTypeSignatureProviders = fromTypeSignatures(signature.getArgumentTypes());
 
-        List<SqlFunction> exactCandidates = allCandidates.stream()
+        List<FunctionMetadata> exactCandidates = allCandidates.stream()
                 .filter(function -> possibleExactCastMatch(signature, function.getSignature()))
                 .collect(Collectors.toList());
-        for (SqlFunction candidate : exactCandidates) {
+        for (FunctionMetadata candidate : exactCandidates) {
             Optional<BoundVariables> boundVariables = new SignatureBinder(metadata, candidate.getSignature(), false)
                     .bindVariables(argumentTypeSignatureProviders, signature.getReturnType());
             if (boundVariables.isPresent()) {
@@ -1011,10 +1017,10 @@ public class FunctionRegistry
         }
 
         // only consider generic genericCandidates
-        List<SqlFunction> genericCandidates = allCandidates.stream()
+        List<FunctionMetadata> genericCandidates = allCandidates.stream()
                 .filter(function -> !function.getSignature().getTypeVariableConstraints().isEmpty())
                 .collect(Collectors.toList());
-        for (SqlFunction candidate : genericCandidates) {
+        for (FunctionMetadata candidate : genericCandidates) {
             Optional<BoundVariables> boundVariables = new SignatureBinder(metadata, candidate.getSignature(), false)
                     .bindVariables(argumentTypeSignatureProviders, signature.getReturnType());
             if (boundVariables.isPresent()) {
@@ -1065,7 +1071,7 @@ public class FunctionRegistry
     private static class FunctionMap
     {
         private final Map<FunctionId, SqlFunction> functions;
-        private final Multimap<QualifiedName, SqlFunction> functionsByName;
+        private final Multimap<QualifiedName, FunctionMetadata> functionsByName;
 
         public FunctionMap()
         {
@@ -1073,20 +1079,23 @@ public class FunctionRegistry
             functionsByName = ImmutableListMultimap.of();
         }
 
-        public FunctionMap(FunctionMap map, Iterable<? extends SqlFunction> functions)
+        public FunctionMap(FunctionMap map, Collection<? extends SqlFunction> functions)
         {
             this.functions = ImmutableMap.<FunctionId, SqlFunction>builder()
                     .putAll(map.functions)
-                    .putAll(Maps.uniqueIndex(functions, SqlFunction::getFunctionId))
-                    .build();
-            this.functionsByName = ImmutableListMultimap.<QualifiedName, SqlFunction>builder()
-                    .putAll(map.functionsByName)
-                    .putAll(Multimaps.index(functions, function -> QualifiedName.of(function.getSignature().getName())))
+                    .putAll(Maps.uniqueIndex(functions, function -> function.getFunctionMetadata().getFunctionId()))
                     .build();
 
+            ImmutableListMultimap.Builder<QualifiedName, FunctionMetadata> functionsByName = ImmutableListMultimap.<QualifiedName, FunctionMetadata>builder()
+                    .putAll(map.functionsByName);
+            functions.stream()
+                    .map(SqlFunction::getFunctionMetadata)
+                    .forEach(functionMetadata -> functionsByName.put(QualifiedName.of(functionMetadata.getSignature().getName()), functionMetadata));
+            this.functionsByName = functionsByName.build();
+
             // Make sure all functions with the same name are aggregations or none of them are
-            for (Map.Entry<QualifiedName, Collection<SqlFunction>> entry : this.functionsByName.asMap().entrySet()) {
-                Collection<SqlFunction> values = entry.getValue();
+            for (Map.Entry<QualifiedName, Collection<FunctionMetadata>> entry : this.functionsByName.asMap().entrySet()) {
+                Collection<FunctionMetadata> values = entry.getValue();
                 long aggregations = values.stream()
                         .map(function -> function.getSignature().getKind())
                         .filter(kind -> kind == AGGREGATE)
@@ -1095,12 +1104,12 @@ public class FunctionRegistry
             }
         }
 
-        public List<SqlFunction> list()
+        public List<FunctionMetadata> list()
         {
             return ImmutableList.copyOf(functionsByName.values());
         }
 
-        public Collection<SqlFunction> get(QualifiedName name)
+        public Collection<FunctionMetadata> get(QualifiedName name)
         {
             return functionsByName.get(name);
         }

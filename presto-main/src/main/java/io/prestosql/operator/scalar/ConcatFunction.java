@@ -28,6 +28,7 @@ import io.airlift.slice.Slices;
 import io.prestosql.annotation.UsedByGeneratedCode;
 import io.prestosql.metadata.BoundVariables;
 import io.prestosql.metadata.FunctionKind;
+import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlScalarFunction;
@@ -70,37 +71,20 @@ public final class ConcatFunction
 
     public static final ConcatFunction VARBINARY_CONCAT = new ConcatFunction(VARBINARY.getTypeSignature(), "concatenates given varbinary values");
 
-    private final String description;
-
     private ConcatFunction(TypeSignature type, String description)
     {
-        super(new Signature(
-                "concat",
-                FunctionKind.SCALAR,
-                ImmutableList.of(),
-                ImmutableList.of(),
-                type,
-                ImmutableList.of(type),
-                true));
-        this.description = description;
-    }
-
-    @Override
-    public boolean isHidden()
-    {
-        return false;
-    }
-
-    @Override
-    public boolean isDeterministic()
-    {
-        return true;
-    }
-
-    @Override
-    public String getDescription()
-    {
-        return description;
+        super(new FunctionMetadata(
+                new Signature(
+                        "concat",
+                        FunctionKind.SCALAR,
+                        ImmutableList.of(),
+                        ImmutableList.of(),
+                        type,
+                        ImmutableList.of(type),
+                        true),
+                false,
+                true,
+                description));
     }
 
     @Override
@@ -110,14 +94,14 @@ public final class ConcatFunction
             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "There must be two or more concatenation arguments");
         }
 
-        Class<?> clazz = generateConcat(getSignature().getReturnType(), arity);
+        Class<?> clazz = generateConcat(getFunctionMetadata().getSignature().getReturnType(), arity);
         MethodHandle methodHandle = methodHandle(clazz, "concat", nCopies(arity, Slice.class).toArray(new Class<?>[arity]));
 
         return new ScalarFunctionImplementation(
                 false,
                 nCopies(arity, valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
                 methodHandle,
-                isDeterministic());
+                true);
     }
 
     private static Class<?> generateConcat(TypeSignature type, int arity)

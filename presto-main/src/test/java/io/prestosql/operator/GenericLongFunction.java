@@ -16,6 +16,7 @@ package io.prestosql.operator;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.metadata.BoundVariables;
 import io.prestosql.metadata.FunctionKind;
+import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlScalarFunction;
@@ -39,33 +40,23 @@ public final class GenericLongFunction
 
     GenericLongFunction(String suffix, LongUnaryOperator longUnaryOperator)
     {
-        super(new Signature("generic_long_" + requireNonNull(suffix, "suffix is null"), FunctionKind.SCALAR, BIGINT.getTypeSignature(), BIGINT.getTypeSignature()));
+        super(new FunctionMetadata(
+                new Signature(
+                        "generic_long_" + requireNonNull(suffix, "suffix is null"),
+                        FunctionKind.SCALAR,
+                        BIGINT.getTypeSignature(),
+                        BIGINT.getTypeSignature()),
+                true,
+                true,
+                "generic long function for test"));
         this.longUnaryOperator = longUnaryOperator;
-    }
-
-    @Override
-    public boolean isHidden()
-    {
-        return true;
-    }
-
-    @Override
-    public boolean isDeterministic()
-    {
-        return true;
-    }
-
-    @Override
-    public String getDescription()
-    {
-        return "generic long function for test";
     }
 
     @Override
     public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, Metadata metadata)
     {
         MethodHandle methodHandle = METHOD_HANDLE.bindTo(longUnaryOperator);
-        return new ScalarFunctionImplementation(false, ImmutableList.of(valueTypeArgumentProperty(RETURN_NULL_ON_NULL)), methodHandle, isDeterministic());
+        return new ScalarFunctionImplementation(false, ImmutableList.of(valueTypeArgumentProperty(RETURN_NULL_ON_NULL)), methodHandle, true);
     }
 
     public static long apply(LongUnaryOperator longUnaryOperator, long value)

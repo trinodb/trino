@@ -23,35 +23,25 @@ import static io.prestosql.metadata.Signature.mangleOperatorName;
 public abstract class SqlOperator
         extends SqlScalarFunction
 {
-    protected SqlOperator(OperatorType operatorType, List<TypeVariableConstraint> typeVariableConstraints, List<LongVariableConstraint> longVariableConstraints, TypeSignature returnType, List<TypeSignature> argumentTypes)
+    protected SqlOperator(
+            OperatorType operatorType,
+            List<TypeVariableConstraint> typeVariableConstraints,
+            List<LongVariableConstraint> longVariableConstraints,
+            TypeSignature returnType,
+            List<TypeSignature> argumentTypes)
     {
         // TODO This should take Signature!
-        super(new Signature(
-                mangleOperatorName(operatorType),
-                FunctionKind.SCALAR,
-                typeVariableConstraints,
-                longVariableConstraints,
-                returnType,
-                argumentTypes,
-                false));
-    }
-
-    @Override
-    public final boolean isHidden()
-    {
-        return true;
-    }
-
-    @Override
-    public final boolean isDeterministic()
-    {
-        return true;
-    }
-
-    @Override
-    public final String getDescription()
-    {
-        // Operators are internal, and don't need a description
-        return null;
+        super(new FunctionMetadata(
+                new Signature(
+                        mangleOperatorName(operatorType),
+                        FunctionKind.SCALAR,
+                        typeVariableConstraints,
+                        longVariableConstraints,
+                        returnType,
+                        argumentTypes,
+                        false),
+                true,
+                true,
+                ""));
     }
 }

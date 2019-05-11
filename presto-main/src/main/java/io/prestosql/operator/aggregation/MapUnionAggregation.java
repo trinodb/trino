@@ -16,7 +16,9 @@ package io.prestosql.operator.aggregation;
 import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.DynamicClassLoader;
 import io.prestosql.metadata.BoundVariables;
+import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Metadata;
+import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlAggregationFunction;
 import io.prestosql.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
 import io.prestosql.operator.aggregation.state.KeyValuePairStateSerializer;
@@ -35,6 +37,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.prestosql.metadata.FunctionKind.AGGREGATE;
 import static io.prestosql.metadata.Signature.comparableTypeParameter;
 import static io.prestosql.metadata.Signature.typeVariable;
 import static io.prestosql.operator.aggregation.AggregationMetadata.ParameterMetadata;
@@ -55,18 +58,18 @@ public class MapUnionAggregation
 
     public MapUnionAggregation()
     {
-        super(
-                NAME,
-                ImmutableList.of(comparableTypeParameter("K"), typeVariable("V")),
-                ImmutableList.of(),
-                mapType(new TypeSignature("K"), new TypeSignature("V")),
-                ImmutableList.of(mapType(new TypeSignature("K"), new TypeSignature("V"))));
-    }
-
-    @Override
-    public String getDescription()
-    {
-        return "Aggregate all the maps into a single map";
+        super(new FunctionMetadata(
+                new Signature(
+                        NAME,
+                        AGGREGATE,
+                        ImmutableList.of(comparableTypeParameter("K"), typeVariable("V")),
+                        ImmutableList.of(),
+                        mapType(new TypeSignature("K"), new TypeSignature("V")),
+                        ImmutableList.of(mapType(new TypeSignature("K"), new TypeSignature("V"))),
+                        false),
+                false,
+                true,
+                "Aggregate all the maps into a single map"));
     }
 
     @Override

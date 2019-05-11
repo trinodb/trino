@@ -16,6 +16,7 @@ package io.prestosql.tests;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.metadata.BoundVariables;
 import io.prestosql.metadata.FunctionKind;
+import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlScalarFunction;
@@ -42,32 +43,18 @@ public class StatefulSleepingSum
 
     private StatefulSleepingSum()
     {
-        super(new Signature(
-                "stateful_sleeping_sum",
-                FunctionKind.SCALAR,
-                ImmutableList.of(typeVariable("bigint")),
-                ImmutableList.of(),
-                BIGINT.getTypeSignature(),
-                ImmutableList.of(DOUBLE.getTypeSignature(), BIGINT.getTypeSignature(), BIGINT.getTypeSignature(), BIGINT.getTypeSignature()),
-                false));
-    }
-
-    @Override
-    public boolean isHidden()
-    {
-        return true;
-    }
-
-    @Override
-    public boolean isDeterministic()
-    {
-        return true;
-    }
-
-    @Override
-    public String getDescription()
-    {
-        return "testing not thread safe function";
+        super(new FunctionMetadata(
+                new Signature(
+                        "stateful_sleeping_sum",
+                        FunctionKind.SCALAR,
+                        ImmutableList.of(typeVariable("bigint")),
+                        ImmutableList.of(),
+                        BIGINT.getTypeSignature(),
+                        ImmutableList.of(DOUBLE.getTypeSignature(), BIGINT.getTypeSignature(), BIGINT.getTypeSignature(), BIGINT.getTypeSignature()),
+                        false),
+                true,
+                true,
+                "testing not thread safe function"));
     }
 
     @Override

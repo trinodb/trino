@@ -13,20 +13,7 @@
  */
 package io.prestosql.metadata;
 
-import static io.prestosql.metadata.FunctionId.toFunctionId;
-
 public interface SqlFunction
 {
-    default FunctionId getFunctionId()
-    {
-        return toFunctionId(getSignature());
-    }
-
-    Signature getSignature();
-
-    boolean isHidden();
-
-    boolean isDeterministic();
-
-    String getDescription();
+    FunctionMetadata getFunctionMetadata();
 }

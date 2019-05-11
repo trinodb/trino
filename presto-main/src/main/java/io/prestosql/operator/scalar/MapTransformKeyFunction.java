@@ -27,6 +27,7 @@ import io.airlift.bytecode.control.IfStatement;
 import io.prestosql.annotation.UsedByGeneratedCode;
 import io.prestosql.metadata.BoundVariables;
 import io.prestosql.metadata.FunctionKind;
+import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlScalarFunction;
@@ -90,34 +91,20 @@ public final class MapTransformKeyFunction
 
     private MapTransformKeyFunction()
     {
-        super(new Signature(
-                "transform_keys",
-                FunctionKind.SCALAR,
-                ImmutableList.of(typeVariable("K1"), typeVariable("K2"), typeVariable("V")),
-                ImmutableList.of(),
-                mapType(new TypeSignature("K2"), new TypeSignature("V")),
-                ImmutableList.of(
-                        mapType(new TypeSignature("K1"), new TypeSignature("V")),
-                        functionType(new TypeSignature("K1"), new TypeSignature("V"), new TypeSignature("K2"))),
-                false));
-    }
-
-    @Override
-    public boolean isHidden()
-    {
-        return false;
-    }
-
-    @Override
-    public boolean isDeterministic()
-    {
-        return false;
-    }
-
-    @Override
-    public String getDescription()
-    {
-        return "apply lambda to each entry of the map and transform the key";
+        super(new FunctionMetadata(
+                new Signature(
+                        "transform_keys",
+                        FunctionKind.SCALAR,
+                        ImmutableList.of(typeVariable("K1"), typeVariable("K2"), typeVariable("V")),
+                        ImmutableList.of(),
+                        mapType(new TypeSignature("K2"), new TypeSignature("V")),
+                        ImmutableList.of(
+                                mapType(new TypeSignature("K1"), new TypeSignature("V")),
+                                functionType(new TypeSignature("K1"), new TypeSignature("V"), new TypeSignature("K2"))),
+                        false),
+                false,
+                false,
+                "apply lambda to each entry of the map and transform the key"));
     }
 
     @Override
@@ -136,7 +123,7 @@ public final class MapTransformKeyFunction
                         functionTypeArgumentProperty(BinaryFunctionInterface.class)),
                 generateTransformKey(keyType, transformedKeyType, valueType, resultMapType),
                 Optional.of(STATE_FACTORY.bindTo(resultMapType)),
-                isDeterministic());
+                false);
     }
 
     @UsedByGeneratedCode
@@ -196,7 +183,7 @@ public final class MapTransformKeyFunction
                 TypedSet.class,
                 constantType(binder, transformedKeyType),
                 divide(positionCount, constantInt(2)),
-                constantString(MAP_TRANSFORM_KEY_FUNCTION.getSignature().getName()))));
+                constantString(MAP_TRANSFORM_KEY_FUNCTION.getFunctionMetadata().getSignature().getName()))));
 
         // throw null key exception block
         BytecodeNode throwNullKeyException = new BytecodeBlock()

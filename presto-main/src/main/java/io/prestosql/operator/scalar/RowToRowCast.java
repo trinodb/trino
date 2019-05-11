@@ -89,7 +89,7 @@ public class RowToRowCast
                 false,
                 ImmutableList.of(valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
                 methodHandle,
-                isDeterministic());
+                true);
     }
 
     private static Class<?> generateRowCast(Type fromType, Type toType, Metadata metadata)

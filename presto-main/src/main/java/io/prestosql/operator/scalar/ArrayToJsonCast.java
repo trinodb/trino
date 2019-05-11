@@ -78,7 +78,7 @@ public class ArrayToJsonCast
                         valueTypeArgumentProperty(RETURN_NULL_ON_NULL),
                         valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
                 methodHandle,
-                isDeterministic());
+                true);
     }
 
     public static Slice toJson(JsonGeneratorWriter writer, ConnectorSession session, Block block)

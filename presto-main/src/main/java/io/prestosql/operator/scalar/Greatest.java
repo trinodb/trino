@@ -22,12 +22,6 @@ public final class Greatest
 
     public Greatest()
     {
-        super("greatest", OperatorType.GREATER_THAN);
-    }
-
-    @Override
-    public String getDescription()
-    {
-        return "get the largest of the given values";
+        super("greatest", OperatorType.GREATER_THAN, "get the largest of the given values");
     }
 }

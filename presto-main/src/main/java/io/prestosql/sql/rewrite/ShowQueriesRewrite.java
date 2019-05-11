@@ -23,10 +23,10 @@ import io.prestosql.Session;
 import io.prestosql.connector.CatalogName;
 import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.metadata.FunctionKind;
+import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.metadata.SessionPropertyManager.SessionPropertyValue;
-import io.prestosql.metadata.SqlFunction;
 import io.prestosql.metadata.TableHandle;
 import io.prestosql.security.AccessControl;
 import io.prestosql.spi.PrestoException;
@@ -559,7 +559,7 @@ final class ShowQueriesRewrite
                             ascending("function_type")));
         }
 
-        private static String getFunctionType(SqlFunction function)
+        private static String getFunctionType(FunctionMetadata function)
         {
             FunctionKind kind = function.getSignature().getKind();
             switch (kind) {

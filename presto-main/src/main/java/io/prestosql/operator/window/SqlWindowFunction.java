@@ -14,44 +14,35 @@
 package io.prestosql.operator.window;
 
 import io.prestosql.metadata.BoundVariables;
+import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlFunction;
 
+import static com.google.common.base.Strings.nullToEmpty;
 import static java.util.Objects.requireNonNull;
 
 public class SqlWindowFunction
         implements SqlFunction
 {
     private final WindowFunctionSupplier supplier;
+    private final FunctionMetadata functionMetadata;
 
     public SqlWindowFunction(WindowFunctionSupplier supplier)
     {
         this.supplier = requireNonNull(supplier, "supplier is null");
+        Signature signature = supplier.getSignature();
+        functionMetadata = new FunctionMetadata(
+                signature,
+                false,
+                true,
+                nullToEmpty(supplier.getDescription()));
     }
 
     @Override
-    public final Signature getSignature()
+    public FunctionMetadata getFunctionMetadata()
     {
-        return supplier.getSignature();
-    }
-
-    @Override
-    public boolean isHidden()
-    {
-        return false;
-    }
-
-    @Override
-    public boolean isDeterministic()
-    {
-        return true;
-    }
-
-    @Override
-    public String getDescription()
-    {
-        return supplier.getDescription();
+        return functionMetadata;
     }
 
     public WindowFunctionSupplier specialize(BoundVariables boundVariables, int arity, Metadata metadata)
