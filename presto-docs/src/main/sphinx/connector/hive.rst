@@ -114,14 +114,9 @@ Hive Configuration Properties
 ================================================== ============================================================ ============
 Property Name                                      Description                                                  Default
 ================================================== ============================================================ ============
-``hive.metastore.uri``                             The URI(s) of the Hive metastore to connect to using the
-                                                   Thrift protocol. If multiple URIs are provided, the first
-                                                   URI is used by default and the rest of the URIs are
-                                                   fallback metastores. This property is required.
-                                                   Example: ``thrift://192.0.2.3:9083`` or
-                                                   ``thrift://192.0.2.3:9083,thrift://192.0.2.4:9083``
-
-``hive.metastore.username``                        The username Presto will use to access the Hive metastore.
+``hive.metastore``                                 The type of Hive metastore to use. Presto currently supports ``thrift``
+                                                   the default Hive Thrift metastore (``thrift``), and the AWS
+                                                   Glue Catalog (``glue``) as metadata sources.
 
 ``hive.config.resources``                          An optional comma-separated list of HDFS
                                                    configuration files. These files must exist on the
@@ -152,16 +147,6 @@ Property Name                                      Description                  
 
 ``hive.max-partitions-per-scan``                   Maximum number of partitions for a single table scan.        100,000
 
-``hive.metastore.authentication.type``             Hive metastore authentication type.                          ``NONE``
-                                                   Possible values are ``NONE`` or ``KERBEROS``.
-
-``hive.metastore.service.principal``               The Kerberos principal of the Hive metastore service.
-
-``hive.metastore.client.principal``                The Kerberos principal that Presto will use when connecting
-                                                   to the Hive metastore service.
-
-``hive.metastore.client.keytab``                   Hive metastore client keytab location.
-
 ``hive.hdfs.authentication.type``                  HDFS authentication type.                                    ``NONE``
                                                    Possible values are ``NONE`` or ``KERBEROS``.
 
@@ -190,6 +175,66 @@ Property Name                                      Description                  
 ``hive.s3select-pushdown.max-connections``         Maximum number of simultaneously open connections to S3 for  500
                                                    :ref:`s3selectpushdown`.
 ================================================== ============================================================ ============
+
+Hive Thrift Metastore Configuration Properties
+----------------------------------------------
+
+================================================== ============================================================
+Property Name                                      Description
+================================================== ============================================================
+``hive.metastore.uri``                             The URI(s) of the Hive metastore to connect to using the
+                                                   Thrift protocol. If multiple URIs are provided, the first
+                                                   URI is used by default and the rest of the URIs are
+                                                   fallback metastores. This property is required.
+                                                   Example: ``thrift://192.0.2.3:9083`` or
+                                                   ``thrift://192.0.2.3:9083,thrift://192.0.2.4:9083``
+
+``hive.metastore.username``                        The username Presto will use to access the Hive metastore.
+
+``hive.metastore.authentication.type``             Hive metastore authentication type.
+                                                   Possible values are ``NONE`` or ``KERBEROS``
+                                                   (defaults to ``NONE``).
+
+``hive.metastore.service.principal``               The Kerberos principal of the Hive metastore service.
+
+``hive.metastore.client.principal``                The Kerberos principal that Presto will use when connecting
+                                                   to the Hive metastore service.
+
+``hive.metastore.client.keytab``                   Hive metastore client keytab location.
+================================================== ============================================================
+
+AWS Glue Catalog Configuration Properties
+-----------------------------------------
+
+==================================================== ============================================================
+Property Name                                        Description
+==================================================== ============================================================
+``hive.metastore.glue.region``                       AWS region of the Glue Catalog. This is required when not
+                                                     running in EC2, or when the catalog is in a different region.
+                                                     Example: ``us-east-1``
+
+``hive.metastore.glue.pin-client-to-current-region`` Pin Glue requests to the same region as the EC2 instance
+                                                     where Presto is running.
+                                                     (defaults to ``false``)
+
+``hive.metastore.glue.max-connections``              Max number of concurrent connections to Glue
+                                                     (defaults to ``5``).
+
+``hive.metastore.glue.default-warehouse-dir``        Hive Glue metastore default warehouse directory
+
+``hive.metastore.glue.aws-access-key``               AWS access key to use to connect to the Glue Catalog. If
+                                                     specified along with ``hive.metastore.glue.aws-secret-key``,
+                                                     this parameter takes precedence over
+                                                     ``hive.metastore.glue.iam-role``.
+
+``hive.metastore.glue.aws-secret-key``               AWS secret key to use to connect to the Glue. If
+                                                     specified along with ``hive.metastore.glue.aws-access-key``,
+                                                     this parameter takes precedence over
+                                                     ``hive.metastore.glue.iam-role``.
+
+``hive.metastore.glue.iam-role``                     ARN of an IAM role to assume when connecting to the Glue
+                                                     Catalog.
+==================================================== ============================================================
 
 Amazon S3 Configuration
 -----------------------
