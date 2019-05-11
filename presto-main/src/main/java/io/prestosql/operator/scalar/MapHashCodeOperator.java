@@ -62,7 +62,7 @@ public class MapHashCodeOperator
                 false,
                 ImmutableList.of(valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
                 method,
-                isDeterministic());
+                true);
     }
 
     @UsedByGeneratedCode

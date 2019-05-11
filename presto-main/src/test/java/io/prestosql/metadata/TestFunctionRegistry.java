@@ -75,7 +75,7 @@ public class TestFunctionRegistry
     {
         Metadata metadata = createTestMetadataManager();
         boolean foundOperator = false;
-        for (SqlFunction function : listOperators(metadata)) {
+        for (FunctionMetadata function : listOperators(metadata)) {
             OperatorType operatorType = unmangleOperator(function.getSignature().getName());
             if (operatorType == OperatorType.CAST || operatorType == OperatorType.SATURATED_FLOOR_CAST) {
                 continue;
@@ -103,7 +103,7 @@ public class TestFunctionRegistry
                 .scalars(CustomFunctions.class)
                 .getFunctions()
                 .stream()
-                .filter(input -> input.getSignature().getName().equals("custom_add"))
+                .filter(input -> input.getFunctionMetadata().getSignature().getName().equals("custom_add"))
                 .collect(toImmutableList());
 
         Metadata metadata = createTestMetadataManager();
@@ -262,7 +262,7 @@ public class TestFunctionRegistry
                 .failsWithMessage("Could not choose a best candidate operator. Explicit type casts must be added.");
     }
 
-    private static List<SqlFunction> listOperators(Metadata metadata)
+    private static List<FunctionMetadata> listOperators(Metadata metadata)
     {
         Set<String> operatorNames = Arrays.stream(OperatorType.values())
                 .map(Signature::mangleOperatorName)
@@ -356,8 +356,12 @@ public class TestFunctionRegistry
         {
             ImmutableList.Builder<SqlFunction> functions = ImmutableList.builder();
             for (SignatureBuilder functionSignature : functionSignatures) {
-                Signature signature = functionSignature.name(TEST_FUNCTION_NAME).build();
-                functions.add(new SqlScalarFunction(signature)
+                FunctionMetadata functionMetadata = new FunctionMetadata(
+                        functionSignature.name(TEST_FUNCTION_NAME).build(),
+                        false,
+                        false,
+                        "testing function that does nothing");
+                functions.add(new SqlScalarFunction(functionMetadata)
                 {
                     @Override
                     public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, Metadata metadata)
@@ -367,24 +371,6 @@ public class TestFunctionRegistry
                                 nCopies(arity, valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
                                 MethodHandles.identity(Void.class),
                                 true);
-                    }
-
-                    @Override
-                    public boolean isHidden()
-                    {
-                        return false;
-                    }
-
-                    @Override
-                    public boolean isDeterministic()
-                    {
-                        return false;
-                    }
-
-                    @Override
-                    public String getDescription()
-                    {
-                        return "testing function that does nothing";
                     }
                 });
             }

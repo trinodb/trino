@@ -16,7 +16,9 @@ package io.prestosql.operator.aggregation;
 import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.DynamicClassLoader;
 import io.prestosql.metadata.BoundVariables;
+import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Metadata;
+import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlAggregationFunction;
 import io.prestosql.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
 import io.prestosql.operator.aggregation.state.MinMaxNState;
@@ -35,6 +37,7 @@ import java.util.Optional;
 import java.util.function.Function;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.prestosql.metadata.FunctionKind.AGGREGATE;
 import static io.prestosql.metadata.Signature.orderableTypeParameter;
 import static io.prestosql.operator.aggregation.AggregationMetadata.ParameterMetadata;
 import static io.prestosql.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INDEX;
@@ -44,7 +47,6 @@ import static io.prestosql.operator.aggregation.AggregationMetadata.ParameterMet
 import static io.prestosql.operator.aggregation.AggregationUtils.generateAggregationName;
 import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.TypeSignature.arrayType;
 import static io.prestosql.util.Failures.checkCondition;
 import static io.prestosql.util.Reflection.methodHandle;
 import static java.lang.Math.toIntExact;
@@ -60,13 +62,20 @@ public abstract class AbstractMinMaxNAggregationFunction
 
     private final Function<Type, BlockComparator> typeToComparator;
 
-    protected AbstractMinMaxNAggregationFunction(String name, Function<Type, BlockComparator> typeToComparator)
+    protected AbstractMinMaxNAggregationFunction(String name, Function<Type, BlockComparator> typeToComparator, String description)
     {
-        super(name,
-                ImmutableList.of(orderableTypeParameter("E")),
-                ImmutableList.of(),
-                arrayType(new TypeSignature("E")),
-                ImmutableList.of(new TypeSignature("E"), BIGINT.getTypeSignature()));
+        super(new FunctionMetadata(
+                new Signature(
+                        name,
+                        AGGREGATE,
+                        ImmutableList.of(orderableTypeParameter("E")),
+                        ImmutableList.of(),
+                        TypeSignature.arrayType(new TypeSignature("E")),
+                        ImmutableList.of(new TypeSignature("E"), BIGINT.getTypeSignature()),
+                        false),
+                false,
+                true,
+                description));
         requireNonNull(typeToComparator);
         this.typeToComparator = typeToComparator;
     }
@@ -94,8 +103,9 @@ public abstract class AbstractMinMaxNAggregationFunction
                 new ParameterMetadata(INPUT_CHANNEL, BIGINT),
                 new ParameterMetadata(BLOCK_INDEX));
 
+        String name = getFunctionMetadata().getSignature().getName();
         AggregationMetadata metadata = new AggregationMetadata(
-                generateAggregationName(getSignature().getName(), type.getTypeSignature(), inputTypes.stream().map(Type::getTypeSignature).collect(toImmutableList())),
+                generateAggregationName(name, type.getTypeSignature(), inputTypes.stream().map(Type::getTypeSignature).collect(toImmutableList())),
                 inputParameterMetadata,
                 INPUT_FUNCTION.bindTo(comparator).bindTo(type),
                 Optional.empty(),
@@ -108,7 +118,7 @@ public abstract class AbstractMinMaxNAggregationFunction
                 outputType);
 
         GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata, classLoader);
-        return new InternalAggregationFunction(getSignature().getName(), inputTypes, ImmutableList.of(intermediateType), outputType, true, false, factory);
+        return new InternalAggregationFunction(name, inputTypes, ImmutableList.of(intermediateType), outputType, true, false, factory);
     }
 
     public static void input(BlockComparator comparator, Type type, MinMaxNState state, Block block, long n, int blockIndex)

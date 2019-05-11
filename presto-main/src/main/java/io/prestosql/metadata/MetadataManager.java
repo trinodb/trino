@@ -1294,7 +1294,7 @@ public final class MetadataManager
     }
 
     @Override
-    public List<SqlFunction> listFunctions()
+    public List<FunctionMetadata> listFunctions()
     {
         return functions.list();
     }
@@ -1335,6 +1335,12 @@ public final class MetadataManager
     public boolean isAggregationFunction(QualifiedName name)
     {
         return functions.isAggregationFunction(name);
+    }
+
+    @Override
+    public FunctionMetadata getFunctionMetadata(ResolvedFunction resolvedFunction)
+    {
+        return functions.getFunctionMetadata(resolvedFunction);
     }
 
     @Override

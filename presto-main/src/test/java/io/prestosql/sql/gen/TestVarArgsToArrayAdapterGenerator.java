@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import io.prestosql.annotation.UsedByGeneratedCode;
 import io.prestosql.metadata.BoundVariables;
 import io.prestosql.metadata.FunctionKind;
+import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlScalarFunction;
@@ -75,32 +76,18 @@ public class TestVarArgsToArrayAdapterGenerator
 
         private TestVarArgsSum()
         {
-            super(new Signature(
-                    "var_args_sum",
-                    FunctionKind.SCALAR,
-                    ImmutableList.of(),
-                    ImmutableList.of(),
-                    INTEGER.getTypeSignature(),
-                    ImmutableList.of(INTEGER.getTypeSignature()),
-                    true));
-        }
-
-        @Override
-        public boolean isHidden()
-        {
-            return false;
-        }
-
-        @Override
-        public boolean isDeterministic()
-        {
-            return false;
-        }
-
-        @Override
-        public String getDescription()
-        {
-            return "return sum of all the parameters";
+            super(new FunctionMetadata(
+                    new Signature(
+                            "var_args_sum",
+                            FunctionKind.SCALAR,
+                            ImmutableList.of(),
+                            ImmutableList.of(),
+                            INTEGER.getTypeSignature(),
+                            ImmutableList.of(INTEGER.getTypeSignature()),
+                            true),
+                    false,
+                    false,
+                    "return sum of all the parameters"));
         }
 
         @Override
@@ -117,7 +104,7 @@ public class TestVarArgsToArrayAdapterGenerator
                     nCopies(arity, valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
                     methodHandleAndConstructor.getMethodHandle(),
                     Optional.of(methodHandleAndConstructor.getConstructor()),
-                    isDeterministic());
+                    false);
         }
 
         @UsedByGeneratedCode

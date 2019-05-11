@@ -59,7 +59,7 @@ public class RowNotEqualOperator
                 METHOD_HANDLE
                         .bindTo(type)
                         .bindTo(RowEqualOperator.resolveFieldEqualOperators(type, metadata)),
-                isDeterministic());
+                true);
     }
 
     @UsedByGeneratedCode

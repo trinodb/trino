@@ -16,20 +16,17 @@ package io.prestosql.metadata;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.operator.aggregation.AggregationFromAnnotationsParser;
 import io.prestosql.operator.aggregation.InternalAggregationFunction;
-import io.prestosql.spi.type.TypeSignature;
 
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.prestosql.metadata.FunctionKind.AGGREGATE;
 import static java.util.Objects.requireNonNull;
 
 public abstract class SqlAggregationFunction
         implements SqlFunction
 {
-    private final Signature signature;
-    private final boolean hidden;
+    private final FunctionMetadata functionMetadata;
 
     public static List<SqlAggregationFunction> createFunctionByAnnotations(Class<?> aggregationDefinition)
     {
@@ -44,73 +41,16 @@ public abstract class SqlAggregationFunction
                 .collect(toImmutableList());
     }
 
-    protected SqlAggregationFunction(
-            String name,
-            List<TypeVariableConstraint> typeVariableConstraints,
-            List<LongVariableConstraint> longVariableConstraints,
-            TypeSignature returnType,
-            List<TypeSignature> argumentTypes)
+    protected SqlAggregationFunction(FunctionMetadata functionMetadata)
     {
-        this(name, typeVariableConstraints, longVariableConstraints, returnType, argumentTypes, AGGREGATE);
-    }
-
-    protected SqlAggregationFunction(
-            String name,
-            List<TypeVariableConstraint> typeVariableConstraints,
-            List<LongVariableConstraint> longVariableConstraints,
-            TypeSignature returnType,
-            List<TypeSignature> argumentTypes,
-            FunctionKind kind)
-    {
-        this(createSignature(name, typeVariableConstraints, longVariableConstraints, returnType, argumentTypes, kind), false);
-    }
-
-    protected SqlAggregationFunction(Signature signature, boolean hidden)
-    {
-        this.signature = requireNonNull(signature, "signature is null");
-        this.hidden = hidden;
-    }
-
-    private static Signature createSignature(
-            String name,
-            List<TypeVariableConstraint> typeVariableConstraints,
-            List<LongVariableConstraint> longVariableConstraints,
-            TypeSignature returnType,
-            List<TypeSignature> argumentTypes,
-            FunctionKind kind)
-    {
-        requireNonNull(name, "name is null");
-        requireNonNull(typeVariableConstraints, "typeVariableConstraints is null");
-        requireNonNull(longVariableConstraints, "longVariableConstraints is null");
-        requireNonNull(returnType, "returnType is null");
-        requireNonNull(argumentTypes, "argumentTypes is null");
-        checkArgument(kind == AGGREGATE, "kind must be an aggregate");
-        return new Signature(
-                name,
-                kind,
-                ImmutableList.copyOf(typeVariableConstraints),
-                ImmutableList.copyOf(longVariableConstraints),
-                returnType,
-                ImmutableList.copyOf(argumentTypes),
-                false);
+        this.functionMetadata = requireNonNull(functionMetadata, "functionMetadata is null");
+        checkArgument(functionMetadata.isDeterministic(), "Aggregation function must be deterministic");
     }
 
     @Override
-    public final Signature getSignature()
+    public FunctionMetadata getFunctionMetadata()
     {
-        return signature;
-    }
-
-    @Override
-    public boolean isHidden()
-    {
-        return hidden;
-    }
-
-    @Override
-    public boolean isDeterministic()
-    {
-        return true;
+        return functionMetadata;
     }
 
     public abstract InternalAggregationFunction specialize(BoundVariables boundVariables, int arity, Metadata metadata);

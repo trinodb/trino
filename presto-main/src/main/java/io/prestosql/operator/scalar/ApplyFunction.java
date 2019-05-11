@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.prestosql.annotation.UsedByGeneratedCode;
 import io.prestosql.metadata.BoundVariables;
 import io.prestosql.metadata.FunctionKind;
+import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlScalarFunction;
@@ -46,34 +47,20 @@ public final class ApplyFunction
 
     private ApplyFunction()
     {
-        super(new Signature(
-                "apply",
-                FunctionKind.SCALAR,
-                ImmutableList.of(typeVariable("T"), typeVariable("U")),
-                ImmutableList.of(),
-                new TypeSignature("U"),
-                ImmutableList.of(
-                        new TypeSignature("T"),
-                        functionType(new TypeSignature("T"), new TypeSignature("U"))),
-                false));
-    }
-
-    @Override
-    public boolean isHidden()
-    {
-        return true;
-    }
-
-    @Override
-    public boolean isDeterministic()
-    {
-        return true;
-    }
-
-    @Override
-    public String getDescription()
-    {
-        return "lambda apply function";
+        super(new FunctionMetadata(
+                new Signature(
+                        "apply",
+                        FunctionKind.SCALAR,
+                        ImmutableList.of(typeVariable("T"), typeVariable("U")),
+                        ImmutableList.of(),
+                        new TypeSignature("U"),
+                        ImmutableList.of(
+                                new TypeSignature("T"),
+                                functionType(new TypeSignature("T"), new TypeSignature("U"))),
+                        false),
+                true,
+                true,
+                "lambda apply function"));
     }
 
     @Override
@@ -90,7 +77,7 @@ public final class ApplyFunction
                         METHOD_HANDLE.type()
                                 .changeReturnType(wrap(returnType.getJavaType()))
                                 .changeParameterType(0, wrap(argumentType.getJavaType()))),
-                isDeterministic());
+                true);
     }
 
     @UsedByGeneratedCode

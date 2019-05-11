@@ -88,7 +88,7 @@ public class JsonToRowCast
                 true,
                 ImmutableList.of(valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
                 methodHandle,
-                isDeterministic());
+                true);
     }
 
     @UsedByGeneratedCode

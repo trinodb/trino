@@ -41,7 +41,7 @@ public final class PolymorphicScalarFunctionBuilder
 {
     private final Class<?> clazz;
     private Signature signature;
-    private String description;
+    private String description = "";
     private Optional<Boolean> hidden = Optional.empty();
     private Boolean deterministic;
     private final List<PolymorphicScalarFunctionChoice> choices = new ArrayList<>();
@@ -90,10 +90,11 @@ public final class PolymorphicScalarFunctionBuilder
         checkState(deterministic != null, "deterministic is null");
 
         return new PolymorphicScalarFunction(
-                signature,
-                description,
-                hidden.orElse(false),
-                deterministic,
+                new FunctionMetadata(
+                        signature,
+                        hidden.orElse(false),
+                        deterministic,
+                        description),
                 choices);
     }
 

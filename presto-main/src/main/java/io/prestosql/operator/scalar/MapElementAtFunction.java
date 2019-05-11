@@ -19,6 +19,7 @@ import io.airlift.slice.Slice;
 import io.prestosql.annotation.UsedByGeneratedCode;
 import io.prestosql.metadata.BoundVariables;
 import io.prestosql.metadata.FunctionKind;
+import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlScalarFunction;
@@ -50,32 +51,18 @@ public class MapElementAtFunction
 
     protected MapElementAtFunction()
     {
-        super(new Signature(
-                "element_at",
-                FunctionKind.SCALAR,
-                ImmutableList.of(typeVariable("K"), typeVariable("V")),
-                ImmutableList.of(),
-                new TypeSignature("V"),
-                ImmutableList.of(mapType(new TypeSignature("K"), new TypeSignature("V")), new TypeSignature("K")),
-                false));
-    }
-
-    @Override
-    public boolean isHidden()
-    {
-        return false;
-    }
-
-    @Override
-    public boolean isDeterministic()
-    {
-        return true;
-    }
-
-    @Override
-    public String getDescription()
-    {
-        return "Get value for the given key, or null if it does not exist";
+        super(new FunctionMetadata(
+                new Signature(
+                        "element_at",
+                        FunctionKind.SCALAR,
+                        ImmutableList.of(typeVariable("K"), typeVariable("V")),
+                        ImmutableList.of(),
+                        new TypeSignature("V"),
+                        ImmutableList.of(mapType(new TypeSignature("K"), new TypeSignature("V")), new TypeSignature("K")),
+                        false),
+                false,
+                true,
+                "Get value for the given key, or null if it does not exist"));
     }
 
     @Override
@@ -111,7 +98,7 @@ public class MapElementAtFunction
                         valueTypeArgumentProperty(RETURN_NULL_ON_NULL),
                         valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
                 methodHandle,
-                isDeterministic());
+                true);
     }
 
     @UsedByGeneratedCode

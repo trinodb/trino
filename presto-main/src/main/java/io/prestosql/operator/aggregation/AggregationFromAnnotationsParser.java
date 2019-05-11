@@ -17,6 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.MoreCollectors;
+import io.prestosql.metadata.Signature;
 import io.prestosql.operator.ParametricImplementationsGroup;
 import io.prestosql.operator.annotations.FunctionsParserHelper;
 import io.prestosql.spi.function.AccumulatorState;
@@ -57,8 +58,9 @@ public final class AggregationFromAnnotationsParser
         requireNonNull(returnType, "returnType is null");
         requireNonNull(argumentTypes, "argumentTypes is null");
         for (ParametricAggregation aggregation : parseFunctionDefinitions(clazz)) {
-            if (aggregation.getSignature().getReturnType().equals(returnType) &&
-                    aggregation.getSignature().getArgumentTypes().equals(argumentTypes)) {
+            Signature signature = aggregation.getFunctionMetadata().getSignature();
+            if (signature.getReturnType().equals(returnType) &&
+                    signature.getArgumentTypes().equals(argumentTypes)) {
                 return aggregation;
             }
         }

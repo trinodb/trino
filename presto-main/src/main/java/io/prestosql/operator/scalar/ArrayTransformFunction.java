@@ -26,6 +26,7 @@ import io.airlift.bytecode.control.ForLoop;
 import io.airlift.bytecode.control.IfStatement;
 import io.prestosql.metadata.BoundVariables;
 import io.prestosql.metadata.FunctionKind;
+import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlScalarFunction;
@@ -74,34 +75,20 @@ public final class ArrayTransformFunction
 
     private ArrayTransformFunction()
     {
-        super(new Signature(
-                "transform",
-                FunctionKind.SCALAR,
-                ImmutableList.of(typeVariable("T"), typeVariable("U")),
-                ImmutableList.of(),
-                arrayType(new TypeSignature("U")),
-                ImmutableList.of(
-                        arrayType(new TypeSignature("T")),
-                        functionType(new TypeSignature("T"), new TypeSignature("U"))),
-                false));
-    }
-
-    @Override
-    public boolean isHidden()
-    {
-        return false;
-    }
-
-    @Override
-    public boolean isDeterministic()
-    {
-        return false;
-    }
-
-    @Override
-    public String getDescription()
-    {
-        return "apply lambda to each element of the array";
+        super(new FunctionMetadata(
+                new Signature(
+                        "transform",
+                        FunctionKind.SCALAR,
+                        ImmutableList.of(typeVariable("T"), typeVariable("U")),
+                        ImmutableList.of(),
+                        arrayType(new TypeSignature("U")),
+                        ImmutableList.of(
+                                arrayType(new TypeSignature("T")),
+                                functionType(new TypeSignature("T"), new TypeSignature("U"))),
+                        false),
+                false,
+                false,
+                "apply lambda to each element of the array"));
     }
 
     @Override
@@ -117,7 +104,7 @@ public final class ArrayTransformFunction
                         functionTypeArgumentProperty(UnaryFunctionInterface.class)),
                 methodHandle(generatedClass, "transform", PageBuilder.class, Block.class, UnaryFunctionInterface.class),
                 Optional.of(methodHandle(generatedClass, "createPageBuilder")),
-                isDeterministic());
+                false);
     }
 
     private static Class<?> generateTransform(Type inputType, Type outputType)

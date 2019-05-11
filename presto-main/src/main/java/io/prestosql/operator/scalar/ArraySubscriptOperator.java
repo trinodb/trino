@@ -89,7 +89,7 @@ public class ArraySubscriptOperator
                         valueTypeArgumentProperty(RETURN_NULL_ON_NULL),
                         valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
                 methodHandle,
-                isDeterministic());
+                true);
     }
 
     @UsedByGeneratedCode

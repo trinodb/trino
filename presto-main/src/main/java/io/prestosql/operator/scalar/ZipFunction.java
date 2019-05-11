@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.prestosql.annotation.UsedByGeneratedCode;
 import io.prestosql.metadata.BoundVariables;
 import io.prestosql.metadata.FunctionKind;
+import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlScalarFunction;
@@ -66,37 +67,24 @@ public final class ZipFunction
 
     private ZipFunction(List<String> typeParameters)
     {
-        super(new Signature("zip",
-                FunctionKind.SCALAR,
-                typeParameters.stream().map(Signature::typeVariable).collect(toImmutableList()),
-                ImmutableList.of(),
-                arrayType(rowType(typeParameters.stream()
-                        .map(TypeSignature::new)
-                        .map(TypeSignatureParameter::anonymousField)
-                        .collect(toImmutableList()))),
-                typeParameters.stream()
-                        .map(name -> arrayType(new TypeSignature(name)))
-                        .collect(toImmutableList()),
-                false));
+        super(new FunctionMetadata(
+                new Signature(
+                        "zip",
+                        FunctionKind.SCALAR,
+                        typeParameters.stream().map(Signature::typeVariable).collect(toImmutableList()),
+                        ImmutableList.of(),
+                        arrayType(rowType(typeParameters.stream()
+                                .map(TypeSignature::new)
+                                .map(TypeSignatureParameter::anonymousField)
+                                .collect(toImmutableList()))),
+                        typeParameters.stream()
+                                .map(name -> arrayType(new TypeSignature(name)))
+                                .collect(toImmutableList()),
+                        false),
+                false,
+                true,
+                "Merges the given arrays, element-wise, into a single array of rows."));
         this.typeParameters = typeParameters;
-    }
-
-    @Override
-    public boolean isHidden()
-    {
-        return false;
-    }
-
-    @Override
-    public boolean isDeterministic()
-    {
-        return true;
-    }
-
-    @Override
-    public String getDescription()
-    {
-        return "Merges the given arrays, element-wise, into a single array of rows.";
     }
 
     @Override
@@ -106,7 +94,7 @@ public final class ZipFunction
         List<ArgumentProperty> argumentProperties = nCopies(types.size(), valueTypeArgumentProperty(RETURN_NULL_ON_NULL));
         List<Class<?>> javaArgumentTypes = nCopies(types.size(), Block.class);
         MethodHandle methodHandle = METHOD_HANDLE.bindTo(types).asVarargsCollector(Block[].class).asType(methodType(Block.class, javaArgumentTypes));
-        return new ScalarFunctionImplementation(false, argumentProperties, methodHandle, isDeterministic());
+        return new ScalarFunctionImplementation(false, argumentProperties, methodHandle, true);
     }
 
     @UsedByGeneratedCode

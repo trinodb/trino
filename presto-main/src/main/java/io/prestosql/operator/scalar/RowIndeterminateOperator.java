@@ -77,7 +77,7 @@ public class RowIndeterminateOperator
                 false,
                 ImmutableList.of(valueTypeArgumentProperty(USE_NULL_FLAG)),
                 indeterminateMethod,
-                isDeterministic());
+                true);
     }
 
     private static Class<?> generateIndeterminate(Type type, Metadata metadata)

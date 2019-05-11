@@ -17,7 +17,9 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.DynamicClassLoader;
 import io.airlift.stats.QuantileDigest;
 import io.prestosql.metadata.BoundVariables;
+import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Metadata;
+import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlAggregationFunction;
 import io.prestosql.operator.aggregation.state.QuantileDigestState;
 import io.prestosql.operator.aggregation.state.QuantileDigestStateFactory;
@@ -38,6 +40,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.prestosql.metadata.FunctionKind.AGGREGATE;
 import static io.prestosql.metadata.Signature.comparableTypeParameter;
 import static io.prestosql.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
 import static io.prestosql.operator.aggregation.AggregationMetadata.ParameterMetadata;
@@ -62,17 +65,18 @@ public final class MergeQuantileDigestFunction
 
     public MergeQuantileDigestFunction()
     {
-        super(NAME,
-                ImmutableList.of(comparableTypeParameter("T")),
-                ImmutableList.of(),
-                parametricType("qdigest", new TypeSignature("T")),
-                ImmutableList.of(parametricType("qdigest", new TypeSignature("T"))));
-    }
-
-    @Override
-    public String getDescription()
-    {
-        return "Merges the input quantile digests into a single quantile digest";
+        super(new FunctionMetadata(
+                new Signature(
+                        NAME,
+                        AGGREGATE,
+                        ImmutableList.of(comparableTypeParameter("T")),
+                        ImmutableList.of(),
+                        parametricType("qdigest", new TypeSignature("T")),
+                        ImmutableList.of(parametricType("qdigest", new TypeSignature("T"))),
+                        false),
+                false,
+                true,
+                "Merges the input quantile digests into a single quantile digest"));
     }
 
     @Override

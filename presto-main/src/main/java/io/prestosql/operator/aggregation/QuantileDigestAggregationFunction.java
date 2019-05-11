@@ -17,7 +17,9 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.DynamicClassLoader;
 import io.airlift.stats.QuantileDigest;
 import io.prestosql.metadata.BoundVariables;
+import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Metadata;
+import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlAggregationFunction;
 import io.prestosql.operator.aggregation.state.QuantileDigestState;
 import io.prestosql.operator.aggregation.state.QuantileDigestStateFactory;
@@ -35,6 +37,7 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.prestosql.metadata.FunctionKind.AGGREGATE;
 import static io.prestosql.metadata.Signature.comparableTypeParameter;
 import static io.prestosql.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
 import static io.prestosql.operator.aggregation.AggregationMetadata.ParameterMetadata;
@@ -71,18 +74,18 @@ public final class QuantileDigestAggregationFunction
 
     private QuantileDigestAggregationFunction(TypeSignature... typeSignatures)
     {
-        super(
-                NAME,
-                ImmutableList.of(comparableTypeParameter("V")),
-                ImmutableList.of(),
-                parametricType("qdigest", new TypeSignature("V")),
-                ImmutableList.copyOf(typeSignatures));
-    }
-
-    @Override
-    public String getDescription()
-    {
-        return "Returns a qdigest from the set of reals, bigints or doubles";
+        super(new FunctionMetadata(
+                new Signature(
+                        NAME,
+                        AGGREGATE,
+                        ImmutableList.of(comparableTypeParameter("V")),
+                        ImmutableList.of(),
+                        parametricType("qdigest", new TypeSignature("V")),
+                        ImmutableList.copyOf(typeSignatures),
+                        false),
+                false,
+                true,
+                "Returns a qdigest from the set of reals, bigints or doubles"));
     }
 
     @Override

@@ -17,7 +17,9 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.DynamicClassLoader;
 import io.prestosql.array.ObjectBigArray;
 import io.prestosql.metadata.BoundVariables;
+import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Metadata;
+import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlAggregationFunction;
 import io.prestosql.operator.aggregation.AccumulatorCompiler;
 import io.prestosql.operator.aggregation.AggregationMetadata;
@@ -38,6 +40,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.prestosql.metadata.FunctionKind.AGGREGATE;
 import static io.prestosql.metadata.Signature.comparableTypeParameter;
 import static io.prestosql.metadata.Signature.typeVariable;
 import static io.prestosql.operator.aggregation.AggregationMetadata.ParameterMetadata;
@@ -63,18 +66,19 @@ public class MultimapAggregationFunction
 
     public MultimapAggregationFunction(MultimapAggGroupImplementation groupMode)
     {
-        super(NAME,
-                ImmutableList.of(comparableTypeParameter("K"), typeVariable("V")),
-                ImmutableList.of(),
-                mapType(new TypeSignature("K"), arrayType(new TypeSignature("V"))),
-                ImmutableList.of(new TypeSignature("K"), new TypeSignature("V")));
+        super(new FunctionMetadata(
+                new Signature(
+                        NAME,
+                        AGGREGATE,
+                        ImmutableList.of(comparableTypeParameter("K"), typeVariable("V")),
+                        ImmutableList.of(),
+                        mapType(new TypeSignature("K"), arrayType(new TypeSignature("V"))),
+                        ImmutableList.of(new TypeSignature("K"), new TypeSignature("V")),
+                        false),
+                false,
+                true,
+                "Aggregates all the rows (key/value pairs) into a single multimap"));
         this.groupMode = groupMode;
-    }
-
-    @Override
-    public String getDescription()
-    {
-        return "Aggregates all the rows (key/value pairs) into a single multimap";
     }
 
     @Override

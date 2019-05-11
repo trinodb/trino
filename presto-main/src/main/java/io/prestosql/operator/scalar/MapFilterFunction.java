@@ -27,6 +27,7 @@ import io.airlift.bytecode.control.IfStatement;
 import io.prestosql.annotation.UsedByGeneratedCode;
 import io.prestosql.metadata.BoundVariables;
 import io.prestosql.metadata.FunctionKind;
+import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlScalarFunction;
@@ -81,34 +82,20 @@ public final class MapFilterFunction
 
     private MapFilterFunction()
     {
-        super(new Signature(
-                "map_filter",
-                FunctionKind.SCALAR,
-                ImmutableList.of(typeVariable("K"), typeVariable("V")),
-                ImmutableList.of(),
-                mapType(new TypeSignature("K"), new TypeSignature("V")),
-                ImmutableList.of(
+        super(new FunctionMetadata(
+                new Signature(
+                        "map_filter",
+                        FunctionKind.SCALAR,
+                        ImmutableList.of(typeVariable("K"), typeVariable("V")),
+                        ImmutableList.of(),
                         mapType(new TypeSignature("K"), new TypeSignature("V")),
-                        functionType(new TypeSignature("K"), new TypeSignature("V"), BOOLEAN.getTypeSignature())),
-                false));
-    }
-
-    @Override
-    public boolean isHidden()
-    {
-        return false;
-    }
-
-    @Override
-    public boolean isDeterministic()
-    {
-        return false;
-    }
-
-    @Override
-    public String getDescription()
-    {
-        return "return map containing entries that match the given predicate";
+                        ImmutableList.of(
+                                mapType(new TypeSignature("K"), new TypeSignature("V")),
+                                functionType(new TypeSignature("K"), new TypeSignature("V"), BOOLEAN.getTypeSignature())),
+                        false),
+                false,
+                false,
+                "return map containing entries that match the given predicate"));
     }
 
     @Override
@@ -126,7 +113,7 @@ public final class MapFilterFunction
                         functionTypeArgumentProperty(BinaryFunctionInterface.class)),
                 generateFilter(mapType),
                 Optional.of(STATE_FACTORY.bindTo(mapType)),
-                isDeterministic());
+                false);
     }
 
     @UsedByGeneratedCode

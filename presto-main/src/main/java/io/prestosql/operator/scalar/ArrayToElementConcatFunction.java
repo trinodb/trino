@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.prestosql.metadata.BoundVariables;
 import io.prestosql.metadata.FunctionKind;
+import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlScalarFunction;
@@ -46,31 +47,18 @@ public class ArrayToElementConcatFunction
 
     public ArrayToElementConcatFunction()
     {
-        super(new Signature(FUNCTION_NAME,
-                FunctionKind.SCALAR,
-                ImmutableList.of(typeVariable("E")),
-                ImmutableList.of(),
-                arrayType(new TypeSignature("E")),
-                ImmutableList.of(arrayType(new TypeSignature("E")), new TypeSignature("E")),
-                false));
-    }
-
-    @Override
-    public boolean isHidden()
-    {
-        return false;
-    }
-
-    @Override
-    public boolean isDeterministic()
-    {
-        return true;
-    }
-
-    @Override
-    public String getDescription()
-    {
-        return "Concatenates an array to an element";
+        super(new FunctionMetadata(
+                new Signature(
+                        FUNCTION_NAME,
+                        FunctionKind.SCALAR,
+                        ImmutableList.of(typeVariable("E")),
+                        ImmutableList.of(),
+                        arrayType(new TypeSignature("E")),
+                        ImmutableList.of(arrayType(new TypeSignature("E")), new TypeSignature("E")),
+                        false),
+                false,
+                true,
+                "Concatenates an array to an element"));
     }
 
     @Override
@@ -101,6 +89,6 @@ public class ArrayToElementConcatFunction
                         valueTypeArgumentProperty(RETURN_NULL_ON_NULL),
                         valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
                 methodHandle,
-                isDeterministic());
+                true);
     }
 }

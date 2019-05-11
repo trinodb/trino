@@ -16,7 +16,9 @@ package io.prestosql.operator.aggregation;
 import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.DynamicClassLoader;
 import io.prestosql.metadata.BoundVariables;
+import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Metadata;
+import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlAggregationFunction;
 import io.prestosql.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
 import io.prestosql.operator.aggregation.AggregationMetadata.ParameterMetadata;
@@ -34,6 +36,7 @@ import java.lang.invoke.MethodHandle;
 import java.util.List;
 import java.util.Optional;
 
+import static io.prestosql.metadata.FunctionKind.AGGREGATE;
 import static io.prestosql.metadata.Signature.typeVariable;
 import static io.prestosql.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.INPUT_CHANNEL;
 import static io.prestosql.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
@@ -63,21 +66,22 @@ public class ReduceAggregationFunction
 
     public ReduceAggregationFunction()
     {
-        super(NAME,
-                ImmutableList.of(typeVariable("T"), typeVariable("S")),
-                ImmutableList.of(),
-                new TypeSignature("S"),
-                ImmutableList.of(
-                        new TypeSignature("T"),
+        super(new FunctionMetadata(
+                new Signature(
+                        NAME,
+                        AGGREGATE,
+                        ImmutableList.of(typeVariable("T"), typeVariable("S")),
+                        ImmutableList.of(),
                         new TypeSignature("S"),
-                        functionType(new TypeSignature("S"), new TypeSignature("T"), new TypeSignature("S")),
-                        functionType(new TypeSignature("S"), new TypeSignature("S"), new TypeSignature("S"))));
-    }
-
-    @Override
-    public String getDescription()
-    {
-        return "Reduce input elements into a single value";
+                        ImmutableList.of(
+                                new TypeSignature("T"),
+                                new TypeSignature("S"),
+                                functionType(new TypeSignature("S"), new TypeSignature("T"), new TypeSignature("S")),
+                                functionType(new TypeSignature("S"), new TypeSignature("S"), new TypeSignature("S"))),
+                        false),
+                false,
+                true,
+                "Reduce input elements into a single value"));
     }
 
     @Override
@@ -131,8 +135,9 @@ public class ReduceAggregationFunction
             throw new PrestoException(NOT_SUPPORTED, format("State type not supported for %s: %s", NAME, stateType.getDisplayName()));
         }
 
+        String name = getFunctionMetadata().getSignature().getName();
         AggregationMetadata metadata = new AggregationMetadata(
-                generateAggregationName(getSignature().getName(), inputType.getTypeSignature(), ImmutableList.of(inputType.getTypeSignature())),
+                generateAggregationName(name, inputType.getTypeSignature(), ImmutableList.of(inputType.getTypeSignature())),
                 createInputParameterMetadata(inputType, stateType),
                 inputMethodHandle.asType(
                         inputMethodHandle.type()
@@ -146,7 +151,7 @@ public class ReduceAggregationFunction
 
         GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata, classLoader);
         return new InternalAggregationFunction(
-                getSignature().getName(),
+                name,
                 ImmutableList.of(inputType),
                 ImmutableList.of(stateType),
                 stateType,

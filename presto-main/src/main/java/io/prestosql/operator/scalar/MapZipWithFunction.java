@@ -16,6 +16,7 @@ package io.prestosql.operator.scalar;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.metadata.BoundVariables;
 import io.prestosql.metadata.FunctionKind;
+import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlScalarFunction;
@@ -54,35 +55,21 @@ public final class MapZipWithFunction
 
     private MapZipWithFunction()
     {
-        super(new Signature(
-                "map_zip_with",
-                FunctionKind.SCALAR,
-                ImmutableList.of(typeVariable("K"), typeVariable("V1"), typeVariable("V2"), typeVariable("V3")),
-                ImmutableList.of(),
-                mapType(new TypeSignature("K"), new TypeSignature("V3")),
-                ImmutableList.of(
-                        mapType(new TypeSignature("K"), new TypeSignature("V1")),
-                        mapType(new TypeSignature("K"), new TypeSignature("V2")),
-                        functionType(new TypeSignature("K"), new TypeSignature("V1"), new TypeSignature("V2"), new TypeSignature("V3"))),
-                false));
-    }
-
-    @Override
-    public boolean isHidden()
-    {
-        return false;
-    }
-
-    @Override
-    public boolean isDeterministic()
-    {
-        return false;
-    }
-
-    @Override
-    public String getDescription()
-    {
-        return "merge two maps into a single map by applying the lambda function to the pair of values with the same key";
+        super(new FunctionMetadata(
+                new Signature(
+                        "map_zip_with",
+                        FunctionKind.SCALAR,
+                        ImmutableList.of(typeVariable("K"), typeVariable("V1"), typeVariable("V2"), typeVariable("V3")),
+                        ImmutableList.of(),
+                        mapType(new TypeSignature("K"), new TypeSignature("V3")),
+                        ImmutableList.of(
+                                mapType(new TypeSignature("K"), new TypeSignature("V1")),
+                                mapType(new TypeSignature("K"), new TypeSignature("V2")),
+                                functionType(new TypeSignature("K"), new TypeSignature("V1"), new TypeSignature("V2"), new TypeSignature("V3"))),
+                        false),
+                false,
+                false,
+                "merge two maps into a single map by applying the lambda function to the pair of values with the same key"));
     }
 
     @Override
@@ -105,7 +92,7 @@ public final class MapZipWithFunction
                         functionTypeArgumentProperty(MapZipWithLambda.class)),
                 METHOD_HANDLE.bindTo(keyType).bindTo(inputValueType1).bindTo(inputValueType2).bindTo(outputMapType),
                 Optional.of(STATE_FACTORY.bindTo(outputMapType)),
-                isDeterministic());
+                false);
     }
 
     public static Object createState(MapType mapType)
