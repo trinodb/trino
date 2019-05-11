@@ -2195,6 +2195,9 @@ class StatementAnalyzer
                 catch (NumberFormatException e) {
                     throw new SemanticException(INVALID_LIMIT_ROW_COUNT, node, "Invalid LIMIT row count: %s", node.getLimit());
                 }
+                if (rowCount < 0) {
+                    throw new SemanticException(INVALID_LIMIT_ROW_COUNT, node, "LIMIT row count must be greater or equal to 0 (actual value: %s)", rowCount);
+                }
                 analysis.setLimit(node, rowCount);
             }
         }
