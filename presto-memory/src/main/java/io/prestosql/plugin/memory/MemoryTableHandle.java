@@ -18,6 +18,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import io.prestosql.spi.connector.ConnectorTableHandle;
 
 import java.util.Objects;
+import java.util.OptionalDouble;
 import java.util.OptionalLong;
 
 import static java.util.Objects.requireNonNull;
@@ -27,19 +28,22 @@ public final class MemoryTableHandle
 {
     private final long id;
     private final OptionalLong limit;
+    private final OptionalDouble sampleRatio;
 
     public MemoryTableHandle(long id)
     {
-        this(id, OptionalLong.empty());
+        this(id, OptionalLong.empty(), OptionalDouble.empty());
     }
 
     @JsonCreator
     public MemoryTableHandle(
             @JsonProperty("id") long id,
-            @JsonProperty("limit") OptionalLong limit)
+            @JsonProperty("limit") OptionalLong limit,
+            @JsonProperty("sampleRatio") OptionalDouble sampleRatio)
     {
         this.id = id;
         this.limit = requireNonNull(limit, "limit is null");
+        this.sampleRatio = requireNonNull(sampleRatio, "sampleRatio is null");
     }
 
     @JsonProperty
@@ -52,6 +56,12 @@ public final class MemoryTableHandle
     public OptionalLong getLimit()
     {
         return limit;
+    }
+
+    @JsonProperty
+    public OptionalDouble getSampleRatio()
+    {
+        return sampleRatio;
     }
 
     @Override
@@ -80,6 +90,7 @@ public final class MemoryTableHandle
         StringBuilder builder = new StringBuilder();
         builder.append(id);
         limit.ifPresent(value -> builder.append("(limit:" + value + ")"));
+        sampleRatio.ifPresent(value -> builder.append("(sampleRatio:" + value + ")"));
         return builder.toString();
     }
 }

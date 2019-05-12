@@ -28,8 +28,10 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.OptionalDouble;
 import java.util.OptionalLong;
 import java.util.Set;
+import java.util.concurrent.ThreadLocalRandom;
 
 import static io.prestosql.plugin.memory.MemoryErrorCode.MEMORY_LIMIT_EXCEEDED;
 import static io.prestosql.plugin.memory.MemoryErrorCode.MISSING_DATA;
@@ -82,7 +84,8 @@ public class MemoryPagesStore
             int totalParts,
             List<Integer> columnIndexes,
             long expectedRows,
-            OptionalLong limit)
+            OptionalLong limit,
+            OptionalDouble sampleRatio)
     {
         if (!contains(tableId)) {
             throw new PrestoException(MISSING_DATA, "Failed to find table on a worker.");
@@ -98,8 +101,11 @@ public class MemoryPagesStore
         boolean done = false;
         long totalRows = 0;
         for (int i = partNumber; i < tableData.getPages().size() && !done; i += totalParts) {
-            Page page = tableData.getPages().get(i);
+            if (sampleRatio.isPresent() && ThreadLocalRandom.current().nextDouble() >= sampleRatio.getAsDouble()) {
+                continue;
+            }
 
+            Page page = tableData.getPages().get(i);
             totalRows += page.getPositionCount();
             if (limit.isPresent() && totalRows > limit.getAsLong()) {
                 page = page.getRegion(0, (int) (page.getPositionCount() - (totalRows - limit.getAsLong())));
