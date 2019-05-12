@@ -35,6 +35,7 @@ import io.prestosql.spi.connector.ConnectorViewDefinition;
 import io.prestosql.spi.connector.Constraint;
 import io.prestosql.spi.connector.ConstraintApplicationResult;
 import io.prestosql.spi.connector.LimitApplicationResult;
+import io.prestosql.spi.connector.SampleType;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.SchemaTablePrefix;
 import io.prestosql.spi.connector.SystemTable;
@@ -581,6 +582,14 @@ public class ClassLoaderSafeConnectorMetadata
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             return delegate.applyFilter(session, table, constraint);
+        }
+    }
+
+    @Override
+    public Optional<ConnectorTableHandle> applySample(ConnectorSession session, ConnectorTableHandle table, SampleType sampleType, double sampleRatio)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.applySample(session, table, sampleType, sampleRatio);
         }
     }
 }

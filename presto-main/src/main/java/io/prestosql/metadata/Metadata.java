@@ -27,6 +27,7 @@ import io.prestosql.spi.connector.ConnectorTableMetadata;
 import io.prestosql.spi.connector.Constraint;
 import io.prestosql.spi.connector.ConstraintApplicationResult;
 import io.prestosql.spi.connector.LimitApplicationResult;
+import io.prestosql.spi.connector.SampleType;
 import io.prestosql.spi.connector.SystemTable;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.security.GrantInfo;
@@ -398,4 +399,6 @@ public interface Metadata
     Optional<LimitApplicationResult<TableHandle>> applyLimit(Session session, TableHandle table, long limit);
 
     Optional<ConstraintApplicationResult<TableHandle>> applyFilter(Session session, TableHandle table, Constraint constraint);
+
+    Optional<TableHandle> applySample(Session session, TableHandle table, SampleType sampleType, double sampleRatio);
 }
