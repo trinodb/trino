@@ -13,66 +13,68 @@
  */
 package io.prestosql.plugin.hive;
 
+import com.google.common.collect.ImmutableList;
+import io.prestosql.spi.PrestoException;
 import org.apache.hadoop.fs.Path;
 import org.testng.annotations.Test;
 
-import static org.mockito.Mockito.mock;
+import static io.prestosql.plugin.hive.LocationHandle.WriteMode.DIRECT_TO_TARGET_EXISTING_DIRECTORY;
+import static io.prestosql.plugin.hive.LocationHandle.WriteMode.DIRECT_TO_TARGET_NEW_DIRECTORY;
+import static io.prestosql.plugin.hive.LocationHandle.WriteMode.STAGE_AND_MOVE_TO_TARGET_DIRECTORY;
 import static org.testng.Assert.assertEquals;
 
 public class TestHiveLocationService
 {
     @Test
-    public void testGetTableWriteInfo_append()
+    public void testGetTableWriteInfoAppend()
     {
-        assertThat(locationHandle(LocationHandle.WriteMode.STAGE_AND_MOVE_TO_TARGET_DIRECTORY), false)
+        assertThat(locationHandle(STAGE_AND_MOVE_TO_TARGET_DIRECTORY), false)
                 .produceWriteInfoAs(new LocationService.WriteInfo(
                         new Path("hdfs://dir001/target"),
                         new Path("hdfs://dir001/write"),
-                        LocationHandle.WriteMode.STAGE_AND_MOVE_TO_TARGET_DIRECTORY));
+                        STAGE_AND_MOVE_TO_TARGET_DIRECTORY));
 
         assertThat(locationHandle(
-                LocationHandle.WriteMode.DIRECT_TO_TARGET_EXISTING_DIRECTORY,
+                DIRECT_TO_TARGET_EXISTING_DIRECTORY,
                 "hdfs://dir001/target",
                 "hdfs://dir001/target"),
                 false)
                 .produceWriteInfoAs(new LocationService.WriteInfo(
                         new Path("hdfs://dir001/target"),
                         new Path("hdfs://dir001/target"),
-                        LocationHandle.WriteMode.DIRECT_TO_TARGET_EXISTING_DIRECTORY));
+                        DIRECT_TO_TARGET_EXISTING_DIRECTORY));
 
         assertThat(locationHandle(
-                LocationHandle.WriteMode.DIRECT_TO_TARGET_NEW_DIRECTORY,
+                DIRECT_TO_TARGET_NEW_DIRECTORY,
                 "hdfs://dir001/target",
                 "hdfs://dir001/target"),
                 false)
                 .produceWriteInfoAs(new LocationService.WriteInfo(
                         new Path("hdfs://dir001/target"),
                         new Path("hdfs://dir001/target"),
-                        LocationHandle.WriteMode.DIRECT_TO_TARGET_NEW_DIRECTORY));
+                        DIRECT_TO_TARGET_NEW_DIRECTORY));
     }
 
     @Test
-    public void testGetTableWriteInfo_overwriteSuccess()
+    public void testGetTableWriteInfoOverwriteSuccess()
     {
-        assertThat(locationHandle(LocationHandle.WriteMode.STAGE_AND_MOVE_TO_TARGET_DIRECTORY), true)
+        assertThat(locationHandle(STAGE_AND_MOVE_TO_TARGET_DIRECTORY), true)
                 .produceWriteInfoAs(new LocationService.WriteInfo(
                         new Path("hdfs://dir001/target"),
                         new Path("hdfs://dir001/write"),
-                        LocationHandle.WriteMode.STAGE_AND_MOVE_TO_TARGET_DIRECTORY));
+                        STAGE_AND_MOVE_TO_TARGET_DIRECTORY));
     }
 
-    @Test(expectedExceptions = UnsupportedOperationException.class)
-    public void testGetTableWriteInfo_overwriteFail_1()
+    @Test(expectedExceptions = PrestoException.class)
+    public void testGetTableWriteInfoOverwriteFail1()
     {
-        assertThat(locationHandle(LocationHandle.WriteMode.DIRECT_TO_TARGET_NEW_DIRECTORY,
-                "hdfs://dir001/target", "hdfs://dir001/target"), true);
+        assertThat(locationHandle(DIRECT_TO_TARGET_NEW_DIRECTORY, "hdfs://dir001/target", "hdfs://dir001/target"), true);
     }
 
-    @Test(expectedExceptions = UnsupportedOperationException.class)
-    public void testGetTableWriteInfo_overwriteFail_2()
+    @Test(expectedExceptions = PrestoException.class)
+    public void testGetTableWriteInfoOverwriteFail2()
     {
-        assertThat(locationHandle(LocationHandle.WriteMode.DIRECT_TO_TARGET_EXISTING_DIRECTORY,
-                "hdfs://dir001/target", "hdfs://dir001/target"), true);
+        assertThat(locationHandle(DIRECT_TO_TARGET_EXISTING_DIRECTORY, "hdfs://dir001/target", "hdfs://dir001/target"), true);
     }
 
     private static Assertion assertThat(LocationHandle locationHandle, boolean overwrite)
@@ -86,7 +88,7 @@ public class TestHiveLocationService
 
         public Assertion(LocationHandle locationHandle, boolean overwrite)
         {
-            HdfsEnvironment hdfsEnvironment = mock(HdfsEnvironment.class);
+            HdfsEnvironment hdfsEnvironment = new TestBackgroundHiveSplitLoader.TestingHdfsEnvironment(ImmutableList.of());
             HiveLocationService service = new HiveLocationService(hdfsEnvironment);
             this.actual = service.getTableWriteInfo(locationHandle, overwrite);
         }
@@ -103,12 +105,10 @@ public class TestHiveLocationService
 
     private static LocationHandle locationHandle(LocationHandle.WriteMode writeMode)
     {
-        return locationHandle(writeMode, "hdfs://dir001/target",
-                "hdfs://dir001/write");
+        return locationHandle(writeMode, "hdfs://dir001/target", "hdfs://dir001/write");
     }
 
-    private static LocationHandle locationHandle(LocationHandle.WriteMode writeMode,
-            String targetPath, String writePath)
+    private static LocationHandle locationHandle(LocationHandle.WriteMode writeMode, String targetPath, String writePath)
     {
         return new LocationHandle(
                 new Path(targetPath),

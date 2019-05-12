@@ -17,55 +17,38 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.prestosql.plugin.hive.HdfsEnvironment;
+import io.prestosql.plugin.hive.HiveBasicStatistics;
 import io.prestosql.plugin.hive.PartitionStatistics;
+import io.prestosql.plugin.hive.TestBackgroundHiveSplitLoader;
+import io.prestosql.plugin.hive.metastore.file.FileHiveMetastore;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.SchemaTableName;
-import io.prestosql.spi.security.ConnectorIdentity;
-import org.apache.hadoop.fs.FileSystem;
+import io.prestosql.spi.type.TimeZoneKey;
+import io.prestosql.testing.TestingConnectorSession;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.fs.permission.FsPermission;
-import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.Date;
+import java.util.Locale;
 import java.util.Optional;
-import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 
-import static org.mockito.Matchers.any;
-import static org.mockito.Matchers.anyString;
-import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.doNothing;
-import static org.mockito.Mockito.doReturn;
-import static org.mockito.Mockito.mock;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.fail;
 
 public class TestSemiTransactionalHiveMetastore
 {
-    @BeforeTest
-    public void beforeTest()
-    {
-        FileSystemStats.clear();
-        HiveMetastoreStats.clear();
-    }
-
     @Test
-    public void testCreateTable() throws Exception
+    public void testCreateTable()
     {
-        SemiTransactionalHiveMetastore metastore = metastore();
-
-        ConnectorSession session = session();
-
-        Table table = table();
-        PrincipalPrivileges principalPrivileges = mock(PrincipalPrivileges.class);
-
-        PartitionStatistics statistics = mock(PartitionStatistics.class);
-        metastore.createTable(session, table, principalPrivileges,
-                Optional.of(new Path("hdfs://dir001/file")), false, statistics);
+        SemiTransactionalHiveMetastore metastore = getSemiTransactionalHiveMetastore();
+        metastore.createTable(
+                session(),
+                table(),
+                principalPrivileges(),
+                Optional.of(new Path("hdfs://dir001/file")),
+                false,
+                partitionStatistics());
 
         assertEquals(
                 metastore.tableActions.size(),
@@ -77,19 +60,18 @@ public class TestSemiTransactionalHiveMetastore
     }
 
     @Test
-    public void testCreateTableAfterDropTableSuccess() throws Exception
+    public void testCreateTableAfterDropTableSuccess()
     {
-        SemiTransactionalHiveMetastore metastore = metastore();
+        SemiTransactionalHiveMetastore metastore = getSemiTransactionalHiveMetastore();
 
-        ConnectorSession session = session();
-        metastore.dropTable(session, "db001", "tbl001");
-
-        Table table = table();
-        PrincipalPrivileges principalPrivileges = mock(PrincipalPrivileges.class);
-
-        PartitionStatistics statistics = mock(PartitionStatistics.class);
-        metastore.createTable(session, table, principalPrivileges,
-                Optional.of(new Path("hdfs://dir001/file")), false, statistics);
+        metastore.dropTable(session(), "db001", "tbl001");
+        metastore.createTable(
+                session(),
+                table(),
+                principalPrivileges(),
+                Optional.of(new Path("hdfs://dir001/file")),
+                false,
+                partitionStatistics());
 
         assertEquals(
                 metastore.tableActions.size(),
@@ -101,105 +83,17 @@ public class TestSemiTransactionalHiveMetastore
     }
 
     @Test(expectedExceptions = PrestoException.class)
-    public void testCreateTableAfterDropTableFailBecauseDiffUser() throws Exception
+    public void testCreateTableAfterDropTableFailBecauseDiffUser()
     {
-        SemiTransactionalHiveMetastore metastore = metastore();
-
-        ConnectorSession session = session("user002");
-        metastore.dropTable(session, "db001", "tbl001");
-
-        Table table = table();
-        PrincipalPrivileges principalPrivileges = mock(PrincipalPrivileges.class);
-
-        PartitionStatistics statistics = mock(PartitionStatistics.class);
-        metastore.createTable(session, table, principalPrivileges,
-                Optional.of(new Path("hdfs://dir001/file")), false, statistics);
-    }
-
-    @Test
-    public void testCommitterPrepareAlterTable() throws Exception
-    {
-        SemiTransactionalHiveMetastore metastore = metastore();
-        ConnectorSession session = session();
-        metastore.dropTable(session, "db001", "tbl001");
-        Table table = table("hdfs://dir001/tbl001/");
-        PrincipalPrivileges principalPrivileges = mock(PrincipalPrivileges.class);
-
-        PartitionStatistics statistics = mock(PartitionStatistics.class);
-        metastore.createTable(session, table, principalPrivileges,
-                Optional.of(new Path("hdfs://tmp/tbl001/")), false, statistics);
-
-        metastore.commit();
-
-        // 1. check the path renames
-        assertEquals(
-                FileSystemStats.renames,
-                ImmutableMap.of(
-                        // table location -> staging
-                        "hdfs://dir001/tbl001", "hdfs://dir001/_temp_tbl001_query001",
-                        // write path -> target path
-                        "hdfs://tmp/tbl001", "hdfs://dir001/tbl001"));
-
-        // 2. check the metastore operations
-        assertEquals(
-                HiveMetastoreStats.replaces,
-                ImmutableSet.of(new SchemaTableName("db001", "tbl001")));
-    }
-
-    @Test
-    public void testCommitterPrepareAlterTableRollback() throws Exception
-    {
-        SemiTransactionalHiveMetastore metastore = metastore(throwExceptionOnFirstInvokeHiveMetastore());
-        ConnectorSession session = session();
-        metastore.dropTable(session, "db001", "tbl001");
-        Table table = table("hdfs://dir001/tbl001/");
-        PrincipalPrivileges principalPrivileges = mock(PrincipalPrivileges.class);
-
-        PartitionStatistics statistics = mock(PartitionStatistics.class);
-        metastore.createTable(session, table, principalPrivileges,
-                Optional.of(new Path("hdfs://tmp/tbl001/")), false, statistics);
-
-        try {
-            metastore.commit();
-            fail();
-        }
-        catch (Throwable t) {
-            // ignore
-        }
-
-        // 1. check the path renames
-        assertEquals(
-                FileSystemStats.renames,
-                ImmutableMap.of(
-                        // table location -> staging
-                        "hdfs://dir001/tbl001", "hdfs://dir001/_temp_tbl001_query001",
-                        // write path -> target path
-                        "hdfs://tmp/tbl001", "hdfs://dir001/tbl001"));
-
-        // 2. check the metastore operations
-        assertEquals(
-                HiveMetastoreStats.replaces,
-                ImmutableList.of(
-                        // first replaceTable
-                        new SchemaTableName("db001", "tbl001"),
-                        // rollback the replaceTable
-                        new SchemaTableName("db001", "tbl001")));
-    }
-
-    @Test(expectedExceptions = RuntimeException.class)
-    public void testCommitterPrepareAlterTableRollbackFailed() throws Exception
-    {
-        SemiTransactionalHiveMetastore metastore = metastore(throwExceptionOnEveryInvokeHiveMetastore());
-        ConnectorSession session = session();
-        metastore.dropTable(session, "db001", "tbl001");
-        Table table = table("hdfs://dir001/tbl001/");
-        PrincipalPrivileges principalPrivileges = mock(PrincipalPrivileges.class);
-
-        PartitionStatistics statistics = mock(PartitionStatistics.class);
-        metastore.createTable(session, table, principalPrivileges,
-                Optional.of(new Path("hdfs://tmp/tbl001/")), false, statistics);
-
-        metastore.commit();
+        SemiTransactionalHiveMetastore metastore = getSemiTransactionalHiveMetastore();
+        metastore.dropTable(session("user001"), "db001", "tbl001");
+        metastore.createTable(
+                session("user002"),
+                table(),
+                principalPrivileges(),
+                Optional.of(new Path("hdfs://dir001/file")),
+                false,
+                partitionStatistics());
     }
 
     private Table table()
@@ -209,13 +103,8 @@ public class TestSemiTransactionalHiveMetastore
 
     private Table table(String path)
     {
-        Table table = mock(Table.class);
-        doReturn("db001").when(table).getDatabaseName();
-        doReturn("tbl001").when(table).getTableName();
-        Storage storage = mock(Storage.class);
-        doReturn(path).when(storage).getLocation();
-        doReturn(storage).when(table).getStorage();
-        return table;
+        Storage storage = new Storage(StorageFormat.VIEW_STORAGE_FORMAT, path, Optional.empty(), false, ImmutableMap.of());
+        return new Table("db001", "tbl001", "user001", "BASE TABLE", storage, ImmutableList.of(), ImmutableList.of(), ImmutableMap.of(), Optional.empty(), Optional.empty());
     }
 
     private ConnectorSession session()
@@ -225,144 +114,35 @@ public class TestSemiTransactionalHiveMetastore
 
     private ConnectorSession session(String sessionUser)
     {
-        ConnectorSession session = mock(ConnectorSession.class);
-        ConnectorIdentity identity = mock(ConnectorIdentity.class);
-        doReturn("user001").when(identity).getUser();
-        doReturn(identity).when(session).getIdentity();
-        doReturn("query001").when(session).getQueryId();
-        doReturn(Optional.of("source001")).when(session).getSource();
-        doReturn(sessionUser).when(session).getUser();
-        return session;
+        return new TestingConnectorSession(
+                sessionUser,
+                Optional.of("source001"),
+                Optional.of("trace001"),
+                TimeZoneKey.UTC_KEY,
+                Locale.getDefault(),
+                new Date().getTime(),
+                ImmutableList.of(),
+                ImmutableMap.of(),
+                false);
     }
 
-    private SemiTransactionalHiveMetastore metastore() throws Exception
+    private PrincipalPrivileges principalPrivileges()
     {
-        return metastore(hiveMetastore());
+        return PrincipalPrivileges.fromHivePrivilegeInfos(ImmutableSet.of());
     }
 
-    private SemiTransactionalHiveMetastore metastore(HiveMetastore hiveMetastore) throws Exception
+    private PartitionStatistics partitionStatistics()
     {
-        HdfsEnvironment hdfsEnvironment = hdfsEnvironment();
-        HiveMetastore delegate = hiveMetastore;
-        Executor renameExecutor = mock(Executor.class);
-        boolean skipDeletionForAlter = false;
-        boolean skipTargetCleanupOnRollback = false;
-
-        return new SemiTransactionalHiveMetastore(
-                hdfsEnvironment, delegate, renameExecutor, skipDeletionForAlter, skipTargetCleanupOnRollback);
+        return new PartitionStatistics(HiveBasicStatistics.createEmptyStatistics(), ImmutableMap.of());
     }
 
-    private HiveMetastore hiveMetastore()
+    private SemiTransactionalHiveMetastore getSemiTransactionalHiveMetastore()
     {
-        return hiveMetastore(true);
-    }
+        HdfsEnvironment hdfsEnvironment = new TestBackgroundHiveSplitLoader.TestingHdfsEnvironment(
+                ImmutableList.of()
+        );
+        FileHiveMetastore hiveMetastore = new FileHiveMetastore(hdfsEnvironment, "/tmp/test", "user001");
 
-    private HiveMetastore hiveMetastore(boolean getTableExists)
-    {
-        HiveMetastore delegate = mock(HiveMetastore.class);
-        doAnswer(x -> {
-            String dbName = x.getArgumentAt(0, String.class);
-            String tableName = x.getArgumentAt(1, String.class);
-            HiveMetastoreStats.replaceTable(dbName, tableName);
-            return null;
-        }).when(delegate).replaceTable(anyString(), anyString(), any(Table.class), any(PrincipalPrivileges.class));
-
-        Optional<Table> table = getTableExists ? Optional.of(table()) : Optional.empty();
-        doReturn(table).when(delegate).getTable(anyString(), anyString());
-
-        return delegate;
-    }
-
-    private HiveMetastore throwExceptionOnFirstInvokeHiveMetastore()
-    {
-        HiveMetastore delegate = mock(HiveMetastore.class);
-        doAnswer(x -> {
-            boolean throwException = HiveMetastoreStats.replaces.isEmpty();
-            String dbName = x.getArgumentAt(0, String.class);
-            String tableName = x.getArgumentAt(1, String.class);
-            HiveMetastoreStats.replaceTable(dbName, tableName);
-
-            if (throwException) {
-                throw new RuntimeException();
-            }
-
-            return null;
-        }).when(delegate).replaceTable(anyString(), anyString(), any(Table.class), any(PrincipalPrivileges.class));
-        doReturn(Optional.of(table())).when(delegate).getTable(anyString(), anyString());
-
-        return delegate;
-    }
-
-    private HiveMetastore throwExceptionOnEveryInvokeHiveMetastore()
-    {
-        HiveMetastore delegate = mock(HiveMetastore.class);
-        doAnswer(x -> {
-            throw new RuntimeException();
-        }).when(delegate).replaceTable(anyString(), anyString(), any(Table.class), any(PrincipalPrivileges.class));
-
-        doReturn(Optional.of(table())).when(delegate).getTable(anyString(), anyString());
-        return delegate;
-    }
-
-    private HdfsEnvironment hdfsEnvironment() throws Exception
-    {
-        return hdfsEnvironment(ImmutableList.of());
-    }
-
-    private HdfsEnvironment hdfsEnvironment(List<String> existsPathes) throws Exception
-    {
-        HdfsEnvironment hdfsEnvironment = mock(HdfsEnvironment.class);
-        doReturn(fileSystem(existsPathes)).when(hdfsEnvironment).getFileSystem(any(), any());
-        return hdfsEnvironment;
-    }
-
-    private FileSystem fileSystem(List<String> existsPathes) throws Exception
-    {
-        FileSystem fileSystem = mock(FileSystem.class);
-        doAnswer(x -> {
-            Path path = x.getArgumentAt(0, Path.class);
-            return existsPathes.contains(path.toUri().toString());
-        }).when(fileSystem).exists(any(Path.class));
-
-        doAnswer(x -> {
-            Path from = x.getArgumentAt(0, Path.class);
-            Path to = x.getArgumentAt(1, Path.class);
-            FileSystemStats.registerRenames(from.toUri().toString(), to.toUri().toString());
-            return true;
-        }).when(fileSystem).rename(any(Path.class), any(Path.class));
-
-        doReturn(true).when(fileSystem).mkdirs(any(Path.class), any(FsPermission.class));
-        doNothing().when(fileSystem).setPermission(any(Path.class), any(FsPermission.class));
-        return fileSystem;
-    }
-
-    static class FileSystemStats
-    {
-        private static Map<String, String> renames = new HashMap<>();
-
-        public static void registerRenames(String from, String to)
-        {
-            renames.put(from, to);
-        }
-
-        public static void clear()
-        {
-            renames.clear();
-        }
-    }
-
-    static class HiveMetastoreStats
-    {
-        private static List<SchemaTableName> replaces = new ArrayList<>();
-
-        public static void replaceTable(String dbname, String tableName)
-        {
-            replaces.add(new SchemaTableName(dbname, tableName));
-        }
-
-        public static void clear()
-        {
-            replaces.clear();
-        }
+        return new SemiTransactionalHiveMetastore(hdfsEnvironment, hiveMetastore, Executors.newSingleThreadExecutor(), false, false);
     }
 }

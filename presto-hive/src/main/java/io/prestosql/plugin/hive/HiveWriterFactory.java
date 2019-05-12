@@ -96,7 +96,6 @@ import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.META_
 
 public class HiveWriterFactory
 {
-    private static final io.airlift.log.Logger LOG = io.airlift.log.Logger.get(HiveWriterFactory.class);
     private static final int MAX_BUCKET_COUNT = 100_000;
     private static final int BUCKET_NUMBER_PADDING = Integer.toString(MAX_BUCKET_COUNT - 1).length();
 
@@ -312,7 +311,7 @@ public class HiveWriterFactory
 
                 if (!partitionName.isPresent()) {
                     // new unpartitioned table
-                    writeInfo = locationService.getTableWriteInfo(locationHandle);
+                    writeInfo = locationService.getTableWriteInfo(locationHandle, false);
                 }
                 else {
                     // a new partition in a new partitioned table
@@ -350,19 +349,17 @@ public class HiveWriterFactory
 
                     if (insertExistingPartitionsBehavior == InsertExistingPartitionsBehavior.APPEND) {
                         updateMode = UpdateMode.APPEND;
-                        writeInfo = locationService.getTableWriteInfo(locationHandle);
+                        writeInfo = locationService.getTableWriteInfo(locationHandle, false);
                     }
                     else if (insertExistingPartitionsBehavior == InsertExistingPartitionsBehavior.OVERWRITE) {
                         updateMode = UpdateMode.OVERWRITE;
                         writeInfo = locationService.getTableWriteInfo(locationHandle, true);
                     }
                     else if (insertExistingPartitionsBehavior == InsertExistingPartitionsBehavior.ERROR) {
-                        throw new PrestoException(HIVE_TABLE_READ_ONLY,
-                                "Cannot insert into an readonly unpartitioned Hive table.");
+                        throw new PrestoException(HIVE_PARTITION_READ_ONLY, "Unpartitioned Hive tables are immutable");
                     }
                     else {
-                        throw new IllegalArgumentException(format("Unsupported insert existing table behavior: %s",
-                                insertExistingPartitionsBehavior));
+                        throw new IllegalArgumentException("Unsupported insert existing table behavior: " + insertExistingPartitionsBehavior);
                     }
                 }
 

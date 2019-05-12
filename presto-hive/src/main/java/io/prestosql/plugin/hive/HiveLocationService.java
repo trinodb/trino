@@ -35,6 +35,7 @@ import static io.prestosql.plugin.hive.HiveWriteUtils.pathExists;
 import static io.prestosql.plugin.hive.LocationHandle.WriteMode.DIRECT_TO_TARGET_EXISTING_DIRECTORY;
 import static io.prestosql.plugin.hive.LocationHandle.WriteMode.DIRECT_TO_TARGET_NEW_DIRECTORY;
 import static io.prestosql.plugin.hive.LocationHandle.WriteMode.STAGE_AND_MOVE_TO_TARGET_DIRECTORY;
+import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -100,20 +101,18 @@ public class HiveLocationService
     @Override
     public WriteInfo getTableWriteInfo(LocationHandle locationHandle, boolean overwrite)
     {
-        if (overwrite) {
-            WriteMode writeMode = locationHandle.getWriteMode();
-            switch (writeMode) {
-                case STAGE_AND_MOVE_TO_TARGET_DIRECTORY:
-                    return new WriteInfo(locationHandle.getTargetPath(), locationHandle.getWritePath(), locationHandle.getWriteMode());
-                case DIRECT_TO_TARGET_EXISTING_DIRECTORY:
-                case DIRECT_TO_TARGET_NEW_DIRECTORY:
-                default:
-                    throw new UnsupportedOperationException(format(
-                            "inserting overwrite existing unpartitioned table using %s writeMode is not supported!", writeMode));
-            }
-        }
-        else {
+        if (!overwrite) {
             return new WriteInfo(locationHandle.getTargetPath(), locationHandle.getWritePath(), locationHandle.getWriteMode());
+        }
+
+        WriteMode writeMode = locationHandle.getWriteMode();
+        switch (writeMode) {
+            case STAGE_AND_MOVE_TO_TARGET_DIRECTORY:
+                return new WriteInfo(locationHandle.getTargetPath(), locationHandle.getWritePath(), locationHandle.getWriteMode());
+            case DIRECT_TO_TARGET_EXISTING_DIRECTORY:
+            case DIRECT_TO_TARGET_NEW_DIRECTORY:
+            default:
+                throw new PrestoException(NOT_SUPPORTED, "Overwriting unpartitioned table not supported when writing directly to target directory");
         }
     }
 

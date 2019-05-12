@@ -122,6 +122,7 @@ import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableListMultimap.toImmutableListMultimap;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.concat;
@@ -1364,14 +1365,12 @@ public class HiveMetadata
                         getColumnStatistics(partitionComputedStatistics, ImmutableList.of()));
 
                 if (partitionUpdate.getUpdateMode() == OVERWRITE) {
-                    PrincipalPrivileges principalPrivileges = getTablePrincipalPrivileges(
-                            handle.getSchemaName(), handle.getTableName());
+                    PrincipalPrivileges principalPrivileges = getTablePrincipalPrivileges(handle.getSchemaName(), handle.getTableName());
                     // first drop it
                     metastore.dropTable(session, handle.getSchemaName(), handle.getTableName());
 
                     // create the table with the new location
-                    metastore.createTable(session, table.get(), principalPrivileges,
-                            Optional.of(partitionUpdate.getWritePath()), false, partitionStatistics);
+                    metastore.createTable(session, table.get(), principalPrivileges, Optional.of(partitionUpdate.getWritePath()), false, partitionStatistics);
                 }
                 else {
                     // insert into unpartitioned table
@@ -1428,22 +1427,9 @@ public class HiveMetadata
                         .collect(Collectors.toList())));
     }
 
-    @VisibleForTesting
-    PrincipalPrivileges getTablePrincipalPrivileges(String databaseName, String tableName)
+    private PrincipalPrivileges getTablePrincipalPrivileges(String databaseName, String tableName)
     {
-        // fetch the privilege info.
-        Set<HivePrivilegeInfo> allPrivileges = metastore.listTablePrivileges(databaseName, tableName, null);
-        Multimap<String, HivePrivilegeInfo> userPrivileges = LinkedListMultimap.create();
-        Multimap<String, HivePrivilegeInfo> rolePrivileges = LinkedListMultimap.create();
-        allPrivileges.forEach(privilege -> {
-            if (privilege.getGrantee().getType() == ROLE) {
-                rolePrivileges.put(privilege.getGrantee().getName(), privilege);
-            }
-            else {
-                userPrivileges.put(privilege.getGrantee().getName(), privilege);
-            }
-        });
-        return new PrincipalPrivileges(userPrivileges, rolePrivileges);
+        return PrincipalPrivileges.fromHivePrivilegeInfos(metastore.listTablePrivileges(databaseName, tableName, null));
     }
 
     private Partition buildPartitionObject(ConnectorSession session, Table table, PartitionUpdate partitionUpdate)

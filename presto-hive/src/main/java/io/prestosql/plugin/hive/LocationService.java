@@ -35,11 +35,6 @@ public interface LocationService
      */
     WriteInfo getQueryWriteInfo(LocationHandle locationHandle);
 
-    default WriteInfo getTableWriteInfo(LocationHandle locationHandle)
-    {
-        return getTableWriteInfo(locationHandle, false);
-    }
-
     WriteInfo getTableWriteInfo(LocationHandle locationHandle, boolean overwrite);
 
     /**

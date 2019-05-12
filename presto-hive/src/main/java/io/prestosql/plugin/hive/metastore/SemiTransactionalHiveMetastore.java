@@ -368,13 +368,11 @@ public class SemiTransactionalHiveMetastore
         switch (oldTableAction.getType()) {
             case DROP:
                 if (!oldTableAction.getContext().getIdentity().getUser().equals(session.getUser())) {
-                    throw new PrestoException(TRANSACTION_CONFLICT,
-                            "Operation on the same table with different user in the same transaction is not supported");
+                    throw new PrestoException(TRANSACTION_CONFLICT, "Operation on the same table with different user in the same transaction is not supported");
                 }
                 tableActions.put(
                         schemaTableName,
-                        new Action<>(ActionType.ALTER, tableAndMore,
-                                new HdfsContext(session, table.getDatabaseName(), table.getTableName())));
+                        new Action<>(ActionType.ALTER, tableAndMore, new HdfsContext(session, table.getDatabaseName(), table.getTableName())));
                 break;
             case ADD:
             case ALTER:
@@ -1091,8 +1089,8 @@ public class SemiTransactionalHiveMetastore
             String oldTableLocation = oldTable.get().getStorage().getLocation();
             Path oldTablePath = new Path(oldTableLocation);
 
-            // Location of the old partition and the new partition can be different because we allow arbitrary directories through LocationService.
-            // If the location of the old partition is the same as the location of the new partition:
+            // Location of the old table and the new table can be different because we allow arbitrary directories through LocationService.
+            // If the location of the old table is the same as the location of the new table:
             // * Rename the old data directory to a temporary path with a special suffix
             // * Remember we will need to delete that directory at the end if transaction successfully commits
             // * Remember we will need to undo the rename if transaction aborts
@@ -1116,10 +1114,8 @@ public class SemiTransactionalHiveMetastore
                 }
             }
 
-            Optional<Path> currentPathOp = tableAndMore.getCurrentLocation();
-
-            checkArgument(currentPathOp.isPresent(), "table writePath is not present!");
-            Path currentPath = currentPathOp.get();
+            Path currentPath = tableAndMore.getCurrentLocation().orElseThrow(() ->
+                    new IllegalArgumentException("location should be present for alter table"));
             Path targetPath = new Path(targetLocation);
             if (!targetPath.equals(currentPath)) {
                 renameDirectory(
