@@ -629,4 +629,21 @@ public interface ConnectorMetadata
     {
         return Optional.empty();
     }
+
+    /**
+     * Attempt to push down the sampling into the table.
+     * <p>
+     * Connectors can indicate whether they don't support sample pushdown or that the action had no effect
+     * by returning {@link Optional#empty()}. Connectors should expect this method to be called multiple times
+     * during the optimization of a given query.
+     * <p>
+     * <b>Note</b>: it's critical for connectors to return Optional.empty() if calling this method has no effect for that
+     * invocation, even if the connector generally supports sample pushdown. Doing otherwise can cause the optimizer
+     * to loop indefinitely.
+     * </p>
+     */
+    default Optional<ConnectorTableHandle> applySample(ConnectorSession session, ConnectorTableHandle handle, SampleType sampleType, double sampleRatio)
+    {
+        return Optional.empty();
+    }
 }
