@@ -27,10 +27,8 @@ import io.prestosql.execution.QueryPreparer.PreparedQuery;
 import io.prestosql.execution.QueryStateMachine;
 import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.execution.warnings.WarningCollectorFactory;
-import io.prestosql.metadata.InternalNodeManager;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.security.AccessControl;
-import io.prestosql.spi.Node;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.resourcegroups.ResourceGroupId;
 import io.prestosql.sql.tree.Statement;
@@ -57,7 +55,6 @@ public class LocalDispatchQueryFactory
     private final QueryMonitor queryMonitor;
     private final LocationFactory locationFactory;
 
-    private final CoordinatorLocation coordinatorLocation;
     private final ClusterSizeMonitor clusterSizeMonitor;
 
     private final Map<Class<? extends Statement>, QueryExecutionFactory<?>> executionFactories;
@@ -73,7 +70,6 @@ public class LocalDispatchQueryFactory
             QueryMonitor queryMonitor,
             LocationFactory locationFactory,
             Map<Class<? extends Statement>, QueryExecutionFactory<?>> executionFactories,
-            InternalNodeManager internalNodeManager,
             WarningCollectorFactory warningCollectorFactory,
             ClusterSizeMonitor clusterSizeMonitor,
             @ForQueryExecution ExecutorService executorService)
@@ -88,8 +84,6 @@ public class LocalDispatchQueryFactory
         this.executionFactories = requireNonNull(executionFactories, "executionFactories is null");
         this.warningCollectorFactory = requireNonNull(warningCollectorFactory, "warningCollectorFactory is null");
 
-        Node currentNode = requireNonNull(internalNodeManager, "internalNodeManager is null").getCurrentNode();
-        this.coordinatorLocation = new CoordinatorLocation(Optional.of(currentNode.getHttpUri()), Optional.of(currentNode.getHttpUri()));
         this.clusterSizeMonitor = requireNonNull(clusterSizeMonitor, "clusterSizeMonitor is null");
 
         this.executorService = listeningDecorator(requireNonNull(executorService, "executorService is null"));
@@ -131,7 +125,6 @@ public class LocalDispatchQueryFactory
         return new LocalDispatchQuery(
                 stateMachine,
                 queryExecutionFuture,
-                coordinatorLocation,
                 clusterSizeMonitor,
                 queryExecutor,
                 queryExecution -> executorService.submit(() -> queryManager.createQuery(queryExecution)));
