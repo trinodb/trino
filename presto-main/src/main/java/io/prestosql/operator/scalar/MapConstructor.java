@@ -104,8 +104,7 @@ public final class MapConstructor
                         valueTypeArgumentProperty(RETURN_NULL_ON_NULL),
                         valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
                 METHOD_HANDLE.bindTo(mapType).bindTo(keyEqual).bindTo(keyHashCode).bindTo(keyIndeterminate),
-                Optional.of(instanceFactory),
-                true);
+                Optional.of(instanceFactory));
     }
 
     @UsedByGeneratedCode

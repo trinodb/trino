@@ -116,7 +116,7 @@ public class ParametricScalarImplementation
         }
     }
 
-    public Optional<ScalarFunctionImplementation> specialize(Signature boundSignature, BoundVariables boundVariables, Metadata metadata, boolean isDeterministic)
+    public Optional<ScalarFunctionImplementation> specialize(Signature boundSignature, BoundVariables boundVariables, Metadata metadata)
     {
         List<ScalarImplementationChoice> implementationChoices = new ArrayList<>();
         for (Map.Entry<String, Class<?>> entry : specializedTypeParameters.entrySet()) {
@@ -166,7 +166,7 @@ public class ParametricScalarImplementation
                     boundMethodHandle.asType(javaMethodType(choice, boundSignature, metadata)),
                     boundConstructor));
         }
-        return Optional.of(new ScalarFunctionImplementation(implementationChoices, isDeterministic));
+        return Optional.of(new ScalarFunctionImplementation(implementationChoices));
     }
 
     @Override

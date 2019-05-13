@@ -76,6 +76,6 @@ public class TryCastFunction
         MethodHandle exceptionHandler = dropArguments(constant(returnType, null), 0, RuntimeException.class);
         tryCastHandle = catchException(coercion, RuntimeException.class, exceptionHandler);
 
-        return new ScalarFunctionImplementation(true, argumentProperties, tryCastHandle, true);
+        return new ScalarFunctionImplementation(true, argumentProperties, tryCastHandle);
     }
 }

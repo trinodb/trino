@@ -88,8 +88,7 @@ public final class ArrayConcatFunction
                 false,
                 nCopies(arity, valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
                 methodHandleAndConstructor.getMethodHandle(),
-                Optional.of(methodHandleAndConstructor.getConstructor()),
-                true);
+                Optional.of(methodHandleAndConstructor.getConstructor()));
     }
 
     @UsedByGeneratedCode

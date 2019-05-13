@@ -58,8 +58,7 @@ public class RowNotEqualOperator
                         valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
                 METHOD_HANDLE
                         .bindTo(type)
-                        .bindTo(RowEqualOperator.resolveFieldEqualOperators(type, metadata)),
-                true);
+                        .bindTo(RowEqualOperator.resolveFieldEqualOperators(type, metadata)));
     }
 
     @UsedByGeneratedCode

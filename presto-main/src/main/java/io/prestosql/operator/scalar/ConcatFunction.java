@@ -100,8 +100,7 @@ public final class ConcatFunction
         return new ScalarFunctionImplementation(
                 false,
                 nCopies(arity, valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
-                methodHandle,
-                true);
+                methodHandle);
     }
 
     private static Class<?> generateConcat(TypeSignature type, int arity)

@@ -48,8 +48,7 @@ public final class RowLessThanOperator
                 ImmutableList.of(
                         valueTypeArgumentProperty(RETURN_NULL_ON_NULL),
                         valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
-                METHOD_HANDLE.bindTo(type).bindTo(getMethodHandles((RowType) type, metadata, LESS_THAN)),
-                true);
+                METHOD_HANDLE.bindTo(type).bindTo(getMethodHandles((RowType) type, metadata, LESS_THAN)));
     }
 
     public static boolean less(

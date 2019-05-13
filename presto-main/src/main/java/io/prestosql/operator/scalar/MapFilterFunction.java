@@ -112,8 +112,7 @@ public final class MapFilterFunction
                         valueTypeArgumentProperty(RETURN_NULL_ON_NULL),
                         functionTypeArgumentProperty(BinaryFunctionInterface.class)),
                 generateFilter(mapType),
-                Optional.of(STATE_FACTORY.bindTo(mapType)),
-                false);
+                Optional.of(STATE_FACTORY.bindTo(mapType)));
     }
 
     @UsedByGeneratedCode

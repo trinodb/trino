@@ -83,8 +83,7 @@ public final class ArrayReduceFunction
                 methodHandle.asType(
                         methodHandle.type()
                                 .changeParameterType(1, Primitives.wrap(intermediateType.getJavaType()))
-                                .changeReturnType(Primitives.wrap(outputType.getJavaType()))),
-                false);
+                                .changeReturnType(Primitives.wrap(outputType.getJavaType()))));
     }
 
     public static Object reduce(

@@ -117,8 +117,7 @@ public final class MapTransformValueFunction
                         valueTypeArgumentProperty(RETURN_NULL_ON_NULL),
                         functionTypeArgumentProperty(BinaryFunctionInterface.class)),
                 generateTransform(keyType, valueType, transformedValueType, resultMapType),
-                Optional.of(STATE_FACTORY.bindTo(resultMapType)),
-                false);
+                Optional.of(STATE_FACTORY.bindTo(resultMapType)));
     }
 
     @UsedByGeneratedCode

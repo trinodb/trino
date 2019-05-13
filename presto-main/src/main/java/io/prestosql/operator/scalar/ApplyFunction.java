@@ -76,8 +76,7 @@ public final class ApplyFunction
                 METHOD_HANDLE.asType(
                         METHOD_HANDLE.type()
                                 .changeReturnType(wrap(returnType.getJavaType()))
-                                .changeParameterType(0, wrap(argumentType.getJavaType()))),
-                true);
+                                .changeParameterType(0, wrap(argumentType.getJavaType()))));
     }
 
     @UsedByGeneratedCode

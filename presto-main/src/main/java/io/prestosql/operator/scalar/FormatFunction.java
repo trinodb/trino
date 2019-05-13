@@ -120,8 +120,7 @@ public final class FormatFunction
                 ImmutableList.of(
                         valueTypeArgumentProperty(RETURN_NULL_ON_NULL),
                         valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
-                METHOD_HANDLE.bindTo(converters),
-                true);
+                METHOD_HANDLE.bindTo(converters));
     }
 
     public static void validateType(Metadata metadata, Type type)

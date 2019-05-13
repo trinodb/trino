@@ -88,7 +88,6 @@ public class ArrayToElementConcatFunction
                 ImmutableList.of(
                         valueTypeArgumentProperty(RETURN_NULL_ON_NULL),
                         valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
-                methodHandle,
-                true);
+                methodHandle);
     }
 }

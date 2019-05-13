@@ -94,7 +94,7 @@ public final class ZipFunction
         List<ArgumentProperty> argumentProperties = nCopies(types.size(), valueTypeArgumentProperty(RETURN_NULL_ON_NULL));
         List<Class<?>> javaArgumentTypes = nCopies(types.size(), Block.class);
         MethodHandle methodHandle = METHOD_HANDLE.bindTo(types).asVarargsCollector(Block[].class).asType(methodType(Block.class, javaArgumentTypes));
-        return new ScalarFunctionImplementation(false, argumentProperties, methodHandle, true);
+        return new ScalarFunctionImplementation(false, argumentProperties, methodHandle);
     }
 
     @UsedByGeneratedCode

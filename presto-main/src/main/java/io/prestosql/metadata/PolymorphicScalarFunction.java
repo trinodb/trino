@@ -60,7 +60,7 @@ class PolymorphicScalarFunction
             implementationChoices.add(getScalarFunctionImplementationChoice(boundVariables, metadata, choice));
         }
 
-        return new ScalarFunctionImplementation(implementationChoices.build(), getFunctionMetadata().isDeterministic());
+        return new ScalarFunctionImplementation(implementationChoices.build());
     }
 
     private ScalarImplementationChoice getScalarFunctionImplementationChoice(

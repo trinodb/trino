@@ -88,8 +88,7 @@ public class RowToRowCast
         return new ScalarFunctionImplementation(
                 false,
                 ImmutableList.of(valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
-                methodHandle,
-                true);
+                methodHandle);
     }
 
     private static Class<?> generateRowCast(Type fromType, Type toType, Metadata metadata)

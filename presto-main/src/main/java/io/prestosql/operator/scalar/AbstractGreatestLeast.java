@@ -106,8 +106,7 @@ public abstract class AbstractGreatestLeast
         return new ScalarFunctionImplementation(
                 false,
                 nCopies(javaTypes.size(), valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
-                methodHandle,
-                true);
+                methodHandle);
     }
 
     @UsedByGeneratedCode

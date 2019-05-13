@@ -68,8 +68,7 @@ public class ArrayFlattenFunction
         return new ScalarFunctionImplementation(
                 false,
                 ImmutableList.of(valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
-                methodHandle,
-                true);
+                methodHandle);
     }
 
     public static Block flatten(Type type, Type arrayType, Block array)
