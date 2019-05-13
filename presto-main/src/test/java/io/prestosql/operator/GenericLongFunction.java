@@ -56,7 +56,7 @@ public final class GenericLongFunction
     public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, Metadata metadata)
     {
         MethodHandle methodHandle = METHOD_HANDLE.bindTo(longUnaryOperator);
-        return new ScalarFunctionImplementation(false, ImmutableList.of(valueTypeArgumentProperty(RETURN_NULL_ON_NULL)), methodHandle, true);
+        return new ScalarFunctionImplementation(false, ImmutableList.of(valueTypeArgumentProperty(RETURN_NULL_ON_NULL)), methodHandle);
     }
 
     public static long apply(LongUnaryOperator longUnaryOperator, long value)

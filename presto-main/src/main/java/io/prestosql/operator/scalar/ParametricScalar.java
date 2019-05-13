@@ -65,14 +65,14 @@ public class ParametricScalar
         Signature boundSignature = applyBoundVariables(getFunctionMetadata().getSignature(), boundVariables, arity);
         if (implementations.getExactImplementations().containsKey(boundSignature)) {
             ParametricScalarImplementation implementation = implementations.getExactImplementations().get(boundSignature);
-            Optional<ScalarFunctionImplementation> scalarFunctionImplementation = implementation.specialize(boundSignature, boundVariables, metadata, details.isDeterministic());
+            Optional<ScalarFunctionImplementation> scalarFunctionImplementation = implementation.specialize(boundSignature, boundVariables, metadata);
             checkCondition(scalarFunctionImplementation.isPresent(), FUNCTION_IMPLEMENTATION_ERROR, format("Exact implementation of %s do not match expected java types.", boundSignature.getName()));
             return scalarFunctionImplementation.get();
         }
 
         ScalarFunctionImplementation selectedImplementation = null;
         for (ParametricScalarImplementation implementation : implementations.getSpecializedImplementations()) {
-            Optional<ScalarFunctionImplementation> scalarFunctionImplementation = implementation.specialize(boundSignature, boundVariables, metadata, details.isDeterministic());
+            Optional<ScalarFunctionImplementation> scalarFunctionImplementation = implementation.specialize(boundSignature, boundVariables, metadata);
             if (scalarFunctionImplementation.isPresent()) {
                 checkCondition(selectedImplementation == null, AMBIGUOUS_FUNCTION_IMPLEMENTATION, "Ambiguous implementation for %s with bindings %s", getFunctionMetadata().getSignature(), boundVariables.getTypeVariables());
                 selectedImplementation = scalarFunctionImplementation.get();
@@ -82,7 +82,7 @@ public class ParametricScalar
             return selectedImplementation;
         }
         for (ParametricScalarImplementation implementation : implementations.getGenericImplementations()) {
-            Optional<ScalarFunctionImplementation> scalarFunctionImplementation = implementation.specialize(boundSignature, boundVariables, metadata, details.isDeterministic());
+            Optional<ScalarFunctionImplementation> scalarFunctionImplementation = implementation.specialize(boundSignature, boundVariables, metadata);
             if (scalarFunctionImplementation.isPresent()) {
                 checkCondition(selectedImplementation == null, AMBIGUOUS_FUNCTION_IMPLEMENTATION, "Ambiguous implementation for %s with bindings %s", getFunctionMetadata().getSignature(), boundVariables.getTypeVariables());
                 selectedImplementation = scalarFunctionImplementation.get();

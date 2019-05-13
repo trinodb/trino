@@ -91,8 +91,7 @@ public final class MapZipWithFunction
                         valueTypeArgumentProperty(RETURN_NULL_ON_NULL),
                         functionTypeArgumentProperty(MapZipWithLambda.class)),
                 METHOD_HANDLE.bindTo(keyType).bindTo(inputValueType1).bindTo(inputValueType2).bindTo(outputMapType),
-                Optional.of(STATE_FACTORY.bindTo(outputMapType)),
-                false);
+                Optional.of(STATE_FACTORY.bindTo(outputMapType)));
     }
 
     public static Object createState(MapType mapType)

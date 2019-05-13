@@ -62,8 +62,7 @@ public class RowEqualOperator
                         valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
                 METHOD_HANDLE
                         .bindTo(type)
-                        .bindTo(resolveFieldEqualOperators(type, metadata)),
-                true);
+                        .bindTo(resolveFieldEqualOperators(type, metadata)));
     }
 
     public static List<MethodHandle> resolveFieldEqualOperators(RowType rowType, Metadata metadata)

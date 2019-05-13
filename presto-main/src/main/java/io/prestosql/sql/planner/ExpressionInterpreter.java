@@ -23,6 +23,7 @@ import io.airlift.slice.Slice;
 import io.prestosql.Session;
 import io.prestosql.client.FailureInfo;
 import io.prestosql.execution.warnings.WarningCollector;
+import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.operator.scalar.ArraySubscriptOperator;
@@ -934,6 +935,7 @@ public class ExpressionInterpreter
 
             ResolvedFunction resolvedFunction = ResolvedFunction.fromQualifiedName(node.getName())
                     .orElseThrow(() -> new IllegalArgumentException("function call has not been resolved: " + node));
+            FunctionMetadata functionMetadata = metadata.getFunctionMetadata(resolvedFunction);
             ScalarFunctionImplementation function = metadata.getScalarFunctionImplementation(resolvedFunction);
             for (int i = 0; i < argumentValues.size(); i++) {
                 Object value = argumentValues.get(i);
@@ -943,7 +945,7 @@ public class ExpressionInterpreter
             }
 
             // do not optimize non-deterministic functions
-            if (optimize && (!function.isDeterministic() ||
+            if (optimize && (!functionMetadata.isDeterministic() ||
                     hasUnresolvedValue(argumentValues) ||
                     isDynamicFilter(metadata, node) ||
                     resolvedFunction.getSignature().getName().equals("fail"))) {

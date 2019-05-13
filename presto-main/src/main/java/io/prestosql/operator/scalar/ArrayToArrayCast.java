@@ -81,11 +81,8 @@ public class ArrayToArrayCast
         MethodHandle methodHandle = methodHandle(castOperatorClass, "castArray", ConnectorSession.class, Block.class);
         return new ScalarFunctionImplementation(
                 false,
-                ImmutableList.of(
-                        valueTypeArgumentProperty(RETURN_NULL_ON_NULL),
-                        valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
-                methodHandle,
-                true);
+                ImmutableList.of(valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
+                methodHandle);
     }
 
     private static Class<?> generateArrayCast(Metadata metadata, Signature elementCastSignature, ScalarFunctionImplementation elementCast)

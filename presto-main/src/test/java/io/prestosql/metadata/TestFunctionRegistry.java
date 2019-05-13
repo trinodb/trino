@@ -369,8 +369,7 @@ public class TestFunctionRegistry
                         return new ScalarFunctionImplementation(
                                 false,
                                 nCopies(arity, valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
-                                MethodHandles.identity(Void.class),
-                                true);
+                                MethodHandles.identity(Void.class));
                     }
                 });
             }

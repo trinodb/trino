@@ -229,8 +229,7 @@ public class BenchmarkArrayFilter
                     ImmutableList.of(
                             valueTypeArgumentProperty(RETURN_NULL_ON_NULL),
                             valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
-                    METHOD_HANDLE.bindTo(type),
-                    false);
+                    METHOD_HANDLE.bindTo(type));
         }
 
         public static Block filter(Type type, Block block, MethodHandle function)

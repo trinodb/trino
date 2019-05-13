@@ -16,6 +16,7 @@ package io.prestosql.sql.relational.optimizer;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import io.prestosql.Session;
+import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.operator.scalar.ScalarFunctionImplementation;
 import io.prestosql.spi.connector.ConnectorSession;
@@ -93,13 +94,14 @@ public class ExpressionOptimizer
                 call = rewriteCast(call);
             }
 
+            FunctionMetadata functionMetadata = metadata.getFunctionMetadata(call.getResolvedFunction());
             ScalarFunctionImplementation function = metadata.getScalarFunctionImplementation(call.getResolvedFunction());
             List<RowExpression> arguments = call.getArguments().stream()
                     .map(argument -> argument.accept(this, context))
                     .collect(toImmutableList());
 
             // TODO: optimize function calls with lambda arguments. For example, apply(x -> x + 2, 1)
-            if (Iterables.all(arguments, instanceOf(ConstantExpression.class)) && function.isDeterministic()) {
+            if (Iterables.all(arguments, instanceOf(ConstantExpression.class)) && functionMetadata.isDeterministic()) {
                 MethodHandle method = function.getMethodHandle();
 
                 if (method.type().parameterCount() > 0 && method.type().parameterType(0) == ConnectorSession.class) {

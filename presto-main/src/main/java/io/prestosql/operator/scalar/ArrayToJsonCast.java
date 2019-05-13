@@ -74,11 +74,8 @@ public class ArrayToJsonCast
         MethodHandle methodHandle = METHOD_HANDLE.bindTo(writer);
         return new ScalarFunctionImplementation(
                 false,
-                ImmutableList.of(
-                        valueTypeArgumentProperty(RETURN_NULL_ON_NULL),
-                        valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
-                methodHandle,
-                true);
+                ImmutableList.of(valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
+                methodHandle);
     }
 
     public static Slice toJson(JsonGeneratorWriter writer, ConnectorSession session, Block block)
