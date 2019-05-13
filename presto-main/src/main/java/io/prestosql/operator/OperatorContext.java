@@ -675,7 +675,7 @@ public class OperatorContext
         @Override
         public AggregatedMemoryContext newAggregatedMemoryContext()
         {
-            return delegate.newAggregatedMemoryContext();
+            return new InternalAggregatedMemoryContext(delegate.newAggregatedMemoryContext(), memoryFuture, allocationListener, true);
         }
 
         @Override
