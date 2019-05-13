@@ -324,7 +324,7 @@ public class PipelineContext
     public long getPhysicalWrittenDataSize()
     {
         return drivers.stream()
-                .mapToLong(DriverContext::getPphysicalWrittenDataSize)
+                .mapToLong(DriverContext::getPhysicalWrittenDataSize)
                 .sum();
     }
 
