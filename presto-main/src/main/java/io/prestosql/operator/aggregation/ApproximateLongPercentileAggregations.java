@@ -100,6 +100,54 @@ public final class ApproximateLongPercentileAggregations
         state.setPercentile(percentile);
     }
 
+    // #758 -- fractional weights
+    @InputFunction
+    public static void weightedInput(@AggregationState DigestAndPercentileState state, @SqlType(StandardTypes.BIGINT) long value, @SqlType(StandardTypes.DOUBLE) double weight, @SqlType(StandardTypes.DOUBLE) double percentile)
+    {
+        checkWeight(weight);
+
+        QuantileDigest digest = state.getDigest();
+
+        if (digest == null) {
+            digest = new QuantileDigest(0.01);
+            state.setDigest(digest);
+            state.addMemoryUsage(digest.estimatedInMemorySizeInBytes());
+        }
+
+        state.addMemoryUsage(-digest.estimatedInMemorySizeInBytes());
+        digest.add(value, weight);
+        state.addMemoryUsage(digest.estimatedInMemorySizeInBytes());
+
+        // use last percentile
+        state.setPercentile(percentile);
+    }
+
+    @InputFunction
+    public static void weightedInput(@AggregationState DigestAndPercentileState state, @SqlType(StandardTypes.BIGINT) long value, @SqlType(StandardTypes.DOUBLE) double weight, @SqlType(StandardTypes.DOUBLE) double percentile, @SqlType(StandardTypes.DOUBLE) double accuracy)
+    {
+        checkWeight(weight);
+
+        QuantileDigest digest = state.getDigest();
+
+        if (digest == null) {
+            if (accuracy > 0 && accuracy < 1) {
+                digest = new QuantileDigest(accuracy);
+            }
+            else {
+                throw new IllegalArgumentException("Percentile accuracy must be strictly between 0 and 1");
+            }
+            state.setDigest(digest);
+            state.addMemoryUsage(digest.estimatedInMemorySizeInBytes());
+        }
+
+        state.addMemoryUsage(-digest.estimatedInMemorySizeInBytes());
+        digest.add(value, weight);
+        state.addMemoryUsage(digest.estimatedInMemorySizeInBytes());
+
+        // use last percentile
+        state.setPercentile(percentile);
+    }
+
     @CombineFunction
     public static void combine(@AggregationState DigestAndPercentileState state, DigestAndPercentileState otherState)
     {
@@ -134,6 +182,12 @@ public final class ApproximateLongPercentileAggregations
     }
 
     private static void checkWeight(long weight)
+    {
+        checkCondition(weight > 0, INVALID_FUNCTION_ARGUMENT, "percentile weight must be > 0");
+    }
+
+    // 758 -- fractional weights
+    private static void checkWeight(double weight)
     {
         checkCondition(weight > 0, INVALID_FUNCTION_ARGUMENT, "percentile weight must be > 0");
     }

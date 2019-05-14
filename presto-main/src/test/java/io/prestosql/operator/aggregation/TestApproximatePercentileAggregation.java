@@ -43,6 +43,8 @@ public class TestApproximatePercentileAggregation
             new Signature("approx_percentile", AGGREGATE, DOUBLE.getTypeSignature(), DOUBLE.getTypeSignature(), DOUBLE.getTypeSignature()));
     private static final InternalAggregationFunction DOUBLE_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION = metadata.getFunctionRegistry().getAggregateFunctionImplementation(
             new Signature("approx_percentile", AGGREGATE, DOUBLE.getTypeSignature(), DOUBLE.getTypeSignature(), BIGINT.getTypeSignature(), DOUBLE.getTypeSignature()));
+    private static final InternalAggregationFunction DOUBLE_APPROXIMATE_PERCENTILE_FRACTIONAL_WEIGHTED_AGGREGATION = metadata.getFunctionRegistry().getAggregateFunctionImplementation(
+            new Signature("approx_percentile", AGGREGATE, DOUBLE.getTypeSignature(), DOUBLE.getTypeSignature(), DOUBLE.getTypeSignature(), DOUBLE.getTypeSignature()));
     private static final InternalAggregationFunction DOUBLE_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION_WITH_ACCURACY = metadata.getFunctionRegistry().getAggregateFunctionImplementation(
             new Signature("approx_percentile", AGGREGATE, DOUBLE.getTypeSignature(), DOUBLE.getTypeSignature(), BIGINT.getTypeSignature(), DOUBLE.getTypeSignature(), DOUBLE.getTypeSignature()));
 
@@ -50,6 +52,8 @@ public class TestApproximatePercentileAggregation
             new Signature("approx_percentile", AGGREGATE, BIGINT.getTypeSignature(), BIGINT.getTypeSignature(), DOUBLE.getTypeSignature()));
     private static final InternalAggregationFunction LONG_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION = metadata.getFunctionRegistry().getAggregateFunctionImplementation(
             new Signature("approx_percentile", AGGREGATE, BIGINT.getTypeSignature(), BIGINT.getTypeSignature(), BIGINT.getTypeSignature(), DOUBLE.getTypeSignature()));
+    private static final InternalAggregationFunction LONG_APPROXIMATE_PERCENTILE_FRACTIONAL_WEIGHTED_AGGREGATION = metadata.getFunctionRegistry().getAggregateFunctionImplementation(
+            new Signature("approx_percentile", AGGREGATE, DOUBLE.getTypeSignature(), DOUBLE.getTypeSignature(), DOUBLE.getTypeSignature(), DOUBLE.getTypeSignature()));
     private static final InternalAggregationFunction LONG_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION_WITH_ACCURACY = metadata.getFunctionRegistry().getAggregateFunctionImplementation(
             new Signature("approx_percentile", AGGREGATE, BIGINT.getTypeSignature(), BIGINT.getTypeSignature(), BIGINT.getTypeSignature(), DOUBLE.getTypeSignature(), DOUBLE.getTypeSignature()));
 
@@ -69,6 +73,9 @@ public class TestApproximatePercentileAggregation
     private static final InternalAggregationFunction FLOAT_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION = metadata.getFunctionRegistry().getAggregateFunctionImplementation(
             new Signature("approx_percentile", AGGREGATE, REAL.getTypeSignature(),
                     ImmutableList.of(REAL.getTypeSignature(), BIGINT.getTypeSignature(), DOUBLE.getTypeSignature())));
+    private static final InternalAggregationFunction FLOAT_APPROXIMATE_PERCENTILE_FRACTIONAL_WEIGHTED_AGGREGATION = metadata.getFunctionRegistry().getAggregateFunctionImplementation(
+            new Signature("approx_percentile", AGGREGATE, REAL.getTypeSignature(),
+                    ImmutableList.of(REAL.getTypeSignature(), DOUBLE.getTypeSignature(), DOUBLE.getTypeSignature())));
     private static final InternalAggregationFunction FLOAT_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION_WITH_ACCURACY = metadata.getFunctionRegistry().getAggregateFunctionImplementation(
             new Signature("approx_percentile", AGGREGATE, REAL.getTypeSignature(),
                     ImmutableList.of(REAL.getTypeSignature(), BIGINT.getTypeSignature(), DOUBLE.getTypeSignature(), DOUBLE.getTypeSignature())));
@@ -178,11 +185,27 @@ public class TestApproximatePercentileAggregation
                 createLongsBlock(1L, 1L, 1L),
                 createRLEBlock(0.5, 3));
 
+        // #758 -- fractional weights
+        assertAggregation(
+                LONG_APPROXIMATE_PERCENTILE_FRACTIONAL_WEIGHTED_AGGREGATION,
+                2L,
+                createLongsBlock(1L, 2L, 3L),
+                createDoublesBlock(0.1, 0.1, 0.1),
+                createRLEBlock(0.5, 3));
+
         assertAggregation(
                 LONG_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION,
                 3L,
                 createLongsBlock(1L, null, 2L, null, 2L, null, 2L, null, 3L, null, 3L, null, 3L, 4L, 5L, 6L, 7L),
                 createLongsBlock(1L, 1L, 2L, 1L, 2L, 1L, 2L, 1L, 2L, 1L, 1L, 1L, 1L, 1L, 1L, 1L, 1L),
+                createRLEBlock(0.5, 17));
+
+        // #758 -- fractional weights
+        assertAggregation(
+                LONG_APPROXIMATE_PERCENTILE_FRACTIONAL_WEIGHTED_AGGREGATION,
+                3L,
+                createLongsBlock(1L, null, 2L, null, 2L, null, 2L, null, 3L, null, 3L, null, 3L, 4L, 5L, 6L, 7L),
+                createDoublesBlock(0.1, 0.1, 0.2, 0.1, 0.2, 0.1, 0.2, 0.1, 0.2, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1),
                 createRLEBlock(0.5, 17));
 
         assertAggregation(
@@ -321,6 +344,14 @@ public class TestApproximatePercentileAggregation
                 createLongsBlock(1L, 1L, 2L, 1L, 2L, 1L, 2L, 1L, 2L, 1L, 1L, 1L, 1L, 1L, 1L, 1L, 1L),
                 createRLEBlock(0.5, 17));
 
+        // #758 -- fractional weights
+        assertAggregation(
+                FLOAT_APPROXIMATE_PERCENTILE_FRACTIONAL_WEIGHTED_AGGREGATION,
+                3.0f,
+                createBlockOfReals(1.0f, null, 2.0f, null, 2.0f, null, 2.0f, null, 3.0f, null, 3.0f, null, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f),
+                createDoublesBlock(0.1, 0.1, 0.2, 0.1, 0.2, 0.1, 0.2, 0.1, 0.2, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1),
+                createRLEBlock(0.5, 17));
+
         assertAggregation(
                 FLOAT_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION_WITH_ACCURACY,
                 9900.0f,
@@ -443,6 +474,13 @@ public class TestApproximatePercentileAggregation
                 3.0,
                 createDoublesBlock(1.0, null, 2.0, null, 2.0, null, 2.0, null, 3.0, null, 3.0, null, 3.0, 4.0, 5.0, 6.0, 7.0),
                 createLongsBlock(1L, 1L, 2L, 1L, 2L, 1L, 2L, 1L, 2L, 1L, 1L, 1L, 1L, 1L, 1L, 1L, 1L),
+                createRLEBlock(0.5, 17));
+
+        assertAggregation(
+                DOUBLE_APPROXIMATE_PERCENTILE_FRACTIONAL_WEIGHTED_AGGREGATION,
+                3.0,
+                createDoublesBlock(1.0, null, 2.0, null, 2.0, null, 2.0, null, 3.0, null, 3.0, null, 3.0, 4.0, 5.0, 6.0, 7.0),
+                createDoublesBlock(0.1, 0.1, 0.2, 0.1, 0.2, 0.1, 0.2, 0.1, 0.2, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1),
                 createRLEBlock(0.5, 17));
 
         assertAggregation(

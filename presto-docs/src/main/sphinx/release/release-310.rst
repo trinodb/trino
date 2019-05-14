@@ -16,6 +16,7 @@ General Changes
   Simple select queries of type ``SELECT ... FROM table ORDER BY cols LIMIT n`` can
   experience significant CPU and performance improvement. (:issue:`602`)
 * Add support for ``FETCH FIRST`` syntax. (:issue:`666`)
+* Add support for fractional weights in ``approx_percentile``. (:issue:`758`)
 
 CLI Changes
 -----------

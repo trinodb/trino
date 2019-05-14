@@ -714,7 +714,9 @@ public abstract class AbstractTestQueries
                 "   approx_percentile(orderkey, 0.5), " +
                 "   approx_percentile(totalprice, 0.5)," +
                 "   approx_percentile(orderkey, 2, 0.5)," +
-                "   approx_percentile(totalprice, 2, 0.5)\n" +
+                "   approx_percentile(totalprice, 2, 0.5)," +
+                "   approx_percentile(orderkey, .2, 0.5)," +
+                "   approx_percentile(totalprice, .2, 0.5)\n" +
                 "FROM orders\n" +
                 "GROUP BY orderstatus");
 
@@ -724,6 +726,8 @@ public abstract class AbstractTestQueries
             Double totalPrice = (Double) row.getField(2);
             Long orderKeyWeighted = ((Number) row.getField(3)).longValue();
             Double totalPriceWeighted = (Double) row.getField(4);
+            Long orderKeyFractionalWeighted = ((Number) row.getField(5)).longValue();
+            Double totalPriceFractionalWeighted = (Double) row.getField(6);
 
             List<Long> orderKeys = Ordering.natural().sortedCopy(orderKeyByStatus.get(status));
             List<Double> totalPrices = Ordering.natural().sortedCopy(totalPriceByStatus.get(status));
@@ -735,11 +739,17 @@ public abstract class AbstractTestQueries
             assertTrue(orderKeyWeighted >= orderKeys.get((int) (0.49 * orderKeys.size())));
             assertTrue(orderKeyWeighted <= orderKeys.get((int) (0.51 * orderKeys.size())));
 
+            assertTrue(orderKeyFractionalWeighted >= orderKeys.get((int) (0.49 * orderKeys.size())));
+            assertTrue(orderKeyFractionalWeighted <= orderKeys.get((int) (0.51 * orderKeys.size())));
+
             assertTrue(totalPrice >= totalPrices.get((int) (0.49 * totalPrices.size())));
             assertTrue(totalPrice <= totalPrices.get((int) (0.51 * totalPrices.size())));
 
             assertTrue(totalPriceWeighted >= totalPrices.get((int) (0.49 * totalPrices.size())));
             assertTrue(totalPriceWeighted <= totalPrices.get((int) (0.51 * totalPrices.size())));
+
+            assertTrue(totalPriceFractionalWeighted >= totalPrices.get((int) (0.49 * totalPrices.size())));
+            assertTrue(totalPriceFractionalWeighted <= totalPrices.get((int) (0.51 * totalPrices.size())));
         }
     }
 

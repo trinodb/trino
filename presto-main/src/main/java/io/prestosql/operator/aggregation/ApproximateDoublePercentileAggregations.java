@@ -54,6 +54,19 @@ public final class ApproximateDoublePercentileAggregations
         ApproximateLongPercentileAggregations.weightedInput(state, doubleToSortableLong(value), weight, percentile, accuracy);
     }
 
+    // #758 -- weight can be double as well as long
+    @InputFunction
+    public static void weightedInput(@AggregationState DigestAndPercentileState state, @SqlType(StandardTypes.DOUBLE) double value, @SqlType(StandardTypes.DOUBLE) double weight, @SqlType(StandardTypes.DOUBLE) double percentile)
+    {
+        ApproximateLongPercentileAggregations.weightedInput(state, doubleToSortableLong(value), weight, percentile);
+    }
+
+    @InputFunction
+    public static void weightedInput(@AggregationState DigestAndPercentileState state, @SqlType(StandardTypes.DOUBLE) double value, @SqlType(StandardTypes.DOUBLE) double weight, @SqlType(StandardTypes.DOUBLE) double percentile, @SqlType(StandardTypes.DOUBLE) double accuracy)
+    {
+        ApproximateLongPercentileAggregations.weightedInput(state, doubleToSortableLong(value), weight, percentile, accuracy);
+    }
+
     @CombineFunction
     public static void combine(@AggregationState DigestAndPercentileState state, DigestAndPercentileState otherState)
     {

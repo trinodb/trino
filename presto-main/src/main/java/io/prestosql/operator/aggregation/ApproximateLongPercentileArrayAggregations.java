@@ -62,6 +62,19 @@ public final class ApproximateLongPercentileArrayAggregations
         state.addMemoryUsage(digest.estimatedInMemorySizeInBytes());
     }
 
+    // #758 -- fractional weights
+    @InputFunction
+    public static void weightedInput(@AggregationState DigestAndPercentileArrayState state, @SqlType(StandardTypes.BIGINT) long value, @SqlType(StandardTypes.DOUBLE) double weight, @SqlType("array(double)") Block percentilesArrayBlock)
+    {
+        initializePercentilesArray(state, percentilesArrayBlock);
+        initializeDigest(state);
+
+        QuantileDigest digest = state.getDigest();
+        state.addMemoryUsage(-digest.estimatedInMemorySizeInBytes());
+        digest.add(value, weight);
+        state.addMemoryUsage(digest.estimatedInMemorySizeInBytes());
+    }
+
     @CombineFunction
     public static void combine(@AggregationState DigestAndPercentileArrayState state, DigestAndPercentileArrayState otherState)
     {
