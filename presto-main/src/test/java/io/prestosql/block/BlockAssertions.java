@@ -405,6 +405,15 @@ public final class BlockAssertions
         return builder.build();
     }
 
+    public static Block createDoubleRepeatBlock(double value, int length)
+    {
+        BlockBuilder builder = DOUBLE.createFixedSizeBlockBuilder(length);
+        for (int i = 0; i < length; i++) {
+            DOUBLE.writeDouble(builder, value);
+        }
+        return builder.build();
+    }
+
     public static Block createTimestampsWithTimezoneBlock(Long... values)
     {
         BlockBuilder builder = TIMESTAMP_WITH_TIME_ZONE.createFixedSizeBlockBuilder(values.length);
