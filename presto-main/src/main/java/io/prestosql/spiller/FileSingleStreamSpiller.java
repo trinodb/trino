@@ -41,6 +41,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.prestosql.execution.buffer.PagesSerdeUtil.writeSerializedPage;
@@ -76,13 +77,17 @@ public class FileSingleStreamSpiller
             Path spillPath,
             SpillerStats spillerStats,
             SpillContext spillContext,
-            LocalMemoryContext memoryContext)
+            LocalMemoryContext memoryContext,
+            Optional<SpillCipher> spillCipher)
     {
         this.serde = requireNonNull(serde, "serde is null");
         this.executor = requireNonNull(executor, "executor is null");
         this.spillerStats = requireNonNull(spillerStats, "spillerStats is null");
         this.localSpillContext = spillContext.newLocalSpillContext();
         this.memoryContext = requireNonNull(memoryContext, "memoryContext is null");
+        if (requireNonNull(spillCipher, "spillCipher is null").isPresent()) {
+            closer.register(spillCipher.get()::close);
+        }
         // HACK!
         // The writePages() method is called in a separate thread pool and it's possible that
         // these spiller thread can run concurrently with the close() method.

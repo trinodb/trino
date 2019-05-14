@@ -127,9 +127,7 @@ public enum PageCodecMarker
 
         public static MarkerSet of(PageCodecMarker marker)
         {
-            MarkerSet markers = empty();
-            markers.add(marker);
-            return markers;
+            return fromByteValue(marker.set(PageCodecMarker.none()));
         }
 
         public static MarkerSet fromByteValue(byte markers)
