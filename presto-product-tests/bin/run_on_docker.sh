@@ -124,8 +124,8 @@ trap terminate INT TERM EXIT
 
 # display how test environment is configured
 environment_compose config
-
-environment_compose up --no-color &
+SERVICES=$(environment_compose config --services | grep -vx 'application-runner\|.*-base')
+environment_compose up --no-color --abort-on-container-exit ${SERVICES} &
 
 # wait until hadoop processes are started
 retry check_hadoop
