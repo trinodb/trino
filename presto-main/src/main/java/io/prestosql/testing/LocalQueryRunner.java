@@ -423,7 +423,7 @@ public class LocalQueryRunner
                 .build();
 
         SpillerStats spillerStats = new SpillerStats();
-        this.singleStreamSpillerFactory = new FileSingleStreamSpillerFactory(blockEncodingManager, spillerStats, featuresConfig);
+        this.singleStreamSpillerFactory = new FileSingleStreamSpillerFactory(blockEncodingManager, spillerStats, featuresConfig, nodeSpillConfig);
         this.partitioningSpillerFactory = new GenericPartitioningSpillerFactory(this.singleStreamSpillerFactory);
         this.spillerFactory = new GenericSpillerFactory(singleStreamSpillerFactory);
     }
