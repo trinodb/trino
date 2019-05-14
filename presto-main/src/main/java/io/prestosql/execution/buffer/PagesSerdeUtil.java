@@ -25,7 +25,6 @@ import java.util.Iterator;
 
 import static io.prestosql.block.BlockSerdeUtil.readBlock;
 import static io.prestosql.block.BlockSerdeUtil.writeBlock;
-import static io.prestosql.execution.buffer.PageCompression.lookupCodecFromMarker;
 import static java.lang.Math.toIntExact;
 import static java.util.Arrays.asList;
 import static java.util.Objects.requireNonNull;
@@ -58,7 +57,7 @@ public class PagesSerdeUtil
     public static void writeSerializedPage(SliceOutput output, SerializedPage page)
     {
         output.writeInt(page.getPositionCount());
-        output.writeByte(page.getCompression().getMarker());
+        output.writeByte(page.getPageCodecMarkers());
         output.writeInt(page.getUncompressedSizeInBytes());
         output.writeInt(page.getSizeInBytes());
         output.writeBytes(page.getSlice());
@@ -67,11 +66,11 @@ public class PagesSerdeUtil
     private static SerializedPage readSerializedPage(SliceInput sliceInput)
     {
         int positionCount = sliceInput.readInt();
-        byte codecMarker = sliceInput.readByte();
+        PageCodecMarker.MarkerSet markers = PageCodecMarker.MarkerSet.fromByteValue(sliceInput.readByte());
         int uncompressedSizeInBytes = sliceInput.readInt();
         int sizeInBytes = sliceInput.readInt();
         Slice slice = sliceInput.readSlice(toIntExact((sizeInBytes)));
-        return new SerializedPage(slice, lookupCodecFromMarker(codecMarker), positionCount, uncompressedSizeInBytes);
+        return new SerializedPage(slice, markers, positionCount, uncompressedSizeInBytes);
     }
 
     public static long writeSerializedPages(SliceOutput sliceOutput, Iterable<SerializedPage> pages)
