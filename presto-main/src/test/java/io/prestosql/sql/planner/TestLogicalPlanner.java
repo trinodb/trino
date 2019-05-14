@@ -57,6 +57,7 @@ import static io.prestosql.SystemSessionProperties.OPTIMIZE_HASH_GENERATION;
 import static io.prestosql.spi.StandardErrorCode.SUBQUERY_MULTIPLE_ROWS;
 import static io.prestosql.spi.predicate.Domain.singleValue;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
+import static io.prestosql.sql.planner.LogicalPlanner.Stage.OPTIMIZED;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.any;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.anyNot;
@@ -443,7 +444,7 @@ public class TestLogicalPlanner
     private void assertPlanDoesNotContain(String sql, Class... classes)
     {
         assertFalse(
-                searchFrom(plan(sql, LogicalPlanner.Stage.OPTIMIZED).getRoot())
+                searchFrom(plan(sql, OPTIMIZED).getRoot())
                         .where(isInstanceOfAny(classes))
                         .matches(),
                 "Unexpected node for query: " + sql);
@@ -454,7 +455,7 @@ public class TestLogicalPlanner
     {
         assertPlan(
                 "SELECT orderkey FROM orders WHERE 3 = (SELECT orderkey)",
-                LogicalPlanner.Stage.OPTIMIZED,
+                OPTIMIZED,
                 any(
                         filter(
                                 "X = BIGINT '3'",
@@ -612,7 +613,7 @@ public class TestLogicalPlanner
         assertPlan(
                 "SELECT orderkey FROM orders o " +
                         "WHERE 3 IN (SELECT o.custkey FROM lineitem l WHERE (SELECT l.orderkey = o.orderkey))",
-                LogicalPlanner.Stage.OPTIMIZED,
+                OPTIMIZED,
                 anyTree(
                         filter("OUTER_FILTER",
                                 apply(ImmutableList.of("C", "O"),
