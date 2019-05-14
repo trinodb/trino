@@ -18,7 +18,8 @@ import io.prestosql.spi.security.PrincipalType;
 import org.testng.annotations.Test;
 
 import static io.prestosql.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege.SELECT;
-import static org.testng.Assert.*;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotNull;
 
 public class TestPrincipalPrivileges
 {
@@ -28,14 +29,11 @@ public class TestPrincipalPrivileges
         PrincipalPrivileges principalPrivileges = PrincipalPrivileges.fromHivePrivilegeInfos(ImmutableSet.of(
                 hivePrivilegeInfo(PrincipalType.USER, "user001"),
                 hivePrivilegeInfo(PrincipalType.USER, "user002"),
-                hivePrivilegeInfo(PrincipalType.ROLE, "role001")
-        ));
+                hivePrivilegeInfo(PrincipalType.ROLE, "role001")));
 
         assertNotNull(principalPrivileges);
-        assertEquals(
-                2, principalPrivileges.getUserPrivileges().size());
-        assertEquals(
-                1, principalPrivileges.getRolePrivileges().size());
+        assertEquals(principalPrivileges.getUserPrivileges().size(), 2);
+        assertEquals(principalPrivileges.getRolePrivileges().size(), 1);
     }
 
     private HivePrivilegeInfo hivePrivilegeInfo(PrincipalType type, String key)

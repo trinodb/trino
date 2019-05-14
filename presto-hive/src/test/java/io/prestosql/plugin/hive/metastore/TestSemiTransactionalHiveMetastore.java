@@ -138,9 +138,7 @@ public class TestSemiTransactionalHiveMetastore
 
     private SemiTransactionalHiveMetastore getSemiTransactionalHiveMetastore()
     {
-        HdfsEnvironment hdfsEnvironment = new TestBackgroundHiveSplitLoader.TestingHdfsEnvironment(
-                ImmutableList.of()
-        );
+        HdfsEnvironment hdfsEnvironment = new TestBackgroundHiveSplitLoader.TestingHdfsEnvironment(ImmutableList.of());
         FileHiveMetastore hiveMetastore = new FileHiveMetastore(hdfsEnvironment, "/tmp/test", "user001");
 
         return new SemiTransactionalHiveMetastore(hdfsEnvironment, hiveMetastore, Executors.newSingleThreadExecutor(), false, false);

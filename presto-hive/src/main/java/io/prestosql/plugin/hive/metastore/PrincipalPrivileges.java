@@ -38,7 +38,8 @@ public class PrincipalPrivileges
         this.rolePrivileges = ImmutableSetMultimap.copyOf(requireNonNull(rolePrivileges, "rolePrivileges is null"));
     }
 
-    public static PrincipalPrivileges fromHivePrivilegeInfos(Set<HivePrivilegeInfo> hivePrivileges) {
+    public static PrincipalPrivileges fromHivePrivilegeInfos(Set<HivePrivilegeInfo> hivePrivileges)
+    {
         Multimap<String, HivePrivilegeInfo> userPrivileges = hivePrivileges
                 .stream()
                 .filter(privilege -> privilege.getGrantee().getType() == USER)
