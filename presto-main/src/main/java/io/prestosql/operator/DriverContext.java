@@ -13,7 +13,6 @@
  */
 package io.prestosql.operator;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -475,11 +474,5 @@ public class DriverContext
         {
             return nanosBetween(start, System.nanoTime());
         }
-    }
-
-    @VisibleForTesting
-    public MemoryTrackingContext getDriverMemoryContext()
-    {
-        return driverMemoryContext;
     }
 }
