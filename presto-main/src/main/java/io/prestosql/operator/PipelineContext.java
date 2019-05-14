@@ -376,6 +376,7 @@ public class PipelineContext
 
         List<DriverStats> drivers = new ArrayList<>();
 
+        TreeMap<Integer, OperatorStats> operatorSummaries = new TreeMap<>(this.operatorSummaries);
         Multimap<Integer, OperatorStats> runningOperators = ArrayListMultimap.create();
         for (DriverContext driverContext : driverContexts) {
             DriverStats driverStats = driverContext.getDriverStats();
@@ -412,7 +413,6 @@ public class PipelineContext
         }
 
         // merge the running operator stats into the operator summary
-        TreeMap<Integer, OperatorStats> operatorSummaries = new TreeMap<>(this.operatorSummaries);
         for (Entry<Integer, OperatorStats> entry : runningOperators.entries()) {
             OperatorStats current = operatorSummaries.get(entry.getKey());
             if (current == null) {
