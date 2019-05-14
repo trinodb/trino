@@ -17,19 +17,22 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterators;
 import com.google.common.io.Files;
 import com.google.common.util.concurrent.ListeningExecutorService;
+import io.airlift.slice.InputStreamSliceInput;
 import io.prestosql.block.BlockEncodingManager;
-import io.prestosql.execution.buffer.PagesSerde;
-import io.prestosql.execution.buffer.PagesSerdeFactory;
+import io.prestosql.execution.buffer.PageCodecMarker;
+import io.prestosql.execution.buffer.PagesSerdeUtil;
+import io.prestosql.execution.buffer.SerializedPage;
 import io.prestosql.memory.context.LocalMemoryContext;
 import io.prestosql.operator.PageAssertions;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.type.Type;
 import io.prestosql.type.TypeRegistry;
-import org.testng.annotations.AfterMethod;
+import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import java.io.File;
+import java.io.InputStream;
 import java.util.Iterator;
 import java.util.List;
 
@@ -42,8 +45,10 @@ import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static java.lang.Double.doubleToLongBits;
+import static java.nio.file.Files.newInputStream;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 @Test(singleThreaded = true)
 public class TestFileSingleStreamSpiller
@@ -53,7 +58,7 @@ public class TestFileSingleStreamSpiller
     private final ListeningExecutorService executor = listeningDecorator(newCachedThreadPool());
     private final File spillPath = Files.createTempDir();
 
-    @AfterMethod(alwaysRun = true)
+    @AfterClass(alwaysRun = true)
     public void tearDown()
             throws Exception
     {
@@ -65,11 +70,30 @@ public class TestFileSingleStreamSpiller
     public void testSpill()
             throws Exception
     {
-        PagesSerdeFactory serdeFactory = new PagesSerdeFactory(new BlockEncodingManager(new TypeRegistry()), false);
-        PagesSerde serde = serdeFactory.createPagesSerde();
-        SpillerStats spillerStats = new SpillerStats();
+        assertSpill(false);
+    }
+
+    @Test
+    public void testSpillCompression()
+            throws Exception
+    {
+        assertSpill(true);
+    }
+
+    private void assertSpill(boolean compression)
+            throws Exception
+    {
+        FileSingleStreamSpillerFactory spillerFactory = new FileSingleStreamSpillerFactory(
+                executor, // executor won't be closed, because we don't call destroy() on the spiller factory
+                new BlockEncodingManager(new TypeRegistry()),
+                new SpillerStats(),
+                ImmutableList.of(spillPath.toPath()),
+                1.0,
+                compression);
         LocalMemoryContext memoryContext = newSimpleAggregatedMemoryContext().newLocalMemoryContext("test");
-        FileSingleStreamSpiller spiller = new FileSingleStreamSpiller(serde, executor, spillPath.toPath(), spillerStats, bytes -> {}, memoryContext);
+        SingleStreamSpiller singleStreamSpiller = spillerFactory.create(TYPES, bytes -> {}, memoryContext);
+        assertTrue(singleStreamSpiller instanceof FileSingleStreamSpiller);
+        FileSingleStreamSpiller spiller = (FileSingleStreamSpiller) singleStreamSpiller;
 
         Page page = buildPage();
 
@@ -78,6 +102,14 @@ public class TestFileSingleStreamSpiller
         spiller.spill(page).get();
         spiller.spill(Iterators.forArray(page, page, page)).get();
         assertEquals(listFiles(spillPath.toPath()).size(), 1);
+
+        // Assert the spill codec flags match the expected configuration
+        try (InputStream is = newInputStream(listFiles(spillPath.toPath()).get(0))) {
+            Iterator<SerializedPage> serializedPages = PagesSerdeUtil.readSerializedPages(new InputStreamSliceInput(is));
+            assertTrue(serializedPages.hasNext(), "at least one page should be successfully read back");
+            byte markers = serializedPages.next().getPageCodecMarkers();
+            assertEquals(PageCodecMarker.COMPRESSED.isSet(markers), compression);
+        }
 
         // The spillers release their memory reservations when they are closed, therefore at this point
         // they will have non-zero memory reservation.

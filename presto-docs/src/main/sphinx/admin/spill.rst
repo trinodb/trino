@@ -80,6 +80,14 @@ Presto treats spill paths as independent disks (see `JBOD
 <https://en.wikipedia.org/wiki/Non-RAID_drive_architectures#JBOD>`_), so
 there is no need to use RAID for spill.
 
+Spill Compression
+-----------------
+
+When spill compression is enabled (``spill-compression-enabled`` property in
+:ref:`tuning-spilling`), spilled pages will be compressed before being
+written to dis. Enabling this feature can reduce disk IO at the cost
+of extra CPU load to compress and decompress spilled pages.
+
 Supported Operations
 --------------------
 
