@@ -77,16 +77,7 @@ function cleanup() {
     stop_docker_compose_containers ${ENVIRONMENT}
   fi
 
-  # Ensure that the logs processes are terminated.
-  # In most cases after the docker containers are stopped, logs processes must be terminated.
-  # However when the `LEAVE_CONTAINERS_ALIVE_ON_EXIT` is set, docker containers are not being terminated.
-  # Redirection of system error is supposed to hide the `process does not exist` and `process terminated` messages
-  if test ! -z ${DOCKER_COMPOSE_LOGS_PID:-}; then
-    kill ${DOCKER_COMPOSE_LOGS_PID} 2>/dev/null || true
-  fi
-
-  # docker logs processes are being terminated as soon as docker container are stopped
-  # wait for docker logs termination
+  # wait for docker containers termination
   wait 2>/dev/null || true
 }
 
@@ -134,9 +125,7 @@ trap terminate INT TERM EXIT
 # display how test environment is configured
 environment_compose config
 
-environment_compose up -d
-environment_compose logs --no-color -f &
-DOCKER_COMPOSE_LOGS_PID=$!
+environment_compose up --no-color &
 
 # wait until hadoop processes are started
 retry check_hadoop
