@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
+import io.prestosql.execution.buffer.PagesSerde;
 import io.prestosql.execution.buffer.PagesSerdeFactory;
 import io.prestosql.memory.context.LocalMemoryContext;
 import io.prestosql.operator.SpillContext;
@@ -34,6 +35,7 @@ import java.nio.file.DirectoryStream;
 import java.nio.file.FileStore;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
@@ -62,6 +64,7 @@ public class FileSingleStreamSpillerFactory
     private final List<Path> spillPaths;
     private final SpillerStats spillerStats;
     private final double maxUsedSpaceThreshold;
+    private final boolean spillEncryptionEnabled;
     private int roundRobinIndex;
 
     @Inject
@@ -75,7 +78,8 @@ public class FileSingleStreamSpillerFactory
                 spillerStats,
                 requireNonNull(featuresConfig, "featuresConfig is null").getSpillerSpillPaths(),
                 requireNonNull(featuresConfig, "featuresConfig is null").getSpillMaxUsedSpaceThreshold(),
-                requireNonNull(nodeSpillConfig, "nodeSpillConfig is null").isSpillCompressionEnabled());
+                requireNonNull(nodeSpillConfig, "nodeSpillConfig is null").isSpillCompressionEnabled(),
+                requireNonNull(nodeSpillConfig, "nodeSpillConfig is null").isSpillEncryptionEnabled());
     }
 
     @VisibleForTesting
@@ -85,7 +89,8 @@ public class FileSingleStreamSpillerFactory
             SpillerStats spillerStats,
             List<Path> spillPaths,
             double maxUsedSpaceThreshold,
-            boolean spillCompressionEnabled)
+            boolean spillCompressionEnabled,
+            boolean spillEncryptionEnabled)
     {
         this.serdeFactory = new PagesSerdeFactory(requireNonNull(blockEncodingSerde, "blockEncodingSerde is null"), spillCompressionEnabled);
         this.executor = requireNonNull(executor, "executor is null");
@@ -106,6 +111,7 @@ public class FileSingleStreamSpillerFactory
             }
         });
         this.maxUsedSpaceThreshold = maxUsedSpaceThreshold;
+        this.spillEncryptionEnabled = spillEncryptionEnabled;
         this.roundRobinIndex = 0;
     }
 
@@ -142,7 +148,12 @@ public class FileSingleStreamSpillerFactory
     @Override
     public SingleStreamSpiller create(List<Type> types, SpillContext spillContext, LocalMemoryContext memoryContext)
     {
-        return new FileSingleStreamSpiller(serdeFactory.createPagesSerde(), executor, getNextSpillPath(), spillerStats, spillContext, memoryContext);
+        Optional<SpillCipher> spillCipher = Optional.empty();
+        if (spillEncryptionEnabled) {
+            spillCipher = Optional.of(new AesSpillCipher());
+        }
+        PagesSerde serde = serdeFactory.createPagesSerdeForSpill(spillCipher);
+        return new FileSingleStreamSpiller(serde, executor, getNextSpillPath(), spillerStats, spillContext, memoryContext, spillCipher);
     }
 
     private synchronized Path getNextSpillPath()

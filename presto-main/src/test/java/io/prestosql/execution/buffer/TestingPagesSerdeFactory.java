@@ -21,6 +21,7 @@ import io.prestosql.block.BlockEncodingManager;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.block.BlockEncodingSerde;
 import io.prestosql.spi.type.TestingTypeManager;
+import io.prestosql.spiller.SpillCipher;
 
 import java.util.Optional;
 
@@ -38,15 +39,16 @@ public class TestingPagesSerdeFactory
         return new SynchronizedPagesSerde(
                 new BlockEncodingManager(new TestingTypeManager()),
                 Optional.of(new Lz4Compressor()),
-                Optional.of(new Lz4Decompressor()));
+                Optional.of(new Lz4Decompressor()),
+                Optional.empty());
     }
 
     private static class SynchronizedPagesSerde
             extends PagesSerde
     {
-        public SynchronizedPagesSerde(BlockEncodingSerde blockEncodingSerde, Optional<Compressor> compressor, Optional<Decompressor> decompressor)
+        public SynchronizedPagesSerde(BlockEncodingSerde blockEncodingSerde, Optional<Compressor> compressor, Optional<Decompressor> decompressor, Optional<SpillCipher> spillCipher)
         {
-            super(blockEncodingSerde, compressor, decompressor);
+            super(blockEncodingSerde, compressor, decompressor, spillCipher);
         }
 
         @Override

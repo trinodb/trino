@@ -37,13 +37,16 @@ public class SerializedPage
         this.positionCount = positionCount;
         checkArgument(uncompressedSizeInBytes >= 0, "uncompressedSizeInBytes is negative");
         this.uncompressedSizeInBytes = uncompressedSizeInBytes;
-        if (markers.contains(COMPRESSED)) {
-            checkArgument(uncompressedSizeInBytes > slice.length(), "compressed size must be smaller than uncompressed size when compressed");
+        this.pageCodecMarkers = requireNonNull(markers, "markers is null").byteValue();
+        //  Encrypted pages may include arbitrary overhead from ciphers, sanity checks skipped
+        if (!markers.contains(ENCRYPTED)) {
+            if (markers.contains(COMPRESSED)) {
+                checkArgument(uncompressedSizeInBytes > slice.length(), "compressed size must be smaller than uncompressed size when compressed");
+            }
+            else {
+                checkArgument(uncompressedSizeInBytes == slice.length(), "uncompressed size must be equal to slice length when uncompressed");
+            }
         }
-        else {
-            checkArgument(uncompressedSizeInBytes == slice.length(), "uncompressed size must be equal to slice length when uncompressed");
-        }
-        this.pageCodecMarkers = markers.byteValue();
     }
 
     public int getSizeInBytes()
