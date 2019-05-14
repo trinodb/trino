@@ -720,7 +720,7 @@ public class BaseJdbcClient
         throw new PrestoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
     }
 
-    private Function<String, String> tryApplyLimit(OptionalLong limit)
+    protected Function<String, String> tryApplyLimit(OptionalLong limit)
     {
         if (!limit.isPresent()) {
             return Function.identity();
