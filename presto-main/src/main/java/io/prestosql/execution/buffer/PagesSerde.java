@@ -18,6 +18,7 @@ import io.airlift.compress.Decompressor;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
+import io.prestosql.execution.buffer.PageCodecMarker.MarkerSet;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.block.BlockEncodingSerde;
 
@@ -28,8 +29,7 @@ import java.util.Optional;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.compress.lz4.Lz4RawCompressor.maxCompressedLength;
-import static io.prestosql.execution.buffer.PageCompression.COMPRESSED;
-import static io.prestosql.execution.buffer.PageCompression.UNCOMPRESSED;
+import static io.prestosql.execution.buffer.PageCodecMarker.COMPRESSED;
 import static io.prestosql.execution.buffer.PagesSerdeUtil.readRawPage;
 import static io.prestosql.execution.buffer.PagesSerdeUtil.writeRawPage;
 import static java.lang.Math.toIntExact;
@@ -58,7 +58,7 @@ public class PagesSerde
         writeRawPage(page, serializationBuffer, blockEncodingSerde);
 
         if (!compressor.isPresent()) {
-            return new SerializedPage(serializationBuffer.slice(), UNCOMPRESSED, page.getPositionCount(), serializationBuffer.size());
+            return new SerializedPage(serializationBuffer.slice(), MarkerSet.empty(), page.getPositionCount(), serializationBuffer.size());
         }
 
         int maxCompressedLength = maxCompressedLength(serializationBuffer.size());
@@ -66,12 +66,11 @@ public class PagesSerde
         int actualCompressedLength = compressor.get().compress(serializationBuffer.slice().getBytes(), 0, serializationBuffer.size(), compressionBuffer, 0, maxCompressedLength);
 
         if (((1.0 * actualCompressedLength) / serializationBuffer.size()) > MINIMUM_COMPRESSION_RATIO) {
-            return new SerializedPage(serializationBuffer.slice(), UNCOMPRESSED, page.getPositionCount(), serializationBuffer.size());
+            return new SerializedPage(serializationBuffer.slice(), MarkerSet.empty(), page.getPositionCount(), serializationBuffer.size());
         }
-
         return new SerializedPage(
                 Slices.copyOf(Slices.wrappedBuffer(compressionBuffer, 0, actualCompressedLength)),
-                COMPRESSED,
+                MarkerSet.of(COMPRESSED),
                 page.getPositionCount(),
                 serializationBuffer.size());
     }
@@ -80,7 +79,7 @@ public class PagesSerde
     {
         checkArgument(serializedPage != null, "serializedPage is null");
 
-        if (!decompressor.isPresent() || serializedPage.getCompression() == UNCOMPRESSED) {
+        if (!decompressor.isPresent() || !serializedPage.isCompressed()) {
             return readRawPage(serializedPage.getPositionCount(), serializedPage.getSlice().getInput(), blockEncodingSerde);
         }
 
