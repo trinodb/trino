@@ -1,8 +1,7 @@
 hdfs:
   username: hdfs
   webhdfs:
-    host: ${databases.hive.host}
-    port: 50070
+    uri: http://${databases.hive.host}:50070
 
 databases:
   default:
