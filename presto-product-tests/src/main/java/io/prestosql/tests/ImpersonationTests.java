@@ -17,8 +17,6 @@ import com.google.inject.Inject;
 import com.google.inject.name.Named;
 import io.prestosql.tempto.BeforeTestWithContext;
 import io.prestosql.tempto.ProductTest;
-import io.prestosql.tempto.Requires;
-import io.prestosql.tempto.fulfillment.table.hive.tpch.ImmutableTpchTablesRequirements.ImmutableNationTable;
 import io.prestosql.tempto.hadoop.hdfs.HdfsClient;
 import io.prestosql.tempto.query.QueryExecutor;
 import org.testng.annotations.Test;
@@ -30,7 +28,6 @@ import static io.prestosql.tests.utils.QueryExecutors.connectToPresto;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 
-@Requires(ImmutableNationTable.class)
 public class ImpersonationTests
         extends ProductTest
 {
@@ -58,7 +55,6 @@ public class ImpersonationTests
     public void setup()
     {
         aliceExecutor = connectToPresto("alice@presto");
-        QueryExecutor.query(format("GRANT SELECT ON NATION TO %s", aliceJdbcUser));
     }
 
     @Test(groups = {HDFS_NO_IMPERSONATION, PROFILE_SPECIFIC_TESTS})
@@ -83,7 +79,7 @@ public class ImpersonationTests
     private void checkTableOwner(String tableName, String expectedOwner, QueryExecutor executor)
     {
         executor.executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
-        executor.executeQuery(format("CREATE TABLE %s AS SELECT * FROM NATION", tableName));
+        executor.executeQuery(format("CREATE TABLE %s AS SELECT 'abc' c", tableName));
         String tableLocation = getTableLocation(tableName);
         String owner = hdfsClient.getOwner(tableLocation);
         assertEquals(owner, expectedOwner);
