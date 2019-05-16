@@ -32,7 +32,6 @@ import java.lang.invoke.MethodHandle;
 import static com.google.common.base.Defaults.defaultValue;
 import static io.prestosql.spi.function.OperatorType.IS_DISTINCT_FROM;
 import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.StandardTypes.BOOLEAN;
 import static io.prestosql.spi.type.TypeUtils.readNativeValue;
 import static io.prestosql.util.Failures.internalError;
 
@@ -52,7 +51,7 @@ public final class ArrayDistinctFunction
     @SqlType("array(E)")
     public Block distinct(
             @TypeParameter("E") Type type,
-            @OperatorDependency(operator = IS_DISTINCT_FROM, returnType = BOOLEAN, argumentTypes = {"E", "E"}) MethodHandle elementIsDistinctFrom,
+            @OperatorDependency(operator = IS_DISTINCT_FROM, argumentTypes = {"E", "E"}) MethodHandle elementIsDistinctFrom,
             @SqlType("array(E)") Block array)
     {
         if (array.getPositionCount() < 2) {
