@@ -52,7 +52,6 @@ import io.prestosql.spi.function.SqlType;
 import io.prestosql.spi.function.TypeParameter;
 import io.prestosql.spi.function.TypeParameterSpecialization;
 import io.prestosql.spi.type.DoubleType;
-import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.spi.type.TypeSignatureParameter;
@@ -754,7 +753,7 @@ public class TestAnnotationEngineForAggregates
     {
         @InputFunction
         public static void input(
-                @OperatorDependency(operator = LESS_THAN, returnType = StandardTypes.BOOLEAN, argumentTypes = {DOUBLE, DOUBLE}) MethodHandle methodHandle,
+                @OperatorDependency(operator = LESS_THAN, argumentTypes = {DOUBLE, DOUBLE}) MethodHandle methodHandle,
                 @AggregationState NullableDoubleState state,
                 @SqlType(DOUBLE) double value)
         {
@@ -763,7 +762,7 @@ public class TestAnnotationEngineForAggregates
 
         @CombineFunction
         public static void combine(
-                @OperatorDependency(operator = LESS_THAN, returnType = StandardTypes.BOOLEAN, argumentTypes = {DOUBLE, DOUBLE}) MethodHandle methodHandle,
+                @OperatorDependency(operator = LESS_THAN, argumentTypes = {DOUBLE, DOUBLE}) MethodHandle methodHandle,
                 @AggregationState NullableDoubleState combine1,
                 @AggregationState NullableDoubleState combine2)
         {
@@ -772,7 +771,7 @@ public class TestAnnotationEngineForAggregates
 
         @OutputFunction(DOUBLE)
         public static void output(
-                @OperatorDependency(operator = LESS_THAN, returnType = StandardTypes.BOOLEAN, argumentTypes = {DOUBLE, DOUBLE}) MethodHandle methodHandle,
+                @OperatorDependency(operator = LESS_THAN, argumentTypes = {DOUBLE, DOUBLE}) MethodHandle methodHandle,
                 @AggregationState NullableDoubleState state,
                 BlockBuilder out)
         {
@@ -781,7 +780,7 @@ public class TestAnnotationEngineForAggregates
 
         @AggregationStateSerializerFactory(NullableDoubleState.class)
         public static CustomStateSerializerAggregationFunction.CustomSerializer createSerializer(
-                @OperatorDependency(operator = LESS_THAN, returnType = StandardTypes.BOOLEAN, argumentTypes = {DOUBLE, DOUBLE}) MethodHandle methodHandle)
+                @OperatorDependency(operator = LESS_THAN, argumentTypes = {DOUBLE, DOUBLE}) MethodHandle methodHandle)
         {
             return new CustomStateSerializerAggregationFunction.CustomSerializer();
         }

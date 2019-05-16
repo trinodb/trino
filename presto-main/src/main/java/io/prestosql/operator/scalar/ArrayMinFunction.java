@@ -21,7 +21,6 @@ import io.prestosql.spi.function.ScalarFunction;
 import io.prestosql.spi.function.SqlNullable;
 import io.prestosql.spi.function.SqlType;
 import io.prestosql.spi.function.TypeParameter;
-import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.Type;
 
 import java.lang.invoke.MethodHandle;
@@ -43,7 +42,7 @@ public final class ArrayMinFunction
     @SqlType("T")
     @SqlNullable
     public static Long longArrayMin(
-            @OperatorDependency(operator = LESS_THAN, returnType = StandardTypes.BOOLEAN, argumentTypes = {"T", "T"}) MethodHandle compareMethodHandle,
+            @OperatorDependency(operator = LESS_THAN, argumentTypes = {"T", "T"}) MethodHandle compareMethodHandle,
             @TypeParameter("T") Type elementType,
             @SqlType("array(T)") Block block)
     {
@@ -54,7 +53,7 @@ public final class ArrayMinFunction
     @SqlType("T")
     @SqlNullable
     public static Boolean booleanArrayMin(
-            @OperatorDependency(operator = LESS_THAN, returnType = StandardTypes.BOOLEAN, argumentTypes = {"T", "T"}) MethodHandle compareMethodHandle,
+            @OperatorDependency(operator = LESS_THAN, argumentTypes = {"T", "T"}) MethodHandle compareMethodHandle,
             @TypeParameter("T") Type elementType,
             @SqlType("array(T)") Block block)
     {
@@ -65,7 +64,7 @@ public final class ArrayMinFunction
     @SqlType("T")
     @SqlNullable
     public static Double doubleArrayMin(
-            @OperatorDependency(operator = LESS_THAN, returnType = StandardTypes.BOOLEAN, argumentTypes = {"T", "T"}) MethodHandle compareMethodHandle,
+            @OperatorDependency(operator = LESS_THAN, argumentTypes = {"T", "T"}) MethodHandle compareMethodHandle,
             @TypeParameter("T") Type elementType,
             @SqlType("array(T)") Block block)
     {
@@ -76,7 +75,7 @@ public final class ArrayMinFunction
     @SqlType("T")
     @SqlNullable
     public static Slice sliceArrayMin(
-            @OperatorDependency(operator = LESS_THAN, returnType = StandardTypes.BOOLEAN, argumentTypes = {"T", "T"}) MethodHandle compareMethodHandle,
+            @OperatorDependency(operator = LESS_THAN, argumentTypes = {"T", "T"}) MethodHandle compareMethodHandle,
             @TypeParameter("T") Type elementType,
             @SqlType("array(T)") Block block)
     {
@@ -87,7 +86,7 @@ public final class ArrayMinFunction
     @SqlType("T")
     @SqlNullable
     public static Block blockArrayMin(
-            @OperatorDependency(operator = LESS_THAN, returnType = StandardTypes.BOOLEAN, argumentTypes = {"T", "T"}) MethodHandle compareMethodHandle,
+            @OperatorDependency(operator = LESS_THAN, argumentTypes = {"T", "T"}) MethodHandle compareMethodHandle,
             @TypeParameter("T") Type elementType,
             @SqlType("array(T)") Block block)
     {
