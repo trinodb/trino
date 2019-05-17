@@ -75,6 +75,7 @@ public class NodeScheduler
     private final boolean includeCoordinator;
     private final int maxSplitsPerNode;
     private final int maxPendingSplitsPerTask;
+    private final boolean optimizedLocalScheduling;
     private final NodeTaskMap nodeTaskMap;
     private final boolean useNetworkTopology;
 
@@ -97,6 +98,7 @@ public class NodeScheduler
         this.includeCoordinator = config.isIncludeCoordinator();
         this.maxSplitsPerNode = config.getMaxSplitsPerNode();
         this.maxPendingSplitsPerTask = config.getMaxPendingSplitsPerTask();
+        this.optimizedLocalScheduling = config.getOptimizedLocalScheduling();
         this.nodeTaskMap = requireNonNull(nodeTaskMap, "nodeTaskMap is null");
         checkArgument(maxSplitsPerNode >= maxPendingSplitsPerTask, "maxSplitsPerNode must be > maxPendingSplitsPerTask");
         this.useNetworkTopology = !config.getNetworkTopology().equals(NetworkTopologyType.LEGACY);
@@ -188,6 +190,9 @@ public class NodeScheduler
                     networkLocationCache);
         }
         else {
+            if (optimizedLocalScheduling) {
+                return new OptimizedLocalNodeSelector(nodeManager, nodeTaskMap, includeCoordinator, nodeMap, minCandidates, maxSplitsPerNode, maxPendingSplitsPerTask);
+            }
             return new SimpleNodeSelector(nodeManager, nodeTaskMap, includeCoordinator, nodeMap, minCandidates, maxSplitsPerNode, maxPendingSplitsPerTask);
         }
     }

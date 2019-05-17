@@ -48,12 +48,12 @@ public class SimpleNodeSelector
     private static final Logger log = Logger.get(SimpleNodeSelector.class);
 
     private final InternalNodeManager nodeManager;
-    private final NodeTaskMap nodeTaskMap;
-    private final boolean includeCoordinator;
-    private final AtomicReference<Supplier<NodeMap>> nodeMap;
-    private final int minCandidates;
-    private final int maxSplitsPerNode;
-    private final int maxPendingSplitsPerTask;
+    final NodeTaskMap nodeTaskMap;
+    final boolean includeCoordinator;
+    final AtomicReference<Supplier<NodeMap>> nodeMap;
+    final int minCandidates;
+    final int maxSplitsPerNode;
+    final int maxPendingSplitsPerTask;
 
     public SimpleNodeSelector(
             InternalNodeManager nodeManager,
