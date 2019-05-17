@@ -27,7 +27,7 @@ import static java.util.Objects.requireNonNull;
  * A priority queue with constant time contains(E) and log time remove(E)
  * Ties are broken by insertion order
  */
-final class IndexedPriorityQueue<E>
+public final class IndexedPriorityQueue<E>
         implements UpdateablePriorityQueue<E>
 {
     private final Map<E, Entry<E>> index = new HashMap<>();
