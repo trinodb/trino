@@ -23,6 +23,8 @@ public class InternalCommunicationConfig
     private boolean httpsRequired;
     private String keyStorePath;
     private String keyStorePassword;
+    private String trustStorePath;
+    private String trustStorePassword;
     private boolean kerberosEnabled;
     private boolean kerberosUseCanonicalHostname = true;
 
@@ -60,6 +62,31 @@ public class InternalCommunicationConfig
     public InternalCommunicationConfig setKeyStorePassword(String keyStorePassword)
     {
         this.keyStorePassword = keyStorePassword;
+        return this;
+    }
+
+    public String getTrustStorePath()
+    {
+        return trustStorePath;
+    }
+
+    @Config("internal-communication.https.truststore.path")
+    public InternalCommunicationConfig setTrustStorePath(String trustStorePath)
+    {
+        this.trustStorePath = trustStorePath;
+        return this;
+    }
+
+    public String getTrustStorePassword()
+    {
+        return trustStorePassword;
+    }
+
+    @Config("internal-communication.https.truststore.key")
+    @ConfigSecuritySensitive
+    public InternalCommunicationConfig setTrustStorePassword(String trustStorePassword)
+    {
+        this.trustStorePassword = trustStorePassword;
         return this;
     }
 

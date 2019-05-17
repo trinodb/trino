@@ -40,6 +40,8 @@ public class InternalCommunicationModule
         configBinder(binder).bindConfigGlobalDefaults(HttpClientConfig.class, config -> {
             config.setKeyStorePath(internalCommunicationConfig.getKeyStorePath());
             config.setKeyStorePassword(internalCommunicationConfig.getKeyStorePassword());
+            config.setTrustStorePath(internalCommunicationConfig.getTrustStorePath());
+            config.setTrustStorePassword(internalCommunicationConfig.getTrustStorePassword());
         });
 
         install(installModuleIf(InternalCommunicationConfig.class, InternalCommunicationConfig::isKerberosEnabled, kerberosInternalCommunicationModule()));
