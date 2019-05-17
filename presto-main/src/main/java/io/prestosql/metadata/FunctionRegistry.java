@@ -206,7 +206,6 @@ import javax.annotation.concurrent.ThreadSafe;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -219,7 +218,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.prestosql.metadata.FunctionKind.AGGREGATE;
 import static io.prestosql.metadata.FunctionKind.SCALAR;
@@ -689,9 +687,7 @@ public class FunctionRegistry
 
     public List<SqlFunction> list()
     {
-        return functions.list().stream()
-                .filter(function -> !function.isHidden())
-                .collect(toImmutableList());
+        return functions.list();
     }
 
     public boolean isAggregationFunction(QualifiedName name)
@@ -1055,18 +1051,6 @@ public class FunctionRegistry
         }
 
         throw new PrestoException(FUNCTION_IMPLEMENTATION_MISSING, format("%s not found", signature));
-    }
-
-    @VisibleForTesting
-    public List<SqlFunction> listOperators()
-    {
-        Set<String> operatorNames = Arrays.asList(OperatorType.values()).stream()
-                .map(FunctionRegistry::mangleOperatorName)
-                .collect(toImmutableSet());
-
-        return functions.list().stream()
-                .filter(function -> operatorNames.contains(function.getSignature().getName()))
-                .collect(toImmutableList());
     }
 
     public boolean canResolveOperator(OperatorType operatorType, Type returnType, List<? extends Type> argumentTypes)
