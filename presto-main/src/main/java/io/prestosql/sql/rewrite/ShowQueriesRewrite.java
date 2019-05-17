@@ -527,16 +527,16 @@ final class ShowQueriesRewrite
         @Override
         protected Node visitShowFunctions(ShowFunctions node, Void context)
         {
-            ImmutableList.Builder<Expression> rows = ImmutableList.builder();
-            for (SqlFunction function : metadata.listFunctions()) {
-                rows.add(row(
-                        new StringLiteral(function.getSignature().getName()),
-                        new StringLiteral(function.getSignature().getReturnType().toString()),
-                        new StringLiteral(Joiner.on(", ").join(function.getSignature().getArgumentTypes())),
-                        new StringLiteral(getFunctionType(function)),
-                        function.isDeterministic() ? TRUE_LITERAL : FALSE_LITERAL,
-                        new StringLiteral(nullToEmpty(function.getDescription()))));
-            }
+            List<Expression> rows = metadata.listFunctions().stream()
+                    .filter(function -> !function.isHidden())
+                    .map(function -> row(
+                            new StringLiteral(function.getSignature().getName()),
+                            new StringLiteral(function.getSignature().getReturnType().toString()),
+                            new StringLiteral(Joiner.on(", ").join(function.getSignature().getArgumentTypes())),
+                            new StringLiteral(getFunctionType(function)),
+                            function.isDeterministic() ? TRUE_LITERAL : FALSE_LITERAL,
+                            new StringLiteral(nullToEmpty(function.getDescription()))))
+                    .collect(toImmutableList());
 
             Map<String, String> columns = ImmutableMap.<String, String>builder()
                     .put("function_name", "Function")
@@ -551,7 +551,7 @@ final class ShowQueriesRewrite
                     selectAll(columns.entrySet().stream()
                             .map(entry -> aliasedName(entry.getKey(), entry.getValue()))
                             .collect(toImmutableList())),
-                    aliased(new Values(rows.build()), "functions", ImmutableList.copyOf(columns.keySet())),
+                    aliased(new Values(rows), "functions", ImmutableList.copyOf(columns.keySet())),
                     ordering(
                             new SortItem(
                                     functionCall("lower", identifier("function_name")),

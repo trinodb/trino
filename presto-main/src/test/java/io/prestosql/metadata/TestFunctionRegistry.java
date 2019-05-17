@@ -32,9 +32,12 @@ import io.prestosql.type.TypeRegistry;
 import org.testng.annotations.Test;
 
 import java.lang.invoke.MethodHandles;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Lists.transform;
 import static io.prestosql.metadata.FunctionKind.SCALAR;
 import static io.prestosql.metadata.FunctionRegistry.getMagicLiteralFunctionSignature;
@@ -52,7 +55,6 @@ import static java.lang.String.format;
 import static java.util.Collections.nCopies;
 import static java.util.stream.Collectors.toList;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
@@ -75,7 +77,7 @@ public class TestFunctionRegistry
         TypeRegistry typeManager = new TypeRegistry();
         FunctionRegistry registry = new FunctionRegistry(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
         boolean foundOperator = false;
-        for (SqlFunction function : registry.listOperators()) {
+        for (SqlFunction function : listOperators(registry)) {
             OperatorType operatorType = unmangleOperator(function.getSignature().getName());
             if (operatorType == OperatorType.CAST || operatorType == OperatorType.SATURATED_FLOOR_CAST) {
                 continue;
@@ -134,22 +136,6 @@ public class TestFunctionRegistry
         TypeRegistry typeManager = new TypeRegistry();
         FunctionRegistry registry = new FunctionRegistry(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
         registry.addFunctions(functions);
-    }
-
-    @Test
-    public void testListingHiddenFunctions()
-    {
-        TypeRegistry typeManager = new TypeRegistry();
-        FunctionRegistry registry = new FunctionRegistry(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
-        List<SqlFunction> functions = registry.list();
-        List<String> names = transform(functions, input -> input.getSignature().getName());
-
-        assertTrue(names.contains("length"), "Expected function names " + names + " to contain 'length'");
-        assertTrue(names.contains("stddev"), "Expected function names " + names + " to contain 'stddev'");
-        assertTrue(names.contains("rank"), "Expected function names " + names + " to contain 'rank'");
-        assertFalse(names.contains("like"), "Expected function names " + names + " not to contain 'like'");
-        assertFalse(names.contains("$internal$sum_data_size_for_stats"), "Expected function names " + names + " not to contain '$internal$sum_data_size_for_stats'");
-        assertFalse(names.contains("$internal$max_data_size_for_stats"), "Expected function names " + names + " not to contain '$internal$max_data_size_for_stats'");
     }
 
     @Test
@@ -291,6 +277,17 @@ public class TestFunctionRegistry
                         functionSignature(ImmutableList.of("integer"), "integer"))
                 .forParameters("unknown")
                 .failsWithMessage("Could not choose a best candidate operator. Explicit type casts must be added.");
+    }
+
+    private static List<SqlFunction> listOperators(FunctionRegistry registry)
+    {
+        Set<String> operatorNames = Arrays.stream(OperatorType.values())
+                .map(FunctionRegistry::mangleOperatorName)
+                .collect(toImmutableSet());
+
+        return registry.list().stream()
+                .filter(function -> operatorNames.contains(function.getSignature().getName()))
+                .collect(toImmutableList());
     }
 
     private SignatureBuilder functionSignature(String... argumentTypes)
