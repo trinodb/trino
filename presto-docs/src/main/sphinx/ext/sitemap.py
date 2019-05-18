@@ -37,9 +37,6 @@ def add_html_link(app, pagename, templatename, context, doctree):
 
 def create_sitemap(app, exception):
     """Generates the sitemap.xml from the collected HTML page links"""
-    if not app.sitemap_links:
-        raise (Exception('sitemap error: No pages generated for sitemap.xml'))
-
     root = ET.Element('urlset')
     root.set('xmlns', 'http://www.sitemaps.org/schemas/sitemap/0.9')
 
