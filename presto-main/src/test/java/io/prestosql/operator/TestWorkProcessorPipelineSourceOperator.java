@@ -29,6 +29,7 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Supplier;
@@ -61,8 +62,9 @@ public class TestWorkProcessorPipelineSourceOperator
         scheduledExecutor.shutdownNow();
     }
 
-    @Test
+    @Test(timeOut = 5000)
     public void testWorkProcessorPipelineSourceOperator()
+            throws InterruptedException
     {
         Split split = createSplit();
 
@@ -76,16 +78,18 @@ public class TestWorkProcessorPipelineSourceOperator
                 Transform.of(Optional.of(split), TransformationState.ofResult(page1, false)),
                 Transform.of(Optional.of(split), TransformationState.ofResult(page2, true))));
 
+        SettableFuture<?> firstBlockedFuture = SettableFuture.create();
         Transformation<Page, Page> firstOperatorPages = transformationFrom(ImmutableList.of(
+                Transform.of(Optional.of(page1), TransformationState.blocked(firstBlockedFuture)),
                 Transform.of(Optional.of(page1), TransformationState.ofResult(page3, true)),
                 Transform.of(Optional.of(page2), TransformationState.ofResult(page4, false)),
                 Transform.of(Optional.of(page2), TransformationState.finished())));
 
-        SettableFuture<?> blockedFuture = SettableFuture.create();
+        SettableFuture<?> secondBlockedFuture = SettableFuture.create();
         Transformation<Page, Page> secondOperatorPages = transformationFrom(ImmutableList.of(
                 Transform.of(Optional.of(page3), TransformationState.ofResult(page5, true)),
                 Transform.of(Optional.of(page4), TransformationState.needsMoreData()),
-                Transform.of(Optional.empty(), TransformationState.blocked(blockedFuture))));
+                Transform.of(Optional.empty(), TransformationState.blocked(secondBlockedFuture))));
 
         TestWorkProcessorSourceOperatorFactory sourceOperatorFactory = new TestWorkProcessorSourceOperatorFactory(
                 1,
@@ -107,9 +111,25 @@ public class TestWorkProcessorPipelineSourceOperator
 
         assertNull(pipelineOperator.getOutput());
         assertFalse(pipelineOperator.isBlocked().isDone());
+        // blocking on splits should not account for blocked time for any WorkProcessorOperator
+        pipelineOperator.getOperatorContext().getNestedOperatorStats().forEach(
+                operatorStats -> assertEquals(operatorStats.getBlockedWall().toMillis(), 0));
 
         pipelineOperator.addSplit(split);
         assertTrue(pipelineOperator.isBlocked().isDone());
+
+        assertNull(pipelineOperator.getOutput());
+        assertFalse(pipelineOperator.isBlocked().isDone());
+
+        Thread.sleep(100);
+        firstBlockedFuture.set(null);
+        assertTrue(pipelineOperator.isBlocked().isDone());
+
+        // blocking of first WorkProcessorOperator should be accounted for in stats
+        List<OperatorStats> operatorStats = pipelineOperator.getOperatorContext().getNestedOperatorStats();
+        assertEquals(operatorStats.get(0).getBlockedWall().toMillis(), 0);
+        assertTrue(operatorStats.get(1).getBlockedWall().toMillis() > 0);
+        assertEquals(operatorStats.get(2).getBlockedWall().toMillis(), 0);
 
         assertEquals(pipelineOperator.getOutput(), page5);
 
@@ -129,11 +149,11 @@ public class TestWorkProcessorPipelineSourceOperator
         // cause early operator finish
         pipelineOperator.finish();
 
-        // operator is still blocked on blockedFuture
+        // operator is still blocked on secondBlockedFuture
         assertFalse(pipelineOperator.isFinished());
         assertTrue(secondOperatorFactory.operator.closed);
 
-        blockedFuture.set(null);
+        secondBlockedFuture.set(null);
         assertTrue(pipelineOperator.isBlocked().isDone());
         assertNull(pipelineOperator.getOutput());
         assertTrue(pipelineOperator.isFinished());

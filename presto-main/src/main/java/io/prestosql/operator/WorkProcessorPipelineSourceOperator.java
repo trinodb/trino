@@ -40,9 +40,11 @@ import java.util.function.Supplier;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.prestosql.operator.BlockedReason.WAITING_FOR_MEMORY;
+import static io.prestosql.operator.WorkProcessor.ProcessState.Type.BLOCKED;
 import static io.prestosql.operator.WorkProcessor.ProcessState.Type.FINISHED;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
@@ -63,6 +65,7 @@ public class WorkProcessorPipelineSourceOperator
     private final List<WorkProcessorOperatorContext> workProcessorOperatorContexts = new ArrayList<>();
     private final List<Split> pendingSplits = new ArrayList<>();
 
+    private ListenableFuture<?> blockedFuture;
     private WorkProcessorSourceOperator sourceOperator;
     private SettableFuture<?> blockedOnSplits = SettableFuture.create();
     private boolean operatorFinishing;
@@ -178,11 +181,19 @@ public class WorkProcessorPipelineSourceOperator
     private void workProcessorOperatorStateMonitor(WorkProcessor.ProcessState<Page> state, int operatorIndex)
     {
         // report timing for current operator
-        timer.recordOperationComplete(workProcessorOperatorContexts.get(operatorIndex).operatorTiming);
+        WorkProcessorOperatorContext context = workProcessorOperatorContexts.get(operatorIndex);
+        timer.recordOperationComplete(context.operatorTiming);
 
         if (state.getType() == FINISHED) {
             // immediately close all upstream operators (including finished operator)
             closeOperators(operatorIndex);
+        }
+        else if (state.getType() == BLOCKED && blockedFuture != state.getBlocked()) {
+            blockedFuture = state.getBlocked();
+            long start = System.nanoTime();
+            blockedFuture.addListener(
+                    () -> context.blockedWallNanos.getAndAdd(System.nanoTime() - start),
+                    directExecutor());
         }
     }
 
@@ -230,8 +241,10 @@ public class WorkProcessorPipelineSourceOperator
 
                         new DataSize(0, BYTE),
                         0,
+
                         new DataSize(0, BYTE),
-                        ZERO_DURATION,
+
+                        new Duration(context.blockedWallNanos.get(), NANOSECONDS),
 
                         // WorkProcessorOperator doesn't have finish call
                         0,
@@ -373,6 +386,7 @@ public class WorkProcessorPipelineSourceOperator
                 }
 
                 blockedOnSplits = SettableFuture.create();
+                blockedFuture = blockedOnSplits;
                 return ProcessState.blocked(blockedOnSplits);
             }
 
@@ -537,6 +551,7 @@ public class WorkProcessorPipelineSourceOperator
         final MemoryTrackingContext memoryTrackingContext;
 
         final OperationTiming operatorTiming = new OperationTiming();
+        final AtomicLong blockedWallNanos = new AtomicLong();
 
         final AtomicLong peakUserMemoryReservation = new AtomicLong();
         final AtomicLong peakSystemMemoryReservation = new AtomicLong();
