@@ -105,12 +105,14 @@ public class WorkProcessorPipelineSourceOperator
                 sourceOperatorFactory.getOperatorId(),
                 sourceOperatorMemoryTrackingContext));
         WorkProcessor<Page> pages = sourceOperator.getOutputPages();
-        pages = pages.withProcessStateMonitor(state -> {
-            if (state.getType() == FINISHED) {
-                // immediately close source operator
-                closeOperators(0);
-            }
-        });
+        pages = pages
+                .yielding(() -> operatorContext.getDriverContext().getYieldSignal().isSet())
+                .withProcessStateMonitor(state -> {
+                    if (state.getType() == FINISHED) {
+                        // immediately close source operator
+                        closeOperators(0);
+                    }
+                });
 
         for (int i = 0; i < operatorFactories.size(); ++i) {
             MemoryTrackingContext operatorMemoryTrackingContext = createMemoryTrackingContext(operatorContext);
@@ -126,12 +128,14 @@ public class WorkProcessorPipelineSourceOperator
                     operatorMemoryTrackingContext));
             pages = operator.getOutputPages();
             int operatorIndex = i + 1;
-            pages = pages.withProcessStateMonitor(state -> {
-                if (state.getType() == FINISHED) {
-                    // immediately close all upstream operators (including finished operator)
-                    closeOperators(operatorIndex);
-                }
-            });
+            pages = pages
+                    .yielding(() -> operatorContext.getDriverContext().getYieldSignal().isSet())
+                    .withProcessStateMonitor(state -> {
+                        if (state.getType() == FINISHED) {
+                            // immediately close all upstream operators (including finished operator)
+                            closeOperators(operatorIndex);
+                        }
+                    });
         }
 
         // materialize output pages as there are no semantics guarantees for non WorkProcessor operators
