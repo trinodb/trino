@@ -16,10 +16,15 @@ package io.prestosql.operator;
 import io.prestosql.Session;
 import io.prestosql.memory.context.MemoryTrackingContext;
 import io.prestosql.spi.Page;
+import io.prestosql.sql.planner.plan.PlanNodeId;
 
 public interface WorkProcessorOperatorFactory
 {
     int getOperatorId();
+
+    PlanNodeId getPlanNodeId();
+
+    String getOperatorType();
 
     WorkProcessorOperator create(
             Session session,
