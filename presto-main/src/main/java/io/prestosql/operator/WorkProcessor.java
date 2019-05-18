@@ -66,6 +66,11 @@ public interface WorkProcessor<T>
         return WorkProcessorUtils.yielding(this, yieldSignal);
     }
 
+    default WorkProcessor<T> withProcessEntryMonitor(Runnable monitor)
+    {
+        return WorkProcessorUtils.processEntryMonitor(this, monitor);
+    }
+
     default WorkProcessor<T> withProcessStateMonitor(Consumer<ProcessState<? extends T>> monitor)
     {
         return WorkProcessorUtils.processStateMonitor(this, monitor);
