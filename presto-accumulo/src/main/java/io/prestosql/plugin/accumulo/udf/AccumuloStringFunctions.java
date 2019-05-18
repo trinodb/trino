@@ -14,13 +14,15 @@
 package io.prestosql.plugin.accumulo.udf;
 
 import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
 import io.prestosql.spi.function.Description;
 import io.prestosql.spi.function.ScalarFunction;
 import io.prestosql.spi.function.SqlType;
 import io.prestosql.spi.type.StandardTypes;
 
 import java.util.UUID;
+
+import static io.airlift.slice.Slices.wrappedLongArray;
+import static java.util.UUID.randomUUID;
 
 /**
  * Class containing String-based SQL functions for Accumulo connector
@@ -32,9 +34,10 @@ public class AccumuloStringFunctions
 
     @Description("Returns a randomly generated UUID")
     @ScalarFunction(value = "uuid", deterministic = false)
-    @SqlType(StandardTypes.VARCHAR)
+    @SqlType(StandardTypes.UUID)
     public static Slice UUID()
     {
-        return Slices.utf8Slice(UUID.randomUUID().toString());
+        UUID uuid = randomUUID();
+        return wrappedLongArray(uuid.getMostSignificantBits(), uuid.getLeastSignificantBits());
     }
 }
