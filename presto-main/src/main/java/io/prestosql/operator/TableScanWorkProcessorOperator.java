@@ -14,6 +14,8 @@
 package io.prestosql.operator;
 
 import com.google.common.collect.ImmutableList;
+import io.airlift.units.DataSize;
+import io.airlift.units.Duration;
 import io.prestosql.Session;
 import io.prestosql.memory.context.AggregatedMemoryContext;
 import io.prestosql.memory.context.LocalMemoryContext;
@@ -37,7 +39,10 @@ import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
+import static io.airlift.units.DataSize.Unit.BYTE;
+import static io.prestosql.operator.PageUtils.recordMaterializedBytes;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 public class TableScanWorkProcessorOperator
         implements WorkProcessorSourceOperator
@@ -75,6 +80,36 @@ public class TableScanWorkProcessorOperator
     }
 
     @Override
+    public DataSize getPhysicalInputDataSize()
+    {
+        return splitToPages.getPhysicalInputDataSize();
+    }
+
+    @Override
+    public long getPhysicalInputPositions()
+    {
+        return splitToPages.getPhysicalInputPositions();
+    }
+
+    @Override
+    public DataSize getInputDataSize()
+    {
+        return splitToPages.getInputDataSize();
+    }
+
+    @Override
+    public long getInputPositions()
+    {
+        return splitToPages.getInputPositions();
+    }
+
+    @Override
+    public Duration getReadTime()
+    {
+        return splitToPages.getReadTime();
+    }
+
+    @Override
     public void close()
             throws Exception
     {
@@ -89,6 +124,9 @@ public class TableScanWorkProcessorOperator
         final TableHandle table;
         final List<ColumnHandle> columns;
         final AggregatedMemoryContext aggregatedMemoryContext;
+
+        long processedBytes;
+        long processedPositions;
 
         ConnectorPageSource source;
 
@@ -116,7 +154,11 @@ public class TableScanWorkProcessorOperator
             checkState(source == null, "Table scan split already set");
             source = pageSourceProvider.createPageSource(session, split, table, columns);
             return TransformationState.ofResult(
-                    WorkProcessor.create(new ConnectorPageSourceToPages(aggregatedMemoryContext, source)));
+                    WorkProcessor.create(new ConnectorPageSourceToPages(aggregatedMemoryContext, source))
+                            .map(page -> {
+                                processedPositions += page.getPositionCount();
+                                return recordMaterializedBytes(page, sizeInBytes -> processedBytes += sizeInBytes);
+                            }));
         }
 
         Supplier<Optional<UpdatablePageSource>> getUpdatablePageSourceSupplier()
@@ -127,6 +169,39 @@ public class TableScanWorkProcessorOperator
                 }
                 return Optional.empty();
             };
+        }
+
+        DataSize getPhysicalInputDataSize()
+        {
+            if (source == null) {
+                return new DataSize(0, BYTE);
+            }
+
+            return new DataSize(source.getCompletedBytes(), BYTE);
+        }
+
+        long getPhysicalInputPositions()
+        {
+            return processedPositions;
+        }
+
+        DataSize getInputDataSize()
+        {
+            return new DataSize(processedBytes, BYTE);
+        }
+
+        long getInputPositions()
+        {
+            return processedPositions;
+        }
+
+        Duration getReadTime()
+        {
+            if (source == null) {
+                return new Duration(0, NANOSECONDS);
+            }
+
+            return new Duration(source.getReadTimeNanos(), NANOSECONDS);
         }
 
         void close()

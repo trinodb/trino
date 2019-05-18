@@ -187,6 +187,26 @@ public class WorkProcessorPipelineSourceOperator
         WorkProcessorOperatorContext context = workProcessorOperatorContexts.get(operatorIndex);
         timer.recordOperationComplete(context.operatorTiming);
 
+        if (operatorIndex == 0) {
+            // update input stats for source operator
+            WorkProcessorSourceOperator sourceOperator = (WorkProcessorSourceOperator) context.operator;
+
+            long deltaPhysicalInputDataSize = deltaAndSet(context.physicalInputDataSize, sourceOperator.getPhysicalInputDataSize().toBytes());
+            long deltaPhysicalInputPositions = deltaAndSet(context.physicalInputPositions, sourceOperator.getPhysicalInputPositions());
+
+            long deltaInternalNetworkInputDataSize = deltaAndSet(context.internalNetworkInputDataSize, sourceOperator.getInternalNetworkInputDataSize().toBytes());
+            long deltaInternalNetworkInputPositions = deltaAndSet(context.internalNetworkInputPositions, sourceOperator.getInternalNetworkPositions());
+
+            long deltaInputDataSize = deltaAndSet(context.inputDataSize, sourceOperator.getInputDataSize().toBytes());
+            long deltaInputPositions = deltaAndSet(context.inputPositions, sourceOperator.getInputPositions());
+
+            long deltaReadTimeNanos = deltaAndSet(context.readTimeNanos, sourceOperator.getReadTime().roundTo(NANOSECONDS));
+
+            operatorContext.recordPhysicalInputWithTiming(deltaPhysicalInputDataSize, deltaPhysicalInputPositions, deltaReadTimeNanos);
+            operatorContext.recordNetworkInput(deltaInternalNetworkInputDataSize, deltaInternalNetworkInputPositions);
+            operatorContext.recordProcessedInput(deltaInputDataSize, deltaInputPositions);
+        }
+
         if (state.getType() == FINISHED) {
             // immediately close all upstream operators (including finished operator)
             closeOperators(operatorIndex);
@@ -198,6 +218,11 @@ public class WorkProcessorPipelineSourceOperator
                     () -> context.blockedWallNanos.getAndAdd(System.nanoTime() - start),
                     directExecutor());
         }
+    }
+
+    private static long deltaAndSet(AtomicLong currentValue, long newValue)
+    {
+        return newValue - currentValue.getAndSet(newValue);
     }
 
     private Page recordProcessedOutput(Page page, int operatorIndex)
@@ -254,14 +279,17 @@ public class WorkProcessorPipelineSourceOperator
 
                         // WorkProcessorOperator doesn't have addInput call
                         0,
-                        ZERO_DURATION,
+                        // source operators report read time though
+                        new Duration(context.readTimeNanos.get(), NANOSECONDS),
                         ZERO_DURATION,
 
-                        new DataSize(0, BYTE),
-                        0,
-                        new DataSize(0, BYTE),
-                        0,
-                        new DataSize(0, BYTE),
+                        succinctBytes(context.physicalInputDataSize.get()),
+                        context.physicalInputPositions.get(),
+
+                        succinctBytes(context.internalNetworkInputDataSize.get()),
+                        context.internalNetworkInputPositions.get(),
+
+                        succinctBytes(context.physicalInputDataSize.get() + context.internalNetworkInputDataSize.get()),
 
                         succinctBytes(context.inputDataSize.get()),
                         context.inputPositions.get(),
@@ -585,8 +613,16 @@ public class WorkProcessorPipelineSourceOperator
         final OperationTiming operatorTiming = new OperationTiming();
         final AtomicLong blockedWallNanos = new AtomicLong();
 
+        final AtomicLong physicalInputDataSize = new AtomicLong();
+        final AtomicLong physicalInputPositions = new AtomicLong();
+
+        final AtomicLong internalNetworkInputDataSize = new AtomicLong();
+        final AtomicLong internalNetworkInputPositions = new AtomicLong();
+
         final AtomicLong inputDataSize = new AtomicLong();
         final AtomicLong inputPositions = new AtomicLong();
+
+        final AtomicLong readTimeNanos = new AtomicLong();
 
         final AtomicLong outputDataSize = new AtomicLong();
         final AtomicLong outputPositions = new AtomicLong();

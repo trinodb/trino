@@ -13,15 +13,54 @@
  */
 package io.prestosql.operator;
 
+import io.airlift.units.DataSize;
+import io.airlift.units.Duration;
 import io.prestosql.spi.connector.UpdatablePageSource;
 
 import java.util.Optional;
 import java.util.function.Supplier;
 
+import static io.airlift.units.DataSize.Unit.BYTE;
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
+
 // TODO: support spill
-// TODO: provide source operator metrics
 public interface WorkProcessorSourceOperator
         extends WorkProcessorOperator
 {
     Supplier<Optional<UpdatablePageSource>> getUpdatablePageSourceSupplier();
+
+    default DataSize getPhysicalInputDataSize()
+    {
+        return new DataSize(0, BYTE);
+    }
+
+    default long getPhysicalInputPositions()
+    {
+        return 0;
+    }
+
+    default DataSize getInternalNetworkInputDataSize()
+    {
+        return new DataSize(0, BYTE);
+    }
+
+    default long getInternalNetworkPositions()
+    {
+        return 0;
+    }
+
+    default DataSize getInputDataSize()
+    {
+        return new DataSize(0, BYTE);
+    }
+
+    default long getInputPositions()
+    {
+        return 0;
+    }
+
+    default Duration getReadTime()
+    {
+        return new Duration(0, NANOSECONDS);
+    }
 }
