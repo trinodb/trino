@@ -82,10 +82,16 @@ public class TableScanOperator
         }
 
         @Override
+        public String getOperatorType()
+        {
+            return TableScanOperator.class.getSimpleName();
+        }
+
+        @Override
         public SourceOperator createOperator(DriverContext driverContext)
         {
             checkState(!closed, "Factory is already closed");
-            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, sourceId, TableScanOperator.class.getSimpleName());
+            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, sourceId, getOperatorType());
             return new TableScanOperator(
                     operatorContext,
                     sourceId,

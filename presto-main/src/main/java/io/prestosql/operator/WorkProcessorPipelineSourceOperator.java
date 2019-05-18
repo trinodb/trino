@@ -17,6 +17,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.log.Logger;
+import io.airlift.units.DataSize;
+import io.airlift.units.Duration;
 import io.prestosql.memory.context.MemoryTrackingContext;
 import io.prestosql.metadata.Split;
 import io.prestosql.operator.WorkProcessor.ProcessState;
@@ -31,14 +33,21 @@ import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfUnchecked;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.airlift.units.DataSize.Unit.BYTE;
+import static io.prestosql.operator.BlockedReason.WAITING_FOR_MEMORY;
 import static io.prestosql.operator.WorkProcessor.ProcessState.Type.FINISHED;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 public class WorkProcessorPipelineSourceOperator
         implements SourceOperator
 {
     private static final Logger log = Logger.get(WorkProcessorPipelineSourceOperator.class);
+    private static final Duration ZERO_DURATION = new Duration(0, NANOSECONDS);
 
+    private final int stageId;
+    private final int pipelineId;
     private final PlanNodeId sourceId;
     private final OperatorContext operatorContext;
     private final WorkProcessor<Page> pages;
@@ -86,9 +95,11 @@ public class WorkProcessorPipelineSourceOperator
         requireNonNull(driverContext, "driverContext is null");
         requireNonNull(sourceOperatorFactory, "sourceOperatorFactory is null");
         requireNonNull(operatorFactories, "operatorFactories is null");
-        this.sourceId = sourceOperatorFactory.getSourceId();
-        // TODO: make OperatorContext aware of WorkProcessorOperators
+        this.stageId = driverContext.getTaskId().getStageId().getId();
+        this.pipelineId = driverContext.getPipelineContext().getPipelineId();
+        this.sourceId = requireNonNull(sourceOperatorFactory.getSourceId(), "sourceId is null");
         this.operatorContext = driverContext.addOperatorContext(operatorId, sourceId, WorkProcessorPipelineSourceOperator.class.getSimpleName());
+        operatorContext.setNestedOperatorStatsSupplier(this::getNestedOperatorStats);
 
         // TODO: measure and report WorkProcessorOperator memory usage
         MemoryTrackingContext sourceOperatorMemoryTrackingContext = createMemoryTrackingContext(operatorContext);
@@ -103,6 +114,8 @@ public class WorkProcessorPipelineSourceOperator
         workProcessorOperatorContexts.add(new WorkProcessorOperatorContext(
                 sourceOperator,
                 sourceOperatorFactory.getOperatorId(),
+                sourceOperatorFactory.getSourceId(),
+                sourceOperatorFactory.getOperatorType(),
                 sourceOperatorMemoryTrackingContext));
         WorkProcessor<Page> pages = sourceOperator.getOutputPages();
         pages = pages
@@ -125,6 +138,8 @@ public class WorkProcessorPipelineSourceOperator
             workProcessorOperatorContexts.add(new WorkProcessorOperatorContext(
                     operator,
                     operatorFactories.get(i).getOperatorId(),
+                    operatorFactories.get(i).getPlanNodeId(),
+                    operatorFactories.get(i).getOperatorType(),
                     operatorMemoryTrackingContext));
             pages = operator.getOutputPages();
             int operatorIndex = i + 1;
@@ -151,6 +166,50 @@ public class WorkProcessorPipelineSourceOperator
                 operatorContext.newAggregateUserMemoryContext(),
                 operatorContext.newAggregateRevocableMemoryContext(),
                 operatorContext.newAggregateSystemMemoryContext());
+    }
+
+    private List<OperatorStats> getNestedOperatorStats()
+    {
+        return workProcessorOperatorContexts.stream()
+                .map(context -> new OperatorStats(
+                        stageId,
+                        pipelineId,
+                        context.operatorId,
+                        context.planNodeId,
+                        context.operatorType,
+                        1,
+                        0,
+                        ZERO_DURATION,
+                        ZERO_DURATION,
+                        new DataSize(0, BYTE),
+                        0,
+                        new DataSize(0, BYTE),
+                        0,
+                        new DataSize(0, BYTE),
+                        new DataSize(0, BYTE),
+                        0,
+                        0,
+                        0,
+                        ZERO_DURATION,
+                        ZERO_DURATION,
+                        new DataSize(0, BYTE),
+                        0,
+                        new DataSize(0, BYTE),
+                        ZERO_DURATION,
+                        0,
+                        ZERO_DURATION,
+                        ZERO_DURATION,
+                        new DataSize(0, BYTE),
+                        new DataSize(0, BYTE),
+                        new DataSize(0, BYTE),
+                        new DataSize(0, BYTE),
+                        new DataSize(0, BYTE),
+                        new DataSize(0, BYTE),
+                        new DataSize(0, BYTE),
+                        new DataSize(0, BYTE),
+                        operatorContext.isWaitingForMemory().isDone() ? Optional.empty() : Optional.of(WAITING_FOR_MEMORY),
+                        null))
+                .collect(toImmutableList());
     }
 
     @Override
@@ -351,15 +410,21 @@ public class WorkProcessorPipelineSourceOperator
     {
         final WorkProcessorOperator operator;
         final int operatorId;
+        final PlanNodeId planNodeId;
+        final String operatorType;
         final MemoryTrackingContext memoryTrackingContext;
 
         private WorkProcessorOperatorContext(
                 WorkProcessorOperator operator,
                 int operatorId,
+                PlanNodeId planNodeId,
+                String operatorType,
                 MemoryTrackingContext memoryTrackingContext)
         {
             this.operator = operator;
             this.operatorId = operatorId;
+            this.planNodeId = planNodeId;
+            this.operatorType = operatorType;
             this.memoryTrackingContext = memoryTrackingContext;
         }
     }

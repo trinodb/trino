@@ -181,6 +181,12 @@ public class TestWorkProcessorPipelineSourceOperator
         }
 
         @Override
+        public String getOperatorType()
+        {
+            return TestWorkProcessorSourceOperatorFactory.class.getSimpleName();
+        }
+
+        @Override
         public WorkProcessorSourceOperator create(Session session, MemoryTrackingContext memoryTrackingContext, DriverYieldSignal yieldSignal, WorkProcessor<Split> splits)
         {
             assertNull(sourceOperator, "source operator already created");
@@ -256,6 +262,18 @@ public class TestWorkProcessorPipelineSourceOperator
         public int getOperatorId()
         {
             return operatorId;
+        }
+
+        @Override
+        public PlanNodeId getPlanNodeId()
+        {
+            return new PlanNodeId("test-operator");
+        }
+
+        @Override
+        public String getOperatorType()
+        {
+            return TestWorkProcessorOperatorFactory.class.getSimpleName();
         }
 
         @Override
