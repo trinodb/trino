@@ -44,6 +44,7 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.prestosql.operator.BlockedReason.WAITING_FOR_MEMORY;
+import static io.prestosql.operator.PageUtils.recordMaterializedBytes;
 import static io.prestosql.operator.WorkProcessor.ProcessState.Type.BLOCKED;
 import static io.prestosql.operator.WorkProcessor.ProcessState.Type.FINISHED;
 import static java.util.Objects.requireNonNull;
@@ -135,7 +136,8 @@ public class WorkProcessorPipelineSourceOperator
         pages = pages
                 .yielding(() -> operatorContext.getDriverContext().getYieldSignal().isSet())
                 .withProcessEntryMonitor(() -> workProcessorOperatorEntryMonitor(0))
-                .withProcessStateMonitor(state -> workProcessorOperatorStateMonitor(state, 0));
+                .withProcessStateMonitor(state -> workProcessorOperatorStateMonitor(state, 0))
+                .map(page -> recordProcessedOutput(page, 0));
 
         for (int i = 0; i < operatorFactories.size(); ++i) {
             int operatorIndex = i + 1;
@@ -157,6 +159,7 @@ public class WorkProcessorPipelineSourceOperator
                     .yielding(() -> operatorContext.getDriverContext().getYieldSignal().isSet())
                     .withProcessEntryMonitor(() -> workProcessorOperatorEntryMonitor(operatorIndex))
                     .withProcessStateMonitor(state -> workProcessorOperatorStateMonitor(state, operatorIndex));
+            pages = pages.map(page -> recordProcessedOutput(page, operatorIndex));
         }
 
         // materialize output pages as there are no semantics guarantees for non WorkProcessor operators
@@ -168,7 +171,7 @@ public class WorkProcessorPipelineSourceOperator
 
     private void workProcessorOperatorEntryMonitor(int operatorIndex)
     {
-        if (operatorIndex + 1 == workProcessorOperatorContexts.size()) {
+        if (isLastOperator(operatorIndex)) {
             // this is the top operator so timer needs to be reset
             timer.resetInterval();
         }
@@ -195,6 +198,34 @@ public class WorkProcessorPipelineSourceOperator
                     () -> context.blockedWallNanos.getAndAdd(System.nanoTime() - start),
                     directExecutor());
         }
+    }
+
+    private Page recordProcessedOutput(Page page, int operatorIndex)
+    {
+        WorkProcessorOperatorContext operatorContext = workProcessorOperatorContexts.get(operatorIndex);
+        operatorContext.outputPositions.getAndAdd(page.getPositionCount());
+
+        WorkProcessorOperatorContext downstreamOperatorContext;
+        if (!isLastOperator(operatorIndex)) {
+            downstreamOperatorContext = workProcessorOperatorContexts.get(operatorIndex + 1);
+            downstreamOperatorContext.inputPositions.getAndAdd(page.getPositionCount());
+        }
+        else {
+            downstreamOperatorContext = null;
+        }
+
+        // account processed bytes from lazy blocks only when they are loaded
+        return recordMaterializedBytes(page, sizeInBytes -> {
+            operatorContext.outputDataSize.getAndAdd(sizeInBytes);
+            if (downstreamOperatorContext != null) {
+                downstreamOperatorContext.inputDataSize.getAndAdd(sizeInBytes);
+            }
+        });
+    }
+
+    private boolean isLastOperator(int operatorIndex)
+    {
+        return operatorIndex + 1 == workProcessorOperatorContexts.size();
     }
 
     private MemoryTrackingContext createMemoryTrackingContext(OperatorContext operatorContext, int operatorIndex)
@@ -231,16 +262,17 @@ public class WorkProcessorPipelineSourceOperator
                         new DataSize(0, BYTE),
                         0,
                         new DataSize(0, BYTE),
-                        new DataSize(0, BYTE),
-                        0,
-                        0,
+
+                        succinctBytes(context.inputDataSize.get()),
+                        context.inputPositions.get(),
+                        context.inputPositions.get() * context.inputPositions.get(),
 
                         context.operatorTiming.getCalls(),
                         new Duration(context.operatorTiming.getWallNanos(), NANOSECONDS),
                         new Duration(context.operatorTiming.getCpuNanos(), NANOSECONDS),
 
-                        new DataSize(0, BYTE),
-                        0,
+                        succinctBytes(context.outputDataSize.get()),
+                        context.outputPositions.get(),
 
                         new DataSize(0, BYTE),
 
@@ -552,6 +584,12 @@ public class WorkProcessorPipelineSourceOperator
 
         final OperationTiming operatorTiming = new OperationTiming();
         final AtomicLong blockedWallNanos = new AtomicLong();
+
+        final AtomicLong inputDataSize = new AtomicLong();
+        final AtomicLong inputPositions = new AtomicLong();
+
+        final AtomicLong outputDataSize = new AtomicLong();
+        final AtomicLong outputPositions = new AtomicLong();
 
         final AtomicLong peakUserMemoryReservation = new AtomicLong();
         final AtomicLong peakSystemMemoryReservation = new AtomicLong();
