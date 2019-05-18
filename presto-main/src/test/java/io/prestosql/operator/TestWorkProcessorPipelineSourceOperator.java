@@ -15,6 +15,8 @@ package io.prestosql.operator;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.SettableFuture;
+import io.airlift.units.DataSize;
+import io.airlift.units.Duration;
 import io.prestosql.Session;
 import io.prestosql.connector.CatalogName;
 import io.prestosql.memory.context.MemoryTrackingContext;
@@ -35,12 +37,14 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Supplier;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.prestosql.RowPagesBuilder.rowPagesBuilder;
 import static io.prestosql.execution.Lifespan.taskWide;
 import static io.prestosql.operator.WorkProcessorAssertion.transformationFrom;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.testing.TestingSplit.createLocalSplit;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNull;
@@ -174,6 +178,32 @@ public class TestWorkProcessorPipelineSourceOperator
 
         assertEquals(operatorStats.get(2).getOutputPositions(), 5);
         assertEquals(operatorStats.get(2).getOutputDataSize().toBytes(), 45);
+
+        // assert source operator input stats are correct
+        OperatorStats sourceOperatorStats = operatorStats.get(0);
+        assertEquals(sourceOperatorStats.getPhysicalInputDataSize(), new DataSize(1, BYTE));
+        assertEquals(sourceOperatorStats.getPhysicalInputPositions(), 2);
+
+        assertEquals(sourceOperatorStats.getInternalNetworkInputDataSize(), new DataSize(3, BYTE));
+        assertEquals(sourceOperatorStats.getInternalNetworkInputPositions(), 4);
+
+        assertEquals(sourceOperatorStats.getInputDataSize(), new DataSize(5, BYTE));
+        assertEquals(sourceOperatorStats.getInputPositions(), 6);
+
+        assertEquals(sourceOperatorStats.getAddInputWall(), new Duration(7, NANOSECONDS));
+
+        // pipeline operator input stats should match source WorkProcessorOperator stats
+        OperatorStats pipelineOperatorStats = pipelineOperator.getOperatorContext().getOperatorStats();
+        assertEquals(sourceOperatorStats.getPhysicalInputDataSize(), pipelineOperatorStats.getPhysicalInputDataSize());
+        assertEquals(sourceOperatorStats.getPhysicalInputPositions(), pipelineOperatorStats.getPhysicalInputPositions());
+
+        assertEquals(sourceOperatorStats.getInternalNetworkInputDataSize(), pipelineOperatorStats.getInternalNetworkInputDataSize());
+        assertEquals(sourceOperatorStats.getInternalNetworkInputPositions(), pipelineOperatorStats.getInternalNetworkInputPositions());
+
+        assertEquals(sourceOperatorStats.getInputDataSize(), pipelineOperatorStats.getInputDataSize());
+        assertEquals(sourceOperatorStats.getInputPositions(), pipelineOperatorStats.getInputPositions());
+
+        assertEquals(sourceOperatorStats.getAddInputWall(), pipelineOperatorStats.getAddInputWall());
     }
 
     private Split createSplit()
@@ -266,6 +296,48 @@ public class TestWorkProcessorPipelineSourceOperator
         public Supplier<Optional<UpdatablePageSource>> getUpdatablePageSourceSupplier()
         {
             return Optional::empty;
+        }
+
+        @Override
+        public DataSize getPhysicalInputDataSize()
+        {
+            return new DataSize(1, BYTE);
+        }
+
+        @Override
+        public long getPhysicalInputPositions()
+        {
+            return 2;
+        }
+
+        @Override
+        public DataSize getInternalNetworkInputDataSize()
+        {
+            return new DataSize(3, BYTE);
+        }
+
+        @Override
+        public long getInternalNetworkPositions()
+        {
+            return 4;
+        }
+
+        @Override
+        public DataSize getInputDataSize()
+        {
+            return new DataSize(5, BYTE);
+        }
+
+        @Override
+        public long getInputPositions()
+        {
+            return 6;
+        }
+
+        @Override
+        public Duration getReadTime()
+        {
+            return new Duration(7, NANOSECONDS);
         }
 
         @Override
