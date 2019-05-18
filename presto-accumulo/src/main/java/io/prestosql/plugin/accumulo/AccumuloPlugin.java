@@ -14,22 +14,12 @@
 package io.prestosql.plugin.accumulo;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
-import io.prestosql.plugin.accumulo.udf.AccumuloStringFunctions;
 import io.prestosql.spi.Plugin;
 import io.prestosql.spi.connector.ConnectorFactory;
-
-import java.util.Set;
 
 public class AccumuloPlugin
         implements Plugin
 {
-    @Override
-    public Set<Class<?>> getFunctions()
-    {
-        return ImmutableSet.<Class<?>>builder().add(AccumuloStringFunctions.class).build();
-    }
-
     @Override
     public Iterable<ConnectorFactory> getConnectorFactories()
     {
