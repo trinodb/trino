@@ -19,6 +19,8 @@ import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.prestosql.memory.context.AggregatedMemoryContext;
+import io.prestosql.memory.context.LocalMemoryContext;
 import io.prestosql.memory.context.MemoryTrackingContext;
 import io.prestosql.metadata.Split;
 import io.prestosql.operator.WorkProcessor.ProcessState;
@@ -26,15 +28,19 @@ import io.prestosql.spi.Page;
 import io.prestosql.spi.connector.UpdatablePageSource;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 
+import javax.annotation.Nullable;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.units.DataSize.Unit.BYTE;
+import static io.airlift.units.DataSize.succinctBytes;
 import static io.prestosql.operator.BlockedReason.WAITING_FOR_MEMORY;
 import static io.prestosql.operator.WorkProcessor.ProcessState.Type.FINISHED;
 import static java.util.Objects.requireNonNull;
@@ -102,7 +108,7 @@ public class WorkProcessorPipelineSourceOperator
         operatorContext.setNestedOperatorStatsSupplier(this::getNestedOperatorStats);
 
         // TODO: measure and report WorkProcessorOperator memory usage
-        MemoryTrackingContext sourceOperatorMemoryTrackingContext = createMemoryTrackingContext(operatorContext);
+        MemoryTrackingContext sourceOperatorMemoryTrackingContext = createMemoryTrackingContext(operatorContext, 0);
         WorkProcessor<Split> splits = WorkProcessor.create(new Splits());
 
         sourceOperator = sourceOperatorFactory.create(
@@ -128,7 +134,8 @@ public class WorkProcessorPipelineSourceOperator
                 });
 
         for (int i = 0; i < operatorFactories.size(); ++i) {
-            MemoryTrackingContext operatorMemoryTrackingContext = createMemoryTrackingContext(operatorContext);
+            int operatorIndex = i + 1;
+            MemoryTrackingContext operatorMemoryTrackingContext = createMemoryTrackingContext(operatorContext, operatorIndex);
             WorkProcessorOperator operator = operatorFactories.get(i).create(
                     operatorContext.getSession(),
                     operatorMemoryTrackingContext,
@@ -142,7 +149,6 @@ public class WorkProcessorPipelineSourceOperator
                     operatorFactories.get(i).getOperatorType(),
                     operatorMemoryTrackingContext));
             pages = operator.getOutputPages();
-            int operatorIndex = i + 1;
             pages = pages
                     .yielding(() -> operatorContext.getDriverContext().getYieldSignal().isSet())
                     .withProcessStateMonitor(state -> {
@@ -160,12 +166,17 @@ public class WorkProcessorPipelineSourceOperator
         this.pages = pages.finishWhen(() -> operatorFinishing);
     }
 
-    private static MemoryTrackingContext createMemoryTrackingContext(OperatorContext operatorContext)
+    private MemoryTrackingContext createMemoryTrackingContext(OperatorContext operatorContext, int operatorIndex)
     {
         return new MemoryTrackingContext(
-                operatorContext.newAggregateUserMemoryContext(),
-                operatorContext.newAggregateRevocableMemoryContext(),
-                operatorContext.newAggregateSystemMemoryContext());
+                new InternalAggregatedMemoryContext(operatorContext.newAggregateUserMemoryContext(), () -> updatePeakMemoryReservations(operatorIndex)),
+                new InternalAggregatedMemoryContext(operatorContext.newAggregateRevocableMemoryContext(), () -> updatePeakMemoryReservations(operatorIndex)),
+                new InternalAggregatedMemoryContext(operatorContext.newAggregateSystemMemoryContext(), () -> updatePeakMemoryReservations(operatorIndex)));
+    }
+
+    private void updatePeakMemoryReservations(int operatorIndex)
+    {
+        workProcessorOperatorContexts.get(operatorIndex).updatePeakMemoryReservations();
     }
 
     private List<OperatorStats> getNestedOperatorStats()
@@ -199,13 +210,13 @@ public class WorkProcessorPipelineSourceOperator
                         0,
                         ZERO_DURATION,
                         ZERO_DURATION,
-                        new DataSize(0, BYTE),
-                        new DataSize(0, BYTE),
-                        new DataSize(0, BYTE),
-                        new DataSize(0, BYTE),
-                        new DataSize(0, BYTE),
-                        new DataSize(0, BYTE),
-                        new DataSize(0, BYTE),
+                        succinctBytes(context.memoryTrackingContext.getUserMemory()),
+                        succinctBytes(context.memoryTrackingContext.getRevocableMemory()),
+                        succinctBytes(context.memoryTrackingContext.getSystemMemory()),
+                        succinctBytes(context.peakUserMemoryReservation.get()),
+                        succinctBytes(context.peakSystemMemoryReservation.get()),
+                        succinctBytes(context.peakRevocableMemoryReservation.get()),
+                        succinctBytes(context.peakTotalMemoryReservation.get()),
                         new DataSize(0, BYTE),
                         operatorContext.isWaitingForMemory().isDone() ? Optional.empty() : Optional.of(WAITING_FOR_MEMORY),
                         null))
@@ -349,7 +360,8 @@ public class WorkProcessorPipelineSourceOperator
         try {
             for (int i = 0; i <= lastOperatorIndex; ++i) {
                 WorkProcessorOperatorContext workProcessorOperatorContext = workProcessorOperatorContexts.get(i);
-                if (workProcessorOperatorContext == null) {
+                if (workProcessorOperatorContext.operator == null) {
+                    // operator is already closed
                     continue;
                 }
 
@@ -370,7 +382,7 @@ public class WorkProcessorPipelineSourceOperator
                 }
                 finally {
                     workProcessorOperatorContext.memoryTrackingContext.close();
-                    workProcessorOperatorContexts.set(i, null);
+                    workProcessorOperatorContext.operator = null;
                 }
             }
         }
@@ -406,13 +418,103 @@ public class WorkProcessorPipelineSourceOperator
         return inFlightException;
     }
 
-    private class WorkProcessorOperatorContext
+    private static class InternalLocalMemoryContext
+            implements LocalMemoryContext
     {
-        final WorkProcessorOperator operator;
+        final LocalMemoryContext delegate;
+        final Runnable allocationListener;
+
+        InternalLocalMemoryContext(LocalMemoryContext delegate, Runnable allocationListener)
+        {
+            this.delegate = requireNonNull(delegate, "delegate is null");
+            this.allocationListener = requireNonNull(allocationListener, "allocationListener is null");
+        }
+
+        @Override
+        public long getBytes()
+        {
+            return delegate.getBytes();
+        }
+
+        @Override
+        public ListenableFuture<?> setBytes(long bytes)
+        {
+            ListenableFuture<?> blocked = delegate.setBytes(bytes);
+            allocationListener.run();
+            return blocked;
+        }
+
+        @Override
+        public boolean trySetBytes(long bytes)
+        {
+            if (delegate.trySetBytes(bytes)) {
+                allocationListener.run();
+                return true;
+            }
+
+            return false;
+        }
+
+        @Override
+        public void close()
+        {
+            delegate.close();
+            allocationListener.run();
+        }
+    }
+
+    private static class InternalAggregatedMemoryContext
+            implements AggregatedMemoryContext
+    {
+        final AggregatedMemoryContext delegate;
+        final Runnable allocationListener;
+
+        InternalAggregatedMemoryContext(AggregatedMemoryContext delegate, Runnable allocationListener)
+
+        {
+            this.delegate = requireNonNull(delegate, "delegate is null");
+            this.allocationListener = requireNonNull(allocationListener, "allocationListener is null");
+        }
+
+        @Override
+        public AggregatedMemoryContext newAggregatedMemoryContext()
+        {
+            return new InternalAggregatedMemoryContext(delegate.newAggregatedMemoryContext(), allocationListener);
+        }
+
+        @Override
+        public LocalMemoryContext newLocalMemoryContext(String allocationTag)
+        {
+            return new InternalLocalMemoryContext(delegate.newLocalMemoryContext(allocationTag), allocationListener);
+        }
+
+        @Override
+        public long getBytes()
+        {
+            return delegate.getBytes();
+        }
+
+        @Override
+        public void close()
+        {
+            delegate.close();
+        }
+    }
+
+    private static class WorkProcessorOperatorContext
+    {
         final int operatorId;
         final PlanNodeId planNodeId;
         final String operatorType;
         final MemoryTrackingContext memoryTrackingContext;
+
+        final AtomicLong peakUserMemoryReservation = new AtomicLong();
+        final AtomicLong peakSystemMemoryReservation = new AtomicLong();
+        final AtomicLong peakRevocableMemoryReservation = new AtomicLong();
+        final AtomicLong peakTotalMemoryReservation = new AtomicLong();
+
+        @Nullable
+        WorkProcessorOperator operator;
 
         private WorkProcessorOperatorContext(
                 WorkProcessorOperator operator,
@@ -426,6 +528,18 @@ public class WorkProcessorPipelineSourceOperator
             this.planNodeId = planNodeId;
             this.operatorType = operatorType;
             this.memoryTrackingContext = memoryTrackingContext;
+        }
+
+        void updatePeakMemoryReservations()
+        {
+            long userMemory = memoryTrackingContext.getUserMemory();
+            long systemMemory = memoryTrackingContext.getSystemMemory();
+            long revocableMemory = memoryTrackingContext.getRevocableMemory();
+            long totalMemory = userMemory + systemMemory;
+            peakUserMemoryReservation.accumulateAndGet(userMemory, Math::max);
+            peakSystemMemoryReservation.accumulateAndGet(systemMemory, Math::max);
+            peakRevocableMemoryReservation.accumulateAndGet(revocableMemory, Math::max);
+            peakTotalMemoryReservation.accumulateAndGet(totalMemory, Math::max);
         }
     }
 
