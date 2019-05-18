@@ -23,6 +23,7 @@ import io.prestosql.memory.context.AggregatedMemoryContext;
 import io.prestosql.memory.context.LocalMemoryContext;
 import io.prestosql.memory.context.MemoryTrackingContext;
 import io.prestosql.metadata.Split;
+import io.prestosql.operator.OperationTimer.OperationTiming;
 import io.prestosql.operator.WorkProcessor.ProcessState;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.connector.UpdatablePageSource;
@@ -57,6 +58,7 @@ public class WorkProcessorPipelineSourceOperator
     private final PlanNodeId sourceId;
     private final OperatorContext operatorContext;
     private final WorkProcessor<Page> pages;
+    private final OperationTimer timer;
     // operator instances including source operator
     private final List<WorkProcessorOperatorContext> workProcessorOperatorContexts = new ArrayList<>();
     private final List<Split> pendingSplits = new ArrayList<>();
@@ -105,6 +107,9 @@ public class WorkProcessorPipelineSourceOperator
         this.pipelineId = driverContext.getPipelineContext().getPipelineId();
         this.sourceId = requireNonNull(sourceOperatorFactory.getSourceId(), "sourceId is null");
         this.operatorContext = driverContext.addOperatorContext(operatorId, sourceId, WorkProcessorPipelineSourceOperator.class.getSimpleName());
+        this.timer = new OperationTimer(
+                operatorContext.getDriverContext().isCpuTimerEnabled(),
+                operatorContext.getDriverContext().isCpuTimerEnabled() && operatorContext.getDriverContext().isPerOperatorCpuTimerEnabled());
         operatorContext.setNestedOperatorStatsSupplier(this::getNestedOperatorStats);
 
         // TODO: measure and report WorkProcessorOperator memory usage
@@ -126,12 +131,8 @@ public class WorkProcessorPipelineSourceOperator
         WorkProcessor<Page> pages = sourceOperator.getOutputPages();
         pages = pages
                 .yielding(() -> operatorContext.getDriverContext().getYieldSignal().isSet())
-                .withProcessStateMonitor(state -> {
-                    if (state.getType() == FINISHED) {
-                        // immediately close source operator
-                        closeOperators(0);
-                    }
-                });
+                .withProcessEntryMonitor(() -> workProcessorOperatorEntryMonitor(0))
+                .withProcessStateMonitor(state -> workProcessorOperatorStateMonitor(state, 0));
 
         for (int i = 0; i < operatorFactories.size(); ++i) {
             int operatorIndex = i + 1;
@@ -151,12 +152,8 @@ public class WorkProcessorPipelineSourceOperator
             pages = operator.getOutputPages();
             pages = pages
                     .yielding(() -> operatorContext.getDriverContext().getYieldSignal().isSet())
-                    .withProcessStateMonitor(state -> {
-                        if (state.getType() == FINISHED) {
-                            // immediately close all upstream operators (including finished operator)
-                            closeOperators(operatorIndex);
-                        }
-                    });
+                    .withProcessEntryMonitor(() -> workProcessorOperatorEntryMonitor(operatorIndex))
+                    .withProcessStateMonitor(state -> workProcessorOperatorStateMonitor(state, operatorIndex));
         }
 
         // materialize output pages as there are no semantics guarantees for non WorkProcessor operators
@@ -164,6 +161,29 @@ public class WorkProcessorPipelineSourceOperator
 
         // finish early when entire pipeline is closed
         this.pages = pages.finishWhen(() -> operatorFinishing);
+    }
+
+    private void workProcessorOperatorEntryMonitor(int operatorIndex)
+    {
+        if (operatorIndex + 1 == workProcessorOperatorContexts.size()) {
+            // this is the top operator so timer needs to be reset
+            timer.resetInterval();
+        }
+        else {
+            // report timing for downstream operator
+            timer.recordOperationComplete(workProcessorOperatorContexts.get(operatorIndex + 1).operatorTiming);
+        }
+    }
+
+    private void workProcessorOperatorStateMonitor(WorkProcessor.ProcessState<Page> state, int operatorIndex)
+    {
+        // report timing for current operator
+        timer.recordOperationComplete(workProcessorOperatorContexts.get(operatorIndex).operatorTiming);
+
+        if (state.getType() == FINISHED) {
+            // immediately close all upstream operators (including finished operator)
+            closeOperators(operatorIndex);
+        }
     }
 
     private MemoryTrackingContext createMemoryTrackingContext(OperatorContext operatorContext, int operatorIndex)
@@ -189,9 +209,12 @@ public class WorkProcessorPipelineSourceOperator
                         context.planNodeId,
                         context.operatorType,
                         1,
+
+                        // WorkProcessorOperator doesn't have addInput call
                         0,
                         ZERO_DURATION,
                         ZERO_DURATION,
+
                         new DataSize(0, BYTE),
                         0,
                         new DataSize(0, BYTE),
@@ -200,16 +223,21 @@ public class WorkProcessorPipelineSourceOperator
                         new DataSize(0, BYTE),
                         0,
                         0,
-                        0,
-                        ZERO_DURATION,
-                        ZERO_DURATION,
+
+                        context.operatorTiming.getCalls(),
+                        new Duration(context.operatorTiming.getWallNanos(), NANOSECONDS),
+                        new Duration(context.operatorTiming.getCpuNanos(), NANOSECONDS),
+
                         new DataSize(0, BYTE),
                         0,
                         new DataSize(0, BYTE),
                         ZERO_DURATION,
+
+                        // WorkProcessorOperator doesn't have finish call
                         0,
                         ZERO_DURATION,
                         ZERO_DURATION,
+
                         succinctBytes(context.memoryTrackingContext.getUserMemory()),
                         succinctBytes(context.memoryTrackingContext.getRevocableMemory()),
                         succinctBytes(context.memoryTrackingContext.getSystemMemory()),
@@ -507,6 +535,8 @@ public class WorkProcessorPipelineSourceOperator
         final PlanNodeId planNodeId;
         final String operatorType;
         final MemoryTrackingContext memoryTrackingContext;
+
+        final OperationTiming operatorTiming = new OperationTiming();
 
         final AtomicLong peakUserMemoryReservation = new AtomicLong();
         final AtomicLong peakSystemMemoryReservation = new AtomicLong();

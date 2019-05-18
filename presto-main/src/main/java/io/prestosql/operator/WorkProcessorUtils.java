@@ -192,7 +192,7 @@ public final class WorkProcessorUtils
         });
     }
 
-    static <T> WorkProcessor<T> processStateMonitor(WorkProcessor<T> processor, Consumer<ProcessState<? extends T>> monitor)
+    static <T> WorkProcessor<T> processStateMonitor(WorkProcessor<T> processor, Consumer<ProcessState<T>> monitor)
     {
         requireNonNull(processor, "processor is null");
         requireNonNull(monitor, "monitor is null");
