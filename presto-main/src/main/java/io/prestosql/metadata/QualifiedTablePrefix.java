@@ -22,6 +22,7 @@ import javax.annotation.concurrent.Immutable;
 import java.util.Objects;
 import java.util.Optional;
 
+import static com.google.common.base.Verify.verify;
 import static io.prestosql.metadata.MetadataUtil.checkCatalogName;
 import static io.prestosql.metadata.MetadataUtil.checkSchemaName;
 import static io.prestosql.metadata.MetadataUtil.checkTableName;
@@ -105,6 +106,16 @@ public class QualifiedTablePrefix
         else {
             return new SchemaTablePrefix(schemaName.get(), tableName.get());
         }
+    }
+
+    public Optional<QualifiedObjectName> asQualifiedObjectName()
+    {
+        if (tableName.isPresent()) {
+            verify(schemaName.isPresent());
+            return Optional.of(new QualifiedObjectName(catalogName, schemaName.get(), tableName.get()));
+        }
+
+        return Optional.empty();
     }
 
     public boolean matches(QualifiedObjectName objectName)
