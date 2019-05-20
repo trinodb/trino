@@ -101,7 +101,7 @@ abstract class AbstractPropertyManager
             }
             catch (SemanticException e) {
                 throw new PrestoException(propertyError,
-                        format("Invalid value for %s property '%s': Cannot convert '%s' to %s",
+                        format("Invalid value for %s property '%s': Cannot convert [%s] to %s",
                                 propertyType,
                                 property.getName(),
                                 sqlProperty.getValue(),
@@ -114,7 +114,7 @@ abstract class AbstractPropertyManager
             }
             catch (Exception e) {
                 throw new PrestoException(propertyError,
-                        format("Unable to set %s property '%s' to '%s': %s",
+                        format("Unable to set %s property '%s' to [%s]: %s",
                                 propertyType,
                                 property.getName(),
                                 sqlProperty.getValue(),
