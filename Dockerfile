@@ -80,6 +80,7 @@ FROM centos:7
 RUN yum -y install --setopt=skip_missing_names_on_install=False \
         java-1.8.0-openjdk \
         java-1.8.0-openjdk-devel \
+        openssl \
         less \
     && yum clean all \
     && rm -rf /var/cache/yum
