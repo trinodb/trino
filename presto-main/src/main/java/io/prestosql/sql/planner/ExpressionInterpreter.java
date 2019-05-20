@@ -101,6 +101,7 @@ import io.prestosql.util.FastutilSetHelper;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.List;
@@ -705,25 +706,36 @@ public class ExpressionInterpreter
         {
             ComparisonExpression.Operator operator = node.getOperator();
 
+            if (operator == ComparisonExpression.Operator.IS_DISTINCT_FROM) {
+                Object left = process(node.getLeft(), context);
+                Object right = process(node.getRight(), context);
+
+                if (left == null && right instanceof Expression) {
+                    return new IsNotNullPredicate((Expression) right);
+                }
+
+                if (right == null && left instanceof Expression) {
+                    return new IsNotNullPredicate((Expression) left);
+                }
+
+                if (left instanceof Expression || right instanceof Expression) {
+                    return new ComparisonExpression(operator, toExpression(left, type(node.getLeft())), toExpression(right, type(node.getRight())));
+                }
+
+                return invokeOperator(OperatorType.valueOf(operator.name()), types(node.getLeft(), node.getRight()), Arrays.asList(left, right));
+            }
+
             Object left = process(node.getLeft(), context);
-            if (left == null && operator != ComparisonExpression.Operator.IS_DISTINCT_FROM) {
+            if (left == null) {
                 return null;
             }
 
             Object right = process(node.getRight(), context);
-            if (operator == ComparisonExpression.Operator.IS_DISTINCT_FROM) {
-                if (left == null && right == null) {
-                    return false;
-                }
-                else if (left == null || right == null) {
-                    return true;
-                }
-            }
-            else if (right == null) {
+            if (right == null) {
                 return null;
             }
 
-            if (hasUnresolvedValue(left, right)) {
+            if (left instanceof Expression || right instanceof Expression) {
                 return new ComparisonExpression(operator, toExpression(left, type(node.getLeft())), toExpression(right, type(node.getRight())));
             }
 

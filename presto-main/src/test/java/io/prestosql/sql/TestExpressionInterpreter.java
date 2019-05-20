@@ -206,6 +206,9 @@ public class TestExpressionInterpreter
         assertOptimizedEquals("9876543210.9874561203 is distinct from NULL", "true");
         assertOptimizedEquals("bound_decimal_short is distinct from NULL", "true");
         assertOptimizedEquals("bound_decimal_long is distinct from 12345678901234567890.123", "false");
+        assertOptimizedMatches("unbound_integer is distinct from 1", "unbound_integer is distinct from 1");
+        assertOptimizedMatches("unbound_integer is distinct from null", "unbound_integer is not null");
+        assertOptimizedMatches("null is distinct from unbound_integer", "unbound_integer is not null");
     }
 
     @Test
