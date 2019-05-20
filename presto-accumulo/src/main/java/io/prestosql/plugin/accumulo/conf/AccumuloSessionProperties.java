@@ -55,63 +55,53 @@ public final class AccumuloSessionProperties
     @Inject
     public AccumuloSessionProperties()
     {
-        PropertyMetadata<Boolean> s1 = booleanProperty(
-                OPTIMIZE_LOCALITY_ENABLED,
-                "Set to true to enable data locality for non-indexed scans. Default true.", true,
-                false);
-
-        PropertyMetadata<Boolean> s2 = booleanProperty(
-                OPTIMIZE_SPLIT_RANGES_ENABLED,
-                "Set to true to split non-indexed queries by tablet splits. Should generally be true.",
-                true, false);
-
-        PropertyMetadata<String> s3 = stringProperty(
-                SCAN_USERNAME,
-                "User to impersonate when scanning the tables. This property trumps the scan_auths table property. Default is the user in the configuration file.", null, false);
-
-        PropertyMetadata<Boolean> s4 = booleanProperty(
-                OPTIMIZE_INDEX_ENABLED,
-                "Set to true to enable usage of the secondary index on query. Default true.",
-                true,
-                false);
-
-        PropertyMetadata<Integer> s5 = integerProperty(
-                INDEX_ROWS_PER_SPLIT,
-                "The number of Accumulo row IDs that are packed into a single Presto split. Default 10000",
-                10000,
-                false);
-
-        PropertyMetadata<Double> s6 = doubleProperty(
-                INDEX_THRESHOLD,
-                "The ratio between number of rows to be scanned based on the index over the total number of rows. If the ratio is below this threshold, the index will be used. Default .2",
-                0.2,
-                false);
-
-        PropertyMetadata<Double> s7 = doubleProperty(
-                INDEX_LOWEST_CARDINALITY_THRESHOLD,
-                "The threshold where the column with the lowest cardinality will be used instead of computing an intersection of ranges in the secondary index. Secondary index must be enabled. Default .01",
-                0.01,
-                false);
-
-        PropertyMetadata<Boolean> s8 = booleanProperty(
-                INDEX_METRICS_ENABLED,
-                "Set to true to enable usage of the metrics table to optimize usage of the index. Default true",
-                true,
-                false);
-
-        PropertyMetadata<Boolean> s9 = booleanProperty(
-                INDEX_SHORT_CIRCUIT_CARDINALITY_FETCH,
-                "Short circuit the retrieval of index metrics once any column is less than the lowest cardinality threshold. Default true",
-                true,
-                false);
-
-        PropertyMetadata<Duration> s10 = durationProperty(
-                INDEX_CARDINALITY_CACHE_POLLING_DURATION,
-                "Sets the cardinality cache polling duration for short circuit retrieval of index metrics. Default 10ms",
-                new Duration(10, MILLISECONDS),
-                false);
-
-        sessionProperties = ImmutableList.of(s1, s2, s3, s4, s5, s6, s7, s8, s9, s10);
+        sessionProperties = ImmutableList.of(
+                booleanProperty(
+                        OPTIMIZE_LOCALITY_ENABLED,
+                        "Set to true to enable data locality for non-indexed scans. Default true.", true,
+                        false),
+                booleanProperty(
+                        OPTIMIZE_SPLIT_RANGES_ENABLED,
+                        "Set to true to split non-indexed queries by tablet splits. Should generally be true.",
+                        true, false),
+                stringProperty(
+                        SCAN_USERNAME,
+                        "User to impersonate when scanning the tables. This property trumps the scan_auths table property. Default is the user in the configuration file.", null, false),
+                booleanProperty(
+                        OPTIMIZE_INDEX_ENABLED,
+                        "Set to true to enable usage of the secondary index on query. Default true.",
+                        true,
+                        false),
+                integerProperty(
+                        INDEX_ROWS_PER_SPLIT,
+                        "The number of Accumulo row IDs that are packed into a single Presto split. Default 10000",
+                        10000,
+                        false),
+                doubleProperty(
+                        INDEX_THRESHOLD,
+                        "The ratio between number of rows to be scanned based on the index over the total number of rows. If the ratio is below this threshold, the index will be used. Default .2",
+                        0.2,
+                        false),
+                doubleProperty(
+                        INDEX_LOWEST_CARDINALITY_THRESHOLD,
+                        "The threshold where the column with the lowest cardinality will be used instead of computing an intersection of ranges in the secondary index. Secondary index must be enabled. Default .01",
+                        0.01,
+                        false),
+                booleanProperty(
+                        INDEX_METRICS_ENABLED,
+                        "Set to true to enable usage of the metrics table to optimize usage of the index. Default true",
+                        true,
+                        false),
+                booleanProperty(
+                        INDEX_SHORT_CIRCUIT_CARDINALITY_FETCH,
+                        "Short circuit the retrieval of index metrics once any column is less than the lowest cardinality threshold. Default true",
+                        true,
+                        false),
+                durationProperty(
+                        INDEX_CARDINALITY_CACHE_POLLING_DURATION,
+                        "Sets the cardinality cache polling duration for short circuit retrieval of index metrics. Default 10ms",
+                        new Duration(10, MILLISECONDS),
+                        false));
     }
 
     public List<PropertyMetadata<?>> getSessionProperties()
