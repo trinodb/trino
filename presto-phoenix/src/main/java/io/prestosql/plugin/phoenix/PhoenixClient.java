@@ -276,7 +276,7 @@ public class PhoenixClient
     }
 
     @Override
-    public Optional<ColumnMapping> toPrestoType(ConnectorSession session, JdbcTypeHandle typeHandle)
+    public Optional<ColumnMapping> toPrestoType(ConnectorSession session, Connection connection, JdbcTypeHandle typeHandle)
     {
         switch (typeHandle.getJdbcType()) {
             case VARCHAR:
@@ -286,7 +286,7 @@ public class PhoenixClient
                 if (typeHandle.getColumnSize() == 0) {
                     return Optional.of(varcharColumnMapping(createUnboundedVarcharType()));
                 }
-                return super.toPrestoType(session, typeHandle);
+                return super.toPrestoType(session, connection, typeHandle);
             // TODO add support for TIMESTAMP after Phoenix adds support for LocalDateTime
             case TIMESTAMP:
             case TIME_WITH_TIMEZONE:
@@ -299,7 +299,7 @@ public class PhoenixClient
                 if (elementTypeHandle.getJdbcType() == Types.VARBINARY) {
                     return Optional.empty();
                 }
-                return toPrestoType(session, elementTypeHandle)
+                return toPrestoType(session, connection, elementTypeHandle)
                         .map(elementMapping -> {
                             ArrayType prestoArrayType = new ArrayType(elementMapping.getType());
                             String jdbcTypeName = elementTypeHandle.getJdbcTypeName()
@@ -309,7 +309,7 @@ public class PhoenixClient
                             return arrayColumnMapping(session, prestoArrayType, jdbcTypeName);
                         });
         }
-        return super.toPrestoType(session, typeHandle);
+        return super.toPrestoType(session, connection, typeHandle);
     }
 
     @Override
