@@ -28,7 +28,7 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
-final class ColumnarTestUtils
+public final class ColumnarTestUtils
 {
     private static final Metadata METADATA = createTestMetadataManager();
 
