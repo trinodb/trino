@@ -199,6 +199,11 @@ public class PushPredicateIntoTableScan
             }
 
             newTable = result.get().getHandle();
+
+            if (metadata.getTableProperties(session, newTable).getPredicate().isNone()) {
+                return Optional.of(new ValuesNode(idAllocator.getNextId(), node.getOutputSymbols(), ImmutableList.of()));
+            }
+
             remainingFilter = result.get().getRemainingFilter();
         }
         else {
