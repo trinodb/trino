@@ -32,10 +32,10 @@ import static io.prestosql.plugin.hive.metastore.SortingColumn.Order.ASCENDING;
 import static io.prestosql.plugin.hive.metastore.SortingColumn.Order.DESCENDING;
 import static io.prestosql.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static io.prestosql.spi.session.PropertyMetadata.doubleProperty;
+import static io.prestosql.spi.session.PropertyMetadata.enumProperty;
 import static io.prestosql.spi.session.PropertyMetadata.integerProperty;
 import static io.prestosql.spi.session.PropertyMetadata.stringProperty;
 import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
-import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 
@@ -62,15 +62,12 @@ public class HiveTableProperties
                         "File system location URI for external table",
                         null,
                         false),
-                new PropertyMetadata<>(
+                enumProperty(
                         STORAGE_FORMAT_PROPERTY,
                         "Hive storage format for the table",
-                        createUnboundedVarcharType(),
                         HiveStorageFormat.class,
                         config.getHiveStorageFormat(),
-                        false,
-                        value -> HiveStorageFormat.valueOf(((String) value).toUpperCase(ENGLISH)),
-                        HiveStorageFormat::toString),
+                        false),
                 new PropertyMetadata<>(
                         PARTITIONED_BY_PROPERTY,
                         "Partition columns",

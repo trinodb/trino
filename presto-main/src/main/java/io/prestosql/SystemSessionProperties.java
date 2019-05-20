@@ -30,11 +30,11 @@ import javax.inject.Inject;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
-import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
 import static io.prestosql.spi.session.PropertyMetadata.booleanProperty;
+import static io.prestosql.spi.session.PropertyMetadata.enumProperty;
 import static io.prestosql.spi.session.PropertyMetadata.integerProperty;
 import static io.prestosql.spi.session.PropertyMetadata.stringProperty;
 import static io.prestosql.spi.type.BigintType.BIGINT;
@@ -46,7 +46,6 @@ import static io.prestosql.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.NO
 import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.joining;
 
 public final class SystemSessionProperties
 {
@@ -142,18 +141,12 @@ public final class SystemSessionProperties
                         "Compute hash codes for distribution, joins, and aggregations early in query plan",
                         featuresConfig.isOptimizeHashGeneration(),
                         false),
-                new PropertyMetadata<>(
+                enumProperty(
                         JOIN_DISTRIBUTION_TYPE,
-                        format("The join method to use. Options are %s",
-                                Stream.of(JoinDistributionType.values())
-                                        .map(JoinDistributionType::name)
-                                        .collect(joining(","))),
-                        VARCHAR,
+                        "Join distribution type",
                         JoinDistributionType.class,
                         featuresConfig.getJoinDistributionType(),
-                        false,
-                        value -> JoinDistributionType.valueOf(((String) value).toUpperCase()),
-                        JoinDistributionType::name),
+                        false),
                 new PropertyMetadata<>(
                         JOIN_MAX_BROADCAST_TABLE_SIZE,
                         "Maximum estimated size of a table that can be broadcast when using automatic join type selection",
@@ -329,18 +322,12 @@ public final class SystemSessionProperties
                         "(DEPRECATED) Reorder joins to remove unnecessary cross joins. If this is set, join_reordering_strategy will be ignored",
                         null,
                         false),
-                new PropertyMetadata<>(
+                enumProperty(
                         JOIN_REORDERING_STRATEGY,
-                        format("The join reordering strategy to use. Options are %s",
-                                Stream.of(JoinReorderingStrategy.values())
-                                        .map(JoinReorderingStrategy::name)
-                                        .collect(joining(","))),
-                        VARCHAR,
+                        "Join reordering strategy",
                         JoinReorderingStrategy.class,
                         featuresConfig.getJoinReorderingStrategy(),
-                        false,
-                        value -> JoinReorderingStrategy.valueOf(((String) value).toUpperCase()),
-                        JoinReorderingStrategy::name),
+                        false),
                 new PropertyMetadata<>(
                         MAX_REORDERED_JOINS,
                         "The maximum number of joins to reorder as one group in cost-based join reordering",
