@@ -29,6 +29,7 @@ import io.prestosql.server.HttpRequestSessionContext;
 import io.prestosql.server.SessionContext;
 import io.prestosql.spi.ErrorCode;
 import io.prestosql.spi.QueryId;
+import io.prestosql.sql.analyzer.SemanticErrorCode;
 
 import javax.annotation.PreDestroy;
 import javax.annotation.concurrent.GuardedBy;
@@ -428,6 +429,7 @@ public class QueuedStatementResource
                     null,
                     errorCode.getCode(),
                     errorCode.getName(),
+                    executionFailureInfo.getSemanticErrorCode().map(SemanticErrorCode::name),
                     errorCode.getType().toString(),
                     executionFailureInfo.getErrorLocation(),
                     executionFailureInfo.toFailureInfo());

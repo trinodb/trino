@@ -24,6 +24,7 @@ import io.prestosql.spi.HostAddress;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.PrestoTransportException;
 import io.prestosql.spi.StandardErrorCode;
+import io.prestosql.sql.analyzer.SemanticErrorCode;
 import io.prestosql.sql.analyzer.SemanticException;
 import io.prestosql.sql.parser.ParsingException;
 import io.prestosql.sql.tree.NodeLocation;
@@ -33,6 +34,7 @@ import javax.annotation.Nullable;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Functions.toStringFunction;
@@ -84,6 +86,7 @@ public final class Failures
 
         String type;
         HostAddress remoteHost = null;
+        SemanticErrorCode semanticErrorCode = null;
         if (throwable instanceof Failure) {
             type = ((Failure) throwable).getType();
         }
@@ -94,9 +97,21 @@ public final class Failures
         if (throwable instanceof PrestoTransportException) {
             remoteHost = ((PrestoTransportException) throwable).getRemoteHost();
         }
+        if (throwable instanceof SemanticException) {
+            semanticErrorCode = ((SemanticException) throwable).getCode();
+        }
 
         if (seenFailures.contains(throwable)) {
-            return new ExecutionFailureInfo(type, "[cyclic] " + throwable.getMessage(), null, ImmutableList.of(), ImmutableList.of(), null, GENERIC_INTERNAL_ERROR.toErrorCode(), remoteHost);
+            return new ExecutionFailureInfo(
+                    type,
+                    "[cyclic] " + throwable.getMessage(),
+                    null,
+                    ImmutableList.of(),
+                    ImmutableList.of(),
+                    null,
+                    GENERIC_INTERNAL_ERROR.toErrorCode(),
+                    Optional.ofNullable(semanticErrorCode),
+                    remoteHost);
         }
         seenFailures.add(throwable);
 
@@ -121,6 +136,7 @@ public final class Failures
                 Lists.transform(asList(throwable.getStackTrace()), toStringFunction()),
                 getErrorLocation(throwable),
                 errorCode,
+                Optional.ofNullable(semanticErrorCode),
                 remoteHost);
     }
 
