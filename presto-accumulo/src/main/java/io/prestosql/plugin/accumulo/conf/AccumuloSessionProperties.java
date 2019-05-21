@@ -24,9 +24,10 @@ import java.util.List;
 
 import static io.prestosql.spi.session.PropertyMetadata.booleanProperty;
 import static io.prestosql.spi.session.PropertyMetadata.doubleProperty;
+import static io.prestosql.spi.session.PropertyMetadata.durationProperty;
 import static io.prestosql.spi.session.PropertyMetadata.integerProperty;
 import static io.prestosql.spi.session.PropertyMetadata.stringProperty;
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 /**
  * Class contains all session-based properties for the Accumulo connector.
@@ -104,14 +105,11 @@ public final class AccumuloSessionProperties
                 true,
                 false);
 
-        PropertyMetadata<String> s10 = new PropertyMetadata<>(
+        PropertyMetadata<Duration> s10 = durationProperty(
                 INDEX_CARDINALITY_CACHE_POLLING_DURATION,
                 "Sets the cardinality cache polling duration for short circuit retrieval of index metrics. Default 10ms",
-                VARCHAR, String.class,
-                "10ms",
-                false,
-                duration -> Duration.valueOf(duration.toString()).toString(),
-                object -> object);
+                new Duration(10, MILLISECONDS),
+                false);
 
         sessionProperties = ImmutableList.of(s1, s2, s3, s4, s5, s6, s7, s8, s9, s10);
     }
@@ -153,7 +151,7 @@ public final class AccumuloSessionProperties
 
     public static Duration getIndexCardinalityCachePollingDuration(ConnectorSession session)
     {
-        return Duration.valueOf(session.getProperty(INDEX_CARDINALITY_CACHE_POLLING_DURATION, String.class));
+        return session.getProperty(INDEX_CARDINALITY_CACHE_POLLING_DURATION, Duration.class);
     }
 
     public static boolean isIndexMetricsEnabled(ConnectorSession session)
