@@ -1054,7 +1054,7 @@
             <dependency>
                 <groupId>io.prestosql.hive</groupId>
                 <artifactId>hive-apache-jdbc</artifactId>
-                <version>0.13.1-6</version>
+                <version>0.13.1-7</version>
             </dependency>
 
             <dependency>
