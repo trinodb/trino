@@ -14,6 +14,7 @@
 package io.prestosql.plugin.password;
 
 import com.google.common.collect.ImmutableList;
+import io.prestosql.plugin.password.file.FileBasedAuthenticatorFactory;
 import io.prestosql.spi.Plugin;
 import io.prestosql.spi.security.PasswordAuthenticatorFactory;
 
@@ -25,6 +26,7 @@ public class PasswordAuthenticatorPlugin
     {
         return ImmutableList.<PasswordAuthenticatorFactory>builder()
                 .add(new LdapAuthenticatorFactory())
+                .add(new FileBasedAuthenticatorFactory())
                 .build();
     }
 }

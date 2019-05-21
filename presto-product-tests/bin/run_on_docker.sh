@@ -41,7 +41,12 @@ function run_in_application_runner_container() {
 }
 
 function check_presto() {
-  run_in_application_runner_container /docker/volumes/conf/docker/files/presto-cli.sh --execute "SHOW CATALOGS" | grep -iq hive
+  if [[ "$ENVIRONMENT" == "fileauth" ]]; then
+    password="user123"
+  fi
+  run_in_application_runner_container \
+    bash -c "export PRESTO_PASSWORD=$password;
+    /docker/volumes/conf/docker/files/presto-cli.sh --execute 'SHOW CATALOGS' | grep -iq hive"
 }
 
 function run_product_tests() {
@@ -92,6 +97,10 @@ shift 1
 # Get the list of valid environments
 if [[ ! -f "$DOCKER_CONF_LOCATION/$ENVIRONMENT/compose.sh" ]]; then
   usage
+fi
+
+if [[ "$ENVIRONMENT" == "fileauth" ]]; then
+    CLI_ARGUMENTS="--server https://presto-master:8443 --user userCrypt --password --truststore-path /etc/ldap/cacerts.jks --truststore-password testldap"
 fi
 
 # check docker and docker compose installation
