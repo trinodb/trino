@@ -30,11 +30,11 @@ import static io.prestosql.plugin.hive.HiveSessionProperties.InsertExistingParti
 import static io.prestosql.plugin.hive.HiveSessionProperties.InsertExistingPartitionsBehavior.ERROR;
 import static io.prestosql.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
 import static io.prestosql.spi.session.PropertyMetadata.booleanProperty;
+import static io.prestosql.spi.session.PropertyMetadata.dataSizeProperty;
 import static io.prestosql.spi.session.PropertyMetadata.integerProperty;
 import static io.prestosql.spi.session.PropertyMetadata.stringProperty;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
-import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 
@@ -126,27 +126,27 @@ public final class HiveSessionProperties
                         "ORC: Enable bloom filters for predicate pushdown",
                         hiveConfig.isOrcBloomFiltersEnabled(),
                         false),
-                dataSizeSessionProperty(
+                dataSizeProperty(
                         ORC_MAX_MERGE_DISTANCE,
                         "ORC: Maximum size of gap between two reads to merge into a single read",
                         hiveConfig.getOrcMaxMergeDistance(),
                         false),
-                dataSizeSessionProperty(
+                dataSizeProperty(
                         ORC_MAX_BUFFER_SIZE,
                         "ORC: Maximum size of a single read",
                         hiveConfig.getOrcMaxBufferSize(),
                         false),
-                dataSizeSessionProperty(
+                dataSizeProperty(
                         ORC_STREAM_BUFFER_SIZE,
                         "ORC: Size of buffer for streaming reads",
                         hiveConfig.getOrcStreamBufferSize(),
                         false),
-                dataSizeSessionProperty(
+                dataSizeProperty(
                         ORC_TINY_STRIPE_THRESHOLD,
                         "ORC: Threshold below which an ORC stripe or file will read in its entirety",
                         hiveConfig.getOrcTinyStripeThreshold(),
                         false),
-                dataSizeSessionProperty(
+                dataSizeProperty(
                         ORC_MAX_READ_BLOCK_SIZE,
                         "ORC: Soft max size of Presto blocks produced by ORC reader",
                         hiveConfig.getOrcMaxReadBlockSize(),
@@ -156,7 +156,7 @@ public final class HiveSessionProperties
                         "Experimental: ORC: Read small file segments lazily",
                         hiveConfig.isOrcLazyReadSmallRanges(),
                         false),
-                dataSizeSessionProperty(
+                dataSizeProperty(
                         ORC_STRING_STATISTICS_LIMIT,
                         "ORC: Maximum size of string statistics; drop if exceeding",
                         orcFileWriterConfig.getStringStatisticsLimit(),
@@ -188,12 +188,12 @@ public final class HiveSessionProperties
                         "Experimental: ORC: Level of detail in ORC validation",
                         hiveConfig.getOrcWriterValidationMode().toString(),
                         false),
-                dataSizeSessionProperty(
+                dataSizeProperty(
                         ORC_OPTIMIZED_WRITER_MIN_STRIPE_SIZE,
                         "Experimental: ORC: Min stripe size",
                         orcFileWriterConfig.getStripeMinSize(),
                         false),
-                dataSizeSessionProperty(
+                dataSizeProperty(
                         ORC_OPTIMIZED_WRITER_MAX_STRIPE_SIZE,
                         "Experimental: ORC: Max stripe size",
                         orcFileWriterConfig.getStripeMaxSize(),
@@ -203,7 +203,7 @@ public final class HiveSessionProperties
                         "Experimental: ORC: Max stripe row count",
                         orcFileWriterConfig.getStripeMaxRowCount(),
                         false),
-                dataSizeSessionProperty(
+                dataSizeProperty(
                         ORC_OPTIMIZED_WRITER_MAX_DICTIONARY_MEMORY,
                         "Experimental: ORC: Max dictionary memory",
                         orcFileWriterConfig.getDictionaryMaxMemory(),
@@ -228,27 +228,27 @@ public final class HiveSessionProperties
                         "Parquet: Fail when scanning Parquet files with corrupted statistics",
                         hiveConfig.isFailOnCorruptedParquetStatistics(),
                         false),
-                dataSizeSessionProperty(
+                dataSizeProperty(
                         PARQUET_MAX_READ_BLOCK_SIZE,
                         "Parquet: Maximum size of a block to read",
                         hiveConfig.getParquetMaxReadBlockSize(),
                         false),
-                dataSizeSessionProperty(
+                dataSizeProperty(
                         PARQUET_WRITER_BLOCK_SIZE,
                         "Parquet: Writer block size",
                         parquetFileWriterConfig.getBlockSize(),
                         false),
-                dataSizeSessionProperty(
+                dataSizeProperty(
                         PARQUET_WRITER_PAGE_SIZE,
                         "Parquet: Writer page size",
                         parquetFileWriterConfig.getPageSize(),
                         false),
-                dataSizeSessionProperty(
+                dataSizeProperty(
                         MAX_SPLIT_SIZE,
                         "Max split size",
                         hiveConfig.getMaxSplitSize(),
                         true),
-                dataSizeSessionProperty(
+                dataSizeProperty(
                         MAX_INITIAL_SPLIT_SIZE,
                         "Max initial split size",
                         hiveConfig.getMaxInitialSplitSize(),
@@ -504,18 +504,5 @@ public final class HiveSessionProperties
     public static String getTemporaryStagingDirectoryPath(ConnectorSession session)
     {
         return session.getProperty(TEMPORARY_STAGING_DIRECTORY_PATH, String.class);
-    }
-
-    public static PropertyMetadata<DataSize> dataSizeSessionProperty(String name, String description, DataSize defaultValue, boolean hidden)
-    {
-        return new PropertyMetadata<>(
-                name,
-                description,
-                createUnboundedVarcharType(),
-                DataSize.class,
-                defaultValue,
-                hidden,
-                value -> DataSize.valueOf((String) value),
-                DataSize::toString);
     }
 }

@@ -34,13 +34,14 @@ import java.util.OptionalInt;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
 import static io.prestosql.spi.session.PropertyMetadata.booleanProperty;
+import static io.prestosql.spi.session.PropertyMetadata.dataSizeProperty;
+import static io.prestosql.spi.session.PropertyMetadata.durationProperty;
 import static io.prestosql.spi.session.PropertyMetadata.enumProperty;
 import static io.prestosql.spi.session.PropertyMetadata.integerProperty;
 import static io.prestosql.spi.session.PropertyMetadata.stringProperty;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.ELIMINATE_CROSS_JOINS;
 import static io.prestosql.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.NONE;
 import static java.lang.Math.min;
@@ -147,15 +148,11 @@ public final class SystemSessionProperties
                         JoinDistributionType.class,
                         featuresConfig.getJoinDistributionType(),
                         false),
-                new PropertyMetadata<>(
+                dataSizeProperty(
                         JOIN_MAX_BROADCAST_TABLE_SIZE,
                         "Maximum estimated size of a table that can be broadcast when using automatic join type selection",
-                        VARCHAR,
-                        DataSize.class,
                         featuresConfig.getJoinMaxBroadcastTableSize(),
-                        false,
-                        value -> DataSize.valueOf((String) value),
-                        DataSize::toString),
+                        false),
                 booleanProperty(
                         DISTRIBUTED_INDEX_JOIN,
                         "Distribute index joins on join keys instead of executing inline",
@@ -200,15 +197,11 @@ public final class SystemSessionProperties
                         "Scale out writers based on throughput (use minimum necessary)",
                         featuresConfig.isScaleWriters(),
                         false),
-                new PropertyMetadata<>(
+                dataSizeProperty(
                         WRITER_MIN_SIZE,
                         "Target minimum size of writer output when scaling writers",
-                        VARCHAR,
-                        DataSize.class,
                         featuresConfig.getWriterMinSize(),
-                        false,
-                        value -> DataSize.valueOf((String) value),
-                        DataSize::toString),
+                        false),
                 booleanProperty(
                         PUSH_TABLE_WRITE_THROUGH_UNION,
                         "Parallelize writes when using UNION ALL in queries that write data",
@@ -228,51 +221,31 @@ public final class SystemSessionProperties
                         "Share index join lookups and caching within a task",
                         taskManagerConfig.isShareIndexLoading(),
                         false),
-                new PropertyMetadata<>(
+                durationProperty(
                         QUERY_MAX_RUN_TIME,
                         "Maximum run time of a query (includes the queueing time)",
-                        VARCHAR,
-                        Duration.class,
                         queryManagerConfig.getQueryMaxRunTime(),
-                        false,
-                        value -> Duration.valueOf((String) value),
-                        Duration::toString),
-                new PropertyMetadata<>(
+                        false),
+                durationProperty(
                         QUERY_MAX_EXECUTION_TIME,
                         "Maximum execution time of a query",
-                        VARCHAR,
-                        Duration.class,
                         queryManagerConfig.getQueryMaxExecutionTime(),
-                        false,
-                        value -> Duration.valueOf((String) value),
-                        Duration::toString),
-                new PropertyMetadata<>(
+                        false),
+                durationProperty(
                         QUERY_MAX_CPU_TIME,
                         "Maximum CPU time of a query",
-                        VARCHAR,
-                        Duration.class,
                         queryManagerConfig.getQueryMaxCpuTime(),
-                        false,
-                        value -> Duration.valueOf((String) value),
-                        Duration::toString),
-                new PropertyMetadata<>(
+                        false),
+                dataSizeProperty(
                         QUERY_MAX_MEMORY,
                         "Maximum amount of distributed memory a query can use",
-                        VARCHAR,
-                        DataSize.class,
                         memoryManagerConfig.getMaxQueryMemory(),
-                        true,
-                        value -> DataSize.valueOf((String) value),
-                        DataSize::toString),
-                new PropertyMetadata<>(
+                        true),
+                dataSizeProperty(
                         QUERY_MAX_TOTAL_MEMORY,
                         "Maximum amount of distributed total memory a query can use",
-                        VARCHAR,
-                        DataSize.class,
                         memoryManagerConfig.getMaxQueryTotalMemory(),
-                        true,
-                        value -> DataSize.valueOf((String) value),
-                        DataSize::toString),
+                        true),
                 booleanProperty(
                         RESOURCE_OVERCOMMIT,
                         "Use resources which are not guaranteed to be available to the query",
@@ -293,15 +266,11 @@ public final class SystemSessionProperties
                         "The number of splits each node will run per task, initially",
                         taskManagerConfig.getInitialSplitsPerNode(),
                         false),
-                new PropertyMetadata<>(
+                durationProperty(
                         SPLIT_CONCURRENCY_ADJUSTMENT_INTERVAL,
                         "Experimental: Interval between changes to the number of concurrent splits per node",
-                        VARCHAR,
-                        Duration.class,
                         taskManagerConfig.getSplitConcurrencyAdjustmentInterval(),
-                        false,
-                        value -> Duration.valueOf((String) value),
-                        Duration::toString),
+                        false),
                 booleanProperty(
                         OPTIMIZE_METADATA_QUERIES,
                         "Enable optimization for metadata queries",
@@ -395,15 +364,11 @@ public final class SystemSessionProperties
                         "Spill in WindowOperator if spill_enabled is also set",
                         featuresConfig.isSpillWindowOperator(),
                         false),
-                new PropertyMetadata<>(
+                dataSizeProperty(
                         AGGREGATION_OPERATOR_UNSPILL_MEMORY_LIMIT,
                         "Experimental: How much memory can should be allocated per aggragation operator in unspilling process",
-                        VARCHAR,
-                        DataSize.class,
                         featuresConfig.getAggregationOperatorUnspillMemoryLimit(),
-                        false,
-                        value -> DataSize.valueOf((String) value),
-                        DataSize::toString),
+                        false),
                 booleanProperty(
                         OPTIMIZE_DISTINCT_AGGREGATIONS,
                         "Optimize mixed non-distinct and distinct aggregations",
@@ -414,15 +379,11 @@ public final class SystemSessionProperties
                         "Experimental: enable iterative optimizer",
                         featuresConfig.isIterativeOptimizerEnabled(),
                         false),
-                new PropertyMetadata<>(
+                durationProperty(
                         ITERATIVE_OPTIMIZER_TIMEOUT,
                         "Timeout for plan optimization in iterative optimizer",
-                        VARCHAR,
-                        Duration.class,
                         featuresConfig.getIterativeOptimizerTimeout(),
-                        false,
-                        value -> Duration.valueOf((String) value),
-                        Duration::toString),
+                        false),
                 booleanProperty(
                         ENABLE_FORCED_EXCHANGE_BELOW_GROUP_ID,
                         "Enable a stats-based rule adding exchanges below GroupId",
@@ -463,15 +424,11 @@ public final class SystemSessionProperties
                         "Force single node output",
                         featuresConfig.isForceSingleNodeOutput(),
                         true),
-                new PropertyMetadata<>(
+                dataSizeProperty(
                         FILTER_AND_PROJECT_MIN_OUTPUT_PAGE_SIZE,
                         "Experimental: Minimum output page size for filter and project operators",
-                        VARCHAR,
-                        DataSize.class,
                         featuresConfig.getFilterAndProjectMinOutputPageSize(),
-                        false,
-                        value -> DataSize.valueOf((String) value),
-                        DataSize::toString),
+                        false),
                 integerProperty(
                         FILTER_AND_PROJECT_MIN_OUTPUT_PAGE_ROW_COUNT,
                         "Experimental: Minimum output page row count for filter and project operators",
