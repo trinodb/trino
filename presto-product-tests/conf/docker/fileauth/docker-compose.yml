@@ -1,0 +1,14 @@
+version: '2'
+services:
+
+  presto-master:
+    image: 'prestodev/centos6-oj8-openldap:${DOCKER_IMAGES_VERSION}'
+    command: /docker/volumes/conf/docker/files/presto-launcher-wrapper.sh fileauth run
+    ports:
+      - '8442:8443'
+
+  application-runner:
+    image: 'prestodev/centos6-oj8-openldap:${DOCKER_IMAGES_VERSION}'
+    environment:
+          - TEMPTO_PROFILE_CONFIG_FILE=/docker/volumes/conf/tempto/tempto-configuration-for-docker-fileauth.yaml
+          - CLI_ARGUMENTS=--server https://presto-master:8443 --user userBCrypt --password --truststore-path /etc/openldap/certs/cacerts.jks --truststore-password testldap
