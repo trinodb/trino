@@ -45,7 +45,6 @@ public class LocalFileSplitManager
     public ConnectorSplitSource getSplits(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorTableLayoutHandle layout, SplitSchedulingStrategy splitSchedulingStrategy)
     {
         LocalFileTableLayoutHandle layoutHandle = (LocalFileTableLayoutHandle) layout;
-        LocalFileTableHandle tableHandle = layoutHandle.getTable();
 
         TupleDomain<LocalFileColumnHandle> effectivePredicate = layoutHandle.getConstraint()
                 .transform(LocalFileColumnHandle.class::cast);
