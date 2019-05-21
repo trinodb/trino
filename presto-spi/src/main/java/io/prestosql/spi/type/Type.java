@@ -155,7 +155,9 @@ public interface Type
     long hash(Block block, int position);
 
     /**
-     * Compare the values in the specified block at the specified positions equal.
+     * Compare the values in the specified block at the specified positions.
+     *
+     * @return 0 if the values are equal, negative if left is less than right, and positive, otherwise.
      */
     int compareTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition);
 
