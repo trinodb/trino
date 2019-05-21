@@ -30,9 +30,9 @@ import io.prestosql.spi.type.TypeSignatureParameter;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 
+import static io.prestosql.spi.session.PropertyMetadata.durationProperty;
 import static io.prestosql.spi.session.PropertyMetadata.integerProperty;
 import static io.prestosql.spi.type.StandardTypes.ARRAY;
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -146,15 +146,11 @@ public class BlackHoleConnector
                                 .map(name -> name.toLowerCase(ENGLISH))
                                 .collect(toList())),
                         List.class::cast),
-                new PropertyMetadata<>(
+                durationProperty(
                         PAGE_PROCESSING_DELAY,
                         "Sleep duration before processing each page",
-                        VARCHAR,
-                        Duration.class,
                         new Duration(0, SECONDS),
-                        false,
-                        value -> Duration.valueOf((String) value),
-                        Duration::toString));
+                        false));
     }
 
     @Override
