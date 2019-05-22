@@ -31,7 +31,7 @@ public class LogTestDurationListener
 {
     private static final Logger LOG = Logger.get(LogTestDurationListener.class);
 
-    private static final Duration SINGLE_TEST_LOGGING_THRESHOLD = Duration.valueOf("1m");
+    private static final Duration SINGLE_TEST_LOGGING_THRESHOLD = Duration.valueOf("30s");
     private static final Duration CLASS_LOGGING_THRESHOLD = Duration.valueOf("1m");
 
     private final Map<String, Long> started = new ConcurrentHashMap<>();
