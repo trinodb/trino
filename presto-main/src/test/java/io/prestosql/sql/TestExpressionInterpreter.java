@@ -1507,8 +1507,9 @@ public class TestExpressionInterpreter
     private static void assertRoundTrip(String expression)
     {
         ParsingOptions parsingOptions = createParsingOptions(TEST_SESSION);
-        assertEquals(SQL_PARSER.createExpression(expression, parsingOptions),
-                SQL_PARSER.createExpression(formatExpression(SQL_PARSER.createExpression(expression, parsingOptions), Optional.empty()), parsingOptions));
+        Expression parsed = SQL_PARSER.createExpression(expression, parsingOptions);
+        String formatted = formatExpression(parsed, Optional.empty());
+        assertEquals(parsed, SQL_PARSER.createExpression(formatted, parsingOptions));
     }
 
     private static Object evaluate(Expression expression)
