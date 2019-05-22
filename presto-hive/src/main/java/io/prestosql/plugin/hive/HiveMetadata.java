@@ -333,7 +333,7 @@ public class HiveMetadata
 
         HiveTableHandle table = handle;
         return partitionValuesList
-                .map(values -> partitionManager.getPartitions(metastore, table, values))
+                .map(values -> partitionManager.getPartitions(table, values))
                 .map(result -> partitionManager.applyPartitionResult(table, result))
                 .orElse(table);
     }
