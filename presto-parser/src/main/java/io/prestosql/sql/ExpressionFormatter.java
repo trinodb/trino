@@ -484,9 +484,9 @@ public final class ExpressionFormatter
 
             switch (node.getSign()) {
                 case MINUS:
-                    // this is to avoid turning a sequence of "-" into a comment (i.e., "-- comment")
-                    String separator = value.startsWith("-") ? " " : "";
-                    return "-" + separator + value;
+                    // Unary is ambiguous with respect to negative numbers. "-1" parses as a number, but "-(1)" parses as "unaryMinus(number)"
+                    // The parentheses are needed to ensure the parsing roundtrips properly.
+                    return "-(" + value + ")";
                 case PLUS:
                     return "+" + value;
                 default:

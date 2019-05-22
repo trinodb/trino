@@ -163,6 +163,7 @@ import static io.prestosql.sql.QueryUtil.values;
 import static io.prestosql.sql.SqlFormatter.formatSql;
 import static io.prestosql.sql.parser.IdentifierSymbol.AT_SIGN;
 import static io.prestosql.sql.parser.IdentifierSymbol.COLON;
+import static io.prestosql.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DECIMAL;
 import static io.prestosql.sql.testing.TreeAssertions.assertFormattedSql;
 import static io.prestosql.sql.tree.ArithmeticUnaryExpression.negative;
 import static io.prestosql.sql.tree.ArithmeticUnaryExpression.positive;
@@ -272,6 +273,31 @@ public class TestSqlParser
         assertExpression("INTERVAL '33' day", new IntervalLiteral("33", Sign.POSITIVE, IntervalField.DAY, Optional.empty()));
         assertExpression("INTERVAL '33' day to second", new IntervalLiteral("33", Sign.POSITIVE, IntervalField.DAY, Optional.of(IntervalField.SECOND)));
         assertExpression("CHAR 'abc'", new CharLiteral("abc"));
+    }
+
+    @Test
+    public void testNumbers()
+    {
+        assertExpression("9223372036854775807", new LongLiteral("9223372036854775807"));
+        assertExpression("-9223372036854775808", new LongLiteral("-9223372036854775808"));
+
+        assertExpression("1E5", new DoubleLiteral("1E5"));
+        assertExpression("1E-5", new DoubleLiteral("1E-5"));
+        assertExpression(".1E5", new DoubleLiteral(".1E5"));
+        assertExpression(".1E-5", new DoubleLiteral(".1E-5"));
+        assertExpression("1.1E5", new DoubleLiteral("1.1E5"));
+        assertExpression("1.1E-5", new DoubleLiteral("1.1E-5"));
+
+        assertExpression("-1E5", new DoubleLiteral("-1E5"));
+        assertExpression("-1E-5", new DoubleLiteral("-1E-5"));
+        assertExpression("-.1E5", new DoubleLiteral("-.1E5"));
+        assertExpression("-.1E-5", new DoubleLiteral("-.1E-5"));
+        assertExpression("-1.1E5", new DoubleLiteral("-1.1E5"));
+        assertExpression("-1.1E-5", new DoubleLiteral("-1.1E-5"));
+
+        assertExpression(".1", new DecimalLiteral(".1"));
+        assertExpression("1.2", new DecimalLiteral("1.2"));
+        assertExpression("-1.2", new DecimalLiteral("-1.2"));
     }
 
     @Test
@@ -393,8 +419,8 @@ public class TestSqlParser
         assertExpression("+ + +9", positive(positive(positive(new LongLiteral("9")))));
         assertExpression("+ + + 9", positive(positive(positive(new LongLiteral("9")))));
 
-        assertExpression("-9", negative(new LongLiteral("9")));
-        assertExpression("- 9", negative(new LongLiteral("9")));
+        assertExpression("-9", new LongLiteral("-9"));
+        assertExpression("- 9", new LongLiteral("-9"));
 
         assertExpression("- + 9", negative(positive(new LongLiteral("9"))));
         assertExpression("-+9", negative(positive(new LongLiteral("9"))));
@@ -402,8 +428,8 @@ public class TestSqlParser
         assertExpression("+ - + 9", positive(negative(positive(new LongLiteral("9")))));
         assertExpression("+-+9", positive(negative(positive(new LongLiteral("9")))));
 
-        assertExpression("- -9", negative(negative(new LongLiteral("9"))));
-        assertExpression("- - 9", negative(negative(new LongLiteral("9"))));
+        assertExpression("- -9", negative(new LongLiteral("-9")));
+        assertExpression("- - 9", negative(new LongLiteral("-9")));
 
         assertExpression("- + - + 9", negative(positive(negative(positive(new LongLiteral("9"))))));
         assertExpression("-+-+9", negative(positive(negative(positive(new LongLiteral("9"))))));
@@ -411,8 +437,8 @@ public class TestSqlParser
         assertExpression("+ - + - + 9", positive(negative(positive(negative(positive(new LongLiteral("9")))))));
         assertExpression("+-+-+9", positive(negative(positive(negative(positive(new LongLiteral("9")))))));
 
-        assertExpression("- - -9", negative(negative(negative(new LongLiteral("9")))));
-        assertExpression("- - - 9", negative(negative(negative(new LongLiteral("9")))));
+        assertExpression("- - -9", negative(negative(new LongLiteral("-9"))));
+        assertExpression("- - - 9", negative(negative(new LongLiteral("-9"))));
     }
 
     @Test
@@ -625,7 +651,7 @@ public class TestSqlParser
                 new LongLiteral("2")));
 
         assertExpression("-1 + 2", new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Operator.ADD,
-                negative(new LongLiteral("1")),
+                new LongLiteral("-1"),
                 new LongLiteral("2")));
 
         assertExpression("1 - 2 - 3", new ArithmeticBinaryExpression(ArithmeticBinaryExpression.Operator.SUBTRACT,
@@ -2537,7 +2563,7 @@ public class TestSqlParser
 
     private static void assertExpression(String expression, Expression expected)
     {
-        assertParsed(expression, expected, SQL_PARSER.createExpression(expression));
+        assertParsed(expression, expected, SQL_PARSER.createExpression(expression, new ParsingOptions(AS_DECIMAL)));
     }
 
     private static void assertParsed(String input, Node expected, Node parsed)

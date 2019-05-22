@@ -74,7 +74,7 @@ public class TestSqlParserErrorHandling
                 {"select CAST(12223222232535343423232435343 AS BIGINT)",
                         "line 1:1: Invalid numeric literal: 12223222232535343423232435343"},
                 {"select CAST(-12223222232535343423232435343 AS BIGINT)",
-                        "line 1:1: Invalid numeric literal: 12223222232535343423232435343"},
+                        "line 1:1: Invalid numeric literal: -12223222232535343423232435343"},
                 {"select foo(,1)",
                         "line 1:12: mismatched input ','. Expecting: <expression>"},
                 {"select foo(DISTINCT)",

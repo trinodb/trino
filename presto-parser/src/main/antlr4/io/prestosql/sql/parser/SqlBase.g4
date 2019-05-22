@@ -481,9 +481,9 @@ identifier
     ;
 
 number
-    : DECIMAL_VALUE  #decimalLiteral
-    | DOUBLE_VALUE   #doubleLiteral
-    | INTEGER_VALUE  #integerLiteral
+    : MINUS? DECIMAL_VALUE  #decimalLiteral
+    | MINUS? DOUBLE_VALUE   #doubleLiteral
+    | MINUS? INTEGER_VALUE  #integerLiteral
     ;
 
 nonReserved
