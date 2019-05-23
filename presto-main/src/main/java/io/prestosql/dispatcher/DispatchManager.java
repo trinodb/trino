@@ -240,6 +240,11 @@ public class DispatchManager
                 .collect(toImmutableList());
     }
 
+    public DispatchQuery getQuery(QueryId queryId)
+    {
+        return queryTracker.getQuery(queryId);
+    }
+
     public BasicQueryInfo getQueryInfo(QueryId queryId)
     {
         return queryTracker.getQuery(queryId).getBasicQueryInfo();
