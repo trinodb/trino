@@ -79,6 +79,7 @@ import io.prestosql.sql.planner.iterative.rule.PruneTopNColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneValuesColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneWindowColumns;
 import io.prestosql.sql.planner.iterative.rule.PushAggregationThroughOuterJoin;
+import io.prestosql.sql.planner.iterative.rule.PushDownDereferences;
 import io.prestosql.sql.planner.iterative.rule.PushLimitIntoTableScan;
 import io.prestosql.sql.planner.iterative.rule.PushLimitThroughMarkDistinct;
 import io.prestosql.sql.planner.iterative.rule.PushLimitThroughOffset;
@@ -399,6 +400,13 @@ public class PlanOptimizers
                                 new RemoveAggregationInSemiJoin())),
                 new CheckSubqueryNodesAreRewritten(),
                 predicatePushDown,
+                new IterativeOptimizer(
+                        ruleStats,
+                        statsCalculator,
+                        estimatedExchangesCostCalculator,
+                        ImmutableSet.<Rule<?>>builder()
+                                .addAll(new PushDownDereferences(metadata, typeAnalyzer).rules())
+                                .build()),
                 new IterativeOptimizer(
                         ruleStats,
                         statsCalculator,

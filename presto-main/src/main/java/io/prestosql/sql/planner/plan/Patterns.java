@@ -172,6 +172,11 @@ public class Patterns
         return typeOf(DistinctLimitNode.class);
     }
 
+    public static Pattern<UnnestNode> unnest()
+    {
+        return typeOf(UnnestNode.class);
+    }
+
     public static Property<PlanNode, Lookup, PlanNode> source()
     {
         return optionalProperty(
