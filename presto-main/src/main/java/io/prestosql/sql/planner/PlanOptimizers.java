@@ -136,6 +136,7 @@ import io.prestosql.sql.planner.optimizations.OptimizeMixedDistinctAggregations;
 import io.prestosql.sql.planner.optimizations.PlanOptimizer;
 import io.prestosql.sql.planner.optimizations.PredicatePushDown;
 import io.prestosql.sql.planner.optimizations.PruneUnreferencedOutputs;
+import io.prestosql.sql.planner.optimizations.RemoveRedundantOrderByOptimizer;
 import io.prestosql.sql.planner.optimizations.ReplicateSemiJoinInDelete;
 import io.prestosql.sql.planner.optimizations.SetFlatteningOptimizer;
 import io.prestosql.sql.planner.optimizations.StatsRecordingPlanOptimizer;
@@ -491,6 +492,8 @@ public class PlanOptimizers
                         .addAll(new ExtractSpatialJoins(metadata, splitManager, pageSourceManager, typeAnalyzer).rules())
                         .add(new InlineProjections())
                         .build()));
+
+        builder.add(new RemoveRedundantOrderByOptimizer());
 
         if (!forceSingleNode) {
             builder.add(new ReplicateSemiJoinInDelete()); // Must run before AddExchanges
