@@ -13,10 +13,14 @@
  */
 package io.prestosql.server;
 
+import com.google.inject.Key;
+import com.google.inject.TypeLiteral;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.Request;
 import io.airlift.http.client.jetty.JettyHttpClient;
+import io.airlift.json.JsonCodec;
 import io.prestosql.client.QueryResults;
+import io.prestosql.execution.QueryInfo;
 import io.prestosql.server.testing.TestingPrestoServer;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
@@ -34,8 +38,13 @@ import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.airlift.json.JsonCodec.listJsonCodec;
 import static io.airlift.testing.Closeables.closeQuietly;
 import static io.prestosql.client.PrestoHeaders.PRESTO_USER;
+import static io.prestosql.spi.StandardErrorCode.DIVISION_BY_ZERO;
+import static io.prestosql.spi.StandardErrorCode.SYNTAX_ERROR;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
 @Test(singleThreaded = true)
@@ -81,6 +90,26 @@ public class TestQueryResource
         infos = getQueryInfos("/v1/query?state=running");
         assertEquals(infos.size(), 0);
         assertStateCounts(infos, 0, 0, 0);
+    }
+
+    @Test
+    public void testGetQueryInfoDispatchFailure()
+    {
+        String queryId = runToCompletion("SELECT");
+        QueryInfo info = getQueryInfo(queryId);
+        assertFalse(info.isScheduled());
+        assertNotNull(info.getFailureInfo());
+        assertEquals(info.getFailureInfo().getErrorCode(), SYNTAX_ERROR.toErrorCode());
+    }
+
+    @Test
+    public void testGetQueryInfoExecutionFailure()
+    {
+        String queryId = runToCompletion("SELECT cast(rand() AS integer) / 0");
+        QueryInfo info = getQueryInfo(queryId);
+        assertTrue(info.isScheduled());
+        assertNotNull(info.getFailureInfo());
+        assertEquals(info.getFailureInfo().getErrorCode(), DIVISION_BY_ZERO.toErrorCode());
     }
 
     private String runToCompletion(String sql)
@@ -131,5 +160,19 @@ public class TestQueryResource
         assertEquals(failed, expectedFailed);
         assertEquals(finished, expectedFinished);
         assertEquals(running, expectedRunning);
+    }
+
+    private QueryInfo getQueryInfo(String queryId)
+    {
+        URI uri = uriBuilderFrom(server.getBaseUrl())
+                .replacePath("/v1/query")
+                .appendPath(queryId)
+                .addParameter("pretty", "true")
+                .build();
+        Request request = prepareGet()
+                .setUri(uri)
+                .build();
+        JsonCodec<QueryInfo> codec = server.getInstance(Key.get(new TypeLiteral<JsonCodec<QueryInfo>>() {}));
+        return client.execute(request, createJsonResponseHandler(codec));
     }
 }
