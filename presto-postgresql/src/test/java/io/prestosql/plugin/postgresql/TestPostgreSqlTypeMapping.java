@@ -29,6 +29,7 @@ import io.prestosql.tests.datatype.DataTypeTest;
 import io.prestosql.tests.sql.JdbcSqlExecutor;
 import io.prestosql.tests.sql.PrestoSqlExecutor;
 import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -77,6 +78,24 @@ public class TestPostgreSqlTypeMapping
 {
     private final TestingPostgreSqlServer postgreSqlServer;
 
+    private LocalDateTime beforeEpoch;
+    private LocalDateTime epoch;
+    private LocalDateTime afterEpoch;
+
+    private ZoneId jvmZone;
+    private LocalDateTime timeGapInJvmZone1;
+    private LocalDateTime timeGapInJvmZone2;
+    private LocalDateTime timeDoubledInJvmZone;
+
+    // no DST in 1970, but has DST in later years (e.g. 2018)
+    private ZoneId vilnius;
+    private LocalDateTime timeGapInVilnius;
+    private LocalDateTime timeDoubledInVilnius;
+
+    // minutes offset change since 1970-01-01, no DST
+    private ZoneId kathmandu;
+    private LocalDateTime timeGapInKathmandu;
+
     public TestPostgreSqlTypeMapping()
             throws Exception
     {
@@ -94,6 +113,35 @@ public class TestPostgreSqlTypeMapping
             throws IOException
     {
         postgreSqlServer.close();
+    }
+
+    @BeforeClass
+    public void setUp()
+    {
+        beforeEpoch = LocalDateTime.of(1958, 1, 1, 13, 18, 3, 123_000_000);
+        epoch = LocalDateTime.of(1970, 1, 1, 0, 0, 0);
+        afterEpoch = LocalDateTime.of(2019, 03, 18, 10, 01, 17, 987_000_000);
+
+        jvmZone = ZoneId.systemDefault();
+
+        timeGapInJvmZone1 = LocalDateTime.of(1970, 1, 1, 0, 13, 42);
+        checkIsGap(jvmZone, timeGapInJvmZone1);
+        timeGapInJvmZone2 = LocalDateTime.of(2018, 4, 1, 2, 13, 55, 123_000_000);
+        checkIsGap(jvmZone, timeGapInJvmZone2);
+        timeDoubledInJvmZone = LocalDateTime.of(2018, 10, 28, 1, 33, 17, 456_000_000);
+        checkIsDoubled(jvmZone, timeDoubledInJvmZone);
+
+        vilnius = ZoneId.of("Europe/Vilnius");
+
+        timeGapInVilnius = LocalDateTime.of(2018, 3, 25, 3, 17, 17);
+        checkIsGap(vilnius, timeGapInVilnius);
+        timeDoubledInVilnius = LocalDateTime.of(2018, 10, 28, 3, 33, 33, 333_000_000);
+        checkIsDoubled(vilnius, timeDoubledInVilnius);
+
+        kathmandu = ZoneId.of("Asia/Kathmandu");
+
+        timeGapInKathmandu = LocalDateTime.of(1986, 1, 1, 0, 13, 7);
+        checkIsGap(kathmandu, timeGapInKathmandu);
     }
 
     @Test
@@ -470,34 +518,7 @@ public class TestPostgreSqlTypeMapping
     @Test(dataProvider = "testTimestampDataProvider")
     public void testTimestamp(boolean legacyTimestamp, boolean insertWithPresto)
     {
-        LocalDateTime beforeEpoch = LocalDateTime.of(1958, 1, 1, 13, 18, 3, 123_000_000);
-        LocalDateTime epoch = LocalDateTime.of(1970, 1, 1, 0, 0, 0);
-        LocalDateTime afterEpoch = LocalDateTime.of(2019, 03, 18, 10, 01, 17, 987_000_000);
-
-        ZoneId jvmZone = ZoneId.systemDefault();
-
-        LocalDateTime timeGapInJvmZone1 = LocalDateTime.of(1970, 1, 1, 0, 13, 42);
-        checkIsGap(jvmZone, timeGapInJvmZone1);
-        LocalDateTime timeGapInJvmZone2 = LocalDateTime.of(2018, 4, 1, 2, 13, 55, 123_000_000);
-        checkIsGap(jvmZone, timeGapInJvmZone2);
-        LocalDateTime timeDoubledInJvmZone = LocalDateTime.of(2018, 10, 28, 1, 33, 17, 456_000_000);
-        checkIsDoubled(jvmZone, timeDoubledInJvmZone);
-
-        // no DST in 1970, but has DST in later years (e.g. 2018)
-        ZoneId vilnius = ZoneId.of("Europe/Vilnius");
-
-        LocalDateTime timeGapInVilnius = LocalDateTime.of(2018, 3, 25, 3, 17, 17);
-        checkIsGap(vilnius, timeGapInVilnius);
-        LocalDateTime timeDoubledInVilnius = LocalDateTime.of(2018, 10, 28, 3, 33, 33, 333_000_000);
-        checkIsDoubled(vilnius, timeDoubledInVilnius);
-
-        // minutes offset change since 1970-01-01, no DST
         // using two non-JVM zones so that we don't need to worry what Postgres system zone is
-        ZoneId kathmandu = ZoneId.of("Asia/Kathmandu");
-
-        LocalDateTime timeGapInKathmandu = LocalDateTime.of(1986, 1, 1, 0, 13, 7);
-        checkIsGap(kathmandu, timeGapInKathmandu);
-
         for (ZoneId sessionZone : ImmutableList.of(ZoneOffset.UTC, jvmZone, vilnius, kathmandu, ZoneId.of(TestingSession.DEFAULT_TIME_ZONE_KEY.getId()))) {
             DataTypeTest tests = DataTypeTest.create()
                     .addRoundTrip(timestampDataType(), beforeEpoch)
@@ -549,21 +570,6 @@ public class TestPostgreSqlTypeMapping
                 {true, false},
                 {false, false},
         };
-    }
-
-    private static void checkIsGap(ZoneId zone, LocalDateTime dateTime)
-    {
-        verify(isGap(zone, dateTime), "Expected %s to be a gap in %s", dateTime, zone);
-    }
-
-    private static boolean isGap(ZoneId zone, LocalDateTime dateTime)
-    {
-        return zone.getRules().getValidOffsets(dateTime).isEmpty();
-    }
-
-    private static void checkIsDoubled(ZoneId zone, LocalDateTime dateTime)
-    {
-        verify(zone.getRules().getValidOffsets(dateTime).size() == 2, "Expected %s to be doubled in %s", dateTime, zone);
     }
 
     @Test
@@ -642,5 +648,20 @@ public class TestPostgreSqlTypeMapping
     private DataSetup postgresCreateAndInsert(String tableNamePrefix)
     {
         return new CreateAndInsertDataSetup(new JdbcSqlExecutor(postgreSqlServer.getJdbcUrl()), tableNamePrefix);
+    }
+
+    private static void checkIsGap(ZoneId zone, LocalDateTime dateTime)
+    {
+        verify(isGap(zone, dateTime), "Expected %s to be a gap in %s", dateTime, zone);
+    }
+
+    private static boolean isGap(ZoneId zone, LocalDateTime dateTime)
+    {
+        return zone.getRules().getValidOffsets(dateTime).isEmpty();
+    }
+
+    private static void checkIsDoubled(ZoneId zone, LocalDateTime dateTime)
+    {
+        verify(zone.getRules().getValidOffsets(dateTime).size() == 2, "Expected %s to be doubled in %s", dateTime, zone);
     }
 }
