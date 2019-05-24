@@ -219,13 +219,14 @@ public class PostgreSqlClient
             return ImmutableMap.of();
         }
         String sql = "" +
-                "SELECT att.attname, att.attndims " +
+                "SELECT att.attname, greatest(att.attndims, 1) AS attndims " +
                 "FROM pg_attribute att " +
+                "  JOIN pg_type attyp ON att.atttypid = attyp.oid" +
                 "  JOIN pg_class tbl ON tbl.oid = att.attrelid " +
                 "  JOIN pg_namespace ns ON tbl.relnamespace = ns.oid " +
                 "WHERE ns.nspname = ? " +
                 "AND tbl.relname = ? " +
-                "AND att.attndims > 0 ";
+                "AND attyp.typcategory = 'A' ";
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setString(1, tableHandle.getSchemaName());
             statement.setString(2, tableHandle.getTableName());
