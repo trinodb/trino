@@ -18,8 +18,8 @@ import io.airlift.http.client.Request;
 import io.airlift.http.client.jetty.JettyHttpClient;
 import io.prestosql.client.QueryResults;
 import io.prestosql.server.testing.TestingPrestoServer;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
+import org.testng.annotations.AfterMethod;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.net.URI;
@@ -41,42 +41,18 @@ import static org.testng.Assert.fail;
 @Test(singleThreaded = true)
 public class TestQueryResource
 {
-    private final HttpClient client = new JettyHttpClient();
+    private HttpClient client;
     private TestingPrestoServer server;
 
-    public TestQueryResource()
+    @BeforeMethod
+    public void setup()
             throws Exception
     {
+        client = new JettyHttpClient();
         server = new TestingPrestoServer();
     }
 
-    @BeforeClass
-    public void setup()
-    {
-        runToCompletion("SELECT 1");
-        runToCompletion("SELECT 2");
-        runToCompletion("SELECT x FROM y");
-    }
-
-    private void runToCompletion(String sql)
-    {
-        URI uri = uriBuilderFrom(server.getBaseUrl().resolve("/v1/statement")).build();
-        Request request = preparePost()
-                .setHeader(PRESTO_USER, "user")
-                .setUri(uri)
-                .setBodyGenerator(createStaticBodyGenerator(sql, UTF_8))
-                .build();
-        QueryResults queryResults = client.execute(request, createJsonResponseHandler(jsonCodec(QueryResults.class)));
-        while (queryResults.getNextUri() != null) {
-            request = prepareGet()
-                    .setHeader(PRESTO_USER, "user")
-                    .setUri(queryResults.getNextUri())
-                    .build();
-            queryResults = client.execute(request, createJsonResponseHandler(jsonCodec(QueryResults.class)));
-        }
-    }
-
-    @AfterClass(alwaysRun = true)
+    @AfterMethod(alwaysRun = true)
     public void teardown()
     {
         closeQuietly(server);
@@ -86,6 +62,10 @@ public class TestQueryResource
     @Test
     public void testGetQueryInfos()
     {
+        runToCompletion("SELECT 1");
+        runToCompletion("SELECT 2");
+        runToCompletion("SELECT x FROM y");
+
         List<BasicQueryInfo> infos = getQueryInfos("/v1/query");
         assertEquals(infos.size(), 3);
         assertStateCounts(infos, 2, 1, 0);
@@ -103,13 +83,32 @@ public class TestQueryResource
         assertStateCounts(infos, 0, 0, 0);
     }
 
+    private String runToCompletion(String sql)
+    {
+        URI uri = uriBuilderFrom(server.getBaseUrl().resolve("/v1/statement")).build();
+        Request request = preparePost()
+                .setHeader(PRESTO_USER, "user")
+                .setUri(uri)
+                .setBodyGenerator(createStaticBodyGenerator(sql, UTF_8))
+                .build();
+        QueryResults queryResults = client.execute(request, createJsonResponseHandler(jsonCodec(QueryResults.class)));
+        while (queryResults.getNextUri() != null) {
+            request = prepareGet()
+                    .setHeader(PRESTO_USER, "user")
+                    .setUri(queryResults.getNextUri())
+                    .build();
+            queryResults = client.execute(request, createJsonResponseHandler(jsonCodec(QueryResults.class)));
+        }
+        return queryResults.getId();
+    }
+
     private List<BasicQueryInfo> getQueryInfos(String path)
     {
         Request request = prepareGet().setUri(server.resolve(path)).build();
         return client.execute(request, createJsonResponseHandler(listJsonCodec(BasicQueryInfo.class)));
     }
 
-    private void assertStateCounts(List<BasicQueryInfo> infos, int expectedFinished, int expectedFailed, int expectedRunning)
+    private static void assertStateCounts(Iterable<BasicQueryInfo> infos, int expectedFinished, int expectedFailed, int expectedRunning)
     {
         int failed = 0;
         int finished = 0;
