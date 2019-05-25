@@ -588,7 +588,8 @@ public class HiveWriterFactory
 
     public static String computeBucketedFileName(String queryId, int bucket)
     {
-        return queryId + "_bucket-" + Strings.padStart(Integer.toString(bucket), BUCKET_NUMBER_PADDING, '0');
+        String paddedBucket = Strings.padStart(Integer.toString(bucket), BUCKET_NUMBER_PADDING, '0');
+        return format("0%s_0_%s", paddedBucket, queryId);
     }
 
     public static String getFileExtension(JobConf conf, StorageFormat storageFormat)
