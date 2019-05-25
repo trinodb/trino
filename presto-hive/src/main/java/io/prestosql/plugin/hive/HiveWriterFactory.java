@@ -111,7 +111,7 @@ public class HiveWriterFactory
     private final HiveStorageFormat partitionStorageFormat;
     private final LocationHandle locationHandle;
     private final LocationService locationService;
-    private final String filePrefix;
+    private final String queryId;
 
     private final HivePageSinkMetadataProvider pageSinkMetadataProvider;
     private final TypeManager typeManager;
@@ -149,7 +149,7 @@ public class HiveWriterFactory
             List<SortingColumn> sortedBy,
             LocationHandle locationHandle,
             LocationService locationService,
-            String filePrefix,
+            String queryId,
             HivePageSinkMetadataProvider pageSinkMetadataProvider,
             TypeManager typeManager,
             HdfsEnvironment hdfsEnvironment,
@@ -172,7 +172,7 @@ public class HiveWriterFactory
         this.partitionStorageFormat = requireNonNull(partitionStorageFormat, "partitionStorageFormat is null");
         this.locationHandle = requireNonNull(locationHandle, "locationHandle is null");
         this.locationService = requireNonNull(locationService, "locationService is null");
-        this.filePrefix = requireNonNull(filePrefix, "filePrefix is null");
+        this.queryId = requireNonNull(queryId, "queryId is null");
 
         this.pageSinkMetadataProvider = requireNonNull(pageSinkMetadataProvider, "pageSinkMetadataProvider is null");
 
@@ -267,10 +267,10 @@ public class HiveWriterFactory
 
         String fileName;
         if (bucketNumber.isPresent()) {
-            fileName = computeBucketedFileName(filePrefix, bucketNumber.getAsInt());
+            fileName = computeBucketedFileName(queryId, bucketNumber.getAsInt());
         }
         else {
-            fileName = filePrefix + "_" + randomUUID();
+            fileName = queryId + "_" + randomUUID();
         }
 
         List<String> partitionValues = createPartitionValues(partitionColumnTypes, partitionColumns, position);
@@ -586,9 +586,9 @@ public class HiveWriterFactory
         }
     }
 
-    public static String computeBucketedFileName(String filePrefix, int bucket)
+    public static String computeBucketedFileName(String queryId, int bucket)
     {
-        return filePrefix + "_bucket-" + Strings.padStart(Integer.toString(bucket), BUCKET_NUMBER_PADDING, '0');
+        return queryId + "_bucket-" + Strings.padStart(Integer.toString(bucket), BUCKET_NUMBER_PADDING, '0');
     }
 
     public static String getFileExtension(JobConf conf, StorageFormat storageFormat)

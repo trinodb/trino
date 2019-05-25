@@ -179,6 +179,7 @@ import static io.prestosql.plugin.hive.HiveUtil.verifyPartitionTypeSupported;
 import static io.prestosql.plugin.hive.HiveWriteUtils.checkTableIsWritable;
 import static io.prestosql.plugin.hive.HiveWriteUtils.initializeSerializer;
 import static io.prestosql.plugin.hive.HiveWriteUtils.isWritableType;
+import static io.prestosql.plugin.hive.HiveWriterFactory.computeBucketedFileName;
 import static io.prestosql.plugin.hive.PartitionUpdate.UpdateMode.APPEND;
 import static io.prestosql.plugin.hive.PartitionUpdate.UpdateMode.NEW;
 import static io.prestosql.plugin.hive.PartitionUpdate.UpdateMode.OVERWRITE;
@@ -1049,7 +1050,6 @@ public class HiveMetadata
                 schemaName,
                 tableName,
                 columnHandles,
-                session.getQueryId(),
                 metastore.generatePageSinkMetadata(schemaTableName),
                 locationHandle,
                 tableStorageFormat,
@@ -1060,7 +1060,7 @@ public class HiveMetadata
                 tableProperties);
 
         WriteInfo writeInfo = locationService.getQueryWriteInfo(locationHandle);
-        metastore.declareIntentionToWrite(session, writeInfo.getWriteMode(), writeInfo.getWritePath(), result.getFilePrefix(), schemaTableName);
+        metastore.declareIntentionToWrite(session, writeInfo.getWriteMode(), writeInfo.getWritePath(), schemaTableName);
 
         return result;
     }
@@ -1164,7 +1164,6 @@ public class HiveMetadata
                     table,
                     storageFormat,
                     partitionUpdate.getTargetPath(),
-                    handle.getFilePrefix(),
                     bucketCount,
                     partitionUpdate);
             partitionUpdatesForMissingBucketsBuilder.add(new PartitionUpdate(
@@ -1185,7 +1184,6 @@ public class HiveMetadata
             Table table,
             HiveStorageFormat storageFormat,
             Path targetPath,
-            String filePrefix,
             int bucketCount,
             PartitionUpdate partitionUpdate)
     {
@@ -1199,7 +1197,7 @@ public class HiveMetadata
         Set<String> fileNames = ImmutableSet.copyOf(partitionUpdate.getFileNames());
         ImmutableList.Builder<String> missingFileNamesBuilder = ImmutableList.builder();
         for (int i = 0; i < bucketCount; i++) {
-            String fileName = HiveWriterFactory.computeBucketedFileName(filePrefix, i) + fileExtension;
+            String fileName = computeBucketedFileName(session.getQueryId(), i) + fileExtension;
             if (!fileNames.contains(fileName)) {
                 missingFileNamesBuilder.add(fileName);
             }
@@ -1271,7 +1269,6 @@ public class HiveMetadata
                 tableName.getSchemaName(),
                 tableName.getTableName(),
                 handles,
-                session.getQueryId(),
                 metastore.generatePageSinkMetadata(tableName),
                 locationHandle,
                 table.getStorage().getBucketProperty(),
@@ -1279,7 +1276,7 @@ public class HiveMetadata
                 isRespectTableFormat(session) ? tableStorageFormat : getHiveStorageFormat(session));
 
         WriteInfo writeInfo = locationService.getQueryWriteInfo(locationHandle);
-        metastore.declareIntentionToWrite(session, writeInfo.getWriteMode(), writeInfo.getWritePath(), result.getFilePrefix(), tableName);
+        metastore.declareIntentionToWrite(session, writeInfo.getWriteMode(), writeInfo.getWritePath(), tableName);
         return result;
     }
 

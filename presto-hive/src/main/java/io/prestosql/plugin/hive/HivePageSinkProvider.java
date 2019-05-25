@@ -142,7 +142,7 @@ public class HivePageSinkProvider
                 sortedBy,
                 handle.getLocationHandle(),
                 locationService,
-                handle.getFilePrefix(),
+                session.getQueryId(),
                 new HivePageSinkMetadataProvider(handle.getPageSinkMetadata(), memoizeMetastore(metastore, perTransactionMetastoreCacheMaximumSize)),
                 typeManager,
                 hdfsEnvironment,
