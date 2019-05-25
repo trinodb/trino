@@ -29,7 +29,6 @@ public class HiveWritableTableHandle
     private final String schemaName;
     private final String tableName;
     private final List<HiveColumnHandle> inputColumns;
-    private final String filePrefix;
     private final HivePageSinkMetadata pageSinkMetadata;
     private final LocationHandle locationHandle;
     private final Optional<HiveBucketProperty> bucketProperty;
@@ -40,7 +39,6 @@ public class HiveWritableTableHandle
             String schemaName,
             String tableName,
             List<HiveColumnHandle> inputColumns,
-            String filePrefix,
             HivePageSinkMetadata pageSinkMetadata,
             LocationHandle locationHandle,
             Optional<HiveBucketProperty> bucketProperty,
@@ -50,7 +48,6 @@ public class HiveWritableTableHandle
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
         this.inputColumns = ImmutableList.copyOf(requireNonNull(inputColumns, "inputColumns is null"));
-        this.filePrefix = requireNonNull(filePrefix, "filePrefix is null");
         this.pageSinkMetadata = requireNonNull(pageSinkMetadata, "pageSinkMetadata is null");
         this.locationHandle = requireNonNull(locationHandle, "locationHandle is null");
         this.bucketProperty = requireNonNull(bucketProperty, "bucketProperty is null");
@@ -80,12 +77,6 @@ public class HiveWritableTableHandle
     public List<HiveColumnHandle> getInputColumns()
     {
         return inputColumns;
-    }
-
-    @JsonProperty
-    public String getFilePrefix()
-    {
-        return filePrefix;
     }
 
     @JsonProperty

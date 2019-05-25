@@ -863,7 +863,7 @@ public class SemiTransactionalHiveMetastore
         setExclusive((delegate, hdfsEnvironment) -> delegate.revokeTablePrivileges(databaseName, tableName, grantee, privileges));
     }
 
-    public synchronized void declareIntentionToWrite(ConnectorSession session, WriteMode writeMode, Path stagingPathRoot, String filePrefix, SchemaTableName schemaTableName)
+    public synchronized void declareIntentionToWrite(ConnectorSession session, WriteMode writeMode, Path stagingPathRoot, SchemaTableName schemaTableName)
     {
         setShared();
         if (writeMode == WriteMode.DIRECT_TO_TARGET_EXISTING_DIRECTORY) {
@@ -873,7 +873,7 @@ public class SemiTransactionalHiveMetastore
             }
         }
         HdfsContext context = new HdfsContext(session, schemaTableName.getSchemaName(), schemaTableName.getTableName());
-        declaredIntentionsToWrite.add(new DeclaredIntentionToWrite(writeMode, context, stagingPathRoot, filePrefix, schemaTableName));
+        declaredIntentionsToWrite.add(new DeclaredIntentionToWrite(writeMode, context, session.getQueryId(), stagingPathRoot, schemaTableName));
     }
 
     public synchronized void commit()
@@ -1472,7 +1472,7 @@ public class SemiTransactionalHiveMetastore
         {
             Set<String> filePrefixSet = new HashSet<>();
             for (DeclaredIntentionToWrite declaredIntentionToWrite : declaredIntentionsToWrite) {
-                filePrefixSet.add(declaredIntentionToWrite.getFilePrefix());
+                filePrefixSet.add(declaredIntentionToWrite.getQueryId());
             }
             return ImmutableList.copyOf(filePrefixSet);
         }
@@ -1504,7 +1504,7 @@ public class SemiTransactionalHiveMetastore
                     recursiveDeleteFilesAndLog(
                             declaredIntentionToWrite.getContext(),
                             rootPath,
-                            ImmutableList.of(declaredIntentionToWrite.getFilePrefix()),
+                            ImmutableList.of(declaredIntentionToWrite.getQueryId()),
                             true,
                             format("staging/target_new directory rollback for table %s", declaredIntentionToWrite.getSchemaTableName()));
                     break;
@@ -1551,7 +1551,7 @@ public class SemiTransactionalHiveMetastore
                         recursiveDeleteFilesAndLog(
                                 declaredIntentionToWrite.getContext(),
                                 path,
-                                ImmutableList.of(declaredIntentionToWrite.getFilePrefix()),
+                                ImmutableList.of(declaredIntentionToWrite.getQueryId()),
                                 false,
                                 format("target_existing directory rollback for table %s", schemaTableName));
                     }
@@ -2123,16 +2123,16 @@ public class SemiTransactionalHiveMetastore
     {
         private final WriteMode mode;
         private final HdfsContext context;
-        private final String filePrefix;
+        private final String queryId;
         private final Path rootPath;
         private final SchemaTableName schemaTableName;
 
-        public DeclaredIntentionToWrite(WriteMode mode, HdfsContext context, Path stagingPathRoot, String filePrefix, SchemaTableName schemaTableName)
+        public DeclaredIntentionToWrite(WriteMode mode, HdfsContext context, String queryId, Path stagingPathRoot, SchemaTableName schemaTableName)
         {
             this.mode = requireNonNull(mode, "mode is null");
             this.context = requireNonNull(context, "context is null");
+            this.queryId = requireNonNull(queryId, "filePrefix is null");
             this.rootPath = requireNonNull(stagingPathRoot, "stagingPathRoot is null");
-            this.filePrefix = requireNonNull(filePrefix, "filePrefix is null");
             this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
         }
 
@@ -2146,9 +2146,9 @@ public class SemiTransactionalHiveMetastore
             return context;
         }
 
-        public String getFilePrefix()
+        public String getQueryId()
         {
-            return filePrefix;
+            return queryId;
         }
 
         public Path getRootPath()
@@ -2167,7 +2167,7 @@ public class SemiTransactionalHiveMetastore
             return toStringHelper(this)
                     .add("mode", mode)
                     .add("context", context)
-                    .add("filePrefix", filePrefix)
+                    .add("queryId", queryId)
                     .add("rootPath", rootPath)
                     .add("schemaTableName", schemaTableName)
                     .toString();
