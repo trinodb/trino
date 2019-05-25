@@ -85,6 +85,7 @@ import io.prestosql.sql.planner.iterative.rule.PushLimitThroughOffset;
 import io.prestosql.sql.planner.iterative.rule.PushLimitThroughOuterJoin;
 import io.prestosql.sql.planner.iterative.rule.PushLimitThroughProject;
 import io.prestosql.sql.planner.iterative.rule.PushLimitThroughSemiJoin;
+import io.prestosql.sql.planner.iterative.rule.PushLimitThroughUnion;
 import io.prestosql.sql.planner.iterative.rule.PushOffsetThroughProject;
 import io.prestosql.sql.planner.iterative.rule.PushPartialAggregationThroughExchange;
 import io.prestosql.sql.planner.iterative.rule.PushPartialAggregationThroughJoin;
@@ -314,6 +315,7 @@ public class PlanOptimizers
                                         new PushLimitThroughMarkDistinct(),
                                         new PushLimitThroughOuterJoin(),
                                         new PushLimitThroughSemiJoin(),
+                                        new PushLimitThroughUnion(),
                                         new PushLimitIntoTableScan(metadata),
                                         new PushPredicateIntoTableScan(metadata, typeAnalyzer),
                                         new RemoveTrivialFilters(),
