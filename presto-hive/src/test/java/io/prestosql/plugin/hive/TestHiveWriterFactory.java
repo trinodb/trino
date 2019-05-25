@@ -16,6 +16,7 @@ package io.prestosql.plugin.hive;
 import org.testng.annotations.Test;
 
 import static io.prestosql.plugin.hive.HiveWriterFactory.computeBucketedFileName;
+import static org.apache.hadoop.hive.ql.exec.Utilities.getBucketIdFromFile;
 import static org.testng.Assert.assertEquals;
 
 public class TestHiveWriterFactory
@@ -24,6 +25,7 @@ public class TestHiveWriterFactory
     public void testComputeBucketedFileName()
     {
         String name = computeBucketedFileName("20180102_030405_00641_x1y2z", 1234);
-        assertEquals(name, "20180102_030405_00641_x1y2z_bucket-01234");
+        assertEquals(name, "001234_0_20180102_030405_00641_x1y2z");
+        assertEquals(getBucketIdFromFile(name), 1234);
     }
 }
