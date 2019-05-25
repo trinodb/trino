@@ -66,6 +66,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_CORRUPTED_COLUMN_STATISTICS;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
@@ -493,7 +494,7 @@ public class SemiTransactionalHiveMetastore
         Path path = new Path(table.get().getStorage().getLocation());
         HdfsContext context = new HdfsContext(session, databaseName, tableName);
         setExclusive((delegate, hdfsEnvironment) -> {
-            RecursiveDeleteResult recursiveDeleteResult = recursiveDeleteFiles(hdfsEnvironment, context, path, ImmutableList.of(""), false);
+            RecursiveDeleteResult recursiveDeleteResult = recursiveDeleteFiles(hdfsEnvironment, context, path, ImmutableSet.of(""), false);
             if (!recursiveDeleteResult.getNotDeletedEligibleItems().isEmpty()) {
                 throw new PrestoException(HIVE_FILESYSTEM_ERROR, format(
                         "Error deleting from unpartitioned table %s. These items can not be deleted: %s",
@@ -994,7 +995,7 @@ public class SemiTransactionalHiveMetastore
 
             // fileRenameFutures must all come back before any file system cleanups are carried out.
             // Otherwise, files that should be deleted may be created after cleanup is done.
-            committer.executeCleanupTasksForAbort(committer.extractFilePrefixes(declaredIntentionsToWrite));
+            committer.executeCleanupTasksForAbort(declaredIntentionsToWrite);
 
             committer.executeRenameTasksForAbort();
 
@@ -1287,10 +1288,13 @@ public class SemiTransactionalHiveMetastore
                     true));
         }
 
-        private void executeCleanupTasksForAbort(List<String> filePrefixes)
+        private void executeCleanupTasksForAbort(Collection<DeclaredIntentionToWrite> declaredIntentionsToWrite)
         {
+            Set<String> queryIds = declaredIntentionsToWrite.stream()
+                    .map(DeclaredIntentionToWrite::getQueryId)
+                    .collect(toImmutableSet());
             for (DirectoryCleanUpTask cleanUpTask : cleanUpTasksForAbort) {
-                recursiveDeleteFilesAndLog(cleanUpTask.getContext(), cleanUpTask.getPath(), filePrefixes, cleanUpTask.isDeleteEmptyDirectory(), "temporary directory commit abort");
+                recursiveDeleteFilesAndLog(cleanUpTask.getContext(), cleanUpTask.getPath(), queryIds, cleanUpTask.isDeleteEmptyDirectory(), "temporary directory commit abort");
             }
         }
 
@@ -1326,7 +1330,7 @@ public class SemiTransactionalHiveMetastore
                     continue;
                 }
                 Path path = declaredIntentionToWrite.getRootPath();
-                recursiveDeleteFilesAndLog(declaredIntentionToWrite.getContext(), path, ImmutableList.of(), true, "staging directory cleanup");
+                recursiveDeleteFilesAndLog(declaredIntentionToWrite.getContext(), path, ImmutableSet.of(), true, "staging directory cleanup");
             }
         }
 
@@ -1467,15 +1471,6 @@ public class SemiTransactionalHiveMetastore
                 throw prestoException;
             }
         }
-
-        private List<String> extractFilePrefixes(List<DeclaredIntentionToWrite> declaredIntentionsToWrite)
-        {
-            Set<String> filePrefixSet = new HashSet<>();
-            for (DeclaredIntentionToWrite declaredIntentionToWrite : declaredIntentionsToWrite) {
-                filePrefixSet.add(declaredIntentionToWrite.getQueryId());
-            }
-            return ImmutableList.copyOf(filePrefixSet);
-        }
     }
 
     @GuardedBy("this")
@@ -1498,13 +1493,12 @@ public class SemiTransactionalHiveMetastore
                     // In the case of DIRECT_TO_TARGET_NEW_DIRECTORY, if the directory is not guaranteed to be unique
                     // for the query, it is possible that another query or compute engine may see the directory, wrote
                     // data to it, and exported it through metastore. Therefore it may be argued that cleanup of staging
-                    // directories must be carried out conservatively. To be safe, we only delete files that start with
-                    // the unique prefix for queries in this transaction.
-
+                    // directories must be carried out conservatively. To be safe, we only delete files that start or
+                    // end with the query IDs in this transaction.
                     recursiveDeleteFilesAndLog(
                             declaredIntentionToWrite.getContext(),
                             rootPath,
-                            ImmutableList.of(declaredIntentionToWrite.getQueryId()),
+                            ImmutableSet.of(declaredIntentionToWrite.getQueryId()),
                             true,
                             format("staging/target_new directory rollback for table %s", declaredIntentionToWrite.getSchemaTableName()));
                     break;
@@ -1544,14 +1538,14 @@ public class SemiTransactionalHiveMetastore
                                 schemaTableName.getTableName());
                     }
 
-                    // delete any file that starts with the unique prefix of this query
+                    // delete any file that starts or ends with the query ID
                     for (Path path : pathsToClean) {
                         // TODO: It is a known deficiency that some empty directory does not get cleaned up in S3.
                         // We can not delete any of the directories here since we do not know who created them.
                         recursiveDeleteFilesAndLog(
                                 declaredIntentionToWrite.getContext(),
                                 path,
-                                ImmutableList.of(declaredIntentionToWrite.getQueryId()),
+                                ImmutableSet.of(declaredIntentionToWrite.getQueryId()),
                                 false,
                                 format("target_existing directory rollback for table %s", schemaTableName));
                     }
@@ -1692,13 +1686,13 @@ public class SemiTransactionalHiveMetastore
         }
     }
 
-    private void recursiveDeleteFilesAndLog(HdfsContext context, Path directory, List<String> filePrefixes, boolean deleteEmptyDirectories, String reason)
+    private void recursiveDeleteFilesAndLog(HdfsContext context, Path directory, Set<String> queryIds, boolean deleteEmptyDirectories, String reason)
     {
         RecursiveDeleteResult recursiveDeleteResult = recursiveDeleteFiles(
                 hdfsEnvironment,
                 context,
                 directory,
-                filePrefixes,
+                queryIds,
                 deleteEmptyDirectories);
         if (!recursiveDeleteResult.getNotDeletedEligibleItems().isEmpty()) {
             logCleanupFailure(
@@ -1718,19 +1712,19 @@ public class SemiTransactionalHiveMetastore
     /**
      * Attempt to recursively remove eligible files and/or directories in {@code directory}.
      * <p>
-     * When {@code filePrefixes} is not present, all files (but not necessarily directories) will be
-     * ineligible. If all files shall be deleted, you can use an empty string as {@code filePrefixes}.
+     * When {@code queryIds} is not present, all files (but not necessarily directories) will be
+     * ineligible. If all files shall be deleted, you can use an empty string as {@code queryIds}.
      * <p>
      * When {@code deleteEmptySubDirectory} is true, any empty directory (including directories that
-     * were originally empty, and directories that become empty after files prefixed with
-     * {@code filePrefixes} are deleted) will be eligible.
+     * were originally empty, and directories that become empty after files prefixed or suffixed with
+     * {@code queryIds} are deleted) will be eligible.
      * <p>
      * This method will not delete anything that's neither a directory nor a file.
      *
-     * @param filePrefixes prefix of files that should be deleted
+     * @param queryIds prefix or suffix of files that should be deleted
      * @param deleteEmptyDirectories whether empty directories should be deleted
      */
-    private static RecursiveDeleteResult recursiveDeleteFiles(HdfsEnvironment hdfsEnvironment, HdfsContext context, Path directory, List<String> filePrefixes, boolean deleteEmptyDirectories)
+    private static RecursiveDeleteResult recursiveDeleteFiles(HdfsEnvironment hdfsEnvironment, HdfsContext context, Path directory, Set<String> queryIds, boolean deleteEmptyDirectories)
     {
         FileSystem fileSystem;
         try {
@@ -1746,10 +1740,10 @@ public class SemiTransactionalHiveMetastore
             return new RecursiveDeleteResult(false, notDeletedItems.build());
         }
 
-        return doRecursiveDeleteFiles(fileSystem, directory, filePrefixes, deleteEmptyDirectories);
+        return doRecursiveDeleteFiles(fileSystem, directory, queryIds, deleteEmptyDirectories);
     }
 
-    private static RecursiveDeleteResult doRecursiveDeleteFiles(FileSystem fileSystem, Path directory, List<String> filePrefixes, boolean deleteEmptyDirectories)
+    private static RecursiveDeleteResult doRecursiveDeleteFiles(FileSystem fileSystem, Path directory, Set<String> queryIds, boolean deleteEmptyDirectories)
     {
         // don't delete hidden presto directories
         if (directory.getName().startsWith(".presto")) {
@@ -1775,7 +1769,7 @@ public class SemiTransactionalHiveMetastore
                 boolean eligible = false;
                 // never delete presto dot files
                 if (!fileName.startsWith(".presto")) {
-                    eligible = filePrefixes.stream().anyMatch(fileName::startsWith);
+                    eligible = queryIds.stream().anyMatch(id -> fileName.startsWith(id) || fileName.endsWith(id));
                 }
                 if (eligible) {
                     if (!deleteIfExists(fileSystem, filePath, false)) {
@@ -1788,7 +1782,7 @@ public class SemiTransactionalHiveMetastore
                 }
             }
             else if (fileStatus.isDirectory()) {
-                RecursiveDeleteResult subResult = doRecursiveDeleteFiles(fileSystem, fileStatus.getPath(), filePrefixes, deleteEmptyDirectories);
+                RecursiveDeleteResult subResult = doRecursiveDeleteFiles(fileSystem, fileStatus.getPath(), queryIds, deleteEmptyDirectories);
                 if (!subResult.isDirectoryNoLongerExists()) {
                     allDescendentsDeleted = false;
                 }
@@ -2131,7 +2125,7 @@ public class SemiTransactionalHiveMetastore
         {
             this.mode = requireNonNull(mode, "mode is null");
             this.context = requireNonNull(context, "context is null");
-            this.queryId = requireNonNull(queryId, "filePrefix is null");
+            this.queryId = requireNonNull(queryId, "queryId is null");
             this.rootPath = requireNonNull(stagingPathRoot, "stagingPathRoot is null");
             this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
         }
