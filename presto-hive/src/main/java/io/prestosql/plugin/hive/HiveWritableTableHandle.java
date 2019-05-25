@@ -30,7 +30,7 @@ public class HiveWritableTableHandle
     private final String tableName;
     private final List<HiveColumnHandle> inputColumns;
     private final String filePrefix;
-    private HivePageSinkMetadata pageSinkMetadata;
+    private final HivePageSinkMetadata pageSinkMetadata;
     private final LocationHandle locationHandle;
     private final Optional<HiveBucketProperty> bucketProperty;
     private final HiveStorageFormat tableStorageFormat;
