@@ -102,7 +102,6 @@ import static io.prestosql.sql.planner.plan.JoinNode.DistributionType.PARTITIONE
 import static io.prestosql.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
 import static io.prestosql.sql.planner.plan.JoinNode.Type.INNER;
 import static io.prestosql.sql.planner.plan.JoinNode.Type.LEFT;
-import static io.prestosql.sql.tree.SortItem.NullOrdering.FIRST;
 import static io.prestosql.sql.tree.SortItem.NullOrdering.LAST;
 import static io.prestosql.sql.tree.SortItem.Ordering.ASCENDING;
 import static io.prestosql.sql.tree.SortItem.Ordering.DESCENDING;
@@ -879,7 +878,7 @@ public class TestLogicalPlanner
                         strictProject(
                                 ImmutableMap.of("name", new ExpressionMatcher("name")),
                                 filter(
-                                        "(row_num > BIGINT '2')",
+                                        "row_num > BIGINT '2'",
                                         rowNumber(
                                                 pattern -> pattern
                                                         .partitionBy(ImmutableList.of()),
@@ -892,43 +891,36 @@ public class TestLogicalPlanner
                 any(
                         strictProject(
                                 ImmutableMap.of("name", new ExpressionMatcher("name")),
-                                any(
-                                        sort(
-                                                ImmutableList.of(sort("row_num", ASCENDING, FIRST)),
-                                                any(
-                                                        filter(
-                                                                "(row_num > BIGINT '2')",
-                                                                rowNumber(
-                                                                        pattern -> pattern
-                                                                                .partitionBy(ImmutableList.of()),
-                                                                        any(
-                                                                                sort(
-                                                                                        ImmutableList.of(sort("regionkey", ASCENDING, LAST)),
-                                                                                        any(
-                                                                                                tableScan("nation", ImmutableMap.of("NAME", "name", "REGIONKEY", "regionkey"))))))
-                                                                        .withAlias("row_num", new RowNumberSymbolMatcher()))))))));
+                                filter(
+                                        "row_num > BIGINT '2'",
+                                        rowNumber(
+                                                pattern -> pattern
+                                                        .partitionBy(ImmutableList.of()),
+                                                anyTree(
+                                                        sort(
+                                                                ImmutableList.of(sort("regionkey", ASCENDING, LAST)),
+                                                                any(
+                                                                        tableScan("nation", ImmutableMap.of("NAME", "name", "REGIONKEY", "regionkey"))))))
+                                                .withAlias("row_num", new RowNumberSymbolMatcher())))));
 
         assertPlan(
                 "SELECT name FROM nation ORDER BY regionkey OFFSET 2 ROWS FETCH NEXT 5 ROWS ONLY",
                 any(
                         strictProject(
                                 ImmutableMap.of("name", new ExpressionMatcher("name")),
-                                any(
-                                        sort(
-                                                ImmutableList.of(sort("row_num", ASCENDING, FIRST)),
+                                filter(
+                                        "row_num > BIGINT '2'",
+                                        rowNumber(
+                                                pattern -> pattern
+                                                        .partitionBy(ImmutableList.of()),
                                                 any(
-                                                        filter(
-                                                                "(row_num > BIGINT '2')",
-                                                                rowNumber(
-                                                                        pattern -> pattern
-                                                                                .partitionBy(ImmutableList.of()),
-                                                                        topN(
-                                                                                7,
-                                                                                ImmutableList.of(sort("regionkey", ASCENDING, LAST)),
-                                                                                TopNNode.Step.FINAL,
-                                                                                anyTree(
-                                                                                        tableScan("nation", ImmutableMap.of("NAME", "name", "REGIONKEY", "regionkey")))))
-                                                                        .withAlias("row_num", new RowNumberSymbolMatcher()))))))));
+                                                        topN(
+                                                                7,
+                                                                ImmutableList.of(sort("regionkey", ASCENDING, LAST)),
+                                                                TopNNode.Step.FINAL,
+                                                                anyTree(
+                                                                        tableScan("nation", ImmutableMap.of("NAME", "name", "REGIONKEY", "regionkey"))))))
+                                                .withAlias("row_num", new RowNumberSymbolMatcher())))));
 
         assertPlan(
                 "SELECT name FROM nation OFFSET 2 ROWS FETCH NEXT 5 ROWS ONLY",
@@ -936,7 +928,7 @@ public class TestLogicalPlanner
                         strictProject(
                                 ImmutableMap.of("name", new ExpressionMatcher("name")),
                                 filter(
-                                        "(row_num > BIGINT '2')",
+                                        "row_num > BIGINT '2'",
                                         rowNumber(
                                                 pattern -> pattern
                                                         .partitionBy(ImmutableList.of()),

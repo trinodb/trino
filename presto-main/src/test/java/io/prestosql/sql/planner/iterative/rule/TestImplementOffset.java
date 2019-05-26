@@ -23,16 +23,19 @@ import org.testng.annotations.Test;
 
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.rowNumber;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.sort;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.strictProject;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.values;
+import static io.prestosql.sql.tree.SortItem.NullOrdering.FIRST;
+import static io.prestosql.sql.tree.SortItem.Ordering.ASCENDING;
 
-public class TestImplementOffsetOverOther
+public class TestImplementOffset
         extends BaseRuleTest
 {
     @Test
-    public void testReplaceOffsetOverOther()
+    public void testReplaceOffsetOverValues()
     {
-        tester().assertThat(new ImplementOffsetOverOther())
+        tester().assertThat(new ImplementOffset())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
@@ -44,11 +47,38 @@ public class TestImplementOffsetOverOther
                         strictProject(
                                 ImmutableMap.of("a", new ExpressionMatcher("a"), "b", new ExpressionMatcher("b")),
                                 filter(
-                                        "(row_num > BIGINT '2')",
+                                        "row_num > BIGINT '2'",
                                         rowNumber(
                                                 pattern -> pattern
                                                         .partitionBy(ImmutableList.of()),
                                                 values("a", "b"))
+                                                .withAlias("row_num", new RowNumberSymbolMatcher()))));
+    }
+
+    @Test
+    public void testReplaceOffsetOverSort()
+    {
+        tester().assertThat(new ImplementOffset())
+                .on(p -> {
+                    Symbol a = p.symbol("a");
+                    Symbol b = p.symbol("b");
+                    return p.offset(
+                            2,
+                            p.sort(
+                                    ImmutableList.of(a),
+                                    p.values(a, b)));
+                })
+                .matches(
+                        strictProject(
+                                ImmutableMap.of("a", new ExpressionMatcher("a"), "b", new ExpressionMatcher("b")),
+                                filter(
+                                        "row_num > BIGINT '2'",
+                                        rowNumber(
+                                                pattern -> pattern
+                                                        .partitionBy(ImmutableList.of()),
+                                                sort(
+                                                        ImmutableList.of(sort("a", ASCENDING, FIRST)),
+                                                        values("a", "b")))
                                                 .withAlias("row_num", new RowNumberSymbolMatcher()))));
     }
 }
