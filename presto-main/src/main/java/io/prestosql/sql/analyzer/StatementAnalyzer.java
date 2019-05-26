@@ -401,7 +401,7 @@ class StatementAnalyzer
                     sqlParser,
                     new AllowAllAccessControl(),
                     session,
-                    WarningCollector.NOOP);
+                    warningCollector);
 
             Scope tableScope = analyzer.analyze(table, scope);
             node.getWhere().ifPresent(where -> analyzeWhere(node, tableScope, where));
@@ -512,7 +512,7 @@ class StatementAnalyzer
             QualifiedObjectName viewName = createQualifiedObjectName(session, node, node.getName());
 
             // analyze the query that creates the view
-            StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, session, WarningCollector.NOOP);
+            StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, session, warningCollector);
 
             Scope queryScope = analyzer.analyze(node.getQuery(), scope);
 
@@ -797,7 +797,7 @@ class StatementAnalyzer
         @Override
         protected Scope visitLateral(Lateral node, Optional<Scope> scope)
         {
-            StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, session, WarningCollector.NOOP);
+            StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, session, warningCollector);
             Scope queryScope = analyzer.analyze(node.getQuery(), scope);
             return createAndAssignScope(node, scope, queryScope.getRelationType());
         }
@@ -1012,7 +1012,7 @@ class StatementAnalyzer
         @Override
         protected Scope visitTableSubquery(TableSubquery node, Optional<Scope> scope)
         {
-            StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, session, WarningCollector.NOOP);
+            StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, session, warningCollector);
             Scope queryScope = analyzer.analyze(node.getQuery(), scope);
             return createAndAssignScope(node, scope, queryScope.getRelationType());
         }
@@ -1950,7 +1950,7 @@ class StatementAnalyzer
                         .setStartTime(session.getStartTime())
                         .build();
 
-                StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, viewAccessControl, viewSession, WarningCollector.NOOP);
+                StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, viewAccessControl, viewSession, warningCollector);
                 Scope queryScope = analyzer.analyze(query, Scope.create());
                 return queryScope.getRelationType().withAlias(name.getObjectName(), null);
             }
