@@ -735,12 +735,12 @@ class StatementAnalyzer
         {
             Scope withScope = analyzeWith(node, scope);
             Scope queryBodyScope = process(node.getQueryBody(), withScope);
+
+            List<Expression> orderByExpressions = emptyList();
             if (node.getOrderBy().isPresent()) {
-                analyzeOrderBy(node, queryBodyScope);
+                orderByExpressions = analyzeOrderBy(node, getSortItemsFromOrderBy(node.getOrderBy()), queryBodyScope);
             }
-            else {
-                analysis.setOrderByExpressions(node, emptyList());
-            }
+            analysis.setOrderByExpressions(node, orderByExpressions);
 
             if (node.getOffset().isPresent()) {
                 analyzeOffset(node.getOffset().get());
@@ -1036,12 +1036,16 @@ class StatementAnalyzer
             List<Expression> orderByExpressions = emptyList();
             Optional<Scope> orderByScope = Optional.empty();
             if (node.getOrderBy().isPresent()) {
-                orderByScope = Optional.of(computeAndAssignOrderByScope(node.getOrderBy().get(), sourceScope, outputScope));
-                orderByExpressions = analyzeOrderBy(node, orderByScope.get(), outputExpressions);
+                if (node.getSelect().isDistinct()) {
+                    verifySelectDistinct(node, outputExpressions);
+                }
+
+                OrderBy orderBy = node.getOrderBy().get();
+                orderByScope = Optional.of(computeAndAssignOrderByScope(orderBy, sourceScope, outputScope));
+
+                orderByExpressions = analyzeOrderBy(node, orderBy.getSortItems(), orderByScope.get());
             }
-            else {
-                analysis.setOrderByExpressions(node, emptyList());
-            }
+            analysis.setOrderByExpressions(node, orderByExpressions);
 
             if (node.getOffset().isPresent()) {
                 analyzeOffset(node.getOffset().get());
@@ -2051,27 +2055,6 @@ class StatementAnalyzer
             return withScope;
         }
 
-        private void analyzeOrderBy(Query node, Scope orderByScope)
-        {
-            checkState(node.getOrderBy().isPresent(), "orderBy is absent");
-
-            List<SortItem> sortItems = getSortItemsFromOrderBy(node.getOrderBy());
-            analyzeOrderBy(node, sortItems, orderByScope);
-        }
-
-        private List<Expression> analyzeOrderBy(QuerySpecification node, Scope orderByScope, List<Expression> outputExpressions)
-        {
-            checkState(node.getOrderBy().isPresent(), "orderBy is absent");
-
-            List<SortItem> sortItems = getSortItemsFromOrderBy(node.getOrderBy());
-
-            if (node.getSelect().isDistinct()) {
-                verifySelectDistinct(node, outputExpressions);
-            }
-
-            return analyzeOrderBy(node, sortItems, orderByScope);
-        }
-
         private void verifySelectDistinct(QuerySpecification node, List<Expression> outputExpressions)
         {
             for (SortItem item : node.getOrderBy().get().getSortItems()) {
@@ -2130,7 +2113,6 @@ class StatementAnalyzer
             }
 
             List<Expression> orderByFields = orderByFieldsBuilder.build();
-            analysis.setOrderByExpressions(node, orderByFields);
             return orderByFields;
         }
 
