@@ -176,7 +176,6 @@ import static io.prestosql.plugin.hive.HiveUtil.decodeViewData;
 import static io.prestosql.plugin.hive.HiveUtil.encodeViewData;
 import static io.prestosql.plugin.hive.HiveUtil.getPartitionKeyColumnHandles;
 import static io.prestosql.plugin.hive.HiveUtil.hiveColumnHandles;
-import static io.prestosql.plugin.hive.HiveUtil.schemaTableName;
 import static io.prestosql.plugin.hive.HiveUtil.toPartitionValues;
 import static io.prestosql.plugin.hive.HiveUtil.verifyPartitionTypeSupported;
 import static io.prestosql.plugin.hive.HiveWriteUtils.checkTableIsWritable;
@@ -419,9 +418,7 @@ public class HiveMetadata
     @Override
     public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        requireNonNull(tableHandle, "tableHandle is null");
-        SchemaTableName tableName = schemaTableName(tableHandle);
-        return getTableMetadata(tableName);
+        return getTableMetadata(((HiveTableHandle) tableHandle).getSchemaTableName());
     }
 
     private ConnectorTableMetadata getTableMetadata(SchemaTableName tableName)
@@ -542,7 +539,7 @@ public class HiveMetadata
     @Override
     public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        SchemaTableName tableName = schemaTableName(tableHandle);
+        SchemaTableName tableName = ((HiveTableHandle) tableHandle).getSchemaTableName();
         Optional<Table> table = metastore.getTable(tableName.getSchemaName(), tableName.getTableName());
         if (!table.isPresent()) {
             throw new TableNotFoundException(tableName);
@@ -952,11 +949,9 @@ public class HiveMetadata
     public void dropTable(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         HiveTableHandle handle = (HiveTableHandle) tableHandle;
-        SchemaTableName tableName = schemaTableName(tableHandle);
-
         Optional<Table> target = metastore.getTable(handle.getSchemaName(), handle.getTableName());
         if (!target.isPresent()) {
-            throw new TableNotFoundException(tableName);
+            throw new TableNotFoundException(handle.getSchemaTableName());
         }
         metastore.dropTable(session, handle.getSchemaName(), handle.getTableName());
     }
@@ -1274,7 +1269,7 @@ public class HiveMetadata
     {
         verifyJvmTimeZone();
 
-        SchemaTableName tableName = schemaTableName(tableHandle);
+        SchemaTableName tableName = ((HiveTableHandle) tableHandle).getSchemaTableName();
         Optional<Table> table = metastore.getTable(tableName.getSchemaName(), tableName.getTableName());
         if (!table.isPresent()) {
             throw new TableNotFoundException(tableName);

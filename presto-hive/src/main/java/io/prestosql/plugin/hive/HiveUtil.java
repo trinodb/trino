@@ -29,9 +29,7 @@ import io.prestosql.plugin.hive.metastore.Table;
 import io.prestosql.plugin.hive.util.FooterAwareRecordReader;
 import io.prestosql.spi.ErrorCodeSupplier;
 import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.RecordCursor;
-import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.predicate.NullableValue;
 import io.prestosql.spi.type.CharType;
 import io.prestosql.spi.type.DecimalType;
@@ -790,11 +788,6 @@ public final class HiveUtil
             throw new PrestoException(HIVE_INVALID_PARTITION_VALUE, format("Invalid partition value '%s' for %s partition key: %s", value, columnType.toString(), name));
         }
         return partitionKey;
-    }
-
-    public static SchemaTableName schemaTableName(ConnectorTableHandle tableHandle)
-    {
-        return ((HiveTableHandle) tableHandle).getSchemaTableName();
     }
 
     public static List<HiveColumnHandle> hiveColumnHandles(Table table)
