@@ -85,6 +85,7 @@ import static io.prestosql.plugin.hive.util.HiveFileIterator.NestedDirectoryPoli
 import static io.prestosql.plugin.hive.util.HiveFileIterator.NestedDirectoryPolicy.IGNORED;
 import static io.prestosql.plugin.hive.util.HiveFileIterator.NestedDirectoryPolicy.RECURSE;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
+import static java.lang.Math.max;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.apache.hadoop.hive.common.FileUtils.HIDDEN_FILES_PATH_FILTER;
@@ -412,10 +413,11 @@ public class BackgroundHiveSplitLoader
     {
         int readBucketCount = bucketSplitInfo.getReadBucketCount();
         int tableBucketCount = bucketSplitInfo.getTableBucketCount();
-        int partitionBucketCount = bucketConversion.isPresent() ? bucketConversion.get().getPartitionBucketCount() : tableBucketCount;
+        int partitionBucketCount = bucketConversion.map(BucketConversion::getPartitionBucketCount).orElse(tableBucketCount);
+        int bucketCount = max(readBucketCount, partitionBucketCount);
 
         // list all files in the partition
-        ArrayList<LocatedFileStatus> files = new ArrayList<>(partitionBucketCount);
+        List<LocatedFileStatus> files = new ArrayList<>(partitionBucketCount);
         try {
             Iterators.addAll(files, new HiveFileIterator(table, path, fileSystem, directoryLister, namenodeStats, FAIL));
         }
@@ -444,7 +446,7 @@ public class BackgroundHiveSplitLoader
 
         // convert files internal splits
         List<InternalHiveSplit> splitList = new ArrayList<>();
-        for (int bucketNumber = 0; bucketNumber < Math.max(readBucketCount, partitionBucketCount); bucketNumber++) {
+        for (int bucketNumber = 0; bucketNumber < bucketCount; bucketNumber++) {
             // Physical bucket #. This determine file name. It also determines the order of splits in the result.
             int partitionBucketNumber = bucketNumber % partitionBucketCount;
             // Logical bucket #. Each logical bucket corresponds to a "bucket" from engine's perspective.
@@ -452,7 +454,7 @@ public class BackgroundHiveSplitLoader
 
             boolean containsEligibleTableBucket = false;
             boolean containsIneligibleTableBucket = false;
-            for (int tableBucketNumber = bucketNumber % tableBucketCount; tableBucketNumber < tableBucketCount; tableBucketNumber += Math.max(readBucketCount, partitionBucketCount)) {
+            for (int tableBucketNumber = bucketNumber % tableBucketCount; tableBucketNumber < tableBucketCount; tableBucketNumber += bucketCount) {
                 // table bucket number: this is used for evaluating "$bucket" filters.
                 if (bucketSplitInfo.isTableBucketEnabled(tableBucketNumber)) {
                     containsEligibleTableBucket = true;
