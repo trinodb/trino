@@ -46,11 +46,7 @@ import io.prestosql.sql.planner.iterative.rule.ExtractSpatialJoins;
 import io.prestosql.sql.planner.iterative.rule.GatherAndMergeWindows;
 import io.prestosql.sql.planner.iterative.rule.ImplementBernoulliSampleAsFilter;
 import io.prestosql.sql.planner.iterative.rule.ImplementFilteredAggregations;
-import io.prestosql.sql.planner.iterative.rule.ImplementOffsetOverOther;
-import io.prestosql.sql.planner.iterative.rule.ImplementOffsetOverProjectSort;
-import io.prestosql.sql.planner.iterative.rule.ImplementOffsetOverProjectTopN;
-import io.prestosql.sql.planner.iterative.rule.ImplementOffsetOverSort;
-import io.prestosql.sql.planner.iterative.rule.ImplementOffsetOverTopN;
+import io.prestosql.sql.planner.iterative.rule.ImplementOffset;
 import io.prestosql.sql.planner.iterative.rule.InlineProjections;
 import io.prestosql.sql.planner.iterative.rule.MergeFilters;
 import io.prestosql.sql.planner.iterative.rule.MergeLimitOverProjectWithSort;
@@ -343,23 +339,9 @@ public class PlanOptimizers
                         estimatedExchangesCostCalculator,
                         // Temporary hack: separate optimizer step to avoid the sample node being replaced by filter before pushing
                         // it to table scan node
-                        ImmutableSet.of(new ImplementBernoulliSampleAsFilter())),
-                new IterativeOptimizer(
-                        ruleStats,
-                        statsCalculator,
-                        estimatedExchangesCostCalculator,
                         ImmutableSet.of(
-                                new ImplementOffsetOverTopN(),
-                                new ImplementOffsetOverProjectTopN(),
-                                new ImplementOffsetOverSort(),
-                                new ImplementOffsetOverProjectSort())),
-                new IterativeOptimizer(
-                        ruleStats,
-                        statsCalculator,
-                        estimatedExchangesCostCalculator,
-                        // Temporary hack: separate optimizer step to avoid a plan that's missing a SortNode over a RowNumber node
-                        // if the rules fires too early
-                        ImmutableSet.of(new ImplementOffsetOverOther())),
+                                new ImplementBernoulliSampleAsFilter(),
+                                new ImplementOffset())),
                 simplifyOptimizer,
                 new UnaliasSymbolReferences(),
                 new IterativeOptimizer(
