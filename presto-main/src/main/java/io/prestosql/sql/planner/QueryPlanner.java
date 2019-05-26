@@ -750,11 +750,11 @@ class QueryPlanner
             }
 
             // Rewrite ORDER BY in terms of pre-projected inputs
-            LinkedHashMap<Symbol, SortOrder> orderings = new LinkedHashMap<>();
+            LinkedHashMap<Symbol, SortOrder> sortOrders = new LinkedHashMap<>();
             for (SortItem item : getSortItemsFromOrderBy(window.getOrderBy())) {
                 Symbol symbol = subPlan.translate(item.getSortKey());
                 // don't override existing keys, i.e. when "ORDER BY a ASC, a DESC" is specified
-                orderings.putIfAbsent(symbol, toSortOrder(item));
+                sortOrders.putIfAbsent(symbol, toSortOrder(item));
             }
 
             // Rewrite frame bounds in terms of pre-projected inputs
@@ -804,10 +804,17 @@ class QueryPlanner
 
             List<Symbol> sourceSymbols = subPlan.getRoot().getOutputSymbols();
             ImmutableList.Builder<Symbol> orderBySymbols = ImmutableList.builder();
-            orderBySymbols.addAll(orderings.keySet());
+            orderBySymbols.addAll(sortOrders.keySet());
             Optional<OrderingScheme> orderingScheme = Optional.empty();
-            if (!orderings.isEmpty()) {
-                orderingScheme = Optional.of(new OrderingScheme(orderBySymbols.build(), orderings));
+            if (!sortOrders.isEmpty()) {
+                OrderingScheme ordering = new OrderingScheme(orderBySymbols.build(), sortOrders);
+
+                if (partitionBySymbols.build().isEmpty()) {
+                    // if ORDER BY but no PARTITION BY, insert global sort step before
+                    subPlan = subPlan.withNewRoot(new SortNode(idAllocator.getNextId(), subPlan.getRoot(), ordering));
+                }
+
+                orderingScheme = Optional.of(ordering);
             }
 
             // create window node

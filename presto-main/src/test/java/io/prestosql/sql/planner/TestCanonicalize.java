@@ -22,6 +22,7 @@ import io.prestosql.sql.planner.assertions.ExpectedValueProvider;
 import io.prestosql.sql.planner.iterative.IterativeOptimizer;
 import io.prestosql.sql.planner.iterative.rule.RemoveRedundantIdentityProjections;
 import io.prestosql.sql.planner.optimizations.UnaliasSymbolReferences;
+import io.prestosql.sql.planner.plan.SortNode;
 import io.prestosql.sql.planner.plan.WindowNode;
 import org.testng.annotations.Test;
 
@@ -31,6 +32,7 @@ import static io.prestosql.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.functionCall;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.join;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.node;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.project;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.specification;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.values;
@@ -73,7 +75,8 @@ public class TestCanonicalize
                         window(windowMatcherBuilder -> windowMatcherBuilder
                                         .specification(specification)
                                         .addFunction(functionCall("row_number", Optional.empty(), ImmutableList.of())),
-                                values("A"))),
+                                node(SortNode.class,
+                                    values("A")))),
                 ImmutableList.of(
                         new UnaliasSymbolReferences(),
                         new IterativeOptimizer(
