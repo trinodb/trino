@@ -13,8 +13,11 @@
  */
 package io.prestosql.plugin.hive;
 
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterators;
+import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Streams;
 import com.google.common.io.CharStreams;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -57,11 +60,14 @@ import java.util.Deque;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Properties;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.Executor;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.IntPredicate;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -85,6 +91,7 @@ import static io.prestosql.plugin.hive.util.HiveFileIterator.NestedDirectoryPoli
 import static io.prestosql.plugin.hive.util.HiveFileIterator.NestedDirectoryPolicy.IGNORED;
 import static io.prestosql.plugin.hive.util.HiveFileIterator.NestedDirectoryPolicy.RECURSE;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
+import static java.lang.Integer.parseInt;
 import static java.lang.Math.max;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -93,6 +100,12 @@ import static org.apache.hadoop.hive.common.FileUtils.HIDDEN_FILES_PATH_FILTER;
 public class BackgroundHiveSplitLoader
         implements HiveSplitLoader
 {
+    private static final Iterable<Pattern> BUCKET_PATTERNS = ImmutableList.of(
+            // Hive naming pattern per `org.apache.hadoop.hive.ql.exec.Utilities#getBucketIdFromFile()`
+            Pattern.compile("(0\\d+)_\\d+.*"),
+            // legacy Presto naming pattern (current version matches Hive)
+            Pattern.compile("\\d{8}_\\d{6}_\\d{5}_[a-z0-9]{5}_bucket-(\\d+)(?:[-_.].*)?"));
+
     private static final ListenableFuture<?> COMPLETED_FUTURE = immediateFuture(null);
 
     private final Table table;
@@ -430,19 +443,38 @@ public class BackgroundHiveSplitLoader
                             splitFactory.getPartitionName()));
         }
 
-        // verify we found one file per bucket
-        if (files.size() != partitionBucketCount) {
-            throw new PrestoException(
-                    HIVE_INVALID_BUCKET_FILES,
-                    format("Hive table '%s' is corrupt. The number of files in the directory (%s) does not match the declared bucket count (%s) for partition: %s",
-                            table.getSchemaTableName(),
-                            files.size(),
-                            partitionBucketCount,
-                            splitFactory.getPartitionName()));
-        }
+        // build mapping of file name to bucket
+        ListMultimap<Integer, LocatedFileStatus> bucketFiles = ArrayListMultimap.create();
+        for (LocatedFileStatus file : files) {
+            String fileName = file.getPath().getName();
+            OptionalInt bucket = getBucketNumber(fileName);
+            if (bucket.isPresent()) {
+                bucketFiles.put(bucket.getAsInt(), file);
+                continue;
+            }
 
-        // Sort FileStatus objects (instead of, e.g., fileStatus.getPath().toString). This matches org.apache.hadoop.hive.ql.metadata.Table.getSortedPaths
-        files.sort(null);
+            // legacy mode requires exactly one file per bucket
+            if (files.size() != partitionBucketCount) {
+                throw new PrestoException(HIVE_INVALID_BUCKET_FILES, format(
+                        "Hive table '%s' is corrupt. File '%s' does not match the standard naming pattern, and the number " +
+                                "of files in the directory (%s) does not match the declared bucket count (%s) for partition: %s",
+                        table.getSchemaTableName(),
+                        fileName,
+                        files.size(),
+                        partitionBucketCount,
+                        splitFactory.getPartitionName()));
+            }
+
+            // sort FileStatus objects per `org.apache.hadoop.hive.ql.metadata.Table#getSortedPaths()`
+            files.sort(null);
+
+            // use position in sorted list as the bucket number
+            bucketFiles.clear();
+            for (int i = 0; i < files.size(); i++) {
+                bucketFiles.put(i, files.get(i));
+            }
+            break;
+        }
 
         // convert files internal splits
         List<InternalHiveSplit> splitList = new ArrayList<>();
@@ -475,12 +507,25 @@ public class BackgroundHiveSplitLoader
                                 "partition bucket count: " + partitionBucketCount + ", effective reading bucket count: " + readBucketCount + ")");
             }
             if (containsEligibleTableBucket) {
-                LocatedFileStatus file = files.get(partitionBucketNumber);
-                splitFactory.createInternalHiveSplit(file, readBucketNumber)
-                        .ifPresent(splitList::add);
+                for (LocatedFileStatus file : bucketFiles.get(partitionBucketNumber)) {
+                    splitFactory.createInternalHiveSplit(file, readBucketNumber)
+                            .ifPresent(splitList::add);
+                }
             }
         }
         return splitList;
+    }
+
+    @VisibleForTesting
+    static OptionalInt getBucketNumber(String name)
+    {
+        for (Pattern pattern : BUCKET_PATTERNS) {
+            Matcher matcher = pattern.matcher(name);
+            if (matcher.matches()) {
+                return OptionalInt.of(parseInt(matcher.group(1)));
+            }
+        }
+        return OptionalInt.empty();
     }
 
     private static List<Path> getTargetPathsFromSymlink(FileSystem fileSystem, Path symlinkDir)

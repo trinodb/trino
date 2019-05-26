@@ -51,6 +51,7 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
@@ -63,6 +64,7 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.prestosql.plugin.hive.BackgroundHiveSplitLoader.BucketSplitInfo.createBucketSplitInfo;
+import static io.prestosql.plugin.hive.BackgroundHiveSplitLoader.getBucketNumber;
 import static io.prestosql.plugin.hive.HiveColumnHandle.pathColumnHandle;
 import static io.prestosql.plugin.hive.HiveTestUtils.SESSION;
 import static io.prestosql.plugin.hive.HiveType.HIVE_INT;
@@ -245,6 +247,23 @@ public class TestBackgroundHiveSplitLoader
         assertEquals(cachingDirectoryLister.getRequestCount(), totalCount);
         assertEquals(cachingDirectoryLister.getHitCount(), totalCount - 1);
         assertEquals(cachingDirectoryLister.getMissCount(), 1);
+    }
+
+    @Test
+    public void testGetBucketNumber()
+    {
+        assertEquals(getBucketNumber("0234_0"), OptionalInt.of(234));
+        assertEquals(getBucketNumber("000234_0"), OptionalInt.of(234));
+        assertEquals(getBucketNumber("0234_99"), OptionalInt.of(234));
+        assertEquals(getBucketNumber("0234_0.txt"), OptionalInt.of(234));
+        assertEquals(getBucketNumber("0234_0_copy_1"), OptionalInt.of(234));
+        assertEquals(getBucketNumber("20190526_072952_00009_fn7s5_bucket-00234"), OptionalInt.of(234));
+        assertEquals(getBucketNumber("20190526_072952_00009_fn7s5_bucket-00234.txt"), OptionalInt.of(234));
+        assertEquals(getBucketNumber("20190526_235847_87654_fn7s5_bucket-56789"), OptionalInt.of(56789));
+
+        assertEquals(getBucketNumber("234_99"), OptionalInt.empty());
+        assertEquals(getBucketNumber("0234.txt"), OptionalInt.empty());
+        assertEquals(getBucketNumber("0234.txt"), OptionalInt.empty());
     }
 
     private static List<String> drain(HiveSplitSource source)
