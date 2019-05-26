@@ -2160,6 +2160,10 @@ class StatementAnalyzer
 
         private void analyzeLimit(FetchFirst node)
         {
+            if (node.isWithTies()) {
+                throw new SemanticException(NOT_SUPPORTED, node, "FETCH FIRST clause WITH TIES is not supported");
+            }
+
             if (!node.getRowCount().isPresent()) {
                 analysis.setLimit(node, 1);
             }
