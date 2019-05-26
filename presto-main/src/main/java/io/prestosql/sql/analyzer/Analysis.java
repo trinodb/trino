@@ -96,6 +96,7 @@ public class Analysis
     private final Map<NodeRef<Node>, Expression> where = new LinkedHashMap<>();
     private final Map<NodeRef<QuerySpecification>, Expression> having = new LinkedHashMap<>();
     private final Map<NodeRef<Node>, List<Expression>> orderByExpressions = new LinkedHashMap<>();
+    private final Set<NodeRef<OrderBy>> redundantOrderBy = new HashSet<>();
     private final Map<NodeRef<Node>, List<Expression>> outputExpressions = new LinkedHashMap<>();
     private final Map<NodeRef<QuerySpecification>, List<FunctionCall>> windowFunctions = new LinkedHashMap<>();
     private final Map<NodeRef<OrderBy>, List<FunctionCall>> orderByWindowFunctions = new LinkedHashMap<>();
@@ -692,6 +693,16 @@ public class Analysis
     public Map<AccessControlInfo, Map<QualifiedObjectName, Set<String>>> getTableColumnReferences()
     {
         return tableColumnReferences;
+    }
+
+    public void markRedundantOrderBy(OrderBy orderBy)
+    {
+        redundantOrderBy.add(NodeRef.of(orderBy));
+    }
+
+    public boolean isOrderByRedundant(OrderBy orderBy)
+    {
+        return redundantOrderBy.contains(NodeRef.of(orderBy));
     }
 
     @Immutable

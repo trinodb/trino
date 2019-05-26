@@ -121,6 +121,7 @@ public class FeaturesConfig
     private boolean preferPartialAggregation = true;
     private boolean optimizeTopNRowNumber = true;
     private boolean workProcessorPipelines;
+    private boolean skipRedundantSort = true;
 
     private Duration iterativeOptimizerTimeout = new Duration(3, MINUTES); // by default let optimizer wait a long time in case it retrieves some data from ConnectorMetadata
 
@@ -890,6 +891,18 @@ public class FeaturesConfig
     public FeaturesConfig setWorkProcessorPipelines(boolean workProcessorPipelines)
     {
         this.workProcessorPipelines = workProcessorPipelines;
+        return this;
+    }
+
+    public boolean isSkipRedundantSort()
+    {
+        return skipRedundantSort;
+    }
+
+    @Config("optimizer.skip-redundant-sort")
+    public FeaturesConfig setSkipRedundantSort(boolean value)
+    {
+        this.skipRedundantSort = value;
         return this;
     }
 }

@@ -35,6 +35,7 @@ import io.prestosql.security.AccessControl;
 import io.prestosql.security.AllowAllAccessControl;
 import io.prestosql.security.ViewAccessControl;
 import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.PrestoWarning;
 import io.prestosql.spi.connector.CatalogSchemaName;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
@@ -161,6 +162,7 @@ import static io.prestosql.metadata.FunctionKind.WINDOW;
 import static io.prestosql.metadata.MetadataUtil.createQualifiedObjectName;
 import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.prestosql.spi.StandardErrorCode.NOT_FOUND;
+import static io.prestosql.spi.connector.StandardWarningCode.REDUNDANT_ORDER_BY;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
@@ -739,6 +741,12 @@ class StatementAnalyzer
             List<Expression> orderByExpressions = emptyList();
             if (node.getOrderBy().isPresent()) {
                 orderByExpressions = analyzeOrderBy(node, getSortItemsFromOrderBy(node.getOrderBy()), queryBodyScope);
+
+                if (queryBodyScope.getOuterQueryParent().isPresent() && !node.getLimit().isPresent() && !node.getOffset().isPresent()) {
+                    // not the root scope and ORDER BY is ineffective
+                    analysis.markRedundantOrderBy(node.getOrderBy().get());
+                    warningCollector.add(new PrestoWarning(REDUNDANT_ORDER_BY, "ORDER BY in subquery may have no effect"));
+                }
             }
             analysis.setOrderByExpressions(node, orderByExpressions);
 
@@ -1044,6 +1052,12 @@ class StatementAnalyzer
                 orderByScope = Optional.of(computeAndAssignOrderByScope(orderBy, sourceScope, outputScope));
 
                 orderByExpressions = analyzeOrderBy(node, orderBy.getSortItems(), orderByScope.get());
+
+                if (sourceScope.getOuterQueryParent().isPresent() && !node.getLimit().isPresent() && !node.getOffset().isPresent()) {
+                    // not the root scope and ORDER BY is ineffective
+                    analysis.markRedundantOrderBy(orderBy);
+                    warningCollector.add(new PrestoWarning(REDUNDANT_ORDER_BY, "ORDER BY in subquery may have no effect"));
+                }
             }
             analysis.setOrderByExpressions(node, orderByExpressions);
 
