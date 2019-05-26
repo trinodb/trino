@@ -377,7 +377,7 @@ public final class HiveWriteUtils
         }
 
         checkWritable(
-                new SchemaTableName(table.getDatabaseName(), table.getTableName()),
+                table.getSchemaTableName(),
                 Optional.empty(),
                 getProtectMode(table),
                 table.getParameters(),
@@ -387,7 +387,7 @@ public final class HiveWriteUtils
     public static void checkPartitionIsWritable(String partitionName, Partition partition)
     {
         checkWritable(
-                new SchemaTableName(partition.getDatabaseName(), partition.getTableName()),
+                partition.getSchemaTableName(),
                 Optional.of(partitionName),
                 getProtectMode(partition),
                 partition.getParameters(),

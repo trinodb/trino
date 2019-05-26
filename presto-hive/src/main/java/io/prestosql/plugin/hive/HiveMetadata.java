@@ -926,7 +926,7 @@ public class HiveMetadata
         Optional<Table> table = metastore.getTable(schemaName, tableName);
 
         if (!table.isPresent()) {
-            throw new TableNotFoundException(new SchemaTableName(schemaName, tableName));
+            throw new TableNotFoundException(handle.getSchemaTableName());
         }
 
         if (table.get().getParameters().get(AVRO_SCHEMA_URL_KEY) != null) {
@@ -1327,7 +1327,7 @@ public class HiveMetadata
 
         Optional<Table> table = metastore.getTable(handle.getSchemaName(), handle.getTableName());
         if (!table.isPresent()) {
-            throw new TableNotFoundException(new SchemaTableName(handle.getSchemaName(), handle.getTableName()));
+            throw new TableNotFoundException(handle.getSchemaTableName());
         }
         if (!table.get().getStorage().getStorageFormat().getInputFormat().equals(tableStorageFormat.getInputFormat()) && isRespectTableFormat(session)) {
             throw new PrestoException(HIVE_CONCURRENT_MODIFICATION_DETECTED, "Table format changed during insert");

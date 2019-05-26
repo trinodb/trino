@@ -194,7 +194,7 @@ public class SemiTransactionalHiveMetastore
             return ImmutableMap.of();
         }
         TableSource tableSource = getTableSource(databaseName, tableName);
-        Map<List<String>, Action<PartitionAndMore>> partitionActionsOfTable = partitionActions.computeIfAbsent(new SchemaTableName(databaseName, tableName), k -> new HashMap<>());
+        Map<List<String>, Action<PartitionAndMore>> partitionActionsOfTable = partitionActions.computeIfAbsent(table.get().getSchemaTableName(), k -> new HashMap<>());
         ImmutableSet.Builder<String> partitionNamesToQuery = ImmutableSet.builder();
         ImmutableMap.Builder<String, PartitionStatistics> resultBuilder = ImmutableMap.builder();
         for (String partitionName : partitionNames) {
@@ -356,12 +356,11 @@ public class SemiTransactionalHiveMetastore
         setShared();
         // When creating a table, it should never have partition actions. This is just a sanity check.
         checkNoPartitionAction(table.getDatabaseName(), table.getTableName());
-        SchemaTableName schemaTableName = new SchemaTableName(table.getDatabaseName(), table.getTableName());
-        Action<TableAndMore> oldTableAction = tableActions.get(schemaTableName);
+        Action<TableAndMore> oldTableAction = tableActions.get(table.getSchemaTableName());
         TableAndMore tableAndMore = new TableAndMore(table, Optional.of(principalPrivileges), currentPath, Optional.empty(), ignoreExisting, statistics, statistics);
         if (oldTableAction == null) {
             HdfsContext context = new HdfsContext(session, table.getDatabaseName(), table.getTableName());
-            tableActions.put(schemaTableName, new Action<>(ActionType.ADD, tableAndMore, context));
+            tableActions.put(table.getSchemaTableName(), new Action<>(ActionType.ADD, tableAndMore, context));
             return;
         }
         switch (oldTableAction.getType()) {
@@ -370,7 +369,7 @@ public class SemiTransactionalHiveMetastore
             case ADD:
             case ALTER:
             case INSERT_EXISTING:
-                throw new TableAlreadyExistsException(schemaTableName);
+                throw new TableAlreadyExistsException(table.getSchemaTableName());
             default:
                 throw new IllegalStateException("Unknown action type");
         }
@@ -547,7 +546,7 @@ public class SemiTransactionalHiveMetastore
             default:
                 throw new UnsupportedOperationException("Unknown table source");
         }
-        Map<List<String>, Action<PartitionAndMore>> partitionActionsOfTable = partitionActions.computeIfAbsent(new SchemaTableName(databaseName, tableName), k -> new HashMap<>());
+        Map<List<String>, Action<PartitionAndMore>> partitionActionsOfTable = partitionActions.computeIfAbsent(table.get().getSchemaTableName(), k -> new HashMap<>());
         ImmutableList.Builder<String> resultBuilder = ImmutableList.builder();
         // alter/remove newly-altered/dropped partitions from the results from underlying metastore
         for (String partitionName : partitionNames) {
@@ -1122,7 +1121,7 @@ public class SemiTransactionalHiveMetastore
             addTableOperations.add(new CreateTableOperation(table, tableAndMore.getPrincipalPrivileges(), tableAndMore.isIgnoreExisting()));
             if (!isPrestoView(table)) {
                 updateStatisticsOperations.add(new UpdateStatisticsOperation(
-                        new SchemaTableName(table.getDatabaseName(), table.getTableName()),
+                        table.getSchemaTableName(),
                         Optional.empty(),
                         tableAndMore.getStatisticsUpdate(),
                         false));
@@ -1141,7 +1140,7 @@ public class SemiTransactionalHiveMetastore
                 asyncRename(hdfsEnvironment, renameExecutor, fileRenameCancelled, fileRenameFutures, context, currentPath, targetPath, tableAndMore.getFileNames().get());
             }
             updateStatisticsOperations.add(new UpdateStatisticsOperation(
-                    new SchemaTableName(table.getDatabaseName(), table.getTableName()),
+                    table.getSchemaTableName(),
                     Optional.empty(),
                     tableAndMore.getStatisticsUpdate(),
                     true));
@@ -1248,9 +1247,8 @@ public class SemiTransactionalHiveMetastore
             Path currentPath = partitionAndMore.getCurrentLocation();
             Path targetPath = new Path(targetLocation);
 
-            SchemaTableName schemaTableName = new SchemaTableName(partition.getDatabaseName(), partition.getTableName());
             PartitionAdder partitionAdder = partitionAdders.computeIfAbsent(
-                    schemaTableName,
+                    partition.getSchemaTableName(),
                     ignored -> new PartitionAdder(partition.getDatabaseName(), partition.getTableName(), delegate, PARTITION_COMMIT_BATCH_SIZE));
 
             if (pathExists(context, hdfsEnvironment, currentPath)) {
@@ -1283,7 +1281,7 @@ public class SemiTransactionalHiveMetastore
                 asyncRename(hdfsEnvironment, renameExecutor, fileRenameCancelled, fileRenameFutures, context, currentPath, targetPath, partitionAndMore.getFileNames());
             }
             updateStatisticsOperations.add(new UpdateStatisticsOperation(
-                    new SchemaTableName(partition.getDatabaseName(), partition.getTableName()),
+                    partition.getSchemaTableName(),
                     Optional.of(getPartitionName(partition.getDatabaseName(), partition.getTableName(), partition.getValues())),
                     partitionAndMore.getStatisticsUpdate(),
                     true));
