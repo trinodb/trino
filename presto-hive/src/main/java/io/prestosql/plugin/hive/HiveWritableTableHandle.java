@@ -13,9 +13,11 @@
  */
 package io.prestosql.plugin.hive;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.plugin.hive.metastore.HivePageSinkMetadata;
+import io.prestosql.spi.connector.SchemaTableName;
 
 import java.util.List;
 import java.util.Optional;
@@ -66,6 +68,12 @@ public class HiveWritableTableHandle
     public String getTableName()
     {
         return tableName;
+    }
+
+    @JsonIgnore
+    public SchemaTableName getSchemaTableName()
+    {
+        return new SchemaTableName(schemaName, tableName);
     }
 
     @JsonProperty

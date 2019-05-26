@@ -32,7 +32,6 @@ import io.prestosql.plugin.hive.util.ResumableTasks;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.predicate.TupleDomain;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileStatus;
@@ -425,7 +424,7 @@ public class BackgroundHiveSplitLoader
             throw new PrestoException(
                     HIVE_INVALID_BUCKET_FILES,
                     format("Hive table '%s' is corrupt. Found sub-directory in bucket directory for partition: %s",
-                            new SchemaTableName(table.getDatabaseName(), table.getTableName()),
+                            table.getSchemaTableName(),
                             splitFactory.getPartitionName()));
         }
 
@@ -434,7 +433,7 @@ public class BackgroundHiveSplitLoader
             throw new PrestoException(
                     HIVE_INVALID_BUCKET_FILES,
                     format("Hive table '%s' is corrupt. The number of files in the directory (%s) does not match the declared bucket count (%s) for partition: %s",
-                            new SchemaTableName(table.getDatabaseName(), table.getTableName()),
+                            table.getSchemaTableName(),
                             files.size(),
                             partitionBucketCount,
                             splitFactory.getPartitionName()));
