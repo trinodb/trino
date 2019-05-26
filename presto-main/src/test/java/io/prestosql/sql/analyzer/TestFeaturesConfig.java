@@ -105,7 +105,8 @@ public class TestFeaturesConfig
                 .setMultimapAggGroupImplementation(MultimapAggGroupImplementation.NEW)
                 .setDistributedSortEnabled(true)
                 .setMaxGroupingSets(2048)
-                .setWorkProcessorPipelines(false));
+                .setWorkProcessorPipelines(false)
+                .setSkipRedundantSort(true));
     }
 
     @Test
@@ -171,6 +172,7 @@ public class TestFeaturesConfig
                 .put("distributed-sort", "false")
                 .put("analyzer.max-grouping-sets", "2047")
                 .put("experimental.work-processor-pipelines", "true")
+                .put("optimizer.skip-redundant-sort", "false")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -232,7 +234,8 @@ public class TestFeaturesConfig
                 .setDistributedSortEnabled(false)
                 .setMaxGroupingSets(2047)
                 .setDefaultFilterFactorEnabled(true)
-                .setWorkProcessorPipelines(true);
+                .setWorkProcessorPipelines(true)
+                .setSkipRedundantSort(false);
         assertFullMapping(properties, expected);
     }
 

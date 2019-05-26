@@ -115,6 +115,7 @@ public final class SystemSessionProperties
     public static final String MAX_DRIVERS_PER_TASK = "max_drivers_per_task";
     public static final String DEFAULT_FILTER_FACTOR_ENABLED = "default_filter_factor_enabled";
     public static final String UNWRAP_CASTS = "unwrap_casts";
+    public static final String SKIP_REDUNDANT_SORT = "remove_redundant_sort";
     public static final String WORK_PROCESSOR_PIPELINES = "work_processor_pipelines";
 
     private final List<PropertyMetadata<?>> sessionProperties;
@@ -492,6 +493,11 @@ public final class SystemSessionProperties
                         UNWRAP_CASTS,
                         "Enable optimization to unwrap CAST expression",
                         featuresConfig.isUnwrapCasts(),
+                        false),
+                booleanProperty(
+                        SKIP_REDUNDANT_SORT,
+                        "Skip redundant sort operations",
+                        featuresConfig.isSkipRedundantSort(),
                         false),
                 booleanProperty(
                         WORK_PROCESSOR_PIPELINES,
@@ -878,6 +884,11 @@ public final class SystemSessionProperties
     public static boolean isUnwrapCasts(Session session)
     {
         return session.getSystemProperty(UNWRAP_CASTS, Boolean.class);
+    }
+
+    public static boolean isSkipRedundantSort(Session session)
+    {
+        return session.getSystemProperty(SKIP_REDUNDANT_SORT, Boolean.class);
     }
 
     public static boolean isWorkProcessorPipelines(Session session)

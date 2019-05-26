@@ -20,6 +20,8 @@ public enum StandardWarningCode
         implements WarningCodeSupplier
 {
     TOO_MANY_STAGES(0x0000_0001),
+    REDUNDANT_ORDER_BY(0x0000_0002),
+
     /**/;
     private final WarningCode warningCode;
 
