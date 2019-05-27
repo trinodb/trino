@@ -97,6 +97,7 @@ public class HiveConfig
     private HiveCompressionCodec hiveCompressionCodec = HiveCompressionCodec.GZIP;
     private boolean respectTableFormat = true;
     private boolean immutablePartitions;
+    private boolean createEmptyBucketFiles = true;
     private int maxPartitionsPerWriter = 100;
     private int maxOpenSortFiles = 50;
     private int writeValidationThreads = 16;
@@ -606,6 +607,19 @@ public class HiveConfig
     public HiveConfig setImmutablePartitions(boolean immutablePartitions)
     {
         this.immutablePartitions = immutablePartitions;
+        return this;
+    }
+
+    public boolean isCreateEmptyBucketFiles()
+    {
+        return createEmptyBucketFiles;
+    }
+
+    @Config("hive.create-empty-bucket-files")
+    @ConfigDescription("Create empty files for buckets that have no data")
+    public HiveConfig setCreateEmptyBucketFiles(boolean createEmptyBucketFiles)
+    {
+        this.createEmptyBucketFiles = createEmptyBucketFiles;
         return this;
     }
 

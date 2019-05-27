@@ -146,6 +146,7 @@ import static io.prestosql.plugin.hive.HivePartitionManager.extractPartitionValu
 import static io.prestosql.plugin.hive.HiveSessionProperties.getHiveStorageFormat;
 import static io.prestosql.plugin.hive.HiveSessionProperties.isBucketExecutionEnabled;
 import static io.prestosql.plugin.hive.HiveSessionProperties.isCollectColumnStatisticsOnWrite;
+import static io.prestosql.plugin.hive.HiveSessionProperties.isCreateEmptyBucketFiles;
 import static io.prestosql.plugin.hive.HiveSessionProperties.isOptimizedMismatchedBucketCount;
 import static io.prestosql.plugin.hive.HiveSessionProperties.isRespectTableFormat;
 import static io.prestosql.plugin.hive.HiveSessionProperties.isSortedWritingEnabled;
@@ -1093,7 +1094,7 @@ public class HiveMetadata
 
         partitionUpdates = PartitionUpdate.mergePartitionUpdates(partitionUpdates);
 
-        if (handle.getBucketProperty().isPresent()) {
+        if (handle.getBucketProperty().isPresent() && isCreateEmptyBucketFiles(session)) {
             List<PartitionUpdate> partitionUpdatesForMissingBuckets = computePartitionUpdatesForMissingBuckets(session, handle, table, partitionUpdates);
             // replace partitionUpdates before creating the empty files so that those files will be cleaned up if we end up rollback
             partitionUpdates = PartitionUpdate.mergePartitionUpdates(concat(partitionUpdates, partitionUpdatesForMissingBuckets));
@@ -1299,7 +1300,7 @@ public class HiveMetadata
             throw new PrestoException(HIVE_CONCURRENT_MODIFICATION_DETECTED, "Table format changed during insert");
         }
 
-        if (handle.getBucketProperty().isPresent()) {
+        if (handle.getBucketProperty().isPresent() && isCreateEmptyBucketFiles(session)) {
             List<PartitionUpdate> partitionUpdatesForMissingBuckets = computePartitionUpdatesForMissingBuckets(session, handle, table, partitionUpdates);
             // replace partitionUpdates before creating the empty files so that those files will be cleaned up if we end up rollback
             partitionUpdates = PartitionUpdate.mergePartitionUpdates(concat(partitionUpdates, partitionUpdatesForMissingBuckets));
