@@ -18,7 +18,6 @@ import io.prestosql.plugin.accumulo.model.AccumuloColumnConstraint;
 import io.prestosql.plugin.accumulo.model.AccumuloColumnHandle;
 import io.prestosql.plugin.accumulo.model.AccumuloSplit;
 import io.prestosql.plugin.accumulo.model.AccumuloTableHandle;
-import io.prestosql.plugin.accumulo.model.AccumuloTableLayoutHandle;
 import io.prestosql.plugin.accumulo.model.TabletSplitMetadata;
 import io.prestosql.plugin.accumulo.model.WrappedRange;
 import io.prestosql.spi.connector.ColumnHandle;
@@ -26,7 +25,7 @@ import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorSplit;
 import io.prestosql.spi.connector.ConnectorSplitManager;
 import io.prestosql.spi.connector.ConnectorSplitSource;
-import io.prestosql.spi.connector.ConnectorTableLayoutHandle;
+import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 import io.prestosql.spi.connector.FixedSplitSource;
 import io.prestosql.spi.predicate.Domain;
@@ -53,30 +52,28 @@ public class AccumuloSplitManager
     }
 
     @Override
-    public ConnectorSplitSource getSplits(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorTableLayoutHandle layout, SplitSchedulingStrategy splitSchedulingStrategy)
+    public ConnectorSplitSource getSplits(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorTableHandle tableHandle, SplitSchedulingStrategy splitSchedulingStrategy)
     {
-        AccumuloTableLayoutHandle layoutHandle = (AccumuloTableLayoutHandle) layout;
-        AccumuloTableHandle tableHandle = layoutHandle.getTable();
+        AccumuloTableHandle handle = (AccumuloTableHandle) tableHandle;
 
-        String schemaName = tableHandle.getSchema();
-        String tableName = tableHandle.getTable();
-        String rowIdName = tableHandle.getRowId();
+        String schemaName = handle.getSchema();
+        String tableName = handle.getTable();
+        String rowIdName = handle.getRowId();
 
         // Get non-row ID column constraints
-        List<AccumuloColumnConstraint> constraints = getColumnConstraints(rowIdName, layoutHandle.getConstraint());
+        List<AccumuloColumnConstraint> constraints = getColumnConstraints(rowIdName, handle.getConstraint());
 
         // Get the row domain column range
-        Optional<Domain> rDom = getRangeDomain(rowIdName, layoutHandle.getConstraint());
+        Optional<Domain> rDom = getRangeDomain(rowIdName, handle.getConstraint());
 
         // Call out to our client to retrieve all tablet split metadata using the row ID domain and the secondary index
-        List<TabletSplitMetadata> tabletSplits = client.getTabletSplits(session, schemaName, tableName, rDom, constraints, tableHandle.getSerializerInstance());
+        List<TabletSplitMetadata> tabletSplits = client.getTabletSplits(session, schemaName, tableName, rDom, constraints, handle.getSerializerInstance());
 
         // Pack the tablet split metadata into a connector split
         ImmutableList.Builder<ConnectorSplit> cSplits = ImmutableList.builder();
         for (TabletSplitMetadata splitMetadata : tabletSplits) {
             AccumuloSplit split = new AccumuloSplit(
                     splitMetadata.getRanges().stream().map(WrappedRange::new).collect(Collectors.toList()),
-                    constraints,
                     splitMetadata.getHostPort());
             cSplits.add(split);
         }
