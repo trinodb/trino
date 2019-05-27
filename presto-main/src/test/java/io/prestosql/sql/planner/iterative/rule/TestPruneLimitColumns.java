@@ -13,6 +13,7 @@
  */
 package io.prestosql.sql.planner.iterative.rule;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.iterative.rule.test.BaseRuleTest;
@@ -54,6 +55,20 @@ public class TestPruneLimitColumns
     {
         tester().assertThat(new PruneLimitColumns())
                 .on(p -> buildProjectedLimit(p, alwaysTrue()))
+                .doesNotFire();
+    }
+
+    @Test
+    public void doNotPruneLimitWithTies()
+    {
+        tester().assertThat(new PruneLimitColumns())
+                .on(p -> {
+                    Symbol a = p.symbol("a");
+                    Symbol b = p.symbol("b");
+                    return p.project(
+                            Assignments.identity(ImmutableList.of(b)),
+                            p.limit(1, ImmutableList.of(a), p.values(a, b)));
+                })
                 .doesNotFire();
     }
 

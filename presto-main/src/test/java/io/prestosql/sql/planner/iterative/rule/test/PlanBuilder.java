@@ -219,7 +219,24 @@ public class PlanBuilder
 
     public LimitNode limit(long limit, PlanNode source)
     {
-        return new LimitNode(idAllocator.getNextId(), source, limit, false);
+        return limit(limit, ImmutableList.of(), source);
+    }
+
+    public LimitNode limit(long limit, List<Symbol> tiesResolvers, PlanNode source)
+    {
+        Optional<OrderingScheme> tiesResolvingScheme = Optional.empty();
+        if (!tiesResolvers.isEmpty()) {
+            tiesResolvingScheme = Optional.of(
+                    new OrderingScheme(
+                            tiesResolvers,
+                            Maps.toMap(tiesResolvers, Functions.constant(SortOrder.ASC_NULLS_FIRST))));
+        }
+        return new LimitNode(
+                idAllocator.getNextId(),
+                source,
+                limit,
+                tiesResolvingScheme,
+                false);
     }
 
     public TopNNode topN(long count, List<Symbol> orderBy, PlanNode source)

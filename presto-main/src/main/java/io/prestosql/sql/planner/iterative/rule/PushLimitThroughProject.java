@@ -13,12 +13,17 @@
  */
 package io.prestosql.sql.planner.iterative.rule;
 
+import com.google.common.collect.ImmutableList;
 import io.prestosql.matching.Capture;
 import io.prestosql.matching.Captures;
 import io.prestosql.matching.Pattern;
+import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.iterative.Rule;
+import io.prestosql.sql.planner.optimizations.SymbolMapper;
 import io.prestosql.sql.planner.plan.LimitNode;
 import io.prestosql.sql.planner.plan.ProjectNode;
+import io.prestosql.sql.tree.Expression;
+import io.prestosql.sql.tree.SymbolReference;
 
 import static io.prestosql.matching.Capture.newCapture;
 import static io.prestosql.sql.planner.iterative.rule.Util.transpose;
@@ -47,6 +52,25 @@ public class PushLimitThroughProject
     @Override
     public Result apply(LimitNode parent, Captures captures, Context context)
     {
-        return Result.ofPlanNode(transpose(parent, captures.get(CHILD)));
+        ProjectNode projectNode = captures.get(CHILD);
+
+        // for a LimitNode without ties, simply reorder the nodes
+        if (!parent.isWithTies()) {
+            return Result.ofPlanNode(transpose(parent, projectNode));
+        }
+
+        // for a LimitNode with ties, the tiesResolvingScheme must be rewritten in terms of symbols before projection
+        SymbolMapper.Builder symbolMapper = SymbolMapper.builder();
+        for (Symbol symbol : parent.getTiesResolvingScheme().get().getOrderBy()) {
+            Expression expression = projectNode.getAssignments().get(symbol);
+            // if a symbol results from some computation, the translation fails
+            if (!(expression instanceof SymbolReference)) {
+                return Result.empty();
+            }
+            symbolMapper.put(symbol, Symbol.from(expression));
+        }
+
+        LimitNode mappedLimitNode = symbolMapper.build().map(parent, projectNode.getSource());
+        return Result.ofPlanNode(projectNode.replaceChildren(ImmutableList.of(mappedLimitNode)));
     }
 }

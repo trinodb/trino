@@ -23,6 +23,7 @@ import com.google.common.collect.Sets;
 import io.prestosql.Session;
 import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.spi.connector.ColumnHandle;
+import io.prestosql.sql.planner.OrderingScheme;
 import io.prestosql.sql.planner.PartitioningScheme;
 import io.prestosql.sql.planner.PlanNodeIdAllocator;
 import io.prestosql.sql.planner.Symbol;
@@ -570,7 +571,8 @@ public class PruneUnreferencedOutputs
         public PlanNode visitLimit(LimitNode node, RewriteContext<Set<Symbol>> context)
         {
             ImmutableSet.Builder<Symbol> expectedInputs = ImmutableSet.<Symbol>builder()
-                    .addAll(context.get());
+                    .addAll(context.get())
+                    .addAll(node.getTiesResolvingScheme().map(OrderingScheme::getOrderBy).orElse(ImmutableList.of()));
             PlanNode source = context.rewrite(node.getSource(), expectedInputs.build());
             return new LimitNode(node.getId(), source, node.getCount(), node.isPartial());
         }

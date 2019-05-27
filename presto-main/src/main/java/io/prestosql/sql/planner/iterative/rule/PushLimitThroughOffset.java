@@ -38,6 +38,7 @@ import static java.lang.Math.addExact;
  * - Offset (row count y)
  *    - Limit (row count x+y)
  * </pre>
+ * Applies to both limit with ties and limit without ties.
  */
 public class PushLimitThroughOffset
         implements Rule<LimitNode>
@@ -73,6 +74,7 @@ public class PushLimitThroughOffset
                                 parent.getId(),
                                 child.getSource(),
                                 count,
+                                parent.getTiesResolvingScheme(),
                                 parent.isPartial()))));
     }
 }

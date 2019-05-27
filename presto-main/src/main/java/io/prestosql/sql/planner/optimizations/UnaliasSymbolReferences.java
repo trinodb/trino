@@ -335,6 +335,10 @@ public class UnaliasSymbolReferences
         @Override
         public PlanNode visitLimit(LimitNode node, RewriteContext<Void> context)
         {
+            if (node.isWithTies()) {
+                PlanNode source = context.rewrite(node.getSource());
+                return new LimitNode(node.getId(), source, node.getCount(), node.getTiesResolvingScheme().map(this::canonicalizeAndDistinct), node.isPartial());
+            }
             return context.defaultRewrite(node);
         }
 
