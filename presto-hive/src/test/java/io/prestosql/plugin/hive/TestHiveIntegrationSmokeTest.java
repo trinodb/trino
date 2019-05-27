@@ -761,6 +761,12 @@ public class TestHiveIntegrationSmokeTest
 
     private void testCreatePartitionedBucketedTableAsFewRows(Session session, HiveStorageFormat storageFormat)
     {
+        testCreatePartitionedBucketedTableAsFewRows(session, storageFormat, true);
+        testCreatePartitionedBucketedTableAsFewRows(session, storageFormat, false);
+    }
+
+    private void testCreatePartitionedBucketedTableAsFewRows(Session session, HiveStorageFormat storageFormat, boolean createEmpty)
+    {
         String tableName = "test_create_partitioned_bucketed_table_as_few_rows";
 
         @Language("SQL") String createTable = "" +
@@ -782,7 +788,9 @@ public class TestHiveIntegrationSmokeTest
 
         assertUpdate(
                 // make sure that we will get one file per bucket regardless of writer count configured
-                getParallelWriteSession(),
+                Session.builder(getParallelWriteSession())
+                        .setCatalogSessionProperty(catalog, "create_empty_bucket_files", String.valueOf(createEmpty))
+                        .build(),
                 createTable,
                 3);
 
