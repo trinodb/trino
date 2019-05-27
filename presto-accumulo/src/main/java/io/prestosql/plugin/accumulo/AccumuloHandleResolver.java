@@ -16,25 +16,17 @@ package io.prestosql.plugin.accumulo;
 import io.prestosql.plugin.accumulo.model.AccumuloColumnHandle;
 import io.prestosql.plugin.accumulo.model.AccumuloSplit;
 import io.prestosql.plugin.accumulo.model.AccumuloTableHandle;
-import io.prestosql.plugin.accumulo.model.AccumuloTableLayoutHandle;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorHandleResolver;
 import io.prestosql.spi.connector.ConnectorInsertTableHandle;
 import io.prestosql.spi.connector.ConnectorOutputTableHandle;
 import io.prestosql.spi.connector.ConnectorSplit;
 import io.prestosql.spi.connector.ConnectorTableHandle;
-import io.prestosql.spi.connector.ConnectorTableLayoutHandle;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 
 public class AccumuloHandleResolver
         implements ConnectorHandleResolver
 {
-    @Override
-    public Class<? extends ConnectorTableLayoutHandle> getTableLayoutHandleClass()
-    {
-        return AccumuloTableLayoutHandle.class;
-    }
-
     @Override
     public Class<? extends ConnectorTableHandle> getTableHandleClass()
     {

@@ -33,16 +33,13 @@ public class AccumuloSplit
 {
     private final Optional<String> hostPort;
     private final List<HostAddress> addresses;
-    private final List<AccumuloColumnConstraint> constraints;
     private final List<WrappedRange> ranges;
 
     @JsonCreator
     public AccumuloSplit(
             @JsonProperty("ranges") List<WrappedRange> ranges,
-            @JsonProperty("constraints") List<AccumuloColumnConstraint> constraints,
             @JsonProperty("hostPort") Optional<String> hostPort)
     {
-        this.constraints = ImmutableList.copyOf(requireNonNull(constraints, "constraints is null"));
         this.hostPort = requireNonNull(hostPort, "hostPort is null");
         this.ranges = ImmutableList.copyOf(requireNonNull(ranges, "ranges is null"));
 
@@ -73,12 +70,6 @@ public class AccumuloSplit
         return ranges.stream().map(WrappedRange::getRange).collect(Collectors.toList());
     }
 
-    @JsonProperty
-    public List<AccumuloColumnConstraint> getConstraints()
-    {
-        return constraints;
-    }
-
     @Override
     public boolean isRemotelyAccessible()
     {
@@ -103,7 +94,6 @@ public class AccumuloSplit
         return toStringHelper(this)
                 .add("addresses", addresses)
                 .add("numRanges", ranges.size())
-                .add("constraints", constraints)
                 .add("hostPort", hostPort)
                 .toString();
     }
