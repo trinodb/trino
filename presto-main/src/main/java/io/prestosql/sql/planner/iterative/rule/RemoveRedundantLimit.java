@@ -30,6 +30,7 @@ import static io.prestosql.sql.planner.plan.Patterns.limit;
 public class RemoveRedundantLimit
         implements Rule<LimitNode>
 {
+    // Applies to both LimitNode with ties and LimitNode without ties.
     private static final Pattern<LimitNode> PATTERN = limit();
 
     @Override

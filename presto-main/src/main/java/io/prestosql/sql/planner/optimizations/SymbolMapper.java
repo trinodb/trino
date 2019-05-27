@@ -22,6 +22,7 @@ import io.prestosql.sql.planner.PlanNodeIdAllocator;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.plan.AggregationNode;
 import io.prestosql.sql.planner.plan.AggregationNode.Aggregation;
+import io.prestosql.sql.planner.plan.LimitNode;
 import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 import io.prestosql.sql.planner.plan.StatisticAggregations;
@@ -119,24 +120,22 @@ public class SymbolMapper
 
     public TopNNode map(TopNNode node, PlanNode source, PlanNodeId newNodeId)
     {
-        ImmutableList.Builder<Symbol> symbols = ImmutableList.builder();
-        ImmutableMap.Builder<Symbol, SortOrder> orderings = ImmutableMap.builder();
-        Set<Symbol> seenCanonicals = new HashSet<>(node.getOrderingScheme().getOrderBy().size());
-        for (Symbol symbol : node.getOrderingScheme().getOrderBy()) {
-            Symbol canonical = map(symbol);
-            if (seenCanonicals.add(canonical)) {
-                seenCanonicals.add(canonical);
-                symbols.add(canonical);
-                orderings.put(canonical, node.getOrderingScheme().getOrdering(symbol));
-            }
-        }
-
         return new TopNNode(
                 newNodeId,
                 source,
                 node.getCount(),
-                new OrderingScheme(symbols.build(), orderings.build()),
+                map(node.getOrderingScheme()),
                 node.getStep());
+    }
+
+    public LimitNode map(LimitNode node, PlanNode source)
+    {
+        return new LimitNode(
+                node.getId(),
+                source,
+                node.getCount(),
+                node.getTiesResolvingScheme().map(this::map),
+                node.isPartial());
     }
 
     public TableWriterNode map(TableWriterNode node, PlanNode source)
@@ -226,6 +225,21 @@ public class SymbolMapper
             }
         }
         return builder.build();
+    }
+
+    private OrderingScheme map(OrderingScheme orderingScheme)
+    {
+        ImmutableList.Builder<Symbol> symbols = ImmutableList.builder();
+        ImmutableMap.Builder<Symbol, SortOrder> orderings = ImmutableMap.builder();
+        Set<Symbol> seenCanonicals = new HashSet<>(orderingScheme.getOrderBy().size());
+        for (Symbol symbol : orderingScheme.getOrderBy()) {
+            Symbol canonical = map(symbol);
+            if (seenCanonicals.add(canonical)) {
+                symbols.add(canonical);
+                orderings.put(canonical, orderingScheme.getOrdering(symbol));
+            }
+        }
+        return new OrderingScheme(symbols.build(), orderings.build());
     }
 
     public static SymbolMapper.Builder builder()

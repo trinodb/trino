@@ -14,62 +14,73 @@
 package io.prestosql.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.prestosql.sql.planner.Symbol;
-import io.prestosql.sql.planner.assertions.ExpressionMatcher;
 import io.prestosql.sql.planner.iterative.rule.test.BaseRuleTest;
-import io.prestosql.sql.planner.plan.Assignments;
 import org.testng.annotations.Test;
 
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.project;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.sort;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.topN;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.values;
 import static io.prestosql.sql.tree.SortItem.NullOrdering.FIRST;
 import static io.prestosql.sql.tree.SortItem.Ordering.ASCENDING;
 
-public class TestMergeLimitOverProjectWithSort
+public class TestMergeLimitWithTopN
         extends BaseRuleTest
 {
     @Test
-    public void testMergeLimitOverProjectWithSort()
+    public void testMergeLimitWithTopN()
     {
-        tester().assertThat(new MergeLimitOverProjectWithSort())
+        tester().assertThat(new MergeLimitWithTopN())
                 .on(p -> {
                     Symbol a = p.symbol("a");
-                    Symbol b = p.symbol("b");
                     return p.limit(
                             1,
-                            p.project(
-                                    Assignments.identity(b),
-                                    p.sort(
-                                            ImmutableList.of(a),
-                                            p.values(a, b))));
+                            p.topN(
+                                    2,
+                                    ImmutableList.of(a),
+                                    p.values(a)));
                 })
                 .matches(
-                        project(
-                                ImmutableMap.of("b", new ExpressionMatcher("b")),
-                                topN(
-                                        1,
-                                        ImmutableList.of(sort("a", ASCENDING, FIRST)),
-                                        values("a", "b"))));
+                        topN(
+                                1,
+                                ImmutableList.of(sort("a", ASCENDING, FIRST)),
+                                values("a")));
+    }
+
+    @Test
+    public void testMergeLimitWithWithTiesTopN()
+    {
+        tester().assertThat(new MergeLimitWithTopN())
+                .on(p -> {
+                    Symbol a = p.symbol("a");
+                    return p.limit(
+                            2,
+                            ImmutableList.of(a),
+                            p.topN(
+                                    1,
+                                    ImmutableList.of(a),
+                                    p.values(a)));
+                })
+                .matches(
+                        topN(
+                                1,
+                                ImmutableList.of(sort("a", ASCENDING, FIRST)),
+                                values("a")));
     }
 
     @Test
     public void doNotMergeLimitWithTies()
     {
-        tester().assertThat(new MergeLimitOverProjectWithSort())
+        tester().assertThat(new MergeLimitWithTopN())
                 .on(p -> {
                     Symbol a = p.symbol("a");
-                    Symbol b = p.symbol("b");
                     return p.limit(
                             1,
-                            ImmutableList.of(b),
-                            p.project(
-                                    Assignments.identity(b),
-                                    p.sort(
-                                            ImmutableList.of(a),
-                                            p.values(a, b))));
+                            ImmutableList.of(a),
+                            p.topN(
+                                    2,
+                                    ImmutableList.of(a),
+                                    p.values(a)));
                 })
                 .doesNotFire();
     }

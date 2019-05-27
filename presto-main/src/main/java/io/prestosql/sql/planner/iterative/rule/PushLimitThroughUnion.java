@@ -47,14 +47,16 @@ import static io.prestosql.sql.planner.plan.Patterns.union;
  *          - relation2
  *       ..
  * </pre>
+ * Applies to LimitNode without ties only to avoid optimizer loop.
  */
 public class PushLimitThroughUnion
         implements Rule<LimitNode>
 {
     private static final Capture<UnionNode> CHILD = newCapture();
 
-    private static final Pattern<LimitNode> PATTERN =
-            limit().with(source().matching(union().capturedAs(CHILD)));
+    private static final Pattern<LimitNode> PATTERN = limit()
+                    .matching(limit -> !limit.isWithTies())
+                    .with(source().matching(union().capturedAs(CHILD)));
 
     @Override
     public Pattern<LimitNode> getPattern()

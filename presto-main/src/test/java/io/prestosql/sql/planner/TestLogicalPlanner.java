@@ -934,7 +934,6 @@ public class TestLogicalPlanner
                                                         .partitionBy(ImmutableList.of()),
                                                 limit(
                                                         7,
-                                                        false,
                                                         any(
                                                                 tableScan("nation", ImmutableMap.of("NAME", "name")))))
                                                 .withAlias("row_num", new RowNumberSymbolMatcher())))));

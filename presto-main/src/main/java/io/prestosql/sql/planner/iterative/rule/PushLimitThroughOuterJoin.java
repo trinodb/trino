@@ -48,14 +48,15 @@ import static io.prestosql.sql.planner.plan.Patterns.source;
  *       - Limit (present if Join is right or outer)
  *          - right source
  * </pre>
+ * Applies to LimitNode without ties only to avoid optimizer loop.
  */
 public class PushLimitThroughOuterJoin
         implements Rule<LimitNode>
 {
     private static final Capture<JoinNode> CHILD = newCapture();
 
-    private static final Pattern<LimitNode> PATTERN =
-            limit()
+    private static final Pattern<LimitNode> PATTERN = limit()
+                    .matching(limit -> !limit.isWithTies())
                     .with(source().matching(
                             join()
                                     .with(type().matching(type -> type == LEFT || type == RIGHT))
