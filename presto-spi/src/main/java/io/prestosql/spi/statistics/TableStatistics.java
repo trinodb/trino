@@ -15,6 +15,7 @@
 package io.prestosql.spi.statistics;
 
 import io.prestosql.spi.connector.ColumnHandle;
+import io.prestosql.spi.predicate.TupleDomain;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -30,6 +31,7 @@ public final class TableStatistics
 
     private final Estimate rowCount;
     private final Map<ColumnHandle, ColumnStatistics> columnStatistics;
+    private final TupleDomain<ColumnHandle> unestimatedPredicate;
 
     public static TableStatistics empty()
     {
@@ -43,6 +45,17 @@ public final class TableStatistics
             throw new IllegalArgumentException(format("rowCount must be greater than or equal to 0: %s", rowCount.getValue()));
         }
         this.columnStatistics = unmodifiableMap(requireNonNull(columnStatistics, "columnStatistics cannot be null"));
+        this.unestimatedPredicate = TupleDomain.all();
+    }
+
+    public TableStatistics(Estimate rowCount, Map<ColumnHandle, ColumnStatistics> columnStatistics, TupleDomain<ColumnHandle> unestimatedPredicate)
+    {
+        this.rowCount = requireNonNull(rowCount, "rowCount can not be null");
+        if (!rowCount.isUnknown() && rowCount.getValue() < 0) {
+            throw new IllegalArgumentException(format("rowCount must be greater than or equal to 0: %s", rowCount.getValue()));
+        }
+        this.columnStatistics = unmodifiableMap(requireNonNull(columnStatistics, "columnStatistics can not be null"));
+        this.unestimatedPredicate = requireNonNull(unestimatedPredicate, "unestimatedPredicate can not be null");
     }
 
     public Estimate getRowCount()
@@ -53,6 +66,11 @@ public final class TableStatistics
     public Map<ColumnHandle, ColumnStatistics> getColumnStatistics()
     {
         return columnStatistics;
+    }
+
+    public TupleDomain<ColumnHandle> getUnestimatedPredicate()
+    {
+        return unestimatedPredicate;
     }
 
     @Override
@@ -81,6 +99,7 @@ public final class TableStatistics
         return "TableStatistics{" +
                 "rowCount=" + rowCount +
                 ", columnStatistics=" + columnStatistics +
+                ", unestimatedPredicate=" + unestimatedPredicate +
                 '}';
     }
 
@@ -93,6 +112,7 @@ public final class TableStatistics
     {
         private Estimate rowCount = Estimate.unknown();
         private Map<ColumnHandle, ColumnStatistics> columnStatisticsMap = new LinkedHashMap<>();
+        private TupleDomain<ColumnHandle> unestimatedPredicate = TupleDomain.all();
 
         public Builder setRowCount(Estimate rowCount)
         {
@@ -108,9 +128,19 @@ public final class TableStatistics
             return this;
         }
 
+        /**
+         * Allow the connector to delegate statistics estimation for the pushed-down predicate back to the engine
+         * {@link io.prestosql.cost.TableScanStatsRule}, to heuristically update the PlanNodeStatsEstimate.
+         */
+        public Builder setUnestimatedPredicate(TupleDomain<ColumnHandle> unestimatedPredicate)
+        {
+            this.unestimatedPredicate = requireNonNull(unestimatedPredicate, "unestimatedPredicate can not be null");
+            return this;
+        }
+
         public TableStatistics build()
         {
-            return new TableStatistics(rowCount, columnStatisticsMap);
+            return new TableStatistics(rowCount, columnStatisticsMap, unestimatedPredicate);
         }
     }
 }

@@ -13,19 +13,23 @@
  */
 package io.prestosql.cost;
 
+import com.google.common.collect.ImmutableBiMap;
 import io.prestosql.Session;
 import io.prestosql.matching.Pattern;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.Constraint;
+import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.statistics.ColumnStatistics;
 import io.prestosql.spi.statistics.TableStatistics;
 import io.prestosql.spi.type.FixedWidthType;
 import io.prestosql.spi.type.Type;
+import io.prestosql.sql.planner.DomainTranslator;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.TypeProvider;
 import io.prestosql.sql.planner.iterative.Lookup;
 import io.prestosql.sql.planner.plan.TableScanNode;
+import io.prestosql.sql.tree.Expression;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -42,11 +46,15 @@ public class TableScanStatsRule
     private static final Pattern<TableScanNode> PATTERN = tableScan();
 
     private final Metadata metadata;
+    private final FilterStatsCalculator filterStatsCalculator;
+    private final DomainTranslator domainTranslator;
 
-    public TableScanStatsRule(Metadata metadata, StatsNormalizer normalizer)
+    public TableScanStatsRule(Metadata metadata, StatsNormalizer normalizer, FilterStatsCalculator filterStatsCalculator)
     {
         super(normalizer); // Use stats normalization since connector can return inconsistent stats values
         this.metadata = requireNonNull(metadata, "metadata is null");
+        this.filterStatsCalculator = requireNonNull(filterStatsCalculator, "filterStatsCalculator is null");
+        this.domainTranslator = new DomainTranslator(metadata);
     }
 
     @Override
@@ -73,11 +81,20 @@ public class TableScanStatsRule
                     .orElse(SymbolStatsEstimate.unknown());
             outputSymbolStats.put(symbol, symbolStatistics);
         }
-
-        return Optional.of(PlanNodeStatsEstimate.builder()
-                .setOutputRowCount(tableStatistics.getRowCount().getValue())
-                .addSymbolStatistics(outputSymbolStats)
-                .build());
+        PlanNodeStatsEstimate estimate = PlanNodeStatsEstimate.builder()
+                                                              .setOutputRowCount(tableStatistics.getRowCount().getValue())
+                                                              .addSymbolStatistics(outputSymbolStats)
+                                                              .build();
+        // Allow the connector delegate filtering statistics estimation of the pushed-down predicate back to the engine:
+        TupleDomain<ColumnHandle> unestimatedPredicate = tableStatistics.getUnestimatedPredicate();
+        if (!unestimatedPredicate.isAll()) {
+            // If the connector don't support statistics estimation for pushed-down predicate, we use FilterStatsCalculator
+            // to heuristically update the PlanNodeStatsEstimate (similarly to how it's done by FilterStatsRule).
+            Map<ColumnHandle, Symbol> assignments = ImmutableBiMap.copyOf(node.getAssignments()).inverse();
+            Expression predicate = domainTranslator.toPredicate(unestimatedPredicate.simplify().transform(assignments::get));
+            estimate = filterStatsCalculator.filterStats(estimate, predicate, session, types);
+        }
+        return Optional.of(estimate);
     }
 
     private static SymbolStatsEstimate toSymbolStatistics(TableStatistics tableStatistics, ColumnStatistics columnStatistics, Type type)
