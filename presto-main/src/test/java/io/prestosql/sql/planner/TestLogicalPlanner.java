@@ -16,6 +16,7 @@ package io.prestosql.sql.planner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.Session;
+import io.prestosql.spi.block.SortOrder;
 import io.prestosql.sql.analyzer.FeaturesConfig.JoinDistributionType;
 import io.prestosql.sql.planner.assertions.BasePlanTest;
 import io.prestosql.sql.planner.assertions.ExpressionMatcher;
@@ -84,11 +85,13 @@ import static io.prestosql.sql.planner.assertions.PlanMatchPattern.rowNumber;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.semiJoin;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.singleGroupingSet;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.sort;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.specification;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.strictProject;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.strictTableScan;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.topN;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.values;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.window;
 import static io.prestosql.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static io.prestosql.sql.planner.plan.AggregationNode.Step.FINAL;
 import static io.prestosql.sql.planner.plan.AggregationNode.Step.PARTIAL;
@@ -936,6 +939,72 @@ public class TestLogicalPlanner
                                                         7,
                                                         any(
                                                                 tableScan("nation", ImmutableMap.of("NAME", "name")))))
+                                                .withAlias("row_num", new RowNumberSymbolMatcher())))));
+    }
+
+    @Test
+    public void testWithTies()
+    {
+        assertPlan(
+                "SELECT name, regionkey FROM nation ORDER BY regionkey FETCH FIRST 6 ROWS WITH TIES",
+                any(
+                        strictProject(
+                                ImmutableMap.of("name", new ExpressionMatcher("name"), "regionkey", new ExpressionMatcher("regionkey")),
+                                filter(
+                                        "rank_num <= BIGINT '6'",
+                                        window(
+                                                windowMatcherBuilder -> windowMatcherBuilder
+                                                        .specification(specification(
+                                                                ImmutableList.of(),
+                                                                ImmutableList.of("regionkey"),
+                                                                ImmutableMap.of("regionkey", SortOrder.ASC_NULLS_LAST)))
+                                                        .addFunction(
+                                                                "rank_num",
+                                                                functionCall(
+                                                                        "rank",
+                                                                        Optional.empty(),
+                                                                        ImmutableList.of())),
+                                                anyTree(
+                                                        sort(
+                                                                ImmutableList.of(sort("regionkey", ASCENDING, LAST)),
+                                                                any(
+                                                                        tableScan(
+                                                                                "nation",
+                                                                                ImmutableMap.of("NAME", "name", "REGIONKEY", "regionkey"))))))))));
+
+        assertPlan(
+                "SELECT name, regionkey FROM nation ORDER BY regionkey OFFSET 10 ROWS FETCH FIRST 6 ROWS WITH TIES",
+                any(
+                        strictProject(
+                                ImmutableMap.of("name", new ExpressionMatcher("name"), "regionkey", new ExpressionMatcher("regionkey")),
+                                filter(
+                                        "row_num > BIGINT '10'",
+                                        rowNumber(
+                                                pattern -> pattern
+                                                        .partitionBy(ImmutableList.of()),
+                                                strictProject(
+                                                        ImmutableMap.of("name", new ExpressionMatcher("name"), "regionkey", new ExpressionMatcher("regionkey")),
+                                                        filter(
+                                                                "rank_num <= BIGINT '16'",
+                                                                window(
+                                                                        windowMatcherBuilder -> windowMatcherBuilder
+                                                                                .specification(specification(
+                                                                                        ImmutableList.of(),
+                                                                                        ImmutableList.of("regionkey"),
+                                                                                        ImmutableMap.of("regionkey", SortOrder.ASC_NULLS_LAST)))
+                                                                                .addFunction(
+                                                                                        "rank_num",
+                                                                                        functionCall(
+                                                                                                "rank",
+                                                                                                Optional.empty(),
+                                                                                                ImmutableList.of())),
+                                                                        anyTree(
+                                                                                sort(
+                                                                                        ImmutableList.of(sort("regionkey", ASCENDING, LAST)),
+                                                                                        any(
+                                                                                                tableScan(
+                                                                                                        "nation",
+                                                                                                        ImmutableMap.of("NAME", "name", "REGIONKEY", "regionkey")))))))))
                                                 .withAlias("row_num", new RowNumberSymbolMatcher())))));
     }
 
