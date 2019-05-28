@@ -101,6 +101,8 @@ public final class LiteralEncoder
             return new Cast(new NullLiteral(), type.getTypeSignature().toString(), false, true);
         }
 
+        checkArgument(Primitives.wrap(type.getJavaType()).isInstance(object), "object.getClass (%s) and type.getJavaType (%s) do not agree", object.getClass(), type.getJavaType());
+
         if (type.equals(TINYINT)) {
             return new GenericLiteral("TINYINT", object.toString());
         }
@@ -120,8 +122,6 @@ public final class LiteralEncoder
             }
             return new LongLiteral(object.toString());
         }
-
-        checkArgument(Primitives.wrap(type.getJavaType()).isInstance(object), "object.getClass (%s) and type.getJavaType (%s) do not agree", object.getClass(), type.getJavaType());
 
         if (type.equals(DOUBLE)) {
             Double value = (Double) object;
