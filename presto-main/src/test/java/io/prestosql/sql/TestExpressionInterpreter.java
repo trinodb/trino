@@ -175,7 +175,7 @@ public class TestExpressionInterpreter
         assertOptimizedEquals("bound_long = 1234", "true");
         assertOptimizedEquals("bound_double = 12.34", "true");
         assertOptimizedEquals("bound_string = 'hello'", "true");
-        assertOptimizedEquals("bound_long = unbound_long", "1234 = unbound_long");
+        assertOptimizedEquals("unbound_long = bound_long", "unbound_long = 1234");
 
         assertOptimizedEquals("10151082135029368 = 10151082135029369", "false");
 
@@ -1055,11 +1055,11 @@ public class TestExpressionInterpreter
                         "end");
 
         assertOptimizedEquals("case bound_long " +
-                        "when 123 * 10 + unbound_long then 1 = 1 " +
+                        "when unbound_long + 123 * 10  then 1 = 1 " +
                         "else 1 = 2 " +
                         "end",
                 "" +
-                        "case bound_long when 1230 + unbound_long then true " +
+                        "case bound_long when unbound_long + 1230 then true " +
                         "else false " +
                         "end");
 
@@ -1132,8 +1132,8 @@ public class TestExpressionInterpreter
     @Test
     public void testCoalesce()
     {
-        assertOptimizedEquals("coalesce(2 * 3 * unbound_long, 1 - 1, null)", "coalesce(6 * unbound_long, 0)");
-        assertOptimizedEquals("coalesce(2 * 3 * unbound_long, 1.0E0/2.0E0, null)", "coalesce(6 * unbound_long, 0.5E0)");
+        assertOptimizedEquals("coalesce(unbound_long * (2 * 3), 1 - 1, null)", "coalesce(unbound_long * 6, 0)");
+        assertOptimizedEquals("coalesce(unbound_long * (2 * 3), 1.0E0/2.0E0, null)", "coalesce(unbound_long * 6, 0.5E0)");
         assertOptimizedEquals("coalesce(unbound_long, 2, 1.0E0/2.0E0, 12.34E0, null)", "coalesce(unbound_long, 2.0E0, 0.5E0, 12.34E0)");
         assertOptimizedEquals("coalesce(unbound_integer * (2 * 3), 1 - 1, null)", "coalesce(6 * unbound_integer, 0)");
         assertOptimizedEquals("coalesce(unbound_integer * (2 * 3), 1.0E0/2.0E0, null)", "coalesce(6 * unbound_integer, 0.5E0)");
@@ -1141,7 +1141,7 @@ public class TestExpressionInterpreter
         assertOptimizedMatches("coalesce(0 / 0 > 1, unbound_boolean, 0 / 0 = 0)",
                 "coalesce(cast(fail() as boolean), unbound_boolean)");
         assertOptimizedMatches("coalesce(unbound_long, unbound_long)", "unbound_long");
-        assertOptimizedMatches("coalesce(2 * unbound_long, 2 * unbound_long)", "BIGINT '2' * unbound_long");
+        assertOptimizedMatches("coalesce(2 * unbound_long, 2 * unbound_long)", "unbound_long * BIGINT '2'");
         assertOptimizedMatches("coalesce(unbound_long, unbound_long2, unbound_long)", "coalesce(unbound_long, unbound_long2)");
         assertOptimizedMatches("coalesce(unbound_long, unbound_long2, unbound_long, unbound_long3)", "coalesce(unbound_long, unbound_long2, unbound_long3)");
         assertOptimizedEquals("coalesce(6, unbound_long2, unbound_long, unbound_long3)", "6");

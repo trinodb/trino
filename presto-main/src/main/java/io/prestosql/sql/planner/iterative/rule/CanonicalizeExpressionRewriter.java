@@ -15,6 +15,7 @@ package io.prestosql.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import io.prestosql.sql.tree.ArithmeticBinaryExpression;
+import io.prestosql.sql.tree.Cast;
 import io.prestosql.sql.tree.ComparisonExpression;
 import io.prestosql.sql.tree.CurrentTime;
 import io.prestosql.sql.tree.Expression;
@@ -53,7 +54,7 @@ public class CanonicalizeExpressionRewriter
         {
             // if we have a comparison of the form <constant> <op> <expr>, normalize it to
             // <expr> <op-flipped> <constant>
-            if (node.getLeft() instanceof Literal && !(node.getRight() instanceof Literal)) {
+            if (isConstant(node.getLeft()) && !isConstant(node.getRight())) {
                 node = new ComparisonExpression(node.getOperator().flip(), node.getRight(), node.getLeft());
             }
 
@@ -66,7 +67,7 @@ public class CanonicalizeExpressionRewriter
             if (node.getOperator() == MULTIPLY || node.getOperator() == ADD) {
                 // if we have a operation of the form <constant> [+|*] <expr>, normalize it to
                 // <expr> [+|*] <constant>
-                if (node.getLeft() instanceof Literal && !(node.getRight() instanceof Literal)) {
+                if (isConstant(node.getLeft()) && !isConstant(node.getRight())) {
                     node = new ArithmeticBinaryExpression(node.getOperator(), node.getRight(), node.getLeft());
                 }
             }
@@ -155,5 +156,20 @@ public class CanonicalizeExpressionRewriter
 
             throw new UnsupportedOperationException("not yet implemented: " + node.getField());
         }
+    }
+
+    private static boolean isConstant(Expression expression)
+    {
+        // Current IR has no way to represent typed constants. It encodes simple ones as Cast(Literal)
+        // This is the simplest possible check that
+        //   1) doesn't require ExpressionInterpreter.optimize(), which is not cheap
+        //   2) doesn't try to duplicate all the logic in LiteralEncoder
+        //   3) covers a sufficient portion of the use cases that occur in practice
+        // TODO: this should eventually be removed when IR includes types
+        if (expression instanceof Cast && ((Cast) expression).getExpression() instanceof Literal) {
+            return true;
+        }
+
+        return expression instanceof Literal;
     }
 }

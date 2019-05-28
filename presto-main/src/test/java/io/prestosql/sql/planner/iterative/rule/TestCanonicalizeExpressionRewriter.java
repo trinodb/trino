@@ -80,6 +80,18 @@ public class TestCanonicalizeExpressionRewriter
         assertRewritten("1 IS DISTINCT FROM a", "a IS DISTINCT FROM 1");
     }
 
+    @Test
+    public void testTypedLiteral()
+    {
+        // typed literals are encoded as Cast(Literal) in current IR
+
+        assertRewritten("a = CAST(1 AS decimal(5,2))", "a = CAST(1 AS decimal(5,2))");
+        assertRewritten("CAST(1 AS decimal(5,2)) = a", "a = CAST(1 AS decimal(5,2))");
+
+        assertRewritten("a + CAST(1 AS decimal(5,2))", "a + CAST(1 AS decimal(5,2))");
+        assertRewritten("CAST(1 AS decimal(5,2)) + a", "a + CAST(1 AS decimal(5,2))");
+    }
+
     private static void assertRewritten(String from, String to)
     {
         assertEquals(canonicalizeExpression(PlanBuilder.expression(from)), PlanBuilder.expression(to));
