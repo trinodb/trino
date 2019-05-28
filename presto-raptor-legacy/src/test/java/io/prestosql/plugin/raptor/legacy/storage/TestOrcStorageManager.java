@@ -64,6 +64,7 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.UUID;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
 import static com.google.common.hash.Hashing.md5;
@@ -143,7 +144,7 @@ public class TestOrcStorageManager
         fileBackupStore.start();
         backupStore = Optional.of(fileBackupStore);
 
-        IDBI dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime());
+        IDBI dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime() + ThreadLocalRandom.current().nextLong());
         dummyHandle = dbi.open();
         createTablesWithRetry(dbi);
 

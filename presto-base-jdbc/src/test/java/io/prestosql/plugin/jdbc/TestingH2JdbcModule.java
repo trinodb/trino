@@ -20,6 +20,7 @@ import com.google.inject.Provides;
 import org.h2.Driver;
 
 import java.util.Map;
+import java.util.concurrent.ThreadLocalRandom;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static java.lang.String.format;
@@ -42,7 +43,7 @@ class TestingH2JdbcModule
     public static Map<String, String> createProperties()
     {
         return ImmutableMap.<String, String>builder()
-                .put("connection-url", format("jdbc:h2:mem:test%s;DB_CLOSE_DELAY=-1", System.nanoTime()))
+                .put("connection-url", format("jdbc:h2:mem:test%s;DB_CLOSE_DELAY=-1", System.nanoTime() + ThreadLocalRandom.current().nextLong()))
                 .build();
     }
 }

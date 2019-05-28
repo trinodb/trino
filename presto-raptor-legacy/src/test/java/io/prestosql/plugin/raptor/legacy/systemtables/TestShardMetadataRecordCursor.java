@@ -47,6 +47,7 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ThreadLocalRandom;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
@@ -75,7 +76,7 @@ public class TestShardMetadataRecordCursor
     @BeforeMethod
     public void setup()
     {
-        this.dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime());
+        this.dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime() + ThreadLocalRandom.current().nextLong());
         this.dbi.registerMapper(new TableColumn.Mapper(new TypeRegistry()));
         this.dummyHandle = dbi.open();
         createTablesWithRetry(dbi);

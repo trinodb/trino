@@ -24,6 +24,7 @@ import java.sql.SQLException;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
+import java.util.concurrent.ThreadLocalRandom;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -40,7 +41,7 @@ final class TestingDatabase
     public TestingDatabase()
             throws SQLException
     {
-        String connectionUrl = "jdbc:h2:mem:test" + System.nanoTime();
+        String connectionUrl = "jdbc:h2:mem:test" + System.nanoTime() + ThreadLocalRandom.current().nextLong();
         jdbcClient = new BaseJdbcClient(
                 new BaseJdbcConfig(),
                 "\"",
