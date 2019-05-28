@@ -32,6 +32,8 @@ import java.util.concurrent.TimeUnit;
         "experimental.big-query-initial-hash-partitions",
         "experimental.max-concurrent-big-queries",
         "experimental.max-queued-big-queries",
+        "query-manager.initialization-required-workers",
+        "query-manager.initialization-timeout",
         "query.remote-task.max-consecutive-error-count"})
 public class QueryManagerConfig
 {
