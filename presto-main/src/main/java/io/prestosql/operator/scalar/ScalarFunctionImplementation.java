@@ -179,19 +179,19 @@ public final class ScalarFunctionImplementation
         // TODO: Alternatively, we can store io.prestosql.spi.type.Type
         private final ArgumentType argumentType;
         private final Optional<NullConvention> nullConvention;
-        private final Optional<Class> lambdaInterface;
+        private final Optional<Class<?>> lambdaInterface;
 
         public static ArgumentProperty valueTypeArgumentProperty(NullConvention nullConvention)
         {
             return new ArgumentProperty(VALUE_TYPE, Optional.of(nullConvention), Optional.empty());
         }
 
-        public static ArgumentProperty functionTypeArgumentProperty(Class lambdaInterface)
+        public static ArgumentProperty functionTypeArgumentProperty(Class<?> lambdaInterface)
         {
             return new ArgumentProperty(FUNCTION_TYPE, Optional.empty(), Optional.of(lambdaInterface));
         }
 
-        public ArgumentProperty(ArgumentType argumentType, Optional<NullConvention> nullConvention, Optional<Class> lambdaInterface)
+        public ArgumentProperty(ArgumentType argumentType, Optional<NullConvention> nullConvention, Optional<Class<?>> lambdaInterface)
         {
             switch (argumentType) {
                 case VALUE_TYPE:
@@ -223,7 +223,7 @@ public final class ScalarFunctionImplementation
             return nullConvention.get();
         }
 
-        public Class getLambdaInterface()
+        public Class<?> getLambdaInterface()
         {
             checkState(getArgumentType() == FUNCTION_TYPE, "lambdaInterface only applies to function type argument");
             return lambdaInterface.get();

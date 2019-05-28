@@ -122,7 +122,7 @@ public class FixedLifespanScheduler
         newDriverGroupReady.set(null);
     }
 
-    public SettableFuture schedule(SourceScheduler scheduler)
+    public SettableFuture<?> schedule(SourceScheduler scheduler)
     {
         // Return a new future even if newDriverGroupReady has not finished.
         // Returning the same SettableFuture instance could lead to ListenableFuture retaining too many listener objects.

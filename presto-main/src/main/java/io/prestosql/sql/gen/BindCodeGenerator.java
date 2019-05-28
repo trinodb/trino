@@ -30,9 +30,9 @@ public class BindCodeGenerator
         implements BytecodeGenerator
 {
     private final Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap;
-    private final Class lambdaInterface;
+    private final Class<?> lambdaInterface;
 
-    public BindCodeGenerator(Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap, Class lambdaInterface)
+    public BindCodeGenerator(Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap, Class<?> lambdaInterface)
     {
         this.compiledLambdaMap = compiledLambdaMap;
         this.lambdaInterface = lambdaInterface;

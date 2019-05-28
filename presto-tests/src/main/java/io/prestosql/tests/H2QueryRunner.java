@@ -163,7 +163,7 @@ public class H2QueryRunner
         insertRows(tpchMetadata, PART);
     }
 
-    private void insertRows(TpchMetadata tpchMetadata, TpchTable tpchTable)
+    private void insertRows(TpchMetadata tpchMetadata, TpchTable<?> tpchTable)
     {
         TpchTableHandle tableHandle = tpchMetadata.getTableHandle(null, new SchemaTableName(TINY_SCHEMA_NAME, tpchTable.getTableName()));
         insertRows(tpchMetadata.getTableMetadata(null, tableHandle), handle, createTpchRecordSet(tpchTable, tableHandle.getScaleFactor()));

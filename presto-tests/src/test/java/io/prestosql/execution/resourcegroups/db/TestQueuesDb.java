@@ -171,7 +171,7 @@ public class TestQueuesDb
         dao.updateResourceGroup(3, "user-${USER}", "1MB", 3, 4, 4, null, null, null, null, null, 1L, TEST_ENVIRONMENT);
         dao.updateResourceGroup(5, "dashboard-${USER}", "1MB", 1, 2, 2, null, null, null, null, null, 3L, TEST_ENVIRONMENT);
 
-        InternalResourceGroupManager manager = queryRunner.getCoordinator().getResourceGroupManager().get();
+        InternalResourceGroupManager<?> manager = queryRunner.getCoordinator().getResourceGroupManager().get();
         DbResourceGroupConfigurationManager dbConfigurationManager = (DbResourceGroupConfigurationManager) manager.getConfigurationManager();
 
         // Trigger reload to make the test more deterministic
@@ -195,7 +195,7 @@ public class TestQueuesDb
     public void testRejection()
             throws Exception
     {
-        InternalResourceGroupManager manager = queryRunner.getCoordinator().getResourceGroupManager().get();
+        InternalResourceGroupManager<?> manager = queryRunner.getCoordinator().getResourceGroupManager().get();
         DbResourceGroupConfigurationManager dbConfigurationManager = (DbResourceGroupConfigurationManager) manager.getConfigurationManager();
         // Verify the query cannot be submitted
         QueryId queryId = createQuery(queryRunner, rejectingSession(), LONG_LASTING_QUERY);
@@ -230,7 +230,7 @@ public class TestQueuesDb
     public void testSelectorPriority()
             throws Exception
     {
-        InternalResourceGroupManager manager = queryRunner.getCoordinator().getResourceGroupManager().get();
+        InternalResourceGroupManager<?> manager = queryRunner.getCoordinator().getResourceGroupManager().get();
         QueryManager queryManager = queryRunner.getCoordinator().getQueryManager();
         DbResourceGroupConfigurationManager dbConfigurationManager = (DbResourceGroupConfigurationManager) manager.getConfigurationManager();
 
@@ -263,7 +263,7 @@ public class TestQueuesDb
             throws Exception
     {
         QueryManager queryManager = queryRunner.getCoordinator().getQueryManager();
-        InternalResourceGroupManager manager = queryRunner.getCoordinator().getResourceGroupManager().get();
+        InternalResourceGroupManager<?> manager = queryRunner.getCoordinator().getResourceGroupManager().get();
         DbResourceGroupConfigurationManager dbConfigurationManager = (DbResourceGroupConfigurationManager) manager.getConfigurationManager();
         QueryId firstQuery = createQuery(
                 queryRunner,
@@ -337,7 +337,7 @@ public class TestQueuesDb
                 .setSource("non-leaf")
                 .build();
         QueryManager queryManager = queryRunner.getCoordinator().getQueryManager();
-        InternalResourceGroupManager manager = queryRunner.getCoordinator().getResourceGroupManager().get();
+        InternalResourceGroupManager<?> manager = queryRunner.getCoordinator().getResourceGroupManager().get();
         DbResourceGroupConfigurationManager dbConfigurationManager = (DbResourceGroupConfigurationManager) manager.getConfigurationManager();
         int originalSize = getSelectors(queryRunner).size();
         // Add a selector for a non leaf group

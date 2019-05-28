@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableSet;
 import io.prestosql.client.NodeVersion;
 import io.prestosql.metadata.InternalNode;
 import io.prestosql.spi.Node;
+import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.Constraint;
 import io.prestosql.spi.connector.ConstraintApplicationResult;
@@ -133,7 +134,7 @@ public class TestJmxMetadata
         JmxColumnHandle objectNameColumnHandle = new JmxColumnHandle("object_name", createUnboundedVarcharType());
         NullableValue objectNameColumnValue = NullableValue.of(createUnboundedVarcharType(), utf8Slice("presto.memory:type=MemoryPool,name=reserved"));
 
-        TupleDomain tupleDomain = TupleDomain.fromFixedValues(ImmutableMap.of(nodeColumnHandle, nodeColumnValue, objectNameColumnHandle, objectNameColumnValue));
+        TupleDomain<ColumnHandle> tupleDomain = TupleDomain.fromFixedValues(ImmutableMap.of(nodeColumnHandle, nodeColumnValue, objectNameColumnHandle, objectNameColumnValue));
 
         Optional<ConstraintApplicationResult<ConnectorTableHandle>> result = metadata.applyFilter(SESSION, handle, new Constraint(tupleDomain));
 
@@ -148,7 +149,7 @@ public class TestJmxMetadata
         JmxTableHandle handle = metadata.getTableHandle(SESSION, new SchemaTableName(JMX_SCHEMA_NAME, "java.lang:*"));
 
         JmxColumnHandle columnHandle = new JmxColumnHandle("node", createUnboundedVarcharType());
-        TupleDomain nodeTupleDomain = TupleDomain.fromFixedValues(ImmutableMap.of(columnHandle, NullableValue.of(createUnboundedVarcharType(), utf8Slice(localNode.getNodeIdentifier()))));
+        TupleDomain<ColumnHandle> nodeTupleDomain = TupleDomain.fromFixedValues(ImmutableMap.of(columnHandle, NullableValue.of(createUnboundedVarcharType(), utf8Slice(localNode.getNodeIdentifier()))));
 
         JmxTableHandle newTableHandle = new JmxTableHandle(handle.getTableName(), handle.getObjectNames(), handle.getColumnHandles(), handle.isLiveData(), nodeTupleDomain);
 

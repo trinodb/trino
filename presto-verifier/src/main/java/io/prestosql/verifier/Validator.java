@@ -712,8 +712,8 @@ public class Validator
                 return 0;
             }
             if (a instanceof List && b instanceof List) {
-                List aList = (List) a;
-                List bList = (List) b;
+                List<?> aList = (List<?>) a;
+                List<?> bList = (List<?>) b;
 
                 if (aList.size() != bList.size()) {
                     return a.hashCode() < b.hashCode() ? -1 : 1;
@@ -729,8 +729,8 @@ public class Validator
                 return 0;
             }
             if (a instanceof Map && b instanceof Map) {
-                Map aMap = (Map) a;
-                Map bMap = (Map) b;
+                Map<?, ?> aMap = (Map<?, ?>) a;
+                Map<?, ?> bMap = (Map<?, ?>) b;
 
                 if (aMap.size() != bMap.size()) {
                     return a.hashCode() < b.hashCode() ? -1 : 1;

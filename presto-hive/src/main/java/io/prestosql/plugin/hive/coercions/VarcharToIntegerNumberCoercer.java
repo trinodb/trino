@@ -18,6 +18,7 @@ import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.VarcharType;
 
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.type.BigintType.BIGINT;
@@ -26,13 +27,13 @@ import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static java.lang.String.format;
 
-public class VarcharToIntegerNumberCoercer
-        extends TypeCoercer
+public class VarcharToIntegerNumberCoercer<T extends Type>
+        extends TypeCoercer<VarcharType, T>
 {
     private final long minValue;
     private final long maxValue;
 
-    public VarcharToIntegerNumberCoercer(Type fromType, Type toType)
+    public VarcharToIntegerNumberCoercer(VarcharType fromType, T toType)
     {
         super(fromType, toType);
 

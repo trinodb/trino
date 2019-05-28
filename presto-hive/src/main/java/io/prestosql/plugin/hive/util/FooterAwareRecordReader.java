@@ -24,7 +24,7 @@ import java.io.IOException;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
-public class FooterAwareRecordReader<K extends WritableComparable, V extends Writable>
+public class FooterAwareRecordReader<K extends WritableComparable<?>, V extends Writable>
         implements RecordReader<K, V>
 {
     private final RecordReader<K, V> delegate;

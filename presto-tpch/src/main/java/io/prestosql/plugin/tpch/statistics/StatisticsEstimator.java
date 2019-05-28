@@ -98,8 +98,8 @@ public class StatisticsEstimator
     private Object min(Object l, Object r)
     {
         checkSameType(l, r);
-        Comparable left = checkType(l, Comparable.class);
-        Comparable right = checkType(r, Comparable.class);
+        Comparable<Object> left = checkType(l, Comparable.class);
+        Comparable<Object> right = checkType(r, Comparable.class);
         return left.compareTo(right) < 0 ? left : right;
     }
 
@@ -107,8 +107,8 @@ public class StatisticsEstimator
     private Object max(Object l, Object r)
     {
         checkSameType(l, r);
-        Comparable left = checkType(l, Comparable.class);
-        Comparable right = checkType(r, Comparable.class);
+        Comparable<Object> left = checkType(l, Comparable.class);
+        Comparable<Object> right = checkType(r, Comparable.class);
         return left.compareTo(right) > 0 ? left : right;
     }
 

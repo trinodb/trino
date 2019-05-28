@@ -3946,7 +3946,7 @@ public abstract class AbstractTestHive
                     }
                     else {
                         assertTrue(row.getField(index) instanceof List);
-                        List values = (List) row.getField(index);
+                        List<?> values = (List<?>) row.getField(index);
                         assertEquals(values.size(), 2);
                         assertEquals(values.get(0), "test abc");
                         assertEquals(values.get(1), 0.1);

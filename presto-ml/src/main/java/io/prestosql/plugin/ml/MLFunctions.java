@@ -45,7 +45,7 @@ public final class MLFunctions
         FeatureVector features = ModelUtils.toFeatures(featuresMap);
         Model model = getOrLoadModel(modelSlice);
         checkArgument(model.getType().equals(VARCHAR_CLASSIFIER), "model is not a classifier<varchar>");
-        Classifier<String> varcharClassifier = (Classifier) model;
+        Classifier<String> varcharClassifier = (Classifier<String>) model;
         return Slices.utf8Slice(varcharClassifier.classify(features));
     }
 
@@ -56,7 +56,7 @@ public final class MLFunctions
         FeatureVector features = ModelUtils.toFeatures(featuresMap);
         Model model = getOrLoadModel(modelSlice);
         checkArgument(model.getType().equals(BIGINT_CLASSIFIER), "model is not a classifier<bigint>");
-        Classifier<Integer> classifier = (Classifier) model;
+        Classifier<Integer> classifier = (Classifier<Integer>) model;
         return classifier.classify(features);
     }
 

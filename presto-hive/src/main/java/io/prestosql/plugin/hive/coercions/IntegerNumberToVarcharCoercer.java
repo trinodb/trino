@@ -17,13 +17,14 @@ package io.prestosql.plugin.hive.coercions;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.VarcharType;
 
 import static io.airlift.slice.Slices.utf8Slice;
 
-public class IntegerNumberToVarcharCoercer
-        extends TypeCoercer
+public class IntegerNumberToVarcharCoercer<F extends Type>
+        extends TypeCoercer<F, VarcharType>
 {
-    public IntegerNumberToVarcharCoercer(Type fromType, Type toType)
+    public IntegerNumberToVarcharCoercer(F fromType, VarcharType toType)
     {
         super(fromType, toType);
     }

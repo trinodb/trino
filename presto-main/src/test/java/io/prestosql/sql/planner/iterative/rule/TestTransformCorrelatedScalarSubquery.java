@@ -52,7 +52,7 @@ public class TestTransformCorrelatedScalarSubquery
     private static final ImmutableList<List<Expression>> ONE_ROW = ImmutableList.of(ImmutableList.of(new LongLiteral("1")));
     private static final ImmutableList<List<Expression>> TWO_ROWS = ImmutableList.of(ImmutableList.of(new LongLiteral("1")), ImmutableList.of(new LongLiteral("2")));
 
-    private Rule rule = new TransformCorrelatedScalarSubquery();
+    private Rule<?> rule = new TransformCorrelatedScalarSubquery();
 
     @Test
     public void doesNotFireOnPlanWithoutLateralNode()

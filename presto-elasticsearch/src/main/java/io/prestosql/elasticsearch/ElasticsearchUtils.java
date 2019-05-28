@@ -70,7 +70,7 @@ public final class ElasticsearchUtils
             if (fieldName.isPresent()) {
                 name = fieldName.get().toLowerCase(ENGLISH);
             }
-            Object value = ((Map) object).get(name);
+            Object value = ((Map<?, ?>) object).get(name);
             serializeObject(typeParameters.get(i), currentBuilder, value);
         }
 

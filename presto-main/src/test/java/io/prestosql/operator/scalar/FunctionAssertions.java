@@ -528,7 +528,7 @@ public final class FunctionAssertions
             return ((Block) object).getRetainedSizeInBytes();
         }
 
-        Class type = object.getClass();
+        Class<?> type = object.getClass();
         if (type.isArray()) {
             if (type == int[].class) {
                 return sizeOf((int[]) object);

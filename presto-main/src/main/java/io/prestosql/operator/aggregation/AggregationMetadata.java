@@ -42,7 +42,7 @@ public class AggregationMetadata
 
     private final String name;
     private final List<ParameterMetadata> valueInputMetadata;
-    private final List<Class> lambdaInterfaces;
+    private final List<Class<?>> lambdaInterfaces;
     private final MethodHandle inputFunction;
     private final MethodHandle combineFunction;
     private final MethodHandle outputFunction;
@@ -77,7 +77,7 @@ public class AggregationMetadata
             MethodHandle outputFunction,
             List<AccumulatorStateDescriptor> accumulatorStateDescriptors,
             Type outputType,
-            List<Class> lambdaInterfaces)
+            List<Class<?>> lambdaInterfaces)
     {
         this.outputType = requireNonNull(outputType);
         this.valueInputMetadata = ImmutableList.copyOf(requireNonNull(valueInputMetadata, "valueInputMetadata is null"));
@@ -103,7 +103,7 @@ public class AggregationMetadata
         return valueInputMetadata;
     }
 
-    public List<Class> getLambdaInterfaces()
+    public List<Class<?>> getLambdaInterfaces()
     {
         return lambdaInterfaces;
     }
@@ -133,7 +133,7 @@ public class AggregationMetadata
         return accumulatorStateDescriptors;
     }
 
-    private static void verifyInputFunctionSignature(MethodHandle method, List<ParameterMetadata> dataChannelMetadata, List<Class> lambdaInterfaces, List<AccumulatorStateDescriptor> stateDescriptors)
+    private static void verifyInputFunctionSignature(MethodHandle method, List<ParameterMetadata> dataChannelMetadata, List<Class<?>> lambdaInterfaces, List<AccumulatorStateDescriptor> stateDescriptors)
     {
         Class<?>[] parameters = method.type().parameterArray();
         checkArgument(parameters.length > 0, "Aggregation input function must have at least one parameter");
@@ -173,7 +173,7 @@ public class AggregationMetadata
         }
     }
 
-    private static void verifyCombineFunction(MethodHandle method, List<Class> lambdaInterfaces, List<AccumulatorStateDescriptor> stateDescriptors)
+    private static void verifyCombineFunction(MethodHandle method, List<Class<?>> lambdaInterfaces, List<AccumulatorStateDescriptor> stateDescriptors)
     {
         Class<?>[] parameterTypes = method.type().parameterArray();
         checkArgument(
@@ -205,7 +205,7 @@ public class AggregationMetadata
         checkArgument(Arrays.stream(parameterTypes).filter(type -> type.equals(BlockBuilder.class)).count() == 1, "Output function must take exactly one BlockBuilder parameter");
     }
 
-    private static void verifyMethodParameterType(MethodHandle method, int index, Class javaType, String sqlTypeDisplayName)
+    private static void verifyMethodParameterType(MethodHandle method, int index, Class<?> javaType, String sqlTypeDisplayName)
     {
         checkArgument(method.type().parameterArray()[index] == javaType,
                 "Expected method %s parameter %s type to be %s (%s)",

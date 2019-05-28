@@ -308,7 +308,7 @@ public class TupleDomainParquetPredicate
         return Domain.all(type);
     }
 
-    private static void failWithCorruptionException(boolean failOnCorruptedParquetStatistics, String column, ParquetDataSourceId id, Statistics statistics)
+    private static void failWithCorruptionException(boolean failOnCorruptedParquetStatistics, String column, ParquetDataSourceId id, Statistics<?> statistics)
             throws ParquetCorruptionException
     {
         if (failOnCorruptedParquetStatistics) {

@@ -54,7 +54,7 @@ public final class CassandraQueryRunner
             createKeyspace(EmbeddedCassandra.getSession(), "tpch");
             List<TpchTable<?>> tables = TpchTable.getTables();
             copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createCassandraSession("tpch"), tables);
-            for (TpchTable table : tables) {
+            for (TpchTable<?> table : tables) {
                 EmbeddedCassandra.refreshSizeEstimates("tpch", table.getTableName());
             }
             tpchLoaded = true;

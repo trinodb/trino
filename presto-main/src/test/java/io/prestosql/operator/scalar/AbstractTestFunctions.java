@@ -241,12 +241,12 @@ public abstract class AbstractTestFunctions
 
     // this help function should only be used when the map contains null value
     // otherwise, use ImmutableMap.of()
-    protected static Map asMap(List keyList, List valueList)
+    protected static <K, V> Map<K, V> asMap(List<K> keyList, List<V> valueList)
     {
         if (keyList.size() != valueList.size()) {
             fail("keyList should have same size with valueList");
         }
-        Map map = new HashMap<>();
+        Map<K, V> map = new HashMap<>();
         for (int i = 0; i < keyList.size(); i++) {
             if (map.put(keyList.get(i), valueList.get(i)) != null) {
                 fail("keyList should have same size with valueList");

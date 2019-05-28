@@ -443,7 +443,7 @@ public class TestLogicalPlanner
         assertPlanDoesNotContain(sql, ApplyNode.class, JoinNode.class, IndexJoinNode.class, SemiJoinNode.class, LateralJoinNode.class);
     }
 
-    private void assertPlanDoesNotContain(String sql, Class... classes)
+    private void assertPlanDoesNotContain(String sql, Class<?>... classes)
     {
         assertFalse(
                 searchFrom(plan(sql, OPTIMIZED).getRoot())

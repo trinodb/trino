@@ -79,7 +79,7 @@ public class RowExpressionCompiler
         return compile(rowExpression, scope, Optional.empty());
     }
 
-    public BytecodeNode compile(RowExpression rowExpression, Scope scope, Optional<Class> lambdaInterface)
+    public BytecodeNode compile(RowExpression rowExpression, Scope scope, Optional<Class<?>> lambdaInterface)
     {
         return rowExpression.accept(new Visitor(), new Context(scope, lambdaInterface));
     }
@@ -232,9 +232,9 @@ public class RowExpressionCompiler
     private static class Context
     {
         private final Scope scope;
-        private final Optional<Class> lambdaInterface;
+        private final Optional<Class<?>> lambdaInterface;
 
-        public Context(Scope scope, Optional<Class> lambdaInterface)
+        public Context(Scope scope, Optional<Class<?>> lambdaInterface)
         {
             this.scope = scope;
             this.lambdaInterface = lambdaInterface;
@@ -245,7 +245,7 @@ public class RowExpressionCompiler
             return scope;
         }
 
-        public Optional<Class> getLambdaInterface()
+        public Optional<Class<?>> getLambdaInterface()
         {
             return lambdaInterface;
         }

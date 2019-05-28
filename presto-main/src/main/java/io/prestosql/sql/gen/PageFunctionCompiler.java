@@ -189,7 +189,7 @@ public class PageFunctionCompiler
         // generate Work
         ClassDefinition pageProjectionWorkDefinition = definePageProjectWorkClass(result.getRewrittenExpression(), callSiteBinder, classNameSuffix);
 
-        Class<? extends Work> pageProjectionWorkClass;
+        Class<?> pageProjectionWorkClass;
         try {
             pageProjectionWorkClass = defineClass(pageProjectionWorkDefinition, Work.class, callSiteBinder.getBindings(), getClass().getClassLoader());
         }

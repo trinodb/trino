@@ -180,7 +180,7 @@ public class LambdaBytecodeGenerator
             BytecodeGeneratorContext context,
             List<RowExpression> captureExpressions,
             CompiledLambda compiledLambda,
-            Class lambdaInterface)
+            Class<?> lambdaInterface)
     {
         if (!lambdaInterface.isAnnotationPresent(FunctionalInterface.class)) {
             // lambdaInterface is checked to be annotated with FunctionalInterface when generating ScalarFunctionImplementation
@@ -229,7 +229,7 @@ public class LambdaBytecodeGenerator
         return block;
     }
 
-    public static Class<? extends LambdaProvider> compileLambdaProvider(LambdaDefinitionExpression lambdaExpression, FunctionRegistry functionRegistry, Class lambdaInterface)
+    public static Class<? extends LambdaProvider> compileLambdaProvider(LambdaDefinitionExpression lambdaExpression, FunctionRegistry functionRegistry, Class<?> lambdaInterface)
     {
         ClassDefinition lambdaProviderClassDefinition = new ClassDefinition(
                 a(PUBLIC, Access.FINAL),
@@ -300,7 +300,7 @@ public class LambdaBytecodeGenerator
         return defineClass(lambdaProviderClassDefinition, LambdaProvider.class, callSiteBinder.getBindings(), AccumulatorCompiler.class.getClassLoader());
     }
 
-    private static Method getSingleApplyMethod(Class lambdaFunctionInterface)
+    private static Method getSingleApplyMethod(Class<?> lambdaFunctionInterface)
     {
         checkCondition(lambdaFunctionInterface.isAnnotationPresent(FunctionalInterface.class), COMPILER_ERROR, "Lambda function interface is required to be annotated with FunctionalInterface");
 

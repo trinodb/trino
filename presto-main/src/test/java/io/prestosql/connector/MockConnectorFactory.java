@@ -176,7 +176,7 @@ public class MockConnectorFactory
             @Override
             public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
             {
-                return (Map<String, ColumnHandle>) (Map) getColumnHandles.apply(session, tableHandle);
+                return ImmutableMap.copyOf(getColumnHandles.apply(session, tableHandle));
             }
 
             @Override

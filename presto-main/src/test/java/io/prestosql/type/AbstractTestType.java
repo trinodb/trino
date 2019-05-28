@@ -515,7 +515,7 @@ public abstract class AbstractTestType
             Type valueType = mapType.getValueType();
             Object keyNonNullValue = getNonNullValueForType(keyType);
             Object valueNonNullValue = getNonNullValueForType(valueType);
-            Map map = ImmutableMap.of(keyNonNullValue, valueNonNullValue);
+            Map<?, ?> map = ImmutableMap.of(keyNonNullValue, valueNonNullValue);
             return mapBlockOf(keyType, valueType, map);
         }
         if (type instanceof RowType) {

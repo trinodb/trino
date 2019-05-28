@@ -18,10 +18,10 @@ import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.type.Type;
 
-public class IntegerNumberUpscaleCoercer
-        extends TypeCoercer
+public class IntegerNumberUpscaleCoercer<F extends Type, T extends Type>
+        extends TypeCoercer<F, T>
 {
-    public IntegerNumberUpscaleCoercer(Type fromType, Type toType)
+    public IntegerNumberUpscaleCoercer(F fromType, T toType)
     {
         super(fromType, toType);
     }

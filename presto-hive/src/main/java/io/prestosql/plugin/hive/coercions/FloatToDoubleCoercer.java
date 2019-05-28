@@ -16,13 +16,15 @@ package io.prestosql.plugin.hive.coercions;
 
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.type.DoubleType;
+import io.prestosql.spi.type.RealType;
 
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.RealType.REAL;
 import static java.lang.Float.intBitsToFloat;
 
 public class FloatToDoubleCoercer
-        extends TypeCoercer
+        extends TypeCoercer<RealType, DoubleType>
 {
     public FloatToDoubleCoercer()
     {
