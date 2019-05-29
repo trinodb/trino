@@ -25,6 +25,8 @@ General Changes
 * Add :func:`uuid` function to generate random UUIDs. (:issue:`786`)
 * Add :doc:`/connector/phoenix`. (:issue:`672`)
 * Make semantic error name available in client protocol. (:issue:`790`)
+* Report operator statistics when ``experimental.work-processor-pipelines``
+  is enabled. (:issue:`788`)
 
 Server Changes
 --------------
