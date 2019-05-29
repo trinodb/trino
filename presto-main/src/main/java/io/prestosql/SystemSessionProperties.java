@@ -115,7 +115,7 @@ public final class SystemSessionProperties
     public static final String MAX_DRIVERS_PER_TASK = "max_drivers_per_task";
     public static final String DEFAULT_FILTER_FACTOR_ENABLED = "default_filter_factor_enabled";
     public static final String UNWRAP_CASTS = "unwrap_casts";
-    public static final String SKIP_REDUNDANT_SORT = "remove_redundant_sort";
+    public static final String SKIP_REDUNDANT_SORT = "skip_redundant_sort";
     public static final String WORK_PROCESSOR_PIPELINES = "work_processor_pipelines";
 
     private final List<PropertyMetadata<?>> sessionProperties;
