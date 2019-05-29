@@ -1,7 +1,5 @@
 #!/bin/bash
 
-set -euo pipefail -x
-
 function retry() {
   END=$(($(date +%s) + 600))
 
