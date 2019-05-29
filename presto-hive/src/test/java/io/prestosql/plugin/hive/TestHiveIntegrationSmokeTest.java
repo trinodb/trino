@@ -2136,6 +2136,78 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
+    public void testCreateTableWithHeaderAndFooter()
+    {
+        @Language("SQL") String createTableSql = format("" +
+                        "CREATE TABLE %s.%s.test_table_skip_header (\n" +
+                        "   name varchar\n" +
+                        ")\n" +
+                        "WITH (\n" +
+                        "   format = 'TEXTFILE',\n" +
+                        "   textfile_skip_header_line_count = 1\n" +
+                        ")",
+                getSession().getCatalog().get(),
+                getSession().getSchema().get());
+
+        assertUpdate(createTableSql);
+
+        MaterializedResult actual = computeActual("SHOW CREATE TABLE test_table_skip_header");
+        assertEquals(actual.getOnlyValue(), createTableSql);
+        assertUpdate("DROP TABLE test_table_skip_header");
+
+        createTableSql = format("" +
+                        "CREATE TABLE %s.%s.test_table_skip_footer (\n" +
+                        "   name varchar\n" +
+                        ")\n" +
+                        "WITH (\n" +
+                        "   format = 'TEXTFILE',\n" +
+                        "   textfile_skip_footer_line_count = 1\n" +
+                        ")",
+                getSession().getCatalog().get(),
+                getSession().getSchema().get());
+
+        assertUpdate(createTableSql);
+
+        actual = computeActual("SHOW CREATE TABLE test_table_skip_footer");
+        assertEquals(actual.getOnlyValue(), createTableSql);
+        assertUpdate("DROP TABLE test_table_skip_footer");
+
+        createTableSql = format("" +
+                        "CREATE TABLE %s.%s.test_table_skip_header_footer (\n" +
+                        "   name varchar\n" +
+                        ")\n" +
+                        "WITH (\n" +
+                        "   format = 'TEXTFILE',\n" +
+                        "   textfile_skip_footer_line_count = 1,\n" +
+                        "   textfile_skip_header_line_count = 1\n" +
+                        ")",
+                getSession().getCatalog().get(),
+                getSession().getSchema().get());
+
+        assertUpdate(createTableSql);
+
+        actual = computeActual("SHOW CREATE TABLE test_table_skip_header_footer");
+        assertEquals(actual.getOnlyValue(), createTableSql);
+        assertUpdate("DROP TABLE test_table_skip_header_footer");
+    }
+
+    @Test
+    public void testCreateTableInvalidSkipHeaderFooter()
+    {
+        assertThatThrownBy(() -> assertUpdate("CREATE TABLE test_orc_skip_header (col1 bigint) WITH (format = 'ORC', textfile_skip_header_line_count = 1)"))
+                .hasMessageMatching("Cannot specify textfile_skip_header_line_count table property for storage format: ORC");
+
+        assertThatThrownBy(() -> assertUpdate("CREATE TABLE test_orc_skip_footer (col1 bigint) WITH (format = 'ORC', textfile_skip_footer_line_count = 1)"))
+                .hasMessageMatching("Cannot specify textfile_skip_footer_line_count table property for storage format: ORC");
+
+        assertThatThrownBy(() -> assertUpdate("CREATE TABLE test_invalid_skip_header (col1 bigint) WITH (format = 'TEXTFILE', textfile_skip_header_line_count = -1)"))
+                .hasMessageMatching("Invalid value for textfile_skip_header_line_count property: -1");
+
+        assertThatThrownBy(() -> assertUpdate("CREATE TABLE test_invalid_skip_footer (col1 bigint) WITH (format = 'TEXTFILE', textfile_skip_footer_line_count = -1)"))
+                .hasMessageMatching("Invalid value for textfile_skip_footer_line_count property: -1");
+    }
+
+    @Test
     public void testPathHiddenColumn()
     {
         testWithAllStorageFormats(this::testPathHiddenColumn);

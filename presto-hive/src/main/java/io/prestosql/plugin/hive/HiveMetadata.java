@@ -157,6 +157,8 @@ import static io.prestosql.plugin.hive.HiveTableProperties.ORC_BLOOM_FILTER_FPP;
 import static io.prestosql.plugin.hive.HiveTableProperties.PARTITIONED_BY_PROPERTY;
 import static io.prestosql.plugin.hive.HiveTableProperties.SORTED_BY_PROPERTY;
 import static io.prestosql.plugin.hive.HiveTableProperties.STORAGE_FORMAT_PROPERTY;
+import static io.prestosql.plugin.hive.HiveTableProperties.TEXTFILE_SKIP_FOOTER_LINE_COUNT;
+import static io.prestosql.plugin.hive.HiveTableProperties.TEXTFILE_SKIP_HEADER_LINE_COUNT;
 import static io.prestosql.plugin.hive.HiveTableProperties.getAvroSchemaUrl;
 import static io.prestosql.plugin.hive.HiveTableProperties.getBucketProperty;
 import static io.prestosql.plugin.hive.HiveTableProperties.getExternalLocation;
@@ -164,6 +166,8 @@ import static io.prestosql.plugin.hive.HiveTableProperties.getHiveStorageFormat;
 import static io.prestosql.plugin.hive.HiveTableProperties.getOrcBloomFilterColumns;
 import static io.prestosql.plugin.hive.HiveTableProperties.getOrcBloomFilterFpp;
 import static io.prestosql.plugin.hive.HiveTableProperties.getPartitionedBy;
+import static io.prestosql.plugin.hive.HiveTableProperties.getTextFooterSkipCount;
+import static io.prestosql.plugin.hive.HiveTableProperties.getTextHeaderSkipCount;
 import static io.prestosql.plugin.hive.HiveType.HIVE_STRING;
 import static io.prestosql.plugin.hive.HiveType.toHiveType;
 import static io.prestosql.plugin.hive.HiveUtil.PRESTO_VIEW_FLAG;
@@ -501,6 +505,16 @@ public class HiveMetadata
             properties.put(AVRO_SCHEMA_URL, avroSchemaUrl);
         }
 
+        // Textfile specific property
+        String textSkipHeaderCount = table.get().getParameters().get(TEXT_SKIP_HEADER_COUNT_KEY);
+        if (textSkipHeaderCount != null) {
+            properties.put(TEXTFILE_SKIP_HEADER_LINE_COUNT, Integer.valueOf(textSkipHeaderCount));
+        }
+        String textSkipFooterCount = table.get().getParameters().get(TEXT_SKIP_FOOTER_COUNT_KEY);
+        if (textSkipFooterCount != null) {
+            properties.put(TEXTFILE_SKIP_FOOTER_LINE_COUNT, Integer.valueOf(textSkipFooterCount));
+        }
+
         Optional<String> comment = Optional.ofNullable(table.get().getParameters().get(TABLE_COMMENT));
 
         return new ConnectorTableMetadata(tableName, columns.build(), properties.build(), comment);
@@ -728,6 +742,33 @@ public class HiveMetadata
             }
             tableProperties.put(AVRO_SCHEMA_URL_KEY, validateAndNormalizeAvroSchemaUrl(avroSchemaUrl, hdfsContext));
         }
+
+        // Textfile specific properties
+        getTextHeaderSkipCount(tableMetadata.getProperties()).ifPresent(headerSkipCount -> {
+            if (headerSkipCount > 0) {
+                HiveStorageFormat hiveStorageFormat = getHiveStorageFormat(tableMetadata.getProperties());
+                if (hiveStorageFormat != HiveStorageFormat.TEXTFILE) {
+                    throw new PrestoException(INVALID_TABLE_PROPERTY, format("Cannot specify %s table property for storage format: %s", TEXTFILE_SKIP_HEADER_LINE_COUNT, hiveStorageFormat));
+                }
+                tableProperties.put(TEXT_SKIP_HEADER_COUNT_KEY, String.valueOf(headerSkipCount));
+            }
+            if (headerSkipCount < 0) {
+                throw new PrestoException(HIVE_INVALID_METADATA, format("Invalid value for %s property: %s", TEXTFILE_SKIP_HEADER_LINE_COUNT, headerSkipCount));
+            }
+        });
+
+        getTextFooterSkipCount(tableMetadata.getProperties()).ifPresent(footerSkipCount -> {
+            if (footerSkipCount > 0) {
+                HiveStorageFormat hiveStorageFormat = getHiveStorageFormat(tableMetadata.getProperties());
+                if (hiveStorageFormat != HiveStorageFormat.TEXTFILE) {
+                    throw new PrestoException(INVALID_TABLE_PROPERTY, format("Cannot specify %s table property for storage format: %s", TEXTFILE_SKIP_FOOTER_LINE_COUNT, hiveStorageFormat));
+                }
+                tableProperties.put(TEXT_SKIP_FOOTER_COUNT_KEY, String.valueOf(footerSkipCount));
+            }
+            if (footerSkipCount < 0) {
+                throw new PrestoException(HIVE_INVALID_METADATA, format("Invalid value for %s property: %s", TEXTFILE_SKIP_FOOTER_LINE_COUNT, footerSkipCount));
+            }
+        });
 
         // Table comment property
         tableMetadata.getComment().ifPresent(value -> tableProperties.put(TABLE_COMMENT, value));
