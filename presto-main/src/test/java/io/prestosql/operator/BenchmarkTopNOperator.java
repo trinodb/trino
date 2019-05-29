@@ -60,9 +60,9 @@ import static org.testng.Assert.assertEquals;
 
 @State(Scope.Thread)
 @OutputTimeUnit(TimeUnit.SECONDS)
-@Fork(4)
-@Warmup(iterations = 10, time = 500, timeUnit = TimeUnit.MILLISECONDS)
-@Measurement(iterations = 10, time = 500, timeUnit = TimeUnit.MILLISECONDS)
+@Fork(3)
+@Warmup(iterations = 20, time = 500, timeUnit = TimeUnit.MILLISECONDS)
+@Measurement(iterations = 20, time = 500, timeUnit = TimeUnit.MILLISECONDS)
 public class BenchmarkTopNOperator
 {
     private static final int TOTAL_POSITIONS = 1_000_000;
@@ -74,7 +74,7 @@ public class BenchmarkTopNOperator
     @State(Scope.Thread)
     public static class BenchmarkContext
     {
-        @Param({"1", "100", "10000", "1000000"})
+        @Param({"1", "100", "10000"})
         private String topN = "1";
 
         @Param({"32", "1024"})
