@@ -15,8 +15,8 @@ Synopsis
     [ HAVING condition]
     [ { UNION | INTERSECT | EXCEPT } [ ALL | DISTINCT ] select ]
     [ ORDER BY expression [ ASC | DESC ] [, ...] ]
-    [ OFFSET count [ { ROW | ROWS } ] ]
-    [ { LIMIT [ count | ALL ] | FETCH { FIRST | NEXT } [ count ] { ROW | ROWS } ONLY } ]
+    [ OFFSET count [ ROW | ROWS ] ]
+    [ LIMIT { count | ALL } | FETCH { FIRST | NEXT } [ count ] { ROW | ROWS } ONLY ]
 
 where ``from_item`` is one of
 
@@ -592,7 +592,7 @@ from the result set:
 
 .. code-block:: none
 
-    OFFSET count [ { ROW | ROWS } ]
+    OFFSET count [ ROW | ROWS ]
 
 If the ``ORDER BY`` clause is present, the ``OFFSET`` clause is evaluated
 over a sorted result set, and the set remains sorted after the
@@ -621,7 +621,7 @@ in the result set.
 
 .. code-block:: none
 
-    LIMIT [ count | ALL ]
+    LIMIT { count | ALL }
 
 .. code-block:: none
 
