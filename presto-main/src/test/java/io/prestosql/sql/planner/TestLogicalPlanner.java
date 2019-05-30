@@ -950,19 +950,17 @@ public class TestLogicalPlanner
                         .matches(),
                 format("Unexpected limit node for query: '%s'", query));
 
-        query = "SELECT orderkey, count(*) FROM orders GROUP BY orderkey LIMIT 10";
         assertPlan(
-                query,
+                "SELECT orderkey, count(*) FROM orders GROUP BY orderkey LIMIT 10",
                 output(
                         limit(10,
                                 anyTree(
                                         tableScan("orders")))));
 
-        query = "SELECT * FROM (VALUES 1,2,3,4,5,6) AS t1 LIMIT 10";
         assertPlan(
-                query,
+                "SELECT * FROM (VALUES 1,2,3,4,5,6) AS t1 LIMIT 10",
                 output(
-                        values(ImmutableList.of("t1"))));
+                        values(ImmutableList.of("x"))));
     }
 
     @Test
@@ -975,9 +973,8 @@ public class TestLogicalPlanner
                         .matches(),
                 format("Unexpected sort node for query: '%s'", query));
 
-        query = "SELECT orderkey, count(*) FROM orders GROUP BY orderkey ORDER BY 1";
         assertPlan(
-                query,
+                "SELECT orderkey, count(*) FROM orders GROUP BY orderkey ORDER BY 1",
                 anyTree(
                         node(SortNode.class,
                                 anyTree(
@@ -994,28 +991,25 @@ public class TestLogicalPlanner
                         .matches(),
                 format("Unexpected TopN node for query: '%s'", query));
 
-        query = "SELECT orderkey, count(*) FROM orders GROUP BY orderkey ORDER BY 1 LIMIT 10";
         assertPlan(
-                query,
+                "SELECT orderkey, count(*) FROM orders GROUP BY orderkey ORDER BY 1 LIMIT 10",
                 output(
                         node(TopNNode.class,
                                 anyTree(
                                         tableScan("orders")))));
 
-        query = "SELECT orderkey, count(*) FROM orders GROUP BY orderkey ORDER BY 1 LIMIT 0";
         assertPlan(
-                query,
+                "SELECT orderkey, count(*) FROM orders GROUP BY orderkey ORDER BY 1 LIMIT 0",
                 output(
                         node(ValuesNode.class)));
 
-        query = "SELECT * FROM (VALUES 1,2,3,4,5,6) AS t1 ORDER BY 1 LIMIT 10";
         assertPlan(
-                query,
+                "SELECT * FROM (VALUES 1,2,3,4,5,6) AS t1 ORDER BY 1 LIMIT 10",
                 output(
                         exchange(LOCAL, GATHER,
                                 node(SortNode.class,
                                         exchange(LOCAL, REPARTITION,
-                                                values(ImmutableList.of("t1")))))));
+                                                values(ImmutableList.of("x")))))));
     }
 
     @Test
@@ -1028,21 +1022,19 @@ public class TestLogicalPlanner
                         .matches(),
                 format("Unexpected DistinctLimit node for query: '%s'", query));
 
-        query = "SELECT distinct(c) FROM (SELECT count(*) as c FROM orders GROUP BY orderkey) LIMIT 10";
         assertPlan(
-                query,
+                "SELECT distinct(c) FROM (SELECT count(*) as c FROM orders GROUP BY orderkey) LIMIT 10",
                 output(
                         node(DistinctLimitNode.class,
                                 anyTree(
                                         tableScan("orders")))));
 
-        query = "SELECT distinct(id) FROM (VALUES 1, 2, 3, 4, 5, 6) as t1 (id) LIMIT 10";
         assertPlan(
-                query,
+                "SELECT distinct(id) FROM (VALUES 1, 2, 3, 4, 5, 6) as t1 (id) LIMIT 10",
                 output(
                         node(ProjectNode.class,
                                 node(AggregationNode.class,
                                         node(ProjectNode.class,
-                                                values(ImmutableList.of("t1")))))));
+                                                values(ImmutableList.of("x")))))));
     }
 }
