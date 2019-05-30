@@ -43,7 +43,7 @@ public class TestCountNullAggregation
     }
 
     @Override
-    public Block[] getSequenceBlocks(int start, int length)
+    protected Block[] getSequenceBlocks(int start, int length)
     {
         BlockBuilder blockBuilder = BIGINT.createBlockBuilder(null, length);
         for (int i = start; i < start + length; i++) {
@@ -53,7 +53,7 @@ public class TestCountNullAggregation
     }
 
     @Override
-    public Number getExpectedValue(int start, int length)
+    protected Number getExpectedValue(int start, int length)
     {
         if (length == 0) {
             return null;
@@ -62,7 +62,7 @@ public class TestCountNullAggregation
     }
 
     @Override
-    public Object getExpectedValueIncludingNulls(int start, int length, int lengthIncludingNulls)
+    protected Object getExpectedValueIncludingNulls(int start, int length, int lengthIncludingNulls)
     {
         return (long) lengthIncludingNulls - length;
     }

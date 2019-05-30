@@ -29,20 +29,20 @@ public class TestApproximateCountDistinctVarBinary
         extends AbstractTestApproximateCountDistinct
 {
     @Override
-    public InternalAggregationFunction getAggregationFunction()
+    protected InternalAggregationFunction getAggregationFunction()
     {
         return metadata.getFunctionRegistry().getAggregateFunctionImplementation(
                 new Signature("approx_distinct", AGGREGATE, BIGINT.getTypeSignature(), parseTypeSignature("varchar"), DOUBLE.getTypeSignature()));
     }
 
     @Override
-    public Type getValueType()
+    protected Type getValueType()
     {
         return VarcharType.VARCHAR;
     }
 
     @Override
-    public Object randomValue()
+    protected Object randomValue()
     {
         int length = ThreadLocalRandom.current().nextInt(100);
         byte[] bytes = new byte[length];

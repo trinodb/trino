@@ -30,7 +30,7 @@ public class TestVarBinaryMaxAggregation
         extends AbstractTestAggregationFunction
 {
     @Override
-    public Block[] getSequenceBlocks(int start, int length)
+    protected Block[] getSequenceBlocks(int start, int length)
     {
         BlockBuilder blockBuilder = VARBINARY.createBlockBuilder(null, length);
         for (int i = 0; i < length; i++) {
@@ -40,7 +40,7 @@ public class TestVarBinaryMaxAggregation
     }
 
     @Override
-    public Object getExpectedValue(int start, int length)
+    protected Object getExpectedValue(int start, int length)
     {
         if (length == 0) {
             return null;

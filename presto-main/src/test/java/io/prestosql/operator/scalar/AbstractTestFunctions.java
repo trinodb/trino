@@ -156,7 +156,7 @@ public abstract class AbstractTestFunctions
         functionAssertions.assertInvalidCast(projection, message);
     }
 
-    public void assertCachedInstanceHasBoundedRetainedSize(String projection)
+    protected void assertCachedInstanceHasBoundedRetainedSize(String projection)
     {
         functionAssertions.assertCachedInstanceHasBoundedRetainedSize(projection);
     }

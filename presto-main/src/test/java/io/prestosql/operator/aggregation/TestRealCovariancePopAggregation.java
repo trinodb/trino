@@ -27,7 +27,7 @@ public class TestRealCovariancePopAggregation
         extends AbstractTestAggregationFunction
 {
     @Override
-    public Block[] getSequenceBlocks(int start, int length)
+    protected Block[] getSequenceBlocks(int start, int length)
     {
         return new Block[] {createSequenceBlockOfReal(start, start + length), createSequenceBlockOfReal(start + 5, start + 5 + length)};
     }
@@ -45,7 +45,7 @@ public class TestRealCovariancePopAggregation
     }
 
     @Override
-    public Object getExpectedValue(int start, int length)
+    protected Object getExpectedValue(int start, int length)
     {
         if (length <= 0) {
             return null;

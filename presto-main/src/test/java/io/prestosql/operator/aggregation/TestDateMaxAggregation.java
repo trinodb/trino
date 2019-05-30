@@ -26,7 +26,7 @@ public class TestDateMaxAggregation
         extends AbstractTestAggregationFunction
 {
     @Override
-    public Block[] getSequenceBlocks(int start, int length)
+    protected Block[] getSequenceBlocks(int start, int length)
     {
         BlockBuilder blockBuilder = DateType.DATE.createBlockBuilder(null, length);
         for (int i = start; i < start + length; i++) {
@@ -36,7 +36,7 @@ public class TestDateMaxAggregation
     }
 
     @Override
-    public SqlDate getExpectedValue(int start, int length)
+    protected SqlDate getExpectedValue(int start, int length)
     {
         if (length == 0) {
             return null;

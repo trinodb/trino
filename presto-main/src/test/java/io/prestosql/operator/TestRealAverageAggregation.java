@@ -72,7 +72,7 @@ public class TestRealAverageAggregation
     }
 
     @Override
-    public Block[] getSequenceBlocks(int start, int length)
+    protected Block[] getSequenceBlocks(int start, int length)
     {
         BlockBuilder blockBuilder = REAL.createBlockBuilder(null, length);
         for (int i = start; i < start + length; i++) {
@@ -94,7 +94,7 @@ public class TestRealAverageAggregation
     }
 
     @Override
-    public Object getExpectedValue(int start, int length)
+    protected Object getExpectedValue(int start, int length)
     {
         if (length == 0) {
             return null;

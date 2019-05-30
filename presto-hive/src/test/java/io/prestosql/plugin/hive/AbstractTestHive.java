@@ -4049,12 +4049,12 @@ public abstract class AbstractTestHive
         return new MaterializedResult(allRows.build(), getTypes(columnHandles));
     }
 
-    public HiveMetastore getMetastoreClient()
+    protected HiveMetastore getMetastoreClient()
     {
         return metastoreClient;
     }
 
-    public LocationService getLocationService()
+    protected LocationService getLocationService()
     {
         return locationService;
     }

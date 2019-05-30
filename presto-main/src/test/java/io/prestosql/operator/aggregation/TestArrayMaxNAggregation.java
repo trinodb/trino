@@ -58,7 +58,7 @@ public class TestArrayMaxNAggregation
     }
 
     @Override
-    public Block[] getSequenceBlocks(int start, int length)
+    protected Block[] getSequenceBlocks(int start, int length)
     {
         return new Block[] {createLongArraySequenceBlock(start, start + length), createLongRepeatBlock(2, length)};
     }
@@ -76,7 +76,7 @@ public class TestArrayMaxNAggregation
     }
 
     @Override
-    public Object getExpectedValue(int start, int length)
+    protected Object getExpectedValue(int start, int length)
     {
         if (length == 0) {
             return null;

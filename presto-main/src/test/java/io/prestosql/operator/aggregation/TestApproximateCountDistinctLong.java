@@ -26,20 +26,20 @@ public class TestApproximateCountDistinctLong
         extends AbstractTestApproximateCountDistinct
 {
     @Override
-    public InternalAggregationFunction getAggregationFunction()
+    protected InternalAggregationFunction getAggregationFunction()
     {
         return metadata.getFunctionRegistry().getAggregateFunctionImplementation(
                 new Signature("approx_distinct", AGGREGATE, BIGINT.getTypeSignature(), BIGINT.getTypeSignature(), DOUBLE.getTypeSignature()));
     }
 
     @Override
-    public Type getValueType()
+    protected Type getValueType()
     {
         return BIGINT;
     }
 
     @Override
-    public Object randomValue()
+    protected Object randomValue()
     {
         return ThreadLocalRandom.current().nextLong();
     }

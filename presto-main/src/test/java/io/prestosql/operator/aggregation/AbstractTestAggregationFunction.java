@@ -56,7 +56,7 @@ public abstract class AbstractTestAggregationFunction
         typeRegistry = null;
     }
 
-    public abstract Block[] getSequenceBlocks(int start, int length);
+    protected abstract Block[] getSequenceBlocks(int start, int length);
 
     protected void registerFunctions(Plugin plugin)
     {
@@ -81,9 +81,9 @@ public abstract class AbstractTestAggregationFunction
 
     protected abstract List<String> getFunctionParameterTypes();
 
-    public abstract Object getExpectedValue(int start, int length);
+    protected abstract Object getExpectedValue(int start, int length);
 
-    public Object getExpectedValueIncludingNulls(int start, int length, int lengthIncludingNulls)
+    protected Object getExpectedValueIncludingNulls(int start, int length, int lengthIncludingNulls)
     {
         return getExpectedValue(start, length);
     }
@@ -147,7 +147,7 @@ public abstract class AbstractTestAggregationFunction
         testAggregation(getExpectedValue(2, 4), getSequenceBlocks(2, 4));
     }
 
-    public Block[] createAlternatingNullsBlock(List<Type> types, Block... sequenceBlocks)
+    protected Block[] createAlternatingNullsBlock(List<Type> types, Block... sequenceBlocks)
     {
         Block[] alternatingNullsBlocks = new Block[sequenceBlocks.length];
         for (int i = 0; i < sequenceBlocks.length; i++) {

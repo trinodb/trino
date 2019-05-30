@@ -107,7 +107,7 @@ public class TestQueryPlanDeterminism
     }
 
     @Override
-    public void assertQueryOrdered(@Language("SQL") String sql)
+    protected void assertQueryOrdered(@Language("SQL") String sql)
     {
         determinismChecker.checkPlanIsDeterministic(sql);
     }

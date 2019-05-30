@@ -1073,7 +1073,7 @@ public class TestHiveIntegrationSmokeTest
         }
     }
 
-    public void testCreateEmptyBucketedPartition(HiveStorageFormat storageFormat)
+    private void testCreateEmptyBucketedPartition(HiveStorageFormat storageFormat)
     {
         String tableName = "test_insert_empty_partitioned_bucketed_table";
         createPartitionedBucketedTable(tableName, storageFormat);

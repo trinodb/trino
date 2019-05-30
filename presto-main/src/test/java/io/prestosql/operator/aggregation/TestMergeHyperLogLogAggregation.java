@@ -32,7 +32,7 @@ public class TestMergeHyperLogLogAggregation
     // use dense for expected and actual to assure same serialized bytes
 
     @Override
-    public Block[] getSequenceBlocks(int start, int length)
+    protected Block[] getSequenceBlocks(int start, int length)
     {
         BlockBuilder blockBuilder = HYPER_LOG_LOG.createBlockBuilder(null, length);
         for (int i = start; i < start + length; i++) {
@@ -57,7 +57,7 @@ public class TestMergeHyperLogLogAggregation
     }
 
     @Override
-    public Object getExpectedValue(int start, int length)
+    protected Object getExpectedValue(int start, int length)
     {
         if (length == 0) {
             return null;
