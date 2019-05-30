@@ -940,6 +940,7 @@ public class TestLogicalPlanner
                                                 .withAlias("row_num", new RowNumberSymbolMatcher())))));
     }
 
+    @Test
     public void testRedundantLimitNodeRemoval()
     {
         String query = "SELECT count(*) FROM orders LIMIT 10";
@@ -983,6 +984,7 @@ public class TestLogicalPlanner
                                         tableScan("orders")))));
     }
 
+    @Test
     public void testRedundantTopNNodeRemoval()
     {
         String query = "SELECT count(*) FROM orders ORDER BY 1 LIMIT 10";
@@ -1010,8 +1012,10 @@ public class TestLogicalPlanner
         assertPlan(
                 query,
                 output(
-                        node(SortNode.class,
-                                values(ImmutableList.of("t1")))));
+                        exchange(LOCAL, GATHER,
+                                node(SortNode.class,
+                                        exchange(LOCAL, REPARTITION,
+                                                values(ImmutableList.of("t1")))))));
     }
 
     @Test

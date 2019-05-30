@@ -536,7 +536,7 @@ public class TestAnnotationEngineForAggregates
         }
     }
 
-    // @Test - this is not yet supported
+    @Test(enabled = false) // TODO this is not yet supported
     public void testSimpleImplicitSpecializedAggregationParse()
     {
         Signature expectedSignature = new Signature(
@@ -628,7 +628,7 @@ public class TestAnnotationEngineForAggregates
         }
     }
 
-    // @Test - this is not yet supported
+    @Test(enabled = false) // TODO this is not yet supported
     public void testSimpleExplicitSpecializedAggregationParse()
     {
         Signature expectedSignature = new Signature(
