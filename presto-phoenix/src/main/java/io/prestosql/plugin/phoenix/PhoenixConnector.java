@@ -35,7 +35,7 @@ public class PhoenixConnector
     private static final Logger log = Logger.get(PhoenixConnector.class);
 
     private final LifeCycleManager lifeCycleManager;
-    private final PhoenixMetadata metadata;
+    private final ConnectorMetadata metadata;
     private final ConnectorSplitManager splitManager;
     private final ConnectorRecordSetProvider recordSetProvider;
     private final ConnectorPageSinkProvider pageSinkProvider;
@@ -44,7 +44,7 @@ public class PhoenixConnector
 
     public PhoenixConnector(
             LifeCycleManager lifeCycleManager,
-            PhoenixMetadata metadata,
+            ConnectorMetadata metadata,
             ConnectorSplitManager splitManager,
             ConnectorRecordSetProvider recordSetProvider,
             ConnectorPageSinkProvider pageSinkProvider,
