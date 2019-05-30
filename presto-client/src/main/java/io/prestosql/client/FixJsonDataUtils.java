@@ -47,6 +47,7 @@ import static io.prestosql.client.ClientStandardTypes.TIMESTAMP;
 import static io.prestosql.client.ClientStandardTypes.TIMESTAMP_WITH_TIME_ZONE;
 import static io.prestosql.client.ClientStandardTypes.TIME_WITH_TIME_ZONE;
 import static io.prestosql.client.ClientStandardTypes.TINYINT;
+import static io.prestosql.client.ClientStandardTypes.UUID;
 import static io.prestosql.client.ClientStandardTypes.VARCHAR;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
@@ -164,6 +165,7 @@ final class FixJsonDataUtils
             case INTERVAL_YEAR_TO_MONTH:
             case INTERVAL_DAY_TO_SECOND:
             case IPADDRESS:
+            case UUID:
             case DECIMAL:
             case CHAR:
             case GEOMETRY:
