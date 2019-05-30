@@ -26,6 +26,7 @@ import io.prestosql.spi.connector.ConnectorHandleResolver;
 import io.prestosql.spi.connector.ConnectorPageSinkProvider;
 import io.prestosql.spi.connector.ConnectorRecordSetProvider;
 import io.prestosql.spi.connector.ConnectorSplitManager;
+import io.prestosql.spi.connector.classloader.ClassLoaderSafeConnectorMetadata;
 import io.prestosql.spi.connector.classloader.ClassLoaderSafeConnectorPageSinkProvider;
 import io.prestosql.spi.connector.classloader.ClassLoaderSafeConnectorSplitManager;
 
@@ -80,7 +81,7 @@ public class PhoenixConnectorFactory
 
             return new PhoenixConnector(
                     lifeCycleManager,
-                    metadata,
+                    new ClassLoaderSafeConnectorMetadata(metadata, classLoader),
                     new ClassLoaderSafeConnectorSplitManager(splitManager, classLoader),
                     recordSetProvider,
                     new ClassLoaderSafeConnectorPageSinkProvider(pageSinkProvider, classLoader),
