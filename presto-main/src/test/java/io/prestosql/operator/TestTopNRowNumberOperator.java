@@ -189,6 +189,7 @@ public class TestTopNRowNumberOperator
         assertOperatorEquals(operatorFactory, driverContext, input, expected);
     }
 
+    @Test
     public void testMemoryReservationYield()
     {
         Type type = BIGINT;

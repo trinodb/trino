@@ -97,6 +97,7 @@ public class TestCachingHiveMetastore
         assertEquals(mockClient.getAccessCount(), 2);
     }
 
+    @Test
     public void testInvalidDbGetAllTAbles()
     {
         assertFalse(metastore.getAllTables(BAD_DATABASE).isPresent());
@@ -117,6 +118,7 @@ public class TestCachingHiveMetastore
         assertEquals(mockClient.getAccessCount(), 2);
     }
 
+    @Test
     public void testInvalidDbGetTable()
     {
         assertFalse(metastore.getTable(BAD_DATABASE, TEST_TABLE).isPresent());
@@ -165,6 +167,7 @@ public class TestCachingHiveMetastore
         assertEquals(mockClient.getAccessCount(), 2);
     }
 
+    @Test
     public void testInvalidGetPartitionNamesByParts()
     {
         ImmutableList<String> parts = ImmutableList.of();
@@ -228,6 +231,7 @@ public class TestCachingHiveMetastore
         assertEquals(mockClient.getAccessCount(), 4);
     }
 
+    @Test
     public void testInvalidGetPartitionsByNames()
     {
         Map<String, Optional<Partition>> partitionsByNames = metastore.getPartitionsByNames(BAD_DATABASE, TEST_TABLE, ImmutableList.of(TEST_PARTITION1));
