@@ -29,7 +29,7 @@ public abstract class AbstractTestDecimalAverageAggregation
     protected abstract DecimalType getDecimalType();
 
     @Override
-    public Block[] getSequenceBlocks(int start, int length)
+    protected Block[] getSequenceBlocks(int start, int length)
     {
         BlockBuilder blockBuilder = getDecimalType().createBlockBuilder(null, length);
         for (int i = start; i < start + length; i++) {
@@ -47,7 +47,7 @@ public abstract class AbstractTestDecimalAverageAggregation
     }
 
     @Override
-    public SqlDecimal getExpectedValue(int start, int length)
+    protected SqlDecimal getExpectedValue(int start, int length)
     {
         if (length == 0) {
             return null;

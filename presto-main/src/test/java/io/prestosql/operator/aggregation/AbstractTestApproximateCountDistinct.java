@@ -40,11 +40,11 @@ import static org.testng.Assert.assertEquals;
 
 public abstract class AbstractTestApproximateCountDistinct
 {
-    public abstract InternalAggregationFunction getAggregationFunction();
+    protected abstract InternalAggregationFunction getAggregationFunction();
 
-    public abstract Type getValueType();
+    protected abstract Type getValueType();
 
-    public abstract Object randomValue();
+    protected abstract Object randomValue();
 
     protected static final MetadataManager metadata = MetadataManager.createTestMetadataManager();
 

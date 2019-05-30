@@ -28,20 +28,20 @@ public class TestApproximateCountDistinctIpAddress
         extends AbstractTestApproximateCountDistinct
 {
     @Override
-    public InternalAggregationFunction getAggregationFunction()
+    protected InternalAggregationFunction getAggregationFunction()
     {
         return metadata.getFunctionRegistry().getAggregateFunctionImplementation(
                 new Signature("approx_distinct", AGGREGATE, BIGINT.getTypeSignature(), IPADDRESS.getTypeSignature(), DOUBLE.getTypeSignature()));
     }
 
     @Override
-    public Type getValueType()
+    protected Type getValueType()
     {
         return IPADDRESS;
     }
 
     @Override
-    public Object randomValue()
+    protected Object randomValue()
     {
         byte[] bytes = new byte[16];
         ThreadLocalRandom.current().nextBytes(bytes);

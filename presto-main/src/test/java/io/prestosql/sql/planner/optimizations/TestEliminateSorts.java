@@ -86,7 +86,7 @@ public class TestEliminateSorts
         assertUnitPlan(sql, pattern);
     }
 
-    public void assertUnitPlan(@Language("SQL") String sql, PlanMatchPattern pattern)
+    private void assertUnitPlan(@Language("SQL") String sql, PlanMatchPattern pattern)
     {
         List<PlanOptimizer> optimizers = ImmutableList.of(
                 new UnaliasSymbolReferences(),

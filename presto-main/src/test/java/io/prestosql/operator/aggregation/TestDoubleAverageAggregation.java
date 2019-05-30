@@ -26,7 +26,7 @@ public class TestDoubleAverageAggregation
         extends AbstractTestAggregationFunction
 {
     @Override
-    public Block[] getSequenceBlocks(int start, int length)
+    protected Block[] getSequenceBlocks(int start, int length)
     {
         BlockBuilder blockBuilder = DOUBLE.createBlockBuilder(null, length);
         for (int i = start; i < start + length; i++) {
@@ -36,7 +36,7 @@ public class TestDoubleAverageAggregation
     }
 
     @Override
-    public Number getExpectedValue(int start, int length)
+    protected Number getExpectedValue(int start, int length)
     {
         if (length == 0) {
             return null;

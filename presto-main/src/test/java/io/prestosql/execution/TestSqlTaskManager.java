@@ -231,7 +231,7 @@ public class TestSqlTaskManager
         }
     }
 
-    public SqlTaskManager createSqlTaskManager(TaskManagerConfig config)
+    private SqlTaskManager createSqlTaskManager(TaskManagerConfig config)
     {
         return new SqlTaskManager(
                 createTestingPlanner(),

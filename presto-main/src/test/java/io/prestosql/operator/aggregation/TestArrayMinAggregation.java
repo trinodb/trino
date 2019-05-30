@@ -27,7 +27,7 @@ public class TestArrayMinAggregation
         extends AbstractTestAggregationFunction
 {
     @Override
-    public Block[] getSequenceBlocks(int start, int length)
+    protected Block[] getSequenceBlocks(int start, int length)
     {
         ArrayType arrayType = new ArrayType(BIGINT);
         BlockBuilder blockBuilder = arrayType.createBlockBuilder(null, length);
@@ -38,7 +38,7 @@ public class TestArrayMinAggregation
     }
 
     @Override
-    public List<Long> getExpectedValue(int start, int length)
+    protected List<Long> getExpectedValue(int start, int length)
     {
         if (length == 0) {
             return null;

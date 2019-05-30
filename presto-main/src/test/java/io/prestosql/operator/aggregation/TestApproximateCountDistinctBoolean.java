@@ -33,20 +33,20 @@ public class TestApproximateCountDistinctBoolean
         extends AbstractTestApproximateCountDistinct
 {
     @Override
-    public InternalAggregationFunction getAggregationFunction()
+    protected InternalAggregationFunction getAggregationFunction()
     {
         return metadata.getFunctionRegistry().getAggregateFunctionImplementation(
                 new Signature("approx_distinct", AGGREGATE, BIGINT.getTypeSignature(), BOOLEAN.getTypeSignature(), DOUBLE.getTypeSignature()));
     }
 
     @Override
-    public Type getValueType()
+    protected Type getValueType()
     {
         return BOOLEAN;
     }
 
     @Override
-    public Object randomValue()
+    protected Object randomValue()
     {
         return ThreadLocalRandom.current().nextBoolean();
     }

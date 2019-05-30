@@ -31,20 +31,20 @@ public class TestApproximateCountDistinctLongDecimal
     private static final Type LONG_DECIMAL = createDecimalType(MAX_PRECISION);
 
     @Override
-    public InternalAggregationFunction getAggregationFunction()
+    protected InternalAggregationFunction getAggregationFunction()
     {
         return metadata.getFunctionRegistry().getAggregateFunctionImplementation(
                 new Signature("approx_distinct", AGGREGATE, BIGINT.getTypeSignature(), LONG_DECIMAL.getTypeSignature(), DOUBLE.getTypeSignature()));
     }
 
     @Override
-    public Type getValueType()
+    protected Type getValueType()
     {
         return LONG_DECIMAL;
     }
 
     @Override
-    public Object randomValue()
+    protected Object randomValue()
     {
         long low = ThreadLocalRandom.current().nextLong();
         long high = ThreadLocalRandom.current().nextLong();

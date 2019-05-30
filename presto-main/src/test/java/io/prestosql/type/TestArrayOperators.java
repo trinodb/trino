@@ -1815,7 +1815,7 @@ public class TestArrayOperators
     }
 
     @Override
-    public void assertInvalidFunction(String projection, SemanticErrorCode errorCode)
+    protected void assertInvalidFunction(String projection, SemanticErrorCode errorCode)
     {
         try {
             assertFunction(projection, UNKNOWN, null);

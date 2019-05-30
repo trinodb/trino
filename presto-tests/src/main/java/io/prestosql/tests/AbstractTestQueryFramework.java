@@ -103,7 +103,7 @@ public abstract class AbstractTestQueryFramework
         return queryRunner.getDefaultSession();
     }
 
-    public final int getNodeCount()
+    protected final int getNodeCount()
     {
         return queryRunner.getNodeCount();
     }
@@ -149,12 +149,12 @@ public abstract class AbstractTestQueryFramework
         QueryAssertions.assertQuery(queryRunner, session, actual, h2QueryRunner, expected, false, false, planAssertion);
     }
 
-    public void assertQueryOrdered(@Language("SQL") String sql)
+    protected void assertQueryOrdered(@Language("SQL") String sql)
     {
         assertQueryOrdered(getSession(), sql);
     }
 
-    public void assertQueryOrdered(Session session, @Language("SQL") String sql)
+    protected void assertQueryOrdered(Session session, @Language("SQL") String sql)
     {
         assertQueryOrdered(session, sql, sql);
     }
@@ -322,7 +322,7 @@ public abstract class AbstractTestQueryFramework
     }
 
     //TODO: should WarningCollector be added?
-    public String getExplainPlan(String query, ExplainType.Type planType)
+    protected String getExplainPlan(String query, ExplainType.Type planType)
     {
         QueryExplainer explainer = getQueryExplainer();
         return transaction(queryRunner.getTransactionManager(), queryRunner.getAccessControl())
@@ -332,7 +332,7 @@ public abstract class AbstractTestQueryFramework
                 });
     }
 
-    public String getGraphvizExplainPlan(String query, ExplainType.Type planType)
+    protected String getGraphvizExplainPlan(String query, ExplainType.Type planType)
     {
         QueryExplainer explainer = getQueryExplainer();
         return transaction(queryRunner.getTransactionManager(), queryRunner.getAccessControl())
