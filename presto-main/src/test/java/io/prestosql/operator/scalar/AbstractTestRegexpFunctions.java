@@ -21,9 +21,8 @@ import io.prestosql.spi.function.SqlType;
 import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.sql.analyzer.FeaturesConfig;
+import io.prestosql.sql.analyzer.RegexLibrary;
 import org.testng.annotations.BeforeClass;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Factory;
 import org.testng.annotations.Test;
 
 import java.util.ArrayList;
@@ -33,34 +32,19 @@ import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
-import static io.prestosql.sql.analyzer.RegexLibrary.JONI;
-import static io.prestosql.sql.analyzer.RegexLibrary.RE2J;
 
-public class TestRegexpFunctions
+public abstract class AbstractTestRegexpFunctions
         extends AbstractTestFunctions
 {
-    private static final FeaturesConfig JONI_FEATURES_CONFIG = new FeaturesConfig()
-            .setRegexLibrary(JONI);
-
-    private static final FeaturesConfig RE2J_FEATURES_CONFIG = new FeaturesConfig()
-            .setRegexLibrary(RE2J);
-
-    @Factory(dataProvider = "featuresConfig")
-    public TestRegexpFunctions(FeaturesConfig featuresConfig)
+    AbstractTestRegexpFunctions(RegexLibrary regexLibrary)
     {
-        super(featuresConfig);
+        super(new FeaturesConfig().setRegexLibrary(regexLibrary));
     }
 
     @BeforeClass
     public void setUp()
     {
-        registerScalar(TestRegexpFunctions.class);
-    }
-
-    @DataProvider(name = "featuresConfig")
-    public static Object[][] featuresConfigProvider()
-    {
-        return new Object[][] {new Object[] {JONI_FEATURES_CONFIG}, new Object[] {RE2J_FEATURES_CONFIG}};
+        registerScalar(AbstractTestRegexpFunctions.class);
     }
 
     @ScalarFunction(deterministic = false) // if not non-deterministic, constant folding code accidentally fix invalid characters
