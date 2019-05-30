@@ -18,7 +18,9 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.BytecodeBlock;
 import io.airlift.bytecode.BytecodeNode;
 import io.airlift.bytecode.Scope;
+import io.airlift.bytecode.Variable;
 import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.spi.type.Type;
 import io.prestosql.sql.gen.LambdaBytecodeGenerator.CompiledLambda;
 import io.prestosql.sql.relational.CallExpression;
 import io.prestosql.sql.relational.ConstantExpression;
@@ -117,6 +119,9 @@ public class RowExpressionCompiler
                 case SWITCH:
                     // (SWITCH <expr> (WHEN <expr> <expr>) (WHEN <expr> <expr>) <expr>)
                     generator = new SwitchCodeGenerator();
+                    break;
+                case BETWEEN:
+                    generator = new BetweenCodeGenerator();
                     break;
                 // functions that take null as input
                 case IS_NULL:
@@ -234,8 +239,18 @@ public class RowExpressionCompiler
         @Override
         public BytecodeNode visitVariableReference(VariableReferenceExpression reference, Context context)
         {
+            if (reference.getName().startsWith(TEMP_PREFIX)) {
+                return context.getScope().getTempVariable(reference.getName().substring(TEMP_PREFIX.length()));
+            }
             return fieldReferenceCompiler.visitVariableReference(reference, context.getScope());
         }
+    }
+
+    private static final String TEMP_PREFIX = "$$TEMP$$";
+
+    public static VariableReferenceExpression createTempVariableReferenceExpression(Variable variable, Type type)
+    {
+        return new VariableReferenceExpression(TEMP_PREFIX + variable.getName(), type);
     }
 
     private static class Context

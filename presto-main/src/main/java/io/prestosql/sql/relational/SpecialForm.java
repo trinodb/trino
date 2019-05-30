@@ -96,6 +96,7 @@ public class SpecialForm
         NULL_IF,
         SWITCH,
         WHEN,
+        BETWEEN,
         IS_NULL,
         COALESCE,
         IN,

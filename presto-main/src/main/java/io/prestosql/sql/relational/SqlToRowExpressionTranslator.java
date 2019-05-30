@@ -107,7 +107,6 @@ import static io.prestosql.sql.relational.Expressions.field;
 import static io.prestosql.sql.relational.Signatures.arithmeticExpressionSignature;
 import static io.prestosql.sql.relational.Signatures.arithmeticNegationSignature;
 import static io.prestosql.sql.relational.Signatures.arrayConstructorSignature;
-import static io.prestosql.sql.relational.Signatures.betweenSignature;
 import static io.prestosql.sql.relational.Signatures.castSignature;
 import static io.prestosql.sql.relational.Signatures.comparisonExpressionSignature;
 import static io.prestosql.sql.relational.Signatures.likeCharSignature;
@@ -116,6 +115,7 @@ import static io.prestosql.sql.relational.Signatures.likeVarcharSignature;
 import static io.prestosql.sql.relational.Signatures.subscriptSignature;
 import static io.prestosql.sql.relational.Signatures.tryCastSignature;
 import static io.prestosql.sql.relational.SpecialForm.Form.AND;
+import static io.prestosql.sql.relational.SpecialForm.Form.BETWEEN;
 import static io.prestosql.sql.relational.SpecialForm.Form.BIND;
 import static io.prestosql.sql.relational.SpecialForm.Form.COALESCE;
 import static io.prestosql.sql.relational.SpecialForm.Form.DEREFERENCE;
@@ -701,8 +701,8 @@ public final class SqlToRowExpressionTranslator
             RowExpression min = process(node.getMin(), context);
             RowExpression max = process(node.getMax(), context);
 
-            return call(
-                    betweenSignature(value.getType(), min.getType(), max.getType()),
+            return new SpecialForm(
+                    BETWEEN,
                     BOOLEAN,
                     value,
                     min,

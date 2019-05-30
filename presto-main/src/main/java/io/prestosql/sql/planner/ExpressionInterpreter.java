@@ -736,22 +736,31 @@ public class ExpressionInterpreter
                 return null;
             }
             Object min = process(node.getMin(), context);
-            if (min == null) {
-                return null;
-            }
             Object max = process(node.getMax(), context);
-            if (max == null) {
-                return null;
-            }
 
-            if (hasUnresolvedValue(value, min, max)) {
+            if (value instanceof Expression || min instanceof Expression || max instanceof Expression) {
                 return new BetweenPredicate(
                         toExpression(value, type(node.getValue())),
                         toExpression(min, type(node.getMin())),
                         toExpression(max, type(node.getMax())));
             }
 
-            return invokeOperator(OperatorType.BETWEEN, types(node.getValue(), node.getMin(), node.getMax()), ImmutableList.of(value, min, max));
+            Boolean greaterOrEqualToMin = null;
+            if (min != null) {
+                greaterOrEqualToMin = (Boolean) invokeOperator(OperatorType.GREATER_THAN_OR_EQUAL, types(node.getValue(), node.getMin()), ImmutableList.of(value, min));
+            }
+            Boolean lessThanOrEqualToMax = null;
+            if (max != null) {
+                lessThanOrEqualToMax = (Boolean) invokeOperator(OperatorType.LESS_THAN_OR_EQUAL, types(node.getValue(), node.getMax()), ImmutableList.of(value, max));
+            }
+
+            if (greaterOrEqualToMin == null) {
+                return Objects.equals(lessThanOrEqualToMax, Boolean.FALSE) ? false : null;
+            }
+            if (lessThanOrEqualToMax == null) {
+                return Objects.equals(greaterOrEqualToMin, Boolean.FALSE) ? false : null;
+            }
+            return greaterOrEqualToMin && lessThanOrEqualToMax;
         }
 
         @Override

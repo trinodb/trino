@@ -183,6 +183,7 @@ public class ExpressionOptimizer
                 case NULL_IF:
                 case SWITCH:
                 case WHEN:
+                case BETWEEN:
                 case IS_NULL:
                 case COALESCE:
                 case AND:
