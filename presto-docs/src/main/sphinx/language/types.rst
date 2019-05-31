@@ -210,7 +210,7 @@ Structural
 
     By default, row fields are not named, but names can be assigned.
 
-    Example: ``CAST(ROW(1, 2.0) AS ROW(x BIGINT, y DOUBLE))``
+    Example: ``CAST(ROW(1, 2e0) AS ROW(x BIGINT, y DOUBLE))``
 
     Named row fields are accessed with field reference operator ``.``.
 
