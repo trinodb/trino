@@ -45,6 +45,7 @@ public class TestAlignedTablePrinter
         printer.printRows(rows(
                 row("hello", "world", 123),
                 row("a", null, 4.5),
+                row("b", null, null),
                 row("some long\ntext that\ndoes not\nfit on\none line", "more\ntext", 4567),
                 row("bye", "done", -15)),
                 true);
@@ -55,13 +56,14 @@ public class TestAlignedTablePrinter
                 "-----------+-------+----------\n" +
                 " hello     | world |      123 \n" +
                 " a         | NULL  |      4.5 \n" +
+                " b         | NULL  |     NULL \n" +
                 " some long+| more +|     4567 \n" +
                 " text that+| text  |          \n" +
                 " does not +|       |          \n" +
                 " fit on   +|       |          \n" +
                 " one line  |       |          \n" +
                 " bye       | done  |      -15 \n" +
-                "(4 rows)\n";
+                "(5 rows)\n";
 
         assertEquals(writer.getBuffer().toString(), expected);
     }
