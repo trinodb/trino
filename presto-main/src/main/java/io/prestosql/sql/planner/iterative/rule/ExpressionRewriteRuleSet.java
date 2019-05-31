@@ -22,7 +22,6 @@ import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.iterative.Rule;
 import io.prestosql.sql.planner.plan.AggregationNode;
 import io.prestosql.sql.planner.plan.AggregationNode.Aggregation;
-import io.prestosql.sql.planner.plan.ApplyNode;
 import io.prestosql.sql.planner.plan.Assignments;
 import io.prestosql.sql.planner.plan.FilterNode;
 import io.prestosql.sql.planner.plan.JoinNode;
@@ -37,7 +36,6 @@ import java.util.Optional;
 import java.util.Set;
 
 import static io.prestosql.sql.planner.plan.Patterns.aggregation;
-import static io.prestosql.sql.planner.plan.Patterns.applyNode;
 import static io.prestosql.sql.planner.plan.Patterns.filter;
 import static io.prestosql.sql.planner.plan.Patterns.join;
 import static io.prestosql.sql.planner.plan.Patterns.project;
@@ -65,8 +63,7 @@ public class ExpressionRewriteRuleSet
                 aggregationExpressionRewrite(),
                 filterExpressionRewrite(),
                 joinExpressionRewrite(),
-                valuesExpressionRewrite(),
-                applyExpressionRewrite());
+                valuesExpressionRewrite());
     }
 
     public Rule<?> projectExpressionRewrite()
@@ -92,11 +89,6 @@ public class ExpressionRewriteRuleSet
     public Rule<?> valuesExpressionRewrite()
     {
         return new ValuesExpressionRewrite(rewriter);
-    }
-
-    public Rule<?> applyExpressionRewrite()
-    {
-        return new ApplyExpressionRewrite(rewriter);
     }
 
     private static final class ProjectExpressionRewrite
@@ -274,39 +266,6 @@ public class ExpressionRewriteRuleSet
                 return Result.ofPlanNode(new ValuesNode(valuesNode.getId(), valuesNode.getOutputSymbols(), rows.build()));
             }
             return Result.empty();
-        }
-    }
-
-    private static final class ApplyExpressionRewrite
-            implements Rule<ApplyNode>
-    {
-        private final ExpressionRewriter rewriter;
-
-        ApplyExpressionRewrite(ExpressionRewriter rewriter)
-        {
-            this.rewriter = rewriter;
-        }
-
-        @Override
-        public Pattern<ApplyNode> getPattern()
-        {
-            return applyNode();
-        }
-
-        @Override
-        public Result apply(ApplyNode applyNode, Captures captures, Context context)
-        {
-            Assignments subqueryAssignments = applyNode.getSubqueryAssignments().rewrite(x -> rewriter.rewrite(x, context));
-            if (applyNode.getSubqueryAssignments().equals(subqueryAssignments)) {
-                return Result.empty();
-            }
-            return Result.ofPlanNode(new ApplyNode(
-                    applyNode.getId(),
-                    applyNode.getInput(),
-                    applyNode.getSubquery(),
-                    subqueryAssignments,
-                    applyNode.getCorrelation(),
-                    applyNode.getOriginSubquery()));
         }
     }
 }
