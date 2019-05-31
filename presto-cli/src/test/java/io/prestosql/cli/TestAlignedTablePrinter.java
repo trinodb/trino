@@ -14,11 +14,16 @@
 package io.prestosql.cli;
 
 import com.google.common.collect.ImmutableList;
+import io.prestosql.client.ClientTypeSignature;
+import io.prestosql.client.Column;
 import org.testng.annotations.Test;
 
 import java.io.StringWriter;
 import java.util.List;
 
+import static io.prestosql.client.ClientStandardTypes.BIGINT;
+import static io.prestosql.client.ClientStandardTypes.VARBINARY;
+import static io.prestosql.client.ClientStandardTypes.VARCHAR;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Arrays.asList;
 import static org.testng.Assert.assertEquals;
@@ -29,9 +34,13 @@ public class TestAlignedTablePrinter
     public void testAlignedPrinting()
             throws Exception
     {
+        List<Column> columns = ImmutableList.<Column>builder()
+                .add(column("first", VARCHAR))
+                .add(column("last", VARCHAR))
+                .add(column("quantity", BIGINT))
+                .build();
         StringWriter writer = new StringWriter();
-        List<String> fieldNames = ImmutableList.of("first", "last", "quantity");
-        OutputPrinter printer = new AlignedTablePrinter(fieldNames, writer);
+        OutputPrinter printer = new AlignedTablePrinter(columns, writer);
 
         printer.printRows(rows(
                 row("hello", "world", 123),
@@ -61,9 +70,12 @@ public class TestAlignedTablePrinter
     public void testAlignedPrintingOneRow()
             throws Exception
     {
+        List<Column> columns = ImmutableList.<Column>builder()
+                .add(column("first", VARCHAR))
+                .add(column("last", VARCHAR))
+                .build();
         StringWriter writer = new StringWriter();
-        List<String> fieldNames = ImmutableList.of("first", "last");
-        OutputPrinter printer = new AlignedTablePrinter(fieldNames, writer);
+        OutputPrinter printer = new AlignedTablePrinter(columns, writer);
 
         printer.printRows(rows(row("a long line\nwithout wrapping", "text")), true);
         printer.finish();
@@ -82,9 +94,12 @@ public class TestAlignedTablePrinter
     public void testAlignedPrintingNoRows()
             throws Exception
     {
+        List<Column> columns = ImmutableList.<Column>builder()
+                .add(column("first", VARCHAR))
+                .add(column("last", VARCHAR))
+                .build();
         StringWriter writer = new StringWriter();
-        List<String> fieldNames = ImmutableList.of("first", "last");
-        OutputPrinter printer = new AlignedTablePrinter(fieldNames, writer);
+        OutputPrinter printer = new AlignedTablePrinter(columns, writer);
 
         printer.finish();
 
@@ -100,9 +115,13 @@ public class TestAlignedTablePrinter
     public void testAlignedPrintingHex()
             throws Exception
     {
+        List<Column> columns = ImmutableList.<Column>builder()
+                .add(column("first", VARCHAR))
+                .add(column("binary", VARBINARY))
+                .add(column("last", VARCHAR))
+                .build();
         StringWriter writer = new StringWriter();
-        List<String> fieldNames = ImmutableList.of("first", "binary", "last");
-        OutputPrinter printer = new AlignedTablePrinter(fieldNames, writer);
+        OutputPrinter printer = new AlignedTablePrinter(columns, writer);
 
         printer.printRows(rows(
                 row("hello", bytes("hello"), "world"),
@@ -128,9 +147,13 @@ public class TestAlignedTablePrinter
     public void testAlignedPrintingWideCharacters()
             throws Exception
     {
+        List<Column> columns = ImmutableList.<Column>builder()
+                .add(column("go\u7f51", VARCHAR))
+                .add(column("last", VARCHAR))
+                .add(column("quantity\u7f51", BIGINT))
+                .build();
         StringWriter writer = new StringWriter();
-        List<String> fieldNames = ImmutableList.of("go\u7f51", "last", "quantity\u7f51");
-        OutputPrinter printer = new AlignedTablePrinter(fieldNames, writer);
+        OutputPrinter printer = new AlignedTablePrinter(columns, writer);
 
         printer.printRows(rows(
                 row("hello", "wide\u7f51", 123),
@@ -151,6 +174,11 @@ public class TestAlignedTablePrinter
                 "(3 rows)\n";
 
         assertEquals(writer.getBuffer().toString(), expected);
+    }
+
+    static Column column(String name, String type)
+    {
+        return new Column(name, type, new ClientTypeSignature(type));
     }
 
     static List<?> row(Object... values)
