@@ -40,6 +40,7 @@ import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
 import static io.prestosql.sql.analyzer.SemanticErrorCode.FUNCTION_NOT_FOUND;
+import static io.prestosql.sql.analyzer.SemanticErrorCode.TOO_MANY_ARGUMENTS;
 import static io.prestosql.util.StructuralTestUtil.mapType;
 import static java.lang.String.format;
 import static java.util.Collections.nCopies;
@@ -119,8 +120,11 @@ public class TestStringFunctions
         assertFunction("CONCAT(CONCAT('\u4FE1\u5FF5', ',\u7231'), ',\u5E0C\u671B')", VARCHAR, "\u4FE1\u5FF5,\u7231,\u5E0C\u671B");
 
         // Test argument count limit
-        assertFunction("CONCAT(" + Joiner.on(", ").join(nCopies(254, "'1'")) + ")", VARCHAR, Joiner.on("").join(nCopies(254, "1")));
-        assertNotSupported("CONCAT(" + Joiner.on(", ").join(nCopies(255, "'1'")) + ")", "Too many arguments for string concatenation");
+        assertFunction("CONCAT(" + Joiner.on(", ").join(nCopies(127, "'x'")) + ")", VARCHAR, Joiner.on("").join(nCopies(127, "x")));
+        assertInvalidFunction(
+                "CONCAT(" + Joiner.on(", ").join(nCopies(128, "'x'")) + ")",
+                TOO_MANY_ARGUMENTS,
+                "line 1:1: Too many arguments for function call concat()");
     }
 
     @Test

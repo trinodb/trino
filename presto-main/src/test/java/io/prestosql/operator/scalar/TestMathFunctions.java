@@ -31,6 +31,7 @@ import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
+import static io.prestosql.sql.analyzer.SemanticErrorCode.TOO_MANY_ARGUMENTS;
 import static java.lang.String.format;
 import static java.util.Collections.nCopies;
 
@@ -1117,9 +1118,10 @@ public class TestMathFunctions
 
         // argument count limit
         tryEvaluateWithAll("greatest(" + Joiner.on(", ").join(nCopies(127, "rand()")) + ")", DOUBLE);
-        assertNotSupported(
+        assertInvalidFunction(
                 "greatest(" + Joiner.on(", ").join(nCopies(128, "rand()")) + ")",
-                "Too many arguments for function call greatest()");
+                TOO_MANY_ARGUMENTS,
+                "line 1:1: Too many arguments for function call greatest()");
     }
 
     @Test

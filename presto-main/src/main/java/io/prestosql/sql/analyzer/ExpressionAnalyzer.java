@@ -143,8 +143,10 @@ import static io.prestosql.sql.analyzer.SemanticErrorCode.INVALID_PROCEDURE_ARGU
 import static io.prestosql.sql.analyzer.SemanticErrorCode.MULTIPLE_FIELDS_FROM_SUBQUERY;
 import static io.prestosql.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
 import static io.prestosql.sql.analyzer.SemanticErrorCode.STANDALONE_LAMBDA;
+import static io.prestosql.sql.analyzer.SemanticErrorCode.TOO_MANY_ARGUMENTS;
 import static io.prestosql.sql.analyzer.SemanticErrorCode.TYPE_MISMATCH;
 import static io.prestosql.sql.analyzer.SemanticExceptions.missingAttributeException;
+import static io.prestosql.sql.tree.ArrayConstructor.ARRAY_CONSTRUCTOR;
 import static io.prestosql.sql.tree.Extract.Field.TIMEZONE_HOUR;
 import static io.prestosql.sql.tree.Extract.Field.TIMEZONE_MINUTE;
 import static io.prestosql.type.ArrayParametricType.ARRAY;
@@ -853,6 +855,17 @@ public class ExpressionAnalyzer
 
             ImmutableList<TypeSignatureProvider> argumentTypes = argumentTypesBuilder.build();
             Signature function = resolveFunction(node, argumentTypes, functionRegistry);
+
+            if (function.getName().equalsIgnoreCase(ARRAY_CONSTRUCTOR)) {
+                // After optimization, array constructor is rewritten to a function call.
+                // For historic reasons array constructor is allowed to have 254 arguments
+                if (node.getArguments().size() > 254) {
+                    throw new SemanticException(TOO_MANY_ARGUMENTS, node, "Too many arguments for array constructor", function.getName());
+                }
+            }
+            else if (node.getArguments().size() > 127) {
+                throw new SemanticException(TOO_MANY_ARGUMENTS, node, "Too many arguments for function call %s()", function.getName());
+            }
 
             if (node.getOrderBy().isPresent()) {
                 for (SortItem sortItem : node.getOrderBy().get().getSortItems()) {
