@@ -15,7 +15,6 @@ package io.prestosql.plugin.phoenix;
 
 import com.google.common.collect.ImmutableSet;
 import io.prestosql.plugin.jdbc.BaseJdbcClient;
-import io.prestosql.plugin.jdbc.BaseJdbcConfig;
 import io.prestosql.plugin.jdbc.BlockReadFunction;
 import io.prestosql.plugin.jdbc.BlockWriteFunction;
 import io.prestosql.plugin.jdbc.ColumnMapping;
@@ -131,14 +130,15 @@ public class PhoenixClient
             throws SQLException
     {
         super(
-                new BaseJdbcConfig(),
                 ESCAPE_CHARACTER,
                 new DriverConnectionFactory(
                         DriverManager.getDriver(config.getConnectionUrl()),
                         config.getConnectionUrl(),
                         Optional.empty(),
                         Optional.empty(),
-                        connectionProperties));
+                        connectionProperties),
+                config.isCaseInsensitiveNameMatching(),
+                config.getCaseInsensitiveNameMatchingCacheTtl());
         this.configuration = new Configuration(false);
         connectionProperties.forEach((k, v) -> configuration.set((String) k, (String) v));
     }
