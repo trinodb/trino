@@ -21,40 +21,17 @@ RUN \
     yum -y -q install java-11-openjdk-devel less && \
     yum -q clean all && \
     rm -rf /var/cache/yum && \
-    rm -rf /tmp/* /var/tmp/*
-
-RUN \
-    set -xeu && \
-    mkdir -p /data/presto
-
-ARG PRESTO_VERSION
-ARG PRESTO_LOCATION=presto-server/target/presto-server-${PRESTO_VERSION}.tar.gz
-ADD ${PRESTO_LOCATION} /tmp
-
-ARG CLIENT_VERSION=${PRESTO_VERSION}
-ARG CLIENT_LOCATION=presto-cli/target/presto-cli-${CLIENT_VERSION}-executable.jar
-ADD ${CLIENT_LOCATION} /usr/bin/presto
-
-RUN \
-    set -xeu && \
-    if [[ ! -d /tmp/presto-server-${PRESTO_VERSION} ]]; then \
-        tar -C /tmp -xzf /tmp/presto-server-${PRESTO_VERSION}.tar.gz && \
-        rm /tmp/presto-server-${PRESTO_VERSION}.tar.gz; \
-    fi && \
-    cp -r /tmp/presto-server-${PRESTO_VERSION} /usr/lib/presto && \
-    rm -r /tmp/presto-server-${PRESTO_VERSION} && \
-    chmod 755 /usr/bin/presto
-
-COPY presto-docker-image/bin /usr/lib/presto/bin
-COPY presto-docker-image/etc /usr/lib/presto/default/etc
-
-EXPOSE 8080
-
-RUN \
-    set -xeu && \
+    rm -rf /tmp/* /var/tmp/* && \
     groupadd presto --gid 1000 && \
     useradd presto --uid 1000 --gid 1000 && \
+    mkdir -p /usr/lib/presto /data/presto && \
     chown -R "presto:presto" /usr/lib/presto /data/presto
 
+ARG PRESTO_VERSION
+ARG CLIENT_VERSION=${PRESTO_VERSION}
+COPY presto-cli-${CLIENT_VERSION}-executable.jar /usr/bin/presto
+COPY --chown=presto:presto presto-server-${PRESTO_VERSION} /usr/lib/presto
+
+EXPOSE 8080
 USER presto:presto
 CMD ["/usr/lib/presto/bin/run-presto"]

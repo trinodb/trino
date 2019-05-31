@@ -87,7 +87,7 @@ script:
     fi
   - |
     if [[ -v BUILD_PRESTO_DOCKER ]]; then
-      presto-docker-image/build-local.sh
+      docker/build-local.sh
     fi
   - |
     if [[ -v WEBUI_CHECKS ]]; then
