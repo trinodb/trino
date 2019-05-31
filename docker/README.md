@@ -1,4 +1,4 @@
-# presto-docker-image
+# Presto Docker Image
 
 ## About the Container
 This Docker image is designed to provide the following
