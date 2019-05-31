@@ -16,6 +16,7 @@ package io.prestosql.cli;
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.client.Column;
 import org.fusesource.jansi.AnsiString;
 
 import java.io.IOException;
@@ -25,6 +26,7 @@ import java.util.List;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.repeat;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.partition;
 import static com.google.common.collect.Iterables.transform;
 import static com.google.common.io.BaseEncoding.base16;
@@ -47,9 +49,12 @@ public class AlignedTablePrinter
     private boolean headerOutput;
     private long rowCount;
 
-    public AlignedTablePrinter(List<String> fieldNames, Writer writer)
+    public AlignedTablePrinter(List<Column> columns, Writer writer)
     {
-        this.fieldNames = ImmutableList.copyOf(requireNonNull(fieldNames, "fieldNames is null"));
+        requireNonNull(columns, "columns is null");
+        this.fieldNames = columns.stream()
+                .map(Column::getName)
+                .collect(toImmutableList());
         this.writer = requireNonNull(writer, "writer is null");
     }
 

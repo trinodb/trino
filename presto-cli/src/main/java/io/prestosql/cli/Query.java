@@ -16,7 +16,6 @@ package io.prestosql.cli;
 import com.google.common.base.Splitter;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Lists;
 import io.airlift.log.Logger;
 import io.prestosql.cli.ClientOptions.OutputFormat;
 import io.prestosql.client.ClientSelectedRole;
@@ -46,6 +45,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.cli.ConsolePrinter.REAL_TERMINAL;
 import static io.prestosql.cli.CsvPrinter.CsvOutputFormat.NO_HEADER;
 import static io.prestosql.cli.CsvPrinter.CsvOutputFormat.NO_HEADER_AND_QUOTES;
@@ -254,22 +254,21 @@ public class Query
     private void doRenderResults(PrintStream out, OutputFormat format, boolean interactive, List<Column> columns)
             throws IOException
     {
-        List<String> fieldNames = Lists.transform(columns, Column::getName);
         if (interactive) {
-            pageOutput(format, fieldNames);
+            pageOutput(format, columns);
         }
         else {
-            sendOutput(out, format, fieldNames);
+            sendOutput(out, format, columns);
         }
     }
 
-    private void pageOutput(OutputFormat format, List<String> fieldNames)
+    private void pageOutput(OutputFormat format, List<Column> columns)
             throws IOException
     {
         try (Pager pager = Pager.create();
                 ThreadInterruptor clientThread = new ThreadInterruptor();
                 Writer writer = createWriter(pager);
-                OutputHandler handler = createOutputHandler(format, writer, fieldNames)) {
+                OutputHandler handler = createOutputHandler(format, writer, columns)) {
             if (!pager.isNullPager()) {
                 // ignore the user pressing ctrl-C while in the pager
                 ignoreUserInterrupt.set(true);
@@ -289,7 +288,7 @@ public class Query
         }
     }
 
-    private void sendOutput(PrintStream out, OutputFormat format, List<String> fieldNames)
+    private void sendOutput(PrintStream out, OutputFormat format, List<Column> fieldNames)
             throws IOException
     {
         try (OutputHandler handler = createOutputHandler(format, createWriter(out), fieldNames)) {
@@ -297,16 +296,19 @@ public class Query
         }
     }
 
-    private static OutputHandler createOutputHandler(OutputFormat format, Writer writer, List<String> fieldNames)
+    private static OutputHandler createOutputHandler(OutputFormat format, Writer writer, List<Column> columns)
     {
-        return new OutputHandler(createOutputPrinter(format, writer, fieldNames));
+        return new OutputHandler(createOutputPrinter(format, writer, columns));
     }
 
-    private static OutputPrinter createOutputPrinter(OutputFormat format, Writer writer, List<String> fieldNames)
+    private static OutputPrinter createOutputPrinter(OutputFormat format, Writer writer, List<Column> columns)
     {
+        List<String> fieldNames = columns.stream()
+                .map(Column::getName)
+                .collect(toImmutableList());
         switch (format) {
             case ALIGNED:
-                return new AlignedTablePrinter(fieldNames, writer);
+                return new AlignedTablePrinter(columns, writer);
             case VERTICAL:
                 return new VerticalRecordPrinter(fieldNames, writer);
             case CSV:
