@@ -172,6 +172,16 @@ public class Patterns
         return typeOf(DistinctLimitNode.class);
     }
 
+    public static Pattern<IntersectNode> intersect()
+    {
+        return typeOf(IntersectNode.class);
+    }
+
+    public static Pattern<ExceptNode> except()
+    {
+        return typeOf(ExceptNode.class);
+    }
+
     public static Property<PlanNode, Lookup, PlanNode> source()
     {
         return optionalProperty(

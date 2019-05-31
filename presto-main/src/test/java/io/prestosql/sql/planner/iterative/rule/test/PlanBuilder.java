@@ -50,10 +50,12 @@ import io.prestosql.sql.planner.plan.Assignments;
 import io.prestosql.sql.planner.plan.DeleteNode;
 import io.prestosql.sql.planner.plan.DistinctLimitNode;
 import io.prestosql.sql.planner.plan.EnforceSingleRowNode;
+import io.prestosql.sql.planner.plan.ExceptNode;
 import io.prestosql.sql.planner.plan.ExchangeNode;
 import io.prestosql.sql.planner.plan.FilterNode;
 import io.prestosql.sql.planner.plan.IndexJoinNode;
 import io.prestosql.sql.planner.plan.IndexSourceNode;
+import io.prestosql.sql.planner.plan.IntersectNode;
 import io.prestosql.sql.planner.plan.JoinNode;
 import io.prestosql.sql.planner.plan.LateralJoinNode;
 import io.prestosql.sql.planner.plan.LimitNode;
@@ -728,6 +730,18 @@ public class PlanBuilder
     {
         List<Symbol> outputs = ImmutableList.copyOf(outputsToInputs.keySet());
         return new UnionNode(idAllocator.getNextId(), sources, outputsToInputs, outputs);
+    }
+
+    public IntersectNode intersect(ListMultimap<Symbol, Symbol> outputsToInputs, List<PlanNode> sources)
+    {
+        List<Symbol> outputs = ImmutableList.copyOf(outputsToInputs.keySet());
+        return new IntersectNode(idAllocator.getNextId(), sources, outputsToInputs, outputs);
+    }
+
+    public ExceptNode except(ListMultimap<Symbol, Symbol> outputsToInputs, List<PlanNode> sources)
+    {
+        List<Symbol> outputs = ImmutableList.copyOf(outputsToInputs.keySet());
+        return new ExceptNode(idAllocator.getNextId(), sources, outputsToInputs, outputs);
     }
 
     public TableWriterNode tableWriter(List<Symbol> columns, List<String> columnNames, PlanNode source)

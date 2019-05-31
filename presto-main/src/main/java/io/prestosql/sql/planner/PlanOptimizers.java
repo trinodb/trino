@@ -46,7 +46,9 @@ import io.prestosql.sql.planner.iterative.rule.EvaluateZeroSample;
 import io.prestosql.sql.planner.iterative.rule.ExtractSpatialJoins;
 import io.prestosql.sql.planner.iterative.rule.GatherAndMergeWindows;
 import io.prestosql.sql.planner.iterative.rule.ImplementBernoulliSampleAsFilter;
+import io.prestosql.sql.planner.iterative.rule.ImplementExceptAsUnion;
 import io.prestosql.sql.planner.iterative.rule.ImplementFilteredAggregations;
+import io.prestosql.sql.planner.iterative.rule.ImplementIntersectAsUnion;
 import io.prestosql.sql.planner.iterative.rule.ImplementLimitWithTies;
 import io.prestosql.sql.planner.iterative.rule.ImplementOffset;
 import io.prestosql.sql.planner.iterative.rule.InlineProjections;
@@ -270,11 +272,11 @@ public class PlanOptimizers
                 statsCalculator,
                 estimatedExchangesCostCalculator,
                 ImmutableSet.<Rule<?>>builder()
-                    .addAll(new SimplifyExpressions(metadata, typeAnalyzer).rules())
-                    .addAll(new UnwrapCastInComparison(metadata, typeAnalyzer).rules())
-                    .addAll(new RemoveDuplicateConditions().rules())
-                    .addAll(new CanonicalizeExpressions().rules())
-                    .build());
+                        .addAll(new SimplifyExpressions(metadata, typeAnalyzer).rules())
+                        .addAll(new UnwrapCastInComparison(metadata, typeAnalyzer).rules())
+                        .addAll(new RemoveDuplicateConditions().rules())
+                        .addAll(new CanonicalizeExpressions().rules())
+                        .build());
 
         PlanOptimizer predicatePushDown = new StatsRecordingPlanOptimizer(optimizerStats, new PredicatePushDown(metadata, typeAnalyzer));
 
@@ -347,7 +349,14 @@ public class PlanOptimizers
                         estimatedExchangesCostCalculator,
                         ImmutableSet.of(new RemoveRedundantIdentityProjections())),
                 new SetFlatteningOptimizer(),
-                new ImplementIntersectAndExceptAsUnion(),
+                new IterativeOptimizer(
+                        ruleStats,
+                        statsCalculator,
+                        estimatedExchangesCostCalculator,
+                        ImmutableList.of(new ImplementIntersectAndExceptAsUnion()),
+                        ImmutableSet.of(
+                                new ImplementIntersectAsUnion(),
+                                new ImplementExceptAsUnion())),
                 new LimitPushDown(), // Run the LimitPushDown after flattening set operators to make it easier to do the set flattening
                 new PruneUnreferencedOutputs(),
                 inlineProjections,
