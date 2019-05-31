@@ -73,7 +73,7 @@ public class TestRemoveRedundantLimit
                                 p.aggregation(builder -> builder
                                         .addAggregation(p.symbol("c"), expression("count(foo)"), ImmutableList.of(BIGINT))
                                         .singleGroupingSet(p.symbol("foo"))
-                                        .source(p.values(p.symbol("foo"))))))
+                                        .source(p.values(20, p.symbol("foo"))))))
                 .doesNotFire();
     }
 }

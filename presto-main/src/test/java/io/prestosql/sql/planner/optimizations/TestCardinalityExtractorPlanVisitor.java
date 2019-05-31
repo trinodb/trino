@@ -14,9 +14,15 @@
 package io.prestosql.sql.planner.optimizations;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Range;
+import io.prestosql.spi.connector.ColumnHandle;
+import io.prestosql.spi.connector.TestingColumnHandle;
 import io.prestosql.sql.planner.PlanNodeIdAllocator;
+import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.iterative.rule.test.PlanBuilder;
+import io.prestosql.sql.planner.plan.AggregationNode;
 import org.testng.annotations.Test;
 
 import static io.prestosql.metadata.AbstractMockMetadata.dummyMetadata;
@@ -38,5 +44,71 @@ public class TestCardinalityExtractorPlanVisitor
         assertEquals(
                 extractCardinality(planBuilder.limit(3, planBuilder.values(emptyList(), ImmutableList.of(emptyList(), emptyList(), emptyList(), emptyList())))),
                 Range.singleton(3L));
+    }
+
+    @Test
+    public void testAggregation()
+    {
+        PlanBuilder planBuilder = new PlanBuilder(new PlanNodeIdAllocator(), dummyMetadata());
+        Symbol symbol = planBuilder.symbol("symbol");
+        ColumnHandle columnHandle = new TestingColumnHandle("column");
+
+        // single default aggregation
+        assertEquals(extractCardinality(
+                planBuilder.aggregation(builder -> builder
+                        .singleGroupingSet()
+                        .source(planBuilder.values(10)))),
+                Range.singleton(1L));
+
+        // multiple grouping sets with default aggregation with source that produces arbitrary number of rows
+        assertEquals(extractCardinality(
+                planBuilder.aggregation(builder -> builder
+                        .groupingSets(AggregationNode.groupingSets(
+                                ImmutableList.of(symbol),
+                                2,
+                                ImmutableSet.of(0)))
+                        .source(planBuilder.tableScan(ImmutableList.of(symbol), ImmutableMap.of(symbol, columnHandle))))),
+                Range.atLeast(1L));
+
+        // multiple grouping sets with default aggregation with source that produces exact number of rows
+        assertEquals(extractCardinality(
+                planBuilder.aggregation(builder -> builder
+                        .groupingSets(AggregationNode.groupingSets(
+                                ImmutableList.of(symbol),
+                                2,
+                                ImmutableSet.of(0)))
+                        .source(planBuilder.values(10, symbol)))),
+                Range.closed(1L, 10L));
+
+        // multiple grouping sets with default aggregation with source that produces no rows
+        assertEquals(extractCardinality(
+                planBuilder.aggregation(builder -> builder
+                        .groupingSets(AggregationNode.groupingSets(
+                                ImmutableList.of(symbol),
+                                2,
+                                ImmutableSet.of(0)))
+                        .source(planBuilder.values(0, symbol)))),
+                Range.singleton(1L));
+
+        // single non-default aggregation with source that produces arbitrary number of rows
+        assertEquals(extractCardinality(
+                planBuilder.aggregation(builder -> builder
+                        .singleGroupingSet(symbol)
+                        .source(planBuilder.tableScan(ImmutableList.of(symbol), ImmutableMap.of(symbol, columnHandle))))),
+                Range.atLeast(0L));
+
+        // single non-default aggregation with source that produces at least single row
+        assertEquals(extractCardinality(
+                planBuilder.aggregation(builder -> builder
+                        .singleGroupingSet(symbol)
+                        .source(planBuilder.values(10, symbol)))),
+                Range.closed(1L, 10L));
+
+        // single non-default aggregation with source that produces no rows
+        assertEquals(extractCardinality(
+                planBuilder.aggregation(builder -> builder
+                        .singleGroupingSet(symbol)
+                        .source(planBuilder.values(0, symbol)))),
+                Range.singleton(0L));
     }
 }

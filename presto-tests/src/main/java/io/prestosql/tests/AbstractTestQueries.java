@@ -3364,9 +3364,9 @@ public abstract class AbstractTestQueries
         assertQuery("SELECT (SELECT count(*) FROM (VALUES (7,1)) t(orderkey, value) WHERE orderkey = corr_key LIMIT 1) FROM (values 7) t(corr_key)");
 
         // explicit LIMIT in subquery
-        assertQueryFails(
-                "SELECT (SELECT count(*) FROM (VALUES (7,1)) t(orderkey, value) WHERE orderkey = corr_key GROUP BY value LIMIT 1) FROM (values 7) t(corr_key)",
-                "line 1:9: Given correlated subquery is not supported");
+        assertQuery("SELECT (SELECT count(*) FROM (VALUES (7,1)) t(orderkey, value) WHERE orderkey = corr_key GROUP BY value LIMIT 1) FROM (values 7) t(corr_key)");
+        assertQueryFails("SELECT (SELECT count(*) FROM (VALUES (7,1), (7,2)) t(orderkey, value) WHERE orderkey = corr_key GROUP BY value LIMIT 1) FROM (values 7) t(corr_key)",
+                UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
     }
 
     @Test
