@@ -103,6 +103,15 @@ public class TestPhoenixIntegrationSmokeTest
         assertUpdate("DROP TABLE test_primary_table");
     }
 
+    @Test
+    public void testCaseInsensitiveNameMatching()
+            throws Exception
+    {
+        executeInPhoenix("CREATE TABLE tpch.\"TestCaseInsensitive\" (\"pK\" bigint primary key, \"Val1\" double)");
+        assertUpdate("INSERT INTO testcaseinsensitive VALUES (1, 1.1)", 1);
+        assertQuery("SELECT Val1 FROM testcaseinsensitive where Val1 < 1.2", "SELECT 1.1");
+    }
+
     private void executeInPhoenix(String sql)
             throws SQLException
     {

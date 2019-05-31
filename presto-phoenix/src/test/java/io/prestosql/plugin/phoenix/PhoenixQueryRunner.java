@@ -56,6 +56,7 @@ public final class PhoenixQueryRunner
 
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("phoenix.connection-url", server.getJdbcUrl())
+                .put("case-insensitive-name-matching", "true")
                 .build();
 
         queryRunner.installPlugin(new PhoenixPlugin());
