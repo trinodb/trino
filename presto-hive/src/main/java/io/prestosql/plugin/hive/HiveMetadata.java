@@ -15,6 +15,7 @@ package io.prestosql.plugin.hive;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.base.Suppliers;
 import com.google.common.base.VerifyException;
@@ -44,6 +45,7 @@ import io.prestosql.plugin.hive.metastore.StorageFormat;
 import io.prestosql.plugin.hive.metastore.Table;
 import io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil;
 import io.prestosql.plugin.hive.statistics.HiveStatisticsProvider;
+import io.prestosql.spi.NestedColumn;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.connector.ColumnHandle;
@@ -174,6 +176,7 @@ import static io.prestosql.plugin.hive.HiveUtil.columnExtraInfo;
 import static io.prestosql.plugin.hive.HiveUtil.decodeViewData;
 import static io.prestosql.plugin.hive.HiveUtil.encodeViewData;
 import static io.prestosql.plugin.hive.HiveUtil.getPartitionKeyColumnHandles;
+import static io.prestosql.plugin.hive.HiveUtil.getRegularColumnHandles;
 import static io.prestosql.plugin.hive.HiveUtil.hiveColumnHandles;
 import static io.prestosql.plugin.hive.HiveUtil.toPartitionValues;
 import static io.prestosql.plugin.hive.HiveUtil.verifyPartitionTypeSupported;
@@ -617,6 +620,39 @@ public class HiveMetadata
     public ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
     {
         return ((HiveColumnHandle) columnHandle).getColumnMetadata(typeManager);
+    }
+
+    @Override
+    public Map<NestedColumn, ColumnHandle> getNestedColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle, Collection<NestedColumn> nestedColumns)
+    {
+        if (!HiveSessionProperties.isStatisticsEnabled(session)) {
+            return ImmutableMap.of();
+        }
+
+        SchemaTableName tableName = ((HiveTableHandle) tableHandle).getSchemaTableName();
+        Optional<Table> table = metastore.getTable(tableName.getSchemaName(), tableName.getTableName());
+
+        if (!table.isPresent()) {
+            throw new TableNotFoundException(tableName);
+        }
+
+        // Only pushdown nested column for parquet table for now
+        if (!extractHiveStorageFormat(table.get()).equals(HiveStorageFormat.PARQUET)) {
+            return ImmutableMap.of();
+        }
+
+        List<HiveColumnHandle> regularColumnHandles = getRegularColumnHandles(table.get());
+        Map<String, HiveColumnHandle> regularHiveColumnHandles = regularColumnHandles.stream().collect(toMap(HiveColumnHandle::getName, identity()));
+        ImmutableMap.Builder<NestedColumn, ColumnHandle> columnHandles = ImmutableMap.builder();
+        for (NestedColumn nestedColumn : nestedColumns) {
+            HiveColumnHandle hiveColumnHandle = regularHiveColumnHandles.get(nestedColumn.getBase());
+            Optional<HiveType> childType = hiveColumnHandle.getHiveType().findChildType(nestedColumn);
+            Preconditions.checkArgument(childType.isPresent(), "%s doesn't exist in parent type %s", nestedColumn, hiveColumnHandle.getHiveType());
+            if (hiveColumnHandle != null) {
+                columnHandles.put(nestedColumn, new HiveColumnHandle(nestedColumn.getName(), childType.get(), childType.get().getTypeSignature(), hiveColumnHandle.getHiveColumnIndex(), hiveColumnHandle.getColumnType(), hiveColumnHandle.getComment(), Optional.of(nestedColumn)));
+            }
+        }
+        return columnHandles.build();
     }
 
     @Override
@@ -2113,7 +2149,8 @@ public class HiveMetadata
                     column.getType().getTypeSignature(),
                     ordinal,
                     columnType,
-                    Optional.ofNullable(column.getComment())));
+                    Optional.ofNullable(column.getComment()),
+                    Optional.empty()));
             ordinal++;
         }
 

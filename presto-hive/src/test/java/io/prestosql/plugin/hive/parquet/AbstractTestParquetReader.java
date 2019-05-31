@@ -18,9 +18,11 @@ import com.google.common.collect.AbstractSequentialIterator;
 import com.google.common.collect.ContiguousSet;
 import com.google.common.collect.DiscreteDomain;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Range;
 import com.google.common.primitives.Shorts;
 import io.airlift.units.DataSize;
+import io.prestosql.spi.NestedColumn;
 import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.SqlDate;
@@ -531,6 +533,33 @@ public abstract class AbstractTestParquetReader
         }
         values = createTestStructs(values);
         tester.testRoundTrip(objectInspector, values, values, type);
+    }
+
+    @Test
+    public void testSingleNestedColumn()
+            throws Exception
+    {
+        int nestingLevel = ThreadLocalRandom.current().nextInt(1, 15);
+        Optional<List<String>> structFieldNames = Optional.of(singletonList("structField"));
+
+        Iterable<?> values = createTestStructs(limit(cycle(asList(1, null, 3, null, 5, null, 7, null, null, null, 11, null, 13)), 3_210));
+        Iterable<?> readValues = Lists.newArrayList(values);
+
+        ObjectInspector objectInspector = getStandardStructObjectInspector(structFieldNames.get(), singletonList(javaIntObjectInspector));
+        Type type = RowType.from(singletonList(field("structField", INTEGER)));
+
+        ImmutableList.Builder<String> builder = ImmutableList.builder();
+        builder.add("root");
+
+        for (int i = 0; i < nestingLevel; i++) {
+            int n = ThreadLocalRandom.current().nextInt(2, 5);
+            values = insertNullEvery(n, createTestStructs(values));
+            readValues = insertNullEvery(n, readValues);
+            objectInspector = getStandardStructObjectInspector(structFieldNames.get(), singletonList(objectInspector));
+            builder.add("structField");
+        }
+        tester.testNestedColumnRoundTrip(singletonList(objectInspector), new Iterable<?>[] {values},
+                new Iterable<?>[] {readValues}, ImmutableList.of(new NestedColumn(builder.build())), singletonList(type), Optional.empty(), false);
     }
 
     @Test

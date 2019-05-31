@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.prestosql.plugin.hive.HdfsEnvironment.HdfsContext;
 import io.prestosql.plugin.hive.HiveSplit.BucketConversion;
+import io.prestosql.spi.NestedColumn;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorPageSource;
 import io.prestosql.spi.connector.ConnectorPageSourceProvider;
@@ -320,8 +321,13 @@ public class HivePageSourceProvider
             for (HiveColumnHandle column : columns) {
                 Optional<HiveType> coercionFrom = Optional.ofNullable(columnCoercions.get(column.getHiveColumnIndex()));
                 if (column.getColumnType() == REGULAR) {
-                    checkArgument(regularColumnIndices.add(column.getHiveColumnIndex()), "duplicate hiveColumnIndex in columns list");
-                    columnMappings.add(regular(column, regularIndex, coercionFrom));
+                    if (column.getNestedColumn().isPresent()) {
+                        columnMappings.add(regular(column, regularIndex, getHiveType(coercionFrom, column.getNestedColumn().get())));
+                    }
+                    else {
+                        checkArgument(regularColumnIndices.add(column.getHiveColumnIndex()), "duplicate hiveColumnIndex in columns list");
+                        columnMappings.add(regular(column, regularIndex, coercionFrom));
+                    }
                     regularIndex++;
                 }
                 else {
@@ -345,6 +351,11 @@ public class HivePageSourceProvider
             return columnMappings.build();
         }
 
+        private static Optional<HiveType> getHiveType(Optional<HiveType> baseType, NestedColumn nestedColumn)
+        {
+            return baseType.flatMap(type -> type.findChildType(nestedColumn));
+        }
+
         public static List<ColumnMapping> extractRegularAndInterimColumnMappings(List<ColumnMapping> columnMappings)
         {
             return columnMappings.stream()
@@ -366,7 +377,8 @@ public class HivePageSourceProvider
                                 columnMapping.getCoercionFrom().get().getTypeSignature(),
                                 columnHandle.getHiveColumnIndex(),
                                 columnHandle.getColumnType(),
-                                Optional.empty());
+                                Optional.empty(),
+                                columnHandle.getNestedColumn());
                     })
                     .collect(toList());
         }

@@ -31,6 +31,7 @@ import io.prestosql.plugin.hive.parquet.write.MapKeyValuesSchemaConverter;
 import io.prestosql.plugin.hive.parquet.write.SingleLevelArrayMapKeyValuesSchemaConverter;
 import io.prestosql.plugin.hive.parquet.write.SingleLevelArraySchemaConverter;
 import io.prestosql.plugin.hive.parquet.write.TestMapredParquetOutputFormat;
+import io.prestosql.spi.NestedColumn;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.connector.ConnectorPageSource;
@@ -79,6 +80,7 @@ import java.util.Optional;
 import java.util.Properties;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import static com.google.common.base.Functions.constant;
 import static com.google.common.base.Verify.verify;
@@ -190,6 +192,19 @@ public class ParquetTester
         }
     }
 
+    public void testNestedColumnRoundTrip(List<ObjectInspector> objectInspectors, Iterable<?>[] writeValues, Iterable<?>[] readValues, List<NestedColumn> nestedColumns, List<Type> columnTypes, Optional<MessageType> parquetSchema, boolean singleLevelArray)
+            throws Exception
+    {
+        List<String> columnNames = nestedColumns.stream().map(NestedColumn::getName).collect(Collectors.toList());
+        List<String> rootNames = nestedColumns.stream().map(NestedColumn::getBase).collect(Collectors.toList());
+
+        // just the values
+        testRoundTripType(objectInspectors, writeValues, readValues, columnNames, columnTypes, Optional.of(rootNames), parquetSchema, singleLevelArray);
+
+        // all nulls
+        assertRoundTrip(objectInspectors, transformToNulls(writeValues), transformToNulls(readValues), columnNames, columnTypes, Optional.of(rootNames), parquetSchema, singleLevelArray);
+    }
+
     public void testRoundTrip(ObjectInspector objectInspector, Iterable<?> writeValues, Iterable<?> readValues, Type type, Optional<MessageType> parquetSchema)
             throws Exception
     {
@@ -248,17 +263,31 @@ public class ParquetTester
             boolean singleLevelArray)
             throws Exception
     {
+        testRoundTripType(objectInspectors, writeValues, readValues, columnNames, columnTypes, Optional.empty(), parquetSchema, singleLevelArray);
+    }
+
+    private void testRoundTripType(
+            List<ObjectInspector> objectInspectors,
+            Iterable<?>[] writeValues,
+            Iterable<?>[] readValues,
+            List<String> columnNames,
+            List<Type> columnTypes,
+            Optional<List<String>> rootColumns,
+            Optional<MessageType> parquetSchema,
+            boolean singleLevelArray)
+            throws Exception
+    {
         // forward order
-        assertRoundTrip(objectInspectors, writeValues, readValues, columnNames, columnTypes, parquetSchema, singleLevelArray);
+        assertRoundTrip(objectInspectors, writeValues, readValues, columnNames, columnTypes, rootColumns, parquetSchema, singleLevelArray);
 
         // reverse order
-        assertRoundTrip(objectInspectors, reverse(writeValues), reverse(readValues), columnNames, columnTypes, parquetSchema, singleLevelArray);
+        assertRoundTrip(objectInspectors, reverse(writeValues), reverse(readValues), columnNames, columnTypes, rootColumns, parquetSchema, singleLevelArray);
 
         // forward order with nulls
-        assertRoundTrip(objectInspectors, insertNullEvery(5, writeValues), insertNullEvery(5, readValues), columnNames, columnTypes, parquetSchema, singleLevelArray);
+        assertRoundTrip(objectInspectors, insertNullEvery(5, writeValues), insertNullEvery(5, readValues), columnNames, columnTypes, rootColumns, parquetSchema, singleLevelArray);
 
         // reverse order with nulls
-        assertRoundTrip(objectInspectors, insertNullEvery(5, reverse(writeValues)), insertNullEvery(5, reverse(readValues)), columnNames, columnTypes, parquetSchema, singleLevelArray);
+        assertRoundTrip(objectInspectors, insertNullEvery(5, reverse(writeValues)), insertNullEvery(5, reverse(readValues)), columnNames, columnTypes, rootColumns, parquetSchema, singleLevelArray);
     }
 
     void assertRoundTrip(
@@ -283,6 +312,19 @@ public class ParquetTester
             boolean singleLevelArray)
             throws Exception
     {
+        assertRoundTrip(objectInspectors, writeValues, readValues, columnNames, columnTypes, Optional.empty(), parquetSchema, singleLevelArray);
+    }
+
+    void assertRoundTrip(List<ObjectInspector> objectInspectors,
+            Iterable<?>[] writeValues,
+            Iterable<?>[] readValues,
+            List<String> columnNames,
+            List<Type> columnTypes,
+            Optional<List<String>> rootColumns,
+            Optional<MessageType> parquetSchema,
+            boolean singleLevelArray)
+            throws Exception
+    {
         for (WriterVersion version : versions) {
             for (CompressionCodecName compressionCodecName : compressions) {
                 for (ConnectorSession session : sessions) {
@@ -291,12 +333,13 @@ public class ParquetTester
                         jobConf.setEnum(COMPRESSION, compressionCodecName);
                         jobConf.setBoolean(ENABLE_DICTIONARY, true);
                         jobConf.setEnum(WRITER_VERSION, version);
+                        List<String> writeColumns = rootColumns.isPresent() ? rootColumns.get() : columnNames;
                         writeParquetColumn(
                                 jobConf,
                                 tempFile.getFile(),
                                 compressionCodecName,
-                                createTableProperties(columnNames, objectInspectors),
-                                getStandardStructObjectInspector(columnNames, objectInspectors),
+                                createTableProperties(writeColumns, objectInspectors),
+                                getStandardStructObjectInspector(writeColumns, objectInspectors),
                                 getIterators(writeValues),
                                 parquetSchema,
                                 singleLevelArray);
@@ -605,7 +648,7 @@ public class ParquetTester
     private static Iterable<?>[] reverse(Iterable<?>[] iterables)
     {
         return stream(iterables)
-                .map(ImmutableList::copyOf)
+                .map(Lists::newArrayList)
                 .map(Lists::reverse)
                 .toArray(Iterable<?>[]::new);
     }

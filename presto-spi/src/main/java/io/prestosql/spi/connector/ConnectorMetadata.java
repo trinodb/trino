@@ -14,6 +14,7 @@
 package io.prestosql.spi.connector;
 
 import io.airlift.slice.Slice;
+import io.prestosql.spi.NestedColumn;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.security.GrantInfo;
@@ -27,6 +28,7 @@ import io.prestosql.spi.statistics.TableStatisticsMetadata;
 import javax.annotation.Nullable;
 
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -645,5 +647,10 @@ public interface ConnectorMetadata
     default Optional<ConnectorTableHandle> applySample(ConnectorSession session, ConnectorTableHandle handle, SampleType sampleType, double sampleRatio)
     {
         return Optional.empty();
+    }
+
+    default Map<NestedColumn, ColumnHandle> getNestedColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle, Collection<NestedColumn> dereferences)
+    {
+        return new HashMap<>();
     }
 }
