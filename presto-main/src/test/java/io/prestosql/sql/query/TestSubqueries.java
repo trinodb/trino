@@ -79,7 +79,7 @@ public class TestSubqueries
     {
         // coercion FROM subquery symbol type to correlation type
         assertions.assertFails(
-                "SELECT (SELECT count(*) FROM (VALUES 1) t(a) WHERE t.a=t2.b GROUP BY t.a LIMIT 1) FROM (VALUES 1.0) t2(b)",
+                "SELECT EXISTS(SELECT 1 FROM (VALUES (1, null)) t(a, b) WHERE t.a=t2.b GROUP BY t.b) FROM (VALUES 1.0, 2.0) t2(b)",
                 UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
         // coercion from t.a (null) to integer
         assertions.assertFails(

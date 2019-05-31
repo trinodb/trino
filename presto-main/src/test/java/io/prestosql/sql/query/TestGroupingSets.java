@@ -72,4 +72,15 @@ public class TestGroupingSets
                         "GROUP BY DISTINCT a, GROUPING SETS ((), (t.a))",
                 "VALUES 1");
     }
+
+    @Test
+    public void testRollupAggregationWithOrderedLimit()
+    {
+        assertions.assertQuery("" +
+                        "SELECT a " +
+                        "FROM (VALUES 3, 2, 1) t(a) " +
+                        "GROUP BY ROLLUP (a) " +
+                        "ORDER BY a LIMIT 2",
+                "VALUES 1, 2");
+    }
 }
