@@ -232,22 +232,17 @@ public class InternalHiveSplitFactory
 
     private static Optional<Domain> getPathDomain(TupleDomain<HiveColumnHandle> effectivePredicate)
     {
-        if (!effectivePredicate.getDomains().isPresent()) {
-            return Optional.empty();
-        }
-
-        return effectivePredicate.getDomains().get().entrySet().stream()
-                .filter(entry -> isPathColumnHandle(entry.getKey()))
-                .findFirst()
-                .map(Map.Entry::getValue);
+        return effectivePredicate.getDomains()
+                .flatMap(domains -> domains.entrySet().stream()
+                        .filter(entry -> isPathColumnHandle(entry.getKey()))
+                        .map(Map.Entry::getValue)
+                        .findFirst());
     }
 
     private static boolean pathMatchesPredicate(Optional<Domain> pathDomain, String path)
     {
-        if (!pathDomain.isPresent()) {
-            return true;
-        }
-
-        return pathDomain.get().includesNullableValue(utf8Slice(path));
+        return pathDomain
+                .map(domain -> domain.includesNullableValue(utf8Slice(path)))
+                .orElse(true);
     }
 }
