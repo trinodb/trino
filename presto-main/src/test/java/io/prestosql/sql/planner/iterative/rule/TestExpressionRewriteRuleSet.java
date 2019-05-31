@@ -23,13 +23,10 @@ import io.prestosql.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.prestosql.sql.planner.iterative.rule.test.PlanBuilder;
 import io.prestosql.sql.planner.plan.Assignments;
 import io.prestosql.sql.tree.FunctionCall;
-import io.prestosql.sql.tree.InListExpression;
-import io.prestosql.sql.tree.InPredicate;
 import io.prestosql.sql.tree.LongLiteral;
 import io.prestosql.sql.tree.QualifiedName;
 import org.testng.annotations.Test;
 
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.apply;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.functionCall;
@@ -44,13 +41,6 @@ public class TestExpressionRewriteRuleSet
 
     private static final FunctionCall nowCall = new FunctionCall(QualifiedName.of("now"), ImmutableList.of());
     private ExpressionRewriteRuleSet functionCallRewriter = new ExpressionRewriteRuleSet((expression, context) -> nowCall);
-
-    private ExpressionRewriteRuleSet applyRewriter = new ExpressionRewriteRuleSet(
-            (expression, context) -> new InPredicate(
-                    new LongLiteral("0"),
-                    new InListExpression(ImmutableList.of(
-                            new LongLiteral("1"),
-                            new LongLiteral("2")))));
 
     @Test
     public void testProjectionExpressionRewrite()
@@ -141,47 +131,6 @@ public class TestExpressionRewriteRuleSet
                 .on(p -> p.values(
                         ImmutableList.<Symbol>of(p.symbol("a")),
                         ImmutableList.of((ImmutableList.of(PlanBuilder.expression("0"))))))
-                .doesNotFire();
-    }
-
-    @Test
-    public void testApplyExpressionRewrite()
-    {
-        tester().assertThat(applyRewriter.applyExpressionRewrite())
-                .on(p -> p.apply(
-                        Assignments.of(
-                                p.symbol("a", BigintType.BIGINT),
-                                new InPredicate(
-                                        new LongLiteral("1"),
-                                        new InListExpression(ImmutableList.of(
-                                                new LongLiteral("1"),
-                                                new LongLiteral("2"))))),
-                        ImmutableList.of(),
-                        p.values(),
-                        p.values()))
-                .matches(
-                        apply(
-                                ImmutableList.of(),
-                                ImmutableMap.of("a", expression("0 IN (1, 2)")),
-                                values(),
-                                values()));
-    }
-
-    @Test
-    public void testApplyExpressionNotRewritten()
-    {
-        tester().assertThat(applyRewriter.applyExpressionRewrite())
-                .on(p -> p.apply(
-                        Assignments.of(
-                                p.symbol("a", BigintType.BIGINT),
-                                new InPredicate(
-                                        new LongLiteral("0"),
-                                        new InListExpression(ImmutableList.of(
-                                                new LongLiteral("1"),
-                                                new LongLiteral("2"))))),
-                        ImmutableList.of(),
-                        p.values(),
-                        p.values()))
                 .doesNotFire();
     }
 }

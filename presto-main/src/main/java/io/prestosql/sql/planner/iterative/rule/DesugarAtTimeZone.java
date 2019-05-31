@@ -13,13 +13,9 @@
  */
 package io.prestosql.sql.planner.iterative.rule;
 
-import com.google.common.collect.ImmutableSet;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.sql.planner.DesugarAtTimeZoneRewriter;
 import io.prestosql.sql.planner.TypeAnalyzer;
-import io.prestosql.sql.planner.iterative.Rule;
-
-import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
 
@@ -29,17 +25,6 @@ public class DesugarAtTimeZone
     public DesugarAtTimeZone(Metadata metadata, TypeAnalyzer typeAnalyzer)
     {
         super(createRewrite(metadata, typeAnalyzer));
-    }
-
-    @Override
-    public Set<Rule<?>> rules()
-    {
-        return ImmutableSet.of(
-                projectExpressionRewrite(),
-                aggregationExpressionRewrite(),
-                filterExpressionRewrite(),
-                joinExpressionRewrite(),
-                valuesExpressionRewrite());
     }
 
     private static ExpressionRewriter createRewrite(Metadata metadata, TypeAnalyzer typeAnalyzer)

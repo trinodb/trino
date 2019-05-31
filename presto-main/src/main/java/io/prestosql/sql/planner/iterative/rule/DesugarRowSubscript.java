@@ -13,12 +13,8 @@
  */
 package io.prestosql.sql.planner.iterative.rule;
 
-import com.google.common.collect.ImmutableSet;
 import io.prestosql.sql.planner.DesugarRowSubscriptRewriter;
 import io.prestosql.sql.planner.TypeAnalyzer;
-import io.prestosql.sql.planner.iterative.Rule;
-
-import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
 
@@ -28,17 +24,6 @@ public class DesugarRowSubscript
     public DesugarRowSubscript(TypeAnalyzer typeAnalyzer)
     {
         super(createRewrite(typeAnalyzer));
-    }
-
-    @Override
-    public Set<Rule<?>> rules()
-    {
-        return ImmutableSet.of(
-                projectExpressionRewrite(),
-                aggregationExpressionRewrite(),
-                filterExpressionRewrite(),
-                joinExpressionRewrite(),
-                valuesExpressionRewrite());
     }
 
     private static ExpressionRewriter createRewrite(TypeAnalyzer typeAnalyzer)
