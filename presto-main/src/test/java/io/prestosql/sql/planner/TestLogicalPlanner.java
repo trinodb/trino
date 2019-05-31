@@ -940,6 +940,7 @@ public class TestLogicalPlanner
                                                 .withAlias("row_num", new RowNumberSymbolMatcher())))));
     }
 
+    @Test
     public void testRedundantLimitNodeRemoval()
     {
         String query = "SELECT count(*) FROM orders LIMIT 10";
