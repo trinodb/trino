@@ -132,6 +132,7 @@ import static io.prestosql.sql.planner.DeterminismEvaluator.isDeterministic;
 import static io.prestosql.sql.planner.iterative.rule.CanonicalizeExpressionRewriter.canonicalizeExpression;
 import static io.prestosql.type.LikeFunctions.isLikePattern;
 import static io.prestosql.type.LikeFunctions.unescapeLiteralLikePattern;
+import static io.prestosql.util.Failures.checkCondition;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -1119,6 +1120,7 @@ public class ExpressionInterpreter
             for (Expression expression : node.getValues()) {
                 Object value = process(expression, context);
                 if (value instanceof Expression) {
+                    checkCondition(node.getValues().size() <= 254, NOT_SUPPORTED, "Too many arguments for array constructor");
                     return visitFunctionCall(new FunctionCall(QualifiedName.of(ArrayConstructor.ARRAY_CONSTRUCTOR), node.getValues()), context);
                 }
                 writeNativeValue(elementType, arrayBlockBuilder, value);

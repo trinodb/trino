@@ -13,6 +13,7 @@
  */
 package io.prestosql.sql.analyzer;
 
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonCodec;
 import io.prestosql.Session;
@@ -115,6 +116,7 @@ import static io.prestosql.sql.analyzer.SemanticErrorCode.REFERENCE_TO_OUTPUT_AT
 import static io.prestosql.sql.analyzer.SemanticErrorCode.SAMPLE_PERCENTAGE_OUT_OF_RANGE;
 import static io.prestosql.sql.analyzer.SemanticErrorCode.SCHEMA_NOT_SPECIFIED;
 import static io.prestosql.sql.analyzer.SemanticErrorCode.STANDALONE_LAMBDA;
+import static io.prestosql.sql.analyzer.SemanticErrorCode.TOO_MANY_ARGUMENTS;
 import static io.prestosql.sql.analyzer.SemanticErrorCode.TOO_MANY_GROUPING_SETS;
 import static io.prestosql.sql.analyzer.SemanticErrorCode.TYPE_MISMATCH;
 import static io.prestosql.sql.analyzer.SemanticErrorCode.VIEW_ANALYSIS_ERROR;
@@ -127,6 +129,7 @@ import static io.prestosql.transaction.InMemoryTransactionManager.createTestTran
 import static io.prestosql.transaction.TransactionBuilder.transaction;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
+import static java.util.Collections.nCopies;
 import static org.testng.Assert.fail;
 
 @Test(singleThreaded = true)
@@ -152,6 +155,12 @@ public class TestAnalyzer
     private TransactionManager transactionManager;
     private AccessControl accessControl;
     private Metadata metadata;
+
+    @Test
+    public void testTooManyArguments()
+    {
+        assertFails(TOO_MANY_ARGUMENTS, "SELECT greatest(" + Joiner.on(", ").join(nCopies(128, "rand()")) + ")");
+    }
 
     @Test
     public void testNonComparableGroupBy()
