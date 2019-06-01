@@ -15,12 +15,10 @@ package io.prestosql.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Range;
 import io.prestosql.matching.Capture;
 import io.prestosql.matching.Captures;
 import io.prestosql.matching.Pattern;
 import io.prestosql.sql.planner.Symbol;
-import io.prestosql.sql.planner.iterative.Lookup;
 import io.prestosql.sql.planner.iterative.Rule;
 import io.prestosql.sql.planner.plan.JoinNode;
 import io.prestosql.sql.planner.plan.PlanNode;
@@ -29,7 +27,7 @@ import io.prestosql.sql.planner.plan.TopNNode;
 import java.util.List;
 
 import static io.prestosql.matching.Capture.newCapture;
-import static io.prestosql.sql.planner.optimizations.QueryCardinalityUtil.extractCardinality;
+import static io.prestosql.sql.planner.optimizations.QueryCardinalityUtil.isAtMost;
 import static io.prestosql.sql.planner.plan.JoinNode.Type.LEFT;
 import static io.prestosql.sql.planner.plan.JoinNode.Type.RIGHT;
 import static io.prestosql.sql.planner.plan.Patterns.Join.type;
@@ -89,7 +87,7 @@ public class PushTopNThroughOuterJoin
 
         if ((type == LEFT)
                 && ImmutableSet.copyOf(left.getOutputSymbols()).containsAll(orderBySymbols)
-                && !isLimited(left, context.getLookup(), parent.getCount())) {
+                && !isAtMost(left, context.getLookup(), parent.getCount())) {
             return Result.ofPlanNode(
                     joinNode.replaceChildren(ImmutableList.of(
                             parent.replaceChildren(ImmutableList.of(left)),
@@ -98,7 +96,7 @@ public class PushTopNThroughOuterJoin
 
         if ((type == RIGHT)
                 && ImmutableSet.copyOf(right.getOutputSymbols()).containsAll(orderBySymbols)
-                && !isLimited(right, context.getLookup(), parent.getCount())) {
+                && !isAtMost(right, context.getLookup(), parent.getCount())) {
             return Result.ofPlanNode(
                     joinNode.replaceChildren(ImmutableList.of(
                             left,
@@ -106,11 +104,5 @@ public class PushTopNThroughOuterJoin
         }
 
         return Result.empty();
-    }
-
-    private static boolean isLimited(PlanNode node, Lookup lookup, long limit)
-    {
-        Range<Long> cardinality = extractCardinality(node, lookup);
-        return cardinality.hasUpperBound() && cardinality.upperEndpoint() <= limit;
     }
 }

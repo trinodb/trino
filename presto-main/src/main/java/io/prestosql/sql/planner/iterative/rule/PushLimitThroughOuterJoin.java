@@ -14,18 +14,16 @@
 package io.prestosql.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Range;
 import io.prestosql.matching.Capture;
 import io.prestosql.matching.Captures;
 import io.prestosql.matching.Pattern;
-import io.prestosql.sql.planner.iterative.Lookup;
 import io.prestosql.sql.planner.iterative.Rule;
 import io.prestosql.sql.planner.plan.JoinNode;
 import io.prestosql.sql.planner.plan.LimitNode;
 import io.prestosql.sql.planner.plan.PlanNode;
 
 import static io.prestosql.matching.Capture.newCapture;
-import static io.prestosql.sql.planner.optimizations.QueryCardinalityUtil.extractCardinality;
+import static io.prestosql.sql.planner.optimizations.QueryCardinalityUtil.isAtMost;
 import static io.prestosql.sql.planner.plan.JoinNode.Type.LEFT;
 import static io.prestosql.sql.planner.plan.JoinNode.Type.RIGHT;
 import static io.prestosql.sql.planner.plan.Patterns.Join.type;
@@ -76,7 +74,7 @@ public class PushLimitThroughOuterJoin
         PlanNode left = joinNode.getLeft();
         PlanNode right = joinNode.getRight();
 
-        if (joinNode.getType() == LEFT && !isLimited(left, context.getLookup(), parent.getCount())) {
+        if (joinNode.getType() == LEFT && !isAtMost(left, context.getLookup(), parent.getCount())) {
             return Result.ofPlanNode(
                     parent.replaceChildren(ImmutableList.of(
                             joinNode.replaceChildren(ImmutableList.of(
@@ -84,7 +82,7 @@ public class PushLimitThroughOuterJoin
                                     right)))));
         }
 
-        if (joinNode.getType() == RIGHT && !isLimited(right, context.getLookup(), parent.getCount())) {
+        if (joinNode.getType() == RIGHT && !isAtMost(right, context.getLookup(), parent.getCount())) {
             return Result.ofPlanNode(
                     parent.replaceChildren(ImmutableList.of(
                             joinNode.replaceChildren(ImmutableList.of(
@@ -93,11 +91,5 @@ public class PushLimitThroughOuterJoin
         }
 
         return Result.empty();
-    }
-
-    private static boolean isLimited(PlanNode node, Lookup lookup, long limit)
-    {
-        Range<Long> cardinality = extractCardinality(node, lookup);
-        return cardinality.hasUpperBound() && cardinality.upperEndpoint() <= limit;
     }
 }
