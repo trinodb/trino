@@ -24,11 +24,8 @@ import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorMetadata;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorTableHandle;
-import io.prestosql.spi.connector.ConnectorTableLayout;
-import io.prestosql.spi.connector.ConnectorTableLayoutHandle;
-import io.prestosql.spi.connector.ConnectorTableLayoutResult;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
-import io.prestosql.spi.connector.Constraint;
+import io.prestosql.spi.connector.ConnectorTableProperties;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.SchemaTablePrefix;
 import io.prestosql.spi.connector.TableNotFoundException;
@@ -45,7 +42,6 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 import static io.prestosql.plugin.redis.RedisHandleResolver.convertColumnHandle;
-import static io.prestosql.plugin.redis.RedisHandleResolver.convertLayout;
 import static io.prestosql.plugin.redis.RedisHandleResolver.convertTableHandle;
 import static java.util.Objects.requireNonNull;
 
@@ -123,31 +119,6 @@ public class RedisMetadata
             throw new TableNotFoundException(schemaTableName);
         }
         return tableMetadata;
-    }
-
-    @Override
-    public List<ConnectorTableLayoutResult> getTableLayouts(
-            ConnectorSession session,
-            ConnectorTableHandle table,
-            Constraint constraint,
-            Optional<Set<ColumnHandle>> desiredColumns)
-    {
-        RedisTableHandle tableHandle = convertTableHandle(table);
-
-        ConnectorTableLayout layout = new ConnectorTableLayout(new RedisTableLayoutHandle(tableHandle));
-
-        return ImmutableList.of(new ConnectorTableLayoutResult(layout, constraint.getSummary()));
-    }
-
-    @Override
-    public ConnectorTableLayout getTableLayout(ConnectorSession session, ConnectorTableLayoutHandle handle)
-    {
-        RedisTableLayoutHandle layout = convertLayout(handle);
-
-        // tables in this connector have a single layout
-        return getTableLayouts(session, layout.getTable(), Constraint.alwaysTrue(), Optional.empty())
-                .get(0)
-                .getTableLayout();
     }
 
     @Override
@@ -236,6 +207,18 @@ public class RedisMetadata
     {
         convertTableHandle(tableHandle);
         return convertColumnHandle(columnHandle).getColumnMetadata();
+    }
+
+    @Override
+    public boolean usesLegacyTableLayouts()
+    {
+        return false;
+    }
+
+    @Override
+    public ConnectorTableProperties getTableProperties(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        return new ConnectorTableProperties();
     }
 
     @VisibleForTesting

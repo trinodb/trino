@@ -17,7 +17,6 @@ import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorHandleResolver;
 import io.prestosql.spi.connector.ConnectorSplit;
 import io.prestosql.spi.connector.ConnectorTableHandle;
-import io.prestosql.spi.connector.ConnectorTableLayoutHandle;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -53,12 +52,6 @@ public class RedisHandleResolver
         return RedisSplit.class;
     }
 
-    @Override
-    public Class<? extends ConnectorTableLayoutHandle> getTableLayoutHandleClass()
-    {
-        return RedisTableLayoutHandle.class;
-    }
-
     static RedisTableHandle convertTableHandle(ConnectorTableHandle tableHandle)
     {
         requireNonNull(tableHandle, "tableHandle is null");
@@ -78,12 +71,5 @@ public class RedisHandleResolver
         requireNonNull(split, "split is null");
         checkArgument(split instanceof RedisSplit, "split is not an instance of RedisSplit");
         return (RedisSplit) split;
-    }
-
-    static RedisTableLayoutHandle convertLayout(ConnectorTableLayoutHandle layout)
-    {
-        requireNonNull(layout, "layout is null");
-        checkArgument(layout instanceof RedisTableLayoutHandle, "layout is not an instance of RedisTableLayoutHandle");
-        return (RedisTableLayoutHandle) layout;
     }
 }
