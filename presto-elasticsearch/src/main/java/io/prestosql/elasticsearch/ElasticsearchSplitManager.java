@@ -18,7 +18,7 @@ import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorSplit;
 import io.prestosql.spi.connector.ConnectorSplitManager;
 import io.prestosql.spi.connector.ConnectorSplitSource;
-import io.prestosql.spi.connector.ConnectorTableLayoutHandle;
+import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 import io.prestosql.spi.connector.FixedSplitSource;
 import org.elasticsearch.action.admin.cluster.shards.ClusterSearchShardsGroup;
@@ -44,27 +44,25 @@ public class ElasticsearchSplitManager
     }
 
     @Override
-    public ConnectorSplitSource getSplits(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorTableLayoutHandle layout, SplitSchedulingStrategy splitSchedulingStrategy)
+    public ConnectorSplitSource getSplits(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorTableHandle table, SplitSchedulingStrategy splitSchedulingStrategy)
     {
-        ElasticsearchTableLayoutHandle layoutHandle = (ElasticsearchTableLayoutHandle) layout;
-        ElasticsearchTableHandle tableHandle = layoutHandle.getTable();
-        ElasticsearchTableDescription table = client.getTable(tableHandle.getSchemaName(), tableHandle.getTableName());
+        ElasticsearchTableHandle tableHandle = (ElasticsearchTableHandle) table;
+        ElasticsearchTableDescription tableDescription = client.getTable(tableHandle.getSchemaName(), tableHandle.getTableName());
         verify(table != null, "Table no longer exists: %s", tableHandle.toString());
 
-        List<String> indices = client.getIndices(table);
+        List<String> indices = client.getIndices(tableDescription);
         ImmutableList.Builder<ConnectorSplit> splits = ImmutableList.builder();
         for (String index : indices) {
-            ClusterSearchShardsResponse response = client.getSearchShards(index, table);
+            ClusterSearchShardsResponse response = client.getSearchShards(index, tableDescription);
             DiscoveryNode[] nodes = response.getNodes();
             for (ClusterSearchShardsGroup group : response.getGroups()) {
                 int nodeIndex = group.getShardId().getId() % nodes.length;
                 ElasticsearchSplit split = new ElasticsearchSplit(
                         index,
-                        table.getType(),
+                        tableDescription.getType(),
                         group.getShardId().getId(),
                         nodes[nodeIndex].getHostName(),
-                        nodes[nodeIndex].getAddress().getPort(),
-                        layoutHandle.getTupleDomain());
+                        nodes[nodeIndex].getAddress().getPort());
                 splits.add(split);
             }
         }

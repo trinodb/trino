@@ -16,8 +16,10 @@ package io.prestosql.elasticsearch;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Joiner;
+import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.SchemaTableName;
+import io.prestosql.spi.predicate.TupleDomain;
 
 import java.util.Objects;
 
@@ -28,15 +30,23 @@ public final class ElasticsearchTableHandle
         implements ConnectorTableHandle
 {
     private final SchemaTableName schemaTableName;
+    private final TupleDomain<ColumnHandle> constraint;
+
+    public ElasticsearchTableHandle(String schemaName, String tableName)
+    {
+        this(schemaName, tableName, TupleDomain.all());
+    }
 
     @JsonCreator
     public ElasticsearchTableHandle(
             @JsonProperty("schemaName") String schemaName,
-            @JsonProperty("tableName") String tableName)
+            @JsonProperty("tableName") String tableName,
+            @JsonProperty("constraint") TupleDomain<ColumnHandle> constraint)
     {
         requireNonNull(schemaName, "schemaName is null");
         requireNonNull(tableName, "tableName is null");
         this.schemaTableName = new SchemaTableName(schemaName.toLowerCase(ENGLISH), tableName.toLowerCase(ENGLISH));
+        this.constraint = requireNonNull(constraint, "constraint is null");
     }
 
     @JsonProperty
@@ -49,6 +59,12 @@ public final class ElasticsearchTableHandle
     public String getTableName()
     {
         return schemaTableName.getTableName();
+    }
+
+    @JsonProperty
+    public TupleDomain<ColumnHandle> getConstraint()
+    {
+        return constraint;
     }
 
     public SchemaTableName getSchemaTableName()

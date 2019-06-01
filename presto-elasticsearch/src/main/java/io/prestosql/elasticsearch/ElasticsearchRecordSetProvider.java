@@ -43,13 +43,14 @@ public class ElasticsearchRecordSetProvider
     public RecordSet getRecordSet(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorSplit split, ConnectorTableHandle table, List<? extends ColumnHandle> columns)
     {
         requireNonNull(split, "split is null");
+        requireNonNull(table, "table is null");
         ElasticsearchSplit elasticsearchSplit = (ElasticsearchSplit) split;
-
+        ElasticsearchTableHandle elasticsearchTable = (ElasticsearchTableHandle) table;
         ImmutableList.Builder<ElasticsearchColumnHandle> handles = ImmutableList.builder();
         for (ColumnHandle handle : columns) {
             handles.add((ElasticsearchColumnHandle) handle);
         }
 
-        return new ElasticsearchRecordSet(elasticsearchSplit, config, handles.build());
+        return new ElasticsearchRecordSet(elasticsearchSplit, elasticsearchTable, config, handles.build());
     }
 }
