@@ -17,9 +17,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.spi.HostAddress;
-import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorSplit;
-import io.prestosql.spi.predicate.TupleDomain;
 
 import java.util.List;
 
@@ -34,7 +32,6 @@ public class ElasticsearchSplit
     private final int shard;
     private final String searchNode;
     private final int port;
-    private final TupleDomain<ColumnHandle> tupleDomain;
 
     @JsonCreator
     public ElasticsearchSplit(
@@ -42,15 +39,13 @@ public class ElasticsearchSplit
             @JsonProperty("type") String type,
             @JsonProperty("shard") int shard,
             @JsonProperty("searchNode") String searchNode,
-            @JsonProperty("port") int port,
-            @JsonProperty("tupleDomain") TupleDomain<ColumnHandle> tupleDomain)
+            @JsonProperty("port") int port)
     {
         this.index = requireNonNull(index, "index is null");
         this.type = requireNonNull(type, "index is null");
         this.searchNode = requireNonNull(searchNode, "searchNode is null");
         this.port = port;
         this.shard = shard;
-        this.tupleDomain = requireNonNull(tupleDomain, "tupleDomain is null");
     }
 
     @JsonProperty
@@ -83,12 +78,6 @@ public class ElasticsearchSplit
         return port;
     }
 
-    @JsonProperty
-    public TupleDomain<ColumnHandle> getTupleDomain()
-    {
-        return tupleDomain;
-    }
-
     @Override
     public boolean isRemotelyAccessible()
     {
@@ -116,7 +105,6 @@ public class ElasticsearchSplit
                 .addValue(shard)
                 .addValue(port)
                 .addValue(searchNode)
-                .addValue(tupleDomain)
                 .toString();
     }
 }
