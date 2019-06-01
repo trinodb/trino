@@ -321,6 +321,8 @@ public class Query
                 return new TsvPrinter(fieldNames, writer, false);
             case TSV_HEADER:
                 return new TsvPrinter(fieldNames, writer, true);
+            case JSON:
+                return new JsonPrinter(fieldNames, writer);
             case NULL:
                 return new NullPrinter();
         }
