@@ -15,8 +15,10 @@ package io.prestosql.plugin.localfile;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.SchemaTableName;
+import io.prestosql.spi.predicate.TupleDomain;
 
 import java.util.Objects;
 import java.util.OptionalInt;
@@ -30,16 +32,24 @@ public class LocalFileTableHandle
     private final SchemaTableName schemaTableName;
     private final OptionalInt timestampColumn;
     private final OptionalInt serverAddressColumn;
+    private final TupleDomain<ColumnHandle> constraint;
+
+    public LocalFileTableHandle(SchemaTableName schemaTableName, OptionalInt timestampColumn, OptionalInt serverAddressColumn)
+    {
+        this(schemaTableName, timestampColumn, serverAddressColumn, TupleDomain.all());
+    }
 
     @JsonCreator
     public LocalFileTableHandle(
             @JsonProperty("schemaTableName") SchemaTableName schemaTableName,
             @JsonProperty("timestampColumn") OptionalInt timestampColumn,
-            @JsonProperty("serverAddressColumn") OptionalInt serverAddressColumn)
+            @JsonProperty("serverAddressColumn") OptionalInt serverAddressColumn,
+            @JsonProperty("constraint") TupleDomain<ColumnHandle> constraint)
     {
         this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
         this.timestampColumn = requireNonNull(timestampColumn, "timestampColumn is null");
         this.serverAddressColumn = requireNonNull(serverAddressColumn, "serverAddressColumn is null");
+        this.constraint = requireNonNull(constraint, "constraint is null");
     }
 
     @JsonProperty
@@ -58,6 +68,12 @@ public class LocalFileTableHandle
     public OptionalInt getServerAddressColumn()
     {
         return serverAddressColumn;
+    }
+
+    @JsonProperty
+    public TupleDomain<ColumnHandle> getConstraint()
+    {
+        return constraint;
     }
 
     @Override
