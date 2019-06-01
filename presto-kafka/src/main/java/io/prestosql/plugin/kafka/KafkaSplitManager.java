@@ -24,7 +24,7 @@ import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorSplit;
 import io.prestosql.spi.connector.ConnectorSplitManager;
 import io.prestosql.spi.connector.ConnectorSplitSource;
-import io.prestosql.spi.connector.ConnectorTableLayoutHandle;
+import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 import io.prestosql.spi.connector.FixedSplitSource;
 import kafka.api.PartitionOffsetRequestInfo;
@@ -52,7 +52,6 @@ import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 
 import static io.prestosql.plugin.kafka.KafkaErrorCode.KAFKA_SPLIT_ERROR;
-import static io.prestosql.plugin.kafka.KafkaHandleResolver.convertLayout;
 import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -82,9 +81,9 @@ public class KafkaSplitManager
     }
 
     @Override
-    public ConnectorSplitSource getSplits(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorTableLayoutHandle layout, SplitSchedulingStrategy splitSchedulingStrategy)
+    public ConnectorSplitSource getSplits(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorTableHandle table, SplitSchedulingStrategy splitSchedulingStrategy)
     {
-        KafkaTableHandle kafkaTableHandle = convertLayout(layout).getTable();
+        KafkaTableHandle kafkaTableHandle = (KafkaTableHandle) table;
         try {
             SimpleConsumer simpleConsumer = consumerManager.getConsumer(selectRandom(nodes));
 
