@@ -18,10 +18,9 @@ import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorSplit;
 import io.prestosql.spi.connector.ConnectorSplitManager;
 import io.prestosql.spi.connector.ConnectorSplitSource;
-import io.prestosql.spi.connector.ConnectorTableLayoutHandle;
+import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 import io.prestosql.spi.connector.FixedSplitSource;
-import io.prestosql.spi.predicate.TupleDomain;
 
 import javax.inject.Inject;
 
@@ -42,15 +41,10 @@ public class LocalFileSplitManager
     }
 
     @Override
-    public ConnectorSplitSource getSplits(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorTableLayoutHandle layout, SplitSchedulingStrategy splitSchedulingStrategy)
+    public ConnectorSplitSource getSplits(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorTableHandle table, SplitSchedulingStrategy splitSchedulingStrategy)
     {
-        LocalFileTableLayoutHandle layoutHandle = (LocalFileTableLayoutHandle) layout;
-
-        TupleDomain<LocalFileColumnHandle> effectivePredicate = layoutHandle.getConstraint()
-                .transform(LocalFileColumnHandle.class::cast);
-
         List<ConnectorSplit> splits = nodeManager.getAllNodes().stream()
-                .map(node -> new LocalFileSplit(node.getHostAndPort(), effectivePredicate))
+                .map(node -> new LocalFileSplit(node.getHostAndPort()))
                 .collect(Collectors.toList());
 
         return new FixedSplitSource(splits);
