@@ -27,11 +27,10 @@ import io.prestosql.spi.connector.ConnectorOutputMetadata;
 import io.prestosql.spi.connector.ConnectorOutputTableHandle;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorTableHandle;
-import io.prestosql.spi.connector.ConnectorTableLayout;
-import io.prestosql.spi.connector.ConnectorTableLayoutHandle;
-import io.prestosql.spi.connector.ConnectorTableLayoutResult;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
+import io.prestosql.spi.connector.ConnectorTableProperties;
 import io.prestosql.spi.connector.Constraint;
+import io.prestosql.spi.connector.ConstraintApplicationResult;
 import io.prestosql.spi.connector.LocalProperty;
 import io.prestosql.spi.connector.NotFoundException;
 import io.prestosql.spi.connector.SchemaTableName;
@@ -152,51 +151,6 @@ public class MongoMetadata
     }
 
     @Override
-    public List<ConnectorTableLayoutResult> getTableLayouts(ConnectorSession session, ConnectorTableHandle table, Constraint constraint, Optional<Set<ColumnHandle>> desiredColumns)
-    {
-        MongoTableHandle tableHandle = (MongoTableHandle) table;
-
-        Optional<Set<ColumnHandle>> partitioningColumns = Optional.empty(); //TODO: sharding key
-        ImmutableList.Builder<LocalProperty<ColumnHandle>> localProperties = ImmutableList.builder();
-
-        MongoTable tableInfo = mongoSession.getTable(tableHandle.getSchemaTableName());
-        Map<String, ColumnHandle> columns = getColumnHandles(session, tableHandle);
-
-        for (MongoIndex index : tableInfo.getIndexes()) {
-            for (MongodbIndexKey key : index.getKeys()) {
-                if (!key.getSortOrder().isPresent()) {
-                    continue;
-                }
-                if (columns.get(key.getName()) != null) {
-                    localProperties.add(new SortingProperty<>(columns.get(key.getName()), key.getSortOrder().get()));
-                }
-            }
-        }
-
-        ConnectorTableLayout layout = new ConnectorTableLayout(
-                new MongoTableLayoutHandle(tableHandle, constraint.getSummary()),
-                Optional.empty(),
-                TupleDomain.all(),
-                Optional.empty(),
-                partitioningColumns,
-                Optional.empty(),
-                localProperties.build());
-
-        return ImmutableList.of(new ConnectorTableLayoutResult(layout, constraint.getSummary()));
-    }
-
-    @Override
-    public ConnectorTableLayout getTableLayout(ConnectorSession session, ConnectorTableLayoutHandle handle)
-    {
-        MongoTableLayoutHandle layout = (MongoTableLayoutHandle) handle;
-
-        // tables in this connector have a single layout
-        return getTableLayouts(session, layout.getTable(), Constraint.alwaysTrue(), Optional.empty())
-                .get(0)
-                .getTableLayout();
-    }
-
-    @Override
     public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, boolean ignoreExisting)
     {
         mongoSession.createTable(tableMetadata.getTable(), buildColumnHandles(tableMetadata));
@@ -252,6 +206,60 @@ public class MongoMetadata
     public Optional<ConnectorOutputMetadata> finishInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
         return Optional.empty();
+    }
+
+    @Override
+    public boolean usesLegacyTableLayouts()
+    {
+        return false;
+    }
+
+    @Override
+    public ConnectorTableProperties getTableProperties(ConnectorSession session, ConnectorTableHandle table)
+    {
+        MongoTableHandle tableHandle = (MongoTableHandle) table;
+
+        Optional<Set<ColumnHandle>> partitioningColumns = Optional.empty(); //TODO: sharding key
+        ImmutableList.Builder<LocalProperty<ColumnHandle>> localProperties = ImmutableList.builder();
+
+        MongoTable tableInfo = mongoSession.getTable(tableHandle.getSchemaTableName());
+        Map<String, ColumnHandle> columns = getColumnHandles(session, tableHandle);
+
+        for (MongoIndex index : tableInfo.getIndexes()) {
+            for (MongodbIndexKey key : index.getKeys()) {
+                if (!key.getSortOrder().isPresent()) {
+                    continue;
+                }
+                if (columns.get(key.getName()) != null) {
+                    localProperties.add(new SortingProperty<>(columns.get(key.getName()), key.getSortOrder().get()));
+                }
+            }
+        }
+
+        return new ConnectorTableProperties(
+                TupleDomain.all(),
+                Optional.empty(),
+                partitioningColumns,
+                Optional.empty(),
+                localProperties.build());
+    }
+
+    @Override
+    public Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorSession session, ConnectorTableHandle table, Constraint constraint)
+    {
+        MongoTableHandle handle = (MongoTableHandle) table;
+
+        TupleDomain<ColumnHandle> oldDomain = handle.getConstraint();
+        TupleDomain<ColumnHandle> newDomain = oldDomain.intersect(constraint.getSummary());
+        if (oldDomain.equals(newDomain)) {
+            return Optional.empty();
+        }
+
+        handle = new MongoTableHandle(
+                handle.getSchemaTableName(),
+                newDomain);
+
+        return Optional.of(new ConstraintApplicationResult<>(handle, constraint.getSummary()));
     }
 
     private void setRollback(Runnable action)

@@ -224,14 +224,14 @@ public class MongoSession
         return MongoIndex.parse(getCollection(tableName).listIndexes());
     }
 
-    public MongoCursor<Document> execute(MongoSplit split, List<MongoColumnHandle> columns)
+    public MongoCursor<Document> execute(MongoTableHandle tableHandle, List<MongoColumnHandle> columns)
     {
         Document output = new Document();
         for (MongoColumnHandle column : columns) {
             output.append(column.getName(), 1);
         }
-        MongoCollection<Document> collection = getCollection(split.getSchemaTableName());
-        FindIterable<Document> iterable = collection.find(buildQuery(split.getTupleDomain())).projection(output);
+        MongoCollection<Document> collection = getCollection(tableHandle.getSchemaTableName());
+        FindIterable<Document> iterable = collection.find(buildQuery(tableHandle.getConstraint())).projection(output);
 
         if (cursorBatchSize != 0) {
             iterable.batchSize(cursorBatchSize);
