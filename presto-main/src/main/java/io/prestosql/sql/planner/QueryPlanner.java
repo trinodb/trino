@@ -894,7 +894,8 @@ class QueryPlanner
                 new SortNode(
                         idAllocator.getNextId(),
                         subPlan.getRoot(),
-                        orderingScheme.get()));
+                        orderingScheme.get(),
+                        false));
     }
 
     private PlanBuilder offset(PlanBuilder subPlan, Optional<Offset> offset)

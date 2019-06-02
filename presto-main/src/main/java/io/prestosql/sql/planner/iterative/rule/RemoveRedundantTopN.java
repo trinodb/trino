@@ -52,7 +52,7 @@ public class RemoveRedundantTopN
             return Result.ofPlanNode(node.getSource());
         }
         if (isAtMost(node.getSource(), context.getLookup(), node.getCount())) {
-            return Result.ofPlanNode(new SortNode(context.getIdAllocator().getNextId(), node.getSource(), node.getOrderingScheme()));
+            return Result.ofPlanNode(new SortNode(context.getIdAllocator().getNextId(), node.getSource(), node.getOrderingScheme(), false));
         }
         return Result.empty();
     }
