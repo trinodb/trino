@@ -23,7 +23,6 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Streams;
 import io.airlift.units.Duration;
 import io.prestosql.Session;
-import io.prestosql.SystemSessionProperties;
 import io.prestosql.cost.PlanCostEstimate;
 import io.prestosql.cost.PlanNodeStatsEstimate;
 import io.prestosql.cost.StatsAndCosts;
@@ -868,13 +867,9 @@ public class PlanPrinter
         public Void visitSort(SortNode node, Void context)
         {
             Iterable<String> keys = Iterables.transform(node.getOrderingScheme().getOrderBy(), input -> input + " " + node.getOrderingScheme().getOrdering(input));
-            boolean isPartial = false;
-            if (SystemSessionProperties.isDistributedSortEnabled(session)) {
-                isPartial = true;
-            }
 
             addNode(node,
-                    format("%sSort", isPartial ? "Partial" : ""),
+                    format("%sSort", node.isPartial() ? "Partial" : ""),
                     format("[%s]", Joiner.on(", ").join(keys)));
 
             return processChildren(node, context);

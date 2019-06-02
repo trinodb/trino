@@ -209,7 +209,8 @@ public class PlanBuilder
                 source,
                 new OrderingScheme(
                         orderBy,
-                        Maps.toMap(orderBy, Functions.constant(SortOrder.ASC_NULLS_FIRST))));
+                        Maps.toMap(orderBy, Functions.constant(SortOrder.ASC_NULLS_FIRST))),
+                false);
     }
 
     public OffsetNode offset(long rowCount, PlanNode source)
