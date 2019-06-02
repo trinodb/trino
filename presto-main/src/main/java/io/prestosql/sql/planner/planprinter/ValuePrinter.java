@@ -16,35 +16,45 @@ package io.prestosql.sql.planner.planprinter;
 import io.airlift.slice.Slice;
 import io.prestosql.Session;
 import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.OperatorNotFoundException;
 import io.prestosql.metadata.Signature;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.InterpretedFunctionInvoker;
 
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static java.util.Objects.requireNonNull;
 
-public final class PlanPrinterUtil
+public final class ValuePrinter
 {
-    private PlanPrinterUtil() {}
+    private final Metadata metadata;
+    private final Session session;
 
-    static String castToVarchar(Type type, Object value, FunctionRegistry functionRegistry, Session session)
+    public ValuePrinter(Metadata metadata, Session session)
+    {
+        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.session = requireNonNull(session, "session is null");
+    }
+
+    public String castToVarchar(Type type, Object value)
     {
         try {
-            return castToVarcharOrFail(type, value, functionRegistry, session);
+            return castToVarcharOrFail(type, value);
         }
         catch (OperatorNotFoundException e) {
             return "<UNREPRESENTABLE VALUE>";
         }
     }
 
-    static String castToVarcharOrFail(Type type, Object value, FunctionRegistry functionRegistry, Session session)
+    public String castToVarcharOrFail(Type type, Object value)
             throws OperatorNotFoundException
     {
         if (value == null) {
             return "NULL";
         }
 
-        Signature coercion = functionRegistry.getCoercion(type, VARCHAR);
+        FunctionRegistry functionRegistry = metadata.getFunctionRegistry();
+        Signature coercion = functionRegistry.getCoercion(type.getTypeSignature(), VARCHAR.getTypeSignature());
         Slice coerced = (Slice) new InterpretedFunctionInvoker(functionRegistry).invoke(coercion, session.toConnectorSession(), value);
         return coerced.toStringUtf8();
     }

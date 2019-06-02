@@ -16,6 +16,7 @@ package io.prestosql.execution;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.FutureCallback;
@@ -983,6 +984,7 @@ public class QueryStateMachine
                 outputStage.getStageStats(),
                 ImmutableList.of(), // Remove the tasks
                 ImmutableList.of(), // Remove the substages
+                ImmutableMap.of(), // Remove tables
                 outputStage.getFailureCause()));
 
         QueryInfo prunedQueryInfo = new QueryInfo(

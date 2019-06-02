@@ -17,6 +17,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.prestosql.Session;
+import io.prestosql.execution.TableInfo;
+import io.prestosql.metadata.Metadata;
+import io.prestosql.metadata.TableMetadata;
+import io.prestosql.metadata.TableProperties;
 import io.prestosql.operator.StageExecutionDescriptor;
 import io.prestosql.split.SampledSplitSource;
 import io.prestosql.split.SplitManager;
@@ -64,9 +68,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.prestosql.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.GROUPED_SCHEDULING;
 import static io.prestosql.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.UNGROUPED_SCHEDULING;
+import static io.prestosql.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static java.util.Objects.requireNonNull;
 
 public class DistributedExecutionPlanner
@@ -74,11 +80,13 @@ public class DistributedExecutionPlanner
     private static final Logger log = Logger.get(DistributedExecutionPlanner.class);
 
     private final SplitManager splitManager;
+    private final Metadata metadata;
 
     @Inject
-    public DistributedExecutionPlanner(SplitManager splitManager)
+    public DistributedExecutionPlanner(SplitManager splitManager, Metadata metadata)
     {
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
+        this.metadata = requireNonNull(metadata, "metadata is null");
     }
 
     public StageExecutionPlan plan(SubPlan root, Session session)
@@ -116,10 +124,26 @@ public class DistributedExecutionPlanner
             dependencies.add(doPlan(childPlan, session, allSplitSources));
         }
 
+        // extract TableInfo
+        Map<PlanNodeId, TableInfo> tables = searchFrom(root.getFragment().getRoot())
+                .where(TableScanNode.class::isInstance)
+                .findAll()
+                .stream()
+                .map(TableScanNode.class::cast)
+                .collect(toImmutableMap(PlanNode::getId, node -> getTableInfo(node, session)));
+
         return new StageExecutionPlan(
                 currentFragment,
                 splitSources,
-                dependencies.build());
+                dependencies.build(),
+                tables);
+    }
+
+    private TableInfo getTableInfo(TableScanNode node, Session session)
+    {
+        TableMetadata tableMetadata = metadata.getTableMetadata(session, node.getTable());
+        TableProperties tableProperties = metadata.getTableProperties(session, node.getTable());
+        return new TableInfo(tableMetadata.getQualifiedName(), tableProperties.getPredicate());
     }
 
     private final class Visitor

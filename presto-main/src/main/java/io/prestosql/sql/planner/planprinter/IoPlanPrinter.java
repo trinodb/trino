@@ -18,10 +18,8 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableSet;
 import io.prestosql.Session;
 import io.prestosql.metadata.Metadata;
-import io.prestosql.metadata.OperatorNotFoundException;
 import io.prestosql.metadata.TableHandle;
 import io.prestosql.metadata.TableMetadata;
-import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.CatalogSchemaTableName;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
@@ -53,9 +51,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.json.JsonCodec.jsonCodec;
-import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.predicate.Marker.Bound.EXACTLY;
-import static io.prestosql.sql.planner.planprinter.PlanPrinterUtil.castToVarcharOrFail;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -63,13 +59,18 @@ public class IoPlanPrinter
 {
     private final Metadata metadata;
     private final Session session;
+    private final ValuePrinter valuePrinter;
 
     private IoPlanPrinter(Metadata metadata, Session session)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.session = requireNonNull(session, "session is null");
+        this.valuePrinter = new ValuePrinter(metadata, session);
     }
 
+    /**
+     * @throws io.prestosql.NotInTransactionException if called without an active transaction
+     */
     public static String textIoPlan(PlanNode plan, Metadata metadata, Session session)
     {
         return new IoPlanPrinter(metadata, session).print(plan);
@@ -539,7 +540,7 @@ public class IoPlanPrinter
                                     .collect(toImmutableSet())),
                     discreteValues -> formattedRanges.addAll(
                             discreteValues.getValues().stream()
-                                    .map(value -> getVarcharValue(type, value))
+                                    .map(value -> valuePrinter.castToVarcharOrFail(type, value))
                                     .map(value -> new FormattedMarker(Optional.of(value), EXACTLY))
                                     .map(marker -> new FormattedRange(marker, marker))
                                     .collect(toImmutableSet())),
@@ -555,17 +556,7 @@ public class IoPlanPrinter
             if (!marker.getValueBlock().isPresent()) {
                 return new FormattedMarker(Optional.empty(), marker.getBound());
             }
-            return new FormattedMarker(Optional.of(getVarcharValue(marker.getType(), marker.getValue())), marker.getBound());
-        }
-
-        private String getVarcharValue(Type type, Object value)
-        {
-            try {
-                return castToVarcharOrFail(type, value, metadata.getFunctionRegistry(), session);
-            }
-            catch (OperatorNotFoundException e) {
-                throw new PrestoException(NOT_SUPPORTED, format("Unsupported data type in EXPLAIN (TYPE IO): %s", type.getDisplayName()), e);
-            }
+            return new FormattedMarker(Optional.of(valuePrinter.castToVarcharOrFail(marker.getType(), marker.getValue())), marker.getBound());
         }
 
         private Void processChildren(PlanNode node, IoPlanBuilder context)

@@ -33,7 +33,6 @@ import io.prestosql.execution.QueryStats;
 import io.prestosql.execution.StageInfo;
 import io.prestosql.execution.TaskInfo;
 import io.prestosql.execution.TaskState;
-import io.prestosql.metadata.FunctionRegistry;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.SessionPropertyManager;
 import io.prestosql.operator.OperatorStats;
@@ -52,6 +51,7 @@ import io.prestosql.spi.eventlistener.QueryOutputMetadata;
 import io.prestosql.spi.eventlistener.QueryStatistics;
 import io.prestosql.spi.eventlistener.StageCpuDistribution;
 import io.prestosql.spi.resourcegroups.ResourceGroupId;
+import io.prestosql.sql.planner.planprinter.ValuePrinter;
 import io.prestosql.transaction.TransactionId;
 import org.joda.time.DateTime;
 
@@ -84,7 +84,6 @@ public class QueryMonitor
     private final String serverAddress;
     private final String environment;
     private final SessionPropertyManager sessionPropertyManager;
-    private final FunctionRegistry functionRegistry;
     private final Metadata metadata;
     private final int maxJsonLimit;
 
@@ -111,7 +110,6 @@ public class QueryMonitor
         this.environment = requireNonNull(nodeInfo, "nodeInfo is null").getEnvironment();
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
-        this.functionRegistry = metadata.getFunctionRegistry();
         this.maxJsonLimit = toIntExact(requireNonNull(config, "config is null").getMaxOutputStageJsonSize().toBytes());
     }
 
@@ -283,9 +281,7 @@ public class QueryMonitor
             if (queryInfo.getOutputStage().isPresent()) {
                 return Optional.of(textDistributedPlan(
                         queryInfo.getOutputStage().get(),
-                        functionRegistry,
-                        Optional.empty(), // transaction is no longer active, so metadata is useless
-                        queryInfo.getSession().toSession(sessionPropertyManager),
+                        new ValuePrinter(metadata, queryInfo.getSession().toSession(sessionPropertyManager)),
                         false));
             }
         }

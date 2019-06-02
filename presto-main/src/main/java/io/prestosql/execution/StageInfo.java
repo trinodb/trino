@@ -16,14 +16,17 @@ package io.prestosql.execution;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.planner.PlanFragment;
+import io.prestosql.sql.planner.plan.PlanNodeId;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 
 import java.net.URI;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -41,6 +44,7 @@ public class StageInfo
     private final List<TaskInfo> tasks;
     private final List<StageInfo> subStages;
     private final ExecutionFailureInfo failureCause;
+    private final Map<PlanNodeId, TableInfo> tables;
 
     @JsonCreator
     public StageInfo(
@@ -52,6 +56,7 @@ public class StageInfo
             @JsonProperty("stageStats") StageStats stageStats,
             @JsonProperty("tasks") List<TaskInfo> tasks,
             @JsonProperty("subStages") List<StageInfo> subStages,
+            @JsonProperty("tables") Map<PlanNodeId, TableInfo> tables,
             @JsonProperty("failureCause") ExecutionFailureInfo failureCause)
     {
         requireNonNull(stageId, "stageId is null");
@@ -60,6 +65,7 @@ public class StageInfo
         requireNonNull(stageStats, "stageStats is null");
         requireNonNull(tasks, "tasks is null");
         requireNonNull(subStages, "subStages is null");
+        requireNonNull(tables, "tables is null");
 
         this.stageId = stageId;
         this.state = state;
@@ -70,6 +76,7 @@ public class StageInfo
         this.tasks = ImmutableList.copyOf(tasks);
         this.subStages = subStages;
         this.failureCause = failureCause;
+        this.tables = ImmutableMap.copyOf(tables);
     }
 
     @JsonProperty
@@ -119,6 +126,12 @@ public class StageInfo
     public List<StageInfo> getSubStages()
     {
         return subStages;
+    }
+
+    @JsonProperty
+    public Map<PlanNodeId, TableInfo> getTables()
+    {
+        return tables;
     }
 
     @JsonProperty
