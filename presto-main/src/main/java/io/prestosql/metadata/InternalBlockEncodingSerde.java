@@ -11,43 +11,27 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.spi.block;
+package io.prestosql.metadata;
 
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.BlockEncoding;
+import io.prestosql.spi.block.BlockEncodingSerde;
 
 import java.util.Optional;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Objects.requireNonNull;
 
-// This class is exactly the same as BlockEncodingManager. They are in SPI and don't have access to InternalBlockEncodingSerde.
-public final class TestingBlockEncodingSerde
+final class InternalBlockEncodingSerde
         implements BlockEncodingSerde
 {
-    private final ConcurrentMap<String, BlockEncoding> blockEncodings = new ConcurrentHashMap<>();
+    private final Metadata metadata;
 
-    public TestingBlockEncodingSerde()
+    public InternalBlockEncodingSerde(Metadata metadata)
     {
-        addBlockEncoding(new VariableWidthBlockEncoding());
-        addBlockEncoding(new ByteArrayBlockEncoding());
-        addBlockEncoding(new ShortArrayBlockEncoding());
-        addBlockEncoding(new IntArrayBlockEncoding());
-        addBlockEncoding(new LongArrayBlockEncoding());
-        addBlockEncoding(new Int128ArrayBlockEncoding());
-        addBlockEncoding(new DictionaryBlockEncoding());
-        addBlockEncoding(new ArrayBlockEncoding());
-        addBlockEncoding(new RowBlockEncoding());
-        addBlockEncoding(new SingleRowBlockEncoding());
-        addBlockEncoding(new RunLengthBlockEncoding());
-        addBlockEncoding(new LazyBlockEncoding());
-    }
-
-    private void addBlockEncoding(BlockEncoding blockEncoding)
-    {
-        blockEncodings.put(blockEncoding.getName(), blockEncoding);
+        this.metadata = requireNonNull(metadata, "metadata is null");
     }
 
     @Override
@@ -57,8 +41,7 @@ public final class TestingBlockEncodingSerde
         String encodingName = readLengthPrefixedString(input);
 
         // look up the encoding factory
-        BlockEncoding blockEncoding = blockEncodings.get(encodingName);
-        checkArgument(blockEncoding != null, "Unknown block encoding %s", encodingName);
+        BlockEncoding blockEncoding = metadata.getBlockEncoding(encodingName);
 
         // load read the encoding factory from the output stream
         return blockEncoding.readBlock(this, input);
@@ -71,8 +54,8 @@ public final class TestingBlockEncodingSerde
             // get the encoding name
             String encodingName = block.getEncodingName();
 
-            // look up the encoding factory
-            BlockEncoding blockEncoding = blockEncodings.get(encodingName);
+            // look up the BlockEncoding
+            BlockEncoding blockEncoding = metadata.getBlockEncoding(encodingName);
 
             // see if a replacement block should be written instead
             Optional<Block> replacementBlock = blockEncoding.replacementBlockForWrite(block);

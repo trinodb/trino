@@ -17,6 +17,7 @@ import io.airlift.slice.Slice;
 import io.prestosql.Session;
 import io.prestosql.connector.CatalogName;
 import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.block.BlockEncoding;
 import io.prestosql.spi.block.BlockEncodingSerde;
 import io.prestosql.spi.connector.CatalogSchemaName;
 import io.prestosql.spi.connector.ColumnHandle;
@@ -381,6 +382,8 @@ public interface Metadata
     ProcedureRegistry getProcedureRegistry();
 
     TypeManager getTypeManager();
+
+    BlockEncoding getBlockEncoding(String encodingName);
 
     BlockEncodingSerde getBlockEncodingSerde();
 

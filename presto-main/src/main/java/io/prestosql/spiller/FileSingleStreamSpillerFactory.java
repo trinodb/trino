@@ -21,6 +21,7 @@ import io.airlift.log.Logger;
 import io.prestosql.execution.buffer.PagesSerde;
 import io.prestosql.execution.buffer.PagesSerdeFactory;
 import io.prestosql.memory.context.LocalMemoryContext;
+import io.prestosql.metadata.Metadata;
 import io.prestosql.operator.SpillContext;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.BlockEncodingSerde;
@@ -68,13 +69,13 @@ public class FileSingleStreamSpillerFactory
     private int roundRobinIndex;
 
     @Inject
-    public FileSingleStreamSpillerFactory(BlockEncodingSerde blockEncodingSerde, SpillerStats spillerStats, FeaturesConfig featuresConfig, NodeSpillConfig nodeSpillConfig)
+    public FileSingleStreamSpillerFactory(Metadata metadata, SpillerStats spillerStats, FeaturesConfig featuresConfig, NodeSpillConfig nodeSpillConfig)
     {
         this(
                 listeningDecorator(newFixedThreadPool(
                         requireNonNull(featuresConfig, "featuresConfig is null").getSpillerThreads(),
                         daemonThreadsNamed("binary-spiller-%s"))),
-                blockEncodingSerde,
+                requireNonNull(metadata, "metadata is null").getBlockEncodingSerde(),
                 spillerStats,
                 requireNonNull(featuresConfig, "featuresConfig is null").getSpillerSpillPaths(),
                 requireNonNull(featuresConfig, "featuresConfig is null").getSpillMaxUsedSpaceThreshold(),
@@ -92,7 +93,7 @@ public class FileSingleStreamSpillerFactory
             boolean spillCompressionEnabled,
             boolean spillEncryptionEnabled)
     {
-        this.serdeFactory = new PagesSerdeFactory(requireNonNull(blockEncodingSerde, "blockEncodingSerde is null"), spillCompressionEnabled);
+        this.serdeFactory = new PagesSerdeFactory(blockEncodingSerde, spillCompressionEnabled);
         this.executor = requireNonNull(executor, "executor is null");
         this.spillerStats = requireNonNull(spillerStats, "spillerStats can not be null");
         requireNonNull(spillPaths, "spillPaths is null");

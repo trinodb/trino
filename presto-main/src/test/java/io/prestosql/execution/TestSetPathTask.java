@@ -14,7 +14,6 @@
 package io.prestosql.execution;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.block.BlockEncodingManager;
 import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.metadata.AnalyzePropertyManager;
 import io.prestosql.metadata.CatalogManager;
@@ -66,7 +65,6 @@ public class TestSetPathTask
         metadata = new MetadataManager(
                 new FeaturesConfig(),
                 new TypeRegistry(),
-                new BlockEncodingManager(new TypeRegistry()),
                 new SessionPropertyManager(),
                 new SchemaPropertyManager(),
                 new TablePropertyManager(),

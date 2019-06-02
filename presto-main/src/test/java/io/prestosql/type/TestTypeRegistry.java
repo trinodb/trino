@@ -15,18 +15,18 @@ package io.prestosql.type;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.block.BlockEncodingManager;
 import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.metadata.Metadata;
 import io.prestosql.spi.function.OperatorType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeManager;
 import io.prestosql.spi.type.TypeSignature;
-import io.prestosql.sql.analyzer.FeaturesConfig;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 import java.util.Set;
 
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.spi.function.OperatorType.EQUAL;
 import static io.prestosql.spi.function.OperatorType.GREATER_THAN;
 import static io.prestosql.spi.function.OperatorType.GREATER_THAN_OR_EQUAL;
@@ -67,8 +67,9 @@ import static org.testng.Assert.fail;
 
 public class TestTypeRegistry
 {
-    private final TypeManager typeRegistry = new TypeRegistry();
-    private final FunctionRegistry functionRegistry = new FunctionRegistry(typeRegistry, new BlockEncodingManager(typeRegistry), new FeaturesConfig());
+    private final Metadata metadata = createTestMetadataManager();
+    private final FunctionRegistry functionRegistry = metadata.getFunctionRegistry();
+    private final TypeManager typeManager = metadata.getTypeManager();
 
     @Test
     public void testNonexistentType()
@@ -217,11 +218,12 @@ public class TestTypeRegistry
     @Test
     public void testCoerceTypeBase()
     {
-        assertEquals(typeRegistry.coerceTypeBase(createDecimalType(21, 1), "decimal"), Optional.of(createDecimalType(21, 1)));
-        assertEquals(typeRegistry.coerceTypeBase(BIGINT, "decimal"), Optional.of(createDecimalType(19, 0)));
-        assertEquals(typeRegistry.coerceTypeBase(INTEGER, "decimal"), Optional.of(createDecimalType(10, 0)));
-        assertEquals(typeRegistry.coerceTypeBase(TINYINT, "decimal"), Optional.of(createDecimalType(3, 0)));
-        assertEquals(typeRegistry.coerceTypeBase(SMALLINT, "decimal"), Optional.of(createDecimalType(5, 0)));
+        TypeManager typeManager = ((Metadata) createTestMetadataManager()).getTypeManager();
+        assertEquals(typeManager.coerceTypeBase(createDecimalType(21, 1), "decimal"), Optional.of(createDecimalType(21, 1)));
+        assertEquals(typeManager.coerceTypeBase(BIGINT, "decimal"), Optional.of(createDecimalType(19, 0)));
+        assertEquals(typeManager.coerceTypeBase(INTEGER, "decimal"), Optional.of(createDecimalType(10, 0)));
+        assertEquals(typeManager.coerceTypeBase(TINYINT, "decimal"), Optional.of(createDecimalType(3, 0)));
+        assertEquals(typeManager.coerceTypeBase(SMALLINT, "decimal"), Optional.of(createDecimalType(5, 0)));
     }
 
     @Test
@@ -230,10 +232,10 @@ public class TestTypeRegistry
         Set<Type> types = getStandardPrimitiveTypes();
         for (Type transitiveType : types) {
             for (Type resultType : types) {
-                if (typeRegistry.canCoerce(transitiveType, resultType)) {
+                if (typeManager.canCoerce(transitiveType, resultType)) {
                     for (Type sourceType : types) {
-                        if (typeRegistry.canCoerce(sourceType, transitiveType)) {
-                            if (!typeRegistry.canCoerce(sourceType, resultType)) {
+                        if (typeManager.canCoerce(sourceType, transitiveType)) {
+                            if (!typeManager.canCoerce(sourceType, resultType)) {
                                 fail(format("'%s' -> '%s' coercion is missing when transitive coercion is possible: '%s' -> '%s' -> '%s'",
                                         sourceType, resultType, sourceType, transitiveType, resultType));
                             }
@@ -250,7 +252,7 @@ public class TestTypeRegistry
         Set<Type> types = getStandardPrimitiveTypes();
         for (Type sourceType : types) {
             for (Type resultType : types) {
-                if (typeRegistry.canCoerce(sourceType, resultType) && sourceType != UNKNOWN && resultType != UNKNOWN) {
+                if (typeManager.canCoerce(sourceType, resultType) && sourceType != UNKNOWN && resultType != UNKNOWN) {
                     assertTrue(functionRegistry.canResolveOperator(OperatorType.CAST, resultType, ImmutableList.of(sourceType)),
                             format("'%s' -> '%s' coercion exists but there is no cast operator", sourceType, resultType));
                 }
@@ -261,7 +263,7 @@ public class TestTypeRegistry
     @Test
     public void testOperatorsImplemented()
     {
-        for (Type type : typeRegistry.getTypes()) {
+        for (Type type : typeManager.getTypes()) {
             if (type.isComparable()) {
                 functionRegistry.resolveOperator(EQUAL, ImmutableList.of(type, type));
                 functionRegistry.resolveOperator(NOT_EQUAL, ImmutableList.of(type, type));
@@ -291,7 +293,7 @@ public class TestTypeRegistry
     {
         ImmutableSet.Builder<Type> builder = ImmutableSet.builder();
         // add unparametrized types
-        builder.addAll(typeRegistry.getTypes());
+        builder.addAll(typeManager.getTypes());
         // add corner cases for parametrized types
         builder.add(createDecimalType(1, 0));
         builder.add(createDecimalType(17, 0));
@@ -307,11 +309,11 @@ public class TestTypeRegistry
 
     private CompatibilityAssertion assertThat(Type firstType, Type secondType)
     {
-        Optional<Type> commonSuperType1 = typeRegistry.getCommonSuperType(firstType, secondType);
-        Optional<Type> commonSuperType2 = typeRegistry.getCommonSuperType(secondType, firstType);
+        Optional<Type> commonSuperType1 = typeManager.getCommonSuperType(firstType, secondType);
+        Optional<Type> commonSuperType2 = typeManager.getCommonSuperType(secondType, firstType);
         assertEquals(commonSuperType1, commonSuperType2, "Expected getCommonSuperType to return the same result when invoked in either order");
-        boolean canCoerceFirstToSecond = typeRegistry.canCoerce(firstType, secondType);
-        boolean canCoerceSecondToFirst = typeRegistry.canCoerce(secondType, firstType);
+        boolean canCoerceFirstToSecond = typeManager.canCoerce(firstType, secondType);
+        boolean canCoerceSecondToFirst = typeManager.canCoerce(secondType, firstType);
         return new CompatibilityAssertion(commonSuperType1, canCoerceFirstToSecond, canCoerceSecondToFirst);
     }
 
@@ -322,17 +324,17 @@ public class TestTypeRegistry
 
     private boolean isTypeOnlyCoercion(Type actual, Type expected)
     {
-        return typeRegistry.isTypeOnlyCoercion(actual, expected);
+        return typeManager.isTypeOnlyCoercion(actual, expected);
     }
 
     private boolean isTypeOnlyCoercion(String actual, String expected)
     {
-        return typeRegistry.isTypeOnlyCoercion(createType(actual), createType(expected));
+        return typeManager.isTypeOnlyCoercion(createType(actual), createType(expected));
     }
 
     private Type createType(String signature)
     {
-        return typeRegistry.getType(TypeSignature.parseTypeSignature(signature));
+        return typeManager.getType(TypeSignature.parseTypeSignature(signature));
     }
 
     private class CompatibilityAssertion

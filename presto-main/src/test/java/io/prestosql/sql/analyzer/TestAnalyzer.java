@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonCodec;
 import io.prestosql.Session;
 import io.prestosql.SystemSessionProperties;
-import io.prestosql.block.BlockEncodingManager;
 import io.prestosql.connector.CatalogName;
 import io.prestosql.connector.informationschema.InformationSchemaConnector;
 import io.prestosql.connector.system.SystemConnector;
@@ -1548,7 +1547,6 @@ public class TestAnalyzer
         metadata = new MetadataManager(
                 new FeaturesConfig(),
                 typeManager,
-                new BlockEncodingManager(typeManager),
                 new SessionPropertyManager(),
                 new SchemaPropertyManager(),
                 new TablePropertyManager(),

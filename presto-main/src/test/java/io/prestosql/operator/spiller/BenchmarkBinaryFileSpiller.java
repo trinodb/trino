@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.MoreExecutors;
 import io.airlift.tpch.LineItem;
 import io.airlift.tpch.LineItemGenerator;
-import io.prestosql.block.BlockEncodingManager;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.PageBuilder;
 import io.prestosql.spi.block.BlockEncodingSerde;
@@ -27,7 +26,6 @@ import io.prestosql.spiller.GenericSpillerFactory;
 import io.prestosql.spiller.Spiller;
 import io.prestosql.spiller.SpillerFactory;
 import io.prestosql.spiller.SpillerStats;
-import io.prestosql.type.TypeRegistry;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.Fork;
 import org.openjdk.jmh.annotations.Measurement;
@@ -47,6 +45,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
 import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
@@ -61,7 +60,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 public class BenchmarkBinaryFileSpiller
 {
     private static final List<Type> TYPES = ImmutableList.of(BIGINT, BIGINT, DOUBLE, createUnboundedVarcharType(), DOUBLE);
-    private static final BlockEncodingSerde BLOCK_ENCODING_MANAGER = new BlockEncodingManager(new TypeRegistry());
+    private static final BlockEncodingSerde BLOCK_ENCODING_SERDE = createTestMetadataManager().getBlockEncodingSerde();
     private static final Path SPILL_PATH = Paths.get(System.getProperty("java.io.tmpdir"), "spills");
 
     @Benchmark
@@ -114,7 +113,7 @@ public class BenchmarkBinaryFileSpiller
         {
             singleStreamSpillerFactory = new FileSingleStreamSpillerFactory(
                     MoreExecutors.newDirectExecutorService(),
-                    BLOCK_ENCODING_MANAGER,
+                    BLOCK_ENCODING_SERDE,
                     spillerStats,
                     ImmutableList.of(SPILL_PATH),
                     1.0,

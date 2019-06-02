@@ -15,17 +15,12 @@ package io.prestosql.plugin.accumulo.model;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.block.BlockEncodingManager;
-import io.prestosql.metadata.FunctionRegistry;
 import io.prestosql.plugin.accumulo.serializers.AccumuloRowSerializer;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeManager;
 import io.prestosql.spi.type.TypeSignatureParameter;
-import io.prestosql.sql.analyzer.FeaturesConfig;
-import io.prestosql.type.TypeRegistry;
 import org.testng.annotations.Test;
 
 import java.sql.Date;
@@ -33,6 +28,7 @@ import java.sql.Time;
 import java.sql.Timestamp;
 import java.util.GregorianCalendar;
 
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DateType.DATE;
@@ -169,11 +165,7 @@ public class TestField
     @Test
     public void testMap()
     {
-        TypeManager typeManager = new TypeRegistry();
-        // associate typeManager with a function registry
-        new FunctionRegistry(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
-
-        Type type = typeManager.getParameterizedType(StandardTypes.MAP, ImmutableList.of(
+        Type type = createTestMetadataManager().getTypeManager().getParameterizedType(StandardTypes.MAP, ImmutableList.of(
                 TypeSignatureParameter.of(VARCHAR.getTypeSignature()),
                 TypeSignatureParameter.of(BIGINT.getTypeSignature())));
         Block expected = AccumuloRowSerializer.getBlockFromMap(type, ImmutableMap.of("a", 1L, "b", 2L, "c", 3L));

@@ -25,11 +25,25 @@ import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.ObjectMapperProvider;
 import io.airlift.slice.Slice;
 import io.prestosql.Session;
-import io.prestosql.block.BlockEncodingManager;
 import io.prestosql.connector.CatalogName;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.QueryId;
+import io.prestosql.spi.block.ArrayBlockEncoding;
+import io.prestosql.spi.block.BlockEncoding;
 import io.prestosql.spi.block.BlockEncodingSerde;
+import io.prestosql.spi.block.ByteArrayBlockEncoding;
+import io.prestosql.spi.block.DictionaryBlockEncoding;
+import io.prestosql.spi.block.Int128ArrayBlockEncoding;
+import io.prestosql.spi.block.IntArrayBlockEncoding;
+import io.prestosql.spi.block.LazyBlockEncoding;
+import io.prestosql.spi.block.LongArrayBlockEncoding;
+import io.prestosql.spi.block.MapBlockEncoding;
+import io.prestosql.spi.block.RowBlockEncoding;
+import io.prestosql.spi.block.RunLengthBlockEncoding;
+import io.prestosql.spi.block.ShortArrayBlockEncoding;
+import io.prestosql.spi.block.SingleMapBlockEncoding;
+import io.prestosql.spi.block.SingleRowBlockEncoding;
+import io.prestosql.spi.block.VariableWidthBlockEncoding;
 import io.prestosql.spi.connector.CatalogSchemaName;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
@@ -117,14 +131,13 @@ import static java.util.Collections.singletonList;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
-public class MetadataManager
+public final class MetadataManager
         implements Metadata
 {
     private final FunctionRegistry functions;
     private final ProcedureRegistry procedures;
     private final TypeManager typeManager;
     private final JsonCodec<ViewDefinition> viewCodec;
-    private final BlockEncodingSerde blockEncodingSerde;
     private final SessionPropertyManager sessionPropertyManager;
     private final SchemaPropertyManager schemaPropertyManager;
     private final TablePropertyManager tablePropertyManager;
@@ -132,35 +145,12 @@ public class MetadataManager
     private final AnalyzePropertyManager analyzePropertyManager;
     private final TransactionManager transactionManager;
 
+    private final ConcurrentMap<String, BlockEncoding> blockEncodings = new ConcurrentHashMap<>();
     private final ConcurrentMap<String, Collection<ConnectorMetadata>> catalogsByQueryId = new ConcurrentHashMap<>();
-
-    public MetadataManager(FeaturesConfig featuresConfig,
-            TypeManager typeManager,
-            BlockEncodingSerde blockEncodingSerde,
-            SessionPropertyManager sessionPropertyManager,
-            SchemaPropertyManager schemaPropertyManager,
-            TablePropertyManager tablePropertyManager,
-            ColumnPropertyManager columnPropertyManager,
-            AnalyzePropertyManager analyzePropertyManager,
-            TransactionManager transactionManager)
-    {
-        this(featuresConfig,
-                typeManager,
-                createTestingViewCodec(),
-                blockEncodingSerde,
-                sessionPropertyManager,
-                schemaPropertyManager,
-                tablePropertyManager,
-                columnPropertyManager,
-                analyzePropertyManager,
-                transactionManager);
-    }
 
     @Inject
     public MetadataManager(FeaturesConfig featuresConfig,
             TypeManager typeManager,
-            JsonCodec<ViewDefinition> viewCodec,
-            BlockEncodingSerde blockEncodingSerde,
             SessionPropertyManager sessionPropertyManager,
             SchemaPropertyManager schemaPropertyManager,
             TablePropertyManager tablePropertyManager,
@@ -168,17 +158,39 @@ public class MetadataManager
             AnalyzePropertyManager analyzePropertyManager,
             TransactionManager transactionManager)
     {
-        functions = new FunctionRegistry(typeManager, blockEncodingSerde, featuresConfig);
+        functions = new FunctionRegistry(this, featuresConfig);
+        if (typeManager instanceof TypeRegistry) {
+            ((TypeRegistry) typeManager).setFunctionRegistry(functions);
+        }
+
         procedures = new ProcedureRegistry(typeManager);
         this.typeManager = requireNonNull(typeManager, "types is null");
-        this.viewCodec = requireNonNull(viewCodec, "viewCodec is null");
-        this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
         this.schemaPropertyManager = requireNonNull(schemaPropertyManager, "schemaPropertyManager is null");
         this.tablePropertyManager = requireNonNull(tablePropertyManager, "tablePropertyManager is null");
         this.columnPropertyManager = requireNonNull(columnPropertyManager, "columnPropertyManager is null");
         this.analyzePropertyManager = requireNonNull(analyzePropertyManager, "analyzePropertyManager is null");
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
+
+        ObjectMapperProvider objectMapperProvider = new ObjectMapperProvider();
+        objectMapperProvider.setJsonDeserializers(ImmutableMap.of(Type.class, new TypeDeserializer(typeManager)));
+        this.viewCodec = new JsonCodecFactory(objectMapperProvider).jsonCodec(ViewDefinition.class);
+
+        // add the built-in BlockEncodings
+        addBlockEncoding(new VariableWidthBlockEncoding());
+        addBlockEncoding(new ByteArrayBlockEncoding());
+        addBlockEncoding(new ShortArrayBlockEncoding());
+        addBlockEncoding(new IntArrayBlockEncoding());
+        addBlockEncoding(new LongArrayBlockEncoding());
+        addBlockEncoding(new Int128ArrayBlockEncoding());
+        addBlockEncoding(new DictionaryBlockEncoding());
+        addBlockEncoding(new ArrayBlockEncoding());
+        addBlockEncoding(new MapBlockEncoding(typeManager));
+        addBlockEncoding(new SingleMapBlockEncoding(typeManager));
+        addBlockEncoding(new RowBlockEncoding());
+        addBlockEncoding(new SingleRowBlockEncoding());
+        addBlockEncoding(new RunLengthBlockEncoding());
+        addBlockEncoding(new LazyBlockEncoding());
 
         verifyComparableOrderableContract();
     }
@@ -205,11 +217,9 @@ public class MetadataManager
 
     public static MetadataManager createTestMetadataManager(TransactionManager transactionManager, FeaturesConfig featuresConfig)
     {
-        TypeManager typeManager = new TypeRegistry(ImmutableSet.of(), featuresConfig);
         return new MetadataManager(
                 featuresConfig,
-                typeManager,
-                new BlockEncodingManager(typeManager),
+                new TypeRegistry(ImmutableSet.of(), featuresConfig),
                 new SessionPropertyManager(),
                 new SchemaPropertyManager(),
                 new TablePropertyManager(),
@@ -1178,9 +1188,24 @@ public class MetadataManager
     }
 
     @Override
+    public BlockEncoding getBlockEncoding(String encodingName)
+    {
+        BlockEncoding blockEncoding = blockEncodings.get(encodingName);
+        checkArgument(blockEncoding != null, "Unknown block encoding: %s", encodingName);
+        return blockEncoding;
+    }
+
+    @Override
     public BlockEncodingSerde getBlockEncodingSerde()
     {
-        return blockEncodingSerde;
+        return new InternalBlockEncodingSerde(this);
+    }
+
+    public void addBlockEncoding(BlockEncoding blockEncoding)
+    {
+        requireNonNull(blockEncoding, "blockEncoding is null");
+        BlockEncoding existingEntry = blockEncodings.putIfAbsent(blockEncoding.getName(), blockEncoding);
+        checkArgument(existingEntry == null, "Encoding already registered: %s", blockEncoding.getName());
     }
 
     @Override
@@ -1315,14 +1340,6 @@ public class MetadataManager
     private ConnectorMetadata getMetadataForWrite(Session session, CatalogName catalogName)
     {
         return getCatalogMetadataForWrite(session, catalogName).getMetadata();
-    }
-
-    @VisibleForTesting
-    static JsonCodec<ViewDefinition> createTestingViewCodec()
-    {
-        ObjectMapperProvider provider = new ObjectMapperProvider();
-        provider.setJsonDeserializers(ImmutableMap.of(Type.class, new TypeDeserializer(new TypeRegistry())));
-        return new JsonCodecFactory(provider).jsonCodec(ViewDefinition.class);
     }
 
     @VisibleForTesting

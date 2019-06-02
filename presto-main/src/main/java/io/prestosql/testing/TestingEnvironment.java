@@ -13,20 +13,13 @@
  */
 package io.prestosql.testing;
 
-import io.prestosql.block.BlockEncodingManager;
-import io.prestosql.metadata.FunctionRegistry;
 import io.prestosql.spi.type.TypeManager;
-import io.prestosql.sql.analyzer.FeaturesConfig;
-import io.prestosql.type.TypeRegistry;
+
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 
 public class TestingEnvironment
 {
     private TestingEnvironment() {}
 
-    public static final TypeManager TYPE_MANAGER = new TypeRegistry();
-
-    static {
-        // wire TYPE_MANAGER with function registry
-        new FunctionRegistry(TYPE_MANAGER, new BlockEncodingManager(TYPE_MANAGER), new FeaturesConfig());
-    }
+    public static final TypeManager TYPE_MANAGER = createTestMetadataManager().getTypeManager();
 }

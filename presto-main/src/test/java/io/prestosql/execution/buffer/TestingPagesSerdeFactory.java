@@ -17,13 +17,13 @@ import io.airlift.compress.Compressor;
 import io.airlift.compress.Decompressor;
 import io.airlift.compress.lz4.Lz4Compressor;
 import io.airlift.compress.lz4.Lz4Decompressor;
-import io.prestosql.block.BlockEncodingManager;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.block.BlockEncodingSerde;
-import io.prestosql.spi.type.TestingTypeManager;
 import io.prestosql.spiller.SpillCipher;
 
 import java.util.Optional;
+
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 
 public class TestingPagesSerdeFactory
         extends PagesSerdeFactory
@@ -31,13 +31,13 @@ public class TestingPagesSerdeFactory
     public TestingPagesSerdeFactory()
     {
         // compression should be enabled in as many tests as possible
-        super(new BlockEncodingManager(new TestingTypeManager()), true);
+        super(createTestMetadataManager().getBlockEncodingSerde(), true);
     }
 
     public static PagesSerde testingPagesSerde()
     {
         return new SynchronizedPagesSerde(
-                new BlockEncodingManager(new TestingTypeManager()),
+                createTestMetadataManager().getBlockEncodingSerde(),
                 Optional.of(new Lz4Compressor()),
                 Optional.of(new Lz4Decompressor()),
                 Optional.empty());

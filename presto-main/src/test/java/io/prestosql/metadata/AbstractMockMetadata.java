@@ -16,6 +16,7 @@ package io.prestosql.metadata;
 import io.airlift.slice.Slice;
 import io.prestosql.Session;
 import io.prestosql.connector.CatalogName;
+import io.prestosql.spi.block.BlockEncoding;
 import io.prestosql.spi.block.BlockEncodingSerde;
 import io.prestosql.spi.connector.CatalogSchemaName;
 import io.prestosql.spi.connector.ColumnHandle;
@@ -473,6 +474,12 @@ public abstract class AbstractMockMetadata
 
     @Override
     public TypeManager getTypeManager()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public BlockEncoding getBlockEncoding(String encodingName)
     {
         throw new UnsupportedOperationException();
     }

@@ -14,8 +14,8 @@
 package io.prestosql.sql;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.block.BlockEncodingManager;
 import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
 import io.prestosql.spi.block.IntArrayBlock;
 import io.prestosql.spi.function.OperatorType;
@@ -27,7 +27,6 @@ import io.prestosql.sql.relational.CallExpression;
 import io.prestosql.sql.relational.ConstantExpression;
 import io.prestosql.sql.relational.RowExpression;
 import io.prestosql.sql.relational.optimizer.ExpressionOptimizer;
-import io.prestosql.type.TypeRegistry;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -37,6 +36,7 @@ import static io.airlift.testing.Assertions.assertInstanceOf;
 import static io.prestosql.SessionTestUtils.TEST_SESSION;
 import static io.prestosql.block.BlockAssertions.toValues;
 import static io.prestosql.metadata.FunctionKind.SCALAR;
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.metadata.Signature.internalOperator;
 import static io.prestosql.metadata.Signature.internalScalarFunction;
 import static io.prestosql.operator.scalar.JsonStringToArrayCast.JSON_STRING_TO_ARRAY_NAME;
@@ -57,20 +57,18 @@ import static org.testng.Assert.assertEquals;
 
 public class TestExpressionOptimizer
 {
-    private TypeRegistry typeManager;
     private ExpressionOptimizer optimizer;
 
     @BeforeClass
     public void setUp()
     {
-        typeManager = new TypeRegistry();
-        optimizer = new ExpressionOptimizer(new FunctionRegistry(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig()), typeManager, TEST_SESSION);
+        Metadata metadata = createTestMetadataManager();
+        optimizer = new ExpressionOptimizer(new FunctionRegistry(metadata, new FeaturesConfig()), metadata.getTypeManager(), TEST_SESSION);
     }
 
     @AfterClass(alwaysRun = true)
     public void tearDown()
     {
-        typeManager = null;
         optimizer = null;
     }
 

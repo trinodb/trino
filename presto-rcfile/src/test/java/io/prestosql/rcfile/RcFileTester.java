@@ -24,9 +24,8 @@ import io.airlift.slice.OutputStreamSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
-import io.prestosql.block.BlockEncodingManager;
 import io.prestosql.hadoop.HadoopNative;
-import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.metadata.Metadata;
 import io.prestosql.rcfile.binary.BinaryRcFileEncoding;
 import io.prestosql.rcfile.text.TextRcFileEncoding;
 import io.prestosql.spi.Page;
@@ -42,11 +41,8 @@ import io.prestosql.spi.type.SqlDecimal;
 import io.prestosql.spi.type.SqlTimestamp;
 import io.prestosql.spi.type.SqlVarbinary;
 import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeManager;
 import io.prestosql.spi.type.TypeSignatureParameter;
 import io.prestosql.spi.type.VarcharType;
-import io.prestosql.sql.analyzer.FeaturesConfig;
-import io.prestosql.type.TypeRegistry;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.common.type.HiveDecimal;
@@ -132,6 +128,7 @@ import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.rcfile.RcFileDecoderUtils.findFirstSyncPosition;
 import static io.prestosql.rcfile.RcFileTester.Compression.BZIP2;
 import static io.prestosql.rcfile.RcFileTester.Compression.LZ4;
@@ -188,15 +185,11 @@ import static org.testng.Assert.assertTrue;
 @SuppressWarnings("StaticPseudoFunctionalStyleMethod")
 public class RcFileTester
 {
-    private static final TypeManager TYPE_MANAGER = new TypeRegistry();
-
     static {
-        // associate TYPE_MANAGER with a function registry
-        new FunctionRegistry(TYPE_MANAGER, new BlockEncodingManager(TYPE_MANAGER), new FeaturesConfig());
-
         HadoopNative.requireHadoopNative();
     }
 
+    private static final Metadata METADATA = createTestMetadataManager();
     public static final DateTimeZone HIVE_STORAGE_TIME_ZONE = DateTimeZone.forID("America/Bahia_Banderas");
 
     public enum Format
@@ -1185,7 +1178,7 @@ public class RcFileTester
 
     private static MapType createMapType(Type type)
     {
-        return (MapType) TYPE_MANAGER.getParameterizedType(MAP, ImmutableList.of(
+        return (MapType) METADATA.getTypeManager().getParameterizedType(MAP, ImmutableList.of(
                 TypeSignatureParameter.of(type.getTypeSignature()),
                 TypeSignatureParameter.of(type.getTypeSignature())));
     }

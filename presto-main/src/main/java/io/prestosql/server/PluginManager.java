@@ -19,11 +19,10 @@ import io.airlift.log.Logger;
 import io.airlift.node.NodeInfo;
 import io.airlift.resolver.ArtifactResolver;
 import io.airlift.resolver.DefaultArtifact;
-import io.prestosql.block.BlockEncodingManager;
 import io.prestosql.connector.ConnectorManager;
 import io.prestosql.eventlistener.EventListenerManager;
 import io.prestosql.execution.resourcegroups.ResourceGroupManager;
-import io.prestosql.metadata.Metadata;
+import io.prestosql.metadata.MetadataManager;
 import io.prestosql.security.AccessControlManager;
 import io.prestosql.server.security.PasswordAuthenticatorManager;
 import io.prestosql.spi.Plugin;
@@ -75,12 +74,11 @@ public class PluginManager
     private static final Logger log = Logger.get(PluginManager.class);
 
     private final ConnectorManager connectorManager;
-    private final Metadata metadata;
+    private final MetadataManager metadataManager;
     private final ResourceGroupManager<?> resourceGroupManager;
     private final AccessControlManager accessControlManager;
     private final PasswordAuthenticatorManager passwordAuthenticatorManager;
     private final EventListenerManager eventListenerManager;
-    private final BlockEncodingManager blockEncodingManager;
     private final SessionPropertyDefaults sessionPropertyDefaults;
     private final TypeRegistry typeRegistry;
     private final ArtifactResolver resolver;
@@ -94,12 +92,11 @@ public class PluginManager
             NodeInfo nodeInfo,
             PluginManagerConfig config,
             ConnectorManager connectorManager,
-            Metadata metadata,
+            MetadataManager metadataManager,
             ResourceGroupManager<?> resourceGroupManager,
             AccessControlManager accessControlManager,
             PasswordAuthenticatorManager passwordAuthenticatorManager,
             EventListenerManager eventListenerManager,
-            BlockEncodingManager blockEncodingManager,
             SessionPropertyDefaults sessionPropertyDefaults,
             TypeRegistry typeRegistry)
     {
@@ -116,12 +113,11 @@ public class PluginManager
         this.resolver = new ArtifactResolver(config.getMavenLocalRepository(), config.getMavenRemoteRepository());
 
         this.connectorManager = requireNonNull(connectorManager, "connectorManager is null");
-        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.metadataManager = requireNonNull(metadataManager, "metadataManager is null");
         this.resourceGroupManager = requireNonNull(resourceGroupManager, "resourceGroupManager is null");
         this.accessControlManager = requireNonNull(accessControlManager, "accessControlManager is null");
         this.passwordAuthenticatorManager = requireNonNull(passwordAuthenticatorManager, "passwordAuthenticatorManager is null");
         this.eventListenerManager = requireNonNull(eventListenerManager, "eventListenerManager is null");
-        this.blockEncodingManager = requireNonNull(blockEncodingManager, "blockEncodingManager is null");
         this.sessionPropertyDefaults = requireNonNull(sessionPropertyDefaults, "sessionPropertyDefaults is null");
         this.typeRegistry = requireNonNull(typeRegistry, "typeRegistry is null");
     }
@@ -143,7 +139,7 @@ public class PluginManager
             loadPlugin(plugin);
         }
 
-        metadata.verifyComparableOrderableContract();
+        metadataManager.verifyComparableOrderableContract();
 
         pluginsLoaded.set(true);
     }
@@ -174,7 +170,7 @@ public class PluginManager
     {
         for (BlockEncoding blockEncoding : plugin.getBlockEncodings()) {
             log.info("Registering block encoding %s", blockEncoding.getName());
-            blockEncodingManager.addBlockEncoding(blockEncoding);
+            metadataManager.addBlockEncoding(blockEncoding);
         }
 
         for (Type type : plugin.getTypes()) {
@@ -194,7 +190,7 @@ public class PluginManager
 
         for (Class<?> functionClass : plugin.getFunctions()) {
             log.info("Registering functions from %s", functionClass.getName());
-            metadata.addFunctions(extractFunctions(functionClass));
+            metadataManager.addFunctions(extractFunctions(functionClass));
         }
 
         for (SessionPropertyConfigurationManagerFactory sessionConfigFactory : plugin.getSessionPropertyConfigurationManagerFactories()) {

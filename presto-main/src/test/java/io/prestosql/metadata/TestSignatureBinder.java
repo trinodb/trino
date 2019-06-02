@@ -16,16 +16,13 @@ package io.prestosql.metadata;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.block.BlockEncodingManager;
 import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeManager;
 import io.prestosql.spi.type.TypeSignature;
-import io.prestosql.sql.analyzer.FeaturesConfig;
 import io.prestosql.sql.analyzer.TypeSignatureProvider;
 import io.prestosql.type.FunctionType;
-import io.prestosql.type.TypeRegistry;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -33,6 +30,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static io.prestosql.metadata.FunctionKind.SCALAR;
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.metadata.Signature.comparableTypeParameter;
 import static io.prestosql.metadata.Signature.orderableTypeParameter;
 import static io.prestosql.metadata.Signature.typeVariable;
@@ -57,13 +55,7 @@ import static org.testng.Assert.fail;
 
 public class TestSignatureBinder
 {
-    private final TypeManager typeRegistry = new TypeRegistry();
-
-    TestSignatureBinder()
-    {
-        // associate typeRegistry with a function registry
-        new FunctionRegistry(typeRegistry, new BlockEncodingManager(typeRegistry), new FeaturesConfig());
-    }
+    private final TypeManager typeRegistry = createTestMetadataManager().getTypeManager();
 
     @Test
     public void testBindLiteralForDecimal()
