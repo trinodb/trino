@@ -25,7 +25,6 @@ import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 
 import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -86,7 +85,6 @@ public class ExplainAnalyzeOperator
 
     private final OperatorContext operatorContext;
     private final QueryPerformanceFetcher queryPerformanceFetcher;
-    private final FunctionRegistry functionRegistry;
     private final Metadata metadata;
     private final boolean verbose;
     private boolean finishing;
@@ -101,7 +99,6 @@ public class ExplainAnalyzeOperator
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.queryPerformanceFetcher = requireNonNull(queryPerformanceFetcher, "queryPerformanceFetcher is null");
-        this.functionRegistry = requireNonNull(functionRegistry, "functionRegistry is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.verbose = verbose;
     }
@@ -153,7 +150,7 @@ public class ExplainAnalyzeOperator
             return null;
         }
 
-        String plan = textDistributedPlan(queryInfo.getOutputStage().get().getSubStages().get(0), functionRegistry, Optional.of(metadata), operatorContext.getSession(), verbose);
+        String plan = textDistributedPlan(queryInfo.getOutputStage().get().getSubStages().get(0), metadata, operatorContext.getSession(), verbose);
         BlockBuilder builder = VARCHAR.createBlockBuilder(null, 1);
         VARCHAR.writeString(builder, plan);
 

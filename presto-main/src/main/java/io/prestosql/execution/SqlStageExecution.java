@@ -107,6 +107,7 @@ public final class SqlStageExecution
             StageId stageId,
             URI location,
             PlanFragment fragment,
+            Map<PlanNodeId, TableInfo> tables,
             RemoteTaskFactory remoteTaskFactory,
             Session session,
             boolean summarizeTaskInfo,
@@ -118,6 +119,7 @@ public final class SqlStageExecution
         requireNonNull(stageId, "stageId is null");
         requireNonNull(location, "location is null");
         requireNonNull(fragment, "fragment is null");
+        requireNonNull(tables, "tables is null");
         requireNonNull(remoteTaskFactory, "remoteTaskFactory is null");
         requireNonNull(session, "session is null");
         requireNonNull(nodeTaskMap, "nodeTaskMap is null");
@@ -126,7 +128,7 @@ public final class SqlStageExecution
         requireNonNull(schedulerStats, "schedulerStats is null");
 
         SqlStageExecution sqlStageExecution = new SqlStageExecution(
-                new StageStateMachine(stageId, location, session, fragment, executor, schedulerStats),
+                new StageStateMachine(stageId, location, session, fragment, tables, executor, schedulerStats),
                 remoteTaskFactory,
                 nodeTaskMap,
                 summarizeTaskInfo,

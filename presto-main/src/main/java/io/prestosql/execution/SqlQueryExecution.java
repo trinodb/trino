@@ -421,7 +421,7 @@ public class SqlQueryExecution
         stateMachine.beginDistributedPlanning();
 
         // plan the execution on the active nodes
-        DistributedExecutionPlanner distributedPlanner = new DistributedExecutionPlanner(splitManager);
+        DistributedExecutionPlanner distributedPlanner = new DistributedExecutionPlanner(splitManager, metadata);
         StageExecutionPlan outputStageExecutionPlan = distributedPlanner.plan(plan.getRoot(), stateMachine.getSession());
         stateMachine.endDistributedPlanning();
 

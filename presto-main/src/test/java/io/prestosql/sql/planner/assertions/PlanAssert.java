@@ -23,8 +23,6 @@ import io.prestosql.sql.planner.Plan;
 import io.prestosql.sql.planner.iterative.Lookup;
 import io.prestosql.sql.planner.plan.PlanNode;
 
-import java.util.Optional;
-
 import static io.prestosql.sql.planner.iterative.Lookup.noLookup;
 import static io.prestosql.sql.planner.iterative.Plans.resolveGroupReferences;
 import static io.prestosql.sql.planner.planprinter.PlanPrinter.textLogicalPlan;
@@ -49,9 +47,9 @@ public final class PlanAssert
     {
         MatchResult matches = actual.getRoot().accept(new PlanMatchingVisitor(session, metadata, statsProvider, lookup), pattern);
         if (!matches.isMatch()) {
-            String formattedPlan = textLogicalPlan(actual.getRoot(), actual.getTypes(), metadata.getFunctionRegistry(), Optional.of(metadata), StatsAndCosts.empty(), session, 0);
+            String formattedPlan = textLogicalPlan(actual.getRoot(), actual.getTypes(), metadata, StatsAndCosts.empty(), session, 0, false);
             PlanNode resolvedPlan = resolveGroupReferences(actual.getRoot(), lookup);
-            String resolvedFormattedPlan = textLogicalPlan(resolvedPlan, actual.getTypes(), metadata.getFunctionRegistry(), Optional.of(metadata), StatsAndCosts.empty(), session, 0);
+            String resolvedFormattedPlan = textLogicalPlan(resolvedPlan, actual.getTypes(), metadata, StatsAndCosts.empty(), session, 0, false);
             throw new AssertionError(format(
                     "Plan does not match, expected [\n\n%s\n] but found [\n\n%s\n] which resolves to [\n\n%s\n]",
                     pattern,

@@ -316,7 +316,7 @@ public class TestStageStateMachine
 
     private StageStateMachine createStageStateMachine()
     {
-        return new StageStateMachine(STAGE_ID, LOCATION, TEST_SESSION, PLAN_FRAGMENT, executor, new SplitSchedulerStats());
+        return new StageStateMachine(STAGE_ID, LOCATION, TEST_SESSION, PLAN_FRAGMENT, ImmutableMap.of(), executor, new SplitSchedulerStats());
     }
 
     private static PlanFragment createValuesPlan()

@@ -27,17 +27,20 @@ import io.prestosql.execution.NodeTaskMap;
 import io.prestosql.execution.RemoteTask;
 import io.prestosql.execution.SqlStageExecution;
 import io.prestosql.execution.StageId;
+import io.prestosql.execution.TableInfo;
 import io.prestosql.execution.TestSqlTaskManager.MockLocationFactory;
 import io.prestosql.execution.buffer.OutputBuffers.OutputBufferId;
 import io.prestosql.failuredetector.NoOpFailureDetector;
 import io.prestosql.metadata.InMemoryNodeManager;
 import io.prestosql.metadata.InternalNode;
 import io.prestosql.metadata.InternalNodeManager;
+import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.spi.QueryId;
 import io.prestosql.spi.connector.ConnectorPartitionHandle;
 import io.prestosql.spi.connector.ConnectorSplit;
 import io.prestosql.spi.connector.ConnectorSplitSource;
 import io.prestosql.spi.connector.FixedSplitSource;
+import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.split.ConnectorAwareSplitSource;
 import io.prestosql.split.SplitSource;
 import io.prestosql.sql.planner.Partitioning;
@@ -483,7 +486,8 @@ public class TestSourcePartitionedScheduler
         return new StageExecutionPlan(
                 testFragment,
                 ImmutableMap.of(tableScanNodeId, new ConnectorAwareSplitSource(CONNECTOR_ID, splitSource)),
-                ImmutableList.of());
+                ImmutableList.of(),
+                ImmutableMap.of(tableScanNodeId, new TableInfo(new QualifiedObjectName("test", "test", "test"), TupleDomain.all())));
     }
 
     private static ConnectorSplitSource createFixedSplitSource(int splitCount, Supplier<ConnectorSplit> splitFactory)
@@ -502,6 +506,7 @@ public class TestSourcePartitionedScheduler
         SqlStageExecution stage = SqlStageExecution.createSqlStageExecution(stageId,
                 locationFactory.createStageLocation(stageId),
                 tableScanPlan.getFragment(),
+                tableScanPlan.getTables(),
                 new MockRemoteTaskFactory(queryExecutor, scheduledExecutor),
                 TEST_SESSION,
                 true,
