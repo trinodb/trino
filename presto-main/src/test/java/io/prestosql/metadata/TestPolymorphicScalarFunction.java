@@ -104,7 +104,7 @@ public class TestPolymorphicScalarFunction
                                         asList(Optional.of(long.class), Optional.of(long.class)))))
                 .build();
 
-        ScalarFunctionImplementation functionImplementation = function.specialize(SHORT_DECIMAL_BOUND_VARIABLES, 2, METADATA.getTypeManager(), METADATA.getFunctionRegistry());
+        ScalarFunctionImplementation functionImplementation = function.specialize(SHORT_DECIMAL_BOUND_VARIABLES, 2, METADATA);
 
         assertEquals(functionImplementation.getAllChoices().size(), 2);
         assertEquals(functionImplementation.getAllChoices().get(0).getArgumentProperties(), Collections.nCopies(2, valueTypeArgumentProperty(USE_NULL_FLAG)));
@@ -112,7 +112,7 @@ public class TestPolymorphicScalarFunction
         Block block1 = new LongArrayBlock(0, Optional.empty(), new long[0]);
         Block block2 = new LongArrayBlock(0, Optional.empty(), new long[0]);
         assertFalse((boolean) functionImplementation.getAllChoices().get(1).getMethodHandle().invoke(block1, 0, block2, 0));
-        functionImplementation = function.specialize(LONG_DECIMAL_BOUND_VARIABLES, 2, METADATA.getTypeManager(), METADATA.getFunctionRegistry());
+        functionImplementation = function.specialize(LONG_DECIMAL_BOUND_VARIABLES, 2, METADATA);
         assertTrue((boolean) functionImplementation.getAllChoices().get(1).getMethodHandle().invoke(block1, 0, block2, 0));
     }
 
@@ -130,7 +130,7 @@ public class TestPolymorphicScalarFunction
                                 .withExtraParameters(context -> ImmutableList.of(context.getLiteral("x")))))
                 .build();
 
-        ScalarFunctionImplementation functionImplementation = function.specialize(BOUND_VARIABLES, 1, METADATA.getTypeManager(), METADATA.getFunctionRegistry());
+        ScalarFunctionImplementation functionImplementation = function.specialize(BOUND_VARIABLES, 1, METADATA);
         assertEquals(functionImplementation.getMethodHandle().invoke(INPUT_SLICE), INPUT_VARCHAR_LENGTH);
     }
 
@@ -148,7 +148,7 @@ public class TestPolymorphicScalarFunction
                                 .withExtraParameters(context -> ImmutableList.of(42))))
                 .build();
 
-        ScalarFunctionImplementation functionImplementation = function.specialize(BOUND_VARIABLES, 1, METADATA.getTypeManager(), METADATA.getFunctionRegistry());
+        ScalarFunctionImplementation functionImplementation = function.specialize(BOUND_VARIABLES, 1, METADATA);
 
         assertEquals(functionImplementation.getMethodHandle().invoke(INPUT_SLICE), VARCHAR_TO_BIGINT_RETURN_VALUE);
     }
@@ -171,7 +171,7 @@ public class TestPolymorphicScalarFunction
                         .implementation(methodsGroup -> methodsGroup.methods("varcharToVarchar")))
                 .build();
 
-        ScalarFunctionImplementation functionImplementation = function.specialize(BOUND_VARIABLES, 1, METADATA.getTypeManager(), METADATA.getFunctionRegistry());
+        ScalarFunctionImplementation functionImplementation = function.specialize(BOUND_VARIABLES, 1, METADATA);
         Slice slice = (Slice) functionImplementation.getMethodHandle().invoke(INPUT_SLICE);
         assertEquals(slice, VARCHAR_TO_VARCHAR_RETURN_VALUE);
     }
@@ -195,7 +195,7 @@ public class TestPolymorphicScalarFunction
                         .implementation(methodsGroup -> methodsGroup.methods("varcharToVarchar")))
                 .build();
 
-        ScalarFunctionImplementation functionImplementation = function.specialize(BOUND_VARIABLES, 1, METADATA.getTypeManager(), METADATA.getFunctionRegistry());
+        ScalarFunctionImplementation functionImplementation = function.specialize(BOUND_VARIABLES, 1, METADATA);
         Slice slice = (Slice) functionImplementation.getMethodHandle().invoke(INPUT_SLICE);
         assertEquals(slice, VARCHAR_TO_VARCHAR_RETURN_VALUE);
     }
@@ -217,7 +217,7 @@ public class TestPolymorphicScalarFunction
                         .implementation(methodsGroup -> methodsGroup.methods("varcharToVarchar")))
                 .build();
 
-        ScalarFunctionImplementation functionImplementation = function.specialize(BOUND_VARIABLES, 1, METADATA.getTypeManager(), METADATA.getFunctionRegistry());
+        ScalarFunctionImplementation functionImplementation = function.specialize(BOUND_VARIABLES, 1, METADATA);
     }
 
     @Test(expectedExceptions = {IllegalStateException.class},
@@ -258,7 +258,7 @@ public class TestPolymorphicScalarFunction
                         .implementation(methodsGroup -> methodsGroup.methods("varcharToBigintReturnExtraParameter")))
                 .build();
 
-        function.specialize(BOUND_VARIABLES, 1, METADATA.getTypeManager(), METADATA.getFunctionRegistry());
+        function.specialize(BOUND_VARIABLES, 1, METADATA);
     }
 
     public static class TestMethods

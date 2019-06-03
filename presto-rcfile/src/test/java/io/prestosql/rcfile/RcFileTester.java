@@ -1178,7 +1178,7 @@ public class RcFileTester
 
     private static MapType createMapType(Type type)
     {
-        return (MapType) METADATA.getTypeManager().getParameterizedType(MAP, ImmutableList.of(
+        return (MapType) METADATA.getParameterizedType(MAP, ImmutableList.of(
                 TypeSignatureParameter.of(type.getTypeSignature()),
                 TypeSignatureParameter.of(type.getTypeSignature())));
     }

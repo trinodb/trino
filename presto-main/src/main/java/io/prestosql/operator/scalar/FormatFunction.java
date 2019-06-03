@@ -18,6 +18,7 @@ import io.airlift.slice.Slice;
 import io.prestosql.annotation.UsedByGeneratedCode;
 import io.prestosql.metadata.BoundVariables;
 import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.OperatorNotFoundException;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlScalarFunction;
@@ -26,7 +27,6 @@ import io.prestosql.spi.block.Block;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeManager;
 
 import java.lang.invoke.MethodHandle;
 import java.math.BigDecimal;
@@ -100,13 +100,13 @@ public final class FormatFunction
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, Metadata metadata)
     {
         Type rowType = boundVariables.getTypeVariable("T");
 
         List<BiFunction<ConnectorSession, Block, Object>> converters = mapWithIndex(
                 rowType.getTypeParameters().stream(),
-                (type, index) -> converter(functionRegistry, type, toIntExact(index)))
+                (type, index) -> converter(metadata.getFunctionRegistry(), type, toIntExact(index)))
                 .collect(toImmutableList());
 
         return new ScalarFunctionImplementation(

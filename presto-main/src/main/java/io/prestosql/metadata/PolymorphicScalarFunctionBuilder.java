@@ -18,7 +18,6 @@ import io.prestosql.metadata.PolymorphicScalarFunction.PolymorphicScalarFunction
 import io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty;
 import io.prestosql.spi.function.OperatorType;
 import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeManager;
 
 import java.lang.reflect.Method;
 import java.util.ArrayList;
@@ -130,16 +129,12 @@ public final class PolymorphicScalarFunctionBuilder
         private final BoundVariables boundVariables;
         private final List<Type> parameterTypes;
         private final Type returnType;
-        private final TypeManager typeManager;
-        private final FunctionRegistry functionRegistry;
 
-        SpecializeContext(BoundVariables boundVariables, List<Type> parameterTypes, Type returnType, TypeManager typeManager, FunctionRegistry functionRegistry)
+        SpecializeContext(BoundVariables boundVariables, List<Type> parameterTypes, Type returnType)
         {
             this.boundVariables = requireNonNull(boundVariables, "boundVariables is null");
             this.parameterTypes = requireNonNull(parameterTypes, "parameterTypes is null");
-            this.typeManager = requireNonNull(typeManager, "typeManager is null");
             this.returnType = requireNonNull(returnType, "returnType is null");
-            this.functionRegistry = requireNonNull(functionRegistry, "functionRegistry is null");
         }
 
         public Type getType(String name)
@@ -160,16 +155,6 @@ public final class PolymorphicScalarFunctionBuilder
         public Type getReturnType()
         {
             return returnType;
-        }
-
-        public TypeManager getTypeManager()
-        {
-            return typeManager;
-        }
-
-        public FunctionRegistry getFunctionRegistry()
-        {
-            return functionRegistry;
         }
     }
 

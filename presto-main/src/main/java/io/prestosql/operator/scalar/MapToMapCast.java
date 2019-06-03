@@ -18,6 +18,7 @@ import io.airlift.slice.Slice;
 import io.prestosql.annotation.UsedByGeneratedCode;
 import io.prestosql.metadata.BoundVariables;
 import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.SqlOperator;
 import io.prestosql.operator.aggregation.TypedSet;
 import io.prestosql.spi.PrestoException;
@@ -25,7 +26,6 @@ import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeManager;
 import io.prestosql.spi.type.TypeSignatureParameter;
 
 import java.lang.invoke.MethodHandle;
@@ -78,19 +78,20 @@ public final class MapToMapCast
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, Metadata metadata)
     {
         checkArgument(arity == 1, "Expected arity to be 1");
         Type fromKeyType = boundVariables.getTypeVariable("FK");
         Type fromValueType = boundVariables.getTypeVariable("FV");
         Type toKeyType = boundVariables.getTypeVariable("TK");
         Type toValueType = boundVariables.getTypeVariable("TV");
-        Type toMapType = typeManager.getParameterizedType(
+        Type toMapType = metadata.getParameterizedType(
                 "map",
                 ImmutableList.of(
                         TypeSignatureParameter.of(toKeyType.getTypeSignature()),
                         TypeSignatureParameter.of(toValueType.getTypeSignature())));
 
+        FunctionRegistry functionRegistry = metadata.getFunctionRegistry();
         MethodHandle keyProcessor = buildProcessor(functionRegistry, fromKeyType, toKeyType, true);
         MethodHandle valueProcessor = buildProcessor(functionRegistry, fromValueType, toValueType, false);
         MethodHandle target = MethodHandles.insertArguments(METHOD_HANDLE, 0, keyProcessor, valueProcessor, toMapType);

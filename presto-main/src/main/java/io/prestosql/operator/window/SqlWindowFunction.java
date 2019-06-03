@@ -14,10 +14,9 @@
 package io.prestosql.operator.window;
 
 import io.prestosql.metadata.BoundVariables;
-import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlFunction;
-import io.prestosql.spi.type.TypeManager;
 
 import static java.util.Objects.requireNonNull;
 
@@ -55,7 +54,7 @@ public class SqlWindowFunction
         return supplier.getDescription();
     }
 
-    public WindowFunctionSupplier specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public WindowFunctionSupplier specialize(BoundVariables boundVariables, int arity, Metadata metadata)
     {
         return supplier;
     }

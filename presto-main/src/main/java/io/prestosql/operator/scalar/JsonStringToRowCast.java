@@ -15,11 +15,10 @@ package io.prestosql.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
 import io.prestosql.metadata.BoundVariables;
-import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlScalarFunction;
 import io.prestosql.spi.type.StandardTypes;
-import io.prestosql.spi.type.TypeManager;
 
 import static io.prestosql.metadata.FunctionKind.SCALAR;
 import static io.prestosql.metadata.Signature.withVariadicBound;
@@ -64,8 +63,8 @@ public final class JsonStringToRowCast
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, Metadata metadata)
     {
-        return JSON_TO_ROW.specialize(boundVariables, arity, typeManager, functionRegistry);
+        return JSON_TO_ROW.specialize(boundVariables, arity, metadata);
     }
 }
