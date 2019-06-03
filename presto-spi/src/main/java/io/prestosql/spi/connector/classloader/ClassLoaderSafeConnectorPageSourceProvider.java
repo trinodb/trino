@@ -21,6 +21,7 @@ import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorSplit;
 import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
+import io.prestosql.spi.predicate.TupleDomain;
 
 import java.util.List;
 
@@ -43,6 +44,14 @@ public class ClassLoaderSafeConnectorPageSourceProvider
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             return delegate.createPageSource(transaction, session, split, table, columns);
+        }
+    }
+
+    @Override
+    public ConnectorPageSource createPageSource(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorSplit split, ConnectorTableHandle table, List<ColumnHandle> columns, TupleDomain<ColumnHandle> dynamicFilter)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.createPageSource(transaction, session, split, table, columns, dynamicFilter);
         }
     }
 }
