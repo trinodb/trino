@@ -37,6 +37,7 @@ import io.prestosql.sql.planner.iterative.rule.DesugarAtTimeZone;
 import io.prestosql.sql.planner.iterative.rule.DesugarCurrentPath;
 import io.prestosql.sql.planner.iterative.rule.DesugarCurrentUser;
 import io.prestosql.sql.planner.iterative.rule.DesugarLambdaExpression;
+import io.prestosql.sql.planner.iterative.rule.DesugarRowSubscript;
 import io.prestosql.sql.planner.iterative.rule.DesugarTryExpression;
 import io.prestosql.sql.planner.iterative.rule.DetermineJoinDistributionType;
 import io.prestosql.sql.planner.iterative.rule.DetermineSemiJoinDistributionType;
@@ -286,6 +287,7 @@ public class PlanOptimizers
                                 .addAll(new DesugarCurrentUser().rules())
                                 .addAll(new DesugarCurrentPath().rules())
                                 .addAll(new DesugarTryExpression().rules())
+                                .addAll(new DesugarRowSubscript(typeAnalyzer).rules())
                                 .build()),
                 new IterativeOptimizer(
                         ruleStats,
