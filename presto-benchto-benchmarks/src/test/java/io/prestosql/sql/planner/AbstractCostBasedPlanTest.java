@@ -79,7 +79,7 @@ public abstract class AbstractCostBasedPlanTest
         return queryResourcePath.replaceAll("\\.sql$", ".plan.txt");
     }
 
-    public void generate()
+    protected void generate()
             throws Exception
     {
         initPlanTest();
