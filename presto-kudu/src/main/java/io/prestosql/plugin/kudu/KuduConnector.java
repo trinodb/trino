@@ -21,7 +21,6 @@ import io.prestosql.spi.connector.Connector;
 import io.prestosql.spi.connector.ConnectorMetadata;
 import io.prestosql.spi.connector.ConnectorPageSinkProvider;
 import io.prestosql.spi.connector.ConnectorPageSourceProvider;
-import io.prestosql.spi.connector.ConnectorRecordSetProvider;
 import io.prestosql.spi.connector.ConnectorSplitManager;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 import io.prestosql.spi.procedure.Procedure;
@@ -45,7 +44,6 @@ public class KuduConnector
     private final LifeCycleManager lifeCycleManager;
     private final KuduMetadata metadata;
     private final ConnectorSplitManager splitManager;
-    private final ConnectorRecordSetProvider recordSetProvider;
     private final ConnectorPageSourceProvider pageSourceProvider;
     private final KuduTableProperties tableProperties;
     private final ConnectorPageSinkProvider pageSinkProvider;
@@ -56,7 +54,6 @@ public class KuduConnector
             LifeCycleManager lifeCycleManager,
             KuduMetadata metadata,
             ConnectorSplitManager splitManager,
-            ConnectorRecordSetProvider recordSetProvider,
             KuduTableProperties tableProperties,
             ConnectorPageSourceProvider pageSourceProvider,
             ConnectorPageSinkProvider pageSinkProvider,
@@ -65,7 +62,6 @@ public class KuduConnector
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
-        this.recordSetProvider = requireNonNull(recordSetProvider, "recordSetProvider is null");
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
         this.tableProperties = requireNonNull(tableProperties, "tableProperties is null");
         this.pageSinkProvider = requireNonNull(pageSinkProvider, "pageSinkProvider is null");
@@ -90,12 +86,6 @@ public class KuduConnector
     public ConnectorSplitManager getSplitManager()
     {
         return splitManager;
-    }
-
-    @Override
-    public ConnectorRecordSetProvider getRecordSetProvider()
-    {
-        return recordSetProvider;
     }
 
     @Override
