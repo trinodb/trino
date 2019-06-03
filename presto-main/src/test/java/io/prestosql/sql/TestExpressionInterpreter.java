@@ -1363,6 +1363,13 @@ public class TestExpressionInterpreter
         optimize("ARRAY [CAST(NULL AS ROW(VARCHAR, DOUBLE)), ROW(unbound_string, unbound_double)]");
     }
 
+    @Test
+    public void testRowSubscript()
+    {
+        assertOptimizedEquals("ROW (1, 'a', true)[3]", "true");
+        assertOptimizedEquals("ROW (1, 'a', ROW (2, 'b', ROW (3, 'c')))[3][3][2]", "'c'");
+    }
+
     @Test(expectedExceptions = PrestoException.class)
     public void testArraySubscriptConstantNegativeIndex()
     {

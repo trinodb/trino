@@ -32,6 +32,7 @@ import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.block.RowBlockBuilder;
+import io.prestosql.spi.block.SingleRowBlock;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.function.OperatorType;
 import io.prestosql.spi.type.ArrayType;
@@ -120,6 +121,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
+import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static io.prestosql.spi.type.TypeUtils.readNativeValue;
@@ -134,6 +136,7 @@ import static io.prestosql.sql.planner.iterative.rule.CanonicalizeExpressionRewr
 import static io.prestosql.type.LikeFunctions.isLikePattern;
 import static io.prestosql.type.LikeFunctions.unescapeLiteralLikePattern;
 import static io.prestosql.util.Failures.checkCondition;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -1168,6 +1171,18 @@ public class ExpressionInterpreter
                 return new SubscriptExpression(toExpression(base, type(node.getBase())), toExpression(index, type(node.getIndex())));
             }
 
+            // Subscript on Row hasn't got a dedicated operator. It is interpreted by hand.
+            if (base instanceof SingleRowBlock) {
+                SingleRowBlock row = (SingleRowBlock) base;
+                int position = toIntExact((long) index - 1);
+                if (position < 0 || position >= row.getPositionCount()) {
+                    throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "ROW index out of bounds: " + (position + 1));
+                }
+                Type returnType = type(node.getBase()).getTypeParameters().get(position);
+                return readNativeValue(returnType, row, position);
+            }
+
+            // Subscript on Array or Map is interpreted using operator.
             return invokeOperator(OperatorType.SUBSCRIPT, types(node.getBase(), node.getIndex()), ImmutableList.of(base, index));
         }
 
