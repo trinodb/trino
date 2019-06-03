@@ -114,7 +114,7 @@ public final class HiveTestUtils
     {
         ImmutableList.Builder<Type> types = ImmutableList.builder();
         for (ColumnHandle columnHandle : columnHandles) {
-            types.add(TYPE_MANAGER.getType(((HiveColumnHandle) columnHandle).getTypeSignature()));
+            types.add(METADATA.getType(((HiveColumnHandle) columnHandle).getTypeSignature()));
         }
         return types.build();
     }
@@ -133,21 +133,21 @@ public final class HiveTestUtils
 
     public static MapType mapType(Type keyType, Type valueType)
     {
-        return (MapType) TYPE_MANAGER.getParameterizedType(StandardTypes.MAP, ImmutableList.of(
+        return (MapType) METADATA.getParameterizedType(StandardTypes.MAP, ImmutableList.of(
                 TypeSignatureParameter.of(keyType.getTypeSignature()),
                 TypeSignatureParameter.of(valueType.getTypeSignature())));
     }
 
     public static ArrayType arrayType(Type elementType)
     {
-        return (ArrayType) TYPE_MANAGER.getParameterizedType(
+        return (ArrayType) METADATA.getParameterizedType(
                 StandardTypes.ARRAY,
                 ImmutableList.of(TypeSignatureParameter.of(elementType.getTypeSignature())));
     }
 
     public static RowType rowType(List<NamedTypeSignature> elementTypeSignatures)
     {
-        return (RowType) TYPE_MANAGER.getParameterizedType(
+        return (RowType) METADATA.getParameterizedType(
                 StandardTypes.ROW,
                 ImmutableList.copyOf(elementTypeSignatures.stream()
                         .map(TypeSignatureParameter::of)

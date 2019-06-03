@@ -22,7 +22,6 @@ import io.prestosql.spi.function.OperatorType;
 import io.prestosql.spi.function.ScalarFunction;
 import io.prestosql.spi.function.SqlType;
 import io.prestosql.spi.type.StandardTypes;
-import io.prestosql.spi.type.TypeManager;
 import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.sql.tree.QualifiedName;
 import org.testng.annotations.Test;
@@ -369,11 +368,7 @@ public class TestFunctionRegistry
                 functions.add(new SqlScalarFunction(signature)
                 {
                     @Override
-                    public ScalarFunctionImplementation specialize(
-                            BoundVariables boundVariables,
-                            int arity,
-                            TypeManager typeManager,
-                            FunctionRegistry functionRegistry)
+                    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, Metadata metadata)
                     {
                         return new ScalarFunctionImplementation(
                                 false,

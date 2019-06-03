@@ -15,9 +15,9 @@ package io.prestosql.operator.annotations;
 
 import io.prestosql.metadata.BoundVariables;
 import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
 import io.prestosql.spi.function.InvocationConvention;
-import io.prestosql.spi.type.TypeManager;
 
 import java.lang.invoke.MethodHandle;
 import java.util.Objects;
@@ -44,9 +44,10 @@ public abstract class ScalarImplementationDependency
     }
 
     @Override
-    public MethodHandle resolve(BoundVariables boundVariables, TypeManager typeManager, FunctionRegistry functionRegistry)
+    public MethodHandle resolve(BoundVariables boundVariables, Metadata metadata)
     {
         Signature signature = applyBoundVariables(this.signature, boundVariables, this.signature.getArgumentTypes().size());
+        FunctionRegistry functionRegistry = metadata.getFunctionRegistry();
         if (invocationConvention.isPresent()) {
             return functionRegistry.getFunctionInvokerProvider().createFunctionInvoker(signature, invocationConvention).methodHandle();
         }

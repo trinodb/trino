@@ -14,7 +14,6 @@
 package io.prestosql.metadata;
 
 import io.prestosql.operator.scalar.ScalarFunctionImplementation;
-import io.prestosql.spi.type.TypeManager;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.metadata.FunctionKind.SCALAR;
@@ -37,7 +36,7 @@ public abstract class SqlScalarFunction
         return signature;
     }
 
-    public abstract ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionRegistry functionRegistry);
+    public abstract ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, Metadata metadata);
 
     public static PolymorphicScalarFunctionBuilder builder(Class<?> clazz)
     {
