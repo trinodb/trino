@@ -57,7 +57,8 @@ public class TextRenderer
     {
         StringBuilder output = new StringBuilder();
         NodeRepresentation root = plan.getRoot();
-        return writeTextOutput(output, plan, Indent.newInstance(level, !root.getChildren().isEmpty()), root);
+        boolean hasChildren = hasChildren(root, plan);
+        return writeTextOutput(output, plan, Indent.newInstance(level, hasChildren), root);
     }
 
     private String writeTextOutput(StringBuilder output, PlanRepresentation plan, Indent indent, NodeRepresentation node)
@@ -99,13 +100,7 @@ public class TextRenderer
 
         for (Iterator<NodeRepresentation> iterator = children.iterator(); iterator.hasNext(); ) {
             NodeRepresentation child = iterator.next();
-
-            boolean hasChildren = child.getChildren().stream()
-                    .map(plan::getNode)
-                    .filter(Optional::isPresent)
-                    .count() > 0;
-
-            writeTextOutput(output, plan, indent.forChild(!iterator.hasNext(), hasChildren), child);
+            writeTextOutput(output, plan, indent.forChild(!iterator.hasNext(), hasChildren(child, plan)), child);
         }
 
         return output.toString();
@@ -252,6 +247,13 @@ public class TextRenderer
 
         output.append("\n");
         return output.toString();
+    }
+
+    private static boolean hasChildren(NodeRepresentation node, PlanRepresentation plan)
+    {
+        return node.getChildren().stream()
+                .map(plan::getNode)
+                .anyMatch(Optional::isPresent);
     }
 
     private static String formatAsLong(double value)
