@@ -121,6 +121,8 @@ public final class SystemSessionProperties
     public static final String ENABLE_DYNAMIC_FILTERING = "enable_dynamic_filtering";
     public static final String QUERY_MAX_MEMORY_PER_NODE = "query_max_memory_per_node";
     public static final String QUERY_MAX_TOTAL_MEMORY_PER_NODE = "query_max_total_memory_per_node";
+    public static final String DYNAMIC_FILTERING_MAX_PER_DRIVER_ROW_COUNT = "dynamic_filtering_max_per_driver_row_count";
+    public static final String DYNAMIC_FILTERING_MAX_PER_DRIVER_SIZE = "dynamic_filtering_max_per_driver_size";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -523,7 +525,17 @@ public final class SystemSessionProperties
                         QUERY_MAX_TOTAL_MEMORY_PER_NODE,
                         "Maximum amount of total memory a query can use per node",
                         nodeMemoryConfig.getMaxQueryTotalMemoryPerNode(),
-                        true));
+                        true),
+                integerProperty(
+                        DYNAMIC_FILTERING_MAX_PER_DRIVER_ROW_COUNT,
+                        "Experimental: maximum number of build-side rows to be collected for dynamic filtering per-driver",
+                        featuresConfig.getDynamicFilteringMaxPerDriverRowCount(),
+                        false),
+                dataSizeProperty(
+                        DYNAMIC_FILTERING_MAX_PER_DRIVER_SIZE,
+                        "Experimental: maximum number of bytes to be collected for dynamic filtering per-driver",
+                        featuresConfig.getDynamicFilteringMaxPerDriverSize(),
+                        false));
     }
 
     public List<PropertyMetadata<?>> getSessionProperties()
@@ -929,5 +941,15 @@ public final class SystemSessionProperties
     public static DataSize getQueryMaxTotalMemoryPerNode(Session session)
     {
         return session.getSystemProperty(QUERY_MAX_TOTAL_MEMORY_PER_NODE, DataSize.class);
+    }
+
+    public static int getDynamicFilteringMaxPerDriverRowCount(Session session)
+    {
+        return session.getSystemProperty(DYNAMIC_FILTERING_MAX_PER_DRIVER_ROW_COUNT, Integer.class);
+    }
+
+    public static DataSize getDynamicFilteringMaxPerDriverSize(Session session)
+    {
+        return session.getSystemProperty(DYNAMIC_FILTERING_MAX_PER_DRIVER_SIZE, DataSize.class);
     }
 }

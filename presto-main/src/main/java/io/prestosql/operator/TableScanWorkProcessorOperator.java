@@ -152,7 +152,7 @@ public class TableScanWorkProcessorOperator
             }
 
             checkState(source == null, "Table scan split already set");
-            source = pageSourceProvider.createPageSource(session, split, table, columns);
+            source = pageSourceProvider.createPageSource(session, split, table, columns, null);
             return TransformationState.ofResult(
                     WorkProcessor.create(new ConnectorPageSourceToPages(aggregatedMemoryContext, source))
                             .map(page -> {

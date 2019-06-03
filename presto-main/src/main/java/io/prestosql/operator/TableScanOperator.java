@@ -280,7 +280,7 @@ public class TableScanOperator
             return null;
         }
         if (source == null) {
-            source = pageSourceProvider.createPageSource(operatorContext.getSession(), split, table, columns);
+            source = pageSourceProvider.createPageSource(operatorContext.getSession(), split, table, columns, null);
         }
 
         Page page = source.getNextPage();
