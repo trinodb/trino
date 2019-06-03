@@ -227,6 +227,9 @@ public class HiveMetadata
     private static final String ORC_BLOOM_FILTER_COLUMNS_KEY = "orc.bloom.filter.columns";
     private static final String ORC_BLOOM_FILTER_FPP_KEY = "orc.bloom.filter.fpp";
 
+    public static final String TEXT_SKIP_HEADER_COUNT_KEY = "skip.header.line.count";
+    public static final String TEXT_SKIP_FOOTER_COUNT_KEY = "skip.footer.line.count";
+
     public static final String AVRO_SCHEMA_URL_KEY = "avro.schema.url";
 
     private final boolean allowCorruptWritesForTesting;
@@ -1244,6 +1247,14 @@ public class HiveMetadata
                 .collect(toList());
 
         HiveStorageFormat tableStorageFormat = extractHiveStorageFormat(table);
+        if (tableStorageFormat == HiveStorageFormat.TEXTFILE) {
+            if (table.getParameters().containsKey(TEXT_SKIP_HEADER_COUNT_KEY)) {
+                throw new PrestoException(NOT_SUPPORTED, format("Inserting into Hive table with %s property not supported", TEXT_SKIP_HEADER_COUNT_KEY));
+            }
+            if (table.getParameters().containsKey(TEXT_SKIP_FOOTER_COUNT_KEY)) {
+                throw new PrestoException(NOT_SUPPORTED, format("Inserting into Hive table with %s property not supported", TEXT_SKIP_FOOTER_COUNT_KEY));
+            }
+        }
         LocationHandle locationHandle = locationService.forExistingTable(metastore, session, table);
         HiveInsertTableHandle result = new HiveInsertTableHandle(
                 tableName.getSchemaName(),
