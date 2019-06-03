@@ -55,13 +55,19 @@ public interface ConnectorMetadata
     /**
      * Returns the schemas provided by this connector.
      */
-    List<String> listSchemaNames(ConnectorSession session);
+    default List<String> listSchemaNames(ConnectorSession session)
+    {
+        return emptyList();
+    }
 
     /**
      * Returns a table handle for the specified table name, or null if the connector does not contain the table.
      */
     @Nullable
-    ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName);
+    default ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
+    {
+        return null;
+    }
 
     /**
      * Returns a table handle for the specified table name, or null if the connector does not contain the table.
@@ -155,7 +161,10 @@ public interface ConnectorMetadata
      *
      * @throws RuntimeException if table handle is no longer valid
      */
-    ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle table);
+    default ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle table)
+    {
+        throw new PrestoException(GENERIC_INTERNAL_ERROR, "ConnectorMetadata getTableHandle() is implemented without getTableMetadata()");
+    }
 
     /**
      * Return the connector-specific metadata for the specified table layout. This is the object that is passed to the event listener framework.
@@ -186,19 +195,28 @@ public interface ConnectorMetadata
      *
      * @throws RuntimeException if table handle is no longer valid
      */
-    Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle);
+    default Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        throw new PrestoException(GENERIC_INTERNAL_ERROR, "ConnectorMetadata getTableHandle() is implemented without getColumnHandles()");
+    }
 
     /**
      * Gets the metadata for the specified table column.
      *
      * @throws RuntimeException if table or column handles are no longer valid
      */
-    ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle);
+    default ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
+    {
+        throw new PrestoException(GENERIC_INTERNAL_ERROR, "ConnectorMetadata getTableHandle() is implemented without getColumnMetadata()");
+    }
 
     /**
      * Gets the metadata for all columns that match the specified table prefix.
      */
-    Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session, SchemaTablePrefix prefix);
+    default Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
+    {
+        return emptyMap();
+    }
 
     /**
      * Get statistics for table for given filtering constraint.

@@ -33,7 +33,13 @@ public interface Connector
      */
     ConnectorMetadata getMetadata(ConnectorTransactionHandle transactionHandle);
 
-    ConnectorSplitManager getSplitManager();
+    /**
+     * @throws UnsupportedOperationException if this connector does not support tables with splits
+     */
+    default ConnectorSplitManager getSplitManager()
+    {
+        throw new UnsupportedOperationException();
+    }
 
     /**
      * @throws UnsupportedOperationException if this connector does not support reading tables page at a time

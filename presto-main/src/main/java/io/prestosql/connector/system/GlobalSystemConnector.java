@@ -13,33 +13,15 @@
  */
 package io.prestosql.connector.system;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.spi.connector.ColumnHandle;
-import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorMetadata;
-import io.prestosql.spi.connector.ConnectorPageSource;
-import io.prestosql.spi.connector.ConnectorPageSourceProvider;
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.connector.ConnectorSplit;
-import io.prestosql.spi.connector.ConnectorSplitManager;
-import io.prestosql.spi.connector.ConnectorSplitSource;
-import io.prestosql.spi.connector.ConnectorTableHandle;
-import io.prestosql.spi.connector.ConnectorTableMetadata;
-import io.prestosql.spi.connector.ConnectorTableProperties;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
-import io.prestosql.spi.connector.SchemaTableName;
-import io.prestosql.spi.connector.SchemaTablePrefix;
 import io.prestosql.spi.connector.SystemTable;
 import io.prestosql.spi.procedure.Procedure;
 import io.prestosql.spi.transaction.IsolationLevel;
 import io.prestosql.transaction.InternalConnector;
 import io.prestosql.transaction.TransactionId;
 
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
@@ -67,88 +49,7 @@ public class GlobalSystemConnector
     @Override
     public ConnectorMetadata getMetadata(ConnectorTransactionHandle transactionHandle)
     {
-        return new ConnectorMetadata()
-        {
-            @Override
-            public List<String> listSchemaNames(ConnectorSession session)
-            {
-                return ImmutableList.of();
-            }
-
-            @Override
-            public ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
-            {
-                return null;
-            }
-
-            @Override
-            public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle table)
-            {
-                throw new UnsupportedOperationException();
-            }
-
-            @Override
-            public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
-            {
-                return ImmutableList.of();
-            }
-
-            @Override
-            public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
-            {
-                throw new UnsupportedOperationException();
-            }
-
-            @Override
-            public ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
-            {
-                throw new UnsupportedOperationException();
-            }
-
-            @Override
-            public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
-            {
-                return ImmutableMap.of();
-            }
-
-            @Override
-            public boolean usesLegacyTableLayouts()
-            {
-                return false;
-            }
-
-            @Override
-            public ConnectorTableProperties getTableProperties(ConnectorSession session, ConnectorTableHandle table)
-            {
-                throw new UnsupportedOperationException();
-            }
-        };
-    }
-
-    @Override
-    public ConnectorSplitManager getSplitManager()
-    {
-        return new ConnectorSplitManager()
-        {
-            @Override
-            public ConnectorSplitSource getSplits(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorTableHandle table, SplitSchedulingStrategy splitSchedulingStrategy)
-            {
-                throw new UnsupportedOperationException();
-            }
-        };
-    }
-
-    @Override
-    public ConnectorPageSourceProvider getPageSourceProvider()
-    {
-        return new ConnectorPageSourceProvider()
-        {
-            @Override
-            public ConnectorPageSource createPageSource(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorSplit split, ConnectorTableHandle table, List<ColumnHandle> columns)
-            {
-                throw new UnsupportedOperationException();
-            }
-        };
+        return new ConnectorMetadata() {};
     }
 
     @Override
