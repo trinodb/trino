@@ -57,7 +57,7 @@ public class TextRenderer
     {
         StringBuilder output = new StringBuilder();
         NodeRepresentation root = plan.getRoot();
-        return writeTextOutput(output, plan, Indent.newInstance(!root.getChildren().isEmpty()), root);
+        return writeTextOutput(output, plan, Indent.newInstance(level, !root.getChildren().isEmpty()), root);
     }
 
     private String writeTextOutput(StringBuilder output, PlanRepresentation plan, Indent indent, NodeRepresentation node)
@@ -318,9 +318,10 @@ public class TextRenderer
         private final String nextLinesPrefix;
         private final boolean hasChildren;
 
-        public static Indent newInstance(boolean hasChildren)
+        public static Indent newInstance(int level, boolean hasChildren)
         {
-            return new Indent("", "", hasChildren);
+            String indent = indentString(level);
+            return new Indent(indent, indent, hasChildren);
         }
 
         private Indent(String firstLinePrefix, String nextLinesPrefix, boolean hasChildren)
