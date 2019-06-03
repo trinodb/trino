@@ -468,7 +468,7 @@ public class ExtractSpatialJoins
                 List<Split> splits = splitBatch.getSplits();
 
                 for (Split split : splits) {
-                    try (ConnectorPageSource pageSource = pageSourceManager.createPageSource(session, split, tableHandle, ImmutableList.of(kdbTreeColumn))) {
+                    try (ConnectorPageSource pageSource = pageSourceManager.createPageSource(session, split, tableHandle, ImmutableList.of(kdbTreeColumn), null)) {
                         do {
                             getFutureValue(pageSource.isBlocked());
                             Page page = pageSource.getNextPage();

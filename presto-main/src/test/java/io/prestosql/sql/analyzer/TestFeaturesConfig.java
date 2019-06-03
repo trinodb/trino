@@ -107,7 +107,9 @@ public class TestFeaturesConfig
                 .setMaxGroupingSets(2048)
                 .setWorkProcessorPipelines(false)
                 .setSkipRedundantSort(true)
-                .setEnableDynamicFiltering(false));
+                .setEnableDynamicFiltering(false)
+                .setDynamicFilteringMaxPerDriverRowCount(100)
+                .setDynamicFilteringMaxPerDriverSize(new DataSize(10, KILOBYTE)));
     }
 
     @Test
@@ -175,6 +177,8 @@ public class TestFeaturesConfig
                 .put("experimental.work-processor-pipelines", "true")
                 .put("optimizer.skip-redundant-sort", "false")
                 .put("experimental.enable-dynamic-filtering", "true")
+                .put("experimental.dynamic-filtering-max-per-driver-row-count", "256")
+                .put("experimental.dynamic-filtering-max-per-driver-size", "64kB")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -238,7 +242,9 @@ public class TestFeaturesConfig
                 .setDefaultFilterFactorEnabled(true)
                 .setWorkProcessorPipelines(true)
                 .setSkipRedundantSort(false)
-                .setEnableDynamicFiltering(true);
+                .setEnableDynamicFiltering(true)
+                .setDynamicFilteringMaxPerDriverRowCount(256)
+                .setDynamicFilteringMaxPerDriverSize(new DataSize(64, KILOBYTE));
         assertFullMapping(properties, expected);
     }
 
