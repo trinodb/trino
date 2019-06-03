@@ -97,7 +97,7 @@ public class TestKuduIntegrationRangePartitioning
         }
     }
 
-    public void doTestCreateAndChangeTableWithRangePartition(TestRanges ranges)
+    private void doTestCreateAndChangeTableWithRangePartition(TestRanges ranges)
     {
         String[] types = ranges.types;
         String name = join("_", ranges.types);
