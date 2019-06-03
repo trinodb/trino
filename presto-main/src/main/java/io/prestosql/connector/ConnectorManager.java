@@ -69,6 +69,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
 import static io.prestosql.connector.CatalogName.createInformationSchemaCatalogName;
 import static io.prestosql.connector.CatalogName.createSystemTablesCatalogName;
 import static java.lang.String.format;
@@ -246,8 +247,11 @@ public class ConnectorManager
         checkState(!connectors.containsKey(catalogName), "A connector %s already exists", catalogName);
         connectors.put(catalogName, connector);
 
-        splitManager.addConnectorSplitManager(catalogName, connector.getSplitManager());
-        pageSourceManager.addConnectorPageSourceProvider(catalogName, connector.getPageSourceProvider());
+        connector.getSplitManager()
+                .ifPresent(connectorSplitManager -> splitManager.addConnectorSplitManager(catalogName, connectorSplitManager));
+
+        connector.getPageSourceProvider()
+                .ifPresent(pageSourceProvider -> pageSourceManager.addConnectorPageSourceProvider(catalogName, pageSourceProvider));
 
         connector.getPageSinkProvider()
                 .ifPresent(pageSinkProvider -> pageSinkManager.addConnectorPageSinkProvider(catalogName, pageSinkProvider));
@@ -326,10 +330,10 @@ public class ConnectorManager
     {
         private final CatalogName catalogName;
         private final Connector connector;
-        private final ConnectorSplitManager splitManager;
         private final Set<SystemTable> systemTables;
         private final Set<Procedure> procedures;
-        private final ConnectorPageSourceProvider pageSourceProvider;
+        private final Optional<ConnectorSplitManager> splitManager;
+        private final Optional<ConnectorPageSourceProvider> pageSourceProvider;
         private final Optional<ConnectorPageSinkProvider> pageSinkProvider;
         private final Optional<ConnectorIndexProvider> indexProvider;
         private final Optional<ConnectorNodePartitioningProvider> partitioningProvider;
@@ -345,9 +349,6 @@ public class ConnectorManager
             this.catalogName = requireNonNull(catalogName, "catalogName is null");
             this.connector = requireNonNull(connector, "connector is null");
 
-            splitManager = connector.getSplitManager();
-            checkState(splitManager != null, "Connector %s does not have a split manager", catalogName);
-
             Set<SystemTable> systemTables = connector.getSystemTables();
             requireNonNull(systemTables, "Connector %s returned a null system tables set");
             this.systemTables = ImmutableSet.copyOf(systemTables);
@@ -355,6 +356,14 @@ public class ConnectorManager
             Set<Procedure> procedures = connector.getProcedures();
             requireNonNull(procedures, "Connector %s returned a null procedures set");
             this.procedures = ImmutableSet.copyOf(procedures);
+
+            ConnectorSplitManager splitManager = null;
+            try {
+                splitManager = connector.getSplitManager();
+            }
+            catch (UnsupportedOperationException ignored) {
+            }
+            this.splitManager = Optional.ofNullable(splitManager);
 
             ConnectorPageSourceProvider connectorPageSourceProvider = null;
             try {
@@ -364,18 +373,15 @@ public class ConnectorManager
             catch (UnsupportedOperationException ignored) {
             }
 
-            if (connectorPageSourceProvider == null) {
-                ConnectorRecordSetProvider connectorRecordSetProvider = null;
-                try {
-                    connectorRecordSetProvider = connector.getRecordSetProvider();
-                    requireNonNull(connectorRecordSetProvider, format("Connector %s returned a null record set provider", catalogName));
-                }
-                catch (UnsupportedOperationException ignored) {
-                }
-                checkState(connectorRecordSetProvider != null, "Connector %s has neither a PageSource or RecordSet provider", catalogName);
+            try {
+                ConnectorRecordSetProvider connectorRecordSetProvider = connector.getRecordSetProvider();
+                requireNonNull(connectorRecordSetProvider, format("Connector %s returned a null record set provider", catalogName));
+                verify(connectorPageSourceProvider == null, "Connector %s returned both page source and record set providers", catalogName);
                 connectorPageSourceProvider = new RecordPageSourceProvider(connectorRecordSetProvider);
             }
-            this.pageSourceProvider = connectorPageSourceProvider;
+            catch (UnsupportedOperationException ignored) {
+            }
+            this.pageSourceProvider = Optional.ofNullable(connectorPageSourceProvider);
 
             ConnectorPageSinkProvider connectorPageSinkProvider = null;
             try {
@@ -443,11 +449,6 @@ public class ConnectorManager
             return connector;
         }
 
-        public ConnectorSplitManager getSplitManager()
-        {
-            return splitManager;
-        }
-
         public Set<SystemTable> getSystemTables()
         {
             return systemTables;
@@ -458,7 +459,12 @@ public class ConnectorManager
             return procedures;
         }
 
-        public ConnectorPageSourceProvider getPageSourceProvider()
+        public Optional<ConnectorSplitManager> getSplitManager()
+        {
+            return splitManager;
+        }
+
+        public Optional<ConnectorPageSourceProvider> getPageSourceProvider()
         {
             return pageSourceProvider;
         }

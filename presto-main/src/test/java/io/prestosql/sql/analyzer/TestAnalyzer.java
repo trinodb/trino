@@ -44,7 +44,6 @@ import io.prestosql.security.AllowAllAccessControl;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.Connector;
 import io.prestosql.spi.connector.ConnectorMetadata;
-import io.prestosql.spi.connector.ConnectorSplitManager;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 import io.prestosql.spi.connector.SchemaTableName;
@@ -1822,12 +1821,6 @@ public class TestAnalyzer
             public ConnectorMetadata getMetadata(ConnectorTransactionHandle transaction)
             {
                 return metadata;
-            }
-
-            @Override
-            public ConnectorSplitManager getSplitManager()
-            {
-                throw new UnsupportedOperationException();
             }
 
             @Override
