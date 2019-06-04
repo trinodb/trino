@@ -892,7 +892,7 @@ public class HiveMetadata
     {
         Table table = metastore.getTable(handle.getSchemaName(), handle.getTableName())
                 .orElseThrow(() -> new TableNotFoundException(handle.getSchemaTableName()));
-        if (table.getParameters().get(AVRO_SCHEMA_URL_KEY) != null) {
+        if (table.getParameters().containsKey(AVRO_SCHEMA_URL_KEY) || table.getStorage().getSerdeParameters().containsKey(AVRO_SCHEMA_URL_KEY)) {
             throw new PrestoException(NOT_SUPPORTED, "ALTER TABLE not supported when Avro schema url is set");
         }
     }
