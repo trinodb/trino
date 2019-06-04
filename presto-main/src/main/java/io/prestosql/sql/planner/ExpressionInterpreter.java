@@ -122,6 +122,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.spi.type.TypeUtils.readNativeValue;
 import static io.prestosql.spi.type.TypeUtils.writeNativeValue;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
 import static io.prestosql.sql.analyzer.ConstantExpressionVerifier.verifyExpressionIsConstant;
@@ -304,26 +305,7 @@ public class ExpressionInterpreter
             }
 
             checkState(index >= 0, "could not find field name: %s", node.getField());
-            if (row.isNull(index)) {
-                return null;
-            }
-            Class<?> javaType = returnType.getJavaType();
-            if (javaType == long.class) {
-                return returnType.getLong(row, index);
-            }
-            if (javaType == double.class) {
-                return returnType.getDouble(row, index);
-            }
-            if (javaType == boolean.class) {
-                return returnType.getBoolean(row, index);
-            }
-            if (javaType == Slice.class) {
-                return returnType.getSlice(row, index);
-            }
-            if (!javaType.isPrimitive()) {
-                return returnType.getObject(row, index);
-            }
-            throw new UnsupportedOperationException("Dereference a unsupported primitive type: " + javaType.getName());
+            return readNativeValue(returnType, row, index);
         }
 
         @Override
