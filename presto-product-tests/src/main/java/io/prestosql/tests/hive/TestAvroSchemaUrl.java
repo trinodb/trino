@@ -103,17 +103,21 @@ public class TestAvroSchemaUrl
         onHive().executeQuery(format("" +
                         "CREATE TABLE test_avro_schema_url_in_serde_properties " +
                         "ROW FORMAT SERDE 'org.apache.hadoop.hive.serde2.avro.AvroSerDe' " +
-                        "WITH SERDEPROPERTIES ('avro.schema.url'='hdfs://%s')" +
+                        "WITH SERDEPROPERTIES ('avro.schema.url'='%s')" +
                         "STORED AS " +
                         "INPUTFORMAT 'org.apache.hadoop.hive.ql.io.avro.AvroContainerInputFormat' " +
                         "OUTPUTFORMAT 'org.apache.hadoop.hive.ql.io.avro.AvroContainerOutputFormat' ",
                 schemaLocationOnHdfs));
-        onHive().executeQuery("INSERT INTO test_avro_schema_url_in_serde_properties VALUES ('some text', 2147483635)");
 
         assertThat(onPresto().executeQuery("SHOW COLUMNS FROM test_avro_schema_url_in_serde_properties"))
                 .containsExactly(
                         row("string_col", "varchar", "", ""),
                         row("int_col", "integer", "", ""));
+
+        assertThat(() -> onPresto().executeQuery("ALTER TABLE test_avro_schema_url_in_serde_properties ADD COLUMN new_dummy_col varchar"))
+                .failsWithMessage("ALTER TABLE not supported when Avro schema url is set");
+
+        onHive().executeQuery("INSERT INTO test_avro_schema_url_in_serde_properties VALUES ('some text', 2147483635)");
 
         // Hive stores initial schema inferred from schema files in the Metastore DB.
         // We need to change the schema to test that current schema is used by Presto, not a snapshot saved during CREATE TABLE.
