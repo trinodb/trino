@@ -54,7 +54,12 @@ public class TestingConnectorSession
 
     public TestingConnectorSession(List<PropertyMetadata<?>> properties)
     {
-        this("user", Optional.of("test"), Optional.empty(), UTC_KEY, ENGLISH, System.currentTimeMillis(), properties, ImmutableMap.of(), new FeaturesConfig().isLegacyTimestamp());
+        this(properties, ImmutableMap.of());
+    }
+
+    public TestingConnectorSession(List<PropertyMetadata<?>> properties, Map<String, Object> propertyValues)
+    {
+        this("user", Optional.of("test"), Optional.empty(), UTC_KEY, ENGLISH, System.currentTimeMillis(), properties, propertyValues, new FeaturesConfig().isLegacyTimestamp());
     }
 
     public TestingConnectorSession(
