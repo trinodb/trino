@@ -17,12 +17,12 @@ import com.google.common.annotations.VisibleForTesting;
 import io.airlift.compress.Compressor;
 import io.airlift.compress.lz4.Lz4Compressor;
 import io.airlift.compress.snappy.SnappyCompressor;
+import io.airlift.compress.zstd.ZstdCompressor;
 import io.airlift.slice.SizeOf;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.prestosql.orc.checkpoint.InputStreamCheckpoint;
 import io.prestosql.orc.metadata.CompressionKind;
-import io.prestosql.orc.zstd.ZstdJniCompressor;
 import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
@@ -99,7 +99,7 @@ public class OrcOutputBuffer
             this.compressor = new Lz4Compressor();
         }
         else if (compression == CompressionKind.ZSTD) {
-            this.compressor = new ZstdJniCompressor();
+            this.compressor = new ZstdCompressor();
         }
         else {
             throw new IllegalArgumentException("Unsupported compression " + compression);
