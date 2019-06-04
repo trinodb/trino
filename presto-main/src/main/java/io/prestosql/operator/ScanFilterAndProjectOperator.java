@@ -98,7 +98,8 @@ public class ScanFilterAndProjectOperator
                         operatorContext.aggregateSystemMemoryContext(),
                         minOutputPageSize,
                         minOutputPageRowCount))
-                .transformProcessor(WorkProcessor::flatten);
+                .transformProcessor(WorkProcessor::flatten)
+                .finishWhen(() -> operatorFinishing);
     }
 
     @Override
@@ -256,7 +257,7 @@ public class ScanFilterAndProjectOperator
         @Override
         public ProcessState<WorkProcessor<Page>> process()
         {
-            if (operatorFinishing || finished) {
+            if (finished) {
                 memoryContext.close();
                 return ProcessState.finished();
             }
@@ -339,10 +340,6 @@ public class ScanFilterAndProjectOperator
         @Override
         public ProcessState<Page> process()
         {
-            if (operatorFinishing) {
-                finished = true;
-            }
-
             if (!finished) {
                 DriverYieldSignal yieldSignal = operatorContext.getDriverContext().getYieldSignal();
                 CursorProcessorOutput output = cursorProcessor.process(operatorContext.getSession().toConnectorSession(), yieldSignal, cursor, pageBuilder);
@@ -394,7 +391,7 @@ public class ScanFilterAndProjectOperator
         @Override
         public ProcessState<Page> process()
         {
-            if (operatorFinishing || pageSource.isFinished()) {
+            if (pageSource.isFinished()) {
                 return ProcessState.finished();
             }
 
