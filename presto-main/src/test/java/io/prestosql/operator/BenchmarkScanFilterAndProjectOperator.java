@@ -261,6 +261,7 @@ public class BenchmarkScanFilterAndProjectOperator
 
         ImmutableList.Builder<Page> outputPages = ImmutableList.builder();
         operator.addSplit(new Split(new CatalogName("test"), createLocalSplit(), Lifespan.taskWide()));
+        operator.noMoreSplits();
 
         for (int loops = 0; !operator.isFinished() && loops < 1_000_000; loops++) {
             Page outputPage = operator.getOutput();
