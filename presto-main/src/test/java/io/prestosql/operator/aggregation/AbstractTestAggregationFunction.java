@@ -30,7 +30,9 @@ import java.util.List;
 
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.operator.aggregation.AggregationTestUtils.assertAggregation;
+import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
+import static io.prestosql.testing.assertions.PrestoExceptionAssert.assertPrestoExceptionThrownBy;
 
 public abstract class AbstractTestAggregationFunction
 {
@@ -142,5 +144,11 @@ public abstract class AbstractTestAggregationFunction
     protected void testAggregation(Object expectedValue, Block... blocks)
     {
         assertAggregation(getFunction(), expectedValue, blocks);
+    }
+
+    protected void assertInvalidAggregation(Runnable runnable)
+    {
+        assertPrestoExceptionThrownBy(runnable::run)
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
     }
 }

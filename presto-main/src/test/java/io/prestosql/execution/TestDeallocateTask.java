@@ -20,7 +20,6 @@ import io.prestosql.metadata.MetadataManager;
 import io.prestosql.security.AccessControl;
 import io.prestosql.security.AccessControlManager;
 import io.prestosql.security.AllowAllAccessControl;
-import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.resourcegroups.ResourceGroupId;
 import io.prestosql.sql.tree.Deallocate;
 import io.prestosql.sql.tree.Identifier;
@@ -38,11 +37,11 @@ import static io.prestosql.SessionTestUtils.TEST_SESSION;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.spi.StandardErrorCode.NOT_FOUND;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
+import static io.prestosql.testing.assertions.PrestoExceptionAssert.assertPrestoExceptionThrownBy;
 import static io.prestosql.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static java.util.Collections.emptyList;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.fail;
 
 public class TestDeallocateTask
 {
@@ -68,14 +67,9 @@ public class TestDeallocateTask
     @Test
     public void testDeallocateNoSuchStatement()
     {
-        try {
-            executeDeallocate("my_query", "DEALLOCATE PREPARE my_query", TEST_SESSION);
-            fail("expected exception");
-        }
-        catch (PrestoException e) {
-            assertEquals(e.getErrorCode(), NOT_FOUND.toErrorCode());
-            assertEquals(e.getMessage(), "Prepared statement not found: my_query");
-        }
+        assertPrestoExceptionThrownBy(() -> executeDeallocate("my_query", "DEALLOCATE PREPARE my_query", TEST_SESSION))
+                .hasErrorCode(NOT_FOUND)
+                .hasMessage("Prepared statement not found: my_query");
     }
 
     private Set<String> executeDeallocate(String statementName, String sqlString, Session session)

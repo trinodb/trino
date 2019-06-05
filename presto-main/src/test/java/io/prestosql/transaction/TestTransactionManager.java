@@ -26,7 +26,6 @@ import io.prestosql.metadata.InternalNodeManager;
 import io.prestosql.metadata.MetadataManager;
 import io.prestosql.plugin.tpch.TpchConnectorFactory;
 import io.prestosql.security.AllowAllAccessControl;
-import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.Connector;
 import io.prestosql.spi.connector.ConnectorMetadata;
 import io.prestosql.testing.TestingConnectorContext;
@@ -44,12 +43,12 @@ import static io.prestosql.SessionTestUtils.TEST_SESSION;
 import static io.prestosql.connector.CatalogName.createInformationSchemaCatalogName;
 import static io.prestosql.connector.CatalogName.createSystemTablesCatalogName;
 import static io.prestosql.spi.StandardErrorCode.TRANSACTION_ALREADY_ABORTED;
+import static io.prestosql.testing.assertions.PrestoExceptionAssert.assertPrestoExceptionThrownBy;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
 
 public class TestTransactionManager
 {
@@ -152,13 +151,9 @@ public class TestTransactionManager
             transactionManager.fail(transactionId);
             assertEquals(transactionManager.getAllTransactionInfos().size(), 1);
 
-            try {
-                transactionManager.getCatalogMetadata(transactionId, CATALOG_NAME);
-                fail();
-            }
-            catch (PrestoException e) {
-                assertEquals(e.getErrorCode(), TRANSACTION_ALREADY_ABORTED.toErrorCode());
-            }
+            assertPrestoExceptionThrownBy(() -> transactionManager.getCatalogMetadata(transactionId, CATALOG_NAME))
+                    .hasErrorCode(TRANSACTION_ALREADY_ABORTED);
+
             assertEquals(transactionManager.getAllTransactionInfos().size(), 1);
 
             getFutureValue(transactionManager.asyncAbort(transactionId));

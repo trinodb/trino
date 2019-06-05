@@ -22,8 +22,6 @@ import io.prestosql.metadata.SqlFunction;
 import io.prestosql.metadata.SqlScalarFunction;
 import io.prestosql.spi.ErrorCodeSupplier;
 import io.prestosql.spi.Plugin;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.StandardErrorCode;
 import io.prestosql.spi.function.OperatorType;
 import io.prestosql.spi.type.DecimalParseResult;
 import io.prestosql.spi.type.Decimals;
@@ -46,9 +44,9 @@ import static io.prestosql.metadata.FunctionRegistry.mangleOperatorName;
 import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.type.DecimalType.createDecimalType;
+import static io.prestosql.testing.assertions.PrestoExceptionAssert.assertPrestoExceptionThrownBy;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
-import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 
 public abstract class AbstractTestFunctions
@@ -116,14 +114,14 @@ public abstract class AbstractTestFunctions
         functionAssertions.assertInvalidFunction(projection);
     }
 
-    protected void assertInvalidFunction(String projection, StandardErrorCode errorCode, String messagePattern)
+    protected void assertInvalidFunction(String projection, ErrorCodeSupplier errorCode, String message)
     {
-        functionAssertions.assertInvalidFunction(projection, errorCode, messagePattern);
+        functionAssertions.assertInvalidFunction(projection, errorCode, message);
     }
 
-    protected void assertInvalidFunction(String projection, String messagePattern)
+    protected void assertInvalidFunction(String projection, String message)
     {
-        functionAssertions.assertInvalidFunction(projection, INVALID_FUNCTION_ARGUMENT, messagePattern);
+        functionAssertions.assertInvalidFunction(projection, INVALID_FUNCTION_ARGUMENT, message);
     }
 
     protected void assertInvalidFunction(String projection, SemanticErrorCode expectedErrorCode)
@@ -163,20 +161,9 @@ public abstract class AbstractTestFunctions
 
     protected void assertNotSupported(String projection, String message)
     {
-        try {
-            functionAssertions.executeProjectionWithFullEngine(projection);
-            fail("expected exception");
-        }
-        catch (PrestoException e) {
-            try {
-                assertEquals(e.getErrorCode(), NOT_SUPPORTED.toErrorCode());
-                assertEquals(e.getMessage(), message);
-            }
-            catch (Throwable failure) {
-                failure.addSuppressed(e);
-                throw failure;
-            }
-        }
+        assertPrestoExceptionThrownBy(() -> functionAssertions.executeProjectionWithFullEngine(projection))
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage(message);
     }
 
     protected void tryEvaluateWithAll(String projection, Type expectedType)

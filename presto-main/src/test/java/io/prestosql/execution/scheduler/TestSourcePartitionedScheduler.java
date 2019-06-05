@@ -33,7 +33,6 @@ import io.prestosql.failuredetector.NoOpFailureDetector;
 import io.prestosql.metadata.InMemoryNodeManager;
 import io.prestosql.metadata.InternalNode;
 import io.prestosql.metadata.InternalNodeManager;
-import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.QueryId;
 import io.prestosql.spi.connector.ConnectorPartitionHandle;
 import io.prestosql.spi.connector.ConnectorSplit;
@@ -82,6 +81,7 @@ import static io.prestosql.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUT
 import static io.prestosql.sql.planner.plan.ExchangeNode.Type.GATHER;
 import static io.prestosql.sql.planner.plan.JoinNode.Type.INNER;
 import static io.prestosql.testing.TestingHandles.TEST_TABLE_HANDLE;
+import static io.prestosql.testing.assertions.PrestoExceptionAssert.assertPrestoExceptionThrownBy;
 import static java.lang.Integer.min;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -89,7 +89,6 @@ import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
 
 public class TestSourcePartitionedScheduler
 {
@@ -303,7 +302,7 @@ public class TestSourcePartitionedScheduler
     @Test
     public void testNoNodes()
     {
-        try {
+        assertPrestoExceptionThrownBy(() -> {
             NodeTaskMap nodeTaskMap = new NodeTaskMap(finalizerService);
             InMemoryNodeManager nodeManager = new InMemoryNodeManager();
             NodeScheduler nodeScheduler = new NodeScheduler(new LegacyNetworkTopology(), nodeManager, new NodeSchedulerConfig().setIncludeCoordinator(false), nodeTaskMap);
@@ -318,12 +317,7 @@ public class TestSourcePartitionedScheduler
                     new DynamicSplitPlacementPolicy(nodeScheduler.createNodeSelector(CONNECTOR_ID), stage::getAllTasks),
                     2);
             scheduler.schedule();
-
-            fail("expected PrestoException");
-        }
-        catch (PrestoException e) {
-            assertEquals(e.getErrorCode(), NO_NODES_AVAILABLE.toErrorCode());
-        }
+        }).hasErrorCode(NO_NODES_AVAILABLE);
     }
 
     @Test
