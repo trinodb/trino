@@ -1020,6 +1020,9 @@ public class OrcTester
         Properties orderTableProperties = new Properties();
         orderTableProperties.setProperty("columns", name);
         orderTableProperties.setProperty("columns.types", type);
+        orderTableProperties.setProperty("orc.bloom.filter.columns", name);
+        orderTableProperties.setProperty("orc.bloom.filter.fpp", "0.50");
+        orderTableProperties.setProperty("orc.bloom.filter.write.version", "original");
         return orderTableProperties;
     }
 
