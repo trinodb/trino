@@ -229,8 +229,8 @@ public final class SortedRangeSet
 
         Builder builder = new Builder(type);
 
-        Iterator<Range> iterator1 = getOrderedRanges().iterator();
-        Iterator<Range> iterator2 = otherRangeSet.getOrderedRanges().iterator();
+        Iterator<Range> iterator1 = lowIndexedRanges.values().iterator();
+        Iterator<Range> iterator2 = otherRangeSet.lowIndexedRanges.values().iterator();
 
         if (iterator1.hasNext() && iterator2.hasNext()) {
             Range range1 = iterator1.next();
@@ -264,8 +264,8 @@ public final class SortedRangeSet
     {
         SortedRangeSet otherRangeSet = checkCompatibility(other);
         return new Builder(type)
-                .addAll(this.getOrderedRanges())
-                .addAll(otherRangeSet.getOrderedRanges())
+                .addAll(this.lowIndexedRanges.values())
+                .addAll(otherRangeSet.lowIndexedRanges.values())
                 .build();
     }
 
@@ -273,9 +273,9 @@ public final class SortedRangeSet
     public SortedRangeSet union(Collection<ValueSet> valueSets)
     {
         Builder builder = new Builder(type);
-        builder.addAll(this.getOrderedRanges());
+        builder.addAll(this.lowIndexedRanges.values());
         for (ValueSet valueSet : valueSets) {
-            builder.addAll(checkCompatibility(valueSet).getOrderedRanges());
+            builder.addAll(checkCompatibility(valueSet).lowIndexedRanges.values());
         }
         return builder.build();
     }
