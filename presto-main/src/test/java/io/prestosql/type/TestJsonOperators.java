@@ -16,7 +16,6 @@ package io.prestosql.type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.operator.scalar.AbstractTestFunctions;
-import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.Type;
@@ -39,13 +38,13 @@ import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.testing.DateTimeTestingUtils.sqlTimestampOf;
+import static io.prestosql.testing.assertions.PrestoExceptionAssert.assertPrestoExceptionThrownBy;
 import static io.prestosql.type.JsonType.JSON;
 import static io.prestosql.util.StructuralTestUtil.mapType;
 import static java.lang.Double.NEGATIVE_INFINITY;
 import static java.lang.Double.POSITIVE_INFINITY;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.fail;
 
 public class TestJsonOperators
         extends AbstractTestFunctions
@@ -472,13 +471,8 @@ public class TestJsonOperators
                 "SELECT CAST(JSON_PARSE(col) AS " + castSqlType + ") " +
                 "FROM (VALUES('" + json + "')) AS t(col)";
 
-        try {
-            runner.execute(query);
-            fail("Expected to throw an INVALID_CAST_ARGUMENT exception");
-        }
-        catch (PrestoException e) {
-            assertEquals(e.getErrorCode(), INVALID_CAST_ARGUMENT.toErrorCode());
-            assertEquals(e.getMessage(), message);
-        }
+        assertPrestoExceptionThrownBy(() -> runner.execute(query))
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage(message);
     }
 }

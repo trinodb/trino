@@ -15,7 +15,6 @@ package io.prestosql.sql.planner;
 
 import com.google.common.base.Joiner;
 import io.prestosql.spi.ErrorCodeSupplier;
-import io.prestosql.spi.PrestoException;
 import io.prestosql.testing.LocalQueryRunner;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;
@@ -25,9 +24,8 @@ import org.testng.annotations.Test;
 import static io.airlift.testing.Closeables.closeAllRuntimeException;
 import static io.prestosql.SessionTestUtils.TEST_SESSION;
 import static io.prestosql.spi.StandardErrorCode.COMPILER_ERROR;
+import static io.prestosql.testing.assertions.PrestoExceptionAssert.assertPrestoExceptionThrownBy;
 import static java.util.Collections.nCopies;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.fail;
 
 public class TestLocalExecutionPlanner
 {
@@ -57,12 +55,7 @@ public class TestLocalExecutionPlanner
 
     private void assertFails(@Language("SQL") String sql, ErrorCodeSupplier supplier)
     {
-        try {
-            runner.execute(sql);
-            fail("expected exception");
-        }
-        catch (PrestoException e) {
-            assertEquals(e.getErrorCode(), supplier.toErrorCode());
-        }
+        assertPrestoExceptionThrownBy(() -> runner.execute(sql))
+                .hasErrorCode(supplier);
     }
 }

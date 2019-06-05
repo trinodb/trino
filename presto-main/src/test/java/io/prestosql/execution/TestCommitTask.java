@@ -14,14 +14,12 @@
  */
 package io.prestosql.execution;
 
-import io.prestosql.NotInTransactionException;
 import io.prestosql.Session;
 import io.prestosql.Session.SessionBuilder;
 import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.metadata.MetadataManager;
 import io.prestosql.security.AccessControlManager;
 import io.prestosql.security.AllowAllAccessControl;
-import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.resourcegroups.ResourceGroupId;
 import io.prestosql.sql.tree.Commit;
 import io.prestosql.transaction.TransactionId;
@@ -32,6 +30,7 @@ import org.testng.annotations.Test;
 import java.net.URI;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
 
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
@@ -39,13 +38,13 @@ import static io.prestosql.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.prestosql.spi.StandardErrorCode.NOT_IN_TRANSACTION;
 import static io.prestosql.spi.StandardErrorCode.UNKNOWN_TRANSACTION;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
+import static io.prestosql.testing.assertions.PrestoExceptionAssert.assertPrestoExceptionThrownBy;
 import static io.prestosql.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static java.util.Collections.emptyList;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
 
 public class TestCommitTask
 {
@@ -86,13 +85,10 @@ public class TestCommitTask
                 .build();
         QueryStateMachine stateMachine = createQueryStateMachine("COMMIT", session, transactionManager);
 
-        try {
-            getFutureValue(new CommitTask().execute(new Commit(), transactionManager, metadata, new AllowAllAccessControl(), stateMachine, emptyList()));
-            fail();
-        }
-        catch (PrestoException e) {
-            assertEquals(e.getErrorCode(), NOT_IN_TRANSACTION.toErrorCode());
-        }
+        assertPrestoExceptionThrownBy(
+                () -> getFutureValue(new CommitTask().execute(new Commit(), transactionManager, metadata, new AllowAllAccessControl(), stateMachine, emptyList())))
+                .hasErrorCode(NOT_IN_TRANSACTION);
+
         assertFalse(stateMachine.getQueryInfo(Optional.empty()).isClearTransactionId());
         assertFalse(stateMachine.getQueryInfo(Optional.empty()).getStartedTransactionId().isPresent());
 
@@ -109,13 +105,10 @@ public class TestCommitTask
                 .build();
         QueryStateMachine stateMachine = createQueryStateMachine("COMMIT", session, transactionManager);
 
-        try {
-            getFutureValue(new CommitTask().execute(new Commit(), transactionManager, metadata, new AllowAllAccessControl(), stateMachine, emptyList()));
-            fail();
-        }
-        catch (NotInTransactionException e) {
-            assertEquals(e.getErrorCode(), UNKNOWN_TRANSACTION.toErrorCode());
-        }
+        Future<?> future = new CommitTask().execute(new Commit(), transactionManager, metadata, new AllowAllAccessControl(), stateMachine, emptyList());
+        assertPrestoExceptionThrownBy(() -> getFutureValue(future))
+                .hasErrorCode(UNKNOWN_TRANSACTION);
+
         assertTrue(stateMachine.getQueryInfo(Optional.empty()).isClearTransactionId()); // Still issue clear signal
         assertFalse(stateMachine.getQueryInfo(Optional.empty()).getStartedTransactionId().isPresent());
 
