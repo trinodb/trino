@@ -16,23 +16,21 @@ package io.prestosql.plugin.hive.util;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.airlift.concurrent.Threads;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
-import static io.airlift.testing.Assertions.assertContains;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static java.util.concurrent.Executors.newCachedThreadPool;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
 
 public class TestThrottledAsyncQueue
 {
@@ -41,7 +39,7 @@ public class TestThrottledAsyncQueue
     @BeforeClass
     public void setUpClass()
     {
-        executor = Executors.newFixedThreadPool(8, Threads.daemonThreadsNamed("test-async-queue-%s"));
+        executor = newCachedThreadPool(daemonThreadsNamed("test-async-queue-%s"));
     }
 
     @AfterClass(alwaysRun = true)
@@ -87,7 +85,8 @@ public class TestThrottledAsyncQueue
     public void testThrottleEmptyQueue()
             throws Exception
     {
-        // Make sure that the de-queuing is throttled even if we have enough elements in the queue
+        // Make sure that dequeuing is throttled if we dequeued enough elements before, even if it is empty.
+        // The future should only complete once the queue becomes non-empty again.
 
         ThrottledAsyncQueue<Integer> queue = new ThrottledAsyncQueue<>(2, 10, executor);
         assertTrue(queue.offer(1).isDone());
@@ -140,13 +139,9 @@ public class TestThrottledAsyncQueue
             }));
         };
 
-        try {
-            executor.submit(runnable).get();
-            fail("expected failure");
-        }
-        catch (ExecutionException e) {
-            assertContains(e.getMessage(), "test fail");
-        }
+        assertThatThrownBy(() -> executor.submit(runnable).get())
+                .isInstanceOf(ExecutionException.class)
+                .hasMessageContaining("test fail");
 
         ListenableFuture<?> future2 = queue.offer(7);
         assertFalse(future1.isDone());
@@ -156,20 +151,15 @@ public class TestThrottledAsyncQueue
         future2.get();
         assertTrue(queue.offer(8).isDone());
 
-        try {
-            executor.submit(runnable).get();
-            fail("expected failure");
-        }
-        catch (ExecutionException e) {
-            assertContains(e.getMessage(), "test fail");
-        }
+        assertThatThrownBy(() -> executor.submit(runnable).get())
+                .isInstanceOf(ExecutionException.class)
+                .hasMessageContaining("test fail");
 
         assertTrue(queue.offer(9).isDone());
 
         assertFalse(queue.isFinished());
-        ArrayList<Integer> list = new ArrayList<>(queue.getBatchAsync(100).get());
         // 1 and 2 were removed by borrow call; 8 and 9 were never inserted because insertion happened after finish.
-        assertEquals(list, ImmutableList.of(3, 4, 5, 6, 7));
+        assertEquals(queue.getBatchAsync(100).get(), ImmutableList.of(3, 4, 5, 6, 7));
         assertTrue(queue.isFinished());
     }
 

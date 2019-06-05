@@ -27,10 +27,10 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 
 /**
- * An asynchronous queue that limits the rate at which batches will be made available as well as the number
- * of elements they will contain.
+ * An asynchronous queue that limits the rate at which batches will be
+ * made available as well as the number of elements they will contain.
  *
- * @param <T>           The type of elements accepted by the queue.
+ * @param <T> The type of elements accepted by the queue.
  */
 @ThreadSafe
 public class ThrottledAsyncQueue<T>
@@ -62,14 +62,14 @@ public class ThrottledAsyncQueue<T>
             }
         }
         else if (!isFinished()) {
-            // the queue is not empty, wait before we can query a batch
-            throttleFuture = notEmptySignal;
+            // the queue is empty but not finished, wait before we can query a batch
+            throttleFuture = getNotEmptySignal();
         }
 
         return Futures.transformAsync(
                 throttleFuture,
                 any -> {
-                    final int size = maxBatchSize(maxSize);
+                    int size = maxBatchSize(maxSize);
                     if (size > 0) {
                         rateLimiter.acquire(size);
                     }

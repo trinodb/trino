@@ -45,7 +45,7 @@ public class AsyncQueue<T>
     private SettableFuture<?> notFullSignal = SettableFuture.create();
     // This future is completed when the queue transitions from empty to not. But it will be replaced by a new instance of future immediately.
     @GuardedBy("this")
-    protected SettableFuture<?> notEmptySignal = SettableFuture.create();
+    private SettableFuture<?> notEmptySignal = SettableFuture.create();
     @GuardedBy("this")
     private boolean finishing;
     @GuardedBy("this")
@@ -140,6 +140,11 @@ public class AsyncQueue<T>
     public synchronized ListenableFuture<List<T>> getBatchAsync(int maxSize)
     {
         return borrowBatchAsync(maxSize, elements -> new BorrowResult<>(ImmutableList.of(), elements));
+    }
+
+    protected synchronized SettableFuture<?> getNotEmptySignal()
+    {
+        return notEmptySignal;
     }
 
     /**
