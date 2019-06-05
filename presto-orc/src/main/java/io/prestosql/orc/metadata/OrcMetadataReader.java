@@ -16,6 +16,7 @@ package io.prestosql.orc.metadata;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.primitives.Longs;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
@@ -41,6 +42,7 @@ import io.prestosql.orc.protobuf.CodedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.math.BigDecimal;
+import java.nio.ByteOrder;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -212,7 +214,15 @@ public class OrcMetadataReader
         List<OrcProto.BloomFilter> bloomFilterList = bloomFilter.getBloomFilterList();
         ImmutableList.Builder<BloomFilter> builder = ImmutableList.builder();
         for (OrcProto.BloomFilter orcBloomFilter : bloomFilterList) {
-            builder.add(new BloomFilter(orcBloomFilter.getBitsetList(), orcBloomFilter.getNumHashFunctions()));
+            if (orcBloomFilter.hasUtf8Bitset()) {
+                ByteString utf8Bitset = orcBloomFilter.getUtf8Bitset();
+                long[] bits = new long[utf8Bitset.size() / 8];
+                utf8Bitset.asReadOnlyByteBuffer().order(ByteOrder.LITTLE_ENDIAN).asLongBuffer().get(bits);
+                builder.add(new BloomFilter(bits, orcBloomFilter.getNumHashFunctions()));
+            }
+            else {
+                builder.add(new BloomFilter(Longs.toArray(orcBloomFilter.getBitsetList()), orcBloomFilter.getNumHashFunctions()));
+            }
         }
         return builder.build();
     }
