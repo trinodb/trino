@@ -234,6 +234,10 @@ public class StripeReader
             // non-utf8 bloom filters are not allowed for character types
             return orcTypeKind != OrcTypeKind.STRING && orcTypeKind != OrcTypeKind.VARCHAR && orcTypeKind != OrcTypeKind.CHAR;
         }
+        if (stream.getStreamKind() == BLOOM_FILTER_UTF8) {
+            // char types require padding for bloom filters, which is not supported
+            return orcTypeKind != OrcTypeKind.CHAR;
+        }
         return true;
     }
 
@@ -382,16 +386,22 @@ public class StripeReader
     private Map<Integer, List<BloomFilter>> readBloomFilterIndexes(Map<StreamId, Stream> streams, Map<StreamId, OrcChunkLoader> streamsData)
             throws IOException
     {
-        ImmutableMap.Builder<Integer, List<BloomFilter>> bloomFilters = ImmutableMap.builder();
+        HashMap<Integer, List<BloomFilter>> bloomFilters = new HashMap<>();
         for (Entry<StreamId, Stream> entry : streams.entrySet()) {
             Stream stream = entry.getValue();
-            if (stream.getStreamKind() == BLOOM_FILTER) {
+            if (stream.getStreamKind() == BLOOM_FILTER_UTF8) {
+                OrcInputStream inputStream = new OrcInputStream(streamsData.get(entry.getKey()));
+                bloomFilters.put(stream.getColumn(), metadataReader.readBloomFilterIndexes(inputStream));
+            }
+        }
+        for (Entry<StreamId, Stream> entry : streams.entrySet()) {
+            Stream stream = entry.getValue();
+            if (stream.getStreamKind() == BLOOM_FILTER && !bloomFilters.containsKey(stream.getColumn())) {
                 OrcInputStream inputStream = new OrcInputStream(streamsData.get(entry.getKey()));
                 bloomFilters.put(entry.getKey().getColumn(), metadataReader.readBloomFilterIndexes(inputStream));
             }
-            // TODO: add support for BLOOM_FILTER_UTF8
         }
-        return bloomFilters.build();
+        return ImmutableMap.copyOf(bloomFilters);
     }
 
     private Map<StreamId, List<RowGroupIndex>> readColumnIndexes(Map<StreamId, Stream> streams, Map<StreamId, OrcChunkLoader> streamsData, Map<Integer, List<BloomFilter>> bloomFilterIndexes)

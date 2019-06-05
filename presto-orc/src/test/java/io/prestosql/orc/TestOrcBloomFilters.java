@@ -92,7 +92,7 @@ public class TestOrcBloomFilters
         assertFalse(bloomFilter.testLong(TEST_INTEGER + 1));
 
         // Re-construct
-        BloomFilter newBloomFilter = new BloomFilter(Longs.asList(bloomFilter.getBitSet()), bloomFilter.getNumHashFunctions());
+        BloomFilter newBloomFilter = new BloomFilter(bloomFilter.getBitSet(), bloomFilter.getNumHashFunctions());
 
         // String
         assertTrue(newBloomFilter.test(TEST_STRING));
@@ -327,7 +327,7 @@ public class TestOrcBloomFilters
 
     private static BloomFilter toBloomFilter(OrcProto.BloomFilter orcBloomFilter)
     {
-        return new BloomFilter(orcBloomFilter.getBitsetList(), orcBloomFilter.getNumHashFunctions());
+        return new BloomFilter(Longs.toArray(orcBloomFilter.getBitsetList()), orcBloomFilter.getNumHashFunctions());
     }
 
     @Test
