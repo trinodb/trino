@@ -32,6 +32,7 @@ public final class BlackHoleTableHandle
     private final String tableName;
     private final List<BlackHoleColumnHandle> columnHandles;
     private final int splitCount;
+    private boolean closeSplitSource;
     private final int pagesPerSplit;
     private final int rowsPerPage;
     private final int fieldsLength;
@@ -40,6 +41,7 @@ public final class BlackHoleTableHandle
     public BlackHoleTableHandle(
             ConnectorTableMetadata tableMetadata,
             int splitCount,
+            boolean closeSplitSource,
             int pagesPerSplit,
             int rowsPerPage,
             int fieldsLength,
@@ -51,6 +53,7 @@ public final class BlackHoleTableHandle
                         .map(BlackHoleColumnHandle::new)
                         .collect(toList()),
                 splitCount,
+                closeSplitSource,
                 pagesPerSplit,
                 rowsPerPage,
                 fieldsLength,
@@ -63,6 +66,7 @@ public final class BlackHoleTableHandle
             @JsonProperty("tableName") String tableName,
             @JsonProperty("columnHandles") List<BlackHoleColumnHandle> columnHandles,
             @JsonProperty("splitCount") int splitCount,
+            @JsonProperty("closeSplitSource") boolean closeSplitSource,
             @JsonProperty("pagesPerSplit") int pagesPerSplit,
             @JsonProperty("rowsPerPage") int rowsPerPage,
             @JsonProperty("fieldsLength") int fieldsLength,
@@ -72,6 +76,7 @@ public final class BlackHoleTableHandle
         this.tableName = tableName;
         this.columnHandles = columnHandles;
         this.splitCount = splitCount;
+        this.closeSplitSource = closeSplitSource;
         this.pagesPerSplit = pagesPerSplit;
         this.rowsPerPage = rowsPerPage;
         this.fieldsLength = fieldsLength;
@@ -100,6 +105,12 @@ public final class BlackHoleTableHandle
     public int getSplitCount()
     {
         return splitCount;
+    }
+
+    @JsonProperty
+    public boolean isCloseSplitSource()
+    {
+        return closeSplitSource;
     }
 
     @JsonProperty

@@ -30,6 +30,7 @@ import io.prestosql.spi.type.TypeSignatureParameter;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 
+import static io.prestosql.spi.session.PropertyMetadata.booleanProperty;
 import static io.prestosql.spi.session.PropertyMetadata.durationProperty;
 import static io.prestosql.spi.session.PropertyMetadata.integerProperty;
 import static io.prestosql.spi.type.StandardTypes.ARRAY;
@@ -42,6 +43,7 @@ public class BlackHoleConnector
         implements Connector
 {
     public static final String SPLIT_COUNT_PROPERTY = "split_count";
+    public static final String CLOSE_SPLIT_SOURCE = "close_split_source";
     public static final String PAGES_PER_SPLIT_PROPERTY = "pages_per_split";
     public static final String ROWS_PER_PAGE_PROPERTY = "rows_per_page";
     public static final String FIELD_LENGTH_PROPERTY = "field_length";
@@ -150,6 +152,11 @@ public class BlackHoleConnector
                         PAGE_PROCESSING_DELAY,
                         "Sleep duration before processing each page",
                         new Duration(0, SECONDS),
+                        false),
+                booleanProperty(
+                        CLOSE_SPLIT_SOURCE,
+                        "Should close split source",
+                        true,
                         false));
     }
 

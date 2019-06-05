@@ -48,6 +48,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
+import static io.prestosql.plugin.blackhole.BlackHoleConnector.CLOSE_SPLIT_SOURCE;
 import static io.prestosql.plugin.blackhole.BlackHoleConnector.DISTRIBUTED_ON;
 import static io.prestosql.plugin.blackhole.BlackHoleConnector.FIELD_LENGTH_PROPERTY;
 import static io.prestosql.plugin.blackhole.BlackHoleConnector.PAGES_PER_SPLIT_PROPERTY;
@@ -173,6 +174,7 @@ public class BlackHoleMetadata
                 newTableName.getTableName(),
                 oldTableHandle.getColumnHandles(),
                 oldTableHandle.getSplitCount(),
+                oldTableHandle.isCloseSplitSource(),
                 oldTableHandle.getPagesPerSplit(),
                 oldTableHandle.getRowsPerPage(),
                 oldTableHandle.getFieldsLength(),
@@ -213,6 +215,7 @@ public class BlackHoleMetadata
     {
         checkSchemaExists(tableMetadata.getTable().getSchemaName());
         int splitCount = (Integer) tableMetadata.getProperties().get(SPLIT_COUNT_PROPERTY);
+        boolean closeSplitSource = (boolean) tableMetadata.getProperties().get(CLOSE_SPLIT_SOURCE);
         int pagesPerSplit = (Integer) tableMetadata.getProperties().get(PAGES_PER_SPLIT_PROPERTY);
         int rowsPerPage = (Integer) tableMetadata.getProperties().get(ROWS_PER_PAGE_PROPERTY);
         int fieldsLength = (Integer) tableMetadata.getProperties().get(FIELD_LENGTH_PROPERTY);
@@ -238,6 +241,7 @@ public class BlackHoleMetadata
         BlackHoleTableHandle handle = new BlackHoleTableHandle(
                 tableMetadata,
                 splitCount,
+                closeSplitSource,
                 pagesPerSplit,
                 rowsPerPage,
                 fieldsLength,

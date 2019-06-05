@@ -13,14 +13,26 @@
  */
 package io.prestosql.plugin.blackhole;
 
+import io.prestosql.spi.connector.ConnectorPartitionHandle;
 import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.connector.ConnectorSplit;
 import io.prestosql.spi.connector.ConnectorSplitManager;
 import io.prestosql.spi.connector.ConnectorSplitSource;
 import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 import io.prestosql.spi.connector.FixedSplitSource;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicBoolean;
+
+import static com.google.common.base.Preconditions.checkArgument;
+import static io.prestosql.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static java.util.Collections.nCopies;
+import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.CompletableFuture.completedFuture;
 
 public final class BlackHoleSplitManager
         implements ConnectorSplitManager
@@ -29,10 +41,58 @@ public final class BlackHoleSplitManager
     public ConnectorSplitSource getSplits(
             ConnectorTransactionHandle transaction,
             ConnectorSession session,
-            ConnectorTableHandle table,
+            ConnectorTableHandle connectorTableHandle,
             SplitSchedulingStrategy splitSchedulingStrategy)
     {
-        int splitCount = ((BlackHoleTableHandle) table).getSplitCount();
-        return new FixedSplitSource(nCopies(splitCount, BlackHoleSplit.INSTANCE));
+        BlackHoleTableHandle tableHandle = (BlackHoleTableHandle) connectorTableHandle;
+        int splitCount = tableHandle.getSplitCount();
+        List<BlackHoleSplit> splits = nCopies(splitCount, BlackHoleSplit.INSTANCE);
+        if (tableHandle.isCloseSplitSource()) {
+            return new FixedSplitSource(splits);
+        }
+        return new NeverEndingSplitSource(splits);
+    }
+
+    public class NeverEndingSplitSource
+            implements ConnectorSplitSource
+    {
+        private final AtomicBoolean closed = new AtomicBoolean(false);
+        private final List<ConnectorSplit> splits;
+        private int offset;
+
+        public NeverEndingSplitSource(Iterable<? extends ConnectorSplit> splits)
+        {
+            requireNonNull(splits, "splits is null");
+            List<ConnectorSplit> splitsList = new ArrayList<>();
+            for (ConnectorSplit split : splits) {
+                splitsList.add(split);
+            }
+            this.splits = Collections.unmodifiableList(splitsList);
+        }
+
+        @SuppressWarnings("ObjectEquality")
+        @Override
+        public CompletableFuture<ConnectorSplitBatch> getNextBatch(ConnectorPartitionHandle partitionHandle, int maxSize)
+        {
+            checkArgument(partitionHandle.equals(NOT_PARTITIONED), "partitionHandle must be NOT_PARTITIONED");
+
+            int remainingSplits = splits.size() - offset;
+            int size = Math.min(remainingSplits, maxSize);
+            List<ConnectorSplit> results = splits.subList(offset, offset + size);
+            offset += size;
+            return completedFuture(new ConnectorSplitBatch(results, offset >= size));
+        }
+
+        @Override
+        public boolean isFinished()
+        {
+            return offset >= splits.size() && closed.get();
+        }
+
+        @Override
+        public void close()
+        {
+            closed.set(true);
+        }
     }
 }
