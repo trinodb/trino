@@ -726,7 +726,7 @@ public class PlanBuilder
 
     public UnionNode union(ListMultimap<Symbol, Symbol> outputsToInputs, List<PlanNode> sources)
     {
-        ImmutableList<Symbol> outputs = outputsToInputs.keySet().stream().collect(toImmutableList());
+        List<Symbol> outputs = ImmutableList.copyOf(outputsToInputs.keySet());
         return new UnionNode(idAllocator.getNextId(), sources, outputsToInputs, outputs);
     }
 
