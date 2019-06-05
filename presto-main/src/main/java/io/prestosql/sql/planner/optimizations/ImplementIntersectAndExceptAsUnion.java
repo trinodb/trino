@@ -66,41 +66,58 @@ import static java.util.stream.Collectors.toList;
 
 /**
  * Converts INTERSECT and EXCEPT queries into UNION ALL..GROUP BY...WHERE
- * Eg:  SELECT a FROM foo INTERSECT SELECT x FROM bar
- * <p/>
+ * E.g.:
+ * <pre>
+ *     SELECT a FROM foo
+ *     INTERSECT
+ *     SELECT x FROM bar
+ * </pre>
  * =>
- * <p/>
- * SELECT a
- * FROM
- * (SELECT a,
- * COUNT(foo_marker) AS foo_cnt,
- * COUNT(bar_marker) AS bar_cnt
- * FROM
- * (
- * SELECT a, true as foo_marker, null as bar_marker FROM foo
- * UNION ALL
- * SELECT x, null as foo_marker, true as bar_marker FROM bar
- * ) T1
- * GROUP BY a) T2
- * WHERE foo_cnt >= 1 AND bar_cnt >= 1;
- * <p>
- * Eg:  SELECT a FROM foo EXCEPT SELECT x FROM bar
- * <p/>
+ * <pre>
+ *     SELECT a
+ *     FROM
+ *     (
+ *         SELECT a,
+ *         COUNT(foo_marker) AS foo_count,
+ *         COUNT(bar_marker) AS bar_count
+ *         FROM
+ *         (
+ *             SELECT a, true as foo_marker, null as bar_marker
+ *             FROM foo
+ *             UNION ALL
+ *             SELECT x, null as foo_marker, true as bar_marker
+ *             FROM bar
+ *         ) T1
+ *     GROUP BY a
+ *     ) T2
+ *     WHERE foo_count >= 1 AND bar_count >= 1;
+ * </pre>
+ * E.g.:
+ * <pre>
+ *     SELECT a FROM foo
+ *     EXCEPT
+ *     SELECT x FROM bar
+ * </pre>
  * =>
- * <p/>
- * SELECT a
- * FROM
- * (SELECT a,
- * COUNT(foo_marker) AS foo_cnt,
- * COUNT(bar_marker) AS bar_cnt
- * FROM
- * (
- * SELECT a, true as foo_marker, null as bar_marker FROM foo
- * UNION ALL
- * SELECT x, null as foo_marker, true as bar_marker FROM bar
- * ) T1
- * GROUP BY a) T2
- * WHERE foo_cnt >= 1 AND bar_cnt = 0;
+ * <pre>
+ *     SELECT a
+ *     FROM
+ *     (
+ *         SELECT a,
+ *         COUNT(foo_marker) AS foo_count,
+ *         COUNT(bar_marker) AS bar_count
+ *         FROM
+ *         (
+ *             SELECT a, true as foo_marker, null as bar_marker
+ *             FROM foo
+ *             UNION ALL
+ *             SELECT x, null as foo_marker, true as bar_marker
+ *             FROM bar
+ *         ) T1
+ *     GROUP BY a
+ *     ) T2
+ *     WHERE foo_count >= 1 AND bar_count = 0;
+ * </pre>
  */
 public class ImplementIntersectAndExceptAsUnion
         implements PlanOptimizer
