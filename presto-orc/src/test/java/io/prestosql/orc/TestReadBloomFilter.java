@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import io.prestosql.orc.TupleDomainOrcPredicate.ColumnReference;
 import io.prestosql.spi.predicate.NullableValue;
+import io.prestosql.spi.type.SqlDate;
 import io.prestosql.spi.type.SqlVarbinary;
 import io.prestosql.spi.type.Type;
 import org.testng.annotations.Test;
@@ -40,6 +41,7 @@ import static io.prestosql.orc.OrcTester.writeOrcColumnHive;
 import static io.prestosql.orc.metadata.CompressionKind.LZ4;
 import static io.prestosql.spi.predicate.TupleDomain.fromFixedValues;
 import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
@@ -59,6 +61,8 @@ public class TestReadBloomFilter
         testType(SMALLINT, ImmutableList.of(1L, 5000L, 10_000L), 5000L, 7777L);
         testType(INTEGER, ImmutableList.of(1L, 500_000L, 1_000_000L), 500_000L, 777_777L);
         testType(BIGINT, ImmutableList.of(1L, 500_000L, 1_000_000L), 500_000L, 777_777L);
+
+        testType(DATE, ImmutableList.of(new SqlDate(1), new SqlDate(5_000), new SqlDate(10_000)), 5_000L, 7_777L);
 
         testType(DOUBLE, ImmutableList.of(1.11, 500_000.55, 1_000_000.99), 500_000.55, 777_777.77);
 

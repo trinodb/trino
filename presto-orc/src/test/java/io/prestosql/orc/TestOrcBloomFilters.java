@@ -38,7 +38,6 @@ import java.math.BigDecimal;
 import java.sql.Timestamp;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -52,6 +51,8 @@ import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
+import static io.prestosql.spi.type.SmallintType.SMALLINT;
+import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -73,6 +74,9 @@ public class TestOrcBloomFilters
             .put(wrappedBuffer(new byte[] {12, 34, 56}), VARBINARY)
             .put(4312L, BIGINT)
             .put(123, INTEGER)
+            .put(789, SMALLINT)
+            .put(77, TINYINT)
+            .put(901, DATE)
             .put(234.567, DOUBLE)
             .build();
 
@@ -223,9 +227,6 @@ public class TestOrcBloomFilters
             boolean matched = checkInBloomFilter(bloomFilter, testValue.getKey(), testValue.getValue());
             assertTrue(matched, "type " + testValue.getClass());
         }
-
-        // test unsupported type: can be supported by ORC but is not implemented yet
-        assertTrue(checkInBloomFilter(bloomFilter, new Date(), DATE), "unsupported type DATE should always return true");
     }
 
     @Test
@@ -237,9 +238,6 @@ public class TestOrcBloomFilters
             boolean matched = checkInBloomFilter(bloomFilter, testValue.getKey(), testValue.getValue());
             assertFalse(matched, "type " + testValue.getKey().getClass());
         }
-
-        // test unsupported type: can be supported by ORC but is not implemented yet
-        assertTrue(checkInBloomFilter(bloomFilter, new Date(), DATE), "unsupported type DATE should always return true");
     }
 
     @Test
@@ -248,6 +246,9 @@ public class TestOrcBloomFilters
         Map<Type, Object> testValues = ImmutableMap.<Type, Object>builder()
                 .put(BOOLEAN, true)
                 .put(INTEGER, 1234L)
+                .put(SMALLINT, 789L)
+                .put(TINYINT, 77L)
+                .put(DATE, 901L)
                 .put(BIGINT, 4321L)
                 .put(DOUBLE, 0.123)
                 .put(VARCHAR, wrappedBuffer(TEST_STRING))

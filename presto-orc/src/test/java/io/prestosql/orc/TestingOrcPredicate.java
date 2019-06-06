@@ -507,6 +507,15 @@ public final class TestingOrcPredicate
                     if (!statMax.equals(chunkMax)) {
                         return false;
                     }
+
+                    BloomFilter bloomFilter = columnStatistics.getBloomFilter();
+                    if (bloomFilter != null) {
+                        for (Long value : chunk) {
+                            if (value != null && !bloomFilter.testLong(value)) {
+                                return false;
+                            }
+                        }
+                    }
                 }
             }
 
