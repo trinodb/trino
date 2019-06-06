@@ -82,6 +82,7 @@ The following provides a good starting point for creating ``etc/jvm.config``:
     -XX:+UseGCOverheadLimit
     -XX:+HeapDumpOnOutOfMemoryError
     -XX:ReservedCodeCacheSize=512M
+    -Djdk.attach.allowAttachSelf=true
     -Djdk.nio.maxCachedBufferSize=2000000
 
 Because an ``OutOfMemoryError`` will typically leave the JVM in an
