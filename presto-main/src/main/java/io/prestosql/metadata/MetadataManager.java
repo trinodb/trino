@@ -229,67 +229,15 @@ public final class MetadataManager
     }
 
     @Override
-    public final void verifyComparableOrderableContract()
+    public Set<ConnectorCapabilities> getConnectorCapabilities(Session session, CatalogName catalogName)
     {
-        Multimap<Type, OperatorType> missingOperators = HashMultimap.create();
-        for (Type type : typeManager.getTypes()) {
-            if (type.isComparable()) {
-                if (!functions.canResolveOperator(HASH_CODE, BIGINT, ImmutableList.of(type))) {
-                    missingOperators.put(type, HASH_CODE);
-                }
-                if (!functions.canResolveOperator(EQUAL, BOOLEAN, ImmutableList.of(type, type))) {
-                    missingOperators.put(type, EQUAL);
-                }
-                if (!functions.canResolveOperator(NOT_EQUAL, BOOLEAN, ImmutableList.of(type, type))) {
-                    missingOperators.put(type, NOT_EQUAL);
-                }
-            }
-            if (type.isOrderable()) {
-                for (OperatorType operator : ImmutableList.of(LESS_THAN, LESS_THAN_OR_EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL)) {
-                    if (!functions.canResolveOperator(operator, BOOLEAN, ImmutableList.of(type, type))) {
-                        missingOperators.put(type, operator);
-                    }
-                }
-                if (!functions.canResolveOperator(BETWEEN, BOOLEAN, ImmutableList.of(type, type, type))) {
-                    missingOperators.put(type, BETWEEN);
-                }
-            }
-        }
-        // TODO: verify the parametric types too
-        if (!missingOperators.isEmpty()) {
-            List<String> messages = new ArrayList<>();
-            for (Type type : missingOperators.keySet()) {
-                messages.add(format("%s missing for %s", missingOperators.get(type), type));
-            }
-            throw new IllegalStateException(Joiner.on(", ").join(messages));
-        }
+        return getCatalogMetadata(session, catalogName).getConnectorCapabilities();
     }
 
     @Override
-    public Type getType(TypeSignature signature)
+    public boolean catalogExists(Session session, String catalogName)
     {
-        return typeManager.getType(signature);
-    }
-
-    @Override
-    public boolean isAggregationFunction(QualifiedName name)
-    {
-        // TODO: transactional when FunctionRegistry is made transactional
-        return functions.isAggregationFunction(name);
-    }
-
-    @Override
-    public List<SqlFunction> listFunctions()
-    {
-        // TODO: transactional when FunctionRegistry is made transactional
-        return functions.list();
-    }
-
-    @Override
-    public void addFunctions(List<? extends SqlFunction> functionInfos)
-    {
-        // TODO: transactional when FunctionRegistry is made transactional
-        functions.addFunctions(functionInfos);
+        return getOptionalCatalogMetadata(session, catalogName).isPresent();
     }
 
     @Override
@@ -304,12 +252,6 @@ public final class MetadataManager
         return catalogMetadata.listConnectorIds().stream()
                 .map(catalogMetadata::getMetadataFor)
                 .anyMatch(metadata -> metadata.schemaExists(connectorSession, schema.getSchemaName()));
-    }
-
-    @Override
-    public boolean catalogExists(Session session, String catalogName)
-    {
-        return getOptionalCatalogMetadata(session, catalogName).isPresent();
     }
 
     @Override
@@ -1031,6 +973,69 @@ public final class MetadataManager
     }
 
     @Override
+    public boolean usesLegacyTableLayouts(Session session, TableHandle table)
+    {
+        return getMetadata(session, table.getCatalogName()).usesLegacyTableLayouts();
+    }
+
+    @Override
+    public Optional<LimitApplicationResult<TableHandle>> applyLimit(Session session, TableHandle table, long limit)
+    {
+        CatalogName catalogName = table.getCatalogName();
+        ConnectorMetadata metadata = getMetadata(session, catalogName);
+
+        if (metadata.usesLegacyTableLayouts()) {
+            return Optional.empty();
+        }
+
+        ConnectorSession connectorSession = session.toConnectorSession(catalogName);
+        return metadata.applyLimit(connectorSession, table.getConnectorHandle(), limit)
+                .map(result -> new LimitApplicationResult<>(
+                        new TableHandle(catalogName, result.getHandle(), table.getTransaction(), Optional.empty()),
+                        result.isLimitGuaranteed()));
+    }
+
+    @Override
+    public Optional<TableHandle> applySample(Session session, TableHandle table, SampleType sampleType, double sampleRatio)
+    {
+        CatalogName catalogName = table.getCatalogName();
+        ConnectorMetadata metadata = getMetadata(session, catalogName);
+
+        if (metadata.usesLegacyTableLayouts()) {
+            return Optional.empty();
+        }
+
+        ConnectorSession connectorSession = session.toConnectorSession(catalogName);
+        return metadata.applySample(connectorSession, table.getConnectorHandle(), sampleType, sampleRatio)
+                .map(result -> new TableHandle(
+                        catalogName,
+                        result,
+                        table.getTransaction(),
+                        Optional.empty()));
+    }
+
+    @Override
+    public Optional<ConstraintApplicationResult<TableHandle>> applyFilter(Session session, TableHandle table, Constraint constraint)
+    {
+        CatalogName catalogName = table.getCatalogName();
+        ConnectorMetadata metadata = getMetadata(session, catalogName);
+
+        if (metadata.usesLegacyTableLayouts()) {
+            return Optional.empty();
+        }
+
+        ConnectorSession connectorSession = session.toConnectorSession(catalogName);
+        return metadata.applyFilter(connectorSession, table.getConnectorHandle(), constraint)
+                .map(result -> new ConstraintApplicationResult<>(
+                        new TableHandle(catalogName, result.getHandle(), table.getTransaction(), Optional.empty()),
+                        result.getRemainingFilter()));
+    }
+
+    //
+    // Roles and Grants
+    //
+
+    @Override
     public void createRole(Session session, String role, Optional<PrestoPrincipal> grantor, String catalog)
     {
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalog);
@@ -1167,6 +1172,85 @@ public final class MetadataManager
         return ImmutableList.copyOf(grantInfos.build());
     }
 
+    //
+    // Types
+    //
+
+    @Override
+    public Type getType(TypeSignature signature)
+    {
+        return typeManager.getType(signature);
+    }
+
+    @Override
+    public TypeManager getTypeManager()
+    {
+        // TODO: make this transactional when we allow user defined types
+        return typeManager;
+    }
+
+    @Override
+    public void verifyComparableOrderableContract()
+    {
+        Multimap<Type, OperatorType> missingOperators = HashMultimap.create();
+        for (Type type : typeManager.getTypes()) {
+            if (type.isComparable()) {
+                if (!functions.canResolveOperator(HASH_CODE, BIGINT, ImmutableList.of(type))) {
+                    missingOperators.put(type, HASH_CODE);
+                }
+                if (!functions.canResolveOperator(EQUAL, BOOLEAN, ImmutableList.of(type, type))) {
+                    missingOperators.put(type, EQUAL);
+                }
+                if (!functions.canResolveOperator(NOT_EQUAL, BOOLEAN, ImmutableList.of(type, type))) {
+                    missingOperators.put(type, NOT_EQUAL);
+                }
+            }
+            if (type.isOrderable()) {
+                for (OperatorType operator : ImmutableList.of(LESS_THAN, LESS_THAN_OR_EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL)) {
+                    if (!functions.canResolveOperator(operator, BOOLEAN, ImmutableList.of(type, type))) {
+                        missingOperators.put(type, operator);
+                    }
+                }
+                if (!functions.canResolveOperator(BETWEEN, BOOLEAN, ImmutableList.of(type, type, type))) {
+                    missingOperators.put(type, BETWEEN);
+                }
+            }
+        }
+        // TODO: verify the parametric types too
+        if (!missingOperators.isEmpty()) {
+            List<String> messages = new ArrayList<>();
+            for (Type type : missingOperators.keySet()) {
+                messages.add(format("%s missing for %s", missingOperators.get(type), type));
+            }
+            throw new IllegalStateException(Joiner.on(", ").join(messages));
+        }
+    }
+
+    //
+    // Functions
+    //
+
+    @Override
+    public void addFunctions(List<? extends SqlFunction> functionInfos)
+    {
+        // TODO: transactional when FunctionRegistry is made transactional
+        functions.addFunctions(functionInfos);
+    }
+
+    @Override
+    public List<SqlFunction> listFunctions()
+    {
+        // TODO: transactional when FunctionRegistry is made transactional
+        return functions.list();
+    }
+
+    @Override
+    public boolean isAggregationFunction(QualifiedName name)
+    {
+        // TODO: transactional when FunctionRegistry is made transactional
+        return functions.isAggregationFunction(name);
+    }
+
     @Override
     public FunctionRegistry getFunctionRegistry()
     {
@@ -1180,12 +1264,9 @@ public final class MetadataManager
         return procedures;
     }
 
-    @Override
-    public TypeManager getTypeManager()
-    {
-        // TODO: make this transactional when we allow user defined types
-        return typeManager;
-    }
+    //
+    // Blocks
+    //
 
     @Override
     public BlockEncoding getBlockEncoding(String encodingName)
@@ -1207,6 +1288,10 @@ public final class MetadataManager
         BlockEncoding existingEntry = blockEncodings.putIfAbsent(blockEncoding.getName(), blockEncoding);
         checkArgument(existingEntry == null, "Encoding already registered: %s", blockEncoding.getName());
     }
+
+    //
+    // Properties
+    //
 
     @Override
     public SessionPropertyManager getSessionPropertyManager()
@@ -1232,75 +1317,15 @@ public final class MetadataManager
         return columnPropertyManager;
     }
 
+    @Override
     public AnalyzePropertyManager getAnalyzePropertyManager()
     {
         return analyzePropertyManager;
     }
 
-    @Override
-    public Set<ConnectorCapabilities> getConnectorCapabilities(Session session, CatalogName catalogName)
-    {
-        return getCatalogMetadata(session, catalogName).getConnectorCapabilities();
-    }
-
-    @Override
-    public boolean usesLegacyTableLayouts(Session session, TableHandle table)
-    {
-        return getMetadata(session, table.getCatalogName()).usesLegacyTableLayouts();
-    }
-
-    @Override
-    public Optional<LimitApplicationResult<TableHandle>> applyLimit(Session session, TableHandle table, long limit)
-    {
-        CatalogName catalogName = table.getCatalogName();
-        ConnectorMetadata metadata = getMetadata(session, catalogName);
-
-        if (metadata.usesLegacyTableLayouts()) {
-            return Optional.empty();
-        }
-
-        ConnectorSession connectorSession = session.toConnectorSession(catalogName);
-        return metadata.applyLimit(connectorSession, table.getConnectorHandle(), limit)
-                .map(result -> new LimitApplicationResult<>(
-                        new TableHandle(catalogName, result.getHandle(), table.getTransaction(), Optional.empty()),
-                        result.isLimitGuaranteed()));
-    }
-
-    @Override
-    public Optional<TableHandle> applySample(Session session, TableHandle table, SampleType sampleType, double sampleRatio)
-    {
-        CatalogName catalogName = table.getCatalogName();
-        ConnectorMetadata metadata = getMetadata(session, catalogName);
-
-        if (metadata.usesLegacyTableLayouts()) {
-            return Optional.empty();
-        }
-
-        ConnectorSession connectorSession = session.toConnectorSession(catalogName);
-        return metadata.applySample(connectorSession, table.getConnectorHandle(), sampleType, sampleRatio)
-                .map(result -> new TableHandle(
-                        catalogName,
-                        result,
-                        table.getTransaction(),
-                        Optional.empty()));
-    }
-
-    @Override
-    public Optional<ConstraintApplicationResult<TableHandle>> applyFilter(Session session, TableHandle table, Constraint constraint)
-    {
-        CatalogName catalogName = table.getCatalogName();
-        ConnectorMetadata metadata = getMetadata(session, catalogName);
-
-        if (metadata.usesLegacyTableLayouts()) {
-            return Optional.empty();
-        }
-
-        ConnectorSession connectorSession = session.toConnectorSession(catalogName);
-        return metadata.applyFilter(connectorSession, table.getConnectorHandle(), constraint)
-                .map(result -> new ConstraintApplicationResult<>(
-                        new TableHandle(catalogName, result.getHandle(), table.getTransaction(), Optional.empty()),
-                        result.getRemainingFilter()));
-    }
+    //
+    // Helpers
+    //
 
     private ViewDefinition deserializeView(String data)
     {
