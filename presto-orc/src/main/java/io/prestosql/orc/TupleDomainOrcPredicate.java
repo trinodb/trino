@@ -170,7 +170,7 @@ public class TupleDomainOrcPredicate<C>
         }
 
         if (sqlType instanceof VarcharType || sqlType instanceof VarbinaryType) {
-            return bloomFilter.test(((Slice) predicateValue).getBytes());
+            return bloomFilter.testSlice(((Slice) predicateValue));
         }
 
         // todo support DECIMAL, FLOAT, DATE, TIMESTAMP, and CHAR
