@@ -42,6 +42,7 @@ import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.Chars.isCharType;
 import static io.prestosql.spi.type.Chars.truncateToLengthAndTrimSpaces;
+import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.Decimals.encodeUnscaledValue;
 import static io.prestosql.spi.type.Decimals.isLongDecimal;
 import static io.prestosql.spi.type.Decimals.isShortDecimal;
@@ -161,7 +162,7 @@ public class TupleDomainOrcPredicate<C>
     @VisibleForTesting
     public static boolean checkInBloomFilter(BloomFilter bloomFilter, Object predicateValue, Type sqlType)
     {
-        if (sqlType == TINYINT || sqlType == SMALLINT || sqlType == INTEGER || sqlType == BIGINT) {
+        if (sqlType == TINYINT || sqlType == SMALLINT || sqlType == INTEGER || sqlType == BIGINT || sqlType == DATE) {
             return bloomFilter.testLong(((Number) predicateValue).longValue());
         }
 
@@ -173,7 +174,7 @@ public class TupleDomainOrcPredicate<C>
             return bloomFilter.testSlice(((Slice) predicateValue));
         }
 
-        // todo support DECIMAL, FLOAT, DATE, TIMESTAMP, and CHAR
+        // todo support DECIMAL, FLOAT, TIMESTAMP, and CHAR
         return true;
     }
 
