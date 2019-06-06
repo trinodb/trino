@@ -27,7 +27,7 @@ Examples
 
 List the grants for the current user on table ``orders``::
 
-    SHOW GRANTS ON TABLE ``orders``;
+    SHOW GRANTS ON TABLE orders;
 
 List the grants for the current user on all the tables in all schemas of the current catalog::
 
@@ -42,5 +42,4 @@ See connector documentation for more details.
 See Also
 --------
 
-:doc:`grant`
-:doc:`revoke`
+:doc:`grant`, :doc:`revoke`

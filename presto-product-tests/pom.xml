@@ -4,8 +4,8 @@
 
     <parent>
         <artifactId>presto-root</artifactId>
-        <groupId>com.facebook.presto</groupId>
-        <version>0.212</version>
+        <groupId>io.prestosql</groupId>
+        <version>313</version>
     </parent>
 
     <artifactId>presto-product-tests</artifactId>
@@ -13,7 +13,7 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
-        <main-class>com.facebook.presto.tests.TemptoProductTestRunner</main-class>
+        <main-class>io.prestosql.tests.TemptoProductTestRunner</main-class>
         <air.check.skip-duplicate-finder>true</air.check.skip-duplicate-finder>
     </properties>
 
@@ -31,11 +31,11 @@
             <scope>runtime</scope>
         </dependency>
         <dependency>
-            <groupId>com.facebook.presto</groupId>
+            <groupId>io.prestosql</groupId>
             <artifactId>presto-jdbc</artifactId>
         </dependency>
         <dependency>
-            <groupId>com.facebook.presto</groupId>
+            <groupId>io.prestosql</groupId>
             <artifactId>presto-main</artifactId>
             <exclusions>
                 <exclusion>
@@ -45,23 +45,23 @@
             </exclusions>
         </dependency>
         <dependency>
-            <groupId>io.prestodb.tempto</groupId>
+            <groupId>io.prestosql.tempto</groupId>
             <artifactId>tempto-core</artifactId>
         </dependency>
         <dependency>
-            <groupId>io.prestodb.tempto</groupId>
+            <groupId>io.prestosql.tempto</groupId>
             <artifactId>tempto-ldap</artifactId>
         </dependency>
         <dependency>
-            <groupId>io.prestodb.tempto</groupId>
+            <groupId>io.prestosql.tempto</groupId>
             <artifactId>tempto-kafka</artifactId>
         </dependency>
         <dependency>
-            <groupId>io.prestodb.tempto</groupId>
+            <groupId>io.prestosql.tempto</groupId>
             <artifactId>tempto-runner</artifactId>
         </dependency>
         <dependency>
-            <groupId>com.facebook.presto</groupId>
+            <groupId>io.prestosql</groupId>
             <artifactId>presto-cli</artifactId>
         </dependency>
         <dependency>
@@ -113,7 +113,7 @@
             <artifactId>tpch</artifactId>
         </dependency>
         <dependency>
-            <groupId>com.facebook.presto.hive</groupId>
+            <groupId>io.prestosql.hive</groupId>
             <artifactId>hive-apache-jdbc</artifactId>
             <scope>runtime</scope>
         </dependency>
@@ -133,7 +133,7 @@
             <scope>runtime</scope>
         </dependency>
         <dependency>
-            <groupId>com.facebook.presto.cassandra</groupId>
+            <groupId>io.prestosql.cassandra</groupId>
             <artifactId>cassandra-driver</artifactId>
         </dependency>
     </dependencies>

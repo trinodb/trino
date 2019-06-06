@@ -3,9 +3,9 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>com.facebook.presto</groupId>
+        <groupId>io.prestosql</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.212</version>
+        <version>313</version>
     </parent>
 
     <artifactId>presto-server-rpm</artifactId>
@@ -15,9 +15,9 @@
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
 
+        <air.check.skip-enforcer>true</air.check.skip-enforcer>
         <air.check.skip-checkstyle>true</air.check.skip-checkstyle>
         <air.check.skip-duplicate-finder>true</air.check.skip-duplicate-finder>
-        <air.check.skip-dependency-version-check>true</air.check.skip-dependency-version-check>
         <air.check.skip-extended>true</air.check.skip-extended>
 
         <server.tar.package>presto-server-${project.version}</server.tar.package>
@@ -25,7 +25,7 @@
 
     <dependencies>
         <dependency>
-            <groupId>com.facebook.presto</groupId>
+            <groupId>io.prestosql</groupId>
             <artifactId>presto-server</artifactId>
             <version>${project.version}</version>
             <type>tar.gz</type>
@@ -49,12 +49,11 @@
                             <skip>false</skip>
                             <artifactItems>
                                 <artifactItem>
-                                    <groupId>com.facebook.presto</groupId>
+                                    <groupId>io.prestosql</groupId>
                                     <artifactId>presto-server</artifactId>
                                     <version>${project.version}</version>
                                     <type>tar.gz</type>
-                                    <outputDirectory>${project.build.outputDirectory}
-                                    </outputDirectory>
+                                    <outputDirectory>${project.build.outputDirectory}</outputDirectory>
                                 </artifactItem>
                             </artifactItems>
                         </configuration>
@@ -83,8 +82,8 @@
                             <architecture>x86_64</architecture>
                             <preInstallScriptFile>src/main/rpm/preinstall</preInstallScriptFile>
                             <postInstallScriptFile>src/main/rpm/postinstall</postInstallScriptFile>
-                            <postUninstallScriptFile>src/main/rpm/postremove
-                            </postUninstallScriptFile>
+                            <preUninstallScriptFile>src/main/rpm/preremove</preUninstallScriptFile>
+                            <postUninstallScriptFile>src/main/rpm/postremove</postUninstallScriptFile>
 
                             <dependencies>
                                 <dependency>
@@ -98,7 +97,12 @@
                                     <name>/usr/sbin/groupadd</name>
                                 </dependency>
                                 <dependency>
+                                    <!-- Used e.g. to generate node.properties -->
                                     <name>/usr/bin/uuidgen</name>
+                                </dependency>
+                                <dependency>
+                                    <!-- Used e.g. by service launcher -->
+                                    <name>/usr/bin/sudo</name>
                                 </dependency>
                             </dependencies>
 
@@ -163,6 +167,10 @@
                                     <includes>
                                         <include>*</include>
                                     </includes>
+                                    <directives>
+                                        <directive>config</directive>
+                                        <directive>noreplace</directive>
+                                    </directives>
                                 </rule>
 
                                 <rule>

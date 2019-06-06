@@ -17,7 +17,7 @@ from docutils import nodes, utils
 # noinspection PyUnresolvedReferences
 from sphinx.errors import SphinxError
 
-GROUP_ID = 'com.facebook.presto'
+GROUP_ID = 'io.prestosql'
 ARTIFACTS = {
     'server': ('presto-server', 'tar.gz', None),
     'cli': ('presto-cli', 'jar', 'executable'),
@@ -57,3 +57,7 @@ def setup(app):
 
         return [node], []
     app.add_role('maven_download', download_link_role)
+
+    return {
+        'parallel_read_safe': True,
+    }

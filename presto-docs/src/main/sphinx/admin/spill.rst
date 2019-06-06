@@ -48,6 +48,21 @@ memory intensive queries. It is still possible that the query runner will fail
 to divide intermediate data into chunks small enough that every chunk fits into
 memory, leading to ``Out of memory`` errors while loading the data from disk.
 
+Revocable memory and reserved pool
+----------------------------------
+
+Both reserved memory pool and revocable memory are designed to cope with low memory conditions.
+When user memory pool is exhausted then a single query will be promoted to a reserved pool.
+In such case only that query is allowed to progress thus reducing cluster
+concurrency. Revocable memory will try to prevent that by triggering spill.
+Reserved pool is of ``query_max_memory_per_node`` size. This means that
+when ``query_max_memory_per_node`` is large then user memory pool might be
+much smaller than ``query_max_memory_per_node``. This will cause excessive
+spilling for queries that consume large amounts of memory per node.
+Such queries could finish much quicker when spill is disabled because they
+execute in reserved pool. In such situations we recommend to disable reserved memory
+pool via ``experimental.reserved-pool-enabled`` config property.
+
 Spill Disk Space
 ----------------
 
@@ -64,6 +79,24 @@ it is recommended to monitor the disk saturation of the configured spill paths.
 Presto treats spill paths as independent disks (see `JBOD
 <https://en.wikipedia.org/wiki/Non-RAID_drive_architectures#JBOD>`_), so
 there is no need to use RAID for spill.
+
+Spill Compression
+-----------------
+
+When spill compression is enabled (``spill-compression-enabled`` property in
+:ref:`tuning-spilling`), spilled pages will be compressed before being
+written to dis. Enabling this feature can reduce disk IO at the cost
+of extra CPU load to compress and decompress spilled pages.
+
+Spill Encryption
+----------------
+
+When spill encryption is enabled (``spill-encryption-enabled`` property in
+:ref:`tuning-spilling`), spill contents will be encrypted with a randomly generated
+(per spill file) secret key. Enabling this will increase CPU load and reduce throughput
+of spilling to disk, but can protect spilled data from being recovered from spill files.
+Consider reducing the value of ``experimental.memory-revoking-threshold`` when spill
+encryption is enabled to account for the increase in latency of spilling.
 
 Supported Operations
 --------------------
@@ -104,4 +137,22 @@ Aggregation functions perform an operation on a group of values and return one
 value. If the number of groups you're aggregating over is large, a significant
 amount of memory may be needed. When spill-to-disk is enabled, if there is not
 enough memory, intermediate cumulated aggregation results are written to disk.
-They are loaded back and merged when memory is available.
+They are loaded back and merged with a lower memory footprint.
+
+Order By
+^^^^^^^^
+
+If your trying to sort a larger amount of data, a significant amount of memory 
+may be needed. When spill to disk for order by is enabled, if there is not enough
+memory, intemediate sorted results are written to disk. They are loaded back and
+merged with a lower memory footprint.
+
+Window functions
+^^^^^^^^^^^^^^^^
+
+Window Functions perform an operators over a window of rows and return one value
+for each row. If this window of rows is large, a significant amount of memory may
+be needed. When spill to disk for window functions is enabled, if there is not enough
+memory, intemediate sorted results are written to disk. They are loaded back and
+merged when memory is available. There is a current limitation that spill will not work
+in all cases such as when a single window is very large.

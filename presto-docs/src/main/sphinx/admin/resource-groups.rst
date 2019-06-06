@@ -16,7 +16,7 @@ the built-in manager that reads a JSON config file:
 .. code-block:: none
 
     resource-groups.configuration-manager=file
-    resource-groups.config-file=etc/resource_groups.json
+    resource-groups.config-file=etc/resource-groups.json
 
 Change the value of ``resource-groups.config-file`` to point to a JSON config file,
 which can be an absolute path, or a path relative to the Presto data directory.
@@ -89,12 +89,12 @@ Selector Rules
 
 * ``group`` (required): the group these queries will run in.
 
+Selectors are processed sequentially and the first one that matches will be used.
+
 Global Properties
 -----------------
 
 * ``cpuQuotaPeriod`` (optional): the period in which cpu quotas are enforced.
-
-Selectors are processed sequentially and the first one that matches will be used.
 
 Providing Selector Properties
 -----------------------------
@@ -124,19 +124,19 @@ There are four selectors that define which queries run in which resource group:
 
   * The first selector matches queries from ``bob`` and places them in the admin group.
 
-  * The second selector matches all data definition (DDL) queries from a source name that includes "pipeline"
+  * The second selector matches all data definition (DDL) queries from a source name that includes ``pipeline``
     and places them in the ``global.data_definition`` group. This could help reduce queue times for this
     class of queries, since they are expected to be fast.
 
-  * The third selector matches queries from a source name that includes "pipeline", and places them in a
+  * The third selector matches queries from a source name that includes ``pipeline``, and places them in a
     dynamically-created per-user pipeline group under the ``global.pipeline`` group.
 
-  * The fourth selector matches queries that come from BI tools (which have a source matching the regular
-    expression ``"jdbc#(?<tool_name>.*)"``), and have client provided tags that are a superset of "hi-pri".
+  * The fourth selector matches queries that come from BI tools which have a source matching the regular
+    expression ``jdbc#(?<toolname>.*)``, and have client provided tags that are a superset of ``hi-pri``.
     These are placed in a dynamically-created sub-group under the ``global.pipeline.tools`` group. The dynamic
-    sub-group will be created based on the named variable ``tool_name``, which is extracted from the in the
-    regular expression for source. Consider a query with a source "jdbc#powerfulbi", user "kayla", and
-    client tags "hipri" and "fast". This query would be routed to the ``global.pipeline.bi-powerfulbi.kayla``
+    sub-group will be created based on the named variable ``toolname``, which is extracted from the in the
+    regular expression for source. Consider a query with a source ``jdbc#powerfulbi``, user ``kayla``, and
+    client tags ``hipri`` and ``fast``. This query would be routed to the ``global.pipeline.bi-powerfulbi.kayla``
     resource group.
 
   * The last selector is a catch-all, which places all queries that have not yet been matched into a per-user
@@ -144,14 +144,14 @@ There are four selectors that define which queries run in which resource group:
 
 Together, these selectors implement the following policy:
 
-* The user "bob" is an admin and can run up to 50 concurrent queries. Queries will be run based on user-provided
-  priority.
+* The user ``bob`` is an admin and can run up to 50 concurrent queries.
+  Queries will be run based on user-provided priority.
 
 For the remaining users:
 
 * No more than 100 total queries may run concurrently.
 
-* Up to 5 concurrent DDL queries with a source "pipeline" can run. Queries are run in FIFO order.
+* Up to 5 concurrent DDL queries with a source ``pipeline`` can run. Queries are run in FIFO order.
 
 * Non-DDL queries will run under the ``global.pipeline`` group, with a total concurrency of 45, and a per-user
   concurrency of 5. Queries are run in FIFO order.
@@ -163,116 +163,5 @@ For the remaining users:
 * All remaining queries are placed into a per-user group under ``global.adhoc.other`` that behaves similarly.
 
 
-.. code-block:: json
-
-    {
-      "rootGroups": [
-        {
-          "name": "global",
-          "softMemoryLimit": "80%",
-          "hardConcurrencyLimit": 100,
-          "maxQueued": 1000,
-          "schedulingPolicy": "weighted",
-          "jmxExport": true,
-          "subGroups": [
-            {
-              "name": "data_definition",
-              "softMemoryLimit": "10%",
-              "hardConcurrencyLimit": 5,
-              "maxQueued": 100,
-              "schedulingWeight": 1
-            },
-            {
-              "name": "adhoc",
-              "softMemoryLimit": "10%",
-              "hardConcurrencyLimit": 50,
-              "maxQueued": 1,
-              "schedulingWeight": 10,
-              "subGroups": [
-                {
-                  "name": "other",
-                  "softMemoryLimit": "10%",
-                  "hardConcurrencyLimit": 2,
-                  "maxQueued": 1,
-                  "schedulingWeight": 10,
-                  "schedulingPolicy": "weighted_fair",
-                  "subGroups": [
-                    {
-                      "name": "${USER}",
-                      "softMemoryLimit": "10%",
-                      "hardConcurrencyLimit": 1,
-                      "maxQueued": 100
-                    }
-                  ]
-                },
-                {
-                  "name": "bi-${tool_name}",
-                  "softMemoryLimit": "10%",
-                  "hardConcurrencyLimit": 10,
-                  "maxQueued": 100,
-                  "schedulingWeight": 10,
-                  "schedulingPolicy": "weighted_fair"
-                  "subGroups": [
-                    {
-                      "name": "${USER}",
-                      "softMemoryLimit": "10%",
-                      "hardConcurrencyLimit": 3,
-                      "maxQueued": 10
-                    }
-                  ]
-                }
-              ]
-            },
-            {
-              "name": "pipeline",
-              "softMemoryLimit": "80%",
-              "hardConcurrencyLimit": 45,
-              "maxQueued": 100,
-              "schedulingWeight": 1,
-              "jmxExport": true,
-              "subGroups": [
-                {
-                  "name": "pipeline_${USER}",
-                  "softMemoryLimit": "50%",
-                  "hardConcurrencyLimit": 5,
-                  "maxQueued": 100,
-                }
-              ]
-            }
-          ]
-        },
-        {
-          "name": "admin",
-          "softMemoryLimit": "100%",
-          "hardConcurrencyLimit": 50,
-          "maxQueued": 100,
-          "schedulingPolicy": "query_priority",
-          "jmxExport": true
-        }
-      ],
-      "selectors": [
-        {
-          "user": "bob",
-          "group": "admin"
-        },
-        {
-          "source": ".*pipeline.*",
-          "queryType": "DATA_DEFINITION",
-          "group": "global.data_definition"
-        },
-        {
-          "source": ".*pipeline.*",
-          "group": "global.pipeline.pipeline_${USER}"
-        },
-        {
-          "source": "jdbc#(?<tool_name>.*)",
-          "clientTags": ["hipri"],
-          "group": "global.adhoc.bi-${tool_name}.${USER}"
-        },
-        {
-          "group": "global.adhoc.other.${USER}"
-        }
-      ],
-      "cpuQuotaPeriod": "1h"
-    }
-
+.. literalinclude:: resource-groups-example.json
+    :language: json

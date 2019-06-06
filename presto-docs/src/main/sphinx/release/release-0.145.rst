@@ -10,8 +10,8 @@ General Changes
 * Fail arithmetic operations on overflow.
 * Fix bugs in planner where coercions were not taken into account when computing
   types.
-* Fix compiler failure when `TRY` is a sub-expression.
-* Fix compiler failure when `TRY` is called on a constant or an input reference.
+* Fix compiler failure when ``TRY`` is a sub-expression.
+* Fix compiler failure when ``TRY`` is called on a constant or an input reference.
 * Add support for the ``integer`` type to the Presto engine and the Hive,
   Raptor, Redis, Kafka, Cassandra and example-http connectors.
 * Add initial support for the ``decimal`` data type.

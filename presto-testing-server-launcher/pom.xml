@@ -3,27 +3,27 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>com.facebook.presto</groupId>
+        <groupId>io.prestosql</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.212</version>
+        <version>313</version>
     </parent>
 
     <artifactId>presto-testing-server-launcher</artifactId>
     <name>presto-testing-server-launcher</name>
 
     <properties>
-        <main-class>com.facebook.presto.server.testing.TestingPrestoServerLauncher</main-class>
+        <main-class>io.prestosql.server.testing.TestingPrestoServerLauncher</main-class>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
     </properties>
 
     <dependencies>
         <dependency>
-            <groupId>com.facebook.presto</groupId>
+            <groupId>io.prestosql</groupId>
             <artifactId>presto-main</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.presto</groupId>
+            <groupId>io.prestosql</groupId>
             <artifactId>presto-spi</artifactId>
         </dependency>
 

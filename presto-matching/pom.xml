@@ -17,8 +17,8 @@
 
     <parent>
         <artifactId>presto-root</artifactId>
-        <groupId>com.facebook.presto</groupId>
-        <version>0.212</version>
+        <groupId>io.prestosql</groupId>
+        <version>313</version>
     </parent>
 
     <artifactId>presto-matching</artifactId>

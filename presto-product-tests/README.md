@@ -11,7 +11,7 @@ mode and Presto runs either in Docker container(s) (both pseudo-distributed
 and distributed setups are possible) or manually from IntelliJ (for
 debugging Presto). The tests run in a separate JVM and they can be started
 using the scripts found in `presto-product-tests/bin`. The product
-tests are run using the [Tempto](https://github.com/prestodb/tempto) harness. 
+tests are run using the [Tempto](https://github.com/prestosql/tempto) harness.
 
 Developers should consider writing product tests in addition to any unit tests
 when making changes to user visible features. The product tests should also
@@ -35,78 +35,17 @@ broken.
     pip install docker-compose
     ```
 
-### OS X using Docker for Mac (macOS 10.10.3 Yosemite or newer) [PREFERRED WAY]
+### OS X using Docker for Mac
 
-* Install Docker for Mac: https://docs.docker.com/docker-for-mac/
+* Install [Docker for Mac](https://docs.docker.com/docker-for-mac/)
 
 * Add entries in `/etc/hosts` for all services running in docker containers:
 `hadoop-master`, `mysql`, `postgres`, `cassandra`, `presto-master`.
-They should point to your external IP address (shown by `ifconfig` on your Mac (not inside docker)).
+They should point to your external IP address (shown by `ifconfig` on your Mac, not inside Docker).
 
 * The default memory setting of 2GB might not be sufficient for some profiles like `singlenode-ldap`.
 You may need 4-8 GB or even more to run certain tests. You can increase Docker memory by going to
-Docker Preferences -> Advanced -> Memory.
-
-### OS X using Docker Toolbox (macOS 10.8 "Mountain Lion" or newer) [NOT RECOMMENDED]
-
-* [`VirtualBox >= 5.0`](https://www.virtualbox.org/wiki/Downloads)
-
-The Docker daemon cannot run natively on OS X because it uses Linux-specific
-kernel features. Instead, the Docker daemon runs in a Linux VM created by
-the `docker-machine` binary. Docker containers run in the Linux VM and are
-controlled by the `docker` client binary that runs natively on OS X.
-Both `docker-machine` and `docker` are included in the `docker-toolbox`
-package, which must be installed.
-
-* [`docker-toolbox >= 1.10`](https://www.docker.com/products/docker-toolbox)
-
-In addition to `docker-machine` and `docker`, the `docker-toolbox`
-package also install `docker-compose`, which is a multi-container
-orchestration Python utility. To gain access to these utilities, start the
-pre-configured shell environment by double-clicking on the "Docker Quickstart
-Terminal" icon located in ~/Applications/Docker. Note that all commands listed
-in subsequent parts of this tutorial must be run within such a pre-configured
-shell.
-
-#### Setting up a Linux VM for Docker Toolbox
-
-The `docker-toolbox` installation creates a VirtualBox VM called `default`.
-To run product-tests on the `default` VM, it must be re-configured to use
-4GB of memory with the following commands:
-
-```
-docker-machine stop
-vboxmanage modifyvm default --memory 4096
-docker-machine start
-```
-
-Alternatively, if you do not want to use the `default` VM to run the
-product tests, you can create a new VM with the commands below. Note that
-the `default` VM will always be running when you start a new pre-configured
-shell environment. Permanently removing or replacing the `default` VM
-is beyond the scope of this tutorial.
-
-* Create a VM called <machine>. This should be done only once and not
-every time a pre-configured shell is started:
-
-    ```
-    docker-machine create -d virtualbox --virtualbox-memory 4096 <machine>
-    ```
-
-* After the new VM is created, the pre-configured shell environment must be
-told to use the `<machine>` VM instead of the `default` VM to run Docker
-containers. These commands must be run every time a new pre-configured
-shell is started:
-
-    ```
-    docker-machine start <machine>
-    eval $(docker-machine env <machine>)
-    ```
-    
-Note that for every new VM, the docker images on the previous
-VM will have to be re-downloaded when the product tests are kicked
-off. To avoid this unnecessary re-download, do not create new
-VMs often.
+*Docker Preferences -> Advanced -> Memory*.
 
 ## Use the `docker-compose` wrappers
 
@@ -185,14 +124,14 @@ where profile is one of either:
 ### Hadoop docker image used for testing
 The default Hadoop/Hive docker image used for testing is defined in `conf/common/compose-commons.sh` and can be controlled
 via the `HADOOP_BASE_IMAGE` and `DOCKER_IMAGES_VERSION` env variables.
-- `HADOOP_BASE_IMAGE` defines the Hadoop distribution family (as found in [PrestoDB Hadoop docker
-repo](https://cloud.docker.com/swarm/prestodb/repository/list?name=hive&namespace=prestodb)). The name should be without
+- `HADOOP_BASE_IMAGE` defines the Hadoop distribution family (as found in [Hadoop images in Presto Development docker
+repo](https://cloud.docker.com/swarm/prestodev/repository/list?name=hive&namespace=prestodev)). The name should be without
 the `-kerberized` suffix, eg. `cdh5.13-hive`. Only images that have their kerberized counterparts can be used with test profiles
 implying a kerberized environment eg. `singlenode-kerberos-hdfs-impersonation`, you should still use the base name for this
 env variable, the `-kerberized` suffix will be added automatically.
 - `DOCKER_IMAGES_VERSION` determines the version of the images used, both Hadoop images and base Centos images to host Presto,
 and serve as various run environments throughout the tests. Versions can be found on the
-[PrestoDB docker repo](https://cloud.docker.com/swarm/prestodb/repository/list) as well. You may use any version, either
+[Presto Development docker repo](https://cloud.docker.com/swarm/prestodev/repository/list) as well. You may use any version, either
 release or snapshot. Note that all images will be required to have this version, because this version is used globally.
 This is to ease maintenance and simplify debugging.
 
@@ -200,18 +139,18 @@ Please keep in mind that if you run tests on Hive of version not greater than 1.
 First version of Hive capable of running tests from `post_hive_1_0_1` group is Hive 1.1.0.
 
 For more information on the various ways in which Presto can be configured to
-interact with Kerberized Hive and Hadoop, please refer to the [Hive connector documentation](https://prestodb.io/docs/current/connector/hive.html).
+interact with Kerberized Hive and Hadoop, please refer to the [Hive connector documentation](https://prestosql.io/docs/current/connector/hive.html).
 
 ### Running a single test
 
 The `run_on_docker.sh` script can also run individual product tests. Presto
-product tests are either [Java based](https://github.com/prestodb/tempto#java-based-tests)
-or [convention based](https://github.com/prestodb/tempto#convention-based-sql-query-tests)
+product tests are either [Java based](https://github.com/prestosql/tempto#java-based-tests)
+or [convention based](https://github.com/prestosql/tempto#convention-based-sql-query-tests)
 and each type can be run individually with the following commands:
 
 ```
 # Run single Java based test
-presto-product-tests/bin/run_on_docker.sh <profile> -t com.facebook.presto.tests.functions.operators.Comparison.testLessThanOrEqualOperatorExists
+presto-product-tests/bin/run_on_docker.sh <profile> -t io.prestosql.tests.functions.operators.Comparison.testLessThanOrEqualOperatorExists
 # Run single convention based test
 presto-product-tests/bin/run_on_docker.sh <profile> -t sql_tests.testcases.system.selectInformationSchemaTables
 ```
@@ -290,11 +229,6 @@ be any one of the available profiles:
 Note: SQL Server product-tests use `microsoft/mssql-server-linux` docker container.
 By running SQL Server product tests you accept the license [ACCEPT_EULA](https://go.microsoft.com/fwlink/?LinkId=746388)
 
-### Running from IntelliJ
-
-For running Java based tests from IntelliJ see the section on
-[Debugging Java based tests](#debugging-java-based-tests).
-
 ### Running with custom / downloaded artifacts
 
 To run with custom versions of presto / presto-cli / product tests, just set the appropriate
@@ -325,144 +259,6 @@ To interrupt a product test run, send a single `Ctrl-C` signal. The scripts
 running the tests will gracefully shutdown all containers. Any follow up
 `Ctrl-C` signals will interrupt the shutdown procedure and possibly leave
 containers in an inconsistent state.
-
-## Debugging the product tests
-
-### Debugging Java based tests
-
-[Java based tests](https://github.com/prestodb/tempto#java-based-tests)
-can be run and debugged from IntelliJ like regular TestNG tests with the
-setup outlined below:
-
-1. Ensure all project artifacts are up to date:
-
-    ```
-    ./mvnw install -DskipTests
-    ```
-
-2. Start Presto dependant services as Docker containers:
-
-    ```
-    presto-product-tests/conf/docker/singlenode/compose.sh up -d hadoop-master
-    presto-product-tests/conf/docker/singlenode/compose.sh up -d mysql
-    presto-product-tests/conf/docker/singlenode/compose.sh up -d postgres
-    presto-product-tests/conf/docker/singlenode/compose.sh up -d cassandra
-    ```
-    
-    Tip: To display container logs run:
-
-    ```
-    presto-product-tests/conf/docker/singlenode/compose.sh logs
-    ```
-    
-3. Add an IP-to-host mapping for the `hadoop-master`, `mysql`, `postgres` and `cassandra` hosts in `/etc/hosts`.
-The format of `/etc/hosts` entries is `<ip> <host>`:
-
-    - On GNU/Linux add the following mapping: `<container ip> hadoop-master`.
-    The container IP can be obtained by running:
-
-        ```
-        docker inspect $(presto-product-tests/conf/docker/singlenode/compose.sh ps -q hadoop-master) | grep -i IPAddress
-        ```
-    Similarly add mappings for MySQL, Postgres and Cassandra containers (`mysql`, `postgres` and `cassandra` hostnames respectively).
-    To check IPs for those containers run:
-
-    ```
-    docker inspect $(presto-product-tests/conf/docker/singlenode/compose.sh ps -q mysql) | grep -i IPAddress
-    docker inspect $(presto-product-tests/conf/docker/singlenode/compose.sh ps -q postgres) | grep -i IPAddress
-    docker inspect $(presto-product-tests/conf/docker/singlenode/compose.sh ps -q cassandra) | grep -i IPAddress
-    ```
-
-    Alternatively you can use below script to obtain hosts ip mapping
-
-    ```
-    presto-product-tests/bin/hosts.sh singlenode
-    ```
-
-    Note that above command requires [jq](https://stedolan.github.io/jq/) to be installed in your system
-
-    - On OS X:
-        - Docker for Mac:
-        Add the following mapping to `/etc/hosts`: `<IP-of-your-Mac> hadoop-master mysql postgres cassandra`.
-
-        - Docker Toolbox:
-        Add the following mapping to `/etc/hosts`: `<docker machine ip> hadoop-master mysql postgres cassandra`.
-        Since Docker containers run inside a Linux VM, on OS X we map the VM IP to
-        the `hadoop-master`, `mysql`, `postgres` and `cassandra` hostnames. To obtain the IP of the Linux VM run:
-
-            ```
-            docker-machine ip <machine>
-            ```
-    
-4. [Create a run configuration in IntelliJ](https://www.jetbrains.com/help/idea/2016.1/creating-and-editing-run-debug-configurations.html)
-with the following parameters:
-    
-    - Use classpath of module: `presto-main`
-    - Main class: `com.facebook.presto.server.PrestoServer`
-    - Working directory: `presto-product-tests/conf/presto`
-    - VM options: `-ea -Xmx2G -Dconfig=etc/config.properties -Dlog.levels-file=etc/log.properties -DHADOOP_USER_NAME=hive -Duser.timezone=Asia/Kathmandu`
-
-5. MAKE SURE PRESTO CONFIGURATION IS ALIGNED WITH THE ONE IN `presto-product-tests/conf/presto`!
-
-    If you use custom configuration, make sure to configure the Hive catalog such that it uses a socks proxy running inside the container.
-    To do so, please make sure your Hive properties file under `etc/catalog/` has the below entry:
-    ```
-    hive.metastore.thrift.client.socks-proxy=hadoop-master:1180
-    ```
-    Also, `hadoop-master` must point to a correct IP (as described in step 3 of this section).
-
-6. Start the Presto server with the newly created run configuration.
-
-7. In IntelliJ, right click on a test method name or test class to run
-or debug the respective test(s).
-
-8. Remember to stop the Hadoop container once debugging is done with the
-following command:
-
-    ```
-    presto-product-tests/conf/docker/singlenode/compose.sh down
-    ```
-
-### Debugging convention based tests
-
-Some of the product tests are implemented in a
-[convention based](https://github.com/prestodb/tempto#convention-based-sql-query-tests)
-manner. Such tests can not be run directly from IntelliJ and the following
-steps explain how to debug convention based tests:
-
-1. Follow steps [1-6] from the [Debugging Java based tests](#debugging-java-based-tests)
-section.
-
-2. Run a convention based test with the following JVM debug flags:
-    
-    ```
-    PRODUCT_TESTS_JVM_OPTIONS="-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=<debug port>" presto-product-tests/bin/run.sh -t sql_tests.testcases.system.selectInformationSchemaTables
-    ```
-    
-    where `<debug port>` is the port over which the test JVM and the
-    debugger will communicate. By default IntelliJ uses `5005`. Also
-    note that execution of the product test will be suspended until a
-    debugger is attached.
-
-3. Set a breakpoint at the beginning of the `io.prestodb.tempto.internal.convention.ConventionBasedTestFactory#createTestCases`
-method. This is the main entry point for the convention based tests. When
-opening the `ConventionBasedTestFactory` class for the first time, IntelliJ
-will display a de-compiled version because `ConventionBasedTestFactory` is
-part of Tempto and not Presto. To download the actual sources make sure
-to the press the 'Download sources' button that should appear in the upper
-right hand corner of the editor window.
-
-4. [Create a remote run configuration in IntelliJ](https://www.jetbrains.com/help/idea/2016.1/run-debug-configuration-remote.html?origin=old_help).
-If the debug port in the step above was `5005`, then no changes to the
-remote run configuration are required. This configuration will act as
-the debugger.
-
-5. Run the remote configuration. If the debugger successfully attaches,
-execution of the product test will resume until the breakpoint is hit. At
-this stage the following components should be running: a container with
-Hadoop, an IntelliJ run configuration JVM running Presto, a JVM
-running the product tests and an IntelliJ remote run configuration JVM
-running the debugger.
 
 ## Troubleshooting
 

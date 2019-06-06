@@ -15,7 +15,8 @@ Synopsis
     [ HAVING condition]
     [ { UNION | INTERSECT | EXCEPT } [ ALL | DISTINCT ] select ]
     [ ORDER BY expression [ ASC | DESC ] [, ...] ]
-    [ LIMIT [ count | ALL ] ]
+    [ OFFSET count [ ROW | ROWS ] ]
+    [ LIMIT { count | ALL } | FETCH { FIRST | NEXT } [ count ] { ROW | ROWS } ONLY ]
 
 where ``from_item`` is one of
 
@@ -83,6 +84,11 @@ Additionally, the relations within a ``WITH`` clause can chain::
       y AS (SELECT a AS b FROM x),
       z AS (SELECT b AS c FROM y)
     SELECT c FROM z;
+
+.. warning::
+    Currently, the SQL for the ``WITH`` clause will be inlined anywhere the named
+    relation is used. This means that if the relation is used more than once and the query
+    is non-deterministic, the results may be different each time.
 
 GROUP BY Clause
 ---------------
@@ -572,31 +578,101 @@ output expressions:
 
 Each expression may be composed of output columns or it may be an ordinal
 number selecting an output column by position (starting at one). The
-``ORDER BY`` clause is evaluated as the last step of a query after any
-``GROUP BY`` or ``HAVING`` clause. The default null ordering is ``NULLS LAST``,
-regardless of the ordering direction.
+``ORDER BY`` clause is evaluated after any ``GROUP BY`` or ``HAVING`` clause
+and before any ``OFFSET``, ``LIMIT`` or ``FETCH FIRST`` clause.
+The default null ordering is ``NULLS LAST``, regardless of the ordering direction.
 
-LIMIT Clause
-------------
+.. _offset-clause:
 
-The ``LIMIT`` clause restricts the number of rows in the result set.
-``LIMIT ALL`` is the same as omitting the ``LIMIT`` clause.
-The following example queries a large table, but the limit clause restricts
-the output to only have five rows (because the query lacks an ``ORDER BY``,
+OFFSET Clause
+-------------
+
+The ``OFFSET`` clause is used to discard a number of leading rows
+from the result set:
+
+.. code-block:: none
+
+    OFFSET count [ ROW | ROWS ]
+
+If the ``ORDER BY`` clause is present, the ``OFFSET`` clause is evaluated
+over a sorted result set, and the set remains sorted after the
+leading rows are discarded::
+
+    SELECT name FROM nation ORDER BY name OFFSET 22;
+
+.. code-block:: none
+
+          name
+    ----------------
+     UNITED KINGDOM
+     UNITED STATES
+     VIETNAM
+    (3 rows)
+
+Otherwise, it is arbitrary which rows are discarded.
+If the count specified in the ``OFFSET`` clause equals or exceeds the size
+of the result set, the final result is empty.
+
+LIMIT or FETCH FIRST Clauses
+----------------------------
+
+The ``LIMIT`` or ``FETCH FIRST`` clause restricts the number of rows
+in the result set.
+
+.. code-block:: none
+
+    LIMIT { count | ALL }
+
+.. code-block:: none
+
+    FETCH { FIRST | NEXT } [ count ] { ROW | ROWS } ONLY
+
+The following example queries a large table, but the ``LIMIT`` clause
+restricts the output to only have five rows (because the query lacks an ``ORDER BY``,
 exactly which rows are returned is arbitrary)::
 
     SELECT orderdate FROM orders LIMIT 5;
 
 .. code-block:: none
 
-     o_orderdate
-    -------------
-     1996-04-14
-     1992-01-15
-     1995-02-01
-     1995-11-12
-     1992-04-26
+     orderdate
+    ------------
+     1994-07-25
+     1993-11-12
+     1992-10-06
+     1994-01-04
+     1997-12-28
     (5 rows)
+
+``LIMIT ALL`` is the same as omitting the ``LIMIT`` clause.
+
+The ``FETCH FIRST`` clause supports either the ``FIRST`` or ``NEXT`` keywords
+and the ``ROW`` or ``ROWS`` keywords. These keywords are equivalent and
+the choice of keyword has no effect on query execution.
+
+If the count is not specified in the ``FETCH FIRST`` clause, it defaults to ``1``::
+
+    SELECT orderdate FROM orders FETCH FIRST ROW ONLY;
+
+.. code-block:: none
+
+     orderdate
+    ------------
+     1994-02-12
+    (1 row)
+
+If the ``OFFSET`` clause is present, the ``LIMIT`` or ``FETCH FIRST`` clause
+is evaluated after the ``OFFSET`` clause::
+
+    SELECT * FROM (VALUES 5, 2, 4, 1, 3) t(x) ORDER BY x OFFSET 2 LIMIT 2;
+
+.. code-block:: none
+
+     x
+    ---
+     3
+     4
+    (2 rows)
 
 TABLESAMPLE
 -----------
@@ -750,6 +826,30 @@ so a cross join between the two tables produces 125 rows::
      ARGENTINA      | AMERICA
     ...
     (125 rows)
+
+LATERAL
+^^^^^^^
+
+Subqueries appearing in the ``FROM`` clause can be preceded by the keyword ``LATERAL``.
+This allows them to reference columns provided by preceding ``FROM`` items.
+
+A ``LATERAL`` join can appear at the top level in the ``FROM`` list, or anywhere
+within a parenthesized join tree. In the latter case, it can also refer to any items
+that are on the left-hand side of a ``JOIN`` for which it is on the right-hand side.
+
+When a ``FROM`` item contains ``LATERAL`` cross-references, evaluation proceeds as follows:
+for each row of the ``FROM`` item providing the cross-referenced columns,
+the ``LATERAL`` item is evaluated using that row set's values of the columns.
+The resulting rows are joined as usual with the rows they were computed from.
+This is repeated for set of rows from the column source tables.
+
+``LATERAL`` is primarily useful when the cross-referenced column is necessary for
+computing the rows to be joined::
+
+    SELECT name, x, y
+    FROM nation,
+    CROSS JOIN LATERAL (SELECT name || ' :-' AS x),
+    CROSS JOIN LATERAL (SELECT x || ')' AS y)
 
 Qualifying Column Names
 ^^^^^^^^^^^^^^^^^^^^^^^

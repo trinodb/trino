@@ -29,7 +29,7 @@ General Changes
 * Improve query latency when tables are known to be empty during query planning.
 * Optimize :func:`array_agg` to avoid excessive object overhead and native memory usage with G1 GC.
 * Improve performance for high-cardinality aggregations with ``DISTINCT`` argument qualifiers. This
-  is an experimental optimization that can be activated by disabling the `use_mark_distinct` session
+  is an experimental optimization that can be activated by disabling the ``use_mark_distinct`` session
   property or the ``optimizer.use-mark-distinct`` config option.
 * Improve parallelism of queries that have an empty grouping set.
 * Improve performance of join queries involving the :func:`ST_Distance` function.

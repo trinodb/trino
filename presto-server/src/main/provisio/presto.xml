@@ -116,6 +116,12 @@
         </artifact>
     </artifactSet>
 
+    <artifactSet to="plugin/phoenix">
+        <artifact id="${project.groupId}:presto-phoenix:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
     <artifactSet to="plugin/postgresql">
         <artifact id="${project.groupId}:presto-postgresql:zip:${project.version}">
             <unpack />
@@ -135,7 +141,7 @@
     </artifactSet>
 
     <artifactSet to="plugin/raptor">
-        <artifact id="${project.groupId}:presto-raptor:zip:${project.version}">
+        <artifact id="${project.groupId}:presto-raptor-legacy:zip:${project.version}">
             <unpack />
         </artifact>
     </artifactSet>
@@ -183,7 +189,13 @@
     </artifactSet>
 
     <artifactSet to="plugin/presto-thrift">
-        <artifact id="${project.groupId}:presto-thrift-connector:zip:${project.version}">
+        <artifact id="${project.groupId}:presto-thrift:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="plugin/presto-elasticsearch">
+        <artifact id="${project.groupId}:presto-elasticsearch:zip:${project.version}">
             <unpack />
         </artifact>
     </artifactSet>

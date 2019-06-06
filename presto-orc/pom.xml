@@ -3,9 +3,9 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>com.facebook.presto</groupId>
+        <groupId>io.prestosql</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.212</version>
+        <version>313</version>
     </parent>
 
     <artifactId>presto-orc</artifactId>
@@ -17,12 +17,12 @@
 
     <dependencies>
         <dependency>
-            <groupId>com.facebook.presto</groupId>
+            <groupId>io.prestosql</groupId>
             <artifactId>presto-array</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.presto</groupId>
+            <groupId>io.prestosql</groupId>
             <artifactId>presto-memory-context</artifactId>
         </dependency>
 
@@ -32,13 +32,8 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.presto.orc</groupId>
+            <groupId>io.prestosql.orc</groupId>
             <artifactId>orc-protobuf</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.facebook.presto.hive</groupId>
-            <artifactId>hive-apache</artifactId>
         </dependency>
 
         <dependency>
@@ -72,12 +67,18 @@
         </dependency>
 
         <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>joda-to-java-time-bridge</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.presto</groupId>
+            <groupId>io.prestosql</groupId>
             <artifactId>presto-spi</artifactId>
         </dependency>
 
@@ -89,6 +90,11 @@
         <dependency>
             <groupId>org.weakref</groupId>
             <artifactId>jmxutils</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.github.luben</groupId>
+            <artifactId>zstd-jni</artifactId>
         </dependency>
 
         <dependency>
@@ -118,7 +124,7 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.presto</groupId>
+            <groupId>io.prestosql</groupId>
             <artifactId>presto-main</artifactId>
             <scope>test</scope>
         </dependency>
@@ -137,14 +143,14 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.presto.hadoop</groupId>
-            <artifactId>hadoop-apache2</artifactId>
+            <groupId>io.prestosql.hadoop</groupId>
+            <artifactId>hadoop-apache</artifactId>
             <scope>test</scope>
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.hive</groupId>
-            <artifactId>hive-dwrf</artifactId>
+            <groupId>io.prestosql.hive</groupId>
+            <artifactId>hive-apache</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -173,29 +179,13 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <configuration>
-                    <!-- integration tests take a very long time so only run them in the CI server -->
                     <excludes>
+                        <!-- TestFullOrcReader takes a long time and might produce no output leading to Travis aborting the build -->
+                        <!-- TODO https://github.com/prestosql/presto/issues/612 run TestFullOrcReader on CI -->
                         <exclude>**/TestFullOrcReader.java</exclude>
                     </excludes>
                 </configuration>
             </plugin>
         </plugins>
     </build>
-
-    <profiles>
-        <profile>
-            <id>ci</id>
-            <build>
-                <plugins>
-                    <plugin>
-                        <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-surefire-plugin</artifactId>
-                        <configuration>
-                            <excludes combine.self="override" />
-                        </configuration>
-                    </plugin>
-                </plugins>
-            </build>
-        </profile>
-    </profiles>
 </project>

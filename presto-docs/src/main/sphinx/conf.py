@@ -62,7 +62,7 @@ def get_version():
 
 needs_sphinx = '1.1'
 
-extensions = ['download', 'issue']
+extensions = ['backquote', 'download', 'issue', 'sitemap']
 
 templates_path = ['_templates']
 
@@ -80,6 +80,8 @@ exclude_patterns = ['_build', 'rest*']
 pygments_style = 'sphinx'
 
 highlight_language = 'sql'
+
+default_role = 'backquote'
 
 rst_epilog = """
 .. |presto_server_release| replace:: ``presto-server-{release}``

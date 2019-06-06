@@ -48,6 +48,11 @@ General Properties
     redistributing all the data across the network. This can also be specified
     on a per-query basis using the ``redistribute_writes`` session property.
 
+.. _tuning-memory:
+
+Memory Management Properties
+----------------------------
+
 ``query.max-memory-per-node``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -58,7 +63,8 @@ General Properties
     User memory is allocated during execution for things that are directly
     attributable to or controllable by a user query. For example, memory used
     by the hash tables built during execution, memory used during sorting, etc.
-    When a query hits this limit it will be killed by Presto.
+    When the user memory allocation of a query on any worker hits this limit
+    it will be killed.
 
 ``query.max-total-memory-per-node``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -69,9 +75,37 @@ General Properties
     This is the max amount of user and system memory a query can use on a worker.
     System memory is allocated during execution for things that are not directly
     attributable to or controllable by a user query. For example, memory allocated
-    by the readers, writers, and network buffers, etc. The value of
-    ``query.max-total-memory-per-node`` must be greater than
+    by the readers, writers, network buffers, etc. When the sum of the user and
+    system memory allocated by a query on any worker hits this limit it will be killed.
+    The value of ``query.max-total-memory-per-node`` must be greater than
     ``query.max-memory-per-node``.
+
+``query.max-memory``
+^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``data size``
+    * **Default value:** ``20GB``
+
+    This is the max amount of user memory a query can use across the entire cluster.
+    User memory is allocated during execution for things that are directly
+    attributable to or controllable by a user query. For example, memory used
+    by the hash tables built during execution, memory used during sorting, etc.
+    When the user memory allocation of a query across all workers hits this limit
+    it will be killed.
+
+``query.max-total-memory``
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``data size``
+    * **Default value:** ``query.max-memory * 2``
+
+    This is the max amount of user and system memory a query can use across the entire cluster.
+    System memory is allocated during execution for things that are not directly
+    attributable to or controllable by a user query. For example, memory allocated
+    by the readers, writers, network buffers, etc. When the sum of the user and
+    system memory allocated by a query across all workers hits this limit it will be
+    killed. The value of ``query.max-total-memory`` must be greater than
+    ``query.max-memory``.
 
 ``memory.heap-headroom-per-node``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -81,28 +115,6 @@ General Properties
 
     This is the amount of memory set aside as headroom/buffer in the JVM heap
     for allocations that are not tracked by Presto.
-
-``resources.reserved-system-memory``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-    * **Type:** ``data size``
-    * **Default value:** ``JVM max memory * 0.4``
-
-    The amount of JVM memory reserved for system memory usage. System memory is
-    allocated during execution for things that are not directly attributable to
-    or controllable by a user query. For example, memory allocated by the readers,
-    writers, and network buffers, etc. This also accounts for memory that is not
-    tracked by the memory tracking system.
-
-    The purpose of this property is to prevent the JVM from running out of
-    memory (OOM). The default value is suitable for smaller JVM heap sizes or
-    clusters with many concurrent queries. If running fewer queries with a
-    large heap, a smaller value may work. Basically, set this value large
-    enough that the JVM does not fail with ``OutOfMemoryError``.
-
-    Please note that this config property is only used when
-    ``deprecated.legacy-system-pool-enabled=true``, and it will be removed
-    in the future.
 
 .. _tuning-spilling:
 
@@ -118,13 +130,36 @@ Spilling Properties
     Try spilling memory to disk to avoid exceeding memory limits for the query.
 
     Spilling works by offloading memory to disk. This process can allow a query with a large memory
-    footprint to pass at the cost of slower execution times. Currently, spilling is supported only for
-    aggregations and joins (inner and outer), so this property will not reduce memory usage required for
-    window functions, sorting and other join types.
+    footprint to pass at the cost of slower execution times. Spilling is supported for
+    aggregations, joins (inner and outer), sorting, and window functions. This property will not 
+    reduce memory usage required for other join types.
 
     Be aware that this is an experimental feature and should be used with care.
 
     This config property can be overridden by the ``spill_enabled`` session property.
+
+
+``experimental.spill-order-by``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``boolean``
+    * **Default value:** ``true``
+      
+    Try spilling memory to disk to avoid exceeding memory limits for the query when running sorting operators.
+    This property must be used in conjunction with the ``experimental.spill-enabled`` property.
+
+    This config property can be overridden by the ``spill_order_by`` session property.
+    
+``experimental.spill-window-operator``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``boolean``
+    * **Default value:** ``true``
+      
+    Try spilling memory to disk to avoid exceeding memory limits for the query when running window operators;
+    This property must be used in conjunction with the ``experimental.spill-enabled`` property.
+
+    This config property can be overridden by the ``spill_window_operator`` session property.
 
 ``experimental.spiller-spill-path``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -181,6 +216,23 @@ Spilling Properties
     * **Default value:** ``4 MB``
 
     Limit for memory used for unspilling a single aggregation operator instance.
+
+``experimental.spill-compression-enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``boolean``
+    * **Default value:** ``false``
+
+    Enables data compression for pages spilled to disk
+
+``experimental.spill-encryption-enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``boolean``
+    * **Default value:** ``false``
+
+    Enables using a randomly generated secret key (per spill file) to encrypt and decrypt
+    data spilled to disk
 
 
 Exchange Properties
@@ -302,7 +354,7 @@ Task Properties
 
     Number of threads used to handle timeouts when generating HTTP responses. This value
     should be increased if all the threads are frequently in use. This can be monitored
-    via the ``com.facebook.presto.server:name=AsyncHttpExecutionMBean:TimeoutExecutor``
+    via the ``io.prestosql.server:name=AsyncHttpExecutionMBean:TimeoutExecutor``
     JMX object. If ``ActiveCount`` is always the same as ``PoolSize``, increase the
     number of threads.
 
@@ -338,7 +390,7 @@ Task Properties
     but will cause increased heap space usage. Setting the value too high may cause a drop
     in performance due to a context switching. The number of active threads is available
     via the ``RunningSplits`` property of the
-    ``com.facebook.presto.execution.executor:name=TaskExecutor.RunningSplits`` JXM object.
+    ``io.prestosql.execution.executor:name=TaskExecutor.RunningSplits`` JXM object.
 
 ``task.min-drivers``
 ^^^^^^^^^^^^^^^^^^^^
@@ -425,6 +477,12 @@ Node Scheduler Properties
     * **Allowed values:** ``legacy``, ``flat``
     * **Default value:** ``legacy``
 
+    Sets the network topology to use when scheduling splits. ``legacy`` will ignore
+    the topology when scheduling splits. ``flat`` will try to schedule splits on the host
+    where the data is located by reserving 50% of the work queue for local splits.
+    It is recommended to use ``flat`` for clusters where distributed storage runs on
+    the same nodes as Presto workers.
+
 
 Optimizer Properties
 --------------------
@@ -470,15 +528,6 @@ Optimizer Properties
     partition keys for partitions that have no rows. In particular, the Hive connector
     can return empty partitions if they were created by other systems (Presto cannot
     create them).
-
-``optimizer.optimize-single-distinct``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-    * **Type:** ``boolean``
-    * **Default value:** ``true``
-
-    The single distinct optimization will try to replace multiple ``DISTINCT`` clauses
-    with a single ``GROUP BY`` clause, which can be substantially faster to execute.
 
 ``optimizer.push-aggregation-through-join``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

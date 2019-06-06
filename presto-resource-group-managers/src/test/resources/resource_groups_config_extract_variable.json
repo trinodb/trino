@@ -11,6 +11,13 @@
       "jmxExport": true,
       "subGroups": [
         {
+          "name": "${resourceGroupName}",
+          "softMemoryLimit": "100%",
+          "hardConcurrencyLimit": 115,
+          "maxQueued": 1,
+          "schedulingWeight": 3
+        },
+        {
           "name": "${domain}:${region}:${cluster}",
           "softMemoryLimit": "2MB",
           "hardConcurrencyLimit": 3,
@@ -22,7 +29,11 @@
   ],
   "selectors": [
     {
-      "source": "scheduler.(?<region>(.*)).(?<cluster>[0-9]*)",
+      "source": "rg-(?<resourceGroupName>.*)",
+      "group": "global.${resourceGroupName}"
+    },
+    {
+      "source": "scheduler\\.(?<region>(.*))\\.(?<cluster>[0-9]*)",
       "user": ".*@(?<domain>(.*)).io",
       "group": "global.${domain}:${region}:${cluster}"
     }

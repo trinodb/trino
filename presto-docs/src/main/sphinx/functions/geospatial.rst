@@ -2,14 +2,14 @@
 Geospatial Functions
 ====================
 
-Presto Geospatial functions support the SQL/MM specification.
-They are compliant with the Open Geospatial Consortium’s (OGC) OpenGIS Specifications.
+Presto Geospatial functions that begin with the ``ST_`` prefix support the SQL/MM specification
+and are compliant with the Open Geospatial Consortium’s (OGC) OpenGIS Specifications.
 As such, many Presto Geospatial functions require, or more accurately, assume that
 geometries that are operated on are both simple and valid. For example, it does not
 make sense to calculate the area of a polygon that has a hole defined outside of the
 polygon, or to construct a polygon from a non-simple boundary line.
 
-Presto Geospatial functions support the Well-Known Text (WKT) form of spatial objects:
+Presto Geospatial functions support the Well-Known Text (WKT) and Well-Known Binary (WKB) form of spatial objects:
 
 * ``POINT (0 0)``
 * ``LINESTRING (0 0, 1 1, 1 2)``
@@ -18,6 +18,34 @@ Presto Geospatial functions support the Well-Known Text (WKT) form of spatial ob
 * ``MULTILINESTRING ((0 0, 1 1, 1 2), (2 3, 3 2, 5 4))``
 * ``MULTIPOLYGON (((0 0, 4 0, 4 4, 0 4, 0 0), (1 1, 2 1, 2 2, 1 2, 1 1)), ((-1 -1, -1 -2, -2 -2, -2 -1, -1 -1)))``
 * ``GEOMETRYCOLLECTION (POINT(2 3), LINESTRING (2 3, 3 4))``
+
+Use :func:`ST_GeometryFromText` and :func:`ST_GeomFromBinary` functions to create geometry
+objects from WKT or WKB.
+
+The ``SphericalGeography`` type provides native support for spatial features represented on
+*geographic* coordinates (sometimes called *geodetic* coordinates, or *lat/lon*, or *lon/lat*).
+Geographic coordinates are spherical coordinates expressed in angular units (degrees).
+
+The basis for the ``Geometry`` type is a plane. The shortest path between two points on the plane is a
+straight line. That means calculations on geometries (areas, distances, lengths, intersections, etc)
+can be calculated using cartesian mathematics and straight line vectors.
+
+The basis for the ``SphericalGeography`` type is a sphere. The shortest path between two points on the
+sphere is a great circle arc. That means that calculations on geographies (areas, distances,
+lengths, intersections, etc) must be calculated on the sphere, using more complicated mathematics.
+More accurate measurements that take the actual spheroidal shape of the world into account are not
+supported.
+
+Values returned by the measurement functions :func:`ST_Distance` and :func:`ST_Length` are in the unit of meters;
+values returned by :func:`ST_Area` are in square meters.
+
+Use :func:`to_spherical_geography()` function to convert a geometry object to geography object.
+
+For example, ``ST_Distance(ST_Point(-71.0882, 42.3607), ST_Point(-74.1197, 40.6976))`` returns
+``3.4577`` in the unit of the passed-in values on the euclidean plane, while
+``ST_Distance(to_spherical_geography(ST_Point(-71.0882, 42.3607)), to_spherical_geography(ST_Point(-74.1197, 40.6976)))``
+returns ``312822.179`` in meters.
+
 
 Constructors
 ------------
@@ -46,9 +74,17 @@ Constructors
 
 .. function:: ST_LineString(array(Point)) -> LineString
 
-    Returns a LineString formed from an array of points. Empty or null points are ignored.  If there are fewer than
-    two non-empty points in the input array, an empty LineString will be returned.  The returned geometry may
-    not be simple, e.g. may self-intersect or may contain duplicate vertexes depending on the input.
+    Returns a LineString formed from an array of points. If there are fewer than
+    two non-empty points in the input array, an empty LineString will be returned.
+    Throws an exception if any element in the array is ``NULL`` or empty or same as the previous one.
+    The returned geometry may not be simple, e.g. may self-intersect or may contain
+    duplicate vertexes depending on the input.
+
+.. function:: ST_MultiPoint(array(Point)) -> MultiPoint
+
+    Returns a MultiPoint geometry object formed from the specified points. Return ``NULL`` if input array is empty.
+    Throws an exception if any element in the array is ``NULL`` or empty.
+    The returned geometry may not be simple and may contain duplicate points if input array has duplicates.
 
 .. function:: ST_Point(double, double) -> Point
 
@@ -57,6 +93,19 @@ Constructors
 .. function:: ST_Polygon(varchar) -> Polygon
 
     Returns a geometry type polygon object from WKT representation.
+
+.. function:: to_spherical_geography(Geometry) -> SphericalGeography
+
+    Converts a Geometry object to a SphericalGeography object on the sphere of the Earth's radius. This
+    function is only applicable to ``POINT``, ``MULTIPOINT``, ``LINESTRING``, ``MULTILINESTRING``,
+    ``POLYGON``, ``MULTIPOLYGON`` geometries defined in 2D space, or ``GEOMETRYCOLLECTION`` of such
+    geometries. For each point of the input geometry, it verifies that ``point.x`` is within
+    ``[-180.0, 180.0]`` and ``point.y`` is within ``[-90.0, 90.0]``, and uses them as (longitude, latitude)
+    degrees to construct the shape of the ``SphericalGeography`` result.
+
+.. function:: to_geometry(SphericalGeography) -> Geometry
+
+    Converts a SphericalGeography object to a Geometry object.
 
 Relationship Tests
 ------------------
@@ -83,7 +132,7 @@ Relationship Tests
 .. function:: ST_Intersects(Geometry, Geometry) -> boolean
 
     Returns ``true`` if the given geometries spatially intersect in two dimensions
-    (share any portion of space) and ``false`` if they don not (they are disjoint).
+    (share any portion of space) and ``false`` if they do not (they are disjoint).
 
 .. function:: ST_Overlaps(Geometry, Geometry) -> boolean
 
@@ -105,6 +154,12 @@ Relationship Tests
 
 Operations
 ----------
+
+.. function:: geometry_union(array(Geometry)) -> Geometry
+
+    Returns a geometry that represents the point set union of the input geometries. Performance
+    of this function, in conjunction with :func:`array_agg` to first aggregate the input geometries,
+    may be better than :func:`geometry_union_agg`, at the expense of higher memory utilization.
 
 .. function:: ST_Boundary(Geometry) -> Geometry
 
@@ -144,7 +199,7 @@ Operations
 
     Returns a geometry that represents the point set union of the input geometries.
 
-    This function doesn't support geometry collections.
+    See also:  :func:`geometry_union`, :func:`geometry_union_agg`
 
 
 Accessors
@@ -157,6 +212,10 @@ Accessors
     For Point and LineString types, returns 0.0.
     For GeometryCollection types, returns the sum of the areas of the individual
     geometries.
+
+.. function:: ST_Area(SphericalGeography) -> double
+
+    Returns the area of a polygon or multi-polygon in square meters using a spherical model for Earth.
 
 .. function:: ST_Centroid(Geometry) -> Geometry
 
@@ -179,6 +238,10 @@ Accessors
 
     Returns the 2-dimensional cartesian minimum distance (based on spatial ref)
     between two geometries in projected units.
+
+.. function:: ST_Distance(SphericalGeography, SphericalGeography) -> double
+
+    Returns the great-circle distance in meters between two SphericalGeography points.
 
 .. function:: ST_GeometryN(Geometry, index) -> Geometry
 
@@ -235,6 +298,10 @@ Accessors
     If the given index is less than 1 or greater than the total number of elements in the collection,
     returns ``NULL``.
     Use :func:``ST_NumPoints`` to find out the total number of elements.
+
+.. function:: ST_Points(Geometry) -> array(Point)
+
+    Returns an array of points in a linestring.
 
 .. function:: ST_XMax(Geometry) -> double
 
@@ -308,7 +375,7 @@ Accessors
     Returns a float between 0 and 1 representing the location of the closest point on
     the LineString to the given Point, as a fraction of total 2d line length.
 
-    Returns ``null`` if a LineString or a Point is empty or ``null``.
+    Returns ``NULL`` if a LineString or a Point is empty or ``NULL``.
 
 .. function:: geometry_invalid_reason(Geometry) -> varchar
 

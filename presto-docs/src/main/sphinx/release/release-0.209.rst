@@ -5,8 +5,8 @@ Release 0.209
 General Changes
 ---------------
 
-* Fix incorrect predicate pushdown when grouping sets contain the empty grouping set (:issue:`11296`).
-* Fix ``X-Forwarded-Proto`` header handling for requests to the ``/`` path (:issue:`11168`).
+* Fix incorrect predicate pushdown when grouping sets contain the empty grouping set (:issue:`x11296`).
+* Fix ``X-Forwarded-Proto`` header handling for requests to the ``/`` path (:issue:`x11168`).
 * Fix a regression that results in execution failure when at least one
   of the arguments to :func:`min_by` or :func:`max_by` is a constant ``NULL``.
 * Fix failure when some buckets are completely filtered out during bucket-by-bucket execution.
@@ -74,4 +74,4 @@ SPI Changes
 -----------
 
 * Allow using ``Object`` as a parameter type or return type for SQL
-  functions when the correponding SQL type is an unbounded generic.
+  functions when the corresponding SQL type is an unbounded generic.
