@@ -84,7 +84,9 @@ public class TestOrcBloomFilters
         // String
         bloomFilter.add(TEST_STRING);
         assertTrue(bloomFilter.test(TEST_STRING));
+        assertTrue(bloomFilter.testSlice(wrappedBuffer(TEST_STRING)));
         assertFalse(bloomFilter.test(TEST_STRING_NOT_WRITTEN));
+        assertFalse(bloomFilter.testSlice(wrappedBuffer(TEST_STRING_NOT_WRITTEN)));
 
         // Integer
         bloomFilter.addLong(TEST_INTEGER);
@@ -96,7 +98,9 @@ public class TestOrcBloomFilters
 
         // String
         assertTrue(newBloomFilter.test(TEST_STRING));
+        assertTrue(newBloomFilter.testSlice(wrappedBuffer(TEST_STRING)));
         assertFalse(newBloomFilter.test(TEST_STRING_NOT_WRITTEN));
+        assertFalse(newBloomFilter.testSlice(wrappedBuffer(TEST_STRING_NOT_WRITTEN)));
 
         // Integer
         assertTrue(newBloomFilter.testLong(TEST_INTEGER));
@@ -111,6 +115,7 @@ public class TestOrcBloomFilters
 
         bloomFilterWrite.add(TEST_STRING);
         assertTrue(bloomFilterWrite.test(TEST_STRING));
+        assertTrue(bloomFilterWrite.testSlice(wrappedBuffer(TEST_STRING)));
 
         OrcProto.BloomFilter.Builder bloomFilterBuilder = OrcProto.BloomFilter.newBuilder();
         bloomFilterBuilder.addAllBitset(Longs.asList(bloomFilterWrite.getBitSet()));
@@ -128,7 +133,9 @@ public class TestOrcBloomFilters
         assertEquals(bloomFilters.size(), 1);
 
         assertTrue(bloomFilters.get(0).test(TEST_STRING));
+        assertTrue(bloomFilters.get(0).testSlice(wrappedBuffer(TEST_STRING)));
         assertFalse(bloomFilters.get(0).test(TEST_STRING_NOT_WRITTEN));
+        assertFalse(bloomFilters.get(0).testSlice(wrappedBuffer(TEST_STRING_NOT_WRITTEN)));
 
         assertEquals(bloomFilterWrite.getNumBits(), bloomFilters.get(0).getNumBits());
         assertEquals(bloomFilterWrite.getNumHashFunctions(), bloomFilters.get(0).getNumHashFunctions());
@@ -356,6 +363,7 @@ public class TestOrcBloomFilters
 
             for (int i = 0; i < entries; i++) {
                 assertFalse(actual.test(binaryValue[i]));
+                assertFalse(actual.testSlice(wrappedBuffer(binaryValue[i])));
                 assertFalse(actual.testLong(longValue[i]));
                 assertFalse(actual.testDouble(doubleValue[i]));
 
@@ -376,6 +384,7 @@ public class TestOrcBloomFilters
 
             for (int i = 0; i < entries; i++) {
                 assertTrue(actual.test(binaryValue[i]));
+                assertTrue(actual.testSlice(wrappedBuffer(binaryValue[i])));
                 assertTrue(actual.testLong(longValue[i]));
                 assertTrue(actual.testDouble(doubleValue[i]));
 
@@ -388,6 +397,7 @@ public class TestOrcBloomFilters
             expected.add(null);
 
             assertTrue(actual.test(null));
+            assertTrue(actual.testSlice(null));
             assertTrue(expected.test(null));
 
             assertEquals(actual.getBitSet(), expected.getBitSet());

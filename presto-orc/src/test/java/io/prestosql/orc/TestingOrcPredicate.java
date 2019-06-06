@@ -374,7 +374,7 @@ public final class TestingOrcPredicate
             BloomFilter bloomFilter = columnStatistics.getBloomFilter();
             if (bloomFilter != null) {
                 for (Slice slice : slices) {
-                    if (!bloomFilter.test(slice.getBytes())) {
+                    if (!bloomFilter.testSlice(slice)) {
                         return false;
                     }
                 }
