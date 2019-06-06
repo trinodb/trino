@@ -59,31 +59,13 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public void verifyComparableOrderableContract()
+    public Set<ConnectorCapabilities> getConnectorCapabilities(Session session, CatalogName catalogName)
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public Type getType(TypeSignature signature)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public boolean isAggregationFunction(QualifiedName name)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public List<SqlFunction> listFunctions()
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void addFunctions(List<? extends SqlFunction> functions)
+    public boolean catalogExists(Session session, String catalogName)
     {
         throw new UnsupportedOperationException();
     }
@@ -228,6 +210,12 @@ public abstract class AbstractMockMetadata
 
     @Override
     public void addColumn(Session session, TableHandle tableHandle, ColumnMetadata column)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void dropColumn(Session session, TableHandle tableHandle, ColumnHandle column)
     {
         throw new UnsupportedOperationException();
     }
@@ -395,6 +383,34 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
+    public boolean usesLegacyTableLayouts(Session session, TableHandle table)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Optional<LimitApplicationResult<TableHandle>> applyLimit(Session session, TableHandle table, long limit)
+    {
+        return Optional.empty();
+    }
+
+    @Override
+    public Optional<ConstraintApplicationResult<TableHandle>> applyFilter(Session session, TableHandle table, Constraint constraint)
+    {
+        return Optional.empty();
+    }
+
+    @Override
+    public Optional<TableHandle> applySample(Session session, TableHandle table, SampleType sampleType, double sampleRatio)
+    {
+        return Optional.empty();
+    }
+
+    //
+    // Roles and Grants
+    //
+
+    @Override
     public void createRole(Session session, String role, Optional<PrestoPrincipal> grantor, String catalog)
     {
         throw new UnsupportedOperationException();
@@ -460,6 +476,50 @@ public abstract class AbstractMockMetadata
         throw new UnsupportedOperationException();
     }
 
+    //
+    // Types
+    //
+
+    @Override
+    public Type getType(TypeSignature signature)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public TypeManager getTypeManager()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void verifyComparableOrderableContract()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    //
+    // Functions
+    //
+
+    @Override
+    public void addFunctions(List<? extends SqlFunction> functions)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public List<SqlFunction> listFunctions()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public boolean isAggregationFunction(QualifiedName name)
+    {
+        throw new UnsupportedOperationException();
+    }
+
     @Override
     public FunctionRegistry getFunctionRegistry()
     {
@@ -472,11 +532,9 @@ public abstract class AbstractMockMetadata
         throw new UnsupportedOperationException();
     }
 
-    @Override
-    public TypeManager getTypeManager()
-    {
-        throw new UnsupportedOperationException();
-    }
+    //
+    // Blocks
+    //
 
     @Override
     public BlockEncoding getBlockEncoding(String encodingName)
@@ -489,6 +547,10 @@ public abstract class AbstractMockMetadata
     {
         throw new UnsupportedOperationException();
     }
+
+    //
+    // Properties
+    //
 
     @Override
     public SessionPropertyManager getSessionPropertyManager()
@@ -518,47 +580,5 @@ public abstract class AbstractMockMetadata
     public AnalyzePropertyManager getAnalyzePropertyManager()
     {
         throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void dropColumn(Session session, TableHandle tableHandle, ColumnHandle column)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public boolean catalogExists(Session session, String catalogName)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public Set<ConnectorCapabilities> getConnectorCapabilities(Session session, CatalogName catalogName)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public boolean usesLegacyTableLayouts(Session session, TableHandle table)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public Optional<LimitApplicationResult<TableHandle>> applyLimit(Session session, TableHandle table, long limit)
-    {
-        return Optional.empty();
-    }
-
-    @Override
-    public Optional<ConstraintApplicationResult<TableHandle>> applyFilter(Session session, TableHandle table, Constraint constraint)
-    {
-        return Optional.empty();
-    }
-
-    @Override
-    public Optional<TableHandle> applySample(Session session, TableHandle table, SampleType sampleType, double sampleRatio)
-    {
-        return Optional.empty();
     }
 }
