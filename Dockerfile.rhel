@@ -1,13 +1,13 @@
 FROM rhel7:7-released AS build
 
-ENV PRESTO_VERSION 0.212
-ENV RH_PRESTO_PATCH_VERSION 00005
+ENV PRESTO_VERSION 313.0
+ENV RH_PRESTO_PATCH_VERSION 00002
 ENV RH_PRESTO_VERSION ${PRESTO_VERSION}.0.redhat-${RH_PRESTO_PATCH_VERSION}
 ENV RH_PRESTO_BREW_DIR ${PRESTO_VERSION}.0.redhat_${RH_PRESTO_PATCH_VERSION}
 ENV PRESTO_SERVER_OUT /build/presto-server/target/presto-server-${PRESTO_VERSION}
 ENV PRESTO_CLI_OUT /build/presto-cli/target/presto-cli-${PRESTO_VERSION}-executable.jar
-ARG PRESTO_CLI_JAR_URL=http://download.eng.bos.redhat.com/brewroot/packages/com.facebook.presto-presto-root/${RH_PRESTO_BREW_DIR}/1/maven/com/facebook/presto/presto-cli/${RH_PRESTO_VERSION}/presto-cli-${RH_PRESTO_VERSION}-executable.jar
-ARG PRESTO_SERVER_URL=http://download.eng.bos.redhat.com/brewroot/packages/com.facebook.presto-presto-root/${RH_PRESTO_BREW_DIR}/1/maven/com/facebook/presto/presto-server/${RH_PRESTO_VERSION}/presto-server-${RH_PRESTO_VERSION}.tar.gz
+ARG PRESTO_CLI_JAR_URL=http://download.eng.bos.redhat.com/brewroot/packages/io.prestosql-presto-root/${RH_PRESTO_BREW_DIR}/1/maven/io/prestosql/presto-cli/${RH_PRESTO_VERSION}/presto-cli-${RH_PRESTO_VERSION}-executable.jar
+ARG PRESTO_SERVER_URL=http://download.eng.bos.redhat.com/brewroot/packages/io.prestosql-presto-root/${RH_PRESTO_BREW_DIR}/1/maven/io/prestosql/presto-server/${RH_PRESTO_VERSION}/presto-server-${RH_PRESTO_VERSION}.tar.gz
 
 RUN mkdir -p /build /build/presto-server/target /build/presto-cli/target
 RUN set -x; curl -fSLs \
@@ -36,16 +36,16 @@ RUN set -x; curl -fSLs \
 FROM rhel7:7-released
 
 RUN yum -y install --setopt=skip_missing_names_on_install=False \
+        openssl \
         java-1.8.0-openjdk \
         java-1.8.0-openjdk-devel \
-        openssl \
         less \
     && yum clean all \
     && rm -rf /var/cache/yum
 
 RUN mkdir -p /opt/presto
 
-ENV PRESTO_VERSION 0.212
+ENV PRESTO_VERSION 313.0
 ENV PRESTO_HOME /opt/presto/presto-server
 ENV PRESTO_CLI /opt/presto/presto-cli
 ENV PROMETHEUS_JMX_EXPORTER /opt/jmx_exporter/jmx_exporter.jar
