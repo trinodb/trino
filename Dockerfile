@@ -8,6 +8,7 @@ RUN yum -y install \
     && rm -rf /var/cache/yum
 
 RUN mkdir /build
+
 COPY .git /build/.git
 COPY presto-local-file /build/presto-local-file
 COPY presto-resource-group-managers /build/presto-resource-group-managers
@@ -15,13 +16,14 @@ COPY presto-atop /build/presto-atop
 COPY presto-memory /build/presto-memory
 COPY presto-redshift /build/presto-redshift
 COPY presto-benchmark-driver /build/presto-benchmark-driver
-COPY presto-raptor /build/presto-raptor
+COPY presto-thrift-api /build/presto-thrift-api
 COPY presto-blackhole /build/presto-blackhole
 COPY presto-verifier /build/presto-verifier
 COPY presto-server-rpm /build/presto-server-rpm
 COPY presto-orc /build/presto-orc
 COPY presto-rcfile /build/presto-rcfile
 COPY presto-base-jdbc /build/presto-base-jdbc
+COPY presto-phoenix /build/presto-phoenix
 COPY presto-geospatial-toolkit /build/presto-geospatial-toolkit
 COPY presto-postgresql /build/presto-postgresql
 COPY presto-sqlserver /build/presto-sqlserver
@@ -39,13 +41,14 @@ COPY presto-record-decoder /build/presto-record-decoder
 COPY presto-tpcds /build/presto-tpcds
 COPY presto-plugin-toolkit /build/presto-plugin-toolkit
 COPY presto-spi /build/presto-spi
-COPY presto-thrift-connector-api /build/presto-thrift-connector-api
 COPY presto-thrift-testing-server /build/presto-thrift-testing-server
 COPY presto-cli /build/presto-cli
 COPY presto-hive /build/presto-hive
 COPY presto-matching /build/presto-matching
+COPY presto-elasticsearch /build/presto-elasticsearch
 COPY presto-accumulo /build/presto-accumulo
 COPY presto-tests /build/presto-tests
+COPY presto-thrift /build/presto-thrift
 COPY presto-geospatial /build/presto-geospatial
 COPY presto-jmx /build/presto-jmx
 COPY presto-jdbc /build/presto-jdbc
@@ -54,16 +57,19 @@ COPY presto-redis /build/presto-redis
 COPY presto-array /build/presto-array
 COPY presto-product-tests /build/presto-product-tests
 COPY presto-client /build/presto-client
-COPY presto-thrift-connector /build/presto-thrift-connector
 COPY presto-testing-server-launcher /build/presto-testing-server-launcher
+COPY presto-parquet /build/presto-parquet
 COPY presto-proxy /build/presto-proxy
 COPY presto-hive-hadoop2 /build/presto-hive-hadoop2
 COPY presto-benchto-benchmarks /build/presto-benchto-benchmarks
+COPY presto-docker-image /build/presto-docker-image
+COPY presto-testing-docker /build/presto-testing-docker
 COPY presto-memory-context /build/presto-memory-context
 COPY presto-benchmark /build/presto-benchmark
 COPY presto-example-http /build/presto-example-http
 COPY presto-kudu /build/presto-kudu
 COPY presto-main /build/presto-main
+COPY presto-raptor-legacy /build/presto-raptor-legacy
 COPY presto-password-authenticators /build/presto-password-authenticators
 COPY src /build/src
 COPY pom.xml /build/pom.xml
@@ -87,7 +93,7 @@ RUN yum -y install --setopt=skip_missing_names_on_install=False \
 
 RUN mkdir -p /opt/presto
 
-ENV PRESTO_VERSION 0.212
+ENV PRESTO_VERSION 313
 ENV PRESTO_HOME /opt/presto/presto-server
 ENV PRESTO_CLI /opt/presto/presto-cli
 ENV PROMETHEUS_JMX_EXPORTER /opt/jmx_exporter/jmx_exporter.jar

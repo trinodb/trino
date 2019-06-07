@@ -3,9 +3,9 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>com.facebook.presto</groupId>
+        <groupId>io.prestosql</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.212</version>
+        <version>313</version>
     </parent>
 
     <artifactId>presto-password-authenticators</artifactId>
@@ -54,7 +54,7 @@
 
         <!-- Presto SPI -->
         <dependency>
-            <groupId>com.facebook.presto</groupId>
+            <groupId>io.prestosql</groupId>
             <artifactId>presto-spi</artifactId>
             <scope>provided</scope>
         </dependency>
@@ -99,7 +99,7 @@
                 <configuration>
                     <!-- To allow usage of java.util.Hashtable -->
                     <ignorePackages>
-                        <ignorePackage>com.facebook.presto.password.jndi</ignorePackage>
+                        <ignorePackage>io.prestosql.plugin.password.jndi</ignorePackage>
                     </ignorePackages>
                 </configuration>
             </plugin>

@@ -77,19 +77,7 @@ function cleanup() {
     stop_docker_compose_containers ${ENVIRONMENT}
   fi
 
-  # Ensure that the logs processes are terminated.
-  # In most cases after the docker containers are stopped, logs processes must be terminated.
-  # However when the `LEAVE_CONTAINERS_ALIVE_ON_EXIT` is set, docker containers are not being terminated.
-  # Redirection of system error is supposed to hide the `process does not exist` and `process terminated` messages
-  if test ! -z ${HADOOP_LOGS_PID:-}; then
-    kill ${HADOOP_LOGS_PID} 2>/dev/null || true
-  fi
-  if test ! -z ${PRESTO_LOGS_PID:-}; then
-    kill ${PRESTO_LOGS_PID} 2>/dev/null || true
-  fi
-
-  # docker logs processes are being terminated as soon as docker container are stopped
-  # wait for docker logs termination
+  # wait for docker containers termination
   wait 2>/dev/null || true
 }
 
@@ -117,15 +105,6 @@ if [[ ! -f "$DOCKER_CONF_LOCATION/$ENVIRONMENT/compose.sh" ]]; then
   usage
 fi
 
-PRESTO_SERVICES="presto-master"
-if [[ "$ENVIRONMENT" == "multinode" ]]; then
-   PRESTO_SERVICES="${PRESTO_SERVICES} presto-worker"
-elif [[ "$ENVIRONMENT" == "multinode-tls" ]]; then
-   PRESTO_SERVICES="${PRESTO_SERVICES} presto-worker-1 presto-worker-2"
-elif [[ "$ENVIRONMENT" == "multinode-tls-kerberos" ]]; then
-   PRESTO_SERVICES="${PRESTO_SERVICES} presto-worker-1 presto-worker-2"
-fi
-
 # check docker and docker compose installation
 docker-compose version
 docker version
@@ -143,38 +122,10 @@ fi
 # catch terminate signals
 trap terminate INT TERM EXIT
 
-if [[ "$ENVIRONMENT" == "singlenode-sqlserver" ]]; then
-  EXTERNAL_SERVICES="hadoop-master sqlserver"
-elif [[ "$ENVIRONMENT" == "singlenode-ldap" ]]; then
-  EXTERNAL_SERVICES="hadoop-master ldapserver"
-elif [[ "$ENVIRONMENT" == "singlenode-mysql" ]]; then
-  EXTERNAL_SERVICES="hadoop-master mysql"
-elif [[ "$ENVIRONMENT" == "singlenode-postgresql" ]]; then
-  EXTERNAL_SERVICES="hadoop-master postgres"
-elif [[ "$ENVIRONMENT" == "singlenode-cassandra" ]]; then
-  EXTERNAL_SERVICES="hadoop-master cassandra"
-elif [[ "$ENVIRONMENT" == "singlenode-kafka" ]]; then
-  EXTERNAL_SERVICES="hadoop-master kafka"
-else
-  EXTERNAL_SERVICES="hadoop-master"
-fi
-
 # display how test environment is configured
 environment_compose config
-
-environment_compose up -d ${EXTERNAL_SERVICES}
-
-# start docker logs for the external services
-environment_compose logs --no-color -f ${EXTERNAL_SERVICES} &
-
-HADOOP_LOGS_PID=$!
-
-# start presto containers
-environment_compose up -d ${PRESTO_SERVICES}
-
-# start docker logs for presto containers
-environment_compose logs --no-color -f ${PRESTO_SERVICES} &
-PRESTO_LOGS_PID=$!
+SERVICES=$(environment_compose config --services | grep -vx 'application-runner\|.*-base')
+environment_compose up --no-color --abort-on-container-exit ${SERVICES} &
 
 # wait until hadoop processes are started
 retry check_hadoop

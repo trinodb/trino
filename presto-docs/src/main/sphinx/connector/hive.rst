@@ -114,14 +114,9 @@ Hive Configuration Properties
 ================================================== ============================================================ ============
 Property Name                                      Description                                                  Default
 ================================================== ============================================================ ============
-``hive.metastore.uri``                             The URI(s) of the Hive metastore to connect to using the
-                                                   Thrift protocol. If multiple URIs are provided, the first
-                                                   URI is used by default and the rest of the URIs are
-                                                   fallback metastores. This property is required.
-                                                   Example: ``thrift://192.0.2.3:9083`` or
-                                                   ``thrift://192.0.2.3:9083,thrift://192.0.2.4:9083``
-
-``hive.metastore.username``                        The username Presto will use to access the Hive metastore.
+``hive.metastore``                                 The type of Hive metastore to use. Presto currently supports ``thrift``
+                                                   the default Hive Thrift metastore (``thrift``), and the AWS
+                                                   Glue Catalog (``glue``) as metadata sources.
 
 ``hive.config.resources``                          An optional comma-separated list of HDFS
                                                    configuration files. These files must exist on the
@@ -129,7 +124,12 @@ Property Name                                      Description                  
                                                    absolutely necessary to access HDFS.
                                                    Example: ``/etc/hdfs-site.xml``
 
-``hive.storage-format``                            The default file format used when creating new tables.       ``RCBINARY``
+``hive.recursive-directories``                     Enable reading data from subdirectories of table or          ``false``
+                                                   partition locations. If disabled, subdirectories are
+                                                   ignored. This is equivalent to the
+                                                   ``hive.mapred.supports.subdirectories`` property in Hive.
+
+``hive.storage-format``                            The default file format used when creating new tables.       ``ORC``
 
 ``hive.compression-codec``                         The compression codec to use when writing files.             ``GZIP``
 
@@ -143,19 +143,11 @@ Property Name                                      Description                  
 
 ``hive.immutable-partitions``                      Can new data be inserted into existing partitions?           ``false``
 
+``hive.create-empty-bucket-files``                 Should empty files be created for buckets that have no data? ``false``
+
 ``hive.max-partitions-per-writers``                Maximum number of partitions per writer.                     100
 
 ``hive.max-partitions-per-scan``                   Maximum number of partitions for a single table scan.        100,000
-
-``hive.metastore.authentication.type``             Hive metastore authentication type.                          ``NONE``
-                                                   Possible values are ``NONE`` or ``KERBEROS``.
-
-``hive.metastore.service.principal``               The Kerberos principal of the Hive metastore service.
-
-``hive.metastore.client.principal``                The Kerberos principal that Presto will use when connecting
-                                                   to the Hive metastore service.
-
-``hive.metastore.client.keytab``                   Hive metastore client keytab location.
 
 ``hive.hdfs.authentication.type``                  HDFS authentication type.                                    ``NONE``
                                                    Possible values are ``NONE`` or ``KERBEROS``.
@@ -179,7 +171,71 @@ Property Name                                      Description                  
 ``hive.collect-column-statistics-on-write``        Enables automatic column level statistics collection         ``false``
                                                    on write. See `Table Statistics <#table-statistics>`__ for
                                                    details.
+
+``hive.s3select-pushdown.enabled``                 Enable query pushdown to AWS S3 Select service.              ``false``
+
+``hive.s3select-pushdown.max-connections``         Maximum number of simultaneously open connections to S3 for  500
+                                                   :ref:`s3selectpushdown`.
 ================================================== ============================================================ ============
+
+Hive Thrift Metastore Configuration Properties
+----------------------------------------------
+
+================================================== ============================================================
+Property Name                                      Description
+================================================== ============================================================
+``hive.metastore.uri``                             The URI(s) of the Hive metastore to connect to using the
+                                                   Thrift protocol. If multiple URIs are provided, the first
+                                                   URI is used by default and the rest of the URIs are
+                                                   fallback metastores. This property is required.
+                                                   Example: ``thrift://192.0.2.3:9083`` or
+                                                   ``thrift://192.0.2.3:9083,thrift://192.0.2.4:9083``
+
+``hive.metastore.username``                        The username Presto will use to access the Hive metastore.
+
+``hive.metastore.authentication.type``             Hive metastore authentication type.
+                                                   Possible values are ``NONE`` or ``KERBEROS``
+                                                   (defaults to ``NONE``).
+
+``hive.metastore.service.principal``               The Kerberos principal of the Hive metastore service.
+
+``hive.metastore.client.principal``                The Kerberos principal that Presto will use when connecting
+                                                   to the Hive metastore service.
+
+``hive.metastore.client.keytab``                   Hive metastore client keytab location.
+================================================== ============================================================
+
+AWS Glue Catalog Configuration Properties
+-----------------------------------------
+
+==================================================== ============================================================
+Property Name                                        Description
+==================================================== ============================================================
+``hive.metastore.glue.region``                       AWS region of the Glue Catalog. This is required when not
+                                                     running in EC2, or when the catalog is in a different region.
+                                                     Example: ``us-east-1``
+
+``hive.metastore.glue.pin-client-to-current-region`` Pin Glue requests to the same region as the EC2 instance
+                                                     where Presto is running (defaults to ``false``).
+
+``hive.metastore.glue.max-connections``              Max number of concurrent connections to Glue
+                                                     (defaults to ``5``).
+
+``hive.metastore.glue.default-warehouse-dir``        Hive Glue metastore default warehouse directory
+
+``hive.metastore.glue.aws-access-key``               AWS access key to use to connect to the Glue Catalog. If
+                                                     specified along with ``hive.metastore.glue.aws-secret-key``,
+                                                     this parameter takes precedence over
+                                                     ``hive.metastore.glue.iam-role``.
+
+``hive.metastore.glue.aws-secret-key``               AWS secret key to use to connect to the Glue Catalog. If
+                                                     specified along with ``hive.metastore.glue.aws-access-key``,
+                                                     this parameter takes precedence over
+                                                     ``hive.metastore.glue.iam-role``.
+
+``hive.metastore.glue.iam-role``                     ARN of an IAM role to assume when connecting to the Glue
+                                                     Catalog.
+==================================================== ============================================================
 
 Amazon S3 Configuration
 -----------------------
@@ -203,6 +259,8 @@ Property Name                                Description
 ``hive.s3.aws-access-key``                   Default AWS access key to use.
 
 ``hive.s3.aws-secret-key``                   Default AWS secret key to use.
+
+``hive.s3.iam-role``                         IAM role to assume.
 
 ``hive.s3.endpoint``                         The S3 storage endpoint server. This can be used to
                                              connect to an S3-compatible storage system instead
@@ -247,6 +305,13 @@ Property Name                                Description
                                              class also implements ``Configurable`` from the Hadoop
                                              API, the Hadoop configuration will be passed in after
                                              the object has been created.
+
+``hive.s3.upload-acl-type``                  Canned ACL to use while uploading files to S3 (defaults
+                                             to ``Private``).
+
+``hive.s3.skip-glacier-objects``             Ignore Glacier objects rather than failing the query. This
+                                             will skip data that may be expected to be part of the table
+                                             or partition. Defaults to ``false``.
 ============================================ =================================================================
 
 S3 Credentials
@@ -257,10 +322,11 @@ it is highly recommended that you set ``hive.s3.use-instance-credentials``
 to ``true`` and use IAM Roles for EC2 to govern access to S3. If this is
 the case, your EC2 instances will need to be assigned an IAM Role which
 grants appropriate access to the data stored in the S3 bucket(s) you wish
-to use.  This is much cleaner than setting AWS access and secret keys in
-the ``hive.s3.aws-access-key`` and ``hive.s3.aws-secret-key`` settings, and also
-allows EC2 to automatically rotate credentials on a regular basis without
-any additional work on your part.
+to use. It's also possible to configure an IAM role with ``hive.s3.iam-role``
+that will be assumed for accessing any S3 bucket. This is much cleaner than
+setting AWS access and secret keys in the ``hive.s3.aws-access-key``
+and ``hive.s3.aws-secret-key`` settings, and also allows EC2 to automatically
+rotate credentials on a regular basis without any additional work on your part.
 
 Custom S3 Credentials Provider
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -338,11 +404,103 @@ the ``org.apache.hadoop.conf.Configurable`` interface from the Hadoop Java API, 
 will be passed in after the object instance is created and before it is asked to provision or retrieve any
 encryption keys.
 
+.. _s3selectpushdown:
+
+S3 Select Pushdown
+^^^^^^^^^^^^^^^^^^
+
+S3 Select Pushdown enables pushing down projection (SELECT) and predicate (WHERE)
+processing to `S3 Select <https://docs.aws.amazon.com/AmazonS3/latest/API/RESTObjectSELECTContent.html>`_.
+With S3 Select Pushdown, Presto only retrieves the required data from S3 instead
+of entire S3 objects, reducing both latency and network usage.
+
+Is S3 Select a good fit for my workload?
+########################################
+
+Performance of S3 Select Pushdown depends on the amount of data filtered by the
+query. Filtering a large number of rows should result in better performance. If
+the query doesn't filter any data then pushdown may not add any additional value
+and user will be charged for S3 Select requests. Thus, we recommend that you
+benchmark your workloads with and without S3 Select to see if using it may be
+suitable for your workload. By default, S3 Select Pushdown is disabled and you
+should enable it in production after proper benchmarking and cost analysis. For
+more information on S3 Select request cost, please see
+`Amazon S3 Cloud Storage Pricing <https://aws.amazon.com/s3/pricing/>`_.
+
+Use the following guidelines to determine if S3 Select is a good fit for your
+workload:
+
+* Your query filters out more than half of the original data set.
+* Your query filter predicates use columns that have a data type supported by
+  Presto and S3 Select.
+  The ``TIMESTAMP``, ``REAL``, and ``DOUBLE`` data types are not supported by S3
+  Select Pushdown. We recommend using the decimal data type for numerical data.
+  For more information about supported data types for S3 Select, see the
+  `Data Types documentation <https://docs.aws.amazon.com/AmazonS3/latest/dev/s3-glacier-select-sql-reference-data-types.html>`_.
+* Your network connection between Amazon S3 and the Amazon EMR cluster has good
+  transfer speed and available bandwidth. Amazon S3 Select does not compress
+  HTTP responses, so the response size may increase for compressed input files.
+
+Considerations and Limitations
+##############################
+
+* Only objects stored in CSV format are supported. Objects can be uncompressed
+  or optionally compressed with gzip or bzip2.
+* The "AllowQuotedRecordDelimiters" property is not supported. If this property
+  is specified, the query fails.
+* Amazon S3 server-side encryption with customer-provided encryption keys
+  (SSE-C) and client-side encryption are not supported.
+* S3 Select Pushdown is not a substitute for using columnar or compressed file
+  formats such as ORC and Parquet.
+
+Enabling S3 Select Pushdown
+###########################
+
+You can enable S3 Select Pushdown using the ``s3_select_pushdown_enabled``
+Hive session property or using the ``hive.s3select-pushdown.enabled``
+configuration property. The session property will override the config
+property, allowing you enable or disable on a per-query basis.
+
+Understanding and Tuning the Maximum Connections
+################################################
+
+Presto can use its native S3 file system or EMRFS. When using the native FS, the
+maximum connections is configured via the ``hive.s3.max-connections``
+configuration property. When using EMRFS, the maximum connections is configured
+via the ``fs.s3.maxConnections`` Hadoop configuration property.
+
+S3 Select Pushdown bypasses the file systems when accessing Amazon S3 for
+predicate operations. In this case, the value of
+``hive.s3select-pushdown.max-connections`` determines the maximum number of
+client connections allowed for those operations from worker nodes.
+
+If your workload experiences the error *Timeout waiting for connection from
+pool*, increase the value of both ``hive.s3select-pushdown.max-connections`` and
+the maximum connections configuration for the file system you are using.
+
+Google Cloud Storage Configuration
+----------------------------------
+
+The Hive connector can access data stored in GCS, using the ``gs://`` URI prefix.
+Please refer to the :doc:`hive-gcs-tutorial` for step-by-step instructions.
+
+GCS Configuration properties
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+============================================ =================================================================
+Property Name                                Description
+============================================ =================================================================
+``hive.gcs.json-key-file-path``              JSON key file used to authenticate with Google Cloud Storage.
+
+``hive.gcs.use-access-token``                Use client-provided OAuth token to access Google Cloud Storage.
+                                             This is mutually exclusive with a global JSON key file.
+============================================ =================================================================
+
 Table Statistics
 ----------------
 
 The Hive connector automatically collects basic statistics
-(``numFiles', ``numRows``, ``rawDataSize``, ``totalSize``)
+(``numFiles``, ``numRows``, ``rawDataSize``, ``totalSize``)
 on ``INSERT`` and ``CREATE TABLE AS`` operations.
 
 The Hive connector can also collect column level statistics:
@@ -367,6 +525,27 @@ Column Type   Collectible Statistics
 
 Automatic column level statistics collection on write is controlled by
 the ``collect-column-statistics-on-write`` catalog session property.
+
+.. _hive_analyze:
+
+Updating table and partition statistics
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+If your queries are complex and include joining large data sets,
+running :doc:`/sql/analyze` on tables/partitions may improve query performance
+by collecting statistical information about the data.
+
+When analyzing a partitioned table, the partitions to analyze can be specified
+via the optional ``partitions`` property, which is an array containing
+the values of the partition keys in the order they are declared in the table schema::
+
+    ANALYZE table_name WITH (
+        partitions = ARRAY[
+            ARRAY['p1_value1', 'p1_value2'],
+            ARRAY['p2_value1', 'p2_value2']])
+
+This query will collect statistics for two partitions with keys
+``p1_value1, p1_value2`` and ``p2_value1, p2_value2``.
 
 Schema Evolution
 ----------------
@@ -444,6 +623,21 @@ The following operations are not supported when ``avro_schema_url`` is set:
 * Using partitioning(``partitioned_by``) or bucketing(``bucketed_by``) columns are not supported in ``CREATE TABLE``.
 * ``ALTER TABLE`` commands modifying columns are not supported.
 
+Procedures
+----------
+
+* ``system.create_empty_partition(schema_name, table_name, partition_columns, partition_values)``
+
+    Create an empty partition in the specified table.
+
+* ``system.sync_partition_metadata(schema_name, table_name, mode)``
+
+    Check and update partitions list in metastore. There are three modes available:
+
+    * ``ADD`` : add any partitions that exist on the file system but not in the metastore.
+    * ``DROP``: drop any partitions that exist in the metastore but not on the file system.
+    * ``FULL``: perform both ``ADD`` and ``DROP``.
+
 Examples
 --------
 
@@ -482,6 +676,14 @@ Drop a partition from the ``page_views`` table::
     WHERE ds = DATE '2016-08-09'
       AND country = 'US'
 
+Add an empty partition to the ``page_views`` table::
+
+    CALL system.create_empty_partition(
+        schema_name => 'web',
+        table_name => 'page_views',
+        partition_columns => ARRAY['ds', 'country'],
+        partition_values => ARRAY['2016-08-09', 'US']);
+
 Query the ``page_views`` table::
 
     SELECT * FROM hive.web.page_views
@@ -503,6 +705,15 @@ existing data in S3::
       format = 'TEXTFILE',
       external_location = 's3://my-bucket/data/logs/'
     )
+
+Collect statistics for the ``request_logs`` table::
+
+    ANALYZE hive.web.request_logs;
+
+The examples shown here should work on Google Cloud Storage after replacing ``s3://`` with ``gs://``.
+
+Cleaning up
+^^^^^^^^^^^
 
 Drop the external table ``request_logs``. This only drops the metadata
 for the table. The referenced data directory is not deleted::

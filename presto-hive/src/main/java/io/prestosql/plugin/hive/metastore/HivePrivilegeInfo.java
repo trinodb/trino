@@ -1,0 +1,157 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package io.prestosql.plugin.hive.metastore;
+
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.collect.ImmutableSet;
+import io.prestosql.spi.security.Privilege;
+import io.prestosql.spi.security.PrivilegeInfo;
+
+import javax.annotation.concurrent.Immutable;
+
+import java.util.Objects;
+import java.util.Set;
+
+import static com.google.common.base.MoreObjects.toStringHelper;
+import static io.prestosql.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege.DELETE;
+import static io.prestosql.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege.INSERT;
+import static io.prestosql.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege.SELECT;
+import static io.prestosql.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege.UPDATE;
+import static java.util.Objects.requireNonNull;
+
+@Immutable
+public class HivePrivilegeInfo
+{
+    public enum HivePrivilege
+    {
+        SELECT, INSERT, UPDATE, DELETE, OWNERSHIP
+    }
+
+    private final HivePrivilege hivePrivilege;
+    private final boolean grantOption;
+    private final HivePrincipal grantor;
+    private final HivePrincipal grantee;
+
+    @JsonCreator
+    public HivePrivilegeInfo(
+            @JsonProperty("hivePrivilege") HivePrivilege hivePrivilege,
+            @JsonProperty("grantOption") boolean grantOption,
+            @JsonProperty("grantor") HivePrincipal grantor,
+            @JsonProperty("grantee") HivePrincipal grantee)
+    {
+        this.hivePrivilege = requireNonNull(hivePrivilege, "hivePrivilege is null");
+        this.grantOption = grantOption;
+        this.grantor = requireNonNull(grantor, "grantor is null");
+        this.grantee = requireNonNull(grantee, "grantee is null");
+    }
+
+    @JsonProperty
+    public HivePrivilege getHivePrivilege()
+    {
+        return hivePrivilege;
+    }
+
+    @JsonProperty
+    public boolean isGrantOption()
+    {
+        return grantOption;
+    }
+
+    @JsonProperty
+    public HivePrincipal getGrantor()
+    {
+        return grantor;
+    }
+
+    @JsonProperty
+    public HivePrincipal getGrantee()
+    {
+        return grantee;
+    }
+
+    public static HivePrivilege toHivePrivilege(Privilege privilege)
+    {
+        switch (privilege) {
+            case SELECT:
+                return SELECT;
+            case INSERT:
+                return INSERT;
+            case DELETE:
+                return DELETE;
+            case UPDATE:
+                return UPDATE;
+            default:
+                throw new IllegalArgumentException("Unexpected privilege: " + privilege);
+        }
+    }
+
+    public boolean isContainedIn(HivePrivilegeInfo hivePrivilegeInfo)
+    {
+        return (getHivePrivilege().equals(hivePrivilegeInfo.getHivePrivilege()) &&
+                (isGrantOption() == hivePrivilegeInfo.isGrantOption() ||
+                        (!isGrantOption() && hivePrivilegeInfo.isGrantOption())));
+    }
+
+    public Set<PrivilegeInfo> toPrivilegeInfo()
+    {
+        switch (hivePrivilege) {
+            case SELECT:
+                return ImmutableSet.of(new PrivilegeInfo(Privilege.SELECT, isGrantOption()));
+            case INSERT:
+                return ImmutableSet.of(new PrivilegeInfo(Privilege.INSERT, isGrantOption()));
+            case DELETE:
+                return ImmutableSet.of(new PrivilegeInfo(Privilege.DELETE, isGrantOption()));
+            case UPDATE:
+                return ImmutableSet.of(new PrivilegeInfo(Privilege.UPDATE, isGrantOption()));
+            case OWNERSHIP:
+                return ImmutableSet.of();
+            default:
+                throw new IllegalArgumentException("Unsupported hivePrivilege: " + hivePrivilege);
+        }
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(hivePrivilege, grantOption, grantor, grantee);
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        HivePrivilegeInfo hivePrivilegeInfo = (HivePrivilegeInfo) o;
+        return Objects.equals(hivePrivilege, hivePrivilegeInfo.hivePrivilege) &&
+                Objects.equals(grantOption, hivePrivilegeInfo.grantOption) &&
+                Objects.equals(grantor, hivePrivilegeInfo.grantor) &&
+                Objects.equals(grantee, hivePrivilegeInfo.grantee);
+    }
+
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .add("privilege", hivePrivilege)
+                .add("grantOption", grantOption)
+                .add("grantor", grantor)
+                .add("grantee", grantee)
+                .toString();
+    }
+}

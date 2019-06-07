@@ -14,7 +14,7 @@ Hive Changes
 General Changes
 ---------------
 
-* Add support for :ref:`unnest`, which can be used as a replacement for the `explode()` function in Hive.
+* Add support for :ref:`unnest`, which can be used as a replacement for the ``explode()`` function in Hive.
 * Fix a bug in the scan operator that can cause data to be missed. It currently only affects queries
   over ``information_schema`` or ``sys`` tables, metadata queries such as ``SHOW PARTITIONS`` and connectors
   that implement the ``ConnectorPageSource`` interface.
