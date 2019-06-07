@@ -71,6 +71,7 @@ import io.prestosql.sql.planner.plan.JoinNode;
 import io.prestosql.sql.planner.plan.LateralJoinNode;
 import io.prestosql.sql.planner.plan.LimitNode;
 import io.prestosql.sql.planner.plan.MarkDistinctNode;
+import io.prestosql.sql.planner.plan.OffsetNode;
 import io.prestosql.sql.planner.plan.OutputNode;
 import io.prestosql.sql.planner.plan.PlanFragmentId;
 import io.prestosql.sql.planner.plan.PlanNode;
@@ -460,6 +461,15 @@ public class PlanPrinter
             node.getIndexSource().accept(this, context);
 
             return null;
+        }
+
+        @Override
+        public Void visitOffset(OffsetNode node, Void context)
+        {
+            addNode(node,
+                    "Offset",
+                    format("[%s]", node.getCount()));
+            return processChildren(node, context);
         }
 
         @Override
