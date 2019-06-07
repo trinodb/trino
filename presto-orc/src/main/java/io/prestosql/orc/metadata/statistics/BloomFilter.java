@@ -158,6 +158,11 @@ public class BloomFilter
         addLong(doubleToLongBits(val));
     }
 
+    public void addFloat(float val)
+    {
+        addDouble(val);
+    }
+
     public boolean test(byte[] val)
     {
         long hash64 = (val == null) ? NULL_HASHCODE : OrcMurmur3.hash64(val);
@@ -211,6 +216,11 @@ public class BloomFilter
     public boolean testDouble(double val)
     {
         return testLong(doubleToLongBits(val));
+    }
+
+    public boolean testFloat(float val)
+    {
+        return testDouble(val);
     }
 
     public int getNumBits()

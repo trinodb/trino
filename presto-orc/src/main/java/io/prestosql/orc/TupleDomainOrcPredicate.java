@@ -54,6 +54,7 @@ import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.Varchars.isVarcharType;
 import static java.lang.Float.floatToRawIntBits;
+import static java.lang.Float.intBitsToFloat;
 import static java.util.Objects.requireNonNull;
 
 public class TupleDomainOrcPredicate<C>
@@ -170,11 +171,15 @@ public class TupleDomainOrcPredicate<C>
             return bloomFilter.testDouble((Double) predicateValue);
         }
 
+        if (sqlType == REAL) {
+            return bloomFilter.testFloat(intBitsToFloat(((Number) predicateValue).intValue()));
+        }
+
         if (sqlType instanceof VarcharType || sqlType instanceof VarbinaryType) {
             return bloomFilter.testSlice(((Slice) predicateValue));
         }
 
-        // todo support DECIMAL, FLOAT, TIMESTAMP, and CHAR
+        // todo support DECIMAL, TIMESTAMP, and CHAR
         return true;
     }
 
