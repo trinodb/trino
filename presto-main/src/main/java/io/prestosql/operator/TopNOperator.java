@@ -26,6 +26,7 @@ import java.util.List;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static io.prestosql.operator.GroupedTopNBuilder.RankingFunction.ROW_NUMBER;
 import static java.util.Collections.emptyIterator;
 import static java.util.Objects.requireNonNull;
 
@@ -116,6 +117,7 @@ public class TopNOperator
                     types,
                     new SimplePageWithPositionComparator(types, sortChannels, sortOrders),
                     n,
+                    ROW_NUMBER,
                     false,
                     new NoChannelGroupByHash());
         }

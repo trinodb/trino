@@ -37,6 +37,8 @@ import static io.airlift.slice.SizeOf.sizeOf;
 import static io.airlift.testing.Assertions.assertGreaterThan;
 import static io.prestosql.RowPagesBuilder.rowPagesBuilder;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
+import static io.prestosql.operator.GroupedTopNBuilder.RankingFunction.RANK;
+import static io.prestosql.operator.GroupedTopNBuilder.RankingFunction.ROW_NUMBER;
 import static io.prestosql.operator.PageAssertions.assertPageEquals;
 import static io.prestosql.operator.UpdateMemory.NOOP;
 import static io.prestosql.spi.block.SortOrder.ASC_NULLS_LAST;
@@ -76,6 +78,7 @@ public class TestGroupedTopNBuilder
                     throw new UnsupportedOperationException();
                 },
                 5,
+                ROW_NUMBER,
                 false,
                 new NoChannelGroupByHash());
         assertFalse(groupedTopNBuilder.buildResult().hasNext());
@@ -111,6 +114,7 @@ public class TestGroupedTopNBuilder
                 types,
                 new SimplePageWithPositionComparator(types, ImmutableList.of(1), ImmutableList.of(ASC_NULLS_LAST)),
                 2,
+                ROW_NUMBER,
                 produceRowNumbers,
                 groupByHash);
         assertBuilderSize(groupByHash, types, ImmutableList.of(), ImmutableList.of(), groupedTopNBuilder.getEstimatedSizeInBytes());
@@ -183,6 +187,7 @@ public class TestGroupedTopNBuilder
                 types,
                 new SimplePageWithPositionComparator(types, ImmutableList.of(1), ImmutableList.of(ASC_NULLS_LAST)),
                 5,
+                ROW_NUMBER,
                 produceRowNumbers,
                 new NoChannelGroupByHash());
         assertBuilderSize(new NoChannelGroupByHash(), types, ImmutableList.of(), ImmutableList.of(), groupedTopNBuilder.getEstimatedSizeInBytes());
@@ -224,6 +229,216 @@ public class TestGroupedTopNBuilder
         assertBuilderSize(new NoChannelGroupByHash(), types, ImmutableList.of(0, 0, 0), ImmutableList.of(0), groupedTopNBuilder.getEstimatedSizeInBytes());
     }
 
+    @Test(dataProvider = "produceRowNumbers")
+    public void testSingleGroupRankTopN(boolean produceRanking)
+    {
+        List<Type> types = ImmutableList.of(BIGINT, DOUBLE);
+        List<Page> input = rowPagesBuilder(types)
+                .row(1L, 0.3)
+                .row(2L, 0.2)
+                .row(3L, 0.9)
+                .pageBreak()
+                .row(2L, 0.2)
+                .row(2L, 0.6)
+                .pageBreak()
+                .row(2L, 0.5)
+                .row(1L, 0.7)
+                .row(3L, 0.3)
+                .row(2L, 0.8)
+                .row(3L, 0.1)
+                .build();
+
+        for (Page page : input) {
+            page.compact();
+        }
+
+        GroupedTopNBuilder groupedTopNBuilder = new GroupedTopNBuilder(
+                types,
+                new SimplePageWithPositionComparator(types, ImmutableList.of(1), ImmutableList.of(ASC_NULLS_LAST)),
+                4,
+                RANK,
+                produceRanking,
+                new NoChannelGroupByHash());
+        assertBuilderSize(new NoChannelGroupByHash(), types, ImmutableList.of(), ImmutableList.of(), groupedTopNBuilder.getEstimatedSizeInBytes());
+
+        // add 3 rows for the first page and created a single heap with 3 rows
+        assertTrue(groupedTopNBuilder.processPage(input.get(0)).process());
+        assertBuilderSize(new NoChannelGroupByHash(), types, ImmutableList.of(3), ImmutableList.of(3), groupedTopNBuilder.getEstimatedSizeInBytes());
+
+        // add 2 row for the second page and the heap is with 4 rows(4 distinct ranks and 1 duplicate)
+        assertTrue(groupedTopNBuilder.processPage(input.get(1)).process());
+        assertBuilderSize(new NoChannelGroupByHash(), types, ImmutableList.of(3, 2), ImmutableList.of(4), groupedTopNBuilder.getEstimatedSizeInBytes());
+
+        // update 3 new row from the third page (which will be compacted into a single row only)
+        assertTrue(groupedTopNBuilder.processPage(input.get(2)).process());
+        assertBuilderSize(new NoChannelGroupByHash(), types, ImmutableList.of(3, 2, 3), ImmutableList.of(5), groupedTopNBuilder.getEstimatedSizeInBytes());
+
+        List<Page> output = ImmutableList.copyOf(groupedTopNBuilder.buildResult());
+        assertEquals(output.size(), 1);
+
+        Page expected = rowPagesBuilder(BIGINT, DOUBLE, BIGINT)
+                .row(3L, 0.1, 1)
+                .row(2L, 0.2, 2)
+                .row(2L, 0.2, 2)
+                .row(1L, 0.3, 4)
+                .row(3L, 0.3, 4)
+                .row(2L, 0.5, 6)
+                .build()
+                .get(0);
+        if (produceRanking) {
+            assertPageEquals(ImmutableList.of(BIGINT, DOUBLE, BIGINT), output.get(0), expected);
+        }
+        else {
+            assertPageEquals(types, output.get(0), new Page(expected.getBlock(0), expected.getBlock(1)));
+        }
+
+        assertBuilderSize(new NoChannelGroupByHash(), types, ImmutableList.of(0, 0, 0), ImmutableList.of(0), groupedTopNBuilder.getEstimatedSizeInBytes());
+    }
+
+    @Test(dataProvider = "produceRowNumbers")
+    public void testRankTopN(boolean produceRanking)
+    {
+        List<Type> types = ImmutableList.of(BIGINT, DOUBLE);
+        List<Page> input = rowPagesBuilder(types)
+                .row(1L, 0.3)
+                .row(2L, 0.2)
+                .row(3L, 0.9)
+                .row(3L, 0.1)
+                .pageBreak()
+                .row(1L, 0.4)
+                .pageBreak()
+                .row(1L, 0.5)
+                .row(1L, 0.4)
+                .row(4L, 0.6)
+                .row(2L, 0.8)
+                .row(2L, 0.2)
+                .pageBreak()
+                .row(2L, 0.2)
+                .build();
+
+        for (Page page : input) {
+            page.compact();
+        }
+
+        GroupByHash groupByHash = createGroupByHash(ImmutableList.of(types.get(0)), ImmutableList.of(0), NOOP);
+        GroupedTopNBuilder groupedTopNBuilder = new GroupedTopNBuilder(
+                types,
+                new SimplePageWithPositionComparator(types, ImmutableList.of(1), ImmutableList.of(ASC_NULLS_LAST)),
+                2,
+                RANK,
+                produceRanking,
+                groupByHash);
+        assertBuilderSize(groupByHash, types, ImmutableList.of(), ImmutableList.of(), groupedTopNBuilder.getEstimatedSizeInBytes());
+
+        // add 4 rows for the first page and created three heaps with 1, 1, 2 rows respectively
+        assertTrue(groupedTopNBuilder.processPage(input.get(0)).process());
+        assertBuilderSize(groupByHash, types, ImmutableList.of(4), ImmutableList.of(1, 1, 2), groupedTopNBuilder.getEstimatedSizeInBytes());
+
+        // add 1 row for the second page and the three heaps become 2, 1, 2 rows respectively
+        assertTrue(groupedTopNBuilder.processPage(input.get(1)).process());
+        assertBuilderSize(groupByHash, types, ImmutableList.of(4, 1), ImmutableList.of(2, 1, 2), groupedTopNBuilder.getEstimatedSizeInBytes());
+
+        // add 5 new rows for the third page (which will be compacted into 5 rows only) and we have four heaps with 2, 2, 2, 1 rows respectively
+        // even tho only 4 rows will be referenced on this page, it passes the threshold and will not be compacted. so size still take up 5 rows
+        assertTrue(groupedTopNBuilder.processPage(input.get(2)).process());
+        assertBuilderSize(groupByHash, types, ImmutableList.of(4, 1, 5), ImmutableList.of(2, 2, 2, 1), groupedTopNBuilder.getEstimatedSizeInBytes());
+
+        // add 1 row for the second page and the three heaps become 2, 2, 2, 1 rows respectively
+        assertTrue(groupedTopNBuilder.processPage(input.get(3)).process());
+        assertBuilderSize(groupByHash, types, ImmutableList.of(4, 1, 5, 1), ImmutableList.of(2, 2, 2, 1), groupedTopNBuilder.getEstimatedSizeInBytes());
+
+        List<Page> output = ImmutableList.copyOf(groupedTopNBuilder.buildResult());
+        assertEquals(output.size(), 1);
+
+        Page expected = rowPagesBuilder(BIGINT, DOUBLE, BIGINT)
+                .row(1L, 0.3, 1)
+                .row(1L, 0.4, 2)
+                .row(1L, 0.4, 2)
+                .row(2L, 0.2, 1)
+                .row(2L, 0.2, 1)
+                .row(2L, 0.2, 1)
+                .row(2L, 0.8, 4)
+                .row(3L, 0.1, 1)
+                .row(3L, 0.9, 2)
+                .row(4L, 0.6, 1)
+                .build()
+                .get(0);
+        if (produceRanking) {
+            assertPageEquals(ImmutableList.of(BIGINT, DOUBLE, BIGINT), output.get(0), expected);
+        }
+        else {
+            assertPageEquals(types, output.get(0), new Page(expected.getBlock(0), expected.getBlock(1)));
+        }
+
+        assertBuilderSize(groupByHash, types, ImmutableList.of(0, 0, 0, 0), ImmutableList.of(0, 0, 0, 0), groupedTopNBuilder.getEstimatedSizeInBytes());
+    }
+
+    @Test(dataProvider = "produceRowNumbers")
+    public void testMultiGroupRankTopN(boolean produceRanking)
+    {
+        List<Type> types = ImmutableList.of(BIGINT, DOUBLE);
+        List<Page> input = rowPagesBuilder(types)
+                .row(1L, 0.3)
+                .row(3L, 0.4)
+                .pageBreak()
+                .row(3L, 0.9)
+                .pageBreak()
+                .row(1L, 0.3)
+                .row(1L, 0.8)
+                .row(3L, 0.5)
+                .row(3L, 0.5)
+                .row(1L, 0.8)
+                .build();
+
+        for (Page page : input) {
+            page.compact();
+        }
+
+        GroupByHash groupByHash = createGroupByHash(ImmutableList.of(types.get(0)), ImmutableList.of(0), NOOP);
+        GroupedTopNBuilder groupedTopNBuilder = new GroupedTopNBuilder(
+                types,
+                new SimplePageWithPositionComparator(types, ImmutableList.of(1), ImmutableList.of(ASC_NULLS_LAST)),
+                2,
+                RANK,
+                produceRanking,
+                groupByHash);
+        assertBuilderSize(groupByHash, types, ImmutableList.of(), ImmutableList.of(), groupedTopNBuilder.getEstimatedSizeInBytes());
+
+        // add 2 rows for the first page and created two heaps with 1, 1 rows
+        assertTrue(groupedTopNBuilder.processPage(input.get(0)).process());
+        assertBuilderSize(groupByHash, types, ImmutableList.of(2), ImmutableList.of(1, 1), groupedTopNBuilder.getEstimatedSizeInBytes());
+
+        // add 1 rows for the second page and add 1 row to heap 3L
+        assertTrue(groupedTopNBuilder.processPage(input.get(1)).process());
+        assertBuilderSize(groupByHash, types, ImmutableList.of(2, 1), ImmutableList.of(1, 2), groupedTopNBuilder.getEstimatedSizeInBytes());
+
+        // add 5 rows for the first page, compact previous page b/c no longer referenced and add 1 row to heap 1L
+        assertTrue(groupedTopNBuilder.processPage(input.get(2)).process());
+        assertBuilderSize(groupByHash, types, ImmutableList.of(2, 0, 5), ImmutableList.of(2, 2), groupedTopNBuilder.getEstimatedSizeInBytes());
+
+        List<Page> output = ImmutableList.copyOf(groupedTopNBuilder.buildResult());
+        assertEquals(output.size(), 1);
+
+        Page expected = rowPagesBuilder(BIGINT, DOUBLE, BIGINT)
+                .row(1L, 0.3, 1)
+                .row(1L, 0.3, 1)
+                .row(1L, 0.8, 3)
+                .row(1L, 0.8, 3)
+                .row(3L, 0.4, 1)
+                .row(3L, 0.5, 2)
+                .row(3L, 0.5, 2)
+                .build()
+                .get(0);
+        if (produceRanking) {
+            assertPageEquals(ImmutableList.of(BIGINT, DOUBLE, BIGINT), output.get(0), expected);
+        }
+        else {
+            assertPageEquals(types, output.get(0), new Page(expected.getBlock(0), expected.getBlock(1)));
+        }
+
+        assertBuilderSize(groupByHash, types, ImmutableList.of(0, 0, 0), ImmutableList.of(0, 0), groupedTopNBuilder.getEstimatedSizeInBytes());
+    }
+
     @Test
     public void testYield()
     {
@@ -243,6 +458,7 @@ public class TestGroupedTopNBuilder
                 types,
                 new SimplePageWithPositionComparator(types, ImmutableList.of(1), ImmutableList.of(ASC_NULLS_LAST)),
                 5,
+                ROW_NUMBER,
                 false,
                 groupByHash);
         assertBuilderSize(groupByHash, types, ImmutableList.of(), ImmutableList.of(), groupedTopNBuilder.getEstimatedSizeInBytes());
@@ -293,6 +509,7 @@ public class TestGroupedTopNBuilder
                 types,
                 new SimplePageWithPositionComparator(types, ImmutableList.of(1), ImmutableList.of(ASC_NULLS_LAST)),
                 1,
+                ROW_NUMBER,
                 false,
                 createGroupByHash(ImmutableList.of(types.get(0)), ImmutableList.of(0), NOOP));
 
@@ -387,6 +604,7 @@ public class TestGroupedTopNBuilder
                 types,
                 new SimplePageWithPositionComparator(types, ImmutableList.of(1), ImmutableList.of(ASC_NULLS_LAST)),
                 pageCount * rowCount,
+                ROW_NUMBER,
                 false,
                 groupByHash);
 

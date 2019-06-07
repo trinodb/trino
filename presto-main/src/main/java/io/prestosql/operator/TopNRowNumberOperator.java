@@ -32,6 +32,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.prestosql.SystemSessionProperties.isDictionaryAggregationEnabled;
 import static io.prestosql.operator.GroupByHash.createGroupByHash;
+import static io.prestosql.operator.GroupedTopNBuilder.RankingFunction.ROW_NUMBER;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static java.util.Objects.requireNonNull;
 
@@ -186,6 +187,7 @@ public class TopNRowNumberOperator
                 ImmutableList.copyOf(sourceTypes),
                 new SimplePageWithPositionComparator(types, sortChannels, sortOrders),
                 maxRowCountPerPartition,
+                ROW_NUMBER,
                 generateRowNumber,
                 groupByHash);
     }
