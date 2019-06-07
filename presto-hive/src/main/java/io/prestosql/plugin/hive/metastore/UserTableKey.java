@@ -29,14 +29,20 @@ public class UserTableKey
     private final HivePrincipal principal;
     private final String database;
     private final String table;
+    private final String owner;
 
     @JsonCreator
-    public UserTableKey(@JsonProperty("principal") HivePrincipal principal, @JsonProperty("database") String database, @JsonProperty("table") String table)
+    public UserTableKey(
+            @JsonProperty("principal") HivePrincipal principal,
+            @JsonProperty("database") String database,
+            @JsonProperty("table") String table,
+            @JsonProperty("owner") String owner)
     {
         // principal can be null when we want to list all privileges for admins
         this.principal = principal;
         this.database = requireNonNull(database, "database is null");
         this.table = requireNonNull(table, "table is null");
+        this.owner = requireNonNull(owner, "owner is null");
     }
 
     @JsonProperty
@@ -57,6 +63,12 @@ public class UserTableKey
         return table;
     }
 
+    @JsonProperty
+    public String getOwner()
+    {
+        return owner;
+    }
+
     public boolean matches(String databaseName, String tableName)
     {
         return this.database.equals(databaseName) && this.table.equals(tableName);
@@ -74,13 +86,14 @@ public class UserTableKey
         UserTableKey that = (UserTableKey) o;
         return Objects.equals(principal, that.principal) &&
                 Objects.equals(table, that.table) &&
-                Objects.equals(database, that.database);
+                Objects.equals(database, that.database) &&
+                Objects.equals(owner, that.owner);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(principal, table, database);
+        return Objects.hash(principal, table, database, owner);
     }
 
     @Override
@@ -90,6 +103,7 @@ public class UserTableKey
                 .add("principal", principal)
                 .add("table", table)
                 .add("database", database)
+                .add("tableOwner", owner)
                 .toString();
     }
 }

@@ -136,7 +136,7 @@ public class TestRecordingHiveMetastore
         assertEquals(hiveMetastore.getPartitionNames("database", "table"), Optional.of(ImmutableList.of("value")));
         assertEquals(hiveMetastore.getPartitionNamesByParts("database", "table", ImmutableList.of("value")), Optional.of(ImmutableList.of("value")));
         assertEquals(hiveMetastore.getPartitionsByNames("database", "table", ImmutableList.of("value")), ImmutableMap.of("value", Optional.of(PARTITION)));
-        assertEquals(hiveMetastore.listTablePrivileges("database", "table", new HivePrincipal(USER, "user")), ImmutableSet.of(PRIVILEGE_INFO));
+        assertEquals(hiveMetastore.listTablePrivileges("database", "table", "owner", new HivePrincipal(USER, "user")), ImmutableSet.of(PRIVILEGE_INFO));
         assertEquals(hiveMetastore.listRoles(), ImmutableSet.of("role"));
         assertEquals(hiveMetastore.listRoleGrants(new HivePrincipal(USER, "user")), ImmutableSet.of(ROLE_GRANT));
     }
@@ -263,9 +263,9 @@ public class TestRecordingHiveMetastore
         }
 
         @Override
-        public Set<HivePrivilegeInfo> listTablePrivileges(String database, String table, HivePrincipal prestoPrincipal)
+        public Set<HivePrivilegeInfo> listTablePrivileges(String databaseName, String tableName, String tableOwner, HivePrincipal principal)
         {
-            if (database.equals("database") && table.equals("table") && prestoPrincipal.getType() == USER && prestoPrincipal.getName().equals("user")) {
+            if (databaseName.equals("database") && tableName.equals("table") && principal.getType() == USER && principal.getName().equals("user")) {
                 return ImmutableSet.of(PRIVILEGE_INFO);
             }
 

@@ -196,7 +196,7 @@ public class CachingHiveMetastore
                 }, executor));
 
         tablePrivilegesCache = newCacheBuilder(expiresAfterWriteMillis, refreshMills, maximumSize)
-                .build(asyncReloading(CacheLoader.from(key -> loadTablePrivileges(key.getDatabase(), key.getTable(), key.getPrincipal())), executor));
+                .build(asyncReloading(CacheLoader.from(key -> loadTablePrivileges(key.getDatabase(), key.getTable(), key.getOwner(), key.getPrincipal())), executor));
 
         rolesCache = newCacheBuilder(expiresAfterWriteMillis, refreshMills, maximumSize)
                 .build(asyncReloading(CacheLoader.from(() -> loadRoles()), executor));
@@ -721,36 +721,36 @@ public class CachingHiveMetastore
     }
 
     @Override
-    public void grantTablePrivileges(String databaseName, String tableName, HivePrincipal grantee, Set<HivePrivilegeInfo> privileges)
+    public void grantTablePrivileges(String databaseName, String tableName, String tableOwner, HivePrincipal grantee, Set<HivePrivilegeInfo> privileges)
     {
         try {
-            delegate.grantTablePrivileges(databaseName, tableName, grantee, privileges);
+            delegate.grantTablePrivileges(databaseName, tableName, tableOwner, grantee, privileges);
         }
         finally {
-            tablePrivilegesCache.invalidate(new UserTableKey(grantee, databaseName, tableName));
+            tablePrivilegesCache.invalidate(new UserTableKey(grantee, databaseName, tableName, tableOwner));
         }
     }
 
     @Override
-    public void revokeTablePrivileges(String databaseName, String tableName, HivePrincipal grantee, Set<HivePrivilegeInfo> privileges)
+    public void revokeTablePrivileges(String databaseName, String tableName, String tableOwner, HivePrincipal grantee, Set<HivePrivilegeInfo> privileges)
     {
         try {
-            delegate.revokeTablePrivileges(databaseName, tableName, grantee, privileges);
+            delegate.revokeTablePrivileges(databaseName, tableName, tableOwner, grantee, privileges);
         }
         finally {
-            tablePrivilegesCache.invalidate(new UserTableKey(grantee, databaseName, tableName));
+            tablePrivilegesCache.invalidate(new UserTableKey(grantee, databaseName, tableName, tableOwner));
         }
     }
 
     @Override
-    public Set<HivePrivilegeInfo> listTablePrivileges(String databaseName, String tableName, HivePrincipal principal)
+    public Set<HivePrivilegeInfo> listTablePrivileges(String databaseName, String tableName, String tableOwner, HivePrincipal principal)
     {
-        return get(tablePrivilegesCache, new UserTableKey(principal, databaseName, tableName));
+        return get(tablePrivilegesCache, new UserTableKey(principal, databaseName, tableName, tableOwner));
     }
 
-    public Set<HivePrivilegeInfo> loadTablePrivileges(String databaseName, String tableName, HivePrincipal principal)
+    private Set<HivePrivilegeInfo> loadTablePrivileges(String databaseName, String tableName, String tableOwner, HivePrincipal principal)
     {
-        return delegate.listTablePrivileges(databaseName, tableName, principal);
+        return delegate.listTablePrivileges(databaseName, tableName, tableOwner, principal);
     }
 
     private static CacheBuilder<Object, Object> newCacheBuilder(OptionalLong expiresAfterWriteMillis, OptionalLong refreshMillis, long maximumSize)

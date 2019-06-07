@@ -359,20 +359,20 @@ public class BridgingHiveMetastore
     }
 
     @Override
-    public void grantTablePrivileges(String databaseName, String tableName, HivePrincipal grantee, Set<HivePrivilegeInfo> privileges)
+    public void grantTablePrivileges(String databaseName, String tableName, String tableOwner, HivePrincipal grantee, Set<HivePrivilegeInfo> privileges)
     {
-        delegate.grantTablePrivileges(databaseName, tableName, grantee, privileges);
+        delegate.grantTablePrivileges(databaseName, tableName, tableOwner, grantee, privileges);
     }
 
     @Override
-    public void revokeTablePrivileges(String databaseName, String tableName, HivePrincipal grantee, Set<HivePrivilegeInfo> privileges)
+    public void revokeTablePrivileges(String databaseName, String tableName, String tableOwner, HivePrincipal grantee, Set<HivePrivilegeInfo> privileges)
     {
-        delegate.revokeTablePrivileges(databaseName, tableName, grantee, privileges);
+        delegate.revokeTablePrivileges(databaseName, tableName, tableOwner, grantee, privileges);
     }
 
     @Override
-    public Set<HivePrivilegeInfo> listTablePrivileges(String databaseName, String tableName, HivePrincipal principal)
+    public Set<HivePrivilegeInfo> listTablePrivileges(String databaseName, String tableName, String tableOwner, HivePrincipal principal)
     {
-        return delegate.listTablePrivileges(databaseName, tableName, principal);
+        return delegate.listTablePrivileges(databaseName, tableName, tableOwner, principal);
     }
 }
