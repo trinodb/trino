@@ -44,10 +44,12 @@ import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
+import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static java.lang.Float.floatToIntBits;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.testng.Assert.assertEquals;
 
@@ -64,6 +66,7 @@ public class TestReadBloomFilter
 
         testType(DATE, ImmutableList.of(new SqlDate(1), new SqlDate(5_000), new SqlDate(10_000)), 5_000L, 7_777L);
 
+        testType(REAL, ImmutableList.of(1.11f, 500_000.56f, 1_000_000.99f), (long) floatToIntBits(500_000.56f), (long) floatToIntBits(777_777.77f));
         testType(DOUBLE, ImmutableList.of(1.11, 500_000.55, 1_000_000.99), 500_000.55, 777_777.77);
 
         testType(VARCHAR, ImmutableList.of("a", "o", "z"), utf8Slice("o"), utf8Slice("w"));

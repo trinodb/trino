@@ -26,6 +26,7 @@ import io.prestosql.orc.proto.OrcProto;
 import io.prestosql.orc.protobuf.CodedInputStream;
 import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.TupleDomain;
+import io.prestosql.spi.type.RealType;
 import io.prestosql.spi.type.Type;
 import org.apache.orc.util.Murmur3;
 import org.testng.annotations.Test;
@@ -51,10 +52,13 @@ import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
+import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static java.lang.Float.floatToIntBits;
+import static java.lang.Float.intBitsToFloat;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -78,6 +82,7 @@ public class TestOrcBloomFilters
             .put(77, TINYINT)
             .put(901, DATE)
             .put(234.567, DOUBLE)
+            .put((long) floatToIntBits(987.654f), REAL)
             .build();
 
     @Test
@@ -196,9 +201,15 @@ public class TestOrcBloomFilters
     {
         BloomFilter bloomFilter = new BloomFilter(TEST_VALUES.size() * 10, 0.01);
 
-        for (Object o : TEST_VALUES.keySet()) {
+        for (Map.Entry<Object, Type> testValue : TEST_VALUES.entrySet()) {
+            Object o = testValue.getKey();
             if (o instanceof Long) {
-                bloomFilter.addLong((Long) o);
+                if (testValue.getValue() instanceof RealType) {
+                    bloomFilter.addDouble(intBitsToFloat(((Number) o).intValue()));
+                }
+                else {
+                    bloomFilter.addLong((Long) o);
+                }
             }
             else if (o instanceof Integer) {
                 bloomFilter.addLong((Integer) o);
@@ -251,6 +262,7 @@ public class TestOrcBloomFilters
                 .put(DATE, 901L)
                 .put(BIGINT, 4321L)
                 .put(DOUBLE, 0.123)
+                .put(REAL, (long) (floatToIntBits(0.456f)))
                 .put(VARCHAR, wrappedBuffer(TEST_STRING))
                 .build();
 
@@ -355,11 +367,13 @@ public class TestOrcBloomFilters
             byte[][] binaryValue = new byte[entries][];
             long[] longValue = new long[entries];
             double[] doubleValue = new double[entries];
+            float[] floatValue = new float[entries];
 
             for (int i = 0; i < entries; i++) {
                 binaryValue[i] = randomBytes(ThreadLocalRandom.current().nextInt(100));
                 longValue[i] = ThreadLocalRandom.current().nextLong();
                 doubleValue[i] = ThreadLocalRandom.current().nextDouble();
+                floatValue[i] = ThreadLocalRandom.current().nextFloat();
             }
 
             for (int i = 0; i < entries; i++) {
@@ -367,20 +381,24 @@ public class TestOrcBloomFilters
                 assertFalse(actual.testSlice(wrappedBuffer(binaryValue[i])));
                 assertFalse(actual.testLong(longValue[i]));
                 assertFalse(actual.testDouble(doubleValue[i]));
+                assertFalse(actual.testFloat(floatValue[i]));
 
                 assertFalse(expected.test(binaryValue[i]));
                 assertFalse(expected.testLong(longValue[i]));
                 assertFalse(expected.testDouble(doubleValue[i]));
+                assertFalse(expected.testDouble(floatValue[i]));
             }
 
             for (int i = 0; i < entries; i++) {
                 actual.add(binaryValue[i]);
                 actual.addLong(longValue[i]);
                 actual.addDouble(doubleValue[i]);
+                actual.addFloat(floatValue[i]);
 
                 expected.add(binaryValue[i]);
                 expected.addLong(longValue[i]);
                 expected.addDouble(doubleValue[i]);
+                expected.addDouble(floatValue[i]);
             }
 
             for (int i = 0; i < entries; i++) {
@@ -388,10 +406,12 @@ public class TestOrcBloomFilters
                 assertTrue(actual.testSlice(wrappedBuffer(binaryValue[i])));
                 assertTrue(actual.testLong(longValue[i]));
                 assertTrue(actual.testDouble(doubleValue[i]));
+                assertTrue(actual.testFloat(floatValue[i]));
 
                 assertTrue(expected.test(binaryValue[i]));
                 assertTrue(expected.testLong(longValue[i]));
                 assertTrue(expected.testDouble(doubleValue[i]));
+                assertTrue(expected.testDouble(floatValue[i]));
             }
 
             actual.add(null);
