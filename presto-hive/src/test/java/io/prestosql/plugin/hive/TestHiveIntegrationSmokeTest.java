@@ -3769,39 +3769,39 @@ public class TestHiveIntegrationSmokeTest
             assertQuery(
                     "SELECT * FROM information_schema.table_privileges WHERE table_schema = 'bar'",
                     "VALUES " +
-                            "('admin', 'USER', 'admin', 'USER', 'hive', 'bar', 'one', 'SELECT', 'YES', null)," +
-                            "('admin', 'USER', 'admin', 'USER', 'hive', 'bar', 'one', 'DELETE', 'YES', null)," +
-                            "('admin', 'USER', 'admin', 'USER', 'hive', 'bar', 'one', 'INSERT', 'YES', null)," +
-                            "('admin', 'USER', 'admin', 'USER', 'hive', 'bar', 'one', 'UPDATE', 'YES', null)," +
-                            "('admin', 'USER', 'admin', 'USER', 'hive', 'bar', 'two', 'SELECT', 'YES', null)," +
-                            "('admin', 'USER', 'admin', 'USER', 'hive', 'bar', 'two', 'DELETE', 'YES', null)," +
-                            "('admin', 'USER', 'admin', 'USER', 'hive', 'bar', 'two', 'INSERT', 'YES', null)," +
-                            "('admin', 'USER', 'admin', 'USER', 'hive', 'bar', 'two', 'UPDATE', 'YES', null)," +
-                            "('admin', 'USER', 'admin', 'USER', 'hive', 'bar', 'three', 'SELECT', 'YES', null)," +
-                            "('admin', 'USER', 'admin', 'USER', 'hive', 'bar', 'three', 'DELETE', 'YES', null)," +
-                            "('admin', 'USER', 'admin', 'USER', 'hive', 'bar', 'three', 'INSERT', 'YES', null)," +
-                            "('admin', 'USER', 'admin', 'USER', 'hive', 'bar', 'three', 'UPDATE', 'YES', null)");
+                            "('<unknown>', 'USER', '<unknown>', 'USER', 'hive', 'bar', 'one', 'SELECT', 'YES', null)," +
+                            "('<unknown>', 'USER', '<unknown>', 'USER', 'hive', 'bar', 'one', 'DELETE', 'YES', null)," +
+                            "('<unknown>', 'USER', '<unknown>', 'USER', 'hive', 'bar', 'one', 'INSERT', 'YES', null)," +
+                            "('<unknown>', 'USER', '<unknown>', 'USER', 'hive', 'bar', 'one', 'UPDATE', 'YES', null)," +
+                            "('<unknown>', 'USER', '<unknown>', 'USER', 'hive', 'bar', 'two', 'SELECT', 'YES', null)," +
+                            "('<unknown>', 'USER', '<unknown>', 'USER', 'hive', 'bar', 'two', 'DELETE', 'YES', null)," +
+                            "('<unknown>', 'USER', '<unknown>', 'USER', 'hive', 'bar', 'two', 'INSERT', 'YES', null)," +
+                            "('<unknown>', 'USER', '<unknown>', 'USER', 'hive', 'bar', 'two', 'UPDATE', 'YES', null)," +
+                            "('<unknown>', 'USER', '<unknown>', 'USER', 'hive', 'bar', 'three', 'SELECT', 'YES', null)," +
+                            "('<unknown>', 'USER', '<unknown>', 'USER', 'hive', 'bar', 'three', 'DELETE', 'YES', null)," +
+                            "('<unknown>', 'USER', '<unknown>', 'USER', 'hive', 'bar', 'three', 'INSERT', 'YES', null)," +
+                            "('<unknown>', 'USER', '<unknown>', 'USER', 'hive', 'bar', 'three', 'UPDATE', 'YES', null)");
             assertQuery(
                     "SELECT * FROM information_schema.table_privileges WHERE table_schema = 'bar' AND table_name = 'two'",
                     "VALUES " +
-                            "('admin', 'USER', 'admin', 'USER', 'hive', 'bar', 'two', 'SELECT', 'YES', null)," +
-                            "('admin', 'USER', 'admin', 'USER', 'hive', 'bar', 'two', 'DELETE', 'YES', null)," +
-                            "('admin', 'USER', 'admin', 'USER', 'hive', 'bar', 'two', 'INSERT', 'YES', null)," +
-                            "('admin', 'USER', 'admin', 'USER', 'hive', 'bar', 'two', 'UPDATE', 'YES', null)");
+                            "('<unknown>', 'USER', '<unknown>', 'USER', 'hive', 'bar', 'two', 'SELECT', 'YES', null)," +
+                            "('<unknown>', 'USER', '<unknown>', 'USER', 'hive', 'bar', 'two', 'DELETE', 'YES', null)," +
+                            "('<unknown>', 'USER', '<unknown>', 'USER', 'hive', 'bar', 'two', 'INSERT', 'YES', null)," +
+                            "('<unknown>', 'USER', '<unknown>', 'USER', 'hive', 'bar', 'two', 'UPDATE', 'YES', null)");
             assertQuery(
                     "SELECT * FROM information_schema.table_privileges WHERE table_name = 'two'",
                     "VALUES " +
-                            "('admin', 'USER', 'admin', 'USER', 'hive', 'bar', 'two', 'SELECT', 'YES', null)," +
-                            "('admin', 'USER', 'admin', 'USER', 'hive', 'bar', 'two', 'DELETE', 'YES', null)," +
-                            "('admin', 'USER', 'admin', 'USER', 'hive', 'bar', 'two', 'INSERT', 'YES', null)," +
-                            "('admin', 'USER', 'admin', 'USER', 'hive', 'bar', 'two', 'UPDATE', 'YES', null)");
+                            "('<unknown>', 'USER', '<unknown>', 'USER', 'hive', 'bar', 'two', 'SELECT', 'YES', null)," +
+                            "('<unknown>', 'USER', '<unknown>', 'USER', 'hive', 'bar', 'two', 'DELETE', 'YES', null)," +
+                            "('<unknown>', 'USER', '<unknown>', 'USER', 'hive', 'bar', 'two', 'INSERT', 'YES', null)," +
+                            "('<unknown>', 'USER', '<unknown>', 'USER', 'hive', 'bar', 'two', 'UPDATE', 'YES', null)");
             assertQuery(
                     "SELECT * FROM information_schema.table_privileges WHERE table_name = 'three'",
                     "VALUES " +
-                            "('admin', 'USER', 'admin', 'USER', 'hive', 'bar', 'three', 'SELECT', 'YES', null)," +
-                            "('admin', 'USER', 'admin', 'USER', 'hive', 'bar', 'three', 'DELETE', 'YES', null)," +
-                            "('admin', 'USER', 'admin', 'USER', 'hive', 'bar', 'three', 'INSERT', 'YES', null)," +
-                            "('admin', 'USER', 'admin', 'USER', 'hive', 'bar', 'three', 'UPDATE', 'YES', null)");
+                            "('<unknown>', 'USER', '<unknown>', 'USER', 'hive', 'bar', 'three', 'SELECT', 'YES', null)," +
+                            "('<unknown>', 'USER', '<unknown>', 'USER', 'hive', 'bar', 'three', 'DELETE', 'YES', null)," +
+                            "('<unknown>', 'USER', '<unknown>', 'USER', 'hive', 'bar', 'three', 'INSERT', 'YES', null)," +
+                            "('<unknown>', 'USER', '<unknown>', 'USER', 'hive', 'bar', 'three', 'UPDATE', 'YES', null)");
         }
         finally {
             computeActual("DROP SCHEMA IF EXISTS foo");
