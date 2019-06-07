@@ -54,6 +54,7 @@ import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
@@ -81,6 +82,7 @@ public class TestOrcBloomFilters
             .put(789, SMALLINT)
             .put(77, TINYINT)
             .put(901, DATE)
+            .put(987654L, TIMESTAMP)
             .put(234.567, DOUBLE)
             .put((long) floatToIntBits(987.654f), REAL)
             .build();
@@ -260,6 +262,7 @@ public class TestOrcBloomFilters
                 .put(SMALLINT, 789L)
                 .put(TINYINT, 77L)
                 .put(DATE, 901L)
+                .put(TIMESTAMP, 987654L)
                 .put(BIGINT, 4321L)
                 .put(DOUBLE, 0.123)
                 .put(REAL, (long) (floatToIntBits(0.456f)))
