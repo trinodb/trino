@@ -65,6 +65,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.EnumSet;
 import java.util.HashMap;
@@ -83,6 +84,7 @@ import java.util.stream.Collectors;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_PARTITION_DROPPED_DURING_QUERY;
 import static io.prestosql.plugin.hive.HiveMetadata.TABLE_COMMENT;
@@ -958,15 +960,16 @@ public class FileHiveMetastore
     @Override
     public synchronized Set<HivePrivilegeInfo> listTablePrivileges(String databaseName, String tableName, HivePrincipal principal)
     {
-        ImmutableSet.Builder<HivePrivilegeInfo> result = ImmutableSet.builder();
         Table table = getRequiredTable(databaseName, tableName);
+        Path permissionsDirectory = getPermissionsDirectory(table);
+        if (principal == null) {
+            return readAllPermissions(permissionsDirectory);
+        }
+        ImmutableSet.Builder<HivePrivilegeInfo> result = ImmutableSet.builder();
         if (principal.getType() == USER && table.getOwner().equals(principal.getName())) {
             result.add(new HivePrivilegeInfo(OWNERSHIP, true, principal, principal));
         }
-        Path permissionFilePath = getPermissionsPath(getPermissionsDirectory(table), principal);
-        result.addAll(readFile("permissions", permissionFilePath, permissionsCodec).orElse(ImmutableList.of()).stream()
-                .map(PermissionMetadata::toHivePrivilegeInfo)
-                .collect(toSet()));
+        result.addAll(readPermissionsFile(getPermissionsPath(permissionsDirectory, principal)));
         return result.build();
     }
 
@@ -1100,6 +1103,27 @@ public class FileHiveMetastore
     private Path getRoleGrantsFile()
     {
         return new Path(catalogDirectory, ".roleGrants");
+    }
+
+    private Set<HivePrivilegeInfo> readPermissionsFile(Path permissionFilePath)
+    {
+        return readFile("permissions", permissionFilePath, permissionsCodec).orElse(ImmutableList.of()).stream()
+                .map(PermissionMetadata::toHivePrivilegeInfo)
+                .collect(toImmutableSet());
+    }
+
+    private Set<HivePrivilegeInfo> readAllPermissions(Path permissionsDirectory)
+    {
+        try {
+            return Arrays.stream(metadataFileSystem.listStatus(permissionsDirectory))
+                    .filter(FileStatus::isFile)
+                    .filter(file -> !file.getPath().getName().startsWith("."))
+                    .flatMap(file -> readPermissionsFile(file.getPath()).stream())
+                    .collect(toImmutableSet());
+        }
+        catch (IOException e) {
+            throw new PrestoException(HIVE_METASTORE_ERROR, e);
+        }
     }
 
     private void deleteMetadataDirectory(Path metadataDirectory)
