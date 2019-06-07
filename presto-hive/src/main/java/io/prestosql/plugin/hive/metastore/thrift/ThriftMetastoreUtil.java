@@ -363,7 +363,9 @@ public final class ThriftMetastoreUtil
                 listApplicableRoles(principal, listRoleGrants)
                         .map(RoleGrant::getRoleName)
                         // The admin role must be enabled explicitly. If it is, it was added above.
-                        .filter(Predicate.isEqual(ADMIN_ROLE_NAME).negate()));
+                        .filter(Predicate.isEqual(ADMIN_ROLE_NAME).negate()))
+                // listApplicableRoles may return role which was already added explicitly above.
+                .distinct();
     }
 
     public static org.apache.hadoop.hive.metastore.api.Partition toMetastoreApiPartition(PartitionWithStatistics partitionWithStatistics)
