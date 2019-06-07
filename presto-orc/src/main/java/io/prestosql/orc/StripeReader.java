@@ -232,7 +232,8 @@ public class StripeReader
     {
         if (stream.getStreamKind() == BLOOM_FILTER) {
             // non-utf8 bloom filters are not allowed for character types
-            return orcTypeKind != OrcTypeKind.STRING && orcTypeKind != OrcTypeKind.VARCHAR && orcTypeKind != OrcTypeKind.CHAR;
+            // non-utf8 bloom filters are not supported for timestamp
+            return orcTypeKind != OrcTypeKind.STRING && orcTypeKind != OrcTypeKind.VARCHAR && orcTypeKind != OrcTypeKind.CHAR && orcTypeKind != OrcTypeKind.TIMESTAMP;
         }
         if (stream.getStreamKind() == BLOOM_FILTER_UTF8) {
             // char types require padding for bloom filters, which is not supported
