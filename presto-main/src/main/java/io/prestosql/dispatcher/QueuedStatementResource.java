@@ -119,7 +119,7 @@ public class QueuedStatementResource
                             }
 
                             // forget about this query if the query manager is no longer tracking it
-                            if (!dispatchManager.getDispatchInfo(entry.getKey()).isPresent()) {
+                            if (!dispatchManager.isQueryRegistered(entry.getKey())) {
                                 queries.remove(entry.getKey());
                             }
                         }
