@@ -48,6 +48,7 @@ import io.prestosql.sql.planner.plan.JoinNode;
 import io.prestosql.sql.planner.plan.LateralJoinNode;
 import io.prestosql.sql.planner.plan.LimitNode;
 import io.prestosql.sql.planner.plan.MarkDistinctNode;
+import io.prestosql.sql.planner.plan.OffsetNode;
 import io.prestosql.sql.planner.plan.OutputNode;
 import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.ProjectNode;
@@ -554,6 +555,15 @@ public class PruneUnreferencedOutputs
             Set<Symbol> expectedInputs = ImmutableSet.copyOf(node.getOutputSymbols());
             PlanNode source = context.rewrite(node.getSource(), expectedInputs);
             return new OutputNode(node.getId(), source, node.getColumnNames(), node.getOutputSymbols());
+        }
+
+        @Override
+        public PlanNode visitOffset(OffsetNode node, RewriteContext<Set<Symbol>> context)
+        {
+            ImmutableSet.Builder<Symbol> expectedInputs = ImmutableSet.<Symbol>builder()
+                    .addAll(context.get());
+            PlanNode source = context.rewrite(node.getSource(), expectedInputs.build());
+            return new OffsetNode(node.getId(), source, node.getCount());
         }
 
         @Override
