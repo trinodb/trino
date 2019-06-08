@@ -254,6 +254,11 @@ public class DispatchManager
                 .collect(toImmutableList());
     }
 
+    public boolean isQueryRegistered(QueryId queryId)
+    {
+        return queryTracker.tryGetQuery(queryId).isPresent();
+    }
+
     public DispatchQuery getQuery(QueryId queryId)
     {
         return queryTracker.getQuery(queryId);
