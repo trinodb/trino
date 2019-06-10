@@ -75,13 +75,14 @@ public final class MemoryTableHandle
         }
         MemoryTableHandle that = (MemoryTableHandle) o;
         return id == that.id &&
-                limit.equals(that.limit);
+                limit.equals(that.limit) &&
+                sampleRatio.equals(that.sampleRatio);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(id, limit);
+        return Objects.hash(id, limit, sampleRatio);
     }
 
     @Override
