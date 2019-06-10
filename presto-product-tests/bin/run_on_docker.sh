@@ -23,7 +23,7 @@ function retry() {
 }
 
 function hadoop_master_container(){
-  environment_compose ps -q hadoop-master
+  environment_compose ps -q hadoop-master | grep .
 }
 
 function check_hadoop() {

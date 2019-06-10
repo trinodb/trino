@@ -19,7 +19,7 @@ function retry() {
 }
 
 function hadoop_master_container(){
-  docker-compose -f "${DOCKER_COMPOSE_LOCATION}" ps -q hadoop-master
+  docker-compose -f "${DOCKER_COMPOSE_LOCATION}" ps -q hadoop-master | grep .
 }
 
 function hadoop_master_ip() {
