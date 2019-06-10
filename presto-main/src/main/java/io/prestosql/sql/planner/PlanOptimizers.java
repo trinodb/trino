@@ -92,6 +92,7 @@ import io.prestosql.sql.planner.iterative.rule.PushOffsetThroughProject;
 import io.prestosql.sql.planner.iterative.rule.PushPartialAggregationThroughExchange;
 import io.prestosql.sql.planner.iterative.rule.PushPartialAggregationThroughJoin;
 import io.prestosql.sql.planner.iterative.rule.PushPredicateIntoTableScan;
+import io.prestosql.sql.planner.iterative.rule.PushProjectionIntoTableScan;
 import io.prestosql.sql.planner.iterative.rule.PushProjectionThroughExchange;
 import io.prestosql.sql.planner.iterative.rule.PushProjectionThroughUnion;
 import io.prestosql.sql.planner.iterative.rule.PushRemoteExchangeThroughAssignUniqueId;
@@ -252,6 +253,7 @@ public class PlanOptimizers
                 new PruneTableScanColumns());
 
         Set<Rule<?>> projectionPushdownRules = ImmutableSet.of(
+                new PushProjectionIntoTableScan(metadata, typeAnalyzer),
                 new PushProjectionThroughUnion(),
                 new PushProjectionThroughExchange());
 
@@ -409,10 +411,12 @@ public class PlanOptimizers
                         ruleStats,
                         statsCalculator,
                         estimatedExchangesCostCalculator,
-                        ImmutableSet.of(
-                                new PushLimitIntoTableScan(metadata),
-                                new PushPredicateIntoTableScan(metadata, typeAnalyzer),
-                                new PushSampleIntoTableScan(metadata))),
+                        ImmutableSet.<Rule<?>>builder()
+                                .addAll(projectionPushdownRules)
+                                .add(new PushLimitIntoTableScan(metadata))
+                                .add(new PushPredicateIntoTableScan(metadata, typeAnalyzer))
+                                .add(new PushSampleIntoTableScan(metadata))
+                                .build()),
                 new IterativeOptimizer(
                         ruleStats,
                         statsCalculator,
