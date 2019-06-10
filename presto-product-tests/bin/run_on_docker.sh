@@ -59,17 +59,6 @@ function run_product_tests() {
   return ${PRODUCT_TESTS_EXIT_CODE}
 }
 
-function prefetch_images_silently() {
-  for IMAGE in $(docker_images_used); do
-    echo "Pulling docker image [$IMAGE]"
-    docker pull $IMAGE > /dev/null
-  done
-}
-
-function docker_images_used() {
-  environment_compose config | grep 'image:' | awk '{ print $2 }' | sort | uniq
-}
-
 function cleanup() {
   stop_application_runner_containers ${ENVIRONMENT}
 
@@ -112,11 +101,7 @@ docker version
 stop_all_containers
 
 if [[ ${CONTINUOUS_INTEGRATION:-false} = true ]]; then
-    prefetch_images_silently
-    # This has to be done after fetching the images
-    # or will present stale / no data for images that changed.
-    echo "Docker images versions:"
-    docker_images_used | xargs -n 1 docker inspect --format='ID: {{.ID}}, tags: {{.RepoTags}}'
+    environment_compose pull --quiet
 fi
 
 # catch terminate signals
