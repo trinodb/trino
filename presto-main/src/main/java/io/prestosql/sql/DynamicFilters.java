@@ -178,7 +178,7 @@ public final class DynamicFilters
         }
     }
 
-    @ScalarFunction(value = Function.NAME, hidden = true, deterministic = false)
+    @ScalarFunction(value = Function.NAME, hidden = true)
     public static final class Function
     {
         private Function() {}

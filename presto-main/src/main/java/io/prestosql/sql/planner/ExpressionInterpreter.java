@@ -127,6 +127,7 @@ import static io.prestosql.spi.type.TypeUtils.readNativeValue;
 import static io.prestosql.spi.type.TypeUtils.writeNativeValue;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
+import static io.prestosql.sql.DynamicFilters.isDynamicFilter;
 import static io.prestosql.sql.analyzer.ConstantExpressionVerifier.verifyExpressionIsConstant;
 import static io.prestosql.sql.analyzer.ExpressionAnalyzer.createConstantAnalyzer;
 import static io.prestosql.sql.analyzer.SemanticExceptions.semanticException;
@@ -942,7 +943,10 @@ public class ExpressionInterpreter
             }
 
             // do not optimize non-deterministic functions
-            if (optimize && (!function.isDeterministic() || hasUnresolvedValue(argumentValues) || resolvedFunction.getSignature().getName().equals("fail"))) {
+            if (optimize && (!function.isDeterministic() ||
+                    hasUnresolvedValue(argumentValues) ||
+                    isDynamicFilter(metadata, node) ||
+                    resolvedFunction.getSignature().getName().equals("fail"))) {
                 verify(!node.isDistinct(), "window does not support distinct");
                 verify(!node.getOrderBy().isPresent(), "window does not support order by");
                 verify(!node.getFilter().isPresent(), "window does not support filter");
