@@ -15,6 +15,7 @@ package io.prestosql.spi.connector;
 
 import io.airlift.slice.Slice;
 import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.expression.ConnectorExpression;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.security.GrantInfo;
 import io.prestosql.spi.security.PrestoPrincipal;
@@ -693,6 +694,72 @@ public interface ConnectorMetadata
      * </p>
      */
     default Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorSession session, ConnectorTableHandle handle, Constraint constraint)
+    {
+        return Optional.empty();
+    }
+
+    /**
+     * Attempt to push down the provided projections into the table.
+     * <p>
+     * Connectors can indicate whether they don't support projection pushdown or that the action had no effect
+     * by returning {@link Optional#empty()}. Connectors should expect this method to be called multiple times
+     * during the optimization of a given query.
+     * <p>
+     * <b>Note</b>: it's critical for connectors to return Optional.empty() if calling this method has no effect for that
+     * invocation, even if the connector generally supports pushdown. Doing otherwise can cause the optimizer
+     * to loop indefinitely.
+     * </p>
+     *
+     * If the method returns a result, the list of projections in the result *replaces* the existing ones, and the
+     * list of assignments is the new set of columns exposed by the derived table.
+     *
+     * As an example, given the following plan:
+     *
+     * <pre>
+     * - project
+     *     x = f1(a, b)
+     *     y = f2(a, b)
+     *     z = f3(a, b)
+     *   - scan (TH0)
+     *       a = CH0
+     *       b = CH1
+     *       c = CH2
+     * </pre>
+     *
+     * The optimizer would call {@link #applyProjection} with the following arguments:
+     *
+     * <pre>
+     * handle = TH0
+     * projections = [
+     *     f1(a, b)
+     *     f2(a, b)
+     *     f3(a, b)
+     * ]
+     * assignments = [
+     *     a = CH0
+     *     b = CH1
+     *     c = CH2
+     * ]
+     * </pre>
+     *
+     * Assuming the connector knows how to handle f1(...) and f2(...), it would return:
+     *
+     * <pre>
+     * handle = TH1
+     * projections = [
+     *     v2
+     *     v3
+     *     f3(v0, v1)
+     * ]
+     * assignments = [
+     *     v0 = CH0
+     *     v1 = CH1
+     *     v2 = CH3  (synthetic column for f1(CH0, CH1))
+     *     v3 = CH4  (synthetic column for f2(CH0, CH1))
+     * ]
+     * </pre>
+     */
+    default Optional<ProjectionApplicationResult<ConnectorTableHandle>> applyProjection(ConnectorSession session, ConnectorTableHandle handle, List<ConnectorExpression> projections, Map<String, ColumnHandle> assignments)
     {
         return Optional.empty();
     }
