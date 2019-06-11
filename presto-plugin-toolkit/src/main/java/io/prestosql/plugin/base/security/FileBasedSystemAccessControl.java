@@ -27,6 +27,7 @@ import io.prestosql.spi.security.PrestoPrincipal;
 import io.prestosql.spi.security.Privilege;
 import io.prestosql.spi.security.SystemAccessControl;
 import io.prestosql.spi.security.SystemAccessControlFactory;
+import io.prestosql.spi.security.SystemSecurityContext;
 
 import java.nio.file.Paths;
 import java.security.Principal;
@@ -158,24 +159,24 @@ public class FileBasedSystemAccessControl
     }
 
     @Override
-    public void checkCanSetSystemSessionProperty(Identity identity, String propertyName)
+    public void checkCanSetSystemSessionProperty(SystemSecurityContext context, String propertyName)
     {
     }
 
     @Override
-    public void checkCanAccessCatalog(Identity identity, String catalogName)
+    public void checkCanAccessCatalog(SystemSecurityContext context, String catalogName)
     {
-        if (!canAccessCatalog(identity, catalogName)) {
+        if (!canAccessCatalog(context.getIdentity(), catalogName)) {
             denyCatalogAccess(catalogName);
         }
     }
 
     @Override
-    public Set<String> filterCatalogs(Identity identity, Set<String> catalogs)
+    public Set<String> filterCatalogs(SystemSecurityContext context, Set<String> catalogs)
     {
         ImmutableSet.Builder<String> filteredCatalogs = ImmutableSet.builder();
         for (String catalog : catalogs) {
-            if (canAccessCatalog(identity, catalog)) {
+            if (canAccessCatalog(context.getIdentity(), catalog)) {
                 filteredCatalogs.add(catalog);
             }
         }
@@ -194,29 +195,29 @@ public class FileBasedSystemAccessControl
     }
 
     @Override
-    public void checkCanCreateSchema(Identity identity, CatalogSchemaName schema)
+    public void checkCanCreateSchema(SystemSecurityContext context, CatalogSchemaName schema)
     {
     }
 
     @Override
-    public void checkCanDropSchema(Identity identity, CatalogSchemaName schema)
+    public void checkCanDropSchema(SystemSecurityContext context, CatalogSchemaName schema)
     {
     }
 
     @Override
-    public void checkCanRenameSchema(Identity identity, CatalogSchemaName schema, String newSchemaName)
+    public void checkCanRenameSchema(SystemSecurityContext context, CatalogSchemaName schema, String newSchemaName)
     {
     }
 
     @Override
-    public void checkCanShowSchemas(Identity identity, String catalogName)
+    public void checkCanShowSchemas(SystemSecurityContext context, String catalogName)
     {
     }
 
     @Override
-    public Set<String> filterSchemas(Identity identity, String catalogName, Set<String> schemaNames)
+    public Set<String> filterSchemas(SystemSecurityContext context, String catalogName, Set<String> schemaNames)
     {
-        if (!canAccessCatalog(identity, catalogName)) {
+        if (!canAccessCatalog(context.getIdentity(), catalogName)) {
             return ImmutableSet.of();
         }
 
@@ -224,34 +225,34 @@ public class FileBasedSystemAccessControl
     }
 
     @Override
-    public void checkCanCreateTable(Identity identity, CatalogSchemaTableName table)
+    public void checkCanCreateTable(SystemSecurityContext context, CatalogSchemaTableName table)
     {
     }
 
     @Override
-    public void checkCanDropTable(Identity identity, CatalogSchemaTableName table)
+    public void checkCanDropTable(SystemSecurityContext context, CatalogSchemaTableName table)
     {
     }
 
     @Override
-    public void checkCanRenameTable(Identity identity, CatalogSchemaTableName table, CatalogSchemaTableName newTable)
+    public void checkCanRenameTable(SystemSecurityContext context, CatalogSchemaTableName table, CatalogSchemaTableName newTable)
     {
     }
 
     @Override
-    public void checkCanSetTableComment(Identity identity, CatalogSchemaTableName table)
+    public void checkCanSetTableComment(SystemSecurityContext context, CatalogSchemaTableName table)
     {
     }
 
     @Override
-    public void checkCanShowTablesMetadata(Identity identity, CatalogSchemaName schema)
+    public void checkCanShowTablesMetadata(SystemSecurityContext context, CatalogSchemaName schema)
     {
     }
 
     @Override
-    public Set<SchemaTableName> filterTables(Identity identity, String catalogName, Set<SchemaTableName> tableNames)
+    public Set<SchemaTableName> filterTables(SystemSecurityContext context, String catalogName, Set<SchemaTableName> tableNames)
     {
-        if (!canAccessCatalog(identity, catalogName)) {
+        if (!canAccessCatalog(context.getIdentity(), catalogName)) {
             return ImmutableSet.of();
         }
 
@@ -259,14 +260,14 @@ public class FileBasedSystemAccessControl
     }
 
     @Override
-    public void checkCanShowColumnsMetadata(Identity identity, CatalogSchemaTableName table)
+    public void checkCanShowColumnsMetadata(SystemSecurityContext context, CatalogSchemaTableName table)
     {
     }
 
     @Override
-    public List<ColumnMetadata> filterColumns(Identity identity, CatalogSchemaTableName tableName, List<ColumnMetadata> columns)
+    public List<ColumnMetadata> filterColumns(SystemSecurityContext context, CatalogSchemaTableName tableName, List<ColumnMetadata> columns)
     {
-        if (!canAccessCatalog(identity, tableName.getCatalogName())) {
+        if (!canAccessCatalog(context.getIdentity(), tableName.getCatalogName())) {
             return ImmutableList.of();
         }
 
@@ -274,67 +275,67 @@ public class FileBasedSystemAccessControl
     }
 
     @Override
-    public void checkCanAddColumn(Identity identity, CatalogSchemaTableName table)
+    public void checkCanAddColumn(SystemSecurityContext context, CatalogSchemaTableName table)
     {
     }
 
     @Override
-    public void checkCanDropColumn(Identity identity, CatalogSchemaTableName table)
+    public void checkCanDropColumn(SystemSecurityContext context, CatalogSchemaTableName table)
     {
     }
 
     @Override
-    public void checkCanRenameColumn(Identity identity, CatalogSchemaTableName table)
+    public void checkCanRenameColumn(SystemSecurityContext context, CatalogSchemaTableName table)
     {
     }
 
     @Override
-    public void checkCanSelectFromColumns(Identity identity, CatalogSchemaTableName table, Set<String> columns)
+    public void checkCanSelectFromColumns(SystemSecurityContext context, CatalogSchemaTableName table, Set<String> columns)
     {
     }
 
     @Override
-    public void checkCanInsertIntoTable(Identity identity, CatalogSchemaTableName table)
+    public void checkCanInsertIntoTable(SystemSecurityContext context, CatalogSchemaTableName table)
     {
     }
 
     @Override
-    public void checkCanDeleteFromTable(Identity identity, CatalogSchemaTableName table)
+    public void checkCanDeleteFromTable(SystemSecurityContext context, CatalogSchemaTableName table)
     {
     }
 
     @Override
-    public void checkCanCreateView(Identity identity, CatalogSchemaTableName view)
+    public void checkCanCreateView(SystemSecurityContext context, CatalogSchemaTableName view)
     {
     }
 
     @Override
-    public void checkCanDropView(Identity identity, CatalogSchemaTableName view)
+    public void checkCanDropView(SystemSecurityContext context, CatalogSchemaTableName view)
     {
     }
 
     @Override
-    public void checkCanCreateViewWithSelectFromColumns(Identity identity, CatalogSchemaTableName table, Set<String> columns)
+    public void checkCanCreateViewWithSelectFromColumns(SystemSecurityContext context, CatalogSchemaTableName table, Set<String> columns)
     {
     }
 
     @Override
-    public void checkCanSetCatalogSessionProperty(Identity identity, String catalogName, String propertyName)
+    public void checkCanSetCatalogSessionProperty(SystemSecurityContext context, String catalogName, String propertyName)
     {
     }
 
     @Override
-    public void checkCanGrantTablePrivilege(Identity identity, Privilege privilege, CatalogSchemaTableName table, PrestoPrincipal grantee, boolean withGrantOption)
+    public void checkCanGrantTablePrivilege(SystemSecurityContext context, Privilege privilege, CatalogSchemaTableName table, PrestoPrincipal grantee, boolean withGrantOption)
     {
     }
 
     @Override
-    public void checkCanRevokeTablePrivilege(Identity identity, Privilege privilege, CatalogSchemaTableName table, PrestoPrincipal revokee, boolean grantOptionFor)
+    public void checkCanRevokeTablePrivilege(SystemSecurityContext context, Privilege privilege, CatalogSchemaTableName table, PrestoPrincipal revokee, boolean grantOptionFor)
     {
     }
 
     @Override
-    public void checkCanShowRoles(Identity identity, String catalogName)
+    public void checkCanShowRoles(SystemSecurityContext context, String catalogName)
     {
     }
 }

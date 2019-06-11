@@ -182,7 +182,7 @@ final class ShowQueriesRewrite
         {
             CatalogSchemaName schema = createCatalogSchemaName(session, showTables, showTables.getSchema());
 
-            accessControl.checkCanShowTablesMetadata(session.getRequiredTransactionId(), session.getIdentity(), schema);
+            accessControl.checkCanShowTablesMetadata(session.toSecurityContext(), schema);
 
             if (!metadata.catalogExists(session, schema.getCatalogName())) {
                 throw semanticException(CATALOG_NOT_FOUND, showTables, "Catalog '%s' does not exist", schema.getCatalogName());
@@ -228,8 +228,7 @@ final class ShowQueriesRewrite
                 catalogName = qualifiedTableName.getCatalogName();
 
                 accessControl.checkCanShowTablesMetadata(
-                        session.getRequiredTransactionId(),
-                        session.getIdentity(),
+                        session.toSecurityContext(),
                         new CatalogSchemaName(catalogName, qualifiedTableName.getSchemaName()));
 
                 predicate = Optional.of(combineConjuncts(
@@ -243,7 +242,7 @@ final class ShowQueriesRewrite
 
                 Set<String> allowedSchemas = listSchemas(session, metadata, accessControl, catalogName);
                 for (String schema : allowedSchemas) {
-                    accessControl.checkCanShowTablesMetadata(session.getRequiredTransactionId(), session.getIdentity(), new CatalogSchemaName(catalogName, schema));
+                    accessControl.checkCanShowTablesMetadata(session.toSecurityContext(), new CatalogSchemaName(catalogName, schema));
                 }
             }
 
@@ -274,13 +273,13 @@ final class ShowQueriesRewrite
             String catalog = node.getCatalog().map(c -> c.getValue().toLowerCase(ENGLISH)).orElseGet(() -> session.getCatalog().get());
 
             if (node.isCurrent()) {
-                accessControl.checkCanShowCurrentRoles(session.getRequiredTransactionId(), session.getIdentity(), catalog);
+                accessControl.checkCanShowCurrentRoles(session.toSecurityContext(), catalog);
                 return simpleQuery(
                         selectList(aliasedName("role_name", "Role")),
                         from(catalog, TABLE_ENABLED_ROLES));
             }
             else {
-                accessControl.checkCanShowRoles(session.getRequiredTransactionId(), session.getIdentity(), catalog);
+                accessControl.checkCanShowRoles(session.toSecurityContext(), catalog);
                 return simpleQuery(
                         selectList(aliasedName("role_name", "Role")),
                         from(catalog, TABLE_ROLES));
@@ -297,7 +296,7 @@ final class ShowQueriesRewrite
             String catalog = node.getCatalog().map(c -> c.getValue().toLowerCase(ENGLISH)).orElseGet(() -> session.getCatalog().get());
             PrestoPrincipal principal = new PrestoPrincipal(PrincipalType.USER, session.getUser());
 
-            accessControl.checkCanShowRoleGrants(session.getRequiredTransactionId(), session.getIdentity(), catalog);
+            accessControl.checkCanShowRoleGrants(session.toSecurityContext(), catalog);
             List<Expression> rows = metadata.listRoleGrants(session, catalog, principal).stream()
                     .map(roleGrant -> row(new StringLiteral(roleGrant.getRoleName())))
                     .collect(toList());
@@ -316,7 +315,7 @@ final class ShowQueriesRewrite
             }
 
             String catalog = node.getCatalog().map(Identifier::getValue).orElseGet(() -> session.getCatalog().get());
-            accessControl.checkCanShowSchemas(session.getRequiredTransactionId(), session.getIdentity(), catalog);
+            accessControl.checkCanShowSchemas(session.toSecurityContext(), catalog);
 
             Optional<Expression> predicate = Optional.empty();
             Optional<String> likePattern = node.getLikePattern();
@@ -364,7 +363,7 @@ final class ShowQueriesRewrite
                 throw semanticException(TABLE_NOT_FOUND, showColumns, "Table '%s' does not exist", tableName);
             }
 
-            accessControl.checkCanShowColumnsMetadata(session.getRequiredTransactionId(), session.getIdentity(), tableName.asCatalogSchemaTableName());
+            accessControl.checkCanShowColumnsMetadata(session.toSecurityContext(), tableName.asCatalogSchemaTableName());
 
             return simpleQuery(
                     selectList(

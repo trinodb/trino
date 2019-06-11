@@ -17,10 +17,9 @@ package io.prestosql.plugin.hive.security;
 import io.prestosql.plugin.base.security.ForwardingConnectorAccessControl;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorAccessControl;
-import io.prestosql.spi.connector.ConnectorTransactionHandle;
+import io.prestosql.spi.connector.ConnectorSecurityContext;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.security.AccessDeniedException;
-import io.prestosql.spi.security.ConnectorIdentity;
 
 import java.util.List;
 import java.util.Optional;
@@ -48,12 +47,12 @@ public class SystemTableAwareAccessControl
     }
 
     @Override
-    public void checkCanShowColumnsMetadata(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, SchemaTableName tableName)
+    public void checkCanShowColumnsMetadata(ConnectorSecurityContext context, SchemaTableName tableName)
     {
         Optional<SchemaTableName> sourceTableName = getSourceTableNameFromSystemTable(tableName);
         if (sourceTableName.isPresent()) {
             try {
-                checkCanShowColumnsMetadata(transactionHandle, identity, sourceTableName.get());
+                checkCanShowColumnsMetadata(context, sourceTableName.get());
                 return;
             }
             catch (AccessDeniedException e) {
@@ -61,26 +60,26 @@ public class SystemTableAwareAccessControl
             }
         }
 
-        delegate.checkCanShowColumnsMetadata(transactionHandle, identity, tableName);
+        delegate.checkCanShowColumnsMetadata(context, tableName);
     }
 
     @Override
-    public List<ColumnMetadata> filterColumns(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, SchemaTableName tableName, List<ColumnMetadata> columns)
+    public List<ColumnMetadata> filterColumns(ConnectorSecurityContext context, SchemaTableName tableName, List<ColumnMetadata> columns)
     {
         Optional<SchemaTableName> sourceTableName = getSourceTableNameFromSystemTable(tableName);
         if (sourceTableName.isPresent()) {
-            return filterColumns(transactionHandle, identity, sourceTableName.get(), columns);
+            return filterColumns(context, sourceTableName.get(), columns);
         }
-        return delegate.filterColumns(transactionHandle, identity, tableName, columns);
+        return delegate.filterColumns(context, tableName, columns);
     }
 
     @Override
-    public void checkCanSelectFromColumns(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, SchemaTableName tableName, Set<String> columnNames)
+    public void checkCanSelectFromColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> columnNames)
     {
         Optional<SchemaTableName> sourceTableName = getSourceTableNameFromSystemTable(tableName);
         if (sourceTableName.isPresent()) {
             try {
-                checkCanSelectFromColumns(transactionHandle, identity, sourceTableName.get(), columnNames);
+                checkCanSelectFromColumns(context, sourceTableName.get(), columnNames);
                 return;
             }
             catch (AccessDeniedException e) {
@@ -88,6 +87,6 @@ public class SystemTableAwareAccessControl
             }
         }
 
-        delegate.checkCanSelectFromColumns(transactionHandle, identity, tableName, columnNames);
+        delegate.checkCanSelectFromColumns(context, tableName, columnNames);
     }
 }

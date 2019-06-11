@@ -17,9 +17,8 @@ import com.google.common.collect.ImmutableSet;
 import io.prestosql.plugin.base.security.TableAccessControlRule.TablePrivilege;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorAccessControl;
-import io.prestosql.spi.connector.ConnectorTransactionHandle;
+import io.prestosql.spi.connector.ConnectorSecurityContext;
 import io.prestosql.spi.connector.SchemaTableName;
-import io.prestosql.spi.security.ConnectorIdentity;
 import io.prestosql.spi.security.PrestoPrincipal;
 import io.prestosql.spi.security.Privilege;
 
@@ -76,88 +75,88 @@ public class FileBasedAccessControl
     }
 
     @Override
-    public void checkCanCreateSchema(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, String schemaName)
+    public void checkCanCreateSchema(ConnectorSecurityContext context, String schemaName)
     {
-        if (!isSchemaOwner(identity, schemaName)) {
+        if (!isSchemaOwner(context, schemaName)) {
             denyCreateSchema(schemaName);
         }
     }
 
     @Override
-    public void checkCanDropSchema(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, String schemaName)
+    public void checkCanDropSchema(ConnectorSecurityContext context, String schemaName)
     {
-        if (!isSchemaOwner(identity, schemaName)) {
+        if (!isSchemaOwner(context, schemaName)) {
             denyDropSchema(schemaName);
         }
     }
 
     @Override
-    public void checkCanRenameSchema(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, String schemaName, String newSchemaName)
+    public void checkCanRenameSchema(ConnectorSecurityContext context, String schemaName, String newSchemaName)
     {
-        if (!isSchemaOwner(identity, schemaName) || !isSchemaOwner(identity, newSchemaName)) {
+        if (!isSchemaOwner(context, schemaName) || !isSchemaOwner(context, newSchemaName)) {
             denyRenameSchema(schemaName, newSchemaName);
         }
     }
 
     @Override
-    public void checkCanShowSchemas(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity)
+    public void checkCanShowSchemas(ConnectorSecurityContext context)
     {
     }
 
     @Override
-    public Set<String> filterSchemas(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, Set<String> schemaNames)
+    public Set<String> filterSchemas(ConnectorSecurityContext context, Set<String> schemaNames)
     {
         return schemaNames;
     }
 
     @Override
-    public void checkCanCreateTable(ConnectorTransactionHandle transaction, ConnectorIdentity identity, SchemaTableName tableName)
+    public void checkCanCreateTable(ConnectorSecurityContext context, SchemaTableName tableName)
     {
-        if (!isSchemaOwner(identity, tableName.getSchemaName())) {
+        if (!isSchemaOwner(context, tableName.getSchemaName())) {
             denyCreateTable(tableName.toString());
         }
     }
 
     @Override
-    public void checkCanDropTable(ConnectorTransactionHandle transaction, ConnectorIdentity identity, SchemaTableName tableName)
+    public void checkCanDropTable(ConnectorSecurityContext context, SchemaTableName tableName)
     {
-        if (!checkTablePermission(identity, tableName, OWNERSHIP)) {
+        if (!checkTablePermission(context, tableName, OWNERSHIP)) {
             denyDropTable(tableName.toString());
         }
     }
 
     @Override
-    public void checkCanShowTablesMetadata(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, String schemaName)
+    public void checkCanShowTablesMetadata(ConnectorSecurityContext context, String schemaName)
     {
     }
 
     @Override
-    public Set<SchemaTableName> filterTables(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, Set<SchemaTableName> tableNames)
+    public Set<SchemaTableName> filterTables(ConnectorSecurityContext context, Set<SchemaTableName> tableNames)
     {
         return tableNames;
     }
 
     @Override
-    public void checkCanShowColumnsMetadata(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, SchemaTableName tableName)
+    public void checkCanShowColumnsMetadata(ConnectorSecurityContext identity, SchemaTableName tableName)
     {
     }
 
     @Override
-    public List<ColumnMetadata> filterColumns(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, SchemaTableName tableName, List<ColumnMetadata> columns)
+    public List<ColumnMetadata> filterColumns(ConnectorSecurityContext identity, SchemaTableName tableName, List<ColumnMetadata> columns)
     {
         return columns;
     }
 
     @Override
-    public void checkCanRenameTable(ConnectorTransactionHandle transaction, ConnectorIdentity identity, SchemaTableName tableName, SchemaTableName newTableName)
+    public void checkCanRenameTable(ConnectorSecurityContext context, SchemaTableName tableName, SchemaTableName newTableName)
     {
-        if (!checkTablePermission(identity, tableName, OWNERSHIP)) {
+        if (!checkTablePermission(context, tableName, OWNERSHIP)) {
             denyRenameTable(tableName.toString(), newTableName.toString());
         }
     }
 
     @Override
-    public void checkCanSetTableComment(ConnectorTransactionHandle transaction, ConnectorIdentity identity, SchemaTableName tableName)
+    public void checkCanSetTableComment(ConnectorSecurityContext identity, SchemaTableName tableName)
     {
         if (!checkTablePermission(identity, tableName, OWNERSHIP)) {
             denyCommentTable(tableName.toString());
@@ -165,150 +164,150 @@ public class FileBasedAccessControl
     }
 
     @Override
-    public void checkCanAddColumn(ConnectorTransactionHandle transaction, ConnectorIdentity identity, SchemaTableName tableName)
+    public void checkCanAddColumn(ConnectorSecurityContext context, SchemaTableName tableName)
     {
-        if (!checkTablePermission(identity, tableName, OWNERSHIP)) {
+        if (!checkTablePermission(context, tableName, OWNERSHIP)) {
             denyAddColumn(tableName.toString());
         }
     }
 
     @Override
-    public void checkCanDropColumn(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, SchemaTableName tableName)
+    public void checkCanDropColumn(ConnectorSecurityContext context, SchemaTableName tableName)
     {
-        if (!checkTablePermission(identity, tableName, OWNERSHIP)) {
+        if (!checkTablePermission(context, tableName, OWNERSHIP)) {
             denyDropColumn(tableName.toString());
         }
     }
 
     @Override
-    public void checkCanRenameColumn(ConnectorTransactionHandle transaction, ConnectorIdentity identity, SchemaTableName tableName)
+    public void checkCanRenameColumn(ConnectorSecurityContext context, SchemaTableName tableName)
     {
-        if (!checkTablePermission(identity, tableName, OWNERSHIP)) {
+        if (!checkTablePermission(context, tableName, OWNERSHIP)) {
             denyRenameColumn(tableName.toString());
         }
     }
 
     @Override
-    public void checkCanSelectFromColumns(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, SchemaTableName tableName, Set<String> columnNames)
+    public void checkCanSelectFromColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> columnNames)
     {
         // TODO: Implement column level permissions
-        if (!checkTablePermission(identity, tableName, SELECT)) {
+        if (!checkTablePermission(context, tableName, SELECT)) {
             denySelectTable(tableName.toString());
         }
     }
 
     @Override
-    public void checkCanInsertIntoTable(ConnectorTransactionHandle transaction, ConnectorIdentity identity, SchemaTableName tableName)
+    public void checkCanInsertIntoTable(ConnectorSecurityContext context, SchemaTableName tableName)
     {
-        if (!checkTablePermission(identity, tableName, INSERT)) {
+        if (!checkTablePermission(context, tableName, INSERT)) {
             denyInsertTable(tableName.toString());
         }
     }
 
     @Override
-    public void checkCanDeleteFromTable(ConnectorTransactionHandle transaction, ConnectorIdentity identity, SchemaTableName tableName)
+    public void checkCanDeleteFromTable(ConnectorSecurityContext context, SchemaTableName tableName)
     {
-        if (!checkTablePermission(identity, tableName, DELETE)) {
+        if (!checkTablePermission(context, tableName, DELETE)) {
             denyDeleteTable(tableName.toString());
         }
     }
 
     @Override
-    public void checkCanCreateView(ConnectorTransactionHandle transaction, ConnectorIdentity identity, SchemaTableName viewName)
+    public void checkCanCreateView(ConnectorSecurityContext context, SchemaTableName viewName)
     {
-        if (!isSchemaOwner(identity, viewName.getSchemaName())) {
+        if (!isSchemaOwner(context, viewName.getSchemaName())) {
             denyCreateView(viewName.toString());
         }
     }
 
     @Override
-    public void checkCanDropView(ConnectorTransactionHandle transaction, ConnectorIdentity identity, SchemaTableName viewName)
+    public void checkCanDropView(ConnectorSecurityContext context, SchemaTableName viewName)
     {
-        if (!checkTablePermission(identity, viewName, OWNERSHIP)) {
+        if (!checkTablePermission(context, viewName, OWNERSHIP)) {
             denyDropView(viewName.toString());
         }
     }
 
     @Override
-    public void checkCanCreateViewWithSelectFromColumns(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, SchemaTableName tableName, Set<String> columnNames)
+    public void checkCanCreateViewWithSelectFromColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> columnNames)
     {
         // TODO: implement column level permissions
-        if (!checkTablePermission(identity, tableName, SELECT)) {
+        if (!checkTablePermission(context, tableName, SELECT)) {
             denySelectTable(tableName.toString());
         }
-        if (!checkTablePermission(identity, tableName, GRANT_SELECT)) {
-            denyCreateViewWithSelect(tableName.toString(), identity);
+        if (!checkTablePermission(context, tableName, GRANT_SELECT)) {
+            denyCreateViewWithSelect(tableName.toString(), context.getIdentity());
         }
     }
 
     @Override
-    public void checkCanSetCatalogSessionProperty(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, String propertyName)
+    public void checkCanSetCatalogSessionProperty(ConnectorSecurityContext context, String propertyName)
     {
-        if (!canSetSessionProperty(identity, propertyName)) {
+        if (!canSetSessionProperty(context, propertyName)) {
             denySetCatalogSessionProperty(propertyName);
         }
     }
 
     @Override
-    public void checkCanGrantTablePrivilege(ConnectorTransactionHandle transaction, ConnectorIdentity identity, Privilege privilege, SchemaTableName tableName, PrestoPrincipal grantee, boolean withGrantOption)
+    public void checkCanGrantTablePrivilege(ConnectorSecurityContext context, Privilege privilege, SchemaTableName tableName, PrestoPrincipal grantee, boolean withGrantOption)
     {
-        if (!checkTablePermission(identity, tableName, OWNERSHIP)) {
+        if (!checkTablePermission(context, tableName, OWNERSHIP)) {
             denyGrantTablePrivilege(privilege.name(), tableName.toString());
         }
     }
 
     @Override
-    public void checkCanRevokeTablePrivilege(ConnectorTransactionHandle transaction, ConnectorIdentity identity, Privilege privilege, SchemaTableName tableName, PrestoPrincipal revokee, boolean grantOptionFor)
+    public void checkCanRevokeTablePrivilege(ConnectorSecurityContext context, Privilege privilege, SchemaTableName tableName, PrestoPrincipal revokee, boolean grantOptionFor)
     {
-        if (!checkTablePermission(identity, tableName, OWNERSHIP)) {
+        if (!checkTablePermission(context, tableName, OWNERSHIP)) {
             denyRevokeTablePrivilege(privilege.name(), tableName.toString());
         }
     }
 
     @Override
-    public void checkCanCreateRole(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, String role, Optional<PrestoPrincipal> grantor)
+    public void checkCanCreateRole(ConnectorSecurityContext context, String role, Optional<PrestoPrincipal> grantor)
     {
     }
 
     @Override
-    public void checkCanDropRole(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, String role)
+    public void checkCanDropRole(ConnectorSecurityContext context, String role)
     {
     }
 
     @Override
-    public void checkCanGrantRoles(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, Set<String> roles, Set<PrestoPrincipal> grantees, boolean withAdminOption, Optional<PrestoPrincipal> grantor, String catalogName)
+    public void checkCanGrantRoles(ConnectorSecurityContext context, Set<String> roles, Set<PrestoPrincipal> grantees, boolean withAdminOption, Optional<PrestoPrincipal> grantor, String catalogName)
     {
     }
 
     @Override
-    public void checkCanRevokeRoles(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOptionFor, Optional<PrestoPrincipal> grantor, String catalogName)
+    public void checkCanRevokeRoles(ConnectorSecurityContext context, Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOptionFor, Optional<PrestoPrincipal> grantor, String catalogName)
     {
     }
 
     @Override
-    public void checkCanSetRole(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, String role, String catalogName)
+    public void checkCanSetRole(ConnectorSecurityContext context, String role, String catalogName)
     {
     }
 
     @Override
-    public void checkCanShowRoles(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, String catalogName)
+    public void checkCanShowRoles(ConnectorSecurityContext context, String catalogName)
     {
     }
 
     @Override
-    public void checkCanShowCurrentRoles(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, String catalogName)
+    public void checkCanShowCurrentRoles(ConnectorSecurityContext context, String catalogName)
     {
     }
 
     @Override
-    public void checkCanShowRoleGrants(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, String catalogName)
+    public void checkCanShowRoleGrants(ConnectorSecurityContext context, String catalogName)
     {
     }
 
-    private boolean canSetSessionProperty(ConnectorIdentity identity, String property)
+    private boolean canSetSessionProperty(ConnectorSecurityContext context, String property)
     {
         for (SessionPropertyAccessControlRule rule : sessionPropertyRules) {
-            Optional<Boolean> allowed = rule.match(identity.getUser(), property);
+            Optional<Boolean> allowed = rule.match(context.getIdentity().getUser(), property);
             if (allowed.isPresent() && allowed.get()) {
                 return true;
             }
@@ -319,14 +318,14 @@ public class FileBasedAccessControl
         return false;
     }
 
-    private boolean checkTablePermission(ConnectorIdentity identity, SchemaTableName tableName, TablePrivilege... requiredPrivileges)
+    private boolean checkTablePermission(ConnectorSecurityContext context, SchemaTableName tableName, TablePrivilege... requiredPrivileges)
     {
         if (INFORMATION_SCHEMA_NAME.equals(tableName.getSchemaName())) {
             return true;
         }
 
         for (TableAccessControlRule rule : tableRules) {
-            Optional<Set<TablePrivilege>> tablePrivileges = rule.match(identity.getUser(), tableName);
+            Optional<Set<TablePrivilege>> tablePrivileges = rule.match(context.getIdentity().getUser(), tableName);
             if (tablePrivileges.isPresent()) {
                 return tablePrivileges.get().containsAll(ImmutableSet.copyOf(requiredPrivileges));
             }
@@ -334,10 +333,10 @@ public class FileBasedAccessControl
         return false;
     }
 
-    private boolean isSchemaOwner(ConnectorIdentity identity, String schemaName)
+    private boolean isSchemaOwner(ConnectorSecurityContext context, String schemaName)
     {
         for (SchemaAccessControlRule rule : schemaRules) {
-            Optional<Boolean> owner = rule.match(identity.getUser(), schemaName);
+            Optional<Boolean> owner = rule.match(context.getIdentity().getUser(), schemaName);
             if (owner.isPresent()) {
                 return owner.get();
             }

@@ -19,6 +19,7 @@ import io.prestosql.spi.connector.CatalogSchemaTableName;
 import io.prestosql.spi.security.AccessDeniedException;
 import io.prestosql.spi.security.Identity;
 import io.prestosql.spi.security.SystemAccessControl;
+import io.prestosql.spi.security.SystemSecurityContext;
 import org.testng.annotations.Test;
 
 import javax.security.auth.kerberos.KerberosPrincipal;
@@ -100,13 +101,13 @@ public class TestFileBasedSystemAccessControl
     {
         SystemAccessControl accessControl = newFileBasedSystemAccessControl("catalog.json");
 
-        assertEquals(accessControl.filterCatalogs(admin, allCatalogs), allCatalogs);
+        assertEquals(accessControl.filterCatalogs(new SystemSecurityContext(admin), allCatalogs), allCatalogs);
         Set<String> aliceCatalogs = ImmutableSet.of("open-to-all", "alice-catalog", "all-allowed");
-        assertEquals(accessControl.filterCatalogs(alice, allCatalogs), aliceCatalogs);
+        assertEquals(accessControl.filterCatalogs(new SystemSecurityContext(alice), allCatalogs), aliceCatalogs);
         Set<String> bobCatalogs = ImmutableSet.of("open-to-all", "all-allowed");
-        assertEquals(accessControl.filterCatalogs(bob, allCatalogs), bobCatalogs);
+        assertEquals(accessControl.filterCatalogs(new SystemSecurityContext(bob), allCatalogs), bobCatalogs);
         Set<String> nonAsciiUserCatalogs = ImmutableSet.of("open-to-all", "all-allowed", "\u0200\u0200\u0200");
-        assertEquals(accessControl.filterCatalogs(nonAsciiUser, allCatalogs), nonAsciiUserCatalogs);
+        assertEquals(accessControl.filterCatalogs(new SystemSecurityContext(nonAsciiUser), allCatalogs), nonAsciiUserCatalogs);
     }
 
     @Test
@@ -127,6 +128,7 @@ public class TestFileBasedSystemAccessControl
                 SECURITY_CONFIG_FILE, configFile.getAbsolutePath(),
                 SECURITY_REFRESH_PERIOD, "1ms"));
 
+        SystemSecurityContext alice = new SystemSecurityContext(TestFileBasedSystemAccessControl.alice);
         accessControl.checkCanCreateView(alice, aliceView);
         accessControl.checkCanCreateView(alice, aliceView);
         accessControl.checkCanCreateView(alice, aliceView);
