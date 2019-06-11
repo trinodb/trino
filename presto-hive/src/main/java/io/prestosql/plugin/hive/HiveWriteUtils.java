@@ -23,6 +23,7 @@ import io.prestosql.plugin.hive.metastore.Partition;
 import io.prestosql.plugin.hive.metastore.SemiTransactionalHiveMetastore;
 import io.prestosql.plugin.hive.metastore.Storage;
 import io.prestosql.plugin.hive.metastore.Table;
+import io.prestosql.plugin.hive.s3.HiveS3Module;
 import io.prestosql.plugin.hive.s3.PrestoS3FileSystem;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.PrestoException;
@@ -458,7 +459,8 @@ public final class HiveWriteUtils
     public static boolean isS3FileSystem(HdfsContext context, HdfsEnvironment hdfsEnvironment, Path path)
     {
         try {
-            return getRawFileSystem(hdfsEnvironment.getFileSystem(context, path)) instanceof PrestoS3FileSystem;
+            FileSystem fileSystem = getRawFileSystem(hdfsEnvironment.getFileSystem(context, path));
+            return fileSystem instanceof PrestoS3FileSystem || fileSystem.getClass().getName().equals(HiveS3Module.EMR_FS_CLASS_NAME);
         }
         catch (IOException e) {
             throw new PrestoException(HIVE_FILESYSTEM_ERROR, "Failed checking path: " + path, e);
