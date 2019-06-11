@@ -22,7 +22,6 @@ import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
 import io.prestosql.spi.connector.ConnectorTableProperties;
-import io.prestosql.spi.connector.ConnectorViewDefinition;
 import io.prestosql.spi.connector.Constraint;
 import io.prestosql.spi.connector.ConstraintApplicationResult;
 import io.prestosql.spi.connector.SchemaTableName;
@@ -38,8 +37,6 @@ import java.util.Optional;
 import static io.prestosql.plugin.localfile.LocalFileColumnHandle.SERVER_ADDRESS_COLUMN_NAME;
 import static io.prestosql.plugin.localfile.LocalFileColumnHandle.SERVER_ADDRESS_ORDINAL_POSITION;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
-import static java.util.Collections.emptyList;
-import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
 
 public class LocalFileMetadata
@@ -126,18 +123,6 @@ public class LocalFileMetadata
             }
         }
         return columns.build();
-    }
-
-    @Override
-    public List<SchemaTableName> listViews(ConnectorSession session, Optional<String> schemaName)
-    {
-        return emptyList();
-    }
-
-    @Override
-    public Map<SchemaTableName, ConnectorViewDefinition> getViews(ConnectorSession session, SchemaTablePrefix prefix)
-    {
-        return emptyMap();
     }
 
     private List<SchemaTableName> listTables(ConnectorSession session, SchemaTablePrefix prefix)
