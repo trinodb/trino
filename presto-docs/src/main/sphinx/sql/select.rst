@@ -16,7 +16,7 @@ Synopsis
     [ { UNION | INTERSECT | EXCEPT } [ ALL | DISTINCT ] select ]
     [ ORDER BY expression [ ASC | DESC ] [, ...] ]
     [ OFFSET count [ ROW | ROWS ] ]
-    [ LIMIT { count | ALL } | FETCH { FIRST | NEXT } [ count ] { ROW | ROWS } ONLY ]
+    [ LIMIT { count | ALL } | FETCH { FIRST | NEXT } [ count ] { ROW | ROWS } { ONLY | WITH TIES } ]
 
 where ``from_item`` is one of
 
@@ -625,7 +625,7 @@ in the result set.
 
 .. code-block:: none
 
-    FETCH { FIRST | NEXT } [ count ] { ROW | ROWS } ONLY
+    FETCH { FIRST | NEXT } [ count ] { ROW | ROWS } { ONLY | WITH TIES }
 
 The following example queries a large table, but the ``LIMIT`` clause
 restricts the output to only have five rows (because the query lacks an ``ORDER BY``,
@@ -673,6 +673,30 @@ is evaluated after the ``OFFSET`` clause::
      3
      4
     (2 rows)
+
+For the ``FETCH FIRST`` clause, the argument ``ONLY`` or ``WITH TIES``
+controls which rows are included in the result set.
+
+If the argument ``ONLY`` is specified, the result set is limited to the exact
+number of leading rows determined by the count.
+
+If the argument ``WITH TIES`` is specified, it is required that the ``ORDER BY``
+clause be present. The result set consists of the same set of leading rows
+and all of the rows in the same peer group as the last of them ('ties')
+as established by the ordering in the ``ORDER BY`` clause. The result set is sorted::
+
+    SELECT name, regionkey FROM nation ORDER BY regionkey FETCH FIRST ROW WITH TIES;
+
+.. code-block:: none
+
+        name    | regionkey
+    ------------+-----------
+     ETHIOPIA   |         0
+     MOROCCO    |         0
+     KENYA      |         0
+     ALGERIA    |         0
+     MOZAMBIQUE |         0
+    (5 rows)
 
 TABLESAMPLE
 -----------
