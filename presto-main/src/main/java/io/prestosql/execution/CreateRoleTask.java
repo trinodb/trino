@@ -51,7 +51,7 @@ public class CreateRoleTask
         String catalog = createCatalogName(session, statement);
         String role = statement.getName().getValue().toLowerCase(ENGLISH);
         Optional<PrestoPrincipal> grantor = statement.getGrantor().map(specification -> createPrincipal(session, specification));
-        accessControl.checkCanCreateRole(session.getRequiredTransactionId(), session.getIdentity(), role, grantor, catalog);
+        accessControl.checkCanCreateRole(session.toSecurityContext(), role, grantor, catalog);
         Set<String> existingRoles = metadata.listRoles(session, catalog);
         if (existingRoles.contains(role)) {
             throw semanticException(ROLE_ALREADY_EXISTS, statement, "Role '%s' already exists", role);

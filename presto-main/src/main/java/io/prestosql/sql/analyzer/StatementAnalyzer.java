@@ -315,7 +315,7 @@ class StatementAnalyzer
             if (!targetTableHandle.isPresent()) {
                 throw semanticException(TABLE_NOT_FOUND, insert, "Table '%s' does not exist", targetTable);
             }
-            accessControl.checkCanInsertIntoTable(session.getRequiredTransactionId(), session.getIdentity(), targetTable);
+            accessControl.checkCanInsertIntoTable(session.toSecurityContext(), targetTable);
 
             TableMetadata tableMetadata = metadata.getTableMetadata(session, targetTableHandle.get());
             List<String> tableColumns = tableMetadata.getColumns().stream()
@@ -405,7 +405,7 @@ class StatementAnalyzer
 
             analysis.setUpdateType("DELETE");
 
-            accessControl.checkCanDeleteFromTable(session.getRequiredTransactionId(), session.getIdentity(), tableName);
+            accessControl.checkCanDeleteFromTable(session.toSecurityContext(), tableName);
 
             return createAndAssignScope(node, scope, Field.newUnqualified("rows", BIGINT));
         }
@@ -443,7 +443,7 @@ class StatementAnalyzer
                             .putAll(tableName, metadata.getColumnHandles(session, tableHandle).keySet())
                             .build());
             try {
-                accessControl.checkCanInsertIntoTable(session.getRequiredTransactionId(), session.getIdentity(), tableName);
+                accessControl.checkCanInsertIntoTable(session.toSecurityContext(), tableName);
             }
             catch (AccessDeniedException exception) {
                 throw new AccessDeniedException(format("Cannot ANALYZE (missing insert privilege) table %s", tableName));
@@ -477,7 +477,7 @@ class StatementAnalyzer
             node.getColumnAliases().ifPresent(analysis::setCreateTableColumnAliases);
             analysis.setCreateTableComment(node.getComment());
 
-            accessControl.checkCanCreateTable(session.getRequiredTransactionId(), session.getIdentity(), targetTable);
+            accessControl.checkCanCreateTable(session.toSecurityContext(), targetTable);
 
             analysis.setCreateTableAsSelectWithData(node.isWithData());
 
@@ -513,7 +513,7 @@ class StatementAnalyzer
 
             Scope queryScope = analyzer.analyze(node.getQuery(), scope);
 
-            accessControl.checkCanCreateView(session.getRequiredTransactionId(), session.getIdentity(), viewName);
+            accessControl.checkCanCreateView(session.toSecurityContext(), viewName);
 
             validateColumns(node, queryScope.getRelationType());
 

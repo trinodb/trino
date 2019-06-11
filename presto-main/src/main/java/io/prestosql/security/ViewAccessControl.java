@@ -14,8 +14,6 @@
 package io.prestosql.security;
 
 import io.prestosql.metadata.QualifiedObjectName;
-import io.prestosql.spi.security.Identity;
-import io.prestosql.transaction.TransactionId;
 
 import java.util.Set;
 
@@ -32,14 +30,14 @@ public class ViewAccessControl
     }
 
     @Override
-    public void checkCanSelectFromColumns(TransactionId transactionId, Identity identity, QualifiedObjectName tableName, Set<String> columnNames)
+    public void checkCanSelectFromColumns(SecurityContext context, QualifiedObjectName tableName, Set<String> columnNames)
     {
-        delegate.checkCanCreateViewWithSelectFromColumns(transactionId, identity, tableName, columnNames);
+        delegate.checkCanCreateViewWithSelectFromColumns(context, tableName, columnNames);
     }
 
     @Override
-    public void checkCanCreateViewWithSelectFromColumns(TransactionId transactionId, Identity identity, QualifiedObjectName tableName, Set<String> columnNames)
+    public void checkCanCreateViewWithSelectFromColumns(SecurityContext context, QualifiedObjectName tableName, Set<String> columnNames)
     {
-        delegate.checkCanCreateViewWithSelectFromColumns(transactionId, identity, tableName, columnNames);
+        delegate.checkCanCreateViewWithSelectFromColumns(context, tableName, columnNames);
     }
 }

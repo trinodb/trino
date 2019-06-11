@@ -179,7 +179,7 @@ public class CreateTableTask
             }
         }
 
-        accessControl.checkCanCreateTable(session.getRequiredTransactionId(), session.getIdentity(), tableName);
+        accessControl.checkCanCreateTable(session.toSecurityContext(), tableName);
 
         Map<String, Expression> sqlProperties = mapFromProperties(statement.getProperties());
         Map<String, Object> properties = metadata.getTablePropertyManager().getProperties(

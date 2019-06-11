@@ -22,6 +22,7 @@ import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.TableHandle;
 import io.prestosql.security.AccessControl;
+import io.prestosql.security.SecurityContext;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.security.Identity;
 import io.prestosql.spi.type.Type;
@@ -45,6 +46,7 @@ import io.prestosql.sql.tree.SampledRelation;
 import io.prestosql.sql.tree.Statement;
 import io.prestosql.sql.tree.SubqueryExpression;
 import io.prestosql.sql.tree.Table;
+import io.prestosql.transaction.TransactionId;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
@@ -823,9 +825,9 @@ public class Analysis
             return accessControl;
         }
 
-        public Identity getIdentity()
+        public SecurityContext getSecurityContext(TransactionId transactionId)
         {
-            return identity;
+            return new SecurityContext(transactionId, identity);
         }
 
         @Override
