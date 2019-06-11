@@ -165,9 +165,8 @@ public class TestJdbcWarnings
     {
         try (ResultSet rs = statement.executeQuery("SELECT a FROM (VALUES 1, 2, 3) t(a)")) {
             assertNull(statement.getConnection().getWarnings());
-            assertNull(statement.getWarnings());
-            assertNull(rs.getWarnings());
             Set<WarningEntry> currentWarnings = new HashSet<>();
+            assertWarnings(rs.getWarnings(), currentWarnings);
             while (rs.next()) {
                 assertWarnings(statement.getWarnings(), currentWarnings);
             }
@@ -285,7 +284,9 @@ public class TestJdbcWarnings
 
     private static void assertWarnings(SQLWarning warning, Set<WarningEntry> currentWarnings)
     {
-        assertNotNull(warning);
+        if (warning == null) {
+            return;
+        }
         int previousSize = currentWarnings.size();
         addWarnings(currentWarnings, warning);
         assertTrue(currentWarnings.size() >= previousSize);

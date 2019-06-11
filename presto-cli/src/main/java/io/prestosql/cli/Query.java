@@ -30,6 +30,7 @@ import org.jline.utils.AttributedStringBuilder;
 import sun.misc.Signal;
 import sun.misc.SignalHandler;
 
+import java.io.BufferedWriter;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -337,7 +338,7 @@ public class Query
 
     private static Writer createWriter(OutputStream out)
     {
-        return new OutputStreamWriter(out, UTF_8);
+        return new BufferedWriter(new OutputStreamWriter(out, UTF_8), 16384);
     }
 
     @Override
