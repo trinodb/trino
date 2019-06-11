@@ -1373,20 +1373,20 @@ public final class UnscaledDecimal128Arithmetic
 
     private static long divideUnsignedLong(long dividend, int divisor)
     {
-        if (divisor == 1) {
-            return dividend;
-        }
         long unsignedDivisor = toUnsignedLong(divisor);
-        long quotient = (dividend >>> 1) / (unsignedDivisor >>> 1);
-        long remainder = dividend - quotient * unsignedDivisor;
-        while (remainder < 0) {
-            remainder += unsignedDivisor;
-            quotient--;
+
+        if (dividend > 0) {
+            return dividend / unsignedDivisor;
         }
-        while (remainder >= unsignedDivisor) {
-            remainder -= unsignedDivisor;
+
+        // HD 9-3, 4) q = divideUnsigned(n, 2) / d * 2
+        long quotient = ((dividend >>> 1) / unsignedDivisor) * 2;
+        long remainder = dividend - quotient * unsignedDivisor;
+
+        if (Long.compareUnsigned(remainder, unsignedDivisor) >= 0) {
             quotient++;
         }
+
         return quotient;
     }
 
