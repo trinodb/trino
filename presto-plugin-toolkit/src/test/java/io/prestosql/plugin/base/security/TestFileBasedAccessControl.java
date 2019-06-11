@@ -22,7 +22,6 @@ import io.prestosql.spi.security.ConnectorIdentity;
 import org.testng.Assert.ThrowingRunnable;
 import org.testng.annotations.Test;
 
-import java.io.IOException;
 import java.util.Optional;
 
 import static io.prestosql.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden;
@@ -31,11 +30,10 @@ import static org.testng.Assert.assertThrows;
 
 public class TestFileBasedAccessControl
 {
-    public static final ConnectorTransactionHandle TRANSACTION_HANDLE = new ConnectorTransactionHandle() {};
+    private static final ConnectorTransactionHandle TRANSACTION_HANDLE = new ConnectorTransactionHandle() {};
 
     @Test
     public void testSchemaRules()
-            throws IOException
     {
         ConnectorAccessControl accessControl = createAccessControl("schema.json");
 
@@ -59,7 +57,6 @@ public class TestFileBasedAccessControl
 
     @Test
     public void testTableRules()
-            throws IOException
     {
         ConnectorAccessControl accessControl = createAccessControl("table.json");
         accessControl.checkCanSelectFromColumns(TRANSACTION_HANDLE, user("alice"), new SchemaTableName("test", "test"), ImmutableSet.of());
@@ -81,7 +78,6 @@ public class TestFileBasedAccessControl
 
     @Test
     public void testSessionPropertyRules()
-            throws IOException
     {
         ConnectorAccessControl accessControl = createAccessControl("session_property.json");
         accessControl.checkCanSetCatalogSessionProperty(TRANSACTION_HANDLE, user("admin"), "dangerous");
@@ -112,7 +108,6 @@ public class TestFileBasedAccessControl
     }
 
     private ConnectorAccessControl createAccessControl(String fileName)
-            throws IOException
     {
         String path = this.getClass().getClassLoader().getResource(fileName).getPath();
         FileBasedAccessControlConfig config = new FileBasedAccessControlConfig();
