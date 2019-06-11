@@ -180,6 +180,7 @@ import static io.prestosql.plugin.hive.HiveUtil.toPartitionValues;
 import static io.prestosql.plugin.hive.HiveUtil.verifyPartitionTypeSupported;
 import static io.prestosql.plugin.hive.HiveWriteUtils.checkTableIsWritable;
 import static io.prestosql.plugin.hive.HiveWriteUtils.initializeSerializer;
+import static io.prestosql.plugin.hive.HiveWriteUtils.isS3FileSystem;
 import static io.prestosql.plugin.hive.HiveWriteUtils.isWritableType;
 import static io.prestosql.plugin.hive.HiveWriterFactory.computeBucketedFileName;
 import static io.prestosql.plugin.hive.PartitionUpdate.UpdateMode.APPEND;
@@ -809,8 +810,10 @@ public class HiveMetadata
     {
         try {
             Path path = new Path(location);
-            if (!hdfsEnvironment.getFileSystem(context, path).isDirectory(path)) {
-                throw new PrestoException(INVALID_TABLE_PROPERTY, "External location must be a directory");
+            if (!isS3FileSystem(context, hdfsEnvironment, path)) {
+                if (!hdfsEnvironment.getFileSystem(context, path).isDirectory(path)) {
+                    throw new PrestoException(INVALID_TABLE_PROPERTY, "External location must be a directory");
+                }
             }
             return path;
         }

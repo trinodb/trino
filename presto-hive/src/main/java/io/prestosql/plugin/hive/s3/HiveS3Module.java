@@ -27,7 +27,7 @@ import static org.weakref.jmx.guice.ExportBinder.newExporter;
 public class HiveS3Module
         extends AbstractConfigurationAwareModule
 {
-    private static final String EMR_FS_CLASS_NAME = "com.amazon.ws.emr.hadoop.fs.EmrFileSystem";
+    public static final String EMR_FS_CLASS_NAME = "com.amazon.ws.emr.hadoop.fs.EmrFileSystem";
 
     @Override
     protected void setup(Binder binder)
