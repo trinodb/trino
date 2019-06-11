@@ -171,7 +171,10 @@ public class ZooKeeperMetadataManager
         try {
             String tablePath = getTablePath(stName);
             if (curator.checkExists().forPath(tablePath) != null) {
-                return toAccumuloView(curator.getData().forPath(tablePath));
+                byte[] data = curator.getData().forPath(tablePath);
+                if (isAccumuloView(data)) {
+                    return toAccumuloView(data);
+                }
             }
 
             return null;

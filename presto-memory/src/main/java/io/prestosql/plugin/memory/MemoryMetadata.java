@@ -310,13 +310,21 @@ public class MemoryMetadata
     }
 
     @Override
-    public synchronized Map<SchemaTableName, ConnectorViewDefinition> getViews(ConnectorSession session, SchemaTablePrefix prefix)
+    public synchronized Map<SchemaTableName, ConnectorViewDefinition> getViews(ConnectorSession session, Optional<String> schemaName)
     {
+        SchemaTablePrefix prefix = schemaName.map(SchemaTablePrefix::new).orElseGet(SchemaTablePrefix::new);
         return views.entrySet().stream()
                 .filter(entry -> prefix.matches(entry.getKey()))
                 .collect(toImmutableMap(
                         Map.Entry::getKey,
                         entry -> new ConnectorViewDefinition(entry.getKey(), Optional.empty(), entry.getValue())));
+    }
+
+    @Override
+    public synchronized Optional<ConnectorViewDefinition> getView(ConnectorSession session, SchemaTableName viewName)
+    {
+        return Optional.ofNullable(views.get(viewName))
+                .map(data -> new ConnectorViewDefinition(viewName, Optional.empty(), data));
     }
 
     private void updateRowsOnHosts(long tableId, Collection<Slice> fragments)

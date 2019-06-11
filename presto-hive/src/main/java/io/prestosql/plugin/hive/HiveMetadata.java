@@ -1542,10 +1542,8 @@ public class HiveMetadata
     @Override
     public void dropView(ConnectorSession session, SchemaTableName viewName)
     {
-        ConnectorViewDefinition view = getViews(session, viewName.toSchemaTablePrefix()).get(viewName);
-        if (view == null) {
-            throw new ViewNotFoundException(viewName);
-        }
+        ConnectorViewDefinition view = getView(session, viewName)
+                .orElseThrow(() -> new ViewNotFoundException(viewName));
 
         try {
             metastore.dropTable(session, viewName.getSchemaName(), viewName.getTableName());
@@ -1568,28 +1566,15 @@ public class HiveMetadata
     }
 
     @Override
-    public Map<SchemaTableName, ConnectorViewDefinition> getViews(ConnectorSession session, SchemaTablePrefix prefix)
+    public Optional<ConnectorViewDefinition> getView(ConnectorSession session, SchemaTableName viewName)
     {
-        ImmutableMap.Builder<SchemaTableName, ConnectorViewDefinition> views = ImmutableMap.builder();
-        List<SchemaTableName> tableNames;
-        if (prefix.getTable().isPresent()) {
-            tableNames = ImmutableList.of(prefix.toSchemaTableName());
-        }
-        else {
-            tableNames = listViews(session, prefix.getSchema());
-        }
-
-        for (SchemaTableName schemaTableName : tableNames) {
-            Optional<Table> table = metastore.getTable(schemaTableName.getSchemaName(), schemaTableName.getTableName());
-            if (table.isPresent() && HiveUtil.isPrestoView(table.get())) {
-                views.put(schemaTableName, new ConnectorViewDefinition(
-                        schemaTableName,
-                        Optional.ofNullable(table.get().getOwner()),
-                        decodeViewData(table.get().getViewOriginalText().get())));
-            }
-        }
-
-        return views.build();
+        return metastore.getTable(viewName.getSchemaName(), viewName.getTableName())
+                .filter(HiveUtil::isPrestoView)
+                .map(view -> new ConnectorViewDefinition(
+                        viewName,
+                        Optional.ofNullable(view.getOwner()),
+                        decodeViewData(view.getViewOriginalText()
+                                .orElseThrow(() -> new PrestoException(HIVE_INVALID_METADATA, "No view original text: " + viewName)))));
     }
 
     @Override

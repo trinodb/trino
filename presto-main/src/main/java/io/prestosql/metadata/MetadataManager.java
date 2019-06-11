@@ -542,18 +542,12 @@ public final class MetadataManager
                 }
 
                 // if table and view names overlap, the view wins
-                for (Entry<SchemaTableName, ConnectorViewDefinition> entry : metadata.getViews(connectorSession, tablePrefix).entrySet()) {
-                    QualifiedObjectName tableName = new QualifiedObjectName(
-                            prefix.getCatalogName(),
-                            entry.getKey().getSchemaName(),
-                            entry.getKey().getTableName());
-
+                for (Entry<QualifiedObjectName, ViewDefinition> entry : getViews(session, prefix).entrySet()) {
                     ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
-                    for (ViewColumn column : deserializeView(entry.getValue().getViewData()).getColumns()) {
+                    for (ViewColumn column : entry.getValue().getColumns()) {
                         columns.add(new ColumnMetadata(column.getName(), column.getType()));
                     }
-
-                    tableColumns.put(tableName, columns.build());
+                    tableColumns.put(entry.getKey(), columns.build());
                 }
             }
         }
@@ -904,7 +898,18 @@ public final class MetadataManager
             for (CatalogName catalogName : catalogMetadata.listConnectorIds()) {
                 ConnectorMetadata metadata = catalogMetadata.getMetadataFor(catalogName);
                 ConnectorSession connectorSession = session.toConnectorSession(catalogName);
-                for (Entry<SchemaTableName, ConnectorViewDefinition> entry : metadata.getViews(connectorSession, tablePrefix).entrySet()) {
+
+                Map<SchemaTableName, ConnectorViewDefinition> viewMap;
+                if (tablePrefix.getTable().isPresent()) {
+                    viewMap = metadata.getView(connectorSession, tablePrefix.toSchemaTableName())
+                            .map(view -> ImmutableMap.of(tablePrefix.toSchemaTableName(), view))
+                            .orElse(ImmutableMap.of());
+                }
+                else {
+                    viewMap = metadata.getViews(connectorSession, tablePrefix.getSchema());
+                }
+
+                for (Entry<SchemaTableName, ConnectorViewDefinition> entry : viewMap.entrySet()) {
                     QualifiedObjectName viewName = new QualifiedObjectName(
                             prefix.getCatalogName(),
                             entry.getKey().getSchemaName(),
@@ -919,25 +924,17 @@ public final class MetadataManager
     @Override
     public Optional<ViewDefinition> getView(Session session, QualifiedObjectName viewName)
     {
-        Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, viewName.getCatalogName());
-        if (catalog.isPresent()) {
-            CatalogMetadata catalogMetadata = catalog.get();
-            CatalogName catalogName = catalogMetadata.getConnectorId(session, viewName);
-            ConnectorMetadata metadata = catalogMetadata.getMetadataFor(catalogName);
-
-            Map<SchemaTableName, ConnectorViewDefinition> views = metadata.getViews(
-                    session.toConnectorSession(catalogName),
-                    viewName.asSchemaTableName().toSchemaTablePrefix());
-            ConnectorViewDefinition view = views.get(viewName.asSchemaTableName());
-            if (view != null) {
-                ViewDefinition definition = deserializeView(view.getViewData());
-                if (view.getOwner().isPresent() && !definition.isRunAsInvoker()) {
-                    definition = definition.withOwner(view.getOwner().get());
-                }
-                return Optional.of(definition);
-            }
-        }
-        return Optional.empty();
+        return getOptionalCatalogMetadata(session, viewName.getCatalogName())
+                .flatMap(catalog -> catalog.getMetadata().getView(
+                        session.toConnectorSession(catalog.getCatalogName()),
+                        viewName.asSchemaTableName()))
+                .map(view -> {
+                    ViewDefinition definition = deserializeView(view.getViewData());
+                    if (view.getOwner().isPresent() && !definition.isRunAsInvoker()) {
+                        definition = definition.withOwner(view.getOwner().get());
+                    }
+                    return definition;
+                });
     }
 
     @Override

@@ -945,7 +945,8 @@ public abstract class AbstractTestHive
             assertEquals(metadata.listTables(session, Optional.of(INVALID_DATABASE)), ImmutableList.of());
             assertEquals(metadata.listTableColumns(session, new SchemaTablePrefix(INVALID_DATABASE, INVALID_TABLE)), ImmutableMap.of());
             assertEquals(metadata.listViews(session, Optional.of(INVALID_DATABASE)), ImmutableList.of());
-            assertEquals(metadata.getViews(session, new SchemaTablePrefix(INVALID_DATABASE, INVALID_TABLE)), ImmutableMap.of());
+            assertEquals(metadata.getViews(session, Optional.of(INVALID_DATABASE)), ImmutableMap.of());
+            assertEquals(metadata.getView(session, new SchemaTableName(INVALID_DATABASE, INVALID_TABLE)), Optional.empty());
         }
     }
 
@@ -2924,8 +2925,12 @@ public abstract class AbstractTestHive
 
         try (Transaction transaction = newTransaction()) {
             ConnectorMetadata metadata = transaction.getMetadata();
-            assertEquals(metadata.getViews(newSession(), temporaryCreateView.toSchemaTablePrefix()).size(), 0);
-            assertFalse(metadata.listViews(newSession(), Optional.of(temporaryCreateView.getSchemaName())).contains(temporaryCreateView));
+            assertThat(metadata.getView(newSession(), temporaryCreateView))
+                    .isEmpty();
+            assertThat(metadata.getViews(newSession(), Optional.of(temporaryCreateView.getSchemaName())))
+                    .doesNotContainKey(temporaryCreateView);
+            assertThat(metadata.listViews(newSession(), Optional.of(temporaryCreateView.getSchemaName())))
+                    .doesNotContain(temporaryCreateView);
         }
 
         // drop fails when view does not exist
@@ -2952,7 +2957,12 @@ public abstract class AbstractTestHive
 
         try (Transaction transaction = newTransaction()) {
             ConnectorMetadata metadata = transaction.getMetadata();
-            Map<SchemaTableName, ConnectorViewDefinition> views = metadata.getViews(newSession(), viewName.toSchemaTablePrefix());
+
+            assertThat(metadata.getView(newSession(), viewName))
+                    .map(ConnectorViewDefinition::getViewData)
+                    .contains(viewData);
+
+            Map<SchemaTableName, ConnectorViewDefinition> views = metadata.getViews(newSession(), Optional.of(viewName.getSchemaName()));
             assertEquals(views.size(), 1);
             assertEquals(views.get(viewName).getViewData(), viewData);
 

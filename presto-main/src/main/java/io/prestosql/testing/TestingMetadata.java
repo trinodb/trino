@@ -205,8 +205,9 @@ public class TestingMetadata
     }
 
     @Override
-    public Map<SchemaTableName, ConnectorViewDefinition> getViews(ConnectorSession session, SchemaTablePrefix prefix)
+    public Map<SchemaTableName, ConnectorViewDefinition> getViews(ConnectorSession session, Optional<String> schemaName)
     {
+        SchemaTablePrefix prefix = schemaName.map(SchemaTablePrefix::new).orElseGet(SchemaTablePrefix::new);
         ImmutableMap.Builder<SchemaTableName, ConnectorViewDefinition> map = ImmutableMap.builder();
         for (Map.Entry<SchemaTableName, String> entry : views.entrySet()) {
             if (prefix.matches(entry.getKey())) {
@@ -214,6 +215,13 @@ public class TestingMetadata
             }
         }
         return map.build();
+    }
+
+    @Override
+    public Optional<ConnectorViewDefinition> getView(ConnectorSession session, SchemaTableName viewName)
+    {
+        return Optional.ofNullable(views.get(viewName))
+                .map(data -> new ConnectorViewDefinition(viewName, Optional.empty(), data));
     }
 
     @Override

@@ -23,7 +23,6 @@ import io.prestosql.spi.connector.ConnectorTableMetadata;
 import io.prestosql.spi.connector.ConnectorViewDefinition;
 import io.prestosql.spi.connector.SchemaNotFoundException;
 import io.prestosql.spi.connector.SchemaTableName;
-import io.prestosql.spi.connector.SchemaTablePrefix;
 import io.prestosql.testing.TestingNodeManager;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -36,6 +35,7 @@ import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static io.prestosql.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.prestosql.spi.StandardErrorCode.NOT_FOUND;
 import static io.prestosql.testing.TestingConnectorSession.SESSION;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertTrue;
@@ -190,7 +190,9 @@ public class TestMemoryMetadata
         metadata.createView(SESSION, test, "aaa", true);
         metadata.createView(SESSION, test, "bbb", true);
 
-        assertEquals(metadata.getViews(SESSION, test.toSchemaTablePrefix()).get(test).getViewData(), "bbb");
+        assertThat(metadata.getView(SESSION, test))
+                .map(ConnectorViewDefinition::getViewData)
+                .hasValue("bbb");
     }
 
     @Test
@@ -211,42 +213,43 @@ public class TestMemoryMetadata
         assertEqualsIgnoreOrder(list, ImmutableList.of(test1, test2));
 
         // verify getting data
-        Map<SchemaTableName, ConnectorViewDefinition> views = metadata.getViews(SESSION, new SchemaTablePrefix("test"));
+        Map<SchemaTableName, ConnectorViewDefinition> views = metadata.getViews(SESSION, Optional.of("test"));
         assertEquals(views.keySet(), ImmutableSet.of(test1, test2));
         assertEquals(views.get(test1).getViewData(), "test1");
         assertEquals(views.get(test2).getViewData(), "test2");
 
         // all schemas
-        Map<SchemaTableName, ConnectorViewDefinition> allViews = metadata.getViews(SESSION, new SchemaTablePrefix());
-        assertEquals(allViews.keySet(), ImmutableSet.of(test1, test2));
+        assertThat(metadata.getViews(SESSION, Optional.empty()))
+                .containsOnlyKeys(test1, test2);
 
         // exact match on one schema and table
-        Map<SchemaTableName, ConnectorViewDefinition> exactMatchView = metadata.getViews(SESSION, new SchemaTablePrefix("test", "test_view1"));
-        assertEquals(exactMatchView.keySet(), ImmutableSet.of(test1));
+        assertThat(metadata.getView(SESSION, new SchemaTableName("test", "test_view1")))
+                .map(ConnectorViewDefinition::getViewData)
+                .contains("test1");
 
         // non-existent table
-        Map<SchemaTableName, ConnectorViewDefinition> nonexistentTableView = metadata.getViews(SESSION, new SchemaTablePrefix("test", "nonexistenttable"));
-        assertTrue(nonexistentTableView.isEmpty());
+        assertThat(metadata.getView(SESSION, new SchemaTableName("test", "nonexistenttable")))
+                .isEmpty();
 
         // non-existent schema
-        Map<SchemaTableName, ConnectorViewDefinition> nonexistentSchemaView = metadata.getViews(SESSION, new SchemaTablePrefix("nonexistentschema"));
-        assertTrue(nonexistentSchemaView.isEmpty());
+        assertThat(metadata.getViews(SESSION, Optional.of("nonexistentschema")))
+                .isEmpty();
 
         // drop first view
         metadata.dropView(SESSION, test1);
 
-        views = metadata.getViews(SESSION, new SchemaTablePrefix("test"));
-        assertEquals(views.keySet(), ImmutableSet.of(test2));
+        assertThat(metadata.getViews(SESSION, Optional.of("test")))
+                .containsOnlyKeys(test2);
 
         // drop second view
         metadata.dropView(SESSION, test2);
 
-        views = metadata.getViews(SESSION, new SchemaTablePrefix("test"));
-        assertTrue(views.isEmpty());
+        assertThat(metadata.getViews(SESSION, Optional.of("test")))
+                .isEmpty();
 
         // verify listing everything
-        views = metadata.getViews(SESSION, new SchemaTablePrefix());
-        assertTrue(views.isEmpty());
+        assertThat(metadata.getViews(SESSION, Optional.empty()))
+                .isEmpty();
     }
 
     @Test

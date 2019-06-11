@@ -77,6 +77,7 @@ import java.util.function.LongConsumer;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.toOptional;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.prestosql.plugin.raptor.legacy.RaptorBucketFunction.validateBucketType;
 import static io.prestosql.plugin.raptor.legacy.RaptorColumnHandle.BUCKET_NUMBER_COLUMN_NAME;
@@ -859,18 +860,26 @@ public class RaptorMetadata
     }
 
     @Override
-    public Map<SchemaTableName, ConnectorViewDefinition> getViews(ConnectorSession session, SchemaTablePrefix prefix)
+    public Map<SchemaTableName, ConnectorViewDefinition> getViews(ConnectorSession session, Optional<String> schemaName)
     {
         ImmutableMap.Builder<SchemaTableName, ConnectorViewDefinition> map = ImmutableMap.builder();
-        for (ViewResult view : dao.getViews(prefix.getSchema().orElse(null), prefix.getTable().orElse(null))) {
+        for (ViewResult view : dao.getViews(schemaName.orElse(null), null)) {
             map.put(view.getName(), new ConnectorViewDefinition(view.getName(), Optional.empty(), view.getData()));
         }
         return map.build();
     }
 
+    @Override
+    public Optional<ConnectorViewDefinition> getView(ConnectorSession session, SchemaTableName viewName)
+    {
+        return dao.getViews(viewName.getSchemaName(), viewName.getTableName()).stream()
+                .map(view -> new ConnectorViewDefinition(viewName, Optional.empty(), view.getData()))
+                .collect(toOptional());
+    }
+
     private boolean viewExists(ConnectorSession session, SchemaTableName viewName)
     {
-        return !getViews(session, viewName.toSchemaTablePrefix()).isEmpty();
+        return getView(session, viewName).isPresent();
     }
 
     private RaptorColumnHandle getRaptorColumnHandle(TableColumn tableColumn)

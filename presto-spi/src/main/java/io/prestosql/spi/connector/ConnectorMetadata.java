@@ -39,6 +39,7 @@ import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
+import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
 
 public interface ConnectorMetadata
@@ -463,11 +464,25 @@ public interface ConnectorMetadata
     }
 
     /**
-     * Gets the view data for views that match the specified table prefix.
+     * Gets the definitions of views, possibly filtered by schema.
+     * This optional method may be implemented by connectors that can support fetching
+     * view data in bulk. It is used to implement {@code information_schema.views}.
      */
-    default Map<SchemaTableName, ConnectorViewDefinition> getViews(ConnectorSession session, SchemaTablePrefix prefix)
+    default Map<SchemaTableName, ConnectorViewDefinition> getViews(ConnectorSession session, Optional<String> schemaName)
     {
-        return emptyMap();
+        return listViews(session, schemaName).stream()
+                .map(name -> getView(session, name))
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .collect(Collectors.toMap(ConnectorViewDefinition::getName, identity()));
+    }
+
+    /**
+     * Gets the view data for the specified view name.
+     */
+    default Optional<ConnectorViewDefinition> getView(ConnectorSession session, SchemaTableName viewName)
+    {
+        return Optional.empty();
     }
 
     /**

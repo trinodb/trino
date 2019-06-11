@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import io.prestosql.plugin.accumulo.metadata.AccumuloTable;
-import io.prestosql.plugin.accumulo.metadata.AccumuloView;
 import io.prestosql.plugin.accumulo.model.AccumuloColumnHandle;
 import io.prestosql.plugin.accumulo.model.AccumuloTableHandle;
 import io.prestosql.spi.PrestoException;
@@ -153,16 +152,10 @@ public class AccumuloMetadata
     }
 
     @Override
-    public Map<SchemaTableName, ConnectorViewDefinition> getViews(ConnectorSession session, SchemaTablePrefix prefix)
+    public Optional<ConnectorViewDefinition> getView(ConnectorSession session, SchemaTableName viewName)
     {
-        ImmutableMap.Builder<SchemaTableName, ConnectorViewDefinition> builder = ImmutableMap.builder();
-        for (SchemaTableName stName : listViews(session, prefix.getSchema())) {
-            AccumuloView view = client.getView(stName);
-            if (view != null) {
-                builder.put(stName, new ConnectorViewDefinition(stName, Optional.empty(), view.getData()));
-            }
-        }
-        return builder.build();
+        return Optional.ofNullable(client.getView(viewName))
+                .map(view -> new ConnectorViewDefinition(viewName, Optional.empty(), view.getData()));
     }
 
     @Override
