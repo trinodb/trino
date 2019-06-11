@@ -57,18 +57,26 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 
+import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.prestosql.jdbc.ColumnInfo.setTypeInfo;
 import static java.lang.String.format;
 import static java.math.BigDecimal.ROUND_HALF_UP;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.Executors.newCachedThreadPool;
 
 public class PrestoResultSet
         implements ResultSet
@@ -119,7 +127,7 @@ public class PrestoResultSet
         this.columnInfoList = getColumnInfo(columns);
         this.resultSetMetaData = new PrestoResultSetMetaData(columnInfoList);
 
-        this.results = flatten(new ResultsPageIterator(client, progressCallback, warningsManager), maxRows);
+        this.results = new AsyncIterator(flatten(new ResultsPageIterator(client, progressCallback, warningsManager), maxRows), client, Thread.currentThread());
     }
 
     public String getQueryId()
@@ -158,6 +166,7 @@ public class PrestoResultSet
             throws SQLException
     {
         closed.set(true);
+        ((AsyncIterator) results).cancel();
         client.close();
     }
 
@@ -1756,6 +1765,81 @@ public class PrestoResultSet
         return stream.iterator();
     }
 
+    private static class AsyncIterator<T>
+            implements Iterator<T>
+    {
+        private static final int MAX_QUEUED_ROWS = 50_000;
+        private static final ExecutorService executorService = newCachedThreadPool(daemonThreadsNamed("Presto JDBC worker-%d"));
+
+        private final StatementClient client;
+        private final BlockingQueue<T> rowQueue = new ArrayBlockingQueue<>(MAX_QUEUED_ROWS);
+        private final CompletableFuture<Void> future;
+        private Thread parent;
+
+        public AsyncIterator(Iterator<T> dataIterator, StatementClient client, Thread parent)
+        {
+            requireNonNull(dataIterator, "dataIterator is null");
+            this.parent = parent;
+            this.client = client;
+            this.future = CompletableFuture.supplyAsync(() -> {
+                while (dataIterator.hasNext()) {
+                    try {
+                        rowQueue.put(dataIterator.next());
+                    }
+                    catch (InterruptedException e) {
+                        interrupt(e);
+                    }
+                }
+                return null;
+            }, executorService);
+        }
+
+        public void cancel()
+        {
+            future.cancel(true);
+        }
+
+        public void interrupt(InterruptedException e)
+        {
+            client.close();
+            Thread.currentThread().interrupt();
+            throw new RuntimeException(new SQLException("ResultSet thread was interrupted", e));
+        }
+
+        @Override
+        public boolean hasNext()
+        {
+            if (!rowQueue.isEmpty()) {
+                return true;
+            }
+            while (rowQueue.isEmpty() && !future.isDone()) {
+                // making sure rowQueue has some records to process or return false
+                if (parent.isInterrupted()) {
+                    interrupt(new InterruptedException("parent thread interrupted"));
+                }
+            }
+            if (future.isCompletedExceptionally()) {
+                try {
+                    future.get();
+                }
+                catch (InterruptedException e) {
+                    interrupt(e);
+                }
+                catch (ExecutionException e) {
+                    throwIfUnchecked(e.getCause());
+                    throw new RuntimeException(e.getCause());
+                }
+            }
+            return !rowQueue.isEmpty();
+        }
+
+        @Override
+        public T next()
+        {
+            return rowQueue.poll();
+        }
+    }
+
     private static class ResultsPageIterator
             extends AbstractIterator<Iterable<List<Object>>>
     {
@@ -1774,8 +1858,6 @@ public class PrestoResultSet
         protected Iterable<List<Object>> computeNext()
         {
             while (client.isRunning()) {
-                checkInterruption(null);
-
                 QueryStatusInfo results = client.currentStatusInfo();
                 progressCallback.accept(QueryStats.create(results.getId(), results.getStats()));
                 warningsManager.addWarnings(results.getWarnings());
@@ -1785,7 +1867,6 @@ public class PrestoResultSet
                     client.advance();
                 }
                 catch (RuntimeException e) {
-                    checkInterruption(e);
                     throw e;
                 }
 
@@ -1801,16 +1882,7 @@ public class PrestoResultSet
             if (results.getError() != null) {
                 throw new RuntimeException(resultsException(results));
             }
-
             return endOfData();
-        }
-
-        private void checkInterruption(Throwable t)
-        {
-            if (Thread.currentThread().isInterrupted()) {
-                client.close();
-                throw new RuntimeException(new SQLException("ResultSet thread was interrupted", t));
-            }
         }
     }
 

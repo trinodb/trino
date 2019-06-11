@@ -248,7 +248,6 @@ class StatementClientV1
     @Override
     public QueryStatusInfo currentStatusInfo()
     {
-        checkState(isRunning(), "current position is not valid (cursor past end)");
         return currentResults.get();
     }
 

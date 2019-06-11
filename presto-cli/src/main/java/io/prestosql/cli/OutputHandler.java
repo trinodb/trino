@@ -13,16 +13,20 @@
  */
 package io.prestosql.cli;
 
-import io.airlift.units.Duration;
+import com.google.common.collect.Queues;
 import io.prestosql.client.StatementClient;
 
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static io.airlift.units.Duration.nanosSince;
+import static com.google.common.base.Throwables.propagateIfPossible;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -30,31 +34,19 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 public final class OutputHandler
         implements Closeable
 {
-    private static final Duration MAX_BUFFER_TIME = new Duration(3, SECONDS);
-    private static final int MAX_BUFFERED_ROWS = 10_000;
+    private static final int MAX_QUEUED_ROWS = 50_000;
+    private static final int MIN_BUFFERED_ROWS = 1_000;
+    private static final long MAX_BUFFER_SECONDS = 3;
 
     private final AtomicBoolean closed = new AtomicBoolean();
-    private final List<List<?>> rowBuffer = new ArrayList<>(MAX_BUFFERED_ROWS);
+    private final BlockingQueue<List<?>> rowQueue = new LinkedBlockingQueue<>(MAX_QUEUED_ROWS);
     private final OutputPrinter printer;
 
-    private long bufferStart;
+    private CompletableFuture<Void> future;
 
     public OutputHandler(OutputPrinter printer)
     {
         this.printer = requireNonNull(printer, "printer is null");
-    }
-
-    public void processRow(List<?> row)
-            throws IOException
-    {
-        if (rowBuffer.isEmpty()) {
-            bufferStart = System.nanoTime();
-        }
-
-        rowBuffer.add(row);
-        if (rowBuffer.size() >= MAX_BUFFERED_ROWS) {
-            flush(false);
-        }
     }
 
     @Override
@@ -62,7 +54,6 @@ public final class OutputHandler
             throws IOException
     {
         if (!closed.getAndSet(true)) {
-            flush(true);
             printer.finish();
         }
     }
@@ -70,28 +61,47 @@ public final class OutputHandler
     public void processRows(StatementClient client)
             throws IOException
     {
-        while (client.isRunning()) {
-            Iterable<List<Object>> data = client.currentData().getData();
-            if (data != null) {
-                for (List<Object> row : data) {
-                    processRow(unmodifiableList(row));
+        List<List<?>> rowBuffer = new ArrayList<>();
+        this.future = CompletableFuture.runAsync(() -> {
+            while (client.isRunning()) {
+                Iterable<List<Object>> data = client.currentData().getData();
+                if (data != null) {
+                    for (List<Object> row : data) {
+                        try {
+                            rowQueue.put(unmodifiableList(row));
+                        }
+                        catch (InterruptedException e) {
+                            Thread.currentThread().interrupt();
+                            throw new RuntimeException(e);
+                        }
+                    }
+                }
+                client.advance();
+            }
+        });
+        try {
+            while (!future.isDone()) {
+                if (!rowQueue.isEmpty()) {
+                    Queues.drain(rowQueue, rowBuffer, MIN_BUFFERED_ROWS, MAX_BUFFER_SECONDS, SECONDS);
+                    printer.printRows(unmodifiableList(rowBuffer), false);
+                    rowBuffer.clear();
                 }
             }
-
-            if (nanosSince(bufferStart).compareTo(MAX_BUFFER_TIME) >= 0) {
-                flush(false);
+            while (!rowQueue.isEmpty()) {
+                rowBuffer.add(rowQueue.poll());
             }
-
-            client.advance();
-        }
-    }
-
-    private void flush(boolean complete)
-            throws IOException
-    {
-        if (!rowBuffer.isEmpty()) {
-            printer.printRows(unmodifiableList(rowBuffer), complete);
+            printer.printRows(unmodifiableList(rowBuffer), true);
             rowBuffer.clear();
+            future.get();
+        }
+
+        catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException(e);
+        }
+        catch (ExecutionException e) {
+            propagateIfPossible(e.getCause(), IOException.class);
+            throw new RuntimeException(e.getCause());
         }
     }
 }
