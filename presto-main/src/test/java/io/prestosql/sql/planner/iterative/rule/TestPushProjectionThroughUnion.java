@@ -43,6 +43,29 @@ public class TestPushProjectionThroughUnion
     }
 
     @Test
+    public void testTrivialProjection()
+    {
+        tester().assertThat(new PushProjectionThroughUnion())
+                .on(p -> {
+                    Symbol left = p.symbol("left");
+                    Symbol right = p.symbol("right");
+                    Symbol unioned = p.symbol("unioned");
+                    Symbol renamed = p.symbol("renamed");
+                    return p.project(
+                            Assignments.of(renamed, unioned.toSymbolReference()),
+                            p.union(
+                                    ImmutableListMultimap.<Symbol, Symbol>builder()
+                                            .put(unioned, left)
+                                            .put(unioned, right)
+                                            .build(),
+                                    ImmutableList.of(
+                                            p.values(left),
+                                            p.values(right))));
+                })
+                .doesNotFire();
+    }
+
+    @Test
     public void test()
     {
         tester().assertThat(new PushProjectionThroughUnion())
