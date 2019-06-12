@@ -449,7 +449,7 @@ public abstract class AstVisitor<R, C>
 
     protected R visitRow(Row node, C context)
     {
-        return visitNode(node, context);
+        return visitExpression(node, context);
     }
 
     protected R visitTableSubquery(TableSubquery node, C context)
