@@ -54,7 +54,10 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 /**
- * Only {@link #getOperatorStats()} and revocable-memory-related operations are ThreadSafe
+ * Contains information about {@link Operator} execution.
+ * <p>
+ * Not thread-safe. Only {@link #getOperatorStats()}, {@link #getNestedOperatorStats()}
+ * and revocable-memory-related operations are thread-safe.
  */
 public class OperatorContext
 {
