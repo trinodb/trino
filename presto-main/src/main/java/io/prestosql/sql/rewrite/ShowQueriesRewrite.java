@@ -28,12 +28,12 @@ import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.metadata.SessionPropertyManager.SessionPropertyValue;
 import io.prestosql.metadata.SqlFunction;
 import io.prestosql.metadata.TableHandle;
-import io.prestosql.metadata.ViewDefinition;
 import io.prestosql.security.AccessControl;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.StandardErrorCode;
 import io.prestosql.spi.connector.CatalogSchemaName;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
+import io.prestosql.spi.connector.ConnectorViewDefinition;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.security.PrestoPrincipal;
 import io.prestosql.spi.security.PrincipalType;
@@ -418,7 +418,7 @@ final class ShowQueriesRewrite
         protected Node visitShowCreate(ShowCreate node, Void context)
         {
             QualifiedObjectName objectName = createQualifiedObjectName(session, node, node.getName());
-            Optional<ViewDefinition> viewDefinition = metadata.getView(session, objectName);
+            Optional<ConnectorViewDefinition> viewDefinition = metadata.getView(session, objectName);
 
             if (node.getType() == VIEW) {
                 if (!viewDefinition.isPresent()) {

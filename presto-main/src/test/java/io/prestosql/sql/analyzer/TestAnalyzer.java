@@ -15,7 +15,6 @@ package io.prestosql.sql.analyzer;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
-import io.airlift.json.JsonCodec;
 import io.prestosql.Session;
 import io.prestosql.SystemSessionProperties;
 import io.prestosql.connector.CatalogName;
@@ -37,7 +36,6 @@ import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.metadata.SchemaPropertyManager;
 import io.prestosql.metadata.SessionPropertyManager;
 import io.prestosql.metadata.TablePropertyManager;
-import io.prestosql.metadata.ViewDefinition;
 import io.prestosql.security.AccessControl;
 import io.prestosql.security.AccessControlManager;
 import io.prestosql.security.AllowAllAccessControl;
@@ -46,6 +44,7 @@ import io.prestosql.spi.connector.Connector;
 import io.prestosql.spi.connector.ConnectorMetadata;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
+import io.prestosql.spi.connector.ConnectorViewDefinition;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.session.PropertyMetadata;
 import io.prestosql.spi.transaction.IsolationLevel;
@@ -67,12 +66,13 @@ import java.util.function.Consumer;
 
 import static io.prestosql.connector.CatalogName.createInformationSchemaCatalogName;
 import static io.prestosql.connector.CatalogName.createSystemTablesCatalogName;
-import static io.prestosql.metadata.ViewDefinition.ViewColumn;
 import static io.prestosql.operator.scalar.ApplyFunction.APPLY_FUNCTION;
+import static io.prestosql.spi.connector.ConnectorViewDefinition.ViewColumn;
 import static io.prestosql.spi.session.PropertyMetadata.integerProperty;
 import static io.prestosql.spi.session.PropertyMetadata.stringProperty;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
+import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.sql.analyzer.SemanticErrorCode.AMBIGUOUS_ATTRIBUTE;
 import static io.prestosql.sql.analyzer.SemanticErrorCode.CANNOT_HAVE_AGGREGATIONS_WINDOWS_OR_GROUPING;
@@ -1639,58 +1639,53 @@ public class TestAnalyzer
                 false));
 
         // valid view referencing table in same schema
-        String viewData1 = JsonCodec.jsonCodec(ViewDefinition.class).toJson(
-                new ViewDefinition(
-                        "select a from t1",
-                        Optional.of(TPCH_CATALOG),
-                        Optional.of("s1"),
-                        ImmutableList.of(new ViewColumn("a", BIGINT)),
-                        Optional.of("user"),
-                        false));
+        ConnectorViewDefinition viewData1 = new ConnectorViewDefinition(
+                "select a from t1",
+                Optional.of(TPCH_CATALOG),
+                Optional.of("s1"),
+                ImmutableList.of(new ViewColumn("a", BIGINT.getTypeSignature())),
+                Optional.of("user"),
+                false);
         inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName(TPCH_CATALOG, "s1", "v1"), viewData1, false));
 
         // stale view (different column type)
-        String viewData2 = JsonCodec.jsonCodec(ViewDefinition.class).toJson(
-                new ViewDefinition(
-                        "select a from t1",
-                        Optional.of(TPCH_CATALOG),
-                        Optional.of("s1"),
-                        ImmutableList.of(new ViewColumn("a", VARCHAR)),
-                        Optional.of("user"),
-                        false));
+        ConnectorViewDefinition viewData2 = new ConnectorViewDefinition(
+                "select a from t1",
+                Optional.of(TPCH_CATALOG),
+                Optional.of("s1"),
+                ImmutableList.of(new ViewColumn("a", parseTypeSignature("varchar"))),
+                Optional.of("user"),
+                false);
         inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName(TPCH_CATALOG, "s1", "v2"), viewData2, false));
 
         // view referencing table in different schema from itself and session
-        String viewData3 = JsonCodec.jsonCodec(ViewDefinition.class).toJson(
-                new ViewDefinition(
-                        "select a from t4",
-                        Optional.of(SECOND_CATALOG),
-                        Optional.of("s2"),
-                        ImmutableList.of(new ViewColumn("a", BIGINT)),
-                        Optional.of("owner"),
-                        false));
+        ConnectorViewDefinition viewData3 = new ConnectorViewDefinition(
+                "select a from t4",
+                Optional.of(SECOND_CATALOG),
+                Optional.of("s2"),
+                ImmutableList.of(new ViewColumn("a", BIGINT.getTypeSignature())),
+                Optional.of("owner"),
+                false);
         inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName(THIRD_CATALOG, "s3", "v3"), viewData3, false));
 
         // valid view with uppercase column name
-        String viewData4 = JsonCodec.jsonCodec(ViewDefinition.class).toJson(
-                new ViewDefinition(
-                        "select A from t1",
-                        Optional.of("tpch"),
-                        Optional.of("s1"),
-                        ImmutableList.of(new ViewColumn("a", BIGINT)),
-                        Optional.of("user"),
-                        false));
+        ConnectorViewDefinition viewData4 = new ConnectorViewDefinition(
+                "select A from t1",
+                Optional.of("tpch"),
+                Optional.of("s1"),
+                ImmutableList.of(new ViewColumn("a", BIGINT.getTypeSignature())),
+                Optional.of("user"),
+                false);
         inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName("tpch", "s1", "v4"), viewData4, false));
 
         // recursive view referencing to itself
-        String viewData5 = JsonCodec.jsonCodec(ViewDefinition.class).toJson(
-                new ViewDefinition(
-                        "select * from v5",
-                        Optional.of(TPCH_CATALOG),
-                        Optional.of("s1"),
-                        ImmutableList.of(new ViewColumn("a", BIGINT)),
-                        Optional.of("user"),
-                        false));
+        ConnectorViewDefinition viewData5 = new ConnectorViewDefinition(
+                "select * from v5",
+                Optional.of(TPCH_CATALOG),
+                Optional.of("s1"),
+                ImmutableList.of(new ViewColumn("a", BIGINT.getTypeSignature())),
+                Optional.of("user"),
+                false);
         inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName(TPCH_CATALOG, "s1", "v5"), viewData5, false));
     }
 

@@ -1493,7 +1493,7 @@ public class HiveMetadata
     }
 
     @Override
-    public void createView(ConnectorSession session, SchemaTableName viewName, String viewData, boolean replace)
+    public void createView(ConnectorSession session, SchemaTableName viewName, ConnectorViewDefinition definition, boolean replace)
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put(TABLE_COMMENT, "Presto View")
@@ -1512,7 +1512,7 @@ public class HiveMetadata
                 .setDataColumns(ImmutableList.of(dummyColumn))
                 .setPartitionColumns(ImmutableList.of())
                 .setParameters(properties)
-                .setViewOriginalText(Optional.of(encodeViewData(viewData)))
+                .setViewOriginalText(Optional.of(encodeViewData(definition)))
                 .setViewExpandedText(Optional.of("/* Presto View */"));
 
         tableBuilder.getStorageBuilder()
@@ -1570,11 +1570,21 @@ public class HiveMetadata
     {
         return metastore.getTable(viewName.getSchemaName(), viewName.getTableName())
                 .filter(HiveUtil::isPrestoView)
-                .map(view -> new ConnectorViewDefinition(
-                        viewName,
-                        Optional.ofNullable(view.getOwner()),
-                        decodeViewData(view.getViewOriginalText()
-                                .orElseThrow(() -> new PrestoException(HIVE_INVALID_METADATA, "No view original text: " + viewName)))));
+                .map(view -> {
+                    ConnectorViewDefinition definition = decodeViewData(view.getViewOriginalText()
+                            .orElseThrow(() -> new PrestoException(HIVE_INVALID_METADATA, "No view original text: " + viewName)));
+                    // use owner from table metadata if it exists
+                    if (view.getOwner() != null && !definition.isRunAsInvoker()) {
+                        definition = new ConnectorViewDefinition(
+                                definition.getOriginalSql(),
+                                definition.getCatalog(),
+                                definition.getSchema(),
+                                definition.getColumns(),
+                                Optional.of(view.getOwner()),
+                                false);
+                    }
+                    return definition;
+                });
     }
 
     @Override

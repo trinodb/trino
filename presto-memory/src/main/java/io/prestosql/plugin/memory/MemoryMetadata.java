@@ -14,7 +14,9 @@
 package io.prestosql.plugin.memory;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Maps;
 import io.airlift.slice.Slice;
 import io.prestosql.spi.HostAddress;
 import io.prestosql.spi.Node;
@@ -57,7 +59,6 @@ import java.util.concurrent.atomic.AtomicLong;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.prestosql.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.prestosql.spi.StandardErrorCode.NOT_FOUND;
 import static io.prestosql.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
@@ -78,7 +79,7 @@ public class MemoryMetadata
     private final AtomicLong nextTableId = new AtomicLong();
     private final Map<SchemaTableName, Long> tableIds = new HashMap<>();
     private final Map<Long, TableInfo> tables = new HashMap<>();
-    private final Map<SchemaTableName, String> views = new HashMap<>();
+    private final Map<SchemaTableName, ConnectorViewDefinition> views = new HashMap<>();
 
     @Inject
     public MemoryMetadata(NodeManager nodeManager)
@@ -278,7 +279,7 @@ public class MemoryMetadata
     }
 
     @Override
-    public synchronized void createView(ConnectorSession session, SchemaTableName viewName, String viewData, boolean replace)
+    public synchronized void createView(ConnectorSession session, SchemaTableName viewName, ConnectorViewDefinition definition, boolean replace)
     {
         checkSchemaExists(viewName.getSchemaName());
         if (tableIds.containsKey(viewName)) {
@@ -286,9 +287,9 @@ public class MemoryMetadata
         }
 
         if (replace) {
-            views.put(viewName, viewData);
+            views.put(viewName, definition);
         }
-        else if (views.putIfAbsent(viewName, viewData) != null) {
+        else if (views.putIfAbsent(viewName, definition) != null) {
             throw new PrestoException(ALREADY_EXISTS, "View already exists: " + viewName);
         }
     }
@@ -313,18 +314,13 @@ public class MemoryMetadata
     public synchronized Map<SchemaTableName, ConnectorViewDefinition> getViews(ConnectorSession session, Optional<String> schemaName)
     {
         SchemaTablePrefix prefix = schemaName.map(SchemaTablePrefix::new).orElseGet(SchemaTablePrefix::new);
-        return views.entrySet().stream()
-                .filter(entry -> prefix.matches(entry.getKey()))
-                .collect(toImmutableMap(
-                        Map.Entry::getKey,
-                        entry -> new ConnectorViewDefinition(entry.getKey(), Optional.empty(), entry.getValue())));
+        return ImmutableMap.copyOf(Maps.filterKeys(views, prefix::matches));
     }
 
     @Override
     public synchronized Optional<ConnectorViewDefinition> getView(ConnectorSession session, SchemaTableName viewName)
     {
-        return Optional.ofNullable(views.get(viewName))
-                .map(data -> new ConnectorViewDefinition(viewName, Optional.empty(), data));
+        return Optional.ofNullable(views.get(viewName));
     }
 
     private void updateRowsOnHosts(long tableId, Collection<Slice> fragments)

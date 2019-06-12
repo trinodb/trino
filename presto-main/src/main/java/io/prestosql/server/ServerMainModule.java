@@ -79,7 +79,6 @@ import io.prestosql.metadata.SessionPropertyManager;
 import io.prestosql.metadata.StaticCatalogStore;
 import io.prestosql.metadata.StaticCatalogStoreConfig;
 import io.prestosql.metadata.TablePropertyManager;
-import io.prestosql.metadata.ViewDefinition;
 import io.prestosql.operator.ExchangeClientConfig;
 import io.prestosql.operator.ExchangeClientFactory;
 import io.prestosql.operator.ExchangeClientSupplier;
@@ -201,8 +200,6 @@ public class ServerMainModule
         configBinder(binder).bindConfig(QueryManagerConfig.class);
 
         configBinder(binder).bindConfig(SqlEnvironmentConfig.class);
-
-        jsonCodecBinder(binder).bindJsonCodec(ViewDefinition.class);
 
         newOptionalBinder(binder, ExplainAnalyzeContext.class);
 

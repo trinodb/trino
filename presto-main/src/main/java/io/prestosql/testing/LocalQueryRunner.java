@@ -88,7 +88,6 @@ import io.prestosql.metadata.SessionPropertyManager;
 import io.prestosql.metadata.Split;
 import io.prestosql.metadata.TableHandle;
 import io.prestosql.metadata.TablePropertyManager;
-import io.prestosql.metadata.ViewDefinition;
 import io.prestosql.operator.Driver;
 import io.prestosql.operator.DriverContext;
 import io.prestosql.operator.DriverFactory;
@@ -191,7 +190,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.prestosql.cost.StatsCalculatorModule.createNewStatsCalculator;
 import static io.prestosql.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.GROUPED_SCHEDULING;
 import static io.prestosql.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.UNGROUPED_SCHEDULING;
@@ -401,7 +399,7 @@ public class LocalQueryRunner
 
         dataDefinitionTask = ImmutableMap.<Class<? extends Statement>, DataDefinitionTask<?>>builder()
                 .put(CreateTable.class, new CreateTableTask())
-                .put(CreateView.class, new CreateViewTask(jsonCodec(ViewDefinition.class), sqlParser, featuresConfig))
+                .put(CreateView.class, new CreateViewTask(sqlParser, featuresConfig))
                 .put(DropTable.class, new DropTableTask())
                 .put(DropView.class, new DropViewTask())
                 .put(RenameColumn.class, new RenameColumnTask())

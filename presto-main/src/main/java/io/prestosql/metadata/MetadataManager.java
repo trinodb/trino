@@ -20,9 +20,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
-import io.airlift.json.JsonCodec;
-import io.airlift.json.JsonCodecFactory;
-import io.airlift.json.ObjectMapperProvider;
 import io.airlift.slice.Slice;
 import io.prestosql.Session;
 import io.prestosql.connector.CatalogName;
@@ -81,12 +78,12 @@ import io.prestosql.spi.statistics.TableStatistics;
 import io.prestosql.spi.statistics.TableStatisticsMetadata;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeManager;
+import io.prestosql.spi.type.TypeNotFoundException;
 import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.sql.analyzer.FeaturesConfig;
 import io.prestosql.sql.planner.PartitioningHandle;
 import io.prestosql.sql.tree.QualifiedName;
 import io.prestosql.transaction.TransactionManager;
-import io.prestosql.type.TypeDeserializer;
 import io.prestosql.type.TypeRegistry;
 
 import javax.inject.Inject;
@@ -111,10 +108,10 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.prestosql.metadata.QualifiedObjectName.convertFromSchemaTableName;
-import static io.prestosql.metadata.ViewDefinition.ViewColumn;
 import static io.prestosql.spi.StandardErrorCode.INVALID_VIEW;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.StandardErrorCode.SYNTAX_ERROR;
+import static io.prestosql.spi.connector.ConnectorViewDefinition.ViewColumn;
 import static io.prestosql.spi.function.OperatorType.BETWEEN;
 import static io.prestosql.spi.function.OperatorType.EQUAL;
 import static io.prestosql.spi.function.OperatorType.GREATER_THAN;
@@ -137,7 +134,6 @@ public final class MetadataManager
     private final FunctionRegistry functions;
     private final ProcedureRegistry procedures;
     private final TypeManager typeManager;
-    private final JsonCodec<ViewDefinition> viewCodec;
     private final SessionPropertyManager sessionPropertyManager;
     private final SchemaPropertyManager schemaPropertyManager;
     private final TablePropertyManager tablePropertyManager;
@@ -171,10 +167,6 @@ public final class MetadataManager
         this.columnPropertyManager = requireNonNull(columnPropertyManager, "columnPropertyManager is null");
         this.analyzePropertyManager = requireNonNull(analyzePropertyManager, "analyzePropertyManager is null");
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
-
-        ObjectMapperProvider objectMapperProvider = new ObjectMapperProvider();
-        objectMapperProvider.setJsonDeserializers(ImmutableMap.of(Type.class, new TypeDeserializer(typeManager)));
-        this.viewCodec = new JsonCodecFactory(objectMapperProvider).jsonCodec(ViewDefinition.class);
 
         // add the built-in BlockEncodings
         addBlockEncoding(new VariableWidthBlockEncoding());
@@ -542,10 +534,15 @@ public final class MetadataManager
                 }
 
                 // if table and view names overlap, the view wins
-                for (Entry<QualifiedObjectName, ViewDefinition> entry : getViews(session, prefix).entrySet()) {
+                for (Entry<QualifiedObjectName, ConnectorViewDefinition> entry : getViews(session, prefix).entrySet()) {
                     ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
                     for (ViewColumn column : entry.getValue().getColumns()) {
-                        columns.add(new ColumnMetadata(column.getName(), column.getType()));
+                        try {
+                            columns.add(new ColumnMetadata(column.getName(), getType(column.getType())));
+                        }
+                        catch (TypeNotFoundException e) {
+                            throw new PrestoException(INVALID_VIEW, format("Unknown type '%s' for column '%s' in view: %s", column.getType(), column.getName(), entry.getKey()));
+                        }
                     }
                     tableColumns.put(entry.getKey(), columns.build());
                 }
@@ -884,13 +881,13 @@ public final class MetadataManager
     }
 
     @Override
-    public Map<QualifiedObjectName, ViewDefinition> getViews(Session session, QualifiedTablePrefix prefix)
+    public Map<QualifiedObjectName, ConnectorViewDefinition> getViews(Session session, QualifiedTablePrefix prefix)
     {
         requireNonNull(prefix, "prefix is null");
 
         Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, prefix.getCatalogName());
 
-        Map<QualifiedObjectName, ViewDefinition> views = new LinkedHashMap<>();
+        Map<QualifiedObjectName, ConnectorViewDefinition> views = new LinkedHashMap<>();
         if (catalog.isPresent()) {
             CatalogMetadata catalogMetadata = catalog.get();
 
@@ -914,7 +911,7 @@ public final class MetadataManager
                             prefix.getCatalogName(),
                             entry.getKey().getSchemaName(),
                             entry.getKey().getTableName());
-                    views.put(viewName, deserializeView(entry.getValue().getViewData()));
+                    views.put(viewName, entry.getValue());
                 }
             }
         }
@@ -922,29 +919,22 @@ public final class MetadataManager
     }
 
     @Override
-    public Optional<ViewDefinition> getView(Session session, QualifiedObjectName viewName)
+    public Optional<ConnectorViewDefinition> getView(Session session, QualifiedObjectName viewName)
     {
         return getOptionalCatalogMetadata(session, viewName.getCatalogName())
                 .flatMap(catalog -> catalog.getMetadata().getView(
                         session.toConnectorSession(catalog.getCatalogName()),
-                        viewName.asSchemaTableName()))
-                .map(view -> {
-                    ViewDefinition definition = deserializeView(view.getViewData());
-                    if (view.getOwner().isPresent() && !definition.isRunAsInvoker()) {
-                        definition = definition.withOwner(view.getOwner().get());
-                    }
-                    return definition;
-                });
+                        viewName.asSchemaTableName()));
     }
 
     @Override
-    public void createView(Session session, QualifiedObjectName viewName, String viewData, boolean replace)
+    public void createView(Session session, QualifiedObjectName viewName, ConnectorViewDefinition definition, boolean replace)
     {
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, viewName.getCatalogName());
         CatalogName catalogName = catalogMetadata.getCatalogName();
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
 
-        metadata.createView(session.toConnectorSession(catalogName), viewName.asSchemaTableName(), viewData, replace);
+        metadata.createView(session.toConnectorSession(catalogName), viewName.asSchemaTableName(), definition, replace);
     }
 
     @Override
@@ -1323,16 +1313,6 @@ public final class MetadataManager
     //
     // Helpers
     //
-
-    private ViewDefinition deserializeView(String data)
-    {
-        try {
-            return viewCodec.fromJson(data);
-        }
-        catch (IllegalArgumentException e) {
-            throw new PrestoException(INVALID_VIEW, "Invalid view JSON: " + data, e);
-        }
-    }
 
     private Optional<CatalogMetadata> getOptionalCatalogMetadata(Session session, String catalogName)
     {

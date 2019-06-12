@@ -17,6 +17,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Maps;
 import io.airlift.slice.Slice;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ColumnHandle;
@@ -59,7 +60,7 @@ public class TestingMetadata
         implements ConnectorMetadata
 {
     private final ConcurrentMap<SchemaTableName, ConnectorTableMetadata> tables = new ConcurrentHashMap<>();
-    private final ConcurrentMap<SchemaTableName, String> views = new ConcurrentHashMap<>();
+    private final ConcurrentMap<SchemaTableName, ConnectorViewDefinition> views = new ConcurrentHashMap<>();
 
     @Override
     public List<String> listSchemaNames(ConnectorSession session)
@@ -174,12 +175,12 @@ public class TestingMetadata
     }
 
     @Override
-    public void createView(ConnectorSession session, SchemaTableName viewName, String viewData, boolean replace)
+    public void createView(ConnectorSession session, SchemaTableName viewName, ConnectorViewDefinition definition, boolean replace)
     {
         if (replace) {
-            views.put(viewName, viewData);
+            views.put(viewName, definition);
         }
-        else if (views.putIfAbsent(viewName, viewData) != null) {
+        else if (views.putIfAbsent(viewName, definition) != null) {
             throw new PrestoException(ALREADY_EXISTS, "View already exists: " + viewName);
         }
     }
@@ -208,20 +209,13 @@ public class TestingMetadata
     public Map<SchemaTableName, ConnectorViewDefinition> getViews(ConnectorSession session, Optional<String> schemaName)
     {
         SchemaTablePrefix prefix = schemaName.map(SchemaTablePrefix::new).orElseGet(SchemaTablePrefix::new);
-        ImmutableMap.Builder<SchemaTableName, ConnectorViewDefinition> map = ImmutableMap.builder();
-        for (Map.Entry<SchemaTableName, String> entry : views.entrySet()) {
-            if (prefix.matches(entry.getKey())) {
-                map.put(entry.getKey(), new ConnectorViewDefinition(entry.getKey(), Optional.empty(), entry.getValue()));
-            }
-        }
-        return map.build();
+        return ImmutableMap.copyOf(Maps.filterKeys(views, prefix::matches));
     }
 
     @Override
     public Optional<ConnectorViewDefinition> getView(ConnectorSession session, SchemaTableName viewName)
     {
-        return Optional.ofNullable(views.get(viewName))
-                .map(data -> new ConnectorViewDefinition(viewName, Optional.empty(), data));
+        return Optional.ofNullable(views.get(viewName));
     }
 
     @Override

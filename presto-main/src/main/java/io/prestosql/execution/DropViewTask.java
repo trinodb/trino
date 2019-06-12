@@ -17,8 +17,8 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.prestosql.Session;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.QualifiedObjectName;
-import io.prestosql.metadata.ViewDefinition;
 import io.prestosql.security.AccessControl;
+import io.prestosql.spi.connector.ConnectorViewDefinition;
 import io.prestosql.sql.analyzer.SemanticException;
 import io.prestosql.sql.tree.DropView;
 import io.prestosql.sql.tree.Expression;
@@ -46,7 +46,7 @@ public class DropViewTask
         Session session = stateMachine.getSession();
         QualifiedObjectName name = createQualifiedObjectName(session, statement, statement.getName());
 
-        Optional<ViewDefinition> view = metadata.getView(session, name);
+        Optional<ConnectorViewDefinition> view = metadata.getView(session, name);
         if (!view.isPresent()) {
             if (!statement.isExists()) {
                 throw new SemanticException(MISSING_TABLE, statement, "View '%s' does not exist", name);

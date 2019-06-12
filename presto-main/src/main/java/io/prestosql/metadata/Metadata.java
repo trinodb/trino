@@ -25,6 +25,7 @@ import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorCapabilities;
 import io.prestosql.spi.connector.ConnectorOutputMetadata;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
+import io.prestosql.spi.connector.ConnectorViewDefinition;
 import io.prestosql.spi.connector.Constraint;
 import io.prestosql.spi.connector.ConstraintApplicationResult;
 import io.prestosql.spi.connector.LimitApplicationResult;
@@ -286,17 +287,17 @@ public interface Metadata
     /**
      * Get the view definitions that match the specified table prefix (never null).
      */
-    Map<QualifiedObjectName, ViewDefinition> getViews(Session session, QualifiedTablePrefix prefix);
+    Map<QualifiedObjectName, ConnectorViewDefinition> getViews(Session session, QualifiedTablePrefix prefix);
 
     /**
      * Returns the view definition for the specified view name.
      */
-    Optional<ViewDefinition> getView(Session session, QualifiedObjectName viewName);
+    Optional<ConnectorViewDefinition> getView(Session session, QualifiedObjectName viewName);
 
     /**
      * Creates the specified view with the specified view definition.
      */
-    void createView(Session session, QualifiedObjectName viewName, String viewData, boolean replace);
+    void createView(Session session, QualifiedObjectName viewName, ConnectorViewDefinition definition, boolean replace);
 
     /**
      * Drops the specified view.

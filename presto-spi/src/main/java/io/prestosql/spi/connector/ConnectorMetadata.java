@@ -27,6 +27,7 @@ import io.prestosql.spi.statistics.TableStatisticsMetadata;
 import javax.annotation.Nullable;
 
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -39,7 +40,6 @@ import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
-import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
 
 public interface ConnectorMetadata
@@ -443,9 +443,10 @@ public interface ConnectorMetadata
     }
 
     /**
-     * Create the specified view. The data for the view is opaque to the connector.
+     * Create the specified view. The view definition is intended to
+     * be serialized by the connector for permanent storage.
      */
-    default void createView(ConnectorSession session, SchemaTableName viewName, String viewData, boolean replace)
+    default void createView(ConnectorSession session, SchemaTableName viewName, ConnectorViewDefinition definition, boolean replace)
     {
         throw new PrestoException(NOT_SUPPORTED, "This connector does not support creating views");
     }
@@ -470,11 +471,11 @@ public interface ConnectorMetadata
      */
     default Map<SchemaTableName, ConnectorViewDefinition> getViews(ConnectorSession session, Optional<String> schemaName)
     {
-        return listViews(session, schemaName).stream()
-                .map(name -> getView(session, name))
-                .filter(Optional::isPresent)
-                .map(Optional::get)
-                .collect(Collectors.toMap(ConnectorViewDefinition::getName, identity()));
+        Map<SchemaTableName, ConnectorViewDefinition> views = new HashMap<>();
+        for (SchemaTableName name : listViews(session, schemaName)) {
+            getView(session, name).ifPresent(view -> views.put(name, view));
+        }
+        return views;
     }
 
     /**

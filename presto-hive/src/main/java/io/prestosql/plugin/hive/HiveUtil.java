@@ -19,6 +19,9 @@ import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import io.airlift.compress.lzo.LzoCodec;
 import io.airlift.compress.lzo.LzopCodec;
+import io.airlift.json.JsonCodec;
+import io.airlift.json.JsonCodecFactory;
+import io.airlift.json.ObjectMapperProvider;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceUtf8;
 import io.airlift.slice.Slices;
@@ -29,6 +32,7 @@ import io.prestosql.plugin.hive.metastore.Table;
 import io.prestosql.plugin.hive.util.FooterAwareRecordReader;
 import io.prestosql.spi.ErrorCodeSupplier;
 import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.connector.ConnectorViewDefinition;
 import io.prestosql.spi.connector.RecordCursor;
 import io.prestosql.spi.predicate.NullableValue;
 import io.prestosql.spi.type.CharType;
@@ -133,7 +137,6 @@ import static java.lang.Long.parseLong;
 import static java.lang.Short.parseShort;
 import static java.lang.String.format;
 import static java.math.BigDecimal.ROUND_UNNECESSARY;
-import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 import static org.apache.hadoop.hive.common.FileUtils.unescapePathName;
@@ -150,6 +153,8 @@ public final class HiveUtil
 
     private static final String VIEW_PREFIX = "/* Presto View: ";
     private static final String VIEW_SUFFIX = " */";
+    private static final JsonCodec<ConnectorViewDefinition> VIEW_CODEC =
+            new JsonCodecFactory(new ObjectMapperProvider()).jsonCodec(ConnectorViewDefinition.class);
 
     private static final DateTimeFormatter HIVE_DATE_PARSER = ISODateTimeFormat.date().withZoneUTC();
     private static final DateTimeFormatter HIVE_TIMESTAMP_PARSER;
@@ -592,18 +597,21 @@ public final class HiveUtil
         return "true".equals(table.getParameters().get(PRESTO_VIEW_FLAG));
     }
 
-    public static String encodeViewData(String data)
+    public static String encodeViewData(ConnectorViewDefinition definition)
     {
-        return VIEW_PREFIX + Base64.getEncoder().encodeToString(data.getBytes(UTF_8)) + VIEW_SUFFIX;
+        byte[] bytes = VIEW_CODEC.toJsonBytes(definition);
+        String data = Base64.getEncoder().encodeToString(bytes);
+        return VIEW_PREFIX + data + VIEW_SUFFIX;
     }
 
-    public static String decodeViewData(String data)
+    public static ConnectorViewDefinition decodeViewData(String data)
     {
         checkCondition(data.startsWith(VIEW_PREFIX), HIVE_INVALID_VIEW_DATA, "View data missing prefix: %s", data);
         checkCondition(data.endsWith(VIEW_SUFFIX), HIVE_INVALID_VIEW_DATA, "View data missing suffix: %s", data);
         data = data.substring(VIEW_PREFIX.length());
         data = data.substring(0, data.length() - VIEW_SUFFIX.length());
-        return new String(Base64.getDecoder().decode(data), UTF_8);
+        byte[] bytes = Base64.getDecoder().decode(data);
+        return VIEW_CODEC.fromJson(bytes);
     }
 
     public static Optional<DecimalType> getDecimalType(HiveType hiveType)

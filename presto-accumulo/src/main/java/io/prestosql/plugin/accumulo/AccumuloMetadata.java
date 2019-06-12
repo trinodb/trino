@@ -16,6 +16,9 @@ package io.prestosql.plugin.accumulo;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.json.JsonCodec;
+import io.airlift.json.JsonCodecFactory;
+import io.airlift.json.ObjectMapperProvider;
 import io.airlift.slice.Slice;
 import io.prestosql.plugin.accumulo.metadata.AccumuloTable;
 import io.prestosql.plugin.accumulo.model.AccumuloColumnHandle;
@@ -64,6 +67,9 @@ import static java.util.Objects.requireNonNull;
 public class AccumuloMetadata
         implements ConnectorMetadata
 {
+    private static final JsonCodec<ConnectorViewDefinition> VIEW_CODEC =
+            new JsonCodecFactory(new ObjectMapperProvider()).jsonCodec(ConnectorViewDefinition.class);
+
     private final AccumuloClient client;
     private final AtomicReference<Runnable> rollbackAction = new AtomicReference<>();
 
@@ -135,8 +141,9 @@ public class AccumuloMetadata
     }
 
     @Override
-    public void createView(ConnectorSession session, SchemaTableName viewName, String viewData, boolean replace)
+    public void createView(ConnectorSession session, SchemaTableName viewName, ConnectorViewDefinition definition, boolean replace)
     {
+        String viewData = VIEW_CODEC.toJson(definition);
         if (replace) {
             client.createOrReplaceView(viewName, viewData);
         }
@@ -155,7 +162,7 @@ public class AccumuloMetadata
     public Optional<ConnectorViewDefinition> getView(ConnectorSession session, SchemaTableName viewName)
     {
         return Optional.ofNullable(client.getView(viewName))
-                .map(view -> new ConnectorViewDefinition(viewName, Optional.empty(), view.getData()));
+                .map(view -> VIEW_CODEC.fromJson(view.getData()));
     }
 
     @Override

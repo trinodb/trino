@@ -20,6 +20,8 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multimaps;
 import io.airlift.json.JsonCodec;
+import io.airlift.json.JsonCodecFactory;
+import io.airlift.json.ObjectMapperProvider;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.prestosql.plugin.raptor.legacy.metadata.ColumnInfo;
@@ -128,6 +130,9 @@ public class RaptorMetadata
 
     private static final JsonCodec<ShardInfo> SHARD_INFO_CODEC = jsonCodec(ShardInfo.class);
     private static final JsonCodec<ShardDelta> SHARD_DELTA_CODEC = jsonCodec(ShardDelta.class);
+
+    private static final JsonCodec<ConnectorViewDefinition> VIEW_CODEC =
+            new JsonCodecFactory(new ObjectMapperProvider()).jsonCodec(ConnectorViewDefinition.class);
 
     private final IDBI dbi;
     private final MetadataDao dao;
@@ -816,10 +821,11 @@ public class RaptorMetadata
     }
 
     @Override
-    public void createView(ConnectorSession session, SchemaTableName viewName, String viewData, boolean replace)
+    public void createView(ConnectorSession session, SchemaTableName viewName, ConnectorViewDefinition definition, boolean replace)
     {
         String schemaName = viewName.getSchemaName();
         String tableName = viewName.getTableName();
+        String viewData = VIEW_CODEC.toJson(definition);
 
         if (getTableHandle(viewName) != null) {
             throw new PrestoException(ALREADY_EXISTS, "Table already exists: " + viewName);
@@ -864,7 +870,7 @@ public class RaptorMetadata
     {
         ImmutableMap.Builder<SchemaTableName, ConnectorViewDefinition> map = ImmutableMap.builder();
         for (ViewResult view : dao.getViews(schemaName.orElse(null), null)) {
-            map.put(view.getName(), new ConnectorViewDefinition(view.getName(), Optional.empty(), view.getData()));
+            map.put(view.getName(), VIEW_CODEC.fromJson(view.getData()));
         }
         return map.build();
     }
@@ -873,7 +879,7 @@ public class RaptorMetadata
     public Optional<ConnectorViewDefinition> getView(ConnectorSession session, SchemaTableName viewName)
     {
         return dao.getViews(viewName.getSchemaName(), viewName.getTableName()).stream()
-                .map(view -> new ConnectorViewDefinition(viewName, Optional.empty(), view.getData()))
+                .map(view -> VIEW_CODEC.fromJson(view.getData()))
                 .collect(toOptional());
     }
 

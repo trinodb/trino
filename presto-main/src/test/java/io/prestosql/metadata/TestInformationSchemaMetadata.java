@@ -16,7 +16,6 @@ package io.prestosql.metadata;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.prestosql.client.ClientCapabilities;
@@ -30,6 +29,7 @@ import io.prestosql.spi.connector.Connector;
 import io.prestosql.spi.connector.ConnectorMetadata;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorViewDefinition;
+import io.prestosql.spi.connector.ConnectorViewDefinition.ViewColumn;
 import io.prestosql.spi.connector.Constraint;
 import io.prestosql.spi.connector.ConstraintApplicationResult;
 import io.prestosql.spi.connector.SchemaTableName;
@@ -48,6 +48,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.prestosql.connector.CatalogName.createInformationSchemaCatalogName;
 import static io.prestosql.connector.CatalogName.createSystemTablesCatalogName;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
+import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static io.prestosql.transaction.InMemoryTransactionManager.createTestTransactionManager;
@@ -56,8 +57,6 @@ import static org.testng.Assert.assertEquals;
 
 public class TestInformationSchemaMetadata
 {
-    private static final JsonCodec<ViewDefinition> VIEW_DEFINITION_JSON_CODEC = JsonCodec.jsonCodec(ViewDefinition.class);
-
     private final TransactionManager transactionManager;
     private final Metadata metadata;
 
@@ -70,9 +69,15 @@ public class TestInformationSchemaMetadata
                                 new SchemaTableName("test_schema", "test_view"),
                                 new SchemaTableName("test_schema", "another_table")))
                 .withGetViews((connectorSession, prefix) -> {
-                    String viewJson = VIEW_DEFINITION_JSON_CODEC.toJson(new ViewDefinition("select 1", Optional.of("test_catalog"), Optional.of("test_schema"), ImmutableList.of(), Optional.empty(), false));
+                    ConnectorViewDefinition definition = new ConnectorViewDefinition(
+                            "select 1",
+                            Optional.of("test_catalog"),
+                            Optional.of("test_schema"),
+                            ImmutableList.of(new ViewColumn("test", BIGINT.getTypeSignature())),
+                            Optional.empty(),
+                            true);
                     SchemaTableName viewName = new SchemaTableName("test_schema", "test_view");
-                    return ImmutableMap.of(viewName, new ConnectorViewDefinition(viewName, Optional.empty(), viewJson));
+                    return ImmutableMap.of(viewName, definition);
                 }).build();
         Connector testConnector = mockConnectorFactory.create("test", ImmutableMap.of(), new TestingConnectorContext());
         CatalogManager catalogManager = new CatalogManager();

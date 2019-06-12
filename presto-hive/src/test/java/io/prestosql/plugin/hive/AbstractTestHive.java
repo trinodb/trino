@@ -72,6 +72,7 @@ import io.prestosql.spi.connector.ConnectorTableMetadata;
 import io.prestosql.spi.connector.ConnectorTableProperties;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 import io.prestosql.spi.connector.ConnectorViewDefinition;
+import io.prestosql.spi.connector.ConnectorViewDefinition.ViewColumn;
 import io.prestosql.spi.connector.Constraint;
 import io.prestosql.spi.connector.ConstraintApplicationResult;
 import io.prestosql.spi.connector.DiscretePredicates;
@@ -2950,8 +2951,16 @@ public abstract class AbstractTestHive
     private void doCreateView(SchemaTableName viewName, boolean replace)
     {
         String viewData = "test data";
+        ConnectorViewDefinition definition = new ConnectorViewDefinition(
+                viewData,
+                Optional.empty(),
+                Optional.empty(),
+                ImmutableList.of(new ViewColumn("test", BIGINT.getTypeSignature())),
+                Optional.empty(),
+                true);
+
         try (Transaction transaction = newTransaction()) {
-            transaction.getMetadata().createView(newSession(), viewName, viewData, replace);
+            transaction.getMetadata().createView(newSession(), viewName, definition, replace);
             transaction.commit();
         }
 
@@ -2959,12 +2968,12 @@ public abstract class AbstractTestHive
             ConnectorMetadata metadata = transaction.getMetadata();
 
             assertThat(metadata.getView(newSession(), viewName))
-                    .map(ConnectorViewDefinition::getViewData)
+                    .map(ConnectorViewDefinition::getOriginalSql)
                     .contains(viewData);
 
             Map<SchemaTableName, ConnectorViewDefinition> views = metadata.getViews(newSession(), Optional.of(viewName.getSchemaName()));
             assertEquals(views.size(), 1);
-            assertEquals(views.get(viewName).getViewData(), viewData);
+            assertEquals(views.get(viewName).getOriginalSql(), definition.getOriginalSql());
 
             assertTrue(metadata.listViews(newSession(), Optional.of(viewName.getSchemaName())).contains(viewName));
         }

@@ -21,6 +21,7 @@ import io.prestosql.spi.connector.ConnectorOutputTableHandle;
 import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
 import io.prestosql.spi.connector.ConnectorViewDefinition;
+import io.prestosql.spi.connector.ConnectorViewDefinition.ViewColumn;
 import io.prestosql.spi.connector.SchemaNotFoundException;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.testing.TestingNodeManager;
@@ -34,6 +35,7 @@ import java.util.Optional;
 import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static io.prestosql.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.prestosql.spi.StandardErrorCode.NOT_FOUND;
+import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.testing.TestingConnectorSession.SESSION;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
@@ -173,12 +175,12 @@ public class TestMemoryMetadata
         SchemaTableName test = new SchemaTableName("test", "test_view");
         metadata.createSchema(SESSION, "test", ImmutableMap.of());
         try {
-            metadata.createView(SESSION, test, "test", false);
+            metadata.createView(SESSION, test, testingViewDefinition("test"), false);
         }
         catch (Exception e) {
             fail("should have succeeded");
         }
-        metadata.createView(SESSION, test, "test", false);
+        metadata.createView(SESSION, test, testingViewDefinition("test"), false);
     }
 
     @Test
@@ -187,11 +189,11 @@ public class TestMemoryMetadata
         SchemaTableName test = new SchemaTableName("test", "test_view");
 
         metadata.createSchema(SESSION, "test", ImmutableMap.of());
-        metadata.createView(SESSION, test, "aaa", true);
-        metadata.createView(SESSION, test, "bbb", true);
+        metadata.createView(SESSION, test, testingViewDefinition("aaa"), true);
+        metadata.createView(SESSION, test, testingViewDefinition("bbb"), true);
 
         assertThat(metadata.getView(SESSION, test))
-                .map(ConnectorViewDefinition::getViewData)
+                .map(ConnectorViewDefinition::getOriginalSql)
                 .hasValue("bbb");
     }
 
@@ -205,8 +207,8 @@ public class TestMemoryMetadata
         metadata.createSchema(SESSION, "test", ImmutableMap.of());
 
         // create views
-        metadata.createView(SESSION, test1, "test1", false);
-        metadata.createView(SESSION, test2, "test2", false);
+        metadata.createView(SESSION, test1, testingViewDefinition("test1"), false);
+        metadata.createView(SESSION, test2, testingViewDefinition("test2"), false);
 
         // verify listing
         List<SchemaTableName> list = metadata.listViews(SESSION, Optional.of("test"));
@@ -215,8 +217,8 @@ public class TestMemoryMetadata
         // verify getting data
         Map<SchemaTableName, ConnectorViewDefinition> views = metadata.getViews(SESSION, Optional.of("test"));
         assertEquals(views.keySet(), ImmutableSet.of(test1, test2));
-        assertEquals(views.get(test1).getViewData(), "test1");
-        assertEquals(views.get(test2).getViewData(), "test2");
+        assertEquals(views.get(test1).getOriginalSql(), "test1");
+        assertEquals(views.get(test2).getOriginalSql(), "test2");
 
         // all schemas
         assertThat(metadata.getViews(SESSION, Optional.empty()))
@@ -224,7 +226,7 @@ public class TestMemoryMetadata
 
         // exact match on one schema and table
         assertThat(metadata.getView(SESSION, new SchemaTableName("test", "test_view1")))
-                .map(ConnectorViewDefinition::getViewData)
+                .map(ConnectorViewDefinition::getOriginalSql)
                 .contains("test1");
 
         // non-existent table
@@ -270,7 +272,7 @@ public class TestMemoryMetadata
 
         SchemaTableName view2 = new SchemaTableName("test2", "test_schema_view2");
         try {
-            metadata.createView(SESSION, view2, "aaa", false);
+            metadata.createView(SESSION, view2, testingViewDefinition("aaa"), false);
             fail("Should fail because schema does not exist");
         }
         catch (PrestoException ex) {
@@ -281,7 +283,7 @@ public class TestMemoryMetadata
 
         SchemaTableName view3 = new SchemaTableName("test3", "test_schema_view3");
         try {
-            metadata.createView(SESSION, view3, "bbb", true);
+            metadata.createView(SESSION, view3, testingViewDefinition("bbb"), true);
             fail("Should fail because schema does not exist");
         }
         catch (PrestoException ex) {
@@ -326,5 +328,16 @@ public class TestMemoryMetadata
     private void assertNoTables()
     {
         assertEquals(metadata.listTables(SESSION, Optional.empty()), ImmutableList.of(), "No table was expected");
+    }
+
+    private static ConnectorViewDefinition testingViewDefinition(String sql)
+    {
+        return new ConnectorViewDefinition(
+                sql,
+                Optional.empty(),
+                Optional.empty(),
+                ImmutableList.of(new ViewColumn("test", BIGINT.getTypeSignature())),
+                Optional.empty(),
+                true);
     }
 }
