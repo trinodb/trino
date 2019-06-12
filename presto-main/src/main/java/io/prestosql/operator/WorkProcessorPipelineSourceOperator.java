@@ -114,7 +114,6 @@ public class WorkProcessorPipelineSourceOperator
         this.timer = new OperationTimer(
                 operatorContext.getDriverContext().isCpuTimerEnabled(),
                 operatorContext.getDriverContext().isCpuTimerEnabled() && operatorContext.getDriverContext().isPerOperatorCpuTimerEnabled());
-        operatorContext.setNestedOperatorStatsSupplier(this::getNestedOperatorStats);
 
         // TODO: measure and report WorkProcessorOperator memory usage
         MemoryTrackingContext sourceOperatorMemoryTrackingContext = createMemoryTrackingContext(operatorContext, 0);
@@ -167,6 +166,8 @@ public class WorkProcessorPipelineSourceOperator
 
         // finish early when entire pipeline is closed
         this.pages = pages.finishWhen(() -> operatorFinishing);
+
+        operatorContext.setNestedOperatorStatsSupplier(this::getNestedOperatorStats);
     }
 
     private void workProcessorOperatorEntryMonitor(int operatorIndex)
