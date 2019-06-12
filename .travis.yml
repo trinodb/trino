@@ -8,27 +8,29 @@ env:
     - ARTIFACTS_UPLOAD_PATH_BRANCH=travis_build_artifacts/${TRAVIS_REPO_SLUG}/${TRAVIS_BRANCH}/${TRAVIS_BUILD_NUMBER}
     - ARTIFACTS_UPLOAD_PATH_PR=travis_build_artifacts_pr/${TRAVIS_REPO_SLUG}/${TRAVIS_BRANCH}/${TRAVIS_BUILD_NUMBER}
     - TEST_FLAGS=""
-  matrix:
-    - MAVEN_CHECKS=true BUILD_PRESTO_DOCKER=true
-    - WEBUI_CHECKS=true
-    - TEST_SPECIFIC_MODULES=presto-tests
-    - TEST_SPECIFIC_MODULES=presto-tests TEST_FLAGS="-P ci-only"
-    - TEST_SPECIFIC_MODULES=presto-raptor-legacy
-    - TEST_SPECIFIC_MODULES=presto-accumulo
-    - TEST_SPECIFIC_MODULES=presto-cassandra
-    - TEST_SPECIFIC_MODULES=presto-hive
-    - TEST_SPECIFIC_MODULES=presto-main
-    - TEST_SPECIFIC_MODULES=presto-orc,presto-parquet
-    - TEST_SPECIFIC_MODULES=presto-mongodb
-    - TEST_SPECIFIC_MODULES=presto-redis
-    - TEST_SPECIFIC_MODULES=presto-sqlserver,presto-postgresql,presto-mysql
-    - TEST_SPECIFIC_MODULES=presto-phoenix
-    - TEST_OTHER_MODULES=!presto-tests,!presto-raptor-legacy,!presto-accumulo,!presto-cassandra,!presto-hive,!presto-kudu,!presto-docs,!presto-server,!presto-server-rpm,!presto-main,!presto-orc,!presto-parquet,!presto-mongodb,!presto-redis,!presto-sqlserver,!presto-postgresql,!presto-mysql,!presto-phoenix
-    - PRODUCT_TESTS_SUITE=suite-1
-    - PRODUCT_TESTS_SUITE=suite-2
-    - PRODUCT_TESTS_SUITE=suite-3
-    - HIVE_TESTS=true
-    - KUDU_TESTS=true
+
+matrix:
+  include:
+    - env: MAVEN_CHECKS=true BUILD_PRESTO_DOCKER=true
+    - env: WEBUI_CHECKS=true
+    - env: TEST_SPECIFIC_MODULES=presto-tests
+    - env: TEST_SPECIFIC_MODULES=presto-tests TEST_FLAGS="-P ci-only"
+    - env: TEST_SPECIFIC_MODULES=presto-raptor-legacy
+    - env: TEST_SPECIFIC_MODULES=presto-accumulo
+    - env: TEST_SPECIFIC_MODULES=presto-cassandra
+    - env: TEST_SPECIFIC_MODULES=presto-hive
+    - env: TEST_SPECIFIC_MODULES=presto-main
+    - env: TEST_SPECIFIC_MODULES=presto-orc,presto-parquet
+    - env: TEST_SPECIFIC_MODULES=presto-mongodb
+    - env: TEST_SPECIFIC_MODULES=presto-redis
+    - env: TEST_SPECIFIC_MODULES=presto-sqlserver,presto-postgresql,presto-mysql
+    - env: TEST_SPECIFIC_MODULES=presto-phoenix
+    - env: TEST_OTHER_MODULES=!presto-tests,!presto-raptor-legacy,!presto-accumulo,!presto-cassandra,!presto-hive,!presto-kudu,!presto-docs,!presto-server,!presto-server-rpm,!presto-main,!presto-orc,!presto-parquet,!presto-mongodb,!presto-redis,!presto-sqlserver,!presto-postgresql,!presto-mysql,!presto-phoenix
+    - env: PRODUCT_TESTS_SUITE=suite-1
+    - env: PRODUCT_TESTS_SUITE=suite-2
+    - env: PRODUCT_TESTS_SUITE=suite-3
+    - env: HIVE_TESTS=true
+    - env: KUDU_TESTS=true
 
 dist: xenial
 jdk: openjdk8
