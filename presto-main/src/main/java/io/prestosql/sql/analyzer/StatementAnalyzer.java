@@ -35,6 +35,7 @@ import io.prestosql.security.AccessControl;
 import io.prestosql.security.AllowAllAccessControl;
 import io.prestosql.security.ViewAccessControl;
 import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.PrestoWarning;
 import io.prestosql.spi.connector.CatalogSchemaName;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
@@ -161,6 +162,7 @@ import static io.prestosql.metadata.FunctionKind.WINDOW;
 import static io.prestosql.metadata.MetadataUtil.createQualifiedObjectName;
 import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.prestosql.spi.StandardErrorCode.NOT_FOUND;
+import static io.prestosql.spi.connector.StandardWarningCode.REDUNDANT_ORDER_BY;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
@@ -191,6 +193,7 @@ import static io.prestosql.sql.analyzer.SemanticErrorCode.MISMATCHED_SET_COLUMN_
 import static io.prestosql.sql.analyzer.SemanticErrorCode.MISSING_ATTRIBUTE;
 import static io.prestosql.sql.analyzer.SemanticErrorCode.MISSING_CATALOG;
 import static io.prestosql.sql.analyzer.SemanticErrorCode.MISSING_COLUMN;
+import static io.prestosql.sql.analyzer.SemanticErrorCode.MISSING_ORDER_BY;
 import static io.prestosql.sql.analyzer.SemanticErrorCode.MISSING_SCHEMA;
 import static io.prestosql.sql.analyzer.SemanticErrorCode.MISSING_TABLE;
 import static io.prestosql.sql.analyzer.SemanticErrorCode.MUST_BE_WINDOW_FUNCTION;
@@ -401,7 +404,7 @@ class StatementAnalyzer
                     sqlParser,
                     new AllowAllAccessControl(),
                     session,
-                    WarningCollector.NOOP);
+                    warningCollector);
 
             Scope tableScope = analyzer.analyze(table, scope);
             node.getWhere().ifPresent(where -> analyzeWhere(node, tableScope, where));
@@ -512,7 +515,7 @@ class StatementAnalyzer
             QualifiedObjectName viewName = createQualifiedObjectName(session, node, node.getName());
 
             // analyze the query that creates the view
-            StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, session, WarningCollector.NOOP);
+            StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, session, warningCollector);
 
             Scope queryScope = analyzer.analyze(node.getQuery(), scope);
 
@@ -735,19 +738,28 @@ class StatementAnalyzer
         {
             Scope withScope = analyzeWith(node, scope);
             Scope queryBodyScope = process(node.getQueryBody(), withScope);
+
+            List<Expression> orderByExpressions = emptyList();
             if (node.getOrderBy().isPresent()) {
-                analyzeOrderBy(node, queryBodyScope);
+                orderByExpressions = analyzeOrderBy(node, getSortItemsFromOrderBy(node.getOrderBy()), queryBodyScope);
+
+                if (queryBodyScope.getOuterQueryParent().isPresent() && !node.getLimit().isPresent() && !node.getOffset().isPresent()) {
+                    // not the root scope and ORDER BY is ineffective
+                    analysis.markRedundantOrderBy(node.getOrderBy().get());
+                    warningCollector.add(new PrestoWarning(REDUNDANT_ORDER_BY, "ORDER BY in subquery may have no effect"));
+                }
             }
-            else {
-                analysis.setOrderByExpressions(node, emptyList());
-            }
+            analysis.setOrderByExpressions(node, orderByExpressions);
 
             if (node.getOffset().isPresent()) {
                 analyzeOffset(node.getOffset().get());
             }
 
             if (node.getLimit().isPresent()) {
-                analyzeLimit(node.getLimit().get());
+                boolean requiresOrderBy = analyzeLimit(node.getLimit().get());
+                if (requiresOrderBy && !node.getOrderBy().isPresent()) {
+                    throw new SemanticException(MISSING_ORDER_BY, node.getLimit().get(), "FETCH FIRST WITH TIES clause requires ORDER BY");
+                }
             }
 
             // Input fields == Output fields
@@ -797,7 +809,7 @@ class StatementAnalyzer
         @Override
         protected Scope visitLateral(Lateral node, Optional<Scope> scope)
         {
-            StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, session, WarningCollector.NOOP);
+            StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, session, warningCollector);
             Scope queryScope = analyzer.analyze(node.getQuery(), scope);
             return createAndAssignScope(node, scope, queryScope.getRelationType());
         }
@@ -1012,7 +1024,7 @@ class StatementAnalyzer
         @Override
         protected Scope visitTableSubquery(TableSubquery node, Optional<Scope> scope)
         {
-            StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, session, WarningCollector.NOOP);
+            StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, session, warningCollector);
             Scope queryScope = analyzer.analyze(node.getQuery(), scope);
             return createAndAssignScope(node, scope, queryScope.getRelationType());
         }
@@ -1036,19 +1048,32 @@ class StatementAnalyzer
             List<Expression> orderByExpressions = emptyList();
             Optional<Scope> orderByScope = Optional.empty();
             if (node.getOrderBy().isPresent()) {
-                orderByScope = Optional.of(computeAndAssignOrderByScope(node.getOrderBy().get(), sourceScope, outputScope));
-                orderByExpressions = analyzeOrderBy(node, orderByScope.get(), outputExpressions);
+                if (node.getSelect().isDistinct()) {
+                    verifySelectDistinct(node, outputExpressions);
+                }
+
+                OrderBy orderBy = node.getOrderBy().get();
+                orderByScope = Optional.of(computeAndAssignOrderByScope(orderBy, sourceScope, outputScope));
+
+                orderByExpressions = analyzeOrderBy(node, orderBy.getSortItems(), orderByScope.get());
+
+                if (sourceScope.getOuterQueryParent().isPresent() && !node.getLimit().isPresent() && !node.getOffset().isPresent()) {
+                    // not the root scope and ORDER BY is ineffective
+                    analysis.markRedundantOrderBy(orderBy);
+                    warningCollector.add(new PrestoWarning(REDUNDANT_ORDER_BY, "ORDER BY in subquery may have no effect"));
+                }
             }
-            else {
-                analysis.setOrderByExpressions(node, emptyList());
-            }
+            analysis.setOrderByExpressions(node, orderByExpressions);
 
             if (node.getOffset().isPresent()) {
                 analyzeOffset(node.getOffset().get());
             }
 
             if (node.getLimit().isPresent()) {
-                analyzeLimit(node.getLimit().get());
+                boolean requiresOrderBy = analyzeLimit(node.getLimit().get());
+                if (requiresOrderBy && !node.getOrderBy().isPresent()) {
+                    throw new SemanticException(MISSING_ORDER_BY, node.getLimit().get(), "FETCH FIRST WITH TIES clause requires ORDER BY");
+                }
             }
 
             List<Expression> sourceExpressions = new ArrayList<>(outputExpressions);
@@ -1950,7 +1975,7 @@ class StatementAnalyzer
                         .setStartTime(session.getStartTime())
                         .build();
 
-                StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, viewAccessControl, viewSession, WarningCollector.NOOP);
+                StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, viewAccessControl, viewSession, warningCollector);
                 Scope queryScope = analyzer.analyze(query, Scope.create());
                 return queryScope.getRelationType().withAlias(name.getObjectName(), null);
             }
@@ -2051,27 +2076,6 @@ class StatementAnalyzer
             return withScope;
         }
 
-        private void analyzeOrderBy(Query node, Scope orderByScope)
-        {
-            checkState(node.getOrderBy().isPresent(), "orderBy is absent");
-
-            List<SortItem> sortItems = getSortItemsFromOrderBy(node.getOrderBy());
-            analyzeOrderBy(node, sortItems, orderByScope);
-        }
-
-        private List<Expression> analyzeOrderBy(QuerySpecification node, Scope orderByScope, List<Expression> outputExpressions)
-        {
-            checkState(node.getOrderBy().isPresent(), "orderBy is absent");
-
-            List<SortItem> sortItems = getSortItemsFromOrderBy(node.getOrderBy());
-
-            if (node.getSelect().isDistinct()) {
-                verifySelectDistinct(node, outputExpressions);
-            }
-
-            return analyzeOrderBy(node, sortItems, orderByScope);
-        }
-
         private void verifySelectDistinct(QuerySpecification node, List<Expression> outputExpressions)
         {
             for (SortItem item : node.getOrderBy().get().getSortItems()) {
@@ -2130,7 +2134,6 @@ class StatementAnalyzer
             }
 
             List<Expression> orderByFields = orderByFieldsBuilder.build();
-            analysis.setOrderByExpressions(node, orderByFields);
             return orderByFields;
         }
 
@@ -2149,20 +2152,24 @@ class StatementAnalyzer
             analysis.setOffset(node, rowCount);
         }
 
-        private void analyzeLimit(Node node)
+        /**
+         * @return true if the Query / QuerySpecification containing the analyzed
+         * Limit or FetchFirst, must contain orderBy (i.e., for FetchFirst with ties).
+         */
+        private boolean analyzeLimit(Node node)
         {
             checkState(
                     node instanceof FetchFirst || node instanceof Limit,
                     "Invalid limit node type. Expected: FetchFirst or Limit. Actual: %s", node.getClass().getName());
             if (node instanceof FetchFirst) {
-                analyzeLimit((FetchFirst) node);
+                return analyzeLimit((FetchFirst) node);
             }
             else {
-                analyzeLimit((Limit) node);
+                return analyzeLimit((Limit) node);
             }
         }
 
-        private void analyzeLimit(FetchFirst node)
+        private boolean analyzeLimit(FetchFirst node)
         {
             if (!node.getRowCount().isPresent()) {
                 analysis.setLimit(node, 1);
@@ -2180,9 +2187,15 @@ class StatementAnalyzer
                 }
                 analysis.setLimit(node, rowCount);
             }
+
+            if (node.isWithTies()) {
+                return true;
+            }
+
+            return false;
         }
 
-        private void analyzeLimit(Limit node)
+        private boolean analyzeLimit(Limit node)
         {
             if (node.getLimit().equalsIgnoreCase("all")) {
                 analysis.setLimit(node, OptionalLong.empty());
@@ -2200,6 +2213,8 @@ class StatementAnalyzer
                 }
                 analysis.setLimit(node, rowCount);
             }
+
+            return false;
         }
 
         private Scope createAndAssignScope(Node node, Optional<Scope> parentScope)

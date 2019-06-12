@@ -17,6 +17,7 @@ package io.prestosql.sql.planner.iterative.rule;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Ordering;
 import io.airlift.log.Logger;
@@ -300,7 +301,8 @@ public class ReorderJoins
                     Optional.empty(),
                     Optional.empty(),
                     Optional.empty(),
-                    Optional.empty()));
+                    Optional.empty(),
+                    ImmutableMap.of()));
         }
 
         private List<Expression> getJoinPredicates(Set<Symbol> leftSymbols, Set<Symbol> rightSymbols)

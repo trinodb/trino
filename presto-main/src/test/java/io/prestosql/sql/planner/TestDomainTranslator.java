@@ -1052,18 +1052,18 @@ public class TestDomainTranslator
                 new NumericValues<>(C_REAL, realValue(-1.0f * Float.MAX_VALUE), realValue(-22.0f), realValue(-44.555687f), realValue(23.0f), realValue(44.555676f), realValue(Float.MAX_VALUE)));
     }
 
-    private void testNumericTypeTranslationChain(NumericValues... translationChain)
+    private void testNumericTypeTranslationChain(NumericValues<?>... translationChain)
     {
         for (int literalIndex = 0; literalIndex < translationChain.length; literalIndex++) {
             for (int columnIndex = literalIndex + 1; columnIndex < translationChain.length; columnIndex++) {
-                NumericValues literal = translationChain[literalIndex];
-                NumericValues column = translationChain[columnIndex];
+                NumericValues<?> literal = translationChain[literalIndex];
+                NumericValues<?> column = translationChain[columnIndex];
                 testNumericTypeTranslation(column, literal);
             }
         }
     }
 
-    private void testNumericTypeTranslation(NumericValues columnValues, NumericValues literalValues)
+    private void testNumericTypeTranslation(NumericValues<?> columnValues, NumericValues<?> literalValues)
     {
         Type columnType = columnValues.getType();
         Type literalType = literalValues.getType();

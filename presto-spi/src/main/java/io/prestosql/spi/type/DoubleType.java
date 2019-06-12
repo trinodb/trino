@@ -20,6 +20,8 @@ import io.prestosql.spi.block.LongArrayBlockBuilder;
 import io.prestosql.spi.block.PageBuilderStatus;
 import io.prestosql.spi.connector.ConnectorSession;
 
+import java.util.Optional;
+
 import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static java.lang.Double.doubleToLongBits;
 import static java.lang.Double.longBitsToDouble;
@@ -149,5 +151,13 @@ public final class DoubleType
     public int hashCode()
     {
         return getClass().hashCode();
+    }
+
+    @Override
+    public Optional<Range> getRange()
+    {
+        // The range for double is undefined because NaN is a special value that
+        // is *not* in any reasonable definition of a range for this type.
+        return Optional.empty();
     }
 }

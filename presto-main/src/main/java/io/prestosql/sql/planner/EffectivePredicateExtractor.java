@@ -15,12 +15,15 @@ package io.prestosql.sql.planner;
 
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import io.prestosql.Session;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.spi.connector.ColumnHandle;
+import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.TupleDomain;
+import io.prestosql.spi.type.Type;
 import io.prestosql.sql.planner.plan.AggregationNode;
 import io.prestosql.sql.planner.plan.AssignUniqueId;
 import io.prestosql.sql.planner.plan.DistinctLimitNode;
@@ -37,9 +40,11 @@ import io.prestosql.sql.planner.plan.SpatialJoinNode;
 import io.prestosql.sql.planner.plan.TableScanNode;
 import io.prestosql.sql.planner.plan.TopNNode;
 import io.prestosql.sql.planner.plan.UnionNode;
+import io.prestosql.sql.planner.plan.ValuesNode;
 import io.prestosql.sql.planner.plan.WindowNode;
 import io.prestosql.sql.tree.ComparisonExpression;
 import io.prestosql.sql.tree.Expression;
+import io.prestosql.sql.tree.NodeRef;
 import io.prestosql.sql.tree.SymbolReference;
 
 import java.util.ArrayList;
@@ -51,6 +56,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
 
 import static com.google.common.base.Predicates.in;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -60,6 +66,7 @@ import static io.prestosql.sql.ExpressionUtils.extractConjuncts;
 import static io.prestosql.sql.ExpressionUtils.filterDeterministicConjuncts;
 import static io.prestosql.sql.planner.EqualityInference.createEqualityInference;
 import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
+import static io.prestosql.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -78,7 +85,7 @@ public class EffectivePredicateExtractor
                 Expression expression = entry.getValue();
                 // TODO: this is not correct with respect to NULLs ('reference IS NULL' would be correct, rather than 'reference = NULL')
                 // TODO: switch this to 'IS NOT DISTINCT FROM' syntax when EqualityInference properly supports it
-                return new ComparisonExpression(ComparisonExpression.Operator.EQUAL, reference, expression);
+                return new ComparisonExpression(EQUAL, reference, expression);
             };
 
     private final DomainTranslator domainTranslator;
@@ -90,9 +97,9 @@ public class EffectivePredicateExtractor
         this.metadata = requireNonNull(metadata, "metadata is null");
     }
 
-    public Expression extract(Session session, PlanNode node)
+    public Expression extract(Session session, PlanNode node, TypeProvider types, TypeAnalyzer typeAnalyzer)
     {
-        return node.accept(new Visitor(domainTranslator, metadata, session), null);
+        return node.accept(new Visitor(domainTranslator, metadata, session, types, typeAnalyzer), null);
     }
 
     private static class Visitor
@@ -101,12 +108,16 @@ public class EffectivePredicateExtractor
         private final DomainTranslator domainTranslator;
         private final Metadata metadata;
         private final Session session;
+        private final TypeProvider types;
+        private final TypeAnalyzer typeAnalyzer;
 
-        public Visitor(DomainTranslator domainTranslator, Metadata metadata, Session session)
+        public Visitor(DomainTranslator domainTranslator, Metadata metadata, Session session, TypeProvider types, TypeAnalyzer typeAnalyzer)
         {
             this.domainTranslator = requireNonNull(domainTranslator, "domainTranslator is null");
             this.metadata = requireNonNull(metadata, "metadata is null");
             this.session = requireNonNull(session, "session is null");
+            this.types = requireNonNull(types, "types is null");
+            this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
         }
 
         @Override
@@ -270,6 +281,77 @@ public class EffectivePredicateExtractor
                 default:
                     throw new UnsupportedOperationException("Unknown join type: " + node.getType());
             }
+        }
+
+        @Override
+        public Expression visitValues(ValuesNode node, Void context)
+        {
+            if (node.getOutputSymbols().isEmpty()) {
+                return TRUE_LITERAL;
+            }
+
+            // get all types in one shot -- needed for the expression optimizer below
+            List<Expression> allExpressions = node.getRows().stream()
+                    .flatMap(List::stream)
+                    .collect(Collectors.toList());
+
+            Map<NodeRef<Expression>, Type> expressionTypes = typeAnalyzer.getTypes(session, types, allExpressions);
+
+            ImmutableMap.Builder<Symbol, Domain> domains = ImmutableMap.builder();
+
+            for (int column = 0; column < node.getOutputSymbols().size(); column++) {
+                Symbol symbol = node.getOutputSymbols().get(column);
+                Type type = types.get(symbol);
+
+                ImmutableList.Builder<Object> builder = ImmutableList.builder();
+                boolean hasNull = false;
+                boolean nonDeterministic = false;
+                for (int row = 0; row < node.getRows().size(); row++) {
+                    Expression value = node.getRows().get(row).get(column);
+
+                    if (!DeterminismEvaluator.isDeterministic(value)) {
+                        nonDeterministic = true;
+                        break;
+                    }
+
+                    ExpressionInterpreter interpreter = ExpressionInterpreter.expressionOptimizer(value, metadata, session, expressionTypes);
+                    Object evaluated = interpreter.optimize(NoOpSymbolResolver.INSTANCE);
+
+                    if (evaluated instanceof Expression) {
+                        return TRUE_LITERAL;
+                    }
+
+                    if (evaluated == null) {
+                        hasNull = true;
+                    }
+                    else {
+                        builder.add(evaluated);
+                    }
+                }
+
+                if (nonDeterministic) {
+                    // We can't describe a predicate for this column because at least
+                    // one cell is non-deterministic, so skip it.
+                    continue;
+                }
+
+                List<Object> values = builder.build();
+
+                Domain domain = Domain.none(type);
+
+                if (!values.isEmpty()) {
+                    domain = domain.union(Domain.multipleValues(type, values));
+                }
+
+                if (hasNull) {
+                    domain = domain.union(Domain.onlyNull(type));
+                }
+
+                domains.put(symbol, domain);
+            }
+
+            // simplify to avoid a large expression if there are many rows in ValuesNode
+            return domainTranslator.toPredicate(TupleDomain.withColumnDomains(domains.build()).simplify());
         }
 
         private static Iterable<Expression> pullNullableConjunctsThroughOuterJoin(List<Expression> conjuncts, Collection<Symbol> outputSymbols, Predicate<Symbol>... nullSymbolScopes)

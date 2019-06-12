@@ -49,6 +49,7 @@ import javax.inject.Inject;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
@@ -280,7 +281,8 @@ public class OrcPageSourceFactory
 
         int ordinal = 0;
         for (String physicalColumnName : reader.getColumnNames()) {
-            physicalNameOrdinalMap.put(physicalColumnName, ordinal);
+            // Convert column names read from ORC files to lower case to be consistent with those stored in Hive Metastore
+            physicalNameOrdinalMap.put(physicalColumnName.toLowerCase(Locale.ENGLISH), ordinal);
             ordinal++;
         }
 

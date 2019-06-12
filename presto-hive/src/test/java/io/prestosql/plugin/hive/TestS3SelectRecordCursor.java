@@ -200,7 +200,7 @@ public class TestS3SelectRecordCursor
                 .collect(joining(","));
     }
 
-    private static final RecordReader<?, ?> MOCK_RECORD_READER = new RecordReader()
+    private static final RecordReader<?, ?> MOCK_RECORD_READER = new RecordReader<Object, Object>()
     {
         @Override
         public boolean next(Object key, Object value)

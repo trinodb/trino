@@ -17,8 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
 import io.prestosql.RowPagesBuilder;
-import io.prestosql.block.BlockEncodingManager;
-import io.prestosql.metadata.FunctionRegistry;
 import io.prestosql.orc.OrcDataSource;
 import io.prestosql.orc.OrcRecordReader;
 import io.prestosql.spi.block.Block;
@@ -26,11 +24,8 @@ import io.prestosql.spi.classloader.ThreadContextClassLoader;
 import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeManager;
 import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.spi.type.TypeSignatureParameter;
-import io.prestosql.sql.analyzer.FeaturesConfig;
-import io.prestosql.type.TypeRegistry;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -44,6 +39,7 @@ import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.plugin.raptor.legacy.storage.OrcTestingUtil.createReader;
 import static io.prestosql.plugin.raptor.legacy.storage.OrcTestingUtil.fileOrcDataSource;
 import static io.prestosql.plugin.raptor.legacy.storage.OrcTestingUtil.octets;
@@ -83,14 +79,10 @@ public class TestShardWriter
     public void testWriter()
             throws Exception
     {
-        TypeManager typeManager = new TypeRegistry();
-        // associate typeManager with a function registry
-        new FunctionRegistry(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
-
         List<Long> columnIds = ImmutableList.of(1L, 2L, 4L, 6L, 7L, 8L, 9L, 10L);
         ArrayType arrayType = new ArrayType(BIGINT);
         ArrayType arrayOfArrayType = new ArrayType(arrayType);
-        Type mapType = typeManager.getParameterizedType(StandardTypes.MAP, ImmutableList.of(
+        Type mapType = createTestMetadataManager().getTypeManager().getParameterizedType(StandardTypes.MAP, ImmutableList.of(
                 TypeSignatureParameter.of(createVarcharType(10).getTypeSignature()),
                 TypeSignatureParameter.of(BOOLEAN.getTypeSignature())));
         List<Type> columnTypes = ImmutableList.of(BIGINT, createVarcharType(10), VARBINARY, DOUBLE, BOOLEAN, arrayType, mapType, arrayOfArrayType);

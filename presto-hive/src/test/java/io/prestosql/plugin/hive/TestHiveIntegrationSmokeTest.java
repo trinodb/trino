@@ -29,7 +29,6 @@ import io.prestosql.plugin.hive.HiveSessionProperties.InsertExistingPartitionsBe
 import io.prestosql.spi.connector.CatalogSchemaTableName;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.connector.ConnectorTableLayoutHandle;
 import io.prestosql.spi.connector.Constraint;
 import io.prestosql.spi.security.Identity;
 import io.prestosql.spi.security.SelectedRole;
@@ -158,11 +157,6 @@ public class TestHiveIntegrationSmokeTest
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.bucketedSession = requireNonNull(bucketedSession, "bucketSession is null");
         this.typeTranslator = requireNonNull(typeTranslator, "typeTranslator is null");
-    }
-
-    private List<?> getPartitions(HiveTableLayoutHandle tableLayoutHandle)
-    {
-        return tableLayoutHandle.getPartitions().get();
     }
 
     @Test
@@ -761,6 +755,12 @@ public class TestHiveIntegrationSmokeTest
 
     private void testCreatePartitionedBucketedTableAsFewRows(Session session, HiveStorageFormat storageFormat)
     {
+        testCreatePartitionedBucketedTableAsFewRows(session, storageFormat, true);
+        testCreatePartitionedBucketedTableAsFewRows(session, storageFormat, false);
+    }
+
+    private void testCreatePartitionedBucketedTableAsFewRows(Session session, HiveStorageFormat storageFormat, boolean createEmpty)
+    {
         String tableName = "test_create_partitioned_bucketed_table_as_few_rows";
 
         @Language("SQL") String createTable = "" +
@@ -782,7 +782,9 @@ public class TestHiveIntegrationSmokeTest
 
         assertUpdate(
                 // make sure that we will get one file per bucket regardless of writer count configured
-                getParallelWriteSession(),
+                Session.builder(getParallelWriteSession())
+                        .setCatalogSessionProperty(catalog, "create_empty_bucket_files", String.valueOf(createEmpty))
+                        .build(),
                 createTable,
                 3);
 
@@ -1065,7 +1067,7 @@ public class TestHiveIntegrationSmokeTest
         }
     }
 
-    public void testCreateEmptyBucketedPartition(HiveStorageFormat storageFormat)
+    private void testCreateEmptyBucketedPartition(HiveStorageFormat storageFormat)
     {
         String tableName = "test_insert_empty_partitioned_bucketed_table";
         createPartitionedBucketedTable(tableName, storageFormat);
@@ -1742,7 +1744,7 @@ public class TestHiveIntegrationSmokeTest
                 });
     }
 
-    private Object getHiveTableProperty(String tableName, Function<HiveTableLayoutHandle, Object> propertyGetter)
+    private Object getHiveTableProperty(String tableName, Function<HiveTableHandle, Object> propertyGetter)
     {
         Session session = getSession();
         Metadata metadata = ((DistributedQueryRunner) getQueryRunner()).getCoordinator().getMetadata();
@@ -1750,27 +1752,24 @@ public class TestHiveIntegrationSmokeTest
         return transaction(getQueryRunner().getTransactionManager(), getQueryRunner().getAccessControl())
                 .readOnly()
                 .execute(session, transactionSession -> {
-                    Optional<TableHandle> tableHandle = metadata.getTableHandle(transactionSession, new QualifiedObjectName(catalog, TPCH_SCHEMA, tableName));
-                    assertTrue(tableHandle.isPresent());
-
-                    ConnectorTableLayoutHandle connectorLayout = metadata.getLayout(transactionSession, tableHandle.get(), Constraint.alwaysTrue(), Optional.empty())
-                            .get()
-                            .getNewTableHandle()
-                            .getLayout()
-                            .get();
-
-                    return propertyGetter.apply((HiveTableLayoutHandle) connectorLayout);
+                    QualifiedObjectName name = new QualifiedObjectName(catalog, TPCH_SCHEMA, tableName);
+                    TableHandle table = metadata.getTableHandle(transactionSession, name)
+                            .orElseThrow(() -> new AssertionError("table not found: " + name));
+                    table = metadata.applyFilter(transactionSession, table, Constraint.alwaysTrue())
+                            .orElseThrow(() -> new AssertionError("applyFilter did not return a result"))
+                            .getHandle();
+                    return propertyGetter.apply((HiveTableHandle) table.getConnectorHandle());
                 });
     }
 
     private List<?> getPartitions(String tableName)
     {
-        return (List<?>) getHiveTableProperty(tableName, (HiveTableLayoutHandle table) -> getPartitions(table));
+        return (List<?>) getHiveTableProperty(tableName, handle -> handle.getPartitions().get());
     }
 
     private int getBucketCount(String tableName)
     {
-        return (int) getHiveTableProperty(tableName, (HiveTableLayoutHandle table) -> table.getBucketHandle().get().getTableBucketCount());
+        return (int) getHiveTableProperty(tableName, table -> table.getBucketHandle().get().getTableBucketCount());
     }
 
     @Test
@@ -2134,6 +2133,78 @@ public class TestHiveIntegrationSmokeTest
         assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), commentedCreateTableSql);
 
         assertUpdate("DROP TABLE test_comment_table");
+    }
+
+    @Test
+    public void testCreateTableWithHeaderAndFooter()
+    {
+        @Language("SQL") String createTableSql = format("" +
+                        "CREATE TABLE %s.%s.test_table_skip_header (\n" +
+                        "   name varchar\n" +
+                        ")\n" +
+                        "WITH (\n" +
+                        "   format = 'TEXTFILE',\n" +
+                        "   textfile_skip_header_line_count = 1\n" +
+                        ")",
+                getSession().getCatalog().get(),
+                getSession().getSchema().get());
+
+        assertUpdate(createTableSql);
+
+        MaterializedResult actual = computeActual("SHOW CREATE TABLE test_table_skip_header");
+        assertEquals(actual.getOnlyValue(), createTableSql);
+        assertUpdate("DROP TABLE test_table_skip_header");
+
+        createTableSql = format("" +
+                        "CREATE TABLE %s.%s.test_table_skip_footer (\n" +
+                        "   name varchar\n" +
+                        ")\n" +
+                        "WITH (\n" +
+                        "   format = 'TEXTFILE',\n" +
+                        "   textfile_skip_footer_line_count = 1\n" +
+                        ")",
+                getSession().getCatalog().get(),
+                getSession().getSchema().get());
+
+        assertUpdate(createTableSql);
+
+        actual = computeActual("SHOW CREATE TABLE test_table_skip_footer");
+        assertEquals(actual.getOnlyValue(), createTableSql);
+        assertUpdate("DROP TABLE test_table_skip_footer");
+
+        createTableSql = format("" +
+                        "CREATE TABLE %s.%s.test_table_skip_header_footer (\n" +
+                        "   name varchar\n" +
+                        ")\n" +
+                        "WITH (\n" +
+                        "   format = 'TEXTFILE',\n" +
+                        "   textfile_skip_footer_line_count = 1,\n" +
+                        "   textfile_skip_header_line_count = 1\n" +
+                        ")",
+                getSession().getCatalog().get(),
+                getSession().getSchema().get());
+
+        assertUpdate(createTableSql);
+
+        actual = computeActual("SHOW CREATE TABLE test_table_skip_header_footer");
+        assertEquals(actual.getOnlyValue(), createTableSql);
+        assertUpdate("DROP TABLE test_table_skip_header_footer");
+    }
+
+    @Test
+    public void testCreateTableInvalidSkipHeaderFooter()
+    {
+        assertThatThrownBy(() -> assertUpdate("CREATE TABLE test_orc_skip_header (col1 bigint) WITH (format = 'ORC', textfile_skip_header_line_count = 1)"))
+                .hasMessageMatching("Cannot specify textfile_skip_header_line_count table property for storage format: ORC");
+
+        assertThatThrownBy(() -> assertUpdate("CREATE TABLE test_orc_skip_footer (col1 bigint) WITH (format = 'ORC', textfile_skip_footer_line_count = 1)"))
+                .hasMessageMatching("Cannot specify textfile_skip_footer_line_count table property for storage format: ORC");
+
+        assertThatThrownBy(() -> assertUpdate("CREATE TABLE test_invalid_skip_header (col1 bigint) WITH (format = 'TEXTFILE', textfile_skip_header_line_count = -1)"))
+                .hasMessageMatching("Invalid value for textfile_skip_header_line_count property: -1");
+
+        assertThatThrownBy(() -> assertUpdate("CREATE TABLE test_invalid_skip_footer (col1 bigint) WITH (format = 'TEXTFILE', textfile_skip_footer_line_count = -1)"))
+                .hasMessageMatching("Invalid value for textfile_skip_footer_line_count property: -1");
     }
 
     @Test
@@ -2562,6 +2633,11 @@ public class TestHiveIntegrationSmokeTest
                             "SELECT orderkey key3, comment value3 FROM orders",
                     15000);
             assertUpdate(
+                    "CREATE TABLE test_grouped_join4\n" +
+                            "WITH (bucket_count = 13, bucketed_by = ARRAY['key4_bucket']) AS\n" +
+                            "SELECT orderkey key4_bucket, orderkey key4_non_bucket, comment value4 FROM orders",
+                    15000);
+            assertUpdate(
                     "CREATE TABLE test_grouped_joinN AS\n" +
                             "SELECT orderkey keyN, comment valueN FROM orders",
                     15000);
@@ -2615,6 +2691,15 @@ public class TestHiveIntegrationSmokeTest
                     .setSystemProperty(COLOCATED_JOIN, "true")
                     .setSystemProperty(GROUPED_EXECUTION, "true")
                     .setSystemProperty(CONCURRENT_LIFESPANS_PER_NODE, "1")
+                    .build();
+
+            // Broadcast JOIN, 1 group per worker at a time, dynamic schedule
+            Session broadcastOneGroupAtATimeDynamic = Session.builder(getSession())
+                    .setSystemProperty(JOIN_DISTRIBUTION_TYPE, BROADCAST.name())
+                    .setSystemProperty(COLOCATED_JOIN, "true")
+                    .setSystemProperty(GROUPED_EXECUTION, "true")
+                    .setSystemProperty(CONCURRENT_LIFESPANS_PER_NODE, "1")
+                    .setSystemProperty(DYNAMIC_SCHEDULE_FOR_GROUPED_EXECUTION, "true")
                     .build();
 
             //
@@ -2851,6 +2936,16 @@ public class TestHiveIntegrationSmokeTest
                             "GROUP BY keyD";
             @Language("SQL") String expectedGroupOnJoinResult = "SELECT orderkey, 2, 2 from orders";
 
+            @Language("SQL") String groupOnUngroupedJoinResult =
+                    "SELECT key4_bucket, count(value4), count(valueN)\n" +
+                            "FROM\n" +
+                            "  test_grouped_join4\n" +
+                            "JOIN\n" +
+                            "  test_grouped_joinN\n" +
+                            "ON key4_non_bucket=keyN\n" +
+                            "GROUP BY key4_bucket";
+            @Language("SQL") String expectedGroupOnUngroupedJoinResult = "SELECT orderkey, count(*), count(*) from orders group by orderkey";
+
             // Eligible GROUP BYs run in the same fragment regardless of colocated_join flag
             assertQuery(colocatedAllGroupsAtOnce, joinGroupedWithGrouped, expectedJoinGroupedWithGrouped, assertRemoteExchangesCount(1));
             assertQuery(colocatedOneGroupAtATime, joinGroupedWithGrouped, expectedJoinGroupedWithGrouped, assertRemoteExchangesCount(1));
@@ -2863,9 +2958,12 @@ public class TestHiveIntegrationSmokeTest
             assertQuery(colocatedOneGroupAtATimeDynamic, groupOnJoinResult, expectedGroupOnJoinResult, assertRemoteExchangesCount(2));
 
             assertQuery(broadcastOneGroupAtATime, groupOnJoinResult, expectedGroupOnJoinResult, assertRemoteExchangesCount(2));
+            assertQuery(broadcastOneGroupAtATime, groupOnUngroupedJoinResult, expectedGroupOnUngroupedJoinResult, assertRemoteExchangesCount(2));
+            assertQuery(broadcastOneGroupAtATimeDynamic, groupOnUngroupedJoinResult, expectedGroupOnUngroupedJoinResult, assertRemoteExchangesCount(2));
 
             // cannot be executed in a grouped manner but should still produce correct result
             assertQuery(colocatedOneGroupAtATime, joinUngroupedWithGrouped, expectedJoinUngroupedWithGrouped, assertRemoteExchangesCount(2));
+            assertQuery(colocatedOneGroupAtATime, groupOnUngroupedJoinResult, expectedGroupOnUngroupedJoinResult, assertRemoteExchangesCount(4));
 
             //
             // Outer JOIN (that involves LookupOuterOperator)
@@ -3018,6 +3116,7 @@ public class TestHiveIntegrationSmokeTest
             assertUpdate("DROP TABLE IF EXISTS test_grouped_join1");
             assertUpdate("DROP TABLE IF EXISTS test_grouped_join2");
             assertUpdate("DROP TABLE IF EXISTS test_grouped_join3");
+            assertUpdate("DROP TABLE IF EXISTS test_grouped_join4");
             assertUpdate("DROP TABLE IF EXISTS test_grouped_joinN");
             assertUpdate("DROP TABLE IF EXISTS test_grouped_joinDual");
             assertUpdate("DROP TABLE IF EXISTS test_grouped_window");
@@ -3035,7 +3134,7 @@ public class TestHiveIntegrationSmokeTest
             if (actualRemoteExchangesCount != expectedRemoteExchangesCount) {
                 Session session = getSession();
                 Metadata metadata = ((DistributedQueryRunner) getQueryRunner()).getCoordinator().getMetadata();
-                String formattedPlan = textLogicalPlan(plan.getRoot(), plan.getTypes(), metadata.getFunctionRegistry(), Optional.of(metadata), StatsAndCosts.empty(), session, 0);
+                String formattedPlan = textLogicalPlan(plan.getRoot(), plan.getTypes(), metadata, StatsAndCosts.empty(), session, 0, false);
                 throw new AssertionError(format(
                         "Expected [\n%s\n] remote exchanges but found [\n%s\n] remote exchanges. Actual plan is [\n\n%s\n]",
                         expectedRemoteExchangesCount,
@@ -3304,7 +3403,7 @@ public class TestHiveIntegrationSmokeTest
 
         // Test invalid property
         assertQueryFails(format("ANALYZE %s WITH (error = 1)", tableName), ".*'hive' does not support analyze property 'error'.*");
-        assertQueryFails(format("ANALYZE %s WITH (partitions = 1)", tableName), ".*Cannot convert '1' to \\Qarray(array(varchar))\\E.*");
+        assertQueryFails(format("ANALYZE %s WITH (partitions = 1)", tableName), ".*\\QCannot convert [1] to array(array(varchar))\\E.*");
         assertQueryFails(format("ANALYZE %s WITH (partitions = NULL)", tableName), ".*Invalid null value for analyze property.*");
         assertQueryFails(format("ANALYZE %s WITH (partitions = ARRAY[NULL])", tableName), ".*Invalid null value in analyze partitions property.*");
 
@@ -3312,8 +3411,8 @@ public class TestHiveIntegrationSmokeTest
         assertQueryFails(format("ANALYZE %s WITH (partitions = ARRAY[ARRAY['p4', '10']])", tableName), ".*Partition no longer exists.*");
 
         // Test partition schema mismatch
-        assertQueryFails(format("ANALYZE %s WITH (partitions = ARRAY[ARRAY['p4']])", tableName), ".*Partition value count does not match the partition column count.*");
-        assertQueryFails(format("ANALYZE %s WITH (partitions = ARRAY[ARRAY['p4', '10', 'error']])", tableName), ".*Partition value count does not match the partition column count.*");
+        assertQueryFails(format("ANALYZE %s WITH (partitions = ARRAY[ARRAY['p4']])", tableName), "Partition value count does not match partition column count");
+        assertQueryFails(format("ANALYZE %s WITH (partitions = ARRAY[ARRAY['p4', '10', 'error']])", tableName), "Partition value count does not match partition column count");
 
         // Drop the partitioned test table
         assertUpdate(format("DROP TABLE %s", tableName));
@@ -3330,8 +3429,8 @@ public class TestHiveIntegrationSmokeTest
         createUnpartitionedTableForAnalyzeTest(tableName);
 
         // Test partition properties on unpartitioned table
-        assertQueryFails(format("ANALYZE %s WITH (partitions = ARRAY[])", tableName), ".*Only partitioned table can be analyzed with a partition list.*");
-        assertQueryFails(format("ANALYZE %s WITH (partitions = ARRAY[ARRAY['p1']])", tableName), ".*Only partitioned table can be analyzed with a partition list.*");
+        assertQueryFails(format("ANALYZE %s WITH (partitions = ARRAY[])", tableName), "Partition list provided but table is not partitioned");
+        assertQueryFails(format("ANALYZE %s WITH (partitions = ARRAY[ARRAY['p1']])", tableName), "Partition list provided but table is not partitioned");
 
         // Drop the partitioned test table
         assertUpdate(format("DROP TABLE %s", tableName));

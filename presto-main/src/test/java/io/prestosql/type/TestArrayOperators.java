@@ -21,8 +21,6 @@ import com.google.common.primitives.Ints;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.prestosql.operator.scalar.AbstractTestFunctions;
-import io.prestosql.spi.ErrorCode;
-import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.function.LiteralParameters;
@@ -35,7 +33,6 @@ import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.SqlDate;
 import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.Type;
-import io.prestosql.sql.analyzer.SemanticErrorCode;
 import io.prestosql.sql.analyzer.SemanticException;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -1816,18 +1813,6 @@ public class TestArrayOperators
                 "result of sequence function must not have more than 10000 entries");
     }
 
-    @Override
-    public void assertInvalidFunction(String projection, SemanticErrorCode errorCode)
-    {
-        try {
-            assertFunction(projection, UNKNOWN, null);
-            fail("Expected error " + errorCode + " from " + projection);
-        }
-        catch (SemanticException e) {
-            assertEquals(e.getCode(), errorCode);
-        }
-    }
-
     @Test
     public void testFlatten()
     {
@@ -1880,17 +1865,6 @@ public class TestArrayOperators
         // test with ARRAY[ MAP( ARRAY[1], ARRAY[2] ) ]
         MapType mapType = mapType(INTEGER, INTEGER);
         assertArrayHashOperator("ARRAY[MAP(ARRAY[1], ARRAY[2])]", mapType, ImmutableList.of(mapBlockOf(INTEGER, INTEGER, ImmutableMap.of(1L, 2L))));
-    }
-
-    public void assertInvalidFunction(String projection, ErrorCode errorCode)
-    {
-        try {
-            assertFunction(projection, UNKNOWN, null);
-            fail("Expected error " + errorCode + " from " + projection);
-        }
-        catch (PrestoException e) {
-            assertEquals(e.getErrorCode(), errorCode);
-        }
     }
 
     private void assertArrayHashOperator(String inputArray, Type elementType, List<Object> elements)

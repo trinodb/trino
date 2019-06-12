@@ -53,6 +53,7 @@ import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -95,7 +96,7 @@ public class H2QueryRunner
 
     public H2QueryRunner()
     {
-        handle = Jdbi.open("jdbc:h2:mem:test" + System.nanoTime());
+        handle = Jdbi.open("jdbc:h2:mem:test" + System.nanoTime() + ThreadLocalRandom.current().nextLong());
         TpchMetadata tpchMetadata = new TpchMetadata();
 
         handle.execute("CREATE TABLE orders (\n" +
@@ -162,7 +163,7 @@ public class H2QueryRunner
         insertRows(tpchMetadata, PART);
     }
 
-    private void insertRows(TpchMetadata tpchMetadata, TpchTable tpchTable)
+    private void insertRows(TpchMetadata tpchMetadata, TpchTable<?> tpchTable)
     {
         TpchTableHandle tableHandle = tpchMetadata.getTableHandle(null, new SchemaTableName(TINY_SCHEMA_NAME, tpchTable.getTableName()));
         insertRows(tpchMetadata.getTableMetadata(null, tableHandle), handle, createTpchRecordSet(tpchTable, tableHandle.getScaleFactor()));

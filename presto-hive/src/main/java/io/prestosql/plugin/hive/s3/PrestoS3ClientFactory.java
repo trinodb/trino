@@ -98,7 +98,7 @@ public class PrestoS3ClientFactory
         PrestoS3FileSystemStats stats = new PrestoS3FileSystemStats();
         RequestMetricCollector metricCollector = new PrestoS3FileSystemMetricCollector(stats);
         AWSCredentialsProvider awsCredentialsProvider = getAwsCredentialsProvider(config, defaults);
-        AmazonS3Builder<? extends AmazonS3Builder, ? extends AmazonS3> clientBuilder = AmazonS3Client.builder()
+        AmazonS3Builder<? extends AmazonS3Builder<?, ?>, ? extends AmazonS3> clientBuilder = AmazonS3Client.builder()
                 .withCredentials(awsCredentialsProvider)
                 .withClientConfiguration(clientConfiguration)
                 .withMetricsCollector(metricCollector)

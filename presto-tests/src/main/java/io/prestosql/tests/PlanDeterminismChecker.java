@@ -20,7 +20,6 @@ import io.prestosql.sql.planner.Plan;
 import io.prestosql.sql.planner.planprinter.PlanPrinter;
 import io.prestosql.testing.LocalQueryRunner;
 
-import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.IntStream;
 
@@ -67,8 +66,7 @@ public class PlanDeterminismChecker
             return PlanPrinter.textLogicalPlan(
                     plan.getRoot(),
                     plan.getTypes(),
-                    localQueryRunner.getMetadata().getFunctionRegistry(),
-                    Optional.of(localQueryRunner.getMetadata()),
+                    localQueryRunner.getMetadata(),
                     plan.getStatsAndCosts(),
                     transactionSession,
                     0,

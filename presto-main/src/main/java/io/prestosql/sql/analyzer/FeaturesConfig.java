@@ -88,6 +88,7 @@ public class FeaturesConfig
     private boolean exchangeCompressionEnabled;
     private boolean legacyTimestamp = true;
     private boolean optimizeMixedDistinctAggregations;
+    private boolean unwrapCasts = true;
     private boolean forceSingleNodeOutput = true;
     private boolean pagesIndexEagerCompactionEnabled;
     private boolean distributedSort = true;
@@ -120,8 +121,10 @@ public class FeaturesConfig
     private boolean preferPartialAggregation = true;
     private boolean optimizeTopNRowNumber = true;
     private boolean workProcessorPipelines;
+    private boolean skipRedundantSort = true;
 
     private Duration iterativeOptimizerTimeout = new Duration(3, MINUTES); // by default let optimizer wait a long time in case it retrieves some data from ConnectorMetadata
+    private boolean enableDynamicFiltering;
 
     private DataSize filterAndProjectMinOutputPageSize = new DataSize(500, KILOBYTE);
     private int filterAndProjectMinOutputPageRowCount = 256;
@@ -698,6 +701,18 @@ public class FeaturesConfig
         return this;
     }
 
+    public boolean isEnableDynamicFiltering()
+    {
+        return enableDynamicFiltering;
+    }
+
+    @Config("experimental.enable-dynamic-filtering")
+    public FeaturesConfig setEnableDynamicFiltering(boolean value)
+    {
+        this.enableDynamicFiltering = value;
+        return this;
+    }
+
     public boolean isOptimizeMixedDistinctAggregations()
     {
         return optimizeMixedDistinctAggregations;
@@ -707,6 +722,18 @@ public class FeaturesConfig
     public FeaturesConfig setOptimizeMixedDistinctAggregations(boolean value)
     {
         this.optimizeMixedDistinctAggregations = value;
+        return this;
+    }
+
+    public boolean isUnwrapCasts()
+    {
+        return unwrapCasts;
+    }
+
+    @Config("optimizer.unwrap-casts")
+    public FeaturesConfig setUnwrapCasts(boolean unwrapCasts)
+    {
+        this.unwrapCasts = unwrapCasts;
         return this;
     }
 
@@ -877,6 +904,18 @@ public class FeaturesConfig
     public FeaturesConfig setWorkProcessorPipelines(boolean workProcessorPipelines)
     {
         this.workProcessorPipelines = workProcessorPipelines;
+        return this;
+    }
+
+    public boolean isSkipRedundantSort()
+    {
+        return skipRedundantSort;
+    }
+
+    @Config("optimizer.skip-redundant-sort")
+    public FeaturesConfig setSkipRedundantSort(boolean value)
+    {
+        this.skipRedundantSort = value;
         return this;
     }
 }

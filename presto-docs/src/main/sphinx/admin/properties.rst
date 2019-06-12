@@ -217,6 +217,23 @@ Spilling Properties
 
     Limit for memory used for unspilling a single aggregation operator instance.
 
+``experimental.spill-compression-enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``boolean``
+    * **Default value:** ``false``
+
+    Enables data compression for pages spilled to disk
+
+``experimental.spill-encryption-enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``boolean``
+    * **Default value:** ``false``
+
+    Enables using a randomly generated secret key (per spill file) to encrypt and decrypt
+    data spilled to disk
+
 
 Exchange Properties
 -------------------

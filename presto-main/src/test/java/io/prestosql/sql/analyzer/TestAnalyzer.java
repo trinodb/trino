@@ -13,11 +13,11 @@
  */
 package io.prestosql.sql.analyzer;
 
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonCodec;
 import io.prestosql.Session;
 import io.prestosql.SystemSessionProperties;
-import io.prestosql.block.BlockEncodingManager;
 import io.prestosql.connector.CatalogName;
 import io.prestosql.connector.informationschema.InformationSchemaConnector;
 import io.prestosql.connector.system.SystemConnector;
@@ -44,7 +44,6 @@ import io.prestosql.security.AllowAllAccessControl;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.Connector;
 import io.prestosql.spi.connector.ConnectorMetadata;
-import io.prestosql.spi.connector.ConnectorSplitManager;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 import io.prestosql.spi.connector.SchemaTableName;
@@ -97,6 +96,7 @@ import static io.prestosql.sql.analyzer.SemanticErrorCode.MISMATCHED_SET_COLUMN_
 import static io.prestosql.sql.analyzer.SemanticErrorCode.MISSING_ATTRIBUTE;
 import static io.prestosql.sql.analyzer.SemanticErrorCode.MISSING_CATALOG;
 import static io.prestosql.sql.analyzer.SemanticErrorCode.MISSING_COLUMN;
+import static io.prestosql.sql.analyzer.SemanticErrorCode.MISSING_ORDER_BY;
 import static io.prestosql.sql.analyzer.SemanticErrorCode.MISSING_SCHEMA;
 import static io.prestosql.sql.analyzer.SemanticErrorCode.MISSING_TABLE;
 import static io.prestosql.sql.analyzer.SemanticErrorCode.MULTIPLE_FIELDS_FROM_SUBQUERY;
@@ -115,6 +115,7 @@ import static io.prestosql.sql.analyzer.SemanticErrorCode.REFERENCE_TO_OUTPUT_AT
 import static io.prestosql.sql.analyzer.SemanticErrorCode.SAMPLE_PERCENTAGE_OUT_OF_RANGE;
 import static io.prestosql.sql.analyzer.SemanticErrorCode.SCHEMA_NOT_SPECIFIED;
 import static io.prestosql.sql.analyzer.SemanticErrorCode.STANDALONE_LAMBDA;
+import static io.prestosql.sql.analyzer.SemanticErrorCode.TOO_MANY_ARGUMENTS;
 import static io.prestosql.sql.analyzer.SemanticErrorCode.TOO_MANY_GROUPING_SETS;
 import static io.prestosql.sql.analyzer.SemanticErrorCode.TYPE_MISMATCH;
 import static io.prestosql.sql.analyzer.SemanticErrorCode.VIEW_ANALYSIS_ERROR;
@@ -127,6 +128,7 @@ import static io.prestosql.transaction.InMemoryTransactionManager.createTestTran
 import static io.prestosql.transaction.TransactionBuilder.transaction;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
+import static java.util.Collections.nCopies;
 import static org.testng.Assert.fail;
 
 @Test(singleThreaded = true)
@@ -152,6 +154,12 @@ public class TestAnalyzer
     private TransactionManager transactionManager;
     private AccessControl accessControl;
     private Metadata metadata;
+
+    @Test
+    public void testTooManyArguments()
+    {
+        assertFails(TOO_MANY_ARGUMENTS, "SELECT greatest(" + Joiner.on(", ").join(nCopies(128, "rand()")) + ")");
+    }
 
     @Test
     public void testNonComparableGroupBy()
@@ -343,6 +351,15 @@ public class TestAnalyzer
     {
         assertFails(INVALID_FETCH_FIRST_ROW_COUNT, "SELECT * FROM t1 FETCH FIRST 987654321098765432109876543210 ROWS ONLY");
         assertFails(INVALID_FETCH_FIRST_ROW_COUNT, "SELECT * FROM t1 FETCH FIRST 0 ROWS ONLY");
+    }
+
+    @Test
+    public void testFetchFirstWithTiesMissingOrderBy()
+    {
+        assertFails(MISSING_ORDER_BY, "SELECT * FROM t1 FETCH FIRST 5 ROWS WITH TIES");
+
+        // ORDER BY clause must be in the same scope as FETCH FIRST WITH TIES
+        assertFails(MISSING_ORDER_BY, "SELECT * FROM (SELECT * FROM (values 1, 3, 2) t(a) ORDER BY a) FETCH FIRST 5 ROWS WITH TIES");
     }
 
     @Test
@@ -926,6 +943,13 @@ public class TestAnalyzer
         // row type
         assertFails(TYPE_MISMATCH, "SELECT t.x.f1 FROM (VALUES 1) t(x)");
         assertFails(TYPE_MISMATCH, "SELECT x.f1 FROM (VALUES 1) t(x)");
+
+        // subscript on Row
+        assertFails(INVALID_PARAMETER_USAGE, "line 1:20: Subscript expression on ROW requires a constant index", "SELECT ROW(1, 'a')[x]");
+        assertFails(TYPE_MISMATCH, "line 1:20: Subscript expression on ROW requires integer index, found bigint", "SELECT ROW(1, 'a')[9999999999]");
+        assertFails(INVALID_PARAMETER_USAGE, "line 1:20: Invalid subscript index: -1. ROW indices start at 1", "SELECT ROW(1, 'a')[-1]");
+        assertFails(INVALID_PARAMETER_USAGE, "line 1:20: Invalid subscript index: 0. ROW indices start at 1", "SELECT ROW(1, 'a')[0]");
+        assertFails(INVALID_PARAMETER_USAGE, "line 1:20: Subscript index out of bounds: 5, max value is 2", "SELECT ROW(1, 'a')[5]");
     }
 
     @Test
@@ -1539,7 +1563,6 @@ public class TestAnalyzer
         metadata = new MetadataManager(
                 new FeaturesConfig(),
                 typeManager,
-                new BlockEncodingManager(typeManager),
                 new SessionPropertyManager(),
                 new SchemaPropertyManager(),
                 new TablePropertyManager(),
@@ -1808,12 +1831,6 @@ public class TestAnalyzer
             public ConnectorMetadata getMetadata(ConnectorTransactionHandle transaction)
             {
                 return metadata;
-            }
-
-            @Override
-            public ConnectorSplitManager getSplitManager()
-            {
-                throw new UnsupportedOperationException();
             }
 
             @Override

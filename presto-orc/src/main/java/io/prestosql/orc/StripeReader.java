@@ -121,7 +121,7 @@ public class StripeReader
         // get streams for selected columns
         Map<StreamId, Stream> streams = new HashMap<>();
         for (Stream stream : stripeFooter.getStreams()) {
-            if (includedOrcColumns.contains(stream.getColumn())) {
+            if (includedOrcColumns.contains(stream.getColumn()) && isSupportedStreamType(stream, types.get(stream.getColumn()).getOrcTypeKind())) {
                 streams.put(new StreamId(stream), stream);
             }
         }
@@ -137,7 +137,7 @@ public class StripeReader
             Map<StreamId, OrcChunkLoader> streamsData = readDiskRanges(stripe.getOffset(), diskRanges, systemMemoryUsage);
 
             // read the bloom filter for each column
-            Map<StreamId, List<BloomFilter>> bloomFilterIndexes = readBloomFilterIndexes(streams, streamsData);
+            Map<Integer, List<BloomFilter>> bloomFilterIndexes = readBloomFilterIndexes(streams, streamsData);
 
             // read the row index for each column
             Map<StreamId, List<RowGroupIndex>> columnIndexes = readColumnIndexes(streams, streamsData, bloomFilterIndexes);
@@ -226,6 +226,19 @@ public class StripeReader
         RowGroup rowGroup = new RowGroup(0, 0, stripe.getNumberOfRows(), minAverageRowBytes, new InputStreamSources(builder.build()));
 
         return new Stripe(stripe.getNumberOfRows(), timeZone, columnEncodings, ImmutableList.of(rowGroup), dictionaryStreamSources);
+    }
+
+    private static boolean isSupportedStreamType(Stream stream, OrcTypeKind orcTypeKind)
+    {
+        if (stream.getStreamKind() == BLOOM_FILTER) {
+            // non-utf8 bloom filters are not allowed for character types
+            return orcTypeKind != OrcTypeKind.STRING && orcTypeKind != OrcTypeKind.VARCHAR && orcTypeKind != OrcTypeKind.CHAR;
+        }
+        if (stream.getStreamKind() == BLOOM_FILTER_UTF8) {
+            // char types require padding for bloom filters, which is not supported
+            return orcTypeKind != OrcTypeKind.CHAR;
+        }
+        return true;
     }
 
     private Map<StreamId, OrcChunkLoader> readDiskRanges(long stripeOffset, Map<StreamId, DiskRange> diskRanges, AggregatedMemoryContext systemMemoryUsage)
@@ -370,22 +383,28 @@ public class StripeReader
         return stream.getStreamKind() == ROW_INDEX || stream.getStreamKind() == DICTIONARY_COUNT || stream.getStreamKind() == BLOOM_FILTER || stream.getStreamKind() == BLOOM_FILTER_UTF8;
     }
 
-    private Map<StreamId, List<BloomFilter>> readBloomFilterIndexes(Map<StreamId, Stream> streams, Map<StreamId, OrcChunkLoader> streamsData)
+    private Map<Integer, List<BloomFilter>> readBloomFilterIndexes(Map<StreamId, Stream> streams, Map<StreamId, OrcChunkLoader> streamsData)
             throws IOException
     {
-        ImmutableMap.Builder<StreamId, List<BloomFilter>> bloomFilters = ImmutableMap.builder();
+        HashMap<Integer, List<BloomFilter>> bloomFilters = new HashMap<>();
         for (Entry<StreamId, Stream> entry : streams.entrySet()) {
             Stream stream = entry.getValue();
-            if (stream.getStreamKind() == BLOOM_FILTER) {
+            if (stream.getStreamKind() == BLOOM_FILTER_UTF8) {
                 OrcInputStream inputStream = new OrcInputStream(streamsData.get(entry.getKey()));
-                bloomFilters.put(entry.getKey(), metadataReader.readBloomFilterIndexes(inputStream));
+                bloomFilters.put(stream.getColumn(), metadataReader.readBloomFilterIndexes(inputStream));
             }
-            // TODO: add support for BLOOM_FILTER_UTF8
         }
-        return bloomFilters.build();
+        for (Entry<StreamId, Stream> entry : streams.entrySet()) {
+            Stream stream = entry.getValue();
+            if (stream.getStreamKind() == BLOOM_FILTER && !bloomFilters.containsKey(stream.getColumn())) {
+                OrcInputStream inputStream = new OrcInputStream(streamsData.get(entry.getKey()));
+                bloomFilters.put(entry.getKey().getColumn(), metadataReader.readBloomFilterIndexes(inputStream));
+            }
+        }
+        return ImmutableMap.copyOf(bloomFilters);
     }
 
-    private Map<StreamId, List<RowGroupIndex>> readColumnIndexes(Map<StreamId, Stream> streams, Map<StreamId, OrcChunkLoader> streamsData, Map<StreamId, List<BloomFilter>> bloomFilterIndexes)
+    private Map<StreamId, List<RowGroupIndex>> readColumnIndexes(Map<StreamId, Stream> streams, Map<StreamId, OrcChunkLoader> streamsData, Map<Integer, List<BloomFilter>> bloomFilterIndexes)
             throws IOException
     {
         ImmutableMap.Builder<StreamId, List<RowGroupIndex>> columnIndexes = ImmutableMap.builder();
@@ -393,7 +412,7 @@ public class StripeReader
             Stream stream = entry.getValue();
             if (stream.getStreamKind() == ROW_INDEX) {
                 OrcInputStream inputStream = new OrcInputStream(streamsData.get(entry.getKey()));
-                List<BloomFilter> bloomFilters = bloomFilterIndexes.get(entry.getKey());
+                List<BloomFilter> bloomFilters = bloomFilterIndexes.get(entry.getKey().getColumn());
                 List<RowGroupIndex> rowGroupIndexes = metadataReader.readRowIndexes(hiveWriterVersion, inputStream);
                 if (bloomFilters != null && !bloomFilters.isEmpty()) {
                     ImmutableList.Builder<RowGroupIndex> newRowGroupIndexes = ImmutableList.builder();

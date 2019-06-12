@@ -201,11 +201,12 @@ public final class RealOperators
     @SqlType(StandardTypes.INTEGER)
     public static long castToInteger(@SqlType(StandardTypes.REAL) long value)
     {
+        float floatValue = intBitsToFloat((int) value);
         try {
-            return toIntExact((long) MathFunctions.round((double) intBitsToFloat((int) value)));
+            return toIntExact((long) MathFunctions.round((double) floatValue));
         }
         catch (ArithmeticException e) {
-            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, "Out of range for integer: " + value, e);
+            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, "Out of range for integer: " + floatValue, e);
         }
     }
 
@@ -213,11 +214,12 @@ public final class RealOperators
     @SqlType(StandardTypes.SMALLINT)
     public static long castToSmallint(@SqlType(StandardTypes.REAL) long value)
     {
+        float floatValue = intBitsToFloat((int) value);
         try {
-            return Shorts.checkedCast((long) MathFunctions.round((double) intBitsToFloat((int) value)));
+            return Shorts.checkedCast((long) MathFunctions.round((double) floatValue));
         }
         catch (IllegalArgumentException e) {
-            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, "Out of range for smallint: " + value, e);
+            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, "Out of range for smallint: " + floatValue, e);
         }
     }
 
@@ -225,11 +227,12 @@ public final class RealOperators
     @SqlType(StandardTypes.TINYINT)
     public static long castToTinyint(@SqlType(StandardTypes.REAL) long value)
     {
+        float floatValue = intBitsToFloat((int) value);
         try {
-            return SignedBytes.checkedCast((long) MathFunctions.round((double) intBitsToFloat((int) value)));
+            return SignedBytes.checkedCast((long) MathFunctions.round((double) floatValue));
         }
         catch (IllegalArgumentException e) {
-            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, "Out of range for tinyint: " + value, e);
+            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, "Out of range for tinyint: " + floatValue, e);
         }
     }
 

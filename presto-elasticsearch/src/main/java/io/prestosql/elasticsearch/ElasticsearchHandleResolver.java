@@ -17,7 +17,6 @@ import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorHandleResolver;
 import io.prestosql.spi.connector.ConnectorSplit;
 import io.prestosql.spi.connector.ConnectorTableHandle;
-import io.prestosql.spi.connector.ConnectorTableLayoutHandle;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 
 public class ElasticsearchHandleResolver
@@ -27,12 +26,6 @@ public class ElasticsearchHandleResolver
     public Class<? extends ConnectorTableHandle> getTableHandleClass()
     {
         return ElasticsearchTableHandle.class;
-    }
-
-    @Override
-    public Class<? extends ConnectorTableLayoutHandle> getTableLayoutHandleClass()
-    {
-        return ElasticsearchTableLayoutHandle.class;
     }
 
     @Override

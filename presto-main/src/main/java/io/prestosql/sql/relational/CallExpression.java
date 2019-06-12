@@ -64,22 +64,24 @@ public final class CallExpression
     }
 
     @Override
-    public int hashCode()
+    public boolean equals(Object o)
     {
-        return Objects.hash(signature, arguments);
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        CallExpression that = (CallExpression) o;
+        return Objects.equals(signature, that.signature) &&
+                Objects.equals(returnType, that.returnType) &&
+                Objects.equals(arguments, that.arguments);
     }
 
     @Override
-    public boolean equals(Object obj)
+    public int hashCode()
     {
-        if (this == obj) {
-            return true;
-        }
-        if (obj == null || getClass() != obj.getClass()) {
-            return false;
-        }
-        CallExpression other = (CallExpression) obj;
-        return Objects.equals(this.signature, other.signature) && Objects.equals(this.arguments, other.arguments);
+        return Objects.hash(signature, returnType, arguments);
     }
 
     @Override

@@ -13,12 +13,17 @@
  */
 package io.prestosql.sql.planner.iterative.rule;
 
+import com.google.common.collect.ImmutableList;
+import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.iterative.rule.test.BaseRuleTest;
 import org.testng.annotations.Test;
 
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.limit;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.offset;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.sort;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.values;
+import static io.prestosql.sql.tree.SortItem.NullOrdering.FIRST;
+import static io.prestosql.sql.tree.SortItem.Ordering.ASCENDING;
 
 public class TestPushLimitThroughOffset
         extends BaseRuleTest
@@ -34,6 +39,23 @@ public class TestPushLimitThroughOffset
                         offset(
                                 5,
                                 limit(7, values())));
+    }
+
+    @Test
+    public void testPushdownLimitWithTiesThroughOffset()
+    {
+        tester().assertThat(new PushLimitThroughOffset())
+                .on(p -> {
+                    Symbol a = p.symbol("a");
+                    return p.limit(
+                            2,
+                            ImmutableList.of(a),
+                            p.offset(5, p.values(a)));
+                })
+                .matches(
+                        offset(
+                                5,
+                                limit(7, ImmutableList.of(sort("a", ASCENDING, FIRST)), values("a"))));
     }
 
     @Test

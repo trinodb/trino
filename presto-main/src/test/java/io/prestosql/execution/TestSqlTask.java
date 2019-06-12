@@ -296,7 +296,7 @@ public class TestSqlTask
         assertFalse(sqlTask.getTaskResults(OUT, 0, new DataSize(1, MEGABYTE)).isDone());
     }
 
-    public SqlTask createInitialTask()
+    private SqlTask createInitialTask()
     {
         TaskId taskId = new TaskId("query", 0, nextTaskId.incrementAndGet());
         URI location = URI.create("fake://task/" + taskId);

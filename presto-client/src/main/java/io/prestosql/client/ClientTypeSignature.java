@@ -25,7 +25,6 @@ import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -34,6 +33,7 @@ import static io.prestosql.client.ClientStandardTypes.ROW;
 import static java.lang.String.format;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.joining;
 
 @Immutable
 public class ClientTypeSignature
@@ -161,22 +161,13 @@ public class ClientTypeSignature
         if (rawType.equals(ROW)) {
             return rowToString();
         }
-        else {
-            StringBuilder typeName = new StringBuilder(rawType);
-            if (!arguments.isEmpty()) {
-                typeName.append("(");
-                boolean first = true;
-                for (ClientTypeSignatureParameter argument : arguments) {
-                    if (!first) {
-                        typeName.append(",");
-                    }
-                    first = false;
-                    typeName.append(argument.toString());
-                }
-                typeName.append(")");
-            }
-            return typeName.toString();
+
+        if (arguments.isEmpty()) {
+            return rawType;
         }
+        return rawType + arguments.stream()
+                .map(ClientTypeSignatureParameter::toString)
+                .collect(joining(",", "(", ")"));
     }
 
     @Deprecated
@@ -190,7 +181,7 @@ public class ClientTypeSignature
                     }
                     return parameter.getTypeSignature().toString();
                 })
-                .collect(Collectors.joining(","));
+                .collect(joining(","));
 
         return format("row(%s)", fields);
     }

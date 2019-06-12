@@ -18,7 +18,6 @@ import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
-import io.prestosql.block.BlockEncodingManager;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.block.BlockEncodingSerde;
@@ -37,6 +36,7 @@ import java.util.TreeMap;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.testing.Assertions.assertInstanceOf;
 import static io.prestosql.block.BlockSerdeUtil.writeBlock;
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.operator.OperatorAssertion.toRow;
 import static io.prestosql.spi.block.SortOrder.ASC_NULLS_FIRST;
 import static io.prestosql.spi.block.SortOrder.ASC_NULLS_LAST;
@@ -55,7 +55,7 @@ import static org.testng.Assert.fail;
 
 public abstract class AbstractTestType
 {
-    private final BlockEncodingSerde blockEncodingSerde = new BlockEncodingManager(new TypeRegistry());
+    private final BlockEncodingSerde blockEncodingSerde = createTestMetadataManager().getBlockEncodingSerde();
 
     private final Class<?> objectValueType;
     private final Block testBlock;
@@ -515,7 +515,7 @@ public abstract class AbstractTestType
             Type valueType = mapType.getValueType();
             Object keyNonNullValue = getNonNullValueForType(keyType);
             Object valueNonNullValue = getNonNullValueForType(valueType);
-            Map map = ImmutableMap.of(keyNonNullValue, valueNonNullValue);
+            Map<?, ?> map = ImmutableMap.of(keyNonNullValue, valueNonNullValue);
             return mapBlockOf(keyType, valueType, map);
         }
         if (type instanceof RowType) {

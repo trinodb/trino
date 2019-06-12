@@ -37,6 +37,7 @@ import io.prestosql.sql.planner.iterative.rule.DesugarAtTimeZone;
 import io.prestosql.sql.planner.iterative.rule.DesugarCurrentPath;
 import io.prestosql.sql.planner.iterative.rule.DesugarCurrentUser;
 import io.prestosql.sql.planner.iterative.rule.DesugarLambdaExpression;
+import io.prestosql.sql.planner.iterative.rule.DesugarRowSubscript;
 import io.prestosql.sql.planner.iterative.rule.DesugarTryExpression;
 import io.prestosql.sql.planner.iterative.rule.DetermineJoinDistributionType;
 import io.prestosql.sql.planner.iterative.rule.DetermineSemiJoinDistributionType;
@@ -46,11 +47,8 @@ import io.prestosql.sql.planner.iterative.rule.ExtractSpatialJoins;
 import io.prestosql.sql.planner.iterative.rule.GatherAndMergeWindows;
 import io.prestosql.sql.planner.iterative.rule.ImplementBernoulliSampleAsFilter;
 import io.prestosql.sql.planner.iterative.rule.ImplementFilteredAggregations;
-import io.prestosql.sql.planner.iterative.rule.ImplementOffsetOverOther;
-import io.prestosql.sql.planner.iterative.rule.ImplementOffsetOverProjectSort;
-import io.prestosql.sql.planner.iterative.rule.ImplementOffsetOverProjectTopN;
-import io.prestosql.sql.planner.iterative.rule.ImplementOffsetOverSort;
-import io.prestosql.sql.planner.iterative.rule.ImplementOffsetOverTopN;
+import io.prestosql.sql.planner.iterative.rule.ImplementLimitWithTies;
+import io.prestosql.sql.planner.iterative.rule.ImplementOffset;
 import io.prestosql.sql.planner.iterative.rule.InlineProjections;
 import io.prestosql.sql.planner.iterative.rule.MergeFilters;
 import io.prestosql.sql.planner.iterative.rule.MergeLimitOverProjectWithSort;
@@ -69,6 +67,7 @@ import io.prestosql.sql.planner.iterative.rule.PruneJoinChildrenColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneJoinColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneLimitColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneMarkDistinctColumns;
+import io.prestosql.sql.planner.iterative.rule.PruneOffsetColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneOrderByInAggregation;
 import io.prestosql.sql.planner.iterative.rule.PruneOutputColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneProjectColumns;
@@ -79,12 +78,14 @@ import io.prestosql.sql.planner.iterative.rule.PruneTopNColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneValuesColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneWindowColumns;
 import io.prestosql.sql.planner.iterative.rule.PushAggregationThroughOuterJoin;
+import io.prestosql.sql.planner.iterative.rule.PushDeleteIntoConnector;
 import io.prestosql.sql.planner.iterative.rule.PushLimitIntoTableScan;
 import io.prestosql.sql.planner.iterative.rule.PushLimitThroughMarkDistinct;
 import io.prestosql.sql.planner.iterative.rule.PushLimitThroughOffset;
 import io.prestosql.sql.planner.iterative.rule.PushLimitThroughOuterJoin;
 import io.prestosql.sql.planner.iterative.rule.PushLimitThroughProject;
 import io.prestosql.sql.planner.iterative.rule.PushLimitThroughSemiJoin;
+import io.prestosql.sql.planner.iterative.rule.PushLimitThroughUnion;
 import io.prestosql.sql.planner.iterative.rule.PushOffsetThroughProject;
 import io.prestosql.sql.planner.iterative.rule.PushPartialAggregationThroughExchange;
 import io.prestosql.sql.planner.iterative.rule.PushPartialAggregationThroughJoin;
@@ -92,11 +93,13 @@ import io.prestosql.sql.planner.iterative.rule.PushPredicateIntoTableScan;
 import io.prestosql.sql.planner.iterative.rule.PushProjectionThroughExchange;
 import io.prestosql.sql.planner.iterative.rule.PushProjectionThroughUnion;
 import io.prestosql.sql.planner.iterative.rule.PushRemoteExchangeThroughAssignUniqueId;
+import io.prestosql.sql.planner.iterative.rule.PushSampleIntoTableScan;
 import io.prestosql.sql.planner.iterative.rule.PushTableWriteThroughUnion;
 import io.prestosql.sql.planner.iterative.rule.PushTopNThroughOuterJoin;
 import io.prestosql.sql.planner.iterative.rule.PushTopNThroughProject;
 import io.prestosql.sql.planner.iterative.rule.PushTopNThroughUnion;
 import io.prestosql.sql.planner.iterative.rule.RemoveAggregationInSemiJoin;
+import io.prestosql.sql.planner.iterative.rule.RemoveDuplicateConditions;
 import io.prestosql.sql.planner.iterative.rule.RemoveEmptyDelete;
 import io.prestosql.sql.planner.iterative.rule.RemoveFullSample;
 import io.prestosql.sql.planner.iterative.rule.RemoveRedundantDistinctLimit;
@@ -107,6 +110,7 @@ import io.prestosql.sql.planner.iterative.rule.RemoveRedundantTopN;
 import io.prestosql.sql.planner.iterative.rule.RemoveTrivialFilters;
 import io.prestosql.sql.planner.iterative.rule.RemoveUnreferencedScalarApplyNodes;
 import io.prestosql.sql.planner.iterative.rule.RemoveUnreferencedScalarLateralNodes;
+import io.prestosql.sql.planner.iterative.rule.RemoveUnsupportedDynamicFilters;
 import io.prestosql.sql.planner.iterative.rule.ReorderJoins;
 import io.prestosql.sql.planner.iterative.rule.RewriteSpatialPartitioningAggregation;
 import io.prestosql.sql.planner.iterative.rule.SimplifyCountOverConstant;
@@ -120,6 +124,7 @@ import io.prestosql.sql.planner.iterative.rule.TransformCorrelatedSingleRowSubqu
 import io.prestosql.sql.planner.iterative.rule.TransformExistsApplyToLateralNode;
 import io.prestosql.sql.planner.iterative.rule.TransformUncorrelatedInPredicateSubqueryToSemiJoin;
 import io.prestosql.sql.planner.iterative.rule.TransformUncorrelatedLateralToJoin;
+import io.prestosql.sql.planner.iterative.rule.UnwrapCastInComparison;
 import io.prestosql.sql.planner.optimizations.AddExchanges;
 import io.prestosql.sql.planner.optimizations.AddLocalExchanges;
 import io.prestosql.sql.planner.optimizations.BeginTableWrite;
@@ -128,7 +133,6 @@ import io.prestosql.sql.planner.optimizations.HashGenerationOptimizer;
 import io.prestosql.sql.planner.optimizations.ImplementIntersectAndExceptAsUnion;
 import io.prestosql.sql.planner.optimizations.IndexJoinOptimizer;
 import io.prestosql.sql.planner.optimizations.LimitPushDown;
-import io.prestosql.sql.planner.optimizations.MetadataDeleteOptimizer;
 import io.prestosql.sql.planner.optimizations.MetadataQueryOptimizer;
 import io.prestosql.sql.planner.optimizations.OptimizeMixedDistinctAggregations;
 import io.prestosql.sql.planner.optimizations.PlanOptimizer;
@@ -137,6 +141,7 @@ import io.prestosql.sql.planner.optimizations.PruneUnreferencedOutputs;
 import io.prestosql.sql.planner.optimizations.ReplicateSemiJoinInDelete;
 import io.prestosql.sql.planner.optimizations.SetFlatteningOptimizer;
 import io.prestosql.sql.planner.optimizations.StatsRecordingPlanOptimizer;
+import io.prestosql.sql.planner.optimizations.TableDeleteOptimizer;
 import io.prestosql.sql.planner.optimizations.TransformQuantifiedComparisonApplyToLateralJoin;
 import io.prestosql.sql.planner.optimizations.UnaliasSymbolReferences;
 import io.prestosql.sql.planner.optimizations.WindowFilterPushDown;
@@ -240,6 +245,7 @@ public class PlanOptimizers
                 new PruneTopNColumns(),
                 new PruneValuesColumns(),
                 new PruneWindowColumns(),
+                new PruneOffsetColumns(),
                 new PruneLimitColumns(),
                 new PruneTableScanColumns());
 
@@ -263,7 +269,12 @@ public class PlanOptimizers
                 ruleStats,
                 statsCalculator,
                 estimatedExchangesCostCalculator,
-                new SimplifyExpressions(metadata, typeAnalyzer).rules());
+                ImmutableSet.<Rule<?>>builder()
+                    .addAll(new SimplifyExpressions(metadata, typeAnalyzer).rules())
+                    .addAll(new UnwrapCastInComparison(metadata, typeAnalyzer).rules())
+                    .addAll(new RemoveDuplicateConditions().rules())
+                    .addAll(new CanonicalizeExpressions().rules())
+                    .build());
 
         PlanOptimizer predicatePushDown = new StatsRecordingPlanOptimizer(optimizerStats, new PredicatePushDown(metadata, typeAnalyzer));
 
@@ -279,6 +290,7 @@ public class PlanOptimizers
                                 .addAll(new DesugarCurrentUser().rules())
                                 .addAll(new DesugarCurrentPath().rules())
                                 .addAll(new DesugarTryExpression().rules())
+                                .addAll(new DesugarRowSubscript(typeAnalyzer).rules())
                                 .build()),
                 new IterativeOptimizer(
                         ruleStats,
@@ -306,6 +318,7 @@ public class PlanOptimizers
                                         new PushLimitThroughMarkDistinct(),
                                         new PushLimitThroughOuterJoin(),
                                         new PushLimitThroughSemiJoin(),
+                                        new PushLimitThroughUnion(),
                                         new PushLimitIntoTableScan(metadata),
                                         new PushPredicateIntoTableScan(metadata, typeAnalyzer),
                                         new RemoveTrivialFilters(),
@@ -316,7 +329,6 @@ public class PlanOptimizers
                                         new ImplementFilteredAggregations(),
                                         new SingleDistinctAggregationToGroupBy(),
                                         new MultipleDistinctAggregationToMarkDistinct(),
-                                        new ImplementBernoulliSampleAsFilter(),
                                         new MergeLimitWithDistinct(),
                                         new PruneCountAggregationOverScalar(),
                                         new PruneOrderByInAggregation(metadata.getFunctionRegistry()),
@@ -327,17 +339,17 @@ public class PlanOptimizers
                         statsCalculator,
                         estimatedExchangesCostCalculator,
                         ImmutableSet.of(
-                                new ImplementOffsetOverTopN(),
-                                new ImplementOffsetOverProjectTopN(),
-                                new ImplementOffsetOverSort(),
-                                new ImplementOffsetOverProjectSort())),
+                                new PushSampleIntoTableScan(metadata))),
                 new IterativeOptimizer(
                         ruleStats,
                         statsCalculator,
                         estimatedExchangesCostCalculator,
-                        // Temporary hack: separate optimizer step to avoid a plan that's missing a SortNode over a RowNumber node
-                        // if the rules fires too early
-                        ImmutableSet.of(new ImplementOffsetOverOther())),
+                        // Temporary hack: separate optimizer step to avoid the sample node being replaced by filter before pushing
+                        // it to table scan node
+                        ImmutableSet.of(
+                                new ImplementBernoulliSampleAsFilter(),
+                                new ImplementOffset(),
+                                new ImplementLimitWithTies())),
                 simplifyOptimizer,
                 new UnaliasSymbolReferences(),
                 new IterativeOptimizer(
@@ -485,6 +497,12 @@ public class PlanOptimizers
                         .add(new InlineProjections())
                         .build()));
 
+        builder.add(new IterativeOptimizer(
+                ruleStats,
+                statsCalculator,
+                costCalculator,
+                ImmutableSet.of(new PushDeleteIntoConnector(metadata)))); // Must run before AddExchanges
+
         if (!forceSingleNode) {
             builder.add(new ReplicateSemiJoinInDelete()); // Must run before AddExchanges
             builder.add((new IterativeOptimizer(
@@ -515,6 +533,7 @@ public class PlanOptimizers
                         ImmutableSet.of(new RemoveEmptyDelete()))); // Run RemoveEmptyDelete after table scan is removed by PickTableLayout/AddExchanges
 
         builder.add(predicatePushDown); // Run predicate push down one more time in case we can leverage new information from layouts' effective predicate
+        builder.add(new RemoveUnsupportedDynamicFilters());
         builder.add(simplifyOptimizer); // Should be always run after PredicatePushDown
         builder.add(projectionPushDown);
         builder.add(inlineProjections);
@@ -561,7 +580,7 @@ public class PlanOptimizers
         // Precomputed hashes - this assumes that partitioning will not change
         builder.add(new HashGenerationOptimizer());
 
-        builder.add(new MetadataDeleteOptimizer(metadata));
+        builder.add(new TableDeleteOptimizer(metadata));
         builder.add(new BeginTableWrite(metadata)); // HACK! see comments in BeginTableWrite
 
         // TODO: consider adding a formal final plan sanitization optimizer that prepares the plan for transmission/execution/logging

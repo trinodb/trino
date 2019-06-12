@@ -41,7 +41,6 @@ import static io.prestosql.tempto.fulfillment.table.TableRequirements.immutableT
 import static io.prestosql.tempto.query.QueryExecutor.query;
 import static io.prestosql.tests.TestGroups.AVRO;
 import static io.prestosql.tests.TestGroups.JDBC;
-import static io.prestosql.tests.TestGroups.POST_HIVE_1_0_1;
 import static io.prestosql.tests.TestGroups.SKIP_ON_CDH;
 import static io.prestosql.tests.TestGroups.SMOKE;
 import static io.prestosql.tests.hive.AllSimpleTypesTableDefinitions.ALL_HIVE_SIMPLE_TYPES_AVRO;
@@ -347,7 +346,7 @@ public class TestAllDatatypesFromHiveConnector
     }
 
     @Requires(ParquetRequirements.class)
-    @Test(groups = {POST_HIVE_1_0_1})
+    @Test
     public void testSelectAllDatatypesParquetFile()
     {
         String tableName = mutableTableInstanceOf(ALL_HIVE_SIMPLE_TYPES_PARQUET).getNameInDatabase();
@@ -405,7 +404,7 @@ public class TestAllDatatypesFromHiveConnector
                         "kot binarny".getBytes()));
     }
 
-    private static TableInstance mutableTableInstanceOf(TableDefinition tableDefinition)
+    private static TableInstance<?> mutableTableInstanceOf(TableDefinition tableDefinition)
     {
         if (tableDefinition.getDatabase().isPresent()) {
             return mutableTableInstanceOf(tableDefinition, tableDefinition.getDatabase().get());
@@ -415,12 +414,12 @@ public class TestAllDatatypesFromHiveConnector
         }
     }
 
-    private static TableInstance mutableTableInstanceOf(TableDefinition tableDefinition, String database)
+    private static TableInstance<?> mutableTableInstanceOf(TableDefinition tableDefinition, String database)
     {
         return mutableTableInstanceOf(tableHandleInSchema(tableDefinition).inDatabase(database));
     }
 
-    private static TableInstance mutableTableInstanceOf(TableHandle tableHandle)
+    private static TableInstance<?> mutableTableInstanceOf(TableHandle tableHandle)
     {
         return testContext().getDependency(MutableTablesState.class).get(tableHandle);
     }

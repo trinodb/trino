@@ -15,7 +15,6 @@ package io.prestosql.execution;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.block.BlockEncodingManager;
 import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.metadata.AnalyzePropertyManager;
 import io.prestosql.metadata.Catalog;
@@ -47,6 +46,7 @@ import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
@@ -80,7 +80,6 @@ public class TestSetSessionTask
         metadata = new MetadataManager(
                 new FeaturesConfig(),
                 new TypeRegistry(),
-                new BlockEncodingManager(new TypeRegistry()),
                 new SessionPropertyManager(),
                 new SchemaPropertyManager(),
                 new TablePropertyManager(),
@@ -182,6 +181,7 @@ public class TestSetSessionTask
         QualifiedName qualifiedPropName = QualifiedName.of(CATALOG_NAME, property);
         QueryStateMachine stateMachine = QueryStateMachine.begin(
                 format("set %s = 'old_value'", qualifiedPropName),
+                Optional.empty(),
                 TEST_SESSION,
                 URI.create("fake://uri"),
                 new ResourceGroupId("test"),

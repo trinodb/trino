@@ -51,6 +51,7 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
@@ -63,6 +64,7 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.prestosql.plugin.hive.BackgroundHiveSplitLoader.BucketSplitInfo.createBucketSplitInfo;
+import static io.prestosql.plugin.hive.BackgroundHiveSplitLoader.getBucketNumber;
 import static io.prestosql.plugin.hive.HiveColumnHandle.pathColumnHandle;
 import static io.prestosql.plugin.hive.HiveTestUtils.SESSION;
 import static io.prestosql.plugin.hive.HiveType.HIVE_INT;
@@ -116,7 +118,7 @@ public class TestBackgroundHiveSplitLoader
                 TEST_FILES,
                 TupleDomain.none());
 
-        HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader, TupleDomain.none());
+        HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader);
         backgroundHiveSplitLoader.start(hiveSplitSource);
 
         assertEquals(drain(hiveSplitSource).size(), 2);
@@ -130,7 +132,7 @@ public class TestBackgroundHiveSplitLoader
                 TEST_FILES,
                 RETURNED_PATH_DOMAIN);
 
-        HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader, RETURNED_PATH_DOMAIN);
+        HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader);
         backgroundHiveSplitLoader.start(hiveSplitSource);
         List<String> paths = drain(hiveSplitSource);
         assertEquals(paths.size(), 1);
@@ -148,7 +150,7 @@ public class TestBackgroundHiveSplitLoader
                 PARTITIONED_TABLE,
                 Optional.of(new HiveBucketHandle(BUCKET_COLUMN_HANDLES, BUCKET_COUNT, BUCKET_COUNT)));
 
-        HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader, RETURNED_PATH_DOMAIN);
+        HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader);
         backgroundHiveSplitLoader.start(hiveSplitSource);
         List<String> paths = drain(hiveSplitSource);
         assertEquals(paths.size(), 1);
@@ -170,7 +172,7 @@ public class TestBackgroundHiveSplitLoader
                                 BUCKET_COUNT,
                                 BUCKET_COUNT)));
 
-        HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader, RETURNED_PATH_DOMAIN);
+        HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader);
         backgroundHiveSplitLoader.start(hiveSplitSource);
         List<String> paths = drain(hiveSplitSource);
         assertEquals(paths.size(), 1);
@@ -185,7 +187,7 @@ public class TestBackgroundHiveSplitLoader
                 ImmutableList.of(locatedFileStatusWithNoBlocks(RETURNED_PATH)),
                 TupleDomain.none());
 
-        HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader, TupleDomain.none());
+        HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader);
         backgroundHiveSplitLoader.start(hiveSplitSource);
 
         List<HiveSplit> splits = drainSplits(hiveSplitSource);
@@ -199,7 +201,7 @@ public class TestBackgroundHiveSplitLoader
             throws Exception
     {
         BackgroundHiveSplitLoader backgroundHiveSplitLoader = backgroundHiveSplitLoaderOfflinePartitions();
-        HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader, TupleDomain.all());
+        HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader);
         backgroundHiveSplitLoader.start(hiveSplitSource);
 
         assertThrows(RuntimeException.class, () -> drain(hiveSplitSource));
@@ -219,7 +221,7 @@ public class TestBackgroundHiveSplitLoader
 
         futures.add(EXECUTOR.submit(() -> {
             BackgroundHiveSplitLoader backgroundHiveSplitLoader = backgroundHiveSplitLoader(TEST_FILES, cachingDirectoryLister);
-            HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader, TupleDomain.none());
+            HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader);
             backgroundHiveSplitLoader.start(hiveSplitSource);
             try {
                 return drainSplits(hiveSplitSource);
@@ -233,7 +235,7 @@ public class TestBackgroundHiveSplitLoader
             futures.add(EXECUTOR.submit(() -> {
                 firstVisit.await();
                 BackgroundHiveSplitLoader backgroundHiveSplitLoader = backgroundHiveSplitLoader(TEST_FILES, cachingDirectoryLister);
-                HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader, TupleDomain.none());
+                HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader);
                 backgroundHiveSplitLoader.start(hiveSplitSource);
                 return drainSplits(hiveSplitSource);
             }));
@@ -245,6 +247,23 @@ public class TestBackgroundHiveSplitLoader
         assertEquals(cachingDirectoryLister.getRequestCount(), totalCount);
         assertEquals(cachingDirectoryLister.getHitCount(), totalCount - 1);
         assertEquals(cachingDirectoryLister.getMissCount(), 1);
+    }
+
+    @Test
+    public void testGetBucketNumber()
+    {
+        assertEquals(getBucketNumber("0234_0"), OptionalInt.of(234));
+        assertEquals(getBucketNumber("000234_0"), OptionalInt.of(234));
+        assertEquals(getBucketNumber("0234_99"), OptionalInt.of(234));
+        assertEquals(getBucketNumber("0234_0.txt"), OptionalInt.of(234));
+        assertEquals(getBucketNumber("0234_0_copy_1"), OptionalInt.of(234));
+        assertEquals(getBucketNumber("20190526_072952_00009_fn7s5_bucket-00234"), OptionalInt.of(234));
+        assertEquals(getBucketNumber("20190526_072952_00009_fn7s5_bucket-00234.txt"), OptionalInt.of(234));
+        assertEquals(getBucketNumber("20190526_235847_87654_fn7s5_bucket-56789"), OptionalInt.of(56789));
+
+        assertEquals(getBucketNumber("234_99"), OptionalInt.empty());
+        assertEquals(getBucketNumber("0234.txt"), OptionalInt.empty());
+        assertEquals(getBucketNumber("0234.txt"), OptionalInt.empty());
     }
 
     private static List<String> drain(HiveSplitSource source)
@@ -314,10 +333,10 @@ public class TestBackgroundHiveSplitLoader
     private static BackgroundHiveSplitLoader backgroundHiveSplitLoader(List<LocatedFileStatus> files, DirectoryLister directoryLister)
     {
         List<HivePartitionMetadata> hivePartitionMetadatas = ImmutableList.of(
-                        new HivePartitionMetadata(
-                                new HivePartition(new SchemaTableName("testSchema", "table_name")),
-                                Optional.empty(),
-                                ImmutableMap.of()));
+                new HivePartitionMetadata(
+                        new HivePartition(new SchemaTableName("testSchema", "table_name")),
+                        Optional.empty(),
+                        ImmutableMap.of()));
 
         ConnectorSession connectorSession = new TestingConnectorSession(
                 new HiveSessionProperties(new HiveConfig().setMaxSplitSize(new DataSize(1.0, GIGABYTE)), new OrcFileWriterConfig(), new ParquetFileWriterConfig()).getSessionProperties());
@@ -383,19 +402,17 @@ public class TestBackgroundHiveSplitLoader
         };
     }
 
-    private static HiveSplitSource hiveSplitSource(
-            BackgroundHiveSplitLoader backgroundHiveSplitLoader,
-            TupleDomain<HiveColumnHandle> compactEffectivePredicate)
+    private static HiveSplitSource hiveSplitSource(HiveSplitLoader hiveSplitLoader)
     {
         return HiveSplitSource.allAtOnce(
                 SESSION,
                 SIMPLE_TABLE.getDatabaseName(),
                 SIMPLE_TABLE.getTableName(),
-                compactEffectivePredicate,
                 1,
                 1,
                 new DataSize(32, MEGABYTE),
-                backgroundHiveSplitLoader,
+                Integer.MAX_VALUE,
+                hiveSplitLoader,
                 EXECUTOR,
                 new CounterStat());
     }
@@ -460,7 +477,7 @@ public class TestBackgroundHiveSplitLoader
                 new BlockLocation[] {});
     }
 
-    private static class TestingHdfsEnvironment
+    public static class TestingHdfsEnvironment
             extends HdfsEnvironment
     {
         private final List<LocatedFileStatus> files;

@@ -16,6 +16,8 @@ package io.prestosql.spi.type;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.connector.ConnectorSession;
 
+import java.util.Optional;
+
 import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 
 public final class BigintType
@@ -49,5 +51,11 @@ public final class BigintType
     public int hashCode()
     {
         return getClass().hashCode();
+    }
+
+    @Override
+    public Optional<Range> getRange()
+    {
+        return Optional.of(new Range(Long.MIN_VALUE, Long.MAX_VALUE));
     }
 }

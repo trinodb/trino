@@ -27,8 +27,6 @@ import io.prestosql.operator.project.CursorProcessorOutput;
 import io.prestosql.operator.project.PageProcessor;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.PageBuilder;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.LazyBlock;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorPageSource;
 import io.prestosql.spi.connector.RecordCursor;
@@ -51,6 +49,7 @@ import java.util.function.Supplier;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
 import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static io.prestosql.operator.PageUtils.recordMaterializedBytes;
 import static io.prestosql.operator.project.MergePages.mergePages;
 import static java.util.Objects.requireNonNull;
 
@@ -416,7 +415,7 @@ public class ScanFilterAndProjectOperator
                 }
             }
 
-            page = recordProcessedInput(page);
+            page = recordMaterializedBytes(page, sizeInBytes -> deltaProcessedBytes += sizeInBytes);
 
             // update operator stats
             long endCompletedBytes = pageSource.getCompletedBytes();
@@ -429,28 +428,6 @@ public class ScanFilterAndProjectOperator
 
             return ProcessState.ofResult(page);
         }
-    }
-
-    private Page recordProcessedInput(Page page)
-    {
-        // account processed bytes from lazy blocks only when they are loaded
-        Block[] blocks = new Block[page.getChannelCount()];
-        for (int i = 0; i < page.getChannelCount(); ++i) {
-            Block block = page.getBlock(i);
-            if (block instanceof LazyBlock) {
-                LazyBlock delegateLazyBlock = (LazyBlock) block;
-                blocks[i] = new LazyBlock(page.getPositionCount(), lazyBlock -> {
-                    Block loadedBlock = delegateLazyBlock.getLoadedBlock();
-                    deltaProcessedBytes += loadedBlock.getSizeInBytes();
-                    lazyBlock.setBlock(loadedBlock);
-                });
-            }
-            else {
-                deltaProcessedBytes += block.getSizeInBytes();
-                blocks[i] = block;
-            }
-        }
-        return new Page(page.getPositionCount(), blocks);
     }
 
     public static class ScanFilterAndProjectOperatorFactory

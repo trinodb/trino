@@ -18,12 +18,10 @@ import com.google.common.io.Closer;
 import com.google.common.io.Files;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
-import io.prestosql.block.BlockEncodingManager;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.block.BlockEncodingSerde;
 import io.prestosql.spi.type.Type;
-import io.prestosql.type.TypeRegistry;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -39,6 +37,7 @@ import static com.google.common.io.MoreFiles.listFiles;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static com.google.common.util.concurrent.Futures.getUnchecked;
 import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spiller.FileSingleStreamSpillerFactory.SPILL_FILE_PREFIX;
 import static io.prestosql.spiller.FileSingleStreamSpillerFactory.SPILL_FILE_SUFFIX;
@@ -48,6 +47,7 @@ import static org.testng.Assert.assertEquals;
 @Test(singleThreaded = true)
 public class TestFileSingleStreamSpillerFactory
 {
+    private final BlockEncodingSerde blockEncodingSerde = createTestMetadataManager().getBlockEncodingSerde();
     private Closer closer;
     private ListeningExecutorService executor;
     private File spillPath1;
@@ -77,14 +77,16 @@ public class TestFileSingleStreamSpillerFactory
             throws Exception
     {
         List<Type> types = ImmutableList.of(BIGINT);
-        BlockEncodingSerde blockEncodingSerde = new BlockEncodingManager(new TypeRegistry());
+        BlockEncodingSerde blockEncodingSerde = createTestMetadataManager().getBlockEncodingSerde();
         List<Path> spillPaths = ImmutableList.of(spillPath1.toPath(), spillPath2.toPath());
         FileSingleStreamSpillerFactory spillerFactory = new FileSingleStreamSpillerFactory(
                 executor, // executor won't be closed, because we don't call destroy() on the spiller factory
                 blockEncodingSerde,
                 new SpillerStats(),
                 spillPaths,
-                1.0);
+                1.0,
+                false,
+                false);
 
         assertEquals(listFiles(spillPath1.toPath()).size(), 0);
         assertEquals(listFiles(spillPath2.toPath()).size(), 0);
@@ -115,14 +117,16 @@ public class TestFileSingleStreamSpillerFactory
     public void throwsIfNoDiskSpace()
     {
         List<Type> types = ImmutableList.of(BIGINT);
-        BlockEncodingSerde blockEncodingSerde = new BlockEncodingManager(new TypeRegistry());
+        BlockEncodingSerde blockEncodingSerde = createTestMetadataManager().getBlockEncodingSerde();
         List<Path> spillPaths = ImmutableList.of(spillPath1.toPath(), spillPath2.toPath());
         FileSingleStreamSpillerFactory spillerFactory = new FileSingleStreamSpillerFactory(
                 executor, // executor won't be closed, because we don't call destroy() on the spiller factory
                 blockEncodingSerde,
                 new SpillerStats(),
                 spillPaths,
-                0.0);
+                0.0,
+                false,
+                false);
 
         spillerFactory.create(types, bytes -> {}, newSimpleAggregatedMemoryContext().newLocalMemoryContext("test"));
     }
@@ -134,10 +138,12 @@ public class TestFileSingleStreamSpillerFactory
         List<Type> types = ImmutableList.of(BIGINT);
         FileSingleStreamSpillerFactory spillerFactory = new FileSingleStreamSpillerFactory(
                 executor, // executor won't be closed, because we don't call destroy() on the spiller factory
-                new BlockEncodingManager(new TypeRegistry()),
+                createTestMetadataManager().getBlockEncodingSerde(),
                 new SpillerStats(),
                 spillPaths,
-                1.0);
+                1.0,
+                false,
+                false);
         spillerFactory.create(types, bytes -> {}, newSimpleAggregatedMemoryContext().newLocalMemoryContext("test"));
     }
 
@@ -145,7 +151,6 @@ public class TestFileSingleStreamSpillerFactory
     public void testCleanupOldSpillFiles()
             throws Exception
     {
-        BlockEncodingSerde blockEncodingSerde = new BlockEncodingManager(new TypeRegistry());
         List<Path> spillPaths = ImmutableList.of(spillPath1.toPath(), spillPath2.toPath());
         spillPath1.mkdirs();
         spillPath2.mkdirs();
@@ -165,7 +170,9 @@ public class TestFileSingleStreamSpillerFactory
                 blockEncodingSerde,
                 new SpillerStats(),
                 spillPaths,
-                1.0);
+                1.0,
+                false,
+                false);
         spillerFactory.cleanupOldSpillFiles();
 
         assertEquals(listFiles(spillPath1.toPath()).size(), 1);

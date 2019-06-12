@@ -52,6 +52,7 @@ import java.net.URISyntaxException;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.ThreadLocalRandom;
 
 import static com.google.common.base.Ticker.systemTicker;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -94,7 +95,7 @@ public class TestRaptorSplitManager
             throws Exception
     {
         TypeRegistry typeRegistry = new TypeRegistry();
-        DBI dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime());
+        DBI dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime() + ThreadLocalRandom.current().nextLong());
         dbi.registerMapper(new TableColumn.Mapper(typeRegistry));
         dummyHandle = dbi.open();
         createTablesWithRetry(dbi);

@@ -170,7 +170,7 @@ public class StateCompiler
         generateSerialize(definition, callSiteBinder, clazz, fields);
         generateDeserialize(definition, callSiteBinder, clazz, fields);
 
-        Class<? extends AccumulatorStateSerializer> serializerClass = defineClass(definition, AccumulatorStateSerializer.class, callSiteBinder.getBindings(), classLoader);
+        Class<?> serializerClass = defineClass(definition, AccumulatorStateSerializer.class, callSiteBinder.getBindings(), classLoader);
         try {
             return (AccumulatorStateSerializer<T>) serializerClass.getConstructor().newInstance();
         }
@@ -398,7 +398,7 @@ public class StateCompiler
                 .push(groupedStateClass)
                 .retObject();
 
-        Class<? extends AccumulatorStateFactory> factoryClass = defineClass(definition, AccumulatorStateFactory.class, classLoader);
+        Class<?> factoryClass = defineClass(definition, AccumulatorStateFactory.class, classLoader);
         try {
             return (AccumulatorStateFactory<T>) factoryClass.getConstructor().newInstance();
         }

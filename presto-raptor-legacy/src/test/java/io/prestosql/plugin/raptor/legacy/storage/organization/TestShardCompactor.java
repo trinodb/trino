@@ -46,6 +46,7 @@ import java.util.List;
 import java.util.OptionalInt;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ThreadLocalRandom;
 
 import static com.google.common.io.Files.createTempDir;
 import static com.google.common.io.MoreFiles.deleteRecursively;
@@ -83,7 +84,7 @@ public class TestShardCompactor
     public void setup()
     {
         temporary = createTempDir();
-        IDBI dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime());
+        IDBI dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime() + ThreadLocalRandom.current().nextLong());
         dummyHandle = dbi.open();
         storageManager = createOrcStorageManager(dbi, temporary, MAX_SHARD_ROWS);
         compactor = new ShardCompactor(storageManager, READER_ATTRIBUTES);

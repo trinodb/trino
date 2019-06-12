@@ -21,7 +21,6 @@ import io.prestosql.sql.planner.PlanNodeIdAllocator;
 import io.prestosql.sql.planner.iterative.rule.test.PlanBuilder;
 import io.prestosql.sql.planner.plan.Assignments;
 import io.prestosql.sql.planner.plan.FilterNode;
-import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.ProjectNode;
 import io.prestosql.sql.planner.plan.ValuesNode;
 import io.prestosql.sql.tree.BooleanLiteral;
@@ -39,10 +38,10 @@ public class TestRuleIndex
     @Test
     public void testWithPlanNodeHierarchy()
     {
-        Rule projectRule1 = new NoOpRule(Pattern.typeOf(ProjectNode.class));
-        Rule projectRule2 = new NoOpRule(Pattern.typeOf(ProjectNode.class));
-        Rule filterRule = new NoOpRule(Pattern.typeOf(FilterNode.class));
-        Rule anyRule = new NoOpRule(Pattern.any());
+        Rule<?> projectRule1 = new NoOpRule<>(Pattern.typeOf(ProjectNode.class));
+        Rule<?> projectRule2 = new NoOpRule<>(Pattern.typeOf(ProjectNode.class));
+        Rule<?> filterRule = new NoOpRule<>(Pattern.typeOf(FilterNode.class));
+        Rule<?> anyRule = new NoOpRule<>(Pattern.any());
 
         RuleIndex ruleIndex = RuleIndex.builder()
                 .register(projectRule1)
@@ -69,9 +68,9 @@ public class TestRuleIndex
     @Test
     public void testInterfacesHierarchy()
     {
-        Rule a = new NoOpRule(Pattern.typeOf(A.class));
-        Rule b = new NoOpRule(Pattern.typeOf(B.class));
-        Rule ab = new NoOpRule(Pattern.typeOf(AB.class));
+        Rule<?> a = new NoOpRule<>(Pattern.typeOf(A.class));
+        Rule<?> b = new NoOpRule<>(Pattern.typeOf(B.class));
+        Rule<?> ab = new NoOpRule<>(Pattern.typeOf(AB.class));
 
         RuleIndex ruleIndex = RuleIndex.builder()
                 .register(a)
@@ -90,24 +89,24 @@ public class TestRuleIndex
                 ImmutableSet.of(ab, a, b));
     }
 
-    private static class NoOpRule
-            implements Rule<PlanNode>
+    private static class NoOpRule<T>
+            implements Rule<T>
     {
-        private final Pattern pattern;
+        private final Pattern<T> pattern;
 
-        private NoOpRule(Pattern pattern)
+        private NoOpRule(Pattern<T> pattern)
         {
             this.pattern = pattern;
         }
 
         @Override
-        public Pattern<PlanNode> getPattern()
+        public Pattern<T> getPattern()
         {
             return pattern;
         }
 
         @Override
-        public Result apply(PlanNode node, Captures captures, Context context)
+        public Result apply(T node, Captures captures, Context context)
         {
             return Result.empty();
         }

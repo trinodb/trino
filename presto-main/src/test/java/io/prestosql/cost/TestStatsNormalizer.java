@@ -15,22 +15,19 @@ package io.prestosql.cost;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.block.BlockEncodingManager;
-import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.metadata.Metadata;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeManager;
-import io.prestosql.sql.analyzer.FeaturesConfig;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.TypeProvider;
 import io.prestosql.testing.TestingConnectorSession;
-import io.prestosql.type.TypeRegistry;
 import org.testng.annotations.Test;
 
 import java.time.LocalDate;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.prestosql.cost.StatsUtil.toStatsRepresentation;
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DateType.DATE;
@@ -45,8 +42,7 @@ import static java.util.function.Function.identity;
 
 public class TestStatsNormalizer
 {
-    private final TypeManager typeManager = new TypeRegistry();
-    private final FunctionRegistry functionRegistry = new FunctionRegistry(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
+    private final Metadata metadata = createTestMetadataManager();
     private final ConnectorSession session = new TestingConnectorSession(emptyList());
 
     private final StatsNormalizer normalizer = new StatsNormalizer();
@@ -163,6 +159,6 @@ public class TestStatsNormalizer
 
     private double asStatsValue(Object value, Type type)
     {
-        return toStatsRepresentation(functionRegistry, session, type, value).orElse(NaN);
+        return toStatsRepresentation(metadata.getFunctionRegistry(), session, type, value).orElse(NaN);
     }
 }

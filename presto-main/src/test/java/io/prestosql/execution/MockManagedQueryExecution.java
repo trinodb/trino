@@ -106,6 +106,7 @@ public class MockManagedQueryExecution
                 !state.isDone(),
                 URI.create("http://test"),
                 "SELECT 1",
+                Optional.empty(),
                 new BasicQueryStats(
                         new DateTime(1),
                         new DateTime(2),

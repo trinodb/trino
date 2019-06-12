@@ -71,12 +71,12 @@ public class MongoPageSource
 
     public MongoPageSource(
             MongoSession mongoSession,
-            MongoSplit split,
+            MongoTableHandle tableHandle,
             List<MongoColumnHandle> columns)
     {
         this.columnNames = columns.stream().map(MongoColumnHandle::getName).collect(toList());
         this.columnTypes = columns.stream().map(MongoColumnHandle::getType).collect(toList());
-        this.cursor = mongoSession.execute(split, columns);
+        this.cursor = mongoSession.execute(tableHandle, columns);
         currentDoc = null;
 
         pageBuilder = new PageBuilder(columnTypes);

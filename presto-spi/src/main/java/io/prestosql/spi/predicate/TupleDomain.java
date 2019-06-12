@@ -320,7 +320,7 @@ public final class TupleDomain<T>
         if (obj == null || getClass() != obj.getClass()) {
             return false;
         }
-        final TupleDomain other = (TupleDomain) obj;
+        final TupleDomain<?> other = (TupleDomain<?>) obj;
         return Objects.equals(this.domains, other.domains);
     }
 

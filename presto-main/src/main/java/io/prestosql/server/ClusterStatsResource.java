@@ -15,7 +15,7 @@ package io.prestosql.server;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.prestosql.execution.QueryManager;
+import io.prestosql.dispatcher.DispatchManager;
 import io.prestosql.execution.QueryState;
 import io.prestosql.execution.scheduler.NodeSchedulerConfig;
 import io.prestosql.memory.ClusterMemoryManager;
@@ -36,16 +36,16 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 public class ClusterStatsResource
 {
     private final InternalNodeManager nodeManager;
-    private final QueryManager queryManager;
+    private final DispatchManager dispatchManager;
     private final boolean isIncludeCoordinator;
     private final ClusterMemoryManager clusterMemoryManager;
 
     @Inject
-    public ClusterStatsResource(NodeSchedulerConfig nodeSchedulerConfig, InternalNodeManager nodeManager, QueryManager queryManager, ClusterMemoryManager clusterMemoryManager)
+    public ClusterStatsResource(NodeSchedulerConfig nodeSchedulerConfig, InternalNodeManager nodeManager, DispatchManager dispatchManager, ClusterMemoryManager clusterMemoryManager)
     {
         this.isIncludeCoordinator = requireNonNull(nodeSchedulerConfig, "nodeSchedulerConfig is null").isIncludeCoordinator();
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
-        this.queryManager = requireNonNull(queryManager, "queryManager is null");
+        this.dispatchManager = requireNonNull(dispatchManager, "dispatchManager is null");
         this.clusterMemoryManager = requireNonNull(clusterMemoryManager, "clusterMemoryManager is null");
     }
 
@@ -67,11 +67,11 @@ public class ClusterStatsResource
         long runningDrivers = 0;
         double memoryReservation = 0;
 
-        long totalInputRows = queryManager.getStats().getConsumedInputRows().getTotalCount();
-        long totalInputBytes = queryManager.getStats().getConsumedInputBytes().getTotalCount();
-        long totalCpuTimeSecs = queryManager.getStats().getConsumedCpuTimeSecs().getTotalCount();
+        long totalInputRows = dispatchManager.getStats().getConsumedInputRows().getTotalCount();
+        long totalInputBytes = dispatchManager.getStats().getConsumedInputBytes().getTotalCount();
+        long totalCpuTimeSecs = dispatchManager.getStats().getConsumedCpuTimeSecs().getTotalCount();
 
-        for (BasicQueryInfo query : queryManager.getQueries()) {
+        for (BasicQueryInfo query : dispatchManager.getQueries()) {
             if (query.getState() == QueryState.QUEUED) {
                 queuedQueries++;
             }

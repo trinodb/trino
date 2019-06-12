@@ -18,17 +18,14 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Closer;
 import io.prestosql.RowPagesBuilder;
 import io.prestosql.SequencePageBuilder;
-import io.prestosql.block.BlockEncodingManager;
 import io.prestosql.memory.context.AggregatedMemoryContext;
 import io.prestosql.operator.PartitionFunction;
 import io.prestosql.operator.SpillContext;
 import io.prestosql.operator.TestingOperatorContext;
 import io.prestosql.spi.Page;
-import io.prestosql.spi.block.BlockEncodingSerde;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spiller.PartitioningSpiller.PartitioningSpillResult;
 import io.prestosql.sql.analyzer.FeaturesConfig;
-import io.prestosql.type.TypeRegistry;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -44,6 +41,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.operator.PageAssertions.assertPageEquals;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
@@ -62,10 +60,8 @@ public class TestGenericPartitioningSpiller
     private static final int FOURTH_PARTITION_START = 20;
 
     private static final List<Type> TYPES = ImmutableList.of(BIGINT, VARCHAR, DOUBLE, BIGINT);
-    private final BlockEncodingSerde blockEncodingSerde = new BlockEncodingManager(new TypeRegistry());
 
     private Path tempDirectory;
-    private SingleStreamSpillerFactory singleStreamSpillerFactory;
     private GenericPartitioningSpillerFactory factory;
     private ScheduledExecutorService scheduledExecutor;
 
@@ -78,7 +74,11 @@ public class TestGenericPartitioningSpiller
         featuresConfig.setSpillerSpillPaths(tempDirectory.toString());
         featuresConfig.setSpillerThreads(8);
         featuresConfig.setSpillMaxUsedSpaceThreshold(1.0);
-        singleStreamSpillerFactory = new FileSingleStreamSpillerFactory(blockEncodingSerde, new SpillerStats(), featuresConfig);
+        SingleStreamSpillerFactory singleStreamSpillerFactory = new FileSingleStreamSpillerFactory(
+                createTestMetadataManager(),
+                new SpillerStats(),
+                featuresConfig,
+                new NodeSpillConfig());
         factory = new GenericPartitioningSpillerFactory(singleStreamSpillerFactory);
         scheduledExecutor = newSingleThreadScheduledExecutor();
     }

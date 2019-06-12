@@ -123,7 +123,8 @@ public class TestSetFlatteningOptimizer
                                         tableScan("nation")))));
     }
 
-    public void assertPlan(String sql, PlanMatchPattern pattern)
+    @Override
+    protected void assertPlan(String sql, PlanMatchPattern pattern)
     {
         List<PlanOptimizer> optimizers = ImmutableList.of(
                 new UnaliasSymbolReferences(),

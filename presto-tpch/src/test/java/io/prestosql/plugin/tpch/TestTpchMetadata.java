@@ -25,6 +25,7 @@ import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTableLayoutResult;
 import io.prestosql.spi.connector.Constraint;
+import io.prestosql.spi.connector.ConstraintApplicationResult;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.predicate.NullableValue;
 import io.prestosql.spi.predicate.TupleDomain;
@@ -256,18 +257,18 @@ public class TestTpchMetadata
         TpchTableHandle tableHandle = tpchMetadata.getTableHandle(session, new SchemaTableName("sf1", ORDERS.getTableName()));
 
         TupleDomain<ColumnHandle> domain;
-        ConnectorTableLayoutResult tableLayout;
+        ConstraintApplicationResult<ConnectorTableHandle> result;
 
         domain = fixedValueTupleDomain(tpchMetadata, ORDER_STATUS, utf8Slice("P"));
-        tableLayout = getTableOnlyLayout(tpchMetadata, session, tableHandle, new Constraint(domain, convertToPredicate(domain, ORDER_STATUS)));
-        assertTupleDomainEquals(tableLayout.getUnenforcedConstraint(), TupleDomain.all(), session);
-        assertTupleDomainEquals(tableLayout.getTableLayout().getPredicate(), domain, session);
+        result = tpchMetadata.applyFilter(session, tableHandle, new Constraint(domain, convertToPredicate(domain, ORDER_STATUS))).get();
+        assertTupleDomainEquals(result.getRemainingFilter(), TupleDomain.all(), session);
+        assertTupleDomainEquals(((TpchTableHandle) result.getHandle()).getConstraint(), domain, session);
 
         domain = fixedValueTupleDomain(tpchMetadata, ORDER_KEY, 42L);
-        tableLayout = getTableOnlyLayout(tpchMetadata, session, tableHandle, new Constraint(domain, convertToPredicate(domain, ORDER_STATUS)));
-        assertTupleDomainEquals(tableLayout.getUnenforcedConstraint(), domain, session);
+        result = tpchMetadata.applyFilter(session, tableHandle, new Constraint(domain, convertToPredicate(domain, ORDER_STATUS))).get();
+        assertTupleDomainEquals(result.getRemainingFilter(), domain, session);
         assertTupleDomainEquals(
-                tableLayout.getTableLayout().getPredicate(),
+                ((TpchTableHandle) result.getHandle()).getConstraint(),
                 // The most important thing about the expected value that it is NOT TupleDomain.none() (or equivalent).
                 // Using concrete expected value instead of checking TupleDomain::isNone to make sure the test doesn't pass on some other wrong value.
                 TupleDomain.columnWiseUnion(
@@ -283,50 +284,50 @@ public class TestTpchMetadata
         TpchTableHandle tableHandle = tpchMetadata.getTableHandle(session, new SchemaTableName("sf1", PART.getTableName()));
 
         TupleDomain<ColumnHandle> domain;
-        ConnectorTableLayoutResult tableLayout;
+        ConstraintApplicationResult<ConnectorTableHandle> result;
 
         domain = fixedValueTupleDomain(tpchMetadata, PartColumn.TYPE, utf8Slice("SMALL BRUSHED COPPER"));
-        tableLayout = getTableOnlyLayout(tpchMetadata, session, tableHandle, new Constraint(domain, convertToPredicate(domain, PartColumn.TYPE)));
-        assertTupleDomainEquals(tableLayout.getUnenforcedConstraint(), TupleDomain.all(), session);
+        result = tpchMetadata.applyFilter(session, tableHandle, new Constraint(domain, convertToPredicate(domain, PartColumn.TYPE))).get();
+        assertTupleDomainEquals(result.getRemainingFilter(), TupleDomain.all(), session);
         assertTupleDomainEquals(
-                filterOutColumnFromPredicate(tableLayout.getTableLayout().getPredicate(), tpchMetadata.toColumnHandle(PartColumn.CONTAINER)),
+                filterOutColumnFromPredicate(((TpchTableHandle) result.getHandle()).getConstraint(), tpchMetadata.toColumnHandle(PartColumn.CONTAINER)),
                 domain,
                 session);
 
         domain = fixedValueTupleDomain(tpchMetadata, PartColumn.TYPE, utf8Slice("UNKNOWN"));
-        tableLayout = getTableOnlyLayout(tpchMetadata, session, tableHandle, new Constraint(domain, convertToPredicate(domain, PartColumn.TYPE)));
-        assertTupleDomainEquals(tableLayout.getUnenforcedConstraint(), TupleDomain.all(), session);
-        assertTupleDomainEquals(tableLayout.getTableLayout().getPredicate(), TupleDomain.none(), session);
+        result = tpchMetadata.applyFilter(session, tableHandle, new Constraint(domain, convertToPredicate(domain, PartColumn.TYPE))).get();
+        assertTupleDomainEquals(result.getRemainingFilter(), TupleDomain.all(), session);
+        assertTupleDomainEquals(((TpchTableHandle) result.getHandle()).getConstraint(), TupleDomain.none(), session);
 
         domain = fixedValueTupleDomain(tpchMetadata, PartColumn.CONTAINER, utf8Slice("SM BAG"));
-        tableLayout = getTableOnlyLayout(tpchMetadata, session, tableHandle, new Constraint(domain, convertToPredicate(domain, PartColumn.CONTAINER)));
-        assertTupleDomainEquals(tableLayout.getUnenforcedConstraint(), TupleDomain.all(), session);
+        result = tpchMetadata.applyFilter(session, tableHandle, new Constraint(domain, convertToPredicate(domain, PartColumn.CONTAINER))).get();
+        assertTupleDomainEquals(result.getRemainingFilter(), TupleDomain.all(), session);
         assertTupleDomainEquals(
-                filterOutColumnFromPredicate(tableLayout.getTableLayout().getPredicate(), tpchMetadata.toColumnHandle(PartColumn.TYPE)),
+                filterOutColumnFromPredicate(((TpchTableHandle) result.getHandle()).getConstraint(), tpchMetadata.toColumnHandle(PartColumn.TYPE)),
                 domain,
                 session);
 
         domain = fixedValueTupleDomain(tpchMetadata, PartColumn.CONTAINER, utf8Slice("UNKNOWN"));
-        tableLayout = getTableOnlyLayout(tpchMetadata, session, tableHandle, new Constraint(domain, convertToPredicate(domain, PartColumn.CONTAINER)));
-        assertTupleDomainEquals(tableLayout.getUnenforcedConstraint(), TupleDomain.all(), session);
-        assertTupleDomainEquals(tableLayout.getTableLayout().getPredicate(), TupleDomain.none(), session);
+        result = tpchMetadata.applyFilter(session, tableHandle, new Constraint(domain, convertToPredicate(domain, PartColumn.CONTAINER))).get();
+        assertTupleDomainEquals(result.getRemainingFilter(), TupleDomain.all(), session);
+        assertTupleDomainEquals(((TpchTableHandle) result.getHandle()).getConstraint(), TupleDomain.none(), session);
 
         domain = fixedValueTupleDomain(tpchMetadata, PartColumn.TYPE, utf8Slice("SMALL BRUSHED COPPER"), PartColumn.CONTAINER, utf8Slice("SM BAG"));
-        tableLayout = getTableOnlyLayout(tpchMetadata, session, tableHandle, new Constraint(domain, convertToPredicate(domain, PartColumn.CONTAINER)));
-        assertTupleDomainEquals(tableLayout.getUnenforcedConstraint(), TupleDomain.all(), session);
-        assertTupleDomainEquals(tableLayout.getTableLayout().getPredicate(), domain, session);
+        result = tpchMetadata.applyFilter(session, tableHandle, new Constraint(domain, convertToPredicate(domain, PartColumn.CONTAINER))).get();
+        assertTupleDomainEquals(result.getRemainingFilter(), TupleDomain.all(), session);
+        assertTupleDomainEquals(((TpchTableHandle) result.getHandle()).getConstraint(), domain, session);
 
         domain = fixedValueTupleDomain(tpchMetadata, PartColumn.TYPE, utf8Slice("UNKNOWN"), PartColumn.CONTAINER, utf8Slice("UNKNOWN"));
-        tableLayout = getTableOnlyLayout(tpchMetadata, session, tableHandle, new Constraint(domain, convertToPredicate(domain, PartColumn.TYPE, PartColumn.CONTAINER)));
-        assertTupleDomainEquals(tableLayout.getUnenforcedConstraint(), TupleDomain.all(), session);
-        assertTupleDomainEquals(tableLayout.getTableLayout().getPredicate(), TupleDomain.none(), session);
+        result = tpchMetadata.applyFilter(session, tableHandle, new Constraint(domain, convertToPredicate(domain, PartColumn.TYPE, PartColumn.CONTAINER))).get();
+        assertTupleDomainEquals(result.getRemainingFilter(), TupleDomain.all(), session);
+        assertTupleDomainEquals(((TpchTableHandle) result.getHandle()).getConstraint(), TupleDomain.none(), session);
     }
 
-    private Predicate<Map<ColumnHandle, NullableValue>> convertToPredicate(TupleDomain<ColumnHandle> domain, TpchColumn... columns)
+    private Predicate<Map<ColumnHandle, NullableValue>> convertToPredicate(TupleDomain<ColumnHandle> domain, TpchColumn<?>... columns)
     {
         Preconditions.checkArgument(columns.length > 0, "No columns given");
         return bindings -> {
-            for (TpchColumn column : columns) {
+            for (TpchColumn<?> column : columns) {
                 ColumnHandle columnHandle = tpchMetadata.toColumnHandle(column);
                 if (bindings.containsKey(columnHandle)) {
                     NullableValue nullableValue = requireNonNull(bindings.get(columnHandle), "binding is null");

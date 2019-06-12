@@ -28,6 +28,7 @@ import io.prestosql.orc.OrcWriteValidation.OrcWriteValidationMode;
 import io.prestosql.plugin.hive.s3.S3FileSystemType;
 import org.joda.time.DateTimeZone;
 
+import javax.annotation.Nullable;
 import javax.validation.constraints.DecimalMax;
 import javax.validation.constraints.DecimalMin;
 import javax.validation.constraints.Max;
@@ -66,6 +67,7 @@ public class HiveConfig
     private int maxPartitionBatchSize = 100;
     private int maxInitialSplits = 200;
     private int splitLoaderConcurrency = 4;
+    private Integer maxSplitsPerSecond;
     private DataSize maxInitialSplitSize;
     private int domainCompactionThreshold = 100;
     private DataSize writerSortBufferSize = new DataSize(64, MEGABYTE);
@@ -97,6 +99,7 @@ public class HiveConfig
     private HiveCompressionCodec hiveCompressionCodec = HiveCompressionCodec.GZIP;
     private boolean respectTableFormat = true;
     private boolean immutablePartitions;
+    private boolean createEmptyBucketFiles = true;
     private int maxPartitionsPerWriter = 100;
     private int maxOpenSortFiles = 50;
     private int writeValidationThreads = 16;
@@ -198,6 +201,21 @@ public class HiveConfig
     public HiveConfig setSplitLoaderConcurrency(int splitLoaderConcurrency)
     {
         this.splitLoaderConcurrency = splitLoaderConcurrency;
+        return this;
+    }
+
+    @Min(1)
+    @Nullable
+    public Integer getMaxSplitsPerSecond()
+    {
+        return maxSplitsPerSecond;
+    }
+
+    @Config("hive.max-splits-per-second")
+    @ConfigDescription("Throttles the maximum number of splits that can be assigned to tasks per second")
+    public HiveConfig setMaxSplitsPerSecond(Integer maxSplitsPerSecond)
+    {
+        this.maxSplitsPerSecond = maxSplitsPerSecond;
         return this;
     }
 
@@ -606,6 +624,19 @@ public class HiveConfig
     public HiveConfig setImmutablePartitions(boolean immutablePartitions)
     {
         this.immutablePartitions = immutablePartitions;
+        return this;
+    }
+
+    public boolean isCreateEmptyBucketFiles()
+    {
+        return createEmptyBucketFiles;
+    }
+
+    @Config("hive.create-empty-bucket-files")
+    @ConfigDescription("Create empty files for buckets that have no data")
+    public HiveConfig setCreateEmptyBucketFiles(boolean createEmptyBucketFiles)
+    {
+        this.createEmptyBucketFiles = createEmptyBucketFiles;
         return this;
     }
 

@@ -17,6 +17,7 @@ import com.google.common.collect.Ordering;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.concurrent.BoundedExecutor;
+import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.prestosql.Session;
@@ -29,6 +30,7 @@ import io.prestosql.server.ForStatementResource;
 import io.prestosql.spi.QueryId;
 import io.prestosql.spi.block.BlockEncodingSerde;
 
+import javax.annotation.PreDestroy;
 import javax.inject.Inject;
 import javax.ws.rs.DELETE;
 import javax.ws.rs.GET;
@@ -58,6 +60,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.net.HttpHeaders.X_FORWARDED_PROTO;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.airlift.http.server.AsyncResponseHandler.bindAsyncResponse;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.prestosql.client.PrestoHeaders.PRESTO_ADDED_PREPARE;
@@ -72,6 +75,8 @@ import static io.prestosql.client.PrestoHeaders.PRESTO_SET_SESSION;
 import static io.prestosql.client.PrestoHeaders.PRESTO_STARTED_TRANSACTION_ID;
 import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static javax.ws.rs.core.MediaType.TEXT_PLAIN_TYPE;
 import static javax.ws.rs.core.Response.Status.NOT_FOUND;
@@ -79,6 +84,7 @@ import static javax.ws.rs.core.Response.Status.NOT_FOUND;
 @Path("/")
 public class ExecutingStatementResource
 {
+    private static final Logger log = Logger.get(ExecutingStatementResource.class);
     private static final Duration MAX_WAIT_TIME = new Duration(1, SECONDS);
     private static final Ordering<Comparable<Duration>> WAIT_ORDERING = Ordering.natural().nullsLast();
 
@@ -92,6 +98,7 @@ public class ExecutingStatementResource
     private final ScheduledExecutorService timeoutExecutor;
 
     private final ConcurrentMap<QueryId, Query> queries = new ConcurrentHashMap<>();
+    private final ScheduledExecutorService queryPurger = newSingleThreadScheduledExecutor(threadsNamed("execution-query-purger"));
 
     @Inject
     public ExecutingStatementResource(
@@ -106,6 +113,34 @@ public class ExecutingStatementResource
         this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
         this.responseExecutor = requireNonNull(responseExecutor, "responseExecutor is null");
         this.timeoutExecutor = requireNonNull(timeoutExecutor, "timeoutExecutor is null");
+
+        queryPurger.scheduleWithFixedDelay(
+                () -> {
+                    try {
+                        for (Entry<QueryId, Query> entry : queries.entrySet()) {
+                            // forget about this query if the query manager is no longer tracking it
+                            try {
+                                queryManager.getQueryState(entry.getKey());
+                            }
+                            catch (NoSuchElementException e) {
+                                // query is no longer registered
+                                queries.remove(entry.getKey());
+                            }
+                        }
+                    }
+                    catch (Throwable e) {
+                        log.warn(e, "Error removing old queries");
+                    }
+                },
+                200,
+                200,
+                MILLISECONDS);
+    }
+
+    @PreDestroy
+    public void stop()
+    {
+        queryPurger.shutdownNow();
     }
 
     @GET

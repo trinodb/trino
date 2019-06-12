@@ -106,10 +106,27 @@ public final class QueryCardinalityUtil
         @Override
         public Range<Long> visitAggregation(AggregationNode node, Void context)
         {
-            if (node.hasEmptyGroupingSet()) {
+            if (node.hasEmptyGroupingSet() && node.getGroupingSetCount() == 1) {
+                // only single default aggregation which will produce exactly single row
                 return Range.singleton(1L);
             }
-            return Range.atLeast(0L);
+
+            Range<Long> sourceCardinalityRange = node.getSource().accept(this, null);
+
+            long lower;
+            if (node.hasDefaultOutput() || sourceCardinalityRange.lowerEndpoint() > 0) {
+                lower = 1;
+            }
+            else {
+                lower = 0;
+            }
+
+            if (sourceCardinalityRange.hasUpperBound()) {
+                long upper = Math.max(lower, sourceCardinalityRange.upperEndpoint());
+                return Range.closed(lower, upper);
+            }
+
+            return Range.atLeast(lower);
         }
 
         @Override
@@ -161,6 +178,17 @@ public final class QueryCardinalityUtil
         @Override
         public Range<Long> visitLimit(LimitNode node, Void context)
         {
+            if (node.isWithTies()) {
+                Range<Long> sourceCardinalityRange = node.getSource().accept(this, null);
+                long lower = min(node.getCount(), sourceCardinalityRange.lowerEndpoint());
+                if (sourceCardinalityRange.hasUpperBound()) {
+                    return Range.closed(lower, sourceCardinalityRange.upperEndpoint());
+                }
+                else {
+                    return Range.atLeast(lower);
+                }
+            }
+
             return applyLimit(node.getSource(), node.getCount());
         }
 

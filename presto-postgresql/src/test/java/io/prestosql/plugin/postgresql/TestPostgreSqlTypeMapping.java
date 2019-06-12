@@ -29,6 +29,7 @@ import io.prestosql.tests.datatype.DataTypeTest;
 import io.prestosql.tests.sql.JdbcSqlExecutor;
 import io.prestosql.tests.sql.PrestoSqlExecutor;
 import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -38,6 +39,8 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.function.Function;
 
@@ -47,6 +50,7 @@ import static com.google.common.io.BaseEncoding.base16;
 import static io.prestosql.plugin.postgresql.PostgreSqlQueryRunner.createPostgreSqlQueryRunner;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
+import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.tests.datatype.DataType.bigintDataType;
 import static io.prestosql.tests.datatype.DataType.booleanDataType;
@@ -66,6 +70,7 @@ import static io.prestosql.type.JsonType.JSON;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_16LE;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.time.ZoneOffset.UTC;
 import static java.util.Arrays.asList;
 import static java.util.Collections.singletonList;
 import static java.util.function.Function.identity;
@@ -76,6 +81,24 @@ public class TestPostgreSqlTypeMapping
         extends AbstractTestQueryFramework
 {
     private final TestingPostgreSqlServer postgreSqlServer;
+
+    private LocalDateTime beforeEpoch;
+    private LocalDateTime epoch;
+    private LocalDateTime afterEpoch;
+
+    private ZoneId jvmZone;
+    private LocalDateTime timeGapInJvmZone1;
+    private LocalDateTime timeGapInJvmZone2;
+    private LocalDateTime timeDoubledInJvmZone;
+
+    // no DST in 1970, but has DST in later years (e.g. 2018)
+    private ZoneId vilnius;
+    private LocalDateTime timeGapInVilnius;
+    private LocalDateTime timeDoubledInVilnius;
+
+    // minutes offset change since 1970-01-01, no DST
+    private ZoneId kathmandu;
+    private LocalDateTime timeGapInKathmandu;
 
     public TestPostgreSqlTypeMapping()
             throws Exception
@@ -94,6 +117,35 @@ public class TestPostgreSqlTypeMapping
             throws IOException
     {
         postgreSqlServer.close();
+    }
+
+    @BeforeClass
+    public void setUp()
+    {
+        beforeEpoch = LocalDateTime.of(1958, 1, 1, 13, 18, 3, 123_000_000);
+        epoch = LocalDateTime.of(1970, 1, 1, 0, 0, 0);
+        afterEpoch = LocalDateTime.of(2019, 03, 18, 10, 01, 17, 987_000_000);
+
+        jvmZone = ZoneId.systemDefault();
+
+        timeGapInJvmZone1 = LocalDateTime.of(1970, 1, 1, 0, 13, 42);
+        checkIsGap(jvmZone, timeGapInJvmZone1);
+        timeGapInJvmZone2 = LocalDateTime.of(2018, 4, 1, 2, 13, 55, 123_000_000);
+        checkIsGap(jvmZone, timeGapInJvmZone2);
+        timeDoubledInJvmZone = LocalDateTime.of(2018, 10, 28, 1, 33, 17, 456_000_000);
+        checkIsDoubled(jvmZone, timeDoubledInJvmZone);
+
+        vilnius = ZoneId.of("Europe/Vilnius");
+
+        timeGapInVilnius = LocalDateTime.of(2018, 3, 25, 3, 17, 17);
+        checkIsGap(vilnius, timeGapInVilnius);
+        timeDoubledInVilnius = LocalDateTime.of(2018, 10, 28, 3, 33, 33, 333_000_000);
+        checkIsDoubled(vilnius, timeDoubledInVilnius);
+
+        kathmandu = ZoneId.of("Asia/Kathmandu");
+
+        timeGapInKathmandu = LocalDateTime.of(1986, 1, 1, 0, 13, 7);
+        checkIsGap(kathmandu, timeGapInKathmandu);
     }
 
     @Test
@@ -284,9 +336,10 @@ public class TestPostgreSqlTypeMapping
     @Test
     public void testInternalArray()
     {
-        // One can declare column using internal type name for an array. Such a column is not recognized
-        // as array in Presto, because it does not have correct value in pg_attribute.attndims.
-        testUnsupportedDataType("_int4");
+        DataTypeTest.create()
+                .addRoundTrip(arrayDataType(integerDataType(), "_int4"), asList(1, 2, 3))
+                .addRoundTrip(arrayDataType(varcharDataType(), "_text"), asList("a", "b"))
+                .execute(getQueryRunner(), postgresCreateAndInsert("tpch.test_array_with_native_name"));
     }
 
     @Test
@@ -470,34 +523,7 @@ public class TestPostgreSqlTypeMapping
     @Test(dataProvider = "testTimestampDataProvider")
     public void testTimestamp(boolean legacyTimestamp, boolean insertWithPresto)
     {
-        LocalDateTime beforeEpoch = LocalDateTime.of(1958, 1, 1, 13, 18, 3, 123_000_000);
-        LocalDateTime epoch = LocalDateTime.of(1970, 1, 1, 0, 0, 0);
-        LocalDateTime afterEpoch = LocalDateTime.of(2019, 03, 18, 10, 01, 17, 987_000_000);
-
-        ZoneId jvmZone = ZoneId.systemDefault();
-
-        LocalDateTime timeGapInJvmZone1 = LocalDateTime.of(1970, 1, 1, 0, 13, 42);
-        checkIsGap(jvmZone, timeGapInJvmZone1);
-        LocalDateTime timeGapInJvmZone2 = LocalDateTime.of(2018, 4, 1, 2, 13, 55, 123_000_000);
-        checkIsGap(jvmZone, timeGapInJvmZone2);
-        LocalDateTime timeDoubledInJvmZone = LocalDateTime.of(2018, 10, 28, 1, 33, 17, 456_000_000);
-        checkIsDoubled(jvmZone, timeDoubledInJvmZone);
-
-        // no DST in 1970, but has DST in later years (e.g. 2018)
-        ZoneId vilnius = ZoneId.of("Europe/Vilnius");
-
-        LocalDateTime timeGapInVilnius = LocalDateTime.of(2018, 3, 25, 3, 17, 17);
-        checkIsGap(vilnius, timeGapInVilnius);
-        LocalDateTime timeDoubledInVilnius = LocalDateTime.of(2018, 10, 28, 3, 33, 33, 333_000_000);
-        checkIsDoubled(vilnius, timeDoubledInVilnius);
-
-        // minutes offset change since 1970-01-01, no DST
         // using two non-JVM zones so that we don't need to worry what Postgres system zone is
-        ZoneId kathmandu = ZoneId.of("Asia/Kathmandu");
-
-        LocalDateTime timeGapInKathmandu = LocalDateTime.of(1986, 1, 1, 0, 13, 7);
-        checkIsGap(kathmandu, timeGapInKathmandu);
-
         for (ZoneId sessionZone : ImmutableList.of(ZoneOffset.UTC, jvmZone, vilnius, kathmandu, ZoneId.of(TestingSession.DEFAULT_TIME_ZONE_KEY.getId()))) {
             DataTypeTest tests = DataTypeTest.create()
                     .addRoundTrip(timestampDataType(), beforeEpoch)
@@ -551,19 +577,50 @@ public class TestPostgreSqlTypeMapping
         };
     }
 
-    private static void checkIsGap(ZoneId zone, LocalDateTime dateTime)
+    @Test(dataProvider = "testTimestampWithTimeZoneDataProvider")
+    public void testTimestampWithTimeZone(boolean insertWithPresto)
     {
-        verify(isGap(zone, dateTime), "Expected %s to be a gap in %s", dateTime, zone);
+        DataType<ZonedDateTime> dataType;
+        DataSetup dataSetup;
+        if (insertWithPresto) {
+            dataType = prestoTimestampWithTimeZoneDataType();
+            dataSetup = prestoCreateAsSelect("test_timestamp_with_time_zone");
+        }
+        else {
+            dataType = postgreSqlTimestampWithTimeZoneDataType();
+            dataSetup = postgresCreateAndInsert("tpch.test_timestamp_with_time_zone");
+        }
+
+        DataTypeTest tests = DataTypeTest.create()
+                .addRoundTrip(dataType, epoch.atZone(UTC))
+                .addRoundTrip(dataType, epoch.atZone(kathmandu))
+                .addRoundTrip(dataType, beforeEpoch.atZone(UTC))
+                .addRoundTrip(dataType, beforeEpoch.atZone(kathmandu))
+                .addRoundTrip(dataType, afterEpoch.atZone(UTC))
+                .addRoundTrip(dataType, afterEpoch.atZone(kathmandu))
+                .addRoundTrip(dataType, timeDoubledInJvmZone.atZone(UTC))
+                .addRoundTrip(dataType, timeDoubledInJvmZone.atZone(jvmZone))
+                .addRoundTrip(dataType, timeDoubledInJvmZone.atZone(kathmandu))
+                .addRoundTrip(dataType, timeDoubledInVilnius.atZone(UTC))
+                .addRoundTrip(dataType, timeDoubledInVilnius.atZone(vilnius))
+                .addRoundTrip(dataType, timeDoubledInVilnius.atZone(kathmandu))
+                .addRoundTrip(dataType, timeGapInJvmZone1.atZone(UTC))
+                .addRoundTrip(dataType, timeGapInJvmZone1.atZone(kathmandu))
+                .addRoundTrip(dataType, timeGapInJvmZone2.atZone(UTC))
+                .addRoundTrip(dataType, timeGapInJvmZone2.atZone(kathmandu))
+                .addRoundTrip(dataType, timeGapInVilnius.atZone(kathmandu))
+                .addRoundTrip(dataType, timeGapInKathmandu.atZone(vilnius));
+
+        tests.execute(getQueryRunner(), dataSetup);
     }
 
-    private static boolean isGap(ZoneId zone, LocalDateTime dateTime)
+    @DataProvider
+    public Object[][] testTimestampWithTimeZoneDataProvider()
     {
-        return zone.getRules().getValidOffsets(dateTime).isEmpty();
-    }
-
-    private static void checkIsDoubled(ZoneId zone, LocalDateTime dateTime)
-    {
-        verify(zone.getRules().getValidOffsets(dateTime).size() == 2, "Expected %s to be doubled in %s", dateTime, zone);
+        return new Object[][] {
+                {true},
+                {false},
+        };
     }
 
     @Test
@@ -611,6 +668,27 @@ public class TestPostgreSqlTypeMapping
         }
     }
 
+    public static DataType<ZonedDateTime> prestoTimestampWithTimeZoneDataType()
+    {
+        return dataType(
+                "timestamp with time zone",
+                TIMESTAMP_WITH_TIME_ZONE,
+                DateTimeFormatter.ofPattern("'TIMESTAMP '''yyyy-MM-dd HH:mm:ss.SSS VV''")::format,
+                // PostgreSQL does not store zone, only the point in time
+                zonedDateTime -> zonedDateTime.withZoneSameInstant(ZoneId.of("UTC")));
+    }
+
+    public static DataType<ZonedDateTime> postgreSqlTimestampWithTimeZoneDataType()
+    {
+        return dataType(
+                "timestamp with time zone",
+                TIMESTAMP_WITH_TIME_ZONE,
+                // PostgreSQL never examines the content of a literal string before determining its type, so `TIMESTAMP '.... {zone}'` won't work.
+                // PostgreSQL does not store zone, only the point in time
+                zonedDateTime -> DateTimeFormatter.ofPattern("'TIMESTAMP WITH TIME ZONE '''yyyy-MM-dd HH:mm:ss.SSS VV''").format(zonedDateTime.withZoneSameInstant(UTC)),
+                zonedDateTime -> zonedDateTime.withZoneSameInstant(ZoneId.of("UTC")));
+    }
+
     public static DataType<String> jsonbDataType()
     {
         return dataType(
@@ -642,5 +720,20 @@ public class TestPostgreSqlTypeMapping
     private DataSetup postgresCreateAndInsert(String tableNamePrefix)
     {
         return new CreateAndInsertDataSetup(new JdbcSqlExecutor(postgreSqlServer.getJdbcUrl()), tableNamePrefix);
+    }
+
+    private static void checkIsGap(ZoneId zone, LocalDateTime dateTime)
+    {
+        verify(isGap(zone, dateTime), "Expected %s to be a gap in %s", dateTime, zone);
+    }
+
+    private static boolean isGap(ZoneId zone, LocalDateTime dateTime)
+    {
+        return zone.getRules().getValidOffsets(dateTime).isEmpty();
+    }
+
+    private static void checkIsDoubled(ZoneId zone, LocalDateTime dateTime)
+    {
+        verify(zone.getRules().getValidOffsets(dateTime).size() == 2, "Expected %s to be doubled in %s", dateTime, zone);
     }
 }

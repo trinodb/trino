@@ -21,7 +21,6 @@ import io.airlift.units.DataSize;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ConnectorSplit;
 import io.prestosql.spi.connector.ConnectorSplitSource;
-import io.prestosql.spi.predicate.TupleDomain;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -51,10 +50,10 @@ public class TestHiveSplitSource
                 SESSION,
                 "database",
                 "table",
-                TupleDomain.all(),
                 10,
                 10,
                 new DataSize(1, MEGABYTE),
+                Integer.MAX_VALUE,
                 new TestingHiveSplitLoader(),
                 Executors.newFixedThreadPool(5),
                 new CounterStat());
@@ -85,10 +84,10 @@ public class TestHiveSplitSource
                 SESSION,
                 "database",
                 "table",
-                TupleDomain.all(),
                 10,
                 10,
                 new DataSize(1, MEGABYTE),
+                Integer.MAX_VALUE,
                 new TestingHiveSplitLoader(),
                 Executors.newFixedThreadPool(5),
                 new CounterStat());
@@ -143,10 +142,10 @@ public class TestHiveSplitSource
                 SESSION,
                 "database",
                 "table",
-                TupleDomain.all(),
                 10,
                 10,
                 new DataSize(1, MEGABYTE),
+                Integer.MAX_VALUE,
                 new TestingHiveSplitLoader(),
                 Executors.newFixedThreadPool(5),
                 new CounterStat());
@@ -202,10 +201,10 @@ public class TestHiveSplitSource
                 SESSION,
                 "database",
                 "table",
-                TupleDomain.all(),
                 10,
                 10000,
                 maxOutstandingSplitsSize,
+                Integer.MAX_VALUE,
                 new TestingHiveSplitLoader(),
                 Executors.newFixedThreadPool(5),
                 new CounterStat());
@@ -239,10 +238,10 @@ public class TestHiveSplitSource
                 SESSION,
                 "database",
                 "table",
-                TupleDomain.all(),
                 10,
                 10,
                 new DataSize(1, MEGABYTE),
+                Integer.MAX_VALUE,
                 new TestingHiveSplitLoader(),
                 Executors.newFixedThreadPool(5),
                 new CounterStat());

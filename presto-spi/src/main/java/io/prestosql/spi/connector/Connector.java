@@ -33,7 +33,13 @@ public interface Connector
      */
     ConnectorMetadata getMetadata(ConnectorTransactionHandle transactionHandle);
 
-    ConnectorSplitManager getSplitManager();
+    /**
+     * @throws UnsupportedOperationException if this connector does not support tables with splits
+     */
+    default ConnectorSplitManager getSplitManager()
+    {
+        throw new UnsupportedOperationException();
+    }
 
     /**
      * @throws UnsupportedOperationException if this connector does not support reading tables page at a time
@@ -143,18 +149,14 @@ public interface Connector
      * Commit the transaction. Will be called at most once and will not be called if
      * {@link #rollback(ConnectorTransactionHandle)} is called.
      */
-    default void commit(ConnectorTransactionHandle transactionHandle)
-    {
-    }
+    default void commit(ConnectorTransactionHandle transactionHandle) {}
 
     /**
      * Rollback the transaction. Will be called at most once and will not be called if
      * {@link #commit(ConnectorTransactionHandle)} is called.
      * Note: calls to this method may race with calls to the ConnectorMetadata.
      */
-    default void rollback(ConnectorTransactionHandle transactionHandle)
-    {
-    }
+    default void rollback(ConnectorTransactionHandle transactionHandle) {}
 
     /**
      * True if the connector only supports write statements in independent transactions.

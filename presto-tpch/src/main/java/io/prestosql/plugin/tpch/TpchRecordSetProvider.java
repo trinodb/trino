@@ -47,7 +47,7 @@ public class TpchRecordSetProvider
                 tpchTable.getScaleFactor(),
                 tpchSplit.getPartNumber(),
                 tpchSplit.getTotalParts(),
-                tpchSplit.getPredicate());
+                tpchTable.getConstraint());
     }
 
     public <E extends TpchEntity> RecordSet getRecordSet(

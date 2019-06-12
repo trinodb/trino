@@ -33,9 +33,9 @@ public interface PatternVisitor
 
     void visitFilter(FilterPattern<?> pattern);
 
-    default void visitPrevious(Pattern pattern)
+    default void visitPrevious(Pattern<?> pattern)
     {
-        Optional<Pattern> previous = pattern.previous();
+        Optional<Pattern<?>> previous = pattern.previous();
         if (previous.isPresent()) {
             previous.get().accept(this);
         }

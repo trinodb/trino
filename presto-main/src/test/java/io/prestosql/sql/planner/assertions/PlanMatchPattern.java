@@ -388,7 +388,33 @@ public final class PlanMatchPattern
                         expectedEquiCriteria,
                         expectedFilter.map(predicate -> rewriteIdentifiersToSymbolReferences(new SqlParser().createExpression(predicate))),
                         expectedDistributionType,
-                        expectedSpillable));
+                        expectedSpillable,
+                        Optional.empty()));
+    }
+
+    public static PlanMatchPattern join(
+            JoinNode.Type joinType,
+            List<ExpectedValueProvider<JoinNode.EquiJoinClause>> expectedEquiCriteria,
+            Map<String, String> expectedDynamicFilter,
+            Optional<String> expectedStaticFilter,
+            PlanMatchPattern leftSource,
+            PlanMatchPattern right)
+    {
+        Map<SymbolAlias, SymbolAlias> expectedDynamicFilterAliases = expectedDynamicFilter.entrySet().stream()
+                .collect(toImmutableMap(entry -> new SymbolAlias(entry.getKey()), entry -> new SymbolAlias(entry.getValue())));
+        DynamicFilterMatcher dynamicFilterMatcher = new DynamicFilterMatcher(
+                expectedDynamicFilterAliases,
+                expectedStaticFilter.map(predicate -> rewriteIdentifiersToSymbolReferences(new SqlParser().createExpression(predicate))));
+        JoinMatcher joinMatcher = new JoinMatcher(
+                joinType,
+                expectedEquiCriteria,
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.of(dynamicFilterMatcher));
+
+        return node(JoinNode.class, anyTree(node(FilterNode.class, leftSource).with(dynamicFilterMatcher)), right)
+                .with(joinMatcher);
     }
 
     public static PlanMatchPattern spatialJoin(String expectedFilter, PlanMatchPattern left, PlanMatchPattern right)
@@ -533,12 +559,17 @@ public final class PlanMatchPattern
 
     public static PlanMatchPattern limit(long limit, PlanMatchPattern source)
     {
-        return limit(limit, false, source);
+        return limit(limit, ImmutableList.of(), false, source);
     }
 
-    public static PlanMatchPattern limit(long limit, boolean partial, PlanMatchPattern source)
+    public static PlanMatchPattern limit(long limit, List<Ordering> tiesResolvers, PlanMatchPattern source)
     {
-        return node(LimitNode.class, source).with(new LimitMatcher(limit, partial));
+        return limit(limit, tiesResolvers, false, source);
+    }
+
+    public static PlanMatchPattern limit(long limit, List<Ordering> tiesResolvers, boolean partial, PlanMatchPattern source)
+    {
+        return node(LimitNode.class, source).with(new LimitMatcher(limit, tiesResolvers, partial));
     }
 
     public static PlanMatchPattern enforceSingleRow(PlanMatchPattern source)

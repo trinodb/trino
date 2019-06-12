@@ -72,6 +72,7 @@ import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_PARTITION_READ_ONLY;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_PARTITION_SCHEMA_MISMATCH;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_PATH_ALREADY_EXISTS;
+import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_TABLE_READ_ONLY;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_WRITER_OPEN_ERROR;
 import static io.prestosql.plugin.hive.HiveType.toHiveTypes;
@@ -111,7 +112,7 @@ public class HiveWriterFactory
     private final HiveStorageFormat partitionStorageFormat;
     private final LocationHandle locationHandle;
     private final LocationService locationService;
-    private final String filePrefix;
+    private final String queryId;
 
     private final HivePageSinkMetadataProvider pageSinkMetadataProvider;
     private final TypeManager typeManager;
@@ -149,7 +150,7 @@ public class HiveWriterFactory
             List<SortingColumn> sortedBy,
             LocationHandle locationHandle,
             LocationService locationService,
-            String filePrefix,
+            String queryId,
             HivePageSinkMetadataProvider pageSinkMetadataProvider,
             TypeManager typeManager,
             HdfsEnvironment hdfsEnvironment,
@@ -172,7 +173,7 @@ public class HiveWriterFactory
         this.partitionStorageFormat = requireNonNull(partitionStorageFormat, "partitionStorageFormat is null");
         this.locationHandle = requireNonNull(locationHandle, "locationHandle is null");
         this.locationService = requireNonNull(locationService, "locationService is null");
-        this.filePrefix = requireNonNull(filePrefix, "filePrefix is null");
+        this.queryId = requireNonNull(queryId, "queryId is null");
 
         this.pageSinkMetadataProvider = requireNonNull(pageSinkMetadataProvider, "pageSinkMetadataProvider is null");
 
@@ -267,10 +268,10 @@ public class HiveWriterFactory
 
         String fileName;
         if (bucketNumber.isPresent()) {
-            fileName = computeBucketedFileName(filePrefix, bucketNumber.getAsInt());
+            fileName = computeBucketedFileName(queryId, bucketNumber.getAsInt());
         }
         else {
-            fileName = filePrefix + "_" + randomUUID();
+            fileName = queryId + "_" + randomUUID();
         }
 
         List<String> partitionValues = createPartitionValues(partitionColumnTypes, partitionColumns, position);
@@ -310,7 +311,7 @@ public class HiveWriterFactory
 
                 if (!partitionName.isPresent()) {
                     // new unpartitioned table
-                    writeInfo = locationService.getTableWriteInfo(locationHandle);
+                    writeInfo = locationService.getTableWriteInfo(locationHandle, false);
                 }
                 else {
                     // a new partition in a new partitioned table
@@ -339,14 +340,24 @@ public class HiveWriterFactory
                     writeInfo = locationService.getPartitionWriteInfo(locationHandle, partition, partitionName.get());
                 }
                 else {
-                    if (bucketNumber.isPresent()) {
-                        throw new PrestoException(HIVE_PARTITION_READ_ONLY, "Cannot insert into bucketed unpartitioned Hive table");
+                    switch (insertExistingPartitionsBehavior) {
+                        case APPEND:
+                            checkState(!immutablePartitions);
+                            if (bucketNumber.isPresent()) {
+                                throw new PrestoException(HIVE_TABLE_READ_ONLY, "Cannot insert into bucketed unpartitioned Hive table");
+                            }
+                            updateMode = UpdateMode.APPEND;
+                            writeInfo = locationService.getTableWriteInfo(locationHandle, false);
+                            break;
+                        case OVERWRITE:
+                            updateMode = UpdateMode.OVERWRITE;
+                            writeInfo = locationService.getTableWriteInfo(locationHandle, true);
+                            break;
+                        case ERROR:
+                            throw new PrestoException(HIVE_TABLE_READ_ONLY, "Unpartitioned Hive tables are immutable");
+                        default:
+                            throw new IllegalArgumentException("Unsupported insert existing table behavior: " + insertExistingPartitionsBehavior);
                     }
-                    if (immutablePartitions) {
-                        throw new PrestoException(HIVE_PARTITION_READ_ONLY, "Unpartitioned Hive tables are immutable");
-                    }
-                    updateMode = UpdateMode.APPEND;
-                    writeInfo = locationService.getTableWriteInfo(locationHandle);
                 }
 
                 schema = getHiveSchema(table);
@@ -586,9 +597,10 @@ public class HiveWriterFactory
         }
     }
 
-    public static String computeBucketedFileName(String filePrefix, int bucket)
+    public static String computeBucketedFileName(String queryId, int bucket)
     {
-        return filePrefix + "_bucket-" + Strings.padStart(Integer.toString(bucket), BUCKET_NUMBER_PADDING, '0');
+        String paddedBucket = Strings.padStart(Integer.toString(bucket), BUCKET_NUMBER_PADDING, '0');
+        return format("0%s_0_%s", paddedBucket, queryId);
     }
 
     public static String getFileExtension(JobConf conf, StorageFormat storageFormat)

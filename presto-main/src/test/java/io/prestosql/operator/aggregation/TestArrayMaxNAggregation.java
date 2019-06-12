@@ -15,7 +15,6 @@ package io.prestosql.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
-import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.type.ArrayType;
@@ -28,9 +27,7 @@ import java.util.PriorityQueue;
 import java.util.stream.LongStream;
 
 import static io.prestosql.block.BlockAssertions.createLongRepeatBlock;
-import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.prestosql.spi.type.BigintType.BIGINT;
-import static org.testng.Assert.assertEquals;
 
 public class TestArrayMaxNAggregation
         extends AbstractTestAggregationFunction
@@ -58,7 +55,7 @@ public class TestArrayMaxNAggregation
     }
 
     @Override
-    public Block[] getSequenceBlocks(int start, int length)
+    protected Block[] getSequenceBlocks(int start, int length)
     {
         return new Block[] {createLongArraySequenceBlock(start, start + length), createLongRepeatBlock(2, length)};
     }
@@ -76,7 +73,7 @@ public class TestArrayMaxNAggregation
     }
 
     @Override
-    public Object getExpectedValue(int start, int length)
+    protected Object getExpectedValue(int start, int length)
     {
         if (length == 0) {
             return null;
@@ -98,12 +95,8 @@ public class TestArrayMaxNAggregation
 
     private void testInvalidAggregation(Long[] x, int n)
     {
-        try {
-            testAggregation(null, createLongArraysBlock(x), createLongRepeatBlock(n, x.length));
-        }
-        catch (PrestoException e) {
-            assertEquals(e.getErrorCode().getName(), INVALID_FUNCTION_ARGUMENT.name());
-        }
+        assertInvalidAggregation(() ->
+                testAggregation(null, createLongArraysBlock(x), createLongRepeatBlock(n, x.length)));
     }
 
     private void testCustomAggregation(Long[] values, int n)

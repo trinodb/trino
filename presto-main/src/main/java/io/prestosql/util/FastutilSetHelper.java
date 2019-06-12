@@ -59,7 +59,7 @@ public final class FastutilSetHelper
             return new BooleanOpenHashSet((Collection<Boolean>) set, 0.25f);
         }
         else if (!type.getJavaType().isPrimitive()) {
-            return new ObjectOpenCustomHashSet(set, 0.25f, new ObjectStrategy(registry, type));
+            return new ObjectOpenCustomHashSet<>(set, 0.25f, new ObjectStrategy(registry, type));
         }
         else {
             throw new UnsupportedOperationException("Unsupported native type in set: " + type.getJavaType() + " with type " + type.getTypeSignature());
@@ -171,7 +171,7 @@ public final class FastutilSetHelper
     }
 
     private static final class ObjectStrategy
-            implements Hash.Strategy
+            implements Hash.Strategy<Object>
     {
         private final MethodHandle hashCodeHandle;
         private final MethodHandle equalsHandle;

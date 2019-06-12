@@ -72,6 +72,7 @@ import io.prestosql.sql.planner.plan.SortNode;
 import io.prestosql.sql.planner.plan.TableFinishNode;
 import io.prestosql.sql.planner.plan.TableScanNode;
 import io.prestosql.sql.planner.plan.TableWriterNode;
+import io.prestosql.sql.planner.plan.TableWriterNode.DeleteTarget;
 import io.prestosql.sql.planner.plan.TopNNode;
 import io.prestosql.sql.planner.plan.UnionNode;
 import io.prestosql.sql.planner.plan.ValuesNode;
@@ -208,7 +209,8 @@ public class PlanBuilder
                 source,
                 new OrderingScheme(
                         orderBy,
-                        Maps.toMap(orderBy, Functions.constant(SortOrder.ASC_NULLS_FIRST))));
+                        Maps.toMap(orderBy, Functions.constant(SortOrder.ASC_NULLS_FIRST))),
+                false);
     }
 
     public OffsetNode offset(long rowCount, PlanNode source)
@@ -218,7 +220,24 @@ public class PlanBuilder
 
     public LimitNode limit(long limit, PlanNode source)
     {
-        return new LimitNode(idAllocator.getNextId(), source, limit, false);
+        return limit(limit, ImmutableList.of(), source);
+    }
+
+    public LimitNode limit(long limit, List<Symbol> tiesResolvers, PlanNode source)
+    {
+        Optional<OrderingScheme> tiesResolvingScheme = Optional.empty();
+        if (!tiesResolvers.isEmpty()) {
+            tiesResolvingScheme = Optional.of(
+                    new OrderingScheme(
+                            tiesResolvers,
+                            Maps.toMap(tiesResolvers, Functions.constant(SortOrder.ASC_NULLS_FIRST))));
+        }
+        return new LimitNode(
+                idAllocator.getNextId(),
+                source,
+                limit,
+                tiesResolvingScheme,
+                false);
     }
 
     public TopNNode topN(long count, List<Symbol> orderBy, PlanNode source)
@@ -434,7 +453,7 @@ public class PlanBuilder
 
     public TableFinishNode tableDelete(SchemaTableName schemaTableName, PlanNode deleteSource, Symbol deleteRowId)
     {
-        TableWriterNode.DeleteHandle deleteHandle = new TableWriterNode.DeleteHandle(
+        DeleteTarget deleteTarget = new DeleteTarget(
                 new TableHandle(
                         new CatalogName("testConnector"),
                         new TestingTableHandle(),
@@ -447,12 +466,12 @@ public class PlanBuilder
                         .addSource(new DeleteNode(
                                 idAllocator.getNextId(),
                                 deleteSource,
-                                deleteHandle,
+                                deleteTarget,
                                 deleteRowId,
                                 ImmutableList.of(deleteRowId)))
                         .addInputsSet(deleteRowId)
                         .singleDistributionPartitioningScheme(deleteRowId)),
-                deleteHandle,
+                deleteTarget,
                 deleteRowId,
                 Optional.empty(),
                 Optional.empty());
@@ -642,7 +661,8 @@ public class PlanBuilder
                         .build(),
                 filter,
                 Optional.empty(),
-                Optional.empty());
+                Optional.empty(),
+                ImmutableMap.of());
     }
 
     public JoinNode join(JoinNode.Type type, PlanNode left, PlanNode right, List<JoinNode.EquiJoinClause> criteria, List<Symbol> outputSymbols, Optional<Expression> filter)
@@ -660,7 +680,7 @@ public class PlanBuilder
             Optional<Symbol> leftHashSymbol,
             Optional<Symbol> rightHashSymbol)
     {
-        return join(type, left, right, criteria, outputSymbols, filter, leftHashSymbol, rightHashSymbol, Optional.empty());
+        return join(type, left, right, criteria, outputSymbols, filter, leftHashSymbol, rightHashSymbol, Optional.empty(), ImmutableMap.of());
     }
 
     public JoinNode join(
@@ -672,9 +692,24 @@ public class PlanBuilder
             Optional<Expression> filter,
             Optional<Symbol> leftHashSymbol,
             Optional<Symbol> rightHashSymbol,
-            Optional<JoinNode.DistributionType> distributionType)
+            Map<String, Symbol> dynamicFilters)
     {
-        return new JoinNode(idAllocator.getNextId(), type, left, right, criteria, outputSymbols, filter, leftHashSymbol, rightHashSymbol, distributionType, Optional.empty());
+        return join(type, left, right, criteria, outputSymbols, filter, leftHashSymbol, rightHashSymbol, Optional.empty(), dynamicFilters);
+    }
+
+    public JoinNode join(
+            JoinNode.Type type,
+            PlanNode left,
+            PlanNode right,
+            List<JoinNode.EquiJoinClause> criteria,
+            List<Symbol> outputSymbols,
+            Optional<Expression> filter,
+            Optional<Symbol> leftHashSymbol,
+            Optional<Symbol> rightHashSymbol,
+            Optional<JoinNode.DistributionType> distributionType,
+            Map<String, Symbol> dynamicFilters)
+    {
+        return new JoinNode(idAllocator.getNextId(), type, left, right, criteria, outputSymbols, filter, leftHashSymbol, rightHashSymbol, distributionType, Optional.empty(), dynamicFilters);
     }
 
     public PlanNode indexJoin(IndexJoinNode.Type type, TableScanNode probe, TableScanNode index)

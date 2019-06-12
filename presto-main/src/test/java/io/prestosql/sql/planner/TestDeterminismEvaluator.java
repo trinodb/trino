@@ -32,6 +32,7 @@ public class TestDeterminismEvaluator
         assertFalse(DeterminismEvaluator.isDeterministic(function("rand")));
         assertFalse(DeterminismEvaluator.isDeterministic(function("random")));
         assertFalse(DeterminismEvaluator.isDeterministic(function("shuffle")));
+        assertFalse(DeterminismEvaluator.isDeterministic(function("uuid")));
         assertTrue(DeterminismEvaluator.isDeterministic(function("abs", input("symbol"))));
         assertFalse(DeterminismEvaluator.isDeterministic(function("abs", function("rand"))));
         assertTrue(DeterminismEvaluator.isDeterministic(function("abs", function("abs", input("symbol")))));

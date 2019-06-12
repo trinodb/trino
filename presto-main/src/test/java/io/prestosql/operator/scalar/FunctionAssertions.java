@@ -45,8 +45,6 @@ import io.prestosql.spi.ErrorCodeSupplier;
 import io.prestosql.spi.HostAddress;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.PageBuilder;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.StandardErrorCode;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorPageSource;
@@ -63,7 +61,6 @@ import io.prestosql.split.PageSourceProvider;
 import io.prestosql.sql.analyzer.ExpressionAnalysis;
 import io.prestosql.sql.analyzer.FeaturesConfig;
 import io.prestosql.sql.analyzer.SemanticErrorCode;
-import io.prestosql.sql.analyzer.SemanticException;
 import io.prestosql.sql.gen.ExpressionCompiler;
 import io.prestosql.sql.parser.SqlParser;
 import io.prestosql.sql.planner.ExpressionInterpreter;
@@ -137,6 +134,8 @@ import static io.prestosql.sql.relational.Expressions.constant;
 import static io.prestosql.sql.relational.SqlToRowExpressionTranslator.translate;
 import static io.prestosql.testing.TestingHandles.TEST_TABLE_HANDLE;
 import static io.prestosql.testing.TestingTaskContext.createTaskContext;
+import static io.prestosql.testing.assertions.PrestoExceptionAssert.assertPrestoExceptionThrownBy;
+import static io.prestosql.testing.assertions.SemanticExceptionAssert.assertSemanticExceptionThrownBy;
 import static io.prestosql.type.UnknownType.UNKNOWN;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -306,7 +305,7 @@ public final class FunctionAssertions
         HashSet<Object> resultSet = new HashSet<>(results);
 
         // we should only have a single result
-        assertTrue(resultSet.size() == 1, "Expected only one result unique result, but got " + resultSet);
+        assertEquals(resultSet.size(), 1, "Expected only one result unique result, but got " + resultSet);
 
         return Iterables.getOnlyElement(resultSet);
     }
@@ -324,132 +323,55 @@ public final class FunctionAssertions
         }
     }
 
-    public void assertInvalidFunction(String projection, StandardErrorCode errorCode, String messagePattern)
+    public void assertInvalidFunction(String projection, ErrorCodeSupplier errorCode, String message)
     {
-        try {
-            evaluateInvalid(projection);
-            fail("Expected to throw a PrestoException with message matching " + messagePattern);
-        }
-        catch (PrestoException e) {
-            try {
-                assertEquals(e.getErrorCode(), errorCode.toErrorCode());
-                assertTrue(e.getMessage().equals(messagePattern) || e.getMessage().matches(messagePattern), format("Error message [%s] doesn't match [%s]", e.getMessage(), messagePattern));
-            }
-            catch (Throwable failure) {
-                failure.addSuppressed(e);
-                throw failure;
-            }
-        }
+        assertPrestoExceptionThrownBy(() -> evaluateInvalid(projection))
+                .hasErrorCode(errorCode)
+                .hasMessage(message);
     }
 
-    public void assertInvalidFunction(String projection, String messagePattern)
+    public void assertInvalidFunction(String projection, String message)
     {
-        assertInvalidFunction(projection, INVALID_FUNCTION_ARGUMENT, messagePattern);
+        assertInvalidFunction(projection, INVALID_FUNCTION_ARGUMENT, message);
     }
 
     public void assertInvalidFunction(String projection, SemanticErrorCode expectedErrorCode)
     {
-        try {
-            evaluateInvalid(projection);
-            fail(format("Expected to throw %s exception", expectedErrorCode));
-        }
-        catch (SemanticException e) {
-            try {
-                assertEquals(e.getCode(), expectedErrorCode);
-            }
-            catch (Throwable failure) {
-                failure.addSuppressed(e);
-                throw failure;
-            }
-        }
+        assertSemanticExceptionThrownBy(() -> evaluateInvalid(projection))
+                .hasErrorCode(expectedErrorCode);
     }
 
     public void assertInvalidFunction(String projection, SemanticErrorCode expectedErrorCode, String message)
     {
-        try {
-            evaluateInvalid(projection);
-            fail(format("Expected to throw %s exception", expectedErrorCode));
-        }
-        catch (SemanticException e) {
-            try {
-                assertEquals(e.getCode(), expectedErrorCode);
-                assertEquals(e.getMessage(), message);
-            }
-            catch (Throwable failure) {
-                failure.addSuppressed(e);
-                throw failure;
-            }
-        }
+        assertSemanticExceptionThrownBy(() -> evaluateInvalid(projection))
+                .hasErrorCode(expectedErrorCode)
+                .hasMessage(message);
     }
 
     public void assertInvalidFunction(String projection, ErrorCodeSupplier expectedErrorCode)
     {
-        try {
-            evaluateInvalid(projection);
-            fail(format("Expected to throw %s exception", expectedErrorCode.toErrorCode()));
-        }
-        catch (PrestoException e) {
-            try {
-                assertEquals(e.getErrorCode(), expectedErrorCode.toErrorCode());
-            }
-            catch (Throwable failure) {
-                failure.addSuppressed(e);
-                throw failure;
-            }
-        }
+        assertPrestoExceptionThrownBy(() -> evaluateInvalid(projection))
+                .hasErrorCode(expectedErrorCode);
     }
 
     public void assertNumericOverflow(String projection, String message)
     {
-        try {
-            evaluateInvalid(projection);
-            fail("Expected to throw an NUMERIC_VALUE_OUT_OF_RANGE exception with message " + message);
-        }
-        catch (PrestoException e) {
-            try {
-                assertEquals(e.getErrorCode(), NUMERIC_VALUE_OUT_OF_RANGE.toErrorCode());
-                assertEquals(e.getMessage(), message);
-            }
-            catch (Throwable failure) {
-                failure.addSuppressed(e);
-                throw failure;
-            }
-        }
+        assertPrestoExceptionThrownBy(() -> evaluateInvalid(projection))
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
+                .hasMessage(message);
     }
 
     public void assertInvalidCast(String projection)
     {
-        try {
-            evaluateInvalid(projection);
-            fail("Expected to throw an INVALID_CAST_ARGUMENT exception");
-        }
-        catch (PrestoException e) {
-            try {
-                assertEquals(e.getErrorCode(), INVALID_CAST_ARGUMENT.toErrorCode());
-            }
-            catch (Throwable failure) {
-                failure.addSuppressed(e);
-                throw failure;
-            }
-        }
+        assertPrestoExceptionThrownBy(() -> evaluateInvalid(projection))
+                .hasErrorCode(INVALID_CAST_ARGUMENT);
     }
 
     public void assertInvalidCast(String projection, String message)
     {
-        try {
-            evaluateInvalid(projection);
-            fail("Expected to throw an INVALID_CAST_ARGUMENT exception");
-        }
-        catch (PrestoException e) {
-            try {
-                assertEquals(e.getErrorCode(), INVALID_CAST_ARGUMENT.toErrorCode());
-                assertEquals(e.getMessage(), message);
-            }
-            catch (Throwable failure) {
-                failure.addSuppressed(e);
-                throw failure;
-            }
-        }
+        assertPrestoExceptionThrownBy(() -> evaluateInvalid(projection))
+                .hasErrorCode(INVALID_CAST_ARGUMENT)
+                .hasMessage(message);
     }
 
     private void evaluateInvalid(String projection)
@@ -528,7 +450,7 @@ public final class FunctionAssertions
             return ((Block) object).getRetainedSizeInBytes();
         }
 
-        Class type = object.getClass();
+        Class<?> type = object.getClass();
         if (type.isArray()) {
             if (type == int[].class) {
                 return sizeOf((int[]) object);

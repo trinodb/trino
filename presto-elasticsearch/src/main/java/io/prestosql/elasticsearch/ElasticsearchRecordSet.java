@@ -28,11 +28,13 @@ public class ElasticsearchRecordSet
     private final List<ElasticsearchColumnHandle> columnHandles;
     private final List<Type> columnTypes;
     private final ElasticsearchSplit split;
+    private final ElasticsearchTableHandle table;
     private final ElasticsearchConnectorConfig config;
 
-    public ElasticsearchRecordSet(ElasticsearchSplit split, ElasticsearchConnectorConfig config, List<ElasticsearchColumnHandle> columnHandles)
+    public ElasticsearchRecordSet(ElasticsearchSplit split, ElasticsearchTableHandle table, ElasticsearchConnectorConfig config, List<ElasticsearchColumnHandle> columnHandles)
     {
         this.split = requireNonNull(split, "split is null");
+        this.table = requireNonNull(table, "table is null");
         this.config = requireNonNull(config, "config is null");
         this.columnHandles = requireNonNull(columnHandles, "columnHandles is null");
         this.columnTypes = columnHandles.stream()
@@ -49,6 +51,6 @@ public class ElasticsearchRecordSet
     @Override
     public RecordCursor cursor()
     {
-        return new ElasticsearchRecordCursor(columnHandles, config, split);
+        return new ElasticsearchRecordCursor(columnHandles, config, split, table);
     }
 }

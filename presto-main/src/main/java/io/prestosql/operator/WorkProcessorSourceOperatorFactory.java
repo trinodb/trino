@@ -24,6 +24,8 @@ public interface WorkProcessorSourceOperatorFactory
 
     PlanNodeId getSourceId();
 
+    String getOperatorType();
+
     WorkProcessorSourceOperator create(
             Session session,
             MemoryTrackingContext memoryTrackingContext,

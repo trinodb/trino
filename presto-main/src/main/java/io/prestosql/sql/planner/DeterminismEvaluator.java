@@ -13,11 +13,12 @@
  */
 package io.prestosql.sql.planner;
 
+import com.google.common.collect.ImmutableSet;
 import io.prestosql.sql.tree.DefaultExpressionTraversalVisitor;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.FunctionCall;
-import io.prestosql.sql.tree.QualifiedName;
 
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static java.util.Objects.requireNonNull;
@@ -41,13 +42,13 @@ public final class DeterminismEvaluator
     private static class Visitor
             extends DefaultExpressionTraversalVisitor<Void, AtomicBoolean>
     {
+        private static final Set<String> FUNCTIONS = ImmutableSet.of("rand", "random", "shuffle", "uuid");
+
         @Override
         protected Void visitFunctionCall(FunctionCall node, AtomicBoolean deterministic)
         {
             // TODO: total hack to figure out if a function is deterministic. martint should fix this when he refactors the planning code
-            if (node.getName().equals(QualifiedName.of("rand")) ||
-                    node.getName().equals(QualifiedName.of("random")) ||
-                    node.getName().equals(QualifiedName.of("shuffle"))) {
+            if (FUNCTIONS.contains(node.getName().toString())) {
                 deterministic.set(false);
             }
             return super.visitFunctionCall(node, deterministic);

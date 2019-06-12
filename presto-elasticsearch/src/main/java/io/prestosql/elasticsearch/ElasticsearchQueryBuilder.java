@@ -68,14 +68,14 @@ public class ElasticsearchQueryBuilder
     private final String index;
     private final String type;
 
-    public ElasticsearchQueryBuilder(List<ElasticsearchColumnHandle> columnHandles, ElasticsearchConnectorConfig config, ElasticsearchSplit split)
+    public ElasticsearchQueryBuilder(List<ElasticsearchColumnHandle> columnHandles, ElasticsearchConnectorConfig config, ElasticsearchSplit split, ElasticsearchTableHandle table)
     {
         requireNonNull(columnHandles, "columnHandles is null");
         requireNonNull(config, "config is null");
         requireNonNull(split, "split is null");
 
         columns = columnHandles;
-        tupleDomain = split.getTupleDomain();
+        tupleDomain = table.getConstraint();
         index = split.getIndex();
         shard = split.getShard();
         type = split.getType();

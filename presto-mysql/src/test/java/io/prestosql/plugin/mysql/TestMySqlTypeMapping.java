@@ -23,6 +23,7 @@ import io.prestosql.tests.AbstractTestQueryFramework;
 import io.prestosql.tests.datatype.CreateAndInsertDataSetup;
 import io.prestosql.tests.datatype.CreateAsSelectDataSetup;
 import io.prestosql.tests.datatype.DataSetup;
+import io.prestosql.tests.datatype.DataType;
 import io.prestosql.tests.datatype.DataTypeTest;
 import io.prestosql.tests.sql.JdbcSqlExecutor;
 import io.prestosql.tests.sql.PrestoSqlExecutor;
@@ -32,6 +33,7 @@ import org.testng.annotations.Test;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.repeat;
@@ -42,16 +44,20 @@ import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
 import static io.prestosql.tests.datatype.DataType.bigintDataType;
 import static io.prestosql.tests.datatype.DataType.charDataType;
+import static io.prestosql.tests.datatype.DataType.dataType;
 import static io.prestosql.tests.datatype.DataType.dateDataType;
 import static io.prestosql.tests.datatype.DataType.decimalDataType;
 import static io.prestosql.tests.datatype.DataType.doubleDataType;
+import static io.prestosql.tests.datatype.DataType.formatStringLiteral;
 import static io.prestosql.tests.datatype.DataType.integerDataType;
 import static io.prestosql.tests.datatype.DataType.realDataType;
 import static io.prestosql.tests.datatype.DataType.smallintDataType;
 import static io.prestosql.tests.datatype.DataType.stringDataType;
 import static io.prestosql.tests.datatype.DataType.tinyintDataType;
 import static io.prestosql.tests.datatype.DataType.varcharDataType;
+import static io.prestosql.type.JsonType.JSON;
 import static java.lang.String.format;
+import static java.util.function.Function.identity;
 
 @Test
 public class TestMySqlTypeMapping
@@ -262,6 +268,30 @@ public class TestMySqlTypeMapping
         // testing this is hard because of https://github.com/prestodb/presto/issues/7122
     }
 
+    @Test
+    public void testJson()
+    {
+        jsonTestCases(jsonDataType(value -> "JSON " + formatStringLiteral(value)))
+                .execute(getQueryRunner(), prestoCreateAsSelect("presto_test_json"));
+        jsonTestCases(jsonDataType(value -> format("CAST(%s AS JSON)", formatStringLiteral(value))))
+                .execute(getQueryRunner(), mysqlCreateAndInsert("tpch.mysql_test_json"));
+    }
+
+    private DataTypeTest jsonTestCases(DataType<String> jsonDataType)
+    {
+        return DataTypeTest.create()
+                           .addRoundTrip(jsonDataType, "{}")
+                           .addRoundTrip(jsonDataType, null)
+                           .addRoundTrip(jsonDataType, "null")
+                           .addRoundTrip(jsonDataType, "123.4")
+                           .addRoundTrip(jsonDataType, "\"abc\"")
+                           .addRoundTrip(jsonDataType, "\"text with ' apostrophes\"")
+                           .addRoundTrip(jsonDataType, "\"\"")
+                           .addRoundTrip(jsonDataType, "{\"a\":1,\"b\":2}")
+                           .addRoundTrip(jsonDataType, "{\"a\":[1,2,3],\"b\":{\"aa\":11,\"bb\":[{\"a\":1,\"b\":2},{\"a\":0}]}}")
+                           .addRoundTrip(jsonDataType, "[]");
+    }
+
     private void testUnsupportedDataType(String databaseDataType)
     {
         JdbcSqlExecutor jdbcSqlExecutor = new JdbcSqlExecutor(mysqlServer.getJdbcUrl());
@@ -285,5 +315,14 @@ public class TestMySqlTypeMapping
     {
         JdbcSqlExecutor mysqlUnicodeExecutor = new JdbcSqlExecutor(mysqlServer.getJdbcUrl() + "&useUnicode=true&characterEncoding=utf8");
         return new CreateAndInsertDataSetup(mysqlUnicodeExecutor, tableNamePrefix);
+    }
+
+    private static DataType<String> jsonDataType(Function<String, String> toLiteral)
+    {
+        return dataType(
+                "json",
+                JSON,
+                toLiteral,
+                identity());
     }
 }

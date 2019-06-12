@@ -113,6 +113,11 @@ public class AsyncQueue<T>
         return immediateFuture(null);
     }
 
+    public synchronized int size()
+    {
+        return elements.size();
+    }
+
     private synchronized List<T> getBatch(int maxSize)
     {
         int oldSize = elements.size();
@@ -135,6 +140,11 @@ public class AsyncQueue<T>
     public synchronized ListenableFuture<List<T>> getBatchAsync(int maxSize)
     {
         return borrowBatchAsync(maxSize, elements -> new BorrowResult<>(ImmutableList.of(), elements));
+    }
+
+    protected synchronized SettableFuture<?> getNotEmptySignal()
+    {
+        return notEmptySignal;
     }
 
     /**

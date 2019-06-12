@@ -27,7 +27,7 @@ public class TestIntervalDayToSecondSumAggregation
         extends AbstractTestAggregationFunction
 {
     @Override
-    public Block[] getSequenceBlocks(int start, int length)
+    protected Block[] getSequenceBlocks(int start, int length)
     {
         BlockBuilder blockBuilder = INTERVAL_DAY_TIME.createBlockBuilder(null, length);
         for (int i = start; i < start + length; i++) {
@@ -37,7 +37,7 @@ public class TestIntervalDayToSecondSumAggregation
     }
 
     @Override
-    public SqlIntervalDayTime getExpectedValue(int start, int length)
+    protected SqlIntervalDayTime getExpectedValue(int start, int length)
     {
         if (length == 0) {
             return null;

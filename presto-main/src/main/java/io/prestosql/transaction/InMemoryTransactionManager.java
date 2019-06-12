@@ -22,6 +22,7 @@ import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.concurrent.ExecutorServiceAdapter;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
+import io.prestosql.NotInTransactionException;
 import io.prestosql.connector.CatalogName;
 import io.prestosql.metadata.Catalog;
 import io.prestosql.metadata.CatalogManager;
@@ -67,8 +68,6 @@ import static io.prestosql.spi.StandardErrorCode.MULTI_CATALOG_WRITE_CONFLICT;
 import static io.prestosql.spi.StandardErrorCode.NOT_FOUND;
 import static io.prestosql.spi.StandardErrorCode.READ_ONLY_VIOLATION;
 import static io.prestosql.spi.StandardErrorCode.TRANSACTION_ALREADY_ABORTED;
-import static io.prestosql.spi.StandardErrorCode.UNKNOWN_TRANSACTION;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.stream.Collectors.toList;
@@ -256,7 +255,7 @@ public class InMemoryTransactionManager
     {
         TransactionMetadata transactionMetadata = transactions.get(transactionId);
         if (transactionMetadata == null) {
-            throw unknownTransactionError(transactionId);
+            throw new NotInTransactionException(transactionId);
         }
         return transactionMetadata;
     }
@@ -270,14 +269,9 @@ public class InMemoryTransactionManager
     {
         TransactionMetadata transactionMetadata = transactions.remove(transactionId);
         if (transactionMetadata == null) {
-            return immediateFailedFuture(unknownTransactionError(transactionId));
+            return immediateFailedFuture(new NotInTransactionException(transactionId));
         }
         return immediateFuture(transactionMetadata);
-    }
-
-    private static PrestoException unknownTransactionError(TransactionId transactionId)
-    {
-        return new PrestoException(UNKNOWN_TRANSACTION, format("Unknown transaction ID: %s. Possibly expired? Commands ignored until end of transaction block", transactionId));
     }
 
     @Override

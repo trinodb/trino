@@ -20,7 +20,6 @@ import io.prestosql.operator.Work;
 import io.prestosql.operator.project.PageProjection;
 import io.prestosql.operator.project.SelectedPositions;
 import io.prestosql.spi.Page;
-import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.sql.relational.CallExpression;
@@ -37,11 +36,11 @@ import static io.prestosql.sql.relational.Expressions.call;
 import static io.prestosql.sql.relational.Expressions.constant;
 import static io.prestosql.sql.relational.Expressions.field;
 import static io.prestosql.testing.TestingConnectorSession.SESSION;
+import static io.prestosql.testing.assertions.PrestoExceptionAssert.assertPrestoExceptionThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotSame;
 import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
 
 public class TestPageFunctionCompiler
 {
@@ -66,13 +65,8 @@ public class TestPageFunctionCompiler
 
         // addition will throw due to integer overflow
         Page badPage = createLongBlockPage(0, 1, 2, 3, 4, Long.MAX_VALUE);
-        try {
-            project(projection, badPage, SelectedPositions.positionsRange(0, 100));
-            fail("expected exception");
-        }
-        catch (PrestoException e) {
-            assertEquals(e.getErrorCode(), NUMERIC_VALUE_OUT_OF_RANGE.toErrorCode());
-        }
+        assertPrestoExceptionThrownBy(() -> project(projection, badPage, SelectedPositions.positionsRange(0, 100)))
+                .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
         // running the good page should still work
         // if block builder in generated code was not reset properly, we could get junk results after the failure

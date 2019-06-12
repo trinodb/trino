@@ -72,7 +72,7 @@ public class RuleAssert
     private final TransactionManager transactionManager;
     private final AccessControl accessControl;
 
-    public RuleAssert(Metadata metadata, StatsCalculator statsCalculator, CostCalculator costCalculator, Session session, Rule rule, TransactionManager transactionManager, AccessControl accessControl)
+    public RuleAssert(Metadata metadata, StatsCalculator statsCalculator, CostCalculator costCalculator, Session session, Rule<?> rule, TransactionManager transactionManager, AccessControl accessControl)
     {
         this.metadata = metadata;
         this.statsCalculator = new TestingStatsCalculator(statsCalculator);
@@ -120,7 +120,7 @@ public class RuleAssert
             fail(format(
                     "Expected %s to not fire for:\n%s",
                     rule.getClass().getName(),
-                    inTransaction(session -> textLogicalPlan(plan, ruleApplication.types, metadata.getFunctionRegistry(), Optional.of(metadata), StatsAndCosts.empty(), session, 2))));
+                    inTransaction(session -> textLogicalPlan(plan, ruleApplication.types, metadata, StatsAndCosts.empty(), session, 2, false))));
         }
     }
 
@@ -194,7 +194,7 @@ public class RuleAssert
     {
         StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, types);
         CostProvider costProvider = new CachingCostProvider(costCalculator, statsProvider, session, types);
-        return inTransaction(session -> textLogicalPlan(plan, types, metadata.getFunctionRegistry(), Optional.of(metadata), StatsAndCosts.create(plan, statsProvider, costProvider), session, 2, false));
+        return inTransaction(session -> textLogicalPlan(plan, types, metadata, StatsAndCosts.create(plan, statsProvider, costProvider), session, 2, false));
     }
 
     private <T> T inTransaction(Function<Session, T> transactionSessionConsumer)

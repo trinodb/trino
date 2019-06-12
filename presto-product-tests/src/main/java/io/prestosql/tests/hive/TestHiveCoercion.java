@@ -520,7 +520,7 @@ public class TestHiveCoercion
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN map_to_map map_to_map map<int,struct<ti2bi:bigint, int2bi:bigint, float2double:double, add:tinyint>>", tableName));
     }
 
-    private static TableInstance mutableTableInstanceOf(TableDefinition tableDefinition)
+    private static TableInstance<?> mutableTableInstanceOf(TableDefinition tableDefinition)
     {
         if (tableDefinition.getDatabase().isPresent()) {
             return mutableTableInstanceOf(tableDefinition, tableDefinition.getDatabase().get());
@@ -530,12 +530,12 @@ public class TestHiveCoercion
         }
     }
 
-    private static TableInstance mutableTableInstanceOf(TableDefinition tableDefinition, String database)
+    private static TableInstance<?> mutableTableInstanceOf(TableDefinition tableDefinition, String database)
     {
         return mutableTableInstanceOf(tableHandleInSchema(tableDefinition).inDatabase(database));
     }
 
-    private static TableInstance mutableTableInstanceOf(TableHandle tableHandle)
+    private static TableInstance<?> mutableTableInstanceOf(TableHandle tableHandle)
     {
         return testContext().getDependency(MutableTablesState.class).get(tableHandle);
     }

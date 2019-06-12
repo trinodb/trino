@@ -32,19 +32,6 @@ public class TestAccumuloSplit
     {
         AccumuloSplit expected = new AccumuloSplit(
                 ImmutableList.of(new Range(), new Range("bar", "foo"), new Range("bar", false, "baz", false)).stream().map(WrappedRange::new).collect(Collectors.toList()),
-                ImmutableList.of(
-                        new AccumuloColumnConstraint(
-                                "id",
-                                "fam1",
-                                "qual1",
-                                Optional.empty(),
-                                true),
-                        new AccumuloColumnConstraint(
-                                "bar",
-                                "fam2",
-                                "qual2",
-                                Optional.empty(),
-                                true)),
                 Optional.of("localhost:9000"));
 
         String json = codec.toJson(expected);
@@ -57,7 +44,6 @@ public class TestAccumuloSplit
     {
         AccumuloSplit expected = new AccumuloSplit(
                 ImmutableList.of(),
-                ImmutableList.of(),
                 Optional.empty());
 
         String json = codec.toJson(expected);
@@ -68,7 +54,6 @@ public class TestAccumuloSplit
     private static void assertSplit(AccumuloSplit actual, AccumuloSplit expected)
     {
         assertEquals(actual.getAddresses(), expected.getAddresses());
-        assertEquals(actual.getConstraints(), expected.getConstraints());
         assertEquals(actual.getHostPort(), expected.getHostPort());
         assertEquals(actual.getRanges(), expected.getRanges());
     }

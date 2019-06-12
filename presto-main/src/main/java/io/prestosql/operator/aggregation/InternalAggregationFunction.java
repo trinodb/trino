@@ -35,7 +35,7 @@ public final class InternalAggregationFunction
     private final List<Type> parameterTypes;
     private final List<Type> intermediateType;
     private final Type finalType;
-    private final List<Class> lambdaInterfaces;
+    private final List<Class<?>> lambdaInterfaces;
     private final boolean decomposable;
     private final boolean orderSensitive;
     private final AccumulatorFactoryBinder factory;
@@ -68,7 +68,7 @@ public final class InternalAggregationFunction
             boolean decomposable,
             boolean orderSensitive,
             AccumulatorFactoryBinder factory,
-            List<Class> lambdaInterfaces)
+            List<Class<?>> lambdaInterfaces)
     {
         this.name = requireNonNull(name, "name is null");
         checkArgument(!name.isEmpty(), "name is empty");
@@ -106,7 +106,7 @@ public final class InternalAggregationFunction
         }
     }
 
-    public List<Class> getLambdaInterfaces()
+    public List<Class<?>> getLambdaInterfaces()
     {
         return lambdaInterfaces;
     }

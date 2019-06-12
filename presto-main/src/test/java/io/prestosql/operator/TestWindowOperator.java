@@ -753,7 +753,7 @@ public class TestWindowOperator
                 spillEnabled);
     }
 
-    public WindowOperatorFactory createFactoryUnbounded(
+    private WindowOperatorFactory createFactoryUnbounded(
             List<? extends Type> sourceTypes,
             List<Integer> outputChannels,
             List<WindowFunctionDefinition> functions,

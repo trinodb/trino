@@ -13,39 +13,24 @@
  */
 package io.prestosql.spi.block;
 
-import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
-import io.prestosql.spi.type.TypeManager;
 
 import java.util.Optional;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static java.util.Objects.requireNonNull;
 
-// This class is exactly the same as BlockEncodingManager.
-// It is needed for tests for TupleDomain. They are in SPI and don't have access to BlockEncodingManager.
+// This class is exactly the same as BlockEncodingManager. They are in SPI and don't have access to InternalBlockEncodingSerde.
 public final class TestingBlockEncodingSerde
         implements BlockEncodingSerde
 {
     private final ConcurrentMap<String, BlockEncoding> blockEncodings = new ConcurrentHashMap<>();
 
-    public TestingBlockEncodingSerde(TypeManager typeManager, BlockEncoding... blockEncodings)
+    public TestingBlockEncodingSerde()
     {
-        this(typeManager, ImmutableSet.copyOf(blockEncodings));
-    }
-
-    public TestingBlockEncodingSerde(TypeManager typeManager, Set<BlockEncoding> blockEncodings)
-    {
-        // This function should be called from Guice and tests only
-
-        requireNonNull(typeManager, "typeManager is null");
-
-        // always add the built-in BlockEncodings
         addBlockEncoding(new VariableWidthBlockEncoding());
         addBlockEncoding(new ByteArrayBlockEncoding());
         addBlockEncoding(new ShortArrayBlockEncoding());
@@ -54,23 +39,15 @@ public final class TestingBlockEncodingSerde
         addBlockEncoding(new Int128ArrayBlockEncoding());
         addBlockEncoding(new DictionaryBlockEncoding());
         addBlockEncoding(new ArrayBlockEncoding());
-        addBlockEncoding(new MapBlockEncoding(typeManager));
-        addBlockEncoding(new SingleMapBlockEncoding(typeManager));
         addBlockEncoding(new RowBlockEncoding());
         addBlockEncoding(new SingleRowBlockEncoding());
         addBlockEncoding(new RunLengthBlockEncoding());
         addBlockEncoding(new LazyBlockEncoding());
-
-        for (BlockEncoding blockEncoding : requireNonNull(blockEncodings, "blockEncodings is null")) {
-            addBlockEncoding(blockEncoding);
-        }
     }
 
-    public void addBlockEncoding(BlockEncoding blockEncoding)
+    private void addBlockEncoding(BlockEncoding blockEncoding)
     {
-        requireNonNull(blockEncoding, "blockEncoding is null");
-        BlockEncoding existingEntry = blockEncodings.putIfAbsent(blockEncoding.getName(), blockEncoding);
-        checkArgument(existingEntry == null, "Encoding %s is already registered", blockEncoding.getName());
+        blockEncodings.put(blockEncoding.getName(), blockEncoding);
     }
 
     @Override

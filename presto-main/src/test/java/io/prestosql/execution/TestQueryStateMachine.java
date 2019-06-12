@@ -494,6 +494,7 @@ public class TestQueryStateMachine
         AccessControl accessControl = new AccessControlManager(transactionManager);
         QueryStateMachine stateMachine = QueryStateMachine.beginWithTicker(
                 QUERY,
+                Optional.empty(),
                 TEST_SESSION,
                 LOCATION,
                 new ResourceGroupId("test"),

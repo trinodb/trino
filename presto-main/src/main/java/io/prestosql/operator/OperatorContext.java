@@ -14,6 +14,7 @@
 package io.prestosql.operator;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.stats.CounterStat;
@@ -32,6 +33,7 @@ import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicLong;
@@ -44,6 +46,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.prestosql.operator.BlockedReason.WAITING_FOR_MEMORY;
+import static io.prestosql.operator.Operator.NOT_BLOCKED;
 import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static java.lang.Math.max;
 import static java.lang.String.format;
@@ -86,6 +89,7 @@ public class OperatorContext
 
     private final OperatorSpillContext spillContext;
     private final AtomicReference<Supplier<OperatorInfo>> infoSupplier = new AtomicReference<>();
+    private final AtomicReference<Supplier<List<OperatorStats>>> nestedOperatorStatsSupplier = new AtomicReference<>();
 
     private final AtomicLong peakUserMemoryReservation = new AtomicLong();
     private final AtomicLong peakSystemMemoryReservation = new AtomicLong();
@@ -433,6 +437,12 @@ public class OperatorContext
         this.infoSupplier.set(infoSupplier);
     }
 
+    public void setNestedOperatorStatsSupplier(Supplier<List<OperatorStats>> nestedOperatorStatsSupplier)
+    {
+        requireNonNull(nestedOperatorStatsSupplier, "nestedOperatorStatsSupplier is null");
+        this.nestedOperatorStatsSupplier.set(nestedOperatorStatsSupplier);
+    }
+
     public CounterStat getInputDataSize()
     {
         return inputDataSize;
@@ -519,6 +529,14 @@ public class OperatorContext
 
                 memoryFuture.get().isDone() ? Optional.empty() : Optional.of(WAITING_FOR_MEMORY),
                 info);
+    }
+
+    public List<OperatorStats> getNestedOperatorStats()
+    {
+        Supplier<List<OperatorStats>> nestedOperatorStatsSupplier = this.nestedOperatorStatsSupplier.get();
+        return Optional.ofNullable(nestedOperatorStatsSupplier)
+                .map(Supplier::get)
+                .orElseGet(() -> ImmutableList.of(getOperatorStats()));
     }
 
     public <C, R> R accept(QueryContextVisitor<C, R> visitor, C context)
@@ -634,6 +652,10 @@ public class OperatorContext
         @Override
         public ListenableFuture<?> setBytes(long bytes)
         {
+            if (bytes == delegate.getBytes()) {
+                return NOT_BLOCKED;
+            }
+
             ListenableFuture<?> blocked = delegate.setBytes(bytes);
             updateMemoryFuture(blocked, memoryFuture);
             allocationListener.run();
@@ -643,7 +665,12 @@ public class OperatorContext
         @Override
         public boolean trySetBytes(long bytes)
         {
-            return delegate.trySetBytes(bytes);
+            if (delegate.trySetBytes(bytes)) {
+                allocationListener.run();
+                return true;
+            }
+
+            return false;
         }
 
         @Override
@@ -653,6 +680,7 @@ public class OperatorContext
                 throw new UnsupportedOperationException("Called close on unclosable local memory context");
             }
             delegate.close();
+            allocationListener.run();
         }
     }
 

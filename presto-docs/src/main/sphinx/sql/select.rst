@@ -15,7 +15,8 @@ Synopsis
     [ HAVING condition]
     [ { UNION | INTERSECT | EXCEPT } [ ALL | DISTINCT ] select ]
     [ ORDER BY expression [ ASC | DESC ] [, ...] ]
-    [ LIMIT [ count | ALL ] ]
+    [ OFFSET count [ ROW | ROWS ] ]
+    [ LIMIT { count | ALL } | FETCH { FIRST | NEXT } [ count ] { ROW | ROWS } { ONLY | WITH TIES } ]
 
 where ``from_item`` is one of
 
@@ -577,30 +578,124 @@ output expressions:
 
 Each expression may be composed of output columns or it may be an ordinal
 number selecting an output column by position (starting at one). The
-``ORDER BY`` clause is evaluated as the last step of a query after any
-``GROUP BY`` or ``HAVING`` clause. The default null ordering is ``NULLS LAST``,
-regardless of the ordering direction.
+``ORDER BY`` clause is evaluated after any ``GROUP BY`` or ``HAVING`` clause
+and before any ``OFFSET``, ``LIMIT`` or ``FETCH FIRST`` clause.
+The default null ordering is ``NULLS LAST``, regardless of the ordering direction.
 
-LIMIT Clause
-------------
+.. _offset-clause:
 
-The ``LIMIT`` clause restricts the number of rows in the result set.
-``LIMIT ALL`` is the same as omitting the ``LIMIT`` clause.
-The following example queries a large table, but the limit clause restricts
-the output to only have five rows (because the query lacks an ``ORDER BY``,
+OFFSET Clause
+-------------
+
+The ``OFFSET`` clause is used to discard a number of leading rows
+from the result set:
+
+.. code-block:: none
+
+    OFFSET count [ ROW | ROWS ]
+
+If the ``ORDER BY`` clause is present, the ``OFFSET`` clause is evaluated
+over a sorted result set, and the set remains sorted after the
+leading rows are discarded::
+
+    SELECT name FROM nation ORDER BY name OFFSET 22;
+
+.. code-block:: none
+
+          name
+    ----------------
+     UNITED KINGDOM
+     UNITED STATES
+     VIETNAM
+    (3 rows)
+
+Otherwise, it is arbitrary which rows are discarded.
+If the count specified in the ``OFFSET`` clause equals or exceeds the size
+of the result set, the final result is empty.
+
+LIMIT or FETCH FIRST Clauses
+----------------------------
+
+The ``LIMIT`` or ``FETCH FIRST`` clause restricts the number of rows
+in the result set.
+
+.. code-block:: none
+
+    LIMIT { count | ALL }
+
+.. code-block:: none
+
+    FETCH { FIRST | NEXT } [ count ] { ROW | ROWS } { ONLY | WITH TIES }
+
+The following example queries a large table, but the ``LIMIT`` clause
+restricts the output to only have five rows (because the query lacks an ``ORDER BY``,
 exactly which rows are returned is arbitrary)::
 
     SELECT orderdate FROM orders LIMIT 5;
 
 .. code-block:: none
 
-     o_orderdate
-    -------------
-     1996-04-14
-     1992-01-15
-     1995-02-01
-     1995-11-12
-     1992-04-26
+     orderdate
+    ------------
+     1994-07-25
+     1993-11-12
+     1992-10-06
+     1994-01-04
+     1997-12-28
+    (5 rows)
+
+``LIMIT ALL`` is the same as omitting the ``LIMIT`` clause.
+
+The ``FETCH FIRST`` clause supports either the ``FIRST`` or ``NEXT`` keywords
+and the ``ROW`` or ``ROWS`` keywords. These keywords are equivalent and
+the choice of keyword has no effect on query execution.
+
+If the count is not specified in the ``FETCH FIRST`` clause, it defaults to ``1``::
+
+    SELECT orderdate FROM orders FETCH FIRST ROW ONLY;
+
+.. code-block:: none
+
+     orderdate
+    ------------
+     1994-02-12
+    (1 row)
+
+If the ``OFFSET`` clause is present, the ``LIMIT`` or ``FETCH FIRST`` clause
+is evaluated after the ``OFFSET`` clause::
+
+    SELECT * FROM (VALUES 5, 2, 4, 1, 3) t(x) ORDER BY x OFFSET 2 LIMIT 2;
+
+.. code-block:: none
+
+     x
+    ---
+     3
+     4
+    (2 rows)
+
+For the ``FETCH FIRST`` clause, the argument ``ONLY`` or ``WITH TIES``
+controls which rows are included in the result set.
+
+If the argument ``ONLY`` is specified, the result set is limited to the exact
+number of leading rows determined by the count.
+
+If the argument ``WITH TIES`` is specified, it is required that the ``ORDER BY``
+clause be present. The result set consists of the same set of leading rows
+and all of the rows in the same peer group as the last of them ('ties')
+as established by the ordering in the ``ORDER BY`` clause. The result set is sorted::
+
+    SELECT name, regionkey FROM nation ORDER BY regionkey FETCH FIRST ROW WITH TIES;
+
+.. code-block:: none
+
+        name    | regionkey
+    ------------+-----------
+     ETHIOPIA   |         0
+     MOROCCO    |         0
+     KENYA      |         0
+     ALGERIA    |         0
+     MOZAMBIQUE |         0
     (5 rows)
 
 TABLESAMPLE

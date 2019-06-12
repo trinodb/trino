@@ -65,11 +65,11 @@ public class TestSubqueries
     public void testCorrelatedExistsSubqueriesWithOrPredicateAndNull()
     {
         assertExistsRewrittenToAggregationAboveJoin(
-                "SELECT EXISTS(SELECT 1 FROM (VALUES null, 10) t(x) WHERE y > x OR y + 10 > x) FROM (VALUES (11)) t2(y)",
+                "SELECT EXISTS(SELECT 1 FROM (VALUES null, 10) t(x) WHERE y > x OR y + 10 > x) FROM (values 11 + if(rand() >= 0, 0)) t2(y)",
                 "VALUES true",
                 false);
         assertExistsRewrittenToAggregationAboveJoin(
-                "SELECT EXISTS(SELECT 1 FROM (VALUES null) t(x) WHERE y > x OR y + 10 > x) FROM (VALUES (11)) t2(y)",
+                "SELECT EXISTS(SELECT 1 FROM (VALUES null) t(x) WHERE y > x OR y + 10 > x) FROM (VALUES 11 + if(rand() >= 0, 0)) t2(y)",
                 "VALUES false",
                 false);
     }
@@ -79,7 +79,7 @@ public class TestSubqueries
     {
         // coercion FROM subquery symbol type to correlation type
         assertions.assertFails(
-                "SELECT (SELECT count(*) FROM (VALUES 1) t(a) WHERE t.a=t2.b GROUP BY t.a LIMIT 1) FROM (VALUES 1.0) t2(b)",
+                "SELECT EXISTS(SELECT 1 FROM (VALUES (1, null)) t(a, b) WHERE t.a=t2.b GROUP BY t.b) FROM (VALUES 1.0, 2.0) t2(b)",
                 UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
         // coercion from t.a (null) to integer
         assertions.assertFails(

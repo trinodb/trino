@@ -19,18 +19,12 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.prestosql.Session;
 import io.prestosql.connector.CatalogName;
-import io.prestosql.execution.NodeTaskMap;
 import io.prestosql.execution.QueryManagerConfig;
-import io.prestosql.execution.scheduler.LegacyNetworkTopology;
-import io.prestosql.execution.scheduler.NodeScheduler;
-import io.prestosql.execution.scheduler.NodeSchedulerConfig;
 import io.prestosql.execution.warnings.WarningCollector;
-import io.prestosql.metadata.CatalogManager;
-import io.prestosql.metadata.InMemoryNodeManager;
-import io.prestosql.metadata.MetadataManager;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.TableHandle;
 import io.prestosql.plugin.tpch.TpchColumnHandle;
+import io.prestosql.plugin.tpch.TpchConnectorFactory;
 import io.prestosql.plugin.tpch.TpchTableHandle;
 import io.prestosql.plugin.tpch.TpchTableLayoutHandle;
 import io.prestosql.security.AllowAllAccessControl;
@@ -38,8 +32,6 @@ import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.Type;
-import io.prestosql.sql.analyzer.FeaturesConfig;
-import io.prestosql.sql.planner.NodePartitioningManager;
 import io.prestosql.sql.planner.Plan;
 import io.prestosql.sql.planner.PlanFragmenter;
 import io.prestosql.sql.planner.SubPlan;
@@ -63,8 +55,7 @@ import io.prestosql.sql.tree.FunctionCall;
 import io.prestosql.sql.tree.IsNullPredicate;
 import io.prestosql.sql.tree.QualifiedName;
 import io.prestosql.sql.tree.SymbolReference;
-import io.prestosql.transaction.TransactionManager;
-import io.prestosql.util.FinalizerService;
+import io.prestosql.testing.LocalQueryRunner;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -79,7 +70,6 @@ import java.util.function.Function;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.metadata.FunctionKind.AGGREGATE;
-import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.plugin.tpch.TpchTransactionHandle.INSTANCE;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
@@ -89,9 +79,7 @@ import static io.prestosql.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static io.prestosql.sql.planner.plan.ExchangeNode.Scope.REMOTE;
 import static io.prestosql.sql.planner.plan.ExchangeNode.partitionedExchange;
 import static io.prestosql.sql.planner.plan.ExchangeNode.replicatedExchange;
-import static io.prestosql.testing.TestingSession.createBogusTestingCatalog;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
-import static io.prestosql.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static io.prestosql.transaction.TransactionBuilder.transaction;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -101,18 +89,14 @@ import static org.testng.Assert.assertTrue;
 public class TestCostCalculator
 {
     private static final int NUMBER_OF_NODES = 10;
-    private static final double AVERAGE_ROW_SIZE = 8.;
-    private static final double IS_NULL_OVERHEAD = 9. / AVERAGE_ROW_SIZE;
-    private static final double OFFSET_AND_IS_NULL_OVERHEAD = 13. / AVERAGE_ROW_SIZE;
+    private static final double AVERAGE_ROW_SIZE = 8.0;
+    private static final double IS_NULL_OVERHEAD = 9.0 / AVERAGE_ROW_SIZE;
+    private static final double OFFSET_AND_IS_NULL_OVERHEAD = 13.0 / AVERAGE_ROW_SIZE;
     private CostCalculator costCalculatorUsingExchanges;
     private CostCalculator costCalculatorWithEstimatedExchanges;
     private PlanFragmenter planFragmenter;
     private Session session;
-    private MetadataManager metadata;
-    private TransactionManager transactionManager;
-    private FinalizerService finalizerService;
-    private NodeScheduler nodeScheduler;
-    private NodePartitioningManager nodePartitioningManager;
+    private LocalQueryRunner localQueryRunner;
 
     @BeforeClass
     public void setUp()
@@ -123,20 +107,10 @@ public class TestCostCalculator
 
         session = testSessionBuilder().setCatalog("tpch").build();
 
-        CatalogManager catalogManager = new CatalogManager();
-        catalogManager.registerCatalog(createBogusTestingCatalog("tpch"));
-        transactionManager = createTestTransactionManager(catalogManager);
-        metadata = createTestMetadataManager(transactionManager, new FeaturesConfig());
+        localQueryRunner = new LocalQueryRunner(session);
+        localQueryRunner.createCatalog("tpch", new TpchConnectorFactory(), ImmutableMap.of());
 
-        finalizerService = new FinalizerService();
-        finalizerService.start();
-        nodeScheduler = new NodeScheduler(
-                new LegacyNetworkTopology(),
-                new InMemoryNodeManager(),
-                new NodeSchedulerConfig().setIncludeCoordinator(true),
-                new NodeTaskMap(finalizerService));
-        nodePartitioningManager = new NodePartitioningManager(nodeScheduler);
-        planFragmenter = new PlanFragmenter(metadata, nodePartitioningManager, new QueryManagerConfig());
+        planFragmenter = new PlanFragmenter(localQueryRunner.getMetadata(), localQueryRunner.getNodePartitioningManager(), new QueryManagerConfig());
     }
 
     @AfterClass(alwaysRun = true)
@@ -146,13 +120,8 @@ public class TestCostCalculator
         costCalculatorWithEstimatedExchanges = null;
         planFragmenter = null;
         session = null;
-        transactionManager = null;
-        metadata = null;
-        finalizerService.destroy();
-        finalizerService = null;
-        nodeScheduler.stop();
-        nodeScheduler = null;
-        nodePartitioningManager = null;
+        localQueryRunner.close();
+        localQueryRunner = null;
     }
 
     @Test
@@ -886,7 +855,8 @@ public class TestCostCalculator
                 Optional.empty(),
                 Optional.empty(),
                 Optional.of(distributionType),
-                Optional.empty());
+                Optional.empty(),
+                ImmutableMap.of());
     }
 
     private SubPlan fragment(Plan plan)
@@ -896,11 +866,11 @@ public class TestCostCalculator
 
     private <T> T inTransaction(Function<Session, T> transactionSessionConsumer)
     {
-        return transaction(transactionManager, new AllowAllAccessControl())
+        return transaction(localQueryRunner.getTransactionManager(), new AllowAllAccessControl())
                 .singleStatement()
                 .execute(session, session -> {
                     // metadata.getCatalogHandle() registers the catalog for the transaction
-                    session.getCatalog().ifPresent(catalog -> metadata.getCatalogHandle(session, catalog));
+                    session.getCatalog().ifPresent(catalog -> localQueryRunner.getMetadata().getCatalogHandle(session, catalog));
                     return transactionSessionConsumer.apply(session);
                 });
     }

@@ -26,7 +26,7 @@ public class TestCountIfAggregation
         extends AbstractTestAggregationFunction
 {
     @Override
-    public Block[] getSequenceBlocks(int start, int length)
+    protected Block[] getSequenceBlocks(int start, int length)
     {
         BlockBuilder blockBuilder = BOOLEAN.createBlockBuilder(null, length);
         for (int i = start; i < start + length; i++) {
@@ -36,7 +36,7 @@ public class TestCountIfAggregation
     }
 
     @Override
-    public Number getExpectedValue(int start, int length)
+    protected Number getExpectedValue(int start, int length)
     {
         long count = 0;
         for (int i = start; i < start + length; i++) {

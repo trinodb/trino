@@ -38,15 +38,20 @@ The statement shown above is equivalent to the following statement::
 
     SELECT 3 < 2 OR 3 > 6;
 
-The presence of NULL in a ``BETWEEN`` or ``NOT BETWEEN`` statement
-will result in the statement evaluating to NULL::
+A ``NULL`` in a ``BETWEEN`` or ``NOT BETWEEN`` statement is evaluated
+using the standard ``NULL`` evaluation rules applied to the equivalent
+expression above::
 
     SELECT NULL BETWEEN 2 AND 4; -- null
 
     SELECT 2 BETWEEN NULL AND 6; -- null
 
+    SELECT 2 BETWEEN 1 AND NULL; -- false
+
+    SELECT 8 BETWEEN NULL AND 6; -- false
+
 The ``BETWEEN`` and ``NOT BETWEEN`` operators can also be used to
-evaluate string arguments::
+evaluate any orderable type.  For example, a ``VARCHAR``::
 
     SELECT 'Paul' BETWEEN 'John' AND 'Ringo'; -- true
 

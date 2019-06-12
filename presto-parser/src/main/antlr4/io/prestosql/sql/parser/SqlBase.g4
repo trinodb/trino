@@ -150,7 +150,7 @@ queryNoWith:
       queryTerm
       (ORDER BY sortItem (',' sortItem)*)?
       (OFFSET offset=INTEGER_VALUE (ROW | ROWS)?)?
-      ((LIMIT limit=(INTEGER_VALUE | ALL)) | (FETCH (FIRST | NEXT) (fetchFirst=INTEGER_VALUE)? (ROW | ROWS) ONLY))?
+      ((LIMIT limit=(INTEGER_VALUE | ALL)) | (FETCH (FIRST | NEXT) (fetchFirst=INTEGER_VALUE)? (ROW | ROWS) (ONLY | WITH TIES)))?
     ;
 
 queryTerm
@@ -481,9 +481,9 @@ identifier
     ;
 
 number
-    : DECIMAL_VALUE  #decimalLiteral
-    | DOUBLE_VALUE   #doubleLiteral
-    | INTEGER_VALUE  #integerLiteral
+    : MINUS? DECIMAL_VALUE  #decimalLiteral
+    | MINUS? DOUBLE_VALUE   #doubleLiteral
+    | MINUS? INTEGER_VALUE  #integerLiteral
     ;
 
 nonReserved
@@ -506,7 +506,7 @@ nonReserved
     | RANGE | READ | RENAME | REPEATABLE | REPLACE | RESET | RESTRICT | REVOKE | ROLE | ROLES | ROLLBACK | ROW | ROWS
     | SCHEMA | SCHEMAS | SECOND | SECURITY | SERIALIZABLE | SESSION | SET | SETS
     | SHOW | SOME | START | STATS | SUBSTRING | SYSTEM
-    | TABLES | TABLESAMPLE | TEXT | TIME | TIMESTAMP | TO | TRANSACTION | TRY_CAST | TYPE
+    | TABLES | TABLESAMPLE | TEXT | TIES | TIME | TIMESTAMP | TO | TRANSACTION | TRY_CAST | TYPE
     | UNBOUNDED | UNCOMMITTED | USE | USER
     | VALIDATE | VERBOSE | VIEW
     | WORK | WRITE
@@ -681,6 +681,7 @@ TABLES: 'TABLES';
 TABLESAMPLE: 'TABLESAMPLE';
 TEXT: 'TEXT';
 THEN: 'THEN';
+TIES: 'TIES';
 TIME: 'TIME';
 TIMESTAMP: 'TIMESTAMP';
 TO: 'TO';

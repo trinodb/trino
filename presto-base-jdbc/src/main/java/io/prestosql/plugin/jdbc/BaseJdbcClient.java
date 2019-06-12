@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
+import io.airlift.units.Duration;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
@@ -122,13 +123,26 @@ public class BaseJdbcClient
 
     public BaseJdbcClient(BaseJdbcConfig config, String identifierQuote, ConnectionFactory connectionFactory)
     {
-        requireNonNull(config, "config is null"); // currently unused, retained as parameter for future extensions
+        this(
+                identifierQuote,
+                connectionFactory,
+                requireNonNull(config, "config is null").isCaseInsensitiveNameMatching(),
+                config.getCaseInsensitiveNameMatchingCacheTtl());
+    }
+
+    public BaseJdbcClient(
+            String identifierQuote,
+            ConnectionFactory connectionFactory,
+            boolean caseInsensitiveNameMatching,
+            Duration caseInsensitiveNameMatchingCacheTtl)
+    {
         this.identifierQuote = requireNonNull(identifierQuote, "identifierQuote is null");
         this.connectionFactory = requireNonNull(connectionFactory, "connectionFactory is null");
+        requireNonNull(caseInsensitiveNameMatchingCacheTtl, "caseInsensitiveNameMatchingCacheTtl is null");
 
-        this.caseInsensitiveNameMatching = config.isCaseInsensitiveNameMatching();
+        this.caseInsensitiveNameMatching = caseInsensitiveNameMatching;
         CacheBuilder<Object, Object> remoteNamesCacheBuilder = CacheBuilder.newBuilder()
-                .expireAfterWrite(config.getCaseInsensitiveNameMatchingCacheTtl().toMillis(), MILLISECONDS);
+                .expireAfterWrite(caseInsensitiveNameMatchingCacheTtl.toMillis(), MILLISECONDS);
         this.remoteSchemaNames = remoteNamesCacheBuilder.build();
         this.remoteTableNames = remoteNamesCacheBuilder.build();
     }
@@ -233,7 +247,7 @@ public class BaseJdbcClient
                             resultSet.getInt("COLUMN_SIZE"),
                             resultSet.getInt("DECIMAL_DIGITS"),
                             Optional.empty());
-                    Optional<ColumnMapping> columnMapping = toPrestoType(session, typeHandle);
+                    Optional<ColumnMapping> columnMapping = toPrestoType(session, connection, typeHandle);
                     // skip unsupported column types
                     if (columnMapping.isPresent()) {
                         String columnName = resultSet.getString("COLUMN_NAME");
@@ -254,7 +268,7 @@ public class BaseJdbcClient
     }
 
     @Override
-    public Optional<ColumnMapping> toPrestoType(ConnectorSession session, JdbcTypeHandle typeHandle)
+    public Optional<ColumnMapping> toPrestoType(ConnectorSession session, Connection connection, JdbcTypeHandle typeHandle)
     {
         return jdbcTypeToPrestoType(session, typeHandle);
     }
@@ -720,7 +734,7 @@ public class BaseJdbcClient
         throw new PrestoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
     }
 
-    private Function<String, String> tryApplyLimit(OptionalLong limit)
+    protected Function<String, String> tryApplyLimit(OptionalLong limit)
     {
         if (!limit.isPresent()) {
             return Function.identity();

@@ -32,6 +32,7 @@ import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.block.RowBlockBuilder;
+import io.prestosql.spi.block.SingleRowBlock;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.function.OperatorType;
 import io.prestosql.spi.type.ArrayType;
@@ -101,6 +102,7 @@ import io.prestosql.util.FastutilSetHelper;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.List;
@@ -119,8 +121,10 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
+import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
+import static io.prestosql.spi.type.TypeUtils.readNativeValue;
 import static io.prestosql.spi.type.TypeUtils.writeNativeValue;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
 import static io.prestosql.sql.analyzer.ConstantExpressionVerifier.verifyExpressionIsConstant;
@@ -131,6 +135,8 @@ import static io.prestosql.sql.planner.DeterminismEvaluator.isDeterministic;
 import static io.prestosql.sql.planner.iterative.rule.CanonicalizeExpressionRewriter.canonicalizeExpression;
 import static io.prestosql.type.LikeFunctions.isLikePattern;
 import static io.prestosql.type.LikeFunctions.unescapeLiteralLikePattern;
+import static io.prestosql.util.Failures.checkCondition;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -302,26 +308,7 @@ public class ExpressionInterpreter
             }
 
             checkState(index >= 0, "could not find field name: %s", node.getField());
-            if (row.isNull(index)) {
-                return null;
-            }
-            Class<?> javaType = returnType.getJavaType();
-            if (javaType == long.class) {
-                return returnType.getLong(row, index);
-            }
-            if (javaType == double.class) {
-                return returnType.getDouble(row, index);
-            }
-            if (javaType == boolean.class) {
-                return returnType.getBoolean(row, index);
-            }
-            if (javaType == Slice.class) {
-                return returnType.getSlice(row, index);
-            }
-            if (!javaType.isPrimitive()) {
-                return returnType.getObject(row, index);
-            }
-            throw new UnsupportedOperationException("Dereference a unsupported primitive type: " + javaType.getName());
+            return readNativeValue(returnType, row, index);
         }
 
         @Override
@@ -565,7 +552,7 @@ public class ExpressionInterpreter
             if (!inListCache.containsKey(valueList)) {
                 if (valueList.getValues().stream().allMatch(Literal.class::isInstance) &&
                         valueList.getValues().stream().noneMatch(NullLiteral.class::isInstance)) {
-                    Set objectSet = valueList.getValues().stream().map(expression -> process(expression, context)).collect(Collectors.toSet());
+                    Set<Object> objectSet = valueList.getValues().stream().map(expression -> process(expression, context)).collect(Collectors.toSet());
                     set = FastutilSetHelper.toFastutilHashSet(objectSet, type(node.getValue()), metadata.getFunctionRegistry());
                 }
                 inListCache.put(valueList, set);
@@ -705,25 +692,36 @@ public class ExpressionInterpreter
         {
             ComparisonExpression.Operator operator = node.getOperator();
 
+            if (operator == ComparisonExpression.Operator.IS_DISTINCT_FROM) {
+                Object left = process(node.getLeft(), context);
+                Object right = process(node.getRight(), context);
+
+                if (left == null && right instanceof Expression) {
+                    return new IsNotNullPredicate((Expression) right);
+                }
+
+                if (right == null && left instanceof Expression) {
+                    return new IsNotNullPredicate((Expression) left);
+                }
+
+                if (left instanceof Expression || right instanceof Expression) {
+                    return new ComparisonExpression(operator, toExpression(left, type(node.getLeft())), toExpression(right, type(node.getRight())));
+                }
+
+                return invokeOperator(OperatorType.valueOf(operator.name()), types(node.getLeft(), node.getRight()), Arrays.asList(left, right));
+            }
+
             Object left = process(node.getLeft(), context);
-            if (left == null && operator != ComparisonExpression.Operator.IS_DISTINCT_FROM) {
+            if (left == null) {
                 return null;
             }
 
             Object right = process(node.getRight(), context);
-            if (operator == ComparisonExpression.Operator.IS_DISTINCT_FROM) {
-                if (left == null && right == null) {
-                    return false;
-                }
-                else if (left == null || right == null) {
-                    return true;
-                }
-            }
-            else if (right == null) {
+            if (right == null) {
                 return null;
             }
 
-            if (hasUnresolvedValue(left, right)) {
+            if (left instanceof Expression || right instanceof Expression) {
                 return new ComparisonExpression(operator, toExpression(left, type(node.getLeft())), toExpression(right, type(node.getRight())));
             }
 
@@ -738,22 +736,31 @@ public class ExpressionInterpreter
                 return null;
             }
             Object min = process(node.getMin(), context);
-            if (min == null) {
-                return null;
-            }
             Object max = process(node.getMax(), context);
-            if (max == null) {
-                return null;
-            }
 
-            if (hasUnresolvedValue(value, min, max)) {
+            if (value instanceof Expression || min instanceof Expression || max instanceof Expression) {
                 return new BetweenPredicate(
                         toExpression(value, type(node.getValue())),
                         toExpression(min, type(node.getMin())),
                         toExpression(max, type(node.getMax())));
             }
 
-            return invokeOperator(OperatorType.BETWEEN, types(node.getValue(), node.getMin(), node.getMax()), ImmutableList.of(value, min, max));
+            Boolean greaterOrEqualToMin = null;
+            if (min != null) {
+                greaterOrEqualToMin = (Boolean) invokeOperator(OperatorType.GREATER_THAN_OR_EQUAL, types(node.getValue(), node.getMin()), ImmutableList.of(value, min));
+            }
+            Boolean lessThanOrEqualToMax = null;
+            if (max != null) {
+                lessThanOrEqualToMax = (Boolean) invokeOperator(OperatorType.LESS_THAN_OR_EQUAL, types(node.getValue(), node.getMax()), ImmutableList.of(value, max));
+            }
+
+            if (greaterOrEqualToMin == null) {
+                return Objects.equals(lessThanOrEqualToMax, Boolean.FALSE) ? false : null;
+            }
+            if (lessThanOrEqualToMax == null) {
+                return Objects.equals(greaterOrEqualToMin, Boolean.FALSE) ? false : null;
+            }
+            return greaterOrEqualToMin && lessThanOrEqualToMax;
         }
 
         @Override
@@ -1107,6 +1114,7 @@ public class ExpressionInterpreter
             for (Expression expression : node.getValues()) {
                 Object value = process(expression, context);
                 if (value instanceof Expression) {
+                    checkCondition(node.getValues().size() <= 254, NOT_SUPPORTED, "Too many arguments for array constructor");
                     return visitFunctionCall(new FunctionCall(QualifiedName.of(ArrayConstructor.ARRAY_CONSTRUCTOR), node.getValues()), context);
                 }
                 writeNativeValue(elementType, arrayBlockBuilder, value);
@@ -1172,6 +1180,18 @@ public class ExpressionInterpreter
                 return new SubscriptExpression(toExpression(base, type(node.getBase())), toExpression(index, type(node.getIndex())));
             }
 
+            // Subscript on Row hasn't got a dedicated operator. It is interpreted by hand.
+            if (base instanceof SingleRowBlock) {
+                SingleRowBlock row = (SingleRowBlock) base;
+                int position = toIntExact((long) index - 1);
+                if (position < 0 || position >= row.getPositionCount()) {
+                    throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "ROW index out of bounds: " + (position + 1));
+                }
+                Type returnType = type(node.getBase()).getTypeParameters().get(position);
+                return readNativeValue(returnType, row, position);
+            }
+
+            // Subscript on Array or Map is interpreted using operator.
             return invokeOperator(OperatorType.SUBSCRIPT, types(node.getBase(), node.getIndex()), ImmutableList.of(base, index));
         }
 

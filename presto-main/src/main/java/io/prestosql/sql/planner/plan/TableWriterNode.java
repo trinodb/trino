@@ -171,9 +171,9 @@ public class TableWriterNode
 
     @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "@type")
     @JsonSubTypes({
-            @JsonSubTypes.Type(value = CreateHandle.class, name = "CreateHandle"),
-            @JsonSubTypes.Type(value = InsertHandle.class, name = "InsertHandle"),
-            @JsonSubTypes.Type(value = DeleteHandle.class, name = "DeleteHandle")})
+            @JsonSubTypes.Type(value = CreateTarget.class, name = "CreateTarget"),
+            @JsonSubTypes.Type(value = InsertTarget.class, name = "InsertTarget"),
+            @JsonSubTypes.Type(value = DeleteTarget.class, name = "DeleteTarget")})
     @SuppressWarnings({"EmptyClass", "ClassMayBeInterface"})
     public abstract static class WriterTarget
     {
@@ -182,14 +182,14 @@ public class TableWriterNode
     }
 
     // only used during planning -- will not be serialized
-    public static class CreateName
+    public static class CreateReference
             extends WriterTarget
     {
         private final String catalog;
         private final ConnectorTableMetadata tableMetadata;
         private final Optional<NewTableLayout> layout;
 
-        public CreateName(String catalog, ConnectorTableMetadata tableMetadata, Optional<NewTableLayout> layout)
+        public CreateReference(String catalog, ConnectorTableMetadata tableMetadata, Optional<NewTableLayout> layout)
         {
             this.catalog = requireNonNull(catalog, "catalog is null");
             this.tableMetadata = requireNonNull(tableMetadata, "tableMetadata is null");
@@ -218,14 +218,14 @@ public class TableWriterNode
         }
     }
 
-    public static class CreateHandle
+    public static class CreateTarget
             extends WriterTarget
     {
         private final OutputTableHandle handle;
         private final SchemaTableName schemaTableName;
 
         @JsonCreator
-        public CreateHandle(
+        public CreateTarget(
                 @JsonProperty("handle") OutputTableHandle handle,
                 @JsonProperty("schemaTableName") SchemaTableName schemaTableName)
         {
@@ -275,14 +275,14 @@ public class TableWriterNode
         }
     }
 
-    public static class InsertHandle
+    public static class InsertTarget
             extends WriterTarget
     {
         private final InsertTableHandle handle;
         private final SchemaTableName schemaTableName;
 
         @JsonCreator
-        public InsertHandle(
+        public InsertTarget(
                 @JsonProperty("handle") InsertTableHandle handle,
                 @JsonProperty("schemaTableName") SchemaTableName schemaTableName)
         {
@@ -309,14 +309,14 @@ public class TableWriterNode
         }
     }
 
-    public static class DeleteHandle
+    public static class DeleteTarget
             extends WriterTarget
     {
         private final TableHandle handle;
         private final SchemaTableName schemaTableName;
 
         @JsonCreator
-        public DeleteHandle(
+        public DeleteTarget(
                 @JsonProperty("handle") TableHandle handle,
                 @JsonProperty("schemaTableName") SchemaTableName schemaTableName)
         {

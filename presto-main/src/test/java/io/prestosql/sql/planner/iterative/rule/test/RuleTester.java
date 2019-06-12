@@ -94,7 +94,7 @@ public class RuleTester
         this.typeAnalyzer = new TypeAnalyzer(queryRunner.getSqlParser(), metadata);
     }
 
-    public RuleAssert assertThat(Rule rule)
+    public RuleAssert assertThat(Rule<?> rule)
     {
         return new RuleAssert(metadata, queryRunner.getStatsCalculator(), queryRunner.getEstimatedExchangesCostCalculator(), session, rule, transactionManager, accessControl);
     }

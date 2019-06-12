@@ -89,7 +89,7 @@ public class S3SelectPushdown
         return SUPPORTED_INPUT_FORMATS.contains(inputFormat);
     }
 
-    public static boolean isCompressionCodecSupported(InputFormat inputFormat, Path path)
+    public static boolean isCompressionCodecSupported(InputFormat<?, ?> inputFormat, Path path)
     {
         if (inputFormat instanceof TextInputFormat) {
             return getCompressionCodec((TextInputFormat) inputFormat, path)

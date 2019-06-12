@@ -74,15 +74,13 @@ public class CachingDirectoryLister
     public RemoteIterator<LocatedFileStatus> list(FileSystem fs, Table table, Path path)
             throws IOException
     {
-        SchemaTableName schemaTableName = new SchemaTableName(table.getDatabaseName(), table.getTableName());
-
         List<LocatedFileStatus> files = cache.getIfPresent(path);
         if (files != null) {
             return simpleRemoteIterator(files);
         }
         RemoteIterator<LocatedFileStatus> iterator = fs.listLocatedStatus(path);
 
-        if (!tableNames.contains(schemaTableName)) {
+        if (!tableNames.contains(table.getSchemaTableName())) {
             return iterator;
         }
         return cachingRemoteIterator(iterator, path);

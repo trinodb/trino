@@ -23,7 +23,6 @@ import io.prestosql.GroupByHashPageIndexerFactory;
 import io.prestosql.PagesIndexPageSorter;
 import io.prestosql.Session;
 import io.prestosql.SystemSessionProperties;
-import io.prestosql.block.BlockEncodingManager;
 import io.prestosql.connector.CatalogName;
 import io.prestosql.connector.ConnectorManager;
 import io.prestosql.connector.system.AnalyzePropertiesSystemTable;
@@ -228,7 +227,6 @@ public class LocalQueryRunner
     private final TaskCountEstimator taskCountEstimator;
     private final TestingAccessControlManager accessControl;
     private final SplitManager splitManager;
-    private final BlockEncodingManager blockEncodingManager;
     private final PageSourceManager pageSourceManager;
     private final IndexManager indexManager;
     private final NodePartitioningManager nodePartitioningManager;
@@ -304,11 +302,9 @@ public class LocalQueryRunner
                 notificationExecutor);
         this.nodePartitioningManager = new NodePartitioningManager(nodeScheduler);
 
-        this.blockEncodingManager = new BlockEncodingManager(typeRegistry);
         this.metadata = new MetadataManager(
                 featuresConfig,
                 typeRegistry,
-                blockEncodingManager,
                 new SessionPropertyManager(new SystemSessionProperties(new QueryManagerConfig(), taskManagerConfig, new MemoryManagerConfig(), featuresConfig)),
                 new SchemaPropertyManager(),
                 new TablePropertyManager(),
@@ -368,7 +364,6 @@ public class LocalQueryRunner
                 accessControl,
                 new PasswordAuthenticatorManager(),
                 new EventListenerManager(),
-                blockEncodingManager,
                 new SessionPropertyDefaults(nodeInfo),
                 typeRegistry);
 
@@ -423,7 +418,7 @@ public class LocalQueryRunner
                 .build();
 
         SpillerStats spillerStats = new SpillerStats();
-        this.singleStreamSpillerFactory = new FileSingleStreamSpillerFactory(blockEncodingManager, spillerStats, featuresConfig);
+        this.singleStreamSpillerFactory = new FileSingleStreamSpillerFactory(metadata, spillerStats, featuresConfig, nodeSpillConfig);
         this.partitioningSpillerFactory = new GenericPartitioningSpillerFactory(this.singleStreamSpillerFactory);
         this.spillerFactory = new GenericSpillerFactory(singleStreamSpillerFactory);
     }
@@ -691,7 +686,7 @@ public class LocalQueryRunner
     private List<Driver> createDrivers(Session session, Plan plan, OutputFactory outputFactory, TaskContext taskContext)
     {
         if (printPlan) {
-            System.out.println(PlanPrinter.textLogicalPlan(plan.getRoot(), plan.getTypes(), metadata.getFunctionRegistry(), Optional.of(metadata), plan.getStatsAndCosts(), session, 0, false));
+            System.out.println(PlanPrinter.textLogicalPlan(plan.getRoot(), plan.getTypes(), metadata, plan.getStatsAndCosts(), session, 0, false));
         }
 
         SubPlan subplan = planFragmenter.createSubPlans(session, plan, true, WarningCollector.NOOP);
@@ -716,7 +711,6 @@ public class LocalQueryRunner
                 spillerFactory,
                 singleStreamSpillerFactory,
                 partitioningSpillerFactory,
-                blockEncodingManager,
                 new PagesIndex.TestingFactory(false),
                 joinCompiler,
                 new LookupJoinOperators(),

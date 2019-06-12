@@ -15,9 +15,6 @@ package io.prestosql.plugin.mongodb;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonCodec;
-import io.prestosql.spi.connector.ColumnHandle;
-import io.prestosql.spi.connector.SchemaTableName;
-import io.prestosql.spi.predicate.TupleDomain;
 import org.testng.annotations.Test;
 
 import static org.testng.Assert.assertEquals;
@@ -29,13 +26,11 @@ public class TestMongoSplit
     @Test
     public void testJsonRoundTrip()
     {
-        MongoSplit expected = new MongoSplit(new SchemaTableName("schema1", "table1"), TupleDomain.all(), ImmutableList.of());
+        MongoSplit expected = new MongoSplit(ImmutableList.of());
 
         String json = codec.toJson(expected);
         MongoSplit actual = codec.fromJson(json);
 
-        assertEquals(actual.getSchemaTableName(), expected.getSchemaTableName());
-        assertEquals(actual.getTupleDomain(), TupleDomain.<ColumnHandle>all());
         assertEquals(actual.getAddresses(), ImmutableList.of());
     }
 }

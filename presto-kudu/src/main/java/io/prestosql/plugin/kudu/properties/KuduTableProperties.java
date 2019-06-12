@@ -40,7 +40,6 @@ import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -174,8 +173,8 @@ public final class KuduTableProperties
     {
         requireNonNull(tableProperties);
 
-        List<String> hashColumns = (List) tableProperties.get(PARTITION_BY_HASH_COLUMNS);
-        List<String> hashColumns2 = (List) tableProperties.get(PARTITION_BY_HASH_COLUMNS_2);
+        List<String> hashColumns = (List<String>) tableProperties.get(PARTITION_BY_HASH_COLUMNS);
+        List<String> hashColumns2 = (List<String>) tableProperties.get(PARTITION_BY_HASH_COLUMNS_2);
 
         PartitionDesign design = new PartitionDesign();
         if (!hashColumns.isEmpty()) {
@@ -192,7 +191,7 @@ public final class KuduTableProperties
             throw new PrestoException(GENERIC_USER_ERROR, "Table property " + PARTITION_BY_HASH_COLUMNS_2 + " is only allowed if there is also " + PARTITION_BY_HASH_COLUMNS);
         }
 
-        List<String> rangeColumns = (List) tableProperties.get(PARTITION_BY_RANGE_COLUMNS);
+        List<String> rangeColumns = (List<String>) tableProperties.get(PARTITION_BY_RANGE_COLUMNS);
         if (!rangeColumns.isEmpty()) {
             RangePartitionDefinition range = new RangePartitionDefinition();
             range.setColumns(rangeColumns);
@@ -335,10 +334,7 @@ public final class KuduTableProperties
         List<RangePartition> rangePartitions = new ArrayList<>();
         if (!table.getPartitionSchema().getRangeSchema().getColumns().isEmpty()) {
             try {
-                Iterator var4 = table.getTabletsLocations(deadline).iterator();
-
-                while (var4.hasNext()) {
-                    LocatedTablet tablet = (LocatedTablet) var4.next();
+                for (LocatedTablet tablet : table.getTabletsLocations(deadline)) {
                     Partition partition = tablet.getPartition();
                     if (Iterators.all(partition.getHashBuckets().iterator(), Predicates.equalTo(0))) {
                         RangePartition rangePartition = buildRangePartition(table, partition);

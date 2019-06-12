@@ -29,6 +29,7 @@ import io.prestosql.server.HttpRequestSessionContext;
 import io.prestosql.server.SessionContext;
 import io.prestosql.spi.ErrorCode;
 import io.prestosql.spi.QueryId;
+import io.prestosql.sql.analyzer.SemanticErrorCode;
 
 import javax.annotation.PreDestroy;
 import javax.annotation.concurrent.GuardedBy;
@@ -95,7 +96,7 @@ public class QueuedStatementResource
     private final ScheduledExecutorService timeoutExecutor;
 
     private final ConcurrentMap<QueryId, Query> queries = new ConcurrentHashMap<>();
-    private final ScheduledExecutorService queryPurger = newSingleThreadScheduledExecutor(threadsNamed("query-purger"));
+    private final ScheduledExecutorService queryPurger = newSingleThreadScheduledExecutor(threadsNamed("dispatch-query-purger"));
 
     @Inject
     public QueuedStatementResource(
@@ -118,7 +119,7 @@ public class QueuedStatementResource
                             }
 
                             // forget about this query if the query manager is no longer tracking it
-                            if (!dispatchManager.getDispatchInfo(entry.getKey()).isPresent()) {
+                            if (!dispatchManager.isQueryRegistered(entry.getKey())) {
                                 queries.remove(entry.getKey());
                             }
                         }
@@ -428,6 +429,7 @@ public class QueuedStatementResource
                     null,
                     errorCode.getCode(),
                     errorCode.getName(),
+                    executionFailureInfo.getSemanticErrorCode().map(SemanticErrorCode::name),
                     errorCode.getType().toString(),
                     executionFailureInfo.getErrorLocation(),
                     executionFailureInfo.toFailureInfo());

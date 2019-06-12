@@ -27,18 +27,20 @@ import io.prestosql.execution.NodeTaskMap;
 import io.prestosql.execution.RemoteTask;
 import io.prestosql.execution.SqlStageExecution;
 import io.prestosql.execution.StageId;
+import io.prestosql.execution.TableInfo;
 import io.prestosql.execution.TestSqlTaskManager.MockLocationFactory;
 import io.prestosql.execution.buffer.OutputBuffers.OutputBufferId;
 import io.prestosql.failuredetector.NoOpFailureDetector;
 import io.prestosql.metadata.InMemoryNodeManager;
 import io.prestosql.metadata.InternalNode;
 import io.prestosql.metadata.InternalNodeManager;
-import io.prestosql.spi.PrestoException;
+import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.spi.QueryId;
 import io.prestosql.spi.connector.ConnectorPartitionHandle;
 import io.prestosql.spi.connector.ConnectorSplit;
 import io.prestosql.spi.connector.ConnectorSplitSource;
 import io.prestosql.spi.connector.FixedSplitSource;
+import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.split.ConnectorAwareSplitSource;
 import io.prestosql.split.SplitSource;
 import io.prestosql.sql.planner.Partitioning;
@@ -82,6 +84,7 @@ import static io.prestosql.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUT
 import static io.prestosql.sql.planner.plan.ExchangeNode.Type.GATHER;
 import static io.prestosql.sql.planner.plan.JoinNode.Type.INNER;
 import static io.prestosql.testing.TestingHandles.TEST_TABLE_HANDLE;
+import static io.prestosql.testing.assertions.PrestoExceptionAssert.assertPrestoExceptionThrownBy;
 import static java.lang.Integer.min;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -89,7 +92,6 @@ import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
 
 public class TestSourcePartitionedScheduler
 {
@@ -303,7 +305,7 @@ public class TestSourcePartitionedScheduler
     @Test
     public void testNoNodes()
     {
-        try {
+        assertPrestoExceptionThrownBy(() -> {
             NodeTaskMap nodeTaskMap = new NodeTaskMap(finalizerService);
             InMemoryNodeManager nodeManager = new InMemoryNodeManager();
             NodeScheduler nodeScheduler = new NodeScheduler(new LegacyNetworkTopology(), nodeManager, new NodeSchedulerConfig().setIncludeCoordinator(false), nodeTaskMap);
@@ -318,12 +320,7 @@ public class TestSourcePartitionedScheduler
                     new DynamicSplitPlacementPolicy(nodeScheduler.createNodeSelector(CONNECTOR_ID), stage::getAllTasks),
                     2);
             scheduler.schedule();
-
-            fail("expected PrestoException");
-        }
-        catch (PrestoException e) {
-            assertEquals(e.getErrorCode(), NO_NODES_AVAILABLE.toErrorCode());
-        }
+        }).hasErrorCode(NO_NODES_AVAILABLE);
     }
 
     @Test
@@ -476,7 +473,8 @@ public class TestSourcePartitionedScheduler
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty(),
-                        Optional.empty()),
+                        Optional.empty(),
+                        ImmutableMap.of()),
                 ImmutableMap.of(symbol, VARCHAR),
                 SOURCE_DISTRIBUTION,
                 ImmutableList.of(tableScanNodeId),
@@ -488,7 +486,8 @@ public class TestSourcePartitionedScheduler
         return new StageExecutionPlan(
                 testFragment,
                 ImmutableMap.of(tableScanNodeId, new ConnectorAwareSplitSource(CONNECTOR_ID, splitSource)),
-                ImmutableList.of());
+                ImmutableList.of(),
+                ImmutableMap.of(tableScanNodeId, new TableInfo(new QualifiedObjectName("test", "test", "test"), TupleDomain.all())));
     }
 
     private static ConnectorSplitSource createFixedSplitSource(int splitCount, Supplier<ConnectorSplit> splitFactory)
@@ -507,6 +506,7 @@ public class TestSourcePartitionedScheduler
         SqlStageExecution stage = SqlStageExecution.createSqlStageExecution(stageId,
                 locationFactory.createStageLocation(stageId),
                 tableScanPlan.getFragment(),
+                tableScanPlan.getTables(),
                 new MockRemoteTaskFactory(queryExecutor, scheduledExecutor),
                 TEST_SESSION,
                 true,

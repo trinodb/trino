@@ -14,7 +14,6 @@
 package io.prestosql.spi.block;
 
 import io.airlift.slice.DynamicSliceOutput;
-import io.prestosql.spi.type.TestingTypeManager;
 import io.prestosql.spi.type.Type;
 import org.testng.annotations.Test;
 
@@ -25,7 +24,7 @@ import static org.testng.Assert.assertTrue;
 
 public class TestDictionaryBlockEncoding
 {
-    private final BlockEncodingSerde blockEncodingSerde = new TestingBlockEncodingSerde(new TestingTypeManager());
+    private final BlockEncodingSerde blockEncodingSerde = new TestingBlockEncodingSerde();
 
     @Test
     public void testRoundTrip()

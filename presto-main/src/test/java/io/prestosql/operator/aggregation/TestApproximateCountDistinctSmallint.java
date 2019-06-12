@@ -27,20 +27,20 @@ public class TestApproximateCountDistinctSmallint
         extends AbstractTestApproximateCountDistinct
 {
     @Override
-    public InternalAggregationFunction getAggregationFunction()
+    protected InternalAggregationFunction getAggregationFunction()
     {
         return metadata.getFunctionRegistry().getAggregateFunctionImplementation(
                 new Signature("approx_distinct", AGGREGATE, BIGINT.getTypeSignature(), SMALLINT.getTypeSignature(), DOUBLE.getTypeSignature()));
     }
 
     @Override
-    public Type getValueType()
+    protected Type getValueType()
     {
         return SMALLINT;
     }
 
     @Override
-    public Object randomValue()
+    protected Object randomValue()
     {
         return ThreadLocalRandom.current().nextLong(Short.MIN_VALUE, Short.MAX_VALUE + 1);
     }

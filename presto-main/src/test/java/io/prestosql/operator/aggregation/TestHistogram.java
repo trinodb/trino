@@ -440,12 +440,12 @@ public class TestHistogram
         return metadata.getFunctionRegistry().getAggregateFunctionImplementation(signature);
     }
 
-    public MetadataManager getMetadata()
+    private MetadataManager getMetadata()
     {
         return getMetadata(NEW);
     }
 
-    public MetadataManager getMetadata(HistogramGroupImplementation groupMode)
+    private MetadataManager getMetadata(HistogramGroupImplementation groupMode)
     {
         MetadataManager metadata = MetadataManager.createTestMetadataManager(new FeaturesConfig()
                 .setHistogramGroupImplementation(groupMode));

@@ -19,8 +19,10 @@ import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.function.BlockIndex;
 import io.prestosql.spi.function.BlockPosition;
+import io.prestosql.spi.function.Description;
 import io.prestosql.spi.function.IsNull;
 import io.prestosql.spi.function.LiteralParameters;
+import io.prestosql.spi.function.ScalarFunction;
 import io.prestosql.spi.function.ScalarOperator;
 import io.prestosql.spi.function.SqlNullable;
 import io.prestosql.spi.function.SqlType;
@@ -44,10 +46,20 @@ import static io.prestosql.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static io.prestosql.spi.function.OperatorType.NOT_EQUAL;
 import static io.prestosql.spi.function.OperatorType.XX_HASH_64;
 import static io.prestosql.type.UuidType.UUID;
+import static java.util.UUID.randomUUID;
 
 public final class UuidOperators
 {
     private UuidOperators() {}
+
+    @Description("generates a random UUID")
+    @ScalarFunction(deterministic = false)
+    @SqlType(StandardTypes.UUID)
+    public static Slice uuid()
+    {
+        java.util.UUID uuid = randomUUID();
+        return wrappedLongArray(uuid.getMostSignificantBits(), uuid.getLeastSignificantBits());
+    }
 
     @ScalarOperator(EQUAL)
     @SqlType(StandardTypes.BOOLEAN)

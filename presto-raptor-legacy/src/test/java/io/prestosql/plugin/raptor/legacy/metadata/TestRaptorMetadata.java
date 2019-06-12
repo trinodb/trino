@@ -54,6 +54,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.Ticker.systemTicker;
@@ -96,7 +97,7 @@ public class TestRaptorMetadata
     public void setupDatabase()
     {
         TypeRegistry typeRegistry = new TypeRegistry();
-        dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime());
+        dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime() + ThreadLocalRandom.current().nextLong());
         dbi.registerMapper(new TableColumn.Mapper(typeRegistry));
         dbi.registerMapper(new Distribution.Mapper(typeRegistry));
         dummyHandle = dbi.open();

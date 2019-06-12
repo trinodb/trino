@@ -16,6 +16,7 @@ package io.prestosql.sql.planner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.Session;
+import io.prestosql.spi.block.SortOrder;
 import io.prestosql.sql.analyzer.FeaturesConfig.JoinDistributionType;
 import io.prestosql.sql.planner.assertions.BasePlanTest;
 import io.prestosql.sql.planner.assertions.ExpressionMatcher;
@@ -84,11 +85,13 @@ import static io.prestosql.sql.planner.assertions.PlanMatchPattern.rowNumber;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.semiJoin;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.singleGroupingSet;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.sort;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.specification;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.strictProject;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.strictTableScan;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.topN;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.values;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.window;
 import static io.prestosql.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static io.prestosql.sql.planner.plan.AggregationNode.Step.FINAL;
 import static io.prestosql.sql.planner.plan.AggregationNode.Step.PARTIAL;
@@ -102,7 +105,6 @@ import static io.prestosql.sql.planner.plan.JoinNode.DistributionType.PARTITIONE
 import static io.prestosql.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
 import static io.prestosql.sql.planner.plan.JoinNode.Type.INNER;
 import static io.prestosql.sql.planner.plan.JoinNode.Type.LEFT;
-import static io.prestosql.sql.tree.SortItem.NullOrdering.FIRST;
 import static io.prestosql.sql.tree.SortItem.NullOrdering.LAST;
 import static io.prestosql.sql.tree.SortItem.Ordering.ASCENDING;
 import static io.prestosql.sql.tree.SortItem.Ordering.DESCENDING;
@@ -444,7 +446,7 @@ public class TestLogicalPlanner
         assertPlanDoesNotContain(sql, ApplyNode.class, JoinNode.class, IndexJoinNode.class, SemiJoinNode.class, LateralJoinNode.class);
     }
 
-    private void assertPlanDoesNotContain(String sql, Class... classes)
+    private void assertPlanDoesNotContain(String sql, Class<?>... classes)
     {
         assertFalse(
                 searchFrom(plan(sql, OPTIMIZED).getRoot())
@@ -789,11 +791,11 @@ public class TestLogicalPlanner
                 false,
                 anyTree(
                         node(JoinNode.class,
-                                anyTree(
-                                        node(ValuesNode.class)),
+                                node(ValuesNode.class),
                                 anyTree(
                                         exchange(REMOTE, GATHER,
-                                                node(TableScanNode.class))))));
+                                                anyTree(
+                                                        node(TableScanNode.class)))))));
 
         // replicated join is preserved if there are no equality criteria
         assertPlanWithSession(
@@ -879,7 +881,7 @@ public class TestLogicalPlanner
                         strictProject(
                                 ImmutableMap.of("name", new ExpressionMatcher("name")),
                                 filter(
-                                        "(row_num > BIGINT '2')",
+                                        "row_num > BIGINT '2'",
                                         rowNumber(
                                                 pattern -> pattern
                                                         .partitionBy(ImmutableList.of()),
@@ -892,43 +894,36 @@ public class TestLogicalPlanner
                 any(
                         strictProject(
                                 ImmutableMap.of("name", new ExpressionMatcher("name")),
-                                any(
-                                        sort(
-                                                ImmutableList.of(sort("row_num", ASCENDING, FIRST)),
-                                                any(
-                                                        filter(
-                                                                "(row_num > BIGINT '2')",
-                                                                rowNumber(
-                                                                        pattern -> pattern
-                                                                                .partitionBy(ImmutableList.of()),
-                                                                        any(
-                                                                                sort(
-                                                                                        ImmutableList.of(sort("regionkey", ASCENDING, LAST)),
-                                                                                        any(
-                                                                                                tableScan("nation", ImmutableMap.of("NAME", "name", "REGIONKEY", "regionkey"))))))
-                                                                        .withAlias("row_num", new RowNumberSymbolMatcher()))))))));
+                                filter(
+                                        "row_num > BIGINT '2'",
+                                        rowNumber(
+                                                pattern -> pattern
+                                                        .partitionBy(ImmutableList.of()),
+                                                anyTree(
+                                                        sort(
+                                                                ImmutableList.of(sort("regionkey", ASCENDING, LAST)),
+                                                                any(
+                                                                        tableScan("nation", ImmutableMap.of("NAME", "name", "REGIONKEY", "regionkey"))))))
+                                                .withAlias("row_num", new RowNumberSymbolMatcher())))));
 
         assertPlan(
                 "SELECT name FROM nation ORDER BY regionkey OFFSET 2 ROWS FETCH NEXT 5 ROWS ONLY",
                 any(
                         strictProject(
                                 ImmutableMap.of("name", new ExpressionMatcher("name")),
-                                any(
-                                        sort(
-                                                ImmutableList.of(sort("row_num", ASCENDING, FIRST)),
+                                filter(
+                                        "row_num > BIGINT '2'",
+                                        rowNumber(
+                                                pattern -> pattern
+                                                        .partitionBy(ImmutableList.of()),
                                                 any(
-                                                        filter(
-                                                                "(row_num > BIGINT '2')",
-                                                                rowNumber(
-                                                                        pattern -> pattern
-                                                                                .partitionBy(ImmutableList.of()),
-                                                                        topN(
-                                                                                7,
-                                                                                ImmutableList.of(sort("regionkey", ASCENDING, LAST)),
-                                                                                TopNNode.Step.FINAL,
-                                                                                anyTree(
-                                                                                        tableScan("nation", ImmutableMap.of("NAME", "name", "REGIONKEY", "regionkey")))))
-                                                                        .withAlias("row_num", new RowNumberSymbolMatcher()))))))));
+                                                        topN(
+                                                                7,
+                                                                ImmutableList.of(sort("regionkey", ASCENDING, LAST)),
+                                                                TopNNode.Step.FINAL,
+                                                                anyTree(
+                                                                        tableScan("nation", ImmutableMap.of("NAME", "name", "REGIONKEY", "regionkey"))))))
+                                                .withAlias("row_num", new RowNumberSymbolMatcher())))));
 
         assertPlan(
                 "SELECT name FROM nation OFFSET 2 ROWS FETCH NEXT 5 ROWS ONLY",
@@ -936,18 +931,84 @@ public class TestLogicalPlanner
                         strictProject(
                                 ImmutableMap.of("name", new ExpressionMatcher("name")),
                                 filter(
-                                        "(row_num > BIGINT '2')",
+                                        "row_num > BIGINT '2'",
                                         rowNumber(
                                                 pattern -> pattern
                                                         .partitionBy(ImmutableList.of()),
                                                 limit(
                                                         7,
-                                                        false,
                                                         any(
                                                                 tableScan("nation", ImmutableMap.of("NAME", "name")))))
                                                 .withAlias("row_num", new RowNumberSymbolMatcher())))));
     }
 
+    @Test
+    public void testWithTies()
+    {
+        assertPlan(
+                "SELECT name, regionkey FROM nation ORDER BY regionkey FETCH FIRST 6 ROWS WITH TIES",
+                any(
+                        strictProject(
+                                ImmutableMap.of("name", new ExpressionMatcher("name"), "regionkey", new ExpressionMatcher("regionkey")),
+                                filter(
+                                        "rank_num <= BIGINT '6'",
+                                        window(
+                                                windowMatcherBuilder -> windowMatcherBuilder
+                                                        .specification(specification(
+                                                                ImmutableList.of(),
+                                                                ImmutableList.of("regionkey"),
+                                                                ImmutableMap.of("regionkey", SortOrder.ASC_NULLS_LAST)))
+                                                        .addFunction(
+                                                                "rank_num",
+                                                                functionCall(
+                                                                        "rank",
+                                                                        Optional.empty(),
+                                                                        ImmutableList.of())),
+                                                anyTree(
+                                                        sort(
+                                                                ImmutableList.of(sort("regionkey", ASCENDING, LAST)),
+                                                                any(
+                                                                        tableScan(
+                                                                                "nation",
+                                                                                ImmutableMap.of("NAME", "name", "REGIONKEY", "regionkey"))))))))));
+
+        assertPlan(
+                "SELECT name, regionkey FROM nation ORDER BY regionkey OFFSET 10 ROWS FETCH FIRST 6 ROWS WITH TIES",
+                any(
+                        strictProject(
+                                ImmutableMap.of("name", new ExpressionMatcher("name"), "regionkey", new ExpressionMatcher("regionkey")),
+                                filter(
+                                        "row_num > BIGINT '10'",
+                                        rowNumber(
+                                                pattern -> pattern
+                                                        .partitionBy(ImmutableList.of()),
+                                                strictProject(
+                                                        ImmutableMap.of("name", new ExpressionMatcher("name"), "regionkey", new ExpressionMatcher("regionkey")),
+                                                        filter(
+                                                                "rank_num <= BIGINT '16'",
+                                                                window(
+                                                                        windowMatcherBuilder -> windowMatcherBuilder
+                                                                                .specification(specification(
+                                                                                        ImmutableList.of(),
+                                                                                        ImmutableList.of("regionkey"),
+                                                                                        ImmutableMap.of("regionkey", SortOrder.ASC_NULLS_LAST)))
+                                                                                .addFunction(
+                                                                                        "rank_num",
+                                                                                        functionCall(
+                                                                                                "rank",
+                                                                                                Optional.empty(),
+                                                                                                ImmutableList.of())),
+                                                                        anyTree(
+                                                                                sort(
+                                                                                        ImmutableList.of(sort("regionkey", ASCENDING, LAST)),
+                                                                                        any(
+                                                                                                tableScan(
+                                                                                                        "nation",
+                                                                                                        ImmutableMap.of("NAME", "name", "REGIONKEY", "regionkey")))))))))
+                                                .withAlias("row_num", new RowNumberSymbolMatcher())))));
+    }
+
+    @Test
     public void testRedundantLimitNodeRemoval()
     {
         String query = "SELECT count(*) FROM orders LIMIT 10";
@@ -957,19 +1018,17 @@ public class TestLogicalPlanner
                         .matches(),
                 format("Unexpected limit node for query: '%s'", query));
 
-        query = "SELECT orderkey, count(*) FROM orders GROUP BY orderkey LIMIT 10";
         assertPlan(
-                query,
+                "SELECT orderkey, count(*) FROM orders GROUP BY orderkey LIMIT 10",
                 output(
                         limit(10,
                                 anyTree(
                                         tableScan("orders")))));
 
-        query = "SELECT * FROM (VALUES 1,2,3,4,5,6) AS t1 LIMIT 10";
         assertPlan(
-                query,
+                "SELECT * FROM (VALUES 1,2,3,4,5,6) AS t1 LIMIT 10",
                 output(
-                        values(ImmutableList.of("t1"))));
+                        values(ImmutableList.of("x"))));
     }
 
     @Test
@@ -982,15 +1041,15 @@ public class TestLogicalPlanner
                         .matches(),
                 format("Unexpected sort node for query: '%s'", query));
 
-        query = "SELECT orderkey, count(*) FROM orders GROUP BY orderkey ORDER BY 1";
         assertPlan(
-                query,
+                "SELECT orderkey, count(*) FROM orders GROUP BY orderkey ORDER BY 1",
                 anyTree(
                         node(SortNode.class,
                                 anyTree(
                                         tableScan("orders")))));
     }
 
+    @Test
     public void testRedundantTopNNodeRemoval()
     {
         String query = "SELECT count(*) FROM orders ORDER BY 1 LIMIT 10";
@@ -1000,26 +1059,25 @@ public class TestLogicalPlanner
                         .matches(),
                 format("Unexpected TopN node for query: '%s'", query));
 
-        query = "SELECT orderkey, count(*) FROM orders GROUP BY orderkey ORDER BY 1 LIMIT 10";
         assertPlan(
-                query,
+                "SELECT orderkey, count(*) FROM orders GROUP BY orderkey ORDER BY 1 LIMIT 10",
                 output(
                         node(TopNNode.class,
                                 anyTree(
                                         tableScan("orders")))));
 
-        query = "SELECT orderkey, count(*) FROM orders GROUP BY orderkey ORDER BY 1 LIMIT 0";
         assertPlan(
-                query,
+                "SELECT orderkey, count(*) FROM orders GROUP BY orderkey ORDER BY 1 LIMIT 0",
                 output(
                         node(ValuesNode.class)));
 
-        query = "SELECT * FROM (VALUES 1,2,3,4,5,6) AS t1 ORDER BY 1 LIMIT 10";
         assertPlan(
-                query,
+                "SELECT * FROM (VALUES 1,2,3,4,5,6) AS t1 ORDER BY 1 LIMIT 10",
                 output(
-                        node(SortNode.class,
-                                values(ImmutableList.of("t1")))));
+                        exchange(LOCAL, GATHER,
+                                node(SortNode.class,
+                                        exchange(LOCAL, REPARTITION,
+                                                values(ImmutableList.of("x")))))));
     }
 
     @Test
@@ -1032,21 +1090,19 @@ public class TestLogicalPlanner
                         .matches(),
                 format("Unexpected DistinctLimit node for query: '%s'", query));
 
-        query = "SELECT distinct(c) FROM (SELECT count(*) as c FROM orders GROUP BY orderkey) LIMIT 10";
         assertPlan(
-                query,
+                "SELECT distinct(c) FROM (SELECT count(*) as c FROM orders GROUP BY orderkey) LIMIT 10",
                 output(
                         node(DistinctLimitNode.class,
                                 anyTree(
                                         tableScan("orders")))));
 
-        query = "SELECT distinct(id) FROM (VALUES 1, 2, 3, 4, 5, 6) as t1 (id) LIMIT 10";
         assertPlan(
-                query,
+                "SELECT distinct(id) FROM (VALUES 1, 2, 3, 4, 5, 6) as t1 (id) LIMIT 10",
                 output(
                         node(ProjectNode.class,
                                 node(AggregationNode.class,
                                         node(ProjectNode.class,
-                                                values(ImmutableList.of("t1")))))));
+                                                values(ImmutableList.of("x")))))));
     }
 }

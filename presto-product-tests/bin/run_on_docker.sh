@@ -59,17 +59,6 @@ function run_product_tests() {
   return ${PRODUCT_TESTS_EXIT_CODE}
 }
 
-function prefetch_images_silently() {
-  for IMAGE in $(docker_images_used); do
-    echo "Pulling docker image [$IMAGE]"
-    docker pull $IMAGE > /dev/null
-  done
-}
-
-function docker_images_used() {
-  environment_compose config | grep 'image:' | awk '{ print $2 }' | sort | uniq
-}
-
 function cleanup() {
   stop_application_runner_containers ${ENVIRONMENT}
 
@@ -77,16 +66,7 @@ function cleanup() {
     stop_docker_compose_containers ${ENVIRONMENT}
   fi
 
-  # Ensure that the logs processes are terminated.
-  # In most cases after the docker containers are stopped, logs processes must be terminated.
-  # However when the `LEAVE_CONTAINERS_ALIVE_ON_EXIT` is set, docker containers are not being terminated.
-  # Redirection of system error is supposed to hide the `process does not exist` and `process terminated` messages
-  if test ! -z ${DOCKER_COMPOSE_LOGS_PID:-}; then
-    kill ${DOCKER_COMPOSE_LOGS_PID} 2>/dev/null || true
-  fi
-
-  # docker logs processes are being terminated as soon as docker container are stopped
-  # wait for docker logs termination
+  # wait for docker containers termination
   wait 2>/dev/null || true
 }
 
@@ -121,11 +101,7 @@ docker version
 stop_all_containers
 
 if [[ ${CONTINUOUS_INTEGRATION:-false} = true ]]; then
-    prefetch_images_silently
-    # This has to be done after fetching the images
-    # or will present stale / no data for images that changed.
-    echo "Docker images versions:"
-    docker_images_used | xargs -n 1 docker inspect --format='ID: {{.ID}}, tags: {{.RepoTags}}'
+    environment_compose pull --quiet
 fi
 
 # catch terminate signals
@@ -133,10 +109,8 @@ trap terminate INT TERM EXIT
 
 # display how test environment is configured
 environment_compose config
-
-environment_compose up -d
-environment_compose logs --no-color -f &
-DOCKER_COMPOSE_LOGS_PID=$!
+SERVICES=$(environment_compose config --services | grep -vx 'application-runner\|.*-base')
+environment_compose up --no-color --abort-on-container-exit ${SERVICES} &
 
 # wait until hadoop processes are started
 retry check_hadoop

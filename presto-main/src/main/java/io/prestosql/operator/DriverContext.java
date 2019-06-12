@@ -37,9 +37,9 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getFirst;
 import static com.google.common.collect.Iterables.getLast;
-import static com.google.common.collect.Iterables.transform;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.succinctBytes;
 import static java.lang.Math.max;
@@ -294,6 +294,15 @@ public class DriverContext
         return blockedMonitor.get() != null;
     }
 
+    public List<OperatorStats> getOperatorStats()
+    {
+        return operatorContexts.stream()
+                .flatMap(operatorContext -> operatorContext
+                        .getNestedOperatorStats()
+                        .stream())
+                .collect(toImmutableList());
+    }
+
     public DriverStats getDriverStats()
     {
         long totalScheduledTime = overallTiming.getWallNanos();
@@ -305,7 +314,7 @@ public class DriverContext
             totalBlockedTime += blockedMonitor.getBlockedTime();
         }
 
-        List<OperatorStats> operators = ImmutableList.copyOf(transform(operatorContexts, OperatorContext::getOperatorStats));
+        List<OperatorStats> operators = getOperatorStats();
         OperatorStats inputOperator = getFirst(operators, null);
 
         DataSize physicalInputDataSize;
@@ -421,7 +430,7 @@ public class DriverContext
                 outputDataSize.convertToMostSuccinctDataSize(),
                 outputPositions,
                 succinctBytes(physicalWrittenDataSize),
-                ImmutableList.copyOf(transform(operatorContexts, OperatorContext::getOperatorStats)));
+                operators);
     }
 
     public <C, R> R accept(QueryContextVisitor<C, R> visitor, C context)

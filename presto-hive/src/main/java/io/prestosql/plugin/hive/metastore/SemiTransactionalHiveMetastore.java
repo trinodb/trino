@@ -66,6 +66,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_CORRUPTED_COLUMN_STATISTICS;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
@@ -194,7 +195,7 @@ public class SemiTransactionalHiveMetastore
             return ImmutableMap.of();
         }
         TableSource tableSource = getTableSource(databaseName, tableName);
-        Map<List<String>, Action<PartitionAndMore>> partitionActionsOfTable = partitionActions.computeIfAbsent(new SchemaTableName(databaseName, tableName), k -> new HashMap<>());
+        Map<List<String>, Action<PartitionAndMore>> partitionActionsOfTable = partitionActions.computeIfAbsent(table.get().getSchemaTableName(), k -> new HashMap<>());
         ImmutableSet.Builder<String> partitionNamesToQuery = ImmutableSet.builder();
         ImmutableMap.Builder<String, PartitionStatistics> resultBuilder = ImmutableMap.builder();
         for (String partitionName : partitionNames) {
@@ -243,10 +244,9 @@ public class SemiTransactionalHiveMetastore
         switch (tableAction.getType()) {
             case ADD:
                 return TableSource.CREATED_IN_THIS_TRANSACTION;
-            case ALTER:
-                throw new IllegalStateException("Tables are never altered in the current implementation");
             case DROP:
                 throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
+            case ALTER:
             case INSERT_EXISTING:
                 return TableSource.PRE_EXISTING_TABLE;
             default:
@@ -356,21 +356,25 @@ public class SemiTransactionalHiveMetastore
         setShared();
         // When creating a table, it should never have partition actions. This is just a sanity check.
         checkNoPartitionAction(table.getDatabaseName(), table.getTableName());
-        SchemaTableName schemaTableName = new SchemaTableName(table.getDatabaseName(), table.getTableName());
-        Action<TableAndMore> oldTableAction = tableActions.get(schemaTableName);
+        Action<TableAndMore> oldTableAction = tableActions.get(table.getSchemaTableName());
         TableAndMore tableAndMore = new TableAndMore(table, Optional.of(principalPrivileges), currentPath, Optional.empty(), ignoreExisting, statistics, statistics);
         if (oldTableAction == null) {
             HdfsContext context = new HdfsContext(session, table.getDatabaseName(), table.getTableName());
-            tableActions.put(schemaTableName, new Action<>(ActionType.ADD, tableAndMore, context));
+            tableActions.put(table.getSchemaTableName(), new Action<>(ActionType.ADD, tableAndMore, context));
             return;
         }
         switch (oldTableAction.getType()) {
             case DROP:
-                throw new PrestoException(TRANSACTION_CONFLICT, "Dropping and then recreating the same table in a transaction is not supported");
+                if (!oldTableAction.getContext().getIdentity().getUser().equals(session.getUser())) {
+                    throw new PrestoException(TRANSACTION_CONFLICT, "Operation on the same table with different user in the same transaction is not supported");
+                }
+                HdfsContext context = new HdfsContext(session, table.getDatabaseName(), table.getTableName());
+                tableActions.put(table.getSchemaTableName(), new Action<>(ActionType.ALTER, tableAndMore, context));
+                break;
             case ADD:
             case ALTER:
             case INSERT_EXISTING:
-                throw new TableAlreadyExistsException(schemaTableName);
+                throw new TableAlreadyExistsException(table.getSchemaTableName());
             default:
                 throw new IllegalStateException("Unknown action type");
         }
@@ -494,7 +498,7 @@ public class SemiTransactionalHiveMetastore
         Path path = new Path(table.get().getStorage().getLocation());
         HdfsContext context = new HdfsContext(session, databaseName, tableName);
         setExclusive((delegate, hdfsEnvironment) -> {
-            RecursiveDeleteResult recursiveDeleteResult = recursiveDeleteFiles(hdfsEnvironment, context, path, ImmutableList.of(""), false);
+            RecursiveDeleteResult recursiveDeleteResult = recursiveDeleteFiles(hdfsEnvironment, context, path, ImmutableSet.of(""), false);
             if (!recursiveDeleteResult.getNotDeletedEligibleItems().isEmpty()) {
                 throw new PrestoException(HIVE_FILESYSTEM_ERROR, format(
                         "Error deleting from unpartitioned table %s. These items can not be deleted: %s",
@@ -547,7 +551,7 @@ public class SemiTransactionalHiveMetastore
             default:
                 throw new UnsupportedOperationException("Unknown table source");
         }
-        Map<List<String>, Action<PartitionAndMore>> partitionActionsOfTable = partitionActions.computeIfAbsent(new SchemaTableName(databaseName, tableName), k -> new HashMap<>());
+        Map<List<String>, Action<PartitionAndMore>> partitionActionsOfTable = partitionActions.computeIfAbsent(table.get().getSchemaTableName(), k -> new HashMap<>());
         ImmutableList.Builder<String> resultBuilder = ImmutableList.builder();
         // alter/remove newly-altered/dropped partitions from the results from underlying metastore
         for (String partitionName : partitionNames) {
@@ -864,7 +868,7 @@ public class SemiTransactionalHiveMetastore
         setExclusive((delegate, hdfsEnvironment) -> delegate.revokeTablePrivileges(databaseName, tableName, grantee, privileges));
     }
 
-    public synchronized void declareIntentionToWrite(ConnectorSession session, WriteMode writeMode, Path stagingPathRoot, String filePrefix, SchemaTableName schemaTableName)
+    public synchronized void declareIntentionToWrite(ConnectorSession session, WriteMode writeMode, Path stagingPathRoot, SchemaTableName schemaTableName)
     {
         setShared();
         if (writeMode == WriteMode.DIRECT_TO_TARGET_EXISTING_DIRECTORY) {
@@ -874,7 +878,7 @@ public class SemiTransactionalHiveMetastore
             }
         }
         HdfsContext context = new HdfsContext(session, schemaTableName.getSchemaName(), schemaTableName.getTableName());
-        declaredIntentionsToWrite.add(new DeclaredIntentionToWrite(writeMode, context, stagingPathRoot, filePrefix, schemaTableName));
+        declaredIntentionsToWrite.add(new DeclaredIntentionToWrite(writeMode, context, session.getQueryId(), stagingPathRoot, schemaTableName));
     }
 
     public synchronized void commit()
@@ -937,7 +941,7 @@ public class SemiTransactionalHiveMetastore
                         committer.prepareDropTable(schemaTableName);
                         break;
                     case ALTER:
-                        committer.prepareAlterTable();
+                        committer.prepareAlterTable(action.getContext(), action.getData());
                         break;
                     case ADD:
                         committer.prepareAddTable(action.getContext(), action.getData());
@@ -980,6 +984,7 @@ public class SemiTransactionalHiveMetastore
             // We are moving on to metastore operations now.
 
             committer.executeAddTableOperations();
+            committer.executeAlterTableOperations();
             committer.executeAlterPartitionOperations();
             committer.executeAddPartitionOperations();
             committer.executeUpdateStatisticsOperations();
@@ -995,11 +1000,12 @@ public class SemiTransactionalHiveMetastore
 
             // fileRenameFutures must all come back before any file system cleanups are carried out.
             // Otherwise, files that should be deleted may be created after cleanup is done.
-            committer.executeCleanupTasksForAbort(committer.extractFilePrefixes(declaredIntentionsToWrite));
+            committer.executeCleanupTasksForAbort(declaredIntentionsToWrite);
 
             committer.executeRenameTasksForAbort();
 
             // Partition directory must be put back before relevant metastore operation can be undone
+            committer.undoAlterTableOperations();
             committer.undoAlterPartitionOperations();
 
             rollbackShared();
@@ -1048,6 +1054,7 @@ public class SemiTransactionalHiveMetastore
 
         // Metastore
         private final List<CreateTableOperation> addTableOperations = new ArrayList<>();
+        private final List<AlterTableOperation> alterTableOperations = new ArrayList<>();
         private final Map<SchemaTableName, PartitionAdder> partitionAdders = new HashMap<>();
         private final List<AlterPartitionOperation> alterPartitionOperations = new ArrayList<>();
         private final List<UpdateStatisticsOperation> updateStatisticsOperations = new ArrayList<>();
@@ -1063,14 +1070,63 @@ public class SemiTransactionalHiveMetastore
                     () -> delegate.dropTable(schemaTableName.getSchemaName(), schemaTableName.getTableName(), true)));
         }
 
-        private void prepareAlterTable()
+        private void prepareAlterTable(HdfsContext context, TableAndMore tableAndMore)
         {
             deleteOnly = false;
 
-            // Currently, ALTER action is never constructed for tables. Dropping a table and then re-creating it
-            // in the same transaction is not supported now. The following line should be replaced with actual
-            // implementation when create after drop support is introduced for a table.
-            throw new UnsupportedOperationException("Dropping and then creating a table with the same name is not supported");
+            Table table = tableAndMore.getTable();
+            String targetLocation = table.getStorage().getLocation();
+            Table oldTable = delegate.getTable(table.getDatabaseName(), table.getTableName())
+                    .orElseThrow(() -> new PrestoException(TRANSACTION_CONFLICT, "The table that this transaction modified was deleted in another transaction. " + table.getSchemaTableName()));
+            String oldTableLocation = oldTable.getStorage().getLocation();
+            Path oldTablePath = new Path(oldTableLocation);
+
+            // Location of the old table and the new table can be different because we allow arbitrary directories through LocationService.
+            // If the location of the old table is the same as the location of the new table:
+            // * Rename the old data directory to a temporary path with a special suffix
+            // * Remember we will need to delete that directory at the end if transaction successfully commits
+            // * Remember we will need to undo the rename if transaction aborts
+            // Otherwise,
+            // * Remember we will need to delete the location of the old partition at the end if transaction successfully commits
+            if (targetLocation.equals(oldTableLocation)) {
+                String queryId = context.getQueryId().orElseThrow(() -> new IllegalArgumentException("query ID not present"));
+                Path oldTableStagingPath = new Path(oldTablePath.getParent(), "_temp_" + oldTablePath.getName() + "_" + queryId);
+                renameDirectory(
+                        context,
+                        hdfsEnvironment,
+                        oldTablePath,
+                        oldTableStagingPath,
+                        () -> renameTasksForAbort.add(new DirectoryRenameTask(context, oldTableStagingPath, oldTablePath)));
+                if (!skipDeletionForAlter) {
+                    deletionTasksForFinish.add(new DirectoryDeletionTask(context, oldTableStagingPath));
+                }
+            }
+            else {
+                if (!skipDeletionForAlter) {
+                    deletionTasksForFinish.add(new DirectoryDeletionTask(context, oldTablePath));
+                }
+            }
+
+            Path currentPath = tableAndMore.getCurrentLocation()
+                    .orElseThrow(() -> new IllegalArgumentException("location should be present for alter table"));
+            Path targetPath = new Path(targetLocation);
+            if (!targetPath.equals(currentPath)) {
+                renameDirectory(
+                        context,
+                        hdfsEnvironment,
+                        currentPath,
+                        targetPath,
+                        () -> cleanUpTasksForAbort.add(new DirectoryCleanUpTask(context, targetPath, true)));
+            }
+            // Partition alter must happen regardless of whether original and current location is the same
+            // because metadata might change: e.g. storage format, column types, etc
+            alterTableOperations.add(new AlterTableOperation(tableAndMore.getTable(), oldTable, tableAndMore.getPrincipalPrivileges()));
+
+            updateStatisticsOperations.add(new UpdateStatisticsOperation(
+                    table.getSchemaTableName(),
+                    Optional.empty(),
+                    tableAndMore.getStatisticsUpdate(),
+                    false));
         }
 
         private void prepareAddTable(HdfsContext context, TableAndMore tableAndMore)
@@ -1122,7 +1178,7 @@ public class SemiTransactionalHiveMetastore
             addTableOperations.add(new CreateTableOperation(table, tableAndMore.getPrincipalPrivileges(), tableAndMore.isIgnoreExisting()));
             if (!isPrestoView(table)) {
                 updateStatisticsOperations.add(new UpdateStatisticsOperation(
-                        new SchemaTableName(table.getDatabaseName(), table.getTableName()),
+                        table.getSchemaTableName(),
                         Optional.empty(),
                         tableAndMore.getStatisticsUpdate(),
                         false));
@@ -1141,7 +1197,7 @@ public class SemiTransactionalHiveMetastore
                 asyncRename(hdfsEnvironment, renameExecutor, fileRenameCancelled, fileRenameFutures, context, currentPath, targetPath, tableAndMore.getFileNames().get());
             }
             updateStatisticsOperations.add(new UpdateStatisticsOperation(
-                    new SchemaTableName(table.getDatabaseName(), table.getTableName()),
+                    table.getSchemaTableName(),
                     Optional.empty(),
                     tableAndMore.getStatisticsUpdate(),
                     true));
@@ -1179,7 +1235,8 @@ public class SemiTransactionalHiveMetastore
             // Otherwise,
             // * Remember we will need to delete the location of the old partition at the end if transaction successfully commits
             if (targetLocation.equals(oldPartitionLocation)) {
-                Path oldPartitionStagingPath = new Path(oldPartitionPath.getParent(), "_temp_" + oldPartitionPath.getName() + "_" + context.getQueryId());
+                String queryId = context.getQueryId().orElseThrow(() -> new IllegalArgumentException("query ID not present"));
+                Path oldPartitionStagingPath = new Path(oldPartitionPath.getParent(), "_temp_" + oldPartitionPath.getName() + "_" + queryId);
                 renameDirectory(
                         context,
                         hdfsEnvironment,
@@ -1248,9 +1305,8 @@ public class SemiTransactionalHiveMetastore
             Path currentPath = partitionAndMore.getCurrentLocation();
             Path targetPath = new Path(targetLocation);
 
-            SchemaTableName schemaTableName = new SchemaTableName(partition.getDatabaseName(), partition.getTableName());
             PartitionAdder partitionAdder = partitionAdders.computeIfAbsent(
-                    schemaTableName,
+                    partition.getSchemaTableName(),
                     ignored -> new PartitionAdder(partition.getDatabaseName(), partition.getTableName(), delegate, PARTITION_COMMIT_BATCH_SIZE));
 
             if (pathExists(context, hdfsEnvironment, currentPath)) {
@@ -1283,16 +1339,19 @@ public class SemiTransactionalHiveMetastore
                 asyncRename(hdfsEnvironment, renameExecutor, fileRenameCancelled, fileRenameFutures, context, currentPath, targetPath, partitionAndMore.getFileNames());
             }
             updateStatisticsOperations.add(new UpdateStatisticsOperation(
-                    new SchemaTableName(partition.getDatabaseName(), partition.getTableName()),
+                    partition.getSchemaTableName(),
                     Optional.of(getPartitionName(partition.getDatabaseName(), partition.getTableName(), partition.getValues())),
                     partitionAndMore.getStatisticsUpdate(),
                     true));
         }
 
-        private void executeCleanupTasksForAbort(List<String> filePrefixes)
+        private void executeCleanupTasksForAbort(Collection<DeclaredIntentionToWrite> declaredIntentionsToWrite)
         {
+            Set<String> queryIds = declaredIntentionsToWrite.stream()
+                    .map(DeclaredIntentionToWrite::getQueryId)
+                    .collect(toImmutableSet());
             for (DirectoryCleanUpTask cleanUpTask : cleanUpTasksForAbort) {
-                recursiveDeleteFilesAndLog(cleanUpTask.getContext(), cleanUpTask.getPath(), filePrefixes, cleanUpTask.isDeleteEmptyDirectory(), "temporary directory commit abort");
+                recursiveDeleteFilesAndLog(cleanUpTask.getContext(), cleanUpTask.getPath(), queryIds, cleanUpTask.isDeleteEmptyDirectory(), "temporary directory commit abort");
             }
         }
 
@@ -1328,7 +1387,7 @@ public class SemiTransactionalHiveMetastore
                     continue;
                 }
                 Path path = declaredIntentionToWrite.getRootPath();
-                recursiveDeleteFilesAndLog(declaredIntentionToWrite.getContext(), path, ImmutableList.of(), true, "staging directory cleanup");
+                recursiveDeleteFilesAndLog(declaredIntentionToWrite.getContext(), path, ImmutableSet.of(), true, "staging directory cleanup");
             }
         }
 
@@ -1363,6 +1422,13 @@ public class SemiTransactionalHiveMetastore
         {
             for (CreateTableOperation addTableOperation : addTableOperations) {
                 addTableOperation.run(delegate);
+            }
+        }
+
+        private void executeAlterTableOperations()
+        {
+            for (AlterTableOperation alterTableOperation : alterTableOperations) {
+                alterTableOperation.run(delegate);
             }
         }
 
@@ -1408,6 +1474,18 @@ public class SemiTransactionalHiveMetastore
                 }
                 catch (Throwable throwable) {
                     logCleanupFailure(throwable, "failed to rollback: %s", addTableOperation.getDescription());
+                }
+            }
+        }
+
+        private void undoAlterTableOperations()
+        {
+            for (AlterTableOperation alterTableOperation : alterTableOperations) {
+                try {
+                    alterTableOperation.undo(delegate);
+                }
+                catch (Throwable throwable) {
+                    logCleanupFailure(throwable, "failed to rollback: %s", alterTableOperation.getDescription());
                 }
             }
         }
@@ -1469,15 +1547,6 @@ public class SemiTransactionalHiveMetastore
                 throw prestoException;
             }
         }
-
-        private List<String> extractFilePrefixes(List<DeclaredIntentionToWrite> declaredIntentionsToWrite)
-        {
-            Set<String> filePrefixSet = new HashSet<>();
-            for (DeclaredIntentionToWrite declaredIntentionToWrite : declaredIntentionsToWrite) {
-                filePrefixSet.add(declaredIntentionToWrite.getFilePrefix());
-            }
-            return ImmutableList.copyOf(filePrefixSet);
-        }
     }
 
     @GuardedBy("this")
@@ -1500,13 +1569,12 @@ public class SemiTransactionalHiveMetastore
                     // In the case of DIRECT_TO_TARGET_NEW_DIRECTORY, if the directory is not guaranteed to be unique
                     // for the query, it is possible that another query or compute engine may see the directory, wrote
                     // data to it, and exported it through metastore. Therefore it may be argued that cleanup of staging
-                    // directories must be carried out conservatively. To be safe, we only delete files that start with
-                    // the unique prefix for queries in this transaction.
-
+                    // directories must be carried out conservatively. To be safe, we only delete files that start or
+                    // end with the query IDs in this transaction.
                     recursiveDeleteFilesAndLog(
                             declaredIntentionToWrite.getContext(),
                             rootPath,
-                            ImmutableList.of(declaredIntentionToWrite.getFilePrefix()),
+                            ImmutableSet.of(declaredIntentionToWrite.getQueryId()),
                             true,
                             format("staging/target_new directory rollback for table %s", declaredIntentionToWrite.getSchemaTableName()));
                     break;
@@ -1546,14 +1614,14 @@ public class SemiTransactionalHiveMetastore
                                 schemaTableName.getTableName());
                     }
 
-                    // delete any file that starts with the unique prefix of this query
+                    // delete any file that starts or ends with the query ID
                     for (Path path : pathsToClean) {
                         // TODO: It is a known deficiency that some empty directory does not get cleaned up in S3.
                         // We can not delete any of the directories here since we do not know who created them.
                         recursiveDeleteFilesAndLog(
                                 declaredIntentionToWrite.getContext(),
                                 path,
-                                ImmutableList.of(declaredIntentionToWrite.getFilePrefix()),
+                                ImmutableSet.of(declaredIntentionToWrite.getQueryId()),
                                 false,
                                 format("target_existing directory rollback for table %s", schemaTableName));
                     }
@@ -1694,13 +1762,13 @@ public class SemiTransactionalHiveMetastore
         }
     }
 
-    private void recursiveDeleteFilesAndLog(HdfsContext context, Path directory, List<String> filePrefixes, boolean deleteEmptyDirectories, String reason)
+    private void recursiveDeleteFilesAndLog(HdfsContext context, Path directory, Set<String> queryIds, boolean deleteEmptyDirectories, String reason)
     {
         RecursiveDeleteResult recursiveDeleteResult = recursiveDeleteFiles(
                 hdfsEnvironment,
                 context,
                 directory,
-                filePrefixes,
+                queryIds,
                 deleteEmptyDirectories);
         if (!recursiveDeleteResult.getNotDeletedEligibleItems().isEmpty()) {
             logCleanupFailure(
@@ -1720,19 +1788,19 @@ public class SemiTransactionalHiveMetastore
     /**
      * Attempt to recursively remove eligible files and/or directories in {@code directory}.
      * <p>
-     * When {@code filePrefixes} is not present, all files (but not necessarily directories) will be
-     * ineligible. If all files shall be deleted, you can use an empty string as {@code filePrefixes}.
+     * When {@code queryIds} is not present, all files (but not necessarily directories) will be
+     * ineligible. If all files shall be deleted, you can use an empty string as {@code queryIds}.
      * <p>
      * When {@code deleteEmptySubDirectory} is true, any empty directory (including directories that
-     * were originally empty, and directories that become empty after files prefixed with
-     * {@code filePrefixes} are deleted) will be eligible.
+     * were originally empty, and directories that become empty after files prefixed or suffixed with
+     * {@code queryIds} are deleted) will be eligible.
      * <p>
      * This method will not delete anything that's neither a directory nor a file.
      *
-     * @param filePrefixes prefix of files that should be deleted
+     * @param queryIds prefix or suffix of files that should be deleted
      * @param deleteEmptyDirectories whether empty directories should be deleted
      */
-    private static RecursiveDeleteResult recursiveDeleteFiles(HdfsEnvironment hdfsEnvironment, HdfsContext context, Path directory, List<String> filePrefixes, boolean deleteEmptyDirectories)
+    private static RecursiveDeleteResult recursiveDeleteFiles(HdfsEnvironment hdfsEnvironment, HdfsContext context, Path directory, Set<String> queryIds, boolean deleteEmptyDirectories)
     {
         FileSystem fileSystem;
         try {
@@ -1748,10 +1816,10 @@ public class SemiTransactionalHiveMetastore
             return new RecursiveDeleteResult(false, notDeletedItems.build());
         }
 
-        return doRecursiveDeleteFiles(fileSystem, directory, filePrefixes, deleteEmptyDirectories);
+        return doRecursiveDeleteFiles(fileSystem, directory, queryIds, deleteEmptyDirectories);
     }
 
-    private static RecursiveDeleteResult doRecursiveDeleteFiles(FileSystem fileSystem, Path directory, List<String> filePrefixes, boolean deleteEmptyDirectories)
+    private static RecursiveDeleteResult doRecursiveDeleteFiles(FileSystem fileSystem, Path directory, Set<String> queryIds, boolean deleteEmptyDirectories)
     {
         // don't delete hidden presto directories
         if (directory.getName().startsWith(".presto")) {
@@ -1777,7 +1845,7 @@ public class SemiTransactionalHiveMetastore
                 boolean eligible = false;
                 // never delete presto dot files
                 if (!fileName.startsWith(".presto")) {
-                    eligible = filePrefixes.stream().anyMatch(fileName::startsWith);
+                    eligible = queryIds.stream().anyMatch(id -> fileName.startsWith(id) || fileName.endsWith(id));
                 }
                 if (eligible) {
                     if (!deleteIfExists(fileSystem, filePath, false)) {
@@ -1790,7 +1858,7 @@ public class SemiTransactionalHiveMetastore
                 }
             }
             else if (fileStatus.isDirectory()) {
-                RecursiveDeleteResult subResult = doRecursiveDeleteFiles(fileSystem, fileStatus.getPath(), filePrefixes, deleteEmptyDirectories);
+                RecursiveDeleteResult subResult = doRecursiveDeleteFiles(fileSystem, fileStatus.getPath(), queryIds, deleteEmptyDirectories);
                 if (!subResult.isDirectoryNoLongerExists()) {
                     allDescendentsDeleted = false;
                 }
@@ -2125,16 +2193,16 @@ public class SemiTransactionalHiveMetastore
     {
         private final WriteMode mode;
         private final HdfsContext context;
-        private final String filePrefix;
+        private final String queryId;
         private final Path rootPath;
         private final SchemaTableName schemaTableName;
 
-        public DeclaredIntentionToWrite(WriteMode mode, HdfsContext context, Path stagingPathRoot, String filePrefix, SchemaTableName schemaTableName)
+        public DeclaredIntentionToWrite(WriteMode mode, HdfsContext context, String queryId, Path stagingPathRoot, SchemaTableName schemaTableName)
         {
             this.mode = requireNonNull(mode, "mode is null");
             this.context = requireNonNull(context, "context is null");
+            this.queryId = requireNonNull(queryId, "queryId is null");
             this.rootPath = requireNonNull(stagingPathRoot, "stagingPathRoot is null");
-            this.filePrefix = requireNonNull(filePrefix, "filePrefix is null");
             this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
         }
 
@@ -2148,9 +2216,9 @@ public class SemiTransactionalHiveMetastore
             return context;
         }
 
-        public String getFilePrefix()
+        public String getQueryId()
         {
-            return filePrefix;
+            return queryId;
         }
 
         public Path getRootPath()
@@ -2169,7 +2237,7 @@ public class SemiTransactionalHiveMetastore
             return toStringHelper(this)
                     .add("mode", mode)
                     .add("context", context)
-                    .add("filePrefix", filePrefix)
+                    .add("queryId", queryId)
                     .add("rootPath", rootPath)
                     .add("schemaTableName", schemaTableName)
                     .toString();
@@ -2399,6 +2467,46 @@ public class SemiTransactionalHiveMetastore
                 return;
             }
             metastore.dropTable(newTable.getDatabaseName(), newTable.getTableName(), false);
+        }
+    }
+
+    private static class AlterTableOperation
+    {
+        private final Table newTable;
+        private final Table oldTable;
+        private final PrincipalPrivileges principalPrivileges;
+        private boolean undo;
+
+        public AlterTableOperation(Table newTable, Table oldTable, PrincipalPrivileges principalPrivileges)
+        {
+            this.newTable = requireNonNull(newTable, "newTable is null");
+            this.oldTable = requireNonNull(oldTable, "oldTable is null");
+            this.principalPrivileges = requireNonNull(principalPrivileges, "principalPrivileges is null");
+            checkArgument(newTable.getDatabaseName().equals(oldTable.getDatabaseName()));
+            checkArgument(newTable.getTableName().equals(oldTable.getTableName()));
+        }
+
+        public String getDescription()
+        {
+            return format(
+                    "alter table %s.%s",
+                    newTable.getDatabaseName(),
+                    newTable.getTableName());
+        }
+
+        public void run(HiveMetastore metastore)
+        {
+            undo = true;
+            metastore.replaceTable(newTable.getDatabaseName(), newTable.getTableName(), newTable, principalPrivileges);
+        }
+
+        public void undo(HiveMetastore metastore)
+        {
+            if (!undo) {
+                return;
+            }
+
+            metastore.replaceTable(oldTable.getDatabaseName(), oldTable.getTableName(), oldTable, principalPrivileges);
         }
     }
 

@@ -20,13 +20,12 @@ import io.prestosql.sql.planner.assertions.PlanMatchPattern;
 import io.prestosql.sql.planner.optimizations.PlanOptimizer;
 import io.prestosql.sql.planner.plan.ExchangeNode;
 import io.prestosql.sql.planner.plan.WindowNode;
-import io.prestosql.sql.tree.LongLiteral;
-import io.prestosql.sql.tree.StringLiteral;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Optional;
 
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.any;
+import static io.prestosql.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.assignUniqueId;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
@@ -46,6 +45,11 @@ import static io.prestosql.sql.planner.plan.JoinNode.Type.LEFT;
 public class TestPredicatePushdown
         extends BasePlanTest
 {
+    TestPredicatePushdown()
+    {
+        super(ImmutableMap.of(ENABLE_DYNAMIC_FILTERING, "true"));
+    }
+
     @Test
     public void testCoercions()
     {
@@ -55,52 +59,40 @@ public class TestPredicatePushdown
         // values have the same type (varchar(4)) in both tables
         assertPlan(
                 "WITH " +
-                        "    t(k, v) AS (VALUES (1, 'aaaa'))," +
-                        "    u(k, v) AS (VALUES (1, 'bbbb')) " +
+                        "    t(k, v) AS (SELECT nationkey, CAST(name AS varchar(4)) FROM nation)," +
+                        "    u(k, v) AS (SELECT nationkey, CAST(name AS varchar(4)) FROM nation) " +
                         "SELECT 1 " +
                         "FROM t JOIN u ON t.k = u.k AND t.v = u.v " +
                         "WHERE t.v = 'x'",
                 anyTree(
                         join(INNER, ImmutableList.of(equiJoinClause("t_k", "u_k")),
-                                project(
-                                        filter(
-                                                "CAST('x' AS varchar(4)) = t_v",
-                                                values(
-                                                        ImmutableList.of("t_k", "t_v"),
-                                                        ImmutableList.of(
-                                                                ImmutableList.of(new LongLiteral("1"), new StringLiteral("aaaa")))))),
-                                project(
-                                        filter(
-                                                "CAST('x' AS varchar(4)) = u_v",
-                                                values(
-                                                        ImmutableList.of("u_k", "u_v"),
-                                                        ImmutableList.of(
-                                                                ImmutableList.of(new LongLiteral("1"), new StringLiteral("bbbb")))))))));
+                                ImmutableMap.of("t_k", "u_k"),
+                                Optional.of("CAST('x' AS varchar(4)) = CAST(t_v AS varchar(4))"),
+                                tableScan("nation", ImmutableMap.of("t_k", "nationkey", "t_v", "name")),
+                                anyTree(
+                                        project(
+                                                filter(
+                                                        "CAST('x' AS varchar(4)) = CAST(u_v AS varchar(4))",
+                                                        tableScan("nation", ImmutableMap.of("u_k", "nationkey", "u_v", "name"))))))));
 
         // values have different types (varchar(4) vs varchar(5)) in each table
         assertPlan(
                 "WITH " +
-                        "    t(k, v) AS (VALUES (1, 'aaaa'))," +
-                        "    u(k, v) AS (VALUES (1, 'bbbbb')) " +
+                        "    t(k, v) AS (SELECT nationkey, CAST(name AS varchar(4)) FROM nation)," +
+                        "    u(k, v) AS (SELECT nationkey, CAST(name AS varchar(5)) FROM nation) " +
                         "SELECT 1 " +
                         "FROM t JOIN u ON t.k = u.k AND t.v = u.v " +
                         "WHERE t.v = 'x'",
                 anyTree(
                         join(INNER, ImmutableList.of(equiJoinClause("t_k", "u_k")),
-                                project(
-                                        filter(
-                                                "CAST('x' AS varchar(4)) = t_v",
-                                                values(
-                                                        ImmutableList.of("t_k", "t_v"),
-                                                        ImmutableList.of(
-                                                                ImmutableList.of(new LongLiteral("1"), new StringLiteral("aaaa")))))),
-                                project(
-                                        filter(
-                                                "CAST('x' AS varchar(5)) = u_v",
-                                                values(
-                                                        ImmutableList.of("u_k", "u_v"),
-                                                        ImmutableList.of(
-                                                                ImmutableList.of(new LongLiteral("1"), new StringLiteral("bbbbb")))))))));
+                                ImmutableMap.of("t_k", "u_k"),
+                                Optional.of("CAST('x' AS varchar(4)) = CAST(t_v AS varchar(4))"),
+                                tableScan("nation", ImmutableMap.of("t_k", "nationkey", "t_v", "name")),
+                                anyTree(
+                                        project(
+                                                filter(
+                                                        "CAST('x' AS varchar(5)) = CAST(u_v AS varchar(5))",
+                                                        tableScan("nation", ImmutableMap.of("u_k", "nationkey", "u_v", "name"))))))));
     }
 
     @Test
@@ -109,7 +101,7 @@ public class TestPredicatePushdown
         assertPlan("SELECT * FROM orders JOIN lineitem ON orders.orderkey = lineitem.orderkey AND cast(lineitem.linenumber AS varchar) = '2'",
                 anyTree(
                         join(INNER, ImmutableList.of(equiJoinClause("ORDERS_OK", "LINEITEM_OK")),
-                                any(
+                                anyTree(
                                         tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey"))),
                                 anyTree(
                                         filter("cast('2' as varchar) = cast(LINEITEM_LINENUMBER as varchar)",
@@ -463,7 +455,7 @@ public class TestPredicatePushdown
                         "FROM orders" +
                         ") WHERE custkey > 100*rand()",
                 anyTree(
-                        filter("CAST(\"CUST_KEY\" AS double) > (1E2 * \"rand\"())",
+                        filter("CAST(\"CUST_KEY\" AS double) > (\"rand\"() * 1E2)",
                                 anyTree(
                                         node(WindowNode.class,
                                                 anyTree(

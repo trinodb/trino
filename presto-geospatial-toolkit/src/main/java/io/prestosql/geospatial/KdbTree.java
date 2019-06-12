@@ -358,7 +358,7 @@ public class KdbTree
 
         SplitResult<Rectangle> childExtents = splitDimension.split(extent, splitValue);
 
-        return Optional.of(new SplitResult(
+        return Optional.of(new SplitResult<>(
                 buildKdbTreeNode(maxItemsPerNode, level + 1, childExtents.getLeft(), sortedItems.subList(0, splitIndex), leafIdAllocator),
                 buildKdbTreeNode(maxItemsPerNode, level + 1, childExtents.getRight(), sortedItems.subList(splitIndex, sortedItems.size()), leafIdAllocator)));
     }

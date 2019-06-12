@@ -96,6 +96,7 @@ public class LocalDispatchQueryFactory
         WarningCollector warningCollector = warningCollectorFactory.create();
         QueryStateMachine stateMachine = QueryStateMachine.begin(
                 query,
+                preparedQuery.getPrepareSql(),
                 session,
                 locationFactory.createQueryLocation(session.getQueryId()),
                 resourceGroup,

@@ -72,7 +72,7 @@ public class BytecodeGeneratorContext
         return generate(expression, Optional.empty());
     }
 
-    public BytecodeNode generate(RowExpression expression, Optional<Class> lambdaInterface)
+    public BytecodeNode generate(RowExpression expression, Optional<Class<?>> lambdaInterface)
     {
         return rowExpressionCompiler.compile(expression, scope, lambdaInterface);
     }

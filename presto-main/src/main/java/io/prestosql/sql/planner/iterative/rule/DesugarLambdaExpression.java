@@ -13,11 +13,8 @@
  */
 package io.prestosql.sql.planner.iterative.rule;
 
-import com.google.common.collect.ImmutableSet;
 import io.prestosql.sql.planner.iterative.Rule;
 import io.prestosql.sql.tree.Expression;
-
-import java.util.Set;
 
 public class DesugarLambdaExpression
         extends ExpressionRewriteRuleSet
@@ -25,17 +22,6 @@ public class DesugarLambdaExpression
     public DesugarLambdaExpression()
     {
         super(DesugarLambdaExpression::rewrite);
-    }
-
-    @Override
-    public Set<Rule<?>> rules()
-    {
-        return ImmutableSet.of(
-                projectExpressionRewrite(),
-                aggregationExpressionRewrite(),
-                filterExpressionRewrite(),
-                joinExpressionRewrite(),
-                valuesExpressionRewrite());
     }
 
     private static Expression rewrite(Expression expression, Rule.Context context)

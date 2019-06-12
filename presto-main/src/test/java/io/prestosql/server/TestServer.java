@@ -222,7 +222,7 @@ public class TestServer
         assertEquals(queryResults.getError().getErrorCode(), INCOMPATIBLE_CLIENT.toErrorCode().getCode());
     }
 
-    public URI uriFor(String path)
+    private URI uriFor(String path)
     {
         return HttpUriBuilder.uriBuilderFrom(server.getBaseUrl()).replacePath(path).build();
     }

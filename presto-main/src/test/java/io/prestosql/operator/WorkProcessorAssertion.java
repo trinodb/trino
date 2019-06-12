@@ -19,9 +19,12 @@ import io.prestosql.operator.WorkProcessor.TransformationState;
 
 import java.util.Iterator;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.function.BiPredicate;
 import java.util.function.Consumer;
 
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -75,10 +78,18 @@ public final class WorkProcessorAssertion
 
     public static <T, R> WorkProcessor.Transformation<T, R> transformationFrom(List<Transform<T, R>> transformations)
     {
+        return transformationFrom(transformations, Objects::equals);
+    }
+
+    public static <T, R> WorkProcessor.Transformation<T, R> transformationFrom(List<Transform<T, R>> transformations, BiPredicate<T, T> equalsPredicate)
+    {
         Iterator<Transform<T, R>> iterator = transformations.iterator();
         return element -> {
             assertTrue(iterator.hasNext());
-            return iterator.next().transform(Optional.ofNullable(element));
+            return iterator.next().transform(
+                    Optional.ofNullable(element),
+                    (left, right) -> left.isPresent() == right.isPresent()
+                            && (!left.isPresent() || equalsPredicate.test(left.get(), right.get())));
         };
     }
 
@@ -107,9 +118,9 @@ public final class WorkProcessorAssertion
             this.to = requireNonNull(to);
         }
 
-        private TransformationState<R> transform(Optional<T> from)
+        private TransformationState<R> transform(Optional<T> from, BiPredicate<Optional<T>, Optional<T>> equalsPredicate)
         {
-            assertEquals(from, this.from);
+            assertTrue(equalsPredicate.test(from, this.from), format("Expected %s to be equal to %s", from, this.from));
             return to;
         }
     }

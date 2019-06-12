@@ -35,6 +35,7 @@ import io.prestosql.client.RowFieldName;
 import io.prestosql.client.StageStats;
 import io.prestosql.client.StatementStats;
 import io.prestosql.client.Warning;
+import io.prestosql.execution.ExecutionFailureInfo;
 import io.prestosql.execution.QueryExecution;
 import io.prestosql.execution.QueryInfo;
 import io.prestosql.execution.QueryManager;
@@ -58,6 +59,7 @@ import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.spi.type.TypeSignatureParameter;
+import io.prestosql.sql.analyzer.SemanticErrorCode;
 import io.prestosql.transaction.TransactionId;
 
 import javax.annotation.concurrent.GuardedBy;
@@ -680,14 +682,15 @@ class Query
             return null;
         }
 
-        FailureInfo failure;
+        ExecutionFailureInfo executionFailure;
         if (queryInfo.getFailureInfo() != null) {
-            failure = queryInfo.getFailureInfo().toFailureInfo();
+            executionFailure = queryInfo.getFailureInfo();
         }
         else {
             log.warn("Query %s in state %s has no failure info", queryInfo.getQueryId(), state);
-            failure = toFailure(new RuntimeException(format("Query is %s (reason unknown)", state))).toFailureInfo();
+            executionFailure = toFailure(new RuntimeException(format("Query is %s (reason unknown)", state)));
         }
+        FailureInfo failure = executionFailure.toFailureInfo();
 
         ErrorCode errorCode;
         if (queryInfo.getErrorCode() != null) {
@@ -702,6 +705,7 @@ class Query
                 null,
                 errorCode.getCode(),
                 errorCode.getName(),
+                executionFailure.getSemanticErrorCode().map(SemanticErrorCode::name),
                 errorCode.getType().toString(),
                 failure.getErrorLocation(),
                 failure);

@@ -89,14 +89,18 @@ public class TestBeginQuery
     @AfterMethod(alwaysRun = true)
     public void afterMethod()
     {
-        metadata.clear();
+        if (metadata != null) {
+            metadata.clear();
+        }
     }
 
     @AfterClass(alwaysRun = true)
     public void tearDown()
     {
-        metadata.clear();
-        metadata = null;
+        if (metadata != null) {
+            metadata.clear();
+            metadata = null;
+        }
     }
 
     @Test

@@ -20,7 +20,7 @@ import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.json.ObjectMapperProvider;
+import io.airlift.json.JsonCodec;
 import io.prestosql.plugin.hive.ForRecordingHiveMetastore;
 import io.prestosql.plugin.hive.HiveConfig;
 import io.prestosql.plugin.hive.HiveType;
@@ -34,8 +34,10 @@ import org.weakref.jmx.Managed;
 import javax.annotation.concurrent.Immutable;
 import javax.inject.Inject;
 
-import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -44,18 +46,22 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.prestosql.plugin.hive.metastore.HivePartitionName.hivePartitionName;
 import static io.prestosql.plugin.hive.metastore.HiveTableName.hiveTableName;
 import static io.prestosql.plugin.hive.metastore.PartitionFilter.partitionFilter;
 import static io.prestosql.spi.StandardErrorCode.NOT_FOUND;
+import static java.nio.file.Files.readAllBytes;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class RecordingHiveMetastore
         implements HiveMetastore
 {
+    private static final JsonCodec<Recording> RECORDING_CODEC = jsonCodec(Recording.class);
+
     private final HiveMetastore delegate;
-    private final String recordingPath;
+    private final Path recordingPath;
     private final boolean replay;
 
     private volatile Optional<List<String>> allDatabases = Optional.empty();
@@ -81,7 +87,7 @@ public class RecordingHiveMetastore
     {
         this.delegate = requireNonNull(delegate, "delegate is null");
         requireNonNull(hiveConfig, "hiveConfig is null");
-        this.recordingPath = requireNonNull(hiveConfig.getRecordingPath(), "recordingPath is null");
+        this.recordingPath = Paths.get(requireNonNull(hiveConfig.getRecordingPath(), "recordingPath is null"));
         this.replay = hiveConfig.isReplay();
 
         databaseCache = createCache(hiveConfig);
@@ -107,7 +113,7 @@ public class RecordingHiveMetastore
     void loadRecording()
             throws IOException
     {
-        Recording recording = new ObjectMapperProvider().get().readValue(new File(recordingPath), Recording.class);
+        Recording recording = RECORDING_CODEC.fromJson(readAllBytes(recordingPath));
 
         allDatabases = recording.getAllDatabases();
         allRoles = recording.getAllRoles();
@@ -162,9 +168,8 @@ public class RecordingHiveMetastore
                 toPairs(partitionsByNamesCache),
                 toPairs(tablePrivilegesCache),
                 toPairs(roleGrantsCache));
-        new ObjectMapperProvider().get()
-                .writerWithDefaultPrettyPrinter()
-                .writeValue(new File(recordingPath), recording);
+
+        Files.write(recordingPath, RECORDING_CODEC.toJsonBytes(recording));
     }
 
     private static <K, V> Map<K, V> toMap(List<Pair<K, V>> pairs)

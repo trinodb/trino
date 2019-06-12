@@ -586,15 +586,15 @@ class AstBuilder
 
         Optional<Node> limit = Optional.empty();
         if (context.FETCH() != null) {
-            limit = Optional.of(new FetchFirst(getTextIfPresent(context.fetchFirst)));
+            limit = Optional.of(new FetchFirst(Optional.of(getLocation(context.FETCH())), getTextIfPresent(context.fetchFirst), context.TIES() != null));
         }
         else if (context.LIMIT() != null) {
-            limit = Optional.of(new Limit(getTextIfPresent(context.limit).orElseThrow(() -> new IllegalStateException("Missing LIMIT value"))));
+            limit = Optional.of(new Limit(Optional.of(getLocation(context.LIMIT())), getTextIfPresent(context.limit).orElseThrow(() -> new IllegalStateException("Missing LIMIT value"))));
         }
 
         Optional<Offset> offset = Optional.empty();
         if (context.OFFSET() != null) {
-            offset = Optional.of(new Offset(getTextIfPresent(context.offset).orElseThrow(() -> new IllegalStateException("Missing OFFSET row count"))));
+            offset = Optional.of(new Offset(Optional.of(getLocation(context.OFFSET())), getTextIfPresent(context.offset).orElseThrow(() -> new IllegalStateException("Missing OFFSET row count"))));
         }
 
         if (term instanceof QuerySpecification) {

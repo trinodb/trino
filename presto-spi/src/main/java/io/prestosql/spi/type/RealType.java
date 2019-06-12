@@ -18,6 +18,8 @@ import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.connector.ConnectorSession;
 
+import java.util.Optional;
+
 import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static java.lang.Float.floatToIntBits;
@@ -94,5 +96,13 @@ public final class RealType
     public int hashCode()
     {
         return getClass().hashCode();
+    }
+
+    @Override
+    public Optional<Range> getRange()
+    {
+        // The range for real is undefined because NaN is a special value that
+        // is *not* in any reasonable definition of a range for this type.
+        return Optional.empty();
     }
 }

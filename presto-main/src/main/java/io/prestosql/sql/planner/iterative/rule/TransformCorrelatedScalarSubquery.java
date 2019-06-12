@@ -86,7 +86,7 @@ public class TransformCorrelatedScalarSubquery
             .with(filter().equalTo(TRUE_LITERAL));
 
     @Override
-    public Pattern getPattern()
+    public Pattern<LateralJoinNode> getPattern()
     {
         return PATTERN;
     }

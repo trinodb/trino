@@ -32,6 +32,7 @@ import io.prestosql.plugin.jdbc.JdbcColumnHandle;
 import io.prestosql.plugin.jdbc.JdbcIdentity;
 import io.prestosql.plugin.jdbc.JdbcTableHandle;
 import io.prestosql.plugin.jdbc.JdbcTypeHandle;
+import io.prestosql.plugin.jdbc.LongWriteFunction;
 import io.prestosql.plugin.jdbc.SliceWriteFunction;
 import io.prestosql.plugin.jdbc.WriteMapping;
 import io.prestosql.spi.PrestoException;
@@ -86,7 +87,11 @@ import static io.prestosql.plugin.postgresql.TypeUtils.toBoxedArray;
 import static io.prestosql.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
+import static io.prestosql.spi.type.DateTimeEncoding.unpackMillisUtc;
+import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -188,7 +193,7 @@ public class PostgreSqlClient
                             resultSet.getInt("COLUMN_SIZE"),
                             resultSet.getInt("DECIMAL_DIGITS"),
                             Optional.ofNullable(arrayColumnDimensions.get(columnName)));
-                    Optional<ColumnMapping> columnMapping = toPrestoType(session, typeHandle);
+                    Optional<ColumnMapping> columnMapping = toPrestoType(session, connection, typeHandle);
                     // skip unsupported column types
                     if (columnMapping.isPresent()) {
                         boolean nullable = (resultSet.getInt("NULLABLE") != columnNoNulls);
@@ -214,13 +219,14 @@ public class PostgreSqlClient
             return ImmutableMap.of();
         }
         String sql = "" +
-                "SELECT att.attname, att.attndims " +
+                "SELECT att.attname, greatest(att.attndims, 1) AS attndims " +
                 "FROM pg_attribute att " +
+                "  JOIN pg_type attyp ON att.atttypid = attyp.oid" +
                 "  JOIN pg_class tbl ON tbl.oid = att.attrelid " +
                 "  JOIN pg_namespace ns ON tbl.relnamespace = ns.oid " +
                 "WHERE ns.nspname = ? " +
                 "AND tbl.relname = ? " +
-                "AND att.attndims > 0 ";
+                "AND attyp.typcategory = 'A' ";
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setString(1, tableHandle.getSchemaName());
             statement.setString(2, tableHandle.getTableName());
@@ -236,7 +242,7 @@ public class PostgreSqlClient
     }
 
     @Override
-    public Optional<ColumnMapping> toPrestoType(ConnectorSession session, JdbcTypeHandle typeHandle)
+    public Optional<ColumnMapping> toPrestoType(ConnectorSession session, Connection connection, JdbcTypeHandle typeHandle)
     {
         String jdbcTypeName = typeHandle.getJdbcTypeName()
                 .orElseThrow(() -> new PrestoException(JDBC_ERROR, "Type name is missing: " + typeHandle));
@@ -245,6 +251,9 @@ public class PostgreSqlClient
             case "jsonb":
             case "json":
                 return Optional.of(jsonColumnMapping());
+            case "timestamptz":
+                // PostgreSQL's "timestamp with time zone" is reported as Types.TIMESTAMP rather than Types.TIMESTAMP_WITH_TIMEZONE
+                return Optional.of(timestampWithTimeZoneColumnMapping());
         }
         if (typeHandle.getJdbcType() == Types.VARCHAR && !jdbcTypeName.equals("varchar")) {
             // This can be e.g. an ENUM
@@ -257,7 +266,7 @@ public class PostgreSqlClient
             if (!typeHandle.getArrayDimensions().isPresent()) {
                 return Optional.empty();
             }
-            JdbcTypeHandle elementTypeHandle = getArrayElementTypeHandle(session, typeHandle);
+            JdbcTypeHandle elementTypeHandle = getArrayElementTypeHandle(connection, typeHandle);
             String elementTypeName = typeHandle.getJdbcTypeName()
                     .orElseThrow(() -> new PrestoException(JDBC_ERROR, "Element type name is missing: " + elementTypeHandle));
             if (elementTypeHandle.getJdbcType() == Types.VARBINARY) {
@@ -265,7 +274,7 @@ public class PostgreSqlClient
                 // https://github.com/pgjdbc/pgjdbc/pull/1184
                 return Optional.empty();
             }
-            return toPrestoType(session, elementTypeHandle)
+            return toPrestoType(session, connection, elementTypeHandle)
                     .map(elementMapping -> {
                         ArrayType prestoArrayType = new ArrayType(elementMapping.getType());
                         int arrayDimensions = typeHandle.getArrayDimensions().get();
@@ -275,8 +284,8 @@ public class PostgreSqlClient
                         return arrayColumnMapping(session, prestoArrayType, elementTypeName);
                     });
         }
-        // TODO support PostgreSQL's TIMESTAMP WITH TIME ZONE and TIME WITH TIME ZONE explicitly, otherwise predicate pushdown for these types may be incorrect
-        return super.toPrestoType(session, typeHandle);
+        // TODO support PostgreSQL's TIME WITH TIME ZONE explicitly, otherwise predicate pushdown for these types may be incorrect
+        return super.toPrestoType(session, connection, typeHandle);
     }
 
     @Override
@@ -287,6 +296,9 @@ public class PostgreSqlClient
         }
         if (TIMESTAMP.equals(type)) {
             return WriteMapping.longMapping("timestamp", timestampWriteFunction(session));
+        }
+        if (TIMESTAMP_WITH_TIME_ZONE.equals(type)) {
+            return WriteMapping.longMapping("timestamp with time zone", timestampWithTimeZoneWriteFunction());
         }
         if (TinyintType.TINYINT.equals(type)) {
             return WriteMapping.longMapping("smallint", tinyintWriteFunction());
@@ -314,6 +326,27 @@ public class PostgreSqlClient
         return true;
     }
 
+    private static ColumnMapping timestampWithTimeZoneColumnMapping()
+    {
+        return ColumnMapping.longMapping(
+                TIMESTAMP_WITH_TIME_ZONE,
+                (resultSet, columnIndex) -> {
+                    // PostgreSQL does not store zone information in "timestamp with time zone" data type
+                    long millisUtc = resultSet.getTimestamp(columnIndex).getTime();
+                    return packDateTimeWithZone(millisUtc, UTC_KEY);
+                },
+                timestampWithTimeZoneWriteFunction());
+    }
+
+    private static LongWriteFunction timestampWithTimeZoneWriteFunction()
+    {
+        return (statement, index, value) -> {
+            // PostgreSQL does not store zone information in "timestamp with time zone" data type
+            long millisUtc = unpackMillisUtc(value);
+            statement.setTimestamp(index, new java.sql.Timestamp(millisUtc));
+        };
+    }
+
     private static ColumnMapping arrayColumnMapping(ConnectorSession session, ArrayType arrayType, String elementJdbcTypeName)
     {
         return ColumnMapping.blockMapping(
@@ -338,11 +371,11 @@ public class PostgreSqlClient
         };
     }
 
-    private JdbcTypeHandle getArrayElementTypeHandle(ConnectorSession session, JdbcTypeHandle arrayTypeHandle)
+    private JdbcTypeHandle getArrayElementTypeHandle(Connection connection, JdbcTypeHandle arrayTypeHandle)
     {
         String jdbcTypeName = arrayTypeHandle.getJdbcTypeName()
                 .orElseThrow(() -> new PrestoException(JDBC_ERROR, "Type name is missing: " + arrayTypeHandle));
-        try (Connection connection = connectionFactory.openConnection(JdbcIdentity.from(session))) {
+        try {
             TypeInfo typeInfo = connection.unwrap(PgConnection.class).getTypeInfo();
             int pgElementOid = typeInfo.getPGArrayElement(typeInfo.getPGType(jdbcTypeName));
             return new JdbcTypeHandle(

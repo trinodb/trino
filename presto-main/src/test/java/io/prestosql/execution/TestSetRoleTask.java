@@ -15,7 +15,6 @@ package io.prestosql.execution;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.block.BlockEncodingManager;
 import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.metadata.AnalyzePropertyManager;
 import io.prestosql.metadata.CatalogManager;
@@ -70,7 +69,6 @@ public class TestSetRoleTask
         metadata = new MetadataManager(
                 new FeaturesConfig(),
                 new TypeRegistry(),
-                new BlockEncodingManager(new TypeRegistry()),
                 new SessionPropertyManager(),
                 new SchemaPropertyManager(),
                 new TablePropertyManager(),
@@ -109,6 +107,7 @@ public class TestSetRoleTask
         SetRole setRole = (SetRole) parser.createStatement(statement);
         QueryStateMachine stateMachine = QueryStateMachine.begin(
                 statement,
+                Optional.empty(),
                 testSessionBuilder()
                         .setCatalog(CATALOG_NAME)
                         .build(),

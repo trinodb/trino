@@ -23,13 +23,12 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Streams;
 import io.airlift.units.Duration;
 import io.prestosql.Session;
-import io.prestosql.SystemSessionProperties;
 import io.prestosql.cost.PlanCostEstimate;
 import io.prestosql.cost.PlanNodeStatsEstimate;
 import io.prestosql.cost.StatsAndCosts;
 import io.prestosql.execution.StageInfo;
 import io.prestosql.execution.StageStats;
-import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.execution.TableInfo;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.TableHandle;
 import io.prestosql.operator.StageExecutionDescriptor;
@@ -42,6 +41,7 @@ import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.statistics.ColumnStatisticMetadata;
 import io.prestosql.spi.statistics.TableStatisticType;
 import io.prestosql.spi.type.Type;
+import io.prestosql.sql.DynamicFilters;
 import io.prestosql.sql.planner.OrderingScheme;
 import io.prestosql.sql.planner.Partitioning;
 import io.prestosql.sql.planner.PartitioningScheme;
@@ -70,7 +70,7 @@ import io.prestosql.sql.planner.plan.JoinNode;
 import io.prestosql.sql.planner.plan.LateralJoinNode;
 import io.prestosql.sql.planner.plan.LimitNode;
 import io.prestosql.sql.planner.plan.MarkDistinctNode;
-import io.prestosql.sql.planner.plan.MetadataDeleteNode;
+import io.prestosql.sql.planner.plan.OffsetNode;
 import io.prestosql.sql.planner.plan.OutputNode;
 import io.prestosql.sql.planner.plan.PlanFragmentId;
 import io.prestosql.sql.planner.plan.PlanNode;
@@ -86,6 +86,7 @@ import io.prestosql.sql.planner.plan.SpatialJoinNode;
 import io.prestosql.sql.planner.plan.StatisticAggregations;
 import io.prestosql.sql.planner.plan.StatisticAggregationsDescriptor;
 import io.prestosql.sql.planner.plan.StatisticsWriterNode;
+import io.prestosql.sql.planner.plan.TableDeleteNode;
 import io.prestosql.sql.planner.plan.TableFinishNode;
 import io.prestosql.sql.planner.plan.TableScanNode;
 import io.prestosql.sql.planner.plan.TableWriterNode;
@@ -103,11 +104,14 @@ import io.prestosql.sql.tree.SymbolReference;
 import io.prestosql.util.GraphvizPrinter;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -119,9 +123,10 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.prestosql.execution.StageInfo.getAllStages;
 import static io.prestosql.operator.StageExecutionDescriptor.ungroupedExecution;
+import static io.prestosql.sql.DynamicFilters.extractDynamicFilters;
+import static io.prestosql.sql.ExpressionUtils.combineConjuncts;
 import static io.prestosql.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.prestosql.sql.planner.planprinter.PlanNodeStatsSummarizer.aggregateStageStats;
-import static io.prestosql.sql.planner.planprinter.PlanPrinterUtil.castToVarchar;
 import static io.prestosql.sql.planner.planprinter.TextRenderer.formatDouble;
 import static io.prestosql.sql.planner.planprinter.TextRenderer.formatPositions;
 import static io.prestosql.sql.planner.planprinter.TextRenderer.indentString;
@@ -136,28 +141,28 @@ import static java.util.stream.Collectors.toList;
 public class PlanPrinter
 {
     private final PlanRepresentation representation;
-    private final FunctionRegistry functionRegistry;
-    private final Optional<Metadata> metadata;
+    private final Function<TableScanNode, TableInfo> tableInfoSupplier;
+    private final ValuePrinter valuePrinter;
 
+    // NOTE: do NOT add Metadata or Session to this class.  The plan printer must be usable outside of a transaction.
     private PlanPrinter(
             PlanNode planRoot,
             TypeProvider types,
             Optional<StageExecutionDescriptor> stageExecutionStrategy,
-            FunctionRegistry functionRegistry,
-            Optional<Metadata> metadata,
+            Function<TableScanNode, TableInfo> tableInfoSupplier,
+            ValuePrinter valuePrinter,
             StatsAndCosts estimatedStatsAndCosts,
-            Session session,
             Optional<Map<PlanNodeId, PlanNodeStats>> stats)
     {
         requireNonNull(planRoot, "planRoot is null");
         requireNonNull(types, "types is null");
-        requireNonNull(functionRegistry, "functionRegistry is null");
-        requireNonNull(metadata, "metadata is null");
+        requireNonNull(tableInfoSupplier, "tableInfoSupplier is null");
+        requireNonNull(valuePrinter, "valuePrinter is null");
         requireNonNull(estimatedStatsAndCosts, "estimatedStatsAndCosts is null");
         requireNonNull(stats, "stats is null");
 
-        this.functionRegistry = functionRegistry;
-        this.metadata = metadata;
+        this.tableInfoSupplier = tableInfoSupplier;
+        this.valuePrinter = valuePrinter;
 
         Optional<Duration> totalCpuTime = stats.map(s -> new Duration(s.values().stream()
                 .mapToLong(planNode -> planNode.getPlanNodeScheduledTime().toMillis())
@@ -169,64 +174,61 @@ public class PlanPrinter
 
         this.representation = new PlanRepresentation(planRoot, types, totalCpuTime, totalScheduledTime);
 
-        Visitor visitor = new Visitor(stageExecutionStrategy, types, estimatedStatsAndCosts, session, stats);
+        Visitor visitor = new Visitor(stageExecutionStrategy, types, estimatedStatsAndCosts, stats);
         planRoot.accept(visitor, null);
     }
 
-    public String toText(boolean verbose, int level)
+    private String toText(boolean verbose, int level)
     {
         return new TextRenderer(verbose, level).render(representation);
     }
 
-    public String toJson()
+    private String toJson()
     {
         return new JsonRenderer().render(representation);
     }
 
-    public static String jsonFragmentPlan(PlanNode root, Map<Symbol, Type> symbols, FunctionRegistry functionRegistry, Optional<Metadata> metadata, Session session)
+    public static String jsonFragmentPlan(PlanNode root, Map<Symbol, Type> symbols, Metadata metadata, Session session)
     {
         TypeProvider typeProvider = TypeProvider.copyOf(symbols.entrySet().stream()
                 .distinct()
                 .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue)));
 
-        return new PlanPrinter(root, typeProvider, Optional.empty(), functionRegistry, metadata, StatsAndCosts.empty(), session, Optional.empty()).toJson();
-    }
-
-    public static String textLogicalPlan(PlanNode plan, TypeProvider types, FunctionRegistry functionRegistry, Optional<Metadata> metadata, StatsAndCosts estimatedStatsAndCosts, Session session, int level)
-    {
-        return new PlanPrinter(plan, types, Optional.empty(), functionRegistry, metadata, estimatedStatsAndCosts, session, Optional.empty()).toText(false, level);
+        TableInfoSupplier tableInfoSupplier = new TableInfoSupplier(metadata, session);
+        ValuePrinter valuePrinter = new ValuePrinter(metadata, session);
+        return new PlanPrinter(root, typeProvider, Optional.empty(), tableInfoSupplier, valuePrinter, StatsAndCosts.empty(), Optional.empty()).toJson();
     }
 
     public static String textLogicalPlan(
             PlanNode plan,
             TypeProvider types,
-            FunctionRegistry functionRegistry,
-            Optional<Metadata> metadata,
+            Metadata metadata,
             StatsAndCosts estimatedStatsAndCosts,
             Session session,
             int level,
             boolean verbose)
     {
-        return textLogicalPlan(plan, types, Optional.empty(), functionRegistry, metadata, estimatedStatsAndCosts, session, Optional.empty(), level, verbose);
+        TableInfoSupplier tableInfoSupplier = new TableInfoSupplier(metadata, session);
+        ValuePrinter valuePrinter = new ValuePrinter(metadata, session);
+        return new PlanPrinter(plan, types, Optional.empty(), tableInfoSupplier, valuePrinter, estimatedStatsAndCosts, Optional.empty()).toText(verbose, level);
     }
 
-    public static String textLogicalPlan(
-            PlanNode plan,
-            TypeProvider types,
-            Optional<StageExecutionDescriptor> stageExecutionStrategy,
-            FunctionRegistry functionRegistry,
-            Optional<Metadata> metadata,
-            StatsAndCosts estimatedStatsAndCosts,
-            Session session,
-            Optional<Map<PlanNodeId, PlanNodeStats>> stats,
-            int level,
-            boolean verbose)
+    public static String textDistributedPlan(StageInfo outputStageInfo, Metadata metadata, Session session, boolean verbose)
     {
-        return new PlanPrinter(plan, types, stageExecutionStrategy, functionRegistry, metadata, estimatedStatsAndCosts, session, stats).toText(verbose, level);
+        return textDistributedPlan(
+                outputStageInfo,
+                new ValuePrinter(metadata, session),
+                verbose);
     }
 
-    public static String textDistributedPlan(StageInfo outputStageInfo, FunctionRegistry functionRegistry, Optional<Metadata> metadata, Session session, boolean verbose)
+    public static String textDistributedPlan(StageInfo outputStageInfo, ValuePrinter valuePrinter, boolean verbose)
     {
+        Map<PlanNodeId, TableInfo> tableInfos = getAllStages(Optional.of(outputStageInfo)).stream()
+                .map(StageInfo::getTables)
+                .map(Map::entrySet)
+                .flatMap(Collection::stream)
+                .collect(toImmutableMap(Entry::getKey, Entry::getValue));
+
         StringBuilder builder = new StringBuilder();
         List<StageInfo> allStages = getAllStages(Optional.of(outputStageInfo));
         List<PlanFragment> allFragments = allStages.stream()
@@ -234,23 +236,39 @@ public class PlanPrinter
                 .collect(toImmutableList());
         Map<PlanNodeId, PlanNodeStats> aggregatedStats = aggregateStageStats(allStages);
         for (StageInfo stageInfo : allStages) {
-            builder.append(formatFragment(functionRegistry, metadata, session, stageInfo.getPlan(), Optional.of(stageInfo), Optional.of(aggregatedStats), verbose, allFragments));
+            builder.append(formatFragment(
+                    tableScanNode -> tableInfos.get(tableScanNode.getId()),
+                    valuePrinter,
+                    stageInfo.getPlan(),
+                    Optional.of(stageInfo),
+                    Optional.of(aggregatedStats),
+                    verbose,
+                    allFragments));
         }
 
         return builder.toString();
     }
 
-    public static String textDistributedPlan(SubPlan plan, FunctionRegistry functionRegistry, Optional<Metadata> metadata, Session session, boolean verbose)
+    public static String textDistributedPlan(SubPlan plan, Metadata metadata, Session session, boolean verbose)
     {
+        TableInfoSupplier tableInfoSupplier = new TableInfoSupplier(metadata, session);
+        ValuePrinter valuePrinter = new ValuePrinter(metadata, session);
         StringBuilder builder = new StringBuilder();
         for (PlanFragment fragment : plan.getAllFragments()) {
-            builder.append(formatFragment(functionRegistry, metadata, session, fragment, Optional.empty(), Optional.empty(), verbose, plan.getAllFragments()));
+            builder.append(formatFragment(tableInfoSupplier, valuePrinter, fragment, Optional.empty(), Optional.empty(), verbose, plan.getAllFragments()));
         }
 
         return builder.toString();
     }
 
-    private static String formatFragment(FunctionRegistry functionRegistry, Optional<Metadata> metadata, Session session, PlanFragment fragment, Optional<StageInfo> stageInfo, Optional<Map<PlanNodeId, PlanNodeStats>> planNodeStats, boolean verbose, List<PlanFragment> allFragments)
+    private static String formatFragment(
+            Function<TableScanNode, TableInfo> tableInfoSupplier,
+            ValuePrinter valuePrinter,
+            PlanFragment fragment,
+            Optional<StageInfo> stageInfo,
+            Optional<Map<PlanNodeId, PlanNodeStats>> planNodeStats,
+            boolean verbose,
+            List<PlanFragment> allFragments)
     {
         StringBuilder builder = new StringBuilder();
         builder.append(format("Fragment %s [%s]\n",
@@ -286,7 +304,7 @@ public class PlanPrinter
                 .map(argument -> {
                     if (argument.isConstant()) {
                         NullableValue constant = argument.getConstant();
-                        String printableValue = castToVarchar(constant.getType(), constant.getValue(), functionRegistry, session);
+                        String printableValue = valuePrinter.castToVarchar(constant.getType(), constant.getValue());
                         return constant.getType().getDisplayName() + "(" + printableValue + ")";
                     }
                     return argument.getColumn().toString();
@@ -305,13 +323,21 @@ public class PlanPrinter
                     Joiner.on(", ").join(arguments),
                     formatHash(partitioningScheme.getHashColumn())));
         }
-        builder.append(indentString(1)).append(format("Grouped Execution: %s\n", fragment.getStageExecutionDescriptor().isStageGroupedExecution()));
+        builder.append(indentString(1)).append(format("Stage Execution Strategy: %s\n", fragment.getStageExecutionDescriptor().getStageExecutionStrategy()));
 
         TypeProvider typeProvider = TypeProvider.copyOf(allFragments.stream()
                 .flatMap(f -> f.getSymbols().entrySet().stream())
                 .distinct()
                 .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue)));
-        builder.append(textLogicalPlan(fragment.getRoot(), typeProvider, Optional.of(fragment.getStageExecutionDescriptor()), functionRegistry, metadata, fragment.getStatsAndCosts(), session, planNodeStats, 1, verbose))
+        builder.append(
+                new PlanPrinter(
+                        fragment.getRoot(),
+                        typeProvider,
+                        Optional.of(fragment.getStageExecutionDescriptor()),
+                        tableInfoSupplier,
+                        valuePrinter,
+                        fragment.getStatsAndCosts(),
+                        planNodeStats).toText(verbose, 1))
                 .append("\n");
 
         return builder.toString();
@@ -345,15 +371,13 @@ public class PlanPrinter
         private final TypeProvider types;
         private final StatsAndCosts estimatedStatsAndCosts;
         private final Optional<Map<PlanNodeId, PlanNodeStats>> stats;
-        private final Session session;
 
-        public Visitor(Optional<StageExecutionDescriptor> stageExecutionStrategy, TypeProvider types, StatsAndCosts estimatedStatsAndCosts, Session session, Optional<Map<PlanNodeId, PlanNodeStats>> stats)
+        public Visitor(Optional<StageExecutionDescriptor> stageExecutionStrategy, TypeProvider types, StatsAndCosts estimatedStatsAndCosts, Optional<Map<PlanNodeId, PlanNodeStats>> stats)
         {
             this.stageExecutionStrategy = requireNonNull(stageExecutionStrategy, "stageExecutionStrategy is null");
             this.types = requireNonNull(types, "types is null");
             this.estimatedStatsAndCosts = requireNonNull(estimatedStatsAndCosts, "estimatedStatsAndCosts is null");
             this.stats = requireNonNull(stats, "stats is null");
-            this.session = requireNonNull(session, "session is null");
         }
 
         @Override
@@ -383,7 +407,10 @@ public class PlanPrinter
                         format("[%s]%s", Joiner.on(" AND ").join(joinExpressions), formatHash(node.getLeftHashSymbol(), node.getRightHashSymbol())));
             }
 
-            node.getDistributionType().ifPresent(distributionType -> nodeOutput.appendDetails("Distribution: %s", distributionType));
+            node.getDistributionType().ifPresent(distributionType -> nodeOutput.appendDetailsLine("Distribution: %s", distributionType));
+            if (!node.getDynamicFilters().isEmpty()) {
+                nodeOutput.appendDetails("dynamicFilterAssignments = %s", printDynamicFilterAssignments(node.getDynamicFilters()));
+            }
             node.getSortExpressionContext().ifPresent(sortContext -> nodeOutput.appendDetails("SortExpression[%s]", sortContext.getSortExpression()));
             node.getLeft().accept(this, context);
             node.getRight().accept(this, context);
@@ -456,11 +483,20 @@ public class PlanPrinter
         }
 
         @Override
+        public Void visitOffset(OffsetNode node, Void context)
+        {
+            addNode(node,
+                    "Offset",
+                    format("[%s]", node.getCount()));
+            return processChildren(node, context);
+        }
+
+        @Override
         public Void visitLimit(LimitNode node, Void context)
         {
             addNode(node,
                     format("Limit%s", node.isPartial() ? "Partial" : ""),
-                    format("[%s]", node.getCount()));
+                    format("[%s%s]", node.getCount(), node.isWithTies() ? "+ties" : ""));
             return processChildren(node, context);
         }
 
@@ -714,7 +750,13 @@ public class PlanPrinter
             if (filterNode.isPresent()) {
                 operatorName += "Filter";
                 formatString += "filterPredicate = %s, ";
-                arguments.add(filterNode.get().getPredicate());
+                Expression predicate = filterNode.get().getPredicate();
+                DynamicFilters.ExtractResult extractResult = extractDynamicFilters(predicate);
+                arguments.add(combineConjuncts(extractResult.getStaticConjuncts()));
+                if (!extractResult.getDynamicConjuncts().isEmpty()) {
+                    formatString += "dynamicFilter = %s, ";
+                    arguments.add(printDynamicFilters(extractResult.getDynamicConjuncts()));
+                }
             }
 
             if (formatString.length() > 1) {
@@ -760,11 +802,23 @@ public class PlanPrinter
             return null;
         }
 
+        private String printDynamicFilters(Collection<DynamicFilters.Descriptor> filters)
+        {
+            return filters.stream()
+                    .map(filter -> filter.getId() + " -> " + filter.getInput())
+                    .collect(Collectors.joining(", ", "{", "}"));
+        }
+
+        private String printDynamicFilterAssignments(Map<String, Symbol> filters)
+        {
+            return filters.entrySet().stream()
+                    .map(filter -> filter.getValue() + " -> " + filter.getKey())
+                    .collect(Collectors.joining(", ", "{", "}"));
+        }
+
         private void printTableScanInfo(NodeRepresentation nodeOutput, TableScanNode node)
         {
-            TupleDomain<ColumnHandle> predicate = metadata
-                    .map(value -> value.getTableProperties(session, node.getTable()).getPredicate())
-                    .orElse(TupleDomain.all());
+            TupleDomain<ColumnHandle> predicate = tableInfoSupplier.apply(node).getPredicate();
 
             if (predicate.isNone()) {
                 nodeOutput.appendDetailsLine(":: NONE");
@@ -831,13 +885,9 @@ public class PlanPrinter
         public Void visitSort(SortNode node, Void context)
         {
             Iterable<String> keys = Iterables.transform(node.getOrderingScheme().getOrderBy(), input -> input + " " + node.getOrderingScheme().getOrdering(input));
-            boolean isPartial = false;
-            if (SystemSessionProperties.isDistributedSortEnabled(session)) {
-                isPartial = true;
-            }
 
             addNode(node,
-                    format("%sSort", isPartial ? "Partial" : ""),
+                    format("%sSort", node.isPartial() ? "Partial" : ""),
                     format("[%s]", Joiner.on(", ").join(keys)));
 
             return processChildren(node, context);
@@ -1007,9 +1057,9 @@ public class PlanPrinter
         }
 
         @Override
-        public Void visitMetadataDelete(MetadataDeleteNode node, Void context)
+        public Void visitTableDelete(TableDeleteNode node, Void context)
         {
-            addNode(node, "MetadataDelete", format("[%s]", node.getTarget()));
+            addNode(node, "TableDelete", format("[%s]", node.getTarget()));
 
             return processChildren(node, context);
         }
@@ -1109,7 +1159,7 @@ public class PlanPrinter
                         for (Range range : ranges.getOrderedRanges()) {
                             StringBuilder builder = new StringBuilder();
                             if (range.isSingleValue()) {
-                                String value = castToVarchar(type, range.getSingleValue(), functionRegistry, session);
+                                String value = valuePrinter.castToVarchar(type, range.getSingleValue());
                                 builder.append('[').append(value).append(']');
                             }
                             else {
@@ -1119,7 +1169,7 @@ public class PlanPrinter
                                     builder.append("<min>");
                                 }
                                 else {
-                                    builder.append(castToVarchar(type, range.getLow().getValue(), functionRegistry, session));
+                                    builder.append(valuePrinter.castToVarchar(type, range.getLow().getValue()));
                                 }
 
                                 builder.append(", ");
@@ -1128,7 +1178,7 @@ public class PlanPrinter
                                     builder.append("<max>");
                                 }
                                 else {
-                                    builder.append(castToVarchar(type, range.getHigh().getValue(), functionRegistry, session));
+                                    builder.append(valuePrinter.castToVarchar(type, range.getHigh().getValue()));
                                 }
 
                                 builder.append((range.getHigh().getBound() == Marker.Bound.EXACTLY) ? ']' : ')');
@@ -1137,7 +1187,7 @@ public class PlanPrinter
                         }
                     },
                     discreteValues -> discreteValues.getValues().stream()
-                            .map(value -> castToVarchar(type, value, functionRegistry, session))
+                            .map(value -> valuePrinter.castToVarchar(type, value))
                             .sorted() // Sort so the values will be printed in predictable order
                             .forEach(parts::add),
                     allOrNone -> {

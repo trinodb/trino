@@ -221,7 +221,7 @@ public class AvroColumnDecoder
             return blockBuilder.build();
         }
 
-        List<?> list = (List) value;
+        List<?> list = (List<?>) value;
         List<Type> typeParameters = type.getTypeParameters();
         Type elementType = typeParameters.get(0);
 
@@ -279,7 +279,7 @@ public class AvroColumnDecoder
             return blockBuilder.build();
         }
 
-        Map<?, ?> map = (Map) value;
+        Map<?, ?> map = (Map<?, ?>) value;
         List<Type> typeParameters = type.getTypeParameters();
         Type keyType = typeParameters.get(0);
         Type valueType = typeParameters.get(1);

@@ -16,20 +16,13 @@ package io.prestosql.spi.block;
 
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
-import io.prestosql.spi.function.OperatorType;
-import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.MapType;
 import io.prestosql.spi.type.TypeManager;
 import io.prestosql.spi.type.TypeSerde;
 
-import java.lang.invoke.MethodHandle;
-
 import static io.airlift.slice.Slices.wrappedIntArray;
 import static io.prestosql.spi.block.AbstractMapBlock.HASH_MULTIPLIER;
-import static io.prestosql.spi.block.MethodHandleUtil.compose;
-import static io.prestosql.spi.block.MethodHandleUtil.nativeValueGetter;
 import static java.lang.String.format;
-import static java.util.Arrays.asList;
-import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
 
 public class SingleMapBlockEncoding
@@ -54,7 +47,7 @@ public class SingleMapBlockEncoding
     public void writeBlock(BlockEncodingSerde blockEncodingSerde, SliceOutput sliceOutput, Block block)
     {
         SingleMapBlock singleMapBlock = (SingleMapBlock) block;
-        TypeSerde.writeType(sliceOutput, singleMapBlock.keyType);
+        TypeSerde.writeType(sliceOutput, singleMapBlock.mapType);
 
         int offset = singleMapBlock.getOffset();
         int positionCount = singleMapBlock.getPositionCount();
@@ -68,10 +61,7 @@ public class SingleMapBlockEncoding
     @Override
     public Block readBlock(BlockEncodingSerde blockEncodingSerde, SliceInput sliceInput)
     {
-        Type keyType = TypeSerde.readType(typeManager, sliceInput);
-        MethodHandle keyNativeEquals = typeManager.resolveOperator(OperatorType.EQUAL, asList(keyType, keyType));
-        MethodHandle keyBlockNativeEquals = compose(keyNativeEquals, nativeValueGetter(keyType));
-        MethodHandle keyNativeHashCode = typeManager.resolveOperator(OperatorType.HASH_CODE, singletonList(keyType));
+        MapType mapType = (MapType) TypeSerde.readType(typeManager, sliceInput);
 
         Block keyBlock = blockEncodingSerde.readBlock(sliceInput);
         Block valueBlock = blockEncodingSerde.readBlock(sliceInput);
@@ -84,6 +74,6 @@ public class SingleMapBlockEncoding
                     format("Deserialized SingleMapBlock violates invariants: key %d, value %d, hash %d", keyBlock.getPositionCount(), valueBlock.getPositionCount(), hashTable.length));
         }
 
-        return new SingleMapBlock(0, keyBlock.getPositionCount() * 2, keyBlock, valueBlock, hashTable, keyType, keyNativeHashCode, keyBlockNativeEquals);
+        return new SingleMapBlock(mapType, 0, keyBlock.getPositionCount() * 2, keyBlock, valueBlock, hashTable);
     }
 }

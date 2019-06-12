@@ -67,7 +67,7 @@ public class QueryContext
     private final ScheduledExecutorService yieldExecutor;
     private final long maxSpill;
     private final SpillSpaceTracker spillSpaceTracker;
-    private final Map<TaskId, TaskContext> taskContexts = new ConcurrentHashMap();
+    private final Map<TaskId, TaskContext> taskContexts = new ConcurrentHashMap<>();
 
     // TODO: This field should be final. However, due to the way QueryContext is constructed the memory limit is not known in advance
     @GuardedBy("this")

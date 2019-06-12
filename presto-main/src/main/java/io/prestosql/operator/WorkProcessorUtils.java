@@ -182,7 +182,17 @@ public final class WorkProcessorUtils
         }
     }
 
-    static <T> WorkProcessor<T> processStateMonitor(WorkProcessor<T> processor, Consumer<ProcessState<? extends T>> monitor)
+    static <T> WorkProcessor<T> processEntryMonitor(WorkProcessor<T> processor, Runnable monitor)
+    {
+        requireNonNull(processor, "processor is null");
+        requireNonNull(monitor, "monitor is null");
+        return WorkProcessor.create(() -> {
+            monitor.run();
+            return getNextState(processor);
+        });
+    }
+
+    static <T> WorkProcessor<T> processStateMonitor(WorkProcessor<T> processor, Consumer<ProcessState<T>> monitor)
     {
         requireNonNull(processor, "processor is null");
         requireNonNull(monitor, "monitor is null");
@@ -364,9 +374,10 @@ public final class WorkProcessorUtils
 
             if (state.getType() == ProcessState.Type.FINISHED) {
                 process = null;
+                return true;
             }
 
-            return state.getType() == ProcessState.Type.RESULT || state.getType() == ProcessState.Type.FINISHED;
+            return state.getType() == ProcessState.Type.RESULT;
         }
 
         @Override

@@ -88,7 +88,8 @@ abstract class AbstractPropertyManager
             String propertyName = sqlProperty.getKey().toLowerCase(ENGLISH);
             PropertyMetadata<?> property = supportedProperties.get(propertyName);
             if (property == null) {
-                throw new PrestoException(propertyError,
+                throw new PrestoException(
+                        propertyError,
                         format("Catalog '%s' does not support %s property '%s'",
                                 catalog,
                                 propertyType,
@@ -100,12 +101,14 @@ abstract class AbstractPropertyManager
                 sqlObjectValue = evaluatePropertyValue(sqlProperty.getValue(), property.getSqlType(), session, metadata, parameters);
             }
             catch (SemanticException e) {
-                throw new PrestoException(propertyError,
-                        format("Invalid value for %s property '%s': Cannot convert '%s' to %s",
+                throw new PrestoException(
+                        propertyError,
+                        format("Invalid value for %s property '%s': Cannot convert [%s] to %s",
                                 propertyType,
                                 property.getName(),
                                 sqlProperty.getValue(),
-                                property.getSqlType()), e);
+                                property.getSqlType()),
+                        e);
             }
 
             Object value;
@@ -113,12 +116,15 @@ abstract class AbstractPropertyManager
                 value = property.decode(sqlObjectValue);
             }
             catch (Exception e) {
-                throw new PrestoException(propertyError,
-                        format("Unable to set %s property '%s' to '%s': %s",
+                throw new PrestoException(
+                        propertyError,
+                        format(
+                                "Unable to set %s property '%s' to [%s]: %s",
                                 propertyType,
                                 property.getName(),
                                 sqlProperty.getValue(),
-                                e.getMessage()), e);
+                                e.getMessage()),
+                        e);
             }
 
             properties.put(property.getName(), value);

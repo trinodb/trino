@@ -65,34 +65,35 @@ public class JdbcRecordCursor
         sliceReadFunctions = new SliceReadFunction[columnHandles.size()];
         blockReadFunctions = new BlockReadFunction[columnHandles.size()];
 
-        for (int i = 0; i < this.columnHandles.length; i++) {
-            ColumnMapping columnMapping = jdbcClient.toPrestoType(session, columnHandles.get(i).getJdbcTypeHandle())
-                    .orElseThrow(() -> new VerifyException("Unsupported column type"));
-            Class<?> javaType = columnMapping.getType().getJavaType();
-            ReadFunction readFunction = columnMapping.getReadFunction();
-
-            if (javaType == boolean.class) {
-                booleanReadFunctions[i] = (BooleanReadFunction) readFunction;
-            }
-            else if (javaType == double.class) {
-                doubleReadFunctions[i] = (DoubleReadFunction) readFunction;
-            }
-            else if (javaType == long.class) {
-                longReadFunctions[i] = (LongReadFunction) readFunction;
-            }
-            else if (javaType == Slice.class) {
-                sliceReadFunctions[i] = (SliceReadFunction) readFunction;
-            }
-            else if (javaType == Block.class) {
-                blockReadFunctions[i] = (BlockReadFunction) readFunction;
-            }
-            else {
-                throw new IllegalStateException(format("Unsupported java type %s", javaType));
-            }
-        }
-
         try {
             connection = jdbcClient.getConnection(JdbcIdentity.from(session), split);
+
+            for (int i = 0; i < this.columnHandles.length; i++) {
+                ColumnMapping columnMapping = jdbcClient.toPrestoType(session, connection, columnHandles.get(i).getJdbcTypeHandle())
+                        .orElseThrow(() -> new VerifyException("Unsupported column type"));
+                Class<?> javaType = columnMapping.getType().getJavaType();
+                ReadFunction readFunction = columnMapping.getReadFunction();
+
+                if (javaType == boolean.class) {
+                    booleanReadFunctions[i] = (BooleanReadFunction) readFunction;
+                }
+                else if (javaType == double.class) {
+                    doubleReadFunctions[i] = (DoubleReadFunction) readFunction;
+                }
+                else if (javaType == long.class) {
+                    longReadFunctions[i] = (LongReadFunction) readFunction;
+                }
+                else if (javaType == Slice.class) {
+                    sliceReadFunctions[i] = (SliceReadFunction) readFunction;
+                }
+                else if (javaType == Block.class) {
+                    blockReadFunctions[i] = (BlockReadFunction) readFunction;
+                }
+                else {
+                    throw new IllegalStateException(format("Unsupported java type %s", javaType));
+                }
+            }
+
             statement = jdbcClient.buildSql(session, connection, split, table, columnHandles);
             log.debug("Executing: %s", statement.toString());
             resultSet = statement.executeQuery();

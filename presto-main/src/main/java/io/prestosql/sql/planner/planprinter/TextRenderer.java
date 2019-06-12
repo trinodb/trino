@@ -21,12 +21,14 @@ import io.prestosql.cost.PlanNodeStatsEstimate;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.planprinter.NodeRepresentation.TypedSymbol;
 
+import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.lang.Double.NEGATIVE_INFINITY;
@@ -54,13 +56,14 @@ public class TextRenderer
     public String render(PlanRepresentation plan)
     {
         StringBuilder output = new StringBuilder();
-        return writeTextOutput(output, plan, level, plan.getRoot());
+        NodeRepresentation root = plan.getRoot();
+        boolean hasChildren = hasChildren(root, plan);
+        return writeTextOutput(output, plan, Indent.newInstance(level, hasChildren), root);
     }
 
-    private String writeTextOutput(StringBuilder output, PlanRepresentation plan, int level, NodeRepresentation node)
+    private String writeTextOutput(StringBuilder output, PlanRepresentation plan, Indent indent, NodeRepresentation node)
     {
-        output.append(indentString(level))
-                .append("- ")
+        output.append(indent.nodeIndent())
                 .append(node.getName())
                 .append(node.getIdentifier())
                 .append("\n");
@@ -69,20 +72,20 @@ public class TextRenderer
                 .map(s -> s.getSymbol() + ":" + s.getType())
                 .collect(joining(", "));
 
-        output.append(indentMultilineString("Layout: [" + columns + "]\n", level + 2));
+        output.append(indentMultilineString("Layout: [" + columns + "]\n", indent.detailIndent()));
 
         String estimates = printEstimates(plan, node);
         if (!estimates.isEmpty()) {
-            output.append(indentMultilineString(estimates, level + 2));
+            output.append(indentMultilineString(estimates, indent.detailIndent()));
         }
 
         String stats = printStats(plan, node);
         if (!stats.isEmpty()) {
-            output.append(indentMultilineString(stats, level + 2));
+            output.append(indentMultilineString(stats, indent.detailIndent()));
         }
 
         if (!node.getDetails().isEmpty()) {
-            String details = indentMultilineString(node.getDetails(), level + 2);
+            String details = indentMultilineString(node.getDetails(), indent.detailIndent());
             output.append(details);
             if (!details.endsWith("\n")) {
                 output.append('\n');
@@ -95,8 +98,9 @@ public class TextRenderer
                 .map(Optional::get)
                 .collect(toList());
 
-        for (NodeRepresentation child : children) {
-            writeTextOutput(output, plan, level + 1, child);
+        for (Iterator<NodeRepresentation> iterator = children.iterator(); iterator.hasNext(); ) {
+            NodeRepresentation child = iterator.next();
+            writeTextOutput(output, plan, indent.forChild(!iterator.hasNext(), hasChildren(child, plan)), child);
         }
 
         return output.toString();
@@ -245,6 +249,13 @@ public class TextRenderer
         return output.toString();
     }
 
+    private static boolean hasChildren(NodeRepresentation node, PlanRepresentation plan)
+    {
+        return node.getChildren().stream()
+                .map(plan::getNode)
+                .anyMatch(Optional::isPresent);
+    }
+
     private static String formatAsLong(double value)
     {
         if (isFinite(value)) {
@@ -294,8 +305,72 @@ public class TextRenderer
         return Strings.repeat("    ", indent);
     }
 
-    private static String indentMultilineString(String string, int level)
+    private static String indentMultilineString(String string, String indent)
     {
-        return string.replaceAll("(?m)^", indentString(level));
+        return string.replaceAll("(?m)^", indent);
+    }
+
+    private static class Indent
+    {
+        private static final String VERTICAL_LINE = "\u2502";
+        private static final String LAST_NODE = "\u2514\u2500";
+        private static final String INTERMEDIATE_NODE = "\u251c\u2500";
+
+        private final String firstLinePrefix;
+        private final String nextLinesPrefix;
+        private final boolean hasChildren;
+
+        public static Indent newInstance(int level, boolean hasChildren)
+        {
+            String indent = indentString(level);
+            return new Indent(indent, indent, hasChildren);
+        }
+
+        private Indent(String firstLinePrefix, String nextLinesPrefix, boolean hasChildren)
+        {
+            this.firstLinePrefix = firstLinePrefix;
+            this.nextLinesPrefix = nextLinesPrefix;
+            this.hasChildren = hasChildren;
+        }
+
+        public Indent forChild(boolean last, boolean hasChildren)
+        {
+            String first;
+            String next;
+
+            if (last) {
+                first = pad(LAST_NODE, 3);
+                next = pad("", 3);
+            }
+            else {
+                first = pad(INTERMEDIATE_NODE, 3);
+                next = pad(VERTICAL_LINE, 3);
+            }
+
+            return new Indent(nextLinesPrefix + first, nextLinesPrefix + next, hasChildren);
+        }
+
+        public String nodeIndent()
+        {
+            return firstLinePrefix;
+        }
+
+        public String detailIndent()
+        {
+            String indent = "";
+
+            if (hasChildren) {
+                indent = VERTICAL_LINE;
+            }
+
+            return nextLinesPrefix + pad(indent, 4);
+        }
+
+        private static String pad(String text, int length)
+        {
+            checkArgument(text.length() <= length, "text is longer that length");
+
+            return text + Strings.repeat(" ", length - text.length());
+        }
     }
 }

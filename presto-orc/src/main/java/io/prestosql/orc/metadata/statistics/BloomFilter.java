@@ -14,11 +14,8 @@
 package io.prestosql.orc.metadata.statistics;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.primitives.Longs;
 import io.airlift.slice.ByteArrays;
 import org.openjdk.jol.info.ClassLayout;
-
-import java.util.List;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -75,9 +72,9 @@ public class BloomFilter
      * @param bits the serialized bits
      * @param numFuncs the number of functions used
      */
-    public BloomFilter(List<Long> bits, int numFuncs)
+    public BloomFilter(long[] bits, int numFuncs)
     {
-        bitSet = new BitSet(Longs.toArray(bits));
+        bitSet = new BitSet(bits);
         this.numBits = (int) bitSet.bitSize();
         numHashFunctions = numFuncs;
     }

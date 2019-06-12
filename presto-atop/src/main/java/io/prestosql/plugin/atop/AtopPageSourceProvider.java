@@ -58,6 +58,7 @@ public final class AtopPageSourceProvider
             ConnectorTableHandle table,
             List<ColumnHandle> columns)
     {
+        AtopTableHandle tableHandle = (AtopTableHandle) table;
         AtopSplit atopSplit = (AtopSplit) split;
 
         ImmutableList.Builder<Type> types = ImmutableList.builder();
@@ -65,13 +66,13 @@ public final class AtopPageSourceProvider
 
         for (ColumnHandle column : columns) {
             AtopColumnHandle atopColumnHandle = (AtopColumnHandle) column;
-            AtopColumn atopColumn = atopSplit.getTable().getColumn(atopColumnHandle.getName());
+            AtopColumn atopColumn = tableHandle.getTable().getColumn(atopColumnHandle.getName());
             atopColumns.add(atopColumn);
             types.add(typeManager.getType(atopColumn.getType()));
         }
 
         ZonedDateTime date = atopSplit.getDate();
         checkArgument(date.equals(date.withHour(0).withMinute(0).withSecond(0).withNano(0)), "Expected date to be at beginning of day");
-        return new AtopPageSource(readerPermits, atopFactory, session, utf8Slice(atopSplit.getHost().getHostText()), atopSplit.getTable(), date, atopColumns.build(), types.build());
+        return new AtopPageSource(readerPermits, atopFactory, session, utf8Slice(atopSplit.getHost().getHostText()), tableHandle.getTable(), date, atopColumns.build(), types.build());
     }
 }

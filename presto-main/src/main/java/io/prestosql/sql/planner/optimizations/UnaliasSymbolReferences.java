@@ -63,6 +63,7 @@ import io.prestosql.sql.planner.plan.SimplePlanRewriter;
 import io.prestosql.sql.planner.plan.SortNode;
 import io.prestosql.sql.planner.plan.SpatialJoinNode;
 import io.prestosql.sql.planner.plan.StatisticsWriterNode;
+import io.prestosql.sql.planner.plan.TableDeleteNode;
 import io.prestosql.sql.planner.plan.TableFinishNode;
 import io.prestosql.sql.planner.plan.TableScanNode;
 import io.prestosql.sql.planner.plan.TableWriterNode;
@@ -334,6 +335,10 @@ public class UnaliasSymbolReferences
         @Override
         public PlanNode visitLimit(LimitNode node, RewriteContext<Void> context)
         {
+            if (node.isWithTies()) {
+                PlanNode source = context.rewrite(node.getSource());
+                return new LimitNode(node.getId(), source, node.getCount(), node.getTiesResolvingScheme().map(this::canonicalizeAndDistinct), node.isPartial());
+            }
             return context.defaultRewrite(node);
         }
 
@@ -361,6 +366,12 @@ public class UnaliasSymbolReferences
                     node.getId(),
                     canonicalizedOutputSymbols,
                     canonicalizedRows);
+        }
+
+        @Override
+        public PlanNode visitTableDelete(TableDeleteNode node, RewriteContext<Void> context)
+        {
+            return node;
         }
 
         @Override
@@ -478,7 +489,7 @@ public class UnaliasSymbolReferences
         {
             PlanNode source = context.rewrite(node.getSource());
 
-            return new SortNode(node.getId(), source, canonicalizeAndDistinct(node.getOrderingScheme()));
+            return new SortNode(node.getId(), source, canonicalizeAndDistinct(node.getOrderingScheme()), node.isPartial());
         }
 
         @Override
@@ -492,6 +503,8 @@ public class UnaliasSymbolReferences
             Optional<Symbol> canonicalLeftHashSymbol = canonicalize(node.getLeftHashSymbol());
             Optional<Symbol> canonicalRightHashSymbol = canonicalize(node.getRightHashSymbol());
 
+            Map<String, Symbol> canonicalDynamicFilters = canonicalizeAndDistinct(node.getDynamicFilters());
+
             if (node.getType().equals(INNER)) {
                 canonicalCriteria.stream()
                         .filter(clause -> types.get(clause.getLeft()).equals(types.get(clause.getRight())))
@@ -499,7 +512,19 @@ public class UnaliasSymbolReferences
                         .forEach(clause -> map(clause.getRight(), clause.getLeft()));
             }
 
-            return new JoinNode(node.getId(), node.getType(), left, right, canonicalCriteria, canonicalizeAndDistinct(node.getOutputSymbols()), canonicalFilter, canonicalLeftHashSymbol, canonicalRightHashSymbol, node.getDistributionType(), node.isSpillable());
+            return new JoinNode(
+                    node.getId(),
+                    node.getType(),
+                    left,
+                    right,
+                    canonicalCriteria,
+                    canonicalizeAndDistinct(node.getOutputSymbols()),
+                    canonicalFilter,
+                    canonicalLeftHashSymbol,
+                    canonicalRightHashSymbol,
+                    node.getDistributionType(),
+                    node.isSpillable(),
+                    canonicalDynamicFilters);
         }
 
         @Override
@@ -671,6 +696,19 @@ public class UnaliasSymbolReferences
                 Symbol canonical = canonicalize(symbol);
                 if (added.add(canonical)) {
                     builder.add(canonical);
+                }
+            }
+            return builder.build();
+        }
+
+        private Map<String, Symbol> canonicalizeAndDistinct(Map<String, Symbol> dynamicFilters)
+        {
+            Set<Symbol> added = new HashSet<>();
+            ImmutableMap.Builder<String, Symbol> builder = ImmutableMap.builder();
+            for (Map.Entry<String, Symbol> entry : dynamicFilters.entrySet()) {
+                Symbol canonical = canonicalize(entry.getValue());
+                if (added.add(canonical)) {
+                    builder.put(entry.getKey(), canonical);
                 }
             }
             return builder.build();

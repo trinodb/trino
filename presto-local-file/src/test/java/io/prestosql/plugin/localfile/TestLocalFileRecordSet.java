@@ -16,7 +16,6 @@ package io.prestosql.plugin.localfile;
 import io.prestosql.spi.HostAddress;
 import io.prestosql.spi.connector.RecordCursor;
 import io.prestosql.spi.connector.RecordSet;
-import io.prestosql.spi.predicate.TupleDomain;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -59,7 +58,7 @@ public class TestLocalFileRecordSet
                 .values().stream().map(column -> (LocalFileColumnHandle) column)
                 .collect(Collectors.toList());
 
-        LocalFileSplit split = new LocalFileSplit(address, TupleDomain.all());
+        LocalFileSplit split = new LocalFileSplit(address);
         RecordSet recordSet = new LocalFileRecordSet(localFileTables, split, tableHandle, columnHandles);
         RecordCursor cursor = recordSet.cursor();
 

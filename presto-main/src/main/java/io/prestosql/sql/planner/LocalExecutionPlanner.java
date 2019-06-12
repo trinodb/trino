@@ -26,6 +26,7 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.SetMultimap;
 import com.google.common.primitives.Ints;
+import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.prestosql.Session;
 import io.prestosql.SystemSessionProperties;
@@ -62,7 +63,6 @@ import io.prestosql.operator.LookupOuterOperator.LookupOuterOperatorFactory;
 import io.prestosql.operator.LookupSourceFactory;
 import io.prestosql.operator.MarkDistinctOperator.MarkDistinctOperatorFactory;
 import io.prestosql.operator.MergeOperator.MergeOperatorFactory;
-import io.prestosql.operator.MetadataDeleteOperator.MetadataDeleteOperatorFactory;
 import io.prestosql.operator.NestedLoopJoinBridge;
 import io.prestosql.operator.NestedLoopJoinPagesSupplier;
 import io.prestosql.operator.OperatorFactory;
@@ -85,6 +85,7 @@ import io.prestosql.operator.SpatialJoinOperator.SpatialJoinOperatorFactory;
 import io.prestosql.operator.StageExecutionDescriptor;
 import io.prestosql.operator.StatisticsWriterOperator.StatisticsWriterOperatorFactory;
 import io.prestosql.operator.StreamingAggregationOperator.StreamingAggregationOperatorFactory;
+import io.prestosql.operator.TableDeleteOperator.TableDeleteOperatorFactory;
 import io.prestosql.operator.TableScanOperator.TableScanOperatorFactory;
 import io.prestosql.operator.TaskContext;
 import io.prestosql.operator.TaskOutputOperator.TaskOutputFactory;
@@ -115,7 +116,6 @@ import io.prestosql.operator.window.WindowFunctionSupplier;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.PageBuilder;
 import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.block.BlockEncodingSerde;
 import io.prestosql.spi.block.SortOrder;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorIndex;
@@ -129,6 +129,8 @@ import io.prestosql.spiller.SpillerFactory;
 import io.prestosql.split.MappedRecordSet;
 import io.prestosql.split.PageSinkManager;
 import io.prestosql.split.PageSourceProvider;
+import io.prestosql.sql.DynamicFilters;
+import io.prestosql.sql.ExpressionUtils;
 import io.prestosql.sql.gen.ExpressionCompiler;
 import io.prestosql.sql.gen.JoinCompiler;
 import io.prestosql.sql.gen.JoinFilterFunctionCompiler;
@@ -153,7 +155,6 @@ import io.prestosql.sql.planner.plan.IndexSourceNode;
 import io.prestosql.sql.planner.plan.JoinNode;
 import io.prestosql.sql.planner.plan.LimitNode;
 import io.prestosql.sql.planner.plan.MarkDistinctNode;
-import io.prestosql.sql.planner.plan.MetadataDeleteNode;
 import io.prestosql.sql.planner.plan.OutputNode;
 import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.PlanNodeId;
@@ -167,10 +168,11 @@ import io.prestosql.sql.planner.plan.SortNode;
 import io.prestosql.sql.planner.plan.SpatialJoinNode;
 import io.prestosql.sql.planner.plan.StatisticAggregationsDescriptor;
 import io.prestosql.sql.planner.plan.StatisticsWriterNode;
+import io.prestosql.sql.planner.plan.TableDeleteNode;
 import io.prestosql.sql.planner.plan.TableFinishNode;
 import io.prestosql.sql.planner.plan.TableScanNode;
 import io.prestosql.sql.planner.plan.TableWriterNode;
-import io.prestosql.sql.planner.plan.TableWriterNode.DeleteHandle;
+import io.prestosql.sql.planner.plan.TableWriterNode.DeleteTarget;
 import io.prestosql.sql.planner.plan.TopNNode;
 import io.prestosql.sql.planner.plan.TopNRowNumberNode;
 import io.prestosql.sql.planner.plan.UnionNode;
@@ -262,8 +264,8 @@ import static io.prestosql.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static io.prestosql.sql.planner.plan.JoinNode.Type.FULL;
 import static io.prestosql.sql.planner.plan.JoinNode.Type.INNER;
 import static io.prestosql.sql.planner.plan.JoinNode.Type.RIGHT;
-import static io.prestosql.sql.planner.plan.TableWriterNode.CreateHandle;
-import static io.prestosql.sql.planner.plan.TableWriterNode.InsertHandle;
+import static io.prestosql.sql.planner.plan.TableWriterNode.CreateTarget;
+import static io.prestosql.sql.planner.plan.TableWriterNode.InsertTarget;
 import static io.prestosql.sql.planner.plan.TableWriterNode.WriterTarget;
 import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.prestosql.sql.tree.ComparisonExpression.Operator.LESS_THAN;
@@ -280,6 +282,8 @@ import static java.util.stream.IntStream.range;
 
 public class LocalExecutionPlanner
 {
+    private static final Logger log = Logger.get(LocalExecutionPlanner.class);
+
     private final Metadata metadata;
     private final TypeAnalyzer typeAnalyzer;
     private final Optional<ExplainAnalyzeContext> explainAnalyzeContext;
@@ -299,7 +303,6 @@ public class LocalExecutionPlanner
     private final SpillerFactory spillerFactory;
     private final SingleStreamSpillerFactory singleStreamSpillerFactory;
     private final PartitioningSpillerFactory partitioningSpillerFactory;
-    private final BlockEncodingSerde blockEncodingSerde;
     private final PagesIndex.Factory pagesIndexFactory;
     private final JoinCompiler joinCompiler;
     private final LookupJoinOperators lookupJoinOperators;
@@ -323,7 +326,6 @@ public class LocalExecutionPlanner
             SpillerFactory spillerFactory,
             SingleStreamSpillerFactory singleStreamSpillerFactory,
             PartitioningSpillerFactory partitioningSpillerFactory,
-            BlockEncodingSerde blockEncodingSerde,
             PagesIndex.Factory pagesIndexFactory,
             JoinCompiler joinCompiler,
             LookupJoinOperators lookupJoinOperators,
@@ -345,7 +347,6 @@ public class LocalExecutionPlanner
         this.spillerFactory = requireNonNull(spillerFactory, "spillerFactory is null");
         this.singleStreamSpillerFactory = requireNonNull(singleStreamSpillerFactory, "singleStreamSpillerFactory is null");
         this.partitioningSpillerFactory = requireNonNull(partitioningSpillerFactory, "partitioningSpillerFactory is null");
-        this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
         this.maxPartialAggregationMemorySize = taskManagerConfig.getMaxPartialAggregationMemoryUsage();
         this.maxPagePartitioningBufferSize = taskManagerConfig.getMaxPagePartitioningBufferSize();
         this.maxLocalExchangeBufferSize = taskManagerConfig.getMaxLocalExchangeBufferSize();
@@ -467,7 +468,7 @@ public class LocalExecutionPlanner
                                 plan.getId(),
                                 outputTypes,
                                 pagePreprocessor,
-                                new PagesSerdeFactory(blockEncodingSerde, isExchangeCompressionEnabled(session))))
+                                new PagesSerdeFactory(metadata.getBlockEncodingSerde(), isExchangeCompressionEnabled(session))))
                         .build(),
                 context.getDriverInstanceCount(),
                 physicalOperation.getPipelineExecutionStrategy());
@@ -725,7 +726,7 @@ public class LocalExecutionPlanner
                     context.getNextOperatorId(),
                     node.getId(),
                     exchangeClientSupplier,
-                    new PagesSerdeFactory(blockEncodingSerde, isExchangeCompressionEnabled(session)),
+                    new PagesSerdeFactory(metadata.getBlockEncodingSerde(), isExchangeCompressionEnabled(session)),
                     orderingCompiler,
                     types,
                     outputChannels,
@@ -745,7 +746,7 @@ public class LocalExecutionPlanner
                     context.getNextOperatorId(),
                     node.getId(),
                     exchangeClientSupplier,
-                    new PagesSerdeFactory(blockEncodingSerde, isExchangeCompressionEnabled(session)));
+                    new PagesSerdeFactory(metadata.getBlockEncodingSerde(), isExchangeCompressionEnabled(session)));
 
             return new PhysicalOperation(operatorFactory, makeLayout(node), context, UNGROUPED_EXECUTION);
         }
@@ -1216,6 +1217,17 @@ public class LocalExecutionPlanner
             }
             Map<Symbol, Integer> outputMappings = outputMappingsBuilder.build();
 
+            Optional<DynamicFilters.ExtractResult> extractDynamicFilterResult = filterExpression.map(DynamicFilters::extractDynamicFilters);
+            Optional<Expression> staticFilters = extractDynamicFilterResult
+                    .map(DynamicFilters.ExtractResult::getStaticConjuncts)
+                    .map(ExpressionUtils::combineConjuncts);
+
+            // TODO: Execution must be plugged in here
+            Optional<List<DynamicFilters.Descriptor>> dynamicFilters = extractDynamicFilterResult.map(DynamicFilters.ExtractResult::getDynamicConjuncts);
+            if (dynamicFilters.isPresent() && !dynamicFilters.get().isEmpty()) {
+                log.debug("[TableScan] Dynamic filters: %s", dynamicFilters);
+            }
+
             List<Expression> projections = new ArrayList<>();
             for (Symbol symbol : outputSymbols) {
                 projections.add(assignments.get(symbol));
@@ -1224,9 +1236,9 @@ public class LocalExecutionPlanner
             Map<NodeRef<Expression>, Type> expressionTypes = typeAnalyzer.getTypes(
                     context.getSession(),
                     context.getTypes(),
-                    concat(filterExpression.map(ImmutableList::of).orElse(ImmutableList.of()), assignments.getExpressions()));
+                    concat(staticFilters.map(ImmutableList::of).orElse(ImmutableList.of()), assignments.getExpressions()));
 
-            Optional<RowExpression> translatedFilter = filterExpression.map(filter -> toRowExpression(filter, expressionTypes, sourceLayout));
+            Optional<RowExpression> translatedFilter = staticFilters.map(filter -> toRowExpression(filter, expressionTypes, sourceLayout));
             List<RowExpression> translatedProjections = projections.stream()
                     .map(expression -> toRowExpression(expression, expressionTypes, sourceLayout))
                     .collect(toImmutableList());
@@ -1578,6 +1590,12 @@ public class LocalExecutionPlanner
             }
 
             List<JoinNode.EquiJoinClause> clauses = node.getCriteria();
+
+            // TODO: Execution must be plugged in here
+            if (!node.getDynamicFilters().isEmpty()) {
+                log.debug("[Join] Dynamic filters: %s", node.getDynamicFilters());
+            }
+
             List<Symbol> leftSymbols = Lists.transform(clauses, JoinNode.EquiJoinClause::getLeft);
             List<Symbol> rightSymbols = Lists.transform(clauses, JoinNode.EquiJoinClause::getRight);
 
@@ -2287,9 +2305,9 @@ public class LocalExecutionPlanner
         }
 
         @Override
-        public PhysicalOperation visitMetadataDelete(MetadataDeleteNode node, LocalExecutionPlanContext context)
+        public PhysicalOperation visitTableDelete(TableDeleteNode node, LocalExecutionPlanContext context)
         {
-            OperatorFactory operatorFactory = new MetadataDeleteOperatorFactory(context.getNextOperatorId(), node.getId(), metadata, session, node.getTarget().getHandle());
+            OperatorFactory operatorFactory = new TableDeleteOperatorFactory(context.getNextOperatorId(), node.getId(), metadata, session, node.getTarget());
 
             return new PhysicalOperation(operatorFactory, makeLayout(node), context, UNGROUPED_EXECUTION);
         }
@@ -2504,7 +2522,7 @@ public class LocalExecutionPlanner
                         .filter(typeSignature -> typeSignature.getBase().equals(FunctionType.NAME))
                         .map(typeSignature -> (FunctionType) (metadata.getTypeManager().getType(typeSignature)))
                         .collect(toImmutableList());
-                List<Class> lambdaInterfaces = internalAggregationFunction.getLambdaInterfaces();
+                List<Class<?>> lambdaInterfaces = internalAggregationFunction.getLambdaInterfaces();
                 verify(lambdaExpressions.size() == functionTypes.size());
                 verify(lambdaExpressions.size() == lambdaInterfaces.size());
 
@@ -2753,14 +2771,14 @@ public class LocalExecutionPlanner
     {
         WriterTarget target = node.getTarget();
         return (fragments, statistics) -> {
-            if (target instanceof CreateHandle) {
-                return metadata.finishCreateTable(session, ((CreateHandle) target).getHandle(), fragments, statistics);
+            if (target instanceof CreateTarget) {
+                return metadata.finishCreateTable(session, ((CreateTarget) target).getHandle(), fragments, statistics);
             }
-            else if (target instanceof InsertHandle) {
-                return metadata.finishInsert(session, ((InsertHandle) target).getHandle(), fragments, statistics);
+            else if (target instanceof InsertTarget) {
+                return metadata.finishInsert(session, ((InsertTarget) target).getHandle(), fragments, statistics);
             }
-            else if (target instanceof DeleteHandle) {
-                metadata.finishDelete(session, ((DeleteHandle) target).getHandle(), fragments);
+            else if (target instanceof DeleteTarget) {
+                metadata.finishDelete(session, ((DeleteTarget) target).getHandle(), fragments);
                 return Optional.empty();
             }
             else {

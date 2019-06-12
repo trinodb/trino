@@ -83,7 +83,6 @@ import static io.airlift.concurrent.MoreFutures.whenAnyComplete;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.prestosql.SystemSessionProperties.getConcurrentLifespansPerNode;
 import static io.prestosql.SystemSessionProperties.getWriterMinSize;
-import static io.prestosql.SystemSessionProperties.isDynamicSchduleForGroupedExecution;
 import static io.prestosql.connector.CatalogName.isInternalSystemConnector;
 import static io.prestosql.execution.BasicStageStats.aggregateBasicStageStats;
 import static io.prestosql.execution.SqlStageExecution.createSqlStageExecution;
@@ -100,6 +99,7 @@ import static io.prestosql.spi.connector.NotPartitionedPartitionHandle.NOT_PARTI
 import static io.prestosql.sql.planner.SystemPartitioningHandle.FIXED_BROADCAST_DISTRIBUTION;
 import static io.prestosql.sql.planner.SystemPartitioningHandle.SCALED_WRITER_DISTRIBUTION;
 import static io.prestosql.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
+import static io.prestosql.sql.planner.plan.ExchangeNode.Type.REPLICATE;
 import static io.prestosql.util.Failures.checkCondition;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -303,6 +303,7 @@ public class SqlQueryScheduler
                 stageId,
                 locationFactory.createStageLocation(stageId),
                 plan.getFragment(),
+                plan.getTables(),
                 remoteTaskFactory,
                 session,
                 summarizeTaskInfo,
@@ -352,19 +353,22 @@ public class SqlQueryScheduler
 
                 BucketNodeMap bucketNodeMap;
                 List<InternalNode> stageNodeList;
-                if (plan.getSubStages().isEmpty()) {
+                if (plan.getFragment().getRemoteSourceNodes().stream().allMatch(node -> node.getExchangeType() == REPLICATE)) {
                     // no remote source
-                    boolean preferDynamic = groupedExecutionForStage && isDynamicSchduleForGroupedExecution(session);
-                    bucketNodeMap = nodePartitioningManager.getBucketNodeMap(session, partitioningHandle, preferDynamic);
-                    if (bucketNodeMap.isDynamic()) {
-                        verify(preferDynamic);
-                    }
+                    boolean dynamicLifespanSchedule = plan.getFragment().getStageExecutionDescriptor().isDynamicLifespanSchedule();
+                    bucketNodeMap = nodePartitioningManager.getBucketNodeMap(session, partitioningHandle, dynamicLifespanSchedule);
+
+                    // verify execution is consistent with planner's decision on dynamic lifespan schedule
+                    verify(bucketNodeMap.isDynamic() == dynamicLifespanSchedule);
 
                     stageNodeList = new ArrayList<>(nodeScheduler.createNodeSelector(catalogName).allNodes());
                     Collections.shuffle(stageNodeList);
                     bucketToPartition = Optional.empty();
                 }
                 else {
+                    // cannot use dynamic lifespan schedule
+                    verify(!plan.getFragment().getStageExecutionDescriptor().isDynamicLifespanSchedule());
+
                     // remote source requires nodePartitionMap
                     NodePartitionMap nodePartitionMap = partitioningCache.apply(plan.getFragment().getPartitioning());
                     if (groupedExecutionForStage) {
@@ -494,6 +498,7 @@ public class SqlQueryScheduler
                 parent.getStageStats(),
                 parent.getTasks(),
                 childStages,
+                parent.getTables(),
                 parent.getFailureCause());
     }
 

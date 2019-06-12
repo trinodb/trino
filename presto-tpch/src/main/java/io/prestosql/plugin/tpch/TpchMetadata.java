@@ -42,10 +42,11 @@ import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTableLayout;
 import io.prestosql.spi.connector.ConnectorTableLayoutHandle;
-import io.prestosql.spi.connector.ConnectorTableLayoutResult;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
 import io.prestosql.spi.connector.ConnectorTablePartitioning;
+import io.prestosql.spi.connector.ConnectorTableProperties;
 import io.prestosql.spi.connector.Constraint;
+import io.prestosql.spi.connector.ConstraintApplicationResult;
 import io.prestosql.spi.connector.LocalProperty;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.SchemaTablePrefix;
@@ -179,76 +180,6 @@ public class TpchMetadata
     public ConnectorTableHandle getTableHandleForStatisticsCollection(ConnectorSession session, SchemaTableName tableName, Map<String, Object> analyzeProperties)
     {
         return getTableHandle(session, tableName);
-    }
-
-    @Override
-    public List<ConnectorTableLayoutResult> getTableLayouts(
-            ConnectorSession session,
-            ConnectorTableHandle table,
-            Constraint constraint,
-            Optional<Set<ColumnHandle>> desiredColumns)
-    {
-        TpchTableHandle tableHandle = (TpchTableHandle) table;
-
-        Optional<ConnectorTablePartitioning> tablePartitioning = Optional.empty();
-        Optional<Set<ColumnHandle>> partitioningColumns = Optional.empty();
-        List<LocalProperty<ColumnHandle>> localProperties = ImmutableList.of();
-
-        TupleDomain<ColumnHandle> predicate = TupleDomain.all();
-        TupleDomain<ColumnHandle> unenforcedConstraint = constraint.getSummary();
-        Map<String, ColumnHandle> columns = getColumnHandles(session, tableHandle);
-        if (tableHandle.getTableName().equals(TpchTable.ORDERS.getTableName())) {
-            if (partitioningEnabled) {
-                ColumnHandle orderKeyColumn = columns.get(columnNaming.getName(OrderColumn.ORDER_KEY));
-                tablePartitioning = Optional.of(new ConnectorTablePartitioning(
-                        new TpchPartitioningHandle(
-                                TpchTable.ORDERS.getTableName(),
-                                calculateTotalRows(OrderGenerator.SCALE_BASE, tableHandle.getScaleFactor())),
-                        ImmutableList.of(orderKeyColumn)));
-                partitioningColumns = Optional.of(ImmutableSet.of(orderKeyColumn));
-                localProperties = ImmutableList.of(new SortingProperty<>(orderKeyColumn, SortOrder.ASC_NULLS_FIRST));
-            }
-            if (predicatePushdownEnabled) {
-                predicate = toTupleDomain(ImmutableMap.of(
-                        toColumnHandle(OrderColumn.ORDER_STATUS),
-                        filterValues(ORDER_STATUS_NULLABLE_VALUES, OrderColumn.ORDER_STATUS, constraint)));
-                unenforcedConstraint = filterOutColumnFromPredicate(constraint.getSummary(), toColumnHandle(OrderColumn.ORDER_STATUS));
-            }
-        }
-        else if (predicatePushdownEnabled && tableHandle.getTableName().equals(TpchTable.PART.getTableName())) {
-            predicate = toTupleDomain(ImmutableMap.of(
-                    toColumnHandle(PartColumn.CONTAINER),
-                    filterValues(PART_CONTAINER_NULLABLE_VALUES, PartColumn.CONTAINER, constraint),
-                    toColumnHandle(PartColumn.TYPE),
-                    filterValues(PART_TYPE_NULLABLE_VALUES, PartColumn.TYPE, constraint)));
-            unenforcedConstraint = filterOutColumnFromPredicate(constraint.getSummary(), toColumnHandle(PartColumn.CONTAINER));
-            unenforcedConstraint = filterOutColumnFromPredicate(unenforcedConstraint, toColumnHandle(PartColumn.TYPE));
-        }
-        else if (tableHandle.getTableName().equals(TpchTable.LINE_ITEM.getTableName())) {
-            if (partitioningEnabled) {
-                ColumnHandle orderKeyColumn = columns.get(columnNaming.getName(LineItemColumn.ORDER_KEY));
-                tablePartitioning = Optional.of(new ConnectorTablePartitioning(
-                        new TpchPartitioningHandle(
-                                TpchTable.ORDERS.getTableName(),
-                                calculateTotalRows(OrderGenerator.SCALE_BASE, tableHandle.getScaleFactor())),
-                        ImmutableList.of(orderKeyColumn)));
-                partitioningColumns = Optional.of(ImmutableSet.of(orderKeyColumn));
-                localProperties = ImmutableList.of(
-                        new SortingProperty<>(orderKeyColumn, SortOrder.ASC_NULLS_FIRST),
-                        new SortingProperty<>(columns.get(columnNaming.getName(LineItemColumn.LINE_NUMBER)), SortOrder.ASC_NULLS_FIRST));
-            }
-        }
-
-        ConnectorTableLayout layout = new ConnectorTableLayout(
-                new TpchTableLayoutHandle(tableHandle, predicate),
-                Optional.empty(),
-                predicate, // TODO: conditionally return well-known properties (e.g., orderkey > 0, etc)
-                tablePartitioning,
-                partitioningColumns,
-                Optional.empty(),
-                localProperties);
-
-        return ImmutableList.of(new ConnectorTableLayoutResult(layout, unenforcedConstraint));
     }
 
     private Set<NullableValue> filterValues(Set<NullableValue> nullableValues, TpchColumn<?> column, Constraint constraint)
@@ -469,6 +400,89 @@ public class TpchMetadata
             }
         }
         return builder.build();
+    }
+
+    @Override
+    public boolean usesLegacyTableLayouts()
+    {
+        return false;
+    }
+
+    @Override
+    public ConnectorTableProperties getTableProperties(ConnectorSession session, ConnectorTableHandle table)
+    {
+        TpchTableHandle tableHandle = (TpchTableHandle) table;
+
+        Optional<ConnectorTablePartitioning> tablePartitioning = Optional.empty();
+        Optional<Set<ColumnHandle>> partitioningColumns = Optional.empty();
+        List<LocalProperty<ColumnHandle>> localProperties = ImmutableList.of();
+
+        Map<String, ColumnHandle> columns = getColumnHandles(session, tableHandle);
+        if (partitioningEnabled && tableHandle.getTableName().equals(TpchTable.ORDERS.getTableName())) {
+            ColumnHandle orderKeyColumn = columns.get(columnNaming.getName(OrderColumn.ORDER_KEY));
+            tablePartitioning = Optional.of(new ConnectorTablePartitioning(
+                    new TpchPartitioningHandle(
+                            TpchTable.ORDERS.getTableName(),
+                            calculateTotalRows(OrderGenerator.SCALE_BASE, tableHandle.getScaleFactor())),
+                    ImmutableList.of(orderKeyColumn)));
+            partitioningColumns = Optional.of(ImmutableSet.of(orderKeyColumn));
+            localProperties = ImmutableList.of(new SortingProperty<>(orderKeyColumn, SortOrder.ASC_NULLS_FIRST));
+        }
+        else if (partitioningEnabled && tableHandle.getTableName().equals(TpchTable.LINE_ITEM.getTableName())) {
+            ColumnHandle orderKeyColumn = columns.get(columnNaming.getName(LineItemColumn.ORDER_KEY));
+            tablePartitioning = Optional.of(new ConnectorTablePartitioning(
+                    new TpchPartitioningHandle(
+                            TpchTable.ORDERS.getTableName(),
+                            calculateTotalRows(OrderGenerator.SCALE_BASE, tableHandle.getScaleFactor())),
+                    ImmutableList.of(orderKeyColumn)));
+            partitioningColumns = Optional.of(ImmutableSet.of(orderKeyColumn));
+            localProperties = ImmutableList.of(
+                    new SortingProperty<>(orderKeyColumn, SortOrder.ASC_NULLS_FIRST),
+                    new SortingProperty<>(columns.get(columnNaming.getName(LineItemColumn.LINE_NUMBER)), SortOrder.ASC_NULLS_FIRST));
+        }
+
+        return new ConnectorTableProperties(
+                tableHandle.getConstraint(),
+                tablePartitioning,
+                partitioningColumns,
+                Optional.empty(),
+                localProperties);
+    }
+
+    public Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorSession session, ConnectorTableHandle table, Constraint constraint)
+    {
+        TpchTableHandle handle = (TpchTableHandle) table;
+
+        TupleDomain<ColumnHandle> oldDomain = handle.getConstraint();
+
+        TupleDomain<ColumnHandle> predicate = TupleDomain.all();
+        TupleDomain<ColumnHandle> unenforcedConstraint = constraint.getSummary();
+        if (predicatePushdownEnabled && handle.getTableName().equals(TpchTable.ORDERS.getTableName())) {
+            predicate = toTupleDomain(ImmutableMap.of(
+                    toColumnHandle(OrderColumn.ORDER_STATUS),
+                    filterValues(ORDER_STATUS_NULLABLE_VALUES, OrderColumn.ORDER_STATUS, constraint)));
+            unenforcedConstraint = filterOutColumnFromPredicate(constraint.getSummary(), toColumnHandle(OrderColumn.ORDER_STATUS));
+        }
+        else if (predicatePushdownEnabled && handle.getTableName().equals(TpchTable.PART.getTableName())) {
+            predicate = toTupleDomain(ImmutableMap.of(
+                    toColumnHandle(PartColumn.CONTAINER),
+                    filterValues(PART_CONTAINER_NULLABLE_VALUES, PartColumn.CONTAINER, constraint),
+                    toColumnHandle(PartColumn.TYPE),
+                    filterValues(PART_TYPE_NULLABLE_VALUES, PartColumn.TYPE, constraint)));
+            unenforcedConstraint = filterOutColumnFromPredicate(constraint.getSummary(), toColumnHandle(PartColumn.CONTAINER));
+            unenforcedConstraint = filterOutColumnFromPredicate(unenforcedConstraint, toColumnHandle(PartColumn.TYPE));
+        }
+
+        if (oldDomain.equals(predicate)) {
+            return Optional.empty();
+        }
+
+        return Optional.of(new ConstraintApplicationResult<>(
+                new TpchTableHandle(
+                        handle.getTableName(),
+                        handle.getScaleFactor(),
+                        oldDomain.intersect(predicate)),
+                unenforcedConstraint));
     }
 
     private TupleDomain<ColumnHandle> toTupleDomain(Map<TpchColumnHandle, Set<NullableValue>> predicate)

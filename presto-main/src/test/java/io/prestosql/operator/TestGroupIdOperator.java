@@ -65,6 +65,7 @@ public class TestGroupIdOperator
         scheduledExecutor.shutdownNow();
     }
 
+    @Test
     public void testGroupId()
     {
         RowPagesBuilder rowPagesBuilder = rowPagesBuilder(false, ImmutableList.of(), BIGINT, VARCHAR, BOOLEAN, BIGINT);

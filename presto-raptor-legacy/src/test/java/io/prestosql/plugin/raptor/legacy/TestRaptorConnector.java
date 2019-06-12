@@ -56,6 +56,7 @@ import org.testng.annotations.Test;
 import java.io.File;
 import java.util.Collection;
 import java.util.Optional;
+import java.util.concurrent.ThreadLocalRandom;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
@@ -89,7 +90,7 @@ public class TestRaptorConnector
             throws Exception
     {
         TypeRegistry typeRegistry = new TypeRegistry();
-        DBI dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime());
+        DBI dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime() + ThreadLocalRandom.current().nextLong());
         dbi.registerMapper(new TableColumn.Mapper(typeRegistry));
         dummyHandle = dbi.open();
         metadataDao = dbi.onDemand(MetadataDao.class);

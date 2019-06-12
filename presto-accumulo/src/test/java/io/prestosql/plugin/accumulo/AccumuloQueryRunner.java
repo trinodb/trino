@@ -16,6 +16,7 @@ package io.prestosql.plugin.accumulo;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedSet;
 import io.airlift.log.Logger;
+import io.airlift.log.Logging;
 import io.airlift.tpch.TpchTable;
 import io.prestosql.Session;
 import io.prestosql.metadata.QualifiedObjectName;
@@ -125,7 +126,7 @@ public final class AccumuloQueryRunner
                 sql = format("CREATE TABLE %s WITH (index_columns = 'mktsegment') AS SELECT * FROM %s", target, source);
                 break;
             case "lineitem":
-                sql = format("CREATE TABLE %s WITH (index_columns = 'quantity,discount,returnflag,shipdate,receiptdate,shipinstruct,shipmode') AS SELECT UUID() AS uuid, * FROM %s", target, source);
+                sql = format("CREATE TABLE %s WITH (index_columns = 'quantity,discount,returnflag,shipdate,receiptdate,shipinstruct,shipmode') AS SELECT cast(uuid() AS varchar) AS uuid, * FROM %s", target, source);
                 break;
             case "orders":
                 sql = format("CREATE TABLE %s WITH (index_columns = 'orderdate') AS SELECT * FROM %s", target, source);
@@ -134,7 +135,7 @@ public final class AccumuloQueryRunner
                 sql = format("CREATE TABLE %s WITH (index_columns = 'brand,type,size,container') AS SELECT * FROM %s", target, source);
                 break;
             case "partsupp":
-                sql = format("CREATE TABLE %s WITH (index_columns = 'partkey') AS SELECT UUID() AS uuid, * FROM %s", target, source);
+                sql = format("CREATE TABLE %s WITH (index_columns = 'partkey') AS SELECT cast(uuid() AS varchar) AS uuid, * FROM %s", target, source);
                 break;
             case "supplier":
                 sql = format("CREATE TABLE %s WITH (index_columns = 'name') AS SELECT * FROM %s", target, source);
@@ -219,5 +220,16 @@ public final class AccumuloQueryRunner
         }));
 
         return accumulo;
+    }
+
+    public static void main(String[] args)
+            throws Exception
+    {
+        Logging.initialize();
+        DistributedQueryRunner queryRunner = createAccumuloQueryRunner(ImmutableMap.of("http-server.http.port", "8080"));
+        Thread.sleep(10);
+        Logger log = Logger.get(AccumuloQueryRunner.class);
+        log.info("======== SERVER STARTED ========");
+        log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
     }
 }

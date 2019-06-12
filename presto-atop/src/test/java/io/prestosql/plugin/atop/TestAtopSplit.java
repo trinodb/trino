@@ -29,9 +29,8 @@ public class TestAtopSplit
     {
         JsonCodec<AtopSplit> codec = JsonCodec.jsonCodec(AtopSplit.class);
         ZonedDateTime now = ZonedDateTime.now(ZoneId.of("+01:23"));
-        AtopSplit split = new AtopSplit(AtopTable.DISKS, HostAddress.fromParts("localhost", 123), now.toEpochSecond(), now.getZone());
+        AtopSplit split = new AtopSplit(HostAddress.fromParts("localhost", 123), now.toEpochSecond(), now.getZone());
         AtopSplit decoded = codec.fromJson(codec.toJson(split));
-        assertEquals(decoded.getTable(), split.getTable());
         assertEquals(decoded.getHost(), split.getHost());
         assertEquals(decoded.getDate(), split.getDate());
         assertEquals(decoded.getEpochSeconds(), split.getEpochSeconds());

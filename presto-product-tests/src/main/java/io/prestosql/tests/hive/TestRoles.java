@@ -104,6 +104,31 @@ public class TestRoles
     }
 
     @Test(groups = {ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
+    public void testListGrants()
+    {
+        onPresto().executeQuery("SHOW GRANTS"); // must not fail
+        onPresto().executeQuery("SELECT * FROM information_schema.table_privileges"); // must not fail
+
+        onPresto().executeQuery("CREATE TABLE test_list_grants(c int)");
+
+        QueryAssert.assertThat(onPresto().executeQuery("SHOW GRANTS"))
+                .contains(
+                        row("hdfs", "USER", "hdfs", "USER", "hive", "default", "test_list_grants", "SELECT", "YES", null),
+                        row("hdfs", "USER", "hdfs", "USER", "hive", "default", "test_list_grants", "INSERT", "YES", null),
+                        row("hdfs", "USER", "hdfs", "USER", "hive", "default", "test_list_grants", "UPDATE", "YES", null),
+                        row("hdfs", "USER", "hdfs", "USER", "hive", "default", "test_list_grants", "DELETE", "YES", null));
+
+        QueryAssert.assertThat(onPresto().executeQuery("SELECT * FROM information_schema.table_privileges"))
+                .contains(
+                        row("hdfs", "USER", "hdfs", "USER", "hive", "default", "test_list_grants", "SELECT", "YES", null),
+                        row("hdfs", "USER", "hdfs", "USER", "hive", "default", "test_list_grants", "INSERT", "YES", null),
+                        row("hdfs", "USER", "hdfs", "USER", "hive", "default", "test_list_grants", "UPDATE", "YES", null),
+                        row("hdfs", "USER", "hdfs", "USER", "hive", "default", "test_list_grants", "DELETE", "YES", null));
+
+        onPresto().executeQuery("DROP TABLE test_list_grants");
+    }
+
+    @Test(groups = {ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testCreateDuplicateRole()
     {
         onPresto().executeQuery(format("CREATE ROLE %s", ROLE1));

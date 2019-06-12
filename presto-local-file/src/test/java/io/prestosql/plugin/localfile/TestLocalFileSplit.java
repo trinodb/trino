@@ -16,7 +16,6 @@ package io.prestosql.plugin.localfile;
 import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonCodec;
 import io.prestosql.spi.HostAddress;
-import io.prestosql.spi.predicate.TupleDomain;
 import org.testng.annotations.Test;
 
 import static io.airlift.json.JsonCodec.jsonCodec;
@@ -25,7 +24,7 @@ import static org.testng.Assert.assertEquals;
 public class TestLocalFileSplit
 {
     private final HostAddress address = HostAddress.fromParts("localhost", 1234);
-    private final LocalFileSplit split = new LocalFileSplit(address, TupleDomain.all());
+    private final LocalFileSplit split = new LocalFileSplit(address);
 
     @Test
     public void testJsonRoundTrip()
@@ -35,7 +34,6 @@ public class TestLocalFileSplit
         LocalFileSplit copy = codec.fromJson(json);
 
         assertEquals(copy.getAddress(), split.getAddress());
-        assertEquals(copy.getEffectivePredicate(), split.getEffectivePredicate());
 
         assertEquals(copy.getAddresses(), ImmutableList.of(address));
         assertEquals(copy.isRemotelyAccessible(), false);

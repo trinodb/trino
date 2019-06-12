@@ -14,12 +14,17 @@
 package io.prestosql.plugin.jmx;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.testing.EquivalenceTester;
+import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.SchemaTableName;
+import io.prestosql.spi.predicate.NullableValue;
+import io.prestosql.spi.predicate.TupleDomain;
 import org.testng.annotations.Test;
 
 import java.util.List;
 
+import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.plugin.jmx.MetadataUtil.TABLE_CODEC;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
@@ -32,14 +37,17 @@ public class TestJmxTableHandle
             .add(new JmxColumnHandle("name", createUnboundedVarcharType()))
             .build();
     public static final SchemaTableName SCHEMA_TABLE_NAME = new SchemaTableName("schema", "tableName");
-    public static final JmxTableHandle TABLE = new JmxTableHandle(SCHEMA_TABLE_NAME, ImmutableList.of("objectName"), COLUMNS, true);
+    public static final JmxColumnHandle columnHandle = new JmxColumnHandle("node", createUnboundedVarcharType());
+    public static final TupleDomain<ColumnHandle> nodeTupleDomain = TupleDomain.fromFixedValues(ImmutableMap.of(columnHandle, NullableValue.of(createUnboundedVarcharType(), utf8Slice("host1"))));
 
     @Test
     public void testJsonRoundTrip()
     {
-        String json = TABLE_CODEC.toJson(TABLE);
+        JmxTableHandle table = new JmxTableHandle(SCHEMA_TABLE_NAME, ImmutableList.of("objectName"), COLUMNS, true, TupleDomain.all());
+
+        String json = TABLE_CODEC.toJson(table);
         JmxTableHandle copy = TABLE_CODEC.fromJson(json);
-        assertEquals(copy, TABLE);
+        assertEquals(copy, table);
     }
 
     @Test
@@ -48,23 +56,26 @@ public class TestJmxTableHandle
         List<JmxColumnHandle> singleColumn = ImmutableList.of(COLUMNS.get(0));
         EquivalenceTester.equivalenceTester()
                 .addEquivalentGroup(
-                        new JmxTableHandle(SCHEMA_TABLE_NAME, ImmutableList.of("name"), COLUMNS, true),
-                        new JmxTableHandle(SCHEMA_TABLE_NAME, ImmutableList.of("name"), COLUMNS, true))
+                        new JmxTableHandle(SCHEMA_TABLE_NAME, ImmutableList.of("name"), COLUMNS, true, TupleDomain.all()),
+                        new JmxTableHandle(SCHEMA_TABLE_NAME, ImmutableList.of("name"), COLUMNS, true, TupleDomain.all()))
                 .addEquivalentGroup(
-                        new JmxTableHandle(SCHEMA_TABLE_NAME, ImmutableList.of("name"), COLUMNS, false),
-                        new JmxTableHandle(SCHEMA_TABLE_NAME, ImmutableList.of("name"), COLUMNS, false))
+                        new JmxTableHandle(SCHEMA_TABLE_NAME, ImmutableList.of("name"), COLUMNS, false, TupleDomain.all()),
+                        new JmxTableHandle(SCHEMA_TABLE_NAME, ImmutableList.of("name"), COLUMNS, false, TupleDomain.all()))
                 .addEquivalentGroup(
-                        new JmxTableHandle(SCHEMA_TABLE_NAME, ImmutableList.of("nameX"), COLUMNS, true),
-                        new JmxTableHandle(SCHEMA_TABLE_NAME, ImmutableList.of("nameX"), COLUMNS, true))
+                        new JmxTableHandle(SCHEMA_TABLE_NAME, ImmutableList.of("nameX"), COLUMNS, true, TupleDomain.all()),
+                        new JmxTableHandle(SCHEMA_TABLE_NAME, ImmutableList.of("nameX"), COLUMNS, true, TupleDomain.all()))
                 .addEquivalentGroup(
-                        new JmxTableHandle(SCHEMA_TABLE_NAME, ImmutableList.of("nameX"), COLUMNS, false),
-                        new JmxTableHandle(SCHEMA_TABLE_NAME, ImmutableList.of("nameX"), COLUMNS, false))
+                        new JmxTableHandle(SCHEMA_TABLE_NAME, ImmutableList.of("nameX"), COLUMNS, false, TupleDomain.all()),
+                        new JmxTableHandle(SCHEMA_TABLE_NAME, ImmutableList.of("nameX"), COLUMNS, false, TupleDomain.all()))
                 .addEquivalentGroup(
-                        new JmxTableHandle(SCHEMA_TABLE_NAME, ImmutableList.of("name"), singleColumn, true),
-                        new JmxTableHandle(SCHEMA_TABLE_NAME, ImmutableList.of("name"), singleColumn, true))
+                        new JmxTableHandle(SCHEMA_TABLE_NAME, ImmutableList.of("name"), singleColumn, true, TupleDomain.all()),
+                        new JmxTableHandle(SCHEMA_TABLE_NAME, ImmutableList.of("name"), singleColumn, true, TupleDomain.all()))
                 .addEquivalentGroup(
-                        new JmxTableHandle(SCHEMA_TABLE_NAME, ImmutableList.of("name"), singleColumn, false),
-                        new JmxTableHandle(SCHEMA_TABLE_NAME, ImmutableList.of("name"), singleColumn, false))
+                        new JmxTableHandle(SCHEMA_TABLE_NAME, ImmutableList.of("name"), singleColumn, false, TupleDomain.all()),
+                        new JmxTableHandle(SCHEMA_TABLE_NAME, ImmutableList.of("name"), singleColumn, false, TupleDomain.all()))
+                .addEquivalentGroup(
+                        new JmxTableHandle(SCHEMA_TABLE_NAME, ImmutableList.of("name"), singleColumn, false, nodeTupleDomain),
+                        new JmxTableHandle(SCHEMA_TABLE_NAME, ImmutableList.of("name"), singleColumn, false, nodeTupleDomain))
                 .check();
     }
 }

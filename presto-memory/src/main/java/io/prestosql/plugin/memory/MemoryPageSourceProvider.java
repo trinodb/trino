@@ -26,6 +26,7 @@ import io.prestosql.spi.connector.FixedPageSource;
 import javax.inject.Inject;
 
 import java.util.List;
+import java.util.OptionalDouble;
 
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -54,6 +55,7 @@ public final class MemoryPageSourceProvider
         int partNumber = memorySplit.getPartNumber();
         int totalParts = memorySplit.getTotalPartsPerWorker();
         long expectedRows = memorySplit.getExpectedRows();
+        OptionalDouble sampleRatio = ((MemoryTableHandle) table).getSampleRatio();
 
         List<Integer> columnIndexes = columns.stream()
                 .map(MemoryColumnHandle.class::cast)
@@ -64,7 +66,8 @@ public final class MemoryPageSourceProvider
                 totalParts,
                 columnIndexes,
                 expectedRows,
-                memorySplit.getLimit());
+                memorySplit.getLimit(),
+                sampleRatio);
 
         return new FixedPageSource(pages);
     }

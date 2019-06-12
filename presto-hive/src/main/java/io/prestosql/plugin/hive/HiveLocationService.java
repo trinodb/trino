@@ -35,6 +35,7 @@ import static io.prestosql.plugin.hive.HiveWriteUtils.pathExists;
 import static io.prestosql.plugin.hive.LocationHandle.WriteMode.DIRECT_TO_TARGET_EXISTING_DIRECTORY;
 import static io.prestosql.plugin.hive.LocationHandle.WriteMode.DIRECT_TO_TARGET_NEW_DIRECTORY;
 import static io.prestosql.plugin.hive.LocationHandle.WriteMode.STAGE_AND_MOVE_TO_TARGET_DIRECTORY;
+import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -98,8 +99,11 @@ public class HiveLocationService
     }
 
     @Override
-    public WriteInfo getTableWriteInfo(LocationHandle locationHandle)
+    public WriteInfo getTableWriteInfo(LocationHandle locationHandle, boolean overwrite)
     {
+        if (overwrite && locationHandle.getWriteMode() != STAGE_AND_MOVE_TO_TARGET_DIRECTORY) {
+            throw new PrestoException(NOT_SUPPORTED, "Overwriting unpartitioned table not supported when writing directly to target directory");
+        }
         return new WriteInfo(locationHandle.getTargetPath(), locationHandle.getWritePath(), locationHandle.getWriteMode());
     }
 

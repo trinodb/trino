@@ -17,6 +17,7 @@ import io.airlift.slice.Slice;
 import io.prestosql.Session;
 import io.prestosql.connector.CatalogName;
 import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.block.BlockEncoding;
 import io.prestosql.spi.block.BlockEncodingSerde;
 import io.prestosql.spi.connector.CatalogSchemaName;
 import io.prestosql.spi.connector.ColumnHandle;
@@ -27,6 +28,7 @@ import io.prestosql.spi.connector.ConnectorTableMetadata;
 import io.prestosql.spi.connector.Constraint;
 import io.prestosql.spi.connector.ConstraintApplicationResult;
 import io.prestosql.spi.connector.LimitApplicationResult;
+import io.prestosql.spi.connector.SampleType;
 import io.prestosql.spi.connector.SystemTable;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.security.GrantInfo;
@@ -51,19 +53,11 @@ import java.util.Set;
 
 public interface Metadata
 {
-    void verifyComparableOrderableContract();
-
-    Type getType(TypeSignature signature);
-
-    boolean isAggregationFunction(QualifiedName name);
-
-    List<SqlFunction> listFunctions();
-
-    void addFunctions(List<? extends SqlFunction> functions);
-
-    boolean schemaExists(Session session, CatalogSchemaName schema);
+    Set<ConnectorCapabilities> getConnectorCapabilities(Session session, CatalogName catalogName);
 
     boolean catalogExists(Session session, String catalogName);
+
+    boolean schemaExists(Session session, CatalogSchemaName schema);
 
     List<String> listSchemaNames(Session session, String catalogName);
 
@@ -253,11 +247,14 @@ public interface Metadata
     boolean supportsMetadataDelete(Session session, TableHandle tableHandle);
 
     /**
-     * Delete the provide table layout
-     *
-     * @return number of rows deleted, or empty for unknown
+     * Push delete into connector
      */
-    OptionalLong metadataDelete(Session session, TableHandle tableHandle);
+    Optional<TableHandle> applyDelete(Session session, TableHandle tableHandle);
+
+    /**
+     * Execute delete in connector
+     */
+    OptionalLong executeDelete(Session session, TableHandle tableHandle);
 
     /**
      * Begin delete query
@@ -310,6 +307,19 @@ public interface Metadata
      * Try to locate a table index that can lookup results by indexableColumns and provide the requested outputColumns.
      */
     Optional<ResolvedIndex> resolveIndex(Session session, TableHandle tableHandle, Set<ColumnHandle> indexableColumns, Set<ColumnHandle> outputColumns, TupleDomain<ColumnHandle> tupleDomain);
+
+    @Deprecated
+    boolean usesLegacyTableLayouts(Session session, TableHandle table);
+
+    Optional<LimitApplicationResult<TableHandle>> applyLimit(Session session, TableHandle table, long limit);
+
+    Optional<ConstraintApplicationResult<TableHandle>> applyFilter(Session session, TableHandle table, Constraint constraint);
+
+    Optional<TableHandle> applySample(Session session, TableHandle table, SampleType sampleType, double sampleRatio);
+
+    //
+    // Roles and Grants
+    //
 
     /**
      * Creates the specified role in the specified catalog.
@@ -372,13 +382,41 @@ public interface Metadata
      */
     List<GrantInfo> listTablePrivileges(Session session, QualifiedTablePrefix prefix);
 
+    //
+    // Types
+    //
+
+    Type getType(TypeSignature signature);
+
+    TypeManager getTypeManager();
+
+    void verifyComparableOrderableContract();
+
+    //
+    // Functions
+    //
+
+    void addFunctions(List<? extends SqlFunction> functions);
+
+    List<SqlFunction> listFunctions();
+
+    boolean isAggregationFunction(QualifiedName name);
+
     FunctionRegistry getFunctionRegistry();
 
     ProcedureRegistry getProcedureRegistry();
 
-    TypeManager getTypeManager();
+    //
+    // Blocks
+    //
+
+    BlockEncoding getBlockEncoding(String encodingName);
 
     BlockEncodingSerde getBlockEncodingSerde();
+
+    //
+    // Properties
+    //
 
     SessionPropertyManager getSessionPropertyManager();
 
@@ -389,13 +427,4 @@ public interface Metadata
     ColumnPropertyManager getColumnPropertyManager();
 
     AnalyzePropertyManager getAnalyzePropertyManager();
-
-    Set<ConnectorCapabilities> getConnectorCapabilities(Session session, CatalogName catalogName);
-
-    @Deprecated
-    boolean usesLegacyTableLayouts(Session session, TableHandle table);
-
-    Optional<LimitApplicationResult<TableHandle>> applyLimit(Session session, TableHandle table, long limit);
-
-    Optional<ConstraintApplicationResult<TableHandle>> applyFilter(Session session, TableHandle table, Constraint constraint);
 }

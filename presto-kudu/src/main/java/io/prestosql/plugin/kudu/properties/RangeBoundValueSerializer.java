@@ -22,23 +22,22 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 
 public class RangeBoundValueSerializer
-        extends JsonSerializer
+        extends JsonSerializer<RangeBoundValue>
 {
     @Override
-    public void serialize(Object value, JsonGenerator gen, SerializerProvider serializers)
+    public void serialize(RangeBoundValue value, JsonGenerator gen, SerializerProvider serializers)
             throws IOException
     {
         if (value == null) {
             gen.writeNull();
         }
         else {
-            RangeBoundValue rbv = (RangeBoundValue) value;
-            if (rbv.getValues().size() == 1) {
-                writeValue(rbv.getValues().get(0), gen);
+            if (value.getValues().size() == 1) {
+                writeValue(value.getValues().get(0), gen);
             }
             else {
-                gen.writeStartArray(rbv.getValues().size());
-                for (Object obj : rbv.getValues()) {
+                gen.writeStartArray(value.getValues().size());
+                for (Object obj : value.getValues()) {
                     writeValue(obj, gen);
                 }
                 gen.writeEndArray();

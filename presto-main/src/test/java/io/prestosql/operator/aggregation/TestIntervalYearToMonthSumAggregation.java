@@ -27,7 +27,7 @@ public class TestIntervalYearToMonthSumAggregation
         extends AbstractTestAggregationFunction
 {
     @Override
-    public Block[] getSequenceBlocks(int start, int length)
+    protected Block[] getSequenceBlocks(int start, int length)
     {
         BlockBuilder blockBuilder = INTERVAL_YEAR_MONTH.createBlockBuilder(null, length);
         for (int i = start; i < start + length; i++) {
@@ -37,7 +37,7 @@ public class TestIntervalYearToMonthSumAggregation
     }
 
     @Override
-    public SqlIntervalYearMonth getExpectedValue(int start, int length)
+    protected SqlIntervalYearMonth getExpectedValue(int start, int length)
     {
         if (length == 0) {
             return null;

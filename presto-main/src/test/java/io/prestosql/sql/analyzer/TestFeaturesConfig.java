@@ -81,6 +81,7 @@ public class TestFeaturesConfig
                 .setMemoryRevokingThreshold(0.9)
                 .setMemoryRevokingTarget(0.5)
                 .setOptimizeMixedDistinctAggregations(false)
+                .setUnwrapCasts(true)
                 .setIterativeOptimizerEnabled(true)
                 .setIterativeOptimizerTimeout(new Duration(3, MINUTES))
                 .setEnableStatsCalculator(true)
@@ -104,7 +105,9 @@ public class TestFeaturesConfig
                 .setMultimapAggGroupImplementation(MultimapAggGroupImplementation.NEW)
                 .setDistributedSortEnabled(true)
                 .setMaxGroupingSets(2048)
-                .setWorkProcessorPipelines(false));
+                .setWorkProcessorPipelines(false)
+                .setSkipRedundantSort(true)
+                .setEnableDynamicFiltering(false));
     }
 
     @Test
@@ -137,6 +140,7 @@ public class TestFeaturesConfig
                 .put("optimizer.optimize-metadata-queries", "true")
                 .put("optimizer.optimize-hash-generation", "false")
                 .put("optimizer.optimize-mixed-distinct-aggregations", "true")
+                .put("optimizer.unwrap-casts", "false")
                 .put("optimizer.push-table-write-through-union", "false")
                 .put("optimizer.dictionary-aggregation", "true")
                 .put("optimizer.push-aggregation-through-join", "false")
@@ -169,6 +173,8 @@ public class TestFeaturesConfig
                 .put("distributed-sort", "false")
                 .put("analyzer.max-grouping-sets", "2047")
                 .put("experimental.work-processor-pipelines", "true")
+                .put("optimizer.skip-redundant-sort", "false")
+                .put("experimental.enable-dynamic-filtering", "true")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -197,6 +203,7 @@ public class TestFeaturesConfig
                 .setOptimizeMetadataQueries(true)
                 .setOptimizeHashGeneration(false)
                 .setOptimizeMixedDistinctAggregations(true)
+                .setUnwrapCasts(false)
                 .setPushTableWriteThroughUnion(false)
                 .setDictionaryAggregation(true)
                 .setPushAggregationThroughJoin(false)
@@ -229,7 +236,9 @@ public class TestFeaturesConfig
                 .setDistributedSortEnabled(false)
                 .setMaxGroupingSets(2047)
                 .setDefaultFilterFactorEnabled(true)
-                .setWorkProcessorPipelines(true);
+                .setWorkProcessorPipelines(true)
+                .setSkipRedundantSort(false)
+                .setEnableDynamicFiltering(true);
         assertFullMapping(properties, expected);
     }
 

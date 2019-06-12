@@ -13,15 +13,20 @@
  */
 package io.prestosql.metadata;
 
+import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
+import io.airlift.json.JsonCodecFactory;
+import io.airlift.json.ObjectMapperProvider;
 import io.prestosql.metadata.ViewDefinition.ViewColumn;
 import io.prestosql.spi.type.IntegerType;
+import io.prestosql.spi.type.Type;
+import io.prestosql.type.TypeDeserializer;
+import io.prestosql.type.TypeRegistry;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.prestosql.metadata.MetadataManager.createTestingViewCodec;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -32,6 +37,13 @@ public class TestViewDefinition
     private static final String BASE_JSON = "" +
             "\"originalSql\": \"SELECT 42 x\", " +
             "\"columns\": [{\"name\": \"x\", \"type\": \"integer\"}]";
+
+    private static JsonCodec<ViewDefinition> createTestingViewCodec()
+    {
+        ObjectMapperProvider provider = new ObjectMapperProvider();
+        provider.setJsonDeserializers(ImmutableMap.of(Type.class, new TypeDeserializer(new TypeRegistry())));
+        return new JsonCodecFactory(provider).jsonCodec(ViewDefinition.class);
+    }
 
     @Test
     public void testLegacyViewWithoutOwner()

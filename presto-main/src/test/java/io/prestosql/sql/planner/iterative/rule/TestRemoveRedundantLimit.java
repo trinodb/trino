@@ -15,6 +15,7 @@ package io.prestosql.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.prestosql.sql.planner.plan.AggregationNode;
 import io.prestosql.sql.planner.plan.ValuesNode;
@@ -46,6 +47,20 @@ public class TestRemoveRedundantLimit
     }
 
     @Test
+    public void testRemoveLimitWithTies()
+    {
+        tester().assertThat(new RemoveRedundantLimit())
+                .on(p -> {
+                    Symbol c = p.symbol("c");
+                    return p.limit(
+                            10,
+                            ImmutableList.of(c),
+                            p.values(5, c));
+                })
+                .matches(values("c"));
+    }
+
+    @Test
     public void testForZeroLimit()
     {
         tester().assertThat(new RemoveRedundantLimit())
@@ -73,7 +88,7 @@ public class TestRemoveRedundantLimit
                                 p.aggregation(builder -> builder
                                         .addAggregation(p.symbol("c"), expression("count(foo)"), ImmutableList.of(BIGINT))
                                         .singleGroupingSet(p.symbol("foo"))
-                                        .source(p.values(p.symbol("foo"))))))
+                                        .source(p.values(20, p.symbol("foo"))))))
                 .doesNotFire();
     }
 }

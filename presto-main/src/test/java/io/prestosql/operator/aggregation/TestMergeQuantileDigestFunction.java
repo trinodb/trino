@@ -52,9 +52,9 @@ public class TestMergeQuantileDigestFunction
     };
 
     @Override
-    public Block[] getSequenceBlocks(int start, int length)
+    protected Block[] getSequenceBlocks(int start, int length)
     {
-        Type type = QDIGEST.createType(typeRegistry, ImmutableList.of(TypeParameter.of(DoubleType.DOUBLE)));
+        Type type = QDIGEST.createType(metadata.getTypeManager(), ImmutableList.of(TypeParameter.of(DoubleType.DOUBLE)));
         BlockBuilder blockBuilder = type.createBlockBuilder(null, length);
         for (int i = start; i < start + length; i++) {
             QuantileDigest qdigest = new QuantileDigest(0.0);
@@ -77,7 +77,7 @@ public class TestMergeQuantileDigestFunction
     }
 
     @Override
-    public Object getExpectedValue(int start, int length)
+    protected Object getExpectedValue(int start, int length)
     {
         if (length == 0) {
             return null;

@@ -304,6 +304,27 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testRowSubscript()
+    {
+        // Subscript on Row with unnamed fields
+        assertQuery("SELECT ROW (1, 'a', true)[2]", "SELECT 'a'");
+        assertQuery("SELECT r[2] FROM (VALUES (ROW (ROW (1, 'a', true)))) AS v(r)", "SELECT 'a'");
+        assertQuery("SELECT r[1], r[2] FROM (SELECT ROW (name, regionkey) FROM nation ORDER BY name LIMIT 1) t(r)", "VALUES ('ALGERIA', 0)");
+
+        // Subscript on Row with named fields
+        assertQuery("SELECT (CAST (ROW (1, 'a', 2 ) AS ROW (field1 bigint, field2 varchar(1), field3 bigint)))[2]", "SELECT 'a'");
+
+        // Subscript on nested Row
+        assertQuery("SELECT ROW (1, 'a', ROW (false, 2, 'b'))[3][3]", "SELECT 'b'");
+
+        // Row subscript in filter condition
+        assertQuery("SELECT orderstatus FROM orders WHERE ROW (orderkey, custkey)[1] = 100", "SELECT 'O'");
+
+        // Row subscript in join condition
+        assertQuery("SELECT n.name, r.name FROM nation n JOIN region r ON ROW (n.name, n.regionkey)[2] = ROW (r.name, r.regionkey)[2] ORDER BY n.name LIMIT 1", "VALUES ('ALGERIA', 'AFRICA')");
+    }
+
+    @Test
     public void testVarbinary()
     {
         assertQuery("SELECT LENGTH(x) FROM (SELECT from_base64('gw==') AS x)", "SELECT 1");
@@ -883,6 +904,31 @@ public abstract class AbstractTestQueries
         assertQueryReturnsEmptyResult("SELECT name FROM nation ORDER BY regionkey OFFSET 100 ROWS");
         assertQueryReturnsEmptyResult("SELECT name FROM nation OFFSET 100 ROWS LIMIT 20");
         assertQueryReturnsEmptyResult("SELECT name FROM nation ORDER BY regionkey OFFSET 100 ROWS LIMIT 20");
+    }
+
+    @Test
+    public void testFetchFirstWithTies()
+    {
+        String values = "(VALUES 1, 1, 1, 0, 0, 0, 2, 2, 2) AS t(x)";
+
+        assertQuery("SELECT x FROM " + values + " ORDER BY x FETCH FIRST 4 ROWS WITH TIES", "VALUES 0, 0, 0, 1, 1, 1");
+        assertQuery("SELECT x FROM " + values + " ORDER BY x FETCH FIRST ROW WITH TIES", "VALUES 0, 0, 0");
+        assertQuery("SELECT x FROM " + values + " ORDER BY x FETCH FIRST 20 ROWS WITH TIES", "VALUES 0, 0, 0, 1, 1, 1, 2, 2, 2");
+
+        assertQuery("SELECT x FROM " + values + " ORDER BY x OFFSET 2 ROWS FETCH NEXT 2 ROWS WITH TIES", "VALUES 0, 1, 1, 1");
+
+        assertQueryReturnsEmptyResult("SELECT x FROM " + values + " ORDER BY x OFFSET 20 ROWS FETCH NEXT 2 ROWS WITH TIES");
+
+        assertQueryFails("SELECT x FROM " + values + " FETCH FIRST 4 ROWS WITH TIES", "line 1:58: FETCH FIRST WITH TIES clause requires ORDER BY");
+        assertQueryFails(
+                "SELECT x FROM (SELECT a FROM (VALUES 3, 2, 1, 1, 0) t(a) ORDER BY a) t1(x) FETCH FIRST 2 ROWS WITH TIES",
+                "line 1:76: FETCH FIRST WITH TIES clause requires ORDER BY");
+
+        String valuesMultiColumn = "(VALUES ('b', 0), ('b', 0), ('a', 1), ('a', 0), ('b', 1)) AS t(x, y)";
+
+        // if ORDER BY uses multiple symbols, then TIES are resolved basing on multiple symbols too
+        assertQuery("SELECT x, y FROM " + valuesMultiColumn + " ORDER BY x, y FETCH FIRST 3 ROWS WITH TIES", "VALUES ('a', 0), ('a', 1), ('b', 0), ('b', 0)");
+        assertQuery("SELECT x, y FROM " + valuesMultiColumn + " ORDER BY x DESC, y FETCH FIRST ROW WITH TIES", "VALUES ('b', 0), ('b', 0)");
     }
 
     @Test
@@ -3364,9 +3410,9 @@ public abstract class AbstractTestQueries
         assertQuery("SELECT (SELECT count(*) FROM (VALUES (7,1)) t(orderkey, value) WHERE orderkey = corr_key LIMIT 1) FROM (values 7) t(corr_key)");
 
         // explicit LIMIT in subquery
-        assertQueryFails(
-                "SELECT (SELECT count(*) FROM (VALUES (7,1)) t(orderkey, value) WHERE orderkey = corr_key GROUP BY value LIMIT 1) FROM (values 7) t(corr_key)",
-                "line 1:9: Given correlated subquery is not supported");
+        assertQuery("SELECT (SELECT count(*) FROM (VALUES (7,1)) t(orderkey, value) WHERE orderkey = corr_key GROUP BY value LIMIT 1) FROM (values 7) t(corr_key)");
+        assertQueryFails("SELECT (SELECT count(*) FROM (VALUES (7,1), (7,2)) t(orderkey, value) WHERE orderkey = corr_key GROUP BY value LIMIT 1) FROM (values 7) t(corr_key)",
+                UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
     }
 
     @Test

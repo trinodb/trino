@@ -15,8 +15,10 @@ package io.prestosql.plugin.mongodb;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.SchemaTableName;
+import io.prestosql.spi.predicate.TupleDomain;
 
 import java.util.Objects;
 
@@ -26,17 +28,32 @@ public class MongoTableHandle
         implements ConnectorTableHandle
 {
     private final SchemaTableName schemaTableName;
+    private final TupleDomain<ColumnHandle> constraint;
+
+    public MongoTableHandle(SchemaTableName schemaTableName)
+    {
+        this(schemaTableName, TupleDomain.all());
+    }
 
     @JsonCreator
-    public MongoTableHandle(@JsonProperty("schemaTableName") SchemaTableName schemaTableName)
+    public MongoTableHandle(
+            @JsonProperty("schemaTableName") SchemaTableName schemaTableName,
+            @JsonProperty("constraint") TupleDomain<ColumnHandle> constraint)
     {
         this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
+        this.constraint = requireNonNull(constraint, "constraint is null");
     }
 
     @JsonProperty
     public SchemaTableName getSchemaTableName()
     {
         return schemaTableName;
+    }
+
+    @JsonProperty
+    public TupleDomain<ColumnHandle> getConstraint()
+    {
+        return constraint;
     }
 
     @Override

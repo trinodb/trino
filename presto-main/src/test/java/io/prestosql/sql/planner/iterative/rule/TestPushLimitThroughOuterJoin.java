@@ -49,7 +49,7 @@ public class TestPushLimitThroughOuterJoin
                                 join(
                                         LEFT,
                                         ImmutableList.of(equiJoinClause("leftKey", "rightKey")),
-                                        limit(1, true, values("leftKey")),
+                                        limit(1, ImmutableList.of(), true, values("leftKey")),
                                         values("rightKey"))));
     }
 
@@ -73,7 +73,7 @@ public class TestPushLimitThroughOuterJoin
                                         RIGHT,
                                         ImmutableList.of(equiJoinClause("leftKey", "rightKey")),
                                         values("leftKey"),
-                                        limit(1, true, values("rightKey")))));
+                                        limit(1, ImmutableList.of(), true, values("rightKey")))));
     }
 
     @Test
@@ -104,6 +104,25 @@ public class TestPushLimitThroughOuterJoin
                             p.join(
                                     LEFT,
                                     p.limit(1, p.values(5, leftKey)),
+                                    p.values(5, rightKey),
+                                    new EquiJoinClause(leftKey, rightKey)));
+                })
+                .doesNotFire();
+    }
+
+    @Test
+    public void testDoNotPushLimitWithTies()
+    {
+        tester().assertThat(new PushLimitThroughOuterJoin())
+                .on(p -> {
+                    Symbol leftKey = p.symbol("leftKey");
+                    Symbol rightKey = p.symbol("rightKey");
+                    return p.limit(
+                            1,
+                            ImmutableList.of(leftKey),
+                            p.join(
+                                    LEFT,
+                                    p.values(5, leftKey),
                                     p.values(5, rightKey),
                                     new EquiJoinClause(leftKey, rightKey)));
                 })

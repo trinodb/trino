@@ -27,20 +27,20 @@ public class TestApproximateCountDistinctTinyint
         extends AbstractTestApproximateCountDistinct
 {
     @Override
-    public InternalAggregationFunction getAggregationFunction()
+    protected InternalAggregationFunction getAggregationFunction()
     {
         return metadata.getFunctionRegistry().getAggregateFunctionImplementation(
                 new Signature("approx_distinct", AGGREGATE, BIGINT.getTypeSignature(), TINYINT.getTypeSignature(), DOUBLE.getTypeSignature()));
     }
 
     @Override
-    public Type getValueType()
+    protected Type getValueType()
     {
         return TINYINT;
     }
 
     @Override
-    public Object randomValue()
+    protected Object randomValue()
     {
         return ThreadLocalRandom.current().nextLong(Byte.MIN_VALUE, Byte.MAX_VALUE + 1);
     }

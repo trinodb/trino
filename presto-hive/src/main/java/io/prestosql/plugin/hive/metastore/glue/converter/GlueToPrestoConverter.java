@@ -142,7 +142,7 @@ public final class GlueToPrestoConverter
         return partitionBuilder.build();
     }
 
-    private static boolean isNullOrEmpty(List list)
+    private static boolean isNullOrEmpty(List<?> list)
     {
         return list == null || list.isEmpty();
     }

@@ -14,16 +14,12 @@
 
 package io.prestosql.block;
 
-import io.prestosql.metadata.FunctionRegistry;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.block.ByteArrayBlock;
 import io.prestosql.spi.block.MapBlockBuilder;
 import io.prestosql.spi.block.SingleMapBlock;
 import io.prestosql.spi.type.MapType;
-import io.prestosql.spi.type.TypeManager;
-import io.prestosql.sql.analyzer.FeaturesConfig;
-import io.prestosql.type.TypeRegistry;
 import org.testng.annotations.Test;
 
 import java.util.ArrayList;
@@ -48,13 +44,6 @@ import static org.testng.Assert.assertTrue;
 public class TestMapBlock
         extends AbstractTestBlock
 {
-    private static final TypeManager TYPE_MANAGER = new TypeRegistry();
-
-    static {
-        // associate TYPE_MANAGER with a function registry
-        new FunctionRegistry(TYPE_MANAGER, new BlockEncodingManager(TYPE_MANAGER), new FeaturesConfig());
-    }
-
     @Test
     public void test()
     {
