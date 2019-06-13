@@ -141,7 +141,7 @@ public class HivePartitionManager
                     ImmutableList.of(new HivePartition(tableName)),
                     compactEffectivePredicate,
                     effectivePredicate,
-                    none(),
+                    all(),
                     hiveBucketHandle,
                     bucketFilter);
         }
@@ -186,7 +186,7 @@ public class HivePartitionManager
                 .map(partition -> partition.orElseThrow(() -> new VerifyException("partition must exist")))
                 .collect(toImmutableList());
 
-        return new HivePartitionResult(partitionColumns, partitionList, all(), all(), none(), bucketHandle, Optional.empty());
+        return new HivePartitionResult(partitionColumns, partitionList, all(), all(), all(), bucketHandle, Optional.empty());
     }
 
     public List<HivePartition> getPartitionsAsList(HivePartitionResult partitionResult)
