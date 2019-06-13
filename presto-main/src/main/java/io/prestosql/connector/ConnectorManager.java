@@ -32,6 +32,7 @@ import io.prestosql.metadata.MetadataManager;
 import io.prestosql.security.AccessControlManager;
 import io.prestosql.spi.PageIndexerFactory;
 import io.prestosql.spi.PageSorter;
+import io.prestosql.spi.VersionEmbedder;
 import io.prestosql.spi.classloader.ThreadContextClassLoader;
 import io.prestosql.spi.connector.Connector;
 import io.prestosql.spi.connector.ConnectorAccessControl;
@@ -53,6 +54,7 @@ import io.prestosql.split.RecordPageSourceProvider;
 import io.prestosql.split.SplitManager;
 import io.prestosql.sql.planner.NodePartitioningManager;
 import io.prestosql.transaction.TransactionManager;
+import io.prestosql.version.EmbedVersion;
 
 import javax.annotation.PreDestroy;
 import javax.annotation.concurrent.GuardedBy;
@@ -95,6 +97,7 @@ public class ConnectorManager
     private final PageSorter pageSorter;
     private final PageIndexerFactory pageIndexerFactory;
     private final NodeInfo nodeInfo;
+    private final VersionEmbedder versionEmbedder;
     private final TransactionManager transactionManager;
 
     @GuardedBy("this")
@@ -118,6 +121,7 @@ public class ConnectorManager
             HandleResolver handleResolver,
             InternalNodeManager nodeManager,
             NodeInfo nodeInfo,
+            EmbedVersion embedVersion,
             TypeManager typeManager,
             PageSorter pageSorter,
             PageIndexerFactory pageIndexerFactory,
@@ -137,6 +141,7 @@ public class ConnectorManager
         this.pageSorter = pageSorter;
         this.pageIndexerFactory = pageIndexerFactory;
         this.nodeInfo = nodeInfo;
+        this.versionEmbedder = embedVersion;
         this.transactionManager = transactionManager;
     }
 
@@ -317,6 +322,7 @@ public class ConnectorManager
     {
         ConnectorContext context = new ConnectorContextInstance(
                 new ConnectorAwareNodeManager(nodeManager, nodeInfo.getEnvironment(), catalogName),
+                versionEmbedder,
                 typeManager,
                 pageSorter,
                 pageIndexerFactory);

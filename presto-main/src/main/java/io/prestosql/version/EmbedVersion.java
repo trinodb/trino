@@ -19,6 +19,7 @@ import io.airlift.bytecode.FieldDefinition;
 import io.airlift.bytecode.MethodDefinition;
 import io.airlift.bytecode.Parameter;
 import io.prestosql.server.ServerConfig;
+import io.prestosql.spi.VersionEmbedder;
 
 import javax.inject.Inject;
 
@@ -39,6 +40,7 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class EmbedVersion
+        implements VersionEmbedder
 {
     private final MethodHandle runnableConstructor;
 
@@ -88,6 +90,7 @@ public class EmbedVersion
         return format("Presto_%s___", version);
     }
 
+    @Override
     public Runnable embedVersion(Runnable runnable)
     {
         requireNonNull(runnable, "runnable is null");
