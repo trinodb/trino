@@ -22,6 +22,7 @@ import io.prestosql.spi.security.ConnectorIdentity;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.security.UserGroupInformation;
 
 import javax.inject.Inject;
 
@@ -68,6 +69,7 @@ public class HdfsEnvironment
             throws IOException
     {
         return hdfsAuthentication.doAs(user, () -> {
+            UserGroupInformation.setConfiguration(configuration);
             FileSystem fileSystem = path.getFileSystem(configuration);
             fileSystem.setVerifyChecksum(verifyChecksum);
             return fileSystem;
