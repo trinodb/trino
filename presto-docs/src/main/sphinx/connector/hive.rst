@@ -168,7 +168,7 @@ Property Name                                      Description                  
 
 ``hive.non-managed-table-creates-enabled``         Enable creating non-managed (external) Hive tables.          ``true``
 
-``hive.collect-column-statistics-on-write``        Enables automatic column level statistics collection         ``false``
+``hive.collect-column-statistics-on-write``        Enables automatic column level statistics collection         ``true``
                                                    on write. See `Table Statistics <#table-statistics>`__ for
                                                    details.
 
@@ -499,11 +499,9 @@ Property Name                                Description
 Table Statistics
 ----------------
 
-The Hive connector automatically collects basic statistics
+When writing data, the Hive connector always collects basic statistics
 (``numFiles``, ``numRows``, ``rawDataSize``, ``totalSize``)
-on ``INSERT`` and ``CREATE TABLE AS`` operations.
-
-The Hive connector can also collect column level statistics:
+and by default will also collect column level statistics:
 
 ============= ====================================================================
 Column Type   Collectible Statistics
@@ -522,9 +520,6 @@ Column Type   Collectible Statistics
 ``VARBINARY`` number of nulls
 ``BOOLEAN``   number of nulls, number of true/false values
 ============= ====================================================================
-
-Automatic column level statistics collection on write is controlled by
-the ``collect-column-statistics-on-write`` catalog session property.
 
 .. _hive_analyze:
 
