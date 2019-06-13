@@ -165,9 +165,9 @@ public class WorkProcessorOperatorAdapter
             return finished;
         }
 
-        public void setAddPageListener(Runnable stateChangeListener)
+        public void setAddPageListener(Runnable addPageListener)
         {
-            this.addPageListener = requireNonNull(stateChangeListener, "stateChangeListener is null");
+            this.addPageListener = requireNonNull(addPageListener, "addPageListener is null");
         }
 
         private void add(Page page)
