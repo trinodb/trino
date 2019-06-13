@@ -16,6 +16,7 @@ package io.prestosql.connector;
 import io.prestosql.spi.NodeManager;
 import io.prestosql.spi.PageIndexerFactory;
 import io.prestosql.spi.PageSorter;
+import io.prestosql.spi.VersionEmbedder;
 import io.prestosql.spi.connector.ConnectorContext;
 import io.prestosql.spi.type.TypeManager;
 
@@ -25,17 +26,20 @@ public class ConnectorContextInstance
         implements ConnectorContext
 {
     private final NodeManager nodeManager;
+    private final VersionEmbedder versionEmbedder;
     private final TypeManager typeManager;
     private final PageSorter pageSorter;
     private final PageIndexerFactory pageIndexerFactory;
 
     public ConnectorContextInstance(
             NodeManager nodeManager,
+            VersionEmbedder versionEmbedder,
             TypeManager typeManager,
             PageSorter pageSorter,
             PageIndexerFactory pageIndexerFactory)
     {
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
+        this.versionEmbedder = requireNonNull(versionEmbedder, "versionEmbedder is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.pageSorter = requireNonNull(pageSorter, "pageSorter is null");
         this.pageIndexerFactory = requireNonNull(pageIndexerFactory, "pageIndexerFactory is null");
@@ -45,6 +49,12 @@ public class ConnectorContextInstance
     public NodeManager getNodeManager()
     {
         return nodeManager;
+    }
+
+    @Override
+    public VersionEmbedder getVersionEmbedder()
+    {
+        return versionEmbedder;
     }
 
     @Override

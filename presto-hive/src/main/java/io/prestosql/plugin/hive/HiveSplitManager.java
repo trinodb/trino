@@ -27,6 +27,7 @@ import io.prestosql.plugin.hive.metastore.Partition;
 import io.prestosql.plugin.hive.metastore.SemiTransactionalHiveMetastore;
 import io.prestosql.plugin.hive.metastore.Table;
 import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.VersionEmbedder;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorSplitManager;
 import io.prestosql.spi.connector.ConnectorSplitSource;
@@ -103,6 +104,7 @@ public class HiveSplitManager
             HdfsEnvironment hdfsEnvironment,
             DirectoryLister directoryLister,
             @ForHive ExecutorService executorService,
+            VersionEmbedder versionEmbedder,
             CoercionPolicy coercionPolicy)
     {
         this(
@@ -111,7 +113,7 @@ public class HiveSplitManager
                 namenodeStats,
                 hdfsEnvironment,
                 directoryLister,
-                new BoundedExecutor(executorService, hiveConfig.getMaxSplitIteratorThreads()),
+                versionEmbedder.embedVersion(new BoundedExecutor(executorService, hiveConfig.getMaxSplitIteratorThreads())),
                 coercionPolicy,
                 new CounterStat(),
                 hiveConfig.getMaxOutstandingSplits(),

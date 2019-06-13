@@ -100,6 +100,7 @@ import io.prestosql.operator.TaskContext;
 import io.prestosql.operator.index.IndexJoinLookupStats;
 import io.prestosql.server.PluginManager;
 import io.prestosql.server.PluginManagerConfig;
+import io.prestosql.server.ServerConfig;
 import io.prestosql.server.SessionPropertyDefaults;
 import io.prestosql.server.security.PasswordAuthenticatorManager;
 import io.prestosql.spi.PageIndexerFactory;
@@ -165,6 +166,7 @@ import io.prestosql.transaction.TransactionManager;
 import io.prestosql.transaction.TransactionManagerConfig;
 import io.prestosql.type.TypeRegistry;
 import io.prestosql.util.FinalizerService;
+import io.prestosql.version.EmbedVersion;
 import org.intellij.lang.annotations.Language;
 import org.weakref.jmx.MBeanExporter;
 import org.weakref.jmx.testing.TestingMBeanServer;
@@ -337,6 +339,7 @@ public class LocalQueryRunner
                 new HandleResolver(),
                 nodeManager,
                 nodeInfo,
+                new EmbedVersion(new ServerConfig()),
                 typeRegistry,
                 pageSorter,
                 pageIndexerFactory,
