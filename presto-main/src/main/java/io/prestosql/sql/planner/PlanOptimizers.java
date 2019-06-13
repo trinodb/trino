@@ -319,8 +319,6 @@ public class PlanOptimizers
                                         new PushLimitThroughOuterJoin(),
                                         new PushLimitThroughSemiJoin(),
                                         new PushLimitThroughUnion(),
-                                        new PushLimitIntoTableScan(metadata),
-                                        new PushPredicateIntoTableScan(metadata, typeAnalyzer),
                                         new RemoveTrivialFilters(),
                                         new RemoveRedundantLimit(),
                                         new RemoveRedundantSort(),
@@ -339,15 +337,6 @@ public class PlanOptimizers
                         statsCalculator,
                         estimatedExchangesCostCalculator,
                         ImmutableSet.of(
-                                new PushSampleIntoTableScan(metadata))),
-                new IterativeOptimizer(
-                        ruleStats,
-                        statsCalculator,
-                        estimatedExchangesCostCalculator,
-                        // Temporary hack: separate optimizer step to avoid the sample node being replaced by filter before pushing
-                        // it to table scan node
-                        ImmutableSet.of(
-                                new ImplementBernoulliSampleAsFilter(),
                                 new ImplementOffset(),
                                 new ImplementLimitWithTies())),
                 simplifyOptimizer,
@@ -408,7 +397,17 @@ public class PlanOptimizers
                         ruleStats,
                         statsCalculator,
                         estimatedExchangesCostCalculator,
-                        ImmutableSet.of(new PushPredicateIntoTableScan(metadata, typeAnalyzer))),
+                        ImmutableSet.of(
+                                new PushLimitIntoTableScan(metadata),
+                                new PushPredicateIntoTableScan(metadata, typeAnalyzer),
+                                new PushSampleIntoTableScan(metadata))),
+                new IterativeOptimizer(
+                        ruleStats,
+                        statsCalculator,
+                        estimatedExchangesCostCalculator,
+                        // Temporary hack: separate optimizer step to avoid the sample node being replaced by filter before pushing
+                        // it to table scan node
+                        ImmutableSet.of(new ImplementBernoulliSampleAsFilter())),
                 new PruneUnreferencedOutputs(),
                 new IterativeOptimizer(
                         ruleStats,
