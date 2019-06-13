@@ -26,6 +26,7 @@ import io.prestosql.cli.ClientOptions.OutputFormat;
 import io.prestosql.client.ClientSelectedRole;
 import io.prestosql.client.ClientSession;
 import io.prestosql.sql.parser.StatementSplitter;
+import jline.console.ConsoleReader;
 import jline.console.history.FileHistory;
 import jline.console.history.History;
 import jline.console.history.MemoryHistory;
@@ -169,14 +170,20 @@ public class Console
         }
 
         java.io.Console console = System.console();
-        if (console == null) {
-            throw new RuntimeException("No console from which to read password");
+        if (console != null) {
+            char[] password = console.readPassword("Password: ");
+            if (password != null) {
+                return new String(password);
+            }
+            return "";
         }
-        char[] password = console.readPassword("Password: ");
-        if (password != null) {
-            return new String(password);
+        try {
+            ConsoleReader consoleReader = new ConsoleReader(System.in, System.err);
+            return consoleReader.readLine("Password: ", (char) 0);
         }
-        return "";
+        catch (IOException exception) {
+            throw new UncheckedIOException("Failed to read password from console", exception);
+        }
     }
 
     private static void runConsole(QueryRunner queryRunner, AtomicBoolean exiting)
