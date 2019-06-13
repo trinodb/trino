@@ -1065,10 +1065,6 @@ public class ExpressionInterpreter
         {
             Object value = process(node.getExpression(), context);
             Type targetType = metadata.getType(parseTypeSignature(node.getType()));
-            if (targetType == null) {
-                throw new IllegalArgumentException("Unsupported type: " + node.getType());
-            }
-
             Type sourceType = type(node.getExpression());
             if (value instanceof Expression) {
                 if (targetType.equals(sourceType)) {

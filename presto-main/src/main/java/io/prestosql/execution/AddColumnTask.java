@@ -24,6 +24,7 @@ import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeNotFoundException;
 import io.prestosql.sql.analyzer.SemanticException;
 import io.prestosql.sql.tree.AddColumn;
 import io.prestosql.sql.tree.ColumnDefinition;
@@ -78,7 +79,7 @@ public class AddColumnTask
         try {
             type = metadata.getType(parseTypeSignature(element.getType()));
         }
-        catch (IllegalArgumentException e) {
+        catch (TypeNotFoundException e) {
             throw new SemanticException(TYPE_MISMATCH, element, "Unknown type '%s' for column '%s'", element.getType(), element.getName());
         }
         if (type.equals(UNKNOWN)) {

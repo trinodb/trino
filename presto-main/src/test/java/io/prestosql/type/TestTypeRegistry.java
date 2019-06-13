@@ -20,6 +20,7 @@ import io.prestosql.metadata.Metadata;
 import io.prestosql.spi.function.OperatorType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeManager;
+import io.prestosql.spi.type.TypeNotFoundException;
 import io.prestosql.spi.type.TypeSignature;
 import org.testng.annotations.Test;
 
@@ -60,6 +61,7 @@ import static io.prestosql.type.Re2JRegexpType.RE2J_REGEXP;
 import static io.prestosql.type.UnknownType.UNKNOWN;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -74,17 +76,10 @@ public class TestTypeRegistry
     @Test
     public void testNonexistentType()
     {
-        try {
-            TypeManager typeManager = new TypeRegistry();
-            typeManager.getType(parseTypeSignature("not a real type"));
-            fail("Expect to throw IllegalArgumentException");
-        }
-        catch (IllegalArgumentException e) {
-            assertTrue(e.getMessage().matches("Unknown type.*"));
-        }
-        catch (Throwable t) {
-            fail("Expect to throw IllegalArgumentException, got " + t.getClass());
-        }
+        TypeManager typeManager = new TypeRegistry();
+        assertThatThrownBy(() -> typeManager.getType(parseTypeSignature("not a real type")))
+                .isInstanceOf(TypeNotFoundException.class)
+                .hasMessage("Unknown type: not a real type");
     }
 
     @Test

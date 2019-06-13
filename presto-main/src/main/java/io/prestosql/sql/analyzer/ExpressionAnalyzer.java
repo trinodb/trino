@@ -38,6 +38,7 @@ import io.prestosql.spi.type.Decimals;
 import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeManager;
+import io.prestosql.spi.type.TypeNotFoundException;
 import io.prestosql.spi.type.TypeSignatureParameter;
 import io.prestosql.spi.type.VarcharType;
 import io.prestosql.sql.parser.SqlParser;
@@ -732,7 +733,7 @@ public class ExpressionAnalyzer
             try {
                 type = typeManager.getType(parseTypeSignature(node.getType()));
             }
-            catch (IllegalArgumentException e) {
+            catch (TypeNotFoundException e) {
                 throw new SemanticException(TYPE_MISMATCH, node, "Unknown type: " + node.getType());
             }
 
@@ -1044,7 +1045,7 @@ public class ExpressionAnalyzer
             try {
                 type = typeManager.getType(parseTypeSignature(node.getType()));
             }
-            catch (IllegalArgumentException e) {
+            catch (TypeNotFoundException e) {
                 throw new SemanticException(TYPE_MISMATCH, node, "Unknown type: " + node.getType());
             }
 
