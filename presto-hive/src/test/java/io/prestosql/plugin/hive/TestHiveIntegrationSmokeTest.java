@@ -69,6 +69,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -2542,6 +2543,113 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
+    public void testPartitionPruning()
+    {
+        // We need the types of the columns to be different from the values that are used to select them in the queries
+        // below (i.e., `varchar` vs `varchar(1)` so that the planner inserts implicit coercions between filters and
+        // cause pushdown to be done iteratively)
+        assertUpdate("" +
+                        "CREATE TABLE test_partition_pruning (v, k) " +
+                        "WITH (partitioned_by = ARRAY['k']) AS (" +
+                        "   VALUES (BIGINT '1', VARCHAR 'a'), " +
+                        "          (BIGINT '2', VARCHAR 'b'), " +
+                        "          (BIGINT '3', VARCHAR 'c'), " +
+                        "          (BIGINT '4', VARCHAR 'e'))",
+                4);
+
+        try {
+            String query = "SELECT * FROM test_partition_pruning WHERE k = 'a'";
+            assertQuery(query, "VALUES (1, 'a')");
+            assertConstraints(
+                    query,
+                    ImmutableSet.of(
+                            new ColumnConstraint(
+                                    "k",
+                                    VARCHAR.getTypeSignature(),
+                                    new FormattedDomain(
+                                            false,
+                                            ImmutableSet.of(
+                                                    new FormattedRange(
+                                                            new FormattedMarker(Optional.of("a"), EXACTLY),
+                                                            new FormattedMarker(Optional.of("a"), EXACTLY)))))));
+
+            query = "SELECT * FROM test_partition_pruning WHERE k IN ('a', 'b')";
+            assertQuery(query, "VALUES (1, 'a'), (2, 'b')");
+            assertConstraints(
+                    query,
+                    ImmutableSet.of(
+                            new ColumnConstraint(
+                                    "k",
+                                    VARCHAR.getTypeSignature(),
+                                    new FormattedDomain(
+                                            false,
+                                            ImmutableSet.of(
+                                                    new FormattedRange(
+                                                            new FormattedMarker(Optional.of("a"), EXACTLY),
+                                                            new FormattedMarker(Optional.of("a"), EXACTLY)),
+                                                    new FormattedRange(
+                                                            new FormattedMarker(Optional.of("b"), EXACTLY),
+                                                            new FormattedMarker(Optional.of("b"), EXACTLY)))))));
+
+            query = "SELECT * FROM test_partition_pruning WHERE k >= 'b'";
+            assertQuery(query, "VALUES (2, 'b'), (3, 'c'), (4, 'e')");
+            assertConstraints(
+                    query,
+                    ImmutableSet.of(
+                            new ColumnConstraint(
+                                    "k",
+                                    VARCHAR.getTypeSignature(),
+                                    new FormattedDomain(
+                                            false,
+                                            ImmutableSet.of(
+                                                    new FormattedRange(
+                                                            new FormattedMarker(Optional.of("b"), EXACTLY),
+                                                            new FormattedMarker(Optional.of("b"), EXACTLY)),
+                                                    new FormattedRange(
+                                                            new FormattedMarker(Optional.of("c"), EXACTLY),
+                                                            new FormattedMarker(Optional.of("c"), EXACTLY)),
+                                                    new FormattedRange(
+                                                            new FormattedMarker(Optional.of("e"), EXACTLY),
+                                                            new FormattedMarker(Optional.of("e"), EXACTLY)))))));
+
+            query = "SELECT * FROM (" +
+                    "    SELECT * " +
+                    "    FROM test_partition_pruning " +
+                    "    WHERE v IN (1, 2, 4) " +
+                    ")" +
+                    "WHERE k >= 'b'";
+
+            assertQuery(query, "VALUES (2, 'b'), (4, 'e')");
+            assertConstraints(
+                    "SELECT * FROM (" +
+                            "    SELECT * " +
+                            "    FROM test_partition_pruning " +
+                            "    WHERE v IN (1, 2, 4) " +
+                            ") t " +
+                            "WHERE t.k >= 'b'",
+                    ImmutableSet.of(
+                            new ColumnConstraint(
+                                    "k",
+                                    VARCHAR.getTypeSignature(),
+                                    new FormattedDomain(
+                                            false,
+                                            ImmutableSet.of(
+                                                    new FormattedRange(
+                                                            new FormattedMarker(Optional.of("b"), EXACTLY),
+                                                            new FormattedMarker(Optional.of("b"), EXACTLY)),
+                                                    new FormattedRange(
+                                                            new FormattedMarker(Optional.of("c"), EXACTLY),
+                                                            new FormattedMarker(Optional.of("c"), EXACTLY)),
+                                                    new FormattedRange(
+                                                            new FormattedMarker(Optional.of("e"), EXACTLY),
+                                                            new FormattedMarker(Optional.of("e"), EXACTLY)))))));
+        }
+        finally {
+            assertUpdate("DROP TABLE test_partition_pruning");
+        }
+    }
+
+    @Test
     public void testMismatchedBucketing()
     {
         try {
@@ -4004,6 +4112,17 @@ public class TestHiveIntegrationSmokeTest
     private void assertColumnType(TableMetadata tableMetadata, String columnName, Type expectedType)
     {
         assertEquals(tableMetadata.getColumn(columnName).getType(), canonicalizeType(expectedType));
+    }
+
+    private void assertConstraints(@Language("SQL") String query, Set<ColumnConstraint> expected)
+    {
+        MaterializedResult result = computeActual("EXPLAIN (TYPE IO, FORMAT JSON) " + query);
+        Set<ColumnConstraint> constraints = jsonCodec(IoPlan.class).fromJson((String) getOnlyElement(result.getOnlyColumnAsSet()))
+                .getInputTableColumnInfos().stream()
+                .findFirst().get()
+                .getColumnConstraints();
+
+        assertEquals(constraints, expected);
     }
 
     private void verifyPartition(boolean hasPartition, TableMetadata tableMetadata, List<String> partitionKeys)

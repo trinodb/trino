@@ -1686,10 +1686,6 @@ public class HiveMetadata
         HiveTableHandle handle = (HiveTableHandle) tableHandle;
         checkArgument(!handle.getAnalyzePartitionValues().isPresent() || constraint.getSummary().isAll(), "Analyze should not have a constraint");
 
-        if (handle.getPartitions().isPresent()) {
-            return Optional.empty(); // TODO: optimize multiple calls to applyFilter
-        }
-
         HivePartitionResult partitionResult = partitionManager.getPartitions(metastore, handle, constraint);
         HiveTableHandle newHandle = partitionManager.applyPartitionResult(handle, partitionResult);
 
