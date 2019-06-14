@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.operator;
+package io.prestosql.operator.unnest;
 
 import io.prestosql.spi.PageBuilder;
 import io.prestosql.spi.block.Block;
@@ -23,20 +23,18 @@ import javax.annotation.Nullable;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
-public class MapUnnester
+public class ArrayUnnester
         implements Unnester
 {
-    private final Type keyType;
-    private final Type valueType;
-    private Block block;
+    private final Type elementType;
+    private Block arrayBlock;
 
     private int position;
     private int positionCount;
 
-    public MapUnnester(Type keyType, Type valueType)
+    public ArrayUnnester(Type elementType)
     {
-        this.keyType = requireNonNull(keyType, "keyType is null");
-        this.valueType = requireNonNull(valueType, "valueType is null");
+        this.elementType = requireNonNull(elementType, "elementType is null");
     }
 
     @Override
@@ -48,24 +46,23 @@ public class MapUnnester
     @Override
     public final int getChannelCount()
     {
-        return 2;
+        return 1;
     }
 
     @Override
     public final void appendNext(PageBuilder pageBuilder, int outputChannelOffset)
     {
-        checkState(block != null, "block is null");
-        BlockBuilder keyBlockBuilder = pageBuilder.getBlockBuilder(outputChannelOffset);
-        BlockBuilder valueBlockBuilder = pageBuilder.getBlockBuilder(outputChannelOffset + 1);
-        keyType.appendTo(block, position++, keyBlockBuilder);
-        valueType.appendTo(block, position++, valueBlockBuilder);
+        checkState(arrayBlock != null, "arrayBlock is null");
+        BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(outputChannelOffset);
+        elementType.appendTo(arrayBlock, position, blockBuilder);
+        position++;
     }
 
     @Override
-    public void setBlock(@Nullable Block mapBlock)
+    public void setBlock(@Nullable Block arrayBlock)
     {
-        this.block = mapBlock;
+        this.arrayBlock = arrayBlock;
         this.position = 0;
-        this.positionCount = mapBlock == null ? 0 : mapBlock.getPositionCount();
+        this.positionCount = arrayBlock == null ? 0 : arrayBlock.getPositionCount();
     }
 }
