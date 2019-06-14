@@ -68,18 +68,19 @@ public class GenericHiveRecordCursorProvider
             throw new PrestoException(HIVE_FILESYSTEM_ERROR, "Failed getting FileSystem: " + path, e);
         }
 
-        RecordReader<?, ?> recordReader = hdfsEnvironment.doAs(session.getUser(),
-                () -> HiveUtil.createRecordReader(configuration, path, start, length, schema, columns));
+        return hdfsEnvironment.doAs(session.getUser(), () -> {
+            RecordReader<?, ?> recordReader = HiveUtil.createRecordReader(configuration, path, start, length, schema, columns);
 
-        return Optional.of(new GenericHiveRecordCursor<>(
-                configuration,
-                path,
-                genericRecordReader(recordReader),
-                length,
-                schema,
-                columns,
-                hiveStorageTimeZone,
-                typeManager));
+            return Optional.of(new GenericHiveRecordCursor<>(
+                    configuration,
+                    path,
+                    genericRecordReader(recordReader),
+                    length,
+                    schema,
+                    columns,
+                    hiveStorageTimeZone,
+                    typeManager));
+        });
     }
 
     @SuppressWarnings("unchecked")

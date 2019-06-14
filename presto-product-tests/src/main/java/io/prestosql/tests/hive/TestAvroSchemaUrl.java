@@ -28,6 +28,7 @@ import java.io.InputStream;
 import static io.prestosql.tempto.assertions.QueryAssert.Row.row;
 import static io.prestosql.tempto.assertions.QueryAssert.assertThat;
 import static io.prestosql.tests.TestGroups.AVRO;
+import static io.prestosql.tests.TestGroups.STORAGE_FORMATS;
 import static io.prestosql.tests.utils.QueryExecutors.onHive;
 import static io.prestosql.tests.utils.QueryExecutors.onPresto;
 import static java.lang.String.format;
@@ -72,7 +73,7 @@ public class TestAvroSchemaUrl
         };
     }
 
-    @Test(dataProvider = "avroSchemaLocations", groups = {AVRO})
+    @Test(dataProvider = "avroSchemaLocations", groups = {AVRO, STORAGE_FORMATS})
     public void testHiveCreatedTable(String schemaLocation)
     {
         onHive().executeQuery("DROP TABLE IF EXISTS test_avro_schema_url_hive");
@@ -134,7 +135,7 @@ public class TestAvroSchemaUrl
         onHive().executeQuery("DROP TABLE test_avro_schema_url_in_serde_properties");
     }
 
-    @Test(dataProvider = "avroSchemaLocations", groups = {AVRO})
+    @Test(dataProvider = "avroSchemaLocations", groups = {AVRO, STORAGE_FORMATS})
     public void testPrestoCreatedTable(String schemaLocation)
     {
         onPresto().executeQuery("DROP TABLE IF EXISTS test_avro_schema_url_presto");
