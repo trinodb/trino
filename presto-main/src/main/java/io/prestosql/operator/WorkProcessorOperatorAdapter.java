@@ -15,35 +15,35 @@ package io.prestosql.operator;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import io.prestosql.Session;
-import io.prestosql.memory.context.LocalMemoryContext;
 import io.prestosql.memory.context.MemoryTrackingContext;
 import io.prestosql.spi.Page;
 
-import javax.annotation.Nullable;
-
-import static com.google.common.base.Preconditions.checkState;
-import static io.prestosql.operator.WorkProcessor.ProcessState.finished;
-import static io.prestosql.operator.WorkProcessor.ProcessState.ofResult;
-import static io.prestosql.operator.WorkProcessor.ProcessState.yield;
 import static java.util.Objects.requireNonNull;
 
 public class WorkProcessorOperatorAdapter
         implements Operator
 {
     private final OperatorContext operatorContext;
-    private final WorkProcessorOperator workProcessorOperator;
+    private final AdapterWorkProcessorOperator workProcessorOperator;
     private final WorkProcessor<Page> pages;
-    private final PageBuffer pageBuffer = new PageBuffer();
-    private final LocalMemoryContext memoryContext;
+
+    public interface AdapterWorkProcessorOperator
+            extends WorkProcessorOperator
+    {
+        boolean needsInput();
+
+        void addInput(Page page);
+
+        void finish();
+    }
 
     public interface AdapterWorkProcessorOperatorFactory
             extends WorkProcessorOperatorFactory
     {
-        WorkProcessorOperator create(
+        AdapterWorkProcessorOperator create(
                 Session session,
                 MemoryTrackingContext memoryTrackingContext,
-                DriverYieldSignal yieldSignal,
-                PageBuffer sourcePageBuffer);
+                DriverYieldSignal yieldSignal);
     }
 
     public WorkProcessorOperatorAdapter(OperatorContext operatorContext, AdapterWorkProcessorOperatorFactory workProcessorOperatorFactory)
@@ -56,10 +56,8 @@ public class WorkProcessorOperatorAdapter
                                 operatorContext.aggregateUserMemoryContext(),
                                 operatorContext.aggregateRevocableMemoryContext(),
                                 operatorContext.aggregateSystemMemoryContext()),
-                        operatorContext.getDriverContext().getYieldSignal(),
-                        pageBuffer);
+                        operatorContext.getDriverContext().getYieldSignal());
         this.pages = workProcessorOperator.getOutputPages();
-        this.memoryContext = operatorContext.localUserMemoryContext();
     }
 
     @Override
@@ -81,13 +79,13 @@ public class WorkProcessorOperatorAdapter
     @Override
     public boolean needsInput()
     {
-        return !isFinished() && !pageBuffer.isFinished() && pageBuffer.isEmpty();
+        return !isFinished() && workProcessorOperator.needsInput();
     }
 
     @Override
     public void addInput(Page page)
     {
-        pageBuffer.add(page);
+        workProcessorOperator.addInput(page);
     }
 
     @Override
@@ -107,7 +105,7 @@ public class WorkProcessorOperatorAdapter
     @Override
     public void finish()
     {
-        pageBuffer.finish();
+        workProcessorOperator.finish();
     }
 
     @Override
@@ -121,73 +119,5 @@ public class WorkProcessorOperatorAdapter
             throws Exception
     {
         workProcessorOperator.close();
-    }
-
-    public class PageBuffer
-    {
-        @Nullable
-        private Page page;
-        private boolean finished;
-        @Nullable
-        private Runnable addPageListener;
-
-        public WorkProcessor<Page> pages()
-        {
-            return WorkProcessor.create(() -> {
-                if (!isEmpty()) {
-                    return ofResult(poll());
-                }
-
-                if (isFinished()) {
-                    return finished();
-                }
-
-                return yield();
-            });
-        }
-
-        @Nullable
-        public Page poll()
-        {
-            Page page = this.page;
-            this.page = null;
-            memoryContext.setBytes(0);
-            return page;
-        }
-
-        public boolean isEmpty()
-        {
-            return page == null;
-        }
-
-        public boolean isFinished()
-        {
-            return finished;
-        }
-
-        public void setAddPageListener(Runnable addPageListener)
-        {
-            this.addPageListener = requireNonNull(addPageListener, "addPageListener is null");
-        }
-
-        private void add(Page page)
-        {
-            checkState(isEmpty());
-            this.page = requireNonNull(page, "page is null");
-
-            if (addPageListener != null) {
-                addPageListener.run();
-            }
-
-            // if page was not immediately consumed, account it's memory
-            if (!isEmpty()) {
-                memoryContext.setBytes(page.getSizeInBytes());
-            }
-        }
-
-        private void finish()
-        {
-            finished = true;
-        }
     }
 }
