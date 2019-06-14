@@ -60,6 +60,34 @@ public final class Chars
         return buffer;
     }
 
+    /**
+     * Pads String with spaces to given {@code CharType}'s length in code points.
+     * <p>
+     * Note: unlike {@code com.google.common.base.Strings#padEnd(java.lang.String, int, char)},
+     * this respects code points encoded as UTF-16 surrogate pairs.
+     */
+    public static String padSpaces(String value, CharType charType)
+    {
+        int length = charType.getLength();
+        int textLength = value.codePointCount(0, value.length());
+
+        if (textLength > length) {
+            throw new IllegalArgumentException("pad length is smaller than text length");
+        }
+
+        if (textLength == length) {
+            return value;
+        }
+
+        StringBuilder builder = new StringBuilder(value.length() + (length - textLength));
+        builder.append(value);
+        for (int i = textLength; i < length; i++) {
+            builder.append(' ');
+        }
+
+        return builder.toString();
+    }
+
     public static Slice truncateToLengthAndTrimSpaces(Slice slice, Type type)
     {
         requireNonNull(type, "type is null");

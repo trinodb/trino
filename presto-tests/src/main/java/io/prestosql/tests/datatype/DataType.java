@@ -15,6 +15,7 @@ package io.prestosql.tests.datatype;
 
 import io.prestosql.spi.type.BigintType;
 import io.prestosql.spi.type.BooleanType;
+import io.prestosql.spi.type.CharType;
 import io.prestosql.spi.type.DoubleType;
 import io.prestosql.spi.type.IntegerType;
 import io.prestosql.spi.type.RealType;
@@ -31,9 +32,9 @@ import java.time.format.DateTimeFormatter;
 import java.util.Optional;
 import java.util.function.Function;
 
-import static com.google.common.base.Strings.padEnd;
 import static com.google.common.io.BaseEncoding.base16;
 import static io.prestosql.spi.type.CharType.createCharType;
+import static io.prestosql.spi.type.Chars.padSpaces;
 import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.DecimalType.createDecimalType;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
@@ -126,7 +127,8 @@ public class DataType<T>
 
     public static DataType<String> charDataType(String insertType, int length)
     {
-        return dataType(insertType, createCharType(length), DataType::formatStringLiteral, input -> padEnd(input, length, ' '));
+        CharType charType = createCharType(length);
+        return dataType(insertType, charType, DataType::formatStringLiteral, input -> padSpaces(input, charType));
     }
 
     public static DataType<byte[]> varbinaryDataType()

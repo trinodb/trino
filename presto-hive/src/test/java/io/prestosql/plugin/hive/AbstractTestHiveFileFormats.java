@@ -83,7 +83,6 @@ import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Predicates.not;
-import static com.google.common.base.Strings.padEnd;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterables.filter;
@@ -102,6 +101,7 @@ import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.CharType.createCharType;
 import static io.prestosql.spi.type.Chars.isCharType;
+import static io.prestosql.spi.type.Chars.padSpaces;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
@@ -761,7 +761,7 @@ public abstract class AbstractTestHiveFileFormats
                         assertEquals(actualValue, expectedTimestamp, "Wrong value for column " + testColumn.getName());
                     }
                     else if (testColumn.getObjectInspector().getTypeName().startsWith("char")) {
-                        assertEquals(actualValue, padEnd((String) expectedValue, ((CharType) type).getLength(), ' '), "Wrong value for column " + testColumn.getName());
+                        assertEquals(actualValue, padSpaces((String) expectedValue, (CharType) type), "Wrong value for column " + testColumn.getName());
                     }
                     else if (testColumn.getObjectInspector().getCategory() == Category.PRIMITIVE) {
                         if (expectedValue instanceof Slice) {

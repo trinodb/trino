@@ -102,7 +102,6 @@ import java.util.Optional;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 
-import static com.google.common.base.Strings.padEnd;
 import static com.google.common.io.BaseEncoding.base16;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_DATABASE_LOCATION_ERROR;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
@@ -121,6 +120,7 @@ import static io.prestosql.plugin.hive.metastore.MetastoreUtil.verifyOnline;
 import static io.prestosql.plugin.hive.s3.HiveS3Module.EMR_FS_CLASS_NAME;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.type.Chars.isCharType;
+import static io.prestosql.spi.type.Chars.padSpaces;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
@@ -311,7 +311,7 @@ public final class HiveWriteUtils
         }
         if (type instanceof CharType) {
             CharType charType = (CharType) type;
-            return new Text(padEnd(type.getSlice(block, position).toStringUtf8(), charType.getLength(), ' '));
+            return new Text(padSpaces(type.getSlice(block, position), charType).toStringUtf8());
         }
         if (VarbinaryType.VARBINARY.equals(type)) {
             return type.getSlice(block, position).getBytes();
