@@ -21,6 +21,7 @@ import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.SchemaTableName;
 
 import java.util.Objects;
+import java.util.OptionalLong;
 import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
@@ -32,18 +33,21 @@ public class InformationSchemaTableHandle
     private final String schemaName;
     private final String tableName;
     private final Set<QualifiedTablePrefix> prefixes;
+    private final OptionalLong limit;
 
     @JsonCreator
     public InformationSchemaTableHandle(
             @JsonProperty("catalogName") String catalogName,
             @JsonProperty("schemaName") String schemaName,
             @JsonProperty("tableName") String tableName,
-            @JsonProperty("prefixes") Set<QualifiedTablePrefix> prefixes)
+            @JsonProperty("prefixes") Set<QualifiedTablePrefix> prefixes,
+            @JsonProperty("limit") OptionalLong limit)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
         this.prefixes = ImmutableSet.copyOf(requireNonNull(prefixes, "prefixes is null"));
+        this.limit = requireNonNull(limit, "limit is null");
     }
 
     @JsonProperty
@@ -73,6 +77,12 @@ public class InformationSchemaTableHandle
     public Set<QualifiedTablePrefix> getPrefixes()
     {
         return prefixes;
+    }
+
+    @JsonProperty
+    public OptionalLong getLimit()
+    {
+        return limit;
     }
 
     @Override
