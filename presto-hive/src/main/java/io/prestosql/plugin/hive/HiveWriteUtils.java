@@ -52,6 +52,7 @@ import org.apache.hadoop.fs.FilterFileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.fs.viewfs.ViewFileSystem;
+import org.apache.hadoop.hdfs.DistributedFileSystem;
 import org.apache.hadoop.hive.common.type.HiveDecimal;
 import org.apache.hadoop.hive.common.type.HiveVarchar;
 import org.apache.hadoop.hive.conf.HiveConf;
@@ -495,6 +496,20 @@ public final class HiveWriteUtils
         }
         catch (IOException e) {
             throw new PrestoException(HIVE_FILESYSTEM_ERROR, "Failed checking path: " + path, e);
+        }
+    }
+
+    public static boolean isHdfsEncrypted(HdfsContext context, HdfsEnvironment hdfsEnvironment, Path path)
+    {
+        try {
+            FileSystem fileSystem = getRawFileSystem(hdfsEnvironment.getFileSystem(context, path));
+            if (fileSystem instanceof DistributedFileSystem) {
+                return ((DistributedFileSystem) fileSystem).getEZForPath(path) != null;
+            }
+            return false;
+        }
+        catch (IOException e) {
+            throw new PrestoException(HIVE_FILESYSTEM_ERROR, "Failed checking encryption status for path: " + path, e);
         }
     }
 

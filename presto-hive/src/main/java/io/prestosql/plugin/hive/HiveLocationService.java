@@ -30,6 +30,7 @@ import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_PATH_ALREADY_EXISTS;
 import static io.prestosql.plugin.hive.HiveSessionProperties.isTemporaryStagingDirectoryEnabled;
 import static io.prestosql.plugin.hive.HiveWriteUtils.createTemporaryPath;
 import static io.prestosql.plugin.hive.HiveWriteUtils.getTableDefaultLocation;
+import static io.prestosql.plugin.hive.HiveWriteUtils.isHdfsEncrypted;
 import static io.prestosql.plugin.hive.HiveWriteUtils.isS3FileSystem;
 import static io.prestosql.plugin.hive.HiveWriteUtils.pathExists;
 import static io.prestosql.plugin.hive.LocationHandle.WriteMode.DIRECT_TO_TARGET_EXISTING_DIRECTORY;
@@ -89,7 +90,9 @@ public class HiveLocationService
     {
         return isTemporaryStagingDirectoryEnabled(session)
                 // skip using temporary directory for S3
-                && !isS3FileSystem(context, hdfsEnvironment, path);
+                && !isS3FileSystem(context, hdfsEnvironment, path)
+                // skip using temporary directory if destination is encrypted; it's not possible to move a file between encryption zones
+                && !isHdfsEncrypted(context, hdfsEnvironment, path);
     }
 
     @Override
