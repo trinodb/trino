@@ -89,6 +89,7 @@ public class HiveConfig
     private Duration ipcPingInterval = new Duration(10, TimeUnit.SECONDS);
     private Duration dfsTimeout = new Duration(60, TimeUnit.SECONDS);
     private Duration dfsConnectTimeout = new Duration(500, TimeUnit.MILLISECONDS);
+    private Duration dfsKeyProviderCacheTtl = new Duration(30, TimeUnit.MINUTES);
     private int dfsConnectMaxRetries = 5;
     private boolean verifyChecksum = true;
     private String domainSocketPath;
@@ -547,6 +548,20 @@ public class HiveConfig
     public HiveConfig setDfsTimeout(Duration dfsTimeout)
     {
         this.dfsTimeout = dfsTimeout;
+        return this;
+    }
+
+    @NotNull
+    @MinDuration("0ms")
+    public Duration getDfsKeyProviderCacheTtl()
+    {
+        return dfsKeyProviderCacheTtl;
+    }
+
+    @Config("hive.dfs.key-provider.cache-ttl")
+    public HiveConfig setDfsKeyProviderCacheTtl(Duration dfsClientKeyProviderCacheTtl)
+    {
+        this.dfsKeyProviderCacheTtl = dfsClientKeyProviderCacheTtl;
         return this;
     }
 
