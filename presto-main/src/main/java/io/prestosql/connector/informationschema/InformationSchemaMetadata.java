@@ -33,6 +33,7 @@ import io.prestosql.spi.connector.ConnectorTableMetadata;
 import io.prestosql.spi.connector.ConnectorTableProperties;
 import io.prestosql.spi.connector.Constraint;
 import io.prestosql.spi.connector.ConstraintApplicationResult;
+import io.prestosql.spi.connector.LimitApplicationResult;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.SchemaTablePrefix;
 import io.prestosql.spi.predicate.Domain;
@@ -45,6 +46,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
@@ -170,7 +172,7 @@ public class InformationSchemaMetadata
             return null;
         }
 
-        return new InformationSchemaTableHandle(catalogName, tableName.getSchemaName(), tableName.getTableName(), defaultPrefixes());
+        return new InformationSchemaTableHandle(catalogName, tableName.getSchemaName(), tableName.getTableName(), defaultPrefixes(), OptionalLong.empty());
     }
 
     @Override
@@ -243,6 +245,20 @@ public class InformationSchemaMetadata
     }
 
     @Override
+    public Optional<LimitApplicationResult<ConnectorTableHandle>> applyLimit(ConnectorSession session, ConnectorTableHandle handle, long limit)
+    {
+        InformationSchemaTableHandle table = (InformationSchemaTableHandle) handle;
+
+        if (table.getLimit().isPresent() && table.getLimit().getAsLong() <= limit) {
+            return Optional.empty();
+        }
+
+        return Optional.of(new LimitApplicationResult<>(
+                new InformationSchemaTableHandle(table.getCatalogName(), table.getSchemaName(), table.getTableName(), table.getPrefixes(), OptionalLong.of(limit)),
+                true));
+    }
+
+    @Override
     public Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorSession session, ConnectorTableHandle handle, Constraint constraint)
     {
         InformationSchemaTableHandle table = (InformationSchemaTableHandle) handle;
@@ -253,7 +269,7 @@ public class InformationSchemaMetadata
 
         Set<QualifiedTablePrefix> prefixes = getPrefixes(session, table, constraint);
 
-        table = new InformationSchemaTableHandle(table.getCatalogName(), table.getSchemaName(), table.getTableName(), prefixes);
+        table = new InformationSchemaTableHandle(table.getCatalogName(), table.getSchemaName(), table.getTableName(), prefixes, table.getLimit());
 
         return Optional.of(new ConstraintApplicationResult<>(table, constraint.getSummary()));
     }
