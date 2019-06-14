@@ -4,7 +4,7 @@ set -xeuo pipefail
 
 presto-product-tests/bin/run_on_docker.sh \
     singlenode \
-    -g hdfs_no_impersonation,avro
+    -g hdfs_no_impersonation
 
 presto-product-tests/bin/run_on_docker.sh \
     singlenode-kerberos-hdfs-no-impersonation \
