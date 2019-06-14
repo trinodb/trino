@@ -37,8 +37,6 @@ import io.prestosql.spiller.SpillerFactory;
 import io.prestosql.sql.gen.OrderingCompiler;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 
-import javax.annotation.Nullable;
-
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -194,9 +192,7 @@ public class WindowOperator
     private final Optional<SpillablePagesToPagesIndexes> spillablePagesToPagesIndexes;
 
     private final WorkProcessor<Page> outputPages;
-    @Nullable
-    private Page pendingInput;
-    private boolean operatorFinishing;
+    private final PageBuffer pageBuffer = new PageBuffer();
 
     public WindowOperator(
             OperatorContext operatorContext,
@@ -294,14 +290,14 @@ public class WindowOperator
                     spillerFactory,
                     orderingCompiler.compilePageWithPositionComparator(sourceTypes, unGroupedOrderChannels, unGroupedOrdering)));
 
-            this.outputPages = WorkProcessor.create(new PagesSource())
+            this.outputPages = pageBuffer.pages()
                     .flatTransform(spillablePagesToPagesIndexes.get())
                     .flatMap(this::pagesIndexToWindowPartitions)
                     .transform(new WindowPartitionsToOutputPages());
         }
         else {
             this.spillablePagesToPagesIndexes = Optional.empty();
-            this.outputPages = WorkProcessor.create(new PagesSource())
+            this.outputPages = pageBuffer.pages()
                     .transform(new PagesToPagesIndexes(inMemoryPagesIndexWithHashStrategies, orderChannels, ordering))
                     .flatMap(this::pagesIndexToWindowPartitions)
                     .transform(new WindowPartitionsToOutputPages());
@@ -325,7 +321,7 @@ public class WindowOperator
     @Override
     public void finish()
     {
-        operatorFinishing = true;
+        pageBuffer.finish();
     }
 
     @Override
@@ -348,20 +344,13 @@ public class WindowOperator
     @Override
     public boolean needsInput()
     {
-        return pendingInput == null && !operatorFinishing;
+        return pageBuffer.isEmpty() && !pageBuffer.isFinished();
     }
 
     @Override
     public void addInput(Page page)
     {
-        requireNonNull(page, "page is null");
-        checkState(pendingInput == null, "Operator already has pending input");
-
-        if (page.getPositionCount() == 0) {
-            return;
-        }
-
-        pendingInput = page;
+        pageBuffer.add(page);
     }
 
     @Override
@@ -414,26 +403,6 @@ public class WindowOperator
             this.preSortedPartitionHashStrategy = pagesIndex.createPagesHashStrategy(preSortedChannels, OptionalInt.empty());
             this.peerGroupHashStrategy = pagesIndex.createPagesHashStrategy(sortChannels, OptionalInt.empty());
             this.preGroupedPartitionChannels = Ints.toArray(preGroupedPartitionChannels);
-        }
-    }
-
-    private class PagesSource
-            implements WorkProcessor.Process<Page>
-    {
-        @Override
-        public ProcessState<Page> process()
-        {
-            if (operatorFinishing && pendingInput == null) {
-                return ProcessState.finished();
-            }
-
-            if (pendingInput != null) {
-                Page result = pendingInput;
-                pendingInput = null;
-                return ProcessState.ofResult(result);
-            }
-
-            return ProcessState.yield();
         }
     }
 
