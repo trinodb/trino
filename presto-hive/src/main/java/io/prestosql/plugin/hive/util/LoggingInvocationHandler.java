@@ -13,6 +13,7 @@
  */
 package io.prestosql.plugin.hive.util;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.reflect.AbstractInvocationHandler;
 import io.airlift.log.Logger;
@@ -125,6 +126,7 @@ public class LoggingInvocationHandler
             ImmutableMap.Builder<Method, List<String>> parameterNames = ImmutableMap.builder();
             for (Method interfaceMethod : interfaceClass.getMethods()) {
                 tryGetParameterNamesForMethod(interfaceMethod, implementationClass)
+                        .map(ImmutableList::copyOf)
                         .ifPresent(names -> parameterNames.put(interfaceMethod, names));
             }
             this.parameterNames = parameterNames.build();
