@@ -124,22 +124,28 @@ public class LoggingInvocationHandler
 
             ImmutableMap.Builder<Method, List<String>> parameterNames = ImmutableMap.builder();
             for (Method interfaceMethod : interfaceClass.getMethods()) {
-                Optional<List<String>> names = ParameterNames.tryGetParameterNames(interfaceMethod);
-                if (!names.isPresent()) {
-                    Method implementationMethod = null;
-                    try {
-                        implementationMethod = implementationClass.getMethod(interfaceMethod.getName(), interfaceMethod.getParameterTypes());
-                    }
-                    catch (NoSuchMethodException e) {
-                        log.debug(e, "Could not find implementation for %s", interfaceMethod);
-                    }
-                    if (implementationMethod != null) {
-                        names = ParameterNames.tryGetParameterNames(implementationMethod);
-                    }
-                }
-                names.ifPresent(strings -> parameterNames.put(interfaceMethod, strings));
+                tryGetParameterNamesForMethod(interfaceMethod, implementationClass)
+                        .ifPresent(names -> parameterNames.put(interfaceMethod, names));
             }
             this.parameterNames = parameterNames.build();
+        }
+
+        private static Optional<List<String>> tryGetParameterNamesForMethod(Method interfaceMethod, Class<?> implementationClass)
+        {
+            Optional<List<String>> names = ParameterNames.tryGetParameterNames(interfaceMethod);
+            if (names.isPresent()) {
+                return names;
+            }
+
+            Method implementationMethod;
+            try {
+                implementationMethod = implementationClass.getMethod(interfaceMethod.getName(), interfaceMethod.getParameterTypes());
+            }
+            catch (NoSuchMethodException e) {
+                log.debug(e, "Could not find implementation for %s", interfaceMethod);
+                return Optional.empty();
+            }
+            return ParameterNames.tryGetParameterNames(implementationMethod);
         }
 
         @Override
