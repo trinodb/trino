@@ -17,8 +17,8 @@ import com.google.common.collect.ImmutableList;
 import io.prestosql.Session;
 import io.prestosql.memory.context.MemoryTrackingContext;
 import io.prestosql.operator.WorkProcessor.TransformationState;
+import io.prestosql.operator.WorkProcessorOperatorAdapter.AdapterWorkProcessorOperator;
 import io.prestosql.operator.WorkProcessorOperatorAdapter.AdapterWorkProcessorOperatorFactory;
-import io.prestosql.operator.WorkProcessorOperatorAdapter.PageBuffer;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.block.SortOrder;
 import io.prestosql.spi.type.Type;
@@ -34,7 +34,7 @@ import static java.util.Objects.requireNonNull;
  * Returns the top N rows from the source sorted according to the specified ordering in the keyChannelIndex channel.
  */
 public class TopNOperator
-        implements WorkProcessorOperator
+        implements AdapterWorkProcessorOperator
 {
     public static class TopNOperatorFactory
             implements OperatorFactory, AdapterWorkProcessorOperatorFactory
@@ -110,43 +110,40 @@ public class TopNOperator
         {
             return new TopNOperator(
                     memoryTrackingContext,
-                    sourcePages,
+                    Optional.of(sourcePages),
                     sourceTypes,
                     n,
                     sortChannels,
-                    sortOrders,
-                    Optional.empty());
+                    sortOrders);
         }
 
         @Override
-        public WorkProcessorOperator create(
+        public AdapterWorkProcessorOperator create(
                 Session session,
                 MemoryTrackingContext memoryTrackingContext,
-                DriverYieldSignal yieldSignal,
-                PageBuffer sourcePageBuffer)
+                DriverYieldSignal yieldSignal)
         {
             return new TopNOperator(
                     memoryTrackingContext,
-                    sourcePageBuffer.pages(),
+                    Optional.empty(),
                     sourceTypes,
                     n,
                     sortChannels,
-                    sortOrders,
-                    Optional.of(sourcePageBuffer));
+                    sortOrders);
         }
     }
 
     private final TopNProcessor topNProcessor;
     private final WorkProcessor<Page> pages;
+    private final PageBuffer pageBuffer = new PageBuffer();
 
     public TopNOperator(
             MemoryTrackingContext memoryTrackingContext,
-            WorkProcessor<Page> sourcePages,
+            Optional<WorkProcessor<Page>> sourcePages,
             List<Type> types,
             int n,
             List<Integer> sortChannels,
-            List<SortOrder> sortOrders,
-            Optional<PageBuffer> pageBuffer)
+            List<SortOrder> sortOrders)
     {
         this.topNProcessor = new TopNProcessor(
                 requireNonNull(memoryTrackingContext, "memoryTrackingContext is null").aggregateUserMemoryContext(),
@@ -159,18 +156,32 @@ public class TopNOperator
             pages = WorkProcessor.of();
         }
         else {
-            pages = sourcePages.transform(new TopNPages());
+            pages = sourcePages.orElse(pageBuffer.pages()).transform(new TopNPages());
         }
-
-        pageBuffer.ifPresent(buffer -> buffer.setAddPageListener(() -> {
-            addPage(buffer.poll());
-        }));
     }
 
     @Override
     public WorkProcessor<Page> getOutputPages()
     {
         return pages;
+    }
+
+    @Override
+    public boolean needsInput()
+    {
+        return pageBuffer.isEmpty() && !pageBuffer.isFinished();
+    }
+
+    @Override
+    public void addInput(Page page)
+    {
+        addPage(page);
+    }
+
+    @Override
+    public void finish()
+    {
+        pageBuffer.finish();
     }
 
     @Override
