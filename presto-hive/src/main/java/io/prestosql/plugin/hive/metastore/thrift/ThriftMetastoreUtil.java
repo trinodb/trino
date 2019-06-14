@@ -482,11 +482,21 @@ public final class ThriftMetastoreUtil
             throw new PrestoException(HIVE_INVALID_METADATA, "Partition does not contain a storage descriptor: " + partition);
         }
 
+        return fromMetastoreApiPartition(partition, storageDescriptor.getCols());
+    }
+
+    public static Partition fromMetastoreApiPartition(org.apache.hadoop.hive.metastore.api.Partition partition, List<FieldSchema> schema)
+    {
+        StorageDescriptor storageDescriptor = partition.getSd();
+        if (storageDescriptor == null) {
+            throw new PrestoException(HIVE_INVALID_METADATA, "Partition does not contain a storage descriptor: " + partition);
+        }
+
         Partition.Builder partitionBuilder = Partition.builder()
                 .setDatabaseName(partition.getDbName())
                 .setTableName(partition.getTableName())
                 .setValues(partition.getValues())
-                .setColumns(storageDescriptor.getCols().stream()
+                .setColumns(schema.stream()
                         .map(ThriftMetastoreUtil::fromMetastoreApiFieldSchema)
                         .collect(toList()))
                 .setParameters(partition.getParameters());
