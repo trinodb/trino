@@ -46,6 +46,7 @@ import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.HADOOP_SOCKS_SE
 import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.IPC_CLIENT_CONNECT_MAX_RETRIES_KEY;
 import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.IPC_CLIENT_CONNECT_TIMEOUT_KEY;
 import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.NET_TOPOLOGY_NODE_SWITCH_MAPPING_IMPL_KEY;
+import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_CLIENT_KEY_PROVIDER_CACHE_EXPIRY_MS;
 import static org.apache.hadoop.hdfs.client.HdfsClientConfigKeys.DFS_CLIENT_SOCKET_TIMEOUT_KEY;
 import static org.apache.hadoop.hdfs.client.HdfsClientConfigKeys.DFS_DOMAIN_SOCKET_PATH_KEY;
 import static org.apache.hadoop.hive.conf.HiveConf.ConfVars.COMPRESSRESULT;
@@ -58,6 +59,7 @@ public class HdfsConfigurationInitializer
     private final Duration dfsTimeout;
     private final Duration dfsConnectTimeout;
     private final int dfsConnectMaxRetries;
+    private final int dfsKeyProviderCacheTtlMillis;
     private final String domainSocketPath;
     private final Configuration resourcesConfiguration;
     private final HiveCompressionCodec compressionCodec;
@@ -84,6 +86,7 @@ public class HdfsConfigurationInitializer
         this.dfsTimeout = config.getDfsTimeout();
         this.dfsConnectTimeout = config.getDfsConnectTimeout();
         this.dfsConnectMaxRetries = config.getDfsConnectMaxRetries();
+        this.dfsKeyProviderCacheTtlMillis = toIntExact(config.getDfsKeyProviderCacheTtl().toMillis());
         this.domainSocketPath = config.getDomainSocketPath();
         this.resourcesConfiguration = readConfiguration(config.getResourceConfigFiles());
         this.compressionCodec = config.getHiveCompressionCodec();
@@ -140,6 +143,7 @@ public class HdfsConfigurationInitializer
 
         config.setInt("fs.cache.max-size", fileSystemMaxCacheSize);
 
+        config.setInt(DFS_CLIENT_KEY_PROVIDER_CACHE_EXPIRY_MS, dfsKeyProviderCacheTtlMillis);
         config.setInt(LineRecordReader.MAX_LINE_LENGTH, textMaxLineLength);
 
         configureCompression(config, compressionCodec);
