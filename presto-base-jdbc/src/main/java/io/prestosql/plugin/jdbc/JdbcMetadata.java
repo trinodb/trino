@@ -114,7 +114,7 @@ public class JdbcMetadata
         }
 
         if (handle.getLimit().isPresent() && handle.getLimit().getAsLong() <= limit) {
-            return Optional.empty();
+            return Optional.of(new LimitApplicationResult<>(handle, jdbcClient.isLimitGuaranteed()));
         }
 
         handle = new JdbcTableHandle(
