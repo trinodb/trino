@@ -35,6 +35,9 @@ presto-product-tests/bin/run_on_docker.sh \
     singlenode-kerberos-kms-hdfs-no-impersonation \
     -g storage_formats_read # TODO add more tests, when write is supported too
 
+# TODO add more tests, when write is supported too
+# TODO enable avro when adding Metastore impersonation
 presto-product-tests/bin/run_on_docker.sh \
     singlenode-kerberos-kms-hdfs-impersonation \
-    -g storage_formats_read # TODO add more tests, when write is supported too
+    -g storage_formats_read \
+    -x avro
