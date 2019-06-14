@@ -58,7 +58,6 @@ import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.base.Strings.padEnd;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Lists.newArrayList;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -73,6 +72,7 @@ import static io.prestosql.plugin.tpch.TpchRecordSet.createTpchRecordSet;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.Chars.isCharType;
+import static io.prestosql.spi.type.Chars.padSpaces;
 import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
@@ -288,7 +288,7 @@ public class H2QueryRunner
                             row.add(null);
                         }
                         else {
-                            row.add(padEnd(stringValue, ((CharType) type).getLength(), ' '));
+                            row.add(padSpaces(stringValue, (CharType) type));
                         }
                     }
                     else if (DATE.equals(type)) {

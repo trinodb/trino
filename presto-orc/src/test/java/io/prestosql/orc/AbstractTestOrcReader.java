@@ -43,6 +43,7 @@ import static io.prestosql.orc.OrcTester.HIVE_STORAGE_TIME_ZONE;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.CharType.createCharType;
+import static io.prestosql.spi.type.Chars.padSpaces;
 import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
@@ -361,7 +362,7 @@ public abstract class AbstractTestOrcReader
 
     private String toCharValue(Object value)
     {
-        return Strings.padEnd(value.toString(), CHAR_LENGTH, ' ');
+        return padSpaces(value.toString(), CHAR);
     }
 
     @Test
