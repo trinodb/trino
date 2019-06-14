@@ -34,6 +34,7 @@ import static io.prestosql.tempto.assertions.QueryAssert.assertThat;
 import static io.prestosql.tempto.query.QueryExecutor.defaultQueryExecutor;
 import static io.prestosql.tempto.query.QueryExecutor.query;
 import static io.prestosql.tests.TestGroups.STORAGE_FORMATS;
+import static io.prestosql.tests.TestGroups.STORAGE_FORMATS_READ;
 import static io.prestosql.tests.utils.JdbcDriverUtils.setSessionProperty;
 import static io.prestosql.tests.utils.QueryExecutors.onHive;
 import static java.lang.String.format;
@@ -56,6 +57,36 @@ public class TestHiveStorageFormats
                 {storageFormat("TEXTFILE")},
                 {storageFormat("AVRO")}
         };
+    }
+
+    @Test(dataProvider = "storage_formats", groups = {STORAGE_FORMATS_READ})
+    // TODO remove the test once testInsertIntoTable passes
+    public void testSelect(StorageFormat storageFormat)
+    {
+        String hiveStorageDefinition;
+        switch (storageFormat.getName()) {
+            case "RCTEXT":
+                hiveStorageDefinition = "ROW FORMAT SERDE 'org.apache.hadoop.hive.serde2.columnar.ColumnarSerDe' STORED AS RCFILE";
+                break;
+            case "RCBINARY":
+                hiveStorageDefinition = "ROW FORMAT SERDE 'org.apache.hadoop.hive.serde2.columnar.LazyBinaryColumnarSerDe' STORED AS RCFILE";
+                break;
+            default:
+                hiveStorageDefinition = "STORED AS " + storageFormat.getName();
+        }
+
+        setSessionProperties(storageFormat);
+
+        String tableName = "storage_formats_test_select_" + storageFormat.getName().toLowerCase(Locale.ENGLISH);
+
+        onHive().executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
+        onHive().executeQuery(format("CREATE TABLE %s(s string) %s", tableName, hiveStorageDefinition));
+        onHive().executeQuery(format("INSERT INTO %s VALUES ('aaaaaaaaaa')", tableName));
+
+        assertThat(query(format("select * from %s", tableName)))
+                .containsExactly(row("aaaaaaaaaa"));
+
+        onHive().executeQuery(format("DROP TABLE %s", tableName));
     }
 
     @Test(dataProvider = "storage_formats", groups = {STORAGE_FORMATS})

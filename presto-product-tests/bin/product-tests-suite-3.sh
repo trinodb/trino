@@ -30,3 +30,7 @@ presto-product-tests/bin/run_on_docker.sh \
 presto-product-tests/bin/run_on_docker.sh \
     singlenode-kafka \
     -g kafka
+
+presto-product-tests/bin/run_on_docker.sh \
+    singlenode-kerberos-kms-hdfs-no-impersonation \
+    -g storage_formats_read # TODO add more tests, when write is supported too
