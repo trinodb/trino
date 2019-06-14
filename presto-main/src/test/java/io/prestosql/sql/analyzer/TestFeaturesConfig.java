@@ -105,6 +105,7 @@ public class TestFeaturesConfig
                 .setMultimapAggGroupImplementation(MultimapAggGroupImplementation.NEW)
                 .setDistributedSortEnabled(true)
                 .setMaxGroupingSets(2048)
+                .setQueryDiagnosisWarningEnable(false)
                 .setWorkProcessorPipelines(false)
                 .setSkipRedundantSort(true)
                 .setEnableDynamicFiltering(false));
@@ -172,6 +173,7 @@ public class TestFeaturesConfig
                 .put("optimizer.optimize-top-n-row-number", "false")
                 .put("distributed-sort", "false")
                 .put("analyzer.max-grouping-sets", "2047")
+                .put("analyzer.query-diagnosis-warning-enabled", "true")
                 .put("experimental.work-processor-pipelines", "true")
                 .put("optimizer.skip-redundant-sort", "false")
                 .put("experimental.enable-dynamic-filtering", "true")
@@ -235,6 +237,7 @@ public class TestFeaturesConfig
                 .setMultimapAggGroupImplementation(MultimapAggGroupImplementation.LEGACY)
                 .setDistributedSortEnabled(false)
                 .setMaxGroupingSets(2047)
+                .setQueryDiagnosisWarningEnable(true)
                 .setDefaultFilterFactorEnabled(true)
                 .setWorkProcessorPipelines(true)
                 .setSkipRedundantSort(false)

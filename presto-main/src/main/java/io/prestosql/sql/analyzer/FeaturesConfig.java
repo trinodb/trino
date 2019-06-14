@@ -122,6 +122,7 @@ public class FeaturesConfig
     private boolean optimizeTopNRowNumber = true;
     private boolean workProcessorPipelines;
     private boolean skipRedundantSort = true;
+    private boolean enableQueryDiagnosisWarning;
 
     private Duration iterativeOptimizerTimeout = new Duration(3, MINUTES); // by default let optimizer wait a long time in case it retrieves some data from ConnectorMetadata
     private boolean enableDynamicFiltering;
@@ -892,6 +893,18 @@ public class FeaturesConfig
     public FeaturesConfig setMaxGroupingSets(int maxGroupingSets)
     {
         this.maxGroupingSets = maxGroupingSets;
+        return this;
+    }
+
+    public boolean getQueryDiagnosisWarningEnable()
+    {
+        return enableQueryDiagnosisWarning;
+    }
+
+    @Config("analyzer.query-diagnosis-warning-enabled")
+    public FeaturesConfig setQueryDiagnosisWarningEnable(boolean queryDiagnosisWarning)
+    {
+        this.enableQueryDiagnosisWarning = queryDiagnosisWarning;
         return this;
     }
 

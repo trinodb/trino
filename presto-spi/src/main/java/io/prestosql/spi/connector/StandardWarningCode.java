@@ -21,6 +21,8 @@ public enum StandardWarningCode
 {
     TOO_MANY_STAGES(0x0000_0001),
     REDUNDANT_ORDER_BY(0x0000_0002),
+    INTEGER_DIVISION(0x0000_0003),
+    DREPRCATED_FUNCTION(0x0000_0004),
 
     /**/;
     private final WarningCode warningCode;

@@ -16,11 +16,14 @@ package io.prestosql.sql.planner.sanity;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.Multimap;
 import io.prestosql.Session;
+import io.prestosql.SystemSessionProperties;
 import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.sql.planner.TypeAnalyzer;
 import io.prestosql.sql.planner.TypeProvider;
 import io.prestosql.sql.planner.plan.PlanNode;
+import io.prestosql.sql.planner.sanity.warnings.DeprecatedFunctionWarning;
+import io.prestosql.sql.planner.sanity.warnings.IntegerDivisionWarning;
 
 /**
  * It is going to be executed to verify logical planner correctness
@@ -55,7 +58,10 @@ public final class PlanSanityChecker
                         new ValidateAggregationsWithDefaultValues(forceSingleNode),
                         new ValidateStreamingAggregations(),
                         new DynamicFiltersChecker())
-                .build();
+                .putAll(
+                        Stage.DIAGNOSTIC,
+                        new DeprecatedFunctionWarning(),
+                        new IntegerDivisionWarning()).build();
     }
 
     public void validateFinalPlan(PlanNode planNode, Session session, Metadata metadata, TypeAnalyzer typeAnalyzer, TypeProvider types, WarningCollector warningCollector)
@@ -66,6 +72,9 @@ public final class PlanSanityChecker
     public void validateIntermediatePlan(PlanNode planNode, Session session, Metadata metadata, TypeAnalyzer typeAnalyzer, TypeProvider types, WarningCollector warningCollector)
     {
         checkers.get(Stage.INTERMEDIATE).forEach(checker -> checker.validate(planNode, session, metadata, typeAnalyzer, types, warningCollector));
+        if (SystemSessionProperties.isEnableQueryDiagnosisWarning(session)) {
+            checkers.get(Stage.DIAGNOSTIC).forEach(checker -> checker.validate(planNode, session, metadata, typeAnalyzer, types, warningCollector));
+        }
     }
 
     public interface Checker
@@ -75,6 +84,6 @@ public final class PlanSanityChecker
 
     private enum Stage
     {
-        INTERMEDIATE, FINAL
+        INTERMEDIATE, FINAL, DIAGNOSTIC
     }
 }
