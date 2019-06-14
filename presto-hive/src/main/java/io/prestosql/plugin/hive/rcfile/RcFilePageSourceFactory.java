@@ -122,7 +122,7 @@ public class RcFilePageSourceFactory
         FSDataInputStream inputStream;
         try {
             FileSystem fileSystem = hdfsEnvironment.getFileSystem(session.getUser(), path, configuration);
-            inputStream = fileSystem.open(path);
+            inputStream = hdfsEnvironment.doAs(session.getUser(), () -> fileSystem.open(path));
         }
         catch (Exception e) {
             if (nullToEmpty(e.getMessage()).trim().equals("Filesystem closed") ||
