@@ -14,10 +14,13 @@
 package io.prestosql.plugin.cassandra;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.collect.ImmutableList;
 import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.SchemaTableName;
 
+import java.util.List;
 import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
@@ -27,14 +30,27 @@ public class CassandraTableHandle
 {
     private final String schemaName;
     private final String tableName;
+    private final List<CassandraPartition> partitions;
+    private final String clusteringKeyPredicates;
 
     @JsonCreator
     public CassandraTableHandle(
             @JsonProperty("schemaName") String schemaName,
             @JsonProperty("tableName") String tableName)
     {
+        this(schemaName, tableName, ImmutableList.of(), "");
+    }
+
+    public CassandraTableHandle(
+            String schemaName,
+            String tableName,
+            List<CassandraPartition> partitions,
+            String clusteringKeyPredicates)
+    {
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
+        this.partitions = ImmutableList.copyOf(requireNonNull(partitions, "partitions is null"));
+        this.clusteringKeyPredicates = requireNonNull(clusteringKeyPredicates, "clusteringKeyPredicates is null");
     }
 
     @JsonProperty
@@ -47,6 +63,20 @@ public class CassandraTableHandle
     public String getTableName()
     {
         return tableName;
+    }
+
+    // do not serialize partitions as they are not needed on workers
+    @JsonIgnore
+    public List<CassandraPartition> getPartitions()
+    {
+        return partitions;
+    }
+
+    // do not serialize clustered predicate as they are not needed on workers
+    @JsonIgnore
+    public String getClusteringKeyPredicates()
+    {
+        return clusteringKeyPredicates;
     }
 
     public SchemaTableName getSchemaTableName()
