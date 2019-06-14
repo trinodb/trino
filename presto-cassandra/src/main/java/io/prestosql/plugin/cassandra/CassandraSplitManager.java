@@ -22,7 +22,7 @@ import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorSplit;
 import io.prestosql.spi.connector.ConnectorSplitManager;
 import io.prestosql.spi.connector.ConnectorSplitSource;
-import io.prestosql.spi.connector.ConnectorTableLayoutHandle;
+import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 import io.prestosql.spi.connector.FixedSplitSource;
 
@@ -58,11 +58,10 @@ public class CassandraSplitManager
     }
 
     @Override
-    public ConnectorSplitSource getSplits(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorTableLayoutHandle layout, SplitSchedulingStrategy splitSchedulingStrategy)
+    public ConnectorSplitSource getSplits(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorTableHandle tableHandle, SplitSchedulingStrategy splitSchedulingStrategy)
     {
-        CassandraTableLayoutHandle layoutHandle = (CassandraTableLayoutHandle) layout;
-        CassandraTableHandle cassandraTableHandle = layoutHandle.getTable();
-        List<CassandraPartition> partitions = layoutHandle.getPartitions();
+        CassandraTableHandle cassandraTableHandle = (CassandraTableHandle) tableHandle;
+        List<CassandraPartition> partitions = cassandraTableHandle.getPartitions();
 
         if (partitions.isEmpty()) {
             return new FixedSplitSource(ImmutableList.of());
@@ -78,7 +77,7 @@ public class CassandraSplitManager
             }
         }
 
-        return new FixedSplitSource(getSplitsForPartitions(cassandraTableHandle, partitions, layoutHandle.getClusteringPredicates()));
+        return new FixedSplitSource(getSplitsForPartitions(cassandraTableHandle, partitions, cassandraTableHandle.getClusteringKeyPredicates()));
     }
 
     private List<ConnectorSplit> getSplitsByTokenRange(CassandraTable table, String partitionId, Optional<Long> sessionSplitsPerNode)
