@@ -33,7 +33,7 @@ import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.predicate.ValueSet;
 import io.prestosql.spi.type.Type;
 import io.prestosql.testing.MaterializedRow;
-import io.prestosql.type.TypeRegistry;
+import io.prestosql.type.InternalTypeManager;
 import org.joda.time.DateTime;
 import org.skife.jdbi.v2.DBI;
 import org.skife.jdbi.v2.Handle;
@@ -50,6 +50,7 @@ import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
 import static io.prestosql.plugin.raptor.legacy.metadata.SchemaDaoUtil.createTablesWithRetry;
 import static io.prestosql.plugin.raptor.legacy.metadata.TestDatabaseShardManager.createShardManager;
@@ -77,7 +78,7 @@ public class TestShardMetadataRecordCursor
     public void setup()
     {
         this.dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime() + ThreadLocalRandom.current().nextLong());
-        this.dbi.registerMapper(new TableColumn.Mapper(new TypeRegistry()));
+        this.dbi.registerMapper(new TableColumn.Mapper(new InternalTypeManager(createTestMetadataManager())));
         this.dummyHandle = dbi.open();
         createTablesWithRetry(dbi);
         this.metadata = new RaptorMetadata(dbi, createShardManager(dbi));

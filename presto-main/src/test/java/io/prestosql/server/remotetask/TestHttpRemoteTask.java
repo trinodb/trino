@@ -19,7 +19,6 @@ import com.google.inject.Binder;
 import com.google.inject.Injector;
 import com.google.inject.Module;
 import com.google.inject.Provides;
-import com.google.inject.Scopes;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.http.client.testing.TestingHttpClient;
 import io.airlift.jaxrs.JsonMapper;
@@ -45,18 +44,16 @@ import io.prestosql.execution.buffer.OutputBuffers;
 import io.prestosql.metadata.HandleJsonModule;
 import io.prestosql.metadata.HandleResolver;
 import io.prestosql.metadata.InternalNode;
+import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Split;
 import io.prestosql.server.HttpRemoteTaskFactory;
 import io.prestosql.server.TaskUpdateRequest;
 import io.prestosql.spi.ErrorCode;
 import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeManager;
-import io.prestosql.sql.analyzer.FeaturesConfig;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 import io.prestosql.testing.TestingHandleResolver;
 import io.prestosql.testing.TestingSplit;
 import io.prestosql.type.TypeDeserializer;
-import io.prestosql.type.TypeRegistry;
 import org.testng.annotations.Test;
 
 import javax.ws.rs.Consumes;
@@ -83,8 +80,6 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BooleanSupplier;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static com.google.inject.multibindings.Multibinder.newSetBinder;
-import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.json.JsonBinder.jsonBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static io.prestosql.SessionTestUtils.TEST_SESSION;
@@ -92,6 +87,7 @@ import static io.prestosql.client.PrestoHeaders.PRESTO_CURRENT_STATE;
 import static io.prestosql.client.PrestoHeaders.PRESTO_MAX_WAIT;
 import static io.prestosql.execution.TaskTestUtils.TABLE_SCAN_NODE_ID;
 import static io.prestosql.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.spi.StandardErrorCode.REMOTE_TASK_ERROR;
 import static io.prestosql.spi.StandardErrorCode.REMOTE_TASK_MISMATCH;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
@@ -228,11 +224,8 @@ public class TestHttpRemoteTask
                     public void configure(Binder binder)
                     {
                         binder.bind(JsonMapper.class);
-                        configBinder(binder).bindConfig(FeaturesConfig.class);
-                        binder.bind(TypeRegistry.class).in(Scopes.SINGLETON);
-                        binder.bind(TypeManager.class).to(TypeRegistry.class).in(Scopes.SINGLETON);
+                        binder.bind(Metadata.class).toInstance(createTestMetadataManager());
                         jsonBinder(binder).addDeserializerBinding(Type.class).to(TypeDeserializer.class);
-                        newSetBinder(binder, Type.class);
                         jsonCodecBinder(binder).bindJsonCodec(TaskStatus.class);
                         jsonCodecBinder(binder).bindJsonCodec(TaskInfo.class);
                         jsonCodecBinder(binder).bindJsonCodec(TaskUpdateRequest.class);

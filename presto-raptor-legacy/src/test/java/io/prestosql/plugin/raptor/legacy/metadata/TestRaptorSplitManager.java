@@ -38,7 +38,7 @@ import io.prestosql.spi.connector.ConnectorTransactionHandle;
 import io.prestosql.spi.connector.Constraint;
 import io.prestosql.spi.type.BigintType;
 import io.prestosql.testing.TestingNodeManager;
-import io.prestosql.type.TypeRegistry;
+import io.prestosql.type.InternalTypeManager;
 import org.skife.jdbi.v2.DBI;
 import org.skife.jdbi.v2.Handle;
 import org.testng.annotations.AfterMethod;
@@ -61,6 +61,7 @@ import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.testing.Assertions.assertInstanceOf;
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.plugin.raptor.legacy.metadata.DatabaseShardManager.shardIndexTable;
 import static io.prestosql.plugin.raptor.legacy.metadata.SchemaDaoUtil.createTablesWithRetry;
 import static io.prestosql.plugin.raptor.legacy.metadata.TestDatabaseShardManager.shardInfo;
@@ -94,9 +95,8 @@ public class TestRaptorSplitManager
     public void setup()
             throws Exception
     {
-        TypeRegistry typeRegistry = new TypeRegistry();
         DBI dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime() + ThreadLocalRandom.current().nextLong());
-        dbi.registerMapper(new TableColumn.Mapper(typeRegistry));
+        dbi.registerMapper(new TableColumn.Mapper(new InternalTypeManager(createTestMetadataManager())));
         dummyHandle = dbi.open();
         createTablesWithRetry(dbi);
         temporary = createTempDir();

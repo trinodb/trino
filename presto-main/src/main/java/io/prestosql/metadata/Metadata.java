@@ -39,8 +39,8 @@ import io.prestosql.spi.security.RoleGrant;
 import io.prestosql.spi.statistics.ComputedStatistics;
 import io.prestosql.spi.statistics.TableStatistics;
 import io.prestosql.spi.statistics.TableStatisticsMetadata;
+import io.prestosql.spi.type.ParametricType;
 import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeManager;
 import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.spi.type.TypeSignatureParameter;
 import io.prestosql.sql.planner.PartitioningHandle;
@@ -395,7 +395,9 @@ public interface Metadata
         return getType(new TypeSignature(baseTypeName, typeParameters));
     }
 
-    TypeManager getTypeManager();
+    Collection<Type> getTypes();
+
+    Collection<ParametricType> getParametricTypes();
 
     void verifyComparableOrderableContract();
 

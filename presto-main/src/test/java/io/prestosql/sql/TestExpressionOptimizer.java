@@ -14,15 +14,12 @@
 package io.prestosql.sql;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.metadata.FunctionRegistry;
-import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
 import io.prestosql.spi.block.IntArrayBlock;
 import io.prestosql.spi.function.OperatorType;
 import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.StandardTypes;
-import io.prestosql.sql.analyzer.FeaturesConfig;
 import io.prestosql.sql.relational.CallExpression;
 import io.prestosql.sql.relational.ConstantExpression;
 import io.prestosql.sql.relational.RowExpression;
@@ -64,8 +61,7 @@ public class TestExpressionOptimizer
     @BeforeClass
     public void setUp()
     {
-        Metadata metadata = createTestMetadataManager();
-        optimizer = new ExpressionOptimizer(new FunctionRegistry(metadata, new FeaturesConfig()), metadata.getTypeManager(), TEST_SESSION);
+        optimizer = new ExpressionOptimizer(createTestMetadataManager(), TEST_SESSION);
     }
 
     @AfterClass(alwaysRun = true)

@@ -36,7 +36,6 @@ import io.prestosql.spi.security.SystemAccessControlFactory;
 import io.prestosql.spi.session.SessionPropertyConfigurationManagerFactory;
 import io.prestosql.spi.type.ParametricType;
 import io.prestosql.spi.type.Type;
-import io.prestosql.type.TypeRegistry;
 import org.sonatype.aether.artifact.Artifact;
 
 import javax.annotation.concurrent.ThreadSafe;
@@ -80,7 +79,6 @@ public class PluginManager
     private final PasswordAuthenticatorManager passwordAuthenticatorManager;
     private final EventListenerManager eventListenerManager;
     private final SessionPropertyDefaults sessionPropertyDefaults;
-    private final TypeRegistry typeRegistry;
     private final ArtifactResolver resolver;
     private final File installedPluginsDir;
     private final List<String> plugins;
@@ -97,8 +95,7 @@ public class PluginManager
             AccessControlManager accessControlManager,
             PasswordAuthenticatorManager passwordAuthenticatorManager,
             EventListenerManager eventListenerManager,
-            SessionPropertyDefaults sessionPropertyDefaults,
-            TypeRegistry typeRegistry)
+            SessionPropertyDefaults sessionPropertyDefaults)
     {
         requireNonNull(nodeInfo, "nodeInfo is null");
         requireNonNull(config, "config is null");
@@ -119,7 +116,6 @@ public class PluginManager
         this.passwordAuthenticatorManager = requireNonNull(passwordAuthenticatorManager, "passwordAuthenticatorManager is null");
         this.eventListenerManager = requireNonNull(eventListenerManager, "eventListenerManager is null");
         this.sessionPropertyDefaults = requireNonNull(sessionPropertyDefaults, "sessionPropertyDefaults is null");
-        this.typeRegistry = requireNonNull(typeRegistry, "typeRegistry is null");
     }
 
     public void loadPlugins()
@@ -175,12 +171,12 @@ public class PluginManager
 
         for (Type type : plugin.getTypes()) {
             log.info("Registering type %s", type.getTypeSignature());
-            typeRegistry.addType(type);
+            metadataManager.addType(type);
         }
 
         for (ParametricType parametricType : plugin.getParametricTypes()) {
             log.info("Registering parametric type %s", parametricType.getName());
-            typeRegistry.addParametricType(parametricType);
+            metadataManager.addParametricType(parametricType);
         }
 
         for (ConnectorFactory connectorFactory : plugin.getConnectorFactories()) {

@@ -47,13 +47,13 @@ import io.prestosql.spi.connector.ConnectorSplitManager;
 import io.prestosql.spi.connector.SystemTable;
 import io.prestosql.spi.procedure.Procedure;
 import io.prestosql.spi.session.PropertyMetadata;
-import io.prestosql.spi.type.TypeManager;
 import io.prestosql.split.PageSinkManager;
 import io.prestosql.split.PageSourceManager;
 import io.prestosql.split.RecordPageSourceProvider;
 import io.prestosql.split.SplitManager;
 import io.prestosql.sql.planner.NodePartitioningManager;
 import io.prestosql.transaction.TransactionManager;
+import io.prestosql.type.InternalTypeManager;
 import io.prestosql.version.EmbedVersion;
 
 import javax.annotation.PreDestroy;
@@ -93,7 +93,6 @@ public class ConnectorManager
     private final PageSinkManager pageSinkManager;
     private final HandleResolver handleResolver;
     private final InternalNodeManager nodeManager;
-    private final TypeManager typeManager;
     private final PageSorter pageSorter;
     private final PageIndexerFactory pageIndexerFactory;
     private final NodeInfo nodeInfo;
@@ -122,7 +121,6 @@ public class ConnectorManager
             InternalNodeManager nodeManager,
             NodeInfo nodeInfo,
             EmbedVersion embedVersion,
-            TypeManager typeManager,
             PageSorter pageSorter,
             PageIndexerFactory pageIndexerFactory,
             TransactionManager transactionManager)
@@ -137,7 +135,6 @@ public class ConnectorManager
         this.pageSinkManager = pageSinkManager;
         this.handleResolver = handleResolver;
         this.nodeManager = nodeManager;
-        this.typeManager = typeManager;
         this.pageSorter = pageSorter;
         this.pageIndexerFactory = pageIndexerFactory;
         this.nodeInfo = nodeInfo;
@@ -323,7 +320,7 @@ public class ConnectorManager
         ConnectorContext context = new ConnectorContextInstance(
                 new ConnectorAwareNodeManager(nodeManager, nodeInfo.getEnvironment(), catalogName),
                 versionEmbedder,
-                typeManager,
+                new InternalTypeManager(metadataManager),
                 pageSorter,
                 pageIndexerFactory);
 

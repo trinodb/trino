@@ -16,14 +16,9 @@ package io.prestosql.execution;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.execution.warnings.WarningCollector;
-import io.prestosql.metadata.AnalyzePropertyManager;
 import io.prestosql.metadata.Catalog;
 import io.prestosql.metadata.CatalogManager;
-import io.prestosql.metadata.ColumnPropertyManager;
-import io.prestosql.metadata.MetadataManager;
-import io.prestosql.metadata.SchemaPropertyManager;
-import io.prestosql.metadata.SessionPropertyManager;
-import io.prestosql.metadata.TablePropertyManager;
+import io.prestosql.metadata.Metadata;
 import io.prestosql.security.AccessControl;
 import io.prestosql.security.AllowAllAccessControl;
 import io.prestosql.spi.PrestoException;
@@ -38,7 +33,6 @@ import io.prestosql.sql.tree.QualifiedName;
 import io.prestosql.sql.tree.SetSession;
 import io.prestosql.sql.tree.StringLiteral;
 import io.prestosql.transaction.TransactionManager;
-import io.prestosql.type.TypeRegistry;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
@@ -52,6 +46,7 @@ import java.util.concurrent.ExecutorService;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.prestosql.SessionTestUtils.TEST_SESSION;
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
 import static io.prestosql.spi.session.PropertyMetadata.stringProperty;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
@@ -69,7 +64,7 @@ public class TestSetSessionTask
     private static final String MUST_BE_POSITIVE = "property must be positive";
     private final TransactionManager transactionManager;
     private final AccessControl accessControl;
-    private final MetadataManager metadata;
+    private final Metadata metadata;
 
     public TestSetSessionTask()
     {
@@ -77,15 +72,7 @@ public class TestSetSessionTask
         transactionManager = createTestTransactionManager(catalogManager);
         accessControl = new AllowAllAccessControl();
 
-        metadata = new MetadataManager(
-                new FeaturesConfig(),
-                new TypeRegistry(),
-                new SessionPropertyManager(),
-                new SchemaPropertyManager(),
-                new TablePropertyManager(),
-                new ColumnPropertyManager(),
-                new AnalyzePropertyManager(),
-                transactionManager);
+        metadata = createTestMetadataManager(transactionManager, new FeaturesConfig());
 
         metadata.getSessionPropertyManager().addSystemSessionProperty(stringProperty(
                 CATALOG_NAME,

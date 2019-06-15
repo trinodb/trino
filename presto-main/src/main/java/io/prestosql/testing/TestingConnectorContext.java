@@ -28,6 +28,7 @@ import io.prestosql.spi.VersionEmbedder;
 import io.prestosql.spi.connector.ConnectorContext;
 import io.prestosql.spi.type.TypeManager;
 import io.prestosql.sql.gen.JoinCompiler;
+import io.prestosql.type.InternalTypeManager;
 import io.prestosql.version.EmbedVersion;
 
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
@@ -37,10 +38,16 @@ public class TestingConnectorContext
 {
     private final NodeManager nodeManager = new ConnectorAwareNodeManager(new InMemoryNodeManager(), "testenv", new CatalogName("test"));
     private final VersionEmbedder versionEmbedder = new EmbedVersion(new ServerConfig());
-    private final Metadata metadata = createTestMetadataManager();
-    private final TypeManager typeManager = metadata.getTypeManager();
+    private final TypeManager typeManager;
     private final PageSorter pageSorter = new PagesIndexPageSorter(new PagesIndex.TestingFactory(false));
-    private final PageIndexerFactory pageIndexerFactory = new GroupByHashPageIndexerFactory(new JoinCompiler(metadata));
+    private final PageIndexerFactory pageIndexerFactory;
+
+    public TestingConnectorContext()
+    {
+        Metadata metadata = createTestMetadataManager();
+        pageIndexerFactory = new GroupByHashPageIndexerFactory(new JoinCompiler(metadata));
+        typeManager = new InternalTypeManager(metadata);
+    }
 
     @Override
     public NodeManager getNodeManager()

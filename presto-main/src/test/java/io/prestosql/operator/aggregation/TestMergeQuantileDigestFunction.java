@@ -21,7 +21,8 @@ import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.type.DoubleType;
 import io.prestosql.spi.type.SqlVarbinary;
 import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeParameter;
+import io.prestosql.spi.type.TypeSignature;
+import io.prestosql.spi.type.TypeSignatureParameter;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -54,7 +55,7 @@ public class TestMergeQuantileDigestFunction
     @Override
     protected Block[] getSequenceBlocks(int start, int length)
     {
-        Type type = QDIGEST.createType(metadata.getTypeManager(), ImmutableList.of(TypeParameter.of(DoubleType.DOUBLE)));
+        Type type = metadata.getType(new TypeSignature(QDIGEST.getName(), TypeSignatureParameter.of(DoubleType.DOUBLE.getTypeSignature())));
         BlockBuilder blockBuilder = type.createBlockBuilder(null, length);
         for (int i = start; i < start + length; i++) {
             QuantileDigest qdigest = new QuantileDigest(0.0);

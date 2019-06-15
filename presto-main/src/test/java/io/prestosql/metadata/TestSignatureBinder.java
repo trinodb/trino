@@ -1107,8 +1107,7 @@ public class TestSignatureBinder
 
     private Type type(String signature)
     {
-        TypeSignature typeSignature = TypeSignature.parseTypeSignature(signature);
-        return requireNonNull(metadata.getTypeManager().getType(typeSignature));
+        return requireNonNull(metadata.getType(parseTypeSignature(signature)));
     }
 
     private List<Type> types(String... signatures)

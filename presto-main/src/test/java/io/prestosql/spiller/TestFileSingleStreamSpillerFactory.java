@@ -77,7 +77,6 @@ public class TestFileSingleStreamSpillerFactory
             throws Exception
     {
         List<Type> types = ImmutableList.of(BIGINT);
-        BlockEncodingSerde blockEncodingSerde = createTestMetadataManager().getBlockEncodingSerde();
         List<Path> spillPaths = ImmutableList.of(spillPath1.toPath(), spillPath2.toPath());
         FileSingleStreamSpillerFactory spillerFactory = new FileSingleStreamSpillerFactory(
                 executor, // executor won't be closed, because we don't call destroy() on the spiller factory
@@ -117,7 +116,6 @@ public class TestFileSingleStreamSpillerFactory
     public void throwsIfNoDiskSpace()
     {
         List<Type> types = ImmutableList.of(BIGINT);
-        BlockEncodingSerde blockEncodingSerde = createTestMetadataManager().getBlockEncodingSerde();
         List<Path> spillPaths = ImmutableList.of(spillPath1.toPath(), spillPath2.toPath());
         FileSingleStreamSpillerFactory spillerFactory = new FileSingleStreamSpillerFactory(
                 executor, // executor won't be closed, because we don't call destroy() on the spiller factory
@@ -138,7 +136,7 @@ public class TestFileSingleStreamSpillerFactory
         List<Type> types = ImmutableList.of(BIGINT);
         FileSingleStreamSpillerFactory spillerFactory = new FileSingleStreamSpillerFactory(
                 executor, // executor won't be closed, because we don't call destroy() on the spiller factory
-                createTestMetadataManager().getBlockEncodingSerde(),
+                blockEncodingSerde,
                 new SpillerStats(),
                 spillPaths,
                 1.0,

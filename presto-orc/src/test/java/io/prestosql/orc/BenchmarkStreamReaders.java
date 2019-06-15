@@ -21,7 +21,6 @@ import io.prestosql.spi.type.SqlDecimal;
 import io.prestosql.spi.type.SqlTimestamp;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignature;
-import io.prestosql.type.TypeRegistry;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -56,6 +55,7 @@ import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.orc.OrcReader.INITIAL_BATCH_SIZE;
 import static io.prestosql.orc.OrcTester.writeOrcColumnPresto;
 import static io.prestosql.orc.metadata.CompressionKind.NONE;
@@ -518,7 +518,7 @@ public class BenchmarkStreamReaders
         public void setup()
                 throws Exception
         {
-            Type type = new TypeRegistry().getType(TypeSignature.parseTypeSignature(typeSignature));
+            Type type = createTestMetadataManager().getType(TypeSignature.parseTypeSignature(typeSignature));
             setup(type);
         }
 

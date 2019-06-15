@@ -16,13 +16,8 @@ package io.prestosql.execution;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.execution.warnings.WarningCollector;
-import io.prestosql.metadata.AnalyzePropertyManager;
 import io.prestosql.metadata.CatalogManager;
-import io.prestosql.metadata.ColumnPropertyManager;
-import io.prestosql.metadata.MetadataManager;
-import io.prestosql.metadata.SchemaPropertyManager;
-import io.prestosql.metadata.SessionPropertyManager;
-import io.prestosql.metadata.TablePropertyManager;
+import io.prestosql.metadata.Metadata;
 import io.prestosql.security.AccessControl;
 import io.prestosql.security.AllowAllAccessControl;
 import io.prestosql.spi.resourcegroups.ResourceGroupId;
@@ -31,7 +26,6 @@ import io.prestosql.sql.analyzer.FeaturesConfig;
 import io.prestosql.sql.parser.SqlParser;
 import io.prestosql.sql.tree.SetRole;
 import io.prestosql.transaction.TransactionManager;
-import io.prestosql.type.TypeRegistry;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -42,6 +36,7 @@ import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.testing.TestingSession.createBogusTestingCatalog;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static io.prestosql.transaction.InMemoryTransactionManager.createTestTransactionManager;
@@ -54,7 +49,7 @@ public class TestSetRoleTask
 
     private TransactionManager transactionManager;
     private AccessControl accessControl;
-    private MetadataManager metadata;
+    private Metadata metadata;
     private ExecutorService executor;
     private SqlParser parser;
 
@@ -66,15 +61,7 @@ public class TestSetRoleTask
         transactionManager = createTestTransactionManager(catalogManager);
         accessControl = new AllowAllAccessControl();
 
-        metadata = new MetadataManager(
-                new FeaturesConfig(),
-                new TypeRegistry(),
-                new SessionPropertyManager(),
-                new SchemaPropertyManager(),
-                new TablePropertyManager(),
-                new ColumnPropertyManager(),
-                new AnalyzePropertyManager(),
-                transactionManager);
+        metadata = createTestMetadataManager(transactionManager, new FeaturesConfig());
 
         catalogManager.registerCatalog(createBogusTestingCatalog(CATALOG_NAME));
         executor = newCachedThreadPool(daemonThreadsNamed("test-set-role-task-executor-%s"));

@@ -36,6 +36,7 @@ import io.prestosql.sql.tree.ExpressionTreeRewriter;
 import io.prestosql.sql.tree.IsNotNullPredicate;
 import io.prestosql.sql.tree.IsNullPredicate;
 import io.prestosql.sql.tree.NullLiteral;
+import io.prestosql.type.TypeCoercion;
 
 import java.util.Optional;
 
@@ -371,7 +372,7 @@ public class UnwrapCastInComparison
             }
 
             // Well-behaved implicit casts are injective
-            return metadata.getTypeManager().canCoerce(source, target);
+            return new TypeCoercion(metadata::getType).canCoerce(source, target);
         }
 
         private Object coerce(Object value, Signature coercion)

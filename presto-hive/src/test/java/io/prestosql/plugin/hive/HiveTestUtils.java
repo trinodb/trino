@@ -42,6 +42,7 @@ import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeManager;
 import io.prestosql.spi.type.TypeSignatureParameter;
 import io.prestosql.testing.TestingConnectorSession;
+import io.prestosql.type.InternalTypeManager;
 
 import java.lang.invoke.MethodHandle;
 import java.math.BigDecimal;
@@ -64,7 +65,7 @@ public final class HiveTestUtils
 
     private static final Metadata METADATA = createTestMetadataManager();
     private static final FunctionRegistry FUNCTION_REGISTRY = METADATA.getFunctionRegistry();
-    public static final TypeManager TYPE_MANAGER = METADATA.getTypeManager();
+    public static final TypeManager TYPE_MANAGER = new InternalTypeManager(METADATA);
 
     public static final HdfsEnvironment HDFS_ENVIRONMENT = createTestHdfsEnvironment(new HiveConfig());
 

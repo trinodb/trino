@@ -38,8 +38,8 @@ import io.prestosql.spi.security.RoleGrant;
 import io.prestosql.spi.statistics.ComputedStatistics;
 import io.prestosql.spi.statistics.TableStatistics;
 import io.prestosql.spi.statistics.TableStatisticsMetadata;
+import io.prestosql.spi.type.ParametricType;
 import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeManager;
 import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.sql.planner.PartitioningHandle;
 import io.prestosql.sql.tree.QualifiedName;
@@ -488,13 +488,19 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public TypeManager getTypeManager()
+    public void verifyComparableOrderableContract()
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public void verifyComparableOrderableContract()
+    public Collection<Type> getTypes()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Collection<ParametricType> getParametricTypes()
     {
         throw new UnsupportedOperationException();
     }

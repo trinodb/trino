@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import io.prestosql.metadata.FunctionRegistry;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeManager;
 import io.prestosql.spi.type.TypeNotFoundException;
 import org.testng.annotations.Test;
 
@@ -37,13 +36,11 @@ public class TestTypeRegistry
 {
     private final Metadata metadata = createTestMetadataManager();
     private final FunctionRegistry functionRegistry = metadata.getFunctionRegistry();
-    private final TypeManager typeManager = metadata.getTypeManager();
 
     @Test
     public void testNonexistentType()
     {
-        TypeManager typeManager = new TypeRegistry();
-        assertThatThrownBy(() -> typeManager.getType(parseTypeSignature("not a real type")))
+        assertThatThrownBy(() -> metadata.getType(parseTypeSignature("not a real type")))
                 .isInstanceOf(TypeNotFoundException.class)
                 .hasMessage("Unknown type: not a real type");
     }
@@ -51,7 +48,7 @@ public class TestTypeRegistry
     @Test
     public void testOperatorsImplemented()
     {
-        for (Type type : typeManager.getTypes()) {
+        for (Type type : metadata.getTypes()) {
             if (type.isComparable()) {
                 functionRegistry.resolveOperator(EQUAL, ImmutableList.of(type, type));
                 functionRegistry.resolveOperator(NOT_EQUAL, ImmutableList.of(type, type));

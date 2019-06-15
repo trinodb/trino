@@ -47,7 +47,7 @@ public class TestBingTileFunctions
     {
         GeoPlugin plugin = new GeoPlugin();
         for (Type type : plugin.getTypes()) {
-            functionAssertions.getTypeRegistry().addType(type);
+            functionAssertions.addType(type);
         }
         functionAssertions.getMetadata().addFunctions(extractFunctions(plugin.getFunctions()));
         functionAssertions.getMetadata().addFunctions(ImmutableList.of(APPLY_FUNCTION));

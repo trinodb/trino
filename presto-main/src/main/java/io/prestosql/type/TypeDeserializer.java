@@ -15,8 +15,8 @@ package io.prestosql.type;
 
 import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.deser.std.FromStringDeserializer;
+import io.prestosql.metadata.Metadata;
 import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeManager;
 
 import javax.inject.Inject;
 
@@ -26,18 +26,18 @@ import static java.util.Objects.requireNonNull;
 public final class TypeDeserializer
         extends FromStringDeserializer<Type>
 {
-    private final TypeManager typeManager;
+    private final Metadata metadata;
 
     @Inject
-    public TypeDeserializer(TypeManager typeManager)
+    public TypeDeserializer(Metadata metadata)
     {
         super(Type.class);
-        this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.metadata = requireNonNull(metadata, "metadata is null");
     }
 
     @Override
     protected Type _deserialize(String value, DeserializationContext context)
     {
-        return typeManager.getType(parseTypeSignature(value));
+        return metadata.getType(parseTypeSignature(value));
     }
 }

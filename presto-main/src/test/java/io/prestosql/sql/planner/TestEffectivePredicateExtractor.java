@@ -38,7 +38,6 @@ import io.prestosql.spi.connector.ConnectorTableProperties;
 import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeManager;
 import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.sql.parser.SqlParser;
 import io.prestosql.sql.planner.plan.AggregationNode;
@@ -136,12 +135,6 @@ public class TestEffectivePredicateExtractor
         public FunctionRegistry getFunctionRegistry()
         {
             return delegate.getFunctionRegistry();
-        }
-
-        @Override
-        public TypeManager getTypeManager()
-        {
-            return delegate.getTypeManager();
         }
 
         @Override

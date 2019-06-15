@@ -24,7 +24,6 @@ import io.prestosql.execution.StateMachine.StateChangeListener;
 import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.memory.VersionedMemoryPoolId;
 import io.prestosql.metadata.Metadata;
-import io.prestosql.metadata.MetadataManager;
 import io.prestosql.security.AccessControl;
 import io.prestosql.server.BasicQueryInfo;
 import io.prestosql.spi.QueryId;
@@ -287,7 +286,7 @@ public class DataDefinitionExecution<T extends Statement>
         @Inject
         public DataDefinitionExecutionFactory(
                 TransactionManager transactionManager,
-                MetadataManager metadata,
+                Metadata metadata,
                 AccessControl accessControl,
                 Map<Class<? extends Statement>, DataDefinitionTask<?>> tasks)
         {

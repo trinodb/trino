@@ -76,15 +76,15 @@ import io.prestosql.spi.security.RoleGrant;
 import io.prestosql.spi.statistics.ComputedStatistics;
 import io.prestosql.spi.statistics.TableStatistics;
 import io.prestosql.spi.statistics.TableStatisticsMetadata;
+import io.prestosql.spi.type.ParametricType;
 import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeManager;
 import io.prestosql.spi.type.TypeNotFoundException;
 import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.sql.analyzer.FeaturesConfig;
 import io.prestosql.sql.planner.PartitioningHandle;
 import io.prestosql.sql.tree.QualifiedName;
 import io.prestosql.transaction.TransactionManager;
-import io.prestosql.type.TypeRegistry;
+import io.prestosql.type.InternalTypeManager;
 
 import javax.inject.Inject;
 
@@ -133,20 +133,19 @@ public final class MetadataManager
 {
     private final FunctionRegistry functions;
     private final ProcedureRegistry procedures;
-    private final TypeManager typeManager;
     private final SessionPropertyManager sessionPropertyManager;
     private final SchemaPropertyManager schemaPropertyManager;
     private final TablePropertyManager tablePropertyManager;
     private final ColumnPropertyManager columnPropertyManager;
     private final AnalyzePropertyManager analyzePropertyManager;
     private final TransactionManager transactionManager;
+    private final TypeRegistry typeRegistry = new TypeRegistry(ImmutableSet.of());
 
     private final ConcurrentMap<String, BlockEncoding> blockEncodings = new ConcurrentHashMap<>();
     private final ConcurrentMap<String, Collection<ConnectorMetadata>> catalogsByQueryId = new ConcurrentHashMap<>();
 
     @Inject
     public MetadataManager(FeaturesConfig featuresConfig,
-            TypeManager typeManager,
             SessionPropertyManager sessionPropertyManager,
             SchemaPropertyManager schemaPropertyManager,
             TablePropertyManager tablePropertyManager,
@@ -155,12 +154,8 @@ public final class MetadataManager
             TransactionManager transactionManager)
     {
         functions = new FunctionRegistry(this, featuresConfig);
-        if (typeManager instanceof TypeRegistry) {
-            ((TypeRegistry) typeManager).setFunctionRegistry(functions);
-        }
 
-        procedures = new ProcedureRegistry(typeManager);
-        this.typeManager = requireNonNull(typeManager, "types is null");
+        this.procedures = new ProcedureRegistry(this);
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
         this.schemaPropertyManager = requireNonNull(schemaPropertyManager, "schemaPropertyManager is null");
         this.tablePropertyManager = requireNonNull(tablePropertyManager, "tablePropertyManager is null");
@@ -177,8 +172,8 @@ public final class MetadataManager
         addBlockEncoding(new Int128ArrayBlockEncoding());
         addBlockEncoding(new DictionaryBlockEncoding());
         addBlockEncoding(new ArrayBlockEncoding());
-        addBlockEncoding(new MapBlockEncoding(typeManager));
-        addBlockEncoding(new SingleMapBlockEncoding(typeManager));
+        addBlockEncoding(new MapBlockEncoding(new InternalTypeManager(this)));
+        addBlockEncoding(new SingleMapBlockEncoding(new InternalTypeManager(this)));
         addBlockEncoding(new RowBlockEncoding());
         addBlockEncoding(new SingleRowBlockEncoding());
         addBlockEncoding(new RunLengthBlockEncoding());
@@ -211,7 +206,6 @@ public final class MetadataManager
     {
         return new MetadataManager(
                 featuresConfig,
-                new TypeRegistry(),
                 new SessionPropertyManager(),
                 new SchemaPropertyManager(),
                 new TablePropertyManager(),
@@ -1166,21 +1160,36 @@ public final class MetadataManager
     @Override
     public Type getType(TypeSignature signature)
     {
-        return typeManager.getType(signature);
+        return typeRegistry.getType(new InternalTypeManager(this), signature);
     }
 
     @Override
-    public TypeManager getTypeManager()
+    public Collection<Type> getTypes()
     {
-        // TODO: make this transactional when we allow user defined types
-        return typeManager;
+        return typeRegistry.getTypes();
+    }
+
+    @Override
+    public Collection<ParametricType> getParametricTypes()
+    {
+        return typeRegistry.getParametricTypes();
+    }
+
+    public void addType(Type type)
+    {
+        typeRegistry.addType(type);
+    }
+
+    public void addParametricType(ParametricType parametricType)
+    {
+        typeRegistry.addParametricType(parametricType);
     }
 
     @Override
     public void verifyComparableOrderableContract()
     {
         Multimap<Type, OperatorType> missingOperators = HashMultimap.create();
-        for (Type type : typeManager.getTypes()) {
+        for (Type type : typeRegistry.getTypes()) {
             if (type.isComparable()) {
                 if (!functions.canResolveOperator(HASH_CODE, BIGINT, ImmutableList.of(type))) {
                     missingOperators.put(type, HASH_CODE);

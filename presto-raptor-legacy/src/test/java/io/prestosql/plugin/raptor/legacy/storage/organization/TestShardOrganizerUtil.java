@@ -29,7 +29,7 @@ import io.prestosql.plugin.raptor.legacy.metadata.TableColumn;
 import io.prestosql.spi.connector.ConnectorMetadata;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.type.Type;
-import io.prestosql.type.TypeRegistry;
+import io.prestosql.type.InternalTypeManager;
 import org.skife.jdbi.v2.DBI;
 import org.skife.jdbi.v2.Handle;
 import org.testng.annotations.AfterMethod;
@@ -47,6 +47,7 @@ import java.util.concurrent.ThreadLocalRandom;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
 import static io.prestosql.plugin.raptor.legacy.metadata.SchemaDaoUtil.createTablesWithRetry;
 import static io.prestosql.plugin.raptor.legacy.metadata.TestDatabaseShardManager.createShardManager;
@@ -79,7 +80,7 @@ public class TestShardOrganizerUtil
     public void setup()
     {
         dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime() + ThreadLocalRandom.current().nextLong());
-        dbi.registerMapper(new TableColumn.Mapper(new TypeRegistry()));
+        dbi.registerMapper(new TableColumn.Mapper(new InternalTypeManager(createTestMetadataManager())));
         dummyHandle = dbi.open();
         createTablesWithRetry(dbi);
         dataDir = Files.createTempDir();

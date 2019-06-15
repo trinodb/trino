@@ -30,7 +30,7 @@ import io.prestosql.plugin.raptor.legacy.storage.BucketBalancer.BucketAssignment
 import io.prestosql.plugin.raptor.legacy.storage.BucketBalancer.ClusterState;
 import io.prestosql.spi.Node;
 import io.prestosql.testing.TestingNodeManager;
-import io.prestosql.type.TypeRegistry;
+import io.prestosql.type.InternalTypeManager;
 import org.skife.jdbi.v2.DBI;
 import org.skife.jdbi.v2.Handle;
 import org.testng.annotations.AfterMethod;
@@ -46,6 +46,7 @@ import java.util.stream.Collectors;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.testing.Assertions.assertGreaterThanOrEqual;
 import static io.airlift.testing.Assertions.assertLessThanOrEqual;
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.plugin.raptor.legacy.metadata.Distribution.serializeColumnTypes;
 import static io.prestosql.plugin.raptor.legacy.metadata.SchemaDaoUtil.createTablesWithRetry;
 import static io.prestosql.plugin.raptor.legacy.metadata.TestDatabaseShardManager.createShardManager;
@@ -68,9 +69,8 @@ public class TestBucketBalancer
     @BeforeMethod
     public void setup()
     {
-        TypeRegistry typeRegistry = new TypeRegistry();
         dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime() + ThreadLocalRandom.current().nextLong());
-        dbi.registerMapper(new Distribution.Mapper(typeRegistry));
+        dbi.registerMapper(new Distribution.Mapper(new InternalTypeManager(createTestMetadataManager())));
         dummyHandle = dbi.open();
         createTablesWithRetry(dbi);
 

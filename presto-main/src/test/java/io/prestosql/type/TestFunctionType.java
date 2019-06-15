@@ -14,10 +14,10 @@
 package io.prestosql.type;
 
 import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeManager;
 import io.prestosql.spi.type.TypeSignature;
 import org.testng.annotations.Test;
 
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static org.testng.Assert.assertEquals;
 
 public class TestFunctionType
@@ -25,9 +25,7 @@ public class TestFunctionType
     @Test
     public void testDisplayName()
     {
-        TypeManager typeManager = new TypeRegistry();
-
-        Type function = typeManager.getType(TypeSignature.parseTypeSignature("function<row(field double),bigint>"));
+        Type function = createTestMetadataManager().getType(TypeSignature.parseTypeSignature("function<row(field double),bigint>"));
         assertEquals(function.getDisplayName(), "function<row(field double),bigint>");
     }
 }

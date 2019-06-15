@@ -43,7 +43,7 @@ import io.prestosql.spi.type.SqlVarbinary;
 import io.prestosql.spi.type.Type;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.TestingNodeManager;
-import io.prestosql.type.TypeRegistry;
+import io.prestosql.type.InternalTypeManager;
 import org.joda.time.DateTime;
 import org.joda.time.Days;
 import org.joda.time.chrono.ISOChronology;
@@ -79,6 +79,7 @@ import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.prestosql.RowPagesBuilder.rowPagesBuilder;
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.plugin.raptor.legacy.metadata.SchemaDaoUtil.createTablesWithRetry;
 import static io.prestosql.plugin.raptor.legacy.metadata.TestDatabaseShardManager.createShardManager;
 import static io.prestosql.plugin.raptor.legacy.storage.OrcStorageManager.xxhash64;
@@ -610,7 +611,7 @@ public class TestOrcStorageManager
                 new BackupManager(backupStore, storageService, 1),
                 recoveryManager,
                 shardRecorder,
-                new TypeRegistry(),
+                new InternalTypeManager(createTestMetadataManager()),
                 CONNECTOR_ID,
                 DELETION_THREADS,
                 SHARD_RECOVERY_TIMEOUT,

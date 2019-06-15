@@ -21,7 +21,6 @@ import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.procedure.Procedure;
 import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeManager;
 
 import javax.annotation.concurrent.ThreadSafe;
 
@@ -48,11 +47,11 @@ public class ProcedureRegistry
 {
     private final Map<CatalogName, Map<SchemaTableName, Procedure>> connectorProcedures = new ConcurrentHashMap<>();
 
-    private final TypeManager typeManager;
+    private final Metadata metadata;
 
-    public ProcedureRegistry(TypeManager typeManager)
+    public ProcedureRegistry(Metadata metadata)
     {
-        this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.metadata = requireNonNull(metadata, "typeManager is null");
     }
 
     public void addProcedures(CatalogName catalogName, Collection<Procedure> procedures)
@@ -94,7 +93,7 @@ public class ProcedureRegistry
 
         for (int i = 0; i < procedure.getArguments().size(); i++) {
             Argument argument = procedure.getArguments().get(i);
-            Type type = typeManager.getType(argument.getType());
+            Type type = metadata.getType(argument.getType());
 
             Class<?> argumentType = Primitives.unwrap(parameters.get(i));
             Class<?> expectedType = getObjectType(type);

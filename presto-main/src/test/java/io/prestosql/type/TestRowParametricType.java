@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.spi.type.StandardTypes.BIGINT;
 import static io.prestosql.spi.type.StandardTypes.DOUBLE;
 import static io.prestosql.spi.type.StandardTypes.ROW;
@@ -36,7 +37,7 @@ public class TestRowParametricType
     @Test
     public void testTypeSignatureRoundTrip()
     {
-        TypeManager typeManager = new TypeRegistry();
+        TypeManager typeManager = new InternalTypeManager(createTestMetadataManager());
         TypeSignature typeSignature = new TypeSignature(
                 ROW,
                 TypeSignatureParameter.of(new NamedTypeSignature(Optional.of(new RowFieldName("col1", false)), new TypeSignature(BIGINT))),

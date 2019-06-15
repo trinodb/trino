@@ -22,6 +22,7 @@ import io.prestosql.spi.function.OperatorType;
 import io.prestosql.spi.function.ScalarFunction;
 import io.prestosql.spi.function.SqlType;
 import io.prestosql.spi.type.StandardTypes;
+import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.sql.tree.QualifiedName;
 import org.testng.annotations.Test;
@@ -46,7 +47,6 @@ import static io.prestosql.spi.type.HyperLogLogType.HYPER_LOG_LOG;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
-import static io.prestosql.type.TypeUtils.resolveTypes;
 import static java.lang.String.format;
 import static java.util.Collections.nCopies;
 import static java.util.stream.Collectors.toList;
@@ -69,7 +69,7 @@ public class TestFunctionRegistry
     @Test
     public void testExactMatchBeforeCoercion()
     {
-        MetadataManager metadata = createTestMetadataManager();
+        Metadata metadata = createTestMetadataManager();
         boolean foundOperator = false;
         for (SqlFunction function : listOperators(metadata.getFunctionRegistry())) {
             OperatorType operatorType = unmangleOperator(function.getSignature().getName());
@@ -82,7 +82,10 @@ public class TestFunctionRegistry
             if (function.getSignature().getArgumentTypes().stream().anyMatch(TypeSignature::isCalculated)) {
                 continue;
             }
-            Signature exactOperator = metadata.getFunctionRegistry().resolveOperator(operatorType, resolveTypes(function.getSignature().getArgumentTypes(), metadata.getTypeManager()));
+            List<Type> argumentTypes = function.getSignature().getArgumentTypes().stream()
+                    .map(metadata::getType)
+                    .collect(toImmutableList());
+            Signature exactOperator = metadata.getFunctionRegistry().resolveOperator(operatorType, argumentTypes);
             assertEquals(exactOperator, function.getSignature());
             foundOperator = true;
         }

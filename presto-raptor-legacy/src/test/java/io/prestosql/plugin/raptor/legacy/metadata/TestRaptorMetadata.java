@@ -38,9 +38,10 @@ import io.prestosql.spi.connector.ConnectorViewDefinition;
 import io.prestosql.spi.connector.ConnectorViewDefinition.ViewColumn;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.SchemaTablePrefix;
+import io.prestosql.spi.type.TypeManager;
 import io.prestosql.testing.TestingConnectorSession;
 import io.prestosql.testing.TestingNodeManager;
-import io.prestosql.type.TypeRegistry;
+import io.prestosql.type.InternalTypeManager;
 import org.skife.jdbi.v2.DBI;
 import org.skife.jdbi.v2.Handle;
 import org.skife.jdbi.v2.util.BooleanMapper;
@@ -61,6 +62,7 @@ import java.util.stream.Collectors;
 import static com.google.common.base.Ticker.systemTicker;
 import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static io.airlift.testing.Assertions.assertInstanceOf;
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
 import static io.prestosql.plugin.raptor.legacy.RaptorTableProperties.BUCKETED_ON_PROPERTY;
 import static io.prestosql.plugin.raptor.legacy.RaptorTableProperties.BUCKET_COUNT_PROPERTY;
@@ -98,10 +100,10 @@ public class TestRaptorMetadata
     @BeforeMethod
     public void setupDatabase()
     {
-        TypeRegistry typeRegistry = new TypeRegistry();
+        TypeManager typeManager = new InternalTypeManager(createTestMetadataManager());
         dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime() + ThreadLocalRandom.current().nextLong());
-        dbi.registerMapper(new TableColumn.Mapper(typeRegistry));
-        dbi.registerMapper(new Distribution.Mapper(typeRegistry));
+        dbi.registerMapper(new TableColumn.Mapper(typeManager));
+        dbi.registerMapper(new Distribution.Mapper(typeManager));
         dummyHandle = dbi.open();
         createTablesWithRetry(dbi);
 

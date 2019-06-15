@@ -14,7 +14,7 @@
 package io.prestosql.operator.aggregation.minmaxby;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.metadata.MetadataManager;
+import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
 import io.prestosql.operator.aggregation.InternalAggregationFunction;
 import io.prestosql.operator.aggregation.state.StateCompiler;
@@ -39,6 +39,7 @@ import static io.prestosql.block.BlockAssertions.createLongsBlock;
 import static io.prestosql.block.BlockAssertions.createShortDecimalsBlock;
 import static io.prestosql.block.BlockAssertions.createStringsBlock;
 import static io.prestosql.metadata.FunctionKind.AGGREGATE;
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.operator.aggregation.AggregationTestUtils.assertAggregation;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
@@ -49,7 +50,7 @@ import static org.testng.Assert.assertNotNull;
 
 public class TestMinMaxByAggregation
 {
-    private static final MetadataManager METADATA = MetadataManager.createTestMetadataManager();
+    private static final Metadata METADATA = createTestMetadataManager();
 
     @Test
     public void testAllRegistered()
@@ -70,9 +71,8 @@ public class TestMinMaxByAggregation
 
     private static List<Type> getTypes()
     {
-        List<Type> simpleTypes = METADATA.getTypeManager().getTypes();
         return new ImmutableList.Builder<Type>()
-                .addAll(simpleTypes)
+                .addAll(METADATA.getTypes())
                 .add(VARCHAR)
                 .add(DecimalType.createDecimalType(1))
                 .add(RowType.anonymous(ImmutableList.of(BIGINT, VARCHAR, DOUBLE)))

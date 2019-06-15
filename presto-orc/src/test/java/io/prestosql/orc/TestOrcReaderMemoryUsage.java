@@ -14,13 +14,13 @@
 package io.prestosql.orc;
 
 import com.google.common.base.Strings;
-import com.google.common.collect.ImmutableList;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.orc.metadata.CompressionKind;
 import io.prestosql.spi.block.Block;
-import io.prestosql.spi.function.OperatorType;
-import io.prestosql.spi.type.MapType;
+import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeSignature;
+import io.prestosql.spi.type.TypeSignatureParameter;
 import org.apache.hadoop.hive.ql.exec.FileSinkOperator;
 import org.apache.hadoop.hive.ql.io.orc.OrcSerde;
 import org.apache.hadoop.hive.serde2.SerDeException;
@@ -31,7 +31,6 @@ import org.apache.hadoop.io.Writable;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
-import java.lang.invoke.MethodHandle;
 import java.util.HashMap;
 
 import static io.airlift.testing.Assertions.assertGreaterThan;
@@ -42,8 +41,6 @@ import static io.prestosql.orc.OrcTester.Format.ORC_12;
 import static io.prestosql.orc.OrcTester.createCustomOrcRecordReader;
 import static io.prestosql.orc.OrcTester.createOrcRecordWriter;
 import static io.prestosql.orc.OrcTester.createSettableStructObjectInspector;
-import static io.prestosql.spi.block.MethodHandleUtil.compose;
-import static io.prestosql.spi.block.MethodHandleUtil.nativeValueGetter;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static org.testng.Assert.assertEquals;
@@ -150,22 +147,7 @@ public class TestOrcReaderMemoryUsage
     public void testMapTypeWithNulls()
             throws Exception
     {
-        Type keyType = BIGINT;
-        Type valueType = BIGINT;
-
-        MethodHandle keyNativeEquals = METADATA.getTypeManager().resolveOperator(OperatorType.EQUAL, ImmutableList.of(keyType, keyType));
-        MethodHandle keyBlockNativeEquals = compose(keyNativeEquals, nativeValueGetter(keyType));
-        MethodHandle keyBlockEquals = compose(keyNativeEquals, nativeValueGetter(keyType), nativeValueGetter(keyType));
-        MethodHandle keyNativeHashCode = METADATA.getTypeManager().resolveOperator(OperatorType.HASH_CODE, ImmutableList.of(keyType));
-        MethodHandle keyBlockHashCode = compose(keyNativeHashCode, nativeValueGetter(keyType));
-
-        MapType mapType = new MapType(
-                keyType,
-                valueType,
-                keyBlockNativeEquals,
-                keyBlockEquals,
-                keyNativeHashCode,
-                keyBlockHashCode);
+        Type mapType = METADATA.getType(new TypeSignature(StandardTypes.MAP, TypeSignatureParameter.of(BIGINT.getTypeSignature()), TypeSignatureParameter.of(BIGINT.getTypeSignature())));
 
         int rows = 10000;
         OrcRecordReader reader = null;
