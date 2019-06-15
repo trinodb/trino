@@ -19,7 +19,6 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.slice.XxHash64;
 import io.prestosql.array.LongBigArray;
-import io.prestosql.metadata.MetadataManager;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.PageBuilder;
 import io.prestosql.spi.block.Block;
@@ -54,6 +53,7 @@ import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.operator.UpdateMemory.NOOP;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
@@ -387,7 +387,7 @@ public class BenchmarkGroupByHash
 
     private static JoinCompiler getJoinCompiler()
     {
-        return new JoinCompiler(MetadataManager.createTestMetadataManager());
+        return new JoinCompiler(createTestMetadataManager());
     }
 
     public static void main(String[] args)

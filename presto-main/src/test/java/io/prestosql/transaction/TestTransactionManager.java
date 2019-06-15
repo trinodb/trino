@@ -23,7 +23,7 @@ import io.prestosql.metadata.Catalog;
 import io.prestosql.metadata.CatalogManager;
 import io.prestosql.metadata.InMemoryNodeManager;
 import io.prestosql.metadata.InternalNodeManager;
-import io.prestosql.metadata.MetadataManager;
+import io.prestosql.metadata.Metadata;
 import io.prestosql.plugin.tpch.TpchConnectorFactory;
 import io.prestosql.security.AllowAllAccessControl;
 import io.prestosql.spi.connector.Connector;
@@ -42,6 +42,7 @@ import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.prestosql.SessionTestUtils.TEST_SESSION;
 import static io.prestosql.connector.CatalogName.createInformationSchemaCatalogName;
 import static io.prestosql.connector.CatalogName.createSystemTablesCatalogName;
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.spi.StandardErrorCode.TRANSACTION_ALREADY_ABORTED;
 import static io.prestosql.testing.assertions.PrestoExceptionAssert.assertPrestoExceptionThrownBy;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -199,7 +200,7 @@ public class TestTransactionManager
     {
         CatalogName systemId = createSystemTablesCatalogName(catalog);
         InternalNodeManager nodeManager = new InMemoryNodeManager();
-        MetadataManager metadata = MetadataManager.createTestMetadataManager(catalogManager);
+        Metadata metadata = createTestMetadataManager(catalogManager);
 
         catalogManager.registerCatalog(new Catalog(
                 catalogName,

@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import io.prestosql.block.BlockAssertions;
 import io.prestosql.metadata.FunctionRegistry;
-import io.prestosql.metadata.MetadataManager;
+import io.prestosql.metadata.Metadata;
 import io.prestosql.operator.PagesHashStrategy;
 import io.prestosql.operator.SimplePagesHashStrategy;
 import io.prestosql.spi.Page;
@@ -35,6 +35,7 @@ import java.util.Optional;
 import java.util.OptionalInt;
 
 import static io.prestosql.block.BlockAssertions.assertBlockEquals;
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.operator.PageAssertions.assertPageEquals;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
@@ -47,8 +48,9 @@ import static org.testng.Assert.assertTrue;
 
 public class TestJoinCompiler
 {
-    private static final JoinCompiler joinCompiler = new JoinCompiler(MetadataManager.createTestMetadataManager());
-    private static final FunctionRegistry functionRegistry = MetadataManager.createTestMetadataManager().getFunctionRegistry();
+    private static final Metadata metadata = createTestMetadataManager();
+    private static final JoinCompiler joinCompiler = new JoinCompiler(metadata);
+    private static final FunctionRegistry functionRegistry = metadata.getFunctionRegistry();
 
     @DataProvider(name = "hashEnabledValues")
     public static Object[][] hashEnabledValuesProvider()
@@ -139,7 +141,7 @@ public class TestJoinCompiler
     public void testMultiChannel(boolean hashEnabled)
     {
         // compile a single channel hash strategy
-        JoinCompiler joinCompiler = new JoinCompiler(MetadataManager.createTestMetadataManager());
+        JoinCompiler joinCompiler = new JoinCompiler(metadata);
         List<Type> types = ImmutableList.of(VARCHAR, VARCHAR, BIGINT, DOUBLE, BOOLEAN, VARCHAR);
         List<Type> joinTypes = ImmutableList.of(VARCHAR, BIGINT, DOUBLE, BOOLEAN);
         List<Type> outputTypes = ImmutableList.of(VARCHAR, BIGINT, DOUBLE, BOOLEAN, VARCHAR);

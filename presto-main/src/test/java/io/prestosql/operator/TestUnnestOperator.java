@@ -15,7 +15,7 @@ package io.prestosql.operator;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.metadata.MetadataManager;
+import io.prestosql.metadata.Metadata;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.RowType;
@@ -77,7 +77,7 @@ public class TestUnnestOperator
     @Test
     public void testUnnest()
     {
-        MetadataManager metadata = createTestMetadataManager();
+        Metadata metadata = createTestMetadataManager();
         Type arrayType = metadata.getType(parseTypeSignature("array(bigint)"));
         Type mapType = metadata.getType(parseTypeSignature("map(bigint,bigint)"));
 
@@ -106,7 +106,7 @@ public class TestUnnestOperator
     @Test
     public void testUnnestWithArray()
     {
-        MetadataManager metadata = createTestMetadataManager();
+        Metadata metadata = createTestMetadataManager();
         Type arrayType = metadata.getType(parseTypeSignature("array(array(bigint))"));
         Type mapType = metadata.getType(parseTypeSignature("map(array(bigint),array(bigint))"));
 
@@ -141,7 +141,7 @@ public class TestUnnestOperator
     @Test
     public void testUnnestWithOrdinality()
     {
-        MetadataManager metadata = createTestMetadataManager();
+        Metadata metadata = createTestMetadataManager();
         Type arrayType = metadata.getType(parseTypeSignature("array(bigint)"));
         Type mapType = metadata.getType(parseTypeSignature("map(bigint,bigint)"));
 
@@ -170,7 +170,7 @@ public class TestUnnestOperator
     @Test
     public void testUnnestNonNumericDoubles()
     {
-        MetadataManager metadata = createTestMetadataManager();
+        Metadata metadata = createTestMetadataManager();
         Type arrayType = metadata.getType(parseTypeSignature("array(double)"));
         Type mapType = metadata.getType(parseTypeSignature("map(bigint,double)"));
 
@@ -194,7 +194,7 @@ public class TestUnnestOperator
     @Test
     public void testUnnestWithArrayOfRows()
     {
-        MetadataManager metadata = createTestMetadataManager();
+        Metadata metadata = createTestMetadataManager();
         Type arrayOfRowType = metadata.getType(parseTypeSignature("array(row(bigint, double, varchar))"));
         Type elementType = RowType.anonymous(ImmutableList.of(BIGINT, DOUBLE, VARCHAR));
 

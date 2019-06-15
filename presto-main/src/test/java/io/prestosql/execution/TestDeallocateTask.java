@@ -16,7 +16,7 @@ package io.prestosql.execution;
 import com.google.common.collect.ImmutableSet;
 import io.prestosql.Session;
 import io.prestosql.execution.warnings.WarningCollector;
-import io.prestosql.metadata.MetadataManager;
+import io.prestosql.metadata.Metadata;
 import io.prestosql.security.AccessControl;
 import io.prestosql.security.AccessControlManager;
 import io.prestosql.security.AllowAllAccessControl;
@@ -45,7 +45,7 @@ import static org.testng.Assert.assertEquals;
 
 public class TestDeallocateTask
 {
-    private final MetadataManager metadata = createTestMetadataManager();
+    private final Metadata metadata = createTestMetadataManager();
     private final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("test-%s"));
 
     @AfterClass(alwaysRun = true)

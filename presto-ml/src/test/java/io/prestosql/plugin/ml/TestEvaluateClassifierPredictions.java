@@ -17,7 +17,6 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.RowPageBuilder;
 import io.prestosql.metadata.Metadata;
-import io.prestosql.metadata.MetadataManager;
 import io.prestosql.metadata.Signature;
 import io.prestosql.operator.aggregation.Accumulator;
 import io.prestosql.operator.aggregation.InternalAggregationFunction;
@@ -32,6 +31,7 @@ import java.util.Optional;
 
 import static io.prestosql.metadata.FunctionExtractor.extractFunctions;
 import static io.prestosql.metadata.FunctionKind.AGGREGATE;
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
@@ -39,7 +39,7 @@ import static org.testng.Assert.assertEquals;
 
 public class TestEvaluateClassifierPredictions
 {
-    private final Metadata metadata = MetadataManager.createTestMetadataManager();
+    private final Metadata metadata = createTestMetadataManager();
 
     @Test
     public void testEvaluateClassifierPredictions()

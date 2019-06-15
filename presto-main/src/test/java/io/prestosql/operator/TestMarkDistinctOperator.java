@@ -16,7 +16,6 @@ package io.prestosql.operator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import io.prestosql.RowPagesBuilder;
-import io.prestosql.metadata.MetadataManager;
 import io.prestosql.operator.MarkDistinctOperator.MarkDistinctOperatorFactory;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.type.Type;
@@ -37,6 +36,7 @@ import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.testing.Assertions.assertGreaterThan;
 import static io.prestosql.RowPagesBuilder.rowPagesBuilder;
 import static io.prestosql.SessionTestUtils.TEST_SESSION;
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.operator.GroupByHashYieldAssertion.createPagesWithDistinctHashKeys;
 import static io.prestosql.operator.GroupByHashYieldAssertion.finishOperatorWithYieldingGroupByHash;
 import static io.prestosql.spi.type.BigintType.BIGINT;
@@ -54,7 +54,7 @@ public class TestMarkDistinctOperator
     private ExecutorService executor;
     private ScheduledExecutorService scheduledExecutor;
     private DriverContext driverContext;
-    private JoinCompiler joinCompiler = new JoinCompiler(MetadataManager.createTestMetadataManager());
+    private JoinCompiler joinCompiler = new JoinCompiler(createTestMetadataManager());
 
     @BeforeMethod
     public void setUp()

@@ -24,7 +24,6 @@ import io.prestosql.connector.CatalogName;
 import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.memory.VersionedMemoryPoolId;
 import io.prestosql.metadata.Metadata;
-import io.prestosql.metadata.MetadataManager;
 import io.prestosql.security.AccessControl;
 import io.prestosql.security.AccessControlManager;
 import io.prestosql.spi.PrestoException;
@@ -56,6 +55,7 @@ import static io.prestosql.execution.QueryState.QUEUED;
 import static io.prestosql.execution.QueryState.RUNNING;
 import static io.prestosql.execution.QueryState.STARTING;
 import static io.prestosql.execution.QueryState.WAITING_FOR_RESOURCES;
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.prestosql.spi.StandardErrorCode.USER_CANCELED;
 import static io.prestosql.spi.type.BigintType.BIGINT;
@@ -489,7 +489,7 @@ public class TestQueryStateMachine
 
     private QueryStateMachine createQueryStateMachineWithTicker(Ticker ticker)
     {
-        Metadata metadata = MetadataManager.createTestMetadataManager();
+        Metadata metadata = createTestMetadataManager();
         TransactionManager transactionManager = createTestTransactionManager();
         AccessControl accessControl = new AccessControlManager(transactionManager);
         QueryStateMachine stateMachine = QueryStateMachine.beginWithTicker(

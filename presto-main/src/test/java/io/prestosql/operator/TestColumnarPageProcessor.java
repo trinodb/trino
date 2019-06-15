@@ -14,7 +14,7 @@
 package io.prestosql.operator;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.metadata.MetadataManager;
+import io.prestosql.metadata.Metadata;
 import io.prestosql.operator.project.PageProcessor;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.type.Type;
@@ -41,7 +41,7 @@ public class TestColumnarPageProcessor
 {
     private static final int POSITIONS = 100;
     private final List<Type> types = ImmutableList.of(BIGINT, VARCHAR);
-    private final MetadataManager metadata = createTestMetadataManager();
+    private final Metadata metadata = createTestMetadataManager();
 
     @Test
     public void testProcess()

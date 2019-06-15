@@ -22,7 +22,6 @@ import io.prestosql.Session;
 import io.prestosql.geospatial.Rectangle;
 import io.prestosql.metadata.FunctionRegistry;
 import io.prestosql.metadata.Metadata;
-import io.prestosql.metadata.MetadataManager;
 import io.prestosql.operator.SpatialIndexBuilderOperator.SpatialPredicate;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.PageBuilder;
@@ -57,6 +56,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.airlift.units.DataSize.Unit.BYTE;
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.operator.SyntheticAddress.decodePosition;
 import static io.prestosql.operator.SyntheticAddress.decodeSliceIndex;
 import static io.prestosql.operator.SyntheticAddress.encodeSyntheticAddress;
@@ -124,7 +124,7 @@ public class PagesIndex
             implements Factory
     {
         private static final OrderingCompiler ORDERING_COMPILER = new OrderingCompiler();
-        private static final JoinCompiler JOIN_COMPILER = new JoinCompiler(MetadataManager.createTestMetadataManager());
+        private static final JoinCompiler JOIN_COMPILER = new JoinCompiler(createTestMetadataManager());
         private final boolean eagerCompact;
 
         public TestingFactory(boolean eagerCompact)
@@ -135,7 +135,7 @@ public class PagesIndex
         @Override
         public PagesIndex newPagesIndex(List<Type> types, int expectedPositions)
         {
-            return new PagesIndex(ORDERING_COMPILER, JOIN_COMPILER, MetadataManager.createTestMetadataManager().getFunctionRegistry(), types, expectedPositions, eagerCompact);
+            return new PagesIndex(ORDERING_COMPILER, JOIN_COMPILER, createTestMetadataManager().getFunctionRegistry(), types, expectedPositions, eagerCompact);
         }
     }
 

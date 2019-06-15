@@ -14,7 +14,6 @@
 package io.prestosql.benchmark;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.metadata.MetadataManager;
 import io.prestosql.operator.Driver;
 import io.prestosql.operator.DriverContext;
 import io.prestosql.operator.DriverFactory;
@@ -29,12 +28,13 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.OptionalInt;
 
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.operator.PipelineExecutionStrategy.UNGROUPED_EXECUTION;
 
 public abstract class AbstractSimpleOperatorBenchmark
         extends AbstractOperatorBenchmark
 {
-    protected static final JoinCompiler JOIN_COMPILER = new JoinCompiler(MetadataManager.createTestMetadataManager());
+    protected static final JoinCompiler JOIN_COMPILER = new JoinCompiler(createTestMetadataManager());
 
     protected AbstractSimpleOperatorBenchmark(
             LocalQueryRunner localQueryRunner,

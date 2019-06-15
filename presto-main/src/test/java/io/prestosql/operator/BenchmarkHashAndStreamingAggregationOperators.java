@@ -16,7 +16,7 @@ package io.prestosql.operator;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 import io.prestosql.RowPagesBuilder;
-import io.prestosql.metadata.MetadataManager;
+import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
 import io.prestosql.operator.HashAggregationOperator.HashAggregationOperatorFactory;
 import io.prestosql.operator.StreamingAggregationOperator.StreamingAggregationOperatorFactory;
@@ -58,6 +58,7 @@ import static io.airlift.units.DataSize.succinctBytes;
 import static io.prestosql.SessionTestUtils.TEST_SESSION;
 import static io.prestosql.block.BlockAssertions.createLongSequenceBlock;
 import static io.prestosql.metadata.FunctionKind.AGGREGATE;
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.operator.BenchmarkHashAndStreamingAggregationOperators.Context.ROWS_PER_PAGE;
 import static io.prestosql.operator.BenchmarkHashAndStreamingAggregationOperators.Context.TOTAL_PAGES;
 import static io.prestosql.spi.type.BigintType.BIGINT;
@@ -79,7 +80,7 @@ import static org.testng.Assert.assertEquals;
 @Measurement(iterations = 10, time = 2, timeUnit = SECONDS)
 public class BenchmarkHashAndStreamingAggregationOperators
 {
-    private static final MetadataManager metadata = MetadataManager.createTestMetadataManager();
+    private static final Metadata metadata = createTestMetadataManager();
 
     private static final InternalAggregationFunction LONG_SUM = metadata.getFunctionRegistry().getAggregateFunctionImplementation(
             new Signature("sum", AGGREGATE, BIGINT.getTypeSignature(), BIGINT.getTypeSignature()));
@@ -151,12 +152,12 @@ public class BenchmarkHashAndStreamingAggregationOperators
                     AggregationNode.Step.SINGLE,
                     ImmutableList.of(COUNT.bind(ImmutableList.of(0), Optional.empty()),
                             LONG_SUM.bind(ImmutableList.of(1), Optional.empty())),
-                    new JoinCompiler(MetadataManager.createTestMetadataManager()));
+                    new JoinCompiler(createTestMetadataManager()));
         }
 
         private OperatorFactory createHashAggregationOperatorFactory(Optional<Integer> hashChannel)
         {
-            JoinCompiler joinCompiler = new JoinCompiler(MetadataManager.createTestMetadataManager());
+            JoinCompiler joinCompiler = new JoinCompiler(createTestMetadataManager());
             SpillerFactory spillerFactory = (types, localSpillContext, aggregatedMemoryContext) -> null;
 
             return new HashAggregationOperatorFactory(

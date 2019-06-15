@@ -16,7 +16,6 @@ package io.prestosql.operator;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.Session;
 import io.prestosql.block.BlockAssertions;
-import io.prestosql.metadata.MetadataManager;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.PageBuilder;
 import io.prestosql.spi.block.Block;
@@ -40,6 +39,7 @@ import static com.google.common.math.DoubleMath.log2;
 import static io.prestosql.block.BlockAssertions.createLongSequenceBlock;
 import static io.prestosql.block.BlockAssertions.createLongsBlock;
 import static io.prestosql.block.BlockAssertions.createStringSequenceBlock;
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.operator.GroupByHash.createGroupByHash;
 import static io.prestosql.spi.block.DictionaryId.randomDictionaryId;
 import static io.prestosql.spi.type.BigintType.BIGINT;
@@ -55,7 +55,7 @@ public class TestGroupByHash
     private static final int MAX_GROUP_ID = 500;
     private static final int[] CONTAINS_CHANNELS = new int[] {0};
     private static final Session TEST_SESSION = TestingSession.testSessionBuilder().build();
-    private static final JoinCompiler JOIN_COMPILER = new JoinCompiler(MetadataManager.createTestMetadataManager());
+    private static final JoinCompiler JOIN_COMPILER = new JoinCompiler(createTestMetadataManager());
 
     @DataProvider
     public Object[][] dataType()

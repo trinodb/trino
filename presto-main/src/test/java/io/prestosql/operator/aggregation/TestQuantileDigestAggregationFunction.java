@@ -16,7 +16,7 @@ package io.prestosql.operator.aggregation;
 import com.google.common.base.Joiner;
 import com.google.common.primitives.Floats;
 import io.airlift.stats.QuantileDigest;
-import io.prestosql.metadata.MetadataManager;
+import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
 import io.prestosql.operator.scalar.AbstractTestFunctions;
 import io.prestosql.spi.Page;
@@ -41,6 +41,7 @@ import static io.prestosql.block.BlockAssertions.createLongsBlock;
 import static io.prestosql.block.BlockAssertions.createRLEBlock;
 import static io.prestosql.block.BlockAssertions.createSequenceBlockOfReal;
 import static io.prestosql.metadata.FunctionKind.AGGREGATE;
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.operator.aggregation.AggregationTestUtils.assertAggregation;
 import static io.prestosql.operator.aggregation.FloatingPointBitsConverterUtil.doubleToSortableLong;
 import static io.prestosql.operator.aggregation.FloatingPointBitsConverterUtil.floatToSortableInt;
@@ -56,7 +57,7 @@ public class TestQuantileDigestAggregationFunction
         extends AbstractTestFunctions
 {
     private static final Joiner ARRAY_JOINER = Joiner.on(",");
-    private static final MetadataManager METADATA = MetadataManager.createTestMetadataManager();
+    private static final Metadata METADATA = createTestMetadataManager();
 
     @Test
     public void testDoublesWithWeights()

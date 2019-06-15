@@ -14,7 +14,7 @@
 package io.prestosql.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.metadata.MetadataManager;
+import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
 import io.prestosql.operator.aggregation.groupby.AggregationTestInput;
 import io.prestosql.operator.aggregation.groupby.AggregationTestInputBuilder;
@@ -39,6 +39,7 @@ import static io.prestosql.block.BlockAssertions.createLongsBlock;
 import static io.prestosql.block.BlockAssertions.createStringsBlock;
 import static io.prestosql.block.BlockAssertions.createTypedLongsBlock;
 import static io.prestosql.metadata.FunctionKind.AGGREGATE;
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.operator.aggregation.AggregationTestUtils.assertAggregation;
 import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
@@ -46,7 +47,7 @@ import static org.testng.Assert.assertTrue;
 
 public class TestArrayAggregation
 {
-    private static final MetadataManager metadata = MetadataManager.createTestMetadataManager();
+    private static final Metadata metadata = createTestMetadataManager();
 
     @Test
     public void testEmpty()

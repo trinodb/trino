@@ -13,7 +13,7 @@
  */
 package io.prestosql.sql.planner.iterative.rule;
 
-import io.prestosql.metadata.MetadataManager;
+import io.prestosql.metadata.Metadata;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.parser.SqlParser;
 import io.prestosql.sql.planner.LiteralEncoder;
@@ -45,7 +45,7 @@ import static org.testng.Assert.assertEquals;
 public class TestSimplifyExpressions
 {
     private static final SqlParser SQL_PARSER = new SqlParser();
-    private static final MetadataManager METADATA = createTestMetadataManager();
+    private static final Metadata METADATA = createTestMetadataManager();
     private static final LiteralEncoder LITERAL_ENCODER = new LiteralEncoder(METADATA.getBlockEncodingSerde());
 
     @Test

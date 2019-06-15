@@ -16,7 +16,7 @@ package io.prestosql.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.metadata.MetadataManager;
+import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
 import io.prestosql.operator.aggregation.groupby.AggregationTestInput;
 import io.prestosql.operator.aggregation.groupby.AggregationTestInputBuilder;
@@ -54,6 +54,7 @@ import static io.prestosql.block.BlockAssertions.createLongsBlock;
 import static io.prestosql.block.BlockAssertions.createStringArraysBlock;
 import static io.prestosql.block.BlockAssertions.createStringsBlock;
 import static io.prestosql.metadata.FunctionKind.AGGREGATE;
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.operator.OperatorAssertion.toRow;
 import static io.prestosql.operator.aggregation.AggregationTestUtils.assertAggregation;
 import static io.prestosql.operator.aggregation.histogram.Histogram.NAME;
@@ -430,9 +431,9 @@ public class TestHistogram
         return getAggregation(returnType, argumentType);
     }
 
-    private InternalAggregationFunction getAggregation(TypeSignature returnType, TypeSignature... arguments)
+    private static InternalAggregationFunction getAggregation(TypeSignature returnType, TypeSignature... arguments)
     {
-        MetadataManager metadata = getMetadata(NEW);
+        Metadata metadata = getMetadata(NEW);
         Signature signature = new Signature(NAME,
                 AGGREGATE,
                 returnType,
@@ -440,16 +441,14 @@ public class TestHistogram
         return metadata.getFunctionRegistry().getAggregateFunctionImplementation(signature);
     }
 
-    private MetadataManager getMetadata()
+    private static Metadata getMetadata()
     {
         return getMetadata(NEW);
     }
 
-    private MetadataManager getMetadata(HistogramGroupImplementation groupMode)
+    private static Metadata getMetadata(HistogramGroupImplementation groupMode)
     {
-        MetadataManager metadata = MetadataManager.createTestMetadataManager(new FeaturesConfig()
+        return createTestMetadataManager(new FeaturesConfig()
                 .setHistogramGroupImplementation(groupMode));
-
-        return metadata;
     }
 }

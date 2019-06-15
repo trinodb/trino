@@ -15,7 +15,7 @@ package io.prestosql.cost;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.metadata.MetadataManager;
+import io.prestosql.metadata.Metadata;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.TypeProvider;
@@ -84,7 +84,7 @@ public class TestJoinStatsRule
             RIGHT_JOIN_COLUMN_STATS,
             RIGHT_OTHER_COLUMN_STATS);
 
-    private static final MetadataManager METADATA = createTestMetadataManager();
+    private static final Metadata METADATA = createTestMetadataManager();
     private static final StatsNormalizer NORMALIZER = new StatsNormalizer();
     private static final JoinStatsRule JOIN_STATS_RULE = new JoinStatsRule(
             new FilterStatsCalculator(METADATA, new ScalarStatsCalculator(METADATA), NORMALIZER),

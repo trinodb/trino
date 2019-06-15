@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slices;
 import io.prestosql.Session;
-import io.prestosql.metadata.MetadataManager;
+import io.prestosql.metadata.Metadata;
 import io.prestosql.sql.parser.SqlParser;
 import io.prestosql.sql.planner.LiteralEncoder;
 import io.prestosql.sql.planner.Symbol;
@@ -45,6 +45,7 @@ import static java.lang.Double.POSITIVE_INFINITY;
 
 public class TestScalarStatsCalculator
 {
+    private Metadata metadata;
     private ScalarStatsCalculator calculator;
     private Session session;
     private final SqlParser sqlParser = new SqlParser();
@@ -52,7 +53,8 @@ public class TestScalarStatsCalculator
     @BeforeClass
     public void setUp()
     {
-        calculator = new ScalarStatsCalculator(MetadataManager.createTestMetadataManager());
+        metadata = createTestMetadataManager();
+        calculator = new ScalarStatsCalculator(metadata);
         session = testSessionBuilder().build();
     }
 
@@ -135,7 +137,6 @@ public class TestScalarStatsCalculator
     @Test
     public void testVarbinaryConstant()
     {
-        MetadataManager metadata = createTestMetadataManager();
         LiteralEncoder literalEncoder = new LiteralEncoder(metadata.getBlockEncodingSerde());
         Expression expression = literalEncoder.toExpression(Slices.utf8Slice("ala ma kota"), VARBINARY);
 

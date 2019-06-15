@@ -50,7 +50,7 @@ import static org.testng.Assert.assertTrue;
 
 public class TestPolymorphicScalarFunction
 {
-    private static final MetadataManager METADATA = createTestMetadataManager();
+    private static final Metadata METADATA = createTestMetadataManager();
     private static final Signature SIGNATURE = Signature.builder()
             .name("foo")
             .kind(SCALAR)

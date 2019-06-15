@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.primitives.Ints;
 import io.prestosql.RowPageBuilder;
-import io.prestosql.metadata.MetadataManager;
+import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
 import io.prestosql.operator.aggregation.groupby.AggregationTestInput;
 import io.prestosql.operator.aggregation.groupby.AggregationTestInputBuilder;
@@ -53,7 +53,7 @@ import static org.testng.Assert.assertTrue;
 
 public class TestMultimapAggAggregation
 {
-    private static final MetadataManager metadata = createTestMetadataManager();
+    private static final Metadata metadata = createTestMetadataManager();
 
     @Test
     public void testSingleValueMap()

@@ -13,7 +13,7 @@
  */
 package io.prestosql.operator.aggregation;
 
-import io.prestosql.metadata.MetadataManager;
+import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.type.ArrayType;
@@ -36,6 +36,7 @@ import static io.prestosql.block.BlockAssertions.createLongsBlock;
 import static io.prestosql.block.BlockAssertions.createShortDecimalsBlock;
 import static io.prestosql.block.BlockAssertions.createStringsBlock;
 import static io.prestosql.metadata.FunctionKind.AGGREGATE;
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.operator.aggregation.AggregationTestUtils.assertAggregation;
 import static io.prestosql.operator.aggregation.ChecksumAggregationFunction.PRIME64;
 import static io.prestosql.spi.type.StandardTypes.BIGINT;
@@ -48,7 +49,7 @@ import static java.util.Arrays.asList;
 
 public class TestChecksumAggregation
 {
-    private static final MetadataManager metadata = MetadataManager.createTestMetadataManager();
+    private static final Metadata metadata = createTestMetadataManager();
 
     @Test
     public void testEmpty()

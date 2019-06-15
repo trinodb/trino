@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.prestosql.metadata.MetadataManager;
+import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
 import io.prestosql.operator.DriverYieldSignal;
 import io.prestosql.operator.project.PageProcessor;
@@ -61,20 +61,20 @@ import static org.testng.Assert.assertTrue;
 
 public class TestPageProcessorCompiler
 {
-    private MetadataManager metadataManager;
+    private Metadata metadata;
     private ExpressionCompiler compiler;
 
     @BeforeClass
     public void setup()
     {
-        metadataManager = createTestMetadataManager();
-        compiler = new ExpressionCompiler(metadataManager, new PageFunctionCompiler(metadataManager, 0));
+        metadata = createTestMetadataManager();
+        compiler = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0));
     }
 
     @AfterClass(alwaysRun = true)
     public void tearDown()
     {
-        metadataManager = null;
+        metadata = null;
         compiler = null;
     }
 
@@ -214,7 +214,7 @@ public class TestPageProcessorCompiler
 
         PageProcessor processor = compiler.compilePageProcessor(Optional.empty(), ImmutableList.of(lessThanRandomExpression), MAX_BATCH_SIZE).get();
 
-        assertFalse(new DeterminismEvaluator(metadataManager.getFunctionRegistry()).isDeterministic(lessThanRandomExpression));
+        assertFalse(new DeterminismEvaluator(metadata.getFunctionRegistry()).isDeterministic(lessThanRandomExpression));
 
         Page page = new Page(createLongDictionaryBlock(1, 100));
         Page outputPage = getOnlyElement(

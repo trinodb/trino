@@ -15,7 +15,7 @@ package io.prestosql.operator;
 
 import com.google.common.collect.ImmutableList;
 import io.prestosql.metadata.FunctionKind;
-import io.prestosql.metadata.MetadataManager;
+import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
 import io.prestosql.operator.aggregation.AbstractTestAggregationFunction;
 import io.prestosql.operator.aggregation.InternalAggregationFunction;
@@ -28,6 +28,7 @@ import org.testng.annotations.Test;
 import java.util.List;
 
 import static io.prestosql.block.BlockAssertions.createBlockOfReals;
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.operator.aggregation.AggregationTestUtils.assertAggregation;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
@@ -42,7 +43,7 @@ public class TestRealAverageAggregation
     @BeforeClass
     public void setUp()
     {
-        MetadataManager metadata = MetadataManager.createTestMetadataManager();
+        Metadata metadata = createTestMetadataManager();
         avgFunction = metadata.getFunctionRegistry().getAggregateFunctionImplementation(
                 new Signature("avg", FunctionKind.AGGREGATE, parseTypeSignature(StandardTypes.REAL), parseTypeSignature(StandardTypes.REAL)));
     }

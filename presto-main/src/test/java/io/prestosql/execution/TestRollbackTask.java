@@ -17,7 +17,7 @@ package io.prestosql.execution;
 import io.prestosql.Session;
 import io.prestosql.Session.SessionBuilder;
 import io.prestosql.execution.warnings.WarningCollector;
-import io.prestosql.metadata.MetadataManager;
+import io.prestosql.metadata.Metadata;
 import io.prestosql.security.AllowAllAccessControl;
 import io.prestosql.spi.resourcegroups.ResourceGroupId;
 import io.prestosql.sql.tree.Rollback;
@@ -33,6 +33,7 @@ import java.util.concurrent.Future;
 
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.prestosql.spi.StandardErrorCode.NOT_IN_TRANSACTION;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
@@ -46,7 +47,7 @@ import static org.testng.Assert.assertTrue;
 
 public class TestRollbackTask
 {
-    private final MetadataManager metadata = MetadataManager.createTestMetadataManager();
+    private final Metadata metadata = createTestMetadataManager();
     private final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("stage-executor-%s"));
 
     @AfterClass(alwaysRun = true)

@@ -16,7 +16,7 @@ package io.prestosql.operator.aggregation;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
-import io.prestosql.metadata.MetadataManager;
+import io.prestosql.metadata.Metadata;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
@@ -35,6 +35,7 @@ import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 
 import static io.airlift.testing.Assertions.assertLessThan;
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static org.testng.Assert.assertEquals;
 
@@ -46,7 +47,7 @@ public abstract class AbstractTestApproximateCountDistinct
 
     protected abstract Object randomValue();
 
-    protected static final MetadataManager metadata = MetadataManager.createTestMetadataManager();
+    protected static final Metadata metadata = createTestMetadataManager();
 
     protected int getUniqueValuesCount()
     {

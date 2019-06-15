@@ -15,7 +15,7 @@ package io.prestosql.operator;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
-import io.prestosql.metadata.MetadataManager;
+import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
 import io.prestosql.operator.project.PageProcessor;
 import io.prestosql.spi.Page;
@@ -100,7 +100,7 @@ public class TestFilterAndProjectOperator
                 field(1, BIGINT),
                 constant(5L, BIGINT));
 
-        MetadataManager metadata = createTestMetadataManager();
+        Metadata metadata = createTestMetadataManager();
         ExpressionCompiler compiler = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0));
         Supplier<PageProcessor> processor = compiler.compilePageProcessor(Optional.of(filter), ImmutableList.of(field0, add5));
 
@@ -144,7 +144,7 @@ public class TestFilterAndProjectOperator
                 field(1, BIGINT),
                 constant(10L, BIGINT));
 
-        MetadataManager metadata = createTestMetadataManager();
+        Metadata metadata = createTestMetadataManager();
         ExpressionCompiler compiler = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0));
         Supplier<PageProcessor> processor = compiler.compilePageProcessor(Optional.of(filter), ImmutableList.of(field(1, BIGINT)));
 

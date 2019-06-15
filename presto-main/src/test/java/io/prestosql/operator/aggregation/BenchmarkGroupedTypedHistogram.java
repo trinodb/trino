@@ -13,7 +13,7 @@
  */
 package io.prestosql.operator.aggregation;
 
-import io.prestosql.metadata.MetadataManager;
+import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
 import io.prestosql.operator.GroupByIdBlock;
 import io.prestosql.operator.aggregation.groupby.GroupByAggregationTestUtils;
@@ -50,6 +50,7 @@ import java.util.stream.IntStream;
 
 import static io.prestosql.block.BlockAssertions.createStringsBlock;
 import static io.prestosql.metadata.FunctionKind.AGGREGATE;
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.operator.aggregation.histogram.Histogram.NAME;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
@@ -160,7 +161,7 @@ public class BenchmarkGroupedTypedHistogram
     private static InternalAggregationFunction getInternalAggregationFunctionVarChar(HistogramGroupImplementation groupMode)
     {
         MapType mapType = mapType(VARCHAR, BIGINT);
-        MetadataManager metadata = getMetadata(groupMode);
+        Metadata metadata = getMetadata(groupMode);
 
         return metadata.getFunctionRegistry().getAggregateFunctionImplementation(
                 new Signature(NAME,
@@ -169,13 +170,10 @@ public class BenchmarkGroupedTypedHistogram
                         parseTypeSignature(StandardTypes.VARCHAR)));
     }
 
-    private static MetadataManager getMetadata(HistogramGroupImplementation groupMode)
+    private static Metadata getMetadata(HistogramGroupImplementation groupMode)
     {
-        MetadataManager metadata = MetadataManager.createTestMetadataManager(
-                new FeaturesConfig()
-                        .setHistogramGroupImplementation(groupMode));
-
-        return metadata;
+        return createTestMetadataManager(new FeaturesConfig()
+                .setHistogramGroupImplementation(groupMode));
     }
 
     public static void main(String[] args)

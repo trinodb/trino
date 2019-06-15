@@ -14,7 +14,7 @@
 package io.prestosql.operator.aggregation;
 
 import com.google.common.collect.Lists;
-import io.prestosql.metadata.MetadataManager;
+import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
@@ -36,7 +36,7 @@ import static io.prestosql.testing.assertions.PrestoExceptionAssert.assertPresto
 
 public abstract class AbstractTestAggregationFunction
 {
-    protected MetadataManager metadata;
+    protected Metadata metadata;
 
     @BeforeClass
     public final void initTestAggregationFunction()

@@ -14,7 +14,7 @@
 package io.prestosql.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.metadata.MetadataManager;
+import io.prestosql.metadata.Metadata;
 import io.prestosql.operator.DriverYieldSignal;
 import io.prestosql.operator.project.PageProcessor;
 import io.prestosql.spi.Page;
@@ -54,6 +54,7 @@ import static com.google.common.collect.Iterables.cycle;
 import static com.google.common.collect.Iterables.limit;
 import static io.prestosql.SessionTestUtils.TEST_SESSION;
 import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.metadata.Signature.internalOperator;
 import static io.prestosql.metadata.Signature.internalScalarFunction;
 import static io.prestosql.spi.type.BigintType.BIGINT;
@@ -81,7 +82,7 @@ public class BenchmarkEqualsOperator
     @Setup
     public void setup()
     {
-        MetadataManager metadata = MetadataManager.createTestMetadataManager();
+        Metadata metadata = createTestMetadataManager();
         ExpressionCompiler expressionCompiler = new ExpressionCompiler(
                 metadata,
                 new PageFunctionCompiler(metadata, 0));
