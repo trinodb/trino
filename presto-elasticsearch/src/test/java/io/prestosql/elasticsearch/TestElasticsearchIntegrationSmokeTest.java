@@ -120,4 +120,28 @@ public class TestElasticsearchIntegrationSmokeTest
                 "SELECT name, age FROM test.person",
                 "VALUES ('John', 20)");
     }
+
+    @Test
+    public void testNestedFields()
+    {
+        String indexName = "data";
+        embeddedElasticsearchNode.getClient()
+                .prepareIndex(indexName, "doc")
+                .setSource(ImmutableMap.<String, Object>builder()
+                        .put("name", "nestfield")
+                        .put("fields.fielda", 32)
+                        .put("fields.fieldb", "valueb")
+                        .build())
+                .get();
+
+        embeddedElasticsearchNode.getClient()
+                .admin()
+                .indices()
+                .refresh(refreshRequest(indexName))
+                .actionGet();
+
+        assertQuery(
+                "SELECT name, fields.fielda, fields.fieldb FROM nested.data",
+                "VALUES ('nestfield', 32, 'valueb')");
+    }
 }
