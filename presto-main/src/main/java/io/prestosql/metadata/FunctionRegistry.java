@@ -740,7 +740,7 @@ public class FunctionRegistry
             String typeName = name.getSuffix().substring(MAGIC_LITERAL_FUNCTION_PREFIX.length());
 
             // lookup the type
-            Type type = metadata.getTypeManager().getType(parseTypeSignature(typeName));
+            Type type = metadata.getType(parseTypeSignature(typeName));
 
             // verify we have one parameter of the proper type
             checkArgument(parameterTypes.size() == 1, "Expected one argument to literal function, but got %s", parameterTypes);

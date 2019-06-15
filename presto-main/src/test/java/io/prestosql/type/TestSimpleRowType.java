@@ -21,6 +21,7 @@ import io.prestosql.spi.type.Type;
 import java.util.List;
 
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
@@ -28,7 +29,7 @@ import static io.prestosql.spi.type.VarcharType.VARCHAR;
 public class TestSimpleRowType
         extends AbstractTestType
 {
-    private static final Type TYPE = new TypeRegistry().getType(parseTypeSignature("row(a bigint,b varchar)"));
+    private static final Type TYPE = createTestMetadataManager().getType(parseTypeSignature("row(a bigint,b varchar)"));
 
     public TestSimpleRowType()
     {

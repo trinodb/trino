@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.prestosql.RowPageBuilder;
 import io.prestosql.metadata.BoundVariables;
-import io.prestosql.metadata.Metadata;
+import io.prestosql.metadata.MetadataManager;
 import io.prestosql.operator.aggregation.Accumulator;
 import io.prestosql.operator.aggregation.InternalAggregationFunction;
 import io.prestosql.plugin.ml.type.ClassifierParametricType;
@@ -28,11 +28,9 @@ import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeManager;
 import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.spi.type.TypeSignatureParameter;
 import io.prestosql.spi.type.VarcharType;
-import io.prestosql.type.TypeRegistry;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -51,14 +49,12 @@ import static org.testng.Assert.assertTrue;
 
 public class TestLearnAggregations
 {
-    private static final Metadata METADATA = createTestMetadataManager();
-    private static final TypeManager TYPE_MANAGER = METADATA.getTypeManager();
+    private static final MetadataManager METADATA = createTestMetadataManager();
 
     static {
-        TypeRegistry typeRegistry = (TypeRegistry) TYPE_MANAGER;
-        typeRegistry.addParametricType(new ClassifierParametricType());
-        typeRegistry.addType(ModelType.MODEL);
-        typeRegistry.addType(RegressorType.REGRESSOR);
+        METADATA.addParametricType(new ClassifierParametricType());
+        METADATA.addType(ModelType.MODEL);
+        METADATA.addType(RegressorType.REGRESSOR);
     }
 
     @Test

@@ -1284,7 +1284,7 @@ public class LocalExecutionPlanner
 
         private RowExpression toRowExpression(Expression expression, Map<NodeRef<Expression>, Type> types, Map<Symbol, Integer> layout)
         {
-            return SqlToRowExpressionTranslator.translate(expression, SCALAR, types, layout, metadata.getFunctionRegistry(), metadata.getTypeManager(), session, true);
+            return SqlToRowExpressionTranslator.translate(expression, SCALAR, types, layout, metadata, session, true);
         }
 
         @Override
@@ -2520,7 +2520,8 @@ public class LocalExecutionPlanner
             if (!lambdaExpressions.isEmpty()) {
                 List<FunctionType> functionTypes = aggregation.getSignature().getArgumentTypes().stream()
                         .filter(typeSignature -> typeSignature.getBase().equals(FunctionType.NAME))
-                        .map(typeSignature -> (FunctionType) (metadata.getTypeManager().getType(typeSignature)))
+                        .map(metadata::getType)
+                        .map(FunctionType.class::cast)
                         .collect(toImmutableList());
                 List<Class<?>> lambdaInterfaces = internalAggregationFunction.getLambdaInterfaces();
                 verify(lambdaExpressions.size() == functionTypes.size());

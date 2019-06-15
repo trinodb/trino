@@ -16,11 +16,10 @@ package io.prestosql.sql.relational.optimizer;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import io.prestosql.Session;
-import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
 import io.prestosql.operator.scalar.ScalarFunctionImplementation;
 import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.type.TypeManager;
 import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.sql.relational.CallExpression;
 import io.prestosql.sql.relational.ConstantExpression;
@@ -59,14 +58,12 @@ import static io.prestosql.type.JsonType.JSON;
 
 public class ExpressionOptimizer
 {
-    private final FunctionRegistry registry;
-    private final TypeManager typeManager;
+    private final Metadata metadata;
     private final ConnectorSession session;
 
-    public ExpressionOptimizer(FunctionRegistry registry, TypeManager typeManager, Session session)
+    public ExpressionOptimizer(Metadata metadata, Session session)
     {
-        this.registry = registry;
-        this.typeManager = typeManager;
+        this.metadata = metadata;
         this.session = session.toConnectorSession();
     }
 
@@ -98,7 +95,7 @@ public class ExpressionOptimizer
             }
             Signature signature = call.getSignature();
 
-            ScalarFunctionImplementation function = registry.getScalarFunctionImplementation(signature);
+            ScalarFunctionImplementation function = metadata.getFunctionRegistry().getScalarFunctionImplementation(signature);
             List<RowExpression> arguments = call.getArguments().stream()
                     .map(argument -> argument.accept(this, context))
                     .collect(toImmutableList());
@@ -134,7 +131,7 @@ public class ExpressionOptimizer
                 }
             }
 
-            return call(signature, typeManager.getType(signature.getReturnType()), arguments);
+            return call(signature, metadata.getType(signature.getReturnType()), arguments);
         }
 
         @Override
@@ -253,7 +250,7 @@ public class ExpressionOptimizer
             }
 
             return call(
-                    registry.getCoercion(call.getArguments().get(0).getType(), call.getType()),
+                    metadata.getFunctionRegistry().getCoercion(call.getArguments().get(0).getType(), call.getType()),
                     call.getType(),
                     call.getArguments());
         }

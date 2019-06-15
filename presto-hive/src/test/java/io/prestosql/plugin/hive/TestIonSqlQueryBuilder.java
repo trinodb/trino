@@ -22,13 +22,14 @@ import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.TypeManager;
-import io.prestosql.type.TypeRegistry;
+import io.prestosql.type.InternalTypeManager;
 import io.prestosql.util.DateTimeUtils;
 import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.Optional;
 
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.prestosql.plugin.hive.HiveTestUtils.longDecimal;
 import static io.prestosql.plugin.hive.HiveTestUtils.shortDecimal;
@@ -51,10 +52,12 @@ import static org.testng.Assert.assertEquals;
 
 public class TestIonSqlQueryBuilder
 {
+    private final TypeManager typeManager = new InternalTypeManager(createTestMetadataManager());
+
     @Test
     public void testBuildSQL()
     {
-        IonSqlQueryBuilder queryBuilder = new IonSqlQueryBuilder(new TypeRegistry());
+        IonSqlQueryBuilder queryBuilder = new IonSqlQueryBuilder(typeManager);
         List<HiveColumnHandle> columns = ImmutableList.of(
                 new HiveColumnHandle("n_nationkey", HIVE_INT, parseTypeSignature(INTEGER), 0, REGULAR, Optional.empty()),
                 new HiveColumnHandle("n_name", HIVE_STRING, parseTypeSignature(VARCHAR), 1, REGULAR, Optional.empty()),
@@ -71,14 +74,14 @@ public class TestIonSqlQueryBuilder
     @Test
     public void testEmptyColumns()
     {
-        IonSqlQueryBuilder queryBuilder = new IonSqlQueryBuilder(new TypeRegistry());
+        IonSqlQueryBuilder queryBuilder = new IonSqlQueryBuilder(typeManager);
         assertEquals("SELECT ' ' FROM S3Object s", queryBuilder.buildSql(ImmutableList.of(), TupleDomain.all()));
     }
 
     @Test
     public void testDecimalColumns()
     {
-        TypeManager typeManager = new TypeRegistry();
+        TypeManager typeManager = this.typeManager;
         IonSqlQueryBuilder queryBuilder = new IonSqlQueryBuilder(typeManager);
         List<HiveColumnHandle> columns = ImmutableList.of(
                 new HiveColumnHandle("quantity", HiveType.valueOf("decimal(20,0)"), parseTypeSignature(DECIMAL), 0, REGULAR, Optional.empty()),
@@ -99,7 +102,7 @@ public class TestIonSqlQueryBuilder
     @Test
     public void testDateColumn()
     {
-        IonSqlQueryBuilder queryBuilder = new IonSqlQueryBuilder(new TypeRegistry());
+        IonSqlQueryBuilder queryBuilder = new IonSqlQueryBuilder(typeManager);
         List<HiveColumnHandle> columns = ImmutableList.of(
                 new HiveColumnHandle("t1", HIVE_TIMESTAMP, parseTypeSignature(TIMESTAMP), 0, REGULAR, Optional.empty()),
                 new HiveColumnHandle("t2", HIVE_DATE, parseTypeSignature(StandardTypes.DATE), 1, REGULAR, Optional.empty()));
@@ -112,7 +115,7 @@ public class TestIonSqlQueryBuilder
     @Test
     public void testNotPushDoublePredicates()
     {
-        IonSqlQueryBuilder queryBuilder = new IonSqlQueryBuilder(new TypeRegistry());
+        IonSqlQueryBuilder queryBuilder = new IonSqlQueryBuilder(typeManager);
         List<HiveColumnHandle> columns = ImmutableList.of(
                 new HiveColumnHandle("quantity", HIVE_INT, parseTypeSignature(INTEGER), 0, REGULAR, Optional.empty()),
                 new HiveColumnHandle("extendedprice", HIVE_DOUBLE, parseTypeSignature(StandardTypes.DOUBLE), 1, REGULAR, Optional.empty()),

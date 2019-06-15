@@ -13,12 +13,14 @@
  */
 package io.prestosql.type;
 
+import io.prestosql.metadata.Metadata;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.type.Type;
 
 import java.util.List;
 
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static io.prestosql.util.StructuralTestUtil.arrayBlockOf;
@@ -28,7 +30,12 @@ public class TestIntegerArrayType
 {
     public TestIntegerArrayType()
     {
-        super(new TypeRegistry().getType(parseTypeSignature("array(integer)")), List.class, createTestBlock(new TypeRegistry().getType(parseTypeSignature("array(integer)"))));
+        this(createTestMetadataManager());
+    }
+
+    private TestIntegerArrayType(Metadata metadata)
+    {
+        super(metadata.getType(parseTypeSignature("array(integer)")), List.class, createTestBlock(metadata.getType(parseTypeSignature("array(integer)"))));
     }
 
     public static Block createTestBlock(Type arrayType)

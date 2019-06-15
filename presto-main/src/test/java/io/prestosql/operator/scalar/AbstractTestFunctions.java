@@ -203,7 +203,7 @@ public abstract class AbstractTestFunctions
     protected void registerTypes(Plugin plugin)
     {
         for (Type type : plugin.getTypes()) {
-            functionAssertions.getTypeRegistry().addType(type);
+            functionAssertions.addType(type);
         }
     }
 

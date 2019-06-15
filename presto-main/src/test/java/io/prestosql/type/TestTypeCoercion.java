@@ -247,7 +247,7 @@ public class TestTypeCoercion
     {
         ImmutableSet.Builder<Type> builder = ImmutableSet.builder();
         // add unparametrized types
-        builder.addAll(metadata.getTypeManager().getTypes());
+        builder.addAll(metadata.getTypes());
         // add corner cases for parametrized types
         builder.add(createDecimalType(1, 0));
         builder.add(createDecimalType(17, 0));

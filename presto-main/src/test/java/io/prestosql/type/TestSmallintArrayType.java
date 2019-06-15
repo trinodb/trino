@@ -13,12 +13,14 @@
  */
 package io.prestosql.type;
 
+import io.prestosql.metadata.Metadata;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.type.Type;
 
 import java.util.List;
 
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static io.prestosql.util.StructuralTestUtil.arrayBlockOf;
@@ -28,7 +30,12 @@ public class TestSmallintArrayType
 {
     public TestSmallintArrayType()
     {
-        super(new TypeRegistry().getType(parseTypeSignature("array(smallint)")), List.class, createTestBlock(new TypeRegistry().getType(parseTypeSignature("array(smallint)"))));
+        this(createTestMetadataManager());
+    }
+
+    private TestSmallintArrayType(Metadata metadata)
+    {
+        super(metadata.getType(parseTypeSignature("array(smallint)")), List.class, createTestBlock(metadata.getType(parseTypeSignature("array(smallint)"))));
     }
 
     public static Block createTestBlock(Type arrayType)

@@ -11,17 +11,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.type;
+package io.prestosql.metadata;
 
-import com.google.common.annotations.VisibleForTesting;
+import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.UncheckedExecutionException;
-import io.prestosql.metadata.FunctionRegistry;
-import io.prestosql.spi.function.OperatorType;
 import io.prestosql.spi.type.ParametricType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeManager;
@@ -29,19 +24,21 @@ import io.prestosql.spi.type.TypeNotFoundException;
 import io.prestosql.spi.type.TypeParameter;
 import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.spi.type.TypeSignatureParameter;
+import io.prestosql.type.CharParametricType;
+import io.prestosql.type.DecimalParametricType;
+import io.prestosql.type.VarcharParametricType;
 
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
 
-import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
-import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.ExecutionException;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -82,23 +79,12 @@ import static io.prestosql.type.setdigest.SetDigestType.SET_DIGEST;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
-public final class TypeRegistry
-        implements TypeManager
+final class TypeRegistry
 {
-    private final TypeCoercion typeCoercion = new TypeCoercion(this::getType);
-
     private final ConcurrentMap<TypeSignature, Type> types = new ConcurrentHashMap<>();
     private final ConcurrentMap<String, ParametricType> parametricTypes = new ConcurrentHashMap<>();
 
-    private FunctionRegistry functionRegistry;
-
-    private final LoadingCache<TypeSignature, Type> parametricTypeCache;
-
-    @VisibleForTesting
-    public TypeRegistry()
-    {
-        this(ImmutableSet.of());
-    }
+    private final Cache<TypeSignature, Type> parametricTypeCache;
 
     @Inject
     public TypeRegistry(Set<Type> types)
@@ -150,24 +136,17 @@ public final class TypeRegistry
         }
         parametricTypeCache = CacheBuilder.newBuilder()
                 .maximumSize(1000)
-                .build(CacheLoader.from(this::instantiateParametricType));
+                .build();
     }
 
-    public void setFunctionRegistry(FunctionRegistry functionRegistry)
-    {
-        checkState(this.functionRegistry == null, "TypeRegistry can only be associated with a single FunctionRegistry");
-        this.functionRegistry = requireNonNull(functionRegistry, "functionRegistry is null");
-    }
-
-    @Override
-    public Type getType(TypeSignature signature)
+    public Type getType(TypeManager typeManager, TypeSignature signature)
     {
         Type type = types.get(signature);
         if (type == null) {
             try {
-                return parametricTypeCache.getUnchecked(signature);
+                return parametricTypeCache.get(signature, () -> instantiateParametricType(typeManager, signature));
             }
-            catch (UncheckedExecutionException e) {
+            catch (ExecutionException | UncheckedExecutionException e) {
                 throwIfUnchecked(e.getCause());
                 throw new RuntimeException(e.getCause());
             }
@@ -175,18 +154,12 @@ public final class TypeRegistry
         return type;
     }
 
-    @Override
-    public Type getParameterizedType(String baseTypeName, List<TypeSignatureParameter> typeParameters)
-    {
-        return getType(new TypeSignature(baseTypeName, typeParameters));
-    }
-
-    private Type instantiateParametricType(TypeSignature signature)
+    private Type instantiateParametricType(TypeManager typeManager, TypeSignature signature)
     {
         List<TypeParameter> parameters = new ArrayList<>();
 
         for (TypeSignatureParameter parameter : signature.getParameters()) {
-            TypeParameter typeParameter = TypeParameter.of(parameter, this);
+            TypeParameter typeParameter = TypeParameter.of(parameter, typeManager);
             parameters.add(typeParameter);
         }
 
@@ -197,7 +170,7 @@ public final class TypeRegistry
 
         Type instantiatedType;
         try {
-            instantiatedType = parametricType.createType(this, parameters);
+            instantiatedType = parametricType.createType(typeManager, parameters);
         }
         catch (IllegalArgumentException e) {
             throw new TypeNotFoundException(signature, e);
@@ -208,28 +181,14 @@ public final class TypeRegistry
         return instantiatedType;
     }
 
-    @Override
-    public List<Type> getTypes()
+    public Collection<Type> getTypes()
     {
         return ImmutableList.copyOf(types.values());
     }
 
-    @Override
-    public boolean isTypeOnlyCoercion(Type source, Type result)
+    public Collection<ParametricType> getParametricTypes()
     {
-        return typeCoercion.isTypeOnlyCoercion(source, result);
-    }
-
-    @Override
-    public Optional<Type> getCommonSuperType(Type firstType, Type secondType)
-    {
-        return typeCoercion.getCommonSuperType(firstType, secondType);
-    }
-
-    @Override
-    public boolean canCoerce(Type fromType, Type toType)
-    {
-        return typeCoercion.canCoerce(fromType, toType);
+        return ImmutableList.copyOf(parametricTypes.values());
     }
 
     public void addType(Type type)
@@ -244,24 +203,5 @@ public final class TypeRegistry
         String name = parametricType.getName().toLowerCase(Locale.ENGLISH);
         checkArgument(!parametricTypes.containsKey(name), "Parametric type already registered: %s", name);
         parametricTypes.putIfAbsent(name, parametricType);
-    }
-
-    @Override
-    public Collection<ParametricType> getParametricTypes()
-    {
-        return ImmutableList.copyOf(parametricTypes.values());
-    }
-
-    @Override
-    public Optional<Type> coerceTypeBase(Type sourceType, String resultTypeBase)
-    {
-        return typeCoercion.coerceTypeBase(sourceType, resultTypeBase);
-    }
-
-    @Override
-    public MethodHandle resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)
-    {
-        requireNonNull(functionRegistry, "functionRegistry is null");
-        return functionRegistry.getScalarFunctionImplementation(functionRegistry.resolveOperator(operatorType, argumentTypes)).getMethodHandle();
     }
 }

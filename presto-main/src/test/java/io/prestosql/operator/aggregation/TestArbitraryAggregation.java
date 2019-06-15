@@ -14,16 +14,14 @@
 package io.prestosql.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.metadata.MetadataManager;
+import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
 import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.Type;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
-import java.util.Set;
 
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.prestosql.block.BlockAssertions.createArrayBigintBlock;
 import static io.prestosql.block.BlockAssertions.createBooleansBlock;
 import static io.prestosql.block.BlockAssertions.createDoublesBlock;
@@ -31,20 +29,19 @@ import static io.prestosql.block.BlockAssertions.createIntsBlock;
 import static io.prestosql.block.BlockAssertions.createLongsBlock;
 import static io.prestosql.block.BlockAssertions.createStringsBlock;
 import static io.prestosql.metadata.FunctionKind.AGGREGATE;
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.operator.aggregation.AggregationTestUtils.assertAggregation;
 import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static org.testng.Assert.assertNotNull;
 
 public class TestArbitraryAggregation
 {
-    private static final MetadataManager metadata = MetadataManager.createTestMetadataManager();
+    private static final Metadata metadata = createTestMetadataManager();
 
     @Test
     public void testAllRegistered()
     {
-        Set<Type> allTypes = metadata.getTypeManager().getTypes().stream().collect(toImmutableSet());
-
-        for (Type valueType : allTypes) {
+        for (Type valueType : metadata.getTypes()) {
             assertNotNull(metadata.getFunctionRegistry().getAggregateFunctionImplementation(new Signature("arbitrary", AGGREGATE, valueType.getTypeSignature(), valueType.getTypeSignature())));
         }
     }

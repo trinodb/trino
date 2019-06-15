@@ -79,7 +79,6 @@ import io.prestosql.sql.tree.NodeRef;
 import io.prestosql.sql.tree.SymbolReference;
 import io.prestosql.testing.LocalQueryRunner;
 import io.prestosql.testing.MaterializedResult;
-import io.prestosql.type.TypeRegistry;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.openjdk.jol.info.ClassLayout;
@@ -231,14 +230,14 @@ public final class FunctionAssertions
         typeAnalyzer = new TypeAnalyzer(SQL_PARSER, metadata);
     }
 
-    public TypeRegistry getTypeRegistry()
-    {
-        return runner.getTypeManager();
-    }
-
     public Metadata getMetadata()
     {
         return metadata;
+    }
+
+    public void addType(Type type)
+    {
+        runner.addType(type);
     }
 
     public FunctionAssertions addFunctions(List<? extends SqlFunction> functionInfos)
@@ -889,7 +888,7 @@ public final class FunctionAssertions
 
     private RowExpression toRowExpression(Expression projection, Map<NodeRef<Expression>, Type> expressionTypes, Map<Symbol, Integer> layout)
     {
-        return translate(projection, SCALAR, expressionTypes, layout, metadata.getFunctionRegistry(), metadata.getTypeManager(), session, false);
+        return translate(projection, SCALAR, expressionTypes, layout, metadata, session, false);
     }
 
     private static Page getAtMostOnePage(Operator operator, Page sourcePage)

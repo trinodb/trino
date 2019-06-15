@@ -19,7 +19,7 @@ import com.google.common.collect.Lists;
 import io.prestosql.Session;
 import io.prestosql.SystemSessionProperties;
 import io.prestosql.metadata.FunctionKind;
-import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
 import io.prestosql.spi.type.CharType;
 import io.prestosql.spi.type.DecimalParseResult;
@@ -28,7 +28,6 @@ import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.RowType.Field;
 import io.prestosql.spi.type.TimeZoneKey;
 import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeManager;
 import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.spi.type.VarcharType;
 import io.prestosql.sql.planner.Symbol;
@@ -145,15 +144,14 @@ public final class SqlToRowExpressionTranslator
             FunctionKind functionKind,
             Map<NodeRef<Expression>, Type> types,
             Map<Symbol, Integer> layout,
-            FunctionRegistry functionRegistry,
-            TypeManager typeManager,
+            Metadata metadata,
             Session session,
             boolean optimize)
     {
         Visitor visitor = new Visitor(
                 functionKind,
                 types,
-                typeManager,
+                metadata,
                 layout,
                 session.getTimeZoneKey(),
                 SystemSessionProperties.isLegacyTimestamp(session));
@@ -162,7 +160,7 @@ public final class SqlToRowExpressionTranslator
         requireNonNull(result, "translated expression is null");
 
         if (optimize) {
-            ExpressionOptimizer optimizer = new ExpressionOptimizer(functionRegistry, typeManager, session);
+            ExpressionOptimizer optimizer = new ExpressionOptimizer(metadata, session);
             return optimizer.optimize(result);
         }
 
@@ -174,7 +172,7 @@ public final class SqlToRowExpressionTranslator
     {
         private final FunctionKind functionKind;
         private final Map<NodeRef<Expression>, Type> types;
-        private final TypeManager typeManager;
+        private final Metadata metadata;
         private final Map<Symbol, Integer> layout;
         private final TimeZoneKey timeZoneKey;
         private final boolean isLegacyTimestamp;
@@ -182,14 +180,14 @@ public final class SqlToRowExpressionTranslator
         private Visitor(
                 FunctionKind functionKind,
                 Map<NodeRef<Expression>, Type> types,
-                TypeManager typeManager,
+                Metadata metadata,
                 Map<Symbol, Integer> layout,
                 TimeZoneKey timeZoneKey,
                 boolean isLegacyTimestamp)
         {
             this.functionKind = functionKind;
             this.types = ImmutableMap.copyOf(requireNonNull(types, "types is null"));
-            this.typeManager = typeManager;
+            this.metadata = metadata;
             this.layout = layout;
             this.timeZoneKey = timeZoneKey;
             this.isLegacyTimestamp = isLegacyTimestamp;
@@ -267,7 +265,7 @@ public final class SqlToRowExpressionTranslator
         @Override
         protected RowExpression visitGenericLiteral(GenericLiteral node, Void context)
         {
-            Type type = typeManager.getType(parseTypeSignature(node.getType()));
+            Type type = metadata.getType(parseTypeSignature(node.getType()));
 
             if (JSON.equals(type)) {
                 return call(

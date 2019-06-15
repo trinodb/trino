@@ -16,7 +16,7 @@ package io.prestosql.type;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.RowPagesBuilder;
 import io.prestosql.Session;
-import io.prestosql.metadata.MetadataManager;
+import io.prestosql.metadata.Metadata;
 import io.prestosql.operator.DriverYieldSignal;
 import io.prestosql.operator.project.PageProcessor;
 import io.prestosql.spi.Page;
@@ -543,7 +543,7 @@ public class BenchmarkDecimalOperators
 
     private static class BaseState
     {
-        private final MetadataManager metadata = createTestMetadataManager();
+        private final Metadata metadata = createTestMetadataManager();
         private final TypeAnalyzer typeAnalyzer = new TypeAnalyzer(new SqlParser(), metadata);
         private final Session session = testSessionBuilder().build();
         private final Random random = new Random();
@@ -617,8 +617,7 @@ public class BenchmarkDecimalOperators
                     SCALAR,
                     typeAnalyzer.getTypes(TEST_SESSION, TypeProvider.copyOf(symbolTypes), expression),
                     sourceLayout,
-                    metadata.getFunctionRegistry(),
-                    metadata.getTypeManager(),
+                    metadata,
                     TEST_SESSION,
                     true);
         }

@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableMap;
 import io.prestosql.SequencePageBuilder;
 import io.prestosql.Session;
 import io.prestosql.metadata.Metadata;
-import io.prestosql.metadata.MetadataManager;
 import io.prestosql.operator.DriverYieldSignal;
 import io.prestosql.operator.index.PageRecordSet;
 import io.prestosql.operator.project.CursorProcessor;
@@ -116,7 +115,7 @@ public class PageProcessorBenchmark
         List<RowExpression> projections = getProjections(type);
         types = projections.stream().map(RowExpression::getType).collect(toList());
 
-        MetadataManager metadata = createTestMetadataManager();
+        Metadata metadata = createTestMetadataManager();
         PageFunctionCompiler pageFunctionCompiler = new PageFunctionCompiler(metadata, 0);
 
         inputPage = createPage(types, dictionaryBlocks);
@@ -179,7 +178,7 @@ public class PageProcessorBenchmark
         Expression expression = createExpression(value, METADATA, TypeProvider.copyOf(symbolTypes));
 
         Map<NodeRef<Expression>, Type> expressionTypes = TYPE_ANALYZER.getTypes(TEST_SESSION, TypeProvider.copyOf(symbolTypes), expression);
-        return SqlToRowExpressionTranslator.translate(expression, SCALAR, expressionTypes, sourceLayout, METADATA.getFunctionRegistry(), METADATA.getTypeManager(), TEST_SESSION, true);
+        return SqlToRowExpressionTranslator.translate(expression, SCALAR, expressionTypes, sourceLayout, METADATA, TEST_SESSION, true);
     }
 
     private static Page createPage(List<? extends Type> types, boolean dictionary)

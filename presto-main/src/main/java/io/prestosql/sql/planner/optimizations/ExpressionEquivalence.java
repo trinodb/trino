@@ -99,8 +99,7 @@ public class ExpressionEquivalence
                 SCALAR,
                 typeAnalyzer.getTypes(session, types, expression),
                 symbolInput,
-                metadata.getFunctionRegistry(),
-                metadata.getTypeManager(),
+                metadata,
                 session,
                 false);
     }

@@ -27,7 +27,7 @@ import io.prestosql.execution.scheduler.NodeScheduler;
 import io.prestosql.execution.scheduler.NodeSchedulerConfig;
 import io.prestosql.index.IndexManager;
 import io.prestosql.metadata.InMemoryNodeManager;
-import io.prestosql.metadata.MetadataManager;
+import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Split;
 import io.prestosql.operator.LookupJoinOperators;
 import io.prestosql.operator.PagesIndex;
@@ -60,6 +60,7 @@ import java.util.Optional;
 import java.util.OptionalInt;
 
 import static io.prestosql.SessionTestUtils.TEST_SESSION;
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.operator.StageExecutionDescriptor.ungroupedExecution;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
@@ -101,7 +102,7 @@ public final class TaskTestUtils
 
     public static LocalExecutionPlanner createTestingPlanner()
     {
-        MetadataManager metadata = MetadataManager.createTestMetadataManager();
+        Metadata metadata = createTestMetadataManager();
 
         PageSourceManager pageSourceManager = new PageSourceManager();
         pageSourceManager.addConnectorPageSourceProvider(CONNECTOR_ID, new TestingPageSourceProvider());
@@ -141,7 +142,7 @@ public final class TaskTestUtils
                     throw new UnsupportedOperationException();
                 },
                 new PagesIndex.TestingFactory(false),
-                new JoinCompiler(MetadataManager.createTestMetadataManager()),
+                new JoinCompiler(metadata),
                 new LookupJoinOperators(),
                 new OrderingCompiler());
     }

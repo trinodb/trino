@@ -16,13 +16,10 @@ package io.prestosql.plugin.ml;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.Session;
 import io.prestosql.plugin.tpch.TpchConnectorFactory;
-import io.prestosql.spi.type.ParametricType;
-import io.prestosql.spi.type.Type;
 import io.prestosql.testing.LocalQueryRunner;
 import io.prestosql.tests.AbstractTestQueryFramework;
 import org.testng.annotations.Test;
 
-import static io.prestosql.metadata.FunctionExtractor.extractFunctions;
 import static io.prestosql.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 
@@ -64,15 +61,7 @@ public class TestMLQueries
                 new TpchConnectorFactory(1),
                 ImmutableMap.of());
 
-        MLPlugin plugin = new MLPlugin();
-        for (Type type : plugin.getTypes()) {
-            localQueryRunner.getTypeManager().addType(type);
-        }
-        for (ParametricType parametricType : plugin.getParametricTypes()) {
-            localQueryRunner.getTypeManager().addParametricType(parametricType);
-        }
-        localQueryRunner.getMetadata().addFunctions(extractFunctions(new MLPlugin().getFunctions()));
-
+        localQueryRunner.installPlugin(new MLPlugin());
         return localQueryRunner;
     }
 }
