@@ -871,8 +871,8 @@ This is repeated for set of rows from the column source tables.
 computing the rows to be joined::
 
     SELECT name, x, y
-    FROM nation,
-    CROSS JOIN LATERAL (SELECT name || ' :-' AS x),
+    FROM nation
+    CROSS JOIN LATERAL (SELECT name || ' :-' AS x)
     CROSS JOIN LATERAL (SELECT x || ')' AS y)
 
 Qualifying Column Names
