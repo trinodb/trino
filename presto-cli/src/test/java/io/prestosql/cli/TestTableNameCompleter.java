@@ -13,9 +13,10 @@
  */
 package io.prestosql.cli;
 
-import com.google.common.collect.ImmutableList;
 import io.prestosql.client.ClientSession;
 import org.testng.annotations.Test;
+
+import java.util.ArrayList;
 
 import static io.prestosql.cli.TestQueryRunner.createQueryRunner;
 import static org.testng.Assert.assertEquals;
@@ -29,6 +30,6 @@ public class TestTableNameCompleter
         QueryRunner runner = createQueryRunner(session);
 
         TableNameCompleter completer = new TableNameCompleter(runner);
-        assertEquals(completer.complete("SELECT is_infi", 14, ImmutableList.of()), 7);
+        assertEquals(completer.complete("SELECT is_infi", 14, new ArrayList<>()), 7);
     }
 }
