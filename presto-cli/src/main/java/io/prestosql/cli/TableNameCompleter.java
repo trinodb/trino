@@ -22,11 +22,13 @@ import io.prestosql.client.StatementClient;
 import jline.console.completer.Completer;
 
 import java.io.Closeable;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.SortedSet;
 import java.util.TreeSet;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 import static com.google.common.cache.CacheLoader.asyncReloading;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
@@ -41,8 +43,48 @@ public class TableNameCompleter
 
     private final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("completer-%s"));
     private final QueryRunner queryRunner;
-    private final LoadingCache<String, List<String>> tableCache;
+    private final LoadingCache<String, List<TableNameCompletionProposal>> tableCache;
     private final LoadingCache<String, List<String>> functionCache;
+    private final LoadingCache<String, List<String>> catalogCache;
+
+    private static class TableNameCompletionProposal
+    {
+        private final String catalogName;
+        private final String schemaName;
+        private final String tableName;
+
+        public TableNameCompletionProposal(String catalogName, String schemaName, String tableName)
+        {
+            this.catalogName = catalogName;
+            this.schemaName = schemaName;
+            this.tableName = tableName;
+        }
+
+        public String withCatalogName()
+        {
+            return catalogName + "." + schemaName + "." + tableName;
+        }
+
+        public String withSchemaName()
+        {
+            return schemaName + "." + tableName;
+        }
+
+        public String simpleName()
+        {
+            return tableName;
+        }
+
+        public boolean belongToCatalog(String catalogName)
+        {
+            return this.catalogName.equals(catalogName);
+        }
+
+        public boolean belongToSchema(String catalogName, String schemaName)
+        {
+            return belongToCatalog(catalogName) && this.schemaName.equals(schemaName);
+        }
+    }
 
     public TableNameCompleter(QueryRunner queryRunner)
     {
@@ -54,39 +96,45 @@ public class TableNameCompleter
 
         functionCache = CacheBuilder.newBuilder()
                 .build(asyncReloading(CacheLoader.from(this::listFunctions), executor));
+
+        catalogCache = CacheBuilder.newBuilder()
+                .build(asyncReloading(CacheLoader.from(this::listCatalogs), executor));
     }
 
-    private List<String> listTables(String catalogAndSchema)
+    private List<TableNameCompletionProposal> listTables(String catalogName)
     {
-        if (catalogAndSchema.isEmpty()) {
+        if (catalogName.isEmpty()) {
             return ImmutableList.of();
         }
-        int index = catalogAndSchema.indexOf(".");
-        if (index >= 0) {
-            String catalogName = catalogAndSchema.substring(0, index);
-            String schemaName = catalogAndSchema.substring(index + 1);
-            return queryMetadata(format("SELECT table_name FROM \"%s\".information_schema.tables WHERE table_schema = '%s'", catalogName.replace("\"", "\"\""), schemaName.replace("'", "''")));
-        }
-        else {
-            String catalogName = catalogAndSchema;
-            return queryMetadata(format("SELECT table_schema || '.' || table_name FROM \"%s\".information_schema.tables", catalogName.replace("\"", "\"\"")));
-        }
+
+        String sql = "SELECT table_catalog, table_schema, table_name FROM \"%s\".information_schema.tables";
+        return queryMetadata(format(sql, catalogName.replace("\"", "\"\"")), 3).stream().map(row ->
+                new TableNameCompletionProposal(row.get(0), row.get(1), row.get(2))).collect(Collectors.toList());
     }
 
-    private List<String> listFunctions(String catalogAndSchema)
+    private List<String> listFunctions(String catalogName)
     {
-        return queryMetadata("SHOW FUNCTIONS");
+        return queryMetadata("SHOW FUNCTIONS", 1).stream().map(row -> row.get(0)).collect(Collectors.toList());
     }
 
-    private List<String> queryMetadata(String query)
+    private List<String> listCatalogs(String catalogName)
     {
-        ImmutableList.Builder<String> cache = ImmutableList.builder();
+        return queryMetadata("SHOW CATALOGS", 1).stream().map(row -> row.get(0)).collect(Collectors.toList());
+    }
+
+    private List<List<String>> queryMetadata(String query, int columns)
+    {
+        ImmutableList.Builder<List<String>> cache = ImmutableList.builder();
         try (StatementClient client = queryRunner.startInternalQuery(query)) {
             while (client.isRunning() && !Thread.currentThread().isInterrupted()) {
                 QueryData results = client.currentData();
                 if (results.getData() != null) {
                     for (List<Object> row : results.getData()) {
-                        cache.add((String) row.get(0));
+                        List<String> list = new ArrayList<>();
+                        for (int i = 0; i < columns; i++) {
+                            list.add((String) row.get(i));
+                        }
+                        cache.add(ImmutableList.copyOf(list));
                     }
                 }
                 client.advance();
@@ -97,28 +145,12 @@ public class TableNameCompleter
 
     public void populateCache()
     {
-        String key = getCatalogAndSchema();
+        String catalogName = getCatalogName("");
         executor.execute(() -> {
-            functionCache.refresh(key);
-            tableCache.refresh(key);
+            functionCache.refresh(catalogName);
+            tableCache.refresh(catalogName);
+            catalogCache.refresh("");
         });
-    }
-
-    private String getCatalogAndSchema()
-    {
-        String catalogName = queryRunner.getSession().getCatalog();
-        String schemaName = queryRunner.getSession().getSchema();
-
-        StringBuilder sb = new StringBuilder();
-        if (catalogName != null) {
-            sb.append(catalogName);
-            if (schemaName != null) {
-                sb.append(".");
-                sb.append(schemaName);
-            }
-        }
-
-        return sb.toString();
     }
 
     @Override
@@ -129,17 +161,39 @@ public class TableNameCompleter
         }
         int blankPos = findLastBlank(buffer.substring(0, cursor));
         String prefix = buffer.substring(blankPos + 1, cursor);
-        String key = getCatalogAndSchema();
+        String catalogName = getCatalogName(prefix);
 
-        List<String> functionNames = functionCache.getIfPresent(key);
-        List<String> tableNames = tableCache.getIfPresent(key);
+        List<String> functionNames = functionCache.getIfPresent(catalogName);
+        List<TableNameCompletionProposal> tableNames = tableCache.getIfPresent(catalogName);
+
+        // Try to refresh on demand
+        if (tableNames == null) {
+            tableCache.refresh(catalogName);
+            tableNames = tableCache.getIfPresent(catalogName);
+        }
 
         SortedSet<String> sortedCandidates = new TreeSet<>();
         if (functionNames != null) {
             sortedCandidates.addAll(filterResults(functionNames, prefix));
         }
         if (tableNames != null) {
-            sortedCandidates.addAll(filterResults(tableNames, prefix));
+            String sessionCatalog = queryRunner.getSession().getCatalog();
+            String sessionSchema = queryRunner.getSession().getSchema();
+            List<String> adjustedTableNames = new ArrayList<>();
+
+            tableNames.forEach(tableName -> {
+                if (prefix.contains(".")) {
+                    adjustedTableNames.add(tableName.withCatalogName());
+                }
+                if (tableName.belongToCatalog(sessionCatalog)) {
+                    adjustedTableNames.add(tableName.withSchemaName());
+                }
+                if (tableName.belongToSchema(sessionCatalog, sessionSchema)) {
+                    adjustedTableNames.add(tableName.simpleName());
+                }
+            });
+
+            sortedCandidates.addAll(filterResults(ImmutableList.copyOf(adjustedTableNames), prefix));
         }
 
         candidates.addAll(sortedCandidates);
@@ -166,6 +220,46 @@ public class TableNameCompleter
             }
         }
         return builder.build();
+    }
+
+    private String getCatalogName(String prefix)
+    {
+        String[] fragments = splitTableName(prefix);
+        if (fragments.length > 1) {
+            List<String> catalogs = catalogCache.getIfPresent("");
+            if (catalogs.contains(fragments[0])) {
+                return fragments[0];
+            }
+        }
+        String catalogName = queryRunner.getSession().getCatalog();
+        if (catalogName != null) {
+            return catalogName;
+        }
+        return "";
+    }
+
+    private String[] splitTableName(String tableName)
+    {
+        List<String> fragments = new ArrayList<>();
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < tableName.length(); i++) {
+            char c = tableName.charAt(i);
+            if (c == '.') {
+                fragments.add(sb.toString());
+                sb = new StringBuilder();
+            }
+            else {
+                sb.append(c);
+            }
+        }
+        if (sb.length() > 0) {
+            fragments.add(sb.toString());
+        }
+        else if (tableName.endsWith(".")) {
+            fragments.add("");
+        }
+
+        return fragments.toArray(new String[fragments.size()]);
     }
 
     @Override
