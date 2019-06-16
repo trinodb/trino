@@ -1071,7 +1071,7 @@ public class FunctionRegistry
 
     public Signature getCoercion(TypeSignature fromType, TypeSignature toType)
     {
-        Signature signature = internalOperator(OperatorType.CAST.name(), toType, ImmutableList.of(fromType));
+        Signature signature = internalOperator(OperatorType.CAST, toType, ImmutableList.of(fromType));
         try {
             getScalarFunctionImplementation(signature);
         }
@@ -1086,12 +1086,7 @@ public class FunctionRegistry
 
     public static String mangleOperatorName(OperatorType operatorType)
     {
-        return mangleOperatorName(operatorType.name());
-    }
-
-    public static String mangleOperatorName(String operatorName)
-    {
-        return OPERATOR_PREFIX + operatorName;
+        return OPERATOR_PREFIX + operatorType.name();
     }
 
     @VisibleForTesting

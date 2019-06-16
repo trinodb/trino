@@ -142,7 +142,7 @@ public class RowToRowCast
         // loop through to append member blocks
         for (int i = 0; i < toTypes.size(); i++) {
             Signature signature = internalOperator(
-                    CAST.name(),
+                    CAST,
                     toTypes.get(i).getTypeSignature(),
                     ImmutableList.of(fromTypes.get(i).getTypeSignature()));
             ScalarFunctionImplementation function = metadata.getScalarFunctionImplementation(signature);

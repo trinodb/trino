@@ -33,13 +33,20 @@ import static io.prestosql.metadata.FunctionKind.SCALAR;
 import static io.prestosql.metadata.FunctionRegistry.mangleOperatorName;
 import static io.prestosql.metadata.Signature.internalOperator;
 import static io.prestosql.metadata.Signature.internalScalarFunction;
+import static io.prestosql.spi.function.OperatorType.ADD;
+import static io.prestosql.spi.function.OperatorType.BETWEEN;
+import static io.prestosql.spi.function.OperatorType.DIVIDE;
+import static io.prestosql.spi.function.OperatorType.MODULUS;
+import static io.prestosql.spi.function.OperatorType.MULTIPLY;
+import static io.prestosql.spi.function.OperatorType.NEGATION;
 import static io.prestosql.spi.function.OperatorType.SUBSCRIPT;
+import static io.prestosql.spi.function.OperatorType.SUBTRACT;
 import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static io.prestosql.sql.tree.ArrayConstructor.ARRAY_CONSTRUCTOR;
 
 public final class Signatures
 {
-    public static final String CAST = mangleOperatorName("CAST");
+    public static final String CAST = mangleOperatorName(OperatorType.CAST);
 
     private Signatures()
     {
@@ -53,7 +60,7 @@ public final class Signatures
 
     public static Signature betweenSignature(Type valueType, Type minType, Type maxType)
     {
-        return internalOperator("BETWEEN", parseTypeSignature(StandardTypes.BOOLEAN), valueType.getTypeSignature(), minType.getTypeSignature(), maxType.getTypeSignature());
+        return internalOperator(BETWEEN, parseTypeSignature(StandardTypes.BOOLEAN), valueType.getTypeSignature(), minType.getTypeSignature(), maxType.getTypeSignature());
     }
 
     public static Signature likeVarcharSignature()
@@ -90,17 +97,37 @@ public final class Signatures
 
     public static Signature arithmeticNegationSignature(Type returnType, Type valueType)
     {
-        return internalOperator("NEGATION", returnType.getTypeSignature(), valueType.getTypeSignature());
+        return internalOperator(NEGATION, returnType.getTypeSignature(), valueType.getTypeSignature());
     }
 
     public static Signature arithmeticExpressionSignature(ArithmeticBinaryExpression.Operator operator, Type returnType, Type leftType, Type rightType)
     {
-        return internalOperator(operator.name(), returnType.getTypeSignature(), leftType.getTypeSignature(), rightType.getTypeSignature());
+        OperatorType operatorType;
+        switch (operator) {
+            case ADD:
+                operatorType = ADD;
+                break;
+            case SUBTRACT:
+                operatorType = SUBTRACT;
+                break;
+            case MULTIPLY:
+                operatorType = MULTIPLY;
+                break;
+            case DIVIDE:
+                operatorType = DIVIDE;
+                break;
+            case MODULUS:
+                operatorType = MODULUS;
+                break;
+            default:
+                throw new IllegalStateException("Unknown arithmetic operator: " + operator);
+        }
+        return internalOperator(operatorType, returnType.getTypeSignature(), leftType.getTypeSignature(), rightType.getTypeSignature());
     }
 
     public static Signature subscriptSignature(Type returnType, Type leftType, Type rightType)
     {
-        return internalOperator(SUBSCRIPT.name(), returnType.getTypeSignature(), leftType.getTypeSignature(), rightType.getTypeSignature());
+        return internalOperator(SUBSCRIPT, returnType.getTypeSignature(), leftType.getTypeSignature(), rightType.getTypeSignature());
     }
 
     public static Signature arrayConstructorSignature(Type returnType, List<? extends Type> argumentTypes)
@@ -117,7 +144,7 @@ public final class Signatures
     {
         for (OperatorType operatorType : OperatorType.values()) {
             if (operatorType.name().equals(operator.name())) {
-                return internalOperator(operator.name(), parseTypeSignature(StandardTypes.BOOLEAN), leftType.getTypeSignature(), rightType.getTypeSignature());
+                return internalOperator(operatorType, parseTypeSignature(StandardTypes.BOOLEAN), leftType.getTypeSignature(), rightType.getTypeSignature());
             }
         }
         return internalScalarFunction(operator.name(), parseTypeSignature(StandardTypes.BOOLEAN), leftType.getTypeSignature(), rightType.getTypeSignature());

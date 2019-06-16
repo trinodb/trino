@@ -74,7 +74,7 @@ public class ArrayToArrayCast
         Type fromType = boundVariables.getTypeVariable("F");
         Type toType = boundVariables.getTypeVariable("T");
 
-        Signature signature = internalOperator(CAST.name(), toType.getTypeSignature(), ImmutableList.of(fromType.getTypeSignature()));
+        Signature signature = internalOperator(CAST, toType.getTypeSignature(), ImmutableList.of(fromType.getTypeSignature()));
         ScalarFunctionImplementation function = metadata.getScalarFunctionImplementation(signature);
         Class<?> castOperatorClass = generateArrayCast(metadata, signature, function);
         MethodHandle methodHandle = methodHandle(castOperatorClass, "castArray", ConnectorSession.class, Block.class);

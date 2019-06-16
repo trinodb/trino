@@ -187,7 +187,7 @@ public final class ArrayJoin
         }
         else {
             try {
-                ScalarFunctionImplementation castFunction = metadata.getScalarFunctionImplementation(internalOperator(CAST.name(), VARCHAR_TYPE_SIGNATURE, ImmutableList.of(type.getTypeSignature())));
+                ScalarFunctionImplementation castFunction = metadata.getScalarFunctionImplementation(internalOperator(CAST, VARCHAR_TYPE_SIGNATURE, ImmutableList.of(type.getTypeSignature())));
 
                 MethodHandle getter;
                 Class<?> elementType = type.getJavaType();

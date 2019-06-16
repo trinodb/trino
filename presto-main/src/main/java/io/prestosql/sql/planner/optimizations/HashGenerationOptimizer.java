@@ -26,6 +26,7 @@ import io.prestosql.SystemSessionProperties;
 import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.metadata.FunctionRegistry;
 import io.prestosql.metadata.Signature;
+import io.prestosql.spi.function.OperatorType;
 import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.sql.planner.Partitioning.ArgumentBinding;
 import io.prestosql.sql.planner.PartitioningScheme;
@@ -94,7 +95,7 @@ public class HashGenerationOptimizer
         implements PlanOptimizer
 {
     public static final int INITIAL_HASH_VALUE = 0;
-    private static final String HASH_CODE = FunctionRegistry.mangleOperatorName("HASH_CODE");
+    private static final String HASH_CODE = FunctionRegistry.mangleOperatorName(OperatorType.HASH_CODE);
     private static final Signature COMBINE_HASH = new Signature(
             "combine_hash",
             SCALAR,

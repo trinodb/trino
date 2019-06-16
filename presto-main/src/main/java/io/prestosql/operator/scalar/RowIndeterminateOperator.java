@@ -132,7 +132,7 @@ public class RowIndeterminateOperator
                                 .gotoLabel(end));
 
                 Signature signature = internalOperator(
-                        INDETERMINATE.name(),
+                        INDETERMINATE,
                         BOOLEAN.getTypeSignature(),
                         ImmutableList.of(fieldTypes.get(i).getTypeSignature()));
                 ScalarFunctionImplementation function = metadata.getScalarFunctionImplementation(signature);
