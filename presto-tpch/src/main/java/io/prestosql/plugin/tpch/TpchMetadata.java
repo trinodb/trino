@@ -154,6 +154,12 @@ public class TpchMetadata
     }
 
     @Override
+    public boolean schemaExists(ConnectorSession session, String schemaName)
+    {
+        return schemaNameToScaleFactor(schemaName) > 0;
+    }
+
+    @Override
     public List<String> listSchemaNames(ConnectorSession session)
     {
         return SCHEMA_NAMES;
@@ -169,7 +175,7 @@ public class TpchMetadata
 
         // parse the scale factor
         double scaleFactor = schemaNameToScaleFactor(tableName.getSchemaName());
-        if (scaleFactor < 0) {
+        if (scaleFactor <= 0) {
             return null;
         }
 
