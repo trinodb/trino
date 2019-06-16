@@ -13,9 +13,8 @@
  */
 package io.prestosql.metadata;
 
+import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
@@ -198,6 +197,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ExecutionException;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -321,24 +321,18 @@ import static io.prestosql.type.DecimalSaturatedFloorCasts.SMALLINT_TO_DECIMAL_S
 import static io.prestosql.type.DecimalSaturatedFloorCasts.TINYINT_TO_DECIMAL_SATURATED_FLOOR_CAST;
 import static io.prestosql.type.DecimalToDecimalCasts.DECIMAL_TO_DECIMAL_CAST;
 import static java.lang.Math.min;
-import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.HOURS;
 
 @ThreadSafe
 public class FunctionRegistry
 {
-    private final Metadata metadata;
-    private final LoadingCache<SpecializedFunctionKey, ScalarFunctionImplementation> specializedScalarCache;
-    private final LoadingCache<SpecializedFunctionKey, InternalAggregationFunction> specializedAggregationCache;
-    private final LoadingCache<SpecializedFunctionKey, WindowFunctionSupplier> specializedWindowCache;
+    private final Cache<SpecializedFunctionKey, ScalarFunctionImplementation> specializedScalarCache;
+    private final Cache<SpecializedFunctionKey, InternalAggregationFunction> specializedAggregationCache;
+    private final Cache<SpecializedFunctionKey, WindowFunctionSupplier> specializedWindowCache;
     private volatile FunctionMap functions = new FunctionMap();
 
     public FunctionRegistry(Metadata metadata, FeaturesConfig featuresConfig)
     {
-        this.metadata = requireNonNull(metadata, "metadata is null");
-
-        // TODO the function map should be updated, so that this cast can be removed
-
         // We have observed repeated compilation of MethodHandle that leads to full GCs.
         // We notice that flushing the following caches mitigate the problem.
         // We suspect that it is a JVM bug that is related to stale/corrupted profiling data associated
@@ -348,52 +342,17 @@ public class FunctionRegistry
         specializedScalarCache = CacheBuilder.newBuilder()
                 .maximumSize(1000)
                 .expireAfterWrite(1, HOURS)
-                .build(CacheLoader.from(key -> {
-                    SqlScalarFunction function = (SqlScalarFunction) key.getFunction();
-                    ScalarFunctionImplementation specialize = function.specialize(key.getBoundVariables(), key.getArity(), metadata);
-                    FunctionMetadata functionMetadata = function.getFunctionMetadata();
-                    for (ScalarImplementationChoice choice : specialize.getAllChoices()) {
-                        checkArgument(choice.isNullable() == functionMetadata.isNullable(), "choice nullability doesn't match for: " + functionMetadata.getSignature());
-                        for (int i = 0; i < choice.getArgumentProperties().size(); i++) {
-                            ArgumentProperty argumentProperty = choice.getArgumentProperty(i);
-                            int functionArgumentIndex = i;
-                            if (functionMetadata.getSignature().isVariableArity()) {
-                                functionArgumentIndex = min(i, functionMetadata.getSignature().getArgumentTypes().size() - 1);
-                            }
-                            boolean functionPropertyNullability = functionMetadata.getArgumentDefinitions().get(functionArgumentIndex).isNullable();
-                            if (argumentProperty.getArgumentType() == ArgumentType.FUNCTION_TYPE) {
-                                checkArgument(!functionPropertyNullability, "choice function argument must not be nullable: " + functionMetadata.getSignature());
-                            }
-                            else if (argumentProperty.getNullConvention() != BLOCK_AND_POSITION) {
-                                boolean choiceNullability = argumentProperty.getNullConvention() != RETURN_NULL_ON_NULL;
-                                checkArgument(functionPropertyNullability == choiceNullability, "choice function argument nullability doesn't match for: " + functionMetadata.getSignature());
-                            }
-                        }
-                    }
-                    return specialize;
-                }));
+                .build();
 
         specializedAggregationCache = CacheBuilder.newBuilder()
                 .maximumSize(1000)
                 .expireAfterWrite(1, HOURS)
-                .build(CacheLoader.from(key -> {
-                    SqlAggregationFunction function = (SqlAggregationFunction) key.getFunction();
-                    InternalAggregationFunction implementation = function.specialize(key.getBoundVariables(), key.getArity(), metadata);
-                    checkArgument(function.isOrderSensitive() == implementation.isOrderSensitive(), "implementation order sensitivity doesn't match for: %s", function.getFunctionMetadata().getSignature());
-                    checkArgument(function.isDecomposable() == implementation.isDecomposable(), "implementation decomposable doesn't match for: %s", function.getFunctionMetadata().getSignature());
-                    return implementation;
-                }));
+                .build();
 
         specializedWindowCache = CacheBuilder.newBuilder()
                 .maximumSize(1000)
                 .expireAfterWrite(1, HOURS)
-                .build(CacheLoader.from(key -> {
-                    if (key.getFunction() instanceof SqlAggregationFunction) {
-                        return supplier(key.getFunction().getFunctionMetadata().getSignature(), specializedAggregationCache.getUnchecked(key));
-                    }
-                    return ((SqlWindowFunction) key.getFunction())
-                            .specialize(key.getBoundVariables(), key.getArity(), metadata);
-                }));
+                .build();
 
         FunctionListBuilder builder = new FunctionListBuilder()
                 .window(RowNumberFunction.class)
@@ -678,9 +637,9 @@ public class FunctionRegistry
         return functions.get(functionId).getFunctionMetadata();
     }
 
-    public AggregationFunctionMetadata getAggregationFunctionMetadata(ResolvedFunction resolvedFunction)
+    public AggregationFunctionMetadata getAggregationFunctionMetadata(Metadata metadata, ResolvedFunction resolvedFunction)
     {
-        SqlFunction function = getSpecializedFunctionKey(resolvedFunction).getFunction();
+        SqlFunction function = functions.get(resolvedFunction.getFunctionId());
         checkArgument(function instanceof SqlAggregationFunction, "%s is not an aggregation function", resolvedFunction);
 
         SqlAggregationFunction aggregationFunction = (SqlAggregationFunction) function;
@@ -688,44 +647,96 @@ public class FunctionRegistry
             return new AggregationFunctionMetadata(aggregationFunction.isOrderSensitive(), Optional.empty());
         }
 
-        InternalAggregationFunction implementation = getAggregateFunctionImplementation(resolvedFunction);
+        InternalAggregationFunction implementation = getAggregateFunctionImplementation(metadata, resolvedFunction);
         return new AggregationFunctionMetadata(aggregationFunction.isOrderSensitive(), Optional.of(implementation.getIntermediateType().getTypeSignature()));
     }
 
-    public WindowFunctionSupplier getWindowFunctionImplementation(ResolvedFunction resolvedFunction)
+    public WindowFunctionSupplier getWindowFunctionImplementation(Metadata metadata, ResolvedFunction resolvedFunction)
     {
+        SpecializedFunctionKey key = getSpecializedFunctionKey(metadata, resolvedFunction);
         try {
-            return specializedWindowCache.getUnchecked(getSpecializedFunctionKey(resolvedFunction));
+            if (key.getFunction() instanceof SqlAggregationFunction) {
+                return supplier(key.getFunction().getFunctionMetadata().getSignature(), specializedAggregationCache.get(key, () -> specializedAggregation(metadata, key)));
+            }
+            return specializedWindowCache.get(key, () -> specializeWindow(metadata, key));
         }
-        catch (UncheckedExecutionException e) {
+        catch (ExecutionException | UncheckedExecutionException e) {
             throwIfInstanceOf(e.getCause(), PrestoException.class);
-            throw e;
+            throw new RuntimeException(e.getCause());
         }
     }
 
-    public InternalAggregationFunction getAggregateFunctionImplementation(ResolvedFunction resolvedFunction)
+    private static WindowFunctionSupplier specializeWindow(Metadata metadata, SpecializedFunctionKey key)
     {
+        return ((SqlWindowFunction) key.getFunction())
+                .specialize(key.getBoundVariables(), key.getArity(), metadata);
+    }
+
+    public InternalAggregationFunction getAggregateFunctionImplementation(Metadata metadata, ResolvedFunction resolvedFunction)
+    {
+        SpecializedFunctionKey key = getSpecializedFunctionKey(metadata, resolvedFunction);
         try {
-            return specializedAggregationCache.getUnchecked(getSpecializedFunctionKey(resolvedFunction));
+            return specializedAggregationCache.get(key, () -> specializedAggregation(metadata, key));
         }
-        catch (UncheckedExecutionException e) {
+        catch (ExecutionException | UncheckedExecutionException e) {
             throwIfInstanceOf(e.getCause(), PrestoException.class);
-            throw e;
+            throw new RuntimeException(e.getCause());
         }
     }
 
-    public ScalarFunctionImplementation getScalarFunctionImplementation(ResolvedFunction resolvedFunction)
+    private static InternalAggregationFunction specializedAggregation(Metadata metadata, SpecializedFunctionKey key)
     {
+        SqlAggregationFunction function = (SqlAggregationFunction) key.getFunction();
+        InternalAggregationFunction implementation = function.specialize(key.getBoundVariables(), key.getArity(), metadata);
+        checkArgument(
+                function.isOrderSensitive() == implementation.isOrderSensitive(),
+                "implementation order sensitivity doesn't match for: %s",
+                function.getFunctionMetadata().getSignature());
+        checkArgument(
+                function.isDecomposable() == implementation.isDecomposable(),
+                "implementation decomposable doesn't match for: %s",
+                function.getFunctionMetadata().getSignature());
+        return implementation;
+    }
+
+    public ScalarFunctionImplementation getScalarFunctionImplementation(Metadata metadata, ResolvedFunction resolvedFunction)
+    {
+        SpecializedFunctionKey key = getSpecializedFunctionKey(metadata, resolvedFunction);
         try {
-            return specializedScalarCache.getUnchecked(getSpecializedFunctionKey(resolvedFunction));
+            return specializedScalarCache.get(key, () -> specializeScalarFunction(metadata, key));
         }
-        catch (UncheckedExecutionException e) {
+        catch (ExecutionException | UncheckedExecutionException e) {
             throwIfInstanceOf(e.getCause(), PrestoException.class);
-            throw e;
+            throw new RuntimeException(e.getCause());
         }
     }
 
-    private SpecializedFunctionKey getSpecializedFunctionKey(ResolvedFunction resolvedFunction)
+    private static ScalarFunctionImplementation specializeScalarFunction(Metadata metadata, SpecializedFunctionKey key)
+    {
+        SqlScalarFunction function = (SqlScalarFunction) key.getFunction();
+        ScalarFunctionImplementation specialize = function.specialize(key.getBoundVariables(), key.getArity(), metadata);
+        FunctionMetadata functionMetadata = function.getFunctionMetadata();
+        for (ScalarImplementationChoice choice : specialize.getAllChoices()) {
+            checkArgument(choice.isNullable() == functionMetadata.isNullable(), "choice nullability doesn't match for: " + functionMetadata.getSignature());
+            for (int i = 0; i < choice.getArgumentProperties().size(); i++) {
+                ArgumentProperty argumentProperty = choice.getArgumentProperty(i);
+                int functionArgumentIndex = functionMetadata.getSignature().isVariableArity() ? min(i, functionMetadata
+                        .getSignature().getArgumentTypes().size() - 1) : i;
+                boolean functionPropertyNullability = functionMetadata.getArgumentDefinitions().get(functionArgumentIndex).isNullable();
+                if (argumentProperty.getArgumentType() == ArgumentType.FUNCTION_TYPE) {
+                    checkArgument(!functionPropertyNullability, "choice function argument must not be nullable: " + functionMetadata.getSignature());
+                }
+                else if (argumentProperty.getNullConvention() != BLOCK_AND_POSITION) {
+                    boolean choiceNullability = argumentProperty.getNullConvention() != RETURN_NULL_ON_NULL;
+                    checkArgument(functionPropertyNullability == choiceNullability, "choice function argument nullability doesn't match for: " + functionMetadata
+                            .getSignature());
+                }
+            }
+        }
+        return specialize;
+    }
+
+    private SpecializedFunctionKey getSpecializedFunctionKey(Metadata metadata, ResolvedFunction resolvedFunction)
     {
         SqlFunction function = functions.get(resolvedFunction.getFunctionId());
         Signature signature = resolvedFunction.getSignature();

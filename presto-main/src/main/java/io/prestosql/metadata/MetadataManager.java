@@ -1427,25 +1427,25 @@ public final class MetadataManager
     @Override
     public AggregationFunctionMetadata getAggregationFunctionMetadata(ResolvedFunction resolvedFunction)
     {
-        return functions.getAggregationFunctionMetadata(resolvedFunction);
+        return functions.getAggregationFunctionMetadata(this, resolvedFunction);
     }
 
     @Override
     public WindowFunctionSupplier getWindowFunctionImplementation(ResolvedFunction resolvedFunction)
     {
-        return functions.getWindowFunctionImplementation(resolvedFunction);
+        return functions.getWindowFunctionImplementation(this, resolvedFunction);
     }
 
     @Override
     public InternalAggregationFunction getAggregateFunctionImplementation(ResolvedFunction resolvedFunction)
     {
-        return functions.getAggregateFunctionImplementation(resolvedFunction);
+        return functions.getAggregateFunctionImplementation(this, resolvedFunction);
     }
 
     @Override
     public ScalarFunctionImplementation getScalarFunctionImplementation(ResolvedFunction resolvedFunction)
     {
-        return functions.getScalarFunctionImplementation(resolvedFunction);
+        return functions.getScalarFunctionImplementation(this, resolvedFunction);
     }
 
     @Override
