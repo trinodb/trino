@@ -71,6 +71,7 @@ import static java.util.Arrays.stream;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
@@ -127,6 +128,17 @@ public class TestTpchMetadata
             testTableStats(schema, ORDERS, constraint(ORDER_STATUS, "F", "NO SUCH STATUS"), 730_400 * scaleFactor);
             testTableStats(schema, ORDERS, constraint(ORDER_STATUS, "F", "O", "P"), 1_500_000 * scaleFactor);
         });
+    }
+
+    @Test
+    public void testHiddenSchemas()
+    {
+        assertTrue(tpchMetadata.schemaExists(session, "sf1"));
+        assertTrue(tpchMetadata.schemaExists(session, "sf3000.0"));
+        assertFalse(tpchMetadata.schemaExists(session, "sf0"));
+        assertFalse(tpchMetadata.schemaExists(session, "hf1"));
+        assertFalse(tpchMetadata.schemaExists(session, "sf"));
+        assertFalse(tpchMetadata.schemaExists(session, "sfabc"));
     }
 
     private void testTableStats(String schema, TpchTable<?> table, double expectedRowCount)

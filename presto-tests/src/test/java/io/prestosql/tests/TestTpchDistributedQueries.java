@@ -15,6 +15,7 @@ package io.prestosql.tests;
 
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableSet;
+import io.prestosql.Session;
 import io.prestosql.spi.connector.CatalogSchemaTableName;
 import io.prestosql.sql.planner.planprinter.IoPlanPrinter;
 import io.prestosql.testing.MaterializedResult;
@@ -28,6 +29,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.prestosql.spi.predicate.Marker.Bound.EXACTLY;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
+import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -115,5 +117,23 @@ public class TestTpchDistributedQueries
             }
         }
         assertTrue(sampleSizeFound, "Table sample returned unexpected number of rows");
+    }
+
+    public void testShowTables()
+    {
+        assertQuerySucceeds(createSession("sf1"), "SHOW TABLES");
+        assertQuerySucceeds(createSession("sf1.0"), "SHOW TABLES");
+        assertQuerySucceeds("SHOW TABLES FROM sf1");
+        assertQuerySucceeds("SHOW TABLES FROM \"sf1.0\"");
+        assertQueryFails("SHOW TABLES FROM sf0", "line 1:1: Schema 'sf0' does not exist");
+    }
+
+    private Session createSession(String schemaName)
+    {
+        return testSessionBuilder()
+                .setSource("test")
+                .setCatalog("tpch")
+                .setSchema(schemaName)
+                .build();
     }
 }
