@@ -13,6 +13,7 @@
  */
 package io.prestosql.plugin.tpcds;
 
+import io.prestosql.Session;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.tests.AbstractTestQueryFramework;
 import org.testng.annotations.Test;
@@ -20,6 +21,7 @@ import org.testng.annotations.Test;
 import java.math.BigDecimal;
 
 import static io.prestosql.testing.MaterializedResult.resultBuilder;
+import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
@@ -70,5 +72,24 @@ public class TestTpcds
         assertQuerySucceeds("SELECT i_current_price FROM item WHERE i_current_price NOT IN (" + longValues + ")");
         assertQuerySucceeds("SELECT i_current_price FROM item WHERE i_current_price IN (i_wholesale_cost, " + longValues + ")");
         assertQuerySucceeds("SELECT i_current_price FROM item WHERE i_current_price NOT IN (i_wholesale_cost, " + longValues + ")");
+    }
+
+    @Test
+    public void testShowTables()
+    {
+        assertQuerySucceeds(createSession("sf1"), "SHOW TABLES");
+        assertQuerySucceeds(createSession("sf1.0"), "SHOW TABLES");
+        assertQuerySucceeds("SHOW TABLES FROM sf1");
+        assertQuerySucceeds("SHOW TABLES FROM \"sf1.0\"");
+        assertQueryFails("SHOW TABLES FROM sf0", "line 1:1: Schema 'sf0' does not exist");
+    }
+
+    private Session createSession(String schemaName)
+    {
+        return testSessionBuilder()
+                .setSource("test")
+                .setCatalog("tpcds")
+                .setSchema(schemaName)
+                .build();
     }
 }
