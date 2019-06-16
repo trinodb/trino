@@ -74,6 +74,12 @@ public class TpcdsMetadata
     }
 
     @Override
+    public boolean schemaExists(ConnectorSession session, String schemaName)
+    {
+        return schemaNameToScaleFactor(schemaName) > 0;
+    }
+
+    @Override
     public List<String> listSchemaNames(ConnectorSession session)
     {
         return SCHEMA_NAMES;
