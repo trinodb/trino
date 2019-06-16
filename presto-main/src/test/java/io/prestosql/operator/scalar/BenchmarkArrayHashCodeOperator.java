@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slices;
 import io.prestosql.metadata.FunctionKind;
 import io.prestosql.metadata.FunctionListBuilder;
-import io.prestosql.metadata.FunctionRegistry;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
 import io.prestosql.operator.DriverYieldSignal;
@@ -63,6 +62,7 @@ import java.util.concurrent.TimeUnit;
 
 import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
+import static io.prestosql.metadata.Signature.mangleOperatorName;
 import static io.prestosql.operator.scalar.CombineHashFunction.getHash;
 import static io.prestosql.spi.function.OperatorType.HASH_CODE;
 import static io.prestosql.spi.type.ArrayType.ARRAY_NULL_ELEMENT_MSG;
@@ -105,7 +105,7 @@ public class BenchmarkArrayHashCodeOperator
     public static class BenchmarkData
     {
         @Param({"$operator$hash_code", "old_hash", "another_hash"})
-        private String name = FunctionRegistry.mangleOperatorName(HASH_CODE);
+        private String name = mangleOperatorName(HASH_CODE);
 
         @Param({"BIGINT", "VARCHAR", "DOUBLE", "BOOLEAN"})
         private String type = "BIGINT";

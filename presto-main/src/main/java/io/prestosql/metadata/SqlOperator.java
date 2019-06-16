@@ -18,7 +18,7 @@ import io.prestosql.spi.type.TypeSignature;
 
 import java.util.List;
 
-import static io.prestosql.metadata.FunctionRegistry.mangleOperatorName;
+import static io.prestosql.metadata.Signature.mangleOperatorName;
 
 public abstract class SqlOperator
         extends SqlScalarFunction

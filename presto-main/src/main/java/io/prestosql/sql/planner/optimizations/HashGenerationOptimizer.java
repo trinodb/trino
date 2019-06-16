@@ -24,7 +24,6 @@ import com.google.common.collect.Lists;
 import io.prestosql.Session;
 import io.prestosql.SystemSessionProperties;
 import io.prestosql.execution.warnings.WarningCollector;
-import io.prestosql.metadata.FunctionRegistry;
 import io.prestosql.metadata.Signature;
 import io.prestosql.spi.function.OperatorType;
 import io.prestosql.spi.type.StandardTypes;
@@ -81,6 +80,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.prestosql.metadata.FunctionKind.SCALAR;
+import static io.prestosql.metadata.Signature.mangleOperatorName;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static io.prestosql.sql.planner.plan.ChildReplacer.replaceChildren;
@@ -95,7 +95,7 @@ public class HashGenerationOptimizer
         implements PlanOptimizer
 {
     public static final int INITIAL_HASH_VALUE = 0;
-    private static final String HASH_CODE = FunctionRegistry.mangleOperatorName(OperatorType.HASH_CODE);
+    private static final String HASH_CODE = mangleOperatorName(OperatorType.HASH_CODE);
     private static final Signature COMBINE_HASH = new Signature(
             "combine_hash",
             SCALAR,

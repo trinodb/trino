@@ -13,7 +13,6 @@
  */
 package io.prestosql.metadata;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
@@ -216,6 +215,7 @@ import static io.prestosql.metadata.FunctionKind.WINDOW;
 import static io.prestosql.metadata.LiteralFunction.LITERAL_FUNCTION_NAME;
 import static io.prestosql.metadata.LiteralFunction.getLiteralFunctionSignature;
 import static io.prestosql.metadata.Signature.internalOperator;
+import static io.prestosql.metadata.Signature.mangleOperatorName;
 import static io.prestosql.metadata.SignatureBinder.applyBoundVariables;
 import static io.prestosql.operator.aggregation.ArbitraryAggregationFunction.ARBITRARY_AGGREGATION;
 import static io.prestosql.operator.aggregation.ChecksumAggregationFunction.CHECKSUM_AGGREGATION;
@@ -346,8 +346,6 @@ import static java.util.concurrent.TimeUnit.HOURS;
 @ThreadSafe
 public class FunctionRegistry
 {
-    private static final String OPERATOR_PREFIX = "$operator$";
-
     private final Metadata metadata;
     private final TypeCoercion typeCoercion;
     private final LoadingCache<Signature, SpecializedFunctionKey> specializedFunctionKeyCache;
@@ -1082,18 +1080,6 @@ public class FunctionRegistry
             throw e;
         }
         return signature;
-    }
-
-    public static String mangleOperatorName(OperatorType operatorType)
-    {
-        return OPERATOR_PREFIX + operatorType.name();
-    }
-
-    @VisibleForTesting
-    public static OperatorType unmangleOperator(String mangledName)
-    {
-        checkArgument(mangledName.startsWith(OPERATOR_PREFIX), "%s is not a mangled operator name", mangledName);
-        return OperatorType.valueOf(mangledName.substring(OPERATOR_PREFIX.length()));
     }
 
     private Optional<List<Type>> toTypes(List<TypeSignatureProvider> typeSignatureProviders)

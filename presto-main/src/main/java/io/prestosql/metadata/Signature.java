@@ -15,6 +15,7 @@ package io.prestosql.metadata;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.spi.function.OperatorType;
@@ -25,14 +26,16 @@ import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.metadata.FunctionKind.SCALAR;
-import static io.prestosql.metadata.FunctionRegistry.mangleOperatorName;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Stream.concat;
 
 public final class Signature
 {
+    private static final String OPERATOR_PREFIX = "$operator$";
+
     private final String name;
     private final FunctionKind kind;
     private final List<TypeVariableConstraint> typeVariableConstraints;
@@ -97,6 +100,18 @@ public final class Signature
     public static Signature internalScalarFunction(String name, TypeSignature returnType, List<TypeSignature> argumentTypes)
     {
         return new Signature(name, SCALAR, ImmutableList.of(), ImmutableList.of(), returnType, argumentTypes, false);
+    }
+
+    public static String mangleOperatorName(OperatorType operatorType)
+    {
+        return OPERATOR_PREFIX + operatorType.name();
+    }
+
+    @VisibleForTesting
+    public static OperatorType unmangleOperator(String mangledName)
+    {
+        checkArgument(mangledName.startsWith(OPERATOR_PREFIX), "not a mangled operator name: %s", mangledName);
+        return OperatorType.valueOf(mangledName.substring(OPERATOR_PREFIX.length()));
     }
 
     public Signature withAlias(String name)

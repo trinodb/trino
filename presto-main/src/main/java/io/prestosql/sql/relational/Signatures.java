@@ -30,9 +30,9 @@ import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.metadata.FunctionKind.SCALAR;
-import static io.prestosql.metadata.FunctionRegistry.mangleOperatorName;
 import static io.prestosql.metadata.Signature.internalOperator;
 import static io.prestosql.metadata.Signature.internalScalarFunction;
+import static io.prestosql.metadata.Signature.mangleOperatorName;
 import static io.prestosql.spi.function.OperatorType.ADD;
 import static io.prestosql.spi.function.OperatorType.BETWEEN;
 import static io.prestosql.spi.function.OperatorType.DIVIDE;

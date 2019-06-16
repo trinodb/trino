@@ -36,10 +36,10 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Lists.transform;
 import static io.prestosql.metadata.FunctionKind.SCALAR;
-import static io.prestosql.metadata.FunctionRegistry.mangleOperatorName;
-import static io.prestosql.metadata.FunctionRegistry.unmangleOperator;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
+import static io.prestosql.metadata.Signature.mangleOperatorName;
 import static io.prestosql.metadata.Signature.typeVariable;
+import static io.prestosql.metadata.Signature.unmangleOperator;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
 import static io.prestosql.spi.type.HyperLogLogType.HYPER_LOG_LOG;
@@ -257,7 +257,7 @@ public class TestFunctionRegistry
     private static List<SqlFunction> listOperators(Metadata metadata)
     {
         Set<String> operatorNames = Arrays.stream(OperatorType.values())
-                .map(FunctionRegistry::mangleOperatorName)
+                .map(Signature::mangleOperatorName)
                 .collect(toImmutableSet());
 
         return metadata.listFunctions().stream()
