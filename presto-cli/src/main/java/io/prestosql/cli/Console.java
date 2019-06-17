@@ -344,7 +344,6 @@ public class Console
                         .withCatalog(query.getSetCatalog().orElse(session.getCatalog()))
                         .withSchema(query.getSetSchema().orElse(session.getSchema()))
                         .build();
-                schemaChanged.run();
             }
 
             // update transaction ID if necessary
@@ -388,6 +387,10 @@ public class Console
 
             session = builder.build();
             queryRunner.setSession(session);
+
+            if (query.getSetCatalog().isPresent() || query.getSetSchema().isPresent()) {
+                schemaChanged.run();
+            }
 
             return success;
         }
