@@ -73,6 +73,7 @@ import static io.prestosql.testing.MaterializedResult.DEFAULT_PRECISION;
 import static io.prestosql.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static io.prestosql.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
 import static io.prestosql.type.JsonType.JSON;
+import static io.prestosql.type.UuidType.UUID;
 import static java.util.stream.Collectors.toList;
 
 public class TestingPrestoClient
@@ -191,6 +192,9 @@ public class TestingPrestoClient
         }
         else if (REAL.equals(type)) {
             return ((Number) value).floatValue();
+        }
+        else if (UUID.equals(type)) {
+            return java.util.UUID.fromString((String) value);
         }
         else if (type instanceof VarcharType) {
             return value;

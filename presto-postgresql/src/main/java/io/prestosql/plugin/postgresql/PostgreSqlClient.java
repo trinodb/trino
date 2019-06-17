@@ -69,11 +69,14 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.function.BiFunction;
 
 import static com.fasterxml.jackson.core.JsonFactory.Feature.CANONICALIZE_FIELD_NAMES;
 import static com.fasterxml.jackson.databind.SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS;
+import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.airlift.slice.Slices.wrappedLongArray;
 import static io.prestosql.plugin.jdbc.ColumnMapping.DISABLE_PUSHDOWN;
 import static io.prestosql.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.timestampColumnMapping;
@@ -103,6 +106,7 @@ public class PostgreSqlClient
     private static final String DUPLICATE_TABLE_SQLSTATE = "42P07";
 
     private final Type jsonType;
+    private final Type uuidType;
     private final boolean supportArrays;
 
     @Inject
@@ -110,6 +114,7 @@ public class PostgreSqlClient
     {
         super(config, "\"", new DriverConnectionFactory(new Driver(), config));
         this.jsonType = typeManager.getType(new TypeSignature(StandardTypes.JSON));
+        this.uuidType = typeManager.getType(new TypeSignature(StandardTypes.UUID));
 
         switch (postgreSqlConfig.getArrayMapping()) {
             case DISABLED:
@@ -248,6 +253,8 @@ public class PostgreSqlClient
                 .orElseThrow(() -> new PrestoException(JDBC_ERROR, "Type name is missing: " + typeHandle));
 
         switch (jdbcTypeName) {
+            case "uuid":
+                return Optional.of(uuidColumnMapping());
             case "jsonb":
             case "json":
                 return Optional.of(jsonColumnMapping());
@@ -305,6 +312,9 @@ public class PostgreSqlClient
         }
         if (type.getTypeSignature().getBase().equals(StandardTypes.JSON)) {
             return WriteMapping.sliceMapping("jsonb", typedVarcharWriteFunction("json"));
+        }
+        if (type.getTypeSignature().getBase().equals(StandardTypes.UUID)) {
+            return WriteMapping.sliceMapping("uuid", uuidWriteFunction());
         }
         if (type instanceof ArrayType && supportArrays) {
             Type elementType = ((ArrayType) type).getElementType();
@@ -415,6 +425,27 @@ public class PostgreSqlClient
             pgObject.setValue(value.toStringUtf8());
             statement.setObject(index, pgObject);
         };
+    }
+
+    private static SliceWriteFunction uuidWriteFunction()
+    {
+        return (statement, index, value) -> {
+            UUID uuid = new UUID(value.getLong(0), value.getLong(SIZE_OF_LONG));
+            statement.setObject(index, uuid, Types.OTHER);
+        };
+    }
+
+    private static Slice uuidSlice(UUID uuid)
+    {
+        return wrappedLongArray(uuid.getMostSignificantBits(), uuid.getLeastSignificantBits());
+    }
+
+    private ColumnMapping uuidColumnMapping()
+    {
+        return ColumnMapping.sliceMapping(
+                uuidType,
+                (resultSet, columnIndex) -> uuidSlice((UUID) resultSet.getObject(columnIndex)),
+                uuidWriteFunction());
     }
 
     private static final JsonFactory JSON_FACTORY = new JsonFactory()

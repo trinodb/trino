@@ -42,6 +42,7 @@ import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.UUID;
 import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -67,6 +68,7 @@ import static io.prestosql.tests.datatype.DataType.timestampDataType;
 import static io.prestosql.tests.datatype.DataType.varbinaryDataType;
 import static io.prestosql.tests.datatype.DataType.varcharDataType;
 import static io.prestosql.type.JsonType.JSON;
+import static io.prestosql.type.UuidType.UUID;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_16LE;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -654,6 +656,20 @@ public class TestPostgreSqlTypeMapping
                 .addRoundTrip(jsonDataType, "[]");
     }
 
+    @Test
+    public void testUuid()
+    {
+        uuidTestCases(uuidDataType())
+                .execute(getQueryRunner(), prestoCreateAsSelect("presto_test_uuid"));
+    }
+
+    private DataTypeTest uuidTestCases(DataType<java.util.UUID> uuidDataType)
+    {
+        return DataTypeTest.create()
+                .addRoundTrip(uuidDataType, java.util.UUID.fromString("00000000-0000-0000-0000-000000000000"))
+                .addRoundTrip(uuidDataType, java.util.UUID.fromString("123e4567-e89b-12d3-a456-426655440000"));
+    }
+
     private void testUnsupportedDataType(String databaseDataType)
     {
         JdbcSqlExecutor jdbcSqlExecutor = new JdbcSqlExecutor(postgreSqlServer.getJdbcUrl());
@@ -695,6 +711,15 @@ public class TestPostgreSqlTypeMapping
                 "jsonb",
                 JSON,
                 value -> "JSON " + formatStringLiteral(value),
+                identity());
+    }
+
+    public static DataType<java.util.UUID> uuidDataType()
+    {
+        return dataType(
+                "uuid",
+                UUID,
+                value -> "UUID " + formatStringLiteral(value.toString()),
                 identity());
     }
 
