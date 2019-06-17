@@ -22,13 +22,12 @@ import io.prestosql.plugin.raptor.legacy.util.SynchronizedResultIterator;
 import io.prestosql.spi.HostAddress;
 import io.prestosql.spi.Node;
 import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorPartitionHandle;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorSplit;
 import io.prestosql.spi.connector.ConnectorSplitManager;
 import io.prestosql.spi.connector.ConnectorSplitSource;
-import io.prestosql.spi.connector.ConnectorTableLayoutHandle;
+import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 import io.prestosql.spi.predicate.TupleDomain;
 import org.skife.jdbi.v2.ResultIterator;
@@ -91,18 +90,16 @@ public class RaptorSplitManager
     }
 
     @Override
-    public ConnectorSplitSource getSplits(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorTableLayoutHandle layout, SplitSchedulingStrategy splitSchedulingStrategy)
+    public ConnectorSplitSource getSplits(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorTableHandle handle, SplitSchedulingStrategy splitSchedulingStrategy)
     {
-        RaptorTableLayoutHandle handle = (RaptorTableLayoutHandle) layout;
-        RaptorTableHandle table = handle.getTable();
-        TupleDomain<RaptorColumnHandle> effectivePredicate = toRaptorTupleDomain(handle.getConstraint());
+        RaptorTableHandle table = (RaptorTableHandle) handle;
         long tableId = table.getTableId();
         boolean bucketed = table.getBucketCount().isPresent();
         boolean merged = bucketed && !table.isDelete() && (table.getBucketCount().getAsInt() >= getOneSplitPerBucketThreshold(session));
         OptionalLong transactionId = table.getTransactionId();
-        Optional<List<String>> bucketToNode = handle.getPartitioning().map(RaptorPartitioningHandle::getBucketToNode);
+        Optional<List<String>> bucketToNode = table.getBucketAssignments();
         verify(bucketed == bucketToNode.isPresent(), "mismatched bucketCount and bucketToNode presence");
-        return new RaptorSplitSource(tableId, merged, effectivePredicate, transactionId, bucketToNode);
+        return new RaptorSplitSource(tableId, merged, table.getConstraint(), transactionId, bucketToNode);
     }
 
     private static List<HostAddress> getAddressesForNodes(Map<String, Node> nodeMap, Iterable<String> nodeIdentifiers)
@@ -117,12 +114,6 @@ public class RaptorSplitManager
         return nodes.build();
     }
 
-    @SuppressWarnings("unchecked")
-    private static TupleDomain<RaptorColumnHandle> toRaptorTupleDomain(TupleDomain<ColumnHandle> tupleDomain)
-    {
-        return tupleDomain.transform(handle -> (RaptorColumnHandle) handle);
-    }
-
     private static <T> T selectRandom(Iterable<T> elements)
     {
         List<T> list = ImmutableList.copyOf(elements);
@@ -134,10 +125,10 @@ public class RaptorSplitManager
     {
         private final Map<String, Node> nodesById = uniqueIndex(nodeSupplier.getWorkerNodes(), Node::getNodeIdentifier);
         private final long tableId;
-        private final TupleDomain<RaptorColumnHandle> effectivePredicate;
         private final OptionalLong transactionId;
         private final Optional<List<String>> bucketToNode;
         private final ResultIterator<BucketShards> iterator;
+        private final TupleDomain<RaptorColumnHandle> effectivePredicate;
 
         @GuardedBy("this")
         private CompletableFuture<ConnectorSplitBatch> future;
@@ -233,7 +224,7 @@ public class RaptorSplitManager
                 addresses = ImmutableList.of(node.getHostAndPort());
             }
 
-            return new RaptorSplit(shardId, addresses, effectivePredicate, transactionId);
+            return new RaptorSplit(shardId, addresses, transactionId);
         }
 
         private ConnectorSplit createBucketSplit(int bucketNumber, Set<ShardNodes> shards)
@@ -252,7 +243,7 @@ public class RaptorSplitManager
                     .collect(toSet());
             HostAddress address = node.getHostAndPort();
 
-            return new RaptorSplit(shardUuids, bucketNumber, address, effectivePredicate, transactionId);
+            return new RaptorSplit(shardUuids, bucketNumber, address, transactionId);
         }
     }
 }

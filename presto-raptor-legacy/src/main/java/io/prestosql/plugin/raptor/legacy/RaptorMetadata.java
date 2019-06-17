@@ -45,13 +45,13 @@ import io.prestosql.spi.connector.ConnectorOutputTableHandle;
 import io.prestosql.spi.connector.ConnectorPartitioningHandle;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorTableHandle;
-import io.prestosql.spi.connector.ConnectorTableLayout;
 import io.prestosql.spi.connector.ConnectorTableLayoutHandle;
-import io.prestosql.spi.connector.ConnectorTableLayoutResult;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
 import io.prestosql.spi.connector.ConnectorTablePartitioning;
+import io.prestosql.spi.connector.ConnectorTableProperties;
 import io.prestosql.spi.connector.ConnectorViewDefinition;
 import io.prestosql.spi.connector.Constraint;
+import io.prestosql.spi.connector.ConstraintApplicationResult;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.SchemaTablePrefix;
 import io.prestosql.spi.connector.SystemTable;
@@ -185,6 +185,8 @@ public class RaptorMetadata
                 table.getBucketCount(),
                 table.isOrganized(),
                 OptionalLong.empty(),
+                TupleDomain.all(),
+                table.getDistributionId().map(shardManager::getBucketAssignments),
                 false);
     }
 
@@ -297,35 +299,52 @@ public class RaptorMetadata
     }
 
     @Override
-    public List<ConnectorTableLayoutResult> getTableLayouts(ConnectorSession session, ConnectorTableHandle table, Constraint constraint, Optional<Set<ColumnHandle>> desiredColumns)
+    public boolean usesLegacyTableLayouts()
     {
-        RaptorTableHandle handle = (RaptorTableHandle) table;
-        ConnectorTableLayout layout = getTableLayout(session, handle, constraint.getSummary());
-        return ImmutableList.of(new ConnectorTableLayoutResult(layout, constraint.getSummary()));
+        return false;
     }
 
     @Override
-    public ConnectorTableLayout getTableLayout(ConnectorSession session, ConnectorTableLayoutHandle handle)
+    public Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorSession session, ConnectorTableHandle handle, Constraint constraint)
     {
-        RaptorTableLayoutHandle raptorHandle = (RaptorTableLayoutHandle) handle;
-        return getTableLayout(session, raptorHandle.getTable(), raptorHandle.getConstraint());
-    }
+        RaptorTableHandle table = (RaptorTableHandle) handle;
+        TupleDomain<RaptorColumnHandle> newDomain = constraint.getSummary().transform(RaptorColumnHandle.class::cast);
 
-    private ConnectorTableLayout getTableLayout(ConnectorSession session, RaptorTableHandle handle, TupleDomain<ColumnHandle> constraint)
-    {
-        if (!handle.getDistributionId().isPresent()) {
-            return new ConnectorTableLayout(new RaptorTableLayoutHandle(handle, constraint, Optional.empty()));
+        if (newDomain.equals(table.getConstraint())) {
+            return Optional.empty();
         }
 
-        List<RaptorColumnHandle> bucketColumnHandles = getBucketColumnHandles(handle.getTableId());
+        return Optional.of(new ConstraintApplicationResult(
+                new RaptorTableHandle(table.getSchemaName(),
+                        table.getTableName(),
+                        table.getTableId(),
+                        table.getDistributionId(),
+                        table.getDistributionName(),
+                        table.getBucketCount(),
+                        table.isOrganized(),
+                        table.getTransactionId(),
+                        newDomain.intersect(table.getConstraint()),
+                        table.getBucketAssignments(),
+                        table.isDelete()),
+                constraint.getSummary()));
+    }
 
-        RaptorPartitioningHandle partitioning = getPartitioningHandle(handle.getDistributionId().get());
+    @Override
+    public ConnectorTableProperties getTableProperties(ConnectorSession session, ConnectorTableHandle handle)
+    {
+        RaptorTableHandle table = (RaptorTableHandle) handle;
 
-        boolean oneSplitPerBucket = handle.getBucketCount().getAsInt() >= getOneSplitPerBucketThreshold(session);
+        if (!table.getPartitioningHandle().isPresent()) {
+            return new ConnectorTableProperties();
+        }
 
-        return new ConnectorTableLayout(
-                new RaptorTableLayoutHandle(handle, constraint, Optional.of(partitioning)),
-                Optional.empty(),
+        List<RaptorColumnHandle> bucketColumnHandles = getBucketColumnHandles(table.getTableId());
+
+        RaptorPartitioningHandle partitioning = table.getPartitioningHandle().get();
+
+        boolean oneSplitPerBucket = table.getBucketCount().getAsInt() >= getOneSplitPerBucketThreshold(session);
+
+        return new ConnectorTableProperties(
                 TupleDomain.all(),
                 Optional.of(new ConnectorTablePartitioning(
                         partitioning,
@@ -780,6 +799,8 @@ public class RaptorMetadata
                 handle.getBucketCount(),
                 handle.isOrganized(),
                 OptionalLong.of(transactionId),
+                TupleDomain.all(),
+                handle.getBucketAssignments(),
                 true);
     }
 
