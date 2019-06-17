@@ -145,7 +145,7 @@ public class JoinNode
                 leftHashSymbol,
                 distributionType,
                 spillable,
-                dynamicFilters);
+                ImmutableMap.of()); // dynamicFilters are invalid after flipping children
     }
 
     private static Type flipType(Type type)
