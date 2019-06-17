@@ -111,22 +111,21 @@ Examples
 
 Source table with some invalid data:
 
+.. sql
+
+   USE memory.default;
+
 .. code-block:: sql
 
-    SELECT * FROM shipping;
-
-.. code-block:: none
-
-     origin_state | origin_zip | packages | total_cost
-    --------------+------------+----------+------------
-     California   |      94131 |       25 |        100
-     California   |      P332a |        5 |         72
-     California   |      94025 |        0 |        155
-     New Jersey   |      08544 |      225 |        490
-    (4 rows)
+    CREATE TABLE IF NOT EXISTS shipping (city, origin_zip, packages, total_cost) AS VALUES 
+      ('California', '94131',  25, 100),
+      ('California', 'P332a',   5,  72),
+      ('California', '94025',   0, 155),
+      ('New Jersey', '08544', 225, 490);
 
 Query failure without ``TRY``:
 
+.. skip-sql
 .. code-block:: sql
 
     SELECT CAST(origin_zip AS BIGINT) FROM shipping;
@@ -153,6 +152,7 @@ Query failure without ``TRY``:
 
 Query failure without ``TRY``:
 
+.. skip-sql
 .. code-block:: sql
 
     SELECT total_cost / packages AS per_package FROM shipping;

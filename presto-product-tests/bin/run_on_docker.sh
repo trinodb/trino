@@ -4,46 +4,6 @@ set -euo pipefail
 
 source "${BASH_SOURCE%/*}/lib.sh"
 
-function retry() {
-  END=$(($(date +%s) + 600))
-
-  while (( $(date +%s) < $END )); do
-    set +e
-    "$@"
-    EXIT_CODE=$?
-    set -e
-
-    if [[ ${EXIT_CODE} == 0 ]]; then
-      break
-    fi
-    sleep 5
-  done
-
-  return ${EXIT_CODE}
-}
-
-function hadoop_master_container(){
-  environment_compose ps -q hadoop-master
-}
-
-function check_hadoop() {
-  HADOOP_MASTER_CONTAINER=$(hadoop_master_container)
-  docker exec ${HADOOP_MASTER_CONTAINER} supervisorctl status hive-server2 | grep -iq running && \
-    docker exec ${HADOOP_MASTER_CONTAINER} netstat -lpn | grep -iq 0.0.0.0:10000
-}
-
-function run_in_application_runner_container() {
-  local CONTAINER_NAME
-  CONTAINER_NAME=$(environment_compose run -p 5007:5007 -d application-runner "$@")
-  echo "Showing logs from $CONTAINER_NAME:"
-  docker logs -f $CONTAINER_NAME
-  return $(docker inspect --format '{{.State.ExitCode}}' $CONTAINER_NAME)
-}
-
-function check_presto() {
-  run_in_application_runner_container /docker/volumes/conf/docker/files/presto-cli.sh --execute "SHOW CATALOGS" | grep -iq hive
-}
-
 function run_product_tests() {
   local REPORT_DIR="${PRODUCT_TESTS_ROOT}/target/test-reports"
   rm -rf "${REPORT_DIR}"

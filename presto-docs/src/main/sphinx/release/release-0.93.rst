@@ -22,6 +22,7 @@ Verifier
 
 If you're upgrading from 0.92, you need to alter your verifier_queries table
 
+.. skip-sql
 .. code-block:: sql
 
     ALTER TABLE verifier_queries add test_username VARCHAR(256) NOT NULL default 'verifier-test';
