@@ -227,7 +227,7 @@ public class TableNameCompleter
         String[] fragments = splitTableName(prefix);
         if (fragments.length > 1) {
             List<String> catalogs = catalogCache.getIfPresent("");
-            if (catalogs.contains(fragments[0])) {
+            if (catalogs != null && catalogs.contains(fragments[0])) {
                 return fragments[0];
             }
         }
