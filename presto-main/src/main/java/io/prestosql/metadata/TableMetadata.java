@@ -36,6 +36,11 @@ public class TableMetadata
         this.metadata = metadata;
     }
 
+    public QualifiedObjectName getQualifiedName()
+    {
+        return new QualifiedObjectName(catalogName.getCatalogName(), metadata.getTable().getSchemaName(), metadata.getTable().getTableName());
+    }
+
     public CatalogName getCatalogName()
     {
         return catalogName;

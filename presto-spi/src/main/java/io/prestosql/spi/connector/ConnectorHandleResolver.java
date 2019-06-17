@@ -15,16 +15,25 @@ package io.prestosql.spi.connector;
 
 public interface ConnectorHandleResolver
 {
-    Class<? extends ConnectorTableHandle> getTableHandleClass();
+    default Class<? extends ConnectorTableHandle> getTableHandleClass()
+    {
+        throw new UnsupportedOperationException();
+    }
 
     default Class<? extends ConnectorTableLayoutHandle> getTableLayoutHandleClass()
     {
         throw new UnsupportedOperationException();
     }
 
-    Class<? extends ColumnHandle> getColumnHandleClass();
+    default Class<? extends ColumnHandle> getColumnHandleClass()
+    {
+        throw new UnsupportedOperationException();
+    }
 
-    Class<? extends ConnectorSplit> getSplitClass();
+    default Class<? extends ConnectorSplit> getSplitClass()
+    {
+        throw new UnsupportedOperationException();
+    }
 
     default Class<? extends ConnectorIndexHandle> getIndexHandleClass()
     {

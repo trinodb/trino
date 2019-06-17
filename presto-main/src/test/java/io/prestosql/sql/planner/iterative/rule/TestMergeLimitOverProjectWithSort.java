@@ -54,4 +54,23 @@ public class TestMergeLimitOverProjectWithSort
                                         ImmutableList.of(sort("a", ASCENDING, FIRST)),
                                         values("a", "b"))));
     }
+
+    @Test
+    public void doNotMergeLimitWithTies()
+    {
+        tester().assertThat(new MergeLimitOverProjectWithSort())
+                .on(p -> {
+                    Symbol a = p.symbol("a");
+                    Symbol b = p.symbol("b");
+                    return p.limit(
+                            1,
+                            ImmutableList.of(b),
+                            p.project(
+                                    Assignments.identity(b),
+                                    p.sort(
+                                            ImmutableList.of(a),
+                                            p.values(a, b))));
+                })
+                .doesNotFire();
+    }
 }

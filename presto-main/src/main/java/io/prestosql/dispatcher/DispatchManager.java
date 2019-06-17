@@ -38,6 +38,8 @@ import io.prestosql.transaction.TransactionManager;
 import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
 
+import javax.annotation.PostConstruct;
+import javax.annotation.PreDestroy;
 import javax.inject.Inject;
 
 import java.util.List;
@@ -103,6 +105,18 @@ public class DispatchManager
         this.queryExecutor = requireNonNull(dispatchExecutor, "dispatchExecutor is null").getExecutor();
 
         this.queryTracker = new QueryTracker<>(queryManagerConfig, dispatchExecutor.getScheduledExecutor());
+    }
+
+    @PostConstruct
+    public void start()
+    {
+        queryTracker.start();
+    }
+
+    @PreDestroy
+    public void stop()
+    {
+        queryTracker.stop();
     }
 
     @Managed
@@ -238,6 +252,11 @@ public class DispatchManager
         return queryTracker.getAllQueries().stream()
                 .map(DispatchQuery::getBasicQueryInfo)
                 .collect(toImmutableList());
+    }
+
+    public boolean isQueryRegistered(QueryId queryId)
+    {
+        return queryTracker.tryGetQuery(queryId).isPresent();
     }
 
     public DispatchQuery getQuery(QueryId queryId)

@@ -20,21 +20,20 @@ import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorMetadata;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorTableHandle;
-import io.prestosql.spi.connector.ConnectorTableLayout;
-import io.prestosql.spi.connector.ConnectorTableLayoutHandle;
-import io.prestosql.spi.connector.ConnectorTableLayoutResult;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
+import io.prestosql.spi.connector.ConnectorTableProperties;
 import io.prestosql.spi.connector.Constraint;
+import io.prestosql.spi.connector.ConstraintApplicationResult;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.SchemaTablePrefix;
 import io.prestosql.spi.connector.TableNotFoundException;
+import io.prestosql.spi.predicate.TupleDomain;
 
 import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
 
@@ -65,20 +64,6 @@ public class ElasticsearchMetadata
         }
 
         return new ElasticsearchTableHandle(tableName.getSchemaName(), tableName.getTableName());
-    }
-
-    @Override
-    public List<ConnectorTableLayoutResult> getTableLayouts(ConnectorSession session, ConnectorTableHandle table, Constraint constraint, Optional<Set<ColumnHandle>> desiredColumns)
-    {
-        ElasticsearchTableHandle handle = (ElasticsearchTableHandle) table;
-        ConnectorTableLayout layout = new ConnectorTableLayout(new ElasticsearchTableLayoutHandle(handle, constraint.getSummary()));
-        return ImmutableList.of(new ConnectorTableLayoutResult(layout, constraint.getSummary()));
-    }
-
-    @Override
-    public ConnectorTableLayout getTableLayout(ConnectorSession session, ConnectorTableLayoutHandle handle)
-    {
-        return new ConnectorTableLayout(handle);
     }
 
     @Override
@@ -113,7 +98,7 @@ public class ElasticsearchMetadata
             int position = ordinalPosition == -1 ? index : ordinalPosition;
             columnHandles.put(column.getName(),
                     new ElasticsearchColumnHandle(
-                        column.getName(),
+                        String.valueOf(properties.get("originalColumnName")),
                         column.getType(),
                         String.valueOf(properties.get("jsonPath")),
                         String.valueOf(properties.get("jsonType")),
@@ -143,6 +128,37 @@ public class ElasticsearchMetadata
             }
         }
         return columns.build();
+    }
+
+    @Override
+    public boolean usesLegacyTableLayouts()
+    {
+        return false;
+    }
+
+    @Override
+    public ConnectorTableProperties getTableProperties(ConnectorSession session, ConnectorTableHandle table)
+    {
+        return new ConnectorTableProperties();
+    }
+
+    @Override
+    public Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorSession session, ConnectorTableHandle table, Constraint constraint)
+    {
+        ElasticsearchTableHandle handle = (ElasticsearchTableHandle) table;
+
+        TupleDomain<ColumnHandle> oldDomain = handle.getConstraint();
+        TupleDomain<ColumnHandle> newDomain = oldDomain.intersect(constraint.getSummary());
+        if (oldDomain.equals(newDomain)) {
+            return Optional.empty();
+        }
+
+        handle = new ElasticsearchTableHandle(
+                handle.getSchemaName(),
+                handle.getTableName(),
+                handle.getConstraint());
+
+        return Optional.of(new ConstraintApplicationResult<>(handle, constraint.getSummary()));
     }
 
     private Optional<ConnectorTableMetadata> getTableMetadata(SchemaTableName tableName)

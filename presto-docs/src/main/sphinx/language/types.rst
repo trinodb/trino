@@ -214,10 +214,21 @@ Structural
 ``ROW``
 ^^^^^^^
 
-    A structure made up of named fields. The fields may be of any SQL type, and are
-    accessed with field reference operator ``.``
+    A structure made up of fields that allows mixed types.
+    The fields may be of any SQL type.
+
+    By default, row fields are not named, but names can be assigned.
 
     Example: ``CAST(ROW(1, 2.0) AS ROW(x BIGINT, y DOUBLE))``
+
+    Named row fields are accessed with field reference operator ``.``.
+
+    Example: ``CAST(ROW(1, 2.0) AS ROW(x BIGINT, y DOUBLE)).x``
+
+    Named or unnamed row fields are accessed by position with the subscript operator ``[]``.
+    The position starts at ``1`` and must be a constant.
+
+    Example: ``ROW(1, 2.0)[1]``
 
 Network Address
 ---------------

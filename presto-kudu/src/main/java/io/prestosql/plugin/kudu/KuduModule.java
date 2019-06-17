@@ -25,7 +25,6 @@ import io.prestosql.plugin.kudu.schema.SchemaEmulation;
 import io.prestosql.plugin.kudu.schema.SchemaEmulationByTableNameConvention;
 import io.prestosql.spi.connector.ConnectorPageSinkProvider;
 import io.prestosql.spi.connector.ConnectorPageSourceProvider;
-import io.prestosql.spi.connector.ConnectorRecordSetProvider;
 import io.prestosql.spi.connector.ConnectorSplitManager;
 import io.prestosql.spi.procedure.Procedure;
 import io.prestosql.spi.type.TypeManager;
@@ -55,8 +54,6 @@ public class KuduModule
         bind(KuduMetadata.class).in(Scopes.SINGLETON);
         bind(KuduTableProperties.class).in(Scopes.SINGLETON);
         bind(ConnectorSplitManager.class).to(KuduSplitManager.class).in(Scopes.SINGLETON);
-        bind(ConnectorRecordSetProvider.class).to(KuduRecordSetProvider.class)
-                .in(Scopes.SINGLETON);
         bind(ConnectorPageSourceProvider.class).to(KuduPageSourceProvider.class)
                 .in(Scopes.SINGLETON);
         bind(ConnectorPageSinkProvider.class).to(KuduPageSinkProvider.class).in(Scopes.SINGLETON);

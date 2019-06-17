@@ -35,12 +35,3 @@ relational databases and other data sources such as Cassandra.
 Presto was designed to handle data warehousing and analytics: data analysis,
 aggregating large amounts of data and producing reports. These workloads
 are often classified as Online Analytical Processing (OLAP).
-
-----------------
-Who uses Presto?
-----------------
-
-Presto is an open source project that operates under the auspices of
-Facebook. It was invented at Facebook and the project continues to
-be developed by both Facebook internal developers and a number of
-third-party developers in the community.

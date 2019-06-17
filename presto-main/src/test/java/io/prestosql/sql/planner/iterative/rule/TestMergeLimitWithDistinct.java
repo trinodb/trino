@@ -14,6 +14,7 @@
 package io.prestosql.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
+import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.prestosql.sql.planner.plan.DistinctLimitNode;
 import io.prestosql.sql.planner.plan.ValuesNode;
@@ -61,6 +62,22 @@ public class TestMergeLimitWithDistinct
                                 p.aggregation(builder -> builder
                                                 .globalGrouping()
                                                 .source(p.values(p.symbol("foo"))))))
+                .doesNotFire();
+    }
+
+    @Test
+    public void testDoNotMergeLimitWithTies()
+    {
+        tester().assertThat(new MergeLimitWithDistinct())
+                .on(p -> {
+                    Symbol foo = p.symbol("foo");
+                    return p.limit(
+                            1,
+                            ImmutableList.of(foo),
+                            p.aggregation(builder -> builder
+                                    .singleGroupingSet(foo)
+                                    .source(p.values(foo))));
+                })
                 .doesNotFire();
     }
 }

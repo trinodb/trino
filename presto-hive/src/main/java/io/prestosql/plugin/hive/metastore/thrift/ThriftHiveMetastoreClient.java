@@ -14,6 +14,10 @@
 package io.prestosql.plugin.hive.metastore.thrift;
 
 import com.google.common.collect.ImmutableList;
+import io.airlift.log.Logger;
+import io.prestosql.plugin.hive.util.LoggingInvocationHandler;
+import io.prestosql.plugin.hive.util.LoggingInvocationHandler.AirliftParameterNamesProvider;
+import io.prestosql.plugin.hive.util.LoggingInvocationHandler.ParameterNamesProvider;
 import org.apache.hadoop.hive.metastore.api.ColumnStatistics;
 import org.apache.hadoop.hive.metastore.api.ColumnStatisticsDesc;
 import org.apache.hadoop.hive.metastore.api.ColumnStatisticsObj;
@@ -44,18 +48,29 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import static com.google.common.reflect.Reflection.newProxy;
 import static java.util.Objects.requireNonNull;
 
 public class ThriftHiveMetastoreClient
         implements ThriftMetastoreClient
 {
+    private static final Logger log = Logger.get(ThriftHiveMetastoreClient.class);
+
+    private static final ParameterNamesProvider PARAMETER_NAMES_PROVIDER = new AirliftParameterNamesProvider(ThriftHiveMetastore.Iface.class, ThriftHiveMetastore.Client.class);
+
     private final TTransport transport;
-    private final ThriftHiveMetastore.Client client;
+    private final ThriftHiveMetastore.Iface client;
 
     public ThriftHiveMetastoreClient(TTransport transport)
     {
         this.transport = requireNonNull(transport, "transport is null");
-        this.client = new ThriftHiveMetastore.Client(new TBinaryProtocol(transport));
+        ThriftHiveMetastore.Client client = new ThriftHiveMetastore.Client(new TBinaryProtocol(transport));
+        if (log.isDebugEnabled()) {
+            this.client = newProxy(ThriftHiveMetastore.Iface.class, new LoggingInvocationHandler(client, PARAMETER_NAMES_PROVIDER, log::debug));
+        }
+        else {
+            this.client = client;
+        }
     }
 
     @Override

@@ -896,6 +896,24 @@ public final class ExpressionTreeRewriter<C>
 
             return node;
         }
+
+        @Override
+        protected Expression visitFormat(Format node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Expression result = rewriter.rewriteFormat(node, context.get(), ExpressionTreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            List<Expression> arguments = rewrite(node.getArguments(), context);
+            if (!sameElements(node.getArguments(), arguments)) {
+                return new Format(arguments);
+            }
+
+            return node;
+        }
     }
 
     public static class Context<C>

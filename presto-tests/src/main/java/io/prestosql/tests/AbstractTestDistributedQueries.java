@@ -36,6 +36,7 @@ import org.testng.annotations.Test;
 import java.util.Optional;
 import java.util.function.Supplier;
 
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
 import static io.airlift.units.Duration.nanosSince;
@@ -786,6 +787,34 @@ public abstract class AbstractTestDistributedQueries
         assertEquals(getOnlyElement(actual.getOnlyColumnAsSet()), expectedSql);
 
         assertUpdate("DROP VIEW meta_test_view");
+    }
+
+    @Test
+    public void testShowCreateView()
+    {
+        skipTestUnless(supportsViews());
+        checkState(getSession().getCatalog().isPresent(), "catalog is not set");
+        checkState(getSession().getSchema().isPresent(), "schema is not set");
+
+        String viewName = "test_show_create_view";
+        assertUpdate("DROP VIEW IF EXISTS " + viewName);
+        String ddl = format(
+                "CREATE VIEW %s.%s.%s AS\n" +
+                        "SELECT *\n" +
+                        "FROM\n" +
+                        "  (\n" +
+                        " VALUES \n" +
+                        "     ROW (1, 'one')\n" +
+                        "   , ROW (2, 't')\n" +
+                        ")  t (col1, col2)",
+                getSession().getCatalog().get(),
+                getSession().getSchema().get(),
+                viewName);
+        assertUpdate(ddl);
+
+        assertEquals(computeActual("SHOW CREATE VIEW " + viewName).getOnlyValue(), ddl);
+
+        assertUpdate("DROP VIEW " + viewName);
     }
 
     @Test

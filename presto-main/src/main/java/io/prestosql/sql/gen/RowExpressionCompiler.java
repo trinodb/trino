@@ -18,7 +18,9 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.BytecodeBlock;
 import io.airlift.bytecode.BytecodeNode;
 import io.airlift.bytecode.Scope;
+import io.airlift.bytecode.Variable;
 import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.spi.type.Type;
 import io.prestosql.sql.gen.LambdaBytecodeGenerator.CompiledLambda;
 import io.prestosql.sql.relational.CallExpression;
 import io.prestosql.sql.relational.ConstantExpression;
@@ -26,6 +28,7 @@ import io.prestosql.sql.relational.InputReferenceExpression;
 import io.prestosql.sql.relational.LambdaDefinitionExpression;
 import io.prestosql.sql.relational.RowExpression;
 import io.prestosql.sql.relational.RowExpressionVisitor;
+import io.prestosql.sql.relational.SpecialForm;
 import io.prestosql.sql.relational.VariableReferenceExpression;
 
 import java.util.Map;
@@ -41,16 +44,7 @@ import static io.airlift.bytecode.instruction.Constant.loadLong;
 import static io.airlift.bytecode.instruction.Constant.loadString;
 import static io.prestosql.sql.gen.BytecodeUtils.loadConstant;
 import static io.prestosql.sql.gen.LambdaBytecodeGenerator.generateLambda;
-import static io.prestosql.sql.relational.Signatures.BIND;
 import static io.prestosql.sql.relational.Signatures.CAST;
-import static io.prestosql.sql.relational.Signatures.COALESCE;
-import static io.prestosql.sql.relational.Signatures.DEREFERENCE;
-import static io.prestosql.sql.relational.Signatures.IF;
-import static io.prestosql.sql.relational.Signatures.IN;
-import static io.prestosql.sql.relational.Signatures.IS_NULL;
-import static io.prestosql.sql.relational.Signatures.NULL_IF;
-import static io.prestosql.sql.relational.Signatures.ROW_CONSTRUCTOR;
-import static io.prestosql.sql.relational.Signatures.SWITCH;
 
 public class RowExpressionCompiler
 {
@@ -96,48 +90,7 @@ public class RowExpressionCompiler
                 generator = new CastCodeGenerator();
             }
             else {
-                switch (call.getSignature().getName()) {
-                    // lazy evaluation
-                    case IF:
-                        generator = new IfCodeGenerator();
-                        break;
-                    case NULL_IF:
-                        generator = new NullIfCodeGenerator();
-                        break;
-                    case SWITCH:
-                        // (SWITCH <expr> (WHEN <expr> <expr>) (WHEN <expr> <expr>) <expr>)
-                        generator = new SwitchCodeGenerator();
-                        break;
-                    // functions that take null as input
-                    case IS_NULL:
-                        generator = new IsNullCodeGenerator();
-                        break;
-                    case COALESCE:
-                        generator = new CoalesceCodeGenerator();
-                        break;
-                    // functions that require varargs and/or complex types (e.g., lists)
-                    case IN:
-                        generator = new InCodeGenerator(registry);
-                        break;
-                    // optimized implementations (shortcircuiting behavior)
-                    case "AND":
-                        generator = new AndCodeGenerator();
-                        break;
-                    case "OR":
-                        generator = new OrCodeGenerator();
-                        break;
-                    case DEREFERENCE:
-                        generator = new DereferenceCodeGenerator();
-                        break;
-                    case ROW_CONSTRUCTOR:
-                        generator = new RowConstructorCodeGenerator();
-                        break;
-                    case BIND:
-                        generator = new BindCodeGenerator(compiledLambdaMap, context.getLambdaInterface().get());
-                        break;
-                    default:
-                        generator = new FunctionCallCodeGenerator();
-                }
+                generator = new FunctionCallCodeGenerator();
             }
 
             BytecodeGeneratorContext generatorContext = new BytecodeGeneratorContext(
@@ -148,6 +101,67 @@ public class RowExpressionCompiler
                     registry);
 
             return generator.generateExpression(call.getSignature(), generatorContext, call.getType(), call.getArguments());
+        }
+
+        @Override
+        public BytecodeNode visitSpecialForm(SpecialForm specialForm, Context context)
+        {
+            BytecodeGenerator generator;
+            // special-cased in function registry
+            switch (specialForm.getForm()) {
+                // lazy evaluation
+                case IF:
+                    generator = new IfCodeGenerator();
+                    break;
+                case NULL_IF:
+                    generator = new NullIfCodeGenerator();
+                    break;
+                case SWITCH:
+                    // (SWITCH <expr> (WHEN <expr> <expr>) (WHEN <expr> <expr>) <expr>)
+                    generator = new SwitchCodeGenerator();
+                    break;
+                case BETWEEN:
+                    generator = new BetweenCodeGenerator();
+                    break;
+                // functions that take null as input
+                case IS_NULL:
+                    generator = new IsNullCodeGenerator();
+                    break;
+                case COALESCE:
+                    generator = new CoalesceCodeGenerator();
+                    break;
+                // functions that require varargs and/or complex types (e.g., lists)
+                case IN:
+                    generator = new InCodeGenerator(registry);
+                    break;
+                // optimized implementations (shortcircuiting behavior)
+                case AND:
+                    generator = new AndCodeGenerator();
+                    break;
+                case OR:
+                    generator = new OrCodeGenerator();
+                    break;
+                case DEREFERENCE:
+                    generator = new DereferenceCodeGenerator();
+                    break;
+                case ROW_CONSTRUCTOR:
+                    generator = new RowConstructorCodeGenerator();
+                    break;
+                case BIND:
+                    generator = new BindCodeGenerator(compiledLambdaMap, context.getLambdaInterface().get());
+                    break;
+                default:
+                    throw new IllegalStateException("Can not compile special form: " + specialForm.getForm());
+            }
+
+            BytecodeGeneratorContext generatorContext = new BytecodeGeneratorContext(
+                    RowExpressionCompiler.this,
+                    context.getScope(),
+                    callSiteBinder,
+                    cachedInstanceBinder,
+                    registry);
+
+            return generator.generateExpression(null, generatorContext, specialForm.getType(), specialForm.getArguments());
         }
 
         @Override
@@ -225,8 +239,18 @@ public class RowExpressionCompiler
         @Override
         public BytecodeNode visitVariableReference(VariableReferenceExpression reference, Context context)
         {
+            if (reference.getName().startsWith(TEMP_PREFIX)) {
+                return context.getScope().getTempVariable(reference.getName().substring(TEMP_PREFIX.length()));
+            }
             return fieldReferenceCompiler.visitVariableReference(reference, context.getScope());
         }
+    }
+
+    private static final String TEMP_PREFIX = "$$TEMP$$";
+
+    public static VariableReferenceExpression createTempVariableReferenceExpression(Variable variable, Type type)
+    {
+        return new VariableReferenceExpression(TEMP_PREFIX + variable.getName(), type);
     }
 
     private static class Context

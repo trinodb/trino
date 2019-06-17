@@ -335,7 +335,8 @@ public final class SqlFormatter
         @Override
         protected Void visitFetchFirst(FetchFirst node, Integer indent)
         {
-            append(indent, "FETCH FIRST " + node.getRowCount().map(c -> c + " ROWS ONLY").orElse("ROW ONLY"))
+            append(indent, "FETCH FIRST " + node.getRowCount().map(c -> c + " ROWS ").orElse("ROW "))
+                    .append(node.isWithTies() ? "WITH TIES" : "ONLY")
                     .append('\n');
             return null;
         }

@@ -42,6 +42,7 @@ import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.Chars.isCharType;
 import static io.prestosql.spi.type.Chars.truncateToLengthAndTrimSpaces;
+import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.Decimals.encodeUnscaledValue;
 import static io.prestosql.spi.type.Decimals.isLongDecimal;
 import static io.prestosql.spi.type.Decimals.isShortDecimal;
@@ -50,9 +51,11 @@ import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.Varchars.isVarcharType;
 import static java.lang.Float.floatToRawIntBits;
+import static java.lang.Float.intBitsToFloat;
 import static java.util.Objects.requireNonNull;
 
 public class TupleDomainOrcPredicate<C>
@@ -161,7 +164,7 @@ public class TupleDomainOrcPredicate<C>
     @VisibleForTesting
     public static boolean checkInBloomFilter(BloomFilter bloomFilter, Object predicateValue, Type sqlType)
     {
-        if (sqlType == TINYINT || sqlType == SMALLINT || sqlType == INTEGER || sqlType == BIGINT) {
+        if (sqlType == TINYINT || sqlType == SMALLINT || sqlType == INTEGER || sqlType == BIGINT || sqlType == DATE || sqlType == TIMESTAMP) {
             return bloomFilter.testLong(((Number) predicateValue).longValue());
         }
 
@@ -169,11 +172,15 @@ public class TupleDomainOrcPredicate<C>
             return bloomFilter.testDouble((Double) predicateValue);
         }
 
-        if (sqlType instanceof VarcharType || sqlType instanceof VarbinaryType) {
-            return bloomFilter.test(((Slice) predicateValue).getBytes());
+        if (sqlType == REAL) {
+            return bloomFilter.testFloat(intBitsToFloat(((Number) predicateValue).intValue()));
         }
 
-        // todo support DECIMAL, FLOAT, DATE, TIMESTAMP, and CHAR
+        if (sqlType instanceof VarcharType || sqlType instanceof VarbinaryType) {
+            return bloomFilter.testSlice(((Slice) predicateValue));
+        }
+
+        // todo support DECIMAL, and CHAR
         return true;
     }
 

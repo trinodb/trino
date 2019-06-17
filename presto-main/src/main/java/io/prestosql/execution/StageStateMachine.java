@@ -14,6 +14,7 @@
 package io.prestosql.execution;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.airlift.stats.Distribution;
 import io.airlift.units.Duration;
@@ -26,6 +27,7 @@ import io.prestosql.operator.PipelineStats;
 import io.prestosql.operator.TaskStats;
 import io.prestosql.spi.eventlistener.StageGcStatistics;
 import io.prestosql.sql.planner.PlanFragment;
+import io.prestosql.sql.planner.plan.PlanNodeId;
 import io.prestosql.sql.planner.plan.TableScanNode;
 import io.prestosql.util.Failures;
 import org.joda.time.DateTime;
@@ -77,6 +79,7 @@ public class StageStateMachine
     private final URI location;
     private final PlanFragment fragment;
     private final Session session;
+    private final Map<PlanNodeId, TableInfo> tables;
     private final SplitSchedulerStats scheduledStats;
 
     private final StateMachine<StageState> stageState;
@@ -97,6 +100,7 @@ public class StageStateMachine
             URI location,
             Session session,
             PlanFragment fragment,
+            Map<PlanNodeId, TableInfo> tables,
             ExecutorService executor,
             SplitSchedulerStats schedulerStats)
     {
@@ -104,6 +108,7 @@ public class StageStateMachine
         this.location = requireNonNull(location, "location is null");
         this.session = requireNonNull(session, "session is null");
         this.fragment = requireNonNull(fragment, "fragment is null");
+        this.tables = ImmutableMap.copyOf(requireNonNull(tables, "tables is null"));
         this.scheduledStats = requireNonNull(schedulerStats, "schedulerStats is null");
 
         stageState = new StateMachine<>("stage " + stageId, executor, PLANNED, TERMINAL_STAGE_STATES);
@@ -553,6 +558,7 @@ public class StageStateMachine
                 stageStats,
                 taskInfos,
                 ImmutableList.of(),
+                tables,
                 failureInfo);
     }
 

@@ -14,13 +14,12 @@
 package io.prestosql.execution;
 
 import com.google.common.util.concurrent.ListenableFuture;
-import io.airlift.json.JsonCodec;
 import io.prestosql.Session;
 import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.QualifiedObjectName;
-import io.prestosql.metadata.ViewDefinition;
 import io.prestosql.security.AccessControl;
+import io.prestosql.spi.connector.ConnectorViewDefinition;
 import io.prestosql.sql.analyzer.Analysis;
 import io.prestosql.sql.analyzer.Analyzer;
 import io.prestosql.sql.analyzer.FeaturesConfig;
@@ -38,7 +37,7 @@ import java.util.Optional;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.prestosql.metadata.MetadataUtil.createQualifiedObjectName;
-import static io.prestosql.metadata.ViewDefinition.ViewColumn;
+import static io.prestosql.spi.connector.ConnectorViewDefinition.ViewColumn;
 import static io.prestosql.sql.SqlFormatterUtil.getFormattedSql;
 import static io.prestosql.sql.tree.CreateView.Security.INVOKER;
 import static java.util.Objects.requireNonNull;
@@ -46,16 +45,11 @@ import static java.util.Objects.requireNonNull;
 public class CreateViewTask
         implements DataDefinitionTask<CreateView>
 {
-    private final JsonCodec<ViewDefinition> codec;
     private final SqlParser sqlParser;
 
     @Inject
-    public CreateViewTask(
-            JsonCodec<ViewDefinition> codec,
-            SqlParser sqlParser,
-            FeaturesConfig featuresConfig)
+    public CreateViewTask(SqlParser sqlParser, FeaturesConfig featuresConfig)
     {
-        this.codec = requireNonNull(codec, "codec is null");
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
         requireNonNull(featuresConfig, "featuresConfig is null");
     }
@@ -86,7 +80,7 @@ public class CreateViewTask
 
         List<ViewColumn> columns = analysis.getOutputDescriptor(statement.getQuery())
                 .getVisibleFields().stream()
-                .map(field -> new ViewColumn(field.getName().get(), field.getType()))
+                .map(field -> new ViewColumn(field.getName().get(), field.getType().getTypeSignature()))
                 .collect(toImmutableList());
 
         // use DEFINER security by default
@@ -95,9 +89,15 @@ public class CreateViewTask
             owner = Optional.empty();
         }
 
-        String data = codec.toJson(new ViewDefinition(sql, session.getCatalog(), session.getSchema(), columns, owner, !owner.isPresent()));
+        ConnectorViewDefinition definition = new ConnectorViewDefinition(
+                sql,
+                session.getCatalog(),
+                session.getSchema(),
+                columns,
+                owner,
+                !owner.isPresent());
 
-        metadata.createView(session, name, data, statement.isReplace());
+        metadata.createView(session, name, definition, statement.isReplace());
 
         return immediateFuture(null);
     }

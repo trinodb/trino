@@ -43,6 +43,7 @@ import static io.prestosql.sql.planner.plan.TopNNode.Step.SINGLE;
  * - Project (identity, narrowing)
  *    - TopN (limit = x, order by a, b)
  * </pre>
+ * Applies to LimitNode without ties only.
  */
 public class MergeLimitOverProjectWithSort
         implements Rule<LimitNode>
@@ -51,6 +52,7 @@ public class MergeLimitOverProjectWithSort
     private static final Capture<SortNode> SORT = newCapture();
 
     private static final Pattern<LimitNode> PATTERN = limit()
+            .matching(limit -> !limit.isWithTies())
             .with(source().matching(
                     project().capturedAs(PROJECT).matching(ProjectNode::isIdentity)
                             .with(source().matching(

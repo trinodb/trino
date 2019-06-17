@@ -42,7 +42,7 @@ public class TestingTypeManager
                 return type;
             }
         }
-        return null;
+        throw new TypeNotFoundException(signature);
     }
 
     @Override

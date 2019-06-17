@@ -13,23 +13,34 @@
  */
 package io.prestosql.sql.planner.assertions;
 
+import com.google.common.collect.ImmutableList;
 import io.prestosql.Session;
 import io.prestosql.cost.StatsProvider;
 import io.prestosql.metadata.Metadata;
+import io.prestosql.sql.planner.OrderingScheme;
+import io.prestosql.sql.planner.assertions.PlanMatchPattern.Ordering;
 import io.prestosql.sql.planner.plan.LimitNode;
 import io.prestosql.sql.planner.plan.PlanNode;
 
+import java.util.List;
+
 import static com.google.common.base.Preconditions.checkState;
+import static io.prestosql.sql.planner.assertions.MatchResult.NO_MATCH;
+import static io.prestosql.sql.planner.assertions.MatchResult.match;
+import static io.prestosql.sql.planner.assertions.Util.orderingSchemeMatches;
+import static java.util.Objects.requireNonNull;
 
 public class LimitMatcher
         implements Matcher
 {
     private final long limit;
+    private final List<Ordering> tiesResolvers;
     private final boolean partial;
 
-    public LimitMatcher(long limit, boolean partial)
+    public LimitMatcher(long limit, List<Ordering> tiesResolvers, boolean partial)
     {
         this.limit = limit;
+        this.tiesResolvers = ImmutableList.copyOf(requireNonNull(tiesResolvers, "tiesResolvers is null"));
         this.partial = partial;
     }
 
@@ -41,13 +52,23 @@ public class LimitMatcher
         }
 
         LimitNode limitNode = (LimitNode) node;
-        return limitNode.getCount() == limit && limitNode.isPartial() == partial;
+
+        return limitNode.getCount() == limit
+                && limitNode.isWithTies() == !tiesResolvers.isEmpty()
+                && limitNode.isPartial() == partial;
     }
 
     @Override
     public MatchResult detailMatches(PlanNode node, StatsProvider stats, Session session, Metadata metadata, SymbolAliases symbolAliases)
     {
         checkState(shapeMatches(node));
-        return MatchResult.match();
+        if (!((LimitNode) node).isWithTies()) {
+            return match();
+        }
+        OrderingScheme tiesResolvingScheme = ((LimitNode) node).getTiesResolvingScheme().get();
+        if (orderingSchemeMatches(tiesResolvers, tiesResolvingScheme, symbolAliases)) {
+            return match();
+        }
+        return NO_MATCH;
     }
 }

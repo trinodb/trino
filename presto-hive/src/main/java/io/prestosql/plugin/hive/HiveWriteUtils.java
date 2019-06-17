@@ -117,6 +117,7 @@ import static io.prestosql.plugin.hive.HiveUtil.isRowType;
 import static io.prestosql.plugin.hive.ParquetRecordWriterUtil.createParquetWriter;
 import static io.prestosql.plugin.hive.metastore.MetastoreUtil.getProtectMode;
 import static io.prestosql.plugin.hive.metastore.MetastoreUtil.verifyOnline;
+import static io.prestosql.plugin.hive.s3.HiveS3Module.EMR_FS_CLASS_NAME;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.type.Chars.isCharType;
 import static java.lang.Float.intBitsToFloat;
@@ -458,7 +459,8 @@ public final class HiveWriteUtils
     public static boolean isS3FileSystem(HdfsContext context, HdfsEnvironment hdfsEnvironment, Path path)
     {
         try {
-            return getRawFileSystem(hdfsEnvironment.getFileSystem(context, path)) instanceof PrestoS3FileSystem;
+            FileSystem fileSystem = getRawFileSystem(hdfsEnvironment.getFileSystem(context, path));
+            return fileSystem instanceof PrestoS3FileSystem || fileSystem.getClass().getName().equals(EMR_FS_CLASS_NAME);
         }
         catch (IOException e) {
             throw new PrestoException(HIVE_FILESYSTEM_ERROR, "Failed checking path: " + path, e);

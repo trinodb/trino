@@ -61,6 +61,7 @@ import io.prestosql.sql.tree.ExplainFormat;
 import io.prestosql.sql.tree.ExplainType;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.FetchFirst;
+import io.prestosql.sql.tree.Format;
 import io.prestosql.sql.tree.FunctionCall;
 import io.prestosql.sql.tree.GenericLiteral;
 import io.prestosql.sql.tree.Grant;
@@ -323,6 +324,14 @@ public class TestSqlParser
         catch (RuntimeException e) {
             // Expected
         }
+    }
+
+    @Test
+    public void testRowSubscript()
+    {
+        assertExpression("ROW (1, 'a', true)[1]", new SubscriptExpression(
+                new Row(ImmutableList.of(new LongLiteral("1"), new StringLiteral("a"), new BooleanLiteral("true"))),
+                new LongLiteral("1")));
     }
 
     @Test
@@ -735,6 +744,16 @@ public class TestSqlParser
     }
 
     @Test
+    public void testFormat()
+    {
+        assertExpression("format('%s', 'abc')", new Format(ImmutableList.of(new StringLiteral("%s"), new StringLiteral("abc"))));
+        assertExpression("format('%d %s', 123, 'x')", new Format(ImmutableList.of(new StringLiteral("%d %s"), new LongLiteral("123"), new StringLiteral("x"))));
+
+        assertInvalidExpression("format()", "The 'format' function must have at least two arguments");
+        assertInvalidExpression("format('%s')", "The 'format' function must have at least two arguments");
+    }
+
+    @Test
     public void testSetSession()
     {
         assertStatement("SET SESSION foo = 'bar'", new SetSession(QualifiedName.of("foo"), new StringLiteral("bar")));
@@ -1061,6 +1080,48 @@ public class TestSqlParser
                         Optional.empty(),
                         Optional.empty(),
                         Optional.of(new FetchFirst(Optional.empty()))));
+
+        assertStatement("SELECT * FROM (VALUES (1, '1'), (2, '2')) FETCH FIRST ROW WITH TIES",
+                simpleQuery(selectList(new AllColumns()),
+                        subquery(valuesQuery),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.of(new FetchFirst(Optional.empty(), true))));
+
+        assertStatement("SELECT * FROM table1 FETCH FIRST 2 ROWS WITH TIES",
+                new Query(
+                        Optional.empty(),
+                        new QuerySpecification(
+                                selectList(new AllColumns()),
+                                Optional.of(new Table(QualifiedName.of("table1"))),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.of(new FetchFirst("2", true))),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty()));
+
+        assertStatement("SELECT * FROM table1 FETCH NEXT ROW WITH TIES",
+                new Query(
+                        Optional.empty(),
+                        new QuerySpecification(
+                                selectList(new AllColumns()),
+                                Optional.of(new Table(QualifiedName.of("table1"))),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.of(new FetchFirst(Optional.empty(), true))),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty()));
     }
 
     @Test

@@ -62,11 +62,7 @@ public final class CodecSupplier<T>
         @Override
         protected Type _deserialize(String value, DeserializationContext context)
         {
-            Type type = metadata.getType(parseTypeSignature(value));
-            if (type == null) {
-                throw new IllegalArgumentException("Unknown type: " + value);
-            }
-            return type;
+            return metadata.getType(parseTypeSignature(value));
         }
     }
 }

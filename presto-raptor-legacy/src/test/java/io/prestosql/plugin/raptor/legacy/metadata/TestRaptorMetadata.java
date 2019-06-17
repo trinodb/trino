@@ -35,6 +35,7 @@ import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
 import io.prestosql.spi.connector.ConnectorViewDefinition;
+import io.prestosql.spi.connector.ConnectorViewDefinition.ViewColumn;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.SchemaTablePrefix;
 import io.prestosql.testing.TestingConnectorSession;
@@ -73,6 +74,7 @@ import static io.prestosql.spi.StandardErrorCode.TRANSACTION_CONFLICT;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
@@ -588,34 +590,34 @@ public class TestRaptorMetadata
         SchemaTableName test2 = new SchemaTableName("test", "test_view2");
 
         // create views
-        metadata.createView(SESSION, test1, "test1", false);
-        metadata.createView(SESSION, test2, "test2", false);
+        metadata.createView(SESSION, test1, testingViewDefinition("test1"), false);
+        metadata.createView(SESSION, test2, testingViewDefinition("test2"), false);
 
         // verify listing
         List<SchemaTableName> list = metadata.listViews(SESSION, Optional.of("test"));
         assertEqualsIgnoreOrder(list, ImmutableList.of(test1, test2));
 
         // verify getting data
-        Map<SchemaTableName, ConnectorViewDefinition> views = metadata.getViews(SESSION, new SchemaTablePrefix("test"));
+        Map<SchemaTableName, ConnectorViewDefinition> views = metadata.getViews(SESSION, Optional.of("test"));
         assertEquals(views.keySet(), ImmutableSet.of(test1, test2));
-        assertEquals(views.get(test1).getViewData(), "test1");
-        assertEquals(views.get(test2).getViewData(), "test2");
+        assertEquals(views.get(test1).getOriginalSql(), "test1");
+        assertEquals(views.get(test2).getOriginalSql(), "test2");
 
         // drop first view
         metadata.dropView(SESSION, test1);
 
-        views = metadata.getViews(SESSION, new SchemaTablePrefix("test"));
-        assertEquals(views.keySet(), ImmutableSet.of(test2));
+        assertThat(metadata.getViews(SESSION, Optional.of("test")))
+                .containsOnlyKeys(test2);
 
         // drop second view
         metadata.dropView(SESSION, test2);
 
-        views = metadata.getViews(SESSION, new SchemaTablePrefix("test"));
-        assertTrue(views.isEmpty());
+        assertThat(metadata.getViews(SESSION, Optional.of("test")))
+                .isEmpty();
 
         // verify listing everything
-        views = metadata.getViews(SESSION, new SchemaTablePrefix());
-        assertTrue(views.isEmpty());
+        assertThat(metadata.getViews(SESSION, Optional.empty()))
+                .isEmpty();
     }
 
     @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "View already exists: test\\.test_view")
@@ -623,13 +625,13 @@ public class TestRaptorMetadata
     {
         SchemaTableName test = new SchemaTableName("test", "test_view");
         try {
-            metadata.createView(SESSION, test, "test", false);
+            metadata.createView(SESSION, test, testingViewDefinition("test"), false);
         }
         catch (Exception e) {
             fail("should have succeeded");
         }
 
-        metadata.createView(SESSION, test, "test", false);
+        metadata.createView(SESSION, test, testingViewDefinition("test"), false);
     }
 
     @Test
@@ -637,10 +639,12 @@ public class TestRaptorMetadata
     {
         SchemaTableName test = new SchemaTableName("test", "test_view");
 
-        metadata.createView(SESSION, test, "aaa", true);
-        metadata.createView(SESSION, test, "bbb", true);
+        metadata.createView(SESSION, test, testingViewDefinition("aaa"), true);
+        metadata.createView(SESSION, test, testingViewDefinition("bbb"), true);
 
-        assertEquals(metadata.getViews(SESSION, test.toSchemaTablePrefix()).get(test).getViewData(), "bbb");
+        assertThat(metadata.getView(SESSION, test))
+                .map(ConnectorViewDefinition::getOriginalSql)
+                .contains("bbb");
     }
 
     @Test
@@ -825,6 +829,17 @@ public class TestRaptorMetadata
             }
         }
         return builder.build();
+    }
+
+    private static ConnectorViewDefinition testingViewDefinition(String sql)
+    {
+        return new ConnectorViewDefinition(
+                sql,
+                Optional.empty(),
+                Optional.empty(),
+                ImmutableList.of(new ViewColumn("test", BIGINT.getTypeSignature())),
+                Optional.empty(),
+                true);
     }
 
     private static void assertTableEqual(ConnectorTableMetadata actual, ConnectorTableMetadata expected)

@@ -166,6 +166,7 @@ import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeManager;
 import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.spi.type.VarcharType;
+import io.prestosql.sql.DynamicFilters;
 import io.prestosql.sql.analyzer.FeaturesConfig;
 import io.prestosql.sql.analyzer.TypeSignatureProvider;
 import io.prestosql.sql.tree.QualifiedName;
@@ -191,7 +192,6 @@ import io.prestosql.type.TimeWithTimeZoneOperators;
 import io.prestosql.type.TimestampOperators;
 import io.prestosql.type.TimestampWithTimeZoneOperators;
 import io.prestosql.type.TinyintOperators;
-import io.prestosql.type.TypeRegistry;
 import io.prestosql.type.UnknownOperators;
 import io.prestosql.type.UuidOperators;
 import io.prestosql.type.VarbinaryOperators;
@@ -259,6 +259,7 @@ import static io.prestosql.operator.scalar.CastFromUnknownOperator.CAST_FROM_UNK
 import static io.prestosql.operator.scalar.ConcatFunction.VARBINARY_CONCAT;
 import static io.prestosql.operator.scalar.ConcatFunction.VARCHAR_CONCAT;
 import static io.prestosql.operator.scalar.ElementToArrayConcatFunction.ELEMENT_TO_ARRAY_CONCAT_FUNCTION;
+import static io.prestosql.operator.scalar.FormatFunction.FORMAT_FUNCTION;
 import static io.prestosql.operator.scalar.Greatest.GREATEST;
 import static io.prestosql.operator.scalar.IdentityCast.IDENTITY_CAST;
 import static io.prestosql.operator.scalar.JsonStringToArrayCast.JSON_STRING_TO_ARRAY;
@@ -364,7 +365,7 @@ public class FunctionRegistry
     // hack: java classes for types that can be used with magic literals
     private static final Set<Class<?>> SUPPORTED_LITERAL_TYPES = ImmutableSet.of(long.class, double.class, Slice.class, boolean.class);
 
-    private final TypeManager typeManager;
+    private final Metadata metadata;
     private final LoadingCache<Signature, SpecializedFunctionKey> specializedFunctionKeyCache;
     private final LoadingCache<SpecializedFunctionKey, ScalarFunctionImplementation> specializedScalarCache;
     private final LoadingCache<SpecializedFunctionKey, InternalAggregationFunction> specializedAggregationCache;
@@ -373,10 +374,10 @@ public class FunctionRegistry
     private volatile FunctionMap functions = new FunctionMap();
     private final FunctionInvokerProvider functionInvokerProvider;
 
-    public FunctionRegistry(TypeManager typeManager, BlockEncodingSerde blockEncodingSerde, FeaturesConfig featuresConfig)
+    public FunctionRegistry(Metadata metadata, FeaturesConfig featuresConfig)
     {
-        this.typeManager = requireNonNull(typeManager, "typeManager is null");
-        this.magicLiteralFunction = new MagicLiteralFunction(blockEncodingSerde);
+        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.magicLiteralFunction = new MagicLiteralFunction(metadata.getBlockEncodingSerde());
 
         specializedFunctionKeyCache = CacheBuilder.newBuilder()
                 .maximumSize(1000)
@@ -394,13 +395,13 @@ public class FunctionRegistry
                 .maximumSize(1000)
                 .expireAfterWrite(1, HOURS)
                 .build(CacheLoader.from(key -> ((SqlScalarFunction) key.getFunction())
-                        .specialize(key.getBoundVariables(), key.getArity(), typeManager, this)));
+                        .specialize(key.getBoundVariables(), key.getArity(), metadata.getTypeManager(), this)));
 
         specializedAggregationCache = CacheBuilder.newBuilder()
                 .maximumSize(1000)
                 .expireAfterWrite(1, HOURS)
                 .build(CacheLoader.from(key -> ((SqlAggregationFunction) key.getFunction())
-                        .specialize(key.getBoundVariables(), key.getArity(), typeManager, this)));
+                        .specialize(key.getBoundVariables(), key.getArity(), metadata.getTypeManager(), this)));
 
         specializedWindowCache = CacheBuilder.newBuilder()
                 .maximumSize(1000)
@@ -411,7 +412,7 @@ public class FunctionRegistry
                         return supplier(key.getFunction().getSignature(), specializedAggregationCache.getUnchecked(key));
                     }
                     return ((SqlWindowFunction) key.getFunction())
-                            .specialize(key.getBoundVariables(), key.getArity(), typeManager, this);
+                            .specialize(key.getBoundVariables(), key.getArity(), metadata.getTypeManager(), this);
                 }));
 
         FunctionListBuilder builder = new FunctionListBuilder()
@@ -593,6 +594,7 @@ public class FunctionRegistry
                 .scalar(MapIndeterminateOperator.class)
                 .scalar(TypeOfFunction.class)
                 .scalar(TryFunction.class)
+                .scalar(DynamicFilters.Function.class)
                 .functions(ZIP_WITH_FUNCTION, MAP_ZIP_WITH_FUNCTION)
                 .functions(ZIP_FUNCTIONS)
                 .functions(ARRAY_JOIN, ARRAY_JOIN_WITH_NULL_REPLACEMENT)
@@ -643,6 +645,7 @@ public class FunctionRegistry
                 .function(DECIMAL_MOD_FUNCTION)
                 .functions(ARRAY_TRANSFORM_FUNCTION, ARRAY_REDUCE_FUNCTION)
                 .functions(MAP_FILTER_FUNCTION, MAP_TRANSFORM_KEY_FUNCTION, MAP_TRANSFORM_VALUE_FUNCTION)
+                .function(FORMAT_FUNCTION)
                 .function(TRY_CAST)
                 .aggregate(MergeSetDigestAggregation.class)
                 .aggregate(BuildSetDigestAggregation.class)
@@ -662,10 +665,6 @@ public class FunctionRegistry
         }
 
         addFunctions(builder.getFunctions());
-
-        if (typeManager instanceof TypeRegistry) {
-            ((TypeRegistry) typeManager).setFunctionRegistry(this);
-        }
 
         functionInvokerProvider = new FunctionInvokerProvider(this);
     }
@@ -740,11 +739,11 @@ public class FunctionRegistry
             String typeName = name.getSuffix().substring(MAGIC_LITERAL_FUNCTION_PREFIX.length());
 
             // lookup the type
-            Type type = typeManager.getType(parseTypeSignature(typeName));
+            Type type = metadata.getTypeManager().getType(parseTypeSignature(typeName));
 
             // verify we have one parameter of the proper type
             checkArgument(parameterTypes.size() == 1, "Expected one argument to literal function, but got %s", parameterTypes);
-            Type parameterType = typeManager.getType(parameterTypes.get(0).getTypeSignature());
+            Type parameterType = metadata.getTypeManager().getType(parameterTypes.get(0).getTypeSignature());
 
             return getMagicLiteralFunctionSignature(type);
         }
@@ -794,7 +793,7 @@ public class FunctionRegistry
         ImmutableList.Builder<ApplicableFunction> applicableFunctions = ImmutableList.builder();
         for (SqlFunction function : candidates) {
             Signature declaredSignature = function.getSignature();
-            Optional<Signature> boundSignature = new SignatureBinder(typeManager, declaredSignature, allowCoercion)
+            Optional<Signature> boundSignature = new SignatureBinder(metadata.getTypeManager(), declaredSignature, allowCoercion)
                     .bind(actualParameters);
             if (boundSignature.isPresent()) {
                 applicableFunctions.add(new ApplicableFunction(declaredSignature, boundSignature.get()));
@@ -812,7 +811,7 @@ public class FunctionRegistry
             return mostSpecificFunctions;
         }
 
-        Optional<List<Type>> optionalParameterTypes = toTypes(parameters, typeManager);
+        Optional<List<Type>> optionalParameterTypes = toTypes(parameters);
         if (!optionalParameterTypes.isPresent()) {
             // give up and return all remaining matches
             return mostSpecificFunctions;
@@ -886,7 +885,7 @@ public class FunctionRegistry
 
     private boolean onlyCastsUnknown(ApplicableFunction applicableFunction, List<Type> actualParameters)
     {
-        List<Type> boundTypes = resolveTypes(applicableFunction.getBoundSignature().getArgumentTypes(), typeManager);
+        List<Type> boundTypes = resolveTypes(applicableFunction.getBoundSignature().getArgumentTypes(), metadata.getTypeManager());
         checkState(actualParameters.size() == boundTypes.size(), "type lists are of different lengths");
         for (int i = 0; i < actualParameters.size(); i++) {
             if (!boundTypes.get(i).equals(actualParameters.get(i)) && actualParameters.get(i) != UNKNOWN) {
@@ -899,7 +898,7 @@ public class FunctionRegistry
     private boolean returnTypeIsTheSame(List<ApplicableFunction> applicableFunctions)
     {
         Set<Type> returnTypes = applicableFunctions.stream()
-                .map(function -> typeManager.getType(function.getBoundSignature().getReturnType()))
+                .map(function -> metadata.getTypeManager().getType(function.getBoundSignature().getReturnType()))
                 .collect(Collectors.toSet());
         return returnTypes.size() == 1;
     }
@@ -988,10 +987,10 @@ public class FunctionRegistry
     {
         Iterable<SqlFunction> candidates = functions.get(QualifiedName.of(signature.getName()));
         // search for exact match
-        Type returnType = typeManager.getType(signature.getReturnType());
+        Type returnType = metadata.getTypeManager().getType(signature.getReturnType());
         List<TypeSignatureProvider> argumentTypeSignatureProviders = fromTypeSignatures(signature.getArgumentTypes());
         for (SqlFunction candidate : candidates) {
-            Optional<BoundVariables> boundVariables = new SignatureBinder(typeManager, candidate.getSignature(), false)
+            Optional<BoundVariables> boundVariables = new SignatureBinder(metadata.getTypeManager(), candidate.getSignature(), false)
                     .bindVariables(argumentTypeSignatureProviders, returnType);
             if (boundVariables.isPresent()) {
                 return new SpecializedFunctionKey(candidate, boundVariables.get(), argumentTypeSignatureProviders.size());
@@ -1000,22 +999,22 @@ public class FunctionRegistry
 
         // TODO: hack because there could be "type only" coercions (which aren't necessarily included as implicit casts),
         // so do a second pass allowing "type only" coercions
-        List<Type> argumentTypes = resolveTypes(signature.getArgumentTypes(), typeManager);
+        List<Type> argumentTypes = resolveTypes(signature.getArgumentTypes(), metadata.getTypeManager());
         for (SqlFunction candidate : candidates) {
-            SignatureBinder binder = new SignatureBinder(typeManager, candidate.getSignature(), true);
+            SignatureBinder binder = new SignatureBinder(metadata.getTypeManager(), candidate.getSignature(), true);
             Optional<BoundVariables> boundVariables = binder.bindVariables(argumentTypeSignatureProviders, returnType);
             if (!boundVariables.isPresent()) {
                 continue;
             }
             Signature boundSignature = applyBoundVariables(candidate.getSignature(), boundVariables.get(), argumentTypes.size());
 
-            if (!typeManager.isTypeOnlyCoercion(typeManager.getType(boundSignature.getReturnType()), returnType)) {
+            if (!metadata.getTypeManager().isTypeOnlyCoercion(metadata.getTypeManager().getType(boundSignature.getReturnType()), returnType)) {
                 continue;
             }
             boolean nonTypeOnlyCoercion = false;
             for (int i = 0; i < argumentTypes.size(); i++) {
-                Type expectedType = typeManager.getType(boundSignature.getArgumentTypes().get(i));
-                if (!typeManager.isTypeOnlyCoercion(argumentTypes.get(i), expectedType)) {
+                Type expectedType = metadata.getTypeManager().getType(boundSignature.getArgumentTypes().get(i));
+                if (!metadata.getTypeManager().isTypeOnlyCoercion(argumentTypes.get(i), expectedType)) {
                     nonTypeOnlyCoercion = true;
                     break;
                 }
@@ -1034,11 +1033,11 @@ public class FunctionRegistry
             String typeName = signature.getName().substring(MAGIC_LITERAL_FUNCTION_PREFIX.length());
 
             // lookup the type
-            Type type = typeManager.getType(parseTypeSignature(typeName));
+            Type type = metadata.getTypeManager().getType(parseTypeSignature(typeName));
 
             // verify we have one parameter of the proper type
             checkArgument(parameterTypes.size() == 1, "Expected one argument to literal function, but got %s", parameterTypes);
-            Type parameterType = typeManager.getType(parameterTypes.get(0));
+            Type parameterType = metadata.getTypeManager().getType(parameterTypes.get(0));
             requireNonNull(parameterType, format("Type %s not found", parameterTypes.get(0)));
 
             return new SpecializedFunctionKey(
@@ -1171,14 +1170,14 @@ public class FunctionRegistry
         return OperatorType.valueOf(mangledName.substring(OPERATOR_PREFIX.length()));
     }
 
-    public static Optional<List<Type>> toTypes(List<TypeSignatureProvider> typeSignatureProviders, TypeManager typeManager)
+    private Optional<List<Type>> toTypes(List<TypeSignatureProvider> typeSignatureProviders)
     {
         ImmutableList.Builder<Type> resultBuilder = ImmutableList.builder();
         for (TypeSignatureProvider typeSignatureProvider : typeSignatureProviders) {
             if (typeSignatureProvider.hasDependency()) {
                 return Optional.empty();
             }
-            resultBuilder.add(typeManager.getType(typeSignatureProvider.getTypeSignature()));
+            resultBuilder.add(metadata.getTypeManager().getType(typeSignatureProvider.getTypeSignature()));
         }
         return Optional.of(resultBuilder.build());
     }
@@ -1189,7 +1188,7 @@ public class FunctionRegistry
     private boolean isMoreSpecificThan(ApplicableFunction left, ApplicableFunction right)
     {
         List<TypeSignatureProvider> resolvedTypes = fromTypeSignatures(left.getBoundSignature().getArgumentTypes());
-        Optional<BoundVariables> boundVariables = new SignatureBinder(typeManager, right.getDeclaredSignature(), true)
+        Optional<BoundVariables> boundVariables = new SignatureBinder(metadata.getTypeManager(), right.getDeclaredSignature(), true)
                 .bindVariables(resolvedTypes);
         return boundVariables.isPresent();
     }

@@ -16,9 +16,11 @@ package io.prestosql.plugin.atop;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.prestosql.spi.connector.ConnectorTableHandle;
+import io.prestosql.spi.predicate.Domain;
 
 import java.util.Objects;
 
+import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static java.util.Objects.requireNonNull;
 
 public class AtopTableHandle
@@ -26,12 +28,25 @@ public class AtopTableHandle
 {
     private final String schema;
     private final AtopTable table;
+    private final Domain startTimeConstraint;
+    private final Domain endTimeConstraint;
+
+    public AtopTableHandle(String schema, AtopTable table)
+    {
+        this(schema, table, Domain.all(TIMESTAMP_WITH_TIME_ZONE), Domain.all(TIMESTAMP_WITH_TIME_ZONE));
+    }
 
     @JsonCreator
-    public AtopTableHandle(@JsonProperty("schema") String schema, @JsonProperty("table") AtopTable table)
+    public AtopTableHandle(
+            @JsonProperty("schema") String schema,
+            @JsonProperty("table") AtopTable table,
+            @JsonProperty("startTimeConstraint") Domain startTimeConstraint,
+            @JsonProperty("endTimeConstraint") Domain endTimeConstraint)
     {
         this.schema = requireNonNull(schema, "schema is null");
         this.table = requireNonNull(table, "table is null");
+        this.startTimeConstraint = requireNonNull(startTimeConstraint, "startTimeConstraint is null");
+        this.endTimeConstraint = requireNonNull(endTimeConstraint, "endTimeConstraint is null");
     }
 
     @JsonProperty
@@ -44,6 +59,18 @@ public class AtopTableHandle
     public AtopTable getTable()
     {
         return table;
+    }
+
+    @JsonProperty
+    public Domain getStartTimeConstraint()
+    {
+        return startTimeConstraint;
+    }
+
+    @JsonProperty
+    public Domain getEndTimeConstraint()
+    {
+        return endTimeConstraint;
     }
 
     @Override

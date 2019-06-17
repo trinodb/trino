@@ -18,7 +18,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.spi.HostAddress;
 import io.prestosql.spi.connector.ConnectorSplit;
-import io.prestosql.spi.predicate.TupleDomain;
 
 import java.util.List;
 
@@ -29,27 +28,17 @@ public class LocalFileSplit
         implements ConnectorSplit
 {
     private final HostAddress address;
-    private final TupleDomain<LocalFileColumnHandle> effectivePredicate;
 
     @JsonCreator
-    public LocalFileSplit(
-            @JsonProperty("address") HostAddress address,
-            @JsonProperty("effectivePredicate") TupleDomain<LocalFileColumnHandle> effectivePredicate)
+    public LocalFileSplit(@JsonProperty("address") HostAddress address)
     {
         this.address = requireNonNull(address, "address is null");
-        this.effectivePredicate = requireNonNull(effectivePredicate, "effectivePredicate is null");
     }
 
     @JsonProperty
     public HostAddress getAddress()
     {
         return address;
-    }
-
-    @JsonProperty
-    public TupleDomain<LocalFileColumnHandle> getEffectivePredicate()
-    {
-        return effectivePredicate;
     }
 
     @Override

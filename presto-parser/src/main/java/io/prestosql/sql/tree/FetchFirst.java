@@ -25,31 +25,43 @@ public class FetchFirst
         extends Node
 {
     private final Optional<String> rowCount;
+    private final boolean withTies;
 
     public FetchFirst(String rowCount)
     {
-        this(Optional.empty(), Optional.of(rowCount));
+        this(Optional.empty(), Optional.of(rowCount), false);
+    }
+
+    public FetchFirst(String rowCount, boolean withTies)
+    {
+        this(Optional.empty(), Optional.of(rowCount), withTies);
     }
 
     public FetchFirst(Optional<String> rowCount)
     {
-        this(Optional.empty(), rowCount);
+        this(Optional.empty(), rowCount, false);
     }
 
-    public FetchFirst(NodeLocation location, Optional<String> rowCount)
+    public FetchFirst(Optional<String> rowCount, boolean withTies)
     {
-        this(Optional.of(location), rowCount);
+        this(Optional.empty(), rowCount, withTies);
     }
 
-    public FetchFirst(Optional<NodeLocation> location, Optional<String> rowCount)
+    public FetchFirst(Optional<NodeLocation> location, Optional<String> rowCount, boolean withTies)
     {
         super(location);
         this.rowCount = rowCount;
+        this.withTies = withTies;
     }
 
     public Optional<String> getRowCount()
     {
         return rowCount;
+    }
+
+    public boolean isWithTies()
+    {
+        return withTies;
     }
 
     @Override
@@ -65,22 +77,23 @@ public class FetchFirst
     }
 
     @Override
-    public boolean equals(Object obj)
+    public boolean equals(Object o)
     {
-        if (this == obj) {
+        if (this == o) {
             return true;
         }
-        if ((obj == null) || (getClass() != obj.getClass())) {
+        if ((o == null) || (getClass() != o.getClass())) {
             return false;
         }
-        FetchFirst o = (FetchFirst) obj;
-        return Objects.equals(rowCount, o.rowCount);
+        FetchFirst that = (FetchFirst) o;
+        return withTies == that.withTies &&
+                Objects.equals(rowCount, that.rowCount);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(rowCount);
+        return Objects.hash(rowCount, withTies);
     }
 
     @Override
@@ -88,6 +101,7 @@ public class FetchFirst
     {
         return toStringHelper(this)
                 .add("rowCount", rowCount.orElse(null))
+                .add("withTies", withTies)
                 .omitNullValues()
                 .toString();
     }

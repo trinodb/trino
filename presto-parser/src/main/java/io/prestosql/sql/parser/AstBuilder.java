@@ -69,6 +69,7 @@ import io.prestosql.sql.tree.ExplainType;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.Extract;
 import io.prestosql.sql.tree.FetchFirst;
+import io.prestosql.sql.tree.Format;
 import io.prestosql.sql.tree.FrameBound;
 import io.prestosql.sql.tree.FunctionCall;
 import io.prestosql.sql.tree.GenericLiteral;
@@ -586,15 +587,15 @@ class AstBuilder
 
         Optional<Node> limit = Optional.empty();
         if (context.FETCH() != null) {
-            limit = Optional.of(new FetchFirst(getTextIfPresent(context.fetchFirst)));
+            limit = Optional.of(new FetchFirst(Optional.of(getLocation(context.FETCH())), getTextIfPresent(context.fetchFirst), context.TIES() != null));
         }
         else if (context.LIMIT() != null) {
-            limit = Optional.of(new Limit(getTextIfPresent(context.limit).orElseThrow(() -> new IllegalStateException("Missing LIMIT value"))));
+            limit = Optional.of(new Limit(Optional.of(getLocation(context.LIMIT())), getTextIfPresent(context.limit).orElseThrow(() -> new IllegalStateException("Missing LIMIT value"))));
         }
 
         Optional<Offset> offset = Optional.empty();
         if (context.OFFSET() != null) {
-            offset = Optional.of(new Offset(getTextIfPresent(context.offset).orElseThrow(() -> new IllegalStateException("Missing OFFSET row count"))));
+            offset = Optional.of(new Offset(Optional.of(getLocation(context.OFFSET())), getTextIfPresent(context.offset).orElseThrow(() -> new IllegalStateException("Missing OFFSET row count"))));
         }
 
         if (term instanceof QuerySpecification) {
@@ -1521,6 +1522,15 @@ class AstBuilder
             check(!filter.isPresent(), "FILTER not valid for 'try' function", context);
 
             return new TryExpression(getLocation(context), (Expression) visit(getOnlyElement(context.expression())));
+        }
+
+        if (name.toString().equalsIgnoreCase("format")) {
+            check(context.expression().size() >= 2, "The 'format' function must have at least two arguments", context);
+            check(!window.isPresent(), "OVER clause not valid for 'format' function", context);
+            check(!distinct, "DISTINCT not valid for 'format' function", context);
+            check(!filter.isPresent(), "FILTER not valid for 'format' function", context);
+
+            return new Format(getLocation(context), visit(context.expression(), Expression.class));
         }
 
         if (name.toString().equalsIgnoreCase("$internal$bind")) {

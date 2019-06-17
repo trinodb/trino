@@ -31,6 +31,7 @@ import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeManager;
+import io.prestosql.spi.type.TypeNotFoundException;
 import io.prestosql.spi.type.TypeParameter;
 import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.spi.type.TypeSignatureParameter;
@@ -205,10 +206,16 @@ public final class TypeRegistry
 
         ParametricType parametricType = parametricTypes.get(signature.getBase().toLowerCase(Locale.ENGLISH));
         if (parametricType == null) {
-            throw new IllegalArgumentException("Unknown type " + signature);
+            throw new TypeNotFoundException(signature);
         }
 
-        Type instantiatedType = parametricType.createType(this, parameters);
+        Type instantiatedType;
+        try {
+            instantiatedType = parametricType.createType(this, parameters);
+        }
+        catch (IllegalArgumentException e) {
+            throw new TypeNotFoundException(signature, e);
+        }
 
         // TODO: reimplement this check? Currently "varchar(Integer.MAX_VALUE)" fails with "varchar"
         //checkState(instantiatedType.equalsSignature(signature), "Instantiated parametric type name (%s) does not match expected name (%s)", instantiatedType, signature);

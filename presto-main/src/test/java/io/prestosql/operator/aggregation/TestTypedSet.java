@@ -15,7 +15,6 @@ package io.prestosql.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
 import io.prestosql.spi.PageBuilder;
-import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import org.testng.annotations.Test;
@@ -32,6 +31,7 @@ import static io.prestosql.block.BlockAssertions.createLongsBlock;
 import static io.prestosql.spi.StandardErrorCode.EXCEEDED_FUNCTION_MEMORY_LIMIT;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.prestosql.testing.assertions.PrestoExceptionAssert.assertPrestoExceptionThrownBy;
 import static java.util.Collections.nCopies;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -229,17 +229,13 @@ public class TestTypedSet
     @Test
     public void testMemoryExceeded()
     {
-        try {
+        assertPrestoExceptionThrownBy(() -> {
             TypedSet typedSet = new TypedSet(BIGINT, 10, FUNCTION_NAME);
             for (int i = 0; i <= TypedSet.FOUR_MEGABYTES + 1; i++) {
                 Block block = createLongsBlock(nCopies(1, (long) i));
                 typedSet.add(block, 0);
             }
-            fail("expected exception");
-        }
-        catch (PrestoException e) {
-            assertEquals(e.getErrorCode(), EXCEEDED_FUNCTION_MEMORY_LIMIT.toErrorCode());
-        }
+        }).hasErrorCode(EXCEEDED_FUNCTION_MEMORY_LIMIT);
     }
 
     private void testGetElementPositionRandomFor(TypedSet set)

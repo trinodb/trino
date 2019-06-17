@@ -13,8 +13,6 @@
  */
 package io.prestosql.tests;
 
-import com.google.common.base.Function;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
 import io.prestosql.Session;
@@ -31,6 +29,7 @@ import io.prestosql.server.testing.TestingPrestoServer;
 import io.prestosql.spi.QueryId;
 import io.prestosql.spi.session.ResourceEstimates;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeSignature;
 import okhttp3.OkHttpClient;
 import org.intellij.lang.annotations.Language;
 
@@ -44,13 +43,12 @@ import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static com.google.common.collect.Iterables.transform;
 import static io.prestosql.client.StatementClientFactory.newStatementClient;
 import static io.prestosql.spi.session.ResourceEstimates.CPU_TIME;
 import static io.prestosql.spi.session.ResourceEstimates.EXECUTION_TIME;
 import static io.prestosql.spi.session.ResourceEstimates.PEAK_MEMORY;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static io.prestosql.transaction.TransactionBuilder.transaction;
 import static java.util.Objects.requireNonNull;
 
@@ -196,18 +194,10 @@ public abstract class AbstractTestingPrestoClient<T>
 
     protected List<Type> getTypes(List<Column> columns)
     {
-        return ImmutableList.copyOf(transform(columns, columnTypeGetter()));
-    }
-
-    protected Function<Column, Type> columnTypeGetter()
-    {
-        return column -> {
-            String typeName = column.getType();
-            Type type = prestoServer.getMetadata().getType(parseTypeSignature(typeName));
-            if (type == null) {
-                throw new AssertionError("Unhandled type: " + typeName);
-            }
-            return type;
-        };
+        return columns.stream()
+                .map(Column::getType)
+                .map(TypeSignature::parseTypeSignature)
+                .map(type -> prestoServer.getMetadata().getType(type))
+                .collect(toImmutableList());
     }
 }

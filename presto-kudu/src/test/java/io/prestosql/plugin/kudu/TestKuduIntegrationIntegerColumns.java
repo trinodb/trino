@@ -61,7 +61,7 @@ public class TestKuduIntegrationIntegerColumns
         }
     }
 
-    public void doTestCreateTableWithIntegerColumn(TestInt test)
+    private void doTestCreateTableWithIntegerColumn(TestInt test)
     {
         String dropTable = "DROP TABLE IF EXISTS test_int";
         String createTable = "CREATE TABLE test_int (\n";

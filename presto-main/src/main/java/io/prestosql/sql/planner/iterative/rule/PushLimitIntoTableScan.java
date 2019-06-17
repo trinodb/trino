@@ -31,8 +31,10 @@ public class PushLimitIntoTableScan
         implements Rule<LimitNode>
 {
     private static final Capture<TableScanNode> TABLE_SCAN = newCapture();
-    private static final Pattern<LimitNode> PATTERN = limit().with(source().matching(
-            tableScan().capturedAs(TABLE_SCAN)));
+    private static final Pattern<LimitNode> PATTERN = limit()
+            .matching(limit -> !limit.isWithTies())
+            .with(source().matching(
+                    tableScan().capturedAs(TABLE_SCAN)));
 
     private final Metadata metadata;
 

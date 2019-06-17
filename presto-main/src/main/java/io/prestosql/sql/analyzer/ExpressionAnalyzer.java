@@ -26,6 +26,7 @@ import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.OperatorNotFoundException;
 import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.metadata.Signature;
+import io.prestosql.operator.scalar.FormatFunction;
 import io.prestosql.security.AccessControl;
 import io.prestosql.security.DenyAllAccessControl;
 import io.prestosql.spi.PrestoException;
@@ -37,6 +38,7 @@ import io.prestosql.spi.type.Decimals;
 import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeManager;
+import io.prestosql.spi.type.TypeNotFoundException;
 import io.prestosql.spi.type.TypeSignatureParameter;
 import io.prestosql.spi.type.VarcharType;
 import io.prestosql.sql.parser.SqlParser;
@@ -64,6 +66,7 @@ import io.prestosql.sql.tree.ExistsPredicate;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.Extract;
 import io.prestosql.sql.tree.FieldReference;
+import io.prestosql.sql.tree.Format;
 import io.prestosql.sql.tree.FunctionCall;
 import io.prestosql.sql.tree.GenericLiteral;
 import io.prestosql.sql.tree.GroupingOperation;
@@ -134,6 +137,7 @@ import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.prestosql.spi.type.Varchars.isVarcharType;
 import static io.prestosql.sql.NodeUtils.getSortItemsFromOrderBy;
 import static io.prestosql.sql.analyzer.Analyzer.verifyNoAggregateWindowOrGroupingFunctions;
 import static io.prestosql.sql.analyzer.SemanticErrorCode.EXPRESSION_NOT_CONSTANT;
@@ -143,8 +147,10 @@ import static io.prestosql.sql.analyzer.SemanticErrorCode.INVALID_PROCEDURE_ARGU
 import static io.prestosql.sql.analyzer.SemanticErrorCode.MULTIPLE_FIELDS_FROM_SUBQUERY;
 import static io.prestosql.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
 import static io.prestosql.sql.analyzer.SemanticErrorCode.STANDALONE_LAMBDA;
+import static io.prestosql.sql.analyzer.SemanticErrorCode.TOO_MANY_ARGUMENTS;
 import static io.prestosql.sql.analyzer.SemanticErrorCode.TYPE_MISMATCH;
 import static io.prestosql.sql.analyzer.SemanticExceptions.missingAttributeException;
+import static io.prestosql.sql.tree.ArrayConstructor.ARRAY_CONSTRUCTOR;
 import static io.prestosql.sql.tree.Extract.Field.TIMEZONE_HOUR;
 import static io.prestosql.sql.tree.Extract.Field.TIMEZONE_MINUTE;
 import static io.prestosql.type.ArrayParametricType.ARRAY;
@@ -155,6 +161,7 @@ import static io.prestosql.type.UnknownType.UNKNOWN;
 import static io.prestosql.util.DateTimeUtils.parseTimestampLiteral;
 import static io.prestosql.util.DateTimeUtils.timeHasTimeZone;
 import static io.prestosql.util.DateTimeUtils.timestampHasTimeZone;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.Collections.unmodifiableSet;
@@ -637,6 +644,28 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitSubscriptExpression(SubscriptExpression node, StackableAstVisitorContext<Context> context)
         {
+            Type baseType = process(node.getBase(), context);
+            // Subscript on Row hasn't got a dedicated operator. Its Type is resolved by hand.
+            if (baseType instanceof RowType) {
+                if (!(node.getIndex() instanceof LongLiteral)) {
+                    throw new SemanticException(INVALID_PARAMETER_USAGE, node.getIndex(), "Subscript expression on ROW requires a constant index");
+                }
+                Type indexType = process(node.getIndex(), context);
+                if (!indexType.equals(INTEGER)) {
+                    throw new SemanticException(TYPE_MISMATCH, node.getIndex(), "Subscript expression on ROW requires integer index, found %s", indexType);
+                }
+                int indexValue = toIntExact(((LongLiteral) node.getIndex()).getValue());
+                if (indexValue <= 0) {
+                    throw new SemanticException(INVALID_PARAMETER_USAGE, node.getIndex(), "Invalid subscript index: %s. ROW indices start at 1", indexValue);
+                }
+                List<Type> rowTypes = baseType.getTypeParameters();
+                if (indexValue > rowTypes.size()) {
+                    throw new SemanticException(INVALID_PARAMETER_USAGE, node.getIndex(), "Subscript index out of bounds: %s, max value is %s", indexValue, rowTypes.size());
+                }
+                return setExpressionType(node, rowTypes.get(indexValue - 1));
+            }
+
+            // Subscript on Array or Map uses an operator to resolve Type.
             return getOperator(context, node, SUBSCRIPT, node.getBase(), node.getIndex());
         }
 
@@ -704,7 +733,7 @@ public class ExpressionAnalyzer
             try {
                 type = typeManager.getType(parseTypeSignature(node.getType()));
             }
-            catch (IllegalArgumentException e) {
+            catch (TypeNotFoundException e) {
                 throw new SemanticException(TYPE_MISMATCH, node, "Unknown type: " + node.getType());
             }
 
@@ -854,6 +883,17 @@ public class ExpressionAnalyzer
             ImmutableList<TypeSignatureProvider> argumentTypes = argumentTypesBuilder.build();
             Signature function = resolveFunction(node, argumentTypes, functionRegistry);
 
+            if (function.getName().equalsIgnoreCase(ARRAY_CONSTRUCTOR)) {
+                // After optimization, array constructor is rewritten to a function call.
+                // For historic reasons array constructor is allowed to have 254 arguments
+                if (node.getArguments().size() > 254) {
+                    throw new SemanticException(TOO_MANY_ARGUMENTS, node, "Too many arguments for array constructor", function.getName());
+                }
+            }
+            else if (node.getArguments().size() > 127) {
+                throw new SemanticException(TOO_MANY_ARGUMENTS, node, "Too many arguments for function call %s()", function.getName());
+            }
+
             if (node.getOrderBy().isPresent()) {
                 for (SortItem sortItem : node.getOrderBy().get().getSortItems()) {
                     Type sortKeyType = process(sortItem.getSortKey(), context);
@@ -913,6 +953,32 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitCurrentPath(CurrentPath node, StackableAstVisitorContext<Context> context)
         {
+            return setExpressionType(node, VARCHAR);
+        }
+
+        @Override
+        protected Type visitFormat(Format node, StackableAstVisitorContext<Context> context)
+        {
+            List<Type> arguments = node.getArguments().stream()
+                    .map(expression -> process(expression, context))
+                    .collect(toImmutableList());
+
+            if (!isVarcharType(arguments.get(0))) {
+                throw new SemanticException(TYPE_MISMATCH, node.getArguments().get(0), "Type of first argument to format() must be VARCHAR (actual: %s)", arguments.get(0));
+            }
+
+            for (int i = 1; i < arguments.size(); i++) {
+                try {
+                    FormatFunction.validateType(functionRegistry, arguments.get(i));
+                }
+                catch (PrestoException e) {
+                    if (e.getErrorCode().equals(StandardErrorCode.NOT_SUPPORTED.toErrorCode())) {
+                        throw new SemanticException(NOT_SUPPORTED, node.getArguments().get(i), "%s", e.getMessage());
+                    }
+                    throw e;
+                }
+            }
+
             return setExpressionType(node, VARCHAR);
         }
 
@@ -979,7 +1045,7 @@ public class ExpressionAnalyzer
             try {
                 type = typeManager.getType(parseTypeSignature(node.getType()));
             }
-            catch (IllegalArgumentException e) {
+            catch (TypeNotFoundException e) {
                 throw new SemanticException(TYPE_MISMATCH, node, "Unknown type: " + node.getType());
             }
 

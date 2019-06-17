@@ -41,6 +41,7 @@ import io.prestosql.sql.tree.ExistsPredicate;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.Extract;
 import io.prestosql.sql.tree.FieldReference;
+import io.prestosql.sql.tree.Format;
 import io.prestosql.sql.tree.FrameBound;
 import io.prestosql.sql.tree.FunctionCall;
 import io.prestosql.sql.tree.GenericLiteral;
@@ -173,6 +174,12 @@ public final class ExpressionFormatter
         protected String visitCurrentPath(CurrentPath node, Void context)
         {
             return "CURRENT_PATH";
+        }
+
+        @Override
+        protected String visitFormat(Format node, Void context)
+        {
+            return "format(" + joinExpressions(node.getArguments()) + ")";
         }
 
         @Override

@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import io.airlift.log.Logger;
 import io.prestosql.plugin.accumulo.conf.AccumuloSessionProperties;
-import io.prestosql.plugin.accumulo.model.AccumuloColumnConstraint;
 import io.prestosql.plugin.accumulo.model.AccumuloColumnHandle;
 import io.prestosql.plugin.accumulo.model.AccumuloSplit;
 import io.prestosql.plugin.accumulo.model.AccumuloTableHandle;
@@ -54,7 +53,6 @@ public class AccumuloRecordSet
     private static final Splitter COMMA_SPLITTER = Splitter.on(',').omitEmptyStrings().trimResults();
 
     private final List<AccumuloColumnHandle> columnHandles;
-    private final List<AccumuloColumnConstraint> constraints;
     private final List<Type> columnTypes;
     private final AccumuloRowSerializer serializer;
     private final BatchScanner scanner;
@@ -71,7 +69,7 @@ public class AccumuloRecordSet
         requireNonNull(session, "session is null");
         requireNonNull(split, "split is null");
         requireNonNull(username, "username is null");
-        constraints = requireNonNull(split.getConstraints(), "constraints is null");
+        requireNonNull(table, "table is null");
 
         rowIdName = table.getRowId();
 
@@ -140,6 +138,6 @@ public class AccumuloRecordSet
     @Override
     public RecordCursor cursor()
     {
-        return new AccumuloRecordCursor(serializer, scanner, rowIdName, columnHandles, constraints);
+        return new AccumuloRecordCursor(serializer, scanner, rowIdName, columnHandles);
     }
 }

@@ -46,6 +46,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.prestosql.operator.BlockedReason.WAITING_FOR_MEMORY;
+import static io.prestosql.operator.Operator.NOT_BLOCKED;
 import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static java.lang.Math.max;
 import static java.lang.String.format;
@@ -53,7 +54,10 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 /**
- * Only {@link #getOperatorStats()} and revocable-memory-related operations are ThreadSafe
+ * Contains information about {@link Operator} execution.
+ * <p>
+ * Not thread-safe. Only {@link #getOperatorStats()}, {@link #getNestedOperatorStats()}
+ * and revocable-memory-related operations are thread-safe.
  */
 public class OperatorContext
 {
@@ -651,6 +655,10 @@ public class OperatorContext
         @Override
         public ListenableFuture<?> setBytes(long bytes)
         {
+            if (bytes == delegate.getBytes()) {
+                return NOT_BLOCKED;
+            }
+
             ListenableFuture<?> blocked = delegate.setBytes(bytes);
             updateMemoryFuture(blocked, memoryFuture);
             allocationListener.run();

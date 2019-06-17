@@ -14,7 +14,6 @@
 package io.prestosql.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.type.StandardTypes;
 import org.testng.annotations.Test;
@@ -26,8 +25,6 @@ import java.util.PriorityQueue;
 import static io.prestosql.block.BlockAssertions.createDoubleSequenceBlock;
 import static io.prestosql.block.BlockAssertions.createDoublesBlock;
 import static io.prestosql.block.BlockAssertions.createLongRepeatBlock;
-import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static org.testng.Assert.assertEquals;
 
 public class TestDoubleMinNAggregation
         extends AbstractTestAggregationFunction
@@ -72,12 +69,8 @@ public class TestDoubleMinNAggregation
 
     private void testInvalidAggregation(Double[] x, int n)
     {
-        try {
-            testAggregation(new long[] {}, createDoublesBlock(x), createLongRepeatBlock(n, x.length));
-        }
-        catch (PrestoException e) {
-            assertEquals(e.getErrorCode().getName(), INVALID_FUNCTION_ARGUMENT.name());
-        }
+        assertInvalidAggregation(() ->
+                testAggregation(new long[] {}, createDoublesBlock(x), createLongRepeatBlock(n, x.length)));
     }
 
     private void testCustomAggregation(Double[] values, int n)

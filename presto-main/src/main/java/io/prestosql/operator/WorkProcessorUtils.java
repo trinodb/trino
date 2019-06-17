@@ -374,9 +374,10 @@ public final class WorkProcessorUtils
 
             if (state.getType() == ProcessState.Type.FINISHED) {
                 process = null;
+                return true;
             }
 
-            return state.getType() == ProcessState.Type.RESULT || state.getType() == ProcessState.Type.FINISHED;
+            return state.getType() == ProcessState.Type.RESULT;
         }
 
         @Override

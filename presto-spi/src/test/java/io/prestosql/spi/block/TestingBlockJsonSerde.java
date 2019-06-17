@@ -23,7 +23,6 @@ import io.airlift.slice.BasicSliceInput;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
-import io.prestosql.spi.type.TestingTypeManager;
 
 import java.io.IOException;
 import java.util.Base64;
@@ -32,8 +31,6 @@ import static java.util.Objects.requireNonNull;
 
 public final class TestingBlockJsonSerde
 {
-    private final BlockEncodingSerde blockEncodingSerde = new TestingBlockEncodingSerde(new TestingTypeManager());
-
     private TestingBlockJsonSerde() {}
 
     public static class Serializer

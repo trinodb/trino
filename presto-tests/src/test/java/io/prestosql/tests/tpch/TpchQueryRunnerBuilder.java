@@ -19,6 +19,7 @@ import io.prestosql.tests.DistributedQueryRunner;
 
 import java.util.function.Function;
 
+import static io.prestosql.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 
 public final class TpchQueryRunnerBuilder
@@ -28,6 +29,7 @@ public final class TpchQueryRunnerBuilder
             .setSource("test")
             .setCatalog("tpch")
             .setSchema("tiny")
+            .setSystemProperty(ENABLE_DYNAMIC_FILTERING, "true")
             .build();
 
     private TpchQueryRunnerBuilder()

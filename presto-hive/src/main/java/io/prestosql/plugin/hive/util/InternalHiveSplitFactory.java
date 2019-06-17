@@ -35,6 +35,7 @@ import org.apache.hadoop.mapred.InputFormat;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -186,7 +187,7 @@ public class InternalHiveSplitFactory
                 blocks,
                 bucketNumber,
                 splittable,
-                forceLocalScheduling && allBlocksHaveRealAddress(blocks),
+                forceLocalScheduling && allBlocksHaveAddress(blocks),
                 columnCoercions,
                 bucketConversion,
                 s3SelectPushdownEnabled && S3SelectPushdown.isCompressionCodecSupported(inputFormat, path)));
@@ -203,51 +204,45 @@ public class InternalHiveSplitFactory
         }
     }
 
-    private static boolean allBlocksHaveRealAddress(List<InternalHiveBlock> blocks)
+    private static boolean allBlocksHaveAddress(Collection<InternalHiveBlock> blocks)
     {
         return blocks.stream()
                 .map(InternalHiveBlock::getAddresses)
-                .allMatch(InternalHiveSplitFactory::hasRealAddress);
-    }
-
-    private static boolean hasRealAddress(List<HostAddress> addresses)
-    {
-        // Hadoop FileSystem returns "localhost" as a default
-        return addresses.stream().anyMatch(address -> !address.getHostText().equals("localhost"));
+                .noneMatch(List::isEmpty);
     }
 
     private static List<HostAddress> getHostAddresses(BlockLocation blockLocation)
     {
-        String[] hosts;
+        // Hadoop FileSystem returns "localhost" as a default
+        return Arrays.stream(getBlockHosts(blockLocation))
+                .map(HostAddress::fromString)
+                .filter(address -> !address.getHostText().equals("localhost"))
+                .collect(toImmutableList());
+    }
+
+    private static String[] getBlockHosts(BlockLocation blockLocation)
+    {
         try {
-            hosts = blockLocation.getHosts();
+            return blockLocation.getHosts();
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);
         }
-        return Arrays.stream(hosts)
-                .map(HostAddress::fromString)
-                .collect(toImmutableList());
     }
 
     private static Optional<Domain> getPathDomain(TupleDomain<HiveColumnHandle> effectivePredicate)
     {
-        if (!effectivePredicate.getDomains().isPresent()) {
-            return Optional.empty();
-        }
-
-        return effectivePredicate.getDomains().get().entrySet().stream()
-                .filter(entry -> isPathColumnHandle(entry.getKey()))
-                .findFirst()
-                .map(Map.Entry::getValue);
+        return effectivePredicate.getDomains()
+                .flatMap(domains -> domains.entrySet().stream()
+                        .filter(entry -> isPathColumnHandle(entry.getKey()))
+                        .map(Map.Entry::getValue)
+                        .findFirst());
     }
 
     private static boolean pathMatchesPredicate(Optional<Domain> pathDomain, String path)
     {
-        if (!pathDomain.isPresent()) {
-            return true;
-        }
-
-        return pathDomain.get().includesNullableValue(utf8Slice(path));
+        return pathDomain
+                .map(domain -> domain.includesNullableValue(utf8Slice(path)))
+                .orElse(true);
     }
 }

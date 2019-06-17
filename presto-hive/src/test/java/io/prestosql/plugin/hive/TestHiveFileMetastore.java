@@ -59,4 +59,10 @@ public class TestHiveFileMetastore
     {
         // FileHiveMetastore has various incompatibilities
     }
+
+    @Override
+    public void testInsertOverwriteUnpartitioned()
+    {
+        // FileHiveMetastore has various incompatibilities
+    }
 }

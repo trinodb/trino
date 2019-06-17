@@ -42,13 +42,13 @@ public class MongoPageSourceProvider
     @Override
     public ConnectorPageSource createPageSource(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorSplit split, ConnectorTableHandle table, List<ColumnHandle> columns)
     {
-        MongoSplit mongodbSplit = (MongoSplit) split;
+        MongoTableHandle tableHandle = (MongoTableHandle) table;
 
         ImmutableList.Builder<MongoColumnHandle> handles = ImmutableList.builder();
         for (ColumnHandle handle : requireNonNull(columns, "columns is null")) {
             handles.add((MongoColumnHandle) handle);
         }
 
-        return new MongoPageSource(mongoSession, mongodbSplit, handles.build());
+        return new MongoPageSource(mongoSession, tableHandle, handles.build());
     }
 }

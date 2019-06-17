@@ -488,7 +488,7 @@ public class InMemoryThriftMetastore
     @Override
     public Set<HivePrivilegeInfo> listTablePrivileges(String databaseName, String tableName, HivePrincipal principal)
     {
-        throw new UnsupportedOperationException();
+        return ImmutableSet.of();
     }
 
     @Override

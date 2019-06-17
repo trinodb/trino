@@ -74,7 +74,6 @@ import static io.prestosql.plugin.accumulo.AccumuloErrorCode.UNEXPECTED_ACCUMULO
 import static io.prestosql.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.prestosql.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
 import static io.prestosql.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
-import static io.prestosql.spi.StandardErrorCode.INVALID_VIEW;
 import static io.prestosql.spi.StandardErrorCode.NOT_FOUND;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
@@ -546,7 +545,7 @@ public class AccumuloClient
             }
 
             if (getTableNames(viewName.getSchemaName()).contains(viewName.getTableName())) {
-                throw new PrestoException(INVALID_VIEW, "View already exists as data table");
+                throw new PrestoException(ALREADY_EXISTS, "View already exists as data table");
             }
         }
 

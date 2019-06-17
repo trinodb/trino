@@ -135,9 +135,6 @@ and serve as various run environments throughout the tests. Versions can be foun
 release or snapshot. Note that all images will be required to have this version, because this version is used globally.
 This is to ease maintenance and simplify debugging.
 
-Please keep in mind that if you run tests on Hive of version not greater than 1.0.1, you should exclude test from `post_hive_1_0_1` group by passing the following flag to tempto: `-x post_hive_1_0_1`.
-First version of Hive capable of running tests from `post_hive_1_0_1` group is Hive 1.1.0.
-
 For more information on the various ways in which Presto can be configured to
 interact with Kerberized Hive and Hadoop, please refer to the [Hive connector documentation](https://prestosql.io/docs/current/connector/hive.html).
 

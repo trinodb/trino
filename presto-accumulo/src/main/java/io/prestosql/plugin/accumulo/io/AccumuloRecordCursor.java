@@ -16,7 +16,6 @@ package io.prestosql.plugin.accumulo.io;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.prestosql.plugin.accumulo.Types;
-import io.prestosql.plugin.accumulo.model.AccumuloColumnConstraint;
 import io.prestosql.plugin.accumulo.model.AccumuloColumnHandle;
 import io.prestosql.plugin.accumulo.serializers.AccumuloRowSerializer;
 import io.prestosql.spi.PrestoException;
@@ -80,8 +79,7 @@ public class AccumuloRecordCursor
             AccumuloRowSerializer serializer,
             BatchScanner scanner,
             String rowIdName,
-            List<AccumuloColumnHandle> columnHandles,
-            List<AccumuloColumnConstraint> constraints)
+            List<AccumuloColumnHandle> columnHandles)
     {
         this.columnHandles = requireNonNull(columnHandles, "columnHandles is null");
         this.scanner = requireNonNull(scanner, "scanner is null");
@@ -89,7 +87,6 @@ public class AccumuloRecordCursor
         this.serializer.setRowIdName(requireNonNull(rowIdName, "rowIdName is null"));
 
         requireNonNull(columnHandles, "columnHandles is null");
-        requireNonNull(constraints, "constraints is null");
 
         if (retrieveOnlyRowIds(rowIdName)) {
             this.scanner.addScanIterator(new IteratorSetting(1, "firstentryiter", FirstEntryInRowIterator.class));

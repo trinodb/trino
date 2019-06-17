@@ -25,6 +25,7 @@ import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.procedure.Procedure;
 import io.prestosql.spi.procedure.Procedure.Argument;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeNotFoundException;
 import io.prestosql.sql.analyzer.SemanticException;
 import io.prestosql.sql.planner.ParameterRewriter;
 import io.prestosql.sql.tree.Call;
@@ -54,7 +55,6 @@ import static io.prestosql.spi.type.TypeUtils.writeNativeValue;
 import static io.prestosql.sql.analyzer.SemanticErrorCode.INVALID_PROCEDURE_ARGUMENTS;
 import static io.prestosql.sql.analyzer.SemanticErrorCode.MISSING_CATALOG;
 import static io.prestosql.sql.planner.ExpressionInterpreter.evaluateConstantExpression;
-import static io.prestosql.util.Failures.checkCondition;
 import static java.util.Arrays.asList;
 
 public class CallTask
@@ -127,8 +127,14 @@ public class CallTask
             Argument argument = procedure.getArguments().get(index);
 
             Expression expression = ExpressionTreeRewriter.rewriteWith(new ParameterRewriter(parameters), callArgument.getValue());
-            Type type = metadata.getType(argument.getType());
-            checkCondition(type != null, INVALID_PROCEDURE_DEFINITION, "Unknown procedure argument type: %s", argument.getType());
+
+            Type type;
+            try {
+                type = metadata.getType(argument.getType());
+            }
+            catch (TypeNotFoundException e) {
+                throw new PrestoException(INVALID_PROCEDURE_DEFINITION, "Unknown procedure argument type: " + argument.getType());
+            }
 
             Object value = evaluateConstantExpression(expression, type, metadata, session, parameters);
 

@@ -67,6 +67,13 @@ public class DeterminismEvaluator
         }
 
         @Override
+        public Boolean visitSpecialForm(SpecialForm specialForm, Void context)
+        {
+            return specialForm.getArguments().stream()
+                    .allMatch(expression -> expression.accept(this, context));
+        }
+
+        @Override
         public Boolean visitLambda(LambdaDefinitionExpression lambda, Void context)
         {
             return lambda.getBody().accept(this, context);

@@ -15,16 +15,12 @@ package io.prestosql.orc;
 
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
-import io.prestosql.block.BlockEncodingManager;
-import io.prestosql.metadata.FunctionRegistry;
+import io.prestosql.metadata.Metadata;
 import io.prestosql.orc.metadata.CompressionKind;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.function.OperatorType;
 import io.prestosql.spi.type.MapType;
 import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeManager;
-import io.prestosql.sql.analyzer.FeaturesConfig;
-import io.prestosql.type.TypeRegistry;
 import org.apache.hadoop.hive.ql.exec.FileSinkOperator;
 import org.apache.hadoop.hive.ql.io.orc.OrcSerde;
 import org.apache.hadoop.hive.serde2.SerDeException;
@@ -39,6 +35,7 @@ import java.lang.invoke.MethodHandle;
 import java.util.HashMap;
 
 import static io.airlift.testing.Assertions.assertGreaterThan;
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.orc.OrcReader.INITIAL_BATCH_SIZE;
 import static io.prestosql.orc.OrcReader.MAX_BATCH_SIZE;
 import static io.prestosql.orc.OrcTester.Format.ORC_12;
@@ -53,13 +50,7 @@ import static org.testng.Assert.assertEquals;
 
 public class TestOrcReaderMemoryUsage
 {
-    private static final TypeManager TYPE_MANAGER = new TypeRegistry();
-
-    public TestOrcReaderMemoryUsage()
-    {
-        // Associate TYPE_MANAGER with a function registry.
-        new FunctionRegistry(TYPE_MANAGER, new BlockEncodingManager(TYPE_MANAGER), new FeaturesConfig());
-    }
+    private static final Metadata METADATA = createTestMetadataManager();
 
     @Test
     public void testVarcharTypeWithoutNulls()
@@ -162,10 +153,10 @@ public class TestOrcReaderMemoryUsage
         Type keyType = BIGINT;
         Type valueType = BIGINT;
 
-        MethodHandle keyNativeEquals = TYPE_MANAGER.resolveOperator(OperatorType.EQUAL, ImmutableList.of(keyType, keyType));
+        MethodHandle keyNativeEquals = METADATA.getTypeManager().resolveOperator(OperatorType.EQUAL, ImmutableList.of(keyType, keyType));
         MethodHandle keyBlockNativeEquals = compose(keyNativeEquals, nativeValueGetter(keyType));
         MethodHandle keyBlockEquals = compose(keyNativeEquals, nativeValueGetter(keyType), nativeValueGetter(keyType));
-        MethodHandle keyNativeHashCode = TYPE_MANAGER.resolveOperator(OperatorType.HASH_CODE, ImmutableList.of(keyType));
+        MethodHandle keyNativeHashCode = METADATA.getTypeManager().resolveOperator(OperatorType.HASH_CODE, ImmutableList.of(keyType));
         MethodHandle keyBlockHashCode = compose(keyNativeHashCode, nativeValueGetter(keyType));
 
         MapType mapType = new MapType(

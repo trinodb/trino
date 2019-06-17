@@ -16,6 +16,7 @@ package io.prestosql.orc;
 import com.google.common.collect.Ordering;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.prestosql.orc.metadata.statistics.BloomFilter;
 import io.prestosql.orc.metadata.statistics.ColumnStatistics;
 import io.prestosql.spi.type.CharType;
 import io.prestosql.spi.type.DecimalType;
@@ -31,6 +32,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.ThreadLocalRandom;
 
 import static com.google.common.collect.Lists.newArrayList;
 import static io.prestosql.spi.type.BigintType.BIGINT;
@@ -66,13 +68,13 @@ public final class TestingOrcPredicate
             return new BooleanOrcPredicate(expectedValues);
         }
         if (TINYINT.equals(type) || SMALLINT.equals(type) || INTEGER.equals(type) || BIGINT.equals(type)) {
-            return new LongOrcPredicate(
+            return new LongOrcPredicate(true,
                     expectedValues.stream()
                             .map(value -> value == null ? null : ((Number) value).longValue())
                             .collect(toList()));
         }
         if (TIMESTAMP.equals(type)) {
-            return new LongOrcPredicate(
+            return new LongOrcPredicate(false,
                     expectedValues.stream()
                             .map(value -> value == null ? null : ((SqlTimestamp) value).getMillisUtc())
                             .collect(toList()));
@@ -238,6 +240,15 @@ public final class TestingOrcPredicate
                 return false;
             }
 
+            BloomFilter bloomFilter = columnStatistics.getBloomFilter();
+            if (bloomFilter != null) {
+                for (Double value : chunk) {
+                    if (value != null && !bloomFilter.testDouble(value)) {
+                        return false;
+                    }
+                }
+            }
+
             // statistics can be missing for any reason
             if (columnStatistics.getDoubleStatistics() != null) {
                 if (chunk.stream().allMatch(Objects::isNull)) {
@@ -273,9 +284,12 @@ public final class TestingOrcPredicate
     public static class LongOrcPredicate
             extends BasicOrcPredicate<Long>
     {
-        public LongOrcPredicate(Iterable<?> expectedValues)
+        private final boolean testBloomFilter;
+
+        public LongOrcPredicate(boolean testBloomFilter, Iterable<?> expectedValues)
         {
             super(expectedValues, Long.class);
+            this.testBloomFilter = testBloomFilter;
         }
 
         @Override
@@ -316,6 +330,15 @@ public final class TestingOrcPredicate
                 if (columnStatistics.getIntegerStatistics().getSum() != sum) {
                     return false;
                 }
+
+                BloomFilter bloomFilter = columnStatistics.getBloomFilter();
+                if (testBloomFilter && bloomFilter != null) {
+                    for (Long value : chunk) {
+                        if (value != null && !bloomFilter.testLong(value)) {
+                            return false;
+                        }
+                    }
+                }
             }
 
             return true;
@@ -347,6 +370,26 @@ public final class TestingOrcPredicate
                     .filter(Objects::nonNull)
                     .map(Slices::utf8Slice)
                     .collect(toList());
+
+            BloomFilter bloomFilter = columnStatistics.getBloomFilter();
+            if (bloomFilter != null) {
+                for (Slice slice : slices) {
+                    if (!bloomFilter.testSlice(slice)) {
+                        return false;
+                    }
+                }
+                int falsePositive = 0;
+                byte[] testBuffer = new byte[32];
+                for (int i = 0; i < 100_000; i++) {
+                    ThreadLocalRandom.current().nextBytes(testBuffer);
+                    if (bloomFilter.test(testBuffer)) {
+                        falsePositive++;
+                    }
+                }
+                if (falsePositive != 0 && 1.0 * falsePositive / 100_000 > 0.55) {
+                    return false;
+                }
+            }
 
             // statistics can be missing for any reason
             if (columnStatistics.getStringStatistics() != null) {
@@ -382,6 +425,10 @@ public final class TestingOrcPredicate
             assertNull(columnStatistics.getIntegerStatistics());
             assertNull(columnStatistics.getDoubleStatistics());
             assertNull(columnStatistics.getDateStatistics());
+
+            // bloom filter for char type in ORC require padded values (padded according to the type in the footer)
+            // this is difficult to support so we skip for now
+            assertNull(columnStatistics.getBloomFilter());
 
             // check basic statistics
             if (!super.chunkMatchesStats(chunk, columnStatistics)) {
@@ -459,6 +506,15 @@ public final class TestingOrcPredicate
                     Long chunkMax = Ordering.natural().nullsFirst().max(chunk);
                     if (!statMax.equals(chunkMax)) {
                         return false;
+                    }
+
+                    BloomFilter bloomFilter = columnStatistics.getBloomFilter();
+                    if (bloomFilter != null) {
+                        for (Long value : chunk) {
+                            if (value != null && !bloomFilter.testLong(value)) {
+                                return false;
+                            }
+                        }
                     }
                 }
             }

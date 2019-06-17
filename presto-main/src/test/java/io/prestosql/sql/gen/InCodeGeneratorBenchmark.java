@@ -16,7 +16,6 @@ package io.prestosql.sql.gen;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slices;
 import io.prestosql.metadata.MetadataManager;
-import io.prestosql.metadata.Signature;
 import io.prestosql.operator.DriverYieldSignal;
 import io.prestosql.operator.project.PageProcessor;
 import io.prestosql.spi.Page;
@@ -24,6 +23,7 @@ import io.prestosql.spi.PageBuilder;
 import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.relational.RowExpression;
+import io.prestosql.sql.relational.SpecialForm;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -46,16 +46,13 @@ import java.util.Random;
 import java.util.concurrent.TimeUnit;
 
 import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static io.prestosql.metadata.FunctionKind.SCALAR;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
-import static io.prestosql.sql.relational.Expressions.call;
 import static io.prestosql.sql.relational.Expressions.constant;
 import static io.prestosql.sql.relational.Expressions.field;
-import static io.prestosql.sql.relational.Signatures.IN;
+import static io.prestosql.sql.relational.SpecialForm.Form.IN;
 import static io.prestosql.testing.TestingConnectorSession.SESSION;
 import static org.openjdk.jmh.annotations.Mode.AverageTime;
 
@@ -127,10 +124,7 @@ public class InCodeGeneratorBenchmark
         }
         inputPage = pageBuilder.build();
 
-        RowExpression filter = call(
-                new Signature(IN, SCALAR, parseTypeSignature(StandardTypes.BOOLEAN)),
-                BOOLEAN,
-                arguments);
+        RowExpression filter = new SpecialForm(IN, BOOLEAN, arguments);
 
         MetadataManager metadata = MetadataManager.createTestMetadataManager();
         processor = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0)).compilePageProcessor(Optional.of(filter), ImmutableList.of(project)).get();

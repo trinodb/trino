@@ -112,8 +112,9 @@ public class LimitPushDown
         public PlanNode visitLimit(LimitNode node, RewriteContext<LimitContext> context)
         {
             long count = node.getCount();
-            if (context.get() != null) {
-                count = Math.min(count, context.get().getCount());
+            LimitContext limit = context.get();
+            if (limit != null) {
+                count = Math.min(count, limit.getCount());
             }
 
             // return empty ValuesNode in case of limit 0
@@ -123,8 +124,12 @@ public class LimitPushDown
                         ImmutableList.of());
             }
 
-            // default visitPlan logic will insert the limit node
-            return context.rewrite(node.getSource(), new LimitContext(count, false));
+            if (!node.isWithTies() || (limit != null && node.getCount() >= limit.getCount())) {
+                // default visitPlan logic will insert the limit node
+                return context.rewrite(node.getSource(), new LimitContext(count, false));
+            }
+
+            return context.defaultRewrite(node, context.get());
         }
 
         @Override
@@ -193,7 +198,7 @@ public class LimitPushDown
                 return new TopNNode(node.getId(), rewrittenSource, limit.getCount(), node.getOrderingScheme(), TopNNode.Step.SINGLE);
             }
             if (rewrittenSource != node.getSource()) {
-                return new SortNode(node.getId(), rewrittenSource, node.getOrderingScheme());
+                return new SortNode(node.getId(), rewrittenSource, node.getOrderingScheme(), node.isPartial());
             }
             return node;
         }

@@ -18,7 +18,6 @@ import com.google.common.collect.Iterators;
 import com.google.common.io.Files;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import io.airlift.slice.InputStreamSliceInput;
-import io.prestosql.block.BlockEncodingManager;
 import io.prestosql.execution.buffer.PageCodecMarker;
 import io.prestosql.execution.buffer.PagesSerdeUtil;
 import io.prestosql.execution.buffer.SerializedPage;
@@ -27,7 +26,6 @@ import io.prestosql.operator.PageAssertions;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.type.Type;
-import io.prestosql.type.TypeRegistry;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
@@ -41,6 +39,7 @@ import static com.google.common.io.MoreFiles.listFiles;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
@@ -99,7 +98,7 @@ public class TestFileSingleStreamSpiller
     {
         FileSingleStreamSpillerFactory spillerFactory = new FileSingleStreamSpillerFactory(
                 executor, // executor won't be closed, because we don't call destroy() on the spiller factory
-                new BlockEncodingManager(new TypeRegistry()),
+                createTestMetadataManager().getBlockEncodingSerde(),
                 new SpillerStats(),
                 ImmutableList.of(spillPath.toPath()),
                 1.0,

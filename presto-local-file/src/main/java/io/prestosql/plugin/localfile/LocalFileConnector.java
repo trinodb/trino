@@ -45,7 +45,7 @@ public class LocalFileConnector
             LocalFileSplitManager splitManager,
             LocalFileRecordSetProvider recordSetProvider)
     {
-        this.recordSetProvider = recordSetProvider;
+        this.recordSetProvider = requireNonNull(recordSetProvider, "recordSetProvider is null");
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.splitManager = requireNonNull(splitManager, "splitManager is null");

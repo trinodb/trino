@@ -336,9 +336,10 @@ public class TestPostgreSqlTypeMapping
     @Test
     public void testInternalArray()
     {
-        // One can declare column using internal type name for an array. Such a column is not recognized
-        // as array in Presto, because it does not have correct value in pg_attribute.attndims.
-        testUnsupportedDataType("_int4");
+        DataTypeTest.create()
+                .addRoundTrip(arrayDataType(integerDataType(), "_int4"), asList(1, 2, 3))
+                .addRoundTrip(arrayDataType(varcharDataType(), "_text"), asList("a", "b"))
+                .execute(getQueryRunner(), postgresCreateAndInsert("tpch.test_array_with_native_name"));
     }
 
     @Test

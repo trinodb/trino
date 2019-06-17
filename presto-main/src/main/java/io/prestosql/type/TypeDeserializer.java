@@ -20,7 +20,6 @@ import io.prestosql.spi.type.TypeManager;
 
 import javax.inject.Inject;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static java.util.Objects.requireNonNull;
 
@@ -39,8 +38,6 @@ public final class TypeDeserializer
     @Override
     protected Type _deserialize(String value, DeserializationContext context)
     {
-        Type type = typeManager.getType(parseTypeSignature(value));
-        checkArgument(type != null, "Unknown type %s", value);
-        return type;
+        return typeManager.getType(parseTypeSignature(value));
     }
 }

@@ -96,7 +96,7 @@ public class QueuedStatementResource
     private final ScheduledExecutorService timeoutExecutor;
 
     private final ConcurrentMap<QueryId, Query> queries = new ConcurrentHashMap<>();
-    private final ScheduledExecutorService queryPurger = newSingleThreadScheduledExecutor(threadsNamed("query-purger"));
+    private final ScheduledExecutorService queryPurger = newSingleThreadScheduledExecutor(threadsNamed("dispatch-query-purger"));
 
     @Inject
     public QueuedStatementResource(
@@ -119,7 +119,7 @@ public class QueuedStatementResource
                             }
 
                             // forget about this query if the query manager is no longer tracking it
-                            if (!dispatchManager.getDispatchInfo(entry.getKey()).isPresent()) {
+                            if (!dispatchManager.isQueryRegistered(entry.getKey())) {
                                 queries.remove(entry.getKey());
                             }
                         }

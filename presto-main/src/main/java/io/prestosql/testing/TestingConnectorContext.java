@@ -15,40 +15,43 @@ package io.prestosql.testing;
 
 import io.prestosql.GroupByHashPageIndexerFactory;
 import io.prestosql.PagesIndexPageSorter;
-import io.prestosql.block.BlockEncodingManager;
 import io.prestosql.connector.CatalogName;
 import io.prestosql.connector.ConnectorAwareNodeManager;
-import io.prestosql.metadata.FunctionRegistry;
 import io.prestosql.metadata.InMemoryNodeManager;
-import io.prestosql.metadata.MetadataManager;
+import io.prestosql.metadata.Metadata;
 import io.prestosql.operator.PagesIndex;
+import io.prestosql.server.ServerConfig;
 import io.prestosql.spi.NodeManager;
 import io.prestosql.spi.PageIndexerFactory;
 import io.prestosql.spi.PageSorter;
+import io.prestosql.spi.VersionEmbedder;
 import io.prestosql.spi.connector.ConnectorContext;
 import io.prestosql.spi.type.TypeManager;
-import io.prestosql.sql.analyzer.FeaturesConfig;
 import io.prestosql.sql.gen.JoinCompiler;
-import io.prestosql.type.TypeRegistry;
+import io.prestosql.version.EmbedVersion;
+
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 
 public class TestingConnectorContext
         implements ConnectorContext
 {
     private final NodeManager nodeManager = new ConnectorAwareNodeManager(new InMemoryNodeManager(), "testenv", new CatalogName("test"));
-    private final TypeManager typeManager = new TypeRegistry();
+    private final VersionEmbedder versionEmbedder = new EmbedVersion(new ServerConfig());
+    private final Metadata metadata = createTestMetadataManager();
+    private final TypeManager typeManager = metadata.getTypeManager();
     private final PageSorter pageSorter = new PagesIndexPageSorter(new PagesIndex.TestingFactory(false));
-    private final PageIndexerFactory pageIndexerFactory = new GroupByHashPageIndexerFactory(new JoinCompiler(MetadataManager.createTestMetadataManager()));
-
-    public TestingConnectorContext()
-    {
-        // associate typeManager with a function registry
-        new FunctionRegistry(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
-    }
+    private final PageIndexerFactory pageIndexerFactory = new GroupByHashPageIndexerFactory(new JoinCompiler(metadata));
 
     @Override
     public NodeManager getNodeManager()
     {
         return nodeManager;
+    }
+
+    @Override
+    public VersionEmbedder getVersionEmbedder()
+    {
+        return versionEmbedder;
     }
 
     @Override

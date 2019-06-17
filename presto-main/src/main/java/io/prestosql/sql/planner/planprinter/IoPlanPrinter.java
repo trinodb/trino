@@ -18,10 +18,8 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableSet;
 import io.prestosql.Session;
 import io.prestosql.metadata.Metadata;
-import io.prestosql.metadata.OperatorNotFoundException;
 import io.prestosql.metadata.TableHandle;
 import io.prestosql.metadata.TableMetadata;
-import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.CatalogSchemaTableName;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
@@ -35,11 +33,11 @@ import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.PlanVisitor;
 import io.prestosql.sql.planner.plan.TableFinishNode;
 import io.prestosql.sql.planner.plan.TableScanNode;
-import io.prestosql.sql.planner.plan.TableWriterNode.CreateHandle;
-import io.prestosql.sql.planner.plan.TableWriterNode.CreateName;
-import io.prestosql.sql.planner.plan.TableWriterNode.DeleteHandle;
-import io.prestosql.sql.planner.plan.TableWriterNode.InsertHandle;
+import io.prestosql.sql.planner.plan.TableWriterNode.CreateReference;
+import io.prestosql.sql.planner.plan.TableWriterNode.CreateTarget;
+import io.prestosql.sql.planner.plan.TableWriterNode.DeleteTarget;
 import io.prestosql.sql.planner.plan.TableWriterNode.InsertReference;
+import io.prestosql.sql.planner.plan.TableWriterNode.InsertTarget;
 import io.prestosql.sql.planner.plan.TableWriterNode.WriterTarget;
 import io.prestosql.sql.planner.planprinter.IoPlanPrinter.IoPlan.IoPlanBuilder;
 
@@ -53,9 +51,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.json.JsonCodec.jsonCodec;
-import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.predicate.Marker.Bound.EXACTLY;
-import static io.prestosql.sql.planner.planprinter.PlanPrinterUtil.castToVarcharOrFail;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -63,13 +59,18 @@ public class IoPlanPrinter
 {
     private final Metadata metadata;
     private final Session session;
+    private final ValuePrinter valuePrinter;
 
     private IoPlanPrinter(Metadata metadata, Session session)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.session = requireNonNull(session, "session is null");
+        this.valuePrinter = new ValuePrinter(metadata, session);
     }
 
+    /**
+     * @throws io.prestosql.NotInTransactionException if called without an active transaction
+     */
     public static String textIoPlan(PlanNode plan, Metadata metadata, Session session)
     {
         return new IoPlanPrinter(metadata, session).print(plan);
@@ -483,28 +484,28 @@ public class IoPlanPrinter
         public Void visitTableFinish(TableFinishNode node, IoPlanBuilder context)
         {
             WriterTarget writerTarget = node.getTarget();
-            if (writerTarget instanceof CreateHandle) {
-                CreateHandle createHandle = (CreateHandle) writerTarget;
+            if (writerTarget instanceof CreateTarget) {
+                CreateTarget target = (CreateTarget) writerTarget;
                 context.setOutputTable(new CatalogSchemaTableName(
-                        createHandle.getHandle().getCatalogName().getCatalogName(),
-                        createHandle.getSchemaTableName().getSchemaName(),
-                        createHandle.getSchemaTableName().getTableName()));
+                        target.getHandle().getCatalogName().getCatalogName(),
+                        target.getSchemaTableName().getSchemaName(),
+                        target.getSchemaTableName().getTableName()));
             }
-            else if (writerTarget instanceof InsertHandle) {
-                InsertHandle insertHandle = (InsertHandle) writerTarget;
+            else if (writerTarget instanceof InsertTarget) {
+                InsertTarget target = (InsertTarget) writerTarget;
                 context.setOutputTable(new CatalogSchemaTableName(
-                        insertHandle.getHandle().getCatalogName().getCatalogName(),
-                        insertHandle.getSchemaTableName().getSchemaName(),
-                        insertHandle.getSchemaTableName().getTableName()));
+                        target.getHandle().getCatalogName().getCatalogName(),
+                        target.getSchemaTableName().getSchemaName(),
+                        target.getSchemaTableName().getTableName()));
             }
-            else if (writerTarget instanceof DeleteHandle) {
-                DeleteHandle deleteHandle = (DeleteHandle) writerTarget;
+            else if (writerTarget instanceof DeleteTarget) {
+                DeleteTarget target = (DeleteTarget) writerTarget;
                 context.setOutputTable(new CatalogSchemaTableName(
-                        deleteHandle.getHandle().getCatalogName().getCatalogName(),
-                        deleteHandle.getSchemaTableName().getSchemaName(),
-                        deleteHandle.getSchemaTableName().getTableName()));
+                        target.getHandle().getCatalogName().getCatalogName(),
+                        target.getSchemaTableName().getSchemaName(),
+                        target.getSchemaTableName().getTableName()));
             }
-            else if (writerTarget instanceof CreateName || writerTarget instanceof InsertReference) {
+            else if (writerTarget instanceof CreateReference || writerTarget instanceof InsertReference) {
                 throw new IllegalStateException(format("%s should not appear in final plan", writerTarget.getClass().getSimpleName()));
             }
             else {
@@ -539,7 +540,7 @@ public class IoPlanPrinter
                                     .collect(toImmutableSet())),
                     discreteValues -> formattedRanges.addAll(
                             discreteValues.getValues().stream()
-                                    .map(value -> getVarcharValue(type, value))
+                                    .map(value -> valuePrinter.castToVarcharOrFail(type, value))
                                     .map(value -> new FormattedMarker(Optional.of(value), EXACTLY))
                                     .map(marker -> new FormattedRange(marker, marker))
                                     .collect(toImmutableSet())),
@@ -555,17 +556,7 @@ public class IoPlanPrinter
             if (!marker.getValueBlock().isPresent()) {
                 return new FormattedMarker(Optional.empty(), marker.getBound());
             }
-            return new FormattedMarker(Optional.of(getVarcharValue(marker.getType(), marker.getValue())), marker.getBound());
-        }
-
-        private String getVarcharValue(Type type, Object value)
-        {
-            try {
-                return castToVarcharOrFail(type, value, metadata.getFunctionRegistry(), session);
-            }
-            catch (OperatorNotFoundException e) {
-                throw new PrestoException(NOT_SUPPORTED, format("Unsupported data type in EXPLAIN (TYPE IO): %s", type.getDisplayName()), e);
-            }
+            return new FormattedMarker(Optional.of(valuePrinter.castToVarcharOrFail(marker.getType(), marker.getValue())), marker.getBound());
         }
 
         private Void processChildren(PlanNode node, IoPlanBuilder context)

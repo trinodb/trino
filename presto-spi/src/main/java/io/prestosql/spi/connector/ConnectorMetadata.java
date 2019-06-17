@@ -27,6 +27,7 @@ import io.prestosql.spi.statistics.TableStatisticsMetadata;
 import javax.annotation.Nullable;
 
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -55,13 +56,19 @@ public interface ConnectorMetadata
     /**
      * Returns the schemas provided by this connector.
      */
-    List<String> listSchemaNames(ConnectorSession session);
+    default List<String> listSchemaNames(ConnectorSession session)
+    {
+        return emptyList();
+    }
 
     /**
      * Returns a table handle for the specified table name, or null if the connector does not contain the table.
      */
     @Nullable
-    ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName);
+    default ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
+    {
+        return null;
+    }
 
     /**
      * Returns a table handle for the specified table name, or null if the connector does not contain the table.
@@ -119,8 +126,22 @@ public interface ConnectorMetadata
      * The provided table layout handle must be one that the connector can transparently convert to from
      * the original partitioning handle associated with the provided table layout handle,
      * as promised by {@link #getCommonPartitioningHandle}.
+     * @deprecated use the version without layouts
      */
+    @Deprecated
     default ConnectorTableLayoutHandle makeCompatiblePartitioning(ConnectorSession session, ConnectorTableLayoutHandle tableLayoutHandle, ConnectorPartitioningHandle partitioningHandle)
+    {
+        throw new PrestoException(GENERIC_INTERNAL_ERROR, "ConnectorMetadata getCommonPartitioningHandle() is implemented without makeCompatiblePartitioning()");
+    }
+
+    /**
+     * Return a table handle whose partitioning is converted to the provided partitioning handle,
+     * but otherwise identical to the provided table handle.
+     * The provided table handle must be one that the connector can transparently convert to from
+     * the original partitioning handle associated with the provided table handle,
+     * as promised by {@link #getCommonPartitioningHandle}.
+     */
+    default ConnectorTableHandle makeCompatiblePartitioning(ConnectorSession session, ConnectorTableHandle tableHandle, ConnectorPartitioningHandle partitioningHandle)
     {
         throw new PrestoException(GENERIC_INTERNAL_ERROR, "ConnectorMetadata getCommonPartitioningHandle() is implemented without makeCompatiblePartitioning()");
     }
@@ -141,7 +162,10 @@ public interface ConnectorMetadata
      *
      * @throws RuntimeException if table handle is no longer valid
      */
-    ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle table);
+    default ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle table)
+    {
+        throw new PrestoException(GENERIC_INTERNAL_ERROR, "ConnectorMetadata getTableHandle() is implemented without getTableMetadata()");
+    }
 
     /**
      * Return the connector-specific metadata for the specified table layout. This is the object that is passed to the event listener framework.
@@ -172,19 +196,28 @@ public interface ConnectorMetadata
      *
      * @throws RuntimeException if table handle is no longer valid
      */
-    Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle);
+    default Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        throw new PrestoException(GENERIC_INTERNAL_ERROR, "ConnectorMetadata getTableHandle() is implemented without getColumnHandles()");
+    }
 
     /**
      * Gets the metadata for the specified table column.
      *
      * @throws RuntimeException if table or column handles are no longer valid
      */
-    ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle);
+    default ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
+    {
+        throw new PrestoException(GENERIC_INTERNAL_ERROR, "ConnectorMetadata getTableHandle() is implemented without getColumnMetadata()");
+    }
 
     /**
      * Gets the metadata for all columns that match the specified table prefix.
      */
-    Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session, SchemaTablePrefix prefix);
+    default Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
+    {
+        return emptyMap();
+    }
 
     /**
      * Get statistics for table for given filtering constraint.
@@ -410,9 +443,10 @@ public interface ConnectorMetadata
     }
 
     /**
-     * Create the specified view. The data for the view is opaque to the connector.
+     * Create the specified view. The view definition is intended to
+     * be serialized by the connector for permanent storage.
      */
-    default void createView(ConnectorSession session, SchemaTableName viewName, String viewData, boolean replace)
+    default void createView(ConnectorSession session, SchemaTableName viewName, ConnectorViewDefinition definition, boolean replace)
     {
         throw new PrestoException(NOT_SUPPORTED, "This connector does not support creating views");
     }
@@ -431,11 +465,25 @@ public interface ConnectorMetadata
     }
 
     /**
-     * Gets the view data for views that match the specified table prefix.
+     * Gets the definitions of views, possibly filtered by schema.
+     * This optional method may be implemented by connectors that can support fetching
+     * view data in bulk. It is used to implement {@code information_schema.views}.
      */
-    default Map<SchemaTableName, ConnectorViewDefinition> getViews(ConnectorSession session, SchemaTablePrefix prefix)
+    default Map<SchemaTableName, ConnectorViewDefinition> getViews(ConnectorSession session, Optional<String> schemaName)
     {
-        return emptyMap();
+        Map<SchemaTableName, ConnectorViewDefinition> views = new HashMap<>();
+        for (SchemaTableName name : listViews(session, schemaName)) {
+            getView(session, name).ifPresent(view -> views.put(name, view));
+        }
+        return views;
+    }
+
+    /**
+     * Gets the view data for the specified view name.
+     */
+    default Optional<ConnectorViewDefinition> getView(ConnectorSession session, SchemaTableName viewName)
+    {
+        return Optional.empty();
     }
 
     /**
@@ -454,6 +502,25 @@ public interface ConnectorMetadata
     default OptionalLong metadataDelete(ConnectorSession session, ConnectorTableHandle tableHandle, ConnectorTableLayoutHandle tableLayoutHandle)
     {
         throw new PrestoException(NOT_SUPPORTED, "This connector does not support deletes");
+    }
+
+    /**
+     * Attempt to push down a delete operation into the connector. If a connector
+     * can execute a delete for the table handle on its own, it should return a
+     * table handle, which will be passed back to {@link #executeDelete} during
+     * query executing to actually execute the delete.
+     */
+    default Optional<ConnectorTableHandle> applyDelete(ConnectorSession session, ConnectorTableHandle handle)
+    {
+        return Optional.empty();
+    }
+
+    /**
+     * Execute the delete operation on the handle returned from {@link #applyDelete}.
+     */
+    default OptionalLong executeDelete(ConnectorSession session, ConnectorTableHandle handle)
+    {
+        throw new PrestoException(GENERIC_INTERNAL_ERROR, "ConnectorMetadata applyDelete() is implemented without executeDelete()");
     }
 
     /**

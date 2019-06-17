@@ -20,6 +20,7 @@ import io.prestosql.metadata.Signature;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.type.Decimals;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeNotFoundException;
 import io.prestosql.sql.InterpretedFunctionInvoker;
 import io.prestosql.sql.analyzer.SemanticException;
 import io.prestosql.sql.tree.AstVisitor;
@@ -125,8 +126,11 @@ public final class LiteralInterpreter
         @Override
         protected Object visitGenericLiteral(GenericLiteral node, ConnectorSession session)
         {
-            Type type = metadata.getType(parseTypeSignature(node.getType()));
-            if (type == null) {
+            Type type;
+            try {
+                type = metadata.getType(parseTypeSignature(node.getType()));
+            }
+            catch (TypeNotFoundException e) {
                 throw new SemanticException(TYPE_MISMATCH, node, "Unknown type: " + node.getType());
             }
 

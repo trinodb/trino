@@ -209,9 +209,15 @@ public class MockConnectorFactory
             }
 
             @Override
-            public Map<SchemaTableName, ConnectorViewDefinition> getViews(ConnectorSession session, SchemaTablePrefix prefix)
+            public Map<SchemaTableName, ConnectorViewDefinition> getViews(ConnectorSession session, Optional<String> schemaName)
             {
-                return getViews.apply(session, prefix);
+                return getViews.apply(session, schemaName.map(SchemaTablePrefix::new).orElseGet(SchemaTablePrefix::new));
+            }
+
+            @Override
+            public Optional<ConnectorViewDefinition> getView(ConnectorSession session, SchemaTableName viewName)
+            {
+                return Optional.of(getViews.apply(session, viewName.toSchemaTablePrefix()).get(viewName));
             }
         }
     }

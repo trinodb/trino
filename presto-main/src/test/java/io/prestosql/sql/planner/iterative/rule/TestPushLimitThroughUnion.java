@@ -47,8 +47,8 @@ public class TestPushLimitThroughUnion
                 .matches(
                         limit(1,
                                 union(
-                                        limit(1, true, values("a")),
-                                        limit(1, true, values("b")))));
+                                        limit(1, ImmutableList.of(), true, values("a")),
+                                        limit(1, ImmutableList.of(), true, values("b")))));
     }
 
     @Test
@@ -68,6 +68,29 @@ public class TestPushLimitThroughUnion
                                     ImmutableList.of(
                                             p.limit(1, p.values(5, a)),
                                             p.limit(1, p.values(5, b)))));
+                })
+                .doesNotFire();
+    }
+
+    @Test
+    public void testDoNotPushLimitWithTies()
+    {
+        tester().assertThat(new PushLimitThroughUnion())
+                .on(p -> {
+                    Symbol a = p.symbol("a");
+                    Symbol b = p.symbol("b");
+                    Symbol c = p.symbol("c");
+                    return p.limit(
+                            1,
+                            ImmutableList.of(c),
+                            p.union(
+                                    ImmutableListMultimap.<Symbol, Symbol>builder()
+                                            .put(c, a)
+                                            .put(c, b)
+                                            .build(),
+                                    ImmutableList.of(
+                                            p.values(10, a),
+                                            p.values(10, b))));
                 })
                 .doesNotFire();
     }

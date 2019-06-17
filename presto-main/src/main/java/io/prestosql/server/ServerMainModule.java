@@ -30,7 +30,6 @@ import io.airlift.units.Duration;
 import io.prestosql.GroupByHashPageIndexerFactory;
 import io.prestosql.PagesIndexPageSorter;
 import io.prestosql.SystemSessionProperties;
-import io.prestosql.block.BlockEncodingManager;
 import io.prestosql.block.BlockJsonSerde;
 import io.prestosql.client.NodeVersion;
 import io.prestosql.client.ServerInfo;
@@ -80,7 +79,6 @@ import io.prestosql.metadata.SessionPropertyManager;
 import io.prestosql.metadata.StaticCatalogStore;
 import io.prestosql.metadata.StaticCatalogStoreConfig;
 import io.prestosql.metadata.TablePropertyManager;
-import io.prestosql.metadata.ViewDefinition;
 import io.prestosql.operator.ExchangeClientConfig;
 import io.prestosql.operator.ExchangeClientFactory;
 import io.prestosql.operator.ExchangeClientSupplier;
@@ -93,7 +91,6 @@ import io.prestosql.server.remotetask.HttpLocationFactory;
 import io.prestosql.spi.PageIndexerFactory;
 import io.prestosql.spi.PageSorter;
 import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockEncoding;
 import io.prestosql.spi.block.BlockEncodingSerde;
 import io.prestosql.spi.connector.ConnectorSplit;
 import io.prestosql.spi.type.Type;
@@ -203,8 +200,6 @@ public class ServerMainModule
         configBinder(binder).bindConfig(QueryManagerConfig.class);
 
         configBinder(binder).bindConfig(SqlEnvironmentConfig.class);
-
-        jsonCodecBinder(binder).bindJsonCodec(ViewDefinition.class);
 
         newOptionalBinder(binder, ExplainAnalyzeContext.class);
 
@@ -415,9 +410,6 @@ public class ServerMainModule
         binder.bind(CatalogManager.class).in(Scopes.SINGLETON);
 
         // block encodings
-        binder.bind(BlockEncodingManager.class).in(Scopes.SINGLETON);
-        binder.bind(BlockEncodingSerde.class).to(BlockEncodingManager.class).in(Scopes.SINGLETON);
-        newSetBinder(binder, BlockEncoding.class);
         jsonBinder(binder).addSerializerBinding(Block.class).to(BlockJsonSerde.Serializer.class);
         jsonBinder(binder).addDeserializerBinding(Block.class).to(BlockJsonSerde.Deserializer.class);
 
@@ -476,6 +468,13 @@ public class ServerMainModule
     public static ScheduledExecutorService createAsyncHttpTimeoutExecutor(TaskManagerConfig config)
     {
         return newScheduledThreadPool(config.getHttpTimeoutThreads(), daemonThreadsNamed("async-http-timeout-%s"));
+    }
+
+    @Provides
+    @Singleton
+    public static BlockEncodingSerde createBlockEncodingSerde(Metadata metadata)
+    {
+        return metadata.getBlockEncodingSerde();
     }
 
     public static class ExecutorCleanup

@@ -188,7 +188,8 @@ public class PushPartialAggregationThroughJoin
                 child.getLeftHashSymbol(),
                 child.getRightHashSymbol(),
                 child.getDistributionType(),
-                child.isSpillable());
+                child.isSpillable(),
+                child.getDynamicFilters());
         return restrictOutputs(context.getIdAllocator(), joinNode, ImmutableSet.copyOf(aggregation.getOutputSymbols())).orElse(joinNode);
     }
 }

@@ -104,6 +104,7 @@ public class TestSqlStageExecution
                 stageId,
                 new MockLocationFactory().createStageLocation(stageId),
                 createExchangePlanFragment(),
+                ImmutableMap.of(),
                 new MockRemoteTaskFactory(executor, scheduledExecutor),
                 TEST_SESSION,
                 true,

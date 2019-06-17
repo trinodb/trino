@@ -17,6 +17,8 @@ public interface RowExpressionVisitor<R, C>
 {
     R visitCall(CallExpression call, C context);
 
+    R visitSpecialForm(SpecialForm specialForm, C context);
+
     R visitInputReference(InputReferenceExpression reference, C context);
 
     R visitConstant(ConstantExpression literal, C context);

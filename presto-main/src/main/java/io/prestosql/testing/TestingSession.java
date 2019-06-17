@@ -24,7 +24,6 @@ import io.prestosql.metadata.Catalog;
 import io.prestosql.metadata.SessionPropertyManager;
 import io.prestosql.spi.connector.Connector;
 import io.prestosql.spi.connector.ConnectorMetadata;
-import io.prestosql.spi.connector.ConnectorSplitManager;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 import io.prestosql.spi.security.Identity;
 import io.prestosql.spi.transaction.IsolationLevel;
@@ -100,12 +99,6 @@ public final class TestingSession
             public ConnectorMetadata getMetadata(ConnectorTransactionHandle transaction)
             {
                 return new SystemTablesMetadata(new StaticSystemTablesProvider(ImmutableSet.of()));
-            }
-
-            @Override
-            public ConnectorSplitManager getSplitManager()
-            {
-                throw new UnsupportedOperationException();
             }
         };
     }

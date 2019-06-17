@@ -33,7 +33,6 @@ import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.SqlDate;
 import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.Type;
-import io.prestosql.sql.analyzer.SemanticErrorCode;
 import io.prestosql.sql.analyzer.SemanticException;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -1812,18 +1811,6 @@ public class TestArrayOperators
                 "SEQUENCE(timestamp '2016-04-16 01:00:10', timestamp '3000-04-16 09:01:00', interval '1' month)",
                 INVALID_FUNCTION_ARGUMENT,
                 "result of sequence function must not have more than 10000 entries");
-    }
-
-    @Override
-    protected void assertInvalidFunction(String projection, SemanticErrorCode errorCode)
-    {
-        try {
-            assertFunction(projection, UNKNOWN, null);
-            fail("Expected error " + errorCode + " from " + projection);
-        }
-        catch (SemanticException e) {
-            assertEquals(e.getCode(), errorCode);
-        }
     }
 
     @Test

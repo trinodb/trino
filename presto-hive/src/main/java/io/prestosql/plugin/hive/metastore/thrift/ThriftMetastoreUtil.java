@@ -457,7 +457,8 @@ public final class ThriftMetastoreUtil
         }
 
         return serdeInfo.getSerializationLib() != null &&
-                table.getParameters().get(AVRO_SCHEMA_URL_KEY) != null &&
+                (table.getParameters().get(AVRO_SCHEMA_URL_KEY) != null ||
+                        (serdeInfo.getParameters() != null && serdeInfo.getParameters().get(AVRO_SCHEMA_URL_KEY) != null)) &&
                 serdeInfo.getSerializationLib().equals(AVRO.getSerDe());
     }
 

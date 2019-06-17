@@ -15,8 +15,6 @@ package io.prestosql.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
-import io.prestosql.block.BlockEncodingManager;
-import io.prestosql.metadata.FunctionRegistry;
 import io.prestosql.metadata.Signature;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.PageBuilder;
@@ -24,14 +22,13 @@ import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.type.MapType;
 import io.prestosql.spi.type.StandardTypes;
-import io.prestosql.sql.analyzer.FeaturesConfig;
-import io.prestosql.type.TypeRegistry;
 import org.testng.annotations.Test;
 
 import java.util.Map;
 import java.util.Optional;
 
 import static io.prestosql.metadata.FunctionKind.AGGREGATE;
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.operator.aggregation.AggregationTestUtils.getFinalBlock;
 import static io.prestosql.operator.aggregation.AggregationTestUtils.getIntermediateBlock;
 import static io.prestosql.spi.type.BigintType.BIGINT;
@@ -49,9 +46,7 @@ public class TestRealHistogramAggregation
 
     public TestRealHistogramAggregation()
     {
-        TypeRegistry typeRegistry = new TypeRegistry();
-        FunctionRegistry functionRegistry = new FunctionRegistry(typeRegistry, new BlockEncodingManager(typeRegistry), new FeaturesConfig());
-        InternalAggregationFunction function = functionRegistry.getAggregateFunctionImplementation(
+        InternalAggregationFunction function = createTestMetadataManager().getFunctionRegistry().getAggregateFunctionImplementation(
                 new Signature("numeric_histogram",
                         AGGREGATE,
                         parseTypeSignature("map(real, real)"),

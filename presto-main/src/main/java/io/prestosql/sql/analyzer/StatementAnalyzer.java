@@ -30,7 +30,6 @@ import io.prestosql.metadata.OperatorNotFoundException;
 import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.metadata.TableHandle;
 import io.prestosql.metadata.TableMetadata;
-import io.prestosql.metadata.ViewDefinition;
 import io.prestosql.security.AccessControl;
 import io.prestosql.security.AllowAllAccessControl;
 import io.prestosql.security.ViewAccessControl;
@@ -39,6 +38,8 @@ import io.prestosql.spi.PrestoWarning;
 import io.prestosql.spi.connector.CatalogSchemaName;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
+import io.prestosql.spi.connector.ConnectorViewDefinition;
+import io.prestosql.spi.connector.ConnectorViewDefinition.ViewColumn;
 import io.prestosql.spi.function.OperatorType;
 import io.prestosql.spi.security.AccessDeniedException;
 import io.prestosql.spi.security.Identity;
@@ -46,6 +47,7 @@ import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.MapType;
 import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeNotFoundException;
 import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.sql.parser.ParsingException;
 import io.prestosql.sql.parser.SqlParser;
@@ -193,6 +195,7 @@ import static io.prestosql.sql.analyzer.SemanticErrorCode.MISMATCHED_SET_COLUMN_
 import static io.prestosql.sql.analyzer.SemanticErrorCode.MISSING_ATTRIBUTE;
 import static io.prestosql.sql.analyzer.SemanticErrorCode.MISSING_CATALOG;
 import static io.prestosql.sql.analyzer.SemanticErrorCode.MISSING_COLUMN;
+import static io.prestosql.sql.analyzer.SemanticErrorCode.MISSING_ORDER_BY;
 import static io.prestosql.sql.analyzer.SemanticErrorCode.MISSING_SCHEMA;
 import static io.prestosql.sql.analyzer.SemanticErrorCode.MISSING_TABLE;
 import static io.prestosql.sql.analyzer.SemanticErrorCode.MUST_BE_WINDOW_FUNCTION;
@@ -755,7 +758,10 @@ class StatementAnalyzer
             }
 
             if (node.getLimit().isPresent()) {
-                analyzeLimit(node.getLimit().get());
+                boolean requiresOrderBy = analyzeLimit(node.getLimit().get());
+                if (requiresOrderBy && !node.getOrderBy().isPresent()) {
+                    throw new SemanticException(MISSING_ORDER_BY, node.getLimit().get(), "FETCH FIRST WITH TIES clause requires ORDER BY");
+                }
             }
 
             // Input fields == Output fields
@@ -868,7 +874,7 @@ class StatementAnalyzer
             QualifiedObjectName name = createQualifiedObjectName(session, table, table.getName());
             analysis.addEmptyColumnReferencesForTable(accessControl, session.getIdentity(), name);
 
-            Optional<ViewDefinition> optionalView = metadata.getView(session, name);
+            Optional<ConnectorViewDefinition> optionalView = metadata.getView(session, name);
             if (optionalView.isPresent()) {
                 Statement statement = analysis.getStatement();
                 if (statement instanceof CreateView) {
@@ -881,7 +887,7 @@ class StatementAnalyzer
                 if (analysis.hasTableInView(table)) {
                     throw new SemanticException(VIEW_IS_RECURSIVE, table, "View is recursive");
                 }
-                ViewDefinition view = optionalView.get();
+                ConnectorViewDefinition view = optionalView.get();
 
                 Query query = parseView(view.getOriginalSql(), name, table);
 
@@ -891,7 +897,7 @@ class StatementAnalyzer
                 RelationType descriptor = analyzeView(query, name, view.getCatalog(), view.getSchema(), view.getOwner(), table);
                 analysis.unregisterTableForView();
 
-                if (isViewStale(view.getColumns(), descriptor.getVisibleFields())) {
+                if (isViewStale(view.getColumns(), descriptor.getVisibleFields(), name, table)) {
                     throw new SemanticException(VIEW_IS_STALE, table, "View '%s' is stale; it must be re-created", name);
                 }
 
@@ -902,7 +908,7 @@ class StatementAnalyzer
                         .map(column -> Field.newQualified(
                                 table.getName(),
                                 Optional.of(column.getName()),
-                                column.getType(),
+                                getViewColumnType(column, name, table),
                                 false,
                                 Optional.of(name),
                                 Optional.of(column.getName()),
@@ -1066,7 +1072,10 @@ class StatementAnalyzer
             }
 
             if (node.getLimit().isPresent()) {
-                analyzeLimit(node.getLimit().get());
+                boolean requiresOrderBy = analyzeLimit(node.getLimit().get());
+                if (requiresOrderBy && !node.getOrderBy().isPresent()) {
+                    throw new SemanticException(MISSING_ORDER_BY, node.getLimit().get(), "FETCH FIRST WITH TIES clause requires ORDER BY");
+                }
             }
 
             List<Expression> sourceExpressions = new ArrayList<>(outputExpressions);
@@ -1988,7 +1997,7 @@ class StatementAnalyzer
             }
         }
 
-        private boolean isViewStale(List<ViewDefinition.ViewColumn> columns, Collection<Field> fields)
+        private boolean isViewStale(List<ViewColumn> columns, Collection<Field> fields, QualifiedObjectName name, Node node)
         {
             if (columns.size() != fields.size()) {
                 return true;
@@ -1996,15 +2005,26 @@ class StatementAnalyzer
 
             List<Field> fieldList = ImmutableList.copyOf(fields);
             for (int i = 0; i < columns.size(); i++) {
-                ViewDefinition.ViewColumn column = columns.get(i);
+                ViewColumn column = columns.get(i);
+                Type type = getViewColumnType(column, name, node);
                 Field field = fieldList.get(i);
                 if (!column.getName().equalsIgnoreCase(field.getName().orElse(null)) ||
-                        !metadata.getTypeManager().canCoerce(field.getType(), column.getType())) {
+                        !metadata.getTypeManager().canCoerce(field.getType(), type)) {
                     return true;
                 }
             }
 
             return false;
+        }
+
+        private Type getViewColumnType(ViewColumn column, QualifiedObjectName name, Node node)
+        {
+            try {
+                return metadata.getType(column.getType());
+            }
+            catch (TypeNotFoundException e) {
+                throw new SemanticException(VIEW_ANALYSIS_ERROR, node, "Unknown type '%s' for column '%s' in view: %s", column.getType(), column.getName(), name);
+            }
         }
 
         private ExpressionAnalysis analyzeExpression(Expression expression, Scope scope)
@@ -2145,20 +2165,24 @@ class StatementAnalyzer
             analysis.setOffset(node, rowCount);
         }
 
-        private void analyzeLimit(Node node)
+        /**
+         * @return true if the Query / QuerySpecification containing the analyzed
+         * Limit or FetchFirst, must contain orderBy (i.e., for FetchFirst with ties).
+         */
+        private boolean analyzeLimit(Node node)
         {
             checkState(
                     node instanceof FetchFirst || node instanceof Limit,
                     "Invalid limit node type. Expected: FetchFirst or Limit. Actual: %s", node.getClass().getName());
             if (node instanceof FetchFirst) {
-                analyzeLimit((FetchFirst) node);
+                return analyzeLimit((FetchFirst) node);
             }
             else {
-                analyzeLimit((Limit) node);
+                return analyzeLimit((Limit) node);
             }
         }
 
-        private void analyzeLimit(FetchFirst node)
+        private boolean analyzeLimit(FetchFirst node)
         {
             if (!node.getRowCount().isPresent()) {
                 analysis.setLimit(node, 1);
@@ -2176,9 +2200,15 @@ class StatementAnalyzer
                 }
                 analysis.setLimit(node, rowCount);
             }
+
+            if (node.isWithTies()) {
+                return true;
+            }
+
+            return false;
         }
 
-        private void analyzeLimit(Limit node)
+        private boolean analyzeLimit(Limit node)
         {
             if (node.getLimit().equalsIgnoreCase("all")) {
                 analysis.setLimit(node, OptionalLong.empty());
@@ -2196,6 +2226,8 @@ class StatementAnalyzer
                 }
                 analysis.setLimit(node, rowCount);
             }
+
+            return false;
         }
 
         private Scope createAndAssignScope(Node node, Optional<Scope> parentScope)

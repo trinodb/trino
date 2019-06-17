@@ -14,11 +14,10 @@
 package io.prestosql.orc.metadata.statistics;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.primitives.Longs;
 import io.airlift.slice.ByteArrays;
+import io.airlift.slice.Slice;
+import io.airlift.slice.UnsafeSlice;
 import org.openjdk.jol.info.ClassLayout;
-
-import java.util.List;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -75,9 +74,9 @@ public class BloomFilter
      * @param bits the serialized bits
      * @param numFuncs the number of functions used
      */
-    public BloomFilter(List<Long> bits, int numFuncs)
+    public BloomFilter(long[] bits, int numFuncs)
     {
-        bitSet = new BitSet(Longs.toArray(bits));
+        bitSet = new BitSet(bits);
         this.numBits = (int) bitSet.bitSize();
         numHashFunctions = numFuncs;
     }
@@ -159,7 +158,18 @@ public class BloomFilter
         addLong(doubleToLongBits(val));
     }
 
+    public void addFloat(float val)
+    {
+        addDouble(val);
+    }
+
     public boolean test(byte[] val)
+    {
+        long hash64 = (val == null) ? NULL_HASHCODE : OrcMurmur3.hash64(val);
+        return testHash(hash64);
+    }
+
+    public boolean testSlice(Slice val)
     {
         long hash64 = (val == null) ? NULL_HASHCODE : OrcMurmur3.hash64(val);
         return testHash(hash64);
@@ -206,6 +216,11 @@ public class BloomFilter
     public boolean testDouble(double val)
     {
         return testLong(doubleToLongBits(val));
+    }
+
+    public boolean testFloat(float val)
+    {
+        return testDouble(val);
     }
 
     public int getNumBits()
@@ -359,6 +374,56 @@ public class BloomFilter
 
             // finalization
             hash ^= data.length;
+            hash = fmix64(hash);
+
+            return hash;
+        }
+
+        @SuppressWarnings("fallthrough")
+        public static long hash64(Slice data)
+        {
+            long hash = DEFAULT_SEED;
+            int fastLimit = (data.length() - SIZE_OF_LONG) + 1;
+
+            // body
+            int current = 0;
+            while (current < fastLimit) {
+                long k = UnsafeSlice.getLongUnchecked(data, current);
+                current += SIZE_OF_LONG;
+
+                // mix functions
+                k *= C1;
+                k = Long.rotateLeft(k, R1);
+                k *= C2;
+                hash ^= k;
+                hash = Long.rotateLeft(hash, R2) * M + N1;
+            }
+
+            // tail
+            long k = 0;
+            switch (data.length() - current) {
+                case 7:
+                    k ^= ((long) UnsafeSlice.getByteUnchecked(data, current + 6) & 0xff) << 48;
+                case 6:
+                    k ^= ((long) UnsafeSlice.getByteUnchecked(data, current + 5) & 0xff) << 40;
+                case 5:
+                    k ^= ((long) UnsafeSlice.getByteUnchecked(data, current + 4) & 0xff) << 32;
+                case 4:
+                    k ^= ((long) UnsafeSlice.getByteUnchecked(data, current + 3) & 0xff) << 24;
+                case 3:
+                    k ^= ((long) UnsafeSlice.getByteUnchecked(data, current + 2) & 0xff) << 16;
+                case 2:
+                    k ^= ((long) UnsafeSlice.getByteUnchecked(data, current + 1) & 0xff) << 8;
+                case 1:
+                    k ^= ((long) UnsafeSlice.getByteUnchecked(data, current) & 0xff);
+                    k *= C1;
+                    k = Long.rotateLeft(k, R1);
+                    k *= C2;
+                    hash ^= k;
+            }
+
+            // finalization
+            hash ^= data.length();
             hash = fmix64(hash);
 
             return hash;

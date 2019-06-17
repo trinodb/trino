@@ -66,7 +66,7 @@ public class ElasticsearchRecordCursor
     private long totalBytes;
     private List<Object> fields;
 
-    public ElasticsearchRecordCursor(List<ElasticsearchColumnHandle> columnHandles, ElasticsearchConnectorConfig config, ElasticsearchSplit split)
+    public ElasticsearchRecordCursor(List<ElasticsearchColumnHandle> columnHandles, ElasticsearchConnectorConfig config, ElasticsearchSplit split, ElasticsearchTableHandle table)
     {
         requireNonNull(columnHandles, "columnHandle is null");
         requireNonNull(config, "config is null");
@@ -80,7 +80,7 @@ public class ElasticsearchRecordCursor
         for (int i = 0; i < columnHandles.size(); i++) {
             jsonPathToIndex.put(columnHandles.get(i).getColumnJsonPath(), i);
         }
-        this.builder = new ElasticsearchQueryBuilder(columnHandles, config, split);
+        this.builder = new ElasticsearchQueryBuilder(columnHandles, config, split, table);
         this.searchHits = sendElasticsearchQuery(builder).iterator();
     }
 

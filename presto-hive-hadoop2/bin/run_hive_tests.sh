@@ -2,7 +2,7 @@
 
 set -euo pipefail -x
 
-. ${BASH_SOURCE%/*}/common.sh
+. "${BASH_SOURCE%/*}/common.sh"
 
 cleanup_docker_containers
 start_docker_containers

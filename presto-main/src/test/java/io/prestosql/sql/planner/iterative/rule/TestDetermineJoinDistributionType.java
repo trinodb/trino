@@ -206,7 +206,8 @@ public class TestDetermineJoinDistributionType
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty(),
-                                Optional.of(DistributionType.REPLICATED)))
+                                Optional.of(DistributionType.REPLICATED),
+                                ImmutableMap.of()))
                 .doesNotFire();
     }
 

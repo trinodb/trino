@@ -50,6 +50,8 @@ public class HiveTableProperties
     public static final String ORC_BLOOM_FILTER_COLUMNS = "orc_bloom_filter_columns";
     public static final String ORC_BLOOM_FILTER_FPP = "orc_bloom_filter_fpp";
     public static final String AVRO_SCHEMA_URL = "avro_schema_url";
+    public static final String TEXTFILE_SKIP_HEADER_LINE_COUNT = "textfile_skip_header_line_count";
+    public static final String TEXTFILE_SKIP_FOOTER_LINE_COUNT = "textfile_skip_footer_line_count";
 
     private final List<PropertyMetadata<?>> tableProperties;
 
@@ -123,6 +125,8 @@ public class HiveTableProperties
                         config.getOrcDefaultBloomFilterFpp(),
                         false),
                 integerProperty(BUCKET_COUNT_PROPERTY, "Number of buckets", 0, false),
+                integerProperty(TEXTFILE_SKIP_HEADER_LINE_COUNT, "Number of header lines", null, false),
+                integerProperty(TEXTFILE_SKIP_FOOTER_LINE_COUNT, "Number of footer lines", null, false),
                 stringProperty(AVRO_SCHEMA_URL, "URI pointing to Avro schema for the table", null, false));
     }
 
@@ -139,6 +143,16 @@ public class HiveTableProperties
     public static String getAvroSchemaUrl(Map<String, Object> tableProperties)
     {
         return (String) tableProperties.get(AVRO_SCHEMA_URL);
+    }
+
+    public static Optional<Integer> getTextHeaderSkipCount(Map<String, Object> tableProperties)
+    {
+        return Optional.ofNullable((Integer) tableProperties.get(TEXTFILE_SKIP_HEADER_LINE_COUNT));
+    }
+
+    public static Optional<Integer> getTextFooterSkipCount(Map<String, Object> tableProperties)
+    {
+        return Optional.ofNullable((Integer) tableProperties.get(TEXTFILE_SKIP_FOOTER_LINE_COUNT));
     }
 
     public static HiveStorageFormat getHiveStorageFormat(Map<String, Object> tableProperties)

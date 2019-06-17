@@ -22,6 +22,7 @@ import io.prestosql.tempto.hadoop.hdfs.HdfsClient;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
+import java.io.IOException;
 import java.io.InputStream;
 
 import static io.prestosql.tempto.assertions.QueryAssert.Row.row;
@@ -42,15 +43,22 @@ public class TestAvroSchemaUrl
             throws Exception
     {
         hdfsClient.createDirectory("/user/hive/warehouse/TestAvroSchemaUrl/schemas");
-        try (InputStream inputStream = Resources.asByteSource(Resources.getResource("avro/original_schema.avsc")).openStream()) {
-            hdfsClient.saveFile("/user/hive/warehouse/TestAvroSchemaUrl/schemas/original_schema.avsc", inputStream);
-        }
+        saveResourceOnHdfs("avro/original_schema.avsc", "/user/hive/warehouse/TestAvroSchemaUrl/schemas/original_schema.avsc");
     }
 
     @AfterTestWithContext
     public void cleanup()
     {
         hdfsClient.delete("/user/hive/warehouse/TestAvroSchemaUrl/schemas");
+    }
+
+    private void saveResourceOnHdfs(String resource, String location)
+            throws IOException
+    {
+        hdfsClient.delete(location);
+        try (InputStream inputStream = Resources.asByteSource(Resources.getResource(resource)).openStream()) {
+            hdfsClient.saveFile(location, inputStream);
+        }
     }
 
     @DataProvider
@@ -82,6 +90,48 @@ public class TestAvroSchemaUrl
         assertThat(onPresto().executeQuery("SELECT * FROM test_avro_schema_url_hive")).containsExactly(row("some text", 123042));
 
         onHive().executeQuery("DROP TABLE test_avro_schema_url_hive");
+    }
+
+    @Test(groups = {AVRO})
+    public void testAvroSchemaUrlInSerdeProperties()
+            throws IOException
+    {
+        onHive().executeQuery("DROP TABLE IF EXISTS test_avro_schema_url_in_serde_properties");
+
+        String schemaLocationOnHdfs = "/user/hive/warehouse/TestAvroSchemaUrl/schemas/test_avro_schema_url_in_serde_properties.avsc";
+        saveResourceOnHdfs("avro/original_schema.avsc", schemaLocationOnHdfs);
+        onHive().executeQuery(format("" +
+                        "CREATE TABLE test_avro_schema_url_in_serde_properties " +
+                        "ROW FORMAT SERDE 'org.apache.hadoop.hive.serde2.avro.AvroSerDe' " +
+                        "WITH SERDEPROPERTIES ('avro.schema.url'='%s')" +
+                        "STORED AS " +
+                        "INPUTFORMAT 'org.apache.hadoop.hive.ql.io.avro.AvroContainerInputFormat' " +
+                        "OUTPUTFORMAT 'org.apache.hadoop.hive.ql.io.avro.AvroContainerOutputFormat' ",
+                schemaLocationOnHdfs));
+
+        assertThat(onPresto().executeQuery("SHOW COLUMNS FROM test_avro_schema_url_in_serde_properties"))
+                .containsExactly(
+                        row("string_col", "varchar", "", ""),
+                        row("int_col", "integer", "", ""));
+
+        assertThat(() -> onPresto().executeQuery("ALTER TABLE test_avro_schema_url_in_serde_properties ADD COLUMN new_dummy_col varchar"))
+                .failsWithMessage("ALTER TABLE not supported when Avro schema url is set");
+
+        onHive().executeQuery("INSERT INTO test_avro_schema_url_in_serde_properties VALUES ('some text', 2147483635)");
+
+        // Hive stores initial schema inferred from schema files in the Metastore DB.
+        // We need to change the schema to test that current schema is used by Presto, not a snapshot saved during CREATE TABLE.
+        saveResourceOnHdfs("avro/change_column_type_schema.avsc", schemaLocationOnHdfs);
+
+        assertThat(onPresto().executeQuery("SHOW COLUMNS FROM test_avro_schema_url_in_serde_properties"))
+                .containsExactly(
+                        row("string_col", "varchar", "", ""),
+                        row("int_col", "bigint", "", ""));
+
+        assertThat(onPresto().executeQuery("SELECT * FROM test_avro_schema_url_in_serde_properties"))
+                .containsExactly(row("some text", 2147483635L));
+
+        onHive().executeQuery("DROP TABLE test_avro_schema_url_in_serde_properties");
     }
 
     @Test(dataProvider = "avroSchemaLocations", groups = {AVRO})

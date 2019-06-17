@@ -43,12 +43,16 @@ public class ReportUnannotatedMethods
                 .collect(toImmutableList());
 
         if (!unannotatedMethods.isEmpty()) {
-            throw new RuntimeException(format(
-                    "Test class %s has methods which are public but not explicitly annotated. Are they missing @Test?%s",
+            // TestNG may or may not propagate listener's exception as test execution exception.
+            // Therefore, instead of throwing, we terminate the JVM.
+            System.err.println(format(
+                    "FATAL: Test class %s has methods which are public but not explicitly annotated. Are they missing @Test?%s",
                     testClass.getRealClass().getName(),
                     unannotatedMethods.stream()
                             .map(Method::toString)
                             .collect(joining("\n\t\t", "\n\t\t", ""))));
+            System.err.println("JVM will be terminated");
+            System.exit(1);
         }
     }
 

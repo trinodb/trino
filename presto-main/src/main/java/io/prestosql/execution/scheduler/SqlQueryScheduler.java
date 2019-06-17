@@ -303,6 +303,7 @@ public class SqlQueryScheduler
                 stageId,
                 locationFactory.createStageLocation(stageId),
                 plan.getFragment(),
+                plan.getTables(),
                 remoteTaskFactory,
                 session,
                 summarizeTaskInfo,
@@ -497,6 +498,7 @@ public class SqlQueryScheduler
                 parent.getStageStats(),
                 parent.getTasks(),
                 childStages,
+                parent.getTables(),
                 parent.getFailureCause());
     }
 

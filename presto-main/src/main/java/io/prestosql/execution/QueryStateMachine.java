@@ -16,6 +16,7 @@ package io.prestosql.execution;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.FutureCallback;
@@ -96,6 +97,7 @@ public class QueryStateMachine
 
     private final QueryId queryId;
     private final String query;
+    private final Optional<String> preparedQuery;
     private final Session session;
     private final URI self;
     private final ResourceGroupId resourceGroup;
@@ -150,6 +152,7 @@ public class QueryStateMachine
 
     private QueryStateMachine(
             String query,
+            Optional<String> preparedQuery,
             Session session,
             URI self,
             ResourceGroupId resourceGroup,
@@ -160,6 +163,7 @@ public class QueryStateMachine
             WarningCollector warningCollector)
     {
         this.query = requireNonNull(query, "query is null");
+        this.preparedQuery = requireNonNull(preparedQuery, "preparedQuery is null");
         this.session = requireNonNull(session, "session is null");
         this.queryId = session.getQueryId();
         this.self = requireNonNull(self, "self is null");
@@ -179,6 +183,7 @@ public class QueryStateMachine
      */
     public static QueryStateMachine begin(
             String query,
+            Optional<String> preparedQuery,
             Session session,
             URI self,
             ResourceGroupId resourceGroup,
@@ -191,6 +196,7 @@ public class QueryStateMachine
     {
         return beginWithTicker(
                 query,
+                preparedQuery,
                 session,
                 self,
                 resourceGroup,
@@ -205,6 +211,7 @@ public class QueryStateMachine
 
     static QueryStateMachine beginWithTicker(
             String query,
+            Optional<String> preparedQuery,
             Session session,
             URI self,
             ResourceGroupId resourceGroup,
@@ -225,6 +232,7 @@ public class QueryStateMachine
 
         QueryStateMachine queryStateMachine = new QueryStateMachine(
                 query,
+                preparedQuery,
                 session,
                 self,
                 resourceGroup,
@@ -356,6 +364,7 @@ public class QueryStateMachine
                 stageStats.isScheduled(),
                 self,
                 query,
+                preparedQuery,
                 queryStats,
                 errorCode == null ? null : errorCode.getType(),
                 errorCode);
@@ -391,6 +400,7 @@ public class QueryStateMachine
                 self,
                 outputManager.getQueryOutputInfo().map(QueryOutputInfo::getColumnNames).orElse(ImmutableList.of()),
                 query,
+                preparedQuery,
                 getQueryStats(rootStage),
                 Optional.ofNullable(setCatalog.get()),
                 Optional.ofNullable(setSchema.get()),
@@ -974,6 +984,7 @@ public class QueryStateMachine
                 outputStage.getStageStats(),
                 ImmutableList.of(), // Remove the tasks
                 ImmutableList.of(), // Remove the substages
+                ImmutableMap.of(), // Remove tables
                 outputStage.getFailureCause()));
 
         QueryInfo prunedQueryInfo = new QueryInfo(
@@ -985,6 +996,7 @@ public class QueryStateMachine
                 queryInfo.getSelf(),
                 queryInfo.getFieldNames(),
                 queryInfo.getQuery(),
+                queryInfo.getPreparedQuery(),
                 pruneQueryStats(queryInfo.getQueryStats()),
                 queryInfo.getSetCatalog(),
                 queryInfo.getSetSchema(),

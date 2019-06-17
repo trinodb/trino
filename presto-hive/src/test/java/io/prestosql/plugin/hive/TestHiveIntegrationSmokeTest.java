@@ -29,7 +29,6 @@ import io.prestosql.plugin.hive.HiveSessionProperties.InsertExistingPartitionsBe
 import io.prestosql.spi.connector.CatalogSchemaTableName;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.connector.ConnectorTableLayoutHandle;
 import io.prestosql.spi.connector.Constraint;
 import io.prestosql.spi.security.Identity;
 import io.prestosql.spi.security.SelectedRole;
@@ -70,6 +69,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -158,11 +158,6 @@ public class TestHiveIntegrationSmokeTest
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.bucketedSession = requireNonNull(bucketedSession, "bucketSession is null");
         this.typeTranslator = requireNonNull(typeTranslator, "typeTranslator is null");
-    }
-
-    private List<?> getPartitions(HiveTableLayoutHandle tableLayoutHandle)
-    {
-        return tableLayoutHandle.getPartitions().get();
     }
 
     @Test
@@ -1750,7 +1745,7 @@ public class TestHiveIntegrationSmokeTest
                 });
     }
 
-    private Object getHiveTableProperty(String tableName, Function<HiveTableLayoutHandle, Object> propertyGetter)
+    private Object getHiveTableProperty(String tableName, Function<HiveTableHandle, Object> propertyGetter)
     {
         Session session = getSession();
         Metadata metadata = ((DistributedQueryRunner) getQueryRunner()).getCoordinator().getMetadata();
@@ -1758,27 +1753,24 @@ public class TestHiveIntegrationSmokeTest
         return transaction(getQueryRunner().getTransactionManager(), getQueryRunner().getAccessControl())
                 .readOnly()
                 .execute(session, transactionSession -> {
-                    Optional<TableHandle> tableHandle = metadata.getTableHandle(transactionSession, new QualifiedObjectName(catalog, TPCH_SCHEMA, tableName));
-                    assertTrue(tableHandle.isPresent());
-
-                    ConnectorTableLayoutHandle connectorLayout = metadata.getLayout(transactionSession, tableHandle.get(), Constraint.alwaysTrue(), Optional.empty())
-                            .get()
-                            .getNewTableHandle()
-                            .getLayout()
-                            .get();
-
-                    return propertyGetter.apply((HiveTableLayoutHandle) connectorLayout);
+                    QualifiedObjectName name = new QualifiedObjectName(catalog, TPCH_SCHEMA, tableName);
+                    TableHandle table = metadata.getTableHandle(transactionSession, name)
+                            .orElseThrow(() -> new AssertionError("table not found: " + name));
+                    table = metadata.applyFilter(transactionSession, table, Constraint.alwaysTrue())
+                            .orElseThrow(() -> new AssertionError("applyFilter did not return a result"))
+                            .getHandle();
+                    return propertyGetter.apply((HiveTableHandle) table.getConnectorHandle());
                 });
     }
 
     private List<?> getPartitions(String tableName)
     {
-        return (List<?>) getHiveTableProperty(tableName, (HiveTableLayoutHandle table) -> getPartitions(table));
+        return (List<?>) getHiveTableProperty(tableName, handle -> handle.getPartitions().get());
     }
 
     private int getBucketCount(String tableName)
     {
-        return (int) getHiveTableProperty(tableName, (HiveTableLayoutHandle table) -> table.getBucketHandle().get().getTableBucketCount());
+        return (int) getHiveTableProperty(tableName, table -> table.getBucketHandle().get().getTableBucketCount());
     }
 
     @Test
@@ -2145,6 +2137,78 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
+    public void testCreateTableWithHeaderAndFooter()
+    {
+        @Language("SQL") String createTableSql = format("" +
+                        "CREATE TABLE %s.%s.test_table_skip_header (\n" +
+                        "   name varchar\n" +
+                        ")\n" +
+                        "WITH (\n" +
+                        "   format = 'TEXTFILE',\n" +
+                        "   textfile_skip_header_line_count = 1\n" +
+                        ")",
+                getSession().getCatalog().get(),
+                getSession().getSchema().get());
+
+        assertUpdate(createTableSql);
+
+        MaterializedResult actual = computeActual("SHOW CREATE TABLE test_table_skip_header");
+        assertEquals(actual.getOnlyValue(), createTableSql);
+        assertUpdate("DROP TABLE test_table_skip_header");
+
+        createTableSql = format("" +
+                        "CREATE TABLE %s.%s.test_table_skip_footer (\n" +
+                        "   name varchar\n" +
+                        ")\n" +
+                        "WITH (\n" +
+                        "   format = 'TEXTFILE',\n" +
+                        "   textfile_skip_footer_line_count = 1\n" +
+                        ")",
+                getSession().getCatalog().get(),
+                getSession().getSchema().get());
+
+        assertUpdate(createTableSql);
+
+        actual = computeActual("SHOW CREATE TABLE test_table_skip_footer");
+        assertEquals(actual.getOnlyValue(), createTableSql);
+        assertUpdate("DROP TABLE test_table_skip_footer");
+
+        createTableSql = format("" +
+                        "CREATE TABLE %s.%s.test_table_skip_header_footer (\n" +
+                        "   name varchar\n" +
+                        ")\n" +
+                        "WITH (\n" +
+                        "   format = 'TEXTFILE',\n" +
+                        "   textfile_skip_footer_line_count = 1,\n" +
+                        "   textfile_skip_header_line_count = 1\n" +
+                        ")",
+                getSession().getCatalog().get(),
+                getSession().getSchema().get());
+
+        assertUpdate(createTableSql);
+
+        actual = computeActual("SHOW CREATE TABLE test_table_skip_header_footer");
+        assertEquals(actual.getOnlyValue(), createTableSql);
+        assertUpdate("DROP TABLE test_table_skip_header_footer");
+    }
+
+    @Test
+    public void testCreateTableInvalidSkipHeaderFooter()
+    {
+        assertThatThrownBy(() -> assertUpdate("CREATE TABLE test_orc_skip_header (col1 bigint) WITH (format = 'ORC', textfile_skip_header_line_count = 1)"))
+                .hasMessageMatching("Cannot specify textfile_skip_header_line_count table property for storage format: ORC");
+
+        assertThatThrownBy(() -> assertUpdate("CREATE TABLE test_orc_skip_footer (col1 bigint) WITH (format = 'ORC', textfile_skip_footer_line_count = 1)"))
+                .hasMessageMatching("Cannot specify textfile_skip_footer_line_count table property for storage format: ORC");
+
+        assertThatThrownBy(() -> assertUpdate("CREATE TABLE test_invalid_skip_header (col1 bigint) WITH (format = 'TEXTFILE', textfile_skip_header_line_count = -1)"))
+                .hasMessageMatching("Invalid value for textfile_skip_header_line_count property: -1");
+
+        assertThatThrownBy(() -> assertUpdate("CREATE TABLE test_invalid_skip_footer (col1 bigint) WITH (format = 'TEXTFILE', textfile_skip_footer_line_count = -1)"))
+                .hasMessageMatching("Invalid value for textfile_skip_footer_line_count property: -1");
+    }
+
+    @Test
     public void testPathHiddenColumn()
     {
         testWithAllStorageFormats(this::testPathHiddenColumn);
@@ -2475,6 +2539,98 @@ public class TestHiveIntegrationSmokeTest
         }
         finally {
             assertUpdate("DROP TABLE test_table_with_char");
+        }
+    }
+
+    @Test
+    public void testPartitionPruning()
+    {
+        assertUpdate("CREATE TABLE test_partition_pruning (v bigint, k varchar) WITH (partitioned_by = array['k'])");
+        assertUpdate("INSERT INTO test_partition_pruning (v, k) VALUES (1, 'a'), (2, 'b'), (3, 'c'), (4, 'e')", 4);
+
+        try {
+            String query = "SELECT * FROM test_partition_pruning WHERE k = 'a'";
+            assertQuery(query, "VALUES (1, 'a')");
+            assertConstraints(
+                    query,
+                    ImmutableSet.of(
+                            new ColumnConstraint(
+                                    "k",
+                                    VARCHAR.getTypeSignature(),
+                                    new FormattedDomain(
+                                            false,
+                                            ImmutableSet.of(
+                                                    new FormattedRange(
+                                                            new FormattedMarker(Optional.of("a"), EXACTLY),
+                                                            new FormattedMarker(Optional.of("a"), EXACTLY)))))));
+
+            query = "SELECT * FROM test_partition_pruning WHERE k IN ('a', 'b')";
+            assertQuery(query, "VALUES (1, 'a'), (2, 'b')");
+            assertConstraints(
+                    query,
+                    ImmutableSet.of(
+                            new ColumnConstraint(
+                                    "k",
+                                    VARCHAR.getTypeSignature(),
+                                    new FormattedDomain(
+                                            false,
+                                            ImmutableSet.of(
+                                                    new FormattedRange(
+                                                            new FormattedMarker(Optional.of("a"), EXACTLY),
+                                                            new FormattedMarker(Optional.of("a"), EXACTLY)),
+                                                    new FormattedRange(
+                                                            new FormattedMarker(Optional.of("b"), EXACTLY),
+                                                            new FormattedMarker(Optional.of("b"), EXACTLY)))))));
+
+            query = "SELECT * FROM test_partition_pruning WHERE k >= 'b'";
+            assertQuery(query, "VALUES (2, 'b'), (3, 'c'), (4, 'e')");
+            assertConstraints(
+                    query,
+                    ImmutableSet.of(
+                            new ColumnConstraint(
+                                    "k",
+                                    VARCHAR.getTypeSignature(),
+                                    new FormattedDomain(
+                                            false,
+                                            ImmutableSet.of(
+                                                    new FormattedRange(
+                                                            new FormattedMarker(Optional.of("b"), EXACTLY),
+                                                            new FormattedMarker(Optional.of("b"), EXACTLY)),
+                                                    new FormattedRange(
+                                                            new FormattedMarker(Optional.of("c"), EXACTLY),
+                                                            new FormattedMarker(Optional.of("c"), EXACTLY)),
+                                                    new FormattedRange(
+                                                            new FormattedMarker(Optional.of("e"), EXACTLY),
+                                                            new FormattedMarker(Optional.of("e"), EXACTLY)))))));
+
+            query = "SELECT * FROM (" +
+                    "    SELECT * " +
+                    "    FROM test_partition_pruning " +
+                    "    WHERE v IN (1, 2, 4) " +
+                    ") t " +
+                    "WHERE t.k >= 'b'";
+            assertQuery(query, "VALUES (2, 'b'), (4, 'e')");
+            assertConstraints(
+                    query,
+                    ImmutableSet.of(
+                            new ColumnConstraint(
+                                    "k",
+                                    VARCHAR.getTypeSignature(),
+                                    new FormattedDomain(
+                                            false,
+                                            ImmutableSet.of(
+                                                    new FormattedRange(
+                                                            new FormattedMarker(Optional.of("b"), EXACTLY),
+                                                            new FormattedMarker(Optional.of("b"), EXACTLY)),
+                                                    new FormattedRange(
+                                                            new FormattedMarker(Optional.of("c"), EXACTLY),
+                                                            new FormattedMarker(Optional.of("c"), EXACTLY)),
+                                                    new FormattedRange(
+                                                            new FormattedMarker(Optional.of("e"), EXACTLY),
+                                                            new FormattedMarker(Optional.of("e"), EXACTLY)))))));
+        }
+        finally {
+            assertUpdate("DROP TABLE test_partition_pruning");
         }
     }
 
@@ -3071,7 +3227,7 @@ public class TestHiveIntegrationSmokeTest
             if (actualRemoteExchangesCount != expectedRemoteExchangesCount) {
                 Session session = getSession();
                 Metadata metadata = ((DistributedQueryRunner) getQueryRunner()).getCoordinator().getMetadata();
-                String formattedPlan = textLogicalPlan(plan.getRoot(), plan.getTypes(), metadata.getFunctionRegistry(), Optional.of(metadata), StatsAndCosts.empty(), session, 0);
+                String formattedPlan = textLogicalPlan(plan.getRoot(), plan.getTypes(), metadata, StatsAndCosts.empty(), session, 0, false);
                 throw new AssertionError(format(
                         "Expected [\n%s\n] remote exchanges but found [\n%s\n] remote exchanges. Actual plan is [\n\n%s\n]",
                         expectedRemoteExchangesCount,
@@ -3348,8 +3504,8 @@ public class TestHiveIntegrationSmokeTest
         assertQueryFails(format("ANALYZE %s WITH (partitions = ARRAY[ARRAY['p4', '10']])", tableName), ".*Partition no longer exists.*");
 
         // Test partition schema mismatch
-        assertQueryFails(format("ANALYZE %s WITH (partitions = ARRAY[ARRAY['p4']])", tableName), ".*Partition value count does not match the partition column count.*");
-        assertQueryFails(format("ANALYZE %s WITH (partitions = ARRAY[ARRAY['p4', '10', 'error']])", tableName), ".*Partition value count does not match the partition column count.*");
+        assertQueryFails(format("ANALYZE %s WITH (partitions = ARRAY[ARRAY['p4']])", tableName), "Partition value count does not match partition column count");
+        assertQueryFails(format("ANALYZE %s WITH (partitions = ARRAY[ARRAY['p4', '10', 'error']])", tableName), "Partition value count does not match partition column count");
 
         // Drop the partitioned test table
         assertUpdate(format("DROP TABLE %s", tableName));
@@ -3366,8 +3522,8 @@ public class TestHiveIntegrationSmokeTest
         createUnpartitionedTableForAnalyzeTest(tableName);
 
         // Test partition properties on unpartitioned table
-        assertQueryFails(format("ANALYZE %s WITH (partitions = ARRAY[])", tableName), ".*Only partitioned table can be analyzed with a partition list.*");
-        assertQueryFails(format("ANALYZE %s WITH (partitions = ARRAY[ARRAY['p1']])", tableName), ".*Only partitioned table can be analyzed with a partition list.*");
+        assertQueryFails(format("ANALYZE %s WITH (partitions = ARRAY[])", tableName), "Partition list provided but table is not partitioned");
+        assertQueryFails(format("ANALYZE %s WITH (partitions = ARRAY[ARRAY['p1']])", tableName), "Partition list provided but table is not partitioned");
 
         // Drop the partitioned test table
         assertUpdate(format("DROP TABLE %s", tableName));
@@ -3941,6 +4097,17 @@ public class TestHiveIntegrationSmokeTest
     private void assertColumnType(TableMetadata tableMetadata, String columnName, Type expectedType)
     {
         assertEquals(tableMetadata.getColumn(columnName).getType(), canonicalizeType(expectedType));
+    }
+
+    private void assertConstraints(@Language("SQL") String query, Set<ColumnConstraint> expected)
+    {
+        MaterializedResult result = computeActual("EXPLAIN (TYPE IO, FORMAT JSON) " + query);
+        Set<ColumnConstraint> constraints = jsonCodec(IoPlan.class).fromJson((String) getOnlyElement(result.getOnlyColumnAsSet()))
+                .getInputTableColumnInfos().stream()
+                .findFirst().get()
+                .getColumnConstraints();
+
+        assertEquals(constraints, expected);
     }
 
     private void verifyPartition(boolean hasPartition, TableMetadata tableMetadata, List<String> partitionKeys)

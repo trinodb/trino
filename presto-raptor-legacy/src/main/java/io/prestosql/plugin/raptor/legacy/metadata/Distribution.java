@@ -15,9 +15,9 @@ package io.prestosql.plugin.raptor.legacy.metadata;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonCodec;
-import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeManager;
+import io.prestosql.spi.type.TypeSignature;
 import org.skife.jdbi.v2.StatementContext;
 import org.skife.jdbi.v2.tweak.ResultSetMapper;
 
@@ -28,9 +28,8 @@ import java.sql.SQLException;
 import java.util.List;
 import java.util.Optional;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.json.JsonCodec.listJsonCodec;
-import static io.prestosql.plugin.raptor.legacy.RaptorErrorCode.RAPTOR_ERROR;
-import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
@@ -86,24 +85,15 @@ public class Distribution
         public Distribution map(int index, ResultSet rs, StatementContext ctx)
                 throws SQLException
         {
-            List<String> typeNames = LIST_CODEC.fromJson(rs.getString("column_types"));
-
-            ImmutableList.Builder<Type> types = ImmutableList.builder();
-            for (String typeName : typeNames) {
-                Type type;
-                try {
-                    type = typeManager.getType(parseTypeSignature(typeName));
-                }
-                catch (IllegalArgumentException e) {
-                    throw new PrestoException(RAPTOR_ERROR, "Unknown distribution column type: " + typeName);
-                }
-                types.add(type);
-            }
+            List<Type> types = LIST_CODEC.fromJson(rs.getString("column_types")).stream()
+                    .map(TypeSignature::parseTypeSignature)
+                    .map(typeManager::getType)
+                    .collect(toImmutableList());
 
             return new Distribution(
                     rs.getLong("distribution_id"),
                     Optional.ofNullable(rs.getString("distribution_name")),
-                    types.build(),
+                    types,
                     rs.getInt("bucket_count"));
         }
     }
