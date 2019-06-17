@@ -14,9 +14,13 @@
 package io.prestosql.plugin.raptor.legacy;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.collect.ImmutableList;
 import io.prestosql.spi.connector.ConnectorTableHandle;
+import io.prestosql.spi.predicate.TupleDomain;
 
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -38,6 +42,8 @@ public final class RaptorTableHandle
     private final OptionalInt bucketCount;
     private final boolean organized;
     private final OptionalLong transactionId;
+    private final TupleDomain<RaptorColumnHandle> constraint;
+    private final Optional<List<String>> bucketAssignments;
     private final boolean delete;
 
     @JsonCreator
@@ -50,6 +56,9 @@ public final class RaptorTableHandle
             @JsonProperty("bucketCount") OptionalInt bucketCount,
             @JsonProperty("organized") boolean organized,
             @JsonProperty("transactionId") OptionalLong transactionId,
+            @JsonProperty("constraint") TupleDomain<RaptorColumnHandle> constraint,
+            // this field will not be in the JSON, but keep it here to avoid duplicating the constructor
+            @JsonProperty("bucketAssignments") Optional<List<String>> bucketAssignments,
             @JsonProperty("delete") boolean delete)
     {
         this.schemaName = checkSchemaName(schemaName);
@@ -64,6 +73,8 @@ public final class RaptorTableHandle
         this.organized = organized;
         this.transactionId = requireNonNull(transactionId, "transactionId is null");
 
+        this.constraint = requireNonNull(constraint, "constraint is null");
+        this.bucketAssignments = requireNonNull(bucketAssignments, "bucketAssignments is null").map(ImmutableList::copyOf);
         this.delete = delete;
     }
 
@@ -115,6 +126,12 @@ public final class RaptorTableHandle
     }
 
     @JsonProperty
+    public TupleDomain<RaptorColumnHandle> getConstraint()
+    {
+        return constraint;
+    }
+
+    @JsonProperty
     public OptionalLong getTransactionId()
     {
         return transactionId;
@@ -124,6 +141,12 @@ public final class RaptorTableHandle
     public boolean isDelete()
     {
         return delete;
+    }
+
+    @JsonIgnore
+    public Optional<List<String>> getBucketAssignments()
+    {
+        return bucketAssignments;
     }
 
     @Override
@@ -151,5 +174,11 @@ public final class RaptorTableHandle
         return Objects.equals(this.schemaName, other.schemaName) &&
                 Objects.equals(this.tableName, other.tableName) &&
                 Objects.equals(this.tableId, other.tableId);
+    }
+
+    @JsonIgnore
+    public Optional<RaptorPartitioningHandle> getPartitioningHandle()
+    {
+        return distributionId.map(id -> new RaptorPartitioningHandle(id, bucketAssignments.get()));
     }
 }

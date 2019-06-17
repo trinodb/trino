@@ -25,17 +25,14 @@ import io.prestosql.plugin.raptor.legacy.RaptorConnectorId;
 import io.prestosql.plugin.raptor.legacy.RaptorMetadata;
 import io.prestosql.plugin.raptor.legacy.RaptorSplitManager;
 import io.prestosql.plugin.raptor.legacy.RaptorTableHandle;
-import io.prestosql.plugin.raptor.legacy.RaptorTableLayoutHandle;
 import io.prestosql.plugin.raptor.legacy.RaptorTransactionHandle;
 import io.prestosql.plugin.raptor.legacy.util.DaoSupplier;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ConnectorSplit;
 import io.prestosql.spi.connector.ConnectorSplitSource;
 import io.prestosql.spi.connector.ConnectorTableHandle;
-import io.prestosql.spi.connector.ConnectorTableLayoutResult;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
-import io.prestosql.spi.connector.Constraint;
 import io.prestosql.spi.type.BigintType;
 import io.prestosql.testing.TestingNodeManager;
 import io.prestosql.type.InternalTypeManager;
@@ -60,7 +57,6 @@ import static com.google.common.io.Files.createTempDir;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
-import static io.airlift.testing.Assertions.assertInstanceOf;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.plugin.raptor.legacy.metadata.DatabaseShardManager.shardIndexTable;
 import static io.prestosql.plugin.raptor.legacy.metadata.SchemaDaoUtil.createTablesWithRetry;
@@ -145,12 +141,7 @@ public class TestRaptorSplitManager
     @Test
     public void testSanity()
     {
-        List<ConnectorTableLayoutResult> layouts = metadata.getTableLayouts(SESSION, tableHandle, Constraint.alwaysTrue(), Optional.empty());
-        assertEquals(layouts.size(), 1);
-        ConnectorTableLayoutResult layout = getOnlyElement(layouts);
-        assertInstanceOf(layout.getTableLayout().getHandle(), RaptorTableLayoutHandle.class);
-
-        ConnectorSplitSource splitSource = getSplits(raptorSplitManager, layout);
+        ConnectorSplitSource splitSource = getSplits(raptorSplitManager, tableHandle);
         int splitCount = 0;
         while (!splitSource.isFinished()) {
             splitCount += getSplits(splitSource, 1000).size();
@@ -163,8 +154,7 @@ public class TestRaptorSplitManager
     {
         deleteShardNodes();
 
-        ConnectorTableLayoutResult layout = getOnlyElement(metadata.getTableLayouts(SESSION, tableHandle, Constraint.alwaysTrue(), Optional.empty()));
-        ConnectorSplitSource splitSource = getSplits(raptorSplitManager, layout);
+        ConnectorSplitSource splitSource = getSplits(raptorSplitManager, tableHandle);
         getSplits(splitSource, 1000);
     }
 
@@ -181,8 +171,7 @@ public class TestRaptorSplitManager
 
         deleteShardNodes();
 
-        ConnectorTableLayoutResult layout = getOnlyElement(metadata.getTableLayouts(SESSION, tableHandle, Constraint.alwaysTrue(), Optional.empty()));
-        ConnectorSplitSource partitionSplit = getSplits(raptorSplitManagerWithBackup, layout);
+        ConnectorSplitSource partitionSplit = getSplits(raptorSplitManagerWithBackup, tableHandle);
         List<ConnectorSplit> batch = getSplits(partitionSplit, 1);
         assertEquals(getOnlyElement(getOnlyElement(batch).getAddresses()), node.getHostAndPort());
     }
@@ -193,8 +182,7 @@ public class TestRaptorSplitManager
         deleteShardNodes();
 
         RaptorSplitManager raptorSplitManagerWithBackup = new RaptorSplitManager(new RaptorConnectorId("fbraptor"), ImmutableSet::of, shardManager, true);
-        ConnectorTableLayoutResult layout = getOnlyElement(metadata.getTableLayouts(SESSION, tableHandle, Constraint.alwaysTrue(), Optional.empty()));
-        ConnectorSplitSource splitSource = getSplits(raptorSplitManagerWithBackup, layout);
+        ConnectorSplitSource splitSource = getSplits(raptorSplitManagerWithBackup, tableHandle);
         getSplits(splitSource, 1000);
     }
 
@@ -204,10 +192,10 @@ public class TestRaptorSplitManager
         dummyHandle.execute(format("UPDATE %s SET node_ids = ''", shardIndexTable(tableId)));
     }
 
-    private static ConnectorSplitSource getSplits(RaptorSplitManager splitManager, ConnectorTableLayoutResult layout)
+    private static ConnectorSplitSource getSplits(RaptorSplitManager splitManager, ConnectorTableHandle table)
     {
         ConnectorTransactionHandle transaction = new RaptorTransactionHandle();
-        return splitManager.getSplits(transaction, SESSION, layout.getTableLayout().getHandle(), UNGROUPED_SCHEDULING);
+        return splitManager.getSplits(transaction, SESSION, table, UNGROUPED_SCHEDULING);
     }
 
     private static List<ConnectorSplit> getSplits(ConnectorSplitSource source, int maxSize)

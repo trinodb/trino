@@ -52,9 +52,10 @@ public class RaptorPageSourceProvider
     public ConnectorPageSource createPageSource(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorSplit split, ConnectorTableHandle table, List<ColumnHandle> columns)
     {
         RaptorSplit raptorSplit = (RaptorSplit) split;
+        RaptorTableHandle raptorTable = (RaptorTableHandle) table;
 
         OptionalInt bucketNumber = raptorSplit.getBucketNumber();
-        TupleDomain<RaptorColumnHandle> predicate = raptorSplit.getEffectivePredicate();
+        TupleDomain<RaptorColumnHandle> predicate = raptorTable.getConstraint();
         ReaderAttributes attributes = ReaderAttributes.from(session);
         OptionalLong transactionId = raptorSplit.getTransactionId();
 
