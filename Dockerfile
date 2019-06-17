@@ -88,6 +88,7 @@ RUN yum -y install --setopt=skip_missing_names_on_install=False \
         java-1.8.0-openjdk-devel \
         openssl \
         less \
+        rsync \
     && yum clean all \
     && rm -rf /var/cache/yum
 
