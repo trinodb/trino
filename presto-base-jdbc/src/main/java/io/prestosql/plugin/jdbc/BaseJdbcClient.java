@@ -60,6 +60,7 @@ import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -452,7 +453,8 @@ public class BaseJdbcClient
     {
         String temporaryTable = quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTemporaryTableName());
         String targetTable = quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTableName());
-        String insertSql = format("INSERT INTO %s SELECT * FROM %s", targetTable, temporaryTable);
+        String columns = join(",", handle.getColumnNames());
+        String insertSql = format("INSERT INTO %s (%s) SELECT %s FROM %s", targetTable, columns, columns, temporaryTable);
         String cleanupSql = "DROP TABLE " + temporaryTable;
 
         try (Connection connection = getConnection(identity, handle)) {
@@ -550,8 +552,9 @@ public class BaseJdbcClient
     public String buildInsertSql(JdbcOutputTableHandle handle)
     {
         return format(
-                "INSERT INTO %s VALUES (%s)",
+                "INSERT INTO %s (%s) VALUES (%s)",
                 quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTemporaryTableName()),
+                join(",", handle.getColumnNames()),
                 join(",", nCopies(handle.getColumnNames().size(), "?")));
     }
 
