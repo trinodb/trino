@@ -109,7 +109,7 @@ import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.HIVE_
 public class ThriftHiveMetastore
         implements ThriftMetastore
 {
-    private final ThriftHiveMetastoreStats stats = new ThriftHiveMetastoreStats();
+    private final ThriftMetastoreStats stats = new ThriftMetastoreStats();
     private final MetastoreLocator clientProvider;
     private final double backoffScaleFactor;
     private final Duration minBackoffDelay;
@@ -133,7 +133,7 @@ public class ThriftHiveMetastore
 
     @Managed
     @Flatten
-    public ThriftHiveMetastoreStats getStats()
+    public ThriftMetastoreStats getStats()
     {
         return stats;
     }
