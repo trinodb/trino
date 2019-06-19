@@ -87,7 +87,7 @@ public class TestMetadataDao
     private static void assertTable(Table info, long tableId)
     {
         assertEquals(info.getTableId(), tableId);
-        assertEquals(info.getDistributionId(), OptionalLong.empty());
+        assertEquals(info.getDistributionId(), Optional.empty());
         assertEquals(info.getDistributionName(), Optional.empty());
         assertEquals(info.getBucketCount(), OptionalInt.empty());
         assertEquals(info.getTemporalColumnId(), OptionalLong.empty());

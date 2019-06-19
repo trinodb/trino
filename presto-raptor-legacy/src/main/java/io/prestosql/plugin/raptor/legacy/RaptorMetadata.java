@@ -319,7 +319,7 @@ public class RaptorMetadata
 
         List<RaptorColumnHandle> bucketColumnHandles = getBucketColumnHandles(handle.getTableId());
 
-        RaptorPartitioningHandle partitioning = getPartitioningHandle(handle.getDistributionId().getAsLong());
+        RaptorPartitioningHandle partitioning = getPartitioningHandle(handle.getDistributionId().get());
 
         boolean oneSplitPerBucket = handle.getBucketCount().getAsInt() >= getOneSplitPerBucketThreshold(session);
 

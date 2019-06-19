@@ -23,6 +23,7 @@ import java.util.OptionalInt;
 import java.util.OptionalLong;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static io.prestosql.plugin.raptor.legacy.util.DatabaseUtil.getBoxedLong;
 import static io.prestosql.plugin.raptor.legacy.util.DatabaseUtil.getOptionalInt;
 import static io.prestosql.plugin.raptor.legacy.util.DatabaseUtil.getOptionalLong;
 import static java.util.Objects.requireNonNull;
@@ -30,7 +31,7 @@ import static java.util.Objects.requireNonNull;
 public final class Table
 {
     private final long tableId;
-    private final OptionalLong distributionId;
+    private final Optional<Long> distributionId;
     private final Optional<String> distributionName;
     private final OptionalInt bucketCount;
     private final OptionalLong temporalColumnId;
@@ -38,7 +39,7 @@ public final class Table
 
     public Table(
             long tableId,
-            OptionalLong distributionId,
+            Optional<Long> distributionId,
             Optional<String> distributionName,
             OptionalInt bucketCount,
             OptionalLong temporalColumnId,
@@ -57,7 +58,7 @@ public final class Table
         return tableId;
     }
 
-    public OptionalLong getDistributionId()
+    public Optional<Long> getDistributionId()
     {
         return distributionId;
     }
@@ -87,7 +88,7 @@ public final class Table
     {
         return toStringHelper(this)
                 .add("tableId", tableId)
-                .add("distributionId", distributionId.isPresent() ? distributionId.getAsLong() : null)
+                .add("distributionId", distributionId.orElse(null))
                 .add("bucketCount", bucketCount.isPresent() ? bucketCount.getAsInt() : null)
                 .add("temporalColumnId", temporalColumnId.isPresent() ? temporalColumnId.getAsLong() : null)
                 .add("organized", organized)
@@ -104,7 +105,7 @@ public final class Table
         {
             return new Table(
                     r.getLong("table_id"),
-                    getOptionalLong(r, "distribution_id"),
+                    Optional.ofNullable(getBoxedLong(r, "distribution_id")),
                     Optional.ofNullable(r.getString("distribution_name")),
                     getOptionalInt(r, "bucket_count"),
                     getOptionalLong(r, "temporal_column_id"),
