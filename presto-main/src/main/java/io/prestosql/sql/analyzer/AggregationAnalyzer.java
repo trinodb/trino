@@ -467,12 +467,23 @@ class AggregationAnalyzer
             if (analysis.getLambdaArgumentReferences().containsKey(NodeRef.of(node))) {
                 return true;
             }
+
+            if (!hasReferencesToScope(node, analysis, sourceScope)) {
+                // reference to outer scope is group-invariant
+                return true;
+            }
+
             return isGroupingKey(node);
         }
 
         @Override
         protected Boolean visitDereferenceExpression(DereferenceExpression node, Void context)
         {
+            if (!hasReferencesToScope(node, analysis, sourceScope)) {
+                // reference to outer scope is group-invariant
+                return true;
+            }
+
             if (columnReferences.containsKey(NodeRef.<Expression>of(node))) {
                 return isGroupingKey(node);
             }
