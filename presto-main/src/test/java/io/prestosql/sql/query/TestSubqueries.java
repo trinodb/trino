@@ -339,6 +339,32 @@ public class TestSubqueries
                 "VALUES 1");
     }
 
+    @Test
+    public void testCorrelation()
+    {
+        // unqualified reference
+        assertions.assertQuery(
+                "SELECT * " +
+                        "FROM (VALUES 1) t(x) " +
+                        "WHERE EXISTS (" +
+                        "    SELECT count(*)" +
+                        "    FROM (VALUES 1, 2) u(y)" +
+                        "    GROUP BY y" +
+                        "    HAVING y = x)",
+                "VALUES 1");
+
+        // qualified reference
+        assertions.assertQuery(
+                "SELECT * " +
+                        "FROM (VALUES 1) t(x) " +
+                        "WHERE EXISTS (" +
+                        "    SELECT count(*)" +
+                        "    FROM (VALUES 1, 2) u(y)" +
+                        "    GROUP BY y" +
+                        "    HAVING y = t.x)",
+                "VALUES 1");
+    }
+
     private void assertExistsRewrittenToAggregationBelowJoin(@Language("SQL") String actual, @Language("SQL") String expected, boolean extraAggregation)
     {
         PlanMatchPattern source = node(ValuesNode.class);
