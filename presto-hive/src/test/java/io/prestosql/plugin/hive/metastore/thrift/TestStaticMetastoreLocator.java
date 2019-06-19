@@ -99,7 +99,7 @@ public class TestStaticMetastoreLocator
 
     private static MetastoreLocator createMetastoreLocator(StaticMetastoreConfig config, List<ThriftMetastoreClient> clients)
     {
-        return new StaticMetastoreLocator(config, new MockHiveMetastoreClientFactory(Optional.empty(), new Duration(1, SECONDS), clients));
+        return new StaticMetastoreLocator(config, new MockThriftMetastoreClientFactory(Optional.empty(), new Duration(1, SECONDS), clients));
     }
 
     private static ThriftMetastoreClient createFakeMetastoreClient()

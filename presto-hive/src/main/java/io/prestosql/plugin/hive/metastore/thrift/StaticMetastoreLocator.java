@@ -32,16 +32,16 @@ public class StaticMetastoreLocator
         implements MetastoreLocator
 {
     private final List<HostAndPort> addresses;
-    private final HiveMetastoreClientFactory clientFactory;
+    private final ThriftMetastoreClientFactory clientFactory;
     private final String metastoreUsername;
 
     @Inject
-    public StaticMetastoreLocator(StaticMetastoreConfig config, HiveMetastoreClientFactory clientFactory)
+    public StaticMetastoreLocator(StaticMetastoreConfig config, ThriftMetastoreClientFactory clientFactory)
     {
         this(config.getMetastoreUris(), config.getMetastoreUsername(), clientFactory);
     }
 
-    public StaticMetastoreLocator(List<URI> metastoreUris, String metastoreUsername, HiveMetastoreClientFactory clientFactory)
+    public StaticMetastoreLocator(List<URI> metastoreUris, String metastoreUsername, ThriftMetastoreClientFactory clientFactory)
     {
         requireNonNull(metastoreUris, "metastoreUris is null");
         checkArgument(!metastoreUris.isEmpty(), "metastoreUris must specify at least one URI");
