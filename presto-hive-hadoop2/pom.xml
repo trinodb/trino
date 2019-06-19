@@ -17,6 +17,12 @@
     </properties>
 
     <dependencies>
+        <!-- https://mvnrepository.com/artifact/org.keedio.openx.data/json-serde -->
+        <dependency>
+            <groupId>org.keedio.openx.data</groupId>
+            <artifactId>json-serde</artifactId>
+            <scope>runtime</scope>
+        </dependency>
         <dependency>
             <groupId>io.prestosql</groupId>
             <artifactId>presto-hive</artifactId>
