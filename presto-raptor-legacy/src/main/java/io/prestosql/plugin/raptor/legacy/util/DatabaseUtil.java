@@ -128,6 +128,13 @@ public final class DatabaseUtil
         return rs.wasNull() ? OptionalLong.empty() : OptionalLong.of(value);
     }
 
+    public static Long getBoxedLong(ResultSet rs, String name)
+            throws SQLException
+    {
+        long value = rs.getLong(name);
+        return rs.wasNull() ? null : value;
+    }
+
     public static void bindOptionalInt(PreparedStatement statement, int index, OptionalInt value)
             throws SQLException
     {

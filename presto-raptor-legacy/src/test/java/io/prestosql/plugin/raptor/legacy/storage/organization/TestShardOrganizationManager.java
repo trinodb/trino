@@ -59,8 +59,8 @@ public class TestShardOrganizationManager
     private MetadataDao metadataDao;
     private ShardOrganizerDao organizerDao;
 
-    private static final Table tableInfo = new Table(1L, OptionalLong.empty(), Optional.empty(), OptionalInt.empty(), OptionalLong.empty(), true);
-    private static final Table temporalTableInfo = new Table(1L, OptionalLong.empty(), Optional.empty(), OptionalInt.empty(), OptionalLong.of(1), true);
+    private static final Table tableInfo = new Table(1L, Optional.empty(), Optional.empty(), OptionalInt.empty(), OptionalLong.empty(), true);
+    private static final Table temporalTableInfo = new Table(1L, Optional.empty(), Optional.empty(), OptionalInt.empty(), OptionalLong.of(1), true);
 
     private static final List<Type> types = ImmutableList.of(BIGINT, VARCHAR, DATE, TIMESTAMP);
     private static final TemporalFunction TEMPORAL_FUNCTION = new TemporalFunction(UTC);

@@ -33,7 +33,7 @@ public final class RaptorTableHandle
     private final String schemaName;
     private final String tableName;
     private final long tableId;
-    private final OptionalLong distributionId;
+    private final Optional<Long> distributionId;
     private final Optional<String> distributionName;
     private final OptionalInt bucketCount;
     private final boolean organized;
@@ -45,7 +45,7 @@ public final class RaptorTableHandle
             @JsonProperty("schemaName") String schemaName,
             @JsonProperty("tableName") String tableName,
             @JsonProperty("tableId") long tableId,
-            @JsonProperty("distributionId") OptionalLong distributionId,
+            @JsonProperty("distributionId") Optional<Long> distributionId,
             @JsonProperty("distributionName") Optional<String> distributionName,
             @JsonProperty("bucketCount") OptionalInt bucketCount,
             @JsonProperty("organized") boolean organized,
@@ -91,7 +91,7 @@ public final class RaptorTableHandle
     }
 
     @JsonProperty
-    public OptionalLong getDistributionId()
+    public Optional<Long> getDistributionId()
     {
         return distributionId;
     }
