@@ -27,14 +27,14 @@ import java.util.Optional;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
-public class HiveMetastoreClientFactory
+public class ThriftMetastoreClientFactory
 {
     private final Optional<SSLContext> sslContext;
     private final Optional<HostAndPort> socksProxy;
     private final int timeoutMillis;
     private final HiveMetastoreAuthentication metastoreAuthentication;
 
-    public HiveMetastoreClientFactory(
+    public ThriftMetastoreClientFactory(
             Optional<SSLContext> sslContext,
             Optional<HostAndPort> socksProxy,
             Duration timeout,
@@ -47,7 +47,7 @@ public class HiveMetastoreClientFactory
     }
 
     @Inject
-    public HiveMetastoreClientFactory(HiveConfig config, HiveMetastoreAuthentication metastoreAuthentication)
+    public ThriftMetastoreClientFactory(HiveConfig config, HiveMetastoreAuthentication metastoreAuthentication)
     {
         this(Optional.empty(), Optional.ofNullable(config.getMetastoreSocksProxy()), config.getMetastoreTimeout(), metastoreAuthentication);
     }
