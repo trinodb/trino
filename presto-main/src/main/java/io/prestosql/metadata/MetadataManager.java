@@ -791,6 +791,11 @@ public final class MetadataManager
     {
         CatalogName catalogName = tableHandle.getCatalogName();
         ConnectorMetadata metadata = getMetadata(session, catalogName);
+
+        if (!metadata.usesLegacyTableLayouts()) {
+            return false;
+        }
+
         return metadata.supportsMetadataDelete(
                 session.toConnectorSession(catalogName),
                 tableHandle.getConnectorHandle(),
