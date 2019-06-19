@@ -28,7 +28,7 @@ import java.util.concurrent.Callable;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 @ThreadSafe
-public class HiveMetastoreApiStats
+public class ThriftMetastoreApiStats
 {
     private final TimeStat time = new TimeStat(MILLISECONDS);
     private final CounterStat totalFailures = new CounterStat();

@@ -22,8 +22,8 @@ import io.prestosql.plugin.hive.metastore.thrift.MetastoreLocator;
 import io.prestosql.plugin.hive.metastore.thrift.MockThriftMetastoreClient;
 import io.prestosql.plugin.hive.metastore.thrift.ThriftHiveMetastore;
 import io.prestosql.plugin.hive.metastore.thrift.ThriftHiveMetastoreConfig;
-import io.prestosql.plugin.hive.metastore.thrift.ThriftHiveMetastoreStats;
 import io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreClient;
+import io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreStats;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -49,7 +49,7 @@ public class TestCachingHiveMetastore
 {
     private MockThriftMetastoreClient mockClient;
     private CachingHiveMetastore metastore;
-    private ThriftHiveMetastoreStats stats;
+    private ThriftMetastoreStats stats;
 
     @BeforeMethod
     public void setUp()
