@@ -127,7 +127,7 @@ public final class JdbcDriverUtils
 
     public static boolean usingSimbaJdbcDriver(Connection connection)
     {
-        return getClassNameForJdbcDriver(connection).startsWith("com.simba.presto.");
+        return getClassNameForJdbcDriver(connection).startsWith("com.starburst.presto.") || getClassNameForJdbcDriver(connection).startsWith("com.simba.presto.");
     }
 
     private static String getClassNameForJdbcDriver(Connection connection)
