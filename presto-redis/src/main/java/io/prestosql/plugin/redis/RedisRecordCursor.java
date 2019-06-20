@@ -62,8 +62,6 @@ public class RedisRecordCursor
 
     private final AtomicBoolean reported = new AtomicBoolean();
 
-    private FieldValueProvider[] fieldValueProviders;
-
     private String valueString;
     private Map<String, String> valueMap;
 
