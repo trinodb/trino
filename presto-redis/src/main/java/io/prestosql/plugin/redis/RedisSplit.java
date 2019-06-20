@@ -56,11 +56,11 @@ public final class RedisSplit
             @JsonProperty("nodes") List<HostAddress> nodes)
     {
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
-        this.tableName = requireNonNull(tableName, "dataFormat is null");
-        this.keyDataFormat = requireNonNull(keyDataFormat, "KeydataFormat is null");
+        this.tableName = requireNonNull(tableName, "tableName is null");
+        this.keyDataFormat = requireNonNull(keyDataFormat, "keyDataFormat is null");
         this.valueDataFormat = requireNonNull(valueDataFormat, "valueDataFormat is null");
         this.keyName = keyName;
-        this.nodes = ImmutableList.copyOf(requireNonNull(nodes, "addresses is null"));
+        this.nodes = ImmutableList.copyOf(requireNonNull(nodes, "nodes is null"));
         this.start = start;
         this.end = end;
         this.valueDataType = toRedisDataType(valueDataFormat);
