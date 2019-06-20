@@ -256,7 +256,7 @@ public class JdbcTests
             assertThat(query("select {fn ucase('ABC def 123')}")).containsExactly(row("ABC DEF 123"));
         }
         else {
-            LOGGER.warn("testSqlEscapeFunctions() only applies to TeradataJdbcDriver");
+            LOGGER.warn("testSqlEscapeFunctions() only applies to EnterpriseJdbcDriver");
         }
     }
 
@@ -275,7 +275,7 @@ public class JdbcTests
     }
 
     /**
-     * Same as {@code io.prestosql.jdbc.TestJdbcPreparedStatement#testDeallocate()}. This one is run for TeradataJdbcDriver as well.
+     * Same as {@code io.prestosql.jdbc.TestJdbcPreparedStatement#testDeallocate()}. This one is run for EnterpriseJdbcDriver as well.
      */
     @Test(groups = JDBC)
     public void testDeallocate()

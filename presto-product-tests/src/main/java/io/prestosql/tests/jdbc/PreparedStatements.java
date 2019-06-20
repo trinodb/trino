@@ -103,7 +103,7 @@ public class PreparedStatements
             assertThat(query(selectSql, param(INTEGER, 2))).hasNoRows();
         }
         else {
-            LOGGER.warn("preparedSelectApi() only applies to TeradataJdbcDriver");
+            LOGGER.warn("preparedSelectApi() only applies to EnterpriseJdbcDriver");
         }
     }
 
@@ -128,7 +128,7 @@ public class PreparedStatements
                     .hasNoRows();
         }
         else {
-            LOGGER.warn("preparedSelectSql() only applies to TeradataJdbcDriver");
+            LOGGER.warn("preparedSelectSql() only applies to EnterpriseJdbcDriver");
         }
     }
 
@@ -166,7 +166,7 @@ public class PreparedStatements
                             new byte[] {0, 1, 2, 3, 0, 42, -7}));
         }
         else {
-            LOGGER.warn("preparedInsertVarbinaryApi() only applies to TeradataJdbcDriver");
+            LOGGER.warn("preparedInsertVarbinaryApi() only applies to EnterpriseJdbcDriver");
         }
     }
 
@@ -271,7 +271,7 @@ public class PreparedStatements
                     row(null, null, null, null, null, null, null, null, null, null, null, null, null, null, null));
         }
         else {
-            LOGGER.warn("preparedInsertApi() only applies to TeradataJdbcDriver");
+            LOGGER.warn("preparedInsertApi() only applies to EnterpriseJdbcDriver");
         }
     }
 
@@ -377,7 +377,7 @@ public class PreparedStatements
                     row(null, null, null, null, null, null, null, null, null, null, null, null, null, null, null));
         }
         else {
-            LOGGER.warn("preparedInsertSql() only applies to TeradataJdbcDriver");
+            LOGGER.warn("preparedInsertSql() only applies to EnterpriseJdbcDriver");
         }
     }
 
@@ -418,7 +418,7 @@ public class PreparedStatements
                             new byte[] {0, 1, 2, 3, 0, 42, -7}));
         }
         else {
-            LOGGER.warn("preparedInsertVarbinarySql() only applies to TeradataJdbcDriver");
+            LOGGER.warn("preparedInsertVarbinarySql() only applies to EnterpriseJdbcDriver");
         }
     }
 
