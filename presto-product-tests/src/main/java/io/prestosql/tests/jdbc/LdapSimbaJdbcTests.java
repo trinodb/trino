@@ -40,15 +40,13 @@ public class LdapSimbaJdbcTests
     private static final String JDBC_URL_FORMAT = "jdbc:presto://%s;AuthenticationType=LDAP Authentication;" +
             "SSLTrustStorePath=%s;SSLTrustStorePwd=%s;AllowSelfSignedServerCert=1;AllowHostNameCNMismatch=1";
     private static final String SSL_CERTIFICATE_ERROR =
-            "[Simba][Presto](100140) SSL certificate error: Keystore was tampered with, or password was incorrect.";
-    private static final String INVALID_CREDENTIALS_ERROR =
-            "[Simba][Presto](100240) Authentication failed: Invalid credentials.";
-    private static final String MALFORMED_CREDENTIALS_ERROR =
-            "[Simba][Presto](100240) Authentication failed: Malformed decoded credentials.";
-    private static final String UNAUTHORIZED_USER_ERROR =
-            "[Simba][Presto](100240) Authentication failed: Unauthorized user.";
+            "[Starburst][Presto](100140) SSL certificate error: Keystore was tampered with, or password was incorrect.";
+    private static final String AUTHENTICATION_FAILED_PREFIX = "[Starburst][Presto](100240) Authentication failed: ";
+    private static final String INVALID_CREDENTIALS_ERROR = AUTHENTICATION_FAILED_PREFIX + "Invalid credentials.";
+    private static final String MALFORMED_CREDENTIALS_ERROR = AUTHENTICATION_FAILED_PREFIX + "Malformed decoded credentials.";
+    private static final String UNAUTHORIZED_USER_ERROR = AUTHENTICATION_FAILED_PREFIX + "Unauthorized user.";
     private static final String INVALID_SSL_PROPERTY =
-            "[Simba][Presto](100200) Connection string is invalid: SSL value is not valid for given AuthenticationType.";
+            "[Starburst][Presto](100200) Connection string is invalid: SSL value is not valid for given AuthenticationType.";
 
     @Override
     protected String getLdapUrlFormat()
