@@ -19,6 +19,7 @@ import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.TypeLiteral;
 import com.google.inject.multibindings.Multibinder;
+import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.event.client.EventClient;
 import io.prestosql.plugin.hive.metastore.SemiTransactionalHiveMetastore;
 import io.prestosql.plugin.hive.orc.OrcPageSourceFactory;
@@ -32,6 +33,7 @@ import io.prestosql.spi.connector.ConnectorSplitManager;
 
 import javax.inject.Singleton;
 
+import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -41,7 +43,6 @@ import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static java.util.concurrent.Executors.newCachedThreadPool;
-import static java.util.concurrent.Executors.newFixedThreadPool;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
 public class HiveModule
@@ -122,11 +123,11 @@ public class HiveModule
     @ForCachingHiveMetastore
     @Singleton
     @Provides
-    public ExecutorService createCachingHiveMetastoreExecutor(HiveCatalogName catalogName, HiveConfig hiveConfig)
+    public Executor createCachingHiveMetastoreExecutor(HiveCatalogName catalogName, HiveConfig hiveConfig)
     {
-        return newFixedThreadPool(
-                hiveConfig.getMaxMetastoreRefreshThreads(),
-                daemonThreadsNamed("hive-metastore-" + catalogName + "-%s"));
+        return new BoundedExecutor(
+                newCachedThreadPool(daemonThreadsNamed("hive-metastore-" + catalogName + "-%s")),
+                hiveConfig.getMaxMetastoreRefreshThreads());
     }
 
     @Singleton
