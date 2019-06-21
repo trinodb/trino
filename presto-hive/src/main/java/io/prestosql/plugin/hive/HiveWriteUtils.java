@@ -423,7 +423,15 @@ public final class HiveWriteUtils
 
     public static Path getTableDefaultLocation(HdfsContext context, SemiTransactionalHiveMetastore metastore, HdfsEnvironment hdfsEnvironment, String schemaName, String tableName)
     {
-        Optional<String> location = getDatabase(metastore, schemaName).getLocation();
+        Database database = metastore.getDatabase(schemaName)
+                .orElseThrow(() -> new SchemaNotFoundException(schemaName));
+
+        return getTableDefaultLocation(database, context, hdfsEnvironment, schemaName, tableName);
+    }
+
+    public static Path getTableDefaultLocation(Database database, HdfsContext context, HdfsEnvironment hdfsEnvironment, String schemaName, String tableName)
+    {
+        Optional<String> location = database.getLocation();
         if (!location.isPresent() || location.get().isEmpty()) {
             throw new PrestoException(HIVE_DATABASE_LOCATION_ERROR, format("Database '%s' location is not set", schemaName));
         }
@@ -439,11 +447,6 @@ public final class HiveWriteUtils
         }
 
         return new Path(databasePath, tableName);
-    }
-
-    private static Database getDatabase(SemiTransactionalHiveMetastore metastore, String database)
-    {
-        return metastore.getDatabase(database).orElseThrow(() -> new SchemaNotFoundException(database));
     }
 
     public static boolean pathExists(HdfsContext context, HdfsEnvironment hdfsEnvironment, Path path)
