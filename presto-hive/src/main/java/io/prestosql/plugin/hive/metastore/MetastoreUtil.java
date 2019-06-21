@@ -14,6 +14,7 @@
 package io.prestosql.plugin.hive.metastore;
 
 import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableMultimap;
 import io.prestosql.plugin.hive.PartitionOfflineException;
 import io.prestosql.plugin.hive.TableOfflineException;
 import io.prestosql.spi.PrestoException;
@@ -32,6 +33,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static io.prestosql.plugin.hive.HiveSplitManager.PRESTO_OFFLINE;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.prestosql.spi.security.PrincipalType.USER;
 import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.hive.metastore.ColumnType.typeToThriftType;
 import static org.apache.hadoop.hive.metastore.ProtectMode.getProtectModeFromString;
@@ -261,5 +263,18 @@ public class MetastoreUtil
         if (table.getDataColumns().size() <= 1) {
             throw new PrestoException(NOT_SUPPORTED, "Cannot drop the only non-partition column in a table");
         }
+    }
+
+    public static PrincipalPrivileges buildInitialPrivilegeSet(String tableOwner)
+    {
+        HivePrincipal owner = new HivePrincipal(USER, tableOwner);
+        return new PrincipalPrivileges(
+                ImmutableMultimap.<String, HivePrivilegeInfo>builder()
+                        .put(tableOwner, new HivePrivilegeInfo(HivePrivilegeInfo.HivePrivilege.SELECT, true, owner, owner))
+                        .put(tableOwner, new HivePrivilegeInfo(HivePrivilegeInfo.HivePrivilege.INSERT, true, owner, owner))
+                        .put(tableOwner, new HivePrivilegeInfo(HivePrivilegeInfo.HivePrivilege.UPDATE, true, owner, owner))
+                        .put(tableOwner, new HivePrivilegeInfo(HivePrivilegeInfo.HivePrivilege.DELETE, true, owner, owner))
+                        .build(),
+                ImmutableMultimap.of());
     }
 }
