@@ -16,8 +16,6 @@ package io.prestosql.plugin.hive;
 import io.prestosql.spi.connector.ConnectorMetadata;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 
-import javax.inject.Inject;
-
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
@@ -26,11 +24,6 @@ import static com.google.common.base.Preconditions.checkState;
 public class HiveTransactionManager
 {
     private final ConcurrentMap<ConnectorTransactionHandle, TransactionalMetadata> transactions = new ConcurrentHashMap<>();
-
-    @Inject
-    public HiveTransactionManager()
-    {
-    }
 
     public TransactionalMetadata get(ConnectorTransactionHandle transactionHandle)
     {
