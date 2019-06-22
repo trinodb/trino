@@ -15,6 +15,7 @@ package io.prestosql.tests.jdbc;
 
 import io.airlift.log.Logger;
 import io.prestosql.jdbc.PrestoConnection;
+import io.prestosql.jdbc.PrestoResultSet;
 import io.prestosql.sql.analyzer.FeaturesConfig;
 import io.prestosql.tempto.ProductTest;
 import io.prestosql.tempto.Requirement;
@@ -34,6 +35,7 @@ import java.sql.DatabaseMetaData;
 import java.sql.Date;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 
@@ -57,8 +59,11 @@ import static io.prestosql.tests.utils.JdbcDriverUtils.resetSessionProperty;
 import static io.prestosql.tests.utils.JdbcDriverUtils.setSessionProperty;
 import static io.prestosql.tests.utils.JdbcDriverUtils.usingPrestoJdbcDriver;
 import static io.prestosql.tests.utils.JdbcDriverUtils.usingSimbaJdbcDriver;
+import static java.lang.String.format;
 import static java.util.Locale.CHINESE;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 
 public class JdbcTests
         extends ProductTest
@@ -157,6 +162,59 @@ public class JdbcTests
             QueryResult result = queryResult(statement, "select current_timezone()");
             assertThat(result).contains(row(timeZoneId));
         }
+    }
+
+    @Test(groups = {SIMBA_JDBC})
+    public void shouldSetApplicationPrefixAndName()
+            throws SQLException
+    {
+        String applicationName = "starburst";
+        String prestoJdbcURLWithAppPrefixAndName;
+        String prestoApplicationPrefix = "applicationNamePrefix=appPrefix:;";
+
+        if (prestoJdbcURL.contains("applicationNamePrefix")) {
+            prestoJdbcURLWithAppPrefixAndName = prestoJdbcURL.replaceFirst("applicationNamePrefix=[\\w/]*;", prestoApplicationPrefix);
+        }
+        else {
+            prestoJdbcURLWithAppPrefixAndName = prestoJdbcURL + ";" + prestoApplicationPrefix;
+        }
+        Connection testConnection = DriverManager.getConnection(prestoJdbcURLWithAppPrefixAndName, prestoJdbcUser, prestoJdbcPassword);
+        testConnection.setClientInfo("APPLICATIONNAME", applicationName);
+        assertConnectionSource(testConnection, "appPrefix:starburst");
+    }
+
+    private void assertConnectionSource(Connection connection, String expectedSource)
+            throws SQLException
+    {
+        String queryId = getQueryId(connection);
+
+        try (PreparedStatement statement = connection.prepareStatement(
+                "SELECT source FROM system.runtime.queries WHERE query_id = ?")) {
+            statement.setString(1, queryId);
+            try (ResultSet rs = statement.executeQuery()) {
+                assertTrue(rs.next());
+                assertThat(rs.getString("source")).isEqualTo(expectedSource);
+                assertFalse(rs.next());
+            }
+        }
+    }
+
+    private String getQueryId(Connection connection)
+            throws SQLException
+    {
+        String queryId;
+        try (Statement statement = connection.createStatement()) {
+            QueryResult result = queryResult(statement, "SELECT 123");
+            if (result.getJdbcResultSet().isPresent() && result.getJdbcResultSet().get().isWrapperFor(PrestoResultSet.class)) {
+                // if PrestoResult is available, just unwrap it from ResultSet and extract query id
+                queryId = result.getJdbcResultSet().get().unwrap(PrestoResultSet.class).getQueryId();
+            }
+            else {
+                // if there is no ResultSet (UPDATE statements), try to find it in system.runtime.queries table
+                queryId = (String) query(format("select query_id from system.runtime.queries where query = '%s'", "SELECT 123")).row(0).get(0);
+            }
+        }
+        return queryId;
     }
 
     @Test(groups = JDBC)
