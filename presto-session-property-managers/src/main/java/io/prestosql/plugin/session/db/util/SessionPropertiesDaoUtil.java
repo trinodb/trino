@@ -11,18 +11,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.plugin.session;
+package io.prestosql.plugin.session.db.util;
 
-import com.google.common.collect.ImmutableList;
-import io.prestosql.spi.Plugin;
-import io.prestosql.spi.session.SessionPropertyConfigurationManagerFactory;
-
-public class FileSessionPropertyManagerPlugin
-        implements Plugin
+public final class SessionPropertiesDaoUtil
 {
-    @Override
-    public Iterable<SessionPropertyConfigurationManagerFactory> getSessionPropertyConfigurationManagerFactories()
-    {
-        return ImmutableList.of(new FileSessionPropertyManagerFactory());
-    }
+    private SessionPropertiesDaoUtil() {}
+
+    public static final String SESSION_SPECS_TABLE = "session_specs";
+    public static final String CLIENT_TAGS_TABLE = "session_client_tags";
+    public static final String PROPERTIES_TABLE = "session_property_values";
 }
