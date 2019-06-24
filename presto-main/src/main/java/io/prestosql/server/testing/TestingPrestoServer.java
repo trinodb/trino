@@ -60,6 +60,7 @@ import io.prestosql.security.AccessControlManager;
 import io.prestosql.server.GracefulShutdownHandler;
 import io.prestosql.server.PluginManager;
 import io.prestosql.server.ServerMainModule;
+import io.prestosql.server.SessionPropertyDefaults;
 import io.prestosql.server.ShutdownAction;
 import io.prestosql.server.security.ServerSecurityModule;
 import io.prestosql.spi.Plugin;
@@ -120,6 +121,7 @@ public class TestingPrestoServer
     private final TestingAccessControlManager accessControl;
     private final ProcedureTester procedureTester;
     private final Optional<InternalResourceGroupManager<?>> resourceGroupManager;
+    private final SessionPropertyDefaults sessionPropertyDefaults;
     private final SplitManager splitManager;
     private final PageSourceManager pageSourceManager;
     private final NodePartitioningManager nodePartitioningManager;
@@ -279,6 +281,7 @@ public class TestingPrestoServer
             dispatchManager = injector.getInstance(DispatchManager.class);
             queryManager = (SqlQueryManager) injector.getInstance(QueryManager.class);
             resourceGroupManager = Optional.of(injector.getInstance(InternalResourceGroupManager.class));
+            sessionPropertyDefaults = injector.getInstance(SessionPropertyDefaults.class);
             nodePartitioningManager = injector.getInstance(NodePartitioningManager.class);
             clusterMemoryManager = injector.getInstance(ClusterMemoryManager.class);
             statsCalculator = injector.getInstance(StatsCalculator.class);
@@ -287,6 +290,7 @@ public class TestingPrestoServer
             dispatchManager = null;
             queryManager = null;
             resourceGroupManager = Optional.empty();
+            sessionPropertyDefaults = null;
             nodePartitioningManager = null;
             clusterMemoryManager = null;
             statsCalculator = null;
@@ -427,6 +431,11 @@ public class TestingPrestoServer
     public Optional<InternalResourceGroupManager<?>> getResourceGroupManager()
     {
         return resourceGroupManager;
+    }
+
+    public SessionPropertyDefaults getSessionPropertyDefaults()
+    {
+        return sessionPropertyDefaults;
     }
 
     public NodePartitioningManager getNodePartitioningManager()
