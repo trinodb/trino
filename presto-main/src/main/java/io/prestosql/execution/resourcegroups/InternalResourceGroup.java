@@ -631,7 +631,10 @@ public class InternalResourceGroup
         }
     }
 
-    // This method must be called whenever the group's eligibility to run more queries may have changed.
+    /**
+     * Updates eligibility to run more queries for all groups on the path starting from this group up to the root.
+     * This method must be called whenever the eligibility may have changed for this group.
+     */
     private void updateEligibility()
     {
         checkState(Thread.holdsLock(root), "Must hold lock to update eligibility");
@@ -647,6 +650,30 @@ public class InternalResourceGroup
                 lastStartMillis = 0;
             }
             parent.get().updateEligibility();
+        }
+    }
+
+    /**
+     * Traverse all nodes in the subtree rooted at this node and update their eligibility. The traversal happens in
+     * a post-order fashion, i.e. eligibility of all the children is updated before the node itself.
+     */
+    protected void updateEligibilityAll()
+    {
+        checkState(Thread.holdsLock(root), "Must hold lock to update eligibility");
+        synchronized (root) {
+            for (InternalResourceGroup resourceGroup : subGroups.values()) {
+                resourceGroup.updateEligibilityAll();
+            }
+            if (!parent.isPresent()) {
+                return;
+            }
+            if (isEligibleToStartNext()) {
+                parent.get().addOrUpdateSubGroup(this);
+            }
+            else {
+                parent.get().eligibleSubGroups.remove(this);
+                lastStartMillis = 0;
+            }
         }
     }
 
@@ -933,6 +960,8 @@ public class InternalResourceGroup
         {
             if (elapsedSeconds > 0) {
                 internalGenerateCpuQuota(elapsedSeconds);
+                // update eligibility for the nodes under this root
+                updateEligibilityAll();
             }
         }
     }

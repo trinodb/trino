@@ -51,6 +51,7 @@ import static io.prestosql.spi.resourcegroups.SchedulingPolicy.QUERY_PRIORITY;
 import static io.prestosql.spi.resourcegroups.SchedulingPolicy.WEIGHTED;
 import static io.prestosql.spi.resourcegroups.SchedulingPolicy.WEIGHTED_FAIR;
 import static java.util.Collections.reverse;
+import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
@@ -805,6 +806,57 @@ public class TestResourceGroups
             }
         }
         return groupRan;
+    }
+
+    @Test
+    public void testDequeuing()
+    {
+        // Creating a root resource group and one child resource group with
+        // hardcpuLimit=3d
+        // cpuQuotaGenerationMillisPerSecond=(1/60.0)*(# of millis per day).
+        // i.e. cpuQuota worth 1d is generated in 60 seconds.
+        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor());
+        root.setSoftMemoryLimit(new DataSize(1, GIGABYTE));
+        root.setSoftCpuLimit(new Duration(3, DAYS));
+        root.setHardCpuLimit(new Duration(3, DAYS));
+        root.setCpuQuotaGenerationMillisPerSecond((new Duration(1 / 60.0, DAYS)).toMillis());
+        root.setMaxQueuedQueries(10);
+        root.setHardConcurrencyLimit(4);
+
+        InternalResourceGroup childRG = root.getOrCreateSubGroup("childRG");
+        childRG.setSoftMemoryLimit(new DataSize(1, GIGABYTE));
+        childRG.setSoftCpuLimit(new Duration(3, DAYS));
+        childRG.setHardCpuLimit(new Duration(3, DAYS));
+        childRG.setCpuQuotaGenerationMillisPerSecond((new Duration(4, DAYS)).toMillis());
+        childRG.setMaxQueuedQueries(10);
+        childRG.setHardConcurrencyLimit(4);
+
+        MockManagedQueryExecution query1 = new MockManagedQueryExecution(1, "query_id_1", 1, new Duration(10, DAYS));
+        MockManagedQueryExecution query2 = new MockManagedQueryExecution(1, "query_id_2", 1, new Duration(10, DAYS));
+
+        // submitting query_id_1, cpuUsage = 0 < hardCpuLimit. The query should run.
+        childRG.run(query1);
+        assertEquals(query1.getState(), RUNNING);
+        query1.complete();
+
+        // submitting query_id_2. cpuUsage = 10d >= hardCpuLimit. The query should get queued.
+        childRG.run(query2);
+        assertEquals(query2.getState(), QUEUED);
+
+        // Generating cpuquota with elapsedSeconds=240 and processing eligible queries.
+        root.generateCpuQuota(240);
+        root.processQueuedQueries();
+
+        // query_id_2 should still be queued since cpuUsage = (10 - 4) d = 6d >= cpuHardLimit.
+        assertEquals(query2.getState(), QUEUED);
+
+        // Generating cpuquota again with elapsedSeconds=240 and processing eligible queries.
+        root.generateCpuQuota(240);
+        root.processQueuedQueries();
+
+        // query_id_2 should now be running since cpuUsage = (6 - 4) d = 2d < cpuHardLimit.
+        assertEquals(query2.getState(), RUNNING);
+        query2.complete();
     }
 
     private static Set<MockManagedQueryExecution> fillGroupTo(InternalResourceGroup group, Set<MockManagedQueryExecution> existingQueries, int count)
