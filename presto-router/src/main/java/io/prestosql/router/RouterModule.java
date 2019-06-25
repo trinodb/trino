@@ -24,6 +24,7 @@ import io.prestosql.router.cluster.ForQueryTracker;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.http.client.HttpClientBinder.httpClientBinder;
+import static io.airlift.http.server.HttpServerBinder.httpServerBinder;
 import static io.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -33,6 +34,7 @@ public class RouterModule
     @Override
     protected void setup(Binder binder)
     {
+        httpServerBinder(binder).bindResource("/ui", "router_ui").withWelcomeFile("index.html");
         configBinder(binder).bindConfig(RouterConfig.class);
 
         binder.bind(ClusterManager.class).in(Scopes.SINGLETON);
