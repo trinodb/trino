@@ -56,12 +56,13 @@ public class ClusterStatsResource
         long runningQueries = 0;
         long blockedQueries = 0;
         long queuedQueries = 0;
+        long activeNodes = nodeManager.getNodes(NodeState.ACTIVE).stream()
+                .filter(node -> isIncludeCoordinator || !node.isCoordinator())
+                .count();
 
-        long activeNodes = nodeManager.getNodes(NodeState.ACTIVE).size();
-        if (!isIncludeCoordinator) {
-            activeNodes -= 1;
-        }
-
+        long activeCoordinators = nodeManager.getNodes(NodeState.ACTIVE).stream()
+                .filter(node -> node.isCoordinator())
+                .count();
         long totalAvailableProcessors = clusterMemoryManager.getTotalAvailableProcessors();
 
         long runningDrivers = 0;
@@ -98,6 +99,7 @@ public class ClusterStatsResource
                 runningQueries,
                 blockedQueries,
                 queuedQueries,
+                activeCoordinators,
                 activeNodes,
                 runningDrivers,
                 totalAvailableProcessors,
@@ -131,6 +133,7 @@ public class ClusterStatsResource
         private final long blockedQueries;
         private final long queuedQueries;
 
+        private final long activeCoordinators;
         private final long activeWorkers;
         private final long runningDrivers;
 
@@ -147,6 +150,7 @@ public class ClusterStatsResource
                 @JsonProperty("runningQueries") long runningQueries,
                 @JsonProperty("blockedQueries") long blockedQueries,
                 @JsonProperty("queuedQueries") long queuedQueries,
+                @JsonProperty("activeCoordinators") long activeCoordinators,
                 @JsonProperty("activeWorkers") long activeWorkers,
                 @JsonProperty("runningDrivers") long runningDrivers,
                 @JsonProperty("totalAvailableProcessors") long totalAvailableProcessors,
@@ -158,6 +162,7 @@ public class ClusterStatsResource
             this.runningQueries = runningQueries;
             this.blockedQueries = blockedQueries;
             this.queuedQueries = queuedQueries;
+            this.activeCoordinators = activeCoordinators;
             this.activeWorkers = activeWorkers;
             this.runningDrivers = runningDrivers;
             this.totalAvailableProcessors = totalAvailableProcessors;
@@ -183,6 +188,12 @@ public class ClusterStatsResource
         public long getQueuedQueries()
         {
             return queuedQueries;
+        }
+
+        @JsonProperty
+        public long getActiveCoordinators()
+        {
+            return activeCoordinators;
         }
 
         @JsonProperty
