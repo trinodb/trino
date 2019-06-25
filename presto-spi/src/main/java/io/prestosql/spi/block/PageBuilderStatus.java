@@ -67,8 +67,8 @@ public class PageBuilderStatus
     @Override
     public String toString()
     {
-        StringBuilder buffer = new StringBuilder("BlockBuilderStatus{");
-        buffer.append("maxSizeInBytes=").append(maxPageSizeInBytes);
+        StringBuilder buffer = new StringBuilder("PageBuilderStatus{");
+        buffer.append("maxPageSizeInBytes=").append(maxPageSizeInBytes);
         buffer.append(", currentSize=").append(currentSize);
         buffer.append('}');
         return buffer.toString();
