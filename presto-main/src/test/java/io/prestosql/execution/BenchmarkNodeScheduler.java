@@ -27,8 +27,8 @@ import io.prestosql.execution.scheduler.NodeScheduler;
 import io.prestosql.execution.scheduler.NodeSchedulerConfig;
 import io.prestosql.execution.scheduler.NodeSelector;
 import io.prestosql.execution.scheduler.NodeSelectorFactory;
-import io.prestosql.execution.scheduler.SimpleNodeSelectorFactory;
 import io.prestosql.execution.scheduler.TopologyAwareNodeSelectorFactory;
+import io.prestosql.execution.scheduler.UniformNodeSelectorFactory;
 import io.prestosql.metadata.InMemoryNodeManager;
 import io.prestosql.metadata.InternalNode;
 import io.prestosql.metadata.Split;
@@ -194,7 +194,7 @@ public class BenchmarkNodeScheduler
             NodeSchedulerConfig nodeSchedulerConfig = getNodeSchedulerConfig();
             switch (policy) {
                 case "uniform":
-                    return new SimpleNodeSelectorFactory(nodeManager, nodeSchedulerConfig, nodeTaskMap);
+                    return new UniformNodeSelectorFactory(nodeManager, nodeSchedulerConfig, nodeTaskMap);
                 case "topology":
                     return new TopologyAwareNodeSelectorFactory(new FlatNetworkTopology(), nodeManager, nodeSchedulerConfig, nodeTaskMap);
                 case "benchmark":

@@ -38,7 +38,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.prestosql.metadata.NodeState.ACTIVE;
 import static java.util.Objects.requireNonNull;
 
-public class SimpleNodeSelectorFactory
+public class UniformNodeSelectorFactory
         implements NodeSelectorFactory
 {
     private static final Logger LOG = Logger.get(NodeScheduler.class);
@@ -56,7 +56,7 @@ public class SimpleNodeSelectorFactory
     private final NodeTaskMap nodeTaskMap;
 
     @Inject
-    public SimpleNodeSelectorFactory(
+    public UniformNodeSelectorFactory(
             InternalNodeManager nodeManager,
             NodeSchedulerConfig config,
             NodeTaskMap nodeTaskMap)
@@ -86,7 +86,7 @@ public class SimpleNodeSelectorFactory
                 () -> createNodeMap(catalogName),
                 5, TimeUnit.SECONDS);
 
-        return new SimpleNodeSelector(
+        return new UniformNodeSelector(
                 nodeManager,
                 nodeTaskMap,
                 includeCoordinator,
