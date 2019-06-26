@@ -168,7 +168,6 @@ public class TestNodeScheduler
         NodeSchedulerConfig nodeSchedulerConfig = new NodeSchedulerConfig()
                 .setMaxSplitsPerNode(25)
                 .setIncludeCoordinator(false)
-                .setNetworkTopology("test")
                 .setMaxPendingSplitsPerTask(20);
 
         TestNetworkTopology topology = new TestNetworkTopology();

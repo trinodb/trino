@@ -152,8 +152,8 @@ import static io.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
 import static io.airlift.json.JsonBinder.jsonBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
-import static io.prestosql.execution.scheduler.NodeSchedulerConfig.NetworkTopologyType.FLAT;
-import static io.prestosql.execution.scheduler.NodeSchedulerConfig.NetworkTopologyType.LEGACY;
+import static io.prestosql.execution.scheduler.NodeSchedulerConfig.NodeSchedulerPolicy.TOPOLOGY;
+import static io.prestosql.execution.scheduler.NodeSchedulerConfig.NodeSchedulerPolicy.UNIFORM;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
@@ -246,13 +246,14 @@ public class ServerMainModule
         // TODO: move to CoordinatorModule when NodeScheduler is moved
         install(installModuleIf(
                 NodeSchedulerConfig.class,
-                config -> LEGACY.equalsIgnoreCase(config.getNetworkTopology()),
+                config -> UNIFORM == config.getNodeSchedulerPolicy(),
                 moduleBinder -> moduleBinder.bind(NodeSelectorFactory.class).to(SimpleNodeSelectorFactory.class).in(Scopes.SINGLETON)));
         install(installModuleIf(
                 NodeSchedulerConfig.class,
-                config -> FLAT.equalsIgnoreCase(config.getNetworkTopology()),
+                config -> TOPOLOGY == config.getNodeSchedulerPolicy(),
                 moduleBinder -> {
                     moduleBinder.bind(NetworkTopology.class).to(FlatNetworkTopology.class).in(Scopes.SINGLETON);
+                    moduleBinder.bind(TopologyAwareNodeSelectorFactory.class).in(Scopes.SINGLETON);
                     moduleBinder.bind(NodeSelectorFactory.class).to(TopologyAwareNodeSelectorFactory.class).in(Scopes.SINGLETON);
                     binder.bind(NodeSchedulerExporter.class).in(Scopes.SINGLETON);
                 }));
