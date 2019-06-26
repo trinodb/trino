@@ -59,7 +59,7 @@ With cost based join distribution selection, Presto automatically chooses to
 use a partitioned or broadcast join. With cost based join enumeration, Presto
 automatically chooses which side is the probe and which is the build.
 
-The join distribution strategy is governed by the ``join_distribution_type ``
+The join distribution strategy is governed by the ``join_distribution_type``
 session property, with the ``join-distribution-type`` configuration property
 providing the default value.
 
