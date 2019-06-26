@@ -13,23 +13,9 @@
  */
 package io.prestosql.execution.scheduler;
 
-import com.google.common.collect.ImmutableList;
-import io.prestosql.spi.HostAddress;
+import io.prestosql.connector.CatalogName;
 
-import java.util.List;
-
-public class LegacyNetworkTopology
-        implements NetworkTopology
+public interface NodeSelectorFactory
 {
-    @Override
-    public NetworkLocation locate(HostAddress address)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public List<String> getLocationSegmentNames()
-    {
-        return ImmutableList.of();
-    }
+    NodeSelector createNodeSelector(CatalogName catalogName);
 }

@@ -21,12 +21,14 @@ import com.google.common.collect.Multimap;
 import io.prestosql.client.NodeVersion;
 import io.prestosql.connector.CatalogName;
 import io.prestosql.execution.scheduler.FlatNetworkTopology;
-import io.prestosql.execution.scheduler.LegacyNetworkTopology;
 import io.prestosql.execution.scheduler.NetworkLocation;
 import io.prestosql.execution.scheduler.NetworkTopology;
 import io.prestosql.execution.scheduler.NodeScheduler;
 import io.prestosql.execution.scheduler.NodeSchedulerConfig;
 import io.prestosql.execution.scheduler.NodeSelector;
+import io.prestosql.execution.scheduler.NodeSelectorFactory;
+import io.prestosql.execution.scheduler.SimpleNodeSelectorFactory;
+import io.prestosql.execution.scheduler.TopologyAwareNodeSelectorFactory;
 import io.prestosql.metadata.InMemoryNodeManager;
 import io.prestosql.metadata.InternalNode;
 import io.prestosql.metadata.Split;
@@ -170,7 +172,7 @@ public class BenchmarkNodeScheduler
 
             InMemoryNodeManager nodeManager = new InMemoryNodeManager();
             nodeManager.addNode(CONNECTOR_ID, nodes);
-            NodeScheduler nodeScheduler = new NodeScheduler(getNetworkTopology(), nodeManager, getNodeSchedulerConfig(), nodeTaskMap);
+            NodeScheduler nodeScheduler = new NodeScheduler(getNodeSelectorFactory(nodeManager, nodeTaskMap));
             nodeSelector = nodeScheduler.createNodeSelector(CONNECTOR_ID);
         }
 
@@ -189,23 +191,19 @@ public class BenchmarkNodeScheduler
                     .setMaxPendingSplitsPerTask(MAX_PENDING_SPLITS_PER_TASK_PER_NODE);
         }
 
-        private NetworkTopology getNetworkTopology()
+        private NodeSelectorFactory getNodeSelectorFactory(InMemoryNodeManager nodeManager, NodeTaskMap nodeTaskMap)
         {
-            NetworkTopology topology;
+            NodeSchedulerConfig nodeSchedulerConfig = getNodeSchedulerConfig();
             switch (topologyName) {
                 case LEGACY:
-                    topology = new LegacyNetworkTopology();
-                    break;
+                    return new SimpleNodeSelectorFactory(nodeManager, nodeSchedulerConfig, nodeTaskMap);
                 case FLAT:
-                    topology = new FlatNetworkTopology();
-                    break;
+                    return new TopologyAwareNodeSelectorFactory(new FlatNetworkTopology(), nodeManager, nodeSchedulerConfig, nodeTaskMap);
                 case BENCHMARK:
-                    topology = new BenchmarkNetworkTopology();
-                    break;
+                    return new TopologyAwareNodeSelectorFactory(new BenchmarkNetworkTopology(), nodeManager, nodeSchedulerConfig, nodeTaskMap);
                 default:
                     throw new IllegalStateException();
             }
-            return topology;
         }
 
         public Map<InternalNode, MockRemoteTaskFactory.MockRemoteTask> getTaskMap()
