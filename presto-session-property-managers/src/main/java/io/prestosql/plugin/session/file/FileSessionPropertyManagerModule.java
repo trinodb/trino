@@ -11,28 +11,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.plugin.session;
+package io.prestosql.plugin.session.file;
 
-import io.airlift.configuration.Config;
+import com.google.inject.Binder;
+import com.google.inject.Module;
+import com.google.inject.Scopes;
 
-import javax.validation.constraints.NotNull;
+import static io.airlift.configuration.ConfigBinder.configBinder;
 
-import java.io.File;
-
-public class FileSessionPropertyManagerConfig
+public class FileSessionPropertyManagerModule
+        implements Module
 {
-    private File configFile;
-
-    @NotNull
-    public File getConfigFile()
+    @Override
+    public void configure(Binder binder)
     {
-        return configFile;
-    }
-
-    @Config("session-property-manager.config-file")
-    public FileSessionPropertyManagerConfig setConfigFile(File configFile)
-    {
-        this.configFile = configFile;
-        return this;
+        configBinder(binder).bindConfig(FileSessionPropertyManagerConfig.class);
+        binder.bind(FileSessionPropertyManager.class).in(Scopes.SINGLETON);
     }
 }

@@ -15,6 +15,7 @@ package io.prestosql.plugin.session;
 
 import com.google.common.collect.ImmutableList;
 import io.prestosql.plugin.session.db.DbSessionPropertyManagerFactory;
+import io.prestosql.plugin.session.file.FileSessionPropertyManagerFactory;
 import io.prestosql.spi.Plugin;
 import io.prestosql.spi.session.SessionPropertyConfigurationManagerFactory;
 
