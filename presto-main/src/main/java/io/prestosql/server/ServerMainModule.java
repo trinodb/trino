@@ -53,14 +53,10 @@ import io.prestosql.execution.TaskManagerConfig;
 import io.prestosql.execution.TaskStatus;
 import io.prestosql.execution.executor.MultilevelSplitQueue;
 import io.prestosql.execution.executor.TaskExecutor;
-import io.prestosql.execution.scheduler.FlatNetworkTopology;
-import io.prestosql.execution.scheduler.NetworkTopology;
 import io.prestosql.execution.scheduler.NodeScheduler;
 import io.prestosql.execution.scheduler.NodeSchedulerConfig;
-import io.prestosql.execution.scheduler.NodeSchedulerExporter;
-import io.prestosql.execution.scheduler.NodeSelectorFactory;
-import io.prestosql.execution.scheduler.UniformNodeSelectorFactory;
-import io.prestosql.execution.scheduler.TopologyAwareNodeSelectorFactory;
+import io.prestosql.execution.scheduler.TopologyAwareNodeSelectorModule;
+import io.prestosql.execution.scheduler.UniformNodeSelectorModule;
 import io.prestosql.index.IndexManager;
 import io.prestosql.memory.LocalMemoryManager;
 import io.prestosql.memory.LocalMemoryManagerExporter;
@@ -249,16 +245,11 @@ public class ServerMainModule
         install(installModuleIf(
                 NodeSchedulerConfig.class,
                 config -> UNIFORM == config.getNodeSchedulerPolicy(),
-                moduleBinder -> moduleBinder.bind(NodeSelectorFactory.class).to(UniformNodeSelectorFactory.class).in(Scopes.SINGLETON)));
+                new UniformNodeSelectorModule()));
         install(installModuleIf(
                 NodeSchedulerConfig.class,
                 config -> TOPOLOGY == config.getNodeSchedulerPolicy(),
-                moduleBinder -> {
-                    moduleBinder.bind(NetworkTopology.class).to(FlatNetworkTopology.class).in(Scopes.SINGLETON);
-                    moduleBinder.bind(TopologyAwareNodeSelectorFactory.class).in(Scopes.SINGLETON);
-                    moduleBinder.bind(NodeSelectorFactory.class).to(TopologyAwareNodeSelectorFactory.class).in(Scopes.SINGLETON);
-                    binder.bind(NodeSchedulerExporter.class).in(Scopes.SINGLETON);
-                }));
+                new TopologyAwareNodeSelectorModule()));
 
         // task execution
         jaxrsBinder(binder).bind(TaskResource.class);
