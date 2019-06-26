@@ -30,6 +30,7 @@ import io.prestosql.execution.scheduler.NodeScheduler;
 import io.prestosql.execution.scheduler.NodeSchedulerConfig;
 import io.prestosql.execution.scheduler.NodeSelector;
 import io.prestosql.execution.scheduler.NodeSelectorFactory;
+import io.prestosql.execution.scheduler.TopologyAwareNodeSelectorConfig;
 import io.prestosql.execution.scheduler.TopologyAwareNodeSelectorFactory;
 import io.prestosql.execution.scheduler.UniformNodeSelector;
 import io.prestosql.execution.scheduler.UniformNodeSelectorFactory;
@@ -171,7 +172,7 @@ public class TestNodeScheduler
                 .setMaxPendingSplitsPerTask(20);
 
         TestNetworkTopology topology = new TestNetworkTopology();
-        NodeSelectorFactory nodeSelectorFactory = new TopologyAwareNodeSelectorFactory(topology, nodeManager, nodeSchedulerConfig, nodeTaskMap);
+        NodeSelectorFactory nodeSelectorFactory = new TopologyAwareNodeSelectorFactory(topology, nodeManager, nodeSchedulerConfig, nodeTaskMap, getNetworkTopologyConfig());
         NodeScheduler nodeScheduler = new NodeScheduler(nodeSelectorFactory);
         NodeSelector nodeSelector = nodeScheduler.createNodeSelector(Optional.of(CONNECTOR_ID));
 
@@ -799,11 +800,11 @@ public class TestNodeScheduler
             Collections.reverse(parts);
             return NetworkLocation.create(parts);
         }
+    }
 
-        @Override
-        public List<String> getLocationSegmentNames()
-        {
-            return ImmutableList.of("rack", "machine");
-        }
+    private static TopologyAwareNodeSelectorConfig getNetworkTopologyConfig()
+    {
+        return new TopologyAwareNodeSelectorConfig()
+                .setLocationSegmentNames(ImmutableList.of("rack", "machine"));
     }
 }
