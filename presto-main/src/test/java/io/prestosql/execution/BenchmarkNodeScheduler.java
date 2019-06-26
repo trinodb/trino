@@ -69,9 +69,6 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static io.prestosql.execution.scheduler.NodeSchedulerConfig.NetworkTopologyType.BENCHMARK;
-import static io.prestosql.execution.scheduler.NodeSchedulerConfig.NetworkTopologyType.FLAT;
-import static io.prestosql.execution.scheduler.NodeSchedulerConfig.NetworkTopologyType.LEGACY;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 
@@ -129,10 +126,10 @@ public class BenchmarkNodeScheduler
     @State(Scope.Thread)
     public static class BenchmarkData
     {
-        @Param({LEGACY,
-                BENCHMARK,
-                FLAT})
-        private String topologyName = LEGACY;
+        @Param({"uniform",
+                "benchmark",
+                "topology"})
+        private String policy = "uniform";
 
         private FinalizerService finalizerService = new FinalizerService();
         private NodeSelector nodeSelector;
@@ -188,19 +185,19 @@ public class BenchmarkNodeScheduler
             return new NodeSchedulerConfig()
                     .setMaxSplitsPerNode(MAX_SPLITS_PER_NODE)
                     .setIncludeCoordinator(false)
-                    .setNetworkTopology(topologyName)
+                    .setNodeSchedulerPolicy(policy)
                     .setMaxPendingSplitsPerTask(MAX_PENDING_SPLITS_PER_TASK_PER_NODE);
         }
 
         private NodeSelectorFactory getNodeSelectorFactory(InMemoryNodeManager nodeManager, NodeTaskMap nodeTaskMap)
         {
             NodeSchedulerConfig nodeSchedulerConfig = getNodeSchedulerConfig();
-            switch (topologyName) {
-                case LEGACY:
+            switch (policy) {
+                case "uniform":
                     return new SimpleNodeSelectorFactory(nodeManager, nodeSchedulerConfig, nodeTaskMap);
-                case FLAT:
+                case "topology":
                     return new TopologyAwareNodeSelectorFactory(new FlatNetworkTopology(), nodeManager, nodeSchedulerConfig, nodeTaskMap);
-                case BENCHMARK:
+                case "benchmark":
                     return new TopologyAwareNodeSelectorFactory(new BenchmarkNetworkTopology(), nodeManager, nodeSchedulerConfig, nodeTaskMap);
                 default:
                     throw new IllegalStateException();
