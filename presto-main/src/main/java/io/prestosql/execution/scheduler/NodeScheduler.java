@@ -34,7 +34,6 @@ import io.prestosql.metadata.InternalNodeManager;
 import io.prestosql.metadata.Split;
 import io.prestosql.spi.HostAddress;
 
-import javax.annotation.PreDestroy;
 import javax.inject.Inject;
 
 import java.net.InetAddress;
@@ -67,7 +66,7 @@ public class NodeScheduler
             .expireAfterWrite(30, TimeUnit.SECONDS)
             .build();
 
-    private final NetworkLocationCache networkLocationCache;
+    private final NetworkTopology networkTopology;
     private final List<CounterStat> topologicalSplitCounters;
     private final List<String> networkLocationSegmentNames;
     private final InternalNodeManager nodeManager;
@@ -82,18 +81,9 @@ public class NodeScheduler
     @Inject
     public NodeScheduler(NetworkTopology networkTopology, InternalNodeManager nodeManager, NodeSchedulerConfig config, NodeTaskMap nodeTaskMap)
     {
-        this(new NetworkLocationCache(networkTopology), networkTopology, nodeManager, config, nodeTaskMap);
-    }
-
-    public NodeScheduler(
-            NetworkLocationCache networkLocationCache,
-            NetworkTopology networkTopology,
-            InternalNodeManager nodeManager,
-            NodeSchedulerConfig config,
-            NodeTaskMap nodeTaskMap)
-    {
-        this.networkLocationCache = networkLocationCache;
-        this.nodeManager = nodeManager;
+        this.networkTopology = requireNonNull(networkTopology, "networkTopology is null");
+        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
+        requireNonNull(config, "config is null");
         this.minCandidates = config.getMinCandidates();
         this.includeCoordinator = config.isIncludeCoordinator();
         this.maxSplitsPerNode = config.getMaxSplitsPerNode();
@@ -114,12 +104,6 @@ public class NodeScheduler
             networkLocationSegmentNames = ImmutableList.of();
         }
         topologicalSplitCounters = builder.build();
-    }
-
-    @PreDestroy
-    public void stop()
-    {
-        networkLocationCache.stop();
     }
 
     public Map<String, CounterStat> getTopologicalSplitCounters()
@@ -154,7 +138,7 @@ public class NodeScheduler
 
             for (InternalNode node : nodes) {
                 if (useNetworkTopology && (includeCoordinator || !coordinatorNodeIds.contains(node.getNodeIdentifier()))) {
-                    NetworkLocation location = networkLocationCache.get(node.getHostAndPort());
+                    NetworkLocation location = networkTopology.locate(node.getHostAndPort());
                     for (int i = 0; i <= location.getSegments().size(); i++) {
                         workersByNetworkPath.put(location.subLocation(0, i), node);
                     }
@@ -187,7 +171,7 @@ public class NodeScheduler
                     maxPendingSplitsPerTask,
                     topologicalSplitCounters,
                     networkLocationSegmentNames,
-                    networkLocationCache);
+                    networkTopology);
         }
         else {
             return new SimpleNodeSelector(nodeManager, nodeTaskMap, includeCoordinator, nodeMap, minCandidates, maxSplitsPerNode, maxPendingSplitsPerTask, optimizedLocalScheduling);

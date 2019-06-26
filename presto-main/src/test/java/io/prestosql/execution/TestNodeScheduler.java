@@ -26,7 +26,6 @@ import io.prestosql.client.NodeVersion;
 import io.prestosql.connector.CatalogName;
 import io.prestosql.execution.scheduler.LegacyNetworkTopology;
 import io.prestosql.execution.scheduler.NetworkLocation;
-import io.prestosql.execution.scheduler.NetworkLocationCache;
 import io.prestosql.execution.scheduler.NetworkTopology;
 import io.prestosql.execution.scheduler.NodeScheduler;
 import io.prestosql.execution.scheduler.NodeSchedulerConfig;
@@ -59,7 +58,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadLocalRandom;
 
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static io.prestosql.execution.scheduler.NetworkLocation.ROOT_LOCATION;
 import static io.prestosql.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static io.prestosql.testing.assertions.PrestoExceptionAssert.assertPrestoExceptionThrownBy;
 import static java.lang.String.format;
@@ -171,21 +169,7 @@ public class TestNodeScheduler
                 .setMaxPendingSplitsPerTask(20);
 
         TestNetworkTopology topology = new TestNetworkTopology();
-        NetworkLocationCache locationCache = new NetworkLocationCache(topology)
-        {
-            @Override
-            public NetworkLocation get(HostAddress host)
-            {
-                // Bypass the cache for workers, since we only look them up once and they would all be unresolved otherwise
-                if (host.getHostText().startsWith("host")) {
-                    return topology.locate(host);
-                }
-                else {
-                    return super.get(host);
-                }
-            }
-        };
-        NodeScheduler nodeScheduler = new NodeScheduler(locationCache, topology, nodeManager, nodeSchedulerConfig, nodeTaskMap);
+        NodeScheduler nodeScheduler = new NodeScheduler(topology, nodeManager, nodeSchedulerConfig, nodeTaskMap);
         NodeSelector nodeSelector = nodeScheduler.createNodeSelector(CONNECTOR_ID);
 
         // Fill up the nodes with non-local data
@@ -238,17 +222,6 @@ public class TestNodeScheduler
         Set<Split> unassigned = Sets.difference(rackLocalSplits.build(), new HashSet<>(assignments.values()));
         // Compute the assignments a second time to account for the fact that some splits may not have been assigned due to asynchronous
         // loading of the NetworkLocationCache
-        boolean cacheRefreshed = false;
-        while (!cacheRefreshed) {
-            cacheRefreshed = true;
-            if (locationCache.get(dataHost1).equals(ROOT_LOCATION)) {
-                cacheRefreshed = false;
-            }
-            if (locationCache.get(dataHost2).equals(ROOT_LOCATION)) {
-                cacheRefreshed = false;
-            }
-            MILLISECONDS.sleep(10);
-        }
         assignments = nodeSelector.computeAssignments(unassigned, ImmutableList.copyOf(taskMap.values())).getAssignments();
         for (InternalNode node : assignments.keySet()) {
             RemoteTask remoteTask = taskMap.get(node);
