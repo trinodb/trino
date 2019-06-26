@@ -30,9 +30,9 @@ import io.prestosql.execution.scheduler.NodeScheduler;
 import io.prestosql.execution.scheduler.NodeSchedulerConfig;
 import io.prestosql.execution.scheduler.NodeSelector;
 import io.prestosql.execution.scheduler.NodeSelectorFactory;
-import io.prestosql.execution.scheduler.SimpleNodeSelector;
-import io.prestosql.execution.scheduler.SimpleNodeSelectorFactory;
 import io.prestosql.execution.scheduler.TopologyAwareNodeSelectorFactory;
+import io.prestosql.execution.scheduler.UniformNodeSelector;
+import io.prestosql.execution.scheduler.UniformNodeSelectorFactory;
 import io.prestosql.metadata.InMemoryNodeManager;
 import io.prestosql.metadata.InternalNode;
 import io.prestosql.metadata.Split;
@@ -97,7 +97,7 @@ public class TestNodeScheduler
                 .setIncludeCoordinator(false)
                 .setMaxPendingSplitsPerTask(10);
 
-        NodeScheduler nodeScheduler = new NodeScheduler(new SimpleNodeSelectorFactory(nodeManager, nodeSchedulerConfig, nodeTaskMap));
+        NodeScheduler nodeScheduler = new NodeScheduler(new UniformNodeSelectorFactory(nodeManager, nodeSchedulerConfig, nodeTaskMap));
         // contents of taskMap indicate the node-task map for the current stage
         taskMap = new HashMap<>();
         nodeSelector = nodeScheduler.createNodeSelector(Optional.of(CONNECTOR_ID));
@@ -649,7 +649,7 @@ public class TestNodeScheduler
         }
 
         // Redistribute 1 split from Node 1 to Node 2
-        SimpleNodeSelector.redistributeSplit(assignment, node1, node2, nodesByHost.build());
+        UniformNodeSelector.redistributeSplit(assignment, node1, node2, nodesByHost.build());
 
         assertEquals(assignment.get(node1).size(), 11);
         assertEquals(assignment.get(node2).size(), 11);

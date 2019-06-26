@@ -52,10 +52,10 @@ import static io.prestosql.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static java.util.Comparator.comparingInt;
 import static java.util.Objects.requireNonNull;
 
-public class SimpleNodeSelector
+public class UniformNodeSelector
         implements NodeSelector
 {
-    private static final Logger log = Logger.get(SimpleNodeSelector.class);
+    private static final Logger log = Logger.get(UniformNodeSelector.class);
 
     private final InternalNodeManager nodeManager;
     private final NodeTaskMap nodeTaskMap;
@@ -66,7 +66,7 @@ public class SimpleNodeSelector
     private final int maxPendingSplitsPerTask;
     private final boolean optimizedLocalScheduling;
 
-    public SimpleNodeSelector(
+    public UniformNodeSelector(
             InternalNodeManager nodeManager,
             NodeTaskMap nodeTaskMap,
             boolean includeCoordinator,

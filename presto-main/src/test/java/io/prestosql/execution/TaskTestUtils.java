@@ -24,7 +24,7 @@ import io.prestosql.execution.TestSqlTaskManager.MockExchangeClientSupplier;
 import io.prestosql.execution.buffer.OutputBuffers;
 import io.prestosql.execution.scheduler.NodeScheduler;
 import io.prestosql.execution.scheduler.NodeSchedulerConfig;
-import io.prestosql.execution.scheduler.SimpleNodeSelectorFactory;
+import io.prestosql.execution.scheduler.UniformNodeSelectorFactory;
 import io.prestosql.index.IndexManager;
 import io.prestosql.metadata.InMemoryNodeManager;
 import io.prestosql.metadata.Metadata;
@@ -110,7 +110,7 @@ public final class TaskTestUtils
         // we don't start the finalizer so nothing will be collected, which is ok for a test
         FinalizerService finalizerService = new FinalizerService();
 
-        NodeScheduler nodeScheduler = new NodeScheduler(new SimpleNodeSelectorFactory(
+        NodeScheduler nodeScheduler = new NodeScheduler(new UniformNodeSelectorFactory(
                 new InMemoryNodeManager(),
                 new NodeSchedulerConfig().setIncludeCoordinator(true),
                 new NodeTaskMap(finalizerService)));

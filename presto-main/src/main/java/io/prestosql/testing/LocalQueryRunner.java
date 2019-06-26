@@ -69,7 +69,7 @@ import io.prestosql.execution.TaskSource;
 import io.prestosql.execution.resourcegroups.NoOpResourceGroupManager;
 import io.prestosql.execution.scheduler.NodeScheduler;
 import io.prestosql.execution.scheduler.NodeSchedulerConfig;
-import io.prestosql.execution.scheduler.SimpleNodeSelectorFactory;
+import io.prestosql.execution.scheduler.UniformNodeSelectorFactory;
 import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.index.IndexManager;
 import io.prestosql.memory.MemoryManagerConfig;
@@ -286,7 +286,7 @@ public class LocalQueryRunner
         this.pageSorter = new PagesIndexPageSorter(new PagesIndex.TestingFactory(false));
         this.indexManager = new IndexManager();
         this.nodeSchedulerConfig = new NodeSchedulerConfig().setIncludeCoordinator(true);
-        NodeScheduler nodeScheduler = new NodeScheduler(new SimpleNodeSelectorFactory(nodeManager, nodeSchedulerConfig, new NodeTaskMap(finalizerService)));
+        NodeScheduler nodeScheduler = new NodeScheduler(new UniformNodeSelectorFactory(nodeManager, nodeSchedulerConfig, new NodeTaskMap(finalizerService)));
         this.featuresConfig = requireNonNull(featuresConfig, "featuresConfig is null");
         this.pageSinkManager = new PageSinkManager();
         CatalogManager catalogManager = new CatalogManager();

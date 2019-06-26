@@ -57,7 +57,7 @@ import io.prestosql.execution.scheduler.NodeScheduler;
 import io.prestosql.execution.scheduler.NodeSchedulerConfig;
 import io.prestosql.execution.scheduler.NodeSchedulerExporter;
 import io.prestosql.execution.scheduler.NodeSelectorFactory;
-import io.prestosql.execution.scheduler.SimpleNodeSelectorFactory;
+import io.prestosql.execution.scheduler.UniformNodeSelectorFactory;
 import io.prestosql.execution.scheduler.TopologyAwareNodeSelectorFactory;
 import io.prestosql.index.IndexManager;
 import io.prestosql.memory.LocalMemoryManager;
@@ -247,7 +247,7 @@ public class ServerMainModule
         install(installModuleIf(
                 NodeSchedulerConfig.class,
                 config -> UNIFORM == config.getNodeSchedulerPolicy(),
-                moduleBinder -> moduleBinder.bind(NodeSelectorFactory.class).to(SimpleNodeSelectorFactory.class).in(Scopes.SINGLETON)));
+                moduleBinder -> moduleBinder.bind(NodeSelectorFactory.class).to(UniformNodeSelectorFactory.class).in(Scopes.SINGLETON)));
         install(installModuleIf(
                 NodeSchedulerConfig.class,
                 config -> TOPOLOGY == config.getNodeSchedulerPolicy(),
