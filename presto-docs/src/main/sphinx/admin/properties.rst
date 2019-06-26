@@ -470,17 +470,18 @@ Node Scheduler Properties
     across all worker nodes. Setting it too high may increase query
     latency and increase CPU usage on the coordinator.
 
-``node-scheduler.network-topology``
+``node-scheduler.policy``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
     * **Type:** ``string``
-    * **Allowed values:** ``legacy``, ``flat``
-    * **Default value:** ``legacy``
+    * **Allowed values:** ``uniform``, ``topology``
+    * **Default value:** ``uniform``
 
-    Sets the network topology to use when scheduling splits. ``legacy`` will ignore
-    the topology when scheduling splits. ``flat`` will try to schedule splits on the host
+    Sets the node scheduler policy to use when scheduling splits. ``uniform`` will attempt
+    to schedule splits on the host where the data is located, while maintaining a uniform
+    distribution across all hosts. ``topology`` will try to schedule splits on the host
     where the data is located by reserving 50% of the work queue for local splits.
-    It is recommended to use ``flat`` for clusters where distributed storage runs on
+    It is recommended to use ``uniform`` for clusters where distributed storage runs on
     the same nodes as Presto workers.
 
 
