@@ -27,6 +27,7 @@ import io.prestosql.execution.scheduler.NodeScheduler;
 import io.prestosql.execution.scheduler.NodeSchedulerConfig;
 import io.prestosql.execution.scheduler.NodeSelector;
 import io.prestosql.execution.scheduler.NodeSelectorFactory;
+import io.prestosql.execution.scheduler.TopologyAwareNodeSelectorConfig;
 import io.prestosql.execution.scheduler.TopologyAwareNodeSelectorFactory;
 import io.prestosql.execution.scheduler.UniformNodeSelectorFactory;
 import io.prestosql.metadata.InMemoryNodeManager;
@@ -196,9 +197,9 @@ public class BenchmarkNodeScheduler
                 case "uniform":
                     return new UniformNodeSelectorFactory(nodeManager, nodeSchedulerConfig, nodeTaskMap);
                 case "topology":
-                    return new TopologyAwareNodeSelectorFactory(new FlatNetworkTopology(), nodeManager, nodeSchedulerConfig, nodeTaskMap);
+                    return new TopologyAwareNodeSelectorFactory(new FlatNetworkTopology(), nodeManager, nodeSchedulerConfig, nodeTaskMap, new TopologyAwareNodeSelectorConfig());
                 case "benchmark":
-                    return new TopologyAwareNodeSelectorFactory(new BenchmarkNetworkTopology(), nodeManager, nodeSchedulerConfig, nodeTaskMap);
+                    return new TopologyAwareNodeSelectorFactory(new BenchmarkNetworkTopology(), nodeManager, nodeSchedulerConfig, nodeTaskMap, getBenchmarkNetworkTopologyConfig());
                 default:
                     throw new IllegalStateException();
             }
@@ -240,12 +241,12 @@ public class BenchmarkNodeScheduler
             Collections.reverse(parts);
             return NetworkLocation.create(parts);
         }
+    }
 
-        @Override
-        public List<String> getLocationSegmentNames()
-        {
-            return ImmutableList.of("rack", "machine");
-        }
+    private static TopologyAwareNodeSelectorConfig getBenchmarkNetworkTopologyConfig()
+    {
+        return new TopologyAwareNodeSelectorConfig()
+                .setLocationSegmentNames(ImmutableList.of("rack", "machine"));
     }
 
     private static class TestSplitRemote

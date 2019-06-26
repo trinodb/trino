@@ -68,20 +68,22 @@ public class TopologyAwareNodeSelectorFactory
     public TopologyAwareNodeSelectorFactory(
             NetworkTopology networkTopology,
             InternalNodeManager nodeManager,
-            NodeSchedulerConfig config,
-            NodeTaskMap nodeTaskMap)
+            NodeSchedulerConfig schedulerConfig,
+            NodeTaskMap nodeTaskMap,
+            TopologyAwareNodeSelectorConfig topologyConfig)
     {
         requireNonNull(networkTopology, "networkTopology is null");
         requireNonNull(nodeManager, "nodeManager is null");
-        requireNonNull(config, "config is null");
+        requireNonNull(schedulerConfig, "schedulerConfig is null");
         requireNonNull(nodeTaskMap, "nodeTaskMap is null");
+        requireNonNull(topologyConfig, "topologyConfig is null");
 
         this.networkTopology = networkTopology;
         this.nodeManager = nodeManager;
-        this.minCandidates = config.getMinCandidates();
-        this.includeCoordinator = config.isIncludeCoordinator();
-        this.maxSplitsPerNode = config.getMaxSplitsPerNode();
-        this.maxPendingSplitsPerTask = config.getMaxPendingSplitsPerTask();
+        this.minCandidates = schedulerConfig.getMinCandidates();
+        this.includeCoordinator = schedulerConfig.isIncludeCoordinator();
+        this.maxSplitsPerNode = schedulerConfig.getMaxSplitsPerNode();
+        this.maxPendingSplitsPerTask = schedulerConfig.getMaxPendingSplitsPerTask();
         this.nodeTaskMap = requireNonNull(nodeTaskMap, "nodeTaskMap is null");
         checkArgument(maxSplitsPerNode >= maxPendingSplitsPerTask, "maxSplitsPerNode must be > maxPendingSplitsPerTask");
 
@@ -93,7 +95,7 @@ public class TopologyAwareNodeSelectorFactory
         placementCounters.add(allCounter);
         placementCountersByName.put("all", allCounter);
 
-        for (String segmentName : ImmutableList.copyOf(networkTopology.getLocationSegmentNames())) {
+        for (String segmentName : ImmutableList.copyOf(topologyConfig.getLocationSegmentNames())) {
             CounterStat segmentCounter = new CounterStat();
             placementCounters.add(segmentCounter);
             placementCountersByName.put(segmentName, segmentCounter);

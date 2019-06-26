@@ -17,12 +17,15 @@ import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
 
+import static io.airlift.configuration.ConfigBinder.configBinder;
+
 public class TopologyAwareNodeSelectorModule
         implements Module
 {
     @Override
     public void configure(Binder binder)
     {
+        configBinder(binder).bindConfig(TopologyAwareNodeSelectorConfig.class);
         binder.bind(NetworkTopology.class).to(FlatNetworkTopology.class).in(Scopes.SINGLETON);
         binder.bind(TopologyAwareNodeSelectorFactory.class).in(Scopes.SINGLETON);
         binder.bind(NodeSelectorFactory.class).to(TopologyAwareNodeSelectorFactory.class).in(Scopes.SINGLETON);
