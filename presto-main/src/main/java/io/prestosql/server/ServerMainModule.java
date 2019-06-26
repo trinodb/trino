@@ -54,11 +54,13 @@ import io.prestosql.execution.TaskStatus;
 import io.prestosql.execution.executor.MultilevelSplitQueue;
 import io.prestosql.execution.executor.TaskExecutor;
 import io.prestosql.execution.scheduler.FlatNetworkTopology;
-import io.prestosql.execution.scheduler.LegacyNetworkTopology;
 import io.prestosql.execution.scheduler.NetworkTopology;
 import io.prestosql.execution.scheduler.NodeScheduler;
 import io.prestosql.execution.scheduler.NodeSchedulerConfig;
 import io.prestosql.execution.scheduler.NodeSchedulerExporter;
+import io.prestosql.execution.scheduler.NodeSelectorFactory;
+import io.prestosql.execution.scheduler.SimpleNodeSelectorFactory;
+import io.prestosql.execution.scheduler.TopologyAwareNodeSelectorFactory;
 import io.prestosql.index.IndexManager;
 import io.prestosql.memory.LocalMemoryManager;
 import io.prestosql.memory.LocalMemoryManagerExporter;
@@ -239,7 +241,6 @@ public class ServerMainModule
         // TODO: remove from NodePartitioningManager and move to CoordinatorModule
         configBinder(binder).bindConfig(NodeSchedulerConfig.class);
         binder.bind(NodeScheduler.class).in(Scopes.SINGLETON);
-        binder.bind(NodeSchedulerExporter.class).in(Scopes.SINGLETON);
         binder.bind(NodeTaskMap.class).in(Scopes.SINGLETON);
         newExporter(binder).export(NodeScheduler.class).withGeneratedName();
 
@@ -248,11 +249,15 @@ public class ServerMainModule
         install(installModuleIf(
                 NodeSchedulerConfig.class,
                 config -> LEGACY.equalsIgnoreCase(config.getNetworkTopology()),
-                moduleBinder -> moduleBinder.bind(NetworkTopology.class).to(LegacyNetworkTopology.class).in(Scopes.SINGLETON)));
+                moduleBinder -> moduleBinder.bind(NodeSelectorFactory.class).to(SimpleNodeSelectorFactory.class).in(Scopes.SINGLETON)));
         install(installModuleIf(
                 NodeSchedulerConfig.class,
                 config -> FLAT.equalsIgnoreCase(config.getNetworkTopology()),
-                moduleBinder -> moduleBinder.bind(NetworkTopology.class).to(FlatNetworkTopology.class).in(Scopes.SINGLETON)));
+                moduleBinder -> {
+                    moduleBinder.bind(NetworkTopology.class).to(FlatNetworkTopology.class).in(Scopes.SINGLETON);
+                    moduleBinder.bind(NodeSelectorFactory.class).to(TopologyAwareNodeSelectorFactory.class).in(Scopes.SINGLETON);
+                    binder.bind(NodeSchedulerExporter.class).in(Scopes.SINGLETON);
+                }));
 
         // task execution
         jaxrsBinder(binder).bind(TaskResource.class);

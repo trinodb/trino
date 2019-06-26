@@ -60,7 +60,6 @@ public class TopologyAwareNodeSelector
     private final int maxSplitsPerNode;
     private final int maxPendingSplitsPerTask;
     private final List<CounterStat> topologicalSplitCounters;
-    private final List<String> networkLocationSegmentNames;
     private final NetworkTopology networkTopology;
 
     public TopologyAwareNodeSelector(
@@ -72,7 +71,6 @@ public class TopologyAwareNodeSelector
             int maxSplitsPerNode,
             int maxPendingSplitsPerTask,
             List<CounterStat> topologicalSplitCounters,
-            List<String> networkLocationSegmentNames,
             NetworkTopology networkTopology)
     {
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
@@ -83,7 +81,6 @@ public class TopologyAwareNodeSelector
         this.maxSplitsPerNode = maxSplitsPerNode;
         this.maxPendingSplitsPerTask = maxPendingSplitsPerTask;
         this.topologicalSplitCounters = requireNonNull(topologicalSplitCounters, "topologicalSplitCounters is null");
-        this.networkLocationSegmentNames = requireNonNull(networkLocationSegmentNames, "networkLocationSegmentNames is null");
         this.networkTopology = requireNonNull(networkTopology, "networkTopology is null");
     }
 
@@ -143,7 +140,7 @@ public class TopologyAwareNodeSelector
             }
 
             InternalNode chosenNode = null;
-            int depth = networkLocationSegmentNames.size();
+            int depth = topologicalSplitCounters.size() - 1;
             int chosenDepth = 0;
             Set<NetworkLocation> locations = new HashSet<>();
             for (HostAddress host : split.getAddresses()) {
@@ -191,7 +188,7 @@ public class TopologyAwareNodeSelector
         }
 
         ListenableFuture<?> blocked;
-        int maxPendingForWildcardNetworkAffinity = calculateMaxPendingSplits(0, networkLocationSegmentNames.size());
+        int maxPendingForWildcardNetworkAffinity = calculateMaxPendingSplits(0, topologicalSplitCounters.size() - 1);
         if (splitWaitingForAnyNode) {
             blocked = toWhenHasSplitQueueSpaceFuture(existingTasks, calculateLowWatermark(maxPendingForWildcardNetworkAffinity));
         }
