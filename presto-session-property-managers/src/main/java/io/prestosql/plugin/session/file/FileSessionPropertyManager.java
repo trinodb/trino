@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.plugin.session;
+package io.prestosql.plugin.session.file;
 
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.exc.UnrecognizedPropertyException;
@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.ObjectMapperProvider;
+import io.prestosql.plugin.session.SessionMatchSpec;
 import io.prestosql.spi.session.SessionConfigurationContext;
 import io.prestosql.spi.session.SessionPropertyConfigurationManager;
 
