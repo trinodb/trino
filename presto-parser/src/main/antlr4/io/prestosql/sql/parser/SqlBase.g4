@@ -413,7 +413,7 @@ frameBound
     : UNBOUNDED boundType=PRECEDING                 #unboundedFrame
     | UNBOUNDED boundType=FOLLOWING                 #unboundedFrame
     | CURRENT ROW                                   #currentRowBound
-    | expression boundType=(PRECEDING | FOLLOWING)  #boundedFrame // expression should be unsignedLiteral
+    | expression boundType=(PRECEDING | FOLLOWING)  #boundedFrame
     ;
 
 

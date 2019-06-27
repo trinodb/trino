@@ -92,6 +92,7 @@ public class TestStatementBuilder
                 ", rank() over (partition by depname order by salary desc)\n" +
                 ", sum(salary) over (order by salary rows unbounded preceding)\n" +
                 ", sum(salary) over (partition by depname order by salary rows between current row and 3 following)\n" +
+                ", sum(salary) over (partition by depname order by salary rows between current row and empno following)\n" +
                 ", sum(salary) over (partition by depname range unbounded preceding)\n" +
                 ", sum(salary) over (rows between 2 preceding and unbounded following)\n" +
                 "from emp");
