@@ -182,6 +182,12 @@ class ErrorHandler
                 int tokenIndex = current.tokenIndex;
                 CallerContext caller = current.caller;
 
+                while (stream.get(tokenIndex).getChannel() == Token.HIDDEN_CHANNEL) {
+                    // Ignore whitespace
+                    tokenIndex++;
+                }
+                int currentToken = stream.get(tokenIndex).getType();
+
                 if (state.getStateType() == BLOCK_START || state.getStateType() == RULE_START) {
                     int rule = state.ruleIndex;
 
@@ -225,7 +231,6 @@ class ErrorHandler
                             labels = labels.complement(IntervalSet.of(Token.MIN_USER_TOKEN_TYPE, atn.maxTokenType));
                         }
 
-                        int currentToken = stream.get(tokenIndex).getType();
                         if (labels.contains(currentToken)) {
                             activeStates.add(new ParsingState(transition.target, tokenIndex + 1, caller));
                         }
