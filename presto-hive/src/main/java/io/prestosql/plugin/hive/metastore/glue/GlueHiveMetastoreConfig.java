@@ -30,6 +30,7 @@ public class GlueHiveMetastoreConfig
     private Optional<String> iamRole = Optional.empty();
     private Optional<String> awsAccessKey = Optional.empty();
     private Optional<String> awsSecretKey = Optional.empty();
+    private Optional<String> catalogId = Optional.empty();
 
     public Optional<String> getGlueRegion()
     {
@@ -121,6 +122,19 @@ public class GlueHiveMetastoreConfig
     public GlueHiveMetastoreConfig setAwsSecretKey(String awsSecretKey)
     {
         this.awsSecretKey = Optional.ofNullable(awsSecretKey);
+        return this;
+    }
+
+    public Optional<String> getCatalogId()
+    {
+        return catalogId;
+    }
+
+    @Config("hive.metastore.glue.catalogid")
+    @ConfigDescription("Hive Glue metastore catalog id")
+    public GlueHiveMetastoreConfig setCatalogId(String catalogId)
+    {
+        this.catalogId = Optional.ofNullable(catalogId);
         return this;
     }
 }
