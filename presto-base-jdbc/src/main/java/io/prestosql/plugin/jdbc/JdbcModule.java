@@ -14,18 +14,31 @@
 package io.prestosql.plugin.jdbc;
 
 import com.google.inject.Binder;
+import com.google.inject.Key;
 import com.google.inject.Module;
+import com.google.inject.Provides;
 import com.google.inject.Scopes;
+import com.google.inject.Singleton;
+import io.prestosql.plugin.jdbc.jmx.StatisticsAwareJdbcClient;
 import io.prestosql.spi.connector.ConnectorAccessControl;
 import io.prestosql.spi.procedure.Procedure;
 
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
+import static java.util.Objects.requireNonNull;
+import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
 public class JdbcModule
         implements Module
 {
+    private final String catalogName;
+
+    public JdbcModule(String catalogName)
+    {
+        this.catalogName = requireNonNull(catalogName, "catalogName is null");
+    }
+
     @Override
     public void configure(Binder binder)
     {
@@ -37,5 +50,16 @@ public class JdbcModule
         binder.bind(JdbcPageSinkProvider.class).in(Scopes.SINGLETON);
         binder.bind(JdbcConnector.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(JdbcMetadataConfig.class);
+
+        newExporter(binder).export(Key.get(JdbcClient.class, InternalBaseJdbc.class))
+                .as(generator -> generator.generatedNameOf(JdbcClient.class, catalogName));
+    }
+
+    @Provides
+    @Singleton
+    @InternalBaseJdbc
+    public static JdbcClient createJdbcClientWithStats(JdbcClient client)
+    {
+        return new StatisticsAwareJdbcClient(client);
     }
 }
