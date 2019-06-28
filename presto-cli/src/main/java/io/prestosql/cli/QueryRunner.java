@@ -15,6 +15,7 @@ package io.prestosql.cli;
 
 import com.google.common.net.HostAndPort;
 import io.prestosql.client.ClientSession;
+import io.prestosql.client.OkHttpUtil;
 import io.prestosql.client.SocketChannelSocketFactory;
 import io.prestosql.client.StatementClient;
 import okhttp3.OkHttpClient;
@@ -56,6 +57,7 @@ public class QueryRunner
             Optional<String> keystorePassword,
             Optional<String> truststorePath,
             Optional<String> truststorePassword,
+            boolean insecureSsl,
             Optional<String> accessToken,
             Optional<String> user,
             Optional<String> password,
@@ -70,7 +72,12 @@ public class QueryRunner
         this.session = new AtomicReference<>(requireNonNull(session, "session is null"));
         this.debug = debug;
 
-        this.sslSetup = builder -> setupSsl(builder, keystorePath, keystorePassword, truststorePath, truststorePassword);
+        if (insecureSsl) {
+            this.sslSetup = OkHttpUtil::setupInsecureSsl;
+        }
+        else {
+            this.sslSetup = builder -> setupSsl(builder, keystorePath, keystorePassword, truststorePath, truststorePassword);
+        }
 
         OkHttpClient.Builder builder = new OkHttpClient.Builder();
 

@@ -76,31 +76,12 @@ public class TestQueryRunner
                 .addHeader(SET_COOKIE, "a=apple"));
         server.enqueue(new MockResponse()
                 .addHeader(CONTENT_TYPE, "application/json")
-                .setBody(createResults()));
+                .setBody(createResults(server)));
         server.enqueue(new MockResponse()
                 .addHeader(CONTENT_TYPE, "application/json")
-                .setBody(createResults()));
+                .setBody(createResults(server)));
 
-        QueryRunner queryRunner = createQueryRunner(
-                new ClientSession(
-                        server.url("/").uri(),
-                        "user",
-                        "source",
-                        Optional.empty(),
-                        ImmutableSet.of(),
-                        "clientInfo",
-                        "catalog",
-                        "schema",
-                        "path",
-                        ZoneId.of("America/Los_Angeles"),
-                        Locale.ENGLISH,
-                        ImmutableMap.of(),
-                        ImmutableMap.of(),
-                        ImmutableMap.of(),
-                        ImmutableMap.of(),
-                        ImmutableMap.of(),
-                        null,
-                        new Duration(2, MINUTES)));
+        QueryRunner queryRunner = createQueryRunner(createClientSession(server), false);
         try (Query query = queryRunner.startQuery("first query will introduce a cookie")) {
             query.renderOutput(nullPrintStream(), nullPrintStream(), CSV, false, false);
         }
@@ -118,7 +99,30 @@ public class TestQueryRunner
         }
     }
 
-    private String createResults()
+    static ClientSession createClientSession(MockWebServer server)
+    {
+        return new ClientSession(
+                server.url("/").uri(),
+                "user",
+                "source",
+                Optional.empty(),
+                ImmutableSet.of(),
+                "clientInfo",
+                "catalog",
+                "schema",
+                "path",
+                ZoneId.of("America/Los_Angeles"),
+                Locale.ENGLISH,
+                ImmutableMap.of(),
+                ImmutableMap.of(),
+                ImmutableMap.of(),
+                ImmutableMap.of(),
+                ImmutableMap.of(),
+                null,
+                new Duration(2, MINUTES));
+    }
+
+    static String createResults(MockWebServer server)
     {
         QueryResults queryResults = new QueryResults(
                 "20160128_214710_00012_rk68b",
@@ -136,7 +140,7 @@ public class TestQueryRunner
         return QUERY_RESULTS_CODEC.toJson(queryResults);
     }
 
-    static QueryRunner createQueryRunner(ClientSession clientSession)
+    static QueryRunner createQueryRunner(ClientSession clientSession, boolean insecureSsl)
     {
         return new QueryRunner(
                 clientSession,
@@ -147,6 +151,7 @@ public class TestQueryRunner
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
+                insecureSsl,
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
@@ -159,7 +164,7 @@ public class TestQueryRunner
                 false);
     }
 
-    private static PrintStream nullPrintStream()
+    static PrintStream nullPrintStream()
     {
         return new PrintStream(nullOutputStream());
     }
