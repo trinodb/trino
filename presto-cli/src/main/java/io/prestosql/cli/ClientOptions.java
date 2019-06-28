@@ -83,6 +83,9 @@ public class ClientOptions
     @Option(name = "--truststore-password", title = "truststore password", description = "Truststore password")
     public String truststorePassword;
 
+    @Option(name = "--insecure", title = "trust all certificates", description = "Skip validation of HTTP server certificates (should only be used for debugging)")
+    public boolean insecure;
+
     @Option(name = "--access-token", title = "access token", description = "Access token")
     public String accessToken;
 
