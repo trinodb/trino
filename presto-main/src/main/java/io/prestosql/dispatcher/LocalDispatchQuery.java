@@ -84,16 +84,18 @@ public class LocalDispatchQuery
     @Override
     public void startWaitingForResources()
     {
-        if (stateMachine.transitionToWaitingForResources()) {
-            waitForMinimumWorkers();
-        }
+        addSuccessCallback(queryExecutionFuture, queryExecution -> {
+            if (stateMachine.transitionToWaitingForResources()) {
+                waitForMinimumWorkersAndStart(queryExecution);
+            }
+        });
     }
 
-    private void waitForMinimumWorkers()
+    private void waitForMinimumWorkersAndStart(QueryExecution queryExecution)
     {
         ListenableFuture<?> minimumWorkerFuture = clusterSizeMonitor.waitForMinimumWorkers();
         // when worker requirement is met, wait for query execution to finish construction and then start the execution
-        addSuccessCallback(minimumWorkerFuture, () -> addSuccessCallback(queryExecutionFuture, this::startExecution));
+        addSuccessCallback(minimumWorkerFuture, () -> startExecution(queryExecution));
         addExceptionCallback(minimumWorkerFuture, throwable -> queryExecutor.execute(() -> stateMachine.transitionToFailed(throwable)));
     }
 
