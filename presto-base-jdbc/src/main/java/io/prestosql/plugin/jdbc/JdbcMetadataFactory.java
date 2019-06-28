@@ -32,6 +32,6 @@ public class JdbcMetadataFactory
 
     public JdbcMetadata create()
     {
-        return new JdbcMetadata(jdbcClient, allowDropTable);
+        return new JdbcMetadata(new TransactionScopeCachingJdbcClient(jdbcClient), allowDropTable);
     }
 }
