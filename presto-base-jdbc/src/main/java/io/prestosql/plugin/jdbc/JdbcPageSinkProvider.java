@@ -30,7 +30,7 @@ public class JdbcPageSinkProvider
     private final JdbcClient jdbcClient;
 
     @Inject
-    public JdbcPageSinkProvider(JdbcClient jdbcClient)
+    public JdbcPageSinkProvider(@InternalBaseJdbc JdbcClient jdbcClient)
     {
         this.jdbcClient = requireNonNull(jdbcClient, "jdbcClient is null");
     }

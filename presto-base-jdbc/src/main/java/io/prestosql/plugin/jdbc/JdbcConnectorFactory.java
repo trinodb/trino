@@ -16,12 +16,14 @@ package io.prestosql.plugin.jdbc;
 import com.google.inject.Injector;
 import com.google.inject.Module;
 import io.airlift.bootstrap.Bootstrap;
+import io.prestosql.plugin.base.jmx.MBeanServerModule;
 import io.prestosql.spi.classloader.ThreadContextClassLoader;
 import io.prestosql.spi.connector.Connector;
 import io.prestosql.spi.connector.ConnectorContext;
 import io.prestosql.spi.connector.ConnectorFactory;
 import io.prestosql.spi.connector.ConnectorHandleResolver;
 import io.prestosql.spi.type.TypeManager;
+import org.weakref.jmx.guice.MBeanModule;
 
 import java.util.Map;
 
@@ -65,7 +67,9 @@ public class JdbcConnectorFactory
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             Bootstrap app = new Bootstrap(
                     binder -> binder.bind(TypeManager.class).toInstance(context.getTypeManager()),
-                    new JdbcModule(),
+                    new JdbcModule(catalogName),
+                    new MBeanServerModule(),
+                    new MBeanModule(),
                     module);
 
             Injector injector = app
