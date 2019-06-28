@@ -45,6 +45,7 @@ public class QueryStats
     private final DateTime endTime;
 
     private final Duration elapsedTime;
+    private final Duration preparingTime;
     private final Duration queuedTime;
     private final Duration resourceWaitingTime;
     private final Duration dispatchingTime;
@@ -111,6 +112,7 @@ public class QueryStats
             @JsonProperty("endTime") DateTime endTime,
 
             @JsonProperty("elapsedTime") Duration elapsedTime,
+            @JsonProperty("preparingTime") Duration preparingTime,
             @JsonProperty("queuedTime") Duration queuedTime,
             @JsonProperty("resourceWaitingTime") Duration resourceWaitingTime,
             @JsonProperty("dispatchingTime") Duration dispatchingTime,
@@ -175,6 +177,7 @@ public class QueryStats
         this.endTime = endTime;
 
         this.elapsedTime = requireNonNull(elapsedTime, "elapsedTime is null");
+        this.preparingTime = requireNonNull(preparingTime, "preparingTime is null");
         this.queuedTime = requireNonNull(queuedTime, "queuedTime is null");
         this.resourceWaitingTime = requireNonNull(resourceWaitingTime, "resourceWaitingTime is null");
         this.dispatchingTime = requireNonNull(dispatchingTime, "dispatchingTime is null");
@@ -287,6 +290,12 @@ public class QueryStats
     public Duration getDispatchingTime()
     {
         return dispatchingTime;
+    }
+
+    @JsonProperty
+    public Duration getPreparingTime()
+    {
+        return preparingTime;
     }
 
     @JsonProperty

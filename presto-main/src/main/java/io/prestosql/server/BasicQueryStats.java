@@ -42,6 +42,7 @@ public class BasicQueryStats
     private final DateTime createTime;
     private final DateTime endTime;
 
+    private final Duration preparingTime;
     private final Duration queuedTime;
     private final Duration elapsedTime;
     private final Duration executionTime;
@@ -71,6 +72,7 @@ public class BasicQueryStats
     public BasicQueryStats(
             @JsonProperty("createTime") DateTime createTime,
             @JsonProperty("endTime") DateTime endTime,
+            @JsonProperty("preparingTime") Duration preparingTime,
             @JsonProperty("queuedTime") Duration queuedTime,
             @JsonProperty("elapsedTime") Duration elapsedTime,
             @JsonProperty("executionTime") Duration executionTime,
@@ -94,6 +96,7 @@ public class BasicQueryStats
         this.createTime = createTime;
         this.endTime = endTime;
 
+        this.preparingTime = requireNonNull(preparingTime, "creationTime is null");
         this.queuedTime = requireNonNull(queuedTime, "queuedTime is null");
         this.elapsedTime = requireNonNull(elapsedTime, "elapsedTime is null");
         this.executionTime = requireNonNull(executionTime, "executionTime is null");
@@ -128,6 +131,7 @@ public class BasicQueryStats
     {
         this(queryStats.getCreateTime(),
                 queryStats.getEndTime(),
+                queryStats.getPreparingTime(),
                 queryStats.getQueuedTime(),
                 queryStats.getElapsedTime(),
                 queryStats.getExecutionTime(),
@@ -155,6 +159,7 @@ public class BasicQueryStats
         return new BasicQueryStats(
                 now,
                 now,
+                new Duration(0, MILLISECONDS),
                 new Duration(0, MILLISECONDS),
                 new Duration(0, MILLISECONDS),
                 new Duration(0, MILLISECONDS),
@@ -186,6 +191,12 @@ public class BasicQueryStats
     public DateTime getEndTime()
     {
         return endTime;
+    }
+
+    @JsonProperty
+    public Duration getPreparingTime()
+    {
+        return preparingTime;
     }
 
     @JsonProperty

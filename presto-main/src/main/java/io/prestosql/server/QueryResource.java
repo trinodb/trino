@@ -175,6 +175,7 @@ public class QueryResource
                 query.getLastHeartbeat(),
                 query.getEndTime().orElse(null),
                 stats.getElapsedTime(),
+                stats.getPreparingTime(),
                 stats.getQueuedTime(),
                 ZERO_MILLIS,
                 ZERO_MILLIS,

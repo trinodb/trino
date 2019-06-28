@@ -21,7 +21,11 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 public enum QueryState
 {
     /**
-     * Query has been accepted and is awaiting execution.
+     * Query has been accepted and is preparing to be put into a queue.
+     */
+    PREPARING(false),
+    /**
+     * Query is awaiting execution.
      */
     QUEUED(false),
     /**

@@ -77,6 +77,7 @@ import static io.prestosql.execution.QueryState.FAILED;
 import static io.prestosql.execution.QueryState.FINISHED;
 import static io.prestosql.execution.QueryState.FINISHING;
 import static io.prestosql.execution.QueryState.PLANNING;
+import static io.prestosql.execution.QueryState.PREPARING;
 import static io.prestosql.execution.QueryState.QUEUED;
 import static io.prestosql.execution.QueryState.RUNNING;
 import static io.prestosql.execution.QueryState.STARTING;
@@ -172,7 +173,7 @@ public class QueryStateMachine
         this.queryStateTimer = new QueryStateTimer(ticker);
         this.metadata = requireNonNull(metadata, "metadata is null");
 
-        this.queryState = new StateMachine<>("query " + query, executor, QUEUED, TERMINAL_QUERY_STATES);
+        this.queryState = new StateMachine<>("query " + query, executor, PREPARING, TERMINAL_QUERY_STATES);
         this.finalQueryInfo = new StateMachine<>("finalQueryInfo-" + queryId, executor, Optional.empty());
         this.outputManager = new QueryOutputManager(executor);
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
@@ -330,6 +331,7 @@ public class QueryStateMachine
         BasicQueryStats queryStats = new BasicQueryStats(
                 queryStateTimer.getCreateTime(),
                 getEndTime().orElse(null),
+                queryStateTimer.getPreparingTime(),
                 queryStateTimer.getQueuedTime(),
                 queryStateTimer.getElapsedTime(),
                 queryStateTimer.getExecutionTime(),
@@ -530,6 +532,7 @@ public class QueryStateMachine
                 getEndTime().orElse(null),
 
                 queryStateTimer.getElapsedTime(),
+                queryStateTimer.getPreparingTime(),
                 queryStateTimer.getQueuedTime(),
                 queryStateTimer.getResourceWaitingTime(),
                 queryStateTimer.getDispatchingTime(),
@@ -722,6 +725,12 @@ public class QueryStateMachine
     public boolean isDone()
     {
         return queryState.get().isDone();
+    }
+
+    public boolean transitionToQueued()
+    {
+        queryStateTimer.beginQueued();
+        return queryState.setIf(QUEUED, currentState -> currentState.ordinal() < QUEUED.ordinal());
     }
 
     public boolean transitionToWaitingForResources()
@@ -1028,6 +1037,7 @@ public class QueryStateMachine
                 queryStats.getLastHeartbeat(),
                 queryStats.getEndTime(),
                 queryStats.getElapsedTime(),
+                queryStats.getPreparingTime(),
                 queryStats.getQueuedTime(),
                 queryStats.getResourceWaitingTime(),
                 queryStats.getDispatchingTime(),

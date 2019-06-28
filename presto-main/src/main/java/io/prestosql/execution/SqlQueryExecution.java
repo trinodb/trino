@@ -200,6 +200,8 @@ public class SqlQueryExecution
             });
 
             this.remoteTaskFactory = new MemoryTrackingRemoteTaskFactory(requireNonNull(remoteTaskFactory, "remoteTaskFactory is null"), stateMachine);
+
+            stateMachine.transitionToQueued();
         }
     }
 

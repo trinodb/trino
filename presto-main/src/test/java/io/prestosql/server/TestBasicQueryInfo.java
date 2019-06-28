@@ -58,6 +58,7 @@ public class TestBasicQueryInfo
                                 DateTime.parse("1991-09-06T05:02-05:30"),
                                 DateTime.parse("1991-09-06T06:00-05:30"),
                                 Duration.valueOf("8m"),
+                                Duration.valueOf("10s"),
                                 Duration.valueOf("7m"),
                                 Duration.valueOf("34m"),
                                 Duration.valueOf("35m"),
@@ -140,6 +141,7 @@ public class TestBasicQueryInfo
         assertEquals(basicInfo.getQueryStats().getEndTime(), DateTime.parse("1991-09-06T06:00-05:30"));
         assertEquals(basicInfo.getQueryStats().getElapsedTime(), Duration.valueOf("8m"));
         assertEquals(basicInfo.getQueryStats().getExecutionTime(), Duration.valueOf("44m"));
+        assertEquals(basicInfo.getQueryStats().getPreparingTime(), Duration.valueOf("10s"));
 
         assertEquals(basicInfo.getQueryStats().getTotalDrivers(), 16);
         assertEquals(basicInfo.getQueryStats().getQueuedDrivers(), 17);

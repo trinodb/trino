@@ -28,6 +28,7 @@
     "endTime": "2015-05-05T16:01:17.125Z",
     "elapsedTime": "134.00ms",
     "resourceWaitingTime": "11.00ms",
+    "preparingTime": "1.11ms",
     "queuedTime": "2.11ms",
     "dispatchingTime": "1111.00ms",
     "executionTime": "13.00ms",
