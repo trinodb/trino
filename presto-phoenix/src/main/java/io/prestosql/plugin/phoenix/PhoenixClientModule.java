@@ -14,8 +14,12 @@
 package io.prestosql.plugin.phoenix;
 
 import com.google.inject.Binder;
+import com.google.inject.Provides;
 import com.google.inject.Scopes;
+import com.google.inject.Singleton;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.prestosql.plugin.jdbc.ConnectionFactory;
+import io.prestosql.plugin.jdbc.DriverConnectionFactory;
 import io.prestosql.plugin.jdbc.InternalBaseJdbc;
 import io.prestosql.plugin.jdbc.JdbcClient;
 import io.prestosql.plugin.jdbc.JdbcPageSinkProvider;
@@ -25,9 +29,16 @@ import io.prestosql.spi.connector.ConnectorPageSinkProvider;
 import io.prestosql.spi.connector.ConnectorRecordSetProvider;
 import io.prestosql.spi.connector.ConnectorSplitManager;
 import io.prestosql.spi.type.TypeManager;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.Path;
 import org.apache.phoenix.jdbc.PhoenixDriver;
+import org.apache.phoenix.jdbc.PhoenixEmbeddedDriver;
 
+import java.sql.DriverManager;
 import java.sql.SQLException;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Properties;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.plugin.phoenix.PhoenixErrorCode.PHOENIX_CONFIG_ERROR;
@@ -72,5 +83,41 @@ public class PhoenixClientModule
         catch (SQLException e) {
             throw new PrestoException(PHOENIX_CONFIG_ERROR, e);
         }
+    }
+
+    @Provides
+    @Singleton
+    public ConnectionFactory getConnectionFactory(PhoenixConfig config)
+            throws SQLException
+    {
+        return new DriverConnectionFactory(
+                DriverManager.getDriver(config.getConnectionUrl()),
+                config.getConnectionUrl(),
+                Optional.empty(),
+                Optional.empty(),
+                getConnectionProperties(config));
+    }
+
+    public static Properties getConnectionProperties(PhoenixConfig config)
+            throws SQLException
+    {
+        Configuration resourcesConfig = readConfig(config);
+        Properties connectionProperties = new Properties();
+        for (Map.Entry<String, String> entry : resourcesConfig) {
+            connectionProperties.put(entry.getKey(), entry.getValue());
+        }
+
+        PhoenixEmbeddedDriver.ConnectionInfo connectionInfo = PhoenixEmbeddedDriver.ConnectionInfo.create(config.getConnectionUrl());
+        connectionProperties.putAll(connectionInfo.asProps().asMap());
+        return connectionProperties;
+    }
+
+    private static Configuration readConfig(PhoenixConfig config)
+    {
+        Configuration result = new Configuration(false);
+        for (String resourcePath : config.getResourceConfigFiles()) {
+            result.addResource(new Path(resourcePath));
+        }
+        return result;
     }
 }

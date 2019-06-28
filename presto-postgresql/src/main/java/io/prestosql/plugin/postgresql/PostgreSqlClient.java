@@ -27,7 +27,7 @@ import io.prestosql.plugin.jdbc.BaseJdbcConfig;
 import io.prestosql.plugin.jdbc.BlockReadFunction;
 import io.prestosql.plugin.jdbc.BlockWriteFunction;
 import io.prestosql.plugin.jdbc.ColumnMapping;
-import io.prestosql.plugin.jdbc.DriverConnectionFactory;
+import io.prestosql.plugin.jdbc.ConnectionFactory;
 import io.prestosql.plugin.jdbc.JdbcColumnHandle;
 import io.prestosql.plugin.jdbc.JdbcIdentity;
 import io.prestosql.plugin.jdbc.JdbcTableHandle;
@@ -47,7 +47,6 @@ import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeManager;
 import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.spi.type.VarcharType;
-import org.postgresql.Driver;
 import org.postgresql.core.TypeInfo;
 import org.postgresql.jdbc.PgConnection;
 import org.postgresql.util.PGobject;
@@ -110,9 +109,13 @@ public class PostgreSqlClient
     private final boolean supportArrays;
 
     @Inject
-    public PostgreSqlClient(BaseJdbcConfig config, PostgreSqlConfig postgreSqlConfig, TypeManager typeManager)
+    public PostgreSqlClient(
+            BaseJdbcConfig config,
+            PostgreSqlConfig postgreSqlConfig,
+            ConnectionFactory connectionFactory,
+            TypeManager typeManager)
     {
-        super(config, "\"", new DriverConnectionFactory(new Driver(), config));
+        super(config, "\"", connectionFactory);
         this.jsonType = typeManager.getType(new TypeSignature(StandardTypes.JSON));
         this.uuidType = typeManager.getType(new TypeSignature(StandardTypes.UUID));
 

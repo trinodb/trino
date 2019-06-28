@@ -14,17 +14,23 @@
 package io.prestosql.plugin.mysql;
 
 import com.google.inject.Binder;
+import com.google.inject.Provides;
 import com.google.inject.Scopes;
+import com.google.inject.Singleton;
 import com.mysql.jdbc.Driver;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.prestosql.plugin.jdbc.BaseJdbcConfig;
+import io.prestosql.plugin.jdbc.ConnectionFactory;
+import io.prestosql.plugin.jdbc.DriverConnectionFactory;
 import io.prestosql.plugin.jdbc.JdbcClient;
 
 import java.sql.SQLException;
+import java.util.Optional;
 import java.util.Properties;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.configuration.ConfigBinder.configBinder;
+import static io.prestosql.plugin.jdbc.DriverConnectionFactory.basicConnectionProperties;
 
 public class MySqlClientModule
         extends AbstractConfigurationAwareModule
@@ -48,5 +54,32 @@ public class MySqlClientModule
         catch (SQLException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    @Provides
+    @Singleton
+    public static ConnectionFactory createConnectionFactory(BaseJdbcConfig config, MySqlConfig mySqlConfig)
+            throws SQLException
+    {
+        Properties connectionProperties = basicConnectionProperties(config);
+        connectionProperties.setProperty("useInformationSchema", "true");
+        connectionProperties.setProperty("nullCatalogMeansCurrent", "false");
+        connectionProperties.setProperty("useUnicode", "true");
+        connectionProperties.setProperty("characterEncoding", "utf8");
+        connectionProperties.setProperty("tinyInt1isBit", "false");
+        if (mySqlConfig.isAutoReconnect()) {
+            connectionProperties.setProperty("autoReconnect", String.valueOf(mySqlConfig.isAutoReconnect()));
+            connectionProperties.setProperty("maxReconnects", String.valueOf(mySqlConfig.getMaxReconnects()));
+        }
+        if (mySqlConfig.getConnectionTimeout() != null) {
+            connectionProperties.setProperty("connectTimeout", String.valueOf(mySqlConfig.getConnectionTimeout().toMillis()));
+        }
+
+        return new DriverConnectionFactory(
+                new Driver(),
+                config.getConnectionUrl(),
+                Optional.ofNullable(config.getUserCredentialName()),
+                Optional.ofNullable(config.getPasswordCredentialName()),
+                connectionProperties);
     }
 }

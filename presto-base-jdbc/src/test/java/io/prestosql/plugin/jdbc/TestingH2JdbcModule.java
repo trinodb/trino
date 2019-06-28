@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Provides;
+import com.google.inject.Singleton;
 import org.h2.Driver;
 
 import java.util.Map;
@@ -35,9 +36,16 @@ class TestingH2JdbcModule
     }
 
     @Provides
-    public JdbcClient provideJdbcClient(BaseJdbcConfig config)
+    public JdbcClient provideJdbcClient(BaseJdbcConfig config, ConnectionFactory connectionFactory)
     {
-        return new BaseJdbcClient(config, "\"", new DriverConnectionFactory(new Driver(), config));
+        return new BaseJdbcClient(config, "\"", connectionFactory);
+    }
+
+    @Provides
+    @Singleton
+    public ConnectionFactory getConnectionFactory(BaseJdbcConfig config)
+    {
+        return new DriverConnectionFactory(new Driver(), config);
     }
 
     public static Map<String, String> createProperties()
