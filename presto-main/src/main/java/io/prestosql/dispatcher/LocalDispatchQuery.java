@@ -22,6 +22,7 @@ import io.prestosql.Session;
 import io.prestosql.execution.ClusterSizeMonitor;
 import io.prestosql.execution.ExecutionFailureInfo;
 import io.prestosql.execution.QueryExecution;
+import io.prestosql.execution.QueryManager;
 import io.prestosql.execution.QueryState;
 import io.prestosql.execution.QueryStateMachine;
 import io.prestosql.execution.StateMachine.StateChangeListener;
@@ -33,7 +34,6 @@ import org.joda.time.DateTime;
 
 import java.util.Optional;
 import java.util.concurrent.Executor;
-import java.util.function.Consumer;
 
 import static com.google.common.util.concurrent.Futures.nonCancellationPropagating;
 import static io.airlift.concurrent.MoreFutures.addExceptionCallback;
@@ -57,7 +57,7 @@ public class LocalDispatchQuery
 
     private final Executor queryExecutor;
 
-    private final Consumer<QueryExecution> querySubmitter;
+    private final QueryManager queryManager;
     private final SettableFuture<?> submitted = SettableFuture.create();
 
     public LocalDispatchQuery(
@@ -65,15 +65,19 @@ public class LocalDispatchQuery
             ListenableFuture<QueryExecution> queryExecutionFuture,
             ClusterSizeMonitor clusterSizeMonitor,
             Executor queryExecutor,
-            Consumer<QueryExecution> querySubmitter)
+            QueryManager queryManager,
+            String slug)
     {
         this.stateMachine = requireNonNull(stateMachine, "stateMachine is null");
         this.queryExecutionFuture = requireNonNull(queryExecutionFuture, "queryExecutionFuture is null");
         this.clusterSizeMonitor = requireNonNull(clusterSizeMonitor, "clusterSizeMonitor is null");
         this.queryExecutor = requireNonNull(queryExecutor, "queryExecutor is null");
-        this.querySubmitter = requireNonNull(querySubmitter, "querySubmitter is null");
+        this.queryManager = requireNonNull(queryManager, "queryManager is null");
 
-        addExceptionCallback(queryExecutionFuture, stateMachine::transitionToFailed);
+        addExceptionCallback(queryExecutionFuture, exception -> {
+            stateMachine.transitionToFailed(exception);
+            queryManager.tryAddFailedQuery(stateMachine, slug);
+        });
         stateMachine.addStateChangeListener(state -> {
             if (state.isDone()) {
                 submitted.set(null);
@@ -104,7 +108,7 @@ public class LocalDispatchQuery
         queryExecutor.execute(() -> {
             if (stateMachine.transitionToDispatching()) {
                 try {
-                    querySubmitter.accept(queryExecution);
+                    queryManager.createQuery(queryExecution);
                 }
                 catch (Throwable t) {
                     // this should never happen but be safe

@@ -105,6 +105,11 @@ public interface QueryManager
     void cancelQuery(QueryId queryId);
 
     /**
+     * Attempts to add information about failed query. It is possible that query can fail before being added to query manager.
+     */
+    void tryAddFailedQuery(QueryStateMachine stateMachine, String slug);
+
+    /**
      * Attempts to cancel the stage and continue the query.  If the stage is already in a final
      * state, the call is ignored.  If the query does not exist, the call is ignored.
      */

@@ -258,6 +258,12 @@ public class SqlQueryManager
     }
 
     @Override
+    public void tryAddFailedQuery(QueryStateMachine stateMachine, String slug)
+    {
+        queryTracker.addQuery(new FailedQueryExecution(stateMachine, slug));
+    }
+
+    @Override
     public void cancelStage(StageId stageId)
     {
         requireNonNull(stageId, "stageId is null");
