@@ -231,7 +231,6 @@ public class PhoenixClient
         {
             @Override
             public ResultSet executeQuery()
-                    throws SQLException
             {
                 return resultSet;
             }
@@ -295,7 +294,7 @@ public class PhoenixClient
             case FLOAT:
                 return Optional.of(realColumnMapping());
             case ARRAY:
-                JdbcTypeHandle elementTypeHandle = getArrayElementTypeHandle(session, typeHandle);
+                JdbcTypeHandle elementTypeHandle = getArrayElementTypeHandle(typeHandle);
                 if (elementTypeHandle.getJdbcType() == Types.VARBINARY) {
                     return Optional.empty();
                 }
@@ -361,7 +360,7 @@ public class PhoenixClient
         };
     }
 
-    private JdbcTypeHandle getArrayElementTypeHandle(ConnectorSession session, JdbcTypeHandle arrayTypeHandle)
+    private JdbcTypeHandle getArrayElementTypeHandle(JdbcTypeHandle arrayTypeHandle)
     {
         String arrayTypeName = arrayTypeHandle.getJdbcTypeName()
                 .orElseThrow(() -> new PrestoException(PHOENIX_METADATA_ERROR, "Type name is missing for jdbc type: " + JDBCType.valueOf(arrayTypeHandle.getJdbcType())));
