@@ -44,7 +44,6 @@ import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.connector.system.KillQueryProcedure.createKillQueryException;
 import static io.prestosql.connector.system.KillQueryProcedure.createPreemptQueryException;
 import static java.util.Objects.requireNonNull;
@@ -97,9 +96,7 @@ public class QueryResource
 
         try {
             DispatchQuery query = dispatchManager.getQuery(queryId);
-            if (query.isDone()) {
-                return Response.ok(toFullQueryInfo(query)).build();
-            }
+            return Response.ok(toFullQueryInfo(query)).build();
         }
         catch (NoSuchElementException ignored) {
         }
@@ -165,7 +162,6 @@ public class QueryResource
 
     private static QueryInfo toFullQueryInfo(DispatchQuery query)
     {
-        checkArgument(query.isDone(), "query is not done");
         BasicQueryInfo info = query.getBasicQueryInfo();
         BasicQueryStats stats = info.getQueryStats();
 
