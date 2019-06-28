@@ -14,6 +14,7 @@
 package io.prestosql.connector.system;
 
 import io.airlift.units.Duration;
+import io.prestosql.dispatcher.DispatchManager;
 import io.prestosql.execution.QueryInfo;
 import io.prestosql.execution.QueryManager;
 import io.prestosql.execution.QueryStats;
@@ -37,9 +38,9 @@ import javax.inject.Inject;
 
 import java.util.List;
 import java.util.NoSuchElementException;
-import java.util.Objects;
+import java.util.Optional;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
 import static io.prestosql.spi.connector.SystemTable.Distribution.ALL_COORDINATORS;
@@ -73,11 +74,13 @@ public class QuerySystemTable
             .build();
 
     private final QueryManager queryManager;
+    private final Optional<DispatchManager> dispatchManager;
 
     @Inject
-    public QuerySystemTable(QueryManager queryManager)
+    public QuerySystemTable(QueryManager queryManager, Optional<DispatchManager> dispatchManager)
     {
-        this.queryManager = queryManager;
+        this.queryManager = requireNonNull(queryManager, "queryManager is null");
+        this.dispatchManager = dispatchManager;
     }
 
     @Override
@@ -95,21 +98,11 @@ public class QuerySystemTable
     @Override
     public RecordCursor cursor(ConnectorTransactionHandle transactionHandle, ConnectorSession session, TupleDomain<Integer> constraint)
     {
+        checkState(dispatchManager.isPresent(), "Query system table can return results only on coordinator");
         Builder table = InMemoryRecordSet.builder(QUERY_TABLE);
-        List<QueryInfo> queryInfos = queryManager.getQueries().stream()
-                .map(BasicQueryInfo::getQueryId)
-                .map(queryId -> {
-                    try {
-                        return queryManager.getFullQueryInfo(queryId);
-                    }
-                    catch (NoSuchElementException e) {
-                        return null;
-                    }
-                })
-                .filter(Objects::nonNull)
-                .collect(toImmutableList());
-        for (QueryInfo queryInfo : queryInfos) {
-            QueryStats queryStats = queryInfo.getQueryStats();
+        for (BasicQueryInfo queryInfo : dispatchManager.get().getQueries()) {
+            Optional<QueryStats> queryStats = getFullQueryInfo(queryInfo)
+                    .map(QueryInfo::getQueryStats);
             table.addRow(
                     queryInfo.getQueryId().toString(),
                     queryInfo.getState().toString(),
@@ -118,17 +111,27 @@ public class QuerySystemTable
                     queryInfo.getQuery(),
                     queryInfo.getResourceGroupId().map(QuerySystemTable::resourceGroupIdToBlock).orElse(null),
 
-                    toMillis(queryStats.getPreparingTime()),
-                    toMillis(queryStats.getQueuedTime()),
-                    toMillis(queryStats.getAnalysisTime()),
-                    toMillis(queryStats.getDistributedPlanningTime()),
+                    queryStats.map(QueryStats::getPreparingTime).map(QuerySystemTable::toMillis).orElse(null),
+                    queryStats.map(QueryStats::getQueuedTime).map(QuerySystemTable::toMillis).orElse(null),
+                    queryStats.map(QueryStats::getAnalysisTime).map(QuerySystemTable::toMillis).orElse(null),
+                    queryStats.map(QueryStats::getDistributedPlanningTime).map(QuerySystemTable::toMillis).orElse(null),
 
-                    toTimeStamp(queryStats.getCreateTime()),
-                    toTimeStamp(queryStats.getExecutionStartTime()),
-                    toTimeStamp(queryStats.getLastHeartbeat()),
-                    toTimeStamp(queryStats.getEndTime()));
+                    queryStats.map(QueryStats::getCreateTime).map(QuerySystemTable::toTimeStamp).orElse(null),
+                    queryStats.map(QueryStats::getExecutionStartTime).map(QuerySystemTable::toTimeStamp).orElse(null),
+                    queryStats.map(QueryStats::getLastHeartbeat).map(QuerySystemTable::toTimeStamp).orElse(null),
+                    queryStats.map(QueryStats::getEndTime).map(QuerySystemTable::toTimeStamp).orElse(null));
         }
         return table.build().cursor();
+    }
+
+    private Optional<QueryInfo> getFullQueryInfo(BasicQueryInfo queryInfo)
+    {
+        try {
+            return Optional.of(queryManager.getFullQueryInfo(queryInfo.getQueryId()));
+        }
+        catch (NoSuchElementException e) {
+            return Optional.empty();
+        }
     }
 
     private static Block resourceGroupIdToBlock(ResourceGroupId resourceGroupId)

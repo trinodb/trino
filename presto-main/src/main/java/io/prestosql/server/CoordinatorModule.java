@@ -148,6 +148,7 @@ import javax.inject.Inject;
 import javax.inject.Singleton;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 
@@ -411,6 +412,13 @@ public class CoordinatorModule
             @ForTransactionManager ExecutorService finishingExecutor)
     {
         return InMemoryTransactionManager.create(config, idleCheckExecutor, catalogManager, finishingExecutor);
+    }
+
+    @Provides
+    @Singleton
+    public static Optional<DispatchManager> createOptionalDispatchManager(DispatchManager dispatchManager)
+    {
+        return Optional.of(dispatchManager);
     }
 
     private static <T extends Statement> void bindDataDefinitionTask(

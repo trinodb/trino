@@ -17,6 +17,8 @@ import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
+import com.google.inject.TypeLiteral;
+import io.prestosql.dispatcher.DispatchManager;
 import io.prestosql.execution.QueryManager;
 import io.prestosql.execution.resourcegroups.NoOpResourceGroupManager;
 import io.prestosql.execution.resourcegroups.ResourceGroupManager;
@@ -26,6 +28,8 @@ import io.prestosql.transaction.NoOpTransactionManager;
 import io.prestosql.transaction.TransactionManager;
 
 import javax.inject.Singleton;
+
+import java.util.Optional;
 
 import static com.google.common.reflect.Reflection.newProxy;
 
@@ -51,6 +55,8 @@ public class WorkerModule
         binder.bind(QueryManager.class).toInstance(newProxy(QueryManager.class, (proxy, method, args) -> {
             throw new UnsupportedOperationException();
         }));
+
+        binder.bind(new TypeLiteral<Optional<DispatchManager>>() {}).toInstance(Optional.empty());
     }
 
     @Provides
