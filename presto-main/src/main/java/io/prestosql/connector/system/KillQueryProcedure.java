@@ -15,6 +15,8 @@ package io.prestosql.connector.system;
 
 import com.google.common.collect.ImmutableList;
 import io.prestosql.annotation.UsedByGeneratedCode;
+import io.prestosql.dispatcher.DispatchManager;
+import io.prestosql.dispatcher.DispatchQuery;
 import io.prestosql.execution.QueryManager;
 import io.prestosql.execution.QueryState;
 import io.prestosql.spi.PrestoException;
@@ -26,7 +28,9 @@ import javax.inject.Inject;
 
 import java.lang.invoke.MethodHandle;
 import java.util.NoSuchElementException;
+import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static io.prestosql.spi.StandardErrorCode.ADMINISTRATIVELY_KILLED;
 import static io.prestosql.spi.StandardErrorCode.ADMINISTRATIVELY_PREEMPTED;
@@ -42,11 +46,13 @@ public class KillQueryProcedure
     private static final MethodHandle KILL_QUERY = methodHandle(KillQueryProcedure.class, "killQuery", String.class, String.class);
 
     private final QueryManager queryManager;
+    private final Optional<DispatchManager> dispatchManager;
 
     @Inject
-    public KillQueryProcedure(QueryManager queryManager)
+    public KillQueryProcedure(QueryManager queryManager, Optional<DispatchManager> dispatchManager)
     {
         this.queryManager = requireNonNull(queryManager, "queryManager is null");
+        this.dispatchManager = requireNonNull(dispatchManager, "dispatchManager is null");
     }
 
     @UsedByGeneratedCode
@@ -68,10 +74,33 @@ public class KillQueryProcedure
             if (!ADMINISTRATIVELY_KILLED.toErrorCode().equals(requireNonNull(queryManager.getQueryInfo(query).getErrorCode()))) {
                 throw new PrestoException(NOT_SUPPORTED, "Target query is already finished: " + queryId);
             }
+            return;
         }
         catch (NoSuchElementException e) {
-            throw new PrestoException(NOT_FOUND, "Target query not found: " + queryId);
         }
+
+        try {
+            checkState(dispatchManager.isPresent(), "No dispatch manager is set. kill_query procedure should be executed on coordinator.");
+            DispatchQuery dispatchQuery = dispatchManager.get().getQuery(query);
+
+            // check before killing to provide the proper error message (this is racy)
+            if (dispatchQuery.isDone()) {
+                throw new PrestoException(NOT_SUPPORTED, "Target query is not running: " + queryId);
+            }
+
+            dispatchQuery.fail(createKillQueryException(message));
+
+            // verify if the query was killed (if not, we lost the race)
+            checkState(dispatchQuery.getErrorCode().isPresent(), "Failure to fail the query: %s", query);
+            if (!ADMINISTRATIVELY_KILLED.toErrorCode().equals(dispatchQuery.getErrorCode().get())) {
+                throw new PrestoException(NOT_SUPPORTED, "Target query is already finished: " + queryId);
+            }
+            return;
+        }
+        catch (NoSuchElementException e) {
+        }
+
+        throw new PrestoException(NOT_FOUND, "Target query not found: " + queryId);
     }
 
     public Procedure getProcedure()
