@@ -14,11 +14,10 @@
 package io.prestosql.plugin.sqlserver;
 
 import com.google.common.base.Joiner;
-import com.microsoft.sqlserver.jdbc.SQLServerDriver;
 import io.prestosql.plugin.jdbc.BaseJdbcClient;
 import io.prestosql.plugin.jdbc.BaseJdbcConfig;
 import io.prestosql.plugin.jdbc.ColumnMapping;
-import io.prestosql.plugin.jdbc.DriverConnectionFactory;
+import io.prestosql.plugin.jdbc.ConnectionFactory;
 import io.prestosql.plugin.jdbc.JdbcColumnHandle;
 import io.prestosql.plugin.jdbc.JdbcIdentity;
 import io.prestosql.plugin.jdbc.JdbcTableHandle;
@@ -66,9 +65,9 @@ public class SqlServerClient
     };
 
     @Inject
-    public SqlServerClient(BaseJdbcConfig config)
+    public SqlServerClient(BaseJdbcConfig config, ConnectionFactory connectionFactory)
     {
-        super(config, "\"", new DriverConnectionFactory(new SQLServerDriver(), config));
+        super(config, "\"", connectionFactory);
     }
 
     @Override

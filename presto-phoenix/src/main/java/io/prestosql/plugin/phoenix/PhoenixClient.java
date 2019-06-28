@@ -18,7 +18,7 @@ import io.prestosql.plugin.jdbc.BaseJdbcClient;
 import io.prestosql.plugin.jdbc.BlockReadFunction;
 import io.prestosql.plugin.jdbc.BlockWriteFunction;
 import io.prestosql.plugin.jdbc.ColumnMapping;
-import io.prestosql.plugin.jdbc.DriverConnectionFactory;
+import io.prestosql.plugin.jdbc.ConnectionFactory;
 import io.prestosql.plugin.jdbc.JdbcColumnHandle;
 import io.prestosql.plugin.jdbc.JdbcIdentity;
 import io.prestosql.plugin.jdbc.JdbcOutputTableHandle;
@@ -32,7 +32,6 @@ import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.Type;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.phoenix.compile.QueryPlan;
@@ -47,7 +46,6 @@ import org.apache.phoenix.iterate.SequenceResultIterator;
 import org.apache.phoenix.iterate.TableResultIterator;
 import org.apache.phoenix.jdbc.DelegatePreparedStatement;
 import org.apache.phoenix.jdbc.PhoenixConnection;
-import org.apache.phoenix.jdbc.PhoenixEmbeddedDriver.ConnectionInfo;
 import org.apache.phoenix.jdbc.PhoenixPreparedStatement;
 import org.apache.phoenix.jdbc.PhoenixResultSet;
 import org.apache.phoenix.mapreduce.PhoenixInputSplit;
@@ -62,7 +60,6 @@ import javax.inject.Inject;
 import java.io.IOException;
 import java.sql.Array;
 import java.sql.Connection;
-import java.sql.DriverManager;
 import java.sql.JDBCType;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -71,9 +68,7 @@ import java.sql.Types;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import java.util.Map.Entry;
 import java.util.Optional;
-import java.util.Properties;
 import java.util.function.BiFunction;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
@@ -84,6 +79,7 @@ import static io.prestosql.plugin.jdbc.StandardColumnMappings.realWriteFunction;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.timeWriteFunction;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.varcharColumnMapping;
 import static io.prestosql.plugin.phoenix.MetadataUtil.toPhoenixSchemaName;
+import static io.prestosql.plugin.phoenix.PhoenixClientModule.getConnectionProperties;
 import static io.prestosql.plugin.phoenix.PhoenixErrorCode.PHOENIX_METADATA_ERROR;
 import static io.prestosql.plugin.phoenix.PhoenixErrorCode.PHOENIX_QUERY_ERROR;
 import static io.prestosql.plugin.phoenix.PhoenixMetadata.DEFAULT_SCHEMA;
@@ -110,7 +106,6 @@ import static java.sql.Types.TIMESTAMP_WITH_TIMEZONE;
 import static java.sql.Types.TIME_WITH_TIMEZONE;
 import static java.sql.Types.VARCHAR;
 import static java.util.Collections.nCopies;
-import static java.util.Objects.requireNonNull;
 import static org.apache.phoenix.coprocessor.BaseScannerRegionObserver.SKIP_REGION_BOUNDARY_CHECK;
 import static org.apache.phoenix.util.SchemaUtil.ESCAPE_CHARACTER;
 
@@ -120,51 +115,16 @@ public class PhoenixClient
     private final Configuration configuration;
 
     @Inject
-    public PhoenixClient(PhoenixConfig config)
-            throws SQLException
-    {
-        this(config, getConnectionProperties(config));
-    }
-
-    private PhoenixClient(PhoenixConfig config, Properties connectionProperties)
+    public PhoenixClient(PhoenixConfig config, ConnectionFactory connectionFactory)
             throws SQLException
     {
         super(
                 ESCAPE_CHARACTER,
-                new DriverConnectionFactory(
-                        DriverManager.getDriver(config.getConnectionUrl()),
-                        config.getConnectionUrl(),
-                        Optional.empty(),
-                        Optional.empty(),
-                        connectionProperties),
+                connectionFactory,
                 config.isCaseInsensitiveNameMatching(),
                 config.getCaseInsensitiveNameMatchingCacheTtl());
         this.configuration = new Configuration(false);
-        connectionProperties.forEach((k, v) -> configuration.set((String) k, (String) v));
-    }
-
-    private static Properties getConnectionProperties(PhoenixConfig config)
-            throws SQLException
-    {
-        requireNonNull(config, "config is null");
-        Configuration resourcesConfig = readConfig(config);
-        Properties connectionProperties = new Properties();
-        for (Entry<String, String> entry : resourcesConfig) {
-            connectionProperties.put(entry.getKey(), entry.getValue());
-        }
-
-        ConnectionInfo connectionInfo = ConnectionInfo.create(config.getConnectionUrl());
-        connectionProperties.putAll(connectionInfo.asProps().asMap());
-        return connectionProperties;
-    }
-
-    private static Configuration readConfig(PhoenixConfig config)
-    {
-        Configuration result = new Configuration(false);
-        for (String resourcePath : config.getResourceConfigFiles()) {
-            result.addResource(new Path(resourcePath));
-        }
-        return result;
+        getConnectionProperties(config).forEach((k, v) -> configuration.set((String) k, (String) v));
     }
 
     public PhoenixConnection getConnection(JdbcIdentity identity)

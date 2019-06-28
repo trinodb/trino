@@ -15,8 +15,13 @@ package io.prestosql.plugin.sqlserver;
 
 import com.google.inject.Binder;
 import com.google.inject.Module;
+import com.google.inject.Provides;
 import com.google.inject.Scopes;
+import com.google.inject.Singleton;
+import com.microsoft.sqlserver.jdbc.SQLServerDriver;
 import io.prestosql.plugin.jdbc.BaseJdbcConfig;
+import io.prestosql.plugin.jdbc.ConnectionFactory;
+import io.prestosql.plugin.jdbc.DriverConnectionFactory;
 import io.prestosql.plugin.jdbc.JdbcClient;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
@@ -29,5 +34,12 @@ public class SqlServerClientModule
     {
         binder.bind(JdbcClient.class).to(SqlServerClient.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(BaseJdbcConfig.class);
+    }
+
+    @Provides
+    @Singleton
+    public ConnectionFactory getConnectionFactory(BaseJdbcConfig config)
+    {
+        return new DriverConnectionFactory(new SQLServerDriver(), config);
     }
 }
