@@ -30,6 +30,7 @@ import static io.prestosql.client.ClientSession.stripTransactionId;
 import static io.prestosql.client.OkHttpUtil.basicAuth;
 import static io.prestosql.client.OkHttpUtil.setupCookieJar;
 import static io.prestosql.client.OkHttpUtil.setupHttpProxy;
+import static io.prestosql.client.OkHttpUtil.setupInsecureSsl;
 import static io.prestosql.client.OkHttpUtil.setupKerberos;
 import static io.prestosql.client.OkHttpUtil.setupSocksProxy;
 import static io.prestosql.client.OkHttpUtil.setupSsl;
@@ -65,12 +66,19 @@ public class QueryRunner
             Optional<String> kerberosConfigPath,
             Optional<String> kerberosKeytabPath,
             Optional<String> kerberosCredentialCachePath,
-            boolean kerberosUseCanonicalHostname)
+            boolean kerberosUseCanonicalHostname,
+            boolean insecureMode)
     {
         this.session = new AtomicReference<>(requireNonNull(session, "session is null"));
         this.debug = debug;
 
-        this.sslSetup = builder -> setupSsl(builder, keystorePath, keystorePassword, truststorePath, truststorePassword);
+        if (insecureMode) {
+            // Assumed to be used for debugging purpose.
+            this.sslSetup = builder -> setupInsecureSsl(builder);
+        }
+        else {
+            this.sslSetup = builder -> setupSsl(builder, keystorePath, keystorePassword, truststorePath, truststorePassword);
+        }
 
         OkHttpClient.Builder builder = new OkHttpClient.Builder();
 

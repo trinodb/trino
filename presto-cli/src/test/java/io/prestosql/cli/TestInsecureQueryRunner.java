@@ -29,8 +29,14 @@ import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import java.io.IOException;
+import javax.net.ssl.KeyManagerFactory;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.TrustManagerFactory;
+
+import java.io.FileInputStream;
 import java.io.PrintStream;
+import java.security.KeyStore;
+import java.security.SecureRandom;
 import java.time.ZoneId;
 import java.util.Locale;
 import java.util.Optional;
@@ -46,29 +52,49 @@ import static java.util.concurrent.TimeUnit.MINUTES;
 import static org.testng.Assert.assertEquals;
 
 @Test(singleThreaded = true)
-public class TestQueryRunner
+public class TestInsecureQueryRunner
 {
     private static final JsonCodec<QueryResults> QUERY_RESULTS_CODEC = jsonCodec(QueryResults.class);
 
     private MockWebServer server;
 
     @BeforeMethod
-    public void setup()
-            throws IOException
+    public void setup() throws Exception
     {
         server = new MockWebServer();
+        SSLContext sslContext = buildTestSslContext();
+        server.useHttps(sslContext.getSocketFactory(), false);
         server.start();
     }
 
+    private SSLContext buildTestSslContext() throws Exception
+    {
+        // Load self-signed certificate
+        String path = getClass().getClassLoader().getResource("insecure-ssl-test.jks").getPath();
+        FileInputStream stream = new FileInputStream(path);
+        char[] serverKeyStorePassword = "insecure-ssl-test".toCharArray();
+        KeyStore serverKeyStore = KeyStore.getInstance(KeyStore.getDefaultType());
+        serverKeyStore.load(stream, serverKeyStorePassword);
+
+        String kmfAlgorithm = KeyManagerFactory.getDefaultAlgorithm();
+        KeyManagerFactory kmf = KeyManagerFactory.getInstance(kmfAlgorithm);
+        kmf.init(serverKeyStore, serverKeyStorePassword);
+
+        TrustManagerFactory trustManagerFactory = TrustManagerFactory.getInstance(kmfAlgorithm);
+        trustManagerFactory.init(serverKeyStore);
+        SSLContext sslContext = SSLContext.getInstance("SSL");
+        sslContext.init(kmf.getKeyManagers(), trustManagerFactory.getTrustManagers(), new SecureRandom());
+        return sslContext;
+    }
+
     @AfterMethod(alwaysRun = true)
-    public void teardown()
-            throws IOException
+    public void teardown() throws Exception
     {
         server.close();
     }
 
     @Test
-    public void testCookie()
+    public void testInsecureConnection() throws Exception
     {
         server.enqueue(new MockResponse()
                 .setResponseCode(307)
@@ -81,26 +107,47 @@ public class TestQueryRunner
                 .addHeader(CONTENT_TYPE, "application/json")
                 .setBody(createResults()));
 
-        QueryRunner queryRunner = createQueryRunner(
-                new ClientSession(
-                        server.url("/").uri(),
-                        "user",
-                        "source",
-                        Optional.empty(),
-                        ImmutableSet.of(),
-                        "clientInfo",
-                        "catalog",
-                        "schema",
-                        "path",
-                        ZoneId.of("America/Los_Angeles"),
-                        Locale.ENGLISH,
-                        ImmutableMap.of(),
-                        ImmutableMap.of(),
-                        ImmutableMap.of(),
-                        ImmutableMap.of(),
-                        ImmutableMap.of(),
-                        null,
-                        new Duration(2, MINUTES)));
+        ClientSession clientSession = new ClientSession(
+                server.url("/").uri(),
+                "user",
+                "source",
+                Optional.empty(),
+                ImmutableSet.of(),
+                "clientInfo",
+                "catalog",
+                "schema",
+                "path",
+                ZoneId.of("America/Los_Angeles"),
+                Locale.ENGLISH,
+                ImmutableMap.of(),
+                ImmutableMap.of(),
+                ImmutableMap.of(),
+                ImmutableMap.of(),
+                ImmutableMap.of(),
+                null,
+                new Duration(2, MINUTES));
+
+        QueryRunner queryRunner = new QueryRunner(
+                clientSession,
+                true,
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                false,
+                true);
+
         try (Query query = queryRunner.startQuery("first query will introduce a cookie")) {
             query.renderOutput(nullPrintStream(), nullPrintStream(), CSV, false, false);
         }
@@ -134,30 +181,6 @@ public class TestQueryRunner
                 null,
                 null);
         return QUERY_RESULTS_CODEC.toJson(queryResults);
-    }
-
-    static QueryRunner createQueryRunner(ClientSession clientSession)
-    {
-        return new QueryRunner(
-                clientSession,
-                false,
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                false,
-                false);
     }
 
     private static PrintStream nullPrintStream()

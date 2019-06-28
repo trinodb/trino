@@ -24,6 +24,7 @@ import okhttp3.OkHttpClient;
 import javax.net.ssl.KeyManager;
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLSession;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.TrustManagerFactory;
 import javax.net.ssl.X509TrustManager;
@@ -37,8 +38,12 @@ import java.net.CookieManager;
 import java.net.InetSocketAddress;
 import java.net.Proxy;
 import java.security.GeneralSecurityException;
+import java.security.KeyManagementException;
 import java.security.KeyStore;
+import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
 import java.security.cert.Certificate;
+import java.security.cert.CertificateException;
 import java.security.cert.CertificateExpiredException;
 import java.security.cert.CertificateNotYetValidException;
 import java.security.cert.X509Certificate;
@@ -123,6 +128,42 @@ public final class OkHttpUtil
     private static InetSocketAddress toUnresolvedAddress(HostAndPort address)
     {
         return InetSocketAddress.createUnresolved(address.getHost(), address.getPort());
+    }
+
+    public static void setupInsecureSsl(
+            OkHttpClient.Builder clientBuilder)
+    {
+        try {
+            TrustManager trustAllCerts = new X509TrustManager()
+            {
+                @Override
+                public void checkClientTrusted(X509Certificate[] x509Certificates, String s) throws CertificateException
+                {
+                }
+
+                @Override
+                public void checkServerTrusted(X509Certificate[] x509Certificates, String s) throws CertificateException
+                {
+                }
+
+                @Override
+                public X509Certificate[] getAcceptedIssuers()
+                {
+                    return new X509Certificate[0];
+                }
+            };
+
+            TrustManager[] trustManagers = new TrustManager[] {trustAllCerts};
+
+            final SSLContext sslContext = SSLContext.getInstance("SSL");
+            sslContext.init(null, trustManagers, new SecureRandom());
+
+            clientBuilder.sslSocketFactory(sslContext.getSocketFactory(), (X509TrustManager) trustManagers[0]);
+            clientBuilder.hostnameVerifier((String s, SSLSession session) -> true);
+        }
+        catch (NoSuchAlgorithmException | KeyManagementException e) {
+            throw new ClientException("Error setting up SSL: " + e.getMessage(), e);
+        }
     }
 
     public static void setupSsl(
