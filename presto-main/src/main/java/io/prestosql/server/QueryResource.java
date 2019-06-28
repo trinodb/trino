@@ -44,6 +44,7 @@ import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
+import static com.google.common.base.Preconditions.checkState;
 import static io.prestosql.connector.system.KillQueryProcedure.createKillQueryException;
 import static io.prestosql.connector.system.KillQueryProcedure.createPreemptQueryException;
 import static java.util.Objects.requireNonNull;
@@ -148,8 +149,30 @@ public class QueryResource
             return Response.status(Status.OK).build();
         }
         catch (NoSuchElementException e) {
-            return Response.status(Status.GONE).build();
         }
+
+        try {
+            DispatchQuery query = dispatchManager.getQuery(queryId);
+
+            // check before killing to provide the proper error code (this is racy)
+            if (query.getErrorCode().isPresent()) {
+                return Response.status(Status.CONFLICT).build();
+            }
+
+            queryManager.failQuery(queryId, queryException);
+
+            // verify if the query was failed (if not, we lost the race)
+            checkState(query.getErrorCode().isPresent(), "Failure to fail the query: {}", queryId);
+            if (!queryException.getErrorCode().equals(query.getErrorCode().get())) {
+                return Response.status(Status.CONFLICT).build();
+            }
+
+            return Response.status(Status.OK).build();
+        }
+        catch (NoSuchElementException e) {
+        }
+
+        return Response.status(Status.GONE).build();
     }
 
     @DELETE
