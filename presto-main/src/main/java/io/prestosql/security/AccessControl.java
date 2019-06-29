@@ -185,6 +185,13 @@ public interface AccessControl
     void checkCanCreateView(SecurityContext context, QualifiedObjectName viewName);
 
     /**
+     * Check if identity is allowed to rename the specified view.
+     *
+     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
+     */
+    void checkCanRenameView(SecurityContext context, QualifiedObjectName viewName, QualifiedObjectName newViewName);
+
+    /**
      * Check if identity is allowed to drop the specified view.
      *
      * @throws io.prestosql.spi.security.AccessDeniedException if not allowed

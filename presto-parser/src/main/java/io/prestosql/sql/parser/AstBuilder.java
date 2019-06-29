@@ -131,6 +131,7 @@ import io.prestosql.sql.tree.Relation;
 import io.prestosql.sql.tree.RenameColumn;
 import io.prestosql.sql.tree.RenameSchema;
 import io.prestosql.sql.tree.RenameTable;
+import io.prestosql.sql.tree.RenameView;
 import io.prestosql.sql.tree.ResetSession;
 import io.prestosql.sql.tree.Revoke;
 import io.prestosql.sql.tree.RevokeRoles;
@@ -442,6 +443,12 @@ class AstBuilder
                 (Query) visit(context.query()),
                 context.REPLACE() != null,
                 security);
+    }
+
+    @Override
+    public Node visitRenameView(SqlBaseParser.RenameViewContext context)
+    {
+        return new RenameView(getLocation(context), getQualifiedName(context.from), getQualifiedName(context.to));
     }
 
     @Override

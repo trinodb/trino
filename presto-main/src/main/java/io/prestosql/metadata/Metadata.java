@@ -306,6 +306,11 @@ public interface Metadata
     void createView(Session session, QualifiedObjectName viewName, ConnectorViewDefinition definition, boolean replace);
 
     /**
+     * Rename the specified view.
+     */
+    void renameView(Session session, QualifiedObjectName existingViewName, QualifiedObjectName newViewName);
+
+    /**
      * Drops the specified view.
      */
     void dropView(Session session, QualifiedObjectName viewName);

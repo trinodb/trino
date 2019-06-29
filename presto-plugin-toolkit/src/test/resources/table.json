@@ -17,7 +17,7 @@
     {
       "user": "bob",
       "schema": "bobschema",
-      "table": "bobtable",
+      "table": "bob.*",
       "privileges": ["SELECT", "INSERT", "DELETE", "GRANT_SELECT"]
     },
     {

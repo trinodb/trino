@@ -58,6 +58,7 @@ import io.prestosql.execution.QueryPreparer;
 import io.prestosql.execution.QueryPreparer.PreparedQuery;
 import io.prestosql.execution.RenameColumnTask;
 import io.prestosql.execution.RenameTableTask;
+import io.prestosql.execution.RenameViewTask;
 import io.prestosql.execution.ResetSessionTask;
 import io.prestosql.execution.RollbackTask;
 import io.prestosql.execution.ScheduledSplit;
@@ -156,6 +157,7 @@ import io.prestosql.sql.tree.DropView;
 import io.prestosql.sql.tree.Prepare;
 import io.prestosql.sql.tree.RenameColumn;
 import io.prestosql.sql.tree.RenameTable;
+import io.prestosql.sql.tree.RenameView;
 import io.prestosql.sql.tree.ResetSession;
 import io.prestosql.sql.tree.Rollback;
 import io.prestosql.sql.tree.SetPath;
@@ -414,6 +416,7 @@ public class LocalQueryRunner
                 .put(DropView.class, new DropViewTask())
                 .put(RenameColumn.class, new RenameColumnTask())
                 .put(RenameTable.class, new RenameTableTask())
+                .put(RenameView.class, new RenameViewTask())
                 .put(Comment.class, new CommentTask())
                 .put(ResetSession.class, new ResetSessionTask())
                 .put(SetSession.class, new SetSessionTask())

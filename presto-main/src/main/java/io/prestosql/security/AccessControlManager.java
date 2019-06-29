@@ -493,6 +493,23 @@ public class AccessControlManager
     }
 
     @Override
+    public void checkCanRenameView(SecurityContext context, QualifiedObjectName viewName, QualifiedObjectName newViewName)
+    {
+        requireNonNull(context, "context is null");
+        requireNonNull(viewName, "viewName is null");
+        requireNonNull(newViewName, "newViewName is null");
+
+        authenticationCheck(() -> checkCanAccessCatalog(context.getIdentity(), viewName.getCatalogName()));
+
+        authorizationCheck(() -> systemAccessControl.get().checkCanRenameView(context.toSystemSecurityContext(), viewName.asCatalogSchemaTableName(), newViewName.asCatalogSchemaTableName()));
+
+        CatalogAccessControlEntry entry = getConnectorAccessControl(context.getTransactionId(), viewName.getCatalogName());
+        if (entry != null) {
+            authorizationCheck(() -> entry.getAccessControl().checkCanRenameView(entry.toConnectorSecurityContext(context), viewName.asSchemaTableName(), newViewName.asSchemaTableName()));
+        }
+    }
+
+    @Override
     public void checkCanDropView(SecurityContext context, QualifiedObjectName viewName)
     {
         requireNonNull(context, "context is null");

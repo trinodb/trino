@@ -290,6 +290,16 @@ public interface SystemAccessControl
     }
 
     /**
+     * Check if identity is allowed to rename the specified view in a catalog.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanRenameView(SystemSecurityContext context, CatalogSchemaTableName view, CatalogSchemaTableName newView)
+    {
+        denyRenameTable(view.toString(), newView.toString());
+    }
+
+    /**
      * Check if identity is allowed to drop the specified view in a catalog.
      *
      * @throws AccessDeniedException if not allowed

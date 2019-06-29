@@ -70,6 +70,7 @@ import static io.prestosql.spi.security.AccessDeniedException.denyInsertTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyRenameColumn;
 import static io.prestosql.spi.security.AccessDeniedException.denyRenameSchema;
 import static io.prestosql.spi.security.AccessDeniedException.denyRenameTable;
+import static io.prestosql.spi.security.AccessDeniedException.denyRenameView;
 import static io.prestosql.spi.security.AccessDeniedException.denyRevokeRoles;
 import static io.prestosql.spi.security.AccessDeniedException.denyRevokeTablePrivilege;
 import static io.prestosql.spi.security.AccessDeniedException.denySelectTable;
@@ -250,6 +251,14 @@ public class SqlStandardAccessControl
     {
         if (!isDatabaseOwner(context, viewName.getSchemaName())) {
             denyCreateView(viewName.toString());
+        }
+    }
+
+    @Override
+    public void checkCanRenameView(ConnectorSecurityContext context, SchemaTableName viewName, SchemaTableName newViewName)
+    {
+        if (!isTableOwner(context, viewName)) {
+            denyRenameView(viewName.toString(), newViewName.toString());
         }
     }
 
