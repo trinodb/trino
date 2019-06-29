@@ -13,26 +13,34 @@
  */
 package io.prestosql.plugin.hive;
 
+import com.google.common.base.Splitter;
 import io.prestosql.plugin.hive.RecordFileWriter.ExtendedRecordWriter;
 import io.prestosql.spi.connector.ConnectorSession;
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.ql.exec.FileSinkOperator.RecordWriter;
-import org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat;
+import org.apache.hadoop.hive.ql.io.IOConstants;
+import org.apache.hadoop.hive.ql.io.parquet.convert.HiveSchemaConverter;
+import org.apache.hadoop.hive.ql.io.parquet.write.DataWritableWriteSupport;
 import org.apache.hadoop.hive.ql.io.parquet.write.ParquetRecordWriterWrapper;
-import org.apache.hadoop.io.Text;
+import org.apache.hadoop.hive.serde2.io.ParquetHiveRecord;
+import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
 import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.Reporter;
 import org.apache.parquet.hadoop.ParquetFileWriter;
 import org.apache.parquet.hadoop.ParquetOutputFormat;
 import org.apache.parquet.hadoop.ParquetRecordWriter;
+import org.apache.parquet.schema.MessageType;
 
 import java.io.IOException;
 import java.lang.reflect.Field;
+import java.util.List;
 import java.util.Properties;
 
 import static io.prestosql.plugin.hive.HiveSessionProperties.getParquetWriterBlockSize;
 import static io.prestosql.plugin.hive.HiveSessionProperties.getParquetWriterPageSize;
+import static org.apache.hadoop.hive.serde2.typeinfo.TypeInfoUtils.getTypeInfosFromTypeString;
 
 public final class ParquetRecordWriterUtil
 {
@@ -57,14 +65,13 @@ public final class ParquetRecordWriterUtil
 
     private ParquetRecordWriterUtil() {}
 
-    public static RecordWriter createParquetWriter(Path target, JobConf conf, Properties properties, boolean compress, ConnectorSession session)
+    public static RecordWriter createParquetWriter(Path target, JobConf conf, Properties properties, ConnectorSession session)
             throws IOException, ReflectiveOperationException
     {
         conf.setLong(ParquetOutputFormat.BLOCK_SIZE, getParquetWriterBlockSize(session).toBytes());
         conf.setLong(ParquetOutputFormat.PAGE_SIZE, getParquetWriterPageSize(session).toBytes());
 
-        RecordWriter recordWriter = new MapredParquetOutputFormat()
-                .getHiveRecordWriter(conf, target, Text.class, compress, properties, Reporter.NULL);
+        RecordWriter recordWriter = createParquetWriter(target, conf, properties);
 
         Object realWriter = REAL_WRITER_FIELD.get(recordWriter);
         Object internalWriter = INTERNAL_WRITER_FIELD.get(realWriter);
@@ -98,5 +105,25 @@ public final class ParquetRecordWriterUtil
                 }
             }
         };
+    }
+
+    private static RecordWriter createParquetWriter(Path target, JobConf conf, Properties properties)
+            throws IOException
+    {
+        if (conf.get(DataWritableWriteSupport.PARQUET_HIVE_SCHEMA) == null) {
+            List<String> columnNames = Splitter.on(',').splitToList(properties.getProperty(IOConstants.COLUMNS));
+            List<TypeInfo> columnTypes = getTypeInfosFromTypeString(properties.getProperty(IOConstants.COLUMNS_TYPES));
+            MessageType schema = HiveSchemaConverter.convert(columnNames, columnTypes);
+            setParquetSchema(conf, schema);
+        }
+
+        ParquetOutputFormat<ParquetHiveRecord> outputFormat = new ParquetOutputFormat<>(new DataWritableWriteSupport());
+
+        return new ParquetRecordWriterWrapper(outputFormat, conf, target.toString(), Reporter.NULL, properties);
+    }
+
+    public static void setParquetSchema(Configuration conf, MessageType schema)
+    {
+        DataWritableWriteSupport.setSchema(schema, conf);
     }
 }

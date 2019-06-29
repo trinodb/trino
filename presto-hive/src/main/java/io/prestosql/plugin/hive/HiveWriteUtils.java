@@ -171,7 +171,7 @@ public final class HiveWriteUtils
         try {
             boolean compress = HiveConf.getBoolVar(conf, COMPRESSRESULT);
             if (outputFormatName.equals(MapredParquetOutputFormat.class.getName())) {
-                return createParquetWriter(target, conf, properties, compress, session);
+                return createParquetWriter(target, conf, properties, session);
             }
             Object writer = Class.forName(outputFormatName).getConstructor().newInstance();
             return ((HiveOutputFormat<?, ?>) writer).getHiveRecordWriter(conf, target, Text.class, compress, properties, Reporter.NULL);
