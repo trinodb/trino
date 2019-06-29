@@ -56,7 +56,7 @@ public final class ScalarFromAnnotationsParser
     {
         ImmutableList.Builder<SqlScalarFunction> builder = ImmutableList.builder();
         for (ScalarHeaderAndMethods methods : findScalarsInFunctionSetClass(clazz)) {
-            // Non-static function only makes sense in classes annotated @ScalarFunction.
+            // Non-static function only makes sense in classes annotated with @ScalarFunction or @ScalarOperator.
             builder.add(parseParametricScalar(methods, Optional.empty()));
         }
         return builder.build();
