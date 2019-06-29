@@ -1119,13 +1119,6 @@
                 <version>3.1.4-2</version>
             </dependency>
 
-            <!-- force newer version to be used for dependencies -->
-            <dependency>
-                <groupId>org.javassist</groupId>
-                <artifactId>javassist</artifactId>
-                <version>3.22.0-GA</version>
-            </dependency>
-
             <dependency>
                 <groupId>com.starburstdata</groupId>
                 <artifactId>starburst-spotify-docker-client</artifactId>
@@ -1136,6 +1129,13 @@
                 <groupId>net.jodah</groupId>
                 <artifactId>failsafe</artifactId>
                 <version>2.0.1</version>
+            </dependency>
+
+            <!-- force newer version to be used for dependencies -->
+            <dependency>
+                <groupId>org.javassist</groupId>
+                <artifactId>javassist</artifactId>
+                <version>3.22.0-GA</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
