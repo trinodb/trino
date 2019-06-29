@@ -13,7 +13,6 @@
  */
 package io.prestosql.plugin.hive;
 
-import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 import io.prestosql.plugin.hive.HiveWriteUtils.FieldSetter;
@@ -42,15 +41,14 @@ import java.util.Properties;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_WRITER_CLOSE_ERROR;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_WRITER_DATA_ERROR;
-import static io.prestosql.plugin.hive.HiveType.toHiveTypes;
+import static io.prestosql.plugin.hive.HiveUtil.getColumnNames;
+import static io.prestosql.plugin.hive.HiveUtil.getColumnTypes;
 import static io.prestosql.plugin.hive.HiveWriteUtils.createFieldSetter;
 import static io.prestosql.plugin.hive.HiveWriteUtils.createRecordWriter;
 import static io.prestosql.plugin.hive.HiveWriteUtils.getRowColumnInspectors;
 import static io.prestosql.plugin.hive.HiveWriteUtils.initializeSerializer;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
-import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.META_TABLE_COLUMNS;
-import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.META_TABLE_COLUMN_TYPES;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.getStandardStructObjectInspector;
 
 public class RecordFileWriter
@@ -85,8 +83,8 @@ public class RecordFileWriter
         this.conf = requireNonNull(conf, "conf is null");
 
         // existing tables may have columns in a different order
-        List<String> fileColumnNames = Splitter.on(',').trimResults().omitEmptyStrings().splitToList(schema.getProperty(META_TABLE_COLUMNS, ""));
-        List<Type> fileColumnTypes = toHiveTypes(schema.getProperty(META_TABLE_COLUMN_TYPES, "")).stream()
+        List<String> fileColumnNames = getColumnNames(schema);
+        List<Type> fileColumnTypes = getColumnTypes(schema).stream()
                 .map(hiveType -> hiveType.getType(typeManager))
                 .collect(toList());
 

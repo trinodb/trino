@@ -13,7 +13,6 @@
  */
 package io.prestosql.plugin.hive;
 
-import com.google.common.base.Splitter;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -45,6 +44,7 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.common.FileUtils;
 import org.apache.hadoop.hive.conf.HiveConf;
 import org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat;
+import org.apache.hadoop.hive.ql.io.IOConstants;
 import org.apache.hadoop.io.compress.CompressionCodec;
 import org.apache.hadoop.io.compress.DefaultCodec;
 import org.apache.hadoop.mapred.JobConf;
@@ -75,7 +75,8 @@ import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_PATH_ALREADY_EXISTS;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_TABLE_READ_ONLY;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_WRITER_OPEN_ERROR;
-import static io.prestosql.plugin.hive.HiveType.toHiveTypes;
+import static io.prestosql.plugin.hive.HiveUtil.getColumnNames;
+import static io.prestosql.plugin.hive.HiveUtil.getColumnTypes;
 import static io.prestosql.plugin.hive.HiveWriteUtils.createPartitionValues;
 import static io.prestosql.plugin.hive.LocationHandle.WriteMode.DIRECT_TO_TARGET_EXISTING_DIRECTORY;
 import static io.prestosql.plugin.hive.metastore.MetastoreUtil.getHiveSchema;
@@ -91,8 +92,6 @@ import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 import static org.apache.hadoop.hive.conf.HiveConf.ConfVars.COMPRESSRESULT;
-import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.META_TABLE_COLUMNS;
-import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.META_TABLE_COLUMN_TYPES;
 
 public class HiveWriterFactory
 {
@@ -300,10 +299,10 @@ public class HiveWriterFactory
                 //           or a new unpartitioned table.
                 updateMode = UpdateMode.NEW;
                 schema = new Properties();
-                schema.setProperty(META_TABLE_COLUMNS, dataColumns.stream()
+                schema.setProperty(IOConstants.COLUMNS, dataColumns.stream()
                         .map(DataColumn::getName)
                         .collect(joining(",")));
-                schema.setProperty(META_TABLE_COLUMN_TYPES, dataColumns.stream()
+                schema.setProperty(IOConstants.COLUMNS_TYPES, dataColumns.stream()
                         .map(DataColumn::getHiveType)
                         .map(HiveType::getHiveTypeName)
                         .map(HiveTypeName::toString)
@@ -554,8 +553,8 @@ public class HiveWriterFactory
     private void validateSchema(Optional<String> partitionName, Properties schema)
     {
         // existing tables may have columns in a different order
-        List<String> fileColumnNames = Splitter.on(',').trimResults().omitEmptyStrings().splitToList(schema.getProperty(META_TABLE_COLUMNS, ""));
-        List<HiveType> fileColumnHiveTypes = toHiveTypes(schema.getProperty(META_TABLE_COLUMN_TYPES, ""));
+        List<String> fileColumnNames = getColumnNames(schema);
+        List<HiveType> fileColumnHiveTypes = getColumnTypes(schema);
 
         // verify we can write all input columns to the file
         Map<String, DataColumn> inputColumnMap = dataColumns.stream()
