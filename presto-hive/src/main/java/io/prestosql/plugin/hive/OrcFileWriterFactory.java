@@ -13,7 +13,6 @@
  */
 package io.prestosql.plugin.hive;
 
-import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.orc.OrcDataSink;
 import io.prestosql.orc.OrcDataSource;
@@ -58,12 +57,11 @@ import static io.prestosql.plugin.hive.HiveSessionProperties.getOrcOptimizedWrit
 import static io.prestosql.plugin.hive.HiveSessionProperties.getOrcOptimizedWriterValidateMode;
 import static io.prestosql.plugin.hive.HiveSessionProperties.getOrcStreamBufferSize;
 import static io.prestosql.plugin.hive.HiveSessionProperties.getOrcStringStatisticsLimit;
-import static io.prestosql.plugin.hive.HiveType.toHiveTypes;
+import static io.prestosql.plugin.hive.HiveUtil.getColumnNames;
+import static io.prestosql.plugin.hive.HiveUtil.getColumnTypes;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
-import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.META_TABLE_COLUMNS;
-import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.META_TABLE_COLUMN_TYPES;
 
 public class OrcFileWriterFactory
         implements HiveFileWriterFactory
@@ -138,8 +136,8 @@ public class OrcFileWriterFactory
 
         // existing tables and partitions may have columns in a different order than the writer is providing, so build
         // an index to rearrange columns in the proper order
-        List<String> fileColumnNames = Splitter.on(',').trimResults().omitEmptyStrings().splitToList(schema.getProperty(META_TABLE_COLUMNS, ""));
-        List<Type> fileColumnTypes = toHiveTypes(schema.getProperty(META_TABLE_COLUMN_TYPES, "")).stream()
+        List<String> fileColumnNames = getColumnNames(schema);
+        List<Type> fileColumnTypes = getColumnTypes(schema).stream()
                 .map(hiveType -> hiveType.getType(typeManager))
                 .collect(toList());
 

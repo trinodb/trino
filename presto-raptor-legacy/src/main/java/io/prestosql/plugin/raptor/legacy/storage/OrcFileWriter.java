@@ -31,6 +31,7 @@ import io.prestosql.spi.type.VarcharType;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.hive.ql.io.IOConstants;
 import org.apache.hadoop.hive.ql.io.orc.OrcFile;
 import org.apache.hadoop.hive.ql.io.orc.OrcOutputFormat;
 import org.apache.hadoop.hive.ql.io.orc.OrcSerde;
@@ -70,8 +71,6 @@ import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
-import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.META_TABLE_COLUMNS;
-import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.META_TABLE_COLUMN_TYPES;
 import static org.apache.hadoop.hive.ql.exec.FileSinkOperator.RecordWriter;
 import static org.apache.hadoop.hive.ql.io.orc.CompressionKind.SNAPPY;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector.Category.LIST;
@@ -126,8 +125,8 @@ public class OrcFileWriter
         List<String> columnNames = ImmutableList.copyOf(transform(columnIds, toStringFunction()));
 
         Properties properties = new Properties();
-        properties.setProperty(META_TABLE_COLUMNS, Joiner.on(',').join(columnNames));
-        properties.setProperty(META_TABLE_COLUMN_TYPES, Joiner.on(':').join(hiveTypeNames));
+        properties.setProperty(IOConstants.COLUMNS, Joiner.on(',').join(columnNames));
+        properties.setProperty(IOConstants.COLUMNS_TYPES, Joiner.on(':').join(hiveTypeNames));
 
         serializer = createSerializer(properties);
         recordWriter = createRecordWriter(new Path(target.toURI()), columnIds, columnTypes, writeMetadata);
