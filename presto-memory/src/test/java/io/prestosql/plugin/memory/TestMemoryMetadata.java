@@ -202,6 +202,7 @@ public class TestMemoryMetadata
     {
         SchemaTableName test1 = new SchemaTableName("test", "test_view1");
         SchemaTableName test2 = new SchemaTableName("test", "test_view2");
+        SchemaTableName test3 = new SchemaTableName("test", "test_view3");
 
         // create schema
         metadata.createSchema(SESSION, "test", ImmutableMap.of());
@@ -243,8 +244,14 @@ public class TestMemoryMetadata
         assertThat(metadata.getViews(SESSION, Optional.of("test")))
                 .containsOnlyKeys(test2);
 
+        // rename second view
+        metadata.renameView(SESSION, test2, test3);
+
+        assertThat(metadata.getViews(SESSION, Optional.of("test")))
+                .containsOnlyKeys(test3);
+
         // drop second view
-        metadata.dropView(SESSION, test2);
+        metadata.dropView(SESSION, test3);
 
         assertThat(metadata.getViews(SESSION, Optional.of("test")))
                 .isEmpty();
