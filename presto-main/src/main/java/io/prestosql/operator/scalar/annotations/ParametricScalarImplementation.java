@@ -631,7 +631,7 @@ public class ParametricScalarImplementation
                 return Optional.empty();
             }
 
-            checkArgument(optionalConstructor.isPresent(), "Method [%s] is an instance method. It must be in a class annotated with @ScalarFunction, and the class is required to have a public constructor.", method);
+            checkArgument(optionalConstructor.isPresent(), "Method [%s] is an instance method. It must be in a class annotated with @ScalarFunction or @ScalarOperator, and the class is required to have a public constructor.", method);
             Constructor<?> constructor = optionalConstructor.get();
             Set<TypeParameter> constructorTypeParameters = Stream.of(constructor.getAnnotationsByType(TypeParameter.class))
                     .collect(ImmutableSet.toImmutableSet());
