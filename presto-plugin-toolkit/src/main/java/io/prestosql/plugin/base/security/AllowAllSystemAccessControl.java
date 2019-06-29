@@ -182,6 +182,11 @@ public class AllowAllSystemAccessControl
     }
 
     @Override
+    public void checkCanRenameView(SystemSecurityContext context, CatalogSchemaTableName view, CatalogSchemaTableName newView)
+    {
+    }
+
+    @Override
     public void checkCanDropView(SystemSecurityContext context, CatalogSchemaTableName view)
     {
     }

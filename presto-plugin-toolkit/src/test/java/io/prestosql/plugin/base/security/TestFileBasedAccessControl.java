@@ -69,6 +69,8 @@ public class TestFileBasedAccessControl
         accessControl.checkCanDropTable(user("admin"), new SchemaTableName("bobschema", "bobtable"));
         accessControl.checkCanRenameTable(user("admin"), new SchemaTableName("bobschema", "bobtable"), new SchemaTableName("aliceschema", "newbobtable"));
         accessControl.checkCanRenameTable(user("alice"), new SchemaTableName("aliceschema", "alicetable"), new SchemaTableName("aliceschema", "newalicetable"));
+        accessControl.checkCanRenameView(user("admin"), new SchemaTableName("bobschema", "bobview"), new SchemaTableName("aliceschema", "newbobview"));
+        accessControl.checkCanRenameView(user("alice"), new SchemaTableName("aliceschema", "aliceview"), new SchemaTableName("aliceschema", "newaliceview"));
         assertDenied(() -> accessControl.checkCanInsertIntoTable(user("alice"), new SchemaTableName("bobschema", "bobtable")));
         assertDenied(() -> accessControl.checkCanDropTable(user("bob"), new SchemaTableName("bobschema", "bobtable")));
         assertDenied(() -> accessControl.checkCanRenameTable(user("bob"), new SchemaTableName("bobschema", "bobtable"), new SchemaTableName("bobschema", "newbobtable")));
@@ -77,6 +79,8 @@ public class TestFileBasedAccessControl
         assertDenied(() -> accessControl.checkCanSelectFromColumns(user("admin"), new SchemaTableName("secret", "secret"), ImmutableSet.of()));
         assertDenied(() -> accessControl.checkCanSelectFromColumns(user("joe"), new SchemaTableName("secret", "secret"), ImmutableSet.of()));
         assertDenied(() -> accessControl.checkCanCreateViewWithSelectFromColumns(user("joe"), new SchemaTableName("bobschema", "bobtable"), ImmutableSet.of()));
+        assertDenied(() -> accessControl.checkCanRenameView(user("bob"), new SchemaTableName("bobschema", "bobview"), new SchemaTableName("bobschema", "newbobview")));
+        assertDenied(() -> accessControl.checkCanRenameView(user("alice"), new SchemaTableName("aliceschema", "alicetable"), new SchemaTableName("bobschema", "newalicetable")));
     }
 
     @Test

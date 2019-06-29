@@ -181,6 +181,12 @@ public abstract class ForwardingAccessControl
     }
 
     @Override
+    public void checkCanRenameView(SecurityContext context, QualifiedObjectName viewName, QualifiedObjectName newViewName)
+    {
+        getDelegate().checkCanRenameView(context, viewName, newViewName);
+    }
+
+    @Override
     public void checkCanDropView(SecurityContext context, QualifiedObjectName viewName)
     {
         getDelegate().checkCanDropView(context, viewName);

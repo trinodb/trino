@@ -454,6 +454,14 @@ public interface ConnectorMetadata
     }
 
     /**
+     * Rename the specified view
+     */
+    default void renameView(ConnectorSession session, SchemaTableName source, SchemaTableName target)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support renaming views");
+    }
+
+    /**
      * Drop the specified view.
      */
     default void dropView(ConnectorSession session, SchemaTableName viewName)

@@ -65,6 +65,7 @@ statement
     | CREATE (OR REPLACE)? VIEW qualifiedName
         (SECURITY (DEFINER | INVOKER))? AS query                       #createView
     | DROP VIEW (IF EXISTS)? qualifiedName                             #dropView
+    | ALTER VIEW from=qualifiedName RENAME TO to=qualifiedName         #renameView
     | CALL qualifiedName '(' (callArgument (',' callArgument)*)? ')'   #call
     | CREATE ROLE name=identifier
         (WITH ADMIN grantor)?                                          #createRole
