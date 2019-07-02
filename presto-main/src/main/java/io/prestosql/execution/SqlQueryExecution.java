@@ -13,6 +13,7 @@
  */
 package io.prestosql.execution;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.concurrent.SetThreadName;
 import io.airlift.log.Logger;
@@ -39,6 +40,7 @@ import io.prestosql.metadata.TableHandle;
 import io.prestosql.operator.ForScheduler;
 import io.prestosql.security.AccessControl;
 import io.prestosql.server.BasicQueryInfo;
+import io.prestosql.server.DynamicFilterService;
 import io.prestosql.server.protocol.Slug;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.QueryId;
@@ -81,6 +83,7 @@ import java.util.function.Consumer;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static io.airlift.units.DataSize.succinctBytes;
+import static io.prestosql.execution.QueryState.STARTING;
 import static io.prestosql.execution.buffer.OutputBuffers.BROADCAST_PARTITION_ID;
 import static io.prestosql.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
 import static io.prestosql.execution.scheduler.SqlQueryScheduler.createSqlQueryScheduler;
@@ -121,6 +124,7 @@ public class SqlQueryExecution
     private final Analysis analysis;
     private final StatsCalculator statsCalculator;
     private final CostCalculator costCalculator;
+    private final DynamicFilterService dynamicFilterService;
 
     private SqlQueryExecution(
             PreparedQuery preparedQuery,
@@ -146,6 +150,7 @@ public class SqlQueryExecution
             SplitSchedulerStats schedulerStats,
             StatsCalculator statsCalculator,
             CostCalculator costCalculator,
+            DynamicFilterService dynamicFilterService,
             WarningCollector warningCollector)
     {
         try (SetThreadName ignored = new SetThreadName("Query-%s", stateMachine.getQueryId())) {
@@ -166,6 +171,7 @@ public class SqlQueryExecution
             this.schedulerStats = requireNonNull(schedulerStats, "schedulerStats is null");
             this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
             this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
+            this.dynamicFilterService = requireNonNull(dynamicFilterService, "dynamicFilterService is null");
 
             checkArgument(scheduleSplitBatchSize > 0, "scheduleSplitBatchSize must be greater than 0");
             this.scheduleSplitBatchSize = scheduleSplitBatchSize;
@@ -174,6 +180,15 @@ public class SqlQueryExecution
 
             // analyze query
             this.analysis = analyze(preparedQuery, stateMachine, metadata, accessControl, sqlParser, queryExplainer, warningCollector);
+
+            stateMachine.addStateChangeListener(state -> {
+                if (state == STARTING) {
+                    dynamicFilterService.registerQuery(this);
+                }
+                else if (state.isDone()) {
+                    dynamicFilterService.removeQuery(stateMachine.getQueryId());
+                }
+            });
 
             // when the query finishes cache the final query info, and clear the reference to the output stage
             AtomicReference<SqlQueryScheduler> queryScheduler = this.queryScheduler;
@@ -409,7 +424,7 @@ public class SqlQueryExecution
     private void planDistribution(PlanRoot plan)
     {
         // plan the execution on the active nodes
-        DistributedExecutionPlanner distributedPlanner = new DistributedExecutionPlanner(splitManager, metadata);
+        DistributedExecutionPlanner distributedPlanner = new DistributedExecutionPlanner(splitManager, metadata, dynamicFilterService);
         StageExecutionPlan outputStageExecutionPlan = distributedPlanner.plan(plan.getRoot(), stateMachine.getSession());
 
         // ensure split sources are closed
@@ -553,6 +568,15 @@ public class SqlQueryExecution
         }
     }
 
+    public List<StageInfo> getAllStages()
+    {
+        SqlQueryScheduler scheduler = queryScheduler.get();
+        if (scheduler != null) {
+            return StageInfo.getAllStages(Optional.of(scheduler.getStageInfo()));
+        }
+        return ImmutableList.of();
+    }
+
     @Override
     public QueryState getState()
     {
@@ -644,6 +668,7 @@ public class SqlQueryExecution
         private final Map<String, ExecutionPolicy> executionPolicies;
         private final StatsCalculator statsCalculator;
         private final CostCalculator costCalculator;
+        private final DynamicFilterService dynamicFilterService;
 
         @Inject
         SqlQueryExecutionFactory(
@@ -666,7 +691,8 @@ public class SqlQueryExecution
                 Map<String, ExecutionPolicy> executionPolicies,
                 SplitSchedulerStats schedulerStats,
                 StatsCalculator statsCalculator,
-                CostCalculator costCalculator)
+                CostCalculator costCalculator,
+                DynamicFilterService dynamicFilterService)
         {
             requireNonNull(config, "config is null");
             this.schedulerStats = requireNonNull(schedulerStats, "schedulerStats is null");
@@ -689,6 +715,7 @@ public class SqlQueryExecution
             this.planOptimizers = requireNonNull(planOptimizers, "planOptimizers is null").get();
             this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
             this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
+            this.dynamicFilterService = requireNonNull(dynamicFilterService, "dynamicFilterService is null");
         }
 
         @Override
@@ -726,6 +753,7 @@ public class SqlQueryExecution
                     schedulerStats,
                     statsCalculator,
                     costCalculator,
+                    dynamicFilterService,
                     warningCollector);
         }
     }
