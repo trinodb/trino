@@ -14,6 +14,7 @@
 package io.prestosql.execution;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -34,6 +35,7 @@ import io.prestosql.operator.PipelineContext;
 import io.prestosql.operator.PipelineStatus;
 import io.prestosql.operator.TaskContext;
 import io.prestosql.operator.TaskStats;
+import io.prestosql.spi.predicate.Domain;
 import io.prestosql.sql.planner.PlanFragment;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 import org.joda.time.DateTime;
@@ -42,6 +44,7 @@ import javax.annotation.Nullable;
 
 import java.net.URI;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
@@ -54,6 +57,7 @@ import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.units.DataSize.succinctBytes;
@@ -241,8 +245,10 @@ public class SqlTask
         Set<Lifespan> completedDriverGroups = ImmutableSet.of();
         long fullGcCount = 0;
         Duration fullGcTime = new Duration(0, MILLISECONDS);
+        Map<String, Domain> dynamicTupleDomains = ImmutableMap.of();
         if (taskHolder.getFinalTaskInfo() != null) {
-            TaskStats taskStats = taskHolder.getFinalTaskInfo().getStats();
+            TaskInfo taskInfo = taskHolder.getFinalTaskInfo();
+            TaskStats taskStats = taskInfo.getStats();
             queuedPartitionedDrivers = taskStats.getQueuedPartitionedDrivers();
             runningPartitionedDrivers = taskStats.getRunningPartitionedDrivers();
             physicalWrittenDataSize = taskStats.getPhysicalWrittenDataSize();
@@ -251,6 +257,7 @@ public class SqlTask
             revocableMemoryReservation = taskStats.getRevocableMemoryReservation();
             fullGcCount = taskStats.getFullGcCount();
             fullGcTime = taskStats.getFullGcTime();
+            dynamicTupleDomains = taskInfo.getTaskStatus().getDynamicFilterDomains();
         }
         else if (taskHolder.getTaskExecution() != null) {
             long physicalWrittenBytes = 0;
@@ -268,7 +275,11 @@ public class SqlTask
             completedDriverGroups = taskContext.getCompletedDriverGroups();
             fullGcCount = taskContext.getFullGcCount();
             fullGcTime = taskContext.getFullGcTime();
+            dynamicTupleDomains = taskContext.getDynamicTupleDomains();
         }
+        // Compact TupleDomain before reporting dynamic filters to coordinator to avoid bloating QueryInfo
+        Map<String, Domain> compactDynamicTupleDomains = dynamicTupleDomains.entrySet().stream()
+                .collect(toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().simplify()));
 
         return new TaskStatus(taskStateMachine.getTaskId(),
                 taskInstanceId,
@@ -286,7 +297,8 @@ public class SqlTask
                 systemMemoryReservation,
                 revocableMemoryReservation,
                 fullGcCount,
-                fullGcTime);
+                fullGcTime,
+                compactDynamicTupleDomains);
     }
 
     private TaskStats getTaskStats(TaskHolder taskHolder)

@@ -16,12 +16,15 @@ package io.prestosql.execution;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.prestosql.spi.predicate.Domain;
 
 import java.net.URI;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -71,6 +74,8 @@ public class TaskStatus
 
     private final List<ExecutionFailureInfo> failures;
 
+    private final Map<String, Domain> dynamicFilterDomains;
+
     @JsonCreator
     public TaskStatus(
             @JsonProperty("taskId") TaskId taskId,
@@ -89,7 +94,8 @@ public class TaskStatus
             @JsonProperty("systemMemoryReservation") DataSize systemMemoryReservation,
             @JsonProperty("revocableMemoryReservation") DataSize revocableMemoryReservation,
             @JsonProperty("fullGcCount") long fullGcCount,
-            @JsonProperty("fullGcTime") Duration fullGcTime)
+            @JsonProperty("fullGcTime") Duration fullGcTime,
+            @JsonProperty("dynamicFilterDomains") Map<String, Domain> dynamicFilterDomains)
     {
         this.taskId = requireNonNull(taskId, "taskId is null");
         this.taskInstanceId = requireNonNull(taskInstanceId, "taskInstanceId is null");
@@ -119,6 +125,7 @@ public class TaskStatus
         checkArgument(fullGcCount >= 0, "fullGcCount is negative");
         this.fullGcCount = fullGcCount;
         this.fullGcTime = requireNonNull(fullGcTime, "fullGcTime is null");
+        this.dynamicFilterDomains = requireNonNull(dynamicFilterDomains, "dynamicFilterDomains is null");
     }
 
     @JsonProperty
@@ -223,6 +230,12 @@ public class TaskStatus
         return fullGcTime;
     }
 
+    @JsonProperty
+    public Map<String, Domain> getDynamicFilterDomains()
+    {
+        return dynamicFilterDomains;
+    }
+
     @Override
     public String toString()
     {
@@ -251,7 +264,8 @@ public class TaskStatus
                 DataSize.ofBytes(0),
                 DataSize.ofBytes(0),
                 0,
-                new Duration(0, MILLISECONDS));
+                new Duration(0, MILLISECONDS),
+                ImmutableMap.of());
     }
 
     public static TaskStatus failWith(TaskStatus taskStatus, TaskState state, List<ExecutionFailureInfo> exceptions)
@@ -273,6 +287,7 @@ public class TaskStatus
                 taskStatus.getSystemMemoryReservation(),
                 taskStatus.getRevocableMemoryReservation(),
                 taskStatus.getFullGcCount(),
-                taskStatus.getFullGcTime());
+                taskStatus.getFullGcTime(),
+                taskStatus.getDynamicFilterDomains());
     }
 }

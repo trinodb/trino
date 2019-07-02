@@ -253,6 +253,14 @@ public class HivePartitionManager
 
     private boolean partitionMatches(List<HiveColumnHandle> partitionColumns, TupleDomain<ColumnHandle> constraintSummary, Predicate<Map<ColumnHandle, NullableValue>> constraint, HivePartition partition)
     {
+        return partitionMatches(partitionColumns, constraintSummary, partition) && constraint.test(partition.getKeys());
+    }
+
+    public static boolean partitionMatches(List<HiveColumnHandle> partitionColumns, TupleDomain<ColumnHandle> constraintSummary, HivePartition partition)
+    {
+        if (constraintSummary.isNone()) {
+            return false;
+        }
         Map<ColumnHandle, Domain> domains = constraintSummary.getDomains().get();
         for (HiveColumnHandle column : partitionColumns) {
             NullableValue value = partition.getKeys().get(column);
@@ -261,8 +269,7 @@ public class HivePartitionManager
                 return false;
             }
         }
-
-        return constraint.test(partition.getKeys());
+        return true;
     }
 
     private List<String> getFilteredPartitionNames(SemiTransactionalHiveMetastore metastore, HiveIdentity identity, SchemaTableName tableName, List<HiveColumnHandle> partitionKeys, TupleDomain<ColumnHandle> effectivePredicate)

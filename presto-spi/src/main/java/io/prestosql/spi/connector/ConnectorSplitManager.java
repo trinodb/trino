@@ -13,6 +13,10 @@
  */
 package io.prestosql.spi.connector;
 
+import io.prestosql.spi.predicate.TupleDomain;
+
+import java.util.function.Supplier;
+
 public interface ConnectorSplitManager
 {
     @Deprecated
@@ -32,6 +36,16 @@ public interface ConnectorSplitManager
             SplitSchedulingStrategy splitSchedulingStrategy)
     {
         throw new UnsupportedOperationException();
+    }
+
+    default ConnectorSplitSource getSplits(
+            ConnectorTransactionHandle transaction,
+            ConnectorSession session,
+            ConnectorTableHandle table,
+            SplitSchedulingStrategy splitSchedulingStrategy,
+            Supplier<TupleDomain<ColumnHandle>> dynamicFilter)
+    {
+        return getSplits(transaction, session, table, splitSchedulingStrategy);
     }
 
     enum SplitSchedulingStrategy

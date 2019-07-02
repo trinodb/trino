@@ -124,6 +124,7 @@ import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorIndex;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.RecordSet;
+import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.NullableValue;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.type.Type;
@@ -605,6 +606,11 @@ public class LocalExecutionPlanner
         public LocalDynamicFiltersCollector getDynamicFiltersCollector()
         {
             return dynamicFiltersCollector;
+        }
+
+        private void addDynamicFilter(Map<String, Domain> dynamicTupleDomain)
+        {
+            taskContext.collectDynamicTupleDomain(dynamicTupleDomain);
         }
 
         public Optional<IndexSourceContext> getIndexSourceContext()
@@ -2151,14 +2157,12 @@ public class LocalExecutionPlanner
                     "Dynamic filtering cannot be used with grouped execution");
             log.debug("[Join] Dynamic filters: %s", node.getDynamicFilters());
             LocalDynamicFiltersCollector collector = context.getDynamicFiltersCollector();
-            return LocalDynamicFilter
-                    .create(node, context.getTypes(), partitionCount)
-                    .map(filter -> {
-                        // Intersect dynamic filters' predicates when they become ready,
-                        // in order to support multiple join nodes in the same plan fragment.
-                        addSuccessCallback(filter.getResultFuture(), collector::addDynamicFilter);
-                        return filter;
-                    });
+            LocalDynamicFilter filter = LocalDynamicFilter.create(node, buildSource.getTypes(), partitionCount);
+            // Intersect dynamic filters' predicates when they become ready,
+            // in order to support multiple join nodes in the same plan fragment.
+            addSuccessCallback(filter.getDynamicFilterDomains(), context::addDynamicFilter);
+            addSuccessCallback(filter.getNodeLocalDynamicFilterForSymbols(), collector::addDynamicFilter);
+            return Optional.of(filter);
         }
 
         private JoinFilterFunctionFactory compileJoinFilterFunction(
