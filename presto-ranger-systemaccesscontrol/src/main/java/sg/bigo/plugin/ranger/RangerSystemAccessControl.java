@@ -207,8 +207,8 @@ public class RangerSystemAccessControl
     {
         for (CatalogAccessControlRule rule : catalogRules) {
             CatalogAccessControlRule.MatchResult matchResult = rule.match(identity.getUser(), catalogName);
-            if (matchResult.isAllow().isPresent()) {
-                return matchResult.isAllow().get();
+            if (matchResult.isAllow().isPresent() && matchResult.isAllow().get()) {
+                return true;
             }
         }
         return false;
@@ -218,11 +218,12 @@ public class RangerSystemAccessControl
     {
         for (CatalogAccessControlRule rule : catalogRules) {
             CatalogAccessControlRule.MatchResult matchResult = rule.match(identity.getUser(), catalogName);
-            if (matchResult.isAllow().isPresent()) {
-                return matchResult.isAllow().get();
+
+            if (matchResult.isReadOnly().isPresent() && matchResult.isReadOnly().get()) {
+                return true;
             }
-            if (matchResult.isReadOnly().isPresent()) {
-                return matchResult.isReadOnly().get();
+            else if (matchResult.isAllow().isPresent() && matchResult.isAllow().get()) {
+                return true;
             }
         }
         return false;

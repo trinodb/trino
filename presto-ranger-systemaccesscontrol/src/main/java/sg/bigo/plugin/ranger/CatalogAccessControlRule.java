@@ -48,6 +48,26 @@ public class CatalogAccessControlRule
         {
             return readonly;
         }
+
+        @Override
+        public String toString()
+        {
+            return "MatchResult{" +
+                    "allow=" + allow +
+                    ", readonly=" + readonly +
+                    '}';
+        }
+    }
+
+    @Override
+    public String toString()
+    {
+        return "CatalogAccessControlRule{" +
+                "allow=" + allow +
+                ", readonly=" + readonly +
+                ", userRegex=" + userRegex +
+                ", catalogRegex=" + catalogRegex +
+                '}';
     }
 
     @JsonCreator
