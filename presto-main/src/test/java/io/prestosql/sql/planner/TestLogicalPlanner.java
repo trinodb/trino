@@ -35,6 +35,7 @@ import io.prestosql.sql.planner.plan.IndexJoinNode;
 import io.prestosql.sql.planner.plan.JoinNode;
 import io.prestosql.sql.planner.plan.LateralJoinNode;
 import io.prestosql.sql.planner.plan.LimitNode;
+import io.prestosql.sql.planner.plan.MarkDistinctNode;
 import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.ProjectNode;
 import io.prestosql.sql.planner.plan.SemiJoinNode;
@@ -58,6 +59,7 @@ import static io.prestosql.SystemSessionProperties.DISTRIBUTED_SORT;
 import static io.prestosql.SystemSessionProperties.FORCE_SINGLE_NODE_OUTPUT;
 import static io.prestosql.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.prestosql.SystemSessionProperties.OPTIMIZE_HASH_GENERATION;
+import static io.prestosql.SystemSessionProperties.TASK_CONCURRENCY;
 import static io.prestosql.spi.StandardErrorCode.SUBQUERY_MULTIPLE_ROWS;
 import static io.prestosql.spi.predicate.Domain.singleValue;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
@@ -75,6 +77,7 @@ import static io.prestosql.sql.planner.assertions.PlanMatchPattern.exchange;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.functionCall;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.identityProject;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.join;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.limit;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.markDistinct;
@@ -1104,5 +1107,42 @@ public class TestLogicalPlanner
                                 node(AggregationNode.class,
                                         node(ProjectNode.class,
                                                 values(ImmutableList.of("x")))))));
+    }
+
+    @Test
+    public void testRedundantHashRemovalForUnionAll()
+    {
+        assertPlan(
+                "SELECT count(*) FROM ((SELECT nationkey FROM customer) UNION ALL (SELECT nationkey FROM customer)) GROUP BY nationkey",
+                output(
+                        project(
+                                node(AggregationNode.class,
+                                        exchange(LOCAL, REPARTITION,
+                                                project(ImmutableMap.of("hash", expression("combine_hash(bigint '0', coalesce(\"$operator$hash_code\"(nationkey), 0))")),
+                                                        node(AggregationNode.class,
+                                                                tableScan("customer", ImmutableMap.of("nationkey", "nationkey")))),
+                                                project(ImmutableMap.of("hash_1", expression("combine_hash(bigint '0', coalesce(\"$operator$hash_code\"(nationkey_6), 0))")),
+                                                        node(AggregationNode.class,
+                                                                tableScan("customer", ImmutableMap.of("nationkey_6", "nationkey")))))))));
+    }
+
+    @Test
+    public void testRedundantHashRemovalForMarkDistinct()
+    {
+        assertDistributedPlan(
+                "select count(*), count(distinct orderkey), count(distinct partkey), count(distinct suppkey) from lineitem",
+                Session.builder(this.getQueryRunner().getDefaultSession())
+                        .setSystemProperty(TASK_CONCURRENCY, "16")
+                        .build(),
+                output(
+                        anyTree(
+                                identityProject(
+                                        node(MarkDistinctNode.class,
+                                                anyTree(
+                                                        project(ImmutableMap.of(
+                                                                "hash_1", expression("combine_hash(bigint '0', coalesce(\"$operator$hash_code\"(suppkey), 0))"),
+                                                                "hash_2", expression("combine_hash(bigint '0', coalesce(\"$operator$hash_code\"(partkey), 0))")),
+                                                                node(MarkDistinctNode.class,
+                                                                        tableScan("lineitem", ImmutableMap.of("suppkey", "suppkey", "partkey", "partkey"))))))))));
     }
 }
