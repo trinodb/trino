@@ -29,6 +29,7 @@ import io.prestosql.plugin.hive.metastore.Table;
 import io.prestosql.plugin.hive.util.HiveBucketing.HiveBucketFilter;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.VersionEmbedder;
+import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorSplitManager;
 import io.prestosql.spi.connector.ConnectorSplitSource;
@@ -37,6 +38,8 @@ import io.prestosql.spi.connector.ConnectorTransactionHandle;
 import io.prestosql.spi.connector.FixedSplitSource;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.TableNotFoundException;
+import io.prestosql.spi.predicate.TupleDomain;
+import io.prestosql.spi.type.TypeManager;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
@@ -51,6 +54,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -99,6 +103,7 @@ public class HiveSplitManager
     private final int maxSplitsPerSecond;
     private final boolean recursiveDfsWalkerEnabled;
     private final CounterStat highMemorySplitSourceCounter;
+    private final TypeManager typeManager;
 
     @Inject
     public HiveSplitManager(
@@ -110,7 +115,8 @@ public class HiveSplitManager
             DirectoryLister directoryLister,
             ExecutorService executorService,
             VersionEmbedder versionEmbedder,
-            CoercionPolicy coercionPolicy)
+            CoercionPolicy coercionPolicy,
+            TypeManager typeManager)
     {
         this(
                 metastoreProvider,
@@ -128,7 +134,8 @@ public class HiveSplitManager
                 hiveConfig.getMaxInitialSplits(),
                 hiveConfig.getSplitLoaderConcurrency(),
                 hiveConfig.getMaxSplitsPerSecond(),
-                hiveConfig.getRecursiveDirWalkerEnabled());
+                hiveConfig.getRecursiveDirWalkerEnabled(),
+                typeManager);
     }
 
     public HiveSplitManager(
@@ -147,7 +154,8 @@ public class HiveSplitManager
             int maxInitialSplits,
             int splitLoaderConcurrency,
             @Nullable Integer maxSplitsPerSecond,
-            boolean recursiveDfsWalkerEnabled)
+            boolean recursiveDfsWalkerEnabled,
+            TypeManager typeManager)
     {
         this.metastoreProvider = requireNonNull(metastoreProvider, "metastore is null");
         this.partitionManager = requireNonNull(partitionManager, "partitionManager is null");
@@ -166,6 +174,7 @@ public class HiveSplitManager
         this.splitLoaderConcurrency = splitLoaderConcurrency;
         this.maxSplitsPerSecond = firstNonNull(maxSplitsPerSecond, Integer.MAX_VALUE);
         this.recursiveDfsWalkerEnabled = recursiveDfsWalkerEnabled;
+        this.typeManager = requireNonNull(typeManager, "typeManager is null");
     }
 
     @Override
@@ -174,6 +183,17 @@ public class HiveSplitManager
             ConnectorSession session,
             ConnectorTableHandle tableHandle,
             SplitSchedulingStrategy splitSchedulingStrategy)
+    {
+        return getSplits(transaction, session, tableHandle, splitSchedulingStrategy, TupleDomain::all);
+    }
+
+    @Override
+    public ConnectorSplitSource getSplits(
+            ConnectorTransactionHandle transaction,
+            ConnectorSession session,
+            ConnectorTableHandle tableHandle,
+            SplitSchedulingStrategy splitSchedulingStrategy,
+            Supplier<TupleDomain<ColumnHandle>> dynamicFilter)
     {
         HiveTableHandle hiveTable = (HiveTableHandle) tableHandle;
         SchemaTableName tableName = hiveTable.getSchemaTableName();
@@ -215,6 +235,8 @@ public class HiveSplitManager
                 table,
                 hivePartitions,
                 hiveTable.getCompactEffectivePredicate(),
+                dynamicFilter,
+                typeManager,
                 createBucketSplitInfo(bucketHandle, bucketFilter),
                 session,
                 hdfsEnvironment,

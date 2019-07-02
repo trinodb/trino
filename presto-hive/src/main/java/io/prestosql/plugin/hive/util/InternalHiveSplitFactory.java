@@ -42,6 +42,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Properties;
+import java.util.function.BooleanSupplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -59,6 +60,7 @@ public class InternalHiveSplitFactory
     private final List<HivePartitionKey> partitionKeys;
     private final Optional<Domain> pathDomain;
     private final TableToPartitionMapping tableToPartitionMapping;
+    private final BooleanSupplier partitionMatchSupplier;
     private final Optional<BucketConversion> bucketConversion;
     private final boolean forceLocalScheduling;
     private final boolean s3SelectPushdownEnabled;
@@ -70,6 +72,7 @@ public class InternalHiveSplitFactory
             Properties schema,
             List<HivePartitionKey> partitionKeys,
             TupleDomain<HiveColumnHandle> effectivePredicate,
+            BooleanSupplier partitionMatchSupplier,
             TableToPartitionMapping tableToPartitionMapping,
             Optional<BucketConversion> bucketConversion,
             boolean forceLocalScheduling,
@@ -81,6 +84,7 @@ public class InternalHiveSplitFactory
         this.schema = requireNonNull(schema, "schema is null");
         this.partitionKeys = requireNonNull(partitionKeys, "partitionKeys is null");
         pathDomain = getPathDomain(requireNonNull(effectivePredicate, "effectivePredicate is null"));
+        this.partitionMatchSupplier = requireNonNull(partitionMatchSupplier, "partitionMatchSupplier is null");
         this.tableToPartitionMapping = requireNonNull(tableToPartitionMapping, "tableToPartitionMapping is null");
         this.bucketConversion = requireNonNull(bucketConversion, "bucketConversion is null");
         this.forceLocalScheduling = forceLocalScheduling;
@@ -136,6 +140,12 @@ public class InternalHiveSplitFactory
     {
         String pathString = path.toString();
         if (!pathMatchesPredicate(pathDomain, pathString)) {
+            return Optional.empty();
+        }
+
+        // Dynamic filter may not have been ready when partition was loaded in BackgroundHiveSplitLoader,
+        // but it might be ready when splits are enumerated lazily.
+        if (!partitionMatchSupplier.getAsBoolean()) {
             return Optional.empty();
         }
 

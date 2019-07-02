@@ -16,11 +16,13 @@ package io.prestosql.sql.planner;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Multimap;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.log.Logger;
 import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.TupleDomain;
+import io.prestosql.spi.type.Type;
 import io.prestosql.sql.DynamicFilters;
 import io.prestosql.sql.planner.optimizations.PlanNodeSearcher;
 import io.prestosql.sql.planner.plan.FilterNode;
@@ -32,13 +34,14 @@ import io.prestosql.sql.tree.SymbolReference;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.function.Consumer;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.prestosql.sql.DynamicFilters.Descriptor;
 import static io.prestosql.sql.DynamicFilters.extractDynamicFilters;
 import static java.util.Objects.requireNonNull;
@@ -54,9 +57,10 @@ public class LocalDynamicFilter
     // Mapping from dynamic filter ID to its build channel indices.
     private final Map<String, Integer> buildChannels;
 
-    private final TypeProvider types;
+    // Mapping from dynamic filter ID to its build channel type.
+    private final Map<String, Type> filterBuildTypes;
 
-    private final SettableFuture<Map<Symbol, Domain>> resultFuture;
+    private final SettableFuture<TupleDomain<String>> resultFuture;
 
     // Number of build-side partitions to be collected.
     private final int partitionCount;
@@ -64,17 +68,29 @@ public class LocalDynamicFilter
     // The resulting predicates from each build-side partition.
     private final List<TupleDomain<String>> partitions;
 
-    public LocalDynamicFilter(Multimap<String, Symbol> probeSymbols, Map<String, Integer> buildChannels, TypeProvider types, int partitionCount)
+    public LocalDynamicFilter(Multimap<String, Symbol> probeSymbols, Map<String, Integer> buildChannels, Map<String, Type> filterBuildTypes, int partitionCount)
     {
         this.probeSymbols = requireNonNull(probeSymbols, "probeSymbols is null");
         this.buildChannels = requireNonNull(buildChannels, "buildChannels is null");
-        verify(probeSymbols.keySet().equals(buildChannels.keySet()), "probeSymbols and buildChannels must have same keys");
-        this.types = requireNonNull(types, "types is null");
+        verify(buildChannels.keySet().containsAll(probeSymbols.keySet()), "probeSymbols should be subset of buildChannels");
+
+        this.filterBuildTypes = requireNonNull(filterBuildTypes, "filterBuildTypes is null");
+        verify(buildChannels.keySet().equals(filterBuildTypes.keySet()), "filterBuildTypes and buildChannels must have same keys");
 
         this.resultFuture = SettableFuture.create();
 
         this.partitionCount = partitionCount;
         this.partitions = new ArrayList<>(partitionCount);
+    }
+
+    public ListenableFuture<Map<String, Domain>> getDynamicFilterDomains()
+    {
+        return Futures.transform(resultFuture, this::convertTupleDomain, directExecutor());
+    }
+
+    public ListenableFuture<Map<Symbol, Domain>> getNodeLocalDynamicFilterForSymbols()
+    {
+        return Futures.transform(resultFuture, this::convertTupleDomainForLocalFilters, directExecutor());
     }
 
     private synchronized void addPartition(TupleDomain<String> tupleDomain)
@@ -85,19 +101,24 @@ public class LocalDynamicFilter
         // See the comment at TupleDomain::columnWiseUnion() for more details.
         partitions.add(tupleDomain);
         if (partitions.size() == partitionCount) {
-            Map<Symbol, Domain> result = convertTupleDomain(TupleDomain.columnWiseUnion(partitions));
+            TupleDomain<String> result = TupleDomain.columnWiseUnion(partitions);
             // No more partitions are left to be processed.
             resultFuture.set(result);
         }
     }
 
-    private Map<Symbol, Domain> convertTupleDomain(TupleDomain<String> result)
+    private Map<Symbol, Domain> convertTupleDomainForLocalFilters(TupleDomain<String> result)
     {
         if (result.isNone()) {
             // One of the join build symbols has no non-null values, therefore no symbols can match predicate
-            return buildChannels.keySet().stream()
-                    .flatMap(filterId -> probeSymbols.get(filterId).stream())
-                    .collect(toImmutableMap(identity(), probeSymbol -> Domain.none(types.get(probeSymbol))));
+            ImmutableMap.Builder<Symbol, Domain> builder = ImmutableMap.builder();
+            for (Map.Entry<String, Type> entry : filterBuildTypes.entrySet()) {
+                // Store `none` domain explicitly for each probe symbol
+                for (Symbol probeSymbol : probeSymbols.get(entry.getKey())) {
+                    builder.put(probeSymbol, Domain.none(entry.getValue()));
+                }
+            }
+            return builder.build();
         }
         // Convert the predicate to use probe symbols (instead dynamic filter IDs).
         // Note that in case of a probe-side union, a single dynamic filter may match multiple probe symbols.
@@ -112,8 +133,20 @@ public class LocalDynamicFilter
         return builder.build();
     }
 
-    public static Optional<LocalDynamicFilter> create(JoinNode planNode, TypeProvider types, int partitionCount)
+    private Map<String, Domain> convertTupleDomain(TupleDomain<String> result)
     {
+        if (result.isNone()) {
+            // One of the join build symbols has no non-null values, therefore no filters can match predicate
+            return buildChannels.keySet().stream()
+                    .collect(toImmutableMap(identity(), filterId -> Domain.none(filterBuildTypes.get(filterId))));
+        }
+        return result.getDomains().get();
+    }
+
+    public static LocalDynamicFilter create(JoinNode planNode, List<Type> buildSourceTypes, int partitionCount)
+    {
+        checkArgument(!planNode.getDynamicFilters().isEmpty(), "Join node dynamicFilters is empty.");
+
         Set<String> joinDynamicFilters = planNode.getDynamicFilters().keySet();
         List<FilterNode> filterNodes = PlanNodeSearcher
                 .searchFrom(planNode.getLeft())
@@ -138,9 +171,8 @@ public class LocalDynamicFilter
 
         Multimap<String, Symbol> probeSymbols = probeSymbolsBuilder.build();
         PlanNode buildNode = planNode.getRight();
+        // Collect dynamic filters for all dynamic filters produced by join
         Map<String, Integer> buildChannels = planNode.getDynamicFilters().entrySet().stream()
-                // Skip build channels that don't match local probe dynamic filters.
-                .filter(entry -> probeSymbols.containsKey(entry.getKey()))
                 .collect(toImmutableMap(
                         // Dynamic filter ID
                         Map.Entry::getKey,
@@ -152,10 +184,11 @@ public class LocalDynamicFilter
                             return buildChannelIndex;
                         }));
 
-        if (buildChannels.isEmpty()) {
-            return Optional.empty();
-        }
-        return Optional.of(new LocalDynamicFilter(probeSymbols, buildChannels, types, partitionCount));
+        Map<String, Type> filterBuildTypes = buildChannels.entrySet().stream()
+                .collect(toImmutableMap(
+                        Map.Entry::getKey,
+                        entry -> buildSourceTypes.get(entry.getValue())));
+        return new LocalDynamicFilter(probeSymbols, buildChannels, filterBuildTypes, partitionCount);
     }
 
     private static boolean isFilterAboveTableScan(PlanNode node)
@@ -171,11 +204,6 @@ public class LocalDynamicFilter
     public Map<String, Integer> getBuildChannels()
     {
         return buildChannels;
-    }
-
-    public ListenableFuture<Map<Symbol, Domain>> getResultFuture()
-    {
-        return resultFuture;
     }
 
     public Consumer<TupleDomain<String>> getTupleDomainConsumer()
