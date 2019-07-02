@@ -28,7 +28,8 @@ public class CatalogAccessControlRule
     private final Optional<Pattern> userRegex;
     private final Optional<Pattern> catalogRegex;
 
-    static class MatchResult {
+    static class MatchResult
+    {
         private final Optional<Boolean> allow;
         private final Optional<Boolean> readonly;
 
