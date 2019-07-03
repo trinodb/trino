@@ -63,7 +63,7 @@ macros:
 ```
 
 ### Bootstrapping benchmark data
-* Configure Presto [TCP-H connector](https://prestodb.github.io/docs/current/connector/tpch.html), if you haven't.
+* Configure Presto [TCP-H connector](https://prestosql.io/docs/current/connector/tpch.html), if you haven't.
 * Generate SQL file:
 ```bash
 python presto-benchto-benchmarks/generate_schemas/generate-tpch.py tpch.sql
