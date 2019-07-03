@@ -283,7 +283,7 @@ public class PredicatePushDown
 
             // candidate symbols for inlining are
             //   1. references to simple constants
-            //   2. references to complex expressions that appear only once
+            //   2. references to complex expressions that appear <= 4
             // which come from the node, as opposed to an enclosing scope.
             Set<Symbol> childOutputSet = ImmutableSet.copyOf(node.getOutputSymbols());
             Map<Symbol, Long> dependencies = SymbolsExtractor.extractAll(expression).stream()
@@ -291,7 +291,7 @@ public class PredicatePushDown
                     .collect(Collectors.groupingBy(Function.identity(), Collectors.counting()));
 
             return dependencies.entrySet().stream()
-                    .allMatch(entry -> entry.getValue() == 1 || node.getAssignments().get(entry.getKey()) instanceof Literal);
+                    .allMatch(entry -> entry.getValue() <= 4 || node.getAssignments().get(entry.getKey()) instanceof Literal);
         }
 
         @Override
