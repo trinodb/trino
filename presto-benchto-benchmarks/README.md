@@ -62,6 +62,14 @@ macros:
       
 ```
 
+### Bootstrapping benchmark data
+
+* Make sure you have configured [Presto TCP-H connector](https://prestosql.io/docs/current/connector/tpch.html).
+* Bootstrap benchmark data:
+  ```bash
+  python presto-benchto-benchmarks/generate_schemas/generate-tpch.py | presto-cli-[version]-executable.jar --server [presto_coordinator-url]:[port]
+  ```
+
 ### Configuring overrides file
 
 It is possible to override benchmark variables with benchto-driver overrides feature.
