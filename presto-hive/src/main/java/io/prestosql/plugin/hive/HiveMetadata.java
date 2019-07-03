@@ -33,14 +33,13 @@ import io.prestosql.plugin.hive.metastore.Column;
 import io.prestosql.plugin.hive.metastore.Database;
 import io.prestosql.plugin.hive.metastore.HiveColumnStatistics;
 import io.prestosql.plugin.hive.metastore.HivePrincipal;
-import io.prestosql.plugin.hive.metastore.HivePrivilegeInfo;
 import io.prestosql.plugin.hive.metastore.Partition;
 import io.prestosql.plugin.hive.metastore.PrincipalPrivileges;
 import io.prestosql.plugin.hive.metastore.SemiTransactionalHiveMetastore;
 import io.prestosql.plugin.hive.metastore.SortingColumn;
 import io.prestosql.plugin.hive.metastore.StorageFormat;
 import io.prestosql.plugin.hive.metastore.Table;
-import io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil;
+import io.prestosql.plugin.hive.security.AccessControlMetadata;
 import io.prestosql.plugin.hive.statistics.HiveStatisticsProvider;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
@@ -74,7 +73,6 @@ import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.security.GrantInfo;
 import io.prestosql.spi.security.PrestoPrincipal;
 import io.prestosql.spi.security.Privilege;
-import io.prestosql.spi.security.PrivilegeInfo;
 import io.prestosql.spi.security.RoleGrant;
 import io.prestosql.spi.statistics.ColumnStatisticMetadata;
 import io.prestosql.spi.statistics.ColumnStatisticType;
@@ -184,7 +182,6 @@ import static io.prestosql.plugin.hive.HiveWriterFactory.computeBucketedFileName
 import static io.prestosql.plugin.hive.PartitionUpdate.UpdateMode.APPEND;
 import static io.prestosql.plugin.hive.PartitionUpdate.UpdateMode.NEW;
 import static io.prestosql.plugin.hive.PartitionUpdate.UpdateMode.OVERWRITE;
-import static io.prestosql.plugin.hive.metastore.HivePrivilegeInfo.toHivePrivilege;
 import static io.prestosql.plugin.hive.metastore.MetastoreUtil.buildInitialPrivilegeSet;
 import static io.prestosql.plugin.hive.metastore.MetastoreUtil.getHiveSchema;
 import static io.prestosql.plugin.hive.metastore.MetastoreUtil.getProtectMode;
@@ -192,15 +189,12 @@ import static io.prestosql.plugin.hive.metastore.MetastoreUtil.verifyOnline;
 import static io.prestosql.plugin.hive.metastore.PrincipalPrivileges.fromHivePrivilegeInfos;
 import static io.prestosql.plugin.hive.metastore.StorageFormat.VIEW_STORAGE_FORMAT;
 import static io.prestosql.plugin.hive.metastore.StorageFormat.fromHiveStorageFormat;
-import static io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil.listEnabledPrincipals;
-import static io.prestosql.plugin.hive.security.SqlStandardAccessControl.ADMIN_ROLE_NAME;
 import static io.prestosql.plugin.hive.util.ConfigurationUtils.toJobConf;
 import static io.prestosql.plugin.hive.util.Statistics.ReduceOperator.ADD;
 import static io.prestosql.plugin.hive.util.Statistics.createComputedStatisticsToPartitionMap;
 import static io.prestosql.plugin.hive.util.Statistics.createEmptyPartitionStatistics;
 import static io.prestosql.plugin.hive.util.Statistics.fromComputedStatistics;
 import static io.prestosql.plugin.hive.util.Statistics.reduce;
-import static io.prestosql.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.prestosql.spi.StandardErrorCode.INVALID_ANALYZE_PROPERTY;
 import static io.prestosql.spi.StandardErrorCode.INVALID_SCHEMA_PROPERTY;
 import static io.prestosql.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
@@ -227,7 +221,6 @@ public class HiveMetadata
     public static final String PRESTO_VERSION_NAME = "presto_version";
     public static final String PRESTO_QUERY_ID_NAME = "presto_query_id";
     public static final String TABLE_COMMENT = "comment";
-    public static final Set<String> RESERVED_ROLES = ImmutableSet.of("all", "default", "none");
 
     private static final String ORC_BLOOM_FILTER_COLUMNS_KEY = "orc.bloom.filter.columns";
     private static final String ORC_BLOOM_FILTER_FPP_KEY = "orc.bloom.filter.fpp";
@@ -250,6 +243,7 @@ public class HiveMetadata
     private final TypeTranslator typeTranslator;
     private final String prestoVersion;
     private final HiveStatisticsProvider hiveStatisticsProvider;
+    private final AccessControlMetadata accessControlMetadata;
 
     public HiveMetadata(
             SemiTransactionalHiveMetastore metastore,
@@ -264,7 +258,8 @@ public class HiveMetadata
             JsonCodec<PartitionUpdate> partitionUpdateCodec,
             TypeTranslator typeTranslator,
             String prestoVersion,
-            HiveStatisticsProvider hiveStatisticsProvider)
+            HiveStatisticsProvider hiveStatisticsProvider,
+            AccessControlMetadata accessControlMetadata)
     {
         this.allowCorruptWritesForTesting = allowCorruptWritesForTesting;
 
@@ -280,6 +275,7 @@ public class HiveMetadata
         this.typeTranslator = requireNonNull(typeTranslator, "typeTranslator is null");
         this.prestoVersion = requireNonNull(prestoVersion, "prestoVersion is null");
         this.hiveStatisticsProvider = requireNonNull(hiveStatisticsProvider, "hiveStatisticsProvider is null");
+        this.accessControlMetadata = requireNonNull(accessControlMetadata, "accessControlMetadata is null");
     }
 
     public SemiTransactionalHiveMetastore getMetastore()
@@ -1924,126 +1920,67 @@ public class HiveMetadata
     @Override
     public void createRole(ConnectorSession session, String role, Optional<PrestoPrincipal> grantor)
     {
-        // roles are case insensitive in Hive
-        if (RESERVED_ROLES.contains(role)) {
-            throw new PrestoException(ALREADY_EXISTS, "Role name cannot be one of the reserved roles: " + RESERVED_ROLES);
-        }
-        metastore.createRole(role, null);
+        accessControlMetadata.createRole(session, role, grantor.map(HivePrincipal::from));
     }
 
     @Override
     public void dropRole(ConnectorSession session, String role)
     {
-        // roles are case insensitive in Hive
-        metastore.dropRole(role);
+        accessControlMetadata.dropRole(session, role);
     }
 
     @Override
     public Set<String> listRoles(ConnectorSession session)
     {
-        return ImmutableSet.copyOf(metastore.listRoles());
+        return accessControlMetadata.listRoles(session);
     }
 
     @Override
     public Set<RoleGrant> listRoleGrants(ConnectorSession session, PrestoPrincipal principal)
     {
-        return ImmutableSet.copyOf(metastore.listRoleGrants(HivePrincipal.from(principal)));
+        return ImmutableSet.copyOf(accessControlMetadata.listRoleGrants(session, HivePrincipal.from(principal)));
     }
 
     @Override
     public void grantRoles(ConnectorSession session, Set<String> roles, Set<PrestoPrincipal> grantees, boolean withAdminOption, Optional<PrestoPrincipal> grantor)
     {
-        metastore.grantRoles(roles, HivePrincipal.from(grantees), withAdminOption, grantor.map(HivePrincipal::from).orElse(new HivePrincipal(USER, session.getUser())));
+        accessControlMetadata.grantRoles(session, roles, HivePrincipal.from(grantees), withAdminOption, grantor.map(HivePrincipal::from));
     }
 
     @Override
     public void revokeRoles(ConnectorSession session, Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOptionFor, Optional<PrestoPrincipal> grantor)
     {
-        metastore.revokeRoles(roles, HivePrincipal.from(grantees), adminOptionFor, grantor.map(HivePrincipal::from).orElse(new HivePrincipal(USER, session.getUser())));
+        accessControlMetadata.revokeRoles(session, roles, HivePrincipal.from(grantees), adminOptionFor, grantor.map(HivePrincipal::from));
     }
 
     @Override
     public Set<RoleGrant> listApplicableRoles(ConnectorSession session, PrestoPrincipal principal)
     {
-        return ThriftMetastoreUtil.listApplicableRoles(HivePrincipal.from(principal), metastore::listRoleGrants)
-                .collect(toImmutableSet());
+        return accessControlMetadata.listApplicableRoles(session, HivePrincipal.from(principal));
     }
 
     @Override
     public Set<String> listEnabledRoles(ConnectorSession session)
     {
-        return ThriftMetastoreUtil.listEnabledRoles(session.getIdentity(), metastore::listRoleGrants)
-                .collect(toImmutableSet());
+        return accessControlMetadata.listEnabledRoles(session);
     }
 
     @Override
     public void grantTablePrivileges(ConnectorSession session, SchemaTableName schemaTableName, Set<Privilege> privileges, PrestoPrincipal grantee, boolean grantOption)
     {
-        String schemaName = schemaTableName.getSchemaName();
-        String tableName = schemaTableName.getTableName();
-
-        Set<HivePrivilegeInfo> hivePrivilegeInfos = privileges.stream()
-                .map(privilege -> new HivePrivilegeInfo(toHivePrivilege(privilege), grantOption, new HivePrincipal(USER, session.getUser()), new HivePrincipal(USER, session.getUser())))
-                .collect(toSet());
-
-        metastore.grantTablePrivileges(schemaName, tableName, HivePrincipal.from(grantee), hivePrivilegeInfos);
+        accessControlMetadata.grantTablePrivileges(session, schemaTableName, privileges, HivePrincipal.from(grantee), grantOption);
     }
 
     @Override
     public void revokeTablePrivileges(ConnectorSession session, SchemaTableName schemaTableName, Set<Privilege> privileges, PrestoPrincipal grantee, boolean grantOption)
     {
-        String schemaName = schemaTableName.getSchemaName();
-        String tableName = schemaTableName.getTableName();
-
-        Set<HivePrivilegeInfo> hivePrivilegeInfos = privileges.stream()
-                .map(privilege -> new HivePrivilegeInfo(toHivePrivilege(privilege), grantOption, new HivePrincipal(USER, session.getUser()), new HivePrincipal(USER, session.getUser())))
-                .collect(toSet());
-
-        metastore.revokeTablePrivileges(schemaName, tableName, HivePrincipal.from(grantee), hivePrivilegeInfos);
+        accessControlMetadata.revokeTablePrivileges(session, schemaTableName, privileges, HivePrincipal.from(grantee), grantOption);
     }
 
     @Override
     public List<GrantInfo> listTablePrivileges(ConnectorSession session, SchemaTablePrefix schemaTablePrefix)
     {
-        Set<HivePrincipal> principals = listEnabledPrincipals(metastore, session.getIdentity())
-                .collect(toImmutableSet());
-        boolean isAdminRoleSet = hasAdminRole(principals);
-        ImmutableList.Builder<GrantInfo> result = ImmutableList.builder();
-        for (SchemaTableName tableName : listTables(session, schemaTablePrefix)) {
-            if (isAdminRoleSet) {
-                result.addAll(buildGrants(tableName, null));
-            }
-            else {
-                for (HivePrincipal grantee : principals) {
-                    result.addAll(buildGrants(tableName, grantee));
-                }
-            }
-        }
-        return result.build();
-    }
-
-    private List<GrantInfo> buildGrants(SchemaTableName tableName, HivePrincipal principal)
-    {
-        ImmutableList.Builder<GrantInfo> result = ImmutableList.builder();
-        Set<HivePrivilegeInfo> hivePrivileges = metastore.listTablePrivileges(tableName.getSchemaName(), tableName.getTableName(), principal);
-        for (HivePrivilegeInfo hivePrivilege : hivePrivileges) {
-            Set<PrivilegeInfo> prestoPrivileges = hivePrivilege.toPrivilegeInfo();
-            for (PrivilegeInfo prestoPrivilege : prestoPrivileges) {
-                GrantInfo grant = new GrantInfo(
-                        prestoPrivilege,
-                        hivePrivilege.getGrantee().toPrestoPrincipal(),
-                        tableName,
-                        Optional.of(hivePrivilege.getGrantor().toPrestoPrincipal()),
-                        Optional.empty());
-                result.add(grant);
-            }
-        }
-        return result.build();
-    }
-
-    private static boolean hasAdminRole(Set<HivePrincipal> roles)
-    {
-        return roles.stream().anyMatch(principal -> principal.getName().equalsIgnoreCase(ADMIN_ROLE_NAME));
+        return accessControlMetadata.listTablePrivileges(session, listTables(session, schemaTablePrefix));
     }
 
     private void verifyJvmTimeZone()

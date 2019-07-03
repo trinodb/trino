@@ -50,6 +50,7 @@ import io.prestosql.plugin.hive.metastore.thrift.ThriftHiveMetastoreConfig;
 import io.prestosql.plugin.hive.orc.OrcPageSource;
 import io.prestosql.plugin.hive.parquet.ParquetPageSource;
 import io.prestosql.plugin.hive.rcfile.RcFilePageSource;
+import io.prestosql.plugin.hive.security.SqlStandardAccessControlMetadata;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
@@ -730,7 +731,8 @@ public abstract class AbstractTestHive
                 partitionUpdateCodec,
                 newFixedThreadPool(2),
                 new HiveTypeTranslator(),
-                TEST_SERVER_VERSION);
+                TEST_SERVER_VERSION,
+                SqlStandardAccessControlMetadata::new);
         transactionManager = new HiveTransactionManager();
         splitManager = new HiveSplitManager(
                 transactionHandle -> ((HiveMetadata) transactionManager.get(transactionHandle)).getMetastore(),

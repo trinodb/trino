@@ -37,6 +37,7 @@ import io.prestosql.plugin.hive.metastore.thrift.MetastoreLocator;
 import io.prestosql.plugin.hive.metastore.thrift.TestingMetastoreLocator;
 import io.prestosql.plugin.hive.metastore.thrift.ThriftHiveMetastore;
 import io.prestosql.plugin.hive.metastore.thrift.ThriftHiveMetastoreConfig;
+import io.prestosql.plugin.hive.security.SqlStandardAccessControlMetadata;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorMetadata;
@@ -178,7 +179,8 @@ public abstract class AbstractTestHiveFileSystem
                 locationService,
                 partitionUpdateCodec,
                 new HiveTypeTranslator(),
-                new NodeVersion("test_version"));
+                new NodeVersion("test_version"),
+                SqlStandardAccessControlMetadata::new);
         transactionManager = new HiveTransactionManager();
         splitManager = new HiveSplitManager(
                 transactionHandle -> ((HiveMetadata) transactionManager.get(transactionHandle)).getMetastore(),
