@@ -19,6 +19,7 @@ import io.airlift.log.Logger;
 import io.prestosql.plugin.hive.metastore.CachingHiveMetastore;
 import io.prestosql.plugin.hive.metastore.HiveMetastore;
 import io.prestosql.plugin.hive.metastore.SemiTransactionalHiveMetastore;
+import io.prestosql.plugin.hive.security.AccessControlMetadataFactory;
 import io.prestosql.plugin.hive.statistics.MetastoreHiveStatisticsProvider;
 import io.prestosql.spi.type.TypeManager;
 import org.joda.time.DateTimeZone;
@@ -51,6 +52,7 @@ public class HiveMetadataFactory
     private final BoundedExecutor renameExecution;
     private final TypeTranslator typeTranslator;
     private final String prestoVersion;
+    private final AccessControlMetadataFactory accessControlMetadataFactory;
 
     @Inject
     @SuppressWarnings("deprecation")
@@ -64,7 +66,8 @@ public class HiveMetadataFactory
             LocationService locationService,
             JsonCodec<PartitionUpdate> partitionUpdateCodec,
             TypeTranslator typeTranslator,
-            NodeVersion nodeVersion)
+            NodeVersion nodeVersion,
+            AccessControlMetadataFactory accessControlMetadataFactory)
     {
         this(
                 metastore,
@@ -83,7 +86,8 @@ public class HiveMetadataFactory
                 partitionUpdateCodec,
                 executorService,
                 typeTranslator,
-                nodeVersion.toString());
+                nodeVersion.toString(),
+                accessControlMetadataFactory);
     }
 
     public HiveMetadataFactory(
@@ -103,7 +107,8 @@ public class HiveMetadataFactory
             JsonCodec<PartitionUpdate> partitionUpdateCodec,
             ExecutorService executorService,
             TypeTranslator typeTranslator,
-            String prestoVersion)
+            String prestoVersion,
+            AccessControlMetadataFactory accessControlMetadataFactory)
     {
         this.allowCorruptWritesForTesting = allowCorruptWritesForTesting;
         this.skipDeletionForAlter = skipDeletionForAlter;
@@ -121,6 +126,7 @@ public class HiveMetadataFactory
         this.partitionUpdateCodec = requireNonNull(partitionUpdateCodec, "partitionUpdateCodec is null");
         this.typeTranslator = requireNonNull(typeTranslator, "typeTranslator is null");
         this.prestoVersion = requireNonNull(prestoVersion, "prestoVersion is null");
+        this.accessControlMetadataFactory = requireNonNull(accessControlMetadataFactory, "accessControlMetadataFactory is null");
 
         if (!allowCorruptWritesForTesting && !timeZone.equals(DateTimeZone.getDefault())) {
             log.warn("Hive writes are disabled. " +
@@ -155,6 +161,7 @@ public class HiveMetadataFactory
                 partitionUpdateCodec,
                 typeTranslator,
                 prestoVersion,
-                new MetastoreHiveStatisticsProvider(metastore));
+                new MetastoreHiveStatisticsProvider(metastore),
+                accessControlMetadataFactory.create(metastore));
     }
 }

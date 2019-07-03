@@ -16,6 +16,7 @@ package io.prestosql.plugin.hive.security;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
+import io.prestosql.plugin.hive.metastore.SemiTransactionalHiveMetastore;
 import io.prestosql.spi.connector.ConnectorAccessControl;
 
 public class SqlStandardSecurityModule
@@ -25,5 +26,18 @@ public class SqlStandardSecurityModule
     public void configure(Binder binder)
     {
         binder.bind(ConnectorAccessControl.class).to(SqlStandardAccessControl.class).in(Scopes.SINGLETON);
+        binder.bind(AccessControlMetadataFactory.class).to(SqlStandardAccessControlMetadataFactory.class);
+    }
+
+    private static final class SqlStandardAccessControlMetadataFactory
+            implements AccessControlMetadataFactory
+    {
+        public SqlStandardAccessControlMetadataFactory() {}
+
+        @Override
+        public AccessControlMetadata create(SemiTransactionalHiveMetastore metastore)
+        {
+            return new SqlStandardAccessControlMetadata(metastore);
+        }
     }
 }
