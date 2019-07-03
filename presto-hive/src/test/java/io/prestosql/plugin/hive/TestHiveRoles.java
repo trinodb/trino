@@ -81,6 +81,7 @@ public class TestHiveRoles
         assertQueryFails(createAdminSession(), "CREATE ROLE all", "Role name cannot be one of the reserved roles: \\[all, default, none\\]");
         assertQueryFails(createAdminSession(), "CREATE ROLE default", "Role name cannot be one of the reserved roles: \\[all, default, none\\]");
         assertQueryFails(createAdminSession(), "CREATE ROLE none", "Role name cannot be one of the reserved roles: \\[all, default, none\\]");
+        assertQueryFails(createAdminSession(), "CREATE ROLE None", "Role name cannot be one of the reserved roles: \\[all, default, none\\]");
     }
 
     @Test

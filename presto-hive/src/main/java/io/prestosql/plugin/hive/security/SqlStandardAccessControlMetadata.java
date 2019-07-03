@@ -37,6 +37,7 @@ import static io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil.list
 import static io.prestosql.plugin.hive.security.SqlStandardAccessControl.ADMIN_ROLE_NAME;
 import static io.prestosql.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.prestosql.spi.security.PrincipalType.USER;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toSet;
 
@@ -55,18 +56,23 @@ public class SqlStandardAccessControlMetadata
     @Override
     public void createRole(ConnectorSession session, String role, Optional<HivePrincipal> grantor)
     {
-        // roles are case insensitive in Hive
-        if (RESERVED_ROLES.contains(role)) {
-            throw new PrestoException(ALREADY_EXISTS, "Role name cannot be one of the reserved roles: " + RESERVED_ROLES);
-        }
+        checkRoleIsNotReserved(role);
         metastore.createRole(role, null);
     }
 
     @Override
     public void dropRole(ConnectorSession session, String role)
     {
-        // roles are case insensitive in Hive
+        checkRoleIsNotReserved(role);
         metastore.dropRole(role);
+    }
+
+    private static void checkRoleIsNotReserved(String role)
+    {
+        // roles are case insensitive in Hive
+        if (RESERVED_ROLES.contains(role.toLowerCase(ENGLISH))) {
+            throw new PrestoException(ALREADY_EXISTS, "Role name cannot be one of the reserved roles: " + RESERVED_ROLES);
+        }
     }
 
     @Override
