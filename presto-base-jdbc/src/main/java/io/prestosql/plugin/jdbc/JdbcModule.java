@@ -19,6 +19,7 @@ import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
+import io.prestosql.plugin.jdbc.jmx.StatisticsAwareConnectionFactory;
 import io.prestosql.plugin.jdbc.jmx.StatisticsAwareJdbcClient;
 import io.prestosql.spi.connector.ConnectorAccessControl;
 import io.prestosql.spi.procedure.Procedure;
@@ -61,5 +62,13 @@ public class JdbcModule
     public static JdbcClient createJdbcClientWithStats(JdbcClient client)
     {
         return new StatisticsAwareJdbcClient(client);
+    }
+
+    @Provides
+    @Singleton
+    @StatsCollecting
+    public static ConnectionFactory createConnectionFactoryWithStats(ConnectionFactory connectionFactory)
+    {
+        return new StatisticsAwareConnectionFactory(connectionFactory);
     }
 }
