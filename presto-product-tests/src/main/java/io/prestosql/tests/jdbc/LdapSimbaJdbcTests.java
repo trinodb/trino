@@ -44,6 +44,7 @@ public class LdapSimbaJdbcTests
     private static final String AUTHENTICATION_FAILED_PREFIX = "[Starburst][Presto](100240) Authentication failed: ";
     private static final String INVALID_CREDENTIALS_ERROR = AUTHENTICATION_FAILED_PREFIX + "Invalid credentials.";
     private static final String MALFORMED_CREDENTIALS_ERROR = AUTHENTICATION_FAILED_PREFIX + "Malformed decoded credentials.";
+    private static final String ILLEGAL_USERNAME_ERROR = "[Starburst][Presto](100410) Illegal character : found in username.";
     private static final String UNAUTHORIZED_USER_ERROR = AUTHENTICATION_FAILED_PREFIX + "Unauthorized user.";
     private static final String INVALID_SSL_PROPERTY =
             "[Starburst][Presto](100200) Connection string is invalid: SSL value is not valid for given AuthenticationType.";
@@ -137,7 +138,7 @@ public class LdapSimbaJdbcTests
     @Test(groups = {LDAP, SIMBA_JDBC, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
     public void shouldFailForUserWithColon()
     {
-        expectQueryToFail("UserWith:Colon", ldapUserPassword, MALFORMED_CREDENTIALS_ERROR);
+        expectQueryToFail("UserWith:Colon", ldapUserPassword, ILLEGAL_USERNAME_ERROR);
     }
 
     private void expectQueryToFailForUserNotInGroup(String user)
