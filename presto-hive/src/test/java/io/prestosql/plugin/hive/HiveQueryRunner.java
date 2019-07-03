@@ -232,7 +232,7 @@ public final class HiveQueryRunner
     public static void main(String[] args)
             throws Exception
     {
-        // You need to add "--user user" to your CLI for your queries to work
+        // You need to add "--user admin" to your CLI and execute "SET ROLE admin" for queries to work
         Logging.initialize();
 
         Optional<Path> baseDataDir = Optional.empty();
