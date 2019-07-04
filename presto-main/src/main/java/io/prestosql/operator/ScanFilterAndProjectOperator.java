@@ -424,6 +424,12 @@ public class ScanFilterAndProjectOperator
         }
 
         @Override
+        public PlanNodeId getPlanNodeId()
+        {
+            return planNodeId;
+        }
+
+        @Override
         public String getOperatorType()
         {
             return ScanFilterAndProjectOperator.class.getSimpleName();

@@ -24,6 +24,8 @@ public interface WorkProcessorSourceOperatorFactory
 
     PlanNodeId getSourceId();
 
+    PlanNodeId getPlanNodeId();
+
     String getOperatorType();
 
     WorkProcessorSourceOperator create(

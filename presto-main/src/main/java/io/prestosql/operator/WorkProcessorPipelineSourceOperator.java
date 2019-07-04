@@ -127,7 +127,7 @@ public class WorkProcessorPipelineSourceOperator
         workProcessorOperatorContexts.add(new WorkProcessorOperatorContext(
                 sourceOperator,
                 sourceOperatorFactory.getOperatorId(),
-                sourceOperatorFactory.getSourceId(),
+                sourceOperatorFactory.getPlanNodeId(),
                 sourceOperatorFactory.getOperatorType(),
                 sourceOperatorMemoryTrackingContext));
         WorkProcessor<Page> pages = sourceOperator.getOutputPages();
