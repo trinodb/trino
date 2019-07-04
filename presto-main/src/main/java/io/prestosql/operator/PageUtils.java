@@ -30,16 +30,25 @@ public final class PageUtils
         // account processed bytes from lazy blocks only when they are loaded
         Block[] blocks = new Block[page.getChannelCount()];
         long loadedBlocksSizeInBytes = 0;
+        boolean allBlocksNonLazy = true;
 
         for (int i = 0; i < page.getChannelCount(); ++i) {
             Block block = page.getBlock(i);
             if (block instanceof LazyBlock) {
                 LazyBlock delegateLazyBlock = (LazyBlock) block;
-                blocks[i] = new LazyBlock(page.getPositionCount(), lazyBlock -> {
+                if (delegateLazyBlock.isLoaded()) {
                     Block loadedBlock = delegateLazyBlock.getLoadedBlock();
-                    sizeInBytesConsumer.accept(loadedBlock.getSizeInBytes());
-                    lazyBlock.setBlock(loadedBlock);
-                });
+                    loadedBlocksSizeInBytes += loadedBlock.getSizeInBytes();
+                    blocks[i] = loadedBlock;
+                }
+                else {
+                    blocks[i] = new LazyBlock(page.getPositionCount(), lazyBlock -> {
+                        Block loadedBlock = delegateLazyBlock.getLoadedBlock();
+                        sizeInBytesConsumer.accept(loadedBlock.getSizeInBytes());
+                        lazyBlock.setBlock(loadedBlock);
+                    });
+                }
+                allBlocksNonLazy = false;
             }
             else {
                 loadedBlocksSizeInBytes += block.getSizeInBytes();
@@ -49,6 +58,10 @@ public final class PageUtils
 
         if (loadedBlocksSizeInBytes > 0) {
             sizeInBytesConsumer.accept(loadedBlocksSizeInBytes);
+        }
+
+        if (allBlocksNonLazy) {
+            return page;
         }
 
         return new Page(page.getPositionCount(), blocks);
