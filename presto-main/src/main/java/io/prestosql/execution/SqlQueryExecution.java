@@ -40,7 +40,6 @@ import io.prestosql.metadata.TableHandle;
 import io.prestosql.operator.ForScheduler;
 import io.prestosql.security.AccessControl;
 import io.prestosql.server.BasicQueryInfo;
-import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.QueryId;
 import io.prestosql.split.SplitManager;
 import io.prestosql.split.SplitSource;
@@ -84,7 +83,6 @@ import static io.airlift.units.DataSize.succinctBytes;
 import static io.prestosql.execution.buffer.OutputBuffers.BROADCAST_PARTITION_ID;
 import static io.prestosql.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
 import static io.prestosql.execution.scheduler.SqlQueryScheduler.createSqlQueryScheduler;
-import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -361,16 +359,6 @@ public class SqlQueryExecution
     }
 
     private PlanRoot analyzeQuery()
-    {
-        try {
-            return doAnalyzeQuery();
-        }
-        catch (StackOverflowError e) {
-            throw new PrestoException(NOT_SUPPORTED, "statement is too large (stack overflow during analysis)", e);
-        }
-    }
-
-    private PlanRoot doAnalyzeQuery()
     {
         // time analysis phase
         stateMachine.beginAnalysis();
