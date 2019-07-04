@@ -16,6 +16,8 @@ package io.prestosql.operator.project;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.operator.WorkProcessor;
 import io.prestosql.spi.Page;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.LazyBlock;
 import io.prestosql.spi.type.Type;
 import org.testng.annotations.Test;
 
@@ -32,6 +34,8 @@ import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.RealType.REAL;
 import static java.lang.Math.toIntExact;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 
 public class TestMergePages
 {
@@ -69,6 +73,34 @@ public class TestMergePages
 
         validateResult(mergePages, actualPage -> assertPageEquals(TYPES, actualPage, page));
         assertFinishes(mergePages);
+    }
+
+    @Test
+    public void testMinRowCountThresholdWithLazyPages()
+    {
+        Page page = createSequencePage(TYPES, 10);
+
+        LazyBlock channel1 = lazyWrapper(page.getBlock(0));
+        LazyBlock channel2 = lazyWrapper(page.getBlock(1));
+        LazyBlock channel3 = lazyWrapper(page.getBlock(2));
+        page = new Page(channel1, channel2, channel3);
+
+        WorkProcessor<Page> mergePages = mergePages(
+                TYPES,
+                1024 * 1024,
+                page.getPositionCount() * 2,
+                Integer.MAX_VALUE,
+                pagesSource(page),
+                newSimpleAggregatedMemoryContext());
+
+        assertTrue(mergePages.process());
+        assertFalse(mergePages.isFinished());
+
+        Page result = mergePages.getResult();
+        assertFalse(channel1.isLoaded());
+        assertFalse(channel2.isLoaded());
+        assertFalse(channel3.isLoaded());
+        assertPageEquals(TYPES, result, page);
     }
 
     @Test
@@ -128,6 +160,11 @@ public class TestMergePages
         validateResult(mergePages, actualPage -> assertPageEquals(types, actualPage, page));
         validateResult(mergePages, actualPage -> assertPageEquals(types, actualPage, page));
         assertFinishes(mergePages);
+    }
+
+    private static LazyBlock lazyWrapper(Block block)
+    {
+        return new LazyBlock(block.getPositionCount(), lazyBlock -> lazyBlock.setBlock(block.getLoadedBlock()));
     }
 
     private static WorkProcessor<Page> pagesSource(Page... pages)

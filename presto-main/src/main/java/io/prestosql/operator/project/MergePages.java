@@ -20,6 +20,8 @@ import io.prestosql.operator.WorkProcessor;
 import io.prestosql.operator.WorkProcessor.TransformationState;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.PageBuilder;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.LazyBlock;
 import io.prestosql.spi.type.Type;
 
 import java.util.List;
@@ -127,7 +129,8 @@ public class MergePages
                 return ofResult(flush(), false);
             }
 
-            if (inputPage.getPositionCount() >= minRowCount || inputPage.getSizeInBytes() >= minPageSizeInBytes) {
+            // TODO: merge low cardinality blocks lazily
+            if (inputPage.getPositionCount() >= minRowCount || containsNotLoadedLazyBlock(inputPage) || inputPage.getSizeInBytes() >= minPageSizeInBytes) {
                 if (pageBuilder.isEmpty()) {
                     return ofResult(inputPage);
                 }
@@ -167,6 +170,19 @@ public class MergePages
             pageBuilder.reset();
             memoryContext.setBytes(pageBuilder.getRetainedSizeInBytes());
             return output;
+        }
+
+        private static boolean containsNotLoadedLazyBlock(Page page)
+        {
+            // TODO: provide better heuristics there, e.g check if last produced page was materialized
+            for (int channel = 0; channel < page.getChannelCount(); ++channel) {
+                Block block = page.getBlock(channel);
+                if ((block instanceof LazyBlock) && !((LazyBlock) block).isLoaded()) {
+                    return true;
+                }
+            }
+
+            return false;
         }
     }
 }
