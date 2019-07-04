@@ -18,6 +18,7 @@ import io.prestosql.operator.DriverYieldSignal;
 import io.prestosql.operator.Work;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.LazyBlock;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.type.Type;
 
@@ -59,13 +60,29 @@ public class InputPageProjection
         Block block = requireNonNull(page, "page is null").getBlock(0);
         requireNonNull(selectedPositions, "selectedPositions is null");
 
-        Block result;
-        if (selectedPositions.isList()) {
-            result = block.copyPositions(selectedPositions.getPositions(), selectedPositions.getOffset(), selectedPositions.size());
+        if (!isLoadedBlock(block)) {
+            return new CompletedWork<>(
+                    new LazyBlock(
+                            selectedPositions.size(),
+                            lazyBlock -> lazyBlock.setBlock(projectPositions(block, selectedPositions))));
         }
         else {
-            result = block.getRegion(selectedPositions.getOffset(), selectedPositions.size());
+            // TODO: make it lazy when MergePages have better merging heuristics for small lazy pages
+            return new CompletedWork<>(projectPositions(block, selectedPositions));
         }
-        return new CompletedWork<>(result);
+    }
+
+    private Block projectPositions(Block block, SelectedPositions selectedPositions)
+    {
+        if (selectedPositions.isList()) {
+            return block.copyPositions(selectedPositions.getPositions(), selectedPositions.getOffset(), selectedPositions.size());
+        }
+
+        return block.getRegion(selectedPositions.getOffset(), selectedPositions.size());
+    }
+
+    private static boolean isLoadedBlock(Block block)
+    {
+        return !(block instanceof LazyBlock) || ((LazyBlock) block).isLoaded();
     }
 }
