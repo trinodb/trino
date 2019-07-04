@@ -2193,8 +2193,13 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
-    public void testCreateTableInvalidSkipHeaderFooter()
+    public void testCreateTableWithInvalidProperties()
     {
+        // ORC
+        assertThatThrownBy(() -> assertUpdate("CREATE TABLE invalid_table (col1 bigint) WITH (format = 'TEXTFILE', orc_bloom_filter_columns = ARRAY['col1'])"))
+                .hasMessageMatching("Cannot specify orc_bloom_filter_columns table property for storage format: TEXTFILE");
+
+        // TEXTFILE
         assertThatThrownBy(() -> assertUpdate("CREATE TABLE test_orc_skip_header (col1 bigint) WITH (format = 'ORC', textfile_skip_header_line_count = 1)"))
                 .hasMessageMatching("Cannot specify textfile_skip_header_line_count table property for storage format: ORC");
 
