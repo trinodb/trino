@@ -82,6 +82,12 @@ public class TableScanOperator
         }
 
         @Override
+        public PlanNodeId getPlanNodeId()
+        {
+            return sourceId;
+        }
+
+        @Override
         public String getOperatorType()
         {
             return TableScanOperator.class.getSimpleName();

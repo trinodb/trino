@@ -248,6 +248,12 @@ public class TestWorkProcessorPipelineSourceOperator
         }
 
         @Override
+        public PlanNodeId getPlanNodeId()
+        {
+            return sourceId;
+        }
+
+        @Override
         public String getOperatorType()
         {
             return TestWorkProcessorSourceOperatorFactory.class.getSimpleName();
