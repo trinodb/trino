@@ -196,7 +196,7 @@ public class TestHiveStorageFormats
         query(format("DROP TABLE %s", tableName));
     }
 
-    @Test
+    @Test(groups = {STORAGE_FORMATS})
     public void testSnappyCompressedParquetTableCreatedInHive()
     {
         String tableName = "table_created_in_hive_parquet";
