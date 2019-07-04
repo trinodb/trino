@@ -52,6 +52,9 @@ public class HiveTableProperties
     public static final String AVRO_SCHEMA_URL = "avro_schema_url";
     public static final String TEXTFILE_SKIP_HEADER_LINE_COUNT = "textfile_skip_header_line_count";
     public static final String TEXTFILE_SKIP_FOOTER_LINE_COUNT = "textfile_skip_footer_line_count";
+    public static final String CSV_SEPARATOR = "csv_separator";
+    public static final String CSV_QUOTE = "csv_quote";
+    public static final String CSV_ESCAPE = "csv_escape";
 
     private final List<PropertyMetadata<?>> tableProperties;
 
@@ -127,7 +130,10 @@ public class HiveTableProperties
                 integerProperty(BUCKET_COUNT_PROPERTY, "Number of buckets", 0, false),
                 integerProperty(TEXTFILE_SKIP_HEADER_LINE_COUNT, "Number of header lines", null, false),
                 integerProperty(TEXTFILE_SKIP_FOOTER_LINE_COUNT, "Number of footer lines", null, false),
-                stringProperty(AVRO_SCHEMA_URL, "URI pointing to Avro schema for the table", null, false));
+                stringProperty(AVRO_SCHEMA_URL, "URI pointing to Avro schema for the table", null, false),
+                stringProperty(CSV_SEPARATOR, "CSV separator character", null, false),
+                stringProperty(CSV_QUOTE, "CSV quote character", null, false),
+                stringProperty(CSV_ESCAPE, "CSV escape character", null, false));
     }
 
     public List<PropertyMetadata<?>> getTableProperties()
@@ -208,6 +214,19 @@ public class HiveTableProperties
     public static Double getOrcBloomFilterFpp(Map<String, Object> tableProperties)
     {
         return (Double) tableProperties.get(ORC_BLOOM_FILTER_FPP);
+    }
+
+    public static Optional<Character> getCsvProperty(Map<String, Object> tableProperties, String key)
+    {
+        Object value = tableProperties.get(key);
+        if (value == null) {
+            return Optional.empty();
+        }
+        String csvValue = (String) value;
+        if (csvValue.length() != 1) {
+            throw new PrestoException(INVALID_TABLE_PROPERTY, format("%s must be a single character string, but was: '%s'", key, csvValue));
+        }
+        return Optional.of(csvValue.charAt(0));
     }
 
     private static SortingColumn sortingColumnFromString(String name)

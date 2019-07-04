@@ -2202,15 +2202,26 @@ public class TestHiveIntegrationSmokeTest
         // TEXTFILE
         assertThatThrownBy(() -> assertUpdate("CREATE TABLE test_orc_skip_header (col1 bigint) WITH (format = 'ORC', textfile_skip_header_line_count = 1)"))
                 .hasMessageMatching("Cannot specify textfile_skip_header_line_count table property for storage format: ORC");
-
         assertThatThrownBy(() -> assertUpdate("CREATE TABLE test_orc_skip_footer (col1 bigint) WITH (format = 'ORC', textfile_skip_footer_line_count = 1)"))
                 .hasMessageMatching("Cannot specify textfile_skip_footer_line_count table property for storage format: ORC");
-
         assertThatThrownBy(() -> assertUpdate("CREATE TABLE test_invalid_skip_header (col1 bigint) WITH (format = 'TEXTFILE', textfile_skip_header_line_count = -1)"))
                 .hasMessageMatching("Invalid value for textfile_skip_header_line_count property: -1");
-
         assertThatThrownBy(() -> assertUpdate("CREATE TABLE test_invalid_skip_footer (col1 bigint) WITH (format = 'TEXTFILE', textfile_skip_footer_line_count = -1)"))
                 .hasMessageMatching("Invalid value for textfile_skip_footer_line_count property: -1");
+
+        // CSV
+        assertThatThrownBy(() -> assertUpdate("CREATE TABLE invalid_table (col1 bigint) WITH (format = 'ORC', csv_separator = 'S')"))
+                .hasMessageMatching("Cannot specify csv_separator table property for storage format: ORC");
+        assertThatThrownBy(() -> assertUpdate("CREATE TABLE invalid_table (col1 varchar) WITH (format = 'CSV', csv_separator = 'SS')"))
+                .hasMessageMatching("csv_separator must be a single character string, but was: 'SS'");
+        assertThatThrownBy(() -> assertUpdate("CREATE TABLE invalid_table (col1 bigint) WITH (format = 'ORC', csv_quote = 'Q')"))
+                .hasMessageMatching("Cannot specify csv_quote table property for storage format: ORC");
+        assertThatThrownBy(() -> assertUpdate("CREATE TABLE invalid_table (col1 varchar) WITH (format = 'CSV', csv_quote = 'QQ')"))
+                .hasMessageMatching("csv_quote must be a single character string, but was: 'QQ'");
+        assertThatThrownBy(() -> assertUpdate("CREATE TABLE invalid_table (col1 varchar) WITH (format = 'ORC', csv_escape = 'E')"))
+                .hasMessageMatching("Cannot specify csv_escape table property for storage format: ORC");
+        assertThatThrownBy(() -> assertUpdate("CREATE TABLE invalid_table (col1 varchar) WITH (format = 'CSV', csv_escape = 'EE')"))
+                .hasMessageMatching("csv_escape must be a single character string, but was: 'EE'");
     }
 
     @Test
@@ -4072,6 +4083,14 @@ public class TestHiveIntegrationSmokeTest
         assertUpdate("DROP TABLE " + tableName);
     }
 
+    @Test
+    public void testUnsupportedCsvTable()
+    {
+        assertQueryFails(
+                "CREATE TABLE create_unsupported_csv(i INT, bound VARCHAR(10), unbound VARCHAR, dummy VARCHAR) WITH (format = 'CSV')",
+                "\\QHive CSV storage format only supports VARCHAR (unbounded). Unsupported columns: i integer, bound varchar(10)\\E");
+    }
+
     private Session getParallelWriteSession()
     {
         return Session.builder(getSession())
@@ -4181,6 +4200,10 @@ public class TestHiveIntegrationSmokeTest
         Session session = getSession();
         ImmutableList.Builder<TestingHiveStorageFormat> formats = ImmutableList.builder();
         for (HiveStorageFormat hiveStorageFormat : HiveStorageFormat.values()) {
+            if (hiveStorageFormat == HiveStorageFormat.CSV) {
+                // CSV supports only unbounded VARCHAR type
+                continue;
+            }
             formats.add(new TestingHiveStorageFormat(session, hiveStorageFormat));
         }
         return formats.build();
