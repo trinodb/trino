@@ -128,9 +128,9 @@ public class HiveTableProperties
                         config.getOrcDefaultBloomFilterFpp(),
                         false),
                 integerProperty(BUCKET_COUNT_PROPERTY, "Number of buckets", 0, false),
+                stringProperty(AVRO_SCHEMA_URL, "URI pointing to Avro schema for the table", null, false),
                 integerProperty(TEXTFILE_SKIP_HEADER_LINE_COUNT, "Number of header lines", null, false),
                 integerProperty(TEXTFILE_SKIP_FOOTER_LINE_COUNT, "Number of footer lines", null, false),
-                stringProperty(AVRO_SCHEMA_URL, "URI pointing to Avro schema for the table", null, false),
                 stringProperty(CSV_SEPARATOR, "CSV separator character", null, false),
                 stringProperty(CSV_QUOTE, "CSV quote character", null, false),
                 stringProperty(CSV_ESCAPE, "CSV escape character", null, false));
