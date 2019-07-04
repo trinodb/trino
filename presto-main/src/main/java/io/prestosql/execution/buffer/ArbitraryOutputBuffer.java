@@ -30,6 +30,8 @@ import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
@@ -39,6 +41,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -70,6 +73,8 @@ public class ArbitraryOutputBuffer
     @GuardedBy("this")
     private final ConcurrentMap<OutputBufferId, ClientBuffer> buffers = new ConcurrentHashMap<>();
 
+    private final ClientBuffersReorderStrategy clientBuffersReorderStrategy;
+
     private final StateMachine<BufferState> state;
     private final String taskInstanceId;
 
@@ -81,7 +86,8 @@ public class ArbitraryOutputBuffer
             StateMachine<BufferState> state,
             DataSize maxBufferSize,
             Supplier<LocalMemoryContext> systemMemoryContextSupplier,
-            Executor notificationExecutor)
+            Executor notificationExecutor,
+            ClientBuffersReorderStrategy clientBuffersReorderStrategy)
     {
         this.taskInstanceId = requireNonNull(taskInstanceId, "taskInstanceId is null");
         this.state = requireNonNull(state, "state is null");
@@ -91,6 +97,7 @@ public class ArbitraryOutputBuffer
                 maxBufferSize.toBytes(),
                 requireNonNull(systemMemoryContextSupplier, "systemMemoryContextSupplier is null"),
                 requireNonNull(notificationExecutor, "notificationExecutor is null"));
+        this.clientBuffersReorderStrategy = requireNonNull(clientBuffersReorderStrategy, "clientBuffersReorderStrategy is null");
         this.masterBuffer = new MasterBuffer();
     }
 
@@ -228,7 +235,7 @@ public class ArbitraryOutputBuffer
         masterBuffer.addPages(serializedPageReferences);
 
         // process any pending reads from the client buffers
-        for (ClientBuffer clientBuffer : safeGetBuffersSnapshot()) {
+        for (ClientBuffer clientBuffer : clientBuffersReorderStrategy.reorder(safeGetBuffersSnapshot())) {
             if (masterBuffer.isEmpty()) {
                 break;
             }
@@ -284,7 +291,7 @@ public class ArbitraryOutputBuffer
         masterBuffer.setNoMorePages();
 
         // process any pending reads from the client buffers
-        for (ClientBuffer clientBuffer : safeGetBuffersSnapshot()) {
+        for (ClientBuffer clientBuffer : clientBuffersReorderStrategy.reorder(safeGetBuffersSnapshot())) {
             clientBuffer.loadPagesIfNecessary(masterBuffer);
         }
 
@@ -471,6 +478,67 @@ public class ArbitraryOutputBuffer
             return toStringHelper(this)
                     .add("bufferedPages", bufferedPages.get())
                     .toString();
+        }
+    }
+
+    public enum ClientBuffersReorderStrategy {
+        DEFAULT {
+            @Override
+            public Collection<ClientBuffer> reorder(Collection<ClientBuffer> clientBuffers)
+            {
+                return ImmutableList.copyOf(clientBuffers);
+            }
+        },
+        SHUFFLE {
+            @Override
+            public Collection<ClientBuffer> reorder(Collection<ClientBuffer> clientBuffers)
+            {
+                List<ClientBuffer> reorderedBuffers = new ArrayList<>(clientBuffers);
+                Collections.shuffle(reorderedBuffers);
+                return ImmutableList.copyOf(reorderedBuffers);
+            }
+        },
+        ROW_COUNT {
+            @Override
+            public Collection<ClientBuffer> reorder(Collection<ClientBuffer> clientBuffers)
+            {
+                List<ClientBufferSnapshot> clientBufferSnapshots = clientBuffers.stream().map(clientBuffer -> new ClientBufferSnapshot(clientBuffer, clientBuffer.getInfo().getPageBufferInfo())).collect(Collectors.toList());
+                clientBufferSnapshots.sort(Comparator.comparingLong(clientBufferSnapshot -> clientBufferSnapshot.getPageBufferInfo().getRowsAdded()));
+                return clientBufferSnapshots.stream().map(ClientBufferSnapshot::getClientBuffer).collect(ImmutableList.toImmutableList());
+            }
+        },
+        PAGE_COUNT {
+            @Override
+            public Collection<ClientBuffer> reorder(Collection<ClientBuffer> clientBuffers)
+            {
+                List<ClientBufferSnapshot> clientBufferSnapshots = clientBuffers.stream().map(clientBuffer -> new ClientBufferSnapshot(clientBuffer, clientBuffer.getInfo().getPageBufferInfo())).collect(Collectors.toList());
+                clientBufferSnapshots.sort(Comparator.comparingLong(clientBufferSnapshot -> clientBufferSnapshot.getPageBufferInfo().getPagesAdded()));
+                return clientBufferSnapshots.stream().map(ClientBufferSnapshot::getClientBuffer).collect(ImmutableList.toImmutableList());
+            }
+        };
+
+        public abstract Collection<ClientBuffer> reorder(Collection<ClientBuffer> clientBuffers);
+
+        private static class ClientBufferSnapshot
+        {
+            private ClientBuffer clientBuffer;
+            private PageBufferInfo pageBufferInfo;
+
+            ClientBufferSnapshot(ClientBuffer clientBuffer, PageBufferInfo pageBufferInfo)
+            {
+                this.clientBuffer = clientBuffer;
+                this.pageBufferInfo = pageBufferInfo;
+            }
+
+            ClientBuffer getClientBuffer()
+            {
+                return clientBuffer;
+            }
+
+            PageBufferInfo getPageBufferInfo()
+            {
+                return pageBufferInfo;
+            }
         }
     }
 

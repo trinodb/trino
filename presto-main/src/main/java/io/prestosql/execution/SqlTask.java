@@ -58,6 +58,7 @@ import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.succinctBytes;
+import static io.prestosql.SystemSessionProperties.getClientBuffersReorderStrategy;
 import static io.prestosql.execution.TaskState.ABORTED;
 import static io.prestosql.execution.TaskState.FAILED;
 import static io.prestosql.util.Failures.toFailures;
@@ -367,7 +368,7 @@ public class SqlTask
             // The LazyOutput buffer does not support write methods, so the actual
             // output buffer must be established before drivers are created (e.g.
             // a VALUES query).
-            outputBuffer.setOutputBuffers(outputBuffers);
+            outputBuffer.setOutputBuffers(outputBuffers, getClientBuffersReorderStrategy(session));
 
             // assure the task execution is only created once
             SqlTaskExecution taskExecution;

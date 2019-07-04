@@ -18,6 +18,7 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.prestosql.execution.QueryManagerConfig;
 import io.prestosql.execution.TaskManagerConfig;
+import io.prestosql.execution.buffer.ArbitraryOutputBuffer.ClientBuffersReorderStrategy;
 import io.prestosql.memory.MemoryManagerConfig;
 import io.prestosql.memory.NodeMemoryConfig;
 import io.prestosql.spi.PrestoException;
@@ -31,6 +32,7 @@ import javax.inject.Inject;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
@@ -47,6 +49,7 @@ import static io.prestosql.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.NO
 import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.joining;
 
 public final class SystemSessionProperties
 {
@@ -125,6 +128,7 @@ public final class SystemSessionProperties
     public static final String DYNAMIC_FILTERING_MAX_PER_DRIVER_ROW_COUNT = "dynamic_filtering_max_per_driver_row_count";
     public static final String DYNAMIC_FILTERING_MAX_PER_DRIVER_SIZE = "dynamic_filtering_max_per_driver_size";
     public static final String IGNORE_DOWNSTREAM_PREFERENCES = "ignore_downstream_preferences";
+    public static final String CLIENT_BUFFERS_REORDER_STRATEGY = "client_buffers_reorder_strategy";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -552,7 +556,19 @@ public final class SystemSessionProperties
                         IGNORE_DOWNSTREAM_PREFERENCES,
                         "Ignore Parent's PreferredProperties in AddExchange optimizer",
                         featuresConfig.isIgnoreDownstreamPreferences(),
-                        false));
+                        false),
+                new PropertyMetadata<>(
+                        CLIENT_BUFFERS_REORDER_STRATEGY,
+                        format("The client buffers reorder strategy used for ArbitraryOutputBuffer. Options are %s",
+                                Stream.of(ClientBuffersReorderStrategy.values())
+                                        .map(ClientBuffersReorderStrategy::name)
+                                        .collect(joining(","))),
+                        VARCHAR,
+                        ClientBuffersReorderStrategy.class,
+                        ClientBuffersReorderStrategy.DEFAULT,
+                        false,
+                        value -> ClientBuffersReorderStrategy.valueOf(((String) value).toUpperCase()),
+                        ClientBuffersReorderStrategy::name));
     }
 
     public List<PropertyMetadata<?>> getSessionProperties()
@@ -1007,5 +1023,10 @@ public final class SystemSessionProperties
                 hidden,
                 value -> Duration.valueOf((String) value),
                 Duration::toString);
+    }
+
+    public static ClientBuffersReorderStrategy getClientBuffersReorderStrategy(Session session)
+    {
+        return session.getSystemProperty(CLIENT_BUFFERS_REORDER_STRATEGY, ClientBuffersReorderStrategy.class);
     }
 }

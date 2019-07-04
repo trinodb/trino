@@ -147,6 +147,12 @@ public class LazyOutputBuffer
     @Override
     public void setOutputBuffers(OutputBuffers newOutputBuffers)
     {
+        setOutputBuffers(newOutputBuffers, ArbitraryOutputBuffer.ClientBuffersReorderStrategy.DEFAULT);
+    }
+
+    @Override
+    public void setOutputBuffers(OutputBuffers newOutputBuffers, ArbitraryOutputBuffer.ClientBuffersReorderStrategy reorderStrategy)
+    {
         Set<OutputBufferId> abortedBuffers = ImmutableSet.of();
         List<PendingRead> pendingReads = ImmutableList.of();
         OutputBuffer outputBuffer;
@@ -164,7 +170,7 @@ public class LazyOutputBuffer
                         delegate = new BroadcastOutputBuffer(taskInstanceId, state, maxBufferSize, systemMemoryContextSupplier, executor);
                         break;
                     case ARBITRARY:
-                        delegate = new ArbitraryOutputBuffer(taskInstanceId, state, maxBufferSize, systemMemoryContextSupplier, executor);
+                        delegate = new ArbitraryOutputBuffer(taskInstanceId, state, maxBufferSize, systemMemoryContextSupplier, executor, reorderStrategy);
                         break;
                 }
 

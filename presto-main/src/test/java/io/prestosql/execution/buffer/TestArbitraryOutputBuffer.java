@@ -941,6 +941,91 @@ public class TestArbitraryOutputBuffer
         assertEquals(memoryManager.getBufferedBytes(), 0);
     }
 
+    @Test
+    public void testReorderStrategy()
+    {
+        OutputBuffers outputBuffers = createInitialEmptyOutputBuffers(ARBITRARY)
+                .withBuffer(FIRST, BROADCAST_PARTITION_ID)
+                .withBuffer(SECOND, BROADCAST_PARTITION_ID)
+                .withNoMoreBufferIds();
+        OutputBufferId first;
+        OutputBufferId second;
+        ListenableFuture<BufferResult> firstFuture;
+        ListenableFuture<BufferResult> secondFuture;
+
+        // DEFAULT
+        ArbitraryOutputBuffer defaultBuffer = createArbitraryBuffer(outputBuffers, sizeOfPages(10), ArbitraryOutputBuffer.ClientBuffersReorderStrategy.DEFAULT);
+        if (defaultBuffer.getInfo().getBuffers().get(0).getBufferId().equals(FIRST)) {
+            first = FIRST;
+            second = SECOND;
+        }
+        else {
+            first = SECOND;
+            second = FIRST;
+        }
+
+        firstFuture = defaultBuffer.get(first, 0, sizeOfPages(1));
+        defaultBuffer.get(second, 0, sizeOfPages(1));   //this future will never complete
+        addPage(defaultBuffer, createPage(0));
+        assertQueueState(defaultBuffer, 0, first, 1, 0);
+        assertQueueState(defaultBuffer, 0, second, 0, 0);
+        assertBufferResultEquals(TYPES, getFuture(firstFuture, NO_WAIT), bufferResult(0, createPage(0)));
+
+        firstFuture = defaultBuffer.get(first, 1, sizeOfPages(1));
+        addPage(defaultBuffer, createPage(1));
+        assertQueueState(defaultBuffer, 0, first, 1, 1);
+        assertQueueState(defaultBuffer, 0, second, 0, 0);
+        assertBufferResultEquals(TYPES, getFuture(firstFuture, NO_WAIT), bufferResult(1, createPage(1)));
+
+        // SHUFFLE, skip this because we cannot expect
+
+        // ROW_COUNT
+        ArbitraryOutputBuffer rowCountBuffer = createArbitraryBuffer(outputBuffers, sizeOfPages(10), ArbitraryOutputBuffer.ClientBuffersReorderStrategy.ROW_COUNT);
+        if (rowCountBuffer.getInfo().getBuffers().get(0).getBufferId().equals(FIRST)) {
+            first = FIRST;
+            second = SECOND;
+        }
+        else {
+            first = SECOND;
+            second = FIRST;
+        }
+        firstFuture = rowCountBuffer.get(first, 0, sizeOfPages(1));
+        secondFuture = rowCountBuffer.get(second, 0, sizeOfPages(1));
+        addPage(rowCountBuffer, createPage(2));
+        assertQueueState(rowCountBuffer, 0, first, 1, 0);
+        assertQueueState(rowCountBuffer, 0, second, 0, 0);
+        assertBufferResultEquals(TYPES, getFuture(firstFuture, NO_WAIT), bufferResult(0, createPage(2)));
+
+        rowCountBuffer.get(first, 1, sizeOfPages(1));
+        addPage(rowCountBuffer, createPage(3));
+        assertQueueState(rowCountBuffer, 0, first, 0, 1);
+        assertQueueState(rowCountBuffer, 0, second, 1, 0);
+        assertBufferResultEquals(TYPES, getFuture(secondFuture, NO_WAIT), bufferResult(0, createPage(3)));
+
+        // PAGE_COUNT acts the same with ROW_COUNT, if one page only has one row
+        ArbitraryOutputBuffer pageCountBuffer = createArbitraryBuffer(outputBuffers, sizeOfPages(10), ArbitraryOutputBuffer.ClientBuffersReorderStrategy.PAGE_COUNT);
+        if (pageCountBuffer.getInfo().getBuffers().get(0).getBufferId().equals(FIRST)) {
+            first = FIRST;
+            second = SECOND;
+        }
+        else {
+            first = SECOND;
+            second = FIRST;
+        }
+        firstFuture = pageCountBuffer.get(first, 0, sizeOfPages(1));
+        secondFuture = pageCountBuffer.get(second, 0, sizeOfPages(1));
+        addPage(pageCountBuffer, createPage(4));
+        assertQueueState(pageCountBuffer, 0, first, 1, 0);
+        assertQueueState(pageCountBuffer, 0, second, 0, 0);
+        assertBufferResultEquals(TYPES, getFuture(firstFuture, NO_WAIT), bufferResult(0, createPage(4)));
+
+        pageCountBuffer.get(first, 1, sizeOfPages(1));
+        addPage(pageCountBuffer, createPage(5));
+        assertQueueState(pageCountBuffer, 0, first, 0, 1);
+        assertQueueState(pageCountBuffer, 0, second, 1, 0);
+        assertBufferResultEquals(TYPES, getFuture(secondFuture, NO_WAIT), bufferResult(0, createPage(5)));
+    }
+
     private static BufferResult getBufferResult(OutputBuffer buffer, OutputBufferId bufferId, long sequenceId, DataSize maxSize, Duration maxWait)
     {
         ListenableFuture<BufferResult> future = buffer.get(bufferId, sequenceId, maxSize);
@@ -1025,7 +1110,21 @@ public class TestArbitraryOutputBuffer
                 new StateMachine<>("bufferState", stateNotificationExecutor, OPEN, TERMINAL_BUFFER_STATES),
                 dataSize,
                 () -> new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
-                stateNotificationExecutor);
+                stateNotificationExecutor,
+                ArbitraryOutputBuffer.ClientBuffersReorderStrategy.DEFAULT);
+        buffer.setOutputBuffers(buffers);
+        return buffer;
+    }
+
+    private ArbitraryOutputBuffer createArbitraryBuffer(OutputBuffers buffers, DataSize dataSize, ArbitraryOutputBuffer.ClientBuffersReorderStrategy reorderStrategy)
+    {
+        ArbitraryOutputBuffer buffer = new ArbitraryOutputBuffer(
+                TASK_INSTANCE_ID,
+                new StateMachine<>("bufferState", stateNotificationExecutor, OPEN, TERMINAL_BUFFER_STATES),
+                dataSize,
+                () -> new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
+                stateNotificationExecutor,
+                reorderStrategy);
         buffer.setOutputBuffers(buffers);
         return buffer;
     }

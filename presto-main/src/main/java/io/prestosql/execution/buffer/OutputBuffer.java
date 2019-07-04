@@ -57,6 +57,11 @@ public interface OutputBuffer
      */
     void setOutputBuffers(OutputBuffers newOutputBuffers);
 
+    default void setOutputBuffers(OutputBuffers newOutputBuffers, ArbitraryOutputBuffer.ClientBuffersReorderStrategy reorderStrategy)
+    {
+        setOutputBuffers(newOutputBuffers);
+    }
+
     /**
      * Gets pages from the output buffer, and acknowledges all pages received from the last
      * request.  The initial token is zero. Subsequent tokens are acquired from the
