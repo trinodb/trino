@@ -721,6 +721,7 @@ public class HiveMetadata
 
     private Map<String, String> getEmptyTableProperties(ConnectorTableMetadata tableMetadata, HdfsContext hdfsContext)
     {
+        HiveStorageFormat hiveStorageFormat = getHiveStorageFormat(tableMetadata.getProperties());
         ImmutableMap.Builder<String, String> tableProperties = ImmutableMap.builder();
 
         // ORC format specific properties
@@ -733,20 +734,14 @@ public class HiveMetadata
         // Avro specific properties
         String avroSchemaUrl = getAvroSchemaUrl(tableMetadata.getProperties());
         if (avroSchemaUrl != null) {
-            HiveStorageFormat hiveStorageFormat = getHiveStorageFormat(tableMetadata.getProperties());
-            if (hiveStorageFormat != HiveStorageFormat.AVRO) {
-                throw new PrestoException(INVALID_TABLE_PROPERTY, format("Cannot specify %s table property for storage format: %s", AVRO_SCHEMA_URL, hiveStorageFormat));
-            }
+            checkFormatForProperty(hiveStorageFormat, HiveStorageFormat.AVRO, AVRO_SCHEMA_URL);
             tableProperties.put(AVRO_SCHEMA_URL_KEY, validateAndNormalizeAvroSchemaUrl(avroSchemaUrl, hdfsContext));
         }
 
         // Textfile specific properties
         getTextHeaderSkipCount(tableMetadata.getProperties()).ifPresent(headerSkipCount -> {
             if (headerSkipCount > 0) {
-                HiveStorageFormat hiveStorageFormat = getHiveStorageFormat(tableMetadata.getProperties());
-                if (hiveStorageFormat != HiveStorageFormat.TEXTFILE) {
-                    throw new PrestoException(INVALID_TABLE_PROPERTY, format("Cannot specify %s table property for storage format: %s", TEXTFILE_SKIP_HEADER_LINE_COUNT, hiveStorageFormat));
-                }
+                checkFormatForProperty(hiveStorageFormat, HiveStorageFormat.TEXTFILE, TEXTFILE_SKIP_HEADER_LINE_COUNT);
                 tableProperties.put(TEXT_SKIP_HEADER_COUNT_KEY, String.valueOf(headerSkipCount));
             }
             if (headerSkipCount < 0) {
@@ -756,10 +751,7 @@ public class HiveMetadata
 
         getTextFooterSkipCount(tableMetadata.getProperties()).ifPresent(footerSkipCount -> {
             if (footerSkipCount > 0) {
-                HiveStorageFormat hiveStorageFormat = getHiveStorageFormat(tableMetadata.getProperties());
-                if (hiveStorageFormat != HiveStorageFormat.TEXTFILE) {
-                    throw new PrestoException(INVALID_TABLE_PROPERTY, format("Cannot specify %s table property for storage format: %s", TEXTFILE_SKIP_FOOTER_LINE_COUNT, hiveStorageFormat));
-                }
+                checkFormatForProperty(hiveStorageFormat, HiveStorageFormat.TEXTFILE, TEXTFILE_SKIP_FOOTER_LINE_COUNT);
                 tableProperties.put(TEXT_SKIP_FOOTER_COUNT_KEY, String.valueOf(footerSkipCount));
             }
             if (footerSkipCount < 0) {
@@ -771,6 +763,13 @@ public class HiveMetadata
         tableMetadata.getComment().ifPresent(value -> tableProperties.put(TABLE_COMMENT, value));
 
         return tableProperties.build();
+    }
+
+    private static void checkFormatForProperty(HiveStorageFormat actualStorageFormat, HiveStorageFormat expectedStorageFormat, String propertyName)
+    {
+        if (actualStorageFormat != expectedStorageFormat) {
+            throw new PrestoException(INVALID_TABLE_PROPERTY, format("Cannot specify %s table property for storage format: %s", propertyName, actualStorageFormat));
+        }
     }
 
     private String validateAndNormalizeAvroSchemaUrl(String url, HdfsContext context)
