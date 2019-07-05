@@ -18,14 +18,10 @@ import io.prestosql.parquet.ParquetDataSourceId;
 import io.prestosql.plugin.hive.FileFormatDataSourceStats;
 import io.prestosql.spi.PrestoException;
 import org.apache.hadoop.fs.FSDataInputStream;
-import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 
-import java.io.FileNotFoundException;
 import java.io.IOException;
 
-import static com.google.common.base.Strings.nullToEmpty;
-import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -109,21 +105,6 @@ public class HdfsParquetDataSource
         }
         catch (Exception e) {
             throw new PrestoException(HIVE_FILESYSTEM_ERROR, format("Error reading from %s at position %s", id, position), e);
-        }
-    }
-
-    public static HdfsParquetDataSource buildHdfsParquetDataSource(FileSystem fileSystem, Path path, long start, long length, long fileSize, FileFormatDataSourceStats stats)
-    {
-        try {
-            FSDataInputStream inputStream = fileSystem.open(path);
-            return new HdfsParquetDataSource(new ParquetDataSourceId(path.toString()), fileSize, inputStream, stats);
-        }
-        catch (Exception e) {
-            if (nullToEmpty(e.getMessage()).trim().equals("Filesystem closed") ||
-                    e instanceof FileNotFoundException) {
-                throw new PrestoException(HIVE_CANNOT_OPEN_SPLIT, e);
-            }
-            throw new PrestoException(HIVE_CANNOT_OPEN_SPLIT, format("Error opening Hive split %s (offset=%s, length=%s): %s", path, start, length, e.getMessage()), e);
         }
     }
 
