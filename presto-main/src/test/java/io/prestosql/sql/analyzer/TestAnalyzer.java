@@ -1397,12 +1397,11 @@ public class TestAnalyzer
                 "line 1:34: Subquery uses 'a' which must appear in GROUP BY clause",
                 "SELECT (SELECT apply(0, x -> x + a) FROM (VALUES 1) x(c)) " +
                         "FROM t1 u GROUP BY b");
-        // TODO https://github.com/prestodb/presto/issues/7784
-//        assertFails(
-//                MUST_BE_AGGREGATE_OR_GROUP_BY,
-//                "line 1:34: Subquery uses '\"u.a\"' which must appear in GROUP BY clause",
-//                "SELECT (SELECT apply(0, x -> x + u.a) from (values 1) x(a)) " +
-//                        "FROM t1 u GROUP BY b");
+        assertFails(
+                MUST_BE_AGGREGATE_OR_GROUP_BY,
+                "line 1:34: Subquery uses 'u.a' which must appear in GROUP BY clause",
+                "SELECT (SELECT apply(0, x -> x + u.a) from (values 1) x(a)) " +
+                        "FROM t1 u GROUP BY b");
 
         // name shadowing
         analyze("SELECT (SELECT apply(0, x -> x + a) FROM (VALUES 1) x(a)) FROM t1 u GROUP BY b");
