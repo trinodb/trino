@@ -533,11 +533,13 @@ public class HiveMetadata
             properties.put(AVRO_SCHEMA_URL, avroSchemaUrl);
         }
 
-        // Textfile specific property
+        // Textfile and CSV specific property
         getSerdeProperty(table.get(), SKIP_HEADER_COUNT_KEY)
                 .ifPresent(skipHeaderCount -> properties.put(SKIP_HEADER_LINE_COUNT, Integer.valueOf(skipHeaderCount)));
         getSerdeProperty(table.get(), SKIP_FOOTER_COUNT_KEY)
                 .ifPresent(skipFooterCount -> properties.put(SKIP_FOOTER_LINE_COUNT, Integer.valueOf(skipFooterCount)));
+
+        // Textfile specific property
         getSerdeProperty(table.get(), TEXT_FIELD_SEPARATOR_KEY)
                 .ifPresent(fieldSeparator -> properties.put(TEXTFILE_FIELD_SEPARATOR, fieldSeparator));
         getSerdeProperty(table.get(), TEXT_FIELD_SEPARATOR_ESCAPE_KEY)
@@ -810,10 +812,11 @@ public class HiveMetadata
             tableProperties.put(AVRO_SCHEMA_URL_KEY, validateAndNormalizeAvroSchemaUrl(avroSchemaUrl, hdfsContext));
         }
 
-        // Textfile specific properties
+        // Textfile and CSV specific properties
+        Set<HiveStorageFormat> csvAndTextFile = ImmutableSet.of(HiveStorageFormat.TEXTFILE, HiveStorageFormat.CSV);
         getHeaderSkipCount(tableMetadata.getProperties()).ifPresent(headerSkipCount -> {
             if (headerSkipCount > 0) {
-                checkFormatForProperty(hiveStorageFormat, HiveStorageFormat.TEXTFILE, SKIP_HEADER_LINE_COUNT);
+                checkFormatForProperty(hiveStorageFormat, csvAndTextFile, SKIP_HEADER_LINE_COUNT);
                 tableProperties.put(SKIP_HEADER_COUNT_KEY, String.valueOf(headerSkipCount));
             }
             if (headerSkipCount < 0) {
@@ -823,7 +826,7 @@ public class HiveMetadata
 
         getFooterSkipCount(tableMetadata.getProperties()).ifPresent(footerSkipCount -> {
             if (footerSkipCount > 0) {
-                checkFormatForProperty(hiveStorageFormat, HiveStorageFormat.TEXTFILE, SKIP_FOOTER_LINE_COUNT);
+                checkFormatForProperty(hiveStorageFormat, csvAndTextFile, SKIP_FOOTER_LINE_COUNT);
                 tableProperties.put(SKIP_FOOTER_COUNT_KEY, String.valueOf(footerSkipCount));
             }
             if (footerSkipCount < 0) {
@@ -869,6 +872,13 @@ public class HiveMetadata
     private static void checkFormatForProperty(HiveStorageFormat actualStorageFormat, HiveStorageFormat expectedStorageFormat, String propertyName)
     {
         if (actualStorageFormat != expectedStorageFormat) {
+            throw new PrestoException(INVALID_TABLE_PROPERTY, format("Cannot specify %s table property for storage format: %s", propertyName, actualStorageFormat));
+        }
+    }
+
+    private static void checkFormatForProperty(HiveStorageFormat actualStorageFormat, Set<HiveStorageFormat> expectedStorageFormats, String propertyName)
+    {
+        if (!expectedStorageFormats.contains(actualStorageFormat)) {
             throw new PrestoException(INVALID_TABLE_PROPERTY, format("Cannot specify %s table property for storage format: %s", propertyName, actualStorageFormat));
         }
     }
@@ -1379,13 +1389,11 @@ public class HiveMetadata
                 .collect(toList());
 
         HiveStorageFormat tableStorageFormat = extractHiveStorageFormat(table);
-        if (tableStorageFormat == HiveStorageFormat.TEXTFILE) {
-            if (table.getParameters().containsKey(SKIP_HEADER_COUNT_KEY)) {
-                throw new PrestoException(NOT_SUPPORTED, format("Inserting into Hive table with %s property not supported", SKIP_HEADER_COUNT_KEY));
-            }
-            if (table.getParameters().containsKey(SKIP_FOOTER_COUNT_KEY)) {
-                throw new PrestoException(NOT_SUPPORTED, format("Inserting into Hive table with %s property not supported", SKIP_FOOTER_COUNT_KEY));
-            }
+        if (table.getParameters().containsKey(SKIP_HEADER_COUNT_KEY)) {
+            throw new PrestoException(NOT_SUPPORTED, format("Inserting into Hive table with %s property not supported", SKIP_HEADER_COUNT_KEY));
+        }
+        if (table.getParameters().containsKey(SKIP_FOOTER_COUNT_KEY)) {
+            throw new PrestoException(NOT_SUPPORTED, format("Inserting into Hive table with %s property not supported", SKIP_FOOTER_COUNT_KEY));
         }
         LocationHandle locationHandle = locationService.forExistingTable(metastore, session, table);
         HiveInsertTableHandle result = new HiveInsertTableHandle(
