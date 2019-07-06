@@ -48,7 +48,6 @@ public class TestMergeSortedPages
 {
     @Test
     public void testSingleStream()
-            throws Exception
     {
         List<Type> types = ImmutableList.of(INTEGER, INTEGER);
         MaterializedResult actual = mergeSortedPages(
@@ -74,7 +73,6 @@ public class TestMergeSortedPages
 
     @Test
     public void testSimpleTwoStreams()
-            throws Exception
     {
         List<Type> types = ImmutableList.of(INTEGER);
         MaterializedResult actual = mergeSortedPages(
@@ -111,7 +109,6 @@ public class TestMergeSortedPages
 
     @Test
     public void testMultipleStreams()
-            throws Exception
     {
         List<Type> types = ImmutableList.of(INTEGER, INTEGER, INTEGER);
         MaterializedResult actual = mergeSortedPages(
@@ -222,7 +219,6 @@ public class TestMergeSortedPages
 
     @Test
     public void testEmptyStreams()
-            throws Exception
     {
         List<Type> types = ImmutableList.of(INTEGER, BIGINT, DOUBLE);
         MaterializedResult actual = mergeSortedPages(
@@ -249,7 +245,6 @@ public class TestMergeSortedPages
 
     @Test
     public void testDifferentTypes()
-            throws Exception
     {
         List<Type> types = ImmutableList.of(DOUBLE, VARCHAR, INTEGER);
         MaterializedResult actual = mergeSortedPages(
@@ -318,7 +313,6 @@ public class TestMergeSortedPages
 
     @Test
     public void testSortingYields()
-            throws Exception
     {
         DriverYieldSignal yieldSignal = new DriverYieldSignal();
         yieldSignal.forceYieldForTesting();
@@ -357,7 +351,6 @@ public class TestMergeSortedPages
 
     @Test
     public void testMergeSortYieldingProgresses()
-            throws Exception
     {
         DriverYieldSignal yieldSignal = new DriverYieldSignal();
         yieldSignal.forceYieldForTesting();
@@ -383,7 +376,6 @@ public class TestMergeSortedPages
             List<Integer> sortChannels,
             List<SortOrder> sortOrder,
             List<List<Page>> sortedPages)
-            throws Exception
     {
         List<WorkProcessor<Page>> pageProducers = sortedPages.stream()
                 .map(WorkProcessor::fromIterable)

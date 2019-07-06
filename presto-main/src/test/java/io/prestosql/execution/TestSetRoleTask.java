@@ -55,7 +55,6 @@ public class TestSetRoleTask
 
     @BeforeClass
     public void setUp()
-            throws Exception
     {
         CatalogManager catalogManager = new CatalogManager();
         transactionManager = createTestTransactionManager(catalogManager);
@@ -70,7 +69,6 @@ public class TestSetRoleTask
 
     @AfterClass(alwaysRun = true)
     public void tearDown()
-            throws Exception
     {
         executor.shutdownNow();
         executor = null;
@@ -82,7 +80,6 @@ public class TestSetRoleTask
 
     @Test
     public void testSetRole()
-            throws Exception
     {
         assertSetRole("SET ROLE ALL", ImmutableMap.of(CATALOG_NAME, new SelectedRole(SelectedRole.Type.ALL, Optional.empty())));
         assertSetRole("SET ROLE NONE", ImmutableMap.of(CATALOG_NAME, new SelectedRole(SelectedRole.Type.NONE, Optional.empty())));

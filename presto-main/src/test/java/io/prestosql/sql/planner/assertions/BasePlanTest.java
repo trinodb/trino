@@ -82,7 +82,6 @@ public class BasePlanTest
 
     @BeforeClass
     public final void initPlanTest()
-            throws Exception
     {
         queryRunner = queryRunnerSupplier.get();
     }
@@ -204,7 +203,6 @@ public class BasePlanTest
 
     public interface LocalQueryRunnerSupplier
     {
-        LocalQueryRunner get()
-                throws Exception;
+        LocalQueryRunner get();
     }
 }

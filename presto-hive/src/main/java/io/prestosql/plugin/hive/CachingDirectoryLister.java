@@ -122,14 +122,12 @@ public class CachingDirectoryLister
 
             @Override
             public boolean hasNext()
-                    throws IOException
             {
                 return iterator.hasNext();
             }
 
             @Override
             public LocatedFileStatus next()
-                    throws IOException
             {
                 return iterator.next();
             }

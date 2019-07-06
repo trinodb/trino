@@ -26,7 +26,6 @@ public interface Predicate
     {
         @Override
         public boolean matches(long numberOfRows, Map<ColumnDescriptor, Statistics<?>> statistics, ParquetDataSourceId id, boolean failOnCorruptedParquetStatistics)
-                throws ParquetCorruptionException
         {
             return true;
         }

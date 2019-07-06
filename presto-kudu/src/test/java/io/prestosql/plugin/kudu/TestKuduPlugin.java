@@ -25,7 +25,6 @@ public class TestKuduPlugin
 {
     @Test
     public void testCreateConnector()
-            throws Exception
     {
         Plugin plugin = new KuduPlugin();
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());

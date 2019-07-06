@@ -16,7 +16,6 @@ package io.prestosql.plugin.hive;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.io.Files;
 import io.prestosql.Session;
 import io.prestosql.connector.CatalogName;
 import io.prestosql.cost.StatsAndCosts;
@@ -256,7 +255,7 @@ public class TestHiveIntegrationSmokeTest
         data.put("2019-01-01", DateType.DATE);
         data.put("2019-01-01 23:22:21.123", TimestampType.TIMESTAMP);
         for (Map.Entry<Object, Type> entry : data.entrySet()) {
-            @Language("SQL") String query = String.format(
+            @Language("SQL") String query = format(
                     "CREATE TABLE test_types_table  WITH (partitioned_by = ARRAY['my_col']) AS " +
                             "SELECT 'foo' my_non_partition_col, CAST('%s' AS %s) my_col",
                     entry.getKey(),
@@ -2041,7 +2040,7 @@ public class TestHiveIntegrationSmokeTest
     {
         File tempDir = createTempDir();
         File dataFile = new File(tempDir, "test.txt");
-        Files.write("hello\nworld\n", dataFile, UTF_8);
+        asCharSink(dataFile, UTF_8).write("hello\nworld\n");
 
         @Language("SQL") String createTableSql = format("" +
                         "CREATE TABLE %s.%s.test_create_external (\n" +
@@ -2255,7 +2254,7 @@ public class TestHiveIntegrationSmokeTest
             String parentDirectory = new Path(pathName).getParent().toString();
 
             assertTrue(pathName.length() > 0);
-            assertEquals((int) (col0 % 3), col1);
+            assertEquals(col0 % 3, col1);
             if (partitionPathMap.containsKey(col1)) {
                 // the rows in the same partition should be in the same partition directory
                 assertEquals(partitionPathMap.get(col1), parentDirectory);

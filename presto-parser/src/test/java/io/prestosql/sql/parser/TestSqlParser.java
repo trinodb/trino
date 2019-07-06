@@ -1789,7 +1789,6 @@ public class TestSqlParser
 
     @Test
     public void testShowRoles()
-            throws Exception
     {
         assertStatement("SHOW ROLES",
                 new ShowRoles(Optional.empty(), false));
@@ -2414,7 +2413,6 @@ public class TestSqlParser
 
     @Test
     public void testCreateRole()
-            throws Exception
     {
         assertStatement("CREATE ROLE role", new CreateRole(new Identifier("role"), Optional.empty()));
         assertStatement("CREATE ROLE role1 WITH ADMIN admin",
@@ -2469,7 +2467,6 @@ public class TestSqlParser
 
     @Test
     public void testDropRole()
-            throws Exception
     {
         assertStatement("DROP ROLE role", new DropRole(new Identifier("role")));
         assertStatement("DROP ROLE \"role\"", new DropRole(new Identifier("role")));
@@ -2479,7 +2476,6 @@ public class TestSqlParser
 
     @Test
     public void testGrantRoles()
-            throws Exception
     {
         assertStatement("GRANT role1 TO user1",
                 new GrantRoles(
@@ -2540,7 +2536,6 @@ public class TestSqlParser
 
     @Test
     public void testRevokeRoles()
-            throws Exception
     {
         assertStatement("REVOKE role1 FROM user1",
                 new RevokeRoles(
@@ -2593,7 +2588,6 @@ public class TestSqlParser
 
     @Test
     public void testSetRole()
-            throws Exception
     {
         assertStatement("SET ROLE ALL", new SetRole(SetRole.Type.ALL, Optional.empty()));
         assertStatement("SET ROLE NONE", new SetRole(SetRole.Type.NONE, Optional.empty()));

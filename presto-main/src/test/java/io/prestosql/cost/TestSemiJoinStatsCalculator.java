@@ -53,7 +53,6 @@ public class TestSemiJoinStatsCalculator
 
     @BeforeClass
     public void setUp()
-            throws Exception
     {
         uStats = SymbolStatsEstimate.builder()
                 .setAverageRowSize(8.0)

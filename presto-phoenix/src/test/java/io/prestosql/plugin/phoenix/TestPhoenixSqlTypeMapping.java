@@ -72,7 +72,6 @@ public class TestPhoenixSqlTypeMapping
     private final TestingPhoenixServer phoenixServer;
 
     public TestPhoenixSqlTypeMapping()
-            throws Exception
     {
         this(TestingPhoenixServer.getInstance());
     }

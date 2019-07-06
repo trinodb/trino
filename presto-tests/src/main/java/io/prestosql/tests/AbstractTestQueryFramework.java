@@ -89,7 +89,6 @@ public abstract class AbstractTestQueryFramework
 
     @AfterClass(alwaysRun = true)
     public void close()
-            throws Exception
     {
         closeAllRuntimeException(queryRunner, h2QueryRunner);
         queryRunner = null;

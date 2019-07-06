@@ -27,7 +27,6 @@ public class TestSelectedRole
 
     @Test
     public void testJsonSerialization()
-            throws Exception
     {
         assertJsonRoundTrip(new SelectedRole(SelectedRole.Type.ALL, Optional.empty()));
         assertJsonRoundTrip(new SelectedRole(SelectedRole.Type.NONE, Optional.empty()));
@@ -41,7 +40,6 @@ public class TestSelectedRole
 
     @Test
     public void testToStringSerialization()
-            throws Exception
     {
         assertToStringRoundTrip(new SelectedRole(SelectedRole.Type.ALL, Optional.empty()));
         assertToStringRoundTrip(new SelectedRole(SelectedRole.Type.NONE, Optional.empty()));

@@ -1329,7 +1329,6 @@ public class TestMathFunctions
 
     @Test
     public void testNormalCdf()
-            throws Exception
     {
         assertFunction("normal_cdf(0, 1, 1.96)", DOUBLE, 0.9750021048517796);
         assertFunction("normal_cdf(10, 9, 10)", DOUBLE, 0.5);
@@ -1362,7 +1361,6 @@ public class TestMathFunctions
 
     @Test
     public void testBetaCdf()
-            throws Exception
     {
         assertFunction("beta_cdf(3, 3.6, 0.0)", DOUBLE, 0.0);
         assertFunction("beta_cdf(3, 3.6, 1.0)", DOUBLE, 1.0);
