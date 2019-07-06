@@ -158,7 +158,6 @@ public abstract class PrimitiveColumnReader
     }
 
     public ColumnChunk readPrimitive(Field field)
-            throws IOException
     {
         IntList definitionLevels = new IntArrayList();
         IntList repetitionLevels = new IntArrayList();

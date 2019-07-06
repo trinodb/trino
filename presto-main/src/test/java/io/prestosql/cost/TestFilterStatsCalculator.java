@@ -53,7 +53,6 @@ public class TestFilterStatsCalculator
 
     @BeforeClass
     public void setUp()
-            throws Exception
     {
         xStats = SymbolStatsEstimate.builder()
                 .setAverageRowSize(4.0)

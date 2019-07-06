@@ -31,7 +31,6 @@ import org.testng.annotations.Test;
 
 import java.io.IOException;
 import java.io.PrintStream;
-import java.sql.SQLException;
 import java.time.ZoneId;
 import java.util.Locale;
 import java.util.Optional;
@@ -70,7 +69,6 @@ public class TestQueryRunner
 
     @Test
     public void testCookie()
-            throws SQLException, InterruptedException
     {
         server.enqueue(new MockResponse()
                 .setResponseCode(307)
@@ -109,9 +107,15 @@ public class TestQueryRunner
         try (Query query = queryRunner.startQuery("second query should carry the cookie")) {
             query.renderOutput(nullPrintStream(), nullPrintStream(), CSV, false, false);
         }
-        assertEquals(server.takeRequest().getHeader("Cookie"), null);
-        assertEquals(server.takeRequest().getHeader("Cookie"), "a=apple");
-        assertEquals(server.takeRequest().getHeader("Cookie"), "a=apple");
+        try {
+            assertEquals(server.takeRequest().getHeader("Cookie"), null);
+            assertEquals(server.takeRequest().getHeader("Cookie"), "a=apple");
+            assertEquals(server.takeRequest().getHeader("Cookie"), "a=apple");
+        }
+        catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException(e);
+        }
     }
 
     private String createResults()

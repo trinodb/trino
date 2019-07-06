@@ -115,10 +115,10 @@ public class HiveBucketAdapterRecordCursor
                     scratch[i] = delegate.getSlice(index);
                 }
                 else if (javaType == Block.class) {
-                    scratch[i] = (Block) delegate.getObject(index);
+                    scratch[i] = delegate.getObject(index);
                 }
                 else {
-                    throw new UnsupportedOperationException("unknown java type");
+                    throw new UnsupportedOperationException("Unknown java type: " + javaType);
                 }
             }
             int bucket = HiveBucketing.getHiveBucket(tableBucketCount, typeInfoList, scratch);

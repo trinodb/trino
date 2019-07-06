@@ -99,7 +99,6 @@ public class BenchmarkGroupedTypedHistogram
 
         @Setup
         public void setUp()
-                throws Exception
         {
             pages = new Page[numGroups];
             groupByIdBlocks = new GroupByIdBlock[numGroups];

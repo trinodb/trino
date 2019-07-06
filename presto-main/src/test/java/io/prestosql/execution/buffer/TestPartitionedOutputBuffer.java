@@ -818,7 +818,6 @@ public class TestPartitionedOutputBuffer
 
     @Test
     public void testForceFreeMemory()
-            throws Throwable
     {
         PartitionedOutputBuffer buffer = createPartitionedBuffer(
                 createInitialEmptyOutputBuffers(PARTITIONED)

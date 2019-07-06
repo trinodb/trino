@@ -40,20 +40,17 @@ public class TestSetDigest
 {
     @Test
     public void testIntersectionCardinality()
-            throws Exception
     {
         testIntersectionCardinality(DEFAULT_MAX_HASHES, NUMBER_OF_BUCKETS, DEFAULT_MAX_HASHES, NUMBER_OF_BUCKETS);
     }
 
     @Test
     public void testUnevenIntersectionCardinality()
-            throws Exception
     {
         testIntersectionCardinality(DEFAULT_MAX_HASHES / 4, NUMBER_OF_BUCKETS, DEFAULT_MAX_HASHES, NUMBER_OF_BUCKETS);
     }
 
     private static void testIntersectionCardinality(int maxHashes1, int numBuckets1, int maxHashes2, int numBuckets2)
-            throws Exception
     {
         List<Integer> sizes = new ArrayList<>();
 

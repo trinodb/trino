@@ -72,7 +72,6 @@ public class BenchmarkMapToMapCast
     @Benchmark
     @OperationsPerInvocation(POSITION_COUNT)
     public List<Optional<Page>> benchmark(BenchmarkData data)
-            throws Throwable
     {
         return ImmutableList.copyOf(
                 data.getPageProcessor().process(

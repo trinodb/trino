@@ -758,7 +758,7 @@ public final class ExpressionFormatter
         for (GroupingElement groupingElement : groupingElements) {
             String result = "";
             if (groupingElement instanceof SimpleGroupBy) {
-                List<Expression> columns = ((SimpleGroupBy) groupingElement).getExpressions();
+                List<Expression> columns = groupingElement.getExpressions();
                 if (columns.size() == 1) {
                     result = formatExpression(getOnlyElement(columns), parameters);
                 }
@@ -773,10 +773,10 @@ public final class ExpressionFormatter
                                 .iterator()));
             }
             else if (groupingElement instanceof Cube) {
-                result = format("CUBE %s", formatGroupingSet(((Cube) groupingElement).getExpressions(), parameters));
+                result = format("CUBE %s", formatGroupingSet(groupingElement.getExpressions(), parameters));
             }
             else if (groupingElement instanceof Rollup) {
-                result = format("ROLLUP %s", formatGroupingSet(((Rollup) groupingElement).getExpressions(), parameters));
+                result = format("ROLLUP %s", formatGroupingSet(groupingElement.getExpressions(), parameters));
             }
             resultStrings.add(result);
         }

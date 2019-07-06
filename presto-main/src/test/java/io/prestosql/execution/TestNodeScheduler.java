@@ -62,6 +62,7 @@ import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.prestosql.execution.scheduler.NetworkLocation.ROOT_LOCATION;
 import static io.prestosql.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static io.prestosql.testing.assertions.PrestoExceptionAssert.assertPrestoExceptionThrownBy;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
@@ -781,7 +782,7 @@ public class TestNodeScheduler
 
         TestSplitRemote()
         {
-            this(HostAddress.fromString(String.format("10.%s.%s.%s:%s",
+            this(HostAddress.fromString(format("10.%s.%s.%s:%s",
                     ThreadLocalRandom.current().nextInt(0, 255),
                     ThreadLocalRandom.current().nextInt(0, 255),
                     ThreadLocalRandom.current().nextInt(0, 255),

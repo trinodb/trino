@@ -19,8 +19,6 @@ import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.units.DataSize;
 import org.testng.annotations.Test;
 
-import java.io.IOException;
-
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.prestosql.memory.context.AggregatedMemoryContext.newRootAggregatedMemoryContext;
 import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
@@ -36,7 +34,6 @@ public class TestMemoryContexts
 
     @Test
     public void testLocalMemoryContextClose()
-            throws IOException
     {
         TestMemoryReservationHandler reservationHandler = new TestMemoryReservationHandler(1_000);
         AggregatedMemoryContext aggregateContext = newRootAggregatedMemoryContext(reservationHandler, GUARANTEED_MEMORY);

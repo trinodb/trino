@@ -71,6 +71,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Maps.asMap;
 import static io.airlift.tpch.OrderColumn.ORDER_STATUS;
@@ -367,7 +368,8 @@ public class TpchMetadata
     @Override
     public ConnectorTableHandle beginStatisticsCollection(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        return (TpchTableHandle) tableHandle;
+        checkArgument(tableHandle instanceof TpchTableHandle);
+        return tableHandle;
     }
 
     @Override

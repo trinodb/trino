@@ -20,6 +20,7 @@ import io.prestosql.sql.tree.Statement;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.Optional;
 
 import static com.google.common.base.Strings.repeat;
@@ -275,7 +276,6 @@ public class TestStatementBuilder
 
     @Test
     public void testStatementBuilderTpch()
-            throws Exception
     {
         printTpchQuery(1, 3);
         printTpchQuery(2, 33, "part type like", "region name");
@@ -341,13 +341,11 @@ public class TestStatementBuilder
     }
 
     private static String getTpchQuery(int q)
-            throws IOException
     {
         return readResource("tpch/queries/" + q + ".sql");
     }
 
     private static void printTpchQuery(int query, Object... values)
-            throws IOException
     {
         String sql = getTpchQuery(query);
 
@@ -362,9 +360,13 @@ public class TestStatementBuilder
     }
 
     private static String readResource(String name)
-            throws IOException
     {
-        return Resources.toString(Resources.getResource(name), UTF_8);
+        try {
+            return Resources.toString(Resources.getResource(name), UTF_8);
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 
     private static String fixTpchQuery(String s)

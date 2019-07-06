@@ -71,7 +71,6 @@ public class TestComparisonStatsCalculator
 
     @BeforeClass
     public void setUp()
-            throws Exception
     {
         session = testSessionBuilder().build();
         Metadata metadata = createTestMetadataManager();

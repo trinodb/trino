@@ -62,7 +62,7 @@ public class BackupModule
                 binder.addError("Unknown backup provider: %s", provider);
             }
             else if (module instanceof ConfigurationAwareModule) {
-                install((ConfigurationAwareModule) module);
+                install(module);
             }
             else {
                 binder.install(module);

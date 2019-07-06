@@ -43,7 +43,6 @@ public class TestCredentialPassthrough
 
     @Test
     public void testCredentialPassthrough()
-            throws Exception
     {
         mySqlQueryRunner.execute(getSession(mysqlServer), "CREATE TABLE test_create (a bigint, b double, c varchar)");
     }

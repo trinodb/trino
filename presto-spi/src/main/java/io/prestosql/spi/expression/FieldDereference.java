@@ -15,6 +15,7 @@ package io.prestosql.spi.expression;
 
 import io.prestosql.spi.type.Type;
 
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class FieldDereference
@@ -43,6 +44,6 @@ public class FieldDereference
     @Override
     public String toString()
     {
-        return String.format("(%s).#%s", target, field);
+        return format("(%s).#%s", target, field);
     }
 }

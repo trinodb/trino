@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
 import io.prestosql.Session;
 import io.prestosql.connector.CatalogName;
@@ -224,6 +223,7 @@ import static io.prestosql.sql.tree.FrameBound.Type.UNBOUNDED_FOLLOWING;
 import static io.prestosql.sql.tree.FrameBound.Type.UNBOUNDED_PRECEDING;
 import static io.prestosql.sql.tree.WindowFrame.Type.RANGE;
 import static io.prestosql.type.UnknownType.UNKNOWN;
+import static io.prestosql.util.MoreLists.mappedCopy;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
@@ -284,6 +284,7 @@ class StatementAnalyzer
             this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
         }
 
+        @Override
         public Scope process(Node node, Optional<Scope> scope)
         {
             Scope returnScope = super.process(node, scope);
@@ -1439,7 +1440,7 @@ class StatementAnalyzer
                     analyzeWindowFrame(window.getFrame().get());
                 }
 
-                List<TypeSignature> argumentTypes = Lists.transform(windowFunction.getArguments(), expression -> analysis.getType(expression).getTypeSignature());
+                List<TypeSignature> argumentTypes = mappedCopy(windowFunction.getArguments(), expression -> analysis.getType(expression).getTypeSignature());
 
                 FunctionKind kind = metadata.resolveFunction(windowFunction.getName(), fromTypeSignatures(argumentTypes)).getKind();
                 if (kind != AGGREGATE && kind != WINDOW) {
@@ -1537,9 +1538,7 @@ class StatementAnalyzer
             {
                 // if this is a simple name reference, try to resolve against output columns
                 QualifiedName name = QualifiedName.of(reference.getValue());
-                Set<Expression> expressions = assignments.get(name)
-                        .stream()
-                        .collect(Collectors.toSet());
+                Set<Expression> expressions = ImmutableSet.copyOf(assignments.get(name));
 
                 if (expressions.size() > 1) {
                     throw new SemanticException(AMBIGUOUS_ATTRIBUTE, reference, "'%s' in ORDER BY is ambiguous", name);
@@ -1938,7 +1937,6 @@ class StatementAnalyzer
             ImmutableList.Builder<Node> toExtractBuilder = ImmutableList.builder();
 
             toExtractBuilder.addAll(node.getSelect().getSelectItems().stream()
-                    .filter(SingleColumn.class::isInstance)
                     .collect(toImmutableList()));
 
             toExtractBuilder.addAll(getSortItemsFromOrderBy(node.getOrderBy()));
@@ -2204,11 +2202,7 @@ class StatementAnalyzer
                 analysis.setLimit(node, rowCount);
             }
 
-            if (node.isWithTies()) {
-                return true;
-            }
-
-            return false;
+            return node.isWithTies();
         }
 
         private boolean analyzeLimit(Limit node)
