@@ -147,7 +147,7 @@ public class SyncPartitionMetadataProcedure
 
         try {
             return Stream.of(fileSystem.listStatus(current.getPath()))
-                    .filter(fileStatus -> isValidPartitionPath(fileSystem, fileStatus, partitionColumns.get(partitionColumns.size() - depth)))
+                    .filter(fileStatus -> isValidPartitionPath(fileStatus, partitionColumns.get(partitionColumns.size() - depth)))
                     .flatMap(directory -> listDirectory(fileSystem, directory, partitionColumns, depth - 1).stream())
                     .collect(toImmutableList());
         }
@@ -156,16 +156,11 @@ public class SyncPartitionMetadataProcedure
         }
     }
 
-    private static boolean isValidPartitionPath(FileSystem fileSystem, FileStatus file, Column column)
+    private static boolean isValidPartitionPath(FileStatus file, Column column)
     {
-        try {
-            Path path = file.getPath();
-            String prefix = column.getName() + '=';
-            return fileSystem.isDirectory(path) && path.getName().startsWith(prefix);
-        }
-        catch (IOException e) {
-            throw new PrestoException(HIVE_FILESYSTEM_ERROR, e);
-        }
+        Path path = file.getPath();
+        String prefix = column.getName() + '=';
+        return file.isDirectory() && path.getName().startsWith(prefix);
     }
 
     // calculate relative complement of set b with respect to set a
