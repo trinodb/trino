@@ -13,6 +13,8 @@
  */
 package io.prestosql.plugin.jdbc;
 
+import io.prestosql.plugin.jdbc.credential.CredentialProvider;
+
 import java.sql.Connection;
 import java.sql.Driver;
 import java.sql.SQLException;
@@ -32,24 +34,24 @@ public class DriverConnectionFactory
     private final Optional<String> userCredentialName;
     private final Optional<String> passwordCredentialName;
 
-    public DriverConnectionFactory(Driver driver, BaseJdbcConfig config)
+    public DriverConnectionFactory(Driver driver, BaseJdbcConfig config, CredentialProvider credentialProvider)
     {
         this(
                 driver,
                 config.getConnectionUrl(),
                 Optional.ofNullable(config.getUserCredentialName()),
                 Optional.ofNullable(config.getPasswordCredentialName()),
-                basicConnectionProperties(config));
+                basicConnectionProperties(credentialProvider));
     }
 
-    public static Properties basicConnectionProperties(BaseJdbcConfig config)
+    public static Properties basicConnectionProperties(CredentialProvider credentialProvider)
     {
         Properties connectionProperties = new Properties();
-        if (config.getConnectionUser() != null) {
-            connectionProperties.setProperty("user", config.getConnectionUser());
+        if (credentialProvider.getConnectionUser(Optional.empty()).isPresent()) {
+            connectionProperties.setProperty("user", credentialProvider.getConnectionUser(Optional.empty()).get());
         }
-        if (config.getConnectionPassword() != null) {
-            connectionProperties.setProperty("password", config.getConnectionPassword());
+        if (credentialProvider.getConnectionPassword(Optional.empty()).isPresent()) {
+            connectionProperties.setProperty("password", credentialProvider.getConnectionPassword(Optional.empty()).get());
         }
         return connectionProperties;
     }

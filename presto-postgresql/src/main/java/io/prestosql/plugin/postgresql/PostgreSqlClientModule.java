@@ -22,6 +22,7 @@ import io.prestosql.plugin.jdbc.BaseJdbcConfig;
 import io.prestosql.plugin.jdbc.ConnectionFactory;
 import io.prestosql.plugin.jdbc.DriverConnectionFactory;
 import io.prestosql.plugin.jdbc.JdbcClient;
+import io.prestosql.plugin.jdbc.credential.CredentialProvider;
 import org.postgresql.Driver;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
@@ -39,8 +40,8 @@ public class PostgreSqlClientModule
 
     @Provides
     @Singleton
-    public ConnectionFactory getConnectionFactory(BaseJdbcConfig config)
+    public ConnectionFactory getConnectionFactory(BaseJdbcConfig config, CredentialProvider credentialProvider)
     {
-        return new DriverConnectionFactory(new Driver(), config);
+        return new DriverConnectionFactory(new Driver(), config, credentialProvider);
     }
 }
