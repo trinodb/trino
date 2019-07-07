@@ -17,6 +17,7 @@ import com.google.inject.Injector;
 import com.google.inject.Module;
 import io.airlift.bootstrap.Bootstrap;
 import io.prestosql.plugin.base.jmx.MBeanServerModule;
+import io.prestosql.plugin.jdbc.credential.CredentialProviderModule;
 import io.prestosql.spi.classloader.ThreadContextClassLoader;
 import io.prestosql.spi.connector.Connector;
 import io.prestosql.spi.connector.ConnectorContext;
@@ -68,6 +69,7 @@ public class JdbcConnectorFactory
             Bootstrap app = new Bootstrap(
                     binder -> binder.bind(TypeManager.class).toInstance(context.getTypeManager()),
                     new JdbcModule(catalogName),
+                    new CredentialProviderModule(),
                     new MBeanServerModule(),
                     new MBeanModule(),
                     module);
