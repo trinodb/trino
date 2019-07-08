@@ -24,6 +24,8 @@ import org.apache.hadoop.hive.metastore.api.Database;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
 import org.apache.hadoop.hive.metastore.api.HiveObjectPrivilege;
 import org.apache.hadoop.hive.metastore.api.HiveObjectRef;
+import org.apache.hadoop.hive.metastore.api.LockRequest;
+import org.apache.hadoop.hive.metastore.api.LockResponse;
 import org.apache.hadoop.hive.metastore.api.MetaException;
 import org.apache.hadoop.hive.metastore.api.NoSuchObjectException;
 import org.apache.hadoop.hive.metastore.api.Partition;
@@ -392,6 +394,55 @@ public class MockThriftMetastoreClient
     public void setUGI(String userName)
     {
         // No-op
+    }
+
+    @Override
+    public long openTransaction(String user)
+            throws TException
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void commitTransaction(long transactionId)
+            throws TException
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void sendTransactionHeartbeat(long transactionId)
+            throws TException
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public LockResponse acquireLock(LockRequest lockRequest)
+            throws TException
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public LockResponse checkLock(long lockId)
+            throws TException
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public String getValidWriteIds(List<String> tableList, long currentTransactionId)
+            throws TException
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public String get_config_value(String name, String defaultValue)
+            throws TException
+    {
+        throw new UnsupportedOperationException();
     }
 
     @Override

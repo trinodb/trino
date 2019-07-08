@@ -22,6 +22,7 @@ import io.prestosql.plugin.hive.metastore.Partition;
 import io.prestosql.plugin.hive.metastore.PartitionWithStatistics;
 import io.prestosql.plugin.hive.metastore.PrincipalPrivileges;
 import io.prestosql.plugin.hive.metastore.Table;
+import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.security.RoleGrant;
 import io.prestosql.spi.statistics.ColumnStatisticType;
 import io.prestosql.spi.type.Type;
@@ -241,5 +242,35 @@ public class HiveMetastoreClosure
     public boolean isImpersonationEnabled()
     {
         return delegate.isImpersonationEnabled();
+    }
+
+    public long openTransaction(HiveIdentity identity)
+    {
+        return delegate.openTransaction(identity);
+    }
+
+    public void commitTransaction(HiveIdentity identity, long transactionId)
+    {
+        delegate.commitTransaction(identity, transactionId);
+    }
+
+    public void sendTransactionHeartbeat(HiveIdentity identity, long transactionId)
+    {
+        delegate.sendTransactionHeartbeat(identity, transactionId);
+    }
+
+    public void acquireSharedReadLock(HiveIdentity identity, String queryId, long transactionId, List<SchemaTableName> fullTables, List<HivePartition> partitions)
+    {
+        delegate.acquireSharedReadLock(identity, queryId, transactionId, fullTables, partitions);
+    }
+
+    public String getValidWriteIds(HiveIdentity identity, List<SchemaTableName> tables, long currentTransactionId)
+    {
+        return delegate.getValidWriteIds(identity, tables, currentTransactionId);
+    }
+
+    public Optional<String> getConfigValue(String name)
+    {
+        return delegate.getConfigValue(name);
     }
 }
