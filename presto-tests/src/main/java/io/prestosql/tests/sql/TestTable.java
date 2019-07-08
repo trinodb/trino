@@ -13,11 +13,16 @@
  */
 package io.prestosql.tests.sql;
 
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
+
+import static java.lang.String.format;
 
 public class TestTable
         implements AutoCloseable
 {
+    public static final String TABLE_NAME_PLACEHOLDER = "{TABLE_NAME}";
+
     private final SqlExecutor sqlExecutor;
     private final String name;
 
@@ -25,9 +30,31 @@ public class TestTable
 
     public TestTable(SqlExecutor sqlExecutor, String namePrefix, String createDdlTemplate)
     {
+        this(sqlExecutor, namePrefix, createDdlTemplate, Optional.empty());
+    }
+
+    public TestTable(SqlExecutor sqlExecutor, String namePrefix, String createDdlTemplate, Optional<String> data)
+    {
         this.sqlExecutor = sqlExecutor;
         this.name = namePrefix + "_" + instanceCounter.incrementAndGet();
-        sqlExecutor.execute(createDdlTemplate.replace("{TABLE_NAME}", this.name));
+        sqlExecutor.execute(createDdlTemplate.replace(TABLE_NAME_PLACEHOLDER, this.name));
+        if (!data.isPresent()) {
+            return;
+        }
+        try {
+            sqlExecutor.execute(format("INSERT INTO %s VALUES %s", name, data.get()));
+        }
+        catch (Exception e) {
+            try {
+                close();
+            }
+            catch (Exception innerException) {
+                if (e != innerException) {
+                    e.addSuppressed(innerException);
+                }
+            }
+            throw e;
+        }
     }
 
     public String getName()

@@ -20,6 +20,8 @@ import org.testng.annotations.Test;
 
 import java.util.Map;
 
+import static io.prestosql.plugin.jdbc.UnsupportedTypeHandlingStrategy.FAIL;
+import static io.prestosql.plugin.jdbc.UnsupportedTypeHandlingStrategy.IGNORE;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -35,7 +37,8 @@ public class TestBaseJdbcConfig
                 .setUserCredentialName(null)
                 .setPasswordCredentialName(null)
                 .setCaseInsensitiveNameMatching(false)
-                .setCaseInsensitiveNameMatchingCacheTtl(new Duration(1, MINUTES)));
+                .setCaseInsensitiveNameMatchingCacheTtl(new Duration(1, MINUTES))
+                .setUnsupportedTypeHandlingStrategy(FAIL));
     }
 
     @Test
@@ -49,6 +52,7 @@ public class TestBaseJdbcConfig
                 .put("password-credential-name", "bar")
                 .put("case-insensitive-name-matching", "true")
                 .put("case-insensitive-name-matching.cache-ttl", "1s")
+                .put("unsupported-type.handling-strategy", "IGNORE")
                 .build();
 
         BaseJdbcConfig expected = new BaseJdbcConfig()
@@ -58,7 +62,8 @@ public class TestBaseJdbcConfig
                 .setUserCredentialName("foo")
                 .setPasswordCredentialName("bar")
                 .setCaseInsensitiveNameMatching(true)
-                .setCaseInsensitiveNameMatchingCacheTtl(new Duration(1, SECONDS));
+                .setCaseInsensitiveNameMatchingCacheTtl(new Duration(1, SECONDS))
+                .setUnsupportedTypeHandlingStrategy(IGNORE);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

@@ -75,7 +75,12 @@ public class TestMySqlTypeMapping
 
     private TestMySqlTypeMapping(TestingMySqlServer mysqlServer)
     {
-        super(() -> createMySqlQueryRunner(mysqlServer, ImmutableMap.of(), ImmutableList.of()));
+        super(() -> createMySqlQueryRunner(
+                mysqlServer,
+                ImmutableMap.<String, String>builder()
+                        .put("unsupported-type.handling-strategy", "IGNORE")
+                        .build(),
+                ImmutableList.of()));
         this.mysqlServer = mysqlServer;
     }
 

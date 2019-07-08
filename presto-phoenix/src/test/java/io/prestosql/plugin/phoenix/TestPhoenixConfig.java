@@ -32,7 +32,7 @@ public class TestPhoenixConfig
                 .setConnectionUrl(null)
                 .setResourceConfigFiles("")
                 .setCaseInsensitiveNameMatching(false)
-                .setCaseInsensitiveNameMatchingCacheTtl(new Duration(1, MINUTES)));
+                .setCaseInsensitiveNameMatchingCacheTtl(new Duration(1, MINUTES));
     }
 
     @Test

@@ -13,6 +13,8 @@
  */
 package io.prestosql.plugin.mysql;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.testing.mysql.TestingMySqlServer;
 import io.prestosql.Session;
 import io.prestosql.testing.MaterializedResult;
@@ -51,7 +53,12 @@ public class TestMySqlIntegrationSmokeTest
 
     public TestMySqlIntegrationSmokeTest(TestingMySqlServer mysqlServer)
     {
-        super(() -> createMySqlQueryRunner(mysqlServer, ORDERS));
+        super(() -> createMySqlQueryRunner(
+                mysqlServer,
+                ImmutableMap.<String, String>builder()
+                        .put("unsupported-type.handling-strategy", "IGNORE")
+                        .build(),
+                ImmutableList.of(ORDERS)));
         this.mysqlServer = mysqlServer;
     }
 

@@ -14,6 +14,7 @@
 package io.prestosql.plugin.jdbc;
 
 import io.airlift.configuration.Config;
+import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.ConfigSecuritySensitive;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
@@ -21,6 +22,7 @@ import io.airlift.units.MinDuration;
 import javax.annotation.Nullable;
 import javax.validation.constraints.NotNull;
 
+import static io.prestosql.plugin.jdbc.UnsupportedTypeHandlingStrategy.FAIL;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
 public class BaseJdbcConfig
@@ -32,6 +34,7 @@ public class BaseJdbcConfig
     private String passwordCredentialName;
     private boolean caseInsensitiveNameMatching;
     private Duration caseInsensitiveNameMatchingCacheTtl = new Duration(1, MINUTES);
+    private UnsupportedTypeHandlingStrategy unsupportedTypeHandlingStrategy = FAIL;
 
     @NotNull
     public String getConnectionUrl()
@@ -122,6 +125,20 @@ public class BaseJdbcConfig
     public BaseJdbcConfig setCaseInsensitiveNameMatchingCacheTtl(Duration caseInsensitiveNameMatchingCacheTtl)
     {
         this.caseInsensitiveNameMatchingCacheTtl = caseInsensitiveNameMatchingCacheTtl;
+        return this;
+    }
+
+    @NotNull
+    public UnsupportedTypeHandlingStrategy getUnsupportedTypeHandlingStrategy()
+    {
+        return unsupportedTypeHandlingStrategy;
+    }
+
+    @Config("unsupported-type.handling-strategy")
+    @ConfigDescription("Configures how unsupported column data types should be handled")
+    public BaseJdbcConfig setUnsupportedTypeHandlingStrategy(UnsupportedTypeHandlingStrategy unsupportedTypeHandlingStrategy)
+    {
+        this.unsupportedTypeHandlingStrategy = unsupportedTypeHandlingStrategy;
         return this;
     }
 }

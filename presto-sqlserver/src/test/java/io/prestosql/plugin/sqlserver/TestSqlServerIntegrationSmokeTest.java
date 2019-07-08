@@ -13,6 +13,8 @@
  */
 package io.prestosql.plugin.sqlserver;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.prestosql.tests.AbstractTestIntegrationSmokeTest;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
@@ -35,7 +37,12 @@ public class TestSqlServerIntegrationSmokeTest
 
     public TestSqlServerIntegrationSmokeTest(TestingSqlServer testingSqlServer)
     {
-        super(() -> createSqlServerQueryRunner(testingSqlServer, ORDERS));
+        super(() -> createSqlServerQueryRunner(
+                testingSqlServer,
+                ImmutableMap.<String, String>builder()
+                        .put("unsupported-type.handling-strategy", "IGNORE")
+                        .build(),
+                ImmutableList.of(ORDERS)));
         this.sqlServer = testingSqlServer;
     }
 

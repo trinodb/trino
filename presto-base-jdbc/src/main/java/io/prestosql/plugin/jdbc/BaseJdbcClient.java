@@ -63,6 +63,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.prestosql.plugin.jdbc.BaseJdbcSessionProperties.getUnsupportedTypeHandlingStrategy;
 import static io.prestosql.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.bigintWriteFunction;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.booleanWriteFunction;
@@ -248,11 +249,21 @@ public class BaseJdbcClient
                             resultSet.getInt("DECIMAL_DIGITS"),
                             Optional.empty());
                     Optional<ColumnMapping> columnMapping = toPrestoType(session, connection, typeHandle);
-                    // skip unsupported column types
+                    String columnName = resultSet.getString("COLUMN_NAME");
                     if (columnMapping.isPresent()) {
-                        String columnName = resultSet.getString("COLUMN_NAME");
                         boolean nullable = (resultSet.getInt("NULLABLE") != columnNoNulls);
                         columns.add(new JdbcColumnHandle(columnName, typeHandle, columnMapping.get().getType(), nullable));
+                    }
+                    else {
+                        UnsupportedTypeHandlingStrategy unsupportedTypeHandlingStrategy = getUnsupportedTypeHandlingStrategy(session);
+                        switch (unsupportedTypeHandlingStrategy) {
+                            case IGNORE:
+                                break;
+                            case FAIL:
+                                throw new PrestoException(JDBC_ERROR, "Unsupported data type for column: " + columnName);
+                            default:
+                                throw new IllegalStateException("Unknown unsupported type handling strategy: " + unsupportedTypeHandlingStrategy);
+                        }
                     }
                 }
                 if (columns.isEmpty()) {
