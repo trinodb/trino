@@ -35,6 +35,7 @@ public class ThriftMetastoreConfig
     private Duration maxBackoffDelay = RetryDriver.DEFAULT_SLEEP_TIME;
     private Duration maxRetryTime = RetryDriver.DEFAULT_MAX_RETRY_TIME;
     private boolean impersonationEnabled;
+    private Duration maxWaitForTransactionLock = new Duration(10, TimeUnit.MINUTES);
 
     @NotNull
     public Duration getMetastoreTimeout()
@@ -139,6 +140,19 @@ public class ThriftMetastoreConfig
     public ThriftMetastoreConfig setImpersonationEnabled(boolean impersonationEnabled)
     {
         this.impersonationEnabled = impersonationEnabled;
+        return this;
+    }
+
+    public Duration getMaxWaitForTransactionLock()
+    {
+        return maxWaitForTransactionLock;
+    }
+
+    @Config("hive.metastore.thrift.txn-lock-max-wait")
+    @ConfigDescription("Maximum time to wait to acquire hive transaction lock")
+    public ThriftMetastoreConfig setMaxWaitForTransactionLock(Duration maxWaitForTransactionLock)
+    {
+        this.maxWaitForTransactionLock = maxWaitForTransactionLock;
         return this;
     }
 }

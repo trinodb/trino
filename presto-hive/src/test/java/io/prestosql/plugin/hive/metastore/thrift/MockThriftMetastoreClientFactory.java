@@ -33,7 +33,7 @@ public class MockThriftMetastoreClientFactory
 
     public MockThriftMetastoreClientFactory(Optional<HostAndPort> socksProxy, Duration timeout, List<ThriftMetastoreClient> clients)
     {
-        super(Optional.empty(), socksProxy, timeout, new NoHiveMetastoreAuthentication());
+        super(Optional.empty(), socksProxy, timeout, new NoHiveMetastoreAuthentication(), "localhost");
         this.clients = new ArrayList<>(requireNonNull(clients, "clients is null"));
     }
 
