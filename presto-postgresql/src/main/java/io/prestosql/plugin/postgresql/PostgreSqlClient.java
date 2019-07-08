@@ -37,11 +37,14 @@ import io.prestosql.plugin.jdbc.SliceWriteFunction;
 import io.prestosql.plugin.jdbc.StatsCollecting;
 import io.prestosql.plugin.jdbc.WriteMapping;
 import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.TableNotFoundException;
 import io.prestosql.spi.type.ArrayType;
+import io.prestosql.spi.type.MapType;
 import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.TinyintType;
 import io.prestosql.spi.type.Type;
@@ -107,6 +110,7 @@ public class PostgreSqlClient
 
     private final Type jsonType;
     private final Type uuidType;
+    private final MapType varcharMapType;
     private final boolean supportArrays;
 
     @Inject
@@ -119,6 +123,7 @@ public class PostgreSqlClient
         super(config, "\"", connectionFactory);
         this.jsonType = typeManager.getType(new TypeSignature(StandardTypes.JSON));
         this.uuidType = typeManager.getType(new TypeSignature(StandardTypes.UUID));
+        this.varcharMapType = (MapType) typeManager.getType(TypeSignature.parseTypeSignature("map(varchar, varchar)"));
 
         switch (postgreSqlConfig.getArrayMapping()) {
             case DISABLED:
@@ -265,6 +270,8 @@ public class PostgreSqlClient
             case "timestamptz":
                 // PostgreSQL's "timestamp with time zone" is reported as Types.TIMESTAMP rather than Types.TIMESTAMP_WITH_TIMEZONE
                 return Optional.of(timestampWithTimeZoneColumnMapping());
+            case "hstore":
+                return Optional.of(hstoreColumnMapping());
         }
         if (typeHandle.getJdbcType() == Types.VARCHAR && !jdbcTypeName.equals("varchar")) {
             // This can be e.g. an ENUM
@@ -358,6 +365,39 @@ public class PostgreSqlClient
             // PostgreSQL does not store zone information in "timestamp with time zone" data type
             long millisUtc = unpackMillisUtc(value);
             statement.setTimestamp(index, new java.sql.Timestamp(millisUtc));
+        };
+    }
+
+    private ColumnMapping hstoreColumnMapping()
+    {
+        return ColumnMapping.blockMapping(
+                varcharMapType,
+                varcharMapReadFunction(),
+                (statement, index, block) -> { throw new PrestoException(NOT_SUPPORTED, "PosgtreSQL hstore write is not supported"); },
+                DISABLE_PUSHDOWN);
+    }
+
+    private BlockReadFunction varcharMapReadFunction()
+    {
+        return (resultSet, columnIndex) -> {
+            @SuppressWarnings("unchecked")
+            Map<String, String> map = (Map<String, String>) resultSet.getObject(columnIndex);
+            BlockBuilder keyBlockBuilder = varcharMapType.getKeyType().createBlockBuilder(null, map.size());
+            BlockBuilder valueBlockBuilder = varcharMapType.getValueType().createBlockBuilder(null, map.size());
+            for (Map.Entry<String, String> entry : map.entrySet()) {
+                if (entry.getKey() == null) {
+                    throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "hstore key is null");
+                }
+                varcharMapType.getKeyType().writeSlice(keyBlockBuilder, utf8Slice(entry.getKey()));
+                if (entry.getValue() == null) {
+                    valueBlockBuilder.appendNull();
+                }
+                else {
+                    varcharMapType.getValueType().writeSlice(valueBlockBuilder, utf8Slice(entry.getValue()));
+                }
+            }
+            return varcharMapType.createBlockFromKeyValue(Optional.empty(), new int[] {0, map.size()}, keyBlockBuilder.build(), valueBlockBuilder.build())
+                    .getObject(0, Block.class);
         };
     }
 
