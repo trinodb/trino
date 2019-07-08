@@ -27,19 +27,6 @@ public interface ConnectorPageSourceProvider
             ConnectorTableHandle table,
             List<ColumnHandle> columns)
     {
-        return createPageSource(transaction, session, split, columns);
-    }
-
-    /**
-     * @param columns columns that should show up in the output page, in this order
-     */
-    @Deprecated
-    default ConnectorPageSource createPageSource(
-            ConnectorTransactionHandle transactionHandle,
-            ConnectorSession session,
-            ConnectorSplit split,
-            List<ColumnHandle> columns)
-    {
         throw new UnsupportedOperationException("createPageSource() must be implemented");
     }
 }
