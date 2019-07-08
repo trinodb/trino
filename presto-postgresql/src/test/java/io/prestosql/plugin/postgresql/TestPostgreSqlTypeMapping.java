@@ -41,9 +41,11 @@ import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Collections;
 import java.util.List;
-import java.util.UUID;
+import java.util.Map;
 import java.util.function.Function;
+import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
@@ -52,6 +54,7 @@ import static io.prestosql.plugin.postgresql.PostgreSqlQueryRunner.createPostgre
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.tests.datatype.DataType.bigintDataType;
 import static io.prestosql.tests.datatype.DataType.booleanDataType;
@@ -76,6 +79,7 @@ import static java.time.ZoneOffset.UTC;
 import static java.util.Arrays.asList;
 import static java.util.Collections.singletonList;
 import static java.util.function.Function.identity;
+import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 
 @Test
@@ -148,6 +152,9 @@ public class TestPostgreSqlTypeMapping
 
         timeGapInKathmandu = LocalDateTime.of(1986, 1, 1, 0, 13, 7);
         checkIsGap(kathmandu, timeGapInKathmandu);
+
+        JdbcSqlExecutor executor = new JdbcSqlExecutor(postgreSqlServer.getJdbcUrl());
+        executor.execute("CREATE EXTENSION hstore");
     }
 
     @Test
@@ -657,6 +664,19 @@ public class TestPostgreSqlTypeMapping
     }
 
     @Test
+    public void testHstore()
+    {
+        DataTypeTest.create()
+                .addRoundTrip(hstoreDataType(), null)
+                .addRoundTrip(hstoreDataType(), ImmutableMap.of())
+                .addRoundTrip(hstoreDataType(), ImmutableMap.of("key1", "value1"))
+                .addRoundTrip(hstoreDataType(), ImmutableMap.of("key1", "value1", "key2", "value2", "key3", "value3"))
+                .addRoundTrip(hstoreDataType(), ImmutableMap.of("key1", " \" ", "key2", " ' ", "key3", " ]) "))
+                .addRoundTrip(hstoreDataType(), Collections.singletonMap("key1", null))
+                .execute(getQueryRunner(), postgresCreateAndInsert("tpch.postgresql_test_hstore"));
+    }
+
+    @Test
     public void testUuid()
     {
         uuidTestCases(uuidDataType())
@@ -711,6 +731,23 @@ public class TestPostgreSqlTypeMapping
                 "jsonb",
                 JSON,
                 value -> "JSON " + formatStringLiteral(value),
+                identity());
+    }
+
+    private DataType<Map<String, String>> hstoreDataType()
+    {
+        return dataType(
+                "hstore",
+                getQueryRunner().getMetadata().getType(parseTypeSignature("map(varchar, varchar)")),
+                value -> value.entrySet().stream()
+                        .flatMap(entry -> Stream.of(entry.getKey(), entry.getValue()))
+                        .map(string -> {
+                            if (string == null) {
+                                return "null";
+                            }
+                            return DataType.formatStringLiteral(string);
+                        })
+                        .collect(joining(",", "hstore(ARRAY[", "]::varchar[])")),
                 identity());
     }
 

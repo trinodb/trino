@@ -44,13 +44,13 @@ import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -238,10 +238,12 @@ public class TestingPrestoClient
                     .collect(toList());
         }
         else if (type instanceof MapType) {
-            return ((Map<Object, Object>) value).entrySet().stream()
-                    .collect(Collectors.toMap(
-                            e -> convertToRowValue(((MapType) type).getKeyType(), e.getKey()),
-                            e -> convertToRowValue(((MapType) type).getValueType(), e.getValue())));
+            Map<Object, Object> result = new HashMap<>();
+            ((Map<Object, Object>) value)
+                    .forEach((k, v) -> result.put(
+                            convertToRowValue(((MapType) type).getKeyType(), k),
+                            convertToRowValue(((MapType) type).getValueType(), v)));
+            return result;
         }
         else if (type instanceof DecimalType) {
             return new BigDecimal((String) value);
