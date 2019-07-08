@@ -13,9 +13,11 @@
  */
 package io.prestosql.plugin.hive.metastore;
 
+import io.prestosql.plugin.hive.HivePartition;
 import io.prestosql.plugin.hive.HiveType;
 import io.prestosql.plugin.hive.PartitionStatistics;
 import io.prestosql.plugin.hive.authentication.HiveIdentity;
+import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.security.RoleGrant;
 import io.prestosql.spi.statistics.ColumnStatisticType;
 import io.prestosql.spi.type.Type;
@@ -110,4 +112,39 @@ public interface HiveMetastore
     Set<HivePrivilegeInfo> listTablePrivileges(String databaseName, String tableName, String tableOwner, HivePrincipal principal);
 
     boolean isImpersonationEnabled();
+
+    default Optional<String> getConfigValue(String name)
+    {
+        return Optional.empty();
+    }
+
+    default long openTransaction(HiveIdentity identity)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    default void commitTransaction(HiveIdentity identity, long transactionId)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    default void rollbackTransaction(HiveIdentity identity, long transactionId)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    default boolean sendTransactionHeartbeatAndFindIfValid(HiveIdentity identity, long transactionId)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    default void acquireSharedReadLock(HiveIdentity identity, String queryId, long transactionId, List<SchemaTableName> fullTables, List<HivePartition> partitions)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    default String getValidWriteIds(HiveIdentity identity, List<SchemaTableName> tables, long currentTransactionId)
+    {
+        throw new UnsupportedOperationException();
+    }
 }
