@@ -49,6 +49,12 @@ public class ThriftMetastoreStats
     private final ThriftMetastoreApiStats listRoleGrants = new ThriftMetastoreApiStats();
     private final ThriftMetastoreApiStats createRole = new ThriftMetastoreApiStats();
     private final ThriftMetastoreApiStats dropRole = new ThriftMetastoreApiStats();
+    private final ThriftMetastoreApiStats openTransaction = new ThriftMetastoreApiStats();
+    private final ThriftMetastoreApiStats commitTransaction = new ThriftMetastoreApiStats();
+    private final ThriftMetastoreApiStats rollbackTransaction = new ThriftMetastoreApiStats();
+    private final ThriftMetastoreApiStats acquireLock = new ThriftMetastoreApiStats();
+    private final ThriftMetastoreApiStats checkLock = new ThriftMetastoreApiStats();
+    private final ThriftMetastoreApiStats validWriteIds = new ThriftMetastoreApiStats();
 
     @Managed
     @Nested
@@ -265,5 +271,47 @@ public class ThriftMetastoreStats
     public ThriftMetastoreApiStats getDropRole()
     {
         return dropRole;
+    }
+
+    @Managed
+    @Nested
+    public ThriftMetastoreApiStats getOpenTransaction()
+    {
+        return openTransaction;
+    }
+
+    @Managed
+    @Nested
+    public ThriftMetastoreApiStats getCommitTransaction()
+    {
+        return commitTransaction;
+    }
+
+    @Managed
+    @Nested
+    public ThriftMetastoreApiStats getRollbackTransaction()
+    {
+        return rollbackTransaction;
+    }
+
+    @Managed
+    @Nested
+    public ThriftMetastoreApiStats getAcquireLock()
+    {
+        return acquireLock;
+    }
+
+    @Managed
+    @Nested
+    public ThriftMetastoreApiStats getCheckLock()
+    {
+        return checkLock;
+    }
+
+    @Managed
+    @Nested
+    public ThriftMetastoreApiStats getValidWriteIds()
+    {
+        return validWriteIds;
     }
 }

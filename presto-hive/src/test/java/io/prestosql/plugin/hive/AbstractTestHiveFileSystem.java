@@ -76,6 +76,7 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ScheduledExecutorService;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -101,6 +102,7 @@ import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.testing.MaterializedResult.materializeSourceDataStream;
 import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.Executors.newCachedThreadPool;
+import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -124,11 +126,13 @@ public abstract class AbstractTestHiveFileSystem
 
     private ExecutorService executor;
     private HiveConfig config;
+    private ScheduledExecutorService heartbeatService;
 
     @BeforeClass
     public void setUp()
     {
         executor = newCachedThreadPool(daemonThreadsNamed("hive-%s"));
+        heartbeatService = newScheduledThreadPool(1);
     }
 
     @AfterClass(alwaysRun = true)
@@ -137,6 +141,10 @@ public abstract class AbstractTestHiveFileSystem
         if (executor != null) {
             executor.shutdownNow();
             executor = null;
+        }
+        if (heartbeatService != null) {
+            heartbeatService.shutdownNow();
+            heartbeatService = null;
         }
     }
 
@@ -174,6 +182,7 @@ public abstract class AbstractTestHiveFileSystem
                 hdfsEnvironment,
                 hivePartitionManager,
                 newDirectExecutorService(),
+                heartbeatService,
                 TYPE_MANAGER,
                 locationService,
                 partitionUpdateCodec,
