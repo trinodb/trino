@@ -35,7 +35,6 @@ public class MongoClientConfig
 {
     private static final Splitter SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
     private static final Splitter PORT_SPLITTER = Splitter.on(':').trimResults().omitEmptyStrings();
-    private static final Splitter USER_SPLITTER = Splitter.onPattern("[:@]").trimResults().omitEmptyStrings();
 
     private String schemaCollection = "_schema";
     private List<ServerAddress> seeds = ImmutableList.of();
@@ -128,10 +127,18 @@ public class MongoClientConfig
     private List<MongoCredential> buildCredentials(Iterable<String> userPasses)
     {
         ImmutableList.Builder<MongoCredential> builder = ImmutableList.builder();
-        for (String userPass : userPasses) {
-            List<String> values = USER_SPLITTER.splitToList(userPass);
-            checkArgument(values.size() == 3, "Invalid Credential format. Requires user:password@collection");
-            builder.add(createCredential(values.get(0), values.get(2), values.get(1).toCharArray()));
+        for (String userPassCollection : userPasses) {
+            int lastIndex = userPassCollection.lastIndexOf('@');
+            checkArgument(lastIndex > 0, "Invalid Credential format. Requires user:password@collection");
+            String userPass = userPassCollection.substring(0, lastIndex);
+            String collection = userPassCollection.substring(lastIndex + 1);
+
+            int firstIndex = userPass.indexOf(':');
+            checkArgument(firstIndex > 0, "Invalid Credential format. Requires user:password@collection");
+            String user = userPass.substring(0, firstIndex);
+            String password = userPass.substring(firstIndex + 1);
+
+            builder.add(createCredential(user, collection, password.toCharArray()));
         }
         return builder.build();
     }
