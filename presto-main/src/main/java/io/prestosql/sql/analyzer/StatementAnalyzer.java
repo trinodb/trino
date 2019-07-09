@@ -143,7 +143,6 @@ import io.prestosql.type.TypeCoercion;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -157,7 +156,6 @@ import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getLast;
-import static com.google.common.collect.Iterables.transform;
 import static io.prestosql.SystemSessionProperties.getMaxGroupingSets;
 import static io.prestosql.metadata.FunctionKind.AGGREGATE;
 import static io.prestosql.metadata.FunctionKind.WINDOW;
@@ -358,11 +356,13 @@ class StatementAnalyzer
                     targetTableHandle.get(),
                     insertColumns.stream().map(columnHandles::get).collect(toImmutableList())));
 
-            Iterable<Type> tableTypes = insertColumns.stream()
+            List<Type> tableTypes = insertColumns.stream()
                     .map(insertColumn -> tableMetadata.getColumn(insertColumn).getType())
                     .collect(toImmutableList());
 
-            Iterable<Type> queryTypes = transform(queryScope.getRelationType().getVisibleFields(), Field::getType);
+            List<Type> queryTypes = queryScope.getRelationType().getVisibleFields().stream()
+                    .map(Field::getType)
+                    .collect(toImmutableList());
 
             if (!typesMatchForInsert(tableTypes, queryTypes)) {
                 throw new SemanticException(MISMATCHED_SET_COLUMN_TYPES, insert, "Insert query has mismatched column types: " +
@@ -373,19 +373,14 @@ class StatementAnalyzer
             return createAndAssignScope(insert, scope, Field.newUnqualified("rows", BIGINT));
         }
 
-        private boolean typesMatchForInsert(Iterable<Type> tableTypes, Iterable<Type> queryTypes)
+        private boolean typesMatchForInsert(List<Type> tableTypes, List<Type> queryTypes)
         {
-            if (Iterables.size(tableTypes) != Iterables.size(queryTypes)) {
+            if (tableTypes.size() != queryTypes.size()) {
                 return false;
             }
 
-            Iterator<Type> tableTypesIterator = tableTypes.iterator();
-            Iterator<Type> queryTypesIterator = queryTypes.iterator();
-            while (tableTypesIterator.hasNext()) {
-                Type tableType = tableTypesIterator.next();
-                Type queryType = queryTypesIterator.next();
-
-                if (!typeCoercion.canCoerce(queryType, tableType)) {
+            for (int i = 0; i < tableTypes.size(); i++) {
+                if (!typeCoercion.canCoerce(queryTypes.get(i), tableTypes.get(i))) {
                     return false;
                 }
             }
@@ -825,103 +820,19 @@ class StatementAnalyzer
         {
             if (!table.getName().getPrefix().isPresent()) {
                 // is this a reference to a WITH query?
-                String name = table.getName().getSuffix();
-
-                Optional<WithQuery> withQuery = createScope(scope).getNamedQuery(name);
+                Optional<WithQuery> withQuery = createScope(scope).getNamedQuery(table.getName().getSuffix());
                 if (withQuery.isPresent()) {
-                    Query query = withQuery.get().getQuery();
-                    analysis.registerNamedQuery(table, query);
-
-                    // re-alias the fields with the name assigned to the query in the WITH declaration
-                    RelationType queryDescriptor = analysis.getOutputDescriptor(query);
-
-                    List<Field> fields;
-                    Optional<List<Identifier>> columnNames = withQuery.get().getColumnNames();
-                    if (columnNames.isPresent()) {
-                        // if columns are explicitly aliased -> WITH cte(alias1, alias2 ...)
-                        ImmutableList.Builder<Field> fieldBuilder = ImmutableList.builder();
-
-                        int field = 0;
-                        for (Identifier columnName : columnNames.get()) {
-                            Field inputField = queryDescriptor.getFieldByIndex(field);
-                            fieldBuilder.add(Field.newQualified(
-                                    QualifiedName.of(name),
-                                    Optional.of(columnName.getValue()),
-                                    inputField.getType(),
-                                    false,
-                                    inputField.getOriginTable(),
-                                    inputField.getOriginColumnName(),
-                                    inputField.isAliased()));
-
-                            field++;
-                        }
-
-                        fields = fieldBuilder.build();
-                    }
-                    else {
-                        fields = queryDescriptor.getAllFields().stream()
-                                .map(field -> Field.newQualified(
-                                        QualifiedName.of(name),
-                                        field.getName(),
-                                        field.getType(),
-                                        field.isHidden(),
-                                        field.getOriginTable(),
-                                        field.getOriginColumnName(),
-                                        field.isAliased()))
-                                .collect(toImmutableList());
-                    }
-
-                    return createAndAssignScope(table, scope, fields);
+                    return createScopeForCommonTableExpression(table, scope, withQuery.get());
                 }
             }
 
             QualifiedObjectName name = createQualifiedObjectName(session, table, table.getName());
             analysis.addEmptyColumnReferencesForTable(accessControl, session.getIdentity(), name);
 
+            // is this a reference to a view?
             Optional<ConnectorViewDefinition> optionalView = metadata.getView(session, name);
             if (optionalView.isPresent()) {
-                Statement statement = analysis.getStatement();
-                if (statement instanceof CreateView) {
-                    CreateView viewStatement = (CreateView) statement;
-                    QualifiedObjectName viewNameFromStatement = createQualifiedObjectName(session, viewStatement, viewStatement.getName());
-                    if (viewStatement.isReplace() && viewNameFromStatement.equals(name)) {
-                        throw new SemanticException(VIEW_IS_RECURSIVE, table, "Statement would create a recursive view");
-                    }
-                }
-                if (analysis.hasTableInView(table)) {
-                    throw new SemanticException(VIEW_IS_RECURSIVE, table, "View is recursive");
-                }
-                ConnectorViewDefinition view = optionalView.get();
-
-                Query query = parseView(view.getOriginalSql(), name, table);
-
-                analysis.registerNamedQuery(table, query);
-
-                analysis.registerTableForView(table);
-                RelationType descriptor = analyzeView(query, name, view.getCatalog(), view.getSchema(), view.getOwner(), table);
-                analysis.unregisterTableForView();
-
-                if (isViewStale(view.getColumns(), descriptor.getVisibleFields(), name, table)) {
-                    throw new SemanticException(VIEW_IS_STALE, table, "View '%s' is stale; it must be re-created", name);
-                }
-
-                // Derive the type of the view from the stored definition, not from the analysis of the underlying query.
-                // This is needed in case the underlying table(s) changed and the query in the view now produces types that
-                // are implicitly coercible to the declared view types.
-                List<Field> outputFields = view.getColumns().stream()
-                        .map(column -> Field.newQualified(
-                                table.getName(),
-                                Optional.of(column.getName()),
-                                getViewColumnType(column, name, table),
-                                false,
-                                Optional.of(name),
-                                Optional.of(column.getName()),
-                                false))
-                        .collect(toImmutableList());
-
-                analysis.addRelationCoercion(table, outputFields.stream().map(Field::getType).toArray(Type[]::new));
-
-                return createAndAssignScope(table, scope, outputFields);
+                return createScopeForView(table, name, scope, optionalView.get());
             }
 
             Optional<TableHandle> tableHandle = metadata.getTableHandle(session, name);
@@ -957,6 +868,96 @@ class StatementAnalyzer
             analysis.registerTable(table, tableHandle.get());
 
             return createAndAssignScope(table, scope, fields.build());
+        }
+
+        private Scope createScopeForCommonTableExpression(Table table, Optional<Scope> scope, WithQuery withQuery)
+        {
+            Query query = withQuery.getQuery();
+            analysis.registerNamedQuery(table, query);
+
+            // re-alias the fields with the name assigned to the query in the WITH declaration
+            RelationType queryDescriptor = analysis.getOutputDescriptor(query);
+
+            List<Field> fields;
+            Optional<List<Identifier>> columnNames = withQuery.getColumnNames();
+            if (columnNames.isPresent()) {
+                // if columns are explicitly aliased -> WITH cte(alias1, alias2 ...)
+                ImmutableList.Builder<Field> fieldBuilder = ImmutableList.builder();
+
+                int field = 0;
+                for (Identifier columnName : columnNames.get()) {
+                    Field inputField = queryDescriptor.getFieldByIndex(field);
+                    fieldBuilder.add(Field.newQualified(
+                            QualifiedName.of(table.getName().getSuffix()),
+                            Optional.of(columnName.getValue()),
+                            inputField.getType(),
+                            false,
+                            inputField.getOriginTable(),
+                            inputField.getOriginColumnName(),
+                            inputField.isAliased()));
+
+                    field++;
+                }
+
+                fields = fieldBuilder.build();
+            }
+            else {
+                fields = queryDescriptor.getAllFields().stream()
+                        .map(field -> Field.newQualified(
+                                QualifiedName.of(table.getName().getSuffix()),
+                                field.getName(),
+                                field.getType(),
+                                field.isHidden(),
+                                field.getOriginTable(),
+                                field.getOriginColumnName(),
+                                field.isAliased()))
+                        .collect(toImmutableList());
+            }
+
+            return createAndAssignScope(table, scope, fields);
+        }
+
+        private Scope createScopeForView(Table table, QualifiedObjectName name, Optional<Scope> scope, ConnectorViewDefinition view)
+        {
+            Statement statement = analysis.getStatement();
+            if (statement instanceof CreateView) {
+                CreateView viewStatement = (CreateView) statement;
+                QualifiedObjectName viewNameFromStatement = createQualifiedObjectName(session, viewStatement, viewStatement.getName());
+                if (viewStatement.isReplace() && viewNameFromStatement.equals(name)) {
+                    throw new SemanticException(VIEW_IS_RECURSIVE, table, "Statement would create a recursive view");
+                }
+            }
+            if (analysis.hasTableInView(table)) {
+                throw new SemanticException(VIEW_IS_RECURSIVE, table, "View is recursive");
+            }
+
+            Query query = parseView(view.getOriginalSql(), name, table);
+            analysis.registerNamedQuery(table, query);
+            analysis.registerTableForView(table);
+            RelationType descriptor = analyzeView(query, name, view.getCatalog(), view.getSchema(), view.getOwner(), table);
+            analysis.unregisterTableForView();
+
+            if (isViewStale(view.getColumns(), descriptor.getVisibleFields(), name, table)) {
+                throw new SemanticException(VIEW_IS_STALE, table, "View '%s' is stale; it must be re-created", name);
+            }
+
+            // Derive the type of the view from the stored definition, not from the analysis of the underlying query.
+            // This is needed in case the underlying table(s) changed and the query in the view now produces types that
+            // are implicitly coercible to the declared view types.
+            List<Field> outputFields = view.getColumns().stream()
+                    .map(column -> Field.newQualified(
+                            table.getName(),
+                            Optional.of(column.getName()),
+                            getViewColumnType(column, name, table),
+                            false,
+                            Optional.of(name),
+                            Optional.of(column.getName()),
+                            false))
+                    .collect(toImmutableList());
+
+            analysis.addRelationCoercion(table, outputFields.stream().map(Field::getType).toArray(Type[]::new));
+
+            return createAndAssignScope(table, scope, outputFields);
         }
 
         @Override
@@ -1691,6 +1692,18 @@ class StatementAnalyzer
             return ImmutableList.of();
         }
 
+        private boolean hasAggregates(QuerySpecification node)
+        {
+            List<Node> toExtract = ImmutableList.<Node>builder()
+                    .addAll(node.getSelect().getSelectItems())
+                    .addAll(getSortItemsFromOrderBy(node.getOrderBy()))
+                    .build();
+
+            List<FunctionCall> aggregates = extractAggregateFunctions(toExtract, metadata);
+
+            return !aggregates.isEmpty();
+        }
+
         private Scope computeAndAssignOutputScope(QuerySpecification node, Optional<Scope> scope, Scope sourceScope)
         {
             ImmutableList.Builder<Field> outputFields = ImmutableList.builder();
@@ -1807,53 +1820,74 @@ class StatementAnalyzer
 
             for (SelectItem item : node.getSelect().getSelectItems()) {
                 if (item instanceof AllColumns) {
-                    // expand * and T.*
-                    Optional<QualifiedName> starPrefix = ((AllColumns) item).getPrefix();
-
-                    RelationType relationType = scope.getRelationType();
-                    List<Field> fields = relationType.resolveFieldsWithPrefix(starPrefix);
-                    if (fields.isEmpty()) {
-                        if (starPrefix.isPresent()) {
-                            throw new SemanticException(MISSING_TABLE, item, "Table '%s' not found", starPrefix.get());
-                        }
-                        if (!node.getFrom().isPresent()) {
-                            throw new SemanticException(WILDCARD_WITHOUT_FROM, item, "SELECT * not allowed in queries without FROM clause");
-                        }
-                        throw new SemanticException(COLUMN_NAME_NOT_SPECIFIED, item, "SELECT * not allowed from relation that has no columns");
-                    }
-
-                    for (Field field : fields) {
-                        int fieldIndex = relationType.indexOf(field);
-                        FieldReference expression = new FieldReference(fieldIndex);
-                        outputExpressionBuilder.add(expression);
-                        ExpressionAnalysis expressionAnalysis = analyzeExpression(expression, scope);
-
-                        Type type = expressionAnalysis.getType(expression);
-                        if (node.getSelect().isDistinct() && !type.isComparable()) {
-                            throw new SemanticException(TYPE_MISMATCH, node.getSelect(), "DISTINCT can only be applied to comparable types (actual: %s)", type);
-                        }
-                    }
+                    analyzeSelectAllColumns((AllColumns) item, node, scope, outputExpressionBuilder);
                 }
                 else if (item instanceof SingleColumn) {
-                    SingleColumn column = (SingleColumn) item;
-                    ExpressionAnalysis expressionAnalysis = analyzeExpression(column.getExpression(), scope);
-                    analysis.recordSubqueries(node, expressionAnalysis);
-                    outputExpressionBuilder.add(column.getExpression());
-
-                    Type type = expressionAnalysis.getType(column.getExpression());
-                    if (node.getSelect().isDistinct() && !type.isComparable()) {
-                        throw new SemanticException(TYPE_MISMATCH, node.getSelect(), "DISTINCT can only be applied to comparable types (actual: %s): %s", type, column.getExpression());
-                    }
+                    analyzeSelectSingleColumn((SingleColumn) item, node, scope, outputExpressionBuilder);
                 }
                 else {
                     throw new IllegalArgumentException("Unsupported SelectItem type: " + item.getClass().getName());
                 }
             }
 
-            ImmutableList<Expression> result = outputExpressionBuilder.build();
+            List<Expression> result = outputExpressionBuilder.build();
             analysis.setOutputExpressions(node, result);
 
             return result;
+        }
+
+        private void analyzeSelectAllColumns(
+                AllColumns allColumns,
+                QuerySpecification node,
+                Scope scope,
+                ImmutableList.Builder<Expression> outputExpressionBuilder)
+        {
+            // expand * and T.*
+            Optional<QualifiedName> starPrefix = allColumns.getPrefix();
+
+            RelationType relationType = scope.getRelationType();
+            List<Field> fields = relationType.resolveFieldsWithPrefix(starPrefix);
+            if (fields.isEmpty()) {
+                if (starPrefix.isPresent()) {
+                    throw new SemanticException(MISSING_TABLE, allColumns, "Table '%s' not found", starPrefix.get());
+                }
+                if (!node.getFrom().isPresent()) {
+                    throw new SemanticException(WILDCARD_WITHOUT_FROM, allColumns, "SELECT * not allowed in queries without FROM clause");
+                }
+                throw new SemanticException(COLUMN_NAME_NOT_SPECIFIED, allColumns, "SELECT * not allowed from relation that has no columns");
+            }
+
+            for (Field field : fields) {
+                int fieldIndex = relationType.indexOf(field);
+                FieldReference expression = new FieldReference(fieldIndex);
+                outputExpressionBuilder.add(expression);
+                ExpressionAnalysis expressionAnalysis = analyzeExpression(expression, scope);
+
+                Type type = expressionAnalysis.getType(expression);
+                if (node.getSelect().isDistinct() && !type.isComparable()) {
+                    throw new SemanticException(TYPE_MISMATCH, node.getSelect(), "DISTINCT can only be applied to comparable types (actual: %s)", type);
+                }
+            }
+        }
+
+        private void analyzeSelectSingleColumn(
+                SingleColumn singleColumn,
+                QuerySpecification node,
+                Scope scope,
+                ImmutableList.Builder<Expression> outputExpressionBuilder)
+        {
+            ExpressionAnalysis expressionAnalysis = analyzeExpression(singleColumn.getExpression(), scope);
+            analysis.recordSubqueries(node, expressionAnalysis);
+            outputExpressionBuilder.add(singleColumn.getExpression());
+
+            Type type = expressionAnalysis.getType(singleColumn.getExpression());
+            if (node.getSelect().isDistinct() && !type.isComparable()) {
+                throw new SemanticException(
+                        TYPE_MISMATCH, node.getSelect(),
+                        "DISTINCT can only be applied to comparable types (actual: %s): %s",
+                        type,
+                        singleColumn.getExpression());
+            }
         }
 
         public void analyzeWhere(Node node, Scope scope, Expression predicate)
@@ -1918,9 +1952,7 @@ class StatementAnalyzer
                 //     SELECT f(a) GROUP BY a
                 //     SELECT f(a + 1) GROUP BY a + 1
                 //     SELECT a + sum(b) GROUP BY a
-                List<Expression> distinctGroupingColumns = groupByExpressions.stream()
-                        .distinct()
-                        .collect(toImmutableList());
+                List<Expression> distinctGroupingColumns = ImmutableSet.copyOf(groupByExpressions).asList();
 
                 for (Expression expression : outputExpressions) {
                     verifySourceAggregations(distinctGroupingColumns, sourceScope, expression, metadata, analysis);
@@ -1930,20 +1962,6 @@ class StatementAnalyzer
                     verifyOrderByAggregations(distinctGroupingColumns, sourceScope, orderByScope.get(), expression, metadata, analysis);
                 }
             }
-        }
-
-        private boolean hasAggregates(QuerySpecification node)
-        {
-            ImmutableList.Builder<Node> toExtractBuilder = ImmutableList.builder();
-
-            toExtractBuilder.addAll(node.getSelect().getSelectItems().stream()
-                    .collect(toImmutableList()));
-
-            toExtractBuilder.addAll(getSortItemsFromOrderBy(node.getOrderBy()));
-
-            List<FunctionCall> aggregates = extractAggregateFunctions(toExtractBuilder.build(), metadata);
-
-            return !aggregates.isEmpty();
         }
 
         private RelationType analyzeView(Query query, QualifiedObjectName name, Optional<String> catalog, Optional<String> schema, Optional<String> owner, Table node)
