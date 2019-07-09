@@ -160,7 +160,7 @@ public final class DockerContainer
                 .withMaxDuration(Duration.of(10, MINUTES))
                 .withMaxAttempts(Integer.MAX_VALUE) // limited by MaxDuration
                 .abortOn(error -> !isContainerUp())
-                .onRetry(event -> LOG.info(format("Waiting for container for %s [%s]...", image, event.getLastFailure())))
+                .onRetry(event -> LOG.info(format("Waiting for '%s' container. Retrying error: %s", image, event.getLastFailure())))
                 .withDelay(Duration.of(10, SECONDS));
         Failsafe.with(retryPolicy).run(() -> healthCheck.accept(this::getHostPort));
     }
