@@ -16,12 +16,11 @@ package io.prestosql.plugin.hive.metastore.file;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
-import io.prestosql.plugin.hive.ForCachingHiveMetastore;
-import io.prestosql.plugin.hive.metastore.CachingHiveMetastore;
 import io.prestosql.plugin.hive.metastore.HiveMetastore;
+import io.prestosql.plugin.hive.metastore.cache.CachingHiveMetastoreModule;
+import io.prestosql.plugin.hive.metastore.cache.ForCachingHiveMetastore;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
-import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
 public class FileMetastoreModule
         implements Module
@@ -31,8 +30,6 @@ public class FileMetastoreModule
     {
         configBinder(binder).bindConfig(FileHiveMetastoreConfig.class);
         binder.bind(HiveMetastore.class).annotatedWith(ForCachingHiveMetastore.class).to(FileHiveMetastore.class).in(Scopes.SINGLETON);
-        binder.bind(HiveMetastore.class).to(CachingHiveMetastore.class).in(Scopes.SINGLETON);
-        newExporter(binder).export(HiveMetastore.class)
-                .as(generator -> generator.generatedNameOf(CachingHiveMetastore.class));
+        binder.install(new CachingHiveMetastoreModule());
     }
 }
