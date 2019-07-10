@@ -23,6 +23,8 @@ import io.prestosql.metadata.CatalogManager;
 import io.prestosql.metadata.InMemoryNodeManager;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.QualifiedObjectName;
+import io.prestosql.plugin.base.security.AllowAllSystemAccessControl;
+import io.prestosql.plugin.base.security.ReadOnlySystemAccessControl;
 import io.prestosql.plugin.tpch.TpchConnectorFactory;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.CatalogSchemaName;
