@@ -812,7 +812,8 @@ class QueryPlanner
             WindowNode.Function function = new WindowNode.Function(
                     analysis.getFunctionSignature(windowFunction),
                     ((FunctionCall) rewritten).getArguments(),
-                    frame);
+                    frame,
+                    windowFunction.isIgnoreNulls());
 
             List<Symbol> sourceSymbols = subPlan.getRoot().getOutputSymbols();
             ImmutableList.Builder<Symbol> orderBySymbols = ImmutableList.builder();

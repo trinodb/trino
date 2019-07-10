@@ -32,12 +32,14 @@ public class LagFunction
     private final int valueChannel;
     private final int offsetChannel;
     private final int defaultChannel;
+    private final boolean ignoreNulls;
 
-    public LagFunction(List<Integer> argumentChannels)
+    public LagFunction(List<Integer> argumentChannels, boolean ignoreNulls)
     {
         this.valueChannel = argumentChannels.get(0);
         this.offsetChannel = (argumentChannels.size() > 1) ? argumentChannels.get(1) : -1;
         this.defaultChannel = (argumentChannels.size() > 2) ? argumentChannels.get(2) : -1;
+        this.ignoreNulls = ignoreNulls;
     }
 
     @Override
@@ -50,9 +52,26 @@ public class LagFunction
             long offset = (offsetChannel < 0) ? 1 : windowIndex.getLong(offsetChannel, currentPosition);
             checkCondition(offset >= 0, INVALID_FUNCTION_ARGUMENT, "Offset must be at least 0");
 
-            long valuePosition = currentPosition - offset;
+            long valuePosition;
 
-            if ((valuePosition >= 0) && (valuePosition <= currentPosition)) {
+            if (ignoreNulls && (offset > 0)) {
+                long count = 0;
+                valuePosition = currentPosition - 1;
+                while (withinPartition(valuePosition, currentPosition)) {
+                    if (!windowIndex.isNull(valueChannel, toIntExact(valuePosition))) {
+                        count++;
+                        if (count == offset) {
+                            break;
+                        }
+                    }
+                    valuePosition--;
+                }
+            }
+            else {
+                valuePosition = currentPosition - offset;
+            }
+
+            if (withinPartition(valuePosition, currentPosition)) {
                 windowIndex.appendTo(valueChannel, toIntExact(valuePosition), output);
             }
             else if (defaultChannel >= 0) {
@@ -62,5 +81,10 @@ public class LagFunction
                 output.appendNull();
             }
         }
+    }
+
+    private boolean withinPartition(long valuePosition, long currentPosition)
+    {
+        return valuePosition >= 0 && valuePosition <= currentPosition;
     }
 }

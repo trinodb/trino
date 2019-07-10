@@ -157,7 +157,7 @@ public class TestTypeValidator
                 Optional.empty(),
                 Optional.empty());
 
-        WindowNode.Function function = new WindowNode.Function(signature, ImmutableList.of(columnC.toSymbolReference()), frame);
+        WindowNode.Function function = new WindowNode.Function(signature, ImmutableList.of(columnC.toSymbolReference()), frame, false);
 
         WindowNode.Specification specification = new WindowNode.Specification(ImmutableList.of(), Optional.empty());
 
@@ -318,7 +318,7 @@ public class TestTypeValidator
                 Optional.empty(),
                 Optional.empty());
 
-        WindowNode.Function function = new WindowNode.Function(signature, ImmutableList.of(columnA.toSymbolReference()), frame);
+        WindowNode.Function function = new WindowNode.Function(signature, ImmutableList.of(columnA.toSymbolReference()), frame, false);
 
         WindowNode.Specification specification = new WindowNode.Specification(ImmutableList.of(), Optional.empty());
 
@@ -356,7 +356,7 @@ public class TestTypeValidator
                 Optional.empty(),
                 Optional.empty());
 
-        WindowNode.Function function = new WindowNode.Function(signature, ImmutableList.of(columnC.toSymbolReference()), frame);
+        WindowNode.Function function = new WindowNode.Function(signature, ImmutableList.of(columnC.toSymbolReference()), frame, false);
 
         WindowNode.Specification specification = new WindowNode.Specification(ImmutableList.of(), Optional.empty());
 
