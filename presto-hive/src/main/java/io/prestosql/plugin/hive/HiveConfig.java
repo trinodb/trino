@@ -78,11 +78,7 @@ public class HiveConfig
 
     private boolean allowCorruptWritesForTesting;
 
-    private Duration metastoreCacheTtl = new Duration(0, TimeUnit.SECONDS);
-    private Duration metastoreRefreshInterval = new Duration(0, TimeUnit.SECONDS);
-    private long metastoreCacheMaximumSize = 10000;
     private long perTransactionMetastoreCacheMaximumSize = 1000;
-    private int maxMetastoreRefreshThreads = 100;
     private HostAndPort metastoreSocksProxy;
     private Duration metastoreTimeout = new Duration(10, TimeUnit.SECONDS);
 
@@ -386,47 +382,6 @@ public class HiveConfig
         return this;
     }
 
-    @NotNull
-    public Duration getMetastoreCacheTtl()
-    {
-        return metastoreCacheTtl;
-    }
-
-    @MinDuration("0ms")
-    @Config("hive.metastore-cache-ttl")
-    public HiveConfig setMetastoreCacheTtl(Duration metastoreCacheTtl)
-    {
-        this.metastoreCacheTtl = metastoreCacheTtl;
-        return this;
-    }
-
-    @NotNull
-    public Duration getMetastoreRefreshInterval()
-    {
-        return metastoreRefreshInterval;
-    }
-
-    @MinDuration("1ms")
-    @Config("hive.metastore-refresh-interval")
-    public HiveConfig setMetastoreRefreshInterval(Duration metastoreRefreshInterval)
-    {
-        this.metastoreRefreshInterval = metastoreRefreshInterval;
-        return this;
-    }
-
-    public long getMetastoreCacheMaximumSize()
-    {
-        return metastoreCacheMaximumSize;
-    }
-
-    @Min(1)
-    @Config("hive.metastore-cache-maximum-size")
-    public HiveConfig setMetastoreCacheMaximumSize(long metastoreCacheMaximumSize)
-    {
-        this.metastoreCacheMaximumSize = metastoreCacheMaximumSize;
-        return this;
-    }
-
     public long getPerTransactionMetastoreCacheMaximumSize()
     {
         return perTransactionMetastoreCacheMaximumSize;
@@ -437,19 +392,6 @@ public class HiveConfig
     public HiveConfig setPerTransactionMetastoreCacheMaximumSize(long perTransactionMetastoreCacheMaximumSize)
     {
         this.perTransactionMetastoreCacheMaximumSize = perTransactionMetastoreCacheMaximumSize;
-        return this;
-    }
-
-    @Min(1)
-    public int getMaxMetastoreRefreshThreads()
-    {
-        return maxMetastoreRefreshThreads;
-    }
-
-    @Config("hive.metastore-refresh-max-threads")
-    public HiveConfig setMaxMetastoreRefreshThreads(int maxMetastoreRefreshThreads)
-    {
-        this.maxMetastoreRefreshThreads = maxMetastoreRefreshThreads;
         return this;
     }
 
