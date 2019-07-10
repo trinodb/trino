@@ -79,7 +79,7 @@ public class TestSwapAdjacentWindowsBySpecifications
                                 ImmutableList.of(p.symbol("a")),
                                 Optional.empty()),
                         ImmutableMap.of(p.symbol("avg_1"),
-                                new WindowNode.Function(signature, ImmutableList.of(), frame)),
+                                new WindowNode.Function(signature, ImmutableList.of(), frame, false)),
                         p.values(p.symbol("a"))))
                 .doesNotFire();
     }
@@ -102,12 +102,12 @@ public class TestSwapAdjacentWindowsBySpecifications
                                         ImmutableList.of(p.symbol("a")),
                                         Optional.empty()),
                                 ImmutableMap.of(p.symbol("avg_1", DOUBLE),
-                                        new WindowNode.Function(signature, ImmutableList.of(new SymbolReference("a")), frame)),
+                                        new WindowNode.Function(signature, ImmutableList.of(new SymbolReference("a")), frame, false)),
                                 p.window(new WindowNode.Specification(
                                                 ImmutableList.of(p.symbol("a"), p.symbol("b")),
                                                 Optional.empty()),
                                         ImmutableMap.of(p.symbol("avg_2", DOUBLE),
-                                                new WindowNode.Function(signature, ImmutableList.of(new SymbolReference("b")), frame)),
+                                                new WindowNode.Function(signature, ImmutableList.of(new SymbolReference("b")), frame, false)),
                                         p.values(p.symbol("a"), p.symbol("b")))))
                 .matches(
                         window(windowMatcherBuilder -> windowMatcherBuilder
@@ -130,12 +130,12 @@ public class TestSwapAdjacentWindowsBySpecifications
                                         ImmutableList.of(p.symbol("a")),
                                         Optional.empty()),
                                 ImmutableMap.of(p.symbol("avg_1"),
-                                        new WindowNode.Function(signature, ImmutableList.of(new SymbolReference("avg_2")), frame)),
+                                        new WindowNode.Function(signature, ImmutableList.of(new SymbolReference("avg_2")), frame, false)),
                                 p.window(new WindowNode.Specification(
                                                 ImmutableList.of(p.symbol("a"), p.symbol("b")),
                                                 Optional.empty()),
                                         ImmutableMap.of(p.symbol("avg_2"),
-                                                new WindowNode.Function(signature, ImmutableList.of(new SymbolReference("a")), frame)),
+                                                new WindowNode.Function(signature, ImmutableList.of(new SymbolReference("a")), frame, false)),
                                         p.values(p.symbol("a"), p.symbol("b")))))
                 .doesNotFire();
     }
