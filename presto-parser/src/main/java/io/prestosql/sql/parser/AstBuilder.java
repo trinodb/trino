@@ -1476,6 +1476,8 @@ class AstBuilder
 
         boolean distinct = isDistinct(context.setQuantifier());
 
+        boolean ignoreNulls = ignoreNulls(context.nullTreatment());
+
         if (name.toString().equalsIgnoreCase("if")) {
             check(context.expression().size() == 2 || context.expression().size() == 3, "Invalid number of arguments for 'if' function", context);
             check(!window.isPresent(), "OVER clause not valid for 'if' function", context);
@@ -1558,6 +1560,7 @@ class AstBuilder
                 filter,
                 orderBy,
                 distinct,
+                ignoreNulls,
                 visit(context.expression(), Expression.class));
     }
 
@@ -1987,6 +1990,11 @@ class AstBuilder
     private static boolean isDistinct(SqlBaseParser.SetQuantifierContext setQuantifier)
     {
         return setQuantifier != null && setQuantifier.DISTINCT() != null;
+    }
+
+    private static boolean ignoreNulls(SqlBaseParser.NullTreatmentContext nullTreatment)
+    {
+        return nullTreatment != null && nullTreatment.IGNORE() != null;
     }
 
     private static boolean isHexDigit(char c)

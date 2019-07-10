@@ -26,18 +26,21 @@ import static java.lang.Math.toIntExact;
 @WindowFunctionSignature(name = "lead", typeVariable = "T", returnType = "T", argumentTypes = "T")
 @WindowFunctionSignature(name = "lead", typeVariable = "T", returnType = "T", argumentTypes = {"T", "bigint"})
 @WindowFunctionSignature(name = "lead", typeVariable = "T", returnType = "T", argumentTypes = {"T", "bigint", "T"})
+@WindowFunctionSignature(name = "lead", typeVariable = "T", returnType = "T", argumentTypes = {"bigint", "T", "boolean"})
 public class LeadFunction
         extends ValueWindowFunction
 {
     private final int valueChannel;
     private final int offsetChannel;
     private final int defaultChannel;
+    private final boolean ignoreNulls;
 
-    public LeadFunction(List<Integer> argumentChannels)
+    public LeadFunction(List<Integer> argumentChannels, boolean ignoreNulls)
     {
         this.valueChannel = argumentChannels.get(0);
         this.offsetChannel = (argumentChannels.size() > 1) ? argumentChannels.get(1) : -1;
         this.defaultChannel = (argumentChannels.size() > 2) ? argumentChannels.get(2) : -1;
+        this.ignoreNulls = ignoreNulls;
     }
 
     @Override
@@ -51,8 +54,19 @@ public class LeadFunction
             checkCondition(offset >= 0, INVALID_FUNCTION_ARGUMENT, "Offset must be at least 0");
 
             long valuePosition = currentPosition + offset;
+            boolean withinParition = (valuePosition >= 0) && (valuePosition < windowIndex.size());
 
-            if ((valuePosition >= 0) && (valuePosition < windowIndex.size())) {
+            if (ignoreNulls) {
+                while (withinParition) {
+                    if (!windowIndex.isNull(valueChannel, toIntExact(valuePosition))) {
+                        break;
+                    }
+                    valuePosition++;
+                    withinParition = (valuePosition >= 0) && (valuePosition < windowIndex.size());
+                }
+            }
+
+            if (withinParition) {
                 windowIndex.appendTo(valueChannel, toIntExact(valuePosition), output);
             }
             else if (defaultChannel >= 0) {

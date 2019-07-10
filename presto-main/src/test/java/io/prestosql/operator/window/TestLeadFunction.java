@@ -135,6 +135,20 @@ public class TestLeadFunction
                         .row(null, null, -1L)
                         .build());
 
+        assertWindowQueryWithNulls("lead(orderkey, 1, -1) IGNORE NULLS OVER (PARTITION BY orderstatus ORDER BY orderkey)",
+                resultBuilder(TEST_SESSION, BIGINT, VARCHAR, BIGINT)
+                        .row(3L, "F", 5L)
+                        .row(5L, "F", 6L)
+                        .row(6L, "F", -1L)
+                        .row(null, "F", -1L)
+                        .row(34L, "O", -1L)
+                        .row(null, "O", -1L)
+                        .row(1L, null, 7L)
+                        .row(7L, null, -1L)
+                        .row(null, null, -1L)
+                        .row(null, null, -1L)
+                        .build());
+
         assertWindowQuery("lead(orderkey, 8 * 1000 * 1000) OVER (PARTITION BY orderstatus ORDER BY orderkey)",
                 resultBuilder(TEST_SESSION, INTEGER, VARCHAR, INTEGER)
                         .row(3, "F", null)

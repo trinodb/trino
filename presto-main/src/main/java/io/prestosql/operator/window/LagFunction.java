@@ -26,18 +26,21 @@ import static java.lang.Math.toIntExact;
 @WindowFunctionSignature(name = "lag", typeVariable = "T", returnType = "T", argumentTypes = "T")
 @WindowFunctionSignature(name = "lag", typeVariable = "T", returnType = "T", argumentTypes = {"T", "bigint"})
 @WindowFunctionSignature(name = "lag", typeVariable = "T", returnType = "T", argumentTypes = {"T", "bigint", "T"})
+@WindowFunctionSignature(name = "lag", typeVariable = "T", returnType = "T", argumentTypes = {"bigint", "T", "boolean"})
 public class LagFunction
         extends ValueWindowFunction
 {
     private final int valueChannel;
     private final int offsetChannel;
     private final int defaultChannel;
+    private final boolean ignoreNulls;
 
-    public LagFunction(List<Integer> argumentChannels)
+    public LagFunction(List<Integer> argumentChannels, boolean ignoreNulls)
     {
         this.valueChannel = argumentChannels.get(0);
         this.offsetChannel = (argumentChannels.size() > 1) ? argumentChannels.get(1) : -1;
         this.defaultChannel = (argumentChannels.size() > 2) ? argumentChannels.get(2) : -1;
+        this.ignoreNulls = ignoreNulls;
     }
 
     @Override
@@ -51,8 +54,19 @@ public class LagFunction
             checkCondition(offset >= 0, INVALID_FUNCTION_ARGUMENT, "Offset must be at least 0");
 
             long valuePosition = currentPosition - offset;
+            boolean withinPartition = (valuePosition >= 0) && (valuePosition <= currentPosition);
 
-            if ((valuePosition >= 0) && (valuePosition <= currentPosition)) {
+            if (ignoreNulls) {
+                while (withinPartition) {
+                    if (!windowIndex.isNull(valueChannel, toIntExact(valuePosition))) {
+                        break;
+                    }
+                    valuePosition--;
+                    withinPartition = (valuePosition >= 0) && (valuePosition <= currentPosition);
+                }
+            }
+
+            if (withinPartition) {
                 windowIndex.appendTo(valueChannel, toIntExact(valuePosition), output);
             }
             else if (defaultChannel >= 0) {

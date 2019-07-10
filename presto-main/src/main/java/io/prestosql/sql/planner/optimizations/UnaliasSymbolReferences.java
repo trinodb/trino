@@ -195,11 +195,12 @@ public class UnaliasSymbolReferences
             for (Map.Entry<Symbol, WindowNode.Function> entry : node.getWindowFunctions().entrySet()) {
                 Symbol symbol = entry.getKey();
 
-                Signature signature = entry.getValue().getSignature();
-                List<Expression> arguments = canonicalize(entry.getValue().getArguments());
-                WindowNode.Frame canonicalFrame = canonicalize(entry.getValue().getFrame());
+                WindowNode.Function function = entry.getValue();
+                Signature signature = function.getSignature();
+                List<Expression> arguments = canonicalize(function.getArguments());
+                WindowNode.Frame canonicalFrame = canonicalize(function.getFrame());
 
-                functions.put(canonicalize(symbol), new WindowNode.Function(signature, arguments, canonicalFrame));
+                functions.put(canonicalize(symbol), new WindowNode.Function(signature, arguments, canonicalFrame, function.ignoreNulls()));
             }
 
             return new WindowNode(

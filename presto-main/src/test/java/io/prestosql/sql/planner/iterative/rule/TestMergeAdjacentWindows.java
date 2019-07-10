@@ -221,7 +221,8 @@ public class TestMergeAdjacentWindows
         return new WindowNode.Function(
                 signature,
                 Arrays.stream(symbols).map(SymbolReference::new).collect(Collectors.toList()),
-                frame);
+                frame,
+                false);
     }
 
     private static Signature createWindowFunctionSignature(String name)

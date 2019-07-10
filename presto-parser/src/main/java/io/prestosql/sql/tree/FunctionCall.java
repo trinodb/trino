@@ -29,6 +29,7 @@ public class FunctionCall
     private final Optional<Expression> filter;
     private final Optional<OrderBy> orderBy;
     private final boolean distinct;
+    private final boolean ignoreNulls;
     private final List<Expression> arguments;
 
     public FunctionCall(QualifiedName name, List<Expression> arguments)
@@ -50,6 +51,19 @@ public class FunctionCall
             boolean distinct,
             List<Expression> arguments)
     {
+        this(location, name, window, filter, orderBy, distinct, false, arguments);
+    }
+
+    public FunctionCall(
+            Optional<NodeLocation> location,
+            QualifiedName name,
+            Optional<Window> window,
+            Optional<Expression> filter,
+            Optional<OrderBy> orderBy,
+            boolean distinct,
+            boolean ignoreNulls,
+            List<Expression> arguments)
+    {
         super(location);
         requireNonNull(name, "name is null");
         requireNonNull(window, "window is null");
@@ -62,6 +76,7 @@ public class FunctionCall
         this.filter = filter;
         this.orderBy = orderBy;
         this.distinct = distinct;
+        this.ignoreNulls = ignoreNulls;
         this.arguments = arguments;
     }
 
@@ -83,6 +98,11 @@ public class FunctionCall
     public boolean isDistinct()
     {
         return distinct;
+    }
+
+    public boolean ignoreNulls()
+    {
+        return ignoreNulls;
     }
 
     public List<Expression> getArguments()

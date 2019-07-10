@@ -95,7 +95,8 @@ public class ImplementLimitWithTies
         WindowNode.Function rankFunction = new WindowNode.Function(
                 signature,
                 ImmutableList.of(),
-                frame);
+                frame,
+                false);
 
         WindowNode windowNode = new WindowNode(
                 context.getIdAllocator().getNextId(),

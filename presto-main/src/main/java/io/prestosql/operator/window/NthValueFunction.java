@@ -29,11 +29,13 @@ public class NthValueFunction
 {
     private final int valueChannel;
     private final int offsetChannel;
+    private final boolean ignoreNulls;
 
-    public NthValueFunction(List<Integer> argumentChannels)
+    public NthValueFunction(List<Integer> argumentChannels, boolean ignoreNulls)
     {
         this.valueChannel = argumentChannels.get(0);
         this.offsetChannel = argumentChannels.get(1);
+        this.ignoreNulls = ignoreNulls;
     }
 
     @Override
@@ -50,6 +52,21 @@ public class NthValueFunction
             long valuePosition = frameStart + (offset - 1);
 
             if ((valuePosition >= frameStart) && (valuePosition <= frameEnd)) {
+                if (ignoreNulls) {
+                    while (valuePosition >= 0 && valuePosition <= frameEnd) {
+                        if (!windowIndex.isNull(valueChannel, (int) valuePosition)) {
+                            break;
+                        }
+
+                        valuePosition++;
+                    }
+
+                    if (valuePosition > frameEnd) {
+                        output.appendNull();
+                        return;
+                    }
+                }
+
                 windowIndex.appendTo(valueChannel, toIntExact(valuePosition), output);
             }
             else {

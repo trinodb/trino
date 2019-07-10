@@ -327,16 +327,19 @@ public class WindowNode
         private final Signature signature;
         private final List<Expression> arguments;
         private final Frame frame;
+        private final boolean ignoreNulls;
 
         @JsonCreator
         public Function(
                 @JsonProperty("signature") Signature signature,
                 @JsonProperty("arguments") List<Expression> arguments,
-                @JsonProperty("frame") Frame frame)
+                @JsonProperty("frame") Frame frame,
+                @JsonProperty("ignoreNulls") Boolean ignoreNulls)
         {
             this.signature = requireNonNull(signature, "Signature is null");
             this.arguments = requireNonNull(arguments, "arguments is null");
             this.frame = requireNonNull(frame, "Frame is null");
+            this.ignoreNulls = requireNonNull(ignoreNulls, "ignoreNulls is null");
         }
 
         @JsonProperty
@@ -355,6 +358,12 @@ public class WindowNode
         public Frame getFrame()
         {
             return frame;
+        }
+
+        @JsonProperty
+        public boolean ignoreNulls()
+        {
+            return ignoreNulls;
         }
 
         @Override

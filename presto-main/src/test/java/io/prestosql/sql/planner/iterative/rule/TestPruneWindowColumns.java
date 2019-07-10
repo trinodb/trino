@@ -227,7 +227,8 @@ public class TestPruneWindowColumns
                                                 CURRENT_ROW,
                                                 Optional.of(endValue1),
                                                 Optional.of(startValue1.toSymbolReference()),
-                                                Optional.of(endValue2.toSymbolReference()))),
+                                                Optional.of(endValue2.toSymbolReference())),
+                                        false),
                                 output2,
                                 new WindowNode.Function(
                                         signature,
@@ -239,7 +240,8 @@ public class TestPruneWindowColumns
                                                 CURRENT_ROW,
                                                 Optional.of(endValue2),
                                                 Optional.of(startValue2.toSymbolReference()),
-                                                Optional.of(endValue2.toSymbolReference())))),
+                                                Optional.of(endValue2.toSymbolReference())),
+                                        false)),
                         hash,
                         p.values(
                                 inputs.stream()
