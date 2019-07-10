@@ -125,6 +125,8 @@ public final class SystemSessionProperties
     public static final String DYNAMIC_FILTERING_MAX_PER_DRIVER_ROW_COUNT = "dynamic_filtering_max_per_driver_row_count";
     public static final String DYNAMIC_FILTERING_MAX_PER_DRIVER_SIZE = "dynamic_filtering_max_per_driver_size";
     public static final String IGNORE_DOWNSTREAM_PREFERENCES = "ignore_downstream_preferences";
+    public static final String REQUIRED_WORKERS_COUNT = "required_workers_count";
+    public static final String REQUIRED_WORKERS_MAX_WAIT_TIME = "required_workers_max_wait_time";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -552,6 +554,16 @@ public final class SystemSessionProperties
                         IGNORE_DOWNSTREAM_PREFERENCES,
                         "Ignore Parent's PreferredProperties in AddExchange optimizer",
                         featuresConfig.isIgnoreDownstreamPreferences(),
+                        false),
+                integerProperty(
+                        REQUIRED_WORKERS_COUNT,
+                        "Minimum number of active workers that must be available before the query will start",
+                        queryManagerConfig.getRequiredWorkers(),
+                        false),
+                durationProperty(
+                        REQUIRED_WORKERS_MAX_WAIT_TIME,
+                        "Maximum time to wait for minimum number of workers before the query is failed",
+                        queryManagerConfig.getRequiredWorkersMaxWait(),
                         false));
     }
 
@@ -1007,5 +1019,15 @@ public final class SystemSessionProperties
                 hidden,
                 value -> Duration.valueOf((String) value),
                 Duration::toString);
+    }
+
+    public static int getRequiredWorkers(Session session)
+    {
+        return session.getSystemProperty(REQUIRED_WORKERS_COUNT, Integer.class);
+    }
+
+    public static Duration getRequiredWorkersMaxWait(Session session)
+    {
+        return session.getSystemProperty(REQUIRED_WORKERS_MAX_WAIT_TIME, Duration.class);
     }
 }

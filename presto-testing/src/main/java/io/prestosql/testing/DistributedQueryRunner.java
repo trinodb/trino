@@ -80,7 +80,7 @@ public class DistributedQueryRunner
 
     private final TestingDiscoveryServer discoveryServer;
     private final TestingPrestoServer coordinator;
-    private final List<TestingPrestoServer> servers;
+    private List<TestingPrestoServer> servers;
 
     private final Closer closer = Closer.create();
 
@@ -139,14 +139,9 @@ public class DistributedQueryRunner
         defaultSession = defaultSession.toSessionRepresentation().toSession(coordinator.getMetadata().getSessionPropertyManager(), defaultSession.getIdentity().getExtraCredentials());
         this.prestoClient = closer.register(new TestingPrestoClient(coordinator, defaultSession));
 
-        long start = System.nanoTime();
-        while (!allNodesGloballyVisible()) {
-            Assertions.assertLessThan(nanosSince(start), new Duration(10, SECONDS));
-            MILLISECONDS.sleep(10);
-        }
-        log.info("Announced servers in %s", nanosSince(start).convertToMostSuccinctTimeUnit());
+        waitForAllNodesGloballyVisible();
 
-        start = System.nanoTime();
+        long start = System.nanoTime();
         for (TestingPrestoServer server : servers) {
             server.getMetadata().addFunctions(AbstractTestQueries.CUSTOM_FUNCTIONS);
         }
@@ -154,12 +149,7 @@ public class DistributedQueryRunner
 
         for (TestingPrestoServer server : servers) {
             // add bogus catalog for testing procedures and session properties
-            Catalog bogusTestingCatalog = createBogusTestingCatalog(TESTING_CATALOG);
-            server.getCatalogManager().registerCatalog(bogusTestingCatalog);
-
-            SessionPropertyManager sessionPropertyManager = server.getMetadata().getSessionPropertyManager();
-            sessionPropertyManager.addSystemSessionProperties(TEST_SYSTEM_PROPERTIES);
-            sessionPropertyManager.addConnectorSessionProperties(bogusTestingCatalog.getConnectorCatalogName(), TEST_CATALOG_PROPERTIES);
+            addTestingCatalog(server);
         }
     }
 
@@ -186,6 +176,44 @@ public class DistributedQueryRunner
         log.info("Created %s TestingPrestoServer in %s: %s", nodeRole, nanosSince(start).convertToMostSuccinctTimeUnit(), server.getBaseUrl());
 
         return server;
+    }
+
+    public void addServers(int nodeCount)
+            throws Exception
+    {
+        ImmutableList.Builder<TestingPrestoServer> serverBuilder = new ImmutableList.Builder<TestingPrestoServer>()
+                .addAll(servers);
+        for (int i = 0; i < nodeCount; i++) {
+            TestingPrestoServer server = closer.register(createTestingPrestoServer(discoveryServer.getBaseUrl(), false, ImmutableMap.of(), DEFAULT_SQL_PARSER_OPTIONS, ENVIRONMENT, Optional.empty()));
+            serverBuilder.add(server);
+            // add functions
+            server.getMetadata().addFunctions(AbstractTestQueries.CUSTOM_FUNCTIONS);
+            addTestingCatalog(server);
+        }
+        servers = serverBuilder.build();
+        waitForAllNodesGloballyVisible();
+    }
+
+    private void waitForAllNodesGloballyVisible()
+            throws InterruptedException
+    {
+        long start = System.nanoTime();
+        while (!allNodesGloballyVisible()) {
+            Assertions.assertLessThan(nanosSince(start), new Duration(10, SECONDS));
+            MILLISECONDS.sleep(10);
+        }
+        log.info("Announced servers in %s", nanosSince(start).convertToMostSuccinctTimeUnit());
+    }
+
+    private void addTestingCatalog(TestingPrestoServer server)
+    {
+        // add bogus catalog for testing procedures and session properties
+        Catalog bogusTestingCatalog = createBogusTestingCatalog(TESTING_CATALOG);
+        server.getCatalogManager().registerCatalog(bogusTestingCatalog);
+
+        SessionPropertyManager sessionPropertyManager = server.getMetadata().getSessionPropertyManager();
+        sessionPropertyManager.addSystemSessionProperties(TEST_SYSTEM_PROPERTIES);
+        sessionPropertyManager.addConnectorSessionProperties(bogusTestingCatalog.getConnectorCatalogName(), TEST_CATALOG_PROPERTIES);
     }
 
     private boolean allNodesGloballyVisible()

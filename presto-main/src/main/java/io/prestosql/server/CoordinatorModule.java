@@ -254,6 +254,7 @@ public class CoordinatorModule
 
         // node monitor
         binder.bind(ClusterSizeMonitor.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(ClusterSizeMonitor.class).withGeneratedName();
 
         // statistics calculator
         binder.install(new StatsCalculatorModule());
