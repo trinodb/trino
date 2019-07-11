@@ -63,7 +63,7 @@ public abstract class AbstractResourceConfigurationManager
             List<ResourceGroupSpec> subGroups = group.getSubGroups();
             groups.addAll(subGroups);
             if (group.getSoftCpuLimit().isPresent() || group.getHardCpuLimit().isPresent()) {
-                checkArgument(managerSpec.getCpuQuotaPeriod().isPresent(), "cpuQuotaPeriod must be specified to use cpu limits on group: %s", group.getName());
+                checkArgument(managerSpec.getCpuQuotaPeriod().isPresent(), "cpuQuotaPeriod must be specified to use CPU limits on group: %s", group.getName());
             }
             if (group.getSoftCpuLimit().isPresent()) {
                 checkArgument(group.getHardCpuLimit().isPresent(), "Must specify hard CPU limit in addition to soft limit");
@@ -213,7 +213,7 @@ public abstract class AbstractResourceConfigurationManager
         match.getHardCpuLimit().ifPresent(group::setHardCpuLimit);
         if (match.getSoftCpuLimit().isPresent() || match.getHardCpuLimit().isPresent()) {
             // This will never throw an exception if the validateRootGroups method succeeds
-            checkState(getCpuQuotaPeriod().isPresent(), "Must specify hard CPU limit in addition to soft limit");
+            checkState(getCpuQuotaPeriod().isPresent(), "cpuQuotaPeriod must be specified to use CPU limits on group: %s", group.getId());
             Duration limit;
             if (match.getHardCpuLimit().isPresent()) {
                 limit = match.getHardCpuLimit().get();
