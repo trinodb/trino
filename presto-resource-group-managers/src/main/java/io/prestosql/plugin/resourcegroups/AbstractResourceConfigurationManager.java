@@ -213,7 +213,7 @@ public abstract class AbstractResourceConfigurationManager
         match.getHardCpuLimit().ifPresent(group::setHardCpuLimit);
         if (match.getSoftCpuLimit().isPresent() || match.getHardCpuLimit().isPresent()) {
             // This will never throw an exception if the validateRootGroups method succeeds
-            checkState(getCpuQuotaPeriod().isPresent(), "Must specify hard CPU limit in addition to soft limit");
+            checkState(getCpuQuotaPeriod().isPresent(), "cpuQuotaPeriod must be present to use cpu limits on group: %s", group.getId());
             Duration limit;
             if (match.getHardCpuLimit().isPresent()) {
                 limit = match.getHardCpuLimit().get();
