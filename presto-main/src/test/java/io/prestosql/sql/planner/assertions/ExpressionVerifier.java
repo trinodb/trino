@@ -44,6 +44,9 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.Streams.zip;
+import static io.prestosql.util.MorePredicates.identity;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -164,7 +167,7 @@ final class ExpressionVerifier
                  */
                 List<Expression> values = ((InListExpression) expected.getValueList()).getValues();
                 checkState(values.size() == 1, "Multiple expressions in expected value list %s, but actual value is not a list", values, actual.getValue());
-                Expression onlyExpectedExpression = values.get(0);
+                Expression onlyExpectedExpression = getOnlyElement(values);
                 return process(actual.getValue(), expected.getValue()) && process(actual.getValueList(), onlyExpectedExpression);
             }
         }
@@ -415,12 +418,7 @@ final class ExpressionVerifier
         if (actuals.size() != expecteds.size()) {
             return false;
         }
-        for (int i = 0; i < actuals.size(); i++) {
-            if (!process(actuals.get(i), expecteds.get(i))) {
-                return false;
-            }
-        }
-        return true;
+        return zip(actuals.stream(), expecteds.stream(), this::process).allMatch(identity());
     }
 
     private <T extends Node> boolean process(Optional<T> actual, Optional<T> expected)

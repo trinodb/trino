@@ -29,4 +29,9 @@ public class MorePredicates
         }
         return predicate;
     }
+
+    public static Predicate<Boolean> identity()
+    {
+        return value -> value;
+    }
 }
