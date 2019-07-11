@@ -40,9 +40,8 @@ Commas in MBean names should be escaped in the following manner:
 .. code-block:: none
 
     connector.name=jmx
-    jmx.dump-tables=presto.memory:type=memorypool\\,name=general,\
-       presto.memory:type=memorypool\\,name=system,\
-       presto.memory:type=memorypool\\,name=reserved
+    jmx.dump-tables=presto.memory:name=general\\,type=memorypool,\
+       presto.memory:name=reserved\\,type=memorypool
 
 Querying JMX
 ------------
