@@ -33,7 +33,8 @@ public class TestNodeSchedulerConfig
                 .setMaxSplitsPerNode(100)
                 .setMaxPendingSplitsPerTask(10)
                 .setIncludeCoordinator(true)
-                .setOptimizedLocalScheduling(true));
+                .setOptimizedLocalScheduling(true)
+                .setOptimizedBatchScheduling(false));
     }
 
     @Test
@@ -46,6 +47,7 @@ public class TestNodeSchedulerConfig
                 .put("node-scheduler.max-pending-splits-per-task", "11")
                 .put("node-scheduler.max-splits-per-node", "101")
                 .put("node-scheduler.optimized-local-scheduling", "false")
+                .put("node-scheduler.optimized-batch-scheduling", "true")
                 .build();
 
         NodeSchedulerConfig expected = new NodeSchedulerConfig()
@@ -54,7 +56,8 @@ public class TestNodeSchedulerConfig
                 .setMaxSplitsPerNode(101)
                 .setMaxPendingSplitsPerTask(11)
                 .setMinCandidates(11)
-                .setOptimizedLocalScheduling(false);
+                .setOptimizedLocalScheduling(false)
+                .setOptimizedBatchScheduling(true);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

@@ -41,6 +41,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
 
 import static io.prestosql.execution.scheduler.NodeScheduler.calculateLowWatermark;
 import static io.prestosql.execution.scheduler.NodeScheduler.randomizedNodes;
@@ -65,6 +66,7 @@ public class SimpleNodeSelector
     private final int maxSplitsPerNode;
     private final int maxPendingSplitsPerTask;
     private final boolean optimizedLocalScheduling;
+    private final boolean optimizedBatchScheduling;
 
     public SimpleNodeSelector(
             InternalNodeManager nodeManager,
@@ -74,7 +76,8 @@ public class SimpleNodeSelector
             int minCandidates,
             int maxSplitsPerNode,
             int maxPendingSplitsPerTask,
-            boolean optimizedLocalScheduling)
+            boolean optimizedLocalScheduling,
+            boolean optimizedBatchScheduling)
     {
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.nodeTaskMap = requireNonNull(nodeTaskMap, "nodeTaskMap is null");
@@ -84,6 +87,7 @@ public class SimpleNodeSelector
         this.maxSplitsPerNode = maxSplitsPerNode;
         this.maxPendingSplitsPerTask = maxPendingSplitsPerTask;
         this.optimizedLocalScheduling = optimizedLocalScheduling;
+        this.optimizedBatchScheduling = optimizedBatchScheduling;
     }
 
     @Override
@@ -149,7 +153,79 @@ public class SimpleNodeSelector
             remainingSplits = splits;
         }
 
-        for (Split split : remainingSplits) {
+        Set<Split> remainingSplitsAfterBatchScheduling;
+        if (optimizedLocalScheduling && optimizedBatchScheduling) {
+            // only schedule split can be accessed remotely
+            remainingSplitsAfterBatchScheduling = remainingSplits.stream().filter(split -> !split.isRemotelyAccessible()).collect(Collectors.toSet());
+            Set<Split> remoteSplits = remainingSplits.stream().filter(split -> split.isRemotelyAccessible()).collect(Collectors.toSet());
+            long numOfRemoteSplits = remainingSplits.size();
+            int twoRandomChoices = 2;
+            // get candidate nodes still with available slots
+            List<InternalNode> sampledNodes = selectNodes((int) (numOfRemoteSplits * twoRandomChoices), randomCandidates).stream().filter(
+                    node -> (Math.max(maxSplitsPerNode - assignmentStats.getTotalSplitCount(node), 0) +
+                            Math.max(maxPendingSplitsPerTask - assignmentStats.getQueuedSplitCountForStage(node), 0)) > 0
+            ).collect(Collectors.toList());
+            sampledNodes.sort((n1, n2) -> {
+                int loadN1 = assignmentStats.getTotalSplitCount(n1) + assignmentStats.getQueuedSplitCountForStage(n1);
+                int loadN2 = assignmentStats.getTotalSplitCount(n2) + assignmentStats.getQueuedSplitCountForStage(n2);
+                if (loadN1 < loadN2) {
+                    return -1;
+                }
+                else if (loadN1 > loadN2) {
+                    return 1;
+                }
+                else {
+                    return 0;
+                }
+            });
+            List<InternalNode> candidateNodes = sampledNodes.subList(0, (int) Math.ceil(((double) sampledNodes.size() / twoRandomChoices)));
+            // get total number of available slots
+            long totalOfAvailableSplits = candidateNodes.stream().reduce(0,
+                    (partial, node) -> partial + (maxSplitsPerNode - assignmentStats.getTotalSplitCount(node) +
+                            maxPendingSplitsPerTask - assignmentStats.getQueuedSplitCountForStage(node)),
+                    Integer::sum);
+
+            int quotaOfCurNode = 0;
+            InternalNode curNode = null;
+            for (Split split : remoteSplits) {
+                if (candidateNodes.size() == 0) {
+                    splitWaitingForAnyNode = true;
+                    break;
+                }
+
+                if (curNode == null) {
+                    curNode = candidateNodes.get(0);
+                    quotaOfCurNode = getNumOfSplitsToAssign(curNode, assignmentStats, numOfRemoteSplits, totalOfAvailableSplits);
+                }
+
+                if (quotaOfCurNode == 0) {
+                    // the quota of current node uses out
+                    candidateNodes.remove(0);
+                    if (candidateNodes.size() > 0) {
+                        // get next node
+                        curNode = candidateNodes.get(0);
+                        quotaOfCurNode = getNumOfSplitsToAssign(curNode, assignmentStats, numOfRemoteSplits, totalOfAvailableSplits);
+                    }
+                    else {
+                        splitWaitingForAnyNode = true;
+                        break;
+                    }
+                }
+
+                if (quotaOfCurNode > 0) {
+                    // schedule the current split
+                    assignment.put(curNode, split);
+                    assignmentStats.addAssignedSplit(curNode);
+                    quotaOfCurNode -= 1;
+                }
+            }
+        }
+        else {
+            remainingSplitsAfterBatchScheduling = remainingSplits;
+        }
+
+        // retry for split with strict data locality and remaining splits after batch scheduling.
+        for (Split split : remainingSplitsAfterBatchScheduling) {
             randomCandidates.reset();
 
             List<InternalNode> candidateNodes;
@@ -217,6 +293,14 @@ public class SimpleNodeSelector
     public SplitPlacementResult computeAssignments(Set<Split> splits, List<RemoteTask> existingTasks, BucketNodeMap bucketNodeMap)
     {
         return selectDistributionNodes(nodeMap.get().get(), nodeTaskMap, maxSplitsPerNode, maxPendingSplitsPerTask, splits, existingTasks, bucketNodeMap);
+    }
+
+    private int getNumOfSplitsToAssign(InternalNode node, NodeAssignmentStats assignmentStats, long numOfRemoteSplits, long totalOfAvailableSplits)
+    {
+        int availableSplitsOfCurNode = (maxSplitsPerNode - assignmentStats.getTotalSplitCount(node)) +
+                (maxPendingSplitsPerTask - assignmentStats.getQueuedSplitCountForStage(node));
+        return Math.min((int) Math.ceil(numOfRemoteSplits * ((float) availableSplitsOfCurNode / totalOfAvailableSplits)),
+                availableSplitsOfCurNode);
     }
 
     /**

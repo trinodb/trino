@@ -36,6 +36,7 @@ public class NodeSchedulerConfig
     private int maxPendingSplitsPerTask = 10;
     private String networkTopology = NetworkTopologyType.LEGACY;
     private boolean optimizedLocalScheduling = true;
+    private boolean optimizedBatchScheduling;
 
     @NotNull
     public String getNetworkTopology()
@@ -109,6 +110,18 @@ public class NodeSchedulerConfig
     public NodeSchedulerConfig setOptimizedLocalScheduling(boolean optimizedLocalScheduling)
     {
         this.optimizedLocalScheduling = optimizedLocalScheduling;
+        return this;
+    }
+
+    public boolean getOptimizedBatchScheduling()
+    {
+        return optimizedBatchScheduling;
+    }
+
+    @Config("node-scheduler.optimized-batch-scheduling")
+    public NodeSchedulerConfig setOptimizedBatchScheduling(boolean optimizedBatchScheduling)
+    {
+        this.optimizedBatchScheduling = optimizedBatchScheduling;
         return this;
     }
 }
