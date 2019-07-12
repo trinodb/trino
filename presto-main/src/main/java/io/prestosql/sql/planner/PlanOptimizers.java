@@ -21,12 +21,9 @@ import io.prestosql.cost.CostComparator;
 import io.prestosql.cost.StatsCalculator;
 import io.prestosql.cost.TaskCountEstimator;
 import io.prestosql.execution.TaskManagerConfig;
-import io.prestosql.execution.scheduler.NodeSchedulerConfig;
-import io.prestosql.metadata.InternalNodeManager;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.split.PageSourceManager;
 import io.prestosql.split.SplitManager;
-import io.prestosql.sql.analyzer.FeaturesConfig;
 import io.prestosql.sql.planner.iterative.IterativeOptimizer;
 import io.prestosql.sql.planner.iterative.Rule;
 import io.prestosql.sql.planner.iterative.rule.AddExchangesBelowPartialAggregationOverGroupIdRuleSet;
@@ -168,9 +165,6 @@ public class PlanOptimizers
     public PlanOptimizers(
             Metadata metadata,
             TypeAnalyzer typeAnalyzer,
-            FeaturesConfig featuresConfig,
-            NodeSchedulerConfig nodeSchedulerConfig,
-            InternalNodeManager nodeManager,
             TaskManagerConfig taskManagerConfig,
             MBeanExporter exporter,
             SplitManager splitManager,
@@ -183,7 +177,6 @@ public class PlanOptimizers
     {
         this(metadata,
                 typeAnalyzer,
-                featuresConfig,
                 taskManagerConfig,
                 false,
                 exporter,
@@ -213,7 +206,6 @@ public class PlanOptimizers
     public PlanOptimizers(
             Metadata metadata,
             TypeAnalyzer typeAnalyzer,
-            FeaturesConfig featuresConfig,
             TaskManagerConfig taskManagerConfig,
             boolean forceSingleNode,
             MBeanExporter exporter,

@@ -351,7 +351,6 @@ public abstract class AbstractTestQueryFramework
         List<PlanOptimizer> optimizers = new PlanOptimizers(
                 metadata,
                 new TypeAnalyzer(sqlParser, metadata),
-                featuresConfig,
                 new TaskManagerConfig(),
                 forceSingleNode,
                 new MBeanExporter(new TestingMBeanServer()),
