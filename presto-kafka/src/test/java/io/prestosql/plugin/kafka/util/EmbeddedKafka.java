@@ -19,18 +19,19 @@ import com.google.common.io.Files;
 import kafka.admin.AdminUtils;
 import kafka.admin.RackAwareMode;
 import kafka.javaapi.producer.Producer;
+import kafka.metrics.KafkaMetricsReporter;
 import kafka.producer.ProducerConfig;
 import kafka.server.KafkaConfig;
 import kafka.server.KafkaServer;
+import kafka.utils.VerifiableProperties;
 import kafka.utils.ZKStringSerializer$;
 import kafka.utils.ZkUtils;
 import org.I0Itec.zkclient.ZkClient;
 import org.I0Itec.zkclient.ZkConnection;
 import org.apache.kafka.common.network.ListenerName;
-import org.apache.kafka.common.protocol.SecurityProtocol;
+import org.apache.kafka.common.security.auth.SecurityProtocol;
 import org.apache.kafka.common.utils.Time;
 import scala.Option;
-import scala.collection.immutable.List;
 
 import java.io.Closeable;
 import java.io.File;
@@ -91,7 +92,7 @@ public class EmbeddedKafka
                 .build();
 
         KafkaConfig config = new KafkaConfig(properties);
-        this.kafkaServer = new KafkaServer(config, Time.SYSTEM, Option.empty(), List.make(0, null));
+        this.kafkaServer = new KafkaServer(config, Time.SYSTEM, Option.empty(), KafkaMetricsReporter.startReporters(new VerifiableProperties(new Properties())));
     }
 
     public void start()
