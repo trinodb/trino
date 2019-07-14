@@ -16,10 +16,12 @@ package io.prestosql.plugin.resourcegroups.db;
 import com.google.inject.Injector;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.json.JsonModule;
+import io.prestosql.plugin.base.jmx.MBeanServerModule;
 import io.prestosql.spi.memory.ClusterMemoryPoolManager;
 import io.prestosql.spi.resourcegroups.ResourceGroupConfigurationManager;
 import io.prestosql.spi.resourcegroups.ResourceGroupConfigurationManagerContext;
 import io.prestosql.spi.resourcegroups.ResourceGroupConfigurationManagerFactory;
+import org.weakref.jmx.guice.MBeanModule;
 
 import java.util.Map;
 
@@ -39,6 +41,8 @@ public class DbResourceGroupConfigurationManagerFactory
     {
         try {
             Bootstrap app = new Bootstrap(
+                    new MBeanModule(),
+                    new MBeanServerModule(),
                     new JsonModule(),
                     new DbResourceGroupsModule(),
                     new PrefixObjectNameGeneratorModule(),
