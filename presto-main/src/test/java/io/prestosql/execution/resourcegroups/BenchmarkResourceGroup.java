@@ -53,7 +53,7 @@ public class BenchmarkResourceGroup
     @Benchmark
     public Object benchmark(BenchmarkData data)
     {
-        data.getRoot().processQueuedQueries();
+        data.getRoot().updateGroupsAndProcessQueuedQueries();
         return data.getRoot();
     }
 
