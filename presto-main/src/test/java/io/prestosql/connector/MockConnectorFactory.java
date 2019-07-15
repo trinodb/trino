@@ -217,7 +217,7 @@ public class MockConnectorFactory
             @Override
             public Optional<ConnectorViewDefinition> getView(ConnectorSession session, SchemaTableName viewName)
             {
-                return Optional.of(getViews.apply(session, viewName.toSchemaTablePrefix()).get(viewName));
+                return Optional.ofNullable(getViews.apply(session, viewName.toSchemaTablePrefix()).get(viewName));
             }
         }
     }
