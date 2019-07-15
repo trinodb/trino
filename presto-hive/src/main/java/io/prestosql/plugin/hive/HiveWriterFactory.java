@@ -346,9 +346,6 @@ public class HiveWriterFactory
                     switch (insertExistingPartitionsBehavior) {
                         case APPEND:
                             checkState(!immutablePartitions);
-                            if (bucketNumber.isPresent()) {
-                                throw new PrestoException(HIVE_TABLE_READ_ONLY, "Cannot insert into bucketed unpartitioned Hive table");
-                            }
                             updateMode = UpdateMode.APPEND;
                             writeInfo = locationService.getTableWriteInfo(locationHandle, false);
                             break;
