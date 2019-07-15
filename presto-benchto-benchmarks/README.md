@@ -63,14 +63,10 @@ macros:
 ```
 
 ### Bootstrapping benchmark data
-* Configure Presto [TCP-H connector](https://prestosql.io/docs/current/connector/tpch.html), if you haven't.
-* Generate SQL file:
-```bash
-python presto-benchto-benchmarks/generate_schemas/generate-tpch.py tpch.sql
-```
+* Make sure you have configured [Presto TCP-H connector](https://prestosql.io/docs/current/connector/tpch.html).
 * Bootstrap benchmark data:
 ```bash
-presto-cli-[version]-executable.jar --server [presto_coordinator-url]:[port] --file tpch.sql 
+python presto-benchto-benchmarks/generate_schemas/generate-tpch.py | presto-cli-[version]-executable.jar --server [presto_coordinator-url]:[port]
 ```
 
 ### Configuring overrides file
