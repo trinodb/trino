@@ -558,7 +558,7 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public Signature getCoercion(TypeSignature fromType, TypeSignature toType)
+    public Signature getCoercion(Type fromType, Type toType)
     {
         throw new UnsupportedOperationException();
     }

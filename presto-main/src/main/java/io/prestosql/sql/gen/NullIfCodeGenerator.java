@@ -98,7 +98,7 @@ public class NullIfCodeGenerator
 
         Signature function = generatorContext
                 .getMetadata()
-                .getCoercion(actualType.getTypeSignature(), requiredType);
+                .getCoercion(actualType, generatorContext.getMetadata().getType(requiredType));
 
         // TODO: do we need a full function call? (nullability checks, etc)
         return generatorContext.generateCall(function.getName(), generatorContext.getMetadata().getScalarFunctionImplementation(function), ImmutableList.of(argument));

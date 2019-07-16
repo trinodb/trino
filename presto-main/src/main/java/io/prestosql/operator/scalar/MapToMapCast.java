@@ -106,7 +106,7 @@ public final class MapToMapCast
         MethodHandle getter = nativeValueGetter(fromType);
 
         // Adapt cast that takes ([ConnectorSession,] ?) to one that takes (?, ConnectorSession), where ? is the return type of getter.
-        Signature signature = metadata.getCoercion(fromType.getTypeSignature(), toType.getTypeSignature());
+        Signature signature = metadata.getCoercion(fromType, toType);
         ScalarFunctionImplementation castImplementation = metadata.getScalarFunctionImplementation(signature);
         MethodHandle cast = castImplementation.getMethodHandle();
         if (cast.type().parameterArray()[0] != ConnectorSession.class) {

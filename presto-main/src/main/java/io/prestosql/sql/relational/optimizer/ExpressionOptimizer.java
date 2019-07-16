@@ -250,7 +250,7 @@ public class ExpressionOptimizer
             }
 
             return call(
-                    metadata.getCoercion(call.getArguments().get(0).getType().getTypeSignature(), call.getType().getTypeSignature()),
+                    metadata.getCoercion(call.getArguments().get(0).getType(), call.getType()),
                     call.getType(),
                     call.getArguments());
         }

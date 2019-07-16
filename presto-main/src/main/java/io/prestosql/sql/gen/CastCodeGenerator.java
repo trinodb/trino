@@ -31,7 +31,7 @@ public class CastCodeGenerator
 
         Signature function = generatorContext
                 .getMetadata()
-                .getCoercion(argument.getType().getTypeSignature(), returnType.getTypeSignature());
+                .getCoercion(argument.getType(), returnType);
 
         return generatorContext.generateCall(function.getName(), generatorContext.getMetadata().getScalarFunctionImplementation(function), ImmutableList.of(generatorContext.generate(argument)));
     }

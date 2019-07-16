@@ -56,7 +56,7 @@ public class TestFunctionRegistry
     @Test
     public void testIdentityCast()
     {
-        Signature exactOperator = createTestMetadataManager().getCoercion(HYPER_LOG_LOG.getTypeSignature(), HYPER_LOG_LOG.getTypeSignature());
+        Signature exactOperator = createTestMetadataManager().getCoercion(HYPER_LOG_LOG, HYPER_LOG_LOG);
         assertEquals(exactOperator.getName(), mangleOperatorName(OperatorType.CAST));
         assertEquals(transform(exactOperator.getArgumentTypes(), Functions.toStringFunction()), ImmutableList.of(StandardTypes.HYPER_LOG_LOG));
         assertEquals(exactOperator.getReturnType().getBase(), StandardTypes.HYPER_LOG_LOG);

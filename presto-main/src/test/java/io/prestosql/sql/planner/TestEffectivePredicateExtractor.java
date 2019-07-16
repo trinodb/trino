@@ -145,7 +145,7 @@ public class TestEffectivePredicateExtractor
         }
 
         @Override
-        public Signature getCoercion(TypeSignature fromType, TypeSignature toType)
+        public Signature getCoercion(Type fromType, Type toType)
         {
             return delegate.getCoercion(fromType, toType);
         }

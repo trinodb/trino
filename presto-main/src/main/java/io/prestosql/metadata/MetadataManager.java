@@ -1281,9 +1281,9 @@ public final class MetadataManager
     }
 
     @Override
-    public Signature getCoercion(TypeSignature fromType, TypeSignature toType)
+    public Signature getCoercion(Type fromType, Type toType)
     {
-        return functions.getCoercion(fromType, toType);
+        return functions.getCoercion(fromType.getTypeSignature(), toType.getTypeSignature());
     }
 
     @Override
