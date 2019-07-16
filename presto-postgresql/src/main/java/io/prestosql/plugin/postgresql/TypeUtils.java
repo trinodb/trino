@@ -35,6 +35,7 @@ import java.math.BigInteger;
 import java.math.MathContext;
 import java.sql.Date;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.type.BigintType.BIGINT;
@@ -54,6 +55,7 @@ import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.joda.time.DateTimeZone.UTC;
@@ -121,9 +123,9 @@ public final class TypeUtils
 
     public static Object[] toBoxedArray(Object jdbcArray)
     {
-        if (!jdbcArray.getClass().isArray()) {
-            return null;
-        }
+        requireNonNull(jdbcArray, "jdbcArray is null");
+        checkArgument(jdbcArray.getClass().isArray(), "object is not an array: %s", jdbcArray.getClass().getName());
+
         if (!jdbcArray.getClass().getComponentType().isPrimitive()) {
             return (Object[]) jdbcArray;
         }

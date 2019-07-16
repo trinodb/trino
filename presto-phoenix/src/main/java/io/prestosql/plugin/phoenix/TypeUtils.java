@@ -57,6 +57,7 @@ import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.joda.time.DateTimeZone.UTC;
@@ -111,6 +112,7 @@ public final class TypeUtils
 
     public static Object[] toBoxedArray(Object jdbcArray)
     {
+        requireNonNull(jdbcArray, "jdbcArray is null");
         checkArgument(jdbcArray.getClass().isArray(), "object is not an array: %s", jdbcArray.getClass().getName());
 
         if (!jdbcArray.getClass().getComponentType().isPrimitive()) {
