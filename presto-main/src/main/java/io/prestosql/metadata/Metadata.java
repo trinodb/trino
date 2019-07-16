@@ -425,7 +425,7 @@ public interface Metadata
     Signature resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)
             throws OperatorNotFoundException;
 
-    Signature getCoercion(TypeSignature fromType, TypeSignature toType);
+    Signature getCoercion(Type fromType, Type toType);
 
     /**
      * Is the named function an aggregation function?  This does not need type parameters

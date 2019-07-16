@@ -223,7 +223,7 @@ public class TestTypeCoercion
             for (Type resultType : types) {
                 if (typeCoercion.canCoerce(sourceType, resultType) && sourceType != UNKNOWN && resultType != UNKNOWN) {
                     try {
-                        metadata.getCoercion(sourceType.getTypeSignature(), resultType.getTypeSignature());
+                        metadata.getCoercion(sourceType, resultType);
                     }
                     catch (Exception e) {
                         fail(format("'%s' -> '%s' coercion exists but there is no cast operator", sourceType, resultType), e);

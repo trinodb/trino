@@ -79,7 +79,7 @@ public class TryCastFunction
         MethodHandle tryCastHandle;
 
         // the resulting method needs to return a boxed type
-        Signature signature = metadata.getCoercion(fromType.getTypeSignature(), toType.getTypeSignature());
+        Signature signature = metadata.getCoercion(fromType, toType);
         ScalarFunctionImplementation implementation = metadata.getScalarFunctionImplementation(signature);
         argumentProperties = ImmutableList.of(implementation.getArgumentProperty(0));
         MethodHandle coercion = implementation.getMethodHandle();

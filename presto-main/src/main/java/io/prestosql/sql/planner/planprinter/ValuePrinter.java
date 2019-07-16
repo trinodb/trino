@@ -52,7 +52,7 @@ public final class ValuePrinter
             return "NULL";
         }
 
-        Signature coercion = metadata.getCoercion(type.getTypeSignature(), VARCHAR.getTypeSignature());
+        Signature coercion = metadata.getCoercion(type, VARCHAR);
         Slice coerced = (Slice) new InterpretedFunctionInvoker(metadata).invoke(coercion, session.toConnectorSession(), value);
         return coerced.toStringUtf8();
     }

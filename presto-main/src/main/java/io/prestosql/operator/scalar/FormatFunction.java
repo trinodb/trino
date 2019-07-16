@@ -243,7 +243,7 @@ public final class FormatFunction
     private static MethodHandle castToVarchar(Metadata metadata, Type type)
     {
         try {
-            Signature cast = metadata.getCoercion(type.getTypeSignature(), VARCHAR.getTypeSignature());
+            Signature cast = metadata.getCoercion(type, VARCHAR);
             return metadata.getScalarFunctionImplementation(cast).getMethodHandle();
         }
         catch (OperatorNotFoundException e) {
