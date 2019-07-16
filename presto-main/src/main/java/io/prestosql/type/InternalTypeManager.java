@@ -16,12 +16,15 @@ package io.prestosql.type;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
+import io.prestosql.operator.scalar.ScalarFunctionImplementation;
 import io.prestosql.spi.function.OperatorType;
 import io.prestosql.spi.type.ParametricType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeManager;
 import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.spi.type.TypeSignatureParameter;
+import io.prestosql.sql.analyzer.TypeSignatureProvider;
+import io.prestosql.sql.tree.QualifiedName;
 
 import javax.inject.Inject;
 
@@ -62,6 +65,14 @@ public final class InternalTypeManager
     {
         Signature signature = metadata.resolveOperator(operatorType, argumentTypes);
         return metadata.getScalarFunctionImplementation(signature).getMethodHandle();
+    }
+
+    @Override
+    public MethodHandle resolveFunction(String name, List<? extends Type> parameterTypes)
+    {
+        Signature function = metadata.resolveFunction(QualifiedName.of(name), TypeSignatureProvider.fromTypes(parameterTypes));
+        ScalarFunctionImplementation implementation = metadata.getScalarFunctionImplementation(function);
+        return implementation.getMethodHandle();
     }
 
     @Override

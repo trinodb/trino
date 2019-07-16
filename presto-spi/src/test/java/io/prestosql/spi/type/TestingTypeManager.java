@@ -92,4 +92,10 @@ public class TestingTypeManager
     {
         throw new UnsupportedOperationException();
     }
+
+    @Override
+    public MethodHandle resolveFunction(String name, List<? extends Type> parameterTypes)
+    {
+        throw new UnsupportedOperationException();
+    }
 }

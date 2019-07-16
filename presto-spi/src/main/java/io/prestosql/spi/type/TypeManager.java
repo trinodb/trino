@@ -55,4 +55,6 @@ public interface TypeManager
     Optional<Type> coerceTypeBase(Type sourceType, String resultTypeBase);
 
     MethodHandle resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes);
+
+    MethodHandle resolveFunction(String name, List<? extends Type> parameterTypes);
 }
