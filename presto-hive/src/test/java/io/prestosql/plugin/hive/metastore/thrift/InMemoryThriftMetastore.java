@@ -125,7 +125,7 @@ public class InMemoryThriftMetastore
         if (!databases.containsKey(databaseName)) {
             throw new SchemaNotFoundException(databaseName);
         }
-        if (!getAllTables(databaseName).orElse(ImmutableList.of()).isEmpty()) {
+        if (!getAllTables(databaseName).isEmpty()) {
             throw new PrestoException(SCHEMA_NOT_EMPTY, "Schema not empty: " + databaseName);
         }
         databases.remove(databaseName);
@@ -272,7 +272,7 @@ public class InMemoryThriftMetastore
     }
 
     @Override
-    public synchronized Optional<List<String>> getAllTables(String databaseName)
+    public synchronized List<String> getAllTables(String databaseName)
     {
         ImmutableList.Builder<String> tables = ImmutableList.builder();
         for (SchemaTableName schemaTableName : this.relations.keySet()) {
@@ -280,11 +280,11 @@ public class InMemoryThriftMetastore
                 tables.add(schemaTableName.getTableName());
             }
         }
-        return Optional.of(tables.build());
+        return tables.build();
     }
 
     @Override
-    public synchronized Optional<List<String>> getAllViews(String databaseName)
+    public synchronized List<String> getAllViews(String databaseName)
     {
         ImmutableList.Builder<String> tables = ImmutableList.builder();
         for (SchemaTableName schemaTableName : this.views.keySet()) {
@@ -292,7 +292,7 @@ public class InMemoryThriftMetastore
                 tables.add(schemaTableName.getTableName());
             }
         }
-        return Optional.of(tables.build());
+        return tables.build();
     }
 
     @Override

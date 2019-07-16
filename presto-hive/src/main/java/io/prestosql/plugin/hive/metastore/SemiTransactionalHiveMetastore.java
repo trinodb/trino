@@ -135,7 +135,7 @@ public class SemiTransactionalHiveMetastore
         return delegate.getDatabase(databaseName);
     }
 
-    public synchronized Optional<List<String>> getAllTables(String databaseName)
+    public synchronized List<String> getAllTables(String databaseName)
     {
         checkReadable();
         if (!tableActions.isEmpty()) {
@@ -279,7 +279,7 @@ public class SemiTransactionalHiveMetastore
                 modifiedPartitionMap);
     }
 
-    public synchronized Optional<List<String>> getAllViews(String databaseName)
+    public synchronized List<String> getAllViews(String databaseName)
     {
         checkReadable();
         if (!tableActions.isEmpty()) {

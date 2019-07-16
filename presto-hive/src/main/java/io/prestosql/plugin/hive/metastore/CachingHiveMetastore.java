@@ -75,10 +75,10 @@ public class CachingHiveMetastore
     private final LoadingCache<String, Optional<Database>> databaseCache;
     private final LoadingCache<String, List<String>> databaseNamesCache;
     private final LoadingCache<HiveTableName, Optional<Table>> tableCache;
-    private final LoadingCache<String, Optional<List<String>>> tableNamesCache;
+    private final LoadingCache<String, List<String>> tableNamesCache;
     private final LoadingCache<HiveTableName, PartitionStatistics> tableStatisticsCache;
     private final LoadingCache<HivePartitionName, PartitionStatistics> partitionStatisticsCache;
-    private final LoadingCache<String, Optional<List<String>>> viewNamesCache;
+    private final LoadingCache<String, List<String>> viewNamesCache;
     private final LoadingCache<HivePartitionName, Optional<Partition>> partitionCache;
     private final LoadingCache<PartitionFilter, Optional<List<String>>> partitionFilterCache;
     private final LoadingCache<HiveTableName, Optional<List<String>>> partitionNamesCache;
@@ -353,23 +353,23 @@ public class CachingHiveMetastore
     }
 
     @Override
-    public Optional<List<String>> getAllTables(String databaseName)
+    public List<String> getAllTables(String databaseName)
     {
         return get(tableNamesCache, databaseName);
     }
 
-    private Optional<List<String>> loadAllTables(String databaseName)
+    private List<String> loadAllTables(String databaseName)
     {
         return delegate.getAllTables(databaseName);
     }
 
     @Override
-    public Optional<List<String>> getAllViews(String databaseName)
+    public List<String> getAllViews(String databaseName)
     {
         return get(viewNamesCache, databaseName);
     }
 
-    private Optional<List<String>> loadAllViews(String databaseName)
+    private List<String> loadAllViews(String databaseName)
     {
         return delegate.getAllViews(databaseName);
     }

@@ -71,7 +71,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
-import java.util.concurrent.Callable;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -183,36 +182,20 @@ public class ThriftHiveMetastore
     }
 
     @Override
-    public Optional<List<String>> getAllTables(String databaseName)
+    public List<String> getAllTables(String databaseName)
     {
-        Callable<List<String>> getAllTables = stats.getGetAllTables().wrap(() -> {
-            try (ThriftMetastoreClient client = clientProvider.createMetastoreClient()) {
-                return client.getAllTables(databaseName);
-            }
-        });
-
-        Callable<Void> getDatabase = stats.getGetDatabase().wrap(() -> {
-            try (ThriftMetastoreClient client = clientProvider.createMetastoreClient()) {
-                client.getDatabase(databaseName);
-                return null;
-            }
-        });
-
         try {
             return retry()
                     .stopOn(NoSuchObjectException.class)
                     .stopOnIllegalExceptions()
                     .run("getAllTables", () -> {
-                        List<String> tables = getAllTables.call();
-                        if (tables.isEmpty()) {
-                            // Check to see if the database exists
-                            getDatabase.call();
+                        try (ThriftMetastoreClient client = clientProvider.createMetastoreClient()) {
+                            return client.getAllTables(databaseName);
                         }
-                        return Optional.of(tables);
                     });
         }
         catch (NoSuchObjectException e) {
-            return Optional.empty();
+            return ImmutableList.of();
         }
         catch (TException e) {
             throw new PrestoException(HIVE_METASTORE_ERROR, e);
@@ -718,18 +701,17 @@ public class ThriftHiveMetastore
     }
 
     @Override
-    public Optional<List<String>> getAllViews(String databaseName)
+    public List<String> getAllViews(String databaseName)
     {
         try {
             return retry()
                     .stopOn(UnknownDBException.class)
                     .stopOnIllegalExceptions()
-                    .run("getAllViews", stats.getGetAllViews().wrap(() -> {
-                        return Optional.of(getPrestoViews(databaseName));
-                    }));
+                    .run("getAllViews", stats.getGetAllViews().wrap(
+                            () -> getPrestoViews(databaseName)));
         }
         catch (UnknownDBException e) {
-            return Optional.empty();
+            return ImmutableList.of();
         }
         catch (TException e) {
             throw new PrestoException(HIVE_METASTORE_ERROR, e);

@@ -43,6 +43,7 @@ import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertTrue;
 
 @Test(singleThreaded = true)
 public class TestCachingHiveMetastore
@@ -86,21 +87,21 @@ public class TestCachingHiveMetastore
     public void testGetAllTable()
     {
         assertEquals(mockClient.getAccessCount(), 0);
-        assertEquals(metastore.getAllTables(TEST_DATABASE).get(), ImmutableList.of(TEST_TABLE));
+        assertEquals(metastore.getAllTables(TEST_DATABASE), ImmutableList.of(TEST_TABLE));
         assertEquals(mockClient.getAccessCount(), 1);
-        assertEquals(metastore.getAllTables(TEST_DATABASE).get(), ImmutableList.of(TEST_TABLE));
+        assertEquals(metastore.getAllTables(TEST_DATABASE), ImmutableList.of(TEST_TABLE));
         assertEquals(mockClient.getAccessCount(), 1);
 
         metastore.flushCache();
 
-        assertEquals(metastore.getAllTables(TEST_DATABASE).get(), ImmutableList.of(TEST_TABLE));
+        assertEquals(metastore.getAllTables(TEST_DATABASE), ImmutableList.of(TEST_TABLE));
         assertEquals(mockClient.getAccessCount(), 2);
     }
 
     @Test
     public void testInvalidDbGetAllTAbles()
     {
-        assertFalse(metastore.getAllTables(BAD_DATABASE).isPresent());
+        assertTrue(metastore.getAllTables(BAD_DATABASE).isEmpty());
     }
 
     @Test

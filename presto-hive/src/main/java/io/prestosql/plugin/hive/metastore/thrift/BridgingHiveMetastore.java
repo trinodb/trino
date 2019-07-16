@@ -120,13 +120,13 @@ public class BridgingHiveMetastore
     }
 
     @Override
-    public Optional<List<String>> getAllTables(String databaseName)
+    public List<String> getAllTables(String databaseName)
     {
         return delegate.getAllTables(databaseName);
     }
 
     @Override
-    public Optional<List<String>> getAllViews(String databaseName)
+    public List<String> getAllViews(String databaseName)
     {
         return delegate.getAllViews(databaseName);
     }
