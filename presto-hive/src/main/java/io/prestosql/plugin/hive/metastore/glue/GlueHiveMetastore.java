@@ -338,7 +338,7 @@ public class GlueHiveMetastore
     }
 
     @Override
-    public Optional<List<String>> getAllTables(String databaseName)
+    public List<String> getAllTables(String databaseName)
     {
         try {
             List<String> tableNames = new ArrayList<>();
@@ -354,11 +354,11 @@ public class GlueHiveMetastore
             }
             while (nextToken != null);
 
-            return Optional.of(tableNames);
+            return tableNames;
         }
         catch (EntityNotFoundException e) {
             // database does not exist
-            return Optional.empty();
+            return ImmutableList.of();
         }
         catch (AmazonServiceException e) {
             throw new PrestoException(HIVE_METASTORE_ERROR, e);
@@ -366,7 +366,7 @@ public class GlueHiveMetastore
     }
 
     @Override
-    public Optional<List<String>> getAllViews(String databaseName)
+    public List<String> getAllViews(String databaseName)
     {
         try {
             List<String> views = new ArrayList<>();
@@ -384,11 +384,11 @@ public class GlueHiveMetastore
             }
             while (nextToken != null);
 
-            return Optional.of(views);
+            return views;
         }
         catch (EntityNotFoundException e) {
             // database does not exist
-            return Optional.empty();
+            return ImmutableList.of();
         }
         catch (AmazonServiceException e) {
             throw new PrestoException(HIVE_METASTORE_ERROR, e);

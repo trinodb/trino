@@ -130,8 +130,8 @@ public class TestRecordingHiveMetastore
         assertEquals(hiveMetastore.getSupportedColumnStatistics(createVarcharType(123)), ImmutableSet.of(MIN_VALUE, MAX_VALUE));
         assertEquals(hiveMetastore.getTableStatistics("database", "table"), PARTITION_STATISTICS);
         assertEquals(hiveMetastore.getPartitionStatistics("database", "table", ImmutableSet.of("value")), ImmutableMap.of("value", PARTITION_STATISTICS));
-        assertEquals(hiveMetastore.getAllTables("database"), Optional.of(ImmutableList.of("table")));
-        assertEquals(hiveMetastore.getAllViews("database"), Optional.empty());
+        assertEquals(hiveMetastore.getAllTables("database"), ImmutableList.of("table"));
+        assertEquals(hiveMetastore.getAllViews("database"), ImmutableList.of());
         assertEquals(hiveMetastore.getPartition("database", "table", ImmutableList.of("value")), Optional.of(PARTITION));
         assertEquals(hiveMetastore.getPartitionNames("database", "table"), Optional.of(ImmutableList.of("value")));
         assertEquals(hiveMetastore.getPartitionNamesByParts("database", "table", ImmutableList.of("value")), Optional.of(ImmutableList.of("value")));
@@ -201,19 +201,19 @@ public class TestRecordingHiveMetastore
         }
 
         @Override
-        public Optional<List<String>> getAllTables(String databaseName)
+        public List<String> getAllTables(String databaseName)
         {
             if (databaseName.equals("database")) {
-                return Optional.of(ImmutableList.of("table"));
+                return ImmutableList.of("table");
             }
 
-            return Optional.empty();
+            return ImmutableList.of();
         }
 
         @Override
-        public Optional<List<String>> getAllViews(String databaseName)
+        public List<String> getAllViews(String databaseName)
         {
-            return Optional.empty();
+            return ImmutableList.of();
         }
 
         @Override

@@ -84,6 +84,7 @@ import java.util.stream.Collectors;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_PARTITION_DROPPED_DURING_QUERY;
@@ -178,7 +179,7 @@ public class FileHiveMetastore
         requireNonNull(databaseName, "databaseName is null");
 
         getRequiredDatabase(databaseName);
-        if (!getAllTables(databaseName).orElse(ImmutableList.of()).isEmpty()) {
+        if (!getAllTables(databaseName).isEmpty()) {
             throw new PrestoException(HIVE_METASTORE_ERROR, "Database " + databaseName + " is not empty");
         }
 
@@ -378,39 +379,36 @@ public class FileHiveMetastore
     }
 
     @Override
-    public synchronized Optional<List<String>> getAllTables(String databaseName)
+    public synchronized List<String> getAllTables(String databaseName)
     {
         requireNonNull(databaseName, "databaseName is null");
 
         Optional<Database> database = getDatabase(databaseName);
         if (!database.isPresent()) {
-            return Optional.empty();
+            return ImmutableList.of();
         }
 
         Path databaseMetadataDirectory = getDatabaseMetadataDirectory(databaseName);
         List<String> tables = getChildSchemaDirectories(databaseMetadataDirectory).stream()
                 .map(Path::getName)
-                .collect(toList());
-        return Optional.of(ImmutableList.copyOf(tables));
+                .collect(toImmutableList());
+        return tables;
     }
 
     @Override
-    public synchronized Optional<List<String>> getAllViews(String databaseName)
+    public synchronized List<String> getAllViews(String databaseName)
     {
-        Optional<List<String>> tables = getAllTables(databaseName);
-        if (!tables.isPresent()) {
-            return Optional.empty();
-        }
+        List<String> tables = getAllTables(databaseName);
 
-        List<String> views = tables.get().stream()
+        List<String> views = tables.stream()
                 .map(tableName -> getTable(databaseName, tableName))
                 .filter(Optional::isPresent)
                 .map(Optional::get)
                 .filter(table -> table.getTableType().equals(VIRTUAL_VIEW.name()))
                 .map(Table::getTableName)
-                .collect(toList());
+                .collect(toImmutableList());
 
-        return Optional.of(ImmutableList.copyOf(views));
+        return views;
     }
 
     @Override

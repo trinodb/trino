@@ -43,9 +43,9 @@ public interface HiveMetastore
 
     void updatePartitionStatistics(String databaseName, String tableName, String partitionName, Function<PartitionStatistics, PartitionStatistics> update);
 
-    Optional<List<String>> getAllTables(String databaseName);
+    List<String> getAllTables(String databaseName);
 
-    Optional<List<String>> getAllViews(String databaseName);
+    List<String> getAllViews(String databaseName);
 
     void createDatabase(Database database);
 

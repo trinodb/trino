@@ -72,8 +72,8 @@ public class RecordingHiveMetastore
     private final Cache<String, Set<ColumnStatisticType>> supportedColumnStatisticsCache;
     private final Cache<HiveTableName, PartitionStatistics> tableStatisticsCache;
     private final Cache<Set<HivePartitionName>, Map<String, PartitionStatistics>> partitionStatisticsCache;
-    private final Cache<String, Optional<List<String>>> allTablesCache;
-    private final Cache<String, Optional<List<String>>> allViewsCache;
+    private final Cache<String, List<String>> allTablesCache;
+    private final Cache<String, List<String>> allViewsCache;
     private final Cache<HivePartitionName, Optional<Partition>> partitionCache;
     private final Cache<HiveTableName, Optional<List<String>>> partitionNamesCache;
     private final Cache<PartitionFilter, Optional<List<String>>> partitionNamesByPartsCache;
@@ -248,13 +248,13 @@ public class RecordingHiveMetastore
     }
 
     @Override
-    public Optional<List<String>> getAllTables(String databaseName)
+    public List<String> getAllTables(String databaseName)
     {
         return loadValue(allTablesCache, databaseName, () -> delegate.getAllTables(databaseName));
     }
 
     @Override
-    public Optional<List<String>> getAllViews(String databaseName)
+    public List<String> getAllViews(String databaseName)
     {
         return loadValue(allViewsCache, databaseName, () -> delegate.getAllViews(databaseName));
     }
@@ -501,8 +501,8 @@ public class RecordingHiveMetastore
         private final List<Pair<String, Set<ColumnStatisticType>>> supportedColumnStatistics;
         private final List<Pair<HiveTableName, PartitionStatistics>> tableStatistics;
         private final List<Pair<Set<HivePartitionName>, Map<String, PartitionStatistics>>> partitionStatistics;
-        private final List<Pair<String, Optional<List<String>>>> allTables;
-        private final List<Pair<String, Optional<List<String>>>> allViews;
+        private final List<Pair<String, List<String>>> allTables;
+        private final List<Pair<String, List<String>>> allViews;
         private final List<Pair<HivePartitionName, Optional<Partition>>> partitions;
         private final List<Pair<HiveTableName, Optional<List<String>>>> partitionNames;
         private final List<Pair<PartitionFilter, Optional<List<String>>>> partitionNamesByParts;
@@ -519,8 +519,8 @@ public class RecordingHiveMetastore
                 @JsonProperty("supportedColumnStatistics") List<Pair<String, Set<ColumnStatisticType>>> supportedColumnStatistics,
                 @JsonProperty("tableStatistics") List<Pair<HiveTableName, PartitionStatistics>> tableStatistics,
                 @JsonProperty("partitionStatistics") List<Pair<Set<HivePartitionName>, Map<String, PartitionStatistics>>> partitionStatistics,
-                @JsonProperty("allTables") List<Pair<String, Optional<List<String>>>> allTables,
-                @JsonProperty("allViews") List<Pair<String, Optional<List<String>>>> allViews,
+                @JsonProperty("allTables") List<Pair<String, List<String>>> allTables,
+                @JsonProperty("allViews") List<Pair<String, List<String>>> allViews,
                 @JsonProperty("partitions") List<Pair<HivePartitionName, Optional<Partition>>> partitions,
                 @JsonProperty("partitionNames") List<Pair<HiveTableName, Optional<List<String>>>> partitionNames,
                 @JsonProperty("partitionNamesByParts") List<Pair<PartitionFilter, Optional<List<String>>>> partitionNamesByParts,
@@ -588,13 +588,13 @@ public class RecordingHiveMetastore
         }
 
         @JsonProperty
-        public List<Pair<String, Optional<List<String>>>> getAllTables()
+        public List<Pair<String, List<String>>> getAllTables()
         {
             return allTables;
         }
 
         @JsonProperty
-        public List<Pair<String, Optional<List<String>>>> getAllViews()
+        public List<Pair<String, List<String>>> getAllViews()
         {
             return allViews;
         }

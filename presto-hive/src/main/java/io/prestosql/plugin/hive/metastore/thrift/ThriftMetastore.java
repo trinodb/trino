@@ -52,9 +52,9 @@ public interface ThriftMetastore
 
     List<String> getAllDatabases();
 
-    Optional<List<String>> getAllTables(String databaseName);
+    List<String> getAllTables(String databaseName);
 
-    Optional<List<String>> getAllViews(String databaseName);
+    List<String> getAllViews(String databaseName);
 
     Optional<Database> getDatabase(String databaseName);
 
