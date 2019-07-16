@@ -13,15 +13,9 @@
  */
 package io.prestosql.plugin.postgresql;
 
-import com.fasterxml.jackson.core.JsonFactory;
-import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.json.ObjectMapperProvider;
-import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
-import io.airlift.slice.SliceOutput;
 import io.prestosql.plugin.jdbc.BaseJdbcClient;
 import io.prestosql.plugin.jdbc.BaseJdbcConfig;
 import io.prestosql.plugin.jdbc.BlockReadFunction;
@@ -47,16 +41,13 @@ import io.prestosql.spi.type.TinyintType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeManager;
 import io.prestosql.spi.type.TypeSignature;
-import io.prestosql.spi.type.VarcharType;
 import org.postgresql.core.TypeInfo;
 import org.postgresql.jdbc.PgConnection;
 import org.postgresql.util.PGobject;
 
 import javax.inject.Inject;
 
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.OutputStream;
+import java.lang.invoke.MethodHandle;
 import java.sql.Array;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
@@ -72,8 +63,6 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.function.BiFunction;
 
-import static com.fasterxml.jackson.core.JsonFactory.Feature.CANONICALIZE_FIELD_NAMES;
-import static com.fasterxml.jackson.databind.SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedLongArray;
@@ -88,7 +77,6 @@ import static io.prestosql.plugin.postgresql.TypeUtils.getJdbcObjectArray;
 import static io.prestosql.plugin.postgresql.TypeUtils.jdbcObjectArrayToBlock;
 import static io.prestosql.plugin.postgresql.TypeUtils.toBoxedArray;
 import static io.prestosql.spi.StandardErrorCode.ALREADY_EXISTS;
-import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.prestosql.spi.type.DateTimeEncoding.unpackMillisUtc;
@@ -96,15 +84,17 @@ import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
+import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
-import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.sql.DatabaseMetaData.columnNoNulls;
+import static java.util.Objects.requireNonNull;
 
 public class PostgreSqlClient
         extends BaseJdbcClient
 {
     private static final String DUPLICATE_TABLE_SQLSTATE = "42P07";
 
+    private final TypeManager typeManager;
     private final Type jsonType;
     private final Type uuidType;
     private final boolean supportArrays;
@@ -117,6 +107,7 @@ public class PostgreSqlClient
             TypeManager typeManager)
     {
         super(config, "\"", connectionFactory);
+        this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.jsonType = typeManager.getType(new TypeSignature(StandardTypes.JSON));
         this.uuidType = typeManager.getType(new TypeSignature(StandardTypes.UUID));
 
@@ -406,9 +397,17 @@ public class PostgreSqlClient
 
     private ColumnMapping jsonColumnMapping()
     {
+        MethodHandle jsonParse = typeManager.resolveFunction("json_parse", ImmutableList.of(VARCHAR));
         return ColumnMapping.sliceMapping(
                 jsonType,
-                (resultSet, columnIndex) -> jsonParse(utf8Slice(resultSet.getString(columnIndex))),
+                (resultSet, columnIndex) -> {
+                    try {
+                        return (Slice) jsonParse.invokeExact(utf8Slice(resultSet.getString(columnIndex)));
+                    }
+                    catch (Throwable throwable) {
+                        throw new PrestoException(JDBC_ERROR, "Failed to cast PostgreSQL JSON to JSON: " + throwable.getMessage(), throwable);
+                    }
+                },
                 typedVarcharWriteFunction("json"),
                 DISABLE_PUSHDOWN);
     }
@@ -416,7 +415,7 @@ public class PostgreSqlClient
     private ColumnMapping typedVarcharColumnMapping(String jdbcTypeName)
     {
         return ColumnMapping.sliceMapping(
-                VarcharType.VARCHAR,
+                VARCHAR,
                 (resultSet, columnIndex) -> utf8Slice(resultSet.getString(columnIndex)),
                 typedVarcharWriteFunction(jdbcTypeName));
     }
@@ -450,34 +449,5 @@ public class PostgreSqlClient
                 uuidType,
                 (resultSet, columnIndex) -> uuidSlice((UUID) resultSet.getObject(columnIndex)),
                 uuidWriteFunction());
-    }
-
-    private static final JsonFactory JSON_FACTORY = new JsonFactory()
-            .disable(CANONICALIZE_FIELD_NAMES);
-
-    private static final ObjectMapper SORTED_MAPPER = new ObjectMapperProvider().get().configure(ORDER_MAP_ENTRIES_BY_KEYS, true);
-
-    private static Slice jsonParse(Slice slice)
-    {
-        try (JsonParser parser = createJsonParser(slice)) {
-            byte[] in = slice.getBytes();
-            SliceOutput dynamicSliceOutput = new DynamicSliceOutput(in.length);
-            SORTED_MAPPER.writeValue((OutputStream) dynamicSliceOutput, SORTED_MAPPER.readValue(parser, Object.class));
-            // nextToken() returns null if the input is parsed correctly,
-            // but will throw an exception if there are trailing characters.
-            parser.nextToken();
-            return dynamicSliceOutput.slice();
-        }
-        catch (Exception e) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("Cannot convert '%s' to JSON", slice.toStringUtf8()));
-        }
-    }
-
-    private static JsonParser createJsonParser(Slice json)
-            throws IOException
-    {
-        // Jackson tries to detect the character encoding automatically when using InputStream
-        // so we pass an InputStreamReader instead.
-        return JSON_FACTORY.createParser(new InputStreamReader(json.getInput(), UTF_8));
     }
 }
