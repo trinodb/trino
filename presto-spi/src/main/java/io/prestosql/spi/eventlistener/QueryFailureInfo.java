@@ -22,6 +22,7 @@ import static java.util.Objects.requireNonNull;
 public class QueryFailureInfo
 {
     private final ErrorCode errorCode;
+    private final Optional<String> semanticErrorName;
     private final Optional<String> failureType;
     private final Optional<String> failureMessage;
     private final Optional<String> failureTask;
@@ -30,6 +31,7 @@ public class QueryFailureInfo
 
     public QueryFailureInfo(
             ErrorCode errorCode,
+            Optional<String> semanticErrorName,
             Optional<String> failureType,
             Optional<String> failureMessage,
             Optional<String> failureTask,
@@ -37,6 +39,7 @@ public class QueryFailureInfo
             String failuresJson)
     {
         this.errorCode = requireNonNull(errorCode, "errorCode is null");
+        this.semanticErrorName = requireNonNull(semanticErrorName, "semanticErrorName is null");
         this.failureType = requireNonNull(failureType, "failureType is null");
         this.failureMessage = requireNonNull(failureMessage, "failureMessage is null");
         this.failureTask = requireNonNull(failureTask, "failureTask is null");
@@ -47,6 +50,11 @@ public class QueryFailureInfo
     public ErrorCode getErrorCode()
     {
         return errorCode;
+    }
+
+    public Optional<String> getSemanticErrorName()
+    {
+        return semanticErrorName;
     }
 
     public Optional<String> getFailureType()
