@@ -77,6 +77,7 @@ public class DateStatisticsBuilder
                 dateStatistics.orElse(null),
                 null,
                 null,
+                null,
                 bloomFilterBuilder.buildBloomFilter());
     }
 

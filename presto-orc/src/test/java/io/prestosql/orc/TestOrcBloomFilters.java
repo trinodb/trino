@@ -267,6 +267,7 @@ public class TestOrcBloomFilters
                 null,
                 null,
                 null,
+                null,
                 new Utf8BloomFilterBuilder(1000, 0.01)
                         .addLong(1234L)
                         .buildBloomFilter())));
@@ -281,6 +282,7 @@ public class TestOrcBloomFilters
                 null,
                 null,
                 null,
+                null,
                 new Utf8BloomFilterBuilder(1000, 0.01)
                         .buildBloomFilter())));
 
@@ -289,6 +291,7 @@ public class TestOrcBloomFilters
                 0,
                 null,
                 new IntegerStatistics(10L, 2000L, null),
+                null,
                 null,
                 null,
                 null,
