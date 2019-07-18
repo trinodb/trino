@@ -15,7 +15,6 @@ package io.prestosql.sql.analyzer;
 
 import com.google.common.collect.ImmutableList;
 import io.prestosql.metadata.Metadata;
-import io.prestosql.sql.planner.ParameterRewriter;
 import io.prestosql.sql.tree.ArithmeticBinaryExpression;
 import io.prestosql.sql.tree.ArithmeticUnaryExpression;
 import io.prestosql.sql.tree.ArrayConstructor;
@@ -30,7 +29,6 @@ import io.prestosql.sql.tree.CurrentTime;
 import io.prestosql.sql.tree.DereferenceExpression;
 import io.prestosql.sql.tree.ExistsPredicate;
 import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.ExpressionTreeRewriter;
 import io.prestosql.sql.tree.Extract;
 import io.prestosql.sql.tree.FieldReference;
 import io.prestosql.sql.tree.FunctionCall;
@@ -142,9 +140,7 @@ class AggregationAnalyzer
         this.orderByScope = orderByScope;
         this.metadata = metadata;
         this.analysis = analysis;
-        this.expressions = groupByExpressions.stream()
-                .map(e -> ExpressionTreeRewriter.rewriteWith(new ParameterRewriter(analysis.getParameters()), e))
-                .collect(toImmutableList());
+        this.expressions = groupByExpressions;
 
         this.columnReferences = analysis.getColumnReferenceFields();
 
