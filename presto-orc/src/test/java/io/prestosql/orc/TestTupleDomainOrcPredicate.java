@@ -22,6 +22,7 @@ import io.prestosql.orc.metadata.statistics.DecimalStatistics;
 import io.prestosql.orc.metadata.statistics.DoubleStatistics;
 import io.prestosql.orc.metadata.statistics.IntegerStatistics;
 import io.prestosql.orc.metadata.statistics.StringStatistics;
+import io.prestosql.orc.metadata.statistics.TimestampStatistics;
 import io.prestosql.spi.predicate.Range;
 import io.prestosql.spi.predicate.ValueSet;
 import io.prestosql.spi.type.Type;
@@ -49,6 +50,7 @@ import static io.prestosql.spi.type.DecimalType.createDecimalType;
 import static io.prestosql.spi.type.Decimals.encodeScaledValue;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.RealType.REAL;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static java.lang.Float.floatToRawIntBits;
@@ -88,7 +90,7 @@ public class TestTupleDomainOrcPredicate
         if (trueValueCount != null) {
             booleanStatistics = new BooleanStatistics(trueValueCount);
         }
-        return new ColumnStatistics(numberOfValues, 2L, booleanStatistics, null, null, null, null, null, null, null);
+        return new ColumnStatistics(numberOfValues, 2L, booleanStatistics, null, null, null, null, null, null, null, null);
     }
 
     @Test
@@ -117,7 +119,7 @@ public class TestTupleDomainOrcPredicate
 
     private static ColumnStatistics integerColumnStats(Long numberOfValues, Long minimum, Long maximum)
     {
-        return new ColumnStatistics(numberOfValues, 9L, null, new IntegerStatistics(minimum, maximum, null), null, null, null, null, null, null);
+        return new ColumnStatistics(numberOfValues, 9L, null, new IntegerStatistics(minimum, maximum, null), null, null, null, null, null, null, null);
     }
 
     @Test
@@ -146,7 +148,7 @@ public class TestTupleDomainOrcPredicate
 
     private static ColumnStatistics doubleColumnStats(Long numberOfValues, Double minimum, Double maximum)
     {
-        return new ColumnStatistics(numberOfValues, 9L, null, null, new DoubleStatistics(minimum, maximum), null, null, null, null, null);
+        return new ColumnStatistics(numberOfValues, 9L, null, null, new DoubleStatistics(minimum, maximum), null, null, null, null, null, null);
     }
 
     @Test
@@ -236,7 +238,7 @@ public class TestTupleDomainOrcPredicate
         Slice minimumSlice = minimum == null ? null : utf8Slice(minimum);
         Slice maximumSlice = maximum == null ? null : utf8Slice(maximum);
         // sum and minAverageValueSizeInBytes are not used in this test; they could be arbitrary numbers
-        return new ColumnStatistics(numberOfValues, 10L, null, null, null, new StringStatistics(minimumSlice, maximumSlice, 100L), null, null, null, null);
+        return new ColumnStatistics(numberOfValues, 10L, null, null, null, new StringStatistics(minimumSlice, maximumSlice, 100L), null, null, null, null, null);
     }
 
     @Test
@@ -265,7 +267,37 @@ public class TestTupleDomainOrcPredicate
 
     private static ColumnStatistics dateColumnStats(Long numberOfValues, Integer minimum, Integer maximum)
     {
-        return new ColumnStatistics(numberOfValues, 5L, null, null, null, null, new DateStatistics(minimum, maximum), null, null, null);
+        return new ColumnStatistics(numberOfValues, 5L, null, null, null, null, new DateStatistics(minimum, maximum), null, null, null, null);
+    }
+
+    @Test
+    public void testTimestamp()
+            throws Exception
+    {
+        assertEquals(getDomain(TIMESTAMP, 0, null), none(TIMESTAMP));
+        assertEquals(getDomain(TIMESTAMP, 10, null), all(TIMESTAMP));
+
+        assertEquals(getDomain(TIMESTAMP, 0, timeStampColumnStats(null, null, null)), none(TIMESTAMP));
+        assertEquals(getDomain(TIMESTAMP, 0, timeStampColumnStats(0L, null, null)), none(TIMESTAMP));
+        assertEquals(getDomain(TIMESTAMP, 0, timeStampColumnStats(0L, 100L, 100L)), none(TIMESTAMP));
+
+        assertEquals(getDomain(TIMESTAMP, 10, timeStampColumnStats(0L, null, null)), onlyNull(TIMESTAMP));
+        assertEquals(getDomain(TIMESTAMP, 10, timeStampColumnStats(10L, null, null)), notNull(TIMESTAMP));
+
+        assertEquals(getDomain(TIMESTAMP, 10, timeStampColumnStats(10L, 100L, 100L)), singleValue(TIMESTAMP, 100L));
+
+        assertEquals(getDomain(TIMESTAMP, 10, timeStampColumnStats(10L, 0L, 100L)), create(ValueSet.ofRanges(range(TIMESTAMP, 0L, true, 100L, true)), false));
+        assertEquals(getDomain(TIMESTAMP, 10, timeStampColumnStats(10L, null, 100L)), create(ValueSet.ofRanges(lessThanOrEqual(TIMESTAMP, 100L)), false));
+        assertEquals(getDomain(TIMESTAMP, 10, timeStampColumnStats(10L, 0L, null)), create(ValueSet.ofRanges(greaterThanOrEqual(TIMESTAMP, 0L)), false));
+
+        assertEquals(getDomain(TIMESTAMP, 10, timeStampColumnStats(5L, 0L, 100L)), create(ValueSet.ofRanges(range(TIMESTAMP, 0L, true, 100L, true)), true));
+        assertEquals(getDomain(TIMESTAMP, 10, timeStampColumnStats(5L, null, 100L)), create(ValueSet.ofRanges(lessThanOrEqual(TIMESTAMP, 100L)), true));
+        assertEquals(getDomain(TIMESTAMP, 10, timeStampColumnStats(5L, 0L, null)), create(ValueSet.ofRanges(greaterThanOrEqual(TIMESTAMP, 0L)), true));
+    }
+
+    private static ColumnStatistics timeStampColumnStats(Long numberOfValues, Long minimum, Long maximum)
+    {
+        return new ColumnStatistics(numberOfValues, 5L, null, null, null, null, null, new TimestampStatistics(minimum, maximum), null, null, null);
     }
 
     @Test
@@ -321,7 +353,7 @@ public class TestTupleDomainOrcPredicate
     {
         BigDecimal minimumDecimal = minimum == null ? null : new BigDecimal(minimum);
         BigDecimal maximumDecimal = maximum == null ? null : new BigDecimal(maximum);
-        return new ColumnStatistics(numberOfValues, 9L, null, null, null, null, null, new DecimalStatistics(minimumDecimal, maximumDecimal, SHORT_DECIMAL_VALUE_BYTES), null, null);
+        return new ColumnStatistics(numberOfValues, 9L, null, null, null, null, null, null, new DecimalStatistics(minimumDecimal, maximumDecimal, SHORT_DECIMAL_VALUE_BYTES), null, null);
     }
 
     @Test
@@ -343,7 +375,7 @@ public class TestTupleDomainOrcPredicate
     private static ColumnStatistics binaryColumnStats(Long numberOfValues)
     {
         // sum and minAverageValueSizeInBytes are not used in this test; they could be arbitrary numbers
-        return new ColumnStatistics(numberOfValues, 10L, null, null, null, null, null, null, new BinaryStatistics(100L), null);
+        return new ColumnStatistics(numberOfValues, 10L, null, null, null, null, null, null, null, new BinaryStatistics(100L), null);
     }
 
     private static Long shortDecimal(String value)

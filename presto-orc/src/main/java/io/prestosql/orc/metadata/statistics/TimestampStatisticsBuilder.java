@@ -16,23 +16,20 @@ package io.prestosql.orc.metadata.statistics;
 import java.util.List;
 import java.util.Optional;
 
-import static io.prestosql.orc.metadata.statistics.IntegerStatistics.INTEGER_VALUE_BYTES;
-import static java.lang.Math.addExact;
+import static io.prestosql.orc.metadata.statistics.TimestampStatistics.TIMESTAMP_VALUE_BYTES;
 import static java.util.Objects.requireNonNull;
 
-public class IntegerStatisticsBuilder
+public class TimestampStatisticsBuilder
         implements LongValueStatisticsBuilder
 {
     private long nonNullValueCount;
     private long minimum = Long.MAX_VALUE;
     private long maximum = Long.MIN_VALUE;
-    private long sum;
-    private boolean overflow;
     private final BloomFilterBuilder bloomFilterBuilder;
 
-    public IntegerStatisticsBuilder(BloomFilterBuilder bloomFilterBuilder)
+    public TimestampStatisticsBuilder(BloomFilterBuilder bloomFilterBuilder)
     {
-        this.bloomFilterBuilder = requireNonNull(bloomFilterBuilder, "bloomFilterBuilder is null");
+        this.bloomFilterBuilder = requireNonNull(bloomFilterBuilder, "bloomFilterBuilder is nulll");
     }
 
     @Override
@@ -42,19 +39,10 @@ public class IntegerStatisticsBuilder
 
         minimum = Math.min(value, minimum);
         maximum = Math.max(value, maximum);
-
-        if (!overflow) {
-            try {
-                sum = addExact(sum, value);
-            }
-            catch (ArithmeticException e) {
-                overflow = true;
-            }
-        }
         bloomFilterBuilder.addLong(value);
     }
 
-    private void addIntegerStatistics(long valueCount, IntegerStatistics value)
+    private void addTimestampStatistics(long valueCount, TimestampStatistics value)
     {
         requireNonNull(value, "value is null");
         requireNonNull(value.getMin(), "value.getMin() is null");
@@ -63,62 +51,47 @@ public class IntegerStatisticsBuilder
         nonNullValueCount += valueCount;
         minimum = Math.min(value.getMin(), minimum);
         maximum = Math.max(value.getMax(), maximum);
-
-        if (value.getSum() == null) {
-            // if input value does not have a sum tag this stat as overflowed
-            // to prevent creation of the sum stats (since it was not provided
-            // for these values).
-            overflow = true;
-        }
-        else if (!overflow) {
-            try {
-                sum = addExact(sum, value.getSum());
-            }
-            catch (ArithmeticException e) {
-                overflow = true;
-            }
-        }
     }
 
-    private Optional<IntegerStatistics> buildIntegerStatistics()
+    private Optional<TimestampStatistics> buildTimestampStatistics()
     {
         if (nonNullValueCount == 0) {
             return Optional.empty();
         }
-        return Optional.of(new IntegerStatistics(minimum, maximum, overflow ? null : sum));
+        return Optional.of(new TimestampStatistics(minimum, maximum));
     }
 
     @Override
     public ColumnStatistics buildColumnStatistics()
     {
-        Optional<IntegerStatistics> integerStatistics = buildIntegerStatistics();
+        Optional<TimestampStatistics> timestampStatistics = buildTimestampStatistics();
         return new ColumnStatistics(
                 nonNullValueCount,
-                integerStatistics.map(s -> INTEGER_VALUE_BYTES).orElse(0L),
-                null,
-                integerStatistics.orElse(null),
+                timestampStatistics.map(s -> TIMESTAMP_VALUE_BYTES).orElse(0L),
                 null,
                 null,
                 null,
                 null,
+                null,
+                timestampStatistics.orElse(null),
                 null,
                 null,
                 bloomFilterBuilder.buildBloomFilter());
     }
 
-    public static Optional<IntegerStatistics> mergeIntegerStatistics(List<ColumnStatistics> stats)
+    public static Optional<TimestampStatistics> mergeTimestampStatistics(List<ColumnStatistics> stats)
     {
-        IntegerStatisticsBuilder integerStatisticsBuilder = new IntegerStatisticsBuilder(new NoOpBloomFilterBuilder());
+        TimestampStatisticsBuilder timestampStatisticsBuilder = new TimestampStatisticsBuilder(new NoOpBloomFilterBuilder());
         for (ColumnStatistics columnStatistics : stats) {
-            IntegerStatistics partialStatistics = columnStatistics.getIntegerStatistics();
+            TimestampStatistics partialStatistics = columnStatistics.getTimestampStatistics();
             if (columnStatistics.getNumberOfValues() > 0) {
                 if (partialStatistics == null) {
-                    // there are non null values but no statistics, so we cannot say anything about the data
+                    // there are non null values but no statistics, so we can not say anything about the data
                     return Optional.empty();
                 }
-                integerStatisticsBuilder.addIntegerStatistics(columnStatistics.getNumberOfValues(), partialStatistics);
+                timestampStatisticsBuilder.addTimestampStatistics(columnStatistics.getNumberOfValues(), partialStatistics);
             }
         }
-        return integerStatisticsBuilder.buildIntegerStatistics();
+        return timestampStatisticsBuilder.buildTimestampStatistics();
     }
 }
