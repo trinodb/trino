@@ -27,6 +27,7 @@ import io.prestosql.spi.predicate.Range;
 import io.prestosql.spi.predicate.ValueSet;
 import io.prestosql.spi.type.DateType;
 import io.prestosql.spi.type.DecimalType;
+import io.prestosql.spi.type.TimestampType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.VarbinaryType;
 import io.prestosql.spi.type.VarcharType;
@@ -217,6 +218,9 @@ public class TupleDomainOrcPredicate
         }
         else if (type instanceof DateType && columnStatistics.getDateStatistics() != null) {
             return createDomain(type, hasNullValue, columnStatistics.getDateStatistics(), value -> (long) value);
+        }
+        else if (type instanceof TimestampType && columnStatistics.getTimestampStatistics() != null) {
+            return createDomain(type, hasNullValue, columnStatistics.getTimestampStatistics(), value -> (long) value);
         }
         else if (type.getJavaType() == long.class && columnStatistics.getIntegerStatistics() != null) {
             return createDomain(type, hasNullValue, columnStatistics.getIntegerStatistics());

@@ -34,6 +34,7 @@ import io.prestosql.orc.metadata.statistics.DoubleStatistics;
 import io.prestosql.orc.metadata.statistics.IntegerStatistics;
 import io.prestosql.orc.metadata.statistics.StringStatistics;
 import io.prestosql.orc.metadata.statistics.StripeStatistics;
+import io.prestosql.orc.metadata.statistics.TimestampStatistics;
 import io.prestosql.orc.proto.OrcProto;
 import io.prestosql.orc.proto.OrcProto.RowIndexEntry;
 import io.prestosql.orc.protobuf.ByteString;
@@ -71,6 +72,7 @@ import static io.prestosql.orc.metadata.statistics.DoubleStatistics.DOUBLE_VALUE
 import static io.prestosql.orc.metadata.statistics.IntegerStatistics.INTEGER_VALUE_BYTES;
 import static io.prestosql.orc.metadata.statistics.ShortDecimalStatisticsBuilder.SHORT_DECIMAL_VALUE_BYTES;
 import static io.prestosql.orc.metadata.statistics.StringStatistics.STRING_VALUE_BYTES_OVERHEAD;
+import static io.prestosql.orc.metadata.statistics.TimestampStatistics.TIMESTAMP_VALUE_BYTES;
 import static java.lang.Character.MIN_SUPPLEMENTARY_CODE_POINT;
 import static java.lang.Math.toIntExact;
 
@@ -269,6 +271,9 @@ public class OrcMetadataReader
         else if (statistics.hasDateStatistics()) {
             minAverageValueBytes = DATE_VALUE_BYTES;
         }
+        else if (statistics.hasTimestampStatistics()) {
+            minAverageValueBytes = TIMESTAMP_VALUE_BYTES;
+        }
         else if (statistics.hasDecimalStatistics()) {
             // could be 8 or 16; return the smaller one given it is a min average
             minAverageValueBytes = DECIMAL_VALUE_BYTES_OVERHEAD + SHORT_DECIMAL_VALUE_BYTES;
@@ -292,6 +297,7 @@ public class OrcMetadataReader
                 statistics.hasDoubleStatistics() ? toDoubleStatistics(statistics.getDoubleStatistics()) : null,
                 statistics.hasStringStatistics() ? toStringStatistics(hiveWriterVersion, statistics.getStringStatistics(), isRowGroup) : null,
                 statistics.hasDateStatistics() ? toDateStatistics(hiveWriterVersion, statistics.getDateStatistics(), isRowGroup) : null,
+                statistics.hasTimestampStatistics() ? toTimestampStatistics(hiveWriterVersion, statistics.getTimestampStatistics(), isRowGroup) : null,
                 statistics.hasDecimalStatistics() ? toDecimalStatistics(statistics.getDecimalStatistics()) : null,
                 statistics.hasBinaryStatistics() ? toBinaryStatistics(statistics.getBinaryStatistics()) : null,
                 null);
@@ -481,6 +487,17 @@ public class OrcMetadataReader
         return new DateStatistics(
                 dateStatistics.hasMinimum() ? dateStatistics.getMinimum() : null,
                 dateStatistics.hasMaximum() ? dateStatistics.getMaximum() : null);
+    }
+
+    private static TimestampStatistics toTimestampStatistics(HiveWriterVersion hiveWriterVersion, OrcProto.TimestampStatistics timestampStatistics, boolean isRowGroup)
+    {
+        if (hiveWriterVersion == ORIGINAL && !isRowGroup) {
+            return null;
+        }
+
+        return new TimestampStatistics(
+                timestampStatistics.hasMinimumUtc() ? timestampStatistics.getMinimumUtc() : null,
+                timestampStatistics.hasMaximumUtc() ? timestampStatistics.getMaximumUtc() : null);
     }
 
     private static OrcType toType(OrcProto.Type type)
