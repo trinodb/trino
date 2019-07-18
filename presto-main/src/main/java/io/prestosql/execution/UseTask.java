@@ -18,7 +18,6 @@ import io.prestosql.Session;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.security.AccessControl;
 import io.prestosql.spi.PrestoException;
-import io.prestosql.sql.analyzer.SemanticException;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.Use;
 import io.prestosql.transaction.TransactionManager;
@@ -26,8 +25,9 @@ import io.prestosql.transaction.TransactionManager;
 import java.util.List;
 
 import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static io.prestosql.spi.StandardErrorCode.MISSING_CATALOG_NAME;
 import static io.prestosql.spi.StandardErrorCode.NOT_FOUND;
-import static io.prestosql.sql.analyzer.SemanticErrorCode.CATALOG_NOT_SPECIFIED;
+import static io.prestosql.sql.analyzer.SemanticExceptions.semanticException;
 import static java.util.Locale.ENGLISH;
 
 public class UseTask
@@ -45,7 +45,7 @@ public class UseTask
         Session session = stateMachine.getSession();
 
         if (!statement.getCatalog().isPresent() && !session.getCatalog().isPresent()) {
-            throw new SemanticException(CATALOG_NOT_SPECIFIED, statement, "Catalog must be specified when session catalog is not set");
+            throw semanticException(MISSING_CATALOG_NAME, statement, "Catalog must be specified when session catalog is not set");
         }
 
         if (statement.getCatalog().isPresent()) {

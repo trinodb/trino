@@ -15,12 +15,14 @@ package io.prestosql.sql.analyzer;
 
 import com.google.common.collect.ImmutableList;
 import io.prestosql.metadata.Metadata;
+import io.prestosql.spi.Location;
 import io.prestosql.sql.tree.DefaultExpressionTraversalVisitor;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.FunctionCall;
 import io.prestosql.sql.tree.Node;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.function.Predicate;
 
 import static com.google.common.base.Predicates.alwaysTrue;
@@ -91,5 +93,11 @@ public final class ExpressionTreeUtils
             }
         }.process(node, null);
         return nodes.build();
+    }
+
+    public static Optional<Location> extractLocation(Node node)
+    {
+        return node.getLocation()
+                .map(location -> new Location(location.getLineNumber(), location.getColumnNumber()));
     }
 }

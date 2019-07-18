@@ -22,7 +22,6 @@ import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.session.PropertyMetadata;
 import io.prestosql.spi.type.Type;
-import io.prestosql.sql.analyzer.SemanticException;
 import io.prestosql.sql.planner.ParameterRewriter;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.ExpressionTreeRewriter;
@@ -100,7 +99,7 @@ abstract class AbstractPropertyManager
             try {
                 sqlObjectValue = evaluatePropertyValue(sqlProperty.getValue(), property.getSqlType(), session, metadata, parameters);
             }
-            catch (SemanticException e) {
+            catch (PrestoException e) {
                 throw new PrestoException(
                         propertyError,
                         format("Invalid value for %s property '%s': Cannot convert [%s] to %s",

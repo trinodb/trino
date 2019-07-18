@@ -18,7 +18,6 @@ import io.prestosql.spi.type.SqlDate;
 import io.prestosql.spi.type.SqlTimeWithTimeZone;
 import io.prestosql.spi.type.SqlTimestampWithTimeZone;
 import io.prestosql.spi.type.TimeZoneKey;
-import io.prestosql.sql.analyzer.SemanticErrorCode;
 import io.prestosql.testing.TestingSession;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
@@ -26,6 +25,7 @@ import org.testng.annotations.Test;
 
 import java.util.concurrent.TimeUnit;
 
+import static io.prestosql.spi.StandardErrorCode.INVALID_LITERAL;
 import static io.prestosql.spi.function.OperatorType.INDETERMINATE;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DateType.DATE;
@@ -90,7 +90,7 @@ public abstract class TestTimestampBase
         assertFunction("TIMESTAMP '2001-1-2 3:4'", TIMESTAMP, sqlTimestampOf(2001, 1, 2, 3, 4, 0, 0, session));
         assertFunction("TIMESTAMP '2001-1-2'", TIMESTAMP, sqlTimestampOf(2001, 1, 2, 0, 0, 0, 0, session));
 
-        assertInvalidFunction("TIMESTAMP 'text'", SemanticErrorCode.INVALID_LITERAL, "line 1:1: 'text' is not a valid timestamp literal");
+        assertInvalidFunction("TIMESTAMP 'text'", INVALID_LITERAL, "line 1:1: 'text' is not a valid timestamp literal");
     }
 
     @Test

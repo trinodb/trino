@@ -29,10 +29,11 @@ import io.prestosql.sql.tree.Statement;
 import java.util.List;
 import java.util.Optional;
 
+import static io.prestosql.spi.StandardErrorCode.EXPRESSION_NOT_SCALAR;
 import static io.prestosql.sql.analyzer.ExpressionTreeUtils.extractAggregateFunctions;
 import static io.prestosql.sql.analyzer.ExpressionTreeUtils.extractExpressions;
 import static io.prestosql.sql.analyzer.ExpressionTreeUtils.extractWindowFunctions;
-import static io.prestosql.sql.analyzer.SemanticErrorCode.CANNOT_HAVE_AGGREGATIONS_WINDOWS_OR_GROUPING;
+import static io.prestosql.sql.analyzer.SemanticExceptions.semanticException;
 import static java.util.Objects.requireNonNull;
 
 public class Analyzer
@@ -99,7 +100,7 @@ public class Analyzer
                 groupingOperations));
 
         if (!found.isEmpty()) {
-            throw new SemanticException(CANNOT_HAVE_AGGREGATIONS_WINDOWS_OR_GROUPING, predicate, "%s cannot contain aggregations, window functions or grouping operations: %s", clause, found);
+            throw semanticException(EXPRESSION_NOT_SCALAR, predicate, "%s cannot contain aggregations, window functions or grouping operations: %s", clause, found);
         }
     }
 }

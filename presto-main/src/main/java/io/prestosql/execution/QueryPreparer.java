@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import io.prestosql.Session;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.resourcegroups.QueryType;
-import io.prestosql.sql.analyzer.SemanticException;
 import io.prestosql.sql.parser.ParsingException;
 import io.prestosql.sql.parser.SqlParser;
 import io.prestosql.sql.tree.Execute;
@@ -32,10 +31,11 @@ import java.util.List;
 import java.util.Optional;
 
 import static io.prestosql.execution.ParameterExtractor.getParameterCount;
+import static io.prestosql.spi.StandardErrorCode.INVALID_PARAMETER_USAGE;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.sql.ParsingUtil.createParsingOptions;
 import static io.prestosql.sql.analyzer.ConstantExpressionVerifier.verifyExpressionIsConstant;
-import static io.prestosql.sql.analyzer.SemanticErrorCode.INVALID_PARAMETER_USAGE;
+import static io.prestosql.sql.analyzer.SemanticExceptions.semanticException;
 import static java.util.Collections.emptySet;
 import static java.util.Objects.requireNonNull;
 
@@ -50,14 +50,14 @@ public class QueryPreparer
     }
 
     public PreparedQuery prepareQuery(Session session, String query)
-            throws ParsingException, PrestoException, SemanticException
+            throws ParsingException, PrestoException
     {
         Statement wrappedStatement = sqlParser.createStatement(query, createParsingOptions(session));
         return prepareQuery(session, wrappedStatement);
     }
 
     public PreparedQuery prepareQuery(Session session, Statement wrappedStatement)
-            throws ParsingException, PrestoException, SemanticException
+            throws ParsingException, PrestoException
     {
         Statement statement = wrappedStatement;
         Optional<String> prepareSql = Optional.empty();
@@ -85,7 +85,7 @@ public class QueryPreparer
     {
         int parameterCount = getParameterCount(node);
         if (parameterValues.size() != parameterCount) {
-            throw new SemanticException(INVALID_PARAMETER_USAGE, node, "Incorrect number of parameters: expected %s but found %s", parameterCount, parameterValues.size());
+            throw semanticException(INVALID_PARAMETER_USAGE, node, "Incorrect number of parameters: expected %s but found %s", parameterCount, parameterValues.size());
         }
         for (Expression expression : parameterValues) {
             verifyExpressionIsConstant(emptySet(), expression);

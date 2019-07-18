@@ -20,13 +20,11 @@ import io.prestosql.client.ErrorLocation;
 import io.prestosql.client.FailureInfo;
 import io.prestosql.spi.ErrorCode;
 import io.prestosql.spi.HostAddress;
-import io.prestosql.sql.analyzer.SemanticErrorCode;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
-import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -45,7 +43,6 @@ public class ExecutionFailureInfo
     private final List<String> stack;
     private final ErrorLocation errorLocation;
     private final ErrorCode errorCode;
-    private final Optional<SemanticErrorCode> semanticErrorCode;
     // use for transport errors
     private final HostAddress remoteHost;
 
@@ -58,7 +55,6 @@ public class ExecutionFailureInfo
             @JsonProperty("stack") List<String> stack,
             @JsonProperty("errorLocation") @Nullable ErrorLocation errorLocation,
             @JsonProperty("errorCode") @Nullable ErrorCode errorCode,
-            @JsonProperty("semanticErrorCode") Optional<SemanticErrorCode> semanticErrorCode,
             @JsonProperty("remoteHost") @Nullable HostAddress remoteHost)
     {
         requireNonNull(type, "type is null");
@@ -72,7 +68,6 @@ public class ExecutionFailureInfo
         this.stack = ImmutableList.copyOf(stack);
         this.errorLocation = errorLocation;
         this.errorCode = errorCode;
-        this.semanticErrorCode = semanticErrorCode;
         this.remoteHost = remoteHost;
     }
 
@@ -120,12 +115,6 @@ public class ExecutionFailureInfo
     public ErrorCode getErrorCode()
     {
         return errorCode;
-    }
-
-    @JsonProperty
-    public Optional<SemanticErrorCode> getSemanticErrorCode()
-    {
-        return semanticErrorCode;
     }
 
     @Nullable

@@ -59,7 +59,6 @@ import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.spi.type.TypeSignatureParameter;
-import io.prestosql.sql.analyzer.SemanticErrorCode;
 import io.prestosql.transaction.TransactionId;
 
 import javax.annotation.concurrent.GuardedBy;
@@ -705,7 +704,6 @@ class Query
                 null,
                 errorCode.getCode(),
                 errorCode.getName(),
-                executionFailure.getSemanticErrorCode().map(SemanticErrorCode::name),
                 errorCode.getType().toString(),
                 failure.getErrorLocation(),
                 failure);

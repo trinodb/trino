@@ -22,7 +22,6 @@ import io.prestosql.spi.type.Type;
 import io.prestosql.sql.analyzer.Analysis;
 import io.prestosql.sql.analyzer.Analyzer;
 import io.prestosql.sql.analyzer.QueryExplainer;
-import io.prestosql.sql.analyzer.SemanticException;
 import io.prestosql.sql.parser.SqlParser;
 import io.prestosql.sql.tree.AstVisitor;
 import io.prestosql.sql.tree.DescribeInput;
@@ -100,7 +99,6 @@ final class DescribeInputRewrite
 
         @Override
         protected Node visitDescribeInput(DescribeInput node, Void context)
-                throws SemanticException
         {
             String sqlString = session.getPreparedStatement(node.getName().getValue());
             Statement statement = parser.createStatement(sqlString, createParsingOptions(session));

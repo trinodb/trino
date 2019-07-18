@@ -38,7 +38,6 @@ import io.prestosql.spi.type.TinyintType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.QueryUtil;
 import io.prestosql.sql.analyzer.QueryExplainer;
-import io.prestosql.sql.analyzer.SemanticException;
 import io.prestosql.sql.parser.SqlParser;
 import io.prestosql.sql.planner.Plan;
 import io.prestosql.sql.planner.plan.FilterNode;
@@ -70,14 +69,15 @@ import java.util.Optional;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.metadata.MetadataUtil.createQualifiedObjectName;
+import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.prestosql.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.StandardTypes.DOUBLE;
 import static io.prestosql.spi.type.StandardTypes.VARCHAR;
 import static io.prestosql.sql.QueryUtil.aliased;
 import static io.prestosql.sql.QueryUtil.selectAll;
 import static io.prestosql.sql.QueryUtil.simpleQuery;
-import static io.prestosql.sql.analyzer.SemanticErrorCode.MISSING_TABLE;
-import static io.prestosql.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
+import static io.prestosql.sql.analyzer.SemanticExceptions.semanticException;
 import static io.prestosql.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static java.lang.Math.round;
 import static java.util.Objects.requireNonNull;
@@ -181,7 +181,7 @@ public class ShowStatsRewrite
         private static void check(boolean condition, ShowStats node, String message)
         {
             if (!condition) {
-                throw new SemanticException(NOT_SUPPORTED, node, message);
+                throw semanticException(NOT_SUPPORTED, node, message);
             }
         }
 
@@ -208,7 +208,7 @@ public class ShowStatsRewrite
         {
             QualifiedObjectName qualifiedTableName = createQualifiedObjectName(session, node, table);
             return metadata.getTableHandle(session, qualifiedTableName)
-                    .orElseThrow(() -> new SemanticException(MISSING_TABLE, node, "Table %s not found", table));
+                    .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, node, "Table %s not found", table));
         }
 
         private static List<String> buildColumnsNames()

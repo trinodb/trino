@@ -20,7 +20,6 @@ import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.security.AccessControl;
 import io.prestosql.sql.analyzer.QueryExplainer;
-import io.prestosql.sql.analyzer.SemanticException;
 import io.prestosql.sql.parser.SqlParser;
 import io.prestosql.sql.tree.AstVisitor;
 import io.prestosql.sql.tree.Explain;
@@ -81,7 +80,6 @@ final class ExplainRewrite
 
         @Override
         protected Node visitExplain(Explain node, Void context)
-                throws SemanticException
         {
             if (node.isAnalyze()) {
                 Statement statement = (Statement) process(node.getStatement(), context);

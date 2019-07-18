@@ -28,8 +28,8 @@ import io.prestosql.metadata.Signature;
 import io.prestosql.operator.scalar.FormatFunction;
 import io.prestosql.security.AccessControl;
 import io.prestosql.security.DenyAllAccessControl;
+import io.prestosql.spi.ErrorCodeSupplier;
 import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.StandardErrorCode;
 import io.prestosql.spi.function.OperatorType;
 import io.prestosql.spi.type.CharType;
 import io.prestosql.spi.type.DecimalParseResult;
@@ -120,6 +120,14 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.prestosql.spi.StandardErrorCode.EXPRESSION_NOT_CONSTANT;
+import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.prestosql.spi.StandardErrorCode.INVALID_LITERAL;
+import static io.prestosql.spi.StandardErrorCode.INVALID_PARAMETER_USAGE;
+import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.prestosql.spi.StandardErrorCode.TOO_MANY_ARGUMENTS;
+import static io.prestosql.spi.StandardErrorCode.TYPE_MISMATCH;
+import static io.prestosql.spi.StandardErrorCode.TYPE_NOT_FOUND;
 import static io.prestosql.spi.function.OperatorType.SUBSCRIPT;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
@@ -139,16 +147,9 @@ import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.spi.type.Varchars.isVarcharType;
 import static io.prestosql.sql.NodeUtils.getSortItemsFromOrderBy;
 import static io.prestosql.sql.analyzer.Analyzer.verifyNoAggregateWindowOrGroupingFunctions;
-import static io.prestosql.sql.analyzer.SemanticErrorCode.EXPRESSION_NOT_CONSTANT;
-import static io.prestosql.sql.analyzer.SemanticErrorCode.INVALID_LITERAL;
-import static io.prestosql.sql.analyzer.SemanticErrorCode.INVALID_PARAMETER_USAGE;
-import static io.prestosql.sql.analyzer.SemanticErrorCode.INVALID_PROCEDURE_ARGUMENTS;
-import static io.prestosql.sql.analyzer.SemanticErrorCode.MULTIPLE_FIELDS_FROM_SUBQUERY;
-import static io.prestosql.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
-import static io.prestosql.sql.analyzer.SemanticErrorCode.STANDALONE_LAMBDA;
-import static io.prestosql.sql.analyzer.SemanticErrorCode.TOO_MANY_ARGUMENTS;
-import static io.prestosql.sql.analyzer.SemanticErrorCode.TYPE_MISMATCH;
+import static io.prestosql.sql.analyzer.ExpressionTreeUtils.extractLocation;
 import static io.prestosql.sql.analyzer.SemanticExceptions.missingAttributeException;
+import static io.prestosql.sql.analyzer.SemanticExceptions.semanticException;
 import static io.prestosql.sql.tree.ArrayConstructor.ARRAY_CONSTRUCTOR;
 import static io.prestosql.sql.tree.Extract.Field.TIMEZONE_HOUR;
 import static io.prestosql.sql.tree.Extract.Field.TIMEZONE_MINUTE;
@@ -352,7 +353,7 @@ public class ExpressionAnalyzer
         protected Type visitCurrentTime(CurrentTime node, StackableAstVisitorContext<Context> context)
         {
             if (node.getPrecision() != null) {
-                throw new SemanticException(NOT_SUPPORTED, node, "non-default precision not yet supported");
+                throw semanticException(NOT_SUPPORTED, node, "non-default precision not yet supported");
             }
 
             Type type;
@@ -373,7 +374,7 @@ public class ExpressionAnalyzer
                     type = TIMESTAMP;
                     break;
                 default:
-                    throw new SemanticException(NOT_SUPPORTED, node, "%s not yet supported", node.getFunction().getName());
+                    throw semanticException(NOT_SUPPORTED, node, "%s not yet supported", node.getFunction().getName());
             }
 
             return setExpressionType(node, type);
@@ -443,7 +444,7 @@ public class ExpressionAnalyzer
 
             Type baseType = process(node.getBase(), context);
             if (!(baseType instanceof RowType)) {
-                throw new SemanticException(TYPE_MISMATCH, node.getBase(), "Expression %s is not of type ROW", node.getBase());
+                throw semanticException(TYPE_MISMATCH, node.getBase(), "Expression %s is not of type ROW", node.getBase());
             }
 
             RowType rowType = (RowType) baseType;
@@ -511,7 +512,7 @@ public class ExpressionAnalyzer
             Type secondType = process(node.getSecond(), context);
 
             if (!typeCoercion.getCommonSuperType(firstType, secondType).isPresent()) {
-                throw new SemanticException(TYPE_MISMATCH, node, "Types are not comparable with NULLIF: %s vs %s", firstType, secondType);
+                throw semanticException(TYPE_MISMATCH, node, "Types are not comparable with NULLIF: %s vs %s", firstType, secondType);
             }
 
             return setExpressionType(node, firstType);
@@ -601,7 +602,7 @@ public class ExpressionAnalyzer
                     if (!type.equals(DOUBLE) && !type.equals(REAL) && !type.equals(BIGINT) && !type.equals(INTEGER) && !type.equals(SMALLINT) && !type.equals(TINYINT)) {
                         // TODO: figure out a type-agnostic way of dealing with this. Maybe add a special unary operator
                         // that types can chose to implement, or piggyback on the existence of the negation operator
-                        throw new SemanticException(TYPE_MISMATCH, node, "Unary '+' operator cannot by applied to %s type", type);
+                        throw semanticException(TYPE_MISMATCH, node, "Unary '+' operator cannot by applied to %s type", type);
                     }
                     return setExpressionType(node, type);
                 case MINUS:
@@ -652,19 +653,19 @@ public class ExpressionAnalyzer
             // Subscript on Row hasn't got a dedicated operator. Its Type is resolved by hand.
             if (baseType instanceof RowType) {
                 if (!(node.getIndex() instanceof LongLiteral)) {
-                    throw new SemanticException(INVALID_PARAMETER_USAGE, node.getIndex(), "Subscript expression on ROW requires a constant index");
+                    throw semanticException(EXPRESSION_NOT_CONSTANT, node.getIndex(), "Subscript expression on ROW requires a constant index");
                 }
                 Type indexType = process(node.getIndex(), context);
                 if (!indexType.equals(INTEGER)) {
-                    throw new SemanticException(TYPE_MISMATCH, node.getIndex(), "Subscript expression on ROW requires integer index, found %s", indexType);
+                    throw semanticException(TYPE_MISMATCH, node.getIndex(), "Subscript expression on ROW requires integer index, found %s", indexType);
                 }
                 int indexValue = toIntExact(((LongLiteral) node.getIndex()).getValue());
                 if (indexValue <= 0) {
-                    throw new SemanticException(INVALID_PARAMETER_USAGE, node.getIndex(), "Invalid subscript index: %s. ROW indices start at 1", indexValue);
+                    throw semanticException(INVALID_FUNCTION_ARGUMENT, node.getIndex(), "Invalid subscript index: %s. ROW indices start at 1", indexValue);
                 }
                 List<Type> rowTypes = baseType.getTypeParameters();
                 if (indexValue > rowTypes.size()) {
-                    throw new SemanticException(INVALID_PARAMETER_USAGE, node.getIndex(), "Subscript index out of bounds: %s, max value is %s", indexValue, rowTypes.size());
+                    throw semanticException(INVALID_FUNCTION_ARGUMENT, node.getIndex(), "Subscript index out of bounds: %s, max value is %s", indexValue, rowTypes.size());
                 }
                 return setExpressionType(node, rowTypes.get(indexValue - 1));
             }
@@ -738,7 +739,7 @@ public class ExpressionAnalyzer
                 type = metadata.getType(parseTypeSignature(node.getType()));
             }
             catch (TypeNotFoundException e) {
-                throw new SemanticException(TYPE_MISMATCH, node, "Unknown type: " + node.getType());
+                throw semanticException(TYPE_NOT_FOUND, node, "Unknown type: " + node.getType());
             }
 
             if (!JSON.equals(type)) {
@@ -746,7 +747,7 @@ public class ExpressionAnalyzer
                     metadata.getCoercion(VARCHAR, type);
                 }
                 catch (IllegalArgumentException e) {
-                    throw new SemanticException(TYPE_MISMATCH, node, "No literal form for type %s", type);
+                    throw semanticException(INVALID_LITERAL, node, "No literal form for type %s", type);
                 }
             }
 
@@ -761,7 +762,7 @@ public class ExpressionAnalyzer
                 hasTimeZone = timeHasTimeZone(node.getValue());
             }
             catch (IllegalArgumentException e) {
-                throw new SemanticException(INVALID_LITERAL, node, "'%s' is not a valid time literal", node.getValue());
+                throw semanticException(INVALID_LITERAL, node, "'%s' is not a valid time literal", node.getValue());
             }
             Type type = hasTimeZone ? TIME_WITH_TIME_ZONE : TIME;
             return setExpressionType(node, type);
@@ -779,7 +780,7 @@ public class ExpressionAnalyzer
                 }
             }
             catch (Exception e) {
-                throw new SemanticException(INVALID_LITERAL, node, "'%s' is not a valid timestamp literal", node.getValue());
+                throw semanticException(INVALID_LITERAL, node, "'%s' is not a valid timestamp literal", node.getValue());
             }
 
             Type type;
@@ -819,7 +820,7 @@ public class ExpressionAnalyzer
                     process(expression, context);
                     Type type = getExpressionType(expression);
                     if (!type.isComparable()) {
-                        throw new SemanticException(TYPE_MISMATCH, node, "%s is not comparable, and therefore cannot be used in window function PARTITION BY", type);
+                        throw semanticException(TYPE_MISMATCH, node, "%s is not comparable, and therefore cannot be used in window function PARTITION BY", type);
                     }
                 }
 
@@ -827,7 +828,7 @@ public class ExpressionAnalyzer
                     process(sortItem.getSortKey(), context);
                     Type type = getExpressionType(sortItem.getSortKey());
                     if (!type.isOrderable()) {
-                        throw new SemanticException(TYPE_MISMATCH, node, "%s is not orderable, and therefore cannot be used in window function ORDER BY", type);
+                        throw semanticException(TYPE_MISMATCH, node, "%s is not orderable, and therefore cannot be used in window function ORDER BY", type);
                     }
                 }
 
@@ -837,14 +838,14 @@ public class ExpressionAnalyzer
                     if (frame.getStart().getValue().isPresent()) {
                         Type type = process(frame.getStart().getValue().get(), context);
                         if (!type.equals(INTEGER) && !type.equals(BIGINT)) {
-                            throw new SemanticException(TYPE_MISMATCH, node, "Window frame start value type must be INTEGER or BIGINT(actual %s)", type);
+                            throw semanticException(TYPE_MISMATCH, node, "Window frame start value type must be INTEGER or BIGINT(actual %s)", type);
                         }
                     }
 
                     if (frame.getEnd().isPresent() && frame.getEnd().get().getValue().isPresent()) {
                         Type type = process(frame.getEnd().get().getValue().get(), context);
                         if (!type.equals(INTEGER) && !type.equals(BIGINT)) {
-                            throw new SemanticException(TYPE_MISMATCH, node, "Window frame end value type must be INTEGER or BIGINT (actual %s)", type);
+                            throw semanticException(TYPE_MISMATCH, node, "Window frame end value type must be INTEGER or BIGINT (actual %s)", type);
                         }
                     }
                 }
@@ -858,24 +859,40 @@ public class ExpressionAnalyzer
             }
 
             List<TypeSignatureProvider> argumentTypes = getCallArgumentTypes(node.getArguments(), context);
-            Signature function = resolveFunction(node, argumentTypes, metadata);
+
+            Signature function;
+            try {
+                function = metadata.resolveFunction(node.getName(), argumentTypes);
+            }
+            catch (PrestoException e) {
+                if (e.getLocation().isPresent()) {
+                    // If analysis of any of the argument types (which is done lazily to deal with lambda
+                    // expressions) fails, we want to report the original reason for the failure
+                    throw e;
+                }
+
+                // otherwise, it must have failed due to a missing function or other reason, so we report an error at the
+                // current location
+
+                throw new PrestoException(e::getErrorCode, extractLocation(node), e.getMessage(), e);
+            }
 
             if (function.getName().equalsIgnoreCase(ARRAY_CONSTRUCTOR)) {
                 // After optimization, array constructor is rewritten to a function call.
                 // For historic reasons array constructor is allowed to have 254 arguments
                 if (node.getArguments().size() > 254) {
-                    throw new SemanticException(TOO_MANY_ARGUMENTS, node, "Too many arguments for array constructor", function.getName());
+                    throw semanticException(TOO_MANY_ARGUMENTS, node, "Too many arguments for array constructor", function.getName());
                 }
             }
             else if (node.getArguments().size() > 127) {
-                throw new SemanticException(TOO_MANY_ARGUMENTS, node, "Too many arguments for function call %s()", function.getName());
+                throw semanticException(TOO_MANY_ARGUMENTS, node, "Too many arguments for function call %s()", function.getName());
             }
 
             if (node.getOrderBy().isPresent()) {
                 for (SortItem sortItem : node.getOrderBy().get().getSortItems()) {
                     Type sortKeyType = process(sortItem.getSortKey(), context);
                     if (!sortKeyType.isOrderable()) {
-                        throw new SemanticException(TYPE_MISMATCH, node, "ORDER BY can only be applied to orderable types (actual: %s)", sortKeyType.getDisplayName());
+                        throw semanticException(TYPE_MISMATCH, node, "ORDER BY can only be applied to orderable types (actual: %s)", sortKeyType.getDisplayName());
                     }
                 }
             }
@@ -885,7 +902,7 @@ public class ExpressionAnalyzer
                 Type expectedType = metadata.getType(function.getArgumentTypes().get(i));
                 requireNonNull(expectedType, format("Type %s not found", function.getArgumentTypes().get(i)));
                 if (node.isDistinct() && !expectedType.isComparable()) {
-                    throw new SemanticException(TYPE_MISMATCH, node, "DISTINCT can only be applied to comparable types (actual: %s)", expectedType);
+                    throw semanticException(TYPE_MISMATCH, node, "DISTINCT can only be applied to comparable types (actual: %s)", expectedType);
                 }
                 if (argumentTypes.get(i).hasDependency()) {
                     FunctionType expectedFunctionType = (FunctionType) expectedType;
@@ -939,7 +956,7 @@ public class ExpressionAnalyzer
             Type valueType = process(node.getValue(), context);
             process(node.getTimeZone(), context);
             if (!valueType.equals(TIME_WITH_TIME_ZONE) && !valueType.equals(TIMESTAMP_WITH_TIME_ZONE) && !valueType.equals(TIME) && !valueType.equals(TIMESTAMP)) {
-                throw new SemanticException(TYPE_MISMATCH, node.getValue(), "Type of value must be a time or timestamp with or without time zone (actual %s)", valueType);
+                throw semanticException(TYPE_MISMATCH, node.getValue(), "Type of value must be a time or timestamp with or without time zone (actual %s)", valueType);
             }
             Type resultType = valueType;
             if (valueType.equals(TIME)) {
@@ -972,7 +989,7 @@ public class ExpressionAnalyzer
                     .collect(toImmutableList());
 
             if (!isVarcharType(arguments.get(0))) {
-                throw new SemanticException(TYPE_MISMATCH, node.getArguments().get(0), "Type of first argument to format() must be VARCHAR (actual: %s)", arguments.get(0));
+                throw semanticException(TYPE_MISMATCH, node.getArguments().get(0), "Type of first argument to format() must be VARCHAR (actual: %s)", arguments.get(0));
             }
 
             for (int i = 1; i < arguments.size(); i++) {
@@ -980,8 +997,8 @@ public class ExpressionAnalyzer
                     FormatFunction.validateType(metadata, arguments.get(i));
                 }
                 catch (PrestoException e) {
-                    if (e.getErrorCode().equals(StandardErrorCode.NOT_SUPPORTED.toErrorCode())) {
-                        throw new SemanticException(NOT_SUPPORTED, node.getArguments().get(i), "%s", e.getMessage());
+                    if (e.getErrorCode().equals(NOT_SUPPORTED.toErrorCode())) {
+                        throw semanticException(NOT_SUPPORTED, node.getArguments().get(i), "%s", e.getRawMessage());
                     }
                     throw e;
                 }
@@ -997,10 +1014,10 @@ public class ExpressionAnalyzer
                 return setExpressionType(node, UNKNOWN);
             }
             if (parameters.size() == 0) {
-                throw new SemanticException(INVALID_PARAMETER_USAGE, node, "query takes no parameters");
+                throw semanticException(INVALID_PARAMETER_USAGE, node, "Query takes no parameters");
             }
             if (node.getPosition() >= parameters.size()) {
-                throw new SemanticException(INVALID_PARAMETER_USAGE, node, "invalid parameter index %s, max value is %s", node.getPosition(), parameters.size() - 1);
+                throw semanticException(INVALID_PARAMETER_USAGE, node, "Invalid parameter index %s, max value is %s", node.getPosition(), parameters.size() - 1);
             }
 
             Type resultType = process(parameters.get(node.getPosition()), context);
@@ -1012,11 +1029,11 @@ public class ExpressionAnalyzer
         {
             Type type = process(node.getExpression(), context);
             if (!isDateTimeType(type)) {
-                throw new SemanticException(TYPE_MISMATCH, node.getExpression(), "Type of argument to extract must be DATE, TIME, TIMESTAMP, or INTERVAL (actual %s)", type);
+                throw semanticException(TYPE_MISMATCH, node.getExpression(), "Type of argument to extract must be DATE, TIME, TIMESTAMP, or INTERVAL (actual %s)", type);
             }
             Extract.Field field = node.getField();
             if ((field == TIMEZONE_HOUR || field == TIMEZONE_MINUTE) && !(type.equals(TIME_WITH_TIME_ZONE) || type.equals(TIMESTAMP_WITH_TIME_ZONE))) {
-                throw new SemanticException(TYPE_MISMATCH, node.getExpression(), "Type of argument to extract time zone field must have a time zone (actual %s)", type);
+                throw semanticException(TYPE_MISMATCH, node.getExpression(), "Type of argument to extract time zone field must have a time zone (actual %s)", type);
             }
 
             return setExpressionType(node, BIGINT);
@@ -1054,11 +1071,11 @@ public class ExpressionAnalyzer
                 type = metadata.getType(parseTypeSignature(node.getType()));
             }
             catch (TypeNotFoundException e) {
-                throw new SemanticException(TYPE_MISMATCH, node, "Unknown type: " + node.getType());
+                throw semanticException(TYPE_MISMATCH, node, "Unknown type: " + node.getType());
             }
 
             if (type.equals(UNKNOWN)) {
-                throw new SemanticException(TYPE_MISMATCH, node, "UNKNOWN is not a valid type");
+                throw semanticException(TYPE_MISMATCH, node, "UNKNOWN is not a valid type");
             }
 
             Type value = process(node.getExpression(), context);
@@ -1067,7 +1084,7 @@ public class ExpressionAnalyzer
                     metadata.getCoercion(value, type);
                 }
                 catch (OperatorNotFoundException e) {
-                    throw new SemanticException(TYPE_MISMATCH, node, "Cannot cast %s to %s", value, type);
+                    throw semanticException(TYPE_MISMATCH, node, "Cannot cast %s to %s", value, type);
                 }
             }
 
@@ -1110,7 +1127,7 @@ public class ExpressionAnalyzer
         protected Type visitSubqueryExpression(SubqueryExpression node, StackableAstVisitorContext<Context> context)
         {
             if (context.getContext().isInLambda()) {
-                throw new SemanticException(NOT_SUPPORTED, node, "Lambda expression cannot contain subqueries");
+                throw semanticException(NOT_SUPPORTED, node, "Lambda expression cannot contain subqueries");
             }
             StatementAnalyzer analyzer = statementAnalyzerFactory.apply(node);
             Scope subqueryScope = Scope.builder()
@@ -1120,7 +1137,7 @@ public class ExpressionAnalyzer
 
             // Subquery should only produce one column
             if (queryScope.getRelationType().getVisibleFieldCount() != 1) {
-                throw new SemanticException(MULTIPLE_FIELDS_FROM_SUBQUERY,
+                throw semanticException(NOT_SUPPORTED,
                         node,
                         "Multiple columns returned by subquery are not yet supported. Found %s",
                         queryScope.getRelationType().getVisibleFieldCount());
@@ -1170,13 +1187,13 @@ public class ExpressionAnalyzer
                 case GREATER_THAN:
                 case GREATER_THAN_OR_EQUAL:
                     if (!comparisonType.isOrderable()) {
-                        throw new SemanticException(TYPE_MISMATCH, node, "Type [%s] must be orderable in order to be used in quantified comparison", comparisonType);
+                        throw semanticException(TYPE_MISMATCH, node, "Type [%s] must be orderable in order to be used in quantified comparison", comparisonType);
                     }
                     break;
                 case EQUAL:
                 case NOT_EQUAL:
                     if (!comparisonType.isComparable()) {
-                        throw new SemanticException(TYPE_MISMATCH, node, "Type [%s] must be comparable in order to be used in quantified comparison", comparisonType);
+                        throw semanticException(TYPE_MISMATCH, node, "Type [%s] must be comparable in order to be used in quantified comparison", comparisonType);
                     }
                     break;
                 default:
@@ -1198,14 +1215,14 @@ public class ExpressionAnalyzer
         {
             verifyNoAggregateWindowOrGroupingFunctions(metadata, node.getBody(), "Lambda expression");
             if (!context.getContext().isExpectingLambda()) {
-                throw new SemanticException(STANDALONE_LAMBDA, node, "Lambda expression should always be used inside a function");
+                throw semanticException(TYPE_MISMATCH, node, "Lambda expression should always be used inside a function");
             }
 
             List<Type> types = context.getContext().getFunctionInputTypes();
             List<LambdaArgumentDeclaration> lambdaArguments = node.getArguments();
 
             if (types.size() != lambdaArguments.size()) {
-                throw new SemanticException(INVALID_PARAMETER_USAGE, node,
+                throw semanticException(INVALID_PARAMETER_USAGE, node,
                         format("Expected a lambda that takes %s argument(s) but got %s", types.size(), lambdaArguments.size()));
             }
 
@@ -1265,20 +1282,20 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitExpression(Expression node, StackableAstVisitorContext<Context> context)
         {
-            throw new SemanticException(NOT_SUPPORTED, node, "not yet implemented: " + node.getClass().getName());
+            throw semanticException(NOT_SUPPORTED, node, "not yet implemented: " + node.getClass().getName());
         }
 
         @Override
         protected Type visitNode(Node node, StackableAstVisitorContext<Context> context)
         {
-            throw new SemanticException(NOT_SUPPORTED, node, "not yet implemented: " + node.getClass().getName());
+            throw semanticException(NOT_SUPPORTED, node, "not yet implemented: " + node.getClass().getName());
         }
 
         @Override
         public Type visitGroupingOperation(GroupingOperation node, StackableAstVisitorContext<Context> context)
         {
             if (node.getGroupingColumns().size() > MAX_NUMBER_GROUPING_ARGUMENTS_BIGINT) {
-                throw new SemanticException(INVALID_PROCEDURE_ARGUMENTS, node, format("GROUPING supports up to %d column arguments", MAX_NUMBER_GROUPING_ARGUMENTS_BIGINT));
+                throw semanticException(TOO_MANY_ARGUMENTS, node, format("GROUPING supports up to %d column arguments", MAX_NUMBER_GROUPING_ARGUMENTS_BIGINT));
             }
 
             for (Expression columnArgument : node.getGroupingColumns()) {
@@ -1305,13 +1322,7 @@ public class ExpressionAnalyzer
                 operatorSignature = metadata.resolveOperator(operatorType, argumentTypes.build());
             }
             catch (OperatorNotFoundException e) {
-                throw new SemanticException(TYPE_MISMATCH, node, "%s", e.getMessage());
-            }
-            catch (PrestoException e) {
-                if (e.getErrorCode().getCode() == StandardErrorCode.AMBIGUOUS_FUNCTION_CALL.toErrorCode().getCode()) {
-                    throw new SemanticException(SemanticErrorCode.AMBIGUOUS_FUNCTION_CALL, node, e.getMessage());
-                }
-                throw e;
+                throw semanticException(TYPE_MISMATCH, node, "%s", e.getMessage());
             }
 
             for (int i = 0; i < arguments.length; i++) {
@@ -1328,7 +1339,7 @@ public class ExpressionAnalyzer
         {
             if (!actualType.equals(expectedType)) {
                 if (!typeCoercion.canCoerce(actualType, expectedType)) {
-                    throw new SemanticException(TYPE_MISMATCH, expression, message + " must evaluate to a %s (actual: %s)", expectedType, actualType);
+                    throw semanticException(TYPE_MISMATCH, expression, message + " must evaluate to a %s (actual: %s)", expectedType, actualType);
                 }
                 addOrReplaceExpressionCoercion(expression, actualType, expectedType);
             }
@@ -1366,7 +1377,7 @@ public class ExpressionAnalyzer
                 return superType;
             }
 
-            throw new SemanticException(TYPE_MISMATCH, node, message, firstType, secondType);
+            throw semanticException(TYPE_MISMATCH, node, message, firstType, secondType);
         }
 
         private Type coerceToSingleType(StackableAstVisitorContext<Context> context, String message, List<Expression> expressions)
@@ -1376,7 +1387,7 @@ public class ExpressionAnalyzer
             for (Expression expression : expressions) {
                 Optional<Type> newSuperType = typeCoercion.getCommonSuperType(superType, process(expression, context));
                 if (!newSuperType.isPresent()) {
-                    throw new SemanticException(TYPE_MISMATCH, expression, message, superType);
+                    throw semanticException(TYPE_MISMATCH, expression, message, superType);
                 }
                 superType = newSuperType.get();
             }
@@ -1386,7 +1397,7 @@ public class ExpressionAnalyzer
                 Type type = process(expression, context);
                 if (!type.equals(superType)) {
                     if (!typeCoercion.canCoerce(type, superType)) {
-                        throw new SemanticException(TYPE_MISMATCH, expression, message, superType);
+                        throw semanticException(TYPE_MISMATCH, expression, message, superType);
                     }
                     addOrReplaceExpressionCoercion(expression, type, superType);
                 }
@@ -1476,22 +1487,6 @@ public class ExpressionAnalyzer
         {
             checkState(isExpectingLambda());
             return functionInputTypes;
-        }
-    }
-
-    public static Signature resolveFunction(FunctionCall node, List<TypeSignatureProvider> argumentTypes, Metadata metadata)
-    {
-        try {
-            return metadata.resolveFunction(node.getName(), argumentTypes);
-        }
-        catch (PrestoException e) {
-            if (e.getErrorCode().getCode() == StandardErrorCode.FUNCTION_NOT_FOUND.toErrorCode().getCode()) {
-                throw new SemanticException(SemanticErrorCode.FUNCTION_NOT_FOUND, node, e.getMessage());
-            }
-            if (e.getErrorCode().getCode() == StandardErrorCode.AMBIGUOUS_FUNCTION_CALL.toErrorCode().getCode()) {
-                throw new SemanticException(SemanticErrorCode.AMBIGUOUS_FUNCTION_CALL, node, e.getMessage());
-            }
-            throw e;
         }
     }
 
@@ -1628,7 +1623,7 @@ public class ExpressionAnalyzer
             Metadata metadata,
             Session session,
             List<Expression> parameters,
-            SemanticErrorCode errorCode,
+            ErrorCodeSupplier errorCode,
             String message,
             WarningCollector warningCollector,
             boolean isDescribe)
@@ -1638,7 +1633,7 @@ public class ExpressionAnalyzer
                 session,
                 TypeProvider.empty(),
                 parameters,
-                node -> new SemanticException(errorCode, node, message),
+                node -> semanticException(errorCode, node, message),
                 warningCollector,
                 isDescribe);
     }

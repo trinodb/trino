@@ -51,7 +51,6 @@ import io.prestosql.spi.eventlistener.QueryOutputMetadata;
 import io.prestosql.spi.eventlistener.QueryStatistics;
 import io.prestosql.spi.eventlistener.StageCpuDistribution;
 import io.prestosql.spi.resourcegroups.ResourceGroupId;
-import io.prestosql.sql.analyzer.SemanticErrorCode;
 import io.prestosql.sql.planner.planprinter.ValuePrinter;
 import io.prestosql.transaction.TransactionId;
 import org.joda.time.DateTime;
@@ -336,7 +335,6 @@ public class QueryMonitor
 
         return Optional.of(new QueryFailureInfo(
                 failureInfo.getErrorCode(),
-                failureInfo.getSemanticErrorCode().map(SemanticErrorCode::name),
                 Optional.ofNullable(failureInfo.getType()),
                 Optional.ofNullable(failureInfo.getMessage()),
                 failedTask.map(task -> task.getTaskStatus().getTaskId().toString()),

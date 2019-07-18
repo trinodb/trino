@@ -23,9 +23,9 @@ import io.prestosql.execution.warnings.WarningCollectorConfig;
 import io.prestosql.matching.Captures;
 import io.prestosql.matching.Pattern;
 import io.prestosql.plugin.tpch.TpchConnectorFactory;
+import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.PrestoWarning;
 import io.prestosql.spi.WarningCode;
-import io.prestosql.sql.analyzer.SemanticException;
 import io.prestosql.sql.planner.LogicalPlanner;
 import io.prestosql.sql.planner.Plan;
 import io.prestosql.sql.planner.RuleStatsRecorder;
@@ -105,7 +105,7 @@ public class TestPlannerWarnings
                 return null;
             });
         }
-        catch (SemanticException e) {
+        catch (PrestoException e) {
             // ignore
         }
         Set<WarningCode> warnings = warningCollector.getWarnings().stream()
