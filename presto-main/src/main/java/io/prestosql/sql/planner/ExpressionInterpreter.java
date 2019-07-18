@@ -44,8 +44,6 @@ import io.prestosql.spi.type.VarcharType;
 import io.prestosql.sql.InterpretedFunctionInvoker;
 import io.prestosql.sql.analyzer.ExpressionAnalyzer;
 import io.prestosql.sql.analyzer.Scope;
-import io.prestosql.sql.analyzer.SemanticErrorCode;
-import io.prestosql.sql.analyzer.SemanticException;
 import io.prestosql.sql.planner.iterative.rule.DesugarCurrentPath;
 import io.prestosql.sql.planner.iterative.rule.DesugarCurrentUser;
 import io.prestosql.sql.tree.ArithmeticBinaryExpression;
@@ -123,6 +121,7 @@ import static io.prestosql.metadata.LiteralFunction.isSupportedLiteralType;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
 import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.prestosql.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static io.prestosql.spi.type.TypeUtils.readNativeValue;
 import static io.prestosql.spi.type.TypeUtils.writeNativeValue;
@@ -130,6 +129,7 @@ import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
 import static io.prestosql.sql.analyzer.ConstantExpressionVerifier.verifyExpressionIsConstant;
 import static io.prestosql.sql.analyzer.ExpressionAnalyzer.createConstantAnalyzer;
+import static io.prestosql.sql.analyzer.SemanticExceptions.semanticException;
 import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.prestosql.sql.gen.VarArgsToMapAdapterGenerator.generateVarArgsToMapAdapter;
 import static io.prestosql.sql.planner.DeterminismEvaluator.isDeterministic;
@@ -180,7 +180,7 @@ public class ExpressionInterpreter
 
         Type actualType = analyzer.getExpressionTypes().get(NodeRef.of(expression));
         if (!new TypeCoercion(metadata::getType).canCoerce(actualType, expectedType)) {
-            throw new SemanticException(SemanticErrorCode.TYPE_MISMATCH, expression, format("Cannot cast type %s to %s",
+            throw semanticException(TYPE_MISMATCH, expression, format("Cannot cast type %s to %s",
                     actualType.getTypeSignature(),
                     expectedType.getTypeSignature()));
         }

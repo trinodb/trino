@@ -60,7 +60,6 @@ import io.prestosql.spi.type.Type;
 import io.prestosql.split.PageSourceProvider;
 import io.prestosql.sql.analyzer.ExpressionAnalysis;
 import io.prestosql.sql.analyzer.FeaturesConfig;
-import io.prestosql.sql.analyzer.SemanticErrorCode;
 import io.prestosql.sql.gen.ExpressionCompiler;
 import io.prestosql.sql.parser.SqlParser;
 import io.prestosql.sql.planner.ExpressionInterpreter;
@@ -134,7 +133,6 @@ import static io.prestosql.sql.relational.SqlToRowExpressionTranslator.translate
 import static io.prestosql.testing.TestingHandles.TEST_TABLE_HANDLE;
 import static io.prestosql.testing.TestingTaskContext.createTaskContext;
 import static io.prestosql.testing.assertions.PrestoExceptionAssert.assertPrestoExceptionThrownBy;
-import static io.prestosql.testing.assertions.SemanticExceptionAssert.assertSemanticExceptionThrownBy;
 import static io.prestosql.type.UnknownType.UNKNOWN;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -332,19 +330,6 @@ public final class FunctionAssertions
     public void assertInvalidFunction(String projection, String message)
     {
         assertInvalidFunction(projection, INVALID_FUNCTION_ARGUMENT, message);
-    }
-
-    public void assertInvalidFunction(String projection, SemanticErrorCode expectedErrorCode)
-    {
-        assertSemanticExceptionThrownBy(() -> evaluateInvalid(projection))
-                .hasErrorCode(expectedErrorCode);
-    }
-
-    public void assertInvalidFunction(String projection, SemanticErrorCode expectedErrorCode, String message)
-    {
-        assertSemanticExceptionThrownBy(() -> evaluateInvalid(projection))
-                .hasErrorCode(expectedErrorCode)
-                .hasMessage(message);
     }
 
     public void assertInvalidFunction(String projection, ErrorCodeSupplier expectedErrorCode)

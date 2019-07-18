@@ -22,7 +22,6 @@ import io.prestosql.spi.type.Decimals;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeNotFoundException;
 import io.prestosql.sql.InterpretedFunctionInvoker;
-import io.prestosql.sql.analyzer.SemanticException;
 import io.prestosql.sql.tree.AstVisitor;
 import io.prestosql.sql.tree.BinaryLiteral;
 import io.prestosql.sql.tree.BooleanLiteral;
@@ -41,10 +40,11 @@ import io.prestosql.sql.tree.TimestampLiteral;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.metadata.FunctionKind.SCALAR;
+import static io.prestosql.spi.StandardErrorCode.INVALID_LITERAL;
+import static io.prestosql.spi.StandardErrorCode.TYPE_NOT_FOUND;
 import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
-import static io.prestosql.sql.analyzer.SemanticErrorCode.INVALID_LITERAL;
-import static io.prestosql.sql.analyzer.SemanticErrorCode.TYPE_MISMATCH;
+import static io.prestosql.sql.analyzer.SemanticExceptions.semanticException;
 import static io.prestosql.type.JsonType.JSON;
 import static io.prestosql.util.DateTimeUtils.parseDayTimeInterval;
 import static io.prestosql.util.DateTimeUtils.parseTimeLiteral;
@@ -131,7 +131,7 @@ public final class LiteralInterpreter
                 type = metadata.getType(parseTypeSignature(node.getType()));
             }
             catch (TypeNotFoundException e) {
-                throw new SemanticException(TYPE_MISMATCH, node, "Unknown type: " + node.getType());
+                throw semanticException(TYPE_NOT_FOUND, node, "Unknown type: " + node.getType());
             }
 
             if (JSON.equals(type)) {
@@ -144,7 +144,7 @@ public final class LiteralInterpreter
                 return functionInvoker.invoke(signature, session, ImmutableList.of(utf8Slice(node.getValue())));
             }
             catch (IllegalArgumentException e) {
-                throw new SemanticException(TYPE_MISMATCH, node, "No literal form for type %s", type);
+                throw semanticException(INVALID_LITERAL, node, "No literal form for type %s", type);
             }
         }
 
@@ -171,7 +171,7 @@ public final class LiteralInterpreter
                 }
             }
             catch (RuntimeException e) {
-                throw new SemanticException(INVALID_LITERAL, node, "'%s' is not a valid timestamp literal", node.getValue());
+                throw semanticException(INVALID_LITERAL, node, "'%s' is not a valid timestamp literal", node.getValue());
             }
         }
 

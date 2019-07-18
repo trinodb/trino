@@ -19,8 +19,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 
-import java.util.Optional;
-
 import static com.google.common.base.MoreObjects.toStringHelper;
 
 @Immutable
@@ -30,7 +28,6 @@ public class QueryError
     private final String sqlState;
     private final int errorCode;
     private final String errorName;
-    private final Optional<String> semanticErrorName;
     private final String errorType;
     private final ErrorLocation errorLocation;
     private final FailureInfo failureInfo;
@@ -41,7 +38,6 @@ public class QueryError
             @JsonProperty("sqlState") String sqlState,
             @JsonProperty("errorCode") int errorCode,
             @JsonProperty("errorName") String errorName,
-            @JsonProperty("semanticErrorName") Optional<String> semanticErrorName,
             @JsonProperty("errorType") String errorType,
             @JsonProperty("errorLocation") ErrorLocation errorLocation,
             @JsonProperty("failureInfo") FailureInfo failureInfo)
@@ -50,7 +46,6 @@ public class QueryError
         this.sqlState = sqlState;
         this.errorCode = errorCode;
         this.errorName = errorName;
-        this.semanticErrorName = semanticErrorName;
         this.errorType = errorType;
         this.errorLocation = errorLocation;
         this.failureInfo = failureInfo;
@@ -82,12 +77,6 @@ public class QueryError
     }
 
     @JsonProperty
-    public Optional<String> getSemanticErrorName()
-    {
-        return semanticErrorName;
-    }
-
-    @JsonProperty
     public String getErrorType()
     {
         return errorType;
@@ -115,7 +104,6 @@ public class QueryError
                 .add("sqlState", sqlState)
                 .add("errorCode", errorCode)
                 .add("errorName", errorName)
-                .add("semanticErrorName", semanticErrorName.orElse(null))
                 .add("errorType", errorType)
                 .add("errorLocation", errorLocation)
                 .add("failureInfo", failureInfo)

@@ -16,7 +16,7 @@ package io.prestosql.sql.planner.optimizations;
 
 import io.prestosql.Session;
 import io.prestosql.execution.warnings.WarningCollector;
-import io.prestosql.sql.analyzer.SemanticException;
+import io.prestosql.spi.PrestoException;
 import io.prestosql.sql.planner.PlanNodeIdAllocator;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.SymbolAllocator;
@@ -55,7 +55,7 @@ public class CheckSubqueryNodesAreRewritten
         return plan;
     }
 
-    private SemanticException error(List<Symbol> correlation, Node originSubquery)
+    private PrestoException error(List<Symbol> correlation, Node originSubquery)
     {
         checkState(!correlation.isEmpty(), "All the non correlated subqueries should be rewritten at this point");
         throw notSupportedException(originSubquery, "Given correlated subquery");

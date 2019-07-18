@@ -30,7 +30,9 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import static com.google.common.base.Strings.repeat;
+import static io.prestosql.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.prestosql.spi.StandardErrorCode.TOO_MANY_ARGUMENTS;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.CharType.createCharType;
@@ -39,8 +41,6 @@ import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
-import static io.prestosql.sql.analyzer.SemanticErrorCode.FUNCTION_NOT_FOUND;
-import static io.prestosql.sql.analyzer.SemanticErrorCode.TOO_MANY_ARGUMENTS;
 import static io.prestosql.util.StructuralTestUtil.mapType;
 import static java.lang.String.format;
 import static java.util.Collections.nCopies;

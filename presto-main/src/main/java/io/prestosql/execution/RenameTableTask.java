@@ -19,7 +19,6 @@ import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.metadata.TableHandle;
 import io.prestosql.security.AccessControl;
-import io.prestosql.sql.analyzer.SemanticException;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.RenameTable;
 import io.prestosql.transaction.TransactionManager;
@@ -29,10 +28,11 @@ import java.util.Optional;
 
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.prestosql.metadata.MetadataUtil.createQualifiedObjectName;
-import static io.prestosql.sql.analyzer.SemanticErrorCode.MISSING_CATALOG;
-import static io.prestosql.sql.analyzer.SemanticErrorCode.MISSING_TABLE;
-import static io.prestosql.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
-import static io.prestosql.sql.analyzer.SemanticErrorCode.TABLE_ALREADY_EXISTS;
+import static io.prestosql.spi.StandardErrorCode.CATALOG_NOT_FOUND;
+import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.prestosql.spi.StandardErrorCode.TABLE_ALREADY_EXISTS;
+import static io.prestosql.spi.StandardErrorCode.TABLE_NOT_FOUND;
+import static io.prestosql.sql.analyzer.SemanticExceptions.semanticException;
 
 public class RenameTableTask
         implements DataDefinitionTask<RenameTable>
@@ -50,18 +50,18 @@ public class RenameTableTask
         QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getSource());
         Optional<TableHandle> tableHandle = metadata.getTableHandle(session, tableName);
         if (!tableHandle.isPresent()) {
-            throw new SemanticException(MISSING_TABLE, statement, "Table '%s' does not exist", tableName);
+            throw semanticException(TABLE_NOT_FOUND, statement, "Table '%s' does not exist", tableName);
         }
 
         QualifiedObjectName target = createQualifiedObjectName(session, statement, statement.getTarget());
         if (!metadata.getCatalogHandle(session, target.getCatalogName()).isPresent()) {
-            throw new SemanticException(MISSING_CATALOG, statement, "Target catalog '%s' does not exist", target.getCatalogName());
+            throw semanticException(CATALOG_NOT_FOUND, statement, "Target catalog '%s' does not exist", target.getCatalogName());
         }
         if (metadata.getTableHandle(session, target).isPresent()) {
-            throw new SemanticException(TABLE_ALREADY_EXISTS, statement, "Target table '%s' already exists", target);
+            throw semanticException(TABLE_ALREADY_EXISTS, statement, "Target table '%s' already exists", target);
         }
         if (!tableName.getCatalogName().equals(target.getCatalogName())) {
-            throw new SemanticException(NOT_SUPPORTED, statement, "Table rename across catalogs is not supported");
+            throw semanticException(NOT_SUPPORTED, statement, "Table rename across catalogs is not supported");
         }
         accessControl.checkCanRenameTable(session.getRequiredTransactionId(), session.getIdentity(), tableName, target);
 

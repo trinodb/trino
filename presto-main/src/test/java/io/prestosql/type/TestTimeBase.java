@@ -19,12 +19,12 @@ import io.prestosql.operator.scalar.FunctionAssertions;
 import io.prestosql.spi.type.SqlTimeWithTimeZone;
 import io.prestosql.spi.type.SqlTimestampWithTimeZone;
 import io.prestosql.spi.type.TimeZoneKey;
-import io.prestosql.sql.analyzer.SemanticErrorCode;
 import io.prestosql.testing.TestingSession;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.testng.annotations.Test;
 
+import static io.prestosql.spi.StandardErrorCode.INVALID_LITERAL;
 import static io.prestosql.spi.function.OperatorType.INDETERMINATE;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.TimeType.TIME;
@@ -59,7 +59,7 @@ public abstract class TestTimeBase
         assertFunction("TIME '03:04:05.321'", TIME, sqlTimeOf(3, 4, 5, 321, session));
         assertFunction("TIME '03:04:05'", TIME, sqlTimeOf(3, 4, 5, 0, session));
         assertFunction("TIME '03:04'", TIME, sqlTimeOf(3, 4, 0, 0, session));
-        assertInvalidFunction("TIME 'text'", SemanticErrorCode.INVALID_LITERAL, "line 1:1: 'text' is not a valid time literal");
+        assertInvalidFunction("TIME 'text'", INVALID_LITERAL, "line 1:1: 'text' is not a valid time literal");
     }
 
     @Test

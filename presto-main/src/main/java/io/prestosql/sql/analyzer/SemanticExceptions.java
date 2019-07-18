@@ -13,39 +13,53 @@
  */
 package io.prestosql.sql.analyzer;
 
+import io.prestosql.spi.ErrorCodeSupplier;
+import io.prestosql.spi.PrestoException;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.Node;
 import io.prestosql.sql.tree.QualifiedName;
 
-import static io.prestosql.sql.analyzer.SemanticErrorCode.AMBIGUOUS_ATTRIBUTE;
-import static io.prestosql.sql.analyzer.SemanticErrorCode.MISSING_ATTRIBUTE;
-import static io.prestosql.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
+import static io.prestosql.spi.StandardErrorCode.AMBIGUOUS_NAME;
+import static io.prestosql.spi.StandardErrorCode.COLUMN_NOT_FOUND;
+import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.prestosql.sql.analyzer.ExpressionTreeUtils.extractLocation;
+import static java.lang.String.format;
 
 public final class SemanticExceptions
 {
     private SemanticExceptions() {}
 
-    public static SemanticException missingAttributeException(Expression node, QualifiedName name)
+    public static PrestoException missingAttributeException(Expression node, QualifiedName name)
     {
-        throw new SemanticException(MISSING_ATTRIBUTE, node, "Column '%s' cannot be resolved", name);
+        throw semanticException(COLUMN_NOT_FOUND, node, "Column '%s' cannot be resolved", name);
     }
 
     /**
      * Use {@link #missingAttributeException(Expression, QualifiedName)} instead.
      */
     @Deprecated
-    public static SemanticException missingAttributeException(Expression node)
+    public static PrestoException missingAttributeException(Expression node)
     {
-        throw new SemanticException(MISSING_ATTRIBUTE, node, "Column '%s' cannot be resolved", node);
+        throw semanticException(COLUMN_NOT_FOUND, node, "Column '%s' cannot be resolved", node);
     }
 
-    public static SemanticException ambiguousAttributeException(Expression node, QualifiedName name)
+    public static PrestoException ambiguousAttributeException(Expression node, QualifiedName name)
     {
-        throw new SemanticException(AMBIGUOUS_ATTRIBUTE, node, "Column '%s' is ambiguous", name);
+        throw semanticException(AMBIGUOUS_NAME, node, "Column '%s' is ambiguous", name);
     }
 
-    public static SemanticException notSupportedException(Node node, String notSupportedFeatureDescription)
+    public static PrestoException notSupportedException(Node node, String notSupportedFeatureDescription)
     {
-        throw new SemanticException(NOT_SUPPORTED, node, notSupportedFeatureDescription + " is not supported");
+        throw semanticException(NOT_SUPPORTED, node, notSupportedFeatureDescription + " is not supported");
+    }
+
+    public static PrestoException semanticException(ErrorCodeSupplier code, Node node, String format, Object... args)
+    {
+        return semanticException(code, node, null, format, args);
+    }
+
+    public static PrestoException semanticException(ErrorCodeSupplier code, Node node, Throwable cause, String format, Object... args)
+    {
+        throw new PrestoException(code, extractLocation(node), format(format, args), cause);
     }
 }

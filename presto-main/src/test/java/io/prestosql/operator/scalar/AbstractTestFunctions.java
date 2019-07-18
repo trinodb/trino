@@ -26,7 +26,6 @@ import io.prestosql.spi.type.Decimals;
 import io.prestosql.spi.type.SqlDecimal;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.analyzer.FeaturesConfig;
-import io.prestosql.sql.analyzer.SemanticErrorCode;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 
@@ -120,16 +119,6 @@ public abstract class AbstractTestFunctions
     protected void assertInvalidFunction(String projection, String message)
     {
         functionAssertions.assertInvalidFunction(projection, INVALID_FUNCTION_ARGUMENT, message);
-    }
-
-    protected void assertInvalidFunction(String projection, SemanticErrorCode expectedErrorCode)
-    {
-        functionAssertions.assertInvalidFunction(projection, expectedErrorCode);
-    }
-
-    protected void assertInvalidFunction(String projection, SemanticErrorCode expectedErrorCode, String message)
-    {
-        functionAssertions.assertInvalidFunction(projection, expectedErrorCode, message);
     }
 
     protected void assertInvalidFunction(String projection, ErrorCodeSupplier expectedErrorCode)

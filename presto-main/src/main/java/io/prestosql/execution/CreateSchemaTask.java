@@ -20,7 +20,6 @@ import io.prestosql.metadata.Metadata;
 import io.prestosql.security.AccessControl;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.CatalogSchemaName;
-import io.prestosql.sql.analyzer.SemanticException;
 import io.prestosql.sql.tree.CreateSchema;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.transaction.TransactionManager;
@@ -32,8 +31,9 @@ import java.util.Optional;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.prestosql.metadata.MetadataUtil.createCatalogSchemaName;
 import static io.prestosql.spi.StandardErrorCode.NOT_FOUND;
+import static io.prestosql.spi.StandardErrorCode.SCHEMA_ALREADY_EXISTS;
 import static io.prestosql.sql.NodeUtils.mapFromProperties;
-import static io.prestosql.sql.analyzer.SemanticErrorCode.SCHEMA_ALREADY_EXISTS;
+import static io.prestosql.sql.analyzer.SemanticExceptions.semanticException;
 
 public class CreateSchemaTask
         implements DataDefinitionTask<CreateSchema>
@@ -62,7 +62,7 @@ public class CreateSchemaTask
 
         if (metadata.schemaExists(session, schema)) {
             if (!statement.isNotExists()) {
-                throw new SemanticException(SCHEMA_ALREADY_EXISTS, statement, "Schema '%s' already exists", schema);
+                throw semanticException(SCHEMA_ALREADY_EXISTS, statement, "Schema '%s' already exists", schema);
             }
             return immediateFuture(null);
         }

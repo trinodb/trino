@@ -39,7 +39,6 @@ import io.prestosql.spi.security.PrestoPrincipal;
 import io.prestosql.spi.security.PrincipalType;
 import io.prestosql.spi.session.PropertyMetadata;
 import io.prestosql.sql.analyzer.QueryExplainer;
-import io.prestosql.sql.analyzer.SemanticException;
 import io.prestosql.sql.parser.ParsingException;
 import io.prestosql.sql.parser.SqlParser;
 import io.prestosql.sql.tree.AllColumns;
@@ -95,8 +94,14 @@ import static io.prestosql.metadata.MetadataListing.listCatalogs;
 import static io.prestosql.metadata.MetadataListing.listSchemas;
 import static io.prestosql.metadata.MetadataUtil.createCatalogSchemaName;
 import static io.prestosql.metadata.MetadataUtil.createQualifiedObjectName;
+import static io.prestosql.spi.StandardErrorCode.CATALOG_NOT_FOUND;
 import static io.prestosql.spi.StandardErrorCode.INVALID_COLUMN_PROPERTY;
 import static io.prestosql.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
+import static io.prestosql.spi.StandardErrorCode.INVALID_VIEW;
+import static io.prestosql.spi.StandardErrorCode.MISSING_CATALOG_NAME;
+import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.prestosql.spi.StandardErrorCode.SCHEMA_NOT_FOUND;
+import static io.prestosql.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static io.prestosql.sql.ExpressionUtils.combineConjuncts;
 import static io.prestosql.sql.ParsingUtil.createParsingOptions;
 import static io.prestosql.sql.QueryUtil.aliased;
@@ -115,12 +120,7 @@ import static io.prestosql.sql.QueryUtil.simpleQuery;
 import static io.prestosql.sql.QueryUtil.singleValueQuery;
 import static io.prestosql.sql.QueryUtil.table;
 import static io.prestosql.sql.SqlFormatter.formatSql;
-import static io.prestosql.sql.analyzer.SemanticErrorCode.CATALOG_NOT_SPECIFIED;
-import static io.prestosql.sql.analyzer.SemanticErrorCode.MISSING_CATALOG;
-import static io.prestosql.sql.analyzer.SemanticErrorCode.MISSING_SCHEMA;
-import static io.prestosql.sql.analyzer.SemanticErrorCode.MISSING_TABLE;
-import static io.prestosql.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
-import static io.prestosql.sql.analyzer.SemanticErrorCode.VIEW_PARSE_ERROR;
+import static io.prestosql.sql.analyzer.SemanticExceptions.semanticException;
 import static io.prestosql.sql.tree.BooleanLiteral.FALSE_LITERAL;
 import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.prestosql.sql.tree.ShowCreate.Type.TABLE;
@@ -185,11 +185,11 @@ final class ShowQueriesRewrite
             accessControl.checkCanShowTablesMetadata(session.getRequiredTransactionId(), session.getIdentity(), schema);
 
             if (!metadata.catalogExists(session, schema.getCatalogName())) {
-                throw new SemanticException(MISSING_CATALOG, showTables, "Catalog '%s' does not exist", schema.getCatalogName());
+                throw semanticException(CATALOG_NOT_FOUND, showTables, "Catalog '%s' does not exist", schema.getCatalogName());
             }
 
             if (!metadata.schemaExists(session, schema)) {
-                throw new SemanticException(MISSING_SCHEMA, showTables, "Schema '%s' does not exist", schema.getSchemaName());
+                throw semanticException(SCHEMA_NOT_FOUND, showTables, "Schema '%s' does not exist", schema.getSchemaName());
             }
 
             Expression predicate = equal(identifier("table_schema"), new StringLiteral(schema.getSchemaName()));
@@ -222,7 +222,7 @@ final class ShowQueriesRewrite
 
                 if (!metadata.getView(session, qualifiedTableName).isPresent() &&
                         !metadata.getTableHandle(session, qualifiedTableName).isPresent()) {
-                    throw new SemanticException(MISSING_TABLE, showGrants, "Table '%s' does not exist", tableName);
+                    throw semanticException(TABLE_NOT_FOUND, showGrants, "Table '%s' does not exist", tableName);
                 }
 
                 catalogName = qualifiedTableName.getCatalogName();
@@ -238,7 +238,7 @@ final class ShowQueriesRewrite
             }
             else {
                 if (catalogName == null) {
-                    throw new SemanticException(CATALOG_NOT_SPECIFIED, showGrants, "Catalog must be specified when session catalog is not set");
+                    throw semanticException(MISSING_CATALOG_NAME, showGrants, "Catalog must be specified when session catalog is not set");
                 }
 
                 Set<String> allowedSchemas = listSchemas(session, metadata, accessControl, catalogName);
@@ -268,7 +268,7 @@ final class ShowQueriesRewrite
         protected Node visitShowRoles(ShowRoles node, Void context)
         {
             if (!node.getCatalog().isPresent() && !session.getCatalog().isPresent()) {
-                throw new SemanticException(CATALOG_NOT_SPECIFIED, node, "Catalog must be specified when session catalog is not set");
+                throw semanticException(MISSING_CATALOG_NAME, node, "Catalog must be specified when session catalog is not set");
             }
 
             String catalog = node.getCatalog().map(c -> c.getValue().toLowerCase(ENGLISH)).orElseGet(() -> session.getCatalog().get());
@@ -291,7 +291,7 @@ final class ShowQueriesRewrite
         protected Node visitShowRoleGrants(ShowRoleGrants node, Void context)
         {
             if (!node.getCatalog().isPresent() && !session.getCatalog().isPresent()) {
-                throw new SemanticException(CATALOG_NOT_SPECIFIED, node, "Catalog must be specified when session catalog is not set");
+                throw semanticException(MISSING_CATALOG_NAME, node, "Catalog must be specified when session catalog is not set");
             }
 
             String catalog = node.getCatalog().map(c -> c.getValue().toLowerCase(ENGLISH)).orElseGet(() -> session.getCatalog().get());
@@ -312,7 +312,7 @@ final class ShowQueriesRewrite
         protected Node visitShowSchemas(ShowSchemas node, Void context)
         {
             if (!node.getCatalog().isPresent() && !session.getCatalog().isPresent()) {
-                throw new SemanticException(CATALOG_NOT_SPECIFIED, node, "Catalog must be specified when session catalog is not set");
+                throw semanticException(MISSING_CATALOG_NAME, node, "Catalog must be specified when session catalog is not set");
             }
 
             String catalog = node.getCatalog().map(Identifier::getValue).orElseGet(() -> session.getCatalog().get());
@@ -361,7 +361,7 @@ final class ShowQueriesRewrite
 
             if (!metadata.getView(session, tableName).isPresent() &&
                     !metadata.getTableHandle(session, tableName).isPresent()) {
-                throw new SemanticException(MISSING_TABLE, showColumns, "Table '%s' does not exist", tableName);
+                throw semanticException(TABLE_NOT_FOUND, showColumns, "Table '%s' does not exist", tableName);
             }
 
             accessControl.checkCanShowColumnsMetadata(session.getRequiredTransactionId(), session.getIdentity(), tableName.asCatalogSchemaTableName());
@@ -423,9 +423,9 @@ final class ShowQueriesRewrite
             if (node.getType() == VIEW) {
                 if (!viewDefinition.isPresent()) {
                     if (metadata.getTableHandle(session, objectName).isPresent()) {
-                        throw new SemanticException(NOT_SUPPORTED, node, "Relation '%s' is a table, not a view", objectName);
+                        throw semanticException(NOT_SUPPORTED, node, "Relation '%s' is a table, not a view", objectName);
                     }
-                    throw new SemanticException(MISSING_TABLE, node, "View '%s' does not exist", objectName);
+                    throw semanticException(TABLE_NOT_FOUND, node, "View '%s' does not exist", objectName);
                 }
 
                 Query query = parseView(viewDefinition.get().getOriginalSql(), objectName, node);
@@ -439,12 +439,12 @@ final class ShowQueriesRewrite
 
             if (node.getType() == TABLE) {
                 if (viewDefinition.isPresent()) {
-                    throw new SemanticException(NOT_SUPPORTED, node, "Relation '%s' is a view, not a table", objectName);
+                    throw semanticException(NOT_SUPPORTED, node, "Relation '%s' is a view, not a table", objectName);
                 }
 
                 Optional<TableHandle> tableHandle = metadata.getTableHandle(session, objectName);
                 if (!tableHandle.isPresent()) {
-                    throw new SemanticException(MISSING_TABLE, node, "Table '%s' does not exist", objectName);
+                    throw semanticException(TABLE_NOT_FOUND, node, "Table '%s' does not exist", objectName);
                 }
 
                 ConnectorTableMetadata connectorTableMetadata = metadata.getTableMetadata(session, tableHandle.get()).getMetadata();
@@ -619,7 +619,7 @@ final class ShowQueriesRewrite
                 return (Query) statement;
             }
             catch (ParsingException e) {
-                throw new SemanticException(VIEW_PARSE_ERROR, node, "Failed parsing stored view '%s': %s", name, e.getMessage());
+                throw semanticException(INVALID_VIEW, node, e, "Failed parsing stored view '%s': %s", name, e.getMessage());
             }
         }
 

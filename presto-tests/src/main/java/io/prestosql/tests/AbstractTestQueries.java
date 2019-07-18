@@ -29,7 +29,6 @@ import io.prestosql.metadata.FunctionListBuilder;
 import io.prestosql.metadata.SqlFunction;
 import io.prestosql.spi.session.PropertyMetadata;
 import io.prestosql.spi.type.SqlTimestampWithTimeZone;
-import io.prestosql.sql.analyzer.SemanticException;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.MaterializedRow;
 import io.prestosql.type.SqlIntervalDayTime;
@@ -58,8 +57,6 @@ import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DecimalType.createDecimalType;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
-import static io.prestosql.sql.analyzer.SemanticErrorCode.INVALID_PARAMETER_USAGE;
-import static io.prestosql.sql.analyzer.SemanticErrorCode.MUST_BE_AGGREGATE_OR_GROUP_BY;
 import static io.prestosql.sql.tree.ExplainType.Type.DISTRIBUTED;
 import static io.prestosql.sql.tree.ExplainType.Type.IO;
 import static io.prestosql.sql.tree.ExplainType.Type.LOGICAL;
@@ -86,7 +83,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
 
 public abstract class AbstractTestQueries
         extends AbstractTestQueryFramework
@@ -4739,20 +4735,15 @@ public abstract class AbstractTestQueries
     @Test
     public void testExecuteWithParametersInGroupBy()
     {
-        try {
-            String query = "SELECT a + ?, count(1) FROM (VALUES 1, 2, 3, 2) t(a) GROUP BY a + ?";
-            Session session = Session.builder(getSession())
-                    .addPreparedStatement("my_query", query)
-                    .build();
-            computeActual(session, "EXECUTE my_query USING 1, 1");
-            fail("parameters in GROUP BY and SELECT should fail");
-        }
-        catch (SemanticException e) {
-            assertEquals(e.getCode(), MUST_BE_AGGREGATE_OR_GROUP_BY);
-        }
-        catch (RuntimeException e) {
-            assertEquals(e.getMessage(), "line 1:10: '(a + ?)' must be an aggregate expression or appear in GROUP BY clause");
-        }
+        String query = "SELECT a + ?, count(1) FROM (VALUES 1, 2, 3, 2) t(a) GROUP BY a + ?";
+        Session session = Session.builder(getSession())
+                .addPreparedStatement("my_query", query)
+                .build();
+
+        assertQueryFails(
+                session,
+                "EXECUTE my_query USING 1, 1",
+                "\\Qline 1:10: '(a + ?)' must be an aggregate expression or appear in GROUP BY clause\\E");
     }
 
     @Test
@@ -4764,16 +4755,9 @@ public abstract class AbstractTestQueries
     @Test
     public void testParametersNonPreparedStatement()
     {
-        try {
-            computeActual("SELECT ?, 1");
-            fail("parameters not in prepared statements should fail");
-        }
-        catch (SemanticException e) {
-            assertEquals(e.getCode(), INVALID_PARAMETER_USAGE);
-        }
-        catch (RuntimeException e) {
-            assertEquals(e.getMessage(), "line 1:1: Incorrect number of parameters: expected 1 but found 0");
-        }
+        assertQueryFails(
+                "SELECT ?, 1",
+                "line 1:1: Incorrect number of parameters: expected 1 but found 0");
     }
 
     @Test

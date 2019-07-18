@@ -26,7 +26,6 @@ import io.prestosql.spi.procedure.Procedure;
 import io.prestosql.spi.procedure.Procedure.Argument;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeNotFoundException;
-import io.prestosql.sql.analyzer.SemanticException;
 import io.prestosql.sql.planner.ParameterRewriter;
 import io.prestosql.sql.tree.Call;
 import io.prestosql.sql.tree.CallArgument;
@@ -47,13 +46,14 @@ import java.util.function.Predicate;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.prestosql.metadata.MetadataUtil.createQualifiedObjectName;
+import static io.prestosql.spi.StandardErrorCode.CATALOG_NOT_FOUND;
+import static io.prestosql.spi.StandardErrorCode.INVALID_ARGUMENTS;
 import static io.prestosql.spi.StandardErrorCode.INVALID_PROCEDURE_ARGUMENT;
 import static io.prestosql.spi.StandardErrorCode.INVALID_PROCEDURE_DEFINITION;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.StandardErrorCode.PROCEDURE_CALL_FAILED;
 import static io.prestosql.spi.type.TypeUtils.writeNativeValue;
-import static io.prestosql.sql.analyzer.SemanticErrorCode.INVALID_PROCEDURE_ARGUMENTS;
-import static io.prestosql.sql.analyzer.SemanticErrorCode.MISSING_CATALOG;
+import static io.prestosql.sql.analyzer.SemanticExceptions.semanticException;
 import static io.prestosql.sql.planner.ExpressionInterpreter.evaluateConstantExpression;
 import static java.util.Arrays.asList;
 
@@ -76,7 +76,7 @@ public class CallTask
         Session session = stateMachine.getSession();
         QualifiedObjectName procedureName = createQualifiedObjectName(session, call, call.getName());
         CatalogName catalogName = metadata.getCatalogHandle(stateMachine.getSession(), procedureName.getCatalogName())
-                .orElseThrow(() -> new SemanticException(MISSING_CATALOG, call, "Catalog %s does not exist", procedureName.getCatalogName()));
+                .orElseThrow(() -> semanticException(CATALOG_NOT_FOUND, call, "Catalog %s does not exist", procedureName.getCatalogName()));
         Procedure procedure = metadata.getProcedureRegistry().resolve(catalogName, procedureName.asSchemaTableName());
 
         // map declared argument names to positions
@@ -90,7 +90,7 @@ public class CallTask
         boolean anyNamed = call.getArguments().stream().anyMatch(hasName);
         boolean allNamed = call.getArguments().stream().allMatch(hasName);
         if (anyNamed && !allNamed) {
-            throw new SemanticException(INVALID_PROCEDURE_ARGUMENTS, call, "Named and positional arguments cannot be mixed");
+            throw semanticException(INVALID_ARGUMENTS, call, "Named and positional arguments cannot be mixed");
         }
 
         // get the argument names in call order
@@ -100,23 +100,23 @@ public class CallTask
             if (argument.getName().isPresent()) {
                 String name = argument.getName().get();
                 if (names.put(name, argument) != null) {
-                    throw new SemanticException(INVALID_PROCEDURE_ARGUMENTS, argument, "Duplicate procedure argument: %s", name);
+                    throw semanticException(INVALID_ARGUMENTS, argument, "Duplicate procedure argument: %s", name);
                 }
                 if (!positions.containsKey(name)) {
-                    throw new SemanticException(INVALID_PROCEDURE_ARGUMENTS, argument, "Unknown argument name: %s", name);
+                    throw semanticException(INVALID_ARGUMENTS, argument, "Unknown argument name: %s", name);
                 }
             }
             else if (i < procedure.getArguments().size()) {
                 names.put(procedure.getArguments().get(i).getName(), argument);
             }
             else {
-                throw new SemanticException(INVALID_PROCEDURE_ARGUMENTS, call, "Too many arguments for procedure");
+                throw semanticException(INVALID_ARGUMENTS, call, "Too many arguments for procedure");
             }
         }
 
         // verify argument count
         if (names.size() < positions.size()) {
-            throw new SemanticException(INVALID_PROCEDURE_ARGUMENTS, call, "Too few arguments for procedure");
+            throw semanticException(INVALID_ARGUMENTS, call, "Too few arguments for procedure");
         }
 
         // get argument values

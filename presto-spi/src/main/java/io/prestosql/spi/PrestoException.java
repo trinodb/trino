@@ -13,10 +13,16 @@
  */
 package io.prestosql.spi;
 
+import java.util.Optional;
+
+import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
+
 public class PrestoException
         extends RuntimeException
 {
     private final ErrorCode errorCode;
+    private final Optional<Location> location;
 
     public PrestoException(ErrorCodeSupplier errorCode, String message)
     {
@@ -28,10 +34,16 @@ public class PrestoException
         this(errorCode, null, throwable);
     }
 
-    public PrestoException(ErrorCodeSupplier errorCodeSupplier, String message, Throwable cause)
+    public PrestoException(ErrorCodeSupplier errorCode, String message, Throwable cause)
+    {
+        this(errorCode, Optional.empty(), message, cause);
+    }
+
+    public PrestoException(ErrorCodeSupplier errorCodeSupplier, Optional<Location> location, String message, Throwable cause)
     {
         super(message, cause);
         this.errorCode = errorCodeSupplier.toErrorCode();
+        this.location = requireNonNull(location, "location is null");
     }
 
     public ErrorCode getErrorCode()
@@ -39,8 +51,22 @@ public class PrestoException
         return errorCode;
     }
 
+    public Optional<Location> getLocation()
+    {
+        return location;
+    }
+
     @Override
     public String getMessage()
+    {
+        String message = getRawMessage();
+        if (location.isPresent()) {
+            message = format("line %s:%s: %s", location.get().getLineNumber(), location.get().getColumnNumber(), message);
+        }
+        return message;
+    }
+
+    public String getRawMessage()
     {
         String message = super.getMessage();
         if (message == null && getCause() != null) {

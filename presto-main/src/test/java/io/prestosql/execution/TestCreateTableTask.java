@@ -32,7 +32,6 @@ import io.prestosql.spi.connector.ConnectorCapabilities;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignature;
-import io.prestosql.sql.analyzer.SemanticException;
 import io.prestosql.sql.tree.ColumnDefinition;
 import io.prestosql.sql.tree.CreateTable;
 import io.prestosql.sql.tree.QualifiedName;
@@ -51,11 +50,13 @@ import static com.google.common.collect.Sets.immutableEnumSet;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.spi.StandardErrorCode.ALREADY_EXISTS;
+import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.connector.ConnectorCapabilities.NOT_NULL_COLUMN_CONSTRAINT;
 import static io.prestosql.spi.session.PropertyMetadata.stringProperty;
 import static io.prestosql.sql.QueryUtil.identifier;
 import static io.prestosql.testing.TestingSession.createBogusTestingCatalog;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
+import static io.prestosql.testing.assertions.PrestoExceptionAssert.assertPrestoExceptionThrownBy;
 import static io.prestosql.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.emptySet;
@@ -159,7 +160,7 @@ public class TestCreateTableTask
         assertFalse(columns.get(2).isNullable());
     }
 
-    @Test(expectedExceptions = SemanticException.class, expectedExceptionsMessageRegExp = ".*does not support non-null column for column name 'b'")
+    @Test
     public void testCreateWithUnsupportedConnectorThrowsWhenNotNull()
     {
         List<TableElement> inputColumns = ImmutableList.of(
@@ -173,7 +174,10 @@ public class TestCreateTableTask
                 ImmutableList.of(),
                 Optional.empty());
 
-        getFutureValue(new CreateTableTask().internalExecute(statement, metadata, new AllowAllAccessControl(), testSession, emptyList()));
+        assertPrestoExceptionThrownBy(() ->
+                getFutureValue(new CreateTableTask().internalExecute(statement, metadata, new AllowAllAccessControl(), testSession, emptyList())))
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("Catalog 'catalog' does not support non-null column for column name 'b'");
     }
 
     private static class MockMetadata

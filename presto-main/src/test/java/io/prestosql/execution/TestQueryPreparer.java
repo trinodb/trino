@@ -21,14 +21,13 @@ import io.prestosql.sql.tree.QualifiedName;
 import org.testng.annotations.Test;
 
 import static io.prestosql.SessionTestUtils.TEST_SESSION;
+import static io.prestosql.spi.StandardErrorCode.INVALID_PARAMETER_USAGE;
 import static io.prestosql.spi.StandardErrorCode.NOT_FOUND;
 import static io.prestosql.sql.QueryUtil.selectList;
 import static io.prestosql.sql.QueryUtil.simpleQuery;
 import static io.prestosql.sql.QueryUtil.table;
-import static io.prestosql.sql.analyzer.SemanticErrorCode.INVALID_PARAMETER_USAGE;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static io.prestosql.testing.assertions.PrestoExceptionAssert.assertPrestoExceptionThrownBy;
-import static io.prestosql.testing.assertions.SemanticExceptionAssert.assertSemanticExceptionThrownBy;
 import static org.testng.Assert.assertEquals;
 
 public class TestQueryPreparer
@@ -68,7 +67,7 @@ public class TestQueryPreparer
         Session session = testSessionBuilder()
                 .addPreparedStatement("my_query", "SELECT * FROM foo where col1 = ?")
                 .build();
-        assertSemanticExceptionThrownBy(() -> QUERY_PREPARER.prepareQuery(session, "EXECUTE my_query USING 1,2"))
+        assertPrestoExceptionThrownBy(() -> QUERY_PREPARER.prepareQuery(session, "EXECUTE my_query USING 1,2"))
                 .hasErrorCode(INVALID_PARAMETER_USAGE);
     }
 
@@ -78,7 +77,7 @@ public class TestQueryPreparer
         Session session = testSessionBuilder()
                 .addPreparedStatement("my_query", "SELECT ? FROM foo where col1 = ?")
                 .build();
-        assertSemanticExceptionThrownBy(() -> QUERY_PREPARER.prepareQuery(session, "EXECUTE my_query USING 1"))
+        assertPrestoExceptionThrownBy(() -> QUERY_PREPARER.prepareQuery(session, "EXECUTE my_query USING 1"))
                 .hasErrorCode(INVALID_PARAMETER_USAGE);
     }
 }

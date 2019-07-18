@@ -48,10 +48,9 @@ import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.prestosql.spi.StandardErrorCode.INCOMPATIBLE_CLIENT;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
-import static io.prestosql.sql.analyzer.SemanticErrorCode.INVALID_TRANSACTION_MODE;
+import static io.prestosql.spi.StandardErrorCode.SYNTAX_ERROR;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static io.prestosql.testing.assertions.PrestoExceptionAssert.assertPrestoExceptionThrownBy;
-import static io.prestosql.testing.assertions.SemanticExceptionAssert.assertSemanticExceptionThrownBy;
 import static io.prestosql.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static java.util.Collections.emptyList;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -168,7 +167,7 @@ public class TestStartTransactionTask
         QueryStateMachine stateMachine = createQueryStateMachine("START TRANSACTION", session, transactionManager);
         assertFalse(stateMachine.getSession().getTransactionId().isPresent());
 
-        assertSemanticExceptionThrownBy(() ->
+        assertPrestoExceptionThrownBy(() ->
                 getFutureValue(new StartTransactionTask().execute(
                         new StartTransaction(ImmutableList.of(new Isolation(Isolation.Level.READ_COMMITTED), new Isolation(Isolation.Level.READ_COMMITTED))),
                         transactionManager,
@@ -176,7 +175,7 @@ public class TestStartTransactionTask
                         new AllowAllAccessControl(),
                         stateMachine,
                         emptyList())))
-                .hasErrorCode(INVALID_TRANSACTION_MODE);
+                .hasErrorCode(SYNTAX_ERROR);
 
         assertTrue(transactionManager.getAllTransactionInfos().isEmpty());
 
@@ -194,7 +193,7 @@ public class TestStartTransactionTask
         QueryStateMachine stateMachine = createQueryStateMachine("START TRANSACTION", session, transactionManager);
         assertFalse(stateMachine.getSession().getTransactionId().isPresent());
 
-        assertSemanticExceptionThrownBy(() ->
+        assertPrestoExceptionThrownBy(() ->
                 getFutureValue(new StartTransactionTask().execute(
                         new StartTransaction(ImmutableList.of(new TransactionAccessMode(true), new TransactionAccessMode(true))),
                         transactionManager,
@@ -202,7 +201,7 @@ public class TestStartTransactionTask
                         new AllowAllAccessControl(),
                         stateMachine,
                         emptyList())))
-                .hasErrorCode(INVALID_TRANSACTION_MODE);
+                .hasErrorCode(SYNTAX_ERROR);
 
         assertTrue(transactionManager.getAllTransactionInfos().isEmpty());
 

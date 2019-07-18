@@ -19,7 +19,6 @@ import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.security.AccessControl;
 import io.prestosql.spi.connector.ConnectorViewDefinition;
-import io.prestosql.sql.analyzer.SemanticException;
 import io.prestosql.sql.tree.DropView;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.transaction.TransactionManager;
@@ -29,7 +28,8 @@ import java.util.Optional;
 
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.prestosql.metadata.MetadataUtil.createQualifiedObjectName;
-import static io.prestosql.sql.analyzer.SemanticErrorCode.MISSING_TABLE;
+import static io.prestosql.spi.StandardErrorCode.TABLE_NOT_FOUND;
+import static io.prestosql.sql.analyzer.SemanticExceptions.semanticException;
 
 public class DropViewTask
         implements DataDefinitionTask<DropView>
@@ -49,7 +49,7 @@ public class DropViewTask
         Optional<ConnectorViewDefinition> view = metadata.getView(session, name);
         if (!view.isPresent()) {
             if (!statement.isExists()) {
-                throw new SemanticException(MISSING_TABLE, statement, "View '%s' does not exist", name);
+                throw semanticException(TABLE_NOT_FOUND, statement, "View '%s' does not exist", name);
             }
             return immediateFuture(null);
         }

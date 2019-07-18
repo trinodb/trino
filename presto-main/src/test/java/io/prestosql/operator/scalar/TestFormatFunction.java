@@ -15,9 +15,9 @@ package io.prestosql.operator.scalar;
 
 import org.testng.annotations.Test;
 
+import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.prestosql.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
-import static io.prestosql.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
-import static io.prestosql.sql.analyzer.SemanticErrorCode.TYPE_MISMATCH;
 
 public class TestFormatFunction
         extends AbstractTestFunctions

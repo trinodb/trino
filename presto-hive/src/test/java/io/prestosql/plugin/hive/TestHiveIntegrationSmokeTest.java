@@ -3511,8 +3511,8 @@ public class TestHiveIntegrationSmokeTest
 
         // Test invalid property
         assertQueryFails(format("ANALYZE %s WITH (error = 1)", tableName), ".*'hive' does not support analyze property 'error'.*");
-        assertQueryFails(format("ANALYZE %s WITH (partitions = 1)", tableName), ".*\\QCannot convert [1] to array(array(varchar))\\E.*");
-        assertQueryFails(format("ANALYZE %s WITH (partitions = NULL)", tableName), ".*Invalid null value for analyze property.*");
+        assertQueryFails(format("ANALYZE %s WITH (partitions = 1)", tableName), "\\QInvalid value for analyze property 'partitions': Cannot convert [1] to array(array(varchar))\\E");
+        assertQueryFails(format("ANALYZE %s WITH (partitions = NULL)", tableName), "\\QInvalid value for analyze property 'partitions': Cannot convert [null] to array(array(varchar))\\E");
         assertQueryFails(format("ANALYZE %s WITH (partitions = ARRAY[NULL])", tableName), ".*Invalid null value in analyze partitions property.*");
 
         // Test non-existed partition

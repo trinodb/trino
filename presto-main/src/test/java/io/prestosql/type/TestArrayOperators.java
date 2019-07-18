@@ -33,7 +33,6 @@ import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.SqlDate;
 import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.Type;
-import io.prestosql.sql.analyzer.SemanticException;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -48,10 +47,13 @@ import java.util.concurrent.TimeUnit;
 import static io.prestosql.SessionTestUtils.TEST_SESSION;
 import static io.prestosql.block.BlockSerdeUtil.writeBlock;
 import static io.prestosql.operator.aggregation.TypedSet.MAX_FUNCTION_MEMORY;
+import static io.prestosql.spi.StandardErrorCode.AMBIGUOUS_FUNCTION_CALL;
 import static io.prestosql.spi.StandardErrorCode.EXCEEDED_FUNCTION_MEMORY_LIMIT;
+import static io.prestosql.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static io.prestosql.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.prestosql.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.prestosql.spi.function.OperatorType.HASH_CODE;
 import static io.prestosql.spi.function.OperatorType.INDETERMINATE;
 import static io.prestosql.spi.type.BigintType.BIGINT;
@@ -66,9 +68,6 @@ import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
-import static io.prestosql.sql.analyzer.SemanticErrorCode.AMBIGUOUS_FUNCTION_CALL;
-import static io.prestosql.sql.analyzer.SemanticErrorCode.FUNCTION_NOT_FOUND;
-import static io.prestosql.sql.analyzer.SemanticErrorCode.TYPE_MISMATCH;
 import static io.prestosql.testing.DateTimeTestingUtils.sqlTimestampOf;
 import static io.prestosql.type.JsonType.JSON;
 import static io.prestosql.type.UnknownType.UNKNOWN;
@@ -85,7 +84,6 @@ import static java.util.Arrays.asList;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.singletonList;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
 public class TestArrayOperators
@@ -689,19 +687,12 @@ public class TestArrayOperators
         String outOfBounds = "Array subscript out of bounds";
         String negativeIndex = "Array subscript is negative";
         String indexIsZero = "SQL array indices start at 1";
-        assertInvalidFunction("ARRAY [][1]", outOfBounds);
-        assertInvalidFunction("ARRAY [null][-1]", negativeIndex);
-        assertInvalidFunction("ARRAY [1, 2, 3][0]", indexIsZero);
-        assertInvalidFunction("ARRAY [1, 2, 3][-1]", negativeIndex);
-        assertInvalidFunction("ARRAY [1, 2, 3][4]", outOfBounds);
-
-        try {
-            assertFunction("ARRAY [1, 2, 3][1.1E0]", BIGINT, null);
-            fail("Access to array with double subscript should fail");
-        }
-        catch (SemanticException e) {
-            assertTrue(e.getCode() == TYPE_MISMATCH);
-        }
+        assertInvalidFunction("ARRAY [][1]", INVALID_FUNCTION_ARGUMENT, outOfBounds);
+        assertInvalidFunction("ARRAY [null][-1]", INVALID_FUNCTION_ARGUMENT, negativeIndex);
+        assertInvalidFunction("ARRAY [1, 2, 3][0]", INVALID_FUNCTION_ARGUMENT, indexIsZero);
+        assertInvalidFunction("ARRAY [1, 2, 3][-1]", INVALID_FUNCTION_ARGUMENT, negativeIndex);
+        assertInvalidFunction("ARRAY [1, 2, 3][4]", INVALID_FUNCTION_ARGUMENT, outOfBounds);
+        assertInvalidFunction("ARRAY [1, 2, 3][1.1E0]", TYPE_MISMATCH, "line 1:1: '[]' cannot be applied to array(integer), double");
 
         assertFunction("ARRAY[NULL][1]", UNKNOWN, null);
         assertFunction("ARRAY[NULL, NULL, NULL][3]", UNKNOWN, null);

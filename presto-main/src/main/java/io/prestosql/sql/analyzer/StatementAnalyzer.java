@@ -152,7 +152,6 @@ import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getLast;
@@ -160,8 +159,35 @@ import static io.prestosql.SystemSessionProperties.getMaxGroupingSets;
 import static io.prestosql.metadata.FunctionKind.AGGREGATE;
 import static io.prestosql.metadata.FunctionKind.WINDOW;
 import static io.prestosql.metadata.MetadataUtil.createQualifiedObjectName;
+import static io.prestosql.spi.StandardErrorCode.AMBIGUOUS_NAME;
+import static io.prestosql.spi.StandardErrorCode.CATALOG_NOT_FOUND;
+import static io.prestosql.spi.StandardErrorCode.COLUMN_NOT_FOUND;
+import static io.prestosql.spi.StandardErrorCode.COLUMN_TYPE_UNKNOWN;
+import static io.prestosql.spi.StandardErrorCode.DUPLICATE_COLUMN_NAME;
+import static io.prestosql.spi.StandardErrorCode.DUPLICATE_NAMED_QUERY;
+import static io.prestosql.spi.StandardErrorCode.DUPLICATE_PROPERTY;
+import static io.prestosql.spi.StandardErrorCode.EXPRESSION_NOT_CONSTANT;
+import static io.prestosql.spi.StandardErrorCode.EXPRESSION_NOT_IN_DISTINCT;
+import static io.prestosql.spi.StandardErrorCode.FUNCTION_NOT_WINDOW;
+import static io.prestosql.spi.StandardErrorCode.INVALID_COLUMN_REFERENCE;
 import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.prestosql.spi.StandardErrorCode.INVALID_VIEW;
+import static io.prestosql.spi.StandardErrorCode.INVALID_WINDOW_FRAME;
+import static io.prestosql.spi.StandardErrorCode.MISMATCHED_COLUMN_ALIASES;
+import static io.prestosql.spi.StandardErrorCode.MISSING_COLUMN_NAME;
+import static io.prestosql.spi.StandardErrorCode.MISSING_GROUP_BY;
+import static io.prestosql.spi.StandardErrorCode.MISSING_ORDER_BY;
+import static io.prestosql.spi.StandardErrorCode.NESTED_WINDOW;
 import static io.prestosql.spi.StandardErrorCode.NOT_FOUND;
+import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.prestosql.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
+import static io.prestosql.spi.StandardErrorCode.SCHEMA_NOT_FOUND;
+import static io.prestosql.spi.StandardErrorCode.TABLE_ALREADY_EXISTS;
+import static io.prestosql.spi.StandardErrorCode.TABLE_NOT_FOUND;
+import static io.prestosql.spi.StandardErrorCode.TOO_MANY_GROUPING_SETS;
+import static io.prestosql.spi.StandardErrorCode.TYPE_MISMATCH;
+import static io.prestosql.spi.StandardErrorCode.VIEW_IS_RECURSIVE;
+import static io.prestosql.spi.StandardErrorCode.VIEW_IS_STALE;
 import static io.prestosql.spi.connector.StandardWarningCode.REDUNDANT_ORDER_BY;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
@@ -176,40 +202,7 @@ import static io.prestosql.sql.analyzer.ExpressionTreeUtils.extractAggregateFunc
 import static io.prestosql.sql.analyzer.ExpressionTreeUtils.extractExpressions;
 import static io.prestosql.sql.analyzer.ExpressionTreeUtils.extractWindowFunctions;
 import static io.prestosql.sql.analyzer.ScopeReferenceExtractor.hasReferencesToScope;
-import static io.prestosql.sql.analyzer.SemanticErrorCode.AMBIGUOUS_ATTRIBUTE;
-import static io.prestosql.sql.analyzer.SemanticErrorCode.COLUMN_NAME_NOT_SPECIFIED;
-import static io.prestosql.sql.analyzer.SemanticErrorCode.COLUMN_TYPE_UNKNOWN;
-import static io.prestosql.sql.analyzer.SemanticErrorCode.DUPLICATE_COLUMN_NAME;
-import static io.prestosql.sql.analyzer.SemanticErrorCode.DUPLICATE_PROPERTY;
-import static io.prestosql.sql.analyzer.SemanticErrorCode.DUPLICATE_RELATION;
-import static io.prestosql.sql.analyzer.SemanticErrorCode.INVALID_FETCH_FIRST_ROW_COUNT;
-import static io.prestosql.sql.analyzer.SemanticErrorCode.INVALID_LIMIT_ROW_COUNT;
-import static io.prestosql.sql.analyzer.SemanticErrorCode.INVALID_OFFSET_ROW_COUNT;
-import static io.prestosql.sql.analyzer.SemanticErrorCode.INVALID_ORDINAL;
-import static io.prestosql.sql.analyzer.SemanticErrorCode.INVALID_PROCEDURE_ARGUMENTS;
-import static io.prestosql.sql.analyzer.SemanticErrorCode.INVALID_WINDOW_FRAME;
-import static io.prestosql.sql.analyzer.SemanticErrorCode.MISMATCHED_COLUMN_ALIASES;
-import static io.prestosql.sql.analyzer.SemanticErrorCode.MISMATCHED_SET_COLUMN_TYPES;
-import static io.prestosql.sql.analyzer.SemanticErrorCode.MISSING_ATTRIBUTE;
-import static io.prestosql.sql.analyzer.SemanticErrorCode.MISSING_CATALOG;
-import static io.prestosql.sql.analyzer.SemanticErrorCode.MISSING_COLUMN;
-import static io.prestosql.sql.analyzer.SemanticErrorCode.MISSING_ORDER_BY;
-import static io.prestosql.sql.analyzer.SemanticErrorCode.MISSING_SCHEMA;
-import static io.prestosql.sql.analyzer.SemanticErrorCode.MISSING_TABLE;
-import static io.prestosql.sql.analyzer.SemanticErrorCode.MUST_BE_WINDOW_FUNCTION;
-import static io.prestosql.sql.analyzer.SemanticErrorCode.NESTED_WINDOW;
-import static io.prestosql.sql.analyzer.SemanticErrorCode.NONDETERMINISTIC_ORDER_BY_EXPRESSION_WITH_SELECT_DISTINCT;
-import static io.prestosql.sql.analyzer.SemanticErrorCode.NON_NUMERIC_SAMPLE_PERCENTAGE;
-import static io.prestosql.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
-import static io.prestosql.sql.analyzer.SemanticErrorCode.ORDER_BY_MUST_BE_IN_SELECT;
-import static io.prestosql.sql.analyzer.SemanticErrorCode.TABLE_ALREADY_EXISTS;
-import static io.prestosql.sql.analyzer.SemanticErrorCode.TOO_MANY_GROUPING_SETS;
-import static io.prestosql.sql.analyzer.SemanticErrorCode.TYPE_MISMATCH;
-import static io.prestosql.sql.analyzer.SemanticErrorCode.VIEW_ANALYSIS_ERROR;
-import static io.prestosql.sql.analyzer.SemanticErrorCode.VIEW_IS_RECURSIVE;
-import static io.prestosql.sql.analyzer.SemanticErrorCode.VIEW_IS_STALE;
-import static io.prestosql.sql.analyzer.SemanticErrorCode.VIEW_PARSE_ERROR;
-import static io.prestosql.sql.analyzer.SemanticErrorCode.WILDCARD_WITHOUT_FROM;
+import static io.prestosql.sql.analyzer.SemanticExceptions.semanticException;
 import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
 import static io.prestosql.sql.planner.DeterminismEvaluator.isDeterministic;
 import static io.prestosql.sql.planner.ExpressionInterpreter.expressionOptimizer;
@@ -301,7 +294,7 @@ class StatementAnalyzer
         @Override
         protected Scope visitUse(Use node, Optional<Scope> scope)
         {
-            throw new SemanticException(NOT_SUPPORTED, node, "USE statement is not supported");
+            throw semanticException(NOT_SUPPORTED, node, "USE statement is not supported");
         }
 
         @Override
@@ -309,7 +302,7 @@ class StatementAnalyzer
         {
             QualifiedObjectName targetTable = createQualifiedObjectName(session, insert, insert.getTarget());
             if (metadata.getView(session, targetTable).isPresent()) {
-                throw new SemanticException(NOT_SUPPORTED, insert, "Inserting into views is not supported");
+                throw semanticException(NOT_SUPPORTED, insert, "Inserting into views is not supported");
             }
 
             // analyze the query that creates the data
@@ -320,7 +313,7 @@ class StatementAnalyzer
             // verify the insert destination columns match the query
             Optional<TableHandle> targetTableHandle = metadata.getTableHandle(session, targetTable);
             if (!targetTableHandle.isPresent()) {
-                throw new SemanticException(MISSING_TABLE, insert, "Table '%s' does not exist", targetTable);
+                throw semanticException(TABLE_NOT_FOUND, insert, "Table '%s' does not exist", targetTable);
             }
             accessControl.checkCanInsertIntoTable(session.getRequiredTransactionId(), session.getIdentity(), targetTable);
 
@@ -340,10 +333,10 @@ class StatementAnalyzer
                 Set<String> columnNames = new HashSet<>();
                 for (String insertColumn : insertColumns) {
                     if (!tableColumns.contains(insertColumn)) {
-                        throw new SemanticException(MISSING_COLUMN, insert, "Insert column name does not exist in target table: %s", insertColumn);
+                        throw semanticException(COLUMN_NOT_FOUND, insert, "Insert column name does not exist in target table: %s", insertColumn);
                     }
                     if (!columnNames.add(insertColumn)) {
-                        throw new SemanticException(DUPLICATE_COLUMN_NAME, insert, "Insert column name is specified more than once: %s", insertColumn);
+                        throw semanticException(DUPLICATE_COLUMN_NAME, insert, "Insert column name is specified more than once: %s", insertColumn);
                     }
                 }
             }
@@ -365,7 +358,7 @@ class StatementAnalyzer
                     .collect(toImmutableList());
 
             if (!typesMatchForInsert(tableTypes, queryTypes)) {
-                throw new SemanticException(MISMATCHED_SET_COLUMN_TYPES, insert, "Insert query has mismatched column types: " +
+                throw semanticException(TYPE_MISMATCH, insert, "Insert query has mismatched column types: " +
                         "Table: [" + Joiner.on(", ").join(tableTypes) + "], " +
                         "Query: [" + Joiner.on(", ").join(queryTypes) + "]");
             }
@@ -394,7 +387,7 @@ class StatementAnalyzer
             Table table = node.getTable();
             QualifiedObjectName tableName = createQualifiedObjectName(session, table, table.getName());
             if (metadata.getView(session, tableName).isPresent()) {
-                throw new SemanticException(NOT_SUPPORTED, node, "Deleting from views is not supported");
+                throw semanticException(NOT_SUPPORTED, node, "Deleting from views is not supported");
             }
 
             // Analyzer checks for select permissions but DELETE has a separate permission, so disable access checks
@@ -425,7 +418,7 @@ class StatementAnalyzer
 
             // verify the target table exists and it's not a view
             if (metadata.getView(session, tableName).isPresent()) {
-                throw new SemanticException(NOT_SUPPORTED, node, "Analyzing views is not supported");
+                throw semanticException(NOT_SUPPORTED, node, "Analyzing views is not supported");
             }
 
             validateProperties(node.getProperties(), scope);
@@ -440,7 +433,7 @@ class StatementAnalyzer
                     metadata,
                     analysis.getParameters());
             TableHandle tableHandle = metadata.getTableHandleForStatisticsCollection(session, tableName, analyzeProperties)
-                    .orElseThrow(() -> (new SemanticException(MISSING_TABLE, node, "Table '%s' does not exist", tableName)));
+                    .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, node, "Table '%s' does not exist", tableName));
 
             // user must have read and insert permission in order to analyze stats of a table
             analysis.addTableColumnReferences(
@@ -475,7 +468,7 @@ class StatementAnalyzer
                     analysis.setCreateTableAsSelectNoOp(true);
                     return createAndAssignScope(node, scope, Field.newUnqualified("rows", BIGINT));
                 }
-                throw new SemanticException(TABLE_ALREADY_EXISTS, node, "Destination table '%s' already exists", targetTable);
+                throw semanticException(TABLE_ALREADY_EXISTS, node, "Destination table '%s' already exists", targetTable);
             }
 
             validateProperties(node.getProperties(), scope);
@@ -497,7 +490,7 @@ class StatementAnalyzer
                 // analzie only column types in subquery if column alias exists
                 for (Field field : queryScope.getRelationType().getVisibleFields()) {
                     if (field.getType().equals(UNKNOWN)) {
-                        throw new SemanticException(COLUMN_TYPE_UNKNOWN, node, "Column type is unknown at position %s", queryScope.getRelationType().indexOf(field) + 1);
+                        throw semanticException(COLUMN_TYPE_UNKNOWN, node, "Column type is unknown at position %s", queryScope.getRelationType().indexOf(field) + 1);
                     }
                 }
             }
@@ -675,7 +668,7 @@ class StatementAnalyzer
             Set<String> propertyNames = new HashSet<>();
             for (Property property : properties) {
                 if (!propertyNames.add(property.getName().getValue())) {
-                    throw new SemanticException(DUPLICATE_PROPERTY, property, "Duplicate property: %s", property.getName().getValue());
+                    throw semanticException(DUPLICATE_PROPERTY, property, "Duplicate property: %s", property.getName().getValue());
                 }
             }
             for (Property property : properties) {
@@ -691,13 +684,13 @@ class StatementAnalyzer
             for (Field field : descriptor.getVisibleFields()) {
                 Optional<String> fieldName = field.getName();
                 if (!fieldName.isPresent()) {
-                    throw new SemanticException(COLUMN_NAME_NOT_SPECIFIED, node, "Column name not specified at position %s", descriptor.indexOf(field) + 1);
+                    throw semanticException(MISSING_COLUMN_NAME, node, "Column name not specified at position %s", descriptor.indexOf(field) + 1);
                 }
                 if (!names.add(fieldName.get())) {
-                    throw new SemanticException(DUPLICATE_COLUMN_NAME, node, "Column name '%s' specified more than once", fieldName.get());
+                    throw semanticException(DUPLICATE_COLUMN_NAME, node, "Column name '%s' specified more than once", fieldName.get());
                 }
                 if (field.getType().equals(UNKNOWN)) {
-                    throw new SemanticException(COLUMN_TYPE_UNKNOWN, node, "Column type is unknown: %s", fieldName.get());
+                    throw semanticException(COLUMN_TYPE_UNKNOWN, node, "Column type is unknown: %s", fieldName.get());
                 }
             }
         }
@@ -705,7 +698,7 @@ class StatementAnalyzer
         private void validateColumnAliases(List<Identifier> columnAliases, int sourceColumnSize)
         {
             if (columnAliases.size() != sourceColumnSize) {
-                throw new SemanticException(
+                throw semanticException(
                         MISMATCHED_COLUMN_ALIASES,
                         columnAliases.get(0),
                         "Column alias list has %s entries but subquery has %s columns",
@@ -715,7 +708,7 @@ class StatementAnalyzer
             Set<String> names = new HashSet<>();
             for (Identifier identifier : columnAliases) {
                 if (names.contains(identifier.getValue().toLowerCase(ENGLISH))) {
-                    throw new SemanticException(DUPLICATE_COLUMN_NAME, identifier, "Column name '%s' specified more than once", identifier.getValue());
+                    throw semanticException(DUPLICATE_COLUMN_NAME, identifier, "Column name '%s' specified more than once", identifier.getValue());
                 }
                 names.add(identifier.getValue().toLowerCase(ENGLISH));
             }
@@ -723,11 +716,10 @@ class StatementAnalyzer
 
         @Override
         protected Scope visitExplain(Explain node, Optional<Scope> scope)
-                throws SemanticException
         {
             checkState(node.isAnalyze(), "Non analyze explain should be rewritten to Query");
             if (node.getOptions().stream().anyMatch(option -> !option.equals(new ExplainType(DISTRIBUTED)))) {
-                throw new SemanticException(NOT_SUPPORTED, node, "EXPLAIN ANALYZE only supports TYPE DISTRIBUTED option");
+                throw semanticException(NOT_SUPPORTED, node, "EXPLAIN ANALYZE only supports TYPE DISTRIBUTED option");
             }
             process(node.getStatement(), scope);
             analysis.setUpdateType(null);
@@ -759,7 +751,7 @@ class StatementAnalyzer
             if (node.getLimit().isPresent()) {
                 boolean requiresOrderBy = analyzeLimit(node.getLimit().get());
                 if (requiresOrderBy && !node.getOrderBy().isPresent()) {
-                    throw new SemanticException(MISSING_ORDER_BY, node.getLimit().get(), "FETCH FIRST WITH TIES clause requires ORDER BY");
+                    throw semanticException(MISSING_ORDER_BY, node.getLimit().get(), "FETCH FIRST WITH TIES clause requires ORDER BY");
                 }
             }
 
@@ -838,12 +830,12 @@ class StatementAnalyzer
             Optional<TableHandle> tableHandle = metadata.getTableHandle(session, name);
             if (!tableHandle.isPresent()) {
                 if (!metadata.getCatalogHandle(session, name.getCatalogName()).isPresent()) {
-                    throw new SemanticException(MISSING_CATALOG, table, "Catalog %s does not exist", name.getCatalogName());
+                    throw semanticException(CATALOG_NOT_FOUND, table, "Catalog %s does not exist", name.getCatalogName());
                 }
                 if (!metadata.schemaExists(session, new CatalogSchemaName(name.getCatalogName(), name.getSchemaName()))) {
-                    throw new SemanticException(MISSING_SCHEMA, table, "Schema %s does not exist", name.getSchemaName());
+                    throw semanticException(SCHEMA_NOT_FOUND, table, "Schema %s does not exist", name.getSchemaName());
                 }
-                throw new SemanticException(MISSING_TABLE, table, "Table %s does not exist", name);
+                throw semanticException(TABLE_NOT_FOUND, table, "Table %s does not exist", name);
             }
             TableMetadata tableMetadata = metadata.getTableMetadata(session, tableHandle.get());
             Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle.get());
@@ -924,11 +916,11 @@ class StatementAnalyzer
                 CreateView viewStatement = (CreateView) statement;
                 QualifiedObjectName viewNameFromStatement = createQualifiedObjectName(session, viewStatement, viewStatement.getName());
                 if (viewStatement.isReplace() && viewNameFromStatement.equals(name)) {
-                    throw new SemanticException(VIEW_IS_RECURSIVE, table, "Statement would create a recursive view");
+                    throw semanticException(VIEW_IS_RECURSIVE, table, "Statement would create a recursive view");
                 }
             }
             if (analysis.hasTableInView(table)) {
-                throw new SemanticException(VIEW_IS_RECURSIVE, table, "View is recursive");
+                throw semanticException(VIEW_IS_RECURSIVE, table, "View is recursive");
             }
 
             Query query = parseView(view.getOriginalSql(), name, table);
@@ -938,7 +930,7 @@ class StatementAnalyzer
             analysis.unregisterTableForView();
 
             if (isViewStale(view.getColumns(), descriptor.getVisibleFields(), name, table)) {
-                throw new SemanticException(VIEW_IS_STALE, table, "View '%s' is stale; it must be re-created", name);
+                throw semanticException(VIEW_IS_STALE, table, "View '%s' is stale; it must be re-created", name);
             }
 
             // Derive the type of the view from the stored definition, not from the analysis of the underlying query.
@@ -970,7 +962,7 @@ class StatementAnalyzer
             if (relation.getColumnNames() != null) {
                 int totalColumns = relationType.getVisibleFieldCount();
                 if (totalColumns != relation.getColumnNames().size()) {
-                    throw new SemanticException(MISMATCHED_COLUMN_ALIASES, relation, "Column alias list has %s entries but '%s' has %s columns available", relation.getColumnNames().size(), relation.getAlias(), totalColumns);
+                    throw semanticException(MISMATCHED_COLUMN_ALIASES, relation, "Column alias list has %s entries but '%s' has %s columns available", relation.getColumnNames().size(), relation.getAlias(), totalColumns);
                 }
             }
 
@@ -990,7 +982,7 @@ class StatementAnalyzer
         protected Scope visitSampledRelation(SampledRelation relation, Optional<Scope> scope)
         {
             if (!SymbolsExtractor.extractNames(relation.getSamplePercentage(), analysis.getColumnReferences()).isEmpty()) {
-                throw new SemanticException(NON_NUMERIC_SAMPLE_PERCENTAGE, relation.getSamplePercentage(), "Sample percentage cannot contain column references");
+                throw semanticException(EXPRESSION_NOT_CONSTANT, relation.getSamplePercentage(), "Sample percentage cannot contain column references");
             }
 
             Map<NodeRef<Expression>, Type> expressionTypes = ExpressionAnalyzer.analyzeExpressions(
@@ -1007,20 +999,20 @@ class StatementAnalyzer
             ExpressionInterpreter samplePercentageEval = expressionOptimizer(relation.getSamplePercentage(), metadata, session, expressionTypes);
 
             Object samplePercentageObject = samplePercentageEval.optimize(symbol -> {
-                throw new SemanticException(NON_NUMERIC_SAMPLE_PERCENTAGE, relation.getSamplePercentage(), "Sample percentage cannot contain column references");
+                throw semanticException(EXPRESSION_NOT_CONSTANT, relation.getSamplePercentage(), "Sample percentage cannot contain column references");
             });
 
             if (!(samplePercentageObject instanceof Number)) {
-                throw new SemanticException(NON_NUMERIC_SAMPLE_PERCENTAGE, relation.getSamplePercentage(), "Sample percentage should evaluate to a numeric expression");
+                throw semanticException(TYPE_MISMATCH, relation.getSamplePercentage(), "Sample percentage should evaluate to a numeric expression");
             }
 
             double samplePercentageValue = ((Number) samplePercentageObject).doubleValue();
 
             if (samplePercentageValue < 0.0) {
-                throw new SemanticException(SemanticErrorCode.SAMPLE_PERCENTAGE_OUT_OF_RANGE, relation.getSamplePercentage(), "Sample percentage must be greater than or equal to 0");
+                throw semanticException(NUMERIC_VALUE_OUT_OF_RANGE, relation.getSamplePercentage(), "Sample percentage must be greater than or equal to 0");
             }
             if ((samplePercentageValue > 100.0)) {
-                throw new SemanticException(SemanticErrorCode.SAMPLE_PERCENTAGE_OUT_OF_RANGE, relation.getSamplePercentage(), "Sample percentage must be less than or equal to 100");
+                throw semanticException(NUMERIC_VALUE_OUT_OF_RANGE, relation.getSamplePercentage(), "Sample percentage must be less than or equal to 100");
             }
 
             analysis.setSampleRatio(relation, samplePercentageValue / 100);
@@ -1079,7 +1071,7 @@ class StatementAnalyzer
             if (node.getLimit().isPresent()) {
                 boolean requiresOrderBy = analyzeLimit(node.getLimit().get());
                 if (requiresOrderBy && !node.getOrderBy().isPresent()) {
-                    throw new SemanticException(MISSING_ORDER_BY, node.getLimit().get(), "FETCH FIRST WITH TIES clause requires ORDER BY");
+                    throw semanticException(MISSING_ORDER_BY, node.getLimit().get(), "FETCH FIRST WITH TIES clause requires ORDER BY");
                 }
             }
 
@@ -1125,8 +1117,8 @@ class StatementAnalyzer
                 int descFieldSize = relationType.getVisibleFields().size();
                 String setOperationName = node.getClass().getSimpleName().toUpperCase(ENGLISH);
                 if (outputFieldSize != descFieldSize) {
-                    throw new SemanticException(
-                            MISMATCHED_SET_COLUMN_TYPES,
+                    throw semanticException(
+                            TYPE_MISMATCH,
                             node,
                             "%s query has different number of fields: %d, %d",
                             setOperationName,
@@ -1137,7 +1129,7 @@ class StatementAnalyzer
                     Type descFieldType = relationType.getFieldByIndex(i).getType();
                     Optional<Type> commonSuperType = typeCoercion.getCommonSuperType(outputFieldTypes[i], descFieldType);
                     if (!commonSuperType.isPresent()) {
-                        throw new SemanticException(
+                        throw semanticException(
                                 TYPE_MISMATCH,
                                 node,
                                 "column %d in %s query has incompatible types: %s, %s",
@@ -1184,7 +1176,7 @@ class StatementAnalyzer
         protected Scope visitIntersect(Intersect node, Optional<Scope> scope)
         {
             if (!node.isDistinct()) {
-                throw new SemanticException(NOT_SUPPORTED, node, "INTERSECT ALL not yet implemented");
+                throw semanticException(NOT_SUPPORTED, node, "INTERSECT ALL not yet implemented");
             }
 
             return visitSetOperation(node, scope);
@@ -1194,7 +1186,7 @@ class StatementAnalyzer
         protected Scope visitExcept(Except node, Optional<Scope> scope)
         {
             if (!node.isDistinct()) {
-                throw new SemanticException(NOT_SUPPORTED, node, "EXCEPT ALL not yet implemented");
+                throw semanticException(NOT_SUPPORTED, node, "EXCEPT ALL not yet implemented");
             }
 
             return visitSetOperation(node, scope);
@@ -1205,7 +1197,7 @@ class StatementAnalyzer
         {
             JoinCriteria criteria = node.getCriteria().orElse(null);
             if (criteria instanceof NaturalJoin) {
-                throw new SemanticException(NOT_SUPPORTED, node, "Natural join not supported");
+                throw semanticException(NOT_SUPPORTED, node, "Natural join not supported");
             }
 
             Scope left = process(node.getLeft(), scope);
@@ -1228,7 +1220,7 @@ class StatementAnalyzer
                 Type clauseType = expressionAnalysis.getType(expression);
                 if (!clauseType.equals(BOOLEAN)) {
                     if (!clauseType.equals(UNKNOWN)) {
-                        throw new SemanticException(TYPE_MISMATCH, expression, "JOIN ON clause must evaluate to a boolean: actual type %s", clauseType);
+                        throw semanticException(TYPE_MISMATCH, expression, "JOIN ON clause must evaluate to a boolean: actual type %s", clauseType);
                     }
                     // coerce null to boolean
                     analysis.addCoercion(expression, BOOLEAN, false);
@@ -1256,17 +1248,17 @@ class StatementAnalyzer
             Set<Identifier> seen = new HashSet<>();
             for (Identifier column : columns) {
                 if (!seen.add(column)) {
-                    throw new SemanticException(DUPLICATE_COLUMN_NAME, column, "Column '%s' appears multiple times in USING clause", column.getValue());
+                    throw semanticException(DUPLICATE_COLUMN_NAME, column, "Column '%s' appears multiple times in USING clause", column.getValue());
                 }
 
                 Optional<ResolvedField> leftField = left.tryResolveField(column);
                 Optional<ResolvedField> rightField = right.tryResolveField(column);
 
                 if (!leftField.isPresent()) {
-                    throw new SemanticException(MISSING_ATTRIBUTE, column, "Column '%s' is missing from left side of join", column.getValue());
+                    throw semanticException(COLUMN_NOT_FOUND, column, "Column '%s' is missing from left side of join", column.getValue());
                 }
                 if (!rightField.isPresent()) {
-                    throw new SemanticException(MISSING_ATTRIBUTE, column, "Column '%s' is missing from right side of join", column.getValue());
+                    throw semanticException(COLUMN_NOT_FOUND, column, "Column '%s' is missing from right side of join", column.getValue());
                 }
 
                 // ensure a comparison operator exists for the given types (applying coercions if necessary)
@@ -1275,7 +1267,7 @@ class StatementAnalyzer
                             leftField.get().getType(), rightField.get().getType()));
                 }
                 catch (OperatorNotFoundException e) {
-                    throw new SemanticException(TYPE_MISMATCH, column, "%s", e.getMessage());
+                    throw semanticException(TYPE_MISMATCH, column, "%s", e.getMessage());
                 }
 
                 Optional<Type> type = typeCoercion.getCommonSuperType(leftField.get().getType(), rightField.get().getType());
@@ -1339,7 +1331,7 @@ class StatementAnalyzer
             for (List<Type> rowType : rowTypes) {
                 // check field count consistency for rows
                 if (rowType.size() != fieldTypes.size()) {
-                    throw new SemanticException(MISMATCHED_SET_COLUMN_TYPES,
+                    throw semanticException(TYPE_MISMATCH,
                             node,
                             "Values rows have mismatched types: %s vs %s",
                             rowTypes.get(0),
@@ -1352,7 +1344,7 @@ class StatementAnalyzer
 
                     Optional<Type> commonSuperType = typeCoercion.getCommonSuperType(fieldType, superType);
                     if (!commonSuperType.isPresent()) {
-                        throw new SemanticException(MISMATCHED_SET_COLUMN_TYPES,
+                        throw semanticException(TYPE_MISMATCH,
                                 node,
                                 "Values rows have mismatched types: %s vs %s",
                                 rowTypes.get(0),
@@ -1410,11 +1402,11 @@ class StatementAnalyzer
             for (FunctionCall windowFunction : windowFunctions) {
                 // filter with window function is not supported yet
                 if (windowFunction.getFilter().isPresent()) {
-                    throw new SemanticException(NOT_SUPPORTED, node, "FILTER is not yet supported for window functions");
+                    throw semanticException(NOT_SUPPORTED, node, "FILTER is not yet supported for window functions");
                 }
 
                 if (windowFunction.getOrderBy().isPresent()) {
-                    throw new SemanticException(NOT_SUPPORTED, windowFunction, "Window function with ORDER BY is not supported");
+                    throw semanticException(NOT_SUPPORTED, windowFunction, "Window function with ORDER BY is not supported");
                 }
 
                 Window window = windowFunction.getWindow().get();
@@ -1428,13 +1420,13 @@ class StatementAnalyzer
                 List<FunctionCall> nestedWindowFunctions = extractWindowFunctions(toExtract.build());
 
                 if (!nestedWindowFunctions.isEmpty()) {
-                    throw new SemanticException(NESTED_WINDOW, node, "Cannot nest window functions inside window function '%s': %s",
+                    throw semanticException(NESTED_WINDOW, node, "Cannot nest window functions inside window function '%s': %s",
                             windowFunction,
                             windowFunctions);
                 }
 
                 if (windowFunction.isDistinct()) {
-                    throw new SemanticException(NOT_SUPPORTED, node, "DISTINCT in window function parameters not yet supported: %s", windowFunction);
+                    throw semanticException(NOT_SUPPORTED, node, "DISTINCT in window function parameters not yet supported: %s", windowFunction);
                 }
 
                 if (window.getFrame().isPresent()) {
@@ -1445,7 +1437,7 @@ class StatementAnalyzer
 
                 FunctionKind kind = metadata.resolveFunction(windowFunction.getName(), fromTypeSignatures(argumentTypes)).getKind();
                 if (kind != AGGREGATE && kind != WINDOW) {
-                    throw new SemanticException(MUST_BE_WINDOW_FUNCTION, node, "Not a window function: %s", windowFunction.getName());
+                    throw semanticException(FUNCTION_NOT_WINDOW, node, "Not a window function: %s", windowFunction.getName());
                 }
             }
 
@@ -1458,25 +1450,25 @@ class StatementAnalyzer
             FrameBound.Type endType = frame.getEnd().orElse(new FrameBound(CURRENT_ROW)).getType();
 
             if (startType == UNBOUNDED_FOLLOWING) {
-                throw new SemanticException(INVALID_WINDOW_FRAME, frame, "Window frame start cannot be UNBOUNDED FOLLOWING");
+                throw semanticException(INVALID_WINDOW_FRAME, frame, "Window frame start cannot be UNBOUNDED FOLLOWING");
             }
             if (endType == UNBOUNDED_PRECEDING) {
-                throw new SemanticException(INVALID_WINDOW_FRAME, frame, "Window frame end cannot be UNBOUNDED PRECEDING");
+                throw semanticException(INVALID_WINDOW_FRAME, frame, "Window frame end cannot be UNBOUNDED PRECEDING");
             }
             if ((startType == CURRENT_ROW) && (endType == PRECEDING)) {
-                throw new SemanticException(INVALID_WINDOW_FRAME, frame, "Window frame starting from CURRENT ROW cannot end with PRECEDING");
+                throw semanticException(INVALID_WINDOW_FRAME, frame, "Window frame starting from CURRENT ROW cannot end with PRECEDING");
             }
             if ((startType == FOLLOWING) && (endType == PRECEDING)) {
-                throw new SemanticException(INVALID_WINDOW_FRAME, frame, "Window frame starting from FOLLOWING cannot end with PRECEDING");
+                throw semanticException(INVALID_WINDOW_FRAME, frame, "Window frame starting from FOLLOWING cannot end with PRECEDING");
             }
             if ((startType == FOLLOWING) && (endType == CURRENT_ROW)) {
-                throw new SemanticException(INVALID_WINDOW_FRAME, frame, "Window frame starting from FOLLOWING cannot end with CURRENT ROW");
+                throw semanticException(INVALID_WINDOW_FRAME, frame, "Window frame starting from FOLLOWING cannot end with CURRENT ROW");
             }
             if ((frame.getType() == RANGE) && ((startType == PRECEDING) || (endType == PRECEDING))) {
-                throw new SemanticException(INVALID_WINDOW_FRAME, frame, "Window frame RANGE PRECEDING is only supported with UNBOUNDED");
+                throw semanticException(INVALID_WINDOW_FRAME, frame, "Window frame RANGE PRECEDING is only supported with UNBOUNDED");
             }
             if ((frame.getType() == RANGE) && ((startType == FOLLOWING) || (endType == FOLLOWING))) {
-                throw new SemanticException(INVALID_WINDOW_FRAME, frame, "Window frame RANGE FOLLOWING is only supported with UNBOUNDED");
+                throw semanticException(INVALID_WINDOW_FRAME, frame, "Window frame RANGE FOLLOWING is only supported with UNBOUNDED");
             }
         }
 
@@ -1490,14 +1482,14 @@ class StatementAnalyzer
                 expressionAnalysis.getWindowFunctions().stream()
                         .findFirst()
                         .ifPresent(function -> {
-                            throw new SemanticException(NESTED_WINDOW, function.getNode(), "HAVING clause cannot contain window functions");
+                            throw semanticException(NESTED_WINDOW, function.getNode(), "HAVING clause cannot contain window functions");
                         });
 
                 analysis.recordSubqueries(node, expressionAnalysis);
 
                 Type predicateType = expressionAnalysis.getType(predicate);
                 if (!predicateType.equals(BOOLEAN) && !predicateType.equals(UNKNOWN)) {
-                    throw new SemanticException(TYPE_MISMATCH, predicate, "HAVING clause must evaluate to a boolean: actual type %s", predicateType);
+                    throw semanticException(TYPE_MISMATCH, predicate, "HAVING clause must evaluate to a boolean: actual type %s", predicateType);
                 }
 
                 analysis.setHaving(node, predicate);
@@ -1542,7 +1534,7 @@ class StatementAnalyzer
                 Set<Expression> expressions = ImmutableSet.copyOf(assignments.get(name));
 
                 if (expressions.size() > 1) {
-                    throw new SemanticException(AMBIGUOUS_ATTRIBUTE, reference, "'%s' in ORDER BY is ambiguous", name);
+                    throw semanticException(AMBIGUOUS_NAME, reference, "'%s' in ORDER BY is ambiguous", name);
                 }
 
                 if (expressions.size() == 1) {
@@ -1583,11 +1575,11 @@ class StatementAnalyzer
                     crossProduct = Math.multiplyExact(crossProduct, product);
                 }
                 catch (ArithmeticException e) {
-                    throw new SemanticException(TOO_MANY_GROUPING_SETS, node,
+                    throw semanticException(TOO_MANY_GROUPING_SETS, node,
                             "GROUP BY has more than %s grouping sets but can contain at most %s", Integer.MAX_VALUE, getMaxGroupingSets(session));
                 }
                 if (crossProduct > getMaxGroupingSets(session)) {
-                    throw new SemanticException(TOO_MANY_GROUPING_SETS, node,
+                    throw semanticException(TOO_MANY_GROUPING_SETS, node,
                             "GROUP BY has %s grouping sets but can contain at most %s", crossProduct, getMaxGroupingSets(session));
                 }
             }
@@ -1610,7 +1602,7 @@ class StatementAnalyzer
                             if (column instanceof LongLiteral) {
                                 long ordinal = ((LongLiteral) column).getValue();
                                 if (ordinal < 1 || ordinal > outputExpressions.size()) {
-                                    throw new SemanticException(INVALID_ORDINAL, column, "GROUP BY position %s is not in select list", ordinal);
+                                    throw semanticException(INVALID_COLUMN_REFERENCE, column, "GROUP BY position %s is not in select list", ordinal);
                                 }
 
                                 column = outputExpressions.get(toIntExact(ordinal - 1));
@@ -1636,7 +1628,7 @@ class StatementAnalyzer
                         for (Expression column : groupingElement.getExpressions()) {
                             analyzeExpression(column, scope);
                             if (!analysis.getColumnReferences().contains(NodeRef.of(column))) {
-                                throw new SemanticException(SemanticErrorCode.MUST_BE_COLUMN_REFERENCE, column, "GROUP BY expression must be a column reference: %s", column);
+                                throw semanticException(INVALID_COLUMN_REFERENCE, column, "GROUP BY expression must be a column reference: %s", column);
                             }
 
                             groupingExpressions.add(column);
@@ -1675,7 +1667,7 @@ class StatementAnalyzer
                 for (Expression expression : expressions) {
                     Type type = analysis.getType(expression);
                     if (!type.isComparable()) {
-                        throw new SemanticException(TYPE_MISMATCH, node, "%s is not comparable, and therefore cannot be used in GROUP BY", type);
+                        throw semanticException(TYPE_MISMATCH, node, "%s is not comparable, and therefore cannot be used in GROUP BY", type);
                     }
                 }
 
@@ -1849,12 +1841,12 @@ class StatementAnalyzer
             List<Field> fields = relationType.resolveFieldsWithPrefix(starPrefix);
             if (fields.isEmpty()) {
                 if (starPrefix.isPresent()) {
-                    throw new SemanticException(MISSING_TABLE, allColumns, "Table '%s' not found", starPrefix.get());
+                    throw semanticException(TABLE_NOT_FOUND, allColumns, "Table '%s' not found", starPrefix.get());
                 }
                 if (!node.getFrom().isPresent()) {
-                    throw new SemanticException(WILDCARD_WITHOUT_FROM, allColumns, "SELECT * not allowed in queries without FROM clause");
+                    throw semanticException(COLUMN_NOT_FOUND, allColumns, "SELECT * not allowed in queries without FROM clause");
                 }
-                throw new SemanticException(COLUMN_NAME_NOT_SPECIFIED, allColumns, "SELECT * not allowed from relation that has no columns");
+                throw semanticException(COLUMN_NOT_FOUND, allColumns, "SELECT * not allowed from relation that has no columns");
             }
 
             for (Field field : fields) {
@@ -1865,7 +1857,7 @@ class StatementAnalyzer
 
                 Type type = expressionAnalysis.getType(expression);
                 if (node.getSelect().isDistinct() && !type.isComparable()) {
-                    throw new SemanticException(TYPE_MISMATCH, node.getSelect(), "DISTINCT can only be applied to comparable types (actual: %s)", type);
+                    throw semanticException(TYPE_MISMATCH, node.getSelect(), "DISTINCT can only be applied to comparable types (actual: %s)", type);
                 }
             }
         }
@@ -1882,7 +1874,7 @@ class StatementAnalyzer
 
             Type type = expressionAnalysis.getType(singleColumn.getExpression());
             if (node.getSelect().isDistinct() && !type.isComparable()) {
-                throw new SemanticException(
+                throw semanticException(
                         TYPE_MISMATCH, node.getSelect(),
                         "DISTINCT can only be applied to comparable types (actual: %s): %s",
                         type,
@@ -1900,7 +1892,7 @@ class StatementAnalyzer
             Type predicateType = expressionAnalysis.getType(predicate);
             if (!predicateType.equals(BOOLEAN)) {
                 if (!predicateType.equals(UNKNOWN)) {
-                    throw new SemanticException(TYPE_MISMATCH, predicate, "WHERE clause must evaluate to a boolean: actual type %s", predicateType);
+                    throw semanticException(TYPE_MISMATCH, predicate, "WHERE clause must evaluate to a boolean: actual type %s", predicateType);
                 }
                 // coerce null to boolean
                 analysis.addCoercion(predicate, BOOLEAN, false);
@@ -1924,8 +1916,8 @@ class StatementAnalyzer
             boolean isGroupingOperationPresent = !groupingOperations.isEmpty();
 
             if (isGroupingOperationPresent && !node.getGroupBy().isPresent()) {
-                throw new SemanticException(
-                        INVALID_PROCEDURE_ARGUMENTS,
+                throw semanticException(
+                        MISSING_GROUP_BY,
                         node,
                         "A GROUPING() operation can only be used with a corresponding GROUPING SET/CUBE/ROLLUP/GROUP BY clause");
             }
@@ -2001,8 +1993,7 @@ class StatementAnalyzer
                 return queryScope.getRelationType().withAlias(name.getObjectName(), null);
             }
             catch (RuntimeException e) {
-                throwIfInstanceOf(e, PrestoException.class);
-                throw new SemanticException(VIEW_ANALYSIS_ERROR, node, "Failed analyzing stored view '%s': %s", name, e.getMessage());
+                throw semanticException(INVALID_VIEW, node, e, "Failed analyzing stored view '%s': %s", name, e.getMessage());
             }
         }
 
@@ -2012,7 +2003,7 @@ class StatementAnalyzer
                 return (Query) sqlParser.createStatement(view, createParsingOptions(session));
             }
             catch (ParsingException e) {
-                throw new SemanticException(VIEW_PARSE_ERROR, node, "Failed parsing stored view '%s': %s", name, e.getMessage());
+                throw semanticException(INVALID_VIEW, node, e, "Failed parsing stored view '%s': %s", name, e.getMessage());
             }
         }
 
@@ -2042,7 +2033,7 @@ class StatementAnalyzer
                 return metadata.getType(column.getType());
             }
             catch (TypeNotFoundException e) {
-                throw new SemanticException(VIEW_ANALYSIS_ERROR, node, "Unknown type '%s' for column '%s' in view: %s", column.getType(), column.getName(), name);
+                throw semanticException(INVALID_VIEW, node, e, "Unknown type '%s' for column '%s' in view: %s", column.getType(), column.getName(), name);
             }
         }
 
@@ -2078,7 +2069,7 @@ class StatementAnalyzer
             }
             With with = node.getWith().get();
             if (with.isRecursive()) {
-                throw new SemanticException(NOT_SUPPORTED, with, "Recursive WITH queries are not supported");
+                throw semanticException(NOT_SUPPORTED, with, "Recursive WITH queries are not supported");
             }
 
             Scope.Builder withScopeBuilder = scopeBuilder(scope);
@@ -2088,7 +2079,7 @@ class StatementAnalyzer
 
                 String name = withQuery.getName().getValue().toLowerCase(ENGLISH);
                 if (withScopeBuilder.containsNamedQuery(name)) {
-                    throw new SemanticException(DUPLICATE_RELATION, withQuery, "WITH query name '%s' specified more than once", name);
+                    throw semanticException(DUPLICATE_NAMED_QUERY, withQuery, "WITH query name '%s' specified more than once", name);
                 }
 
                 // check if all or none of the columns are explicitly alias
@@ -2096,7 +2087,7 @@ class StatementAnalyzer
                     List<Identifier> columnNames = withQuery.getColumnNames().get();
                     RelationType queryDescriptor = analysis.getOutputDescriptor(query);
                     if (columnNames.size() != queryDescriptor.getVisibleFieldCount()) {
-                        throw new SemanticException(MISMATCHED_COLUMN_ALIASES, withQuery, "WITH column alias list has %s entries but WITH query(%s) has %s columns", columnNames.size(), name, queryDescriptor.getVisibleFieldCount());
+                        throw semanticException(MISMATCHED_COLUMN_ALIASES, withQuery, "WITH column alias list has %s entries but WITH query(%s) has %s columns", columnNames.size(), name, queryDescriptor.getVisibleFieldCount());
                     }
                 }
 
@@ -2120,11 +2111,11 @@ class StatementAnalyzer
                 Expression rewrittenOrderByExpression = ExpressionTreeRewriter.rewriteWith(new OrderByExpressionRewriter(extractNamedOutputExpressions(node.getSelect())), expression);
                 int index = outputExpressions.indexOf(rewrittenOrderByExpression);
                 if (index == -1) {
-                    throw new SemanticException(ORDER_BY_MUST_BE_IN_SELECT, node.getSelect(), "For SELECT DISTINCT, ORDER BY expressions must appear in select list");
+                    throw semanticException(EXPRESSION_NOT_IN_DISTINCT, node.getSelect(), "For SELECT DISTINCT, ORDER BY expressions must appear in select list");
                 }
 
                 if (!isDeterministic(expression)) {
-                    throw new SemanticException(NONDETERMINISTIC_ORDER_BY_EXPRESSION_WITH_SELECT_DISTINCT, expression, "Non deterministic ORDER BY expression is not supported with SELECT DISTINCT");
+                    throw semanticException(EXPRESSION_NOT_IN_DISTINCT, expression, "Non deterministic ORDER BY expression is not supported with SELECT DISTINCT");
                 }
             }
         }
@@ -2141,7 +2132,7 @@ class StatementAnalyzer
 
                     long ordinal = ((LongLiteral) expression).getValue();
                     if (ordinal < 1 || ordinal > orderByScope.getRelationType().getVisibleFieldCount()) {
-                        throw new SemanticException(INVALID_ORDINAL, expression, "ORDER BY position %s is not in select list", ordinal);
+                        throw semanticException(INVALID_COLUMN_REFERENCE, expression, "ORDER BY position %s is not in select list", ordinal);
                     }
 
                     expression = new FieldReference(toIntExact(ordinal - 1));
@@ -2159,7 +2150,7 @@ class StatementAnalyzer
 
                 Type type = analysis.getType(expression);
                 if (!type.isOrderable()) {
-                    throw new SemanticException(TYPE_MISMATCH, node, "Type %s is not orderable, and therefore cannot be used in ORDER BY: %s", type, expression);
+                    throw semanticException(TYPE_MISMATCH, node, "Type %s is not orderable, and therefore cannot be used in ORDER BY: %s", type, expression);
                 }
 
                 orderByFieldsBuilder.add(expression);
@@ -2176,10 +2167,10 @@ class StatementAnalyzer
                 rowCount = Long.parseLong(node.getRowCount());
             }
             catch (NumberFormatException e) {
-                throw new SemanticException(INVALID_OFFSET_ROW_COUNT, node, "Invalid OFFSET row count: %s", node.getRowCount());
+                throw semanticException(TYPE_MISMATCH, node, "Invalid OFFSET row count: %s", node.getRowCount());
             }
             if (rowCount < 0) {
-                throw new SemanticException(INVALID_OFFSET_ROW_COUNT, node, "OFFSET row count must be greater or equal to 0 (actual value: %s)", rowCount);
+                throw semanticException(NUMERIC_VALUE_OUT_OF_RANGE, node, "OFFSET row count must be greater or equal to 0 (actual value: %s)", rowCount);
             }
             analysis.setOffset(node, rowCount);
         }
@@ -2212,10 +2203,10 @@ class StatementAnalyzer
                     rowCount = Long.parseLong(node.getRowCount().get());
                 }
                 catch (NumberFormatException e) {
-                    throw new SemanticException(INVALID_FETCH_FIRST_ROW_COUNT, node, "Invalid FETCH FIRST row count: %s", node.getRowCount().get());
+                    throw semanticException(TYPE_MISMATCH, node, "Invalid FETCH FIRST row count: %s", node.getRowCount().get());
                 }
                 if (rowCount <= 0) {
-                    throw new SemanticException(INVALID_FETCH_FIRST_ROW_COUNT, node, "FETCH FIRST row count must be positive (actual value: %s)", rowCount);
+                    throw semanticException(NUMERIC_VALUE_OUT_OF_RANGE, node, "FETCH FIRST row count must be positive (actual value: %s)", rowCount);
                 }
                 analysis.setLimit(node, rowCount);
             }
@@ -2234,10 +2225,10 @@ class StatementAnalyzer
                     rowCount = Long.parseLong(node.getLimit());
                 }
                 catch (NumberFormatException e) {
-                    throw new SemanticException(INVALID_LIMIT_ROW_COUNT, node, "Invalid LIMIT row count: %s", node.getLimit());
+                    throw semanticException(TYPE_MISMATCH, node, "Invalid LIMIT row count: %s", node.getLimit());
                 }
                 if (rowCount < 0) {
-                    throw new SemanticException(INVALID_LIMIT_ROW_COUNT, node, "LIMIT row count must be greater or equal to 0 (actual value: %s)", rowCount);
+                    throw semanticException(NUMERIC_VALUE_OUT_OF_RANGE, node, "LIMIT row count must be greater or equal to 0 (actual value: %s)", rowCount);
                 }
                 analysis.setLimit(node, rowCount);
             }

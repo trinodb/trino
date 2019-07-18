@@ -18,7 +18,8 @@ import io.prestosql.sql.tree.DefaultExpressionTraversalVisitor;
 import io.prestosql.sql.tree.FunctionCall;
 
 import static io.prestosql.metadata.FunctionKind.WINDOW;
-import static io.prestosql.sql.analyzer.SemanticErrorCode.WINDOW_REQUIRES_OVER;
+import static io.prestosql.spi.StandardErrorCode.MISSING_OVER;
+import static io.prestosql.sql.analyzer.SemanticExceptions.semanticException;
 import static java.util.Objects.requireNonNull;
 
 class WindowFunctionValidator
@@ -31,7 +32,7 @@ class WindowFunctionValidator
 
         Signature signature = analysis.getFunctionSignature(functionCall);
         if (signature != null && signature.getKind() == WINDOW && !functionCall.getWindow().isPresent()) {
-            throw new SemanticException(WINDOW_REQUIRES_OVER, functionCall, "Window function %s requires an OVER clause", signature.getName());
+            throw semanticException(MISSING_OVER, functionCall, "Window function %s requires an OVER clause", signature.getName());
         }
         return super.visitFunctionCall(functionCall, analysis);
     }
