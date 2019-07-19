@@ -24,8 +24,8 @@ public class PostgreSqlConfig
 
     public enum ArrayMapping {
         DISABLED,
-        @Deprecated // TODO https://github.com/prestosql/presto/issues/682
         AS_ARRAY,
+        AS_JSON,
     }
 
     @NotNull
