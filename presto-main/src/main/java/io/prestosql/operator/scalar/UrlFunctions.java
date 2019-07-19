@@ -124,19 +124,18 @@ public final class UrlFunctions
     public static Slice urlExtractParameter(@SqlType("varchar(x)") Slice url, @SqlType("varchar(y)") Slice parameterName)
     {
         URI uri = parseUrl(url);
-        if ((uri == null) || (uri.getQuery() == null)) {
+        if ((uri == null) || (uri.getRawQuery() == null)) {
             return null;
         }
 
-        Slice query = slice(uri.getQuery());
         String parameter = parameterName.toStringUtf8();
-        Iterable<String> queryArgs = QUERY_SPLITTER.split(query.toStringUtf8());
+        Iterable<String> queryArgs = QUERY_SPLITTER.split(uri.getRawQuery());
 
         for (String queryArg : queryArgs) {
             Iterator<String> arg = ARG_SPLITTER.split(queryArg).iterator();
             if (arg.next().equals(parameter)) {
                 if (arg.hasNext()) {
-                    return utf8Slice(arg.next());
+                    return decodeUrl(arg.next());
                 }
                 // first matched key is empty
                 return Slices.EMPTY_SLICE;
@@ -164,8 +163,13 @@ public final class UrlFunctions
     @SqlType("varchar(x)")
     public static Slice urlDecode(@SqlType("varchar(x)") Slice value)
     {
+        return decodeUrl(value.toStringUtf8());
+    }
+
+    private static Slice decodeUrl(String value)
+    {
         try {
-            return slice(URLDecoder.decode(value.toStringUtf8(), UTF_8.name()));
+            return slice(URLDecoder.decode(value, UTF_8.name()));
         }
         catch (UnsupportedEncodingException e) {
             throw new AssertionError(e);
