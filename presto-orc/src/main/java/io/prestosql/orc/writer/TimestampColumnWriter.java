@@ -26,6 +26,8 @@ import io.prestosql.orc.metadata.RowGroupIndex;
 import io.prestosql.orc.metadata.Stream;
 import io.prestosql.orc.metadata.Stream.StreamKind;
 import io.prestosql.orc.metadata.statistics.ColumnStatistics;
+import io.prestosql.orc.metadata.statistics.LongValueStatisticsBuilder;
+import io.prestosql.orc.metadata.statistics.TimestampStatisticsBuilder;
 import io.prestosql.orc.stream.LongOutputStream;
 import io.prestosql.orc.stream.LongOutputStreamV2;
 import io.prestosql.orc.stream.PresentOutputStream;
@@ -40,6 +42,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -68,11 +71,12 @@ public class TimestampColumnWriter
     private final List<ColumnStatistics> rowGroupColumnStatistics = new ArrayList<>();
     private final long baseTimestampInSeconds;
 
-    private int nonNullValueCount;
+    private final Supplier<TimestampStatisticsBuilder> statisticsBuilderSupplier;
+    private LongValueStatisticsBuilder statisticsBuilder;
 
     private boolean closed;
 
-    public TimestampColumnWriter(OrcColumnId columnId, Type type, CompressionKind compression, int bufferSize)
+    public TimestampColumnWriter(OrcColumnId columnId, Type type, CompressionKind compression, int bufferSize, Supplier<TimestampStatisticsBuilder> statisticsBuilderSupplier)
     {
         this.columnId = requireNonNull(columnId, "columnId is null");
         this.type = requireNonNull(type, "type is null");
@@ -82,6 +86,8 @@ public class TimestampColumnWriter
         this.nanosStream = new LongOutputStreamV2(compression, bufferSize, false, SECONDARY);
         this.presentStream = new PresentOutputStream(compression, bufferSize);
         this.baseTimestampInSeconds = OffsetDateTime.of(2015, 1, 1, 0, 0, 0, 0, UTC).toEpochSecond();
+        this.statisticsBuilderSupplier = requireNonNull(statisticsBuilderSupplier, "statisticsBuilderSupplier is null");
+        this.statisticsBuilder = statisticsBuilderSupplier.get();
     }
 
     @Override
@@ -141,7 +147,7 @@ public class TimestampColumnWriter
 
                 secondsStream.writeLong(seconds);
                 nanosStream.writeLong(encodedNanos);
-                nonNullValueCount++;
+                statisticsBuilder.addValue(value);
             }
         }
     }
@@ -150,9 +156,9 @@ public class TimestampColumnWriter
     public Map<OrcColumnId, ColumnStatistics> finishRowGroup()
     {
         checkState(!closed);
-        ColumnStatistics statistics = new ColumnStatistics((long) nonNullValueCount, 0, null, null, null, null, null, null, null, null, null);
+        ColumnStatistics statistics = statisticsBuilder.buildColumnStatistics();
         rowGroupColumnStatistics.add(statistics);
-        nonNullValueCount = 0;
+        statisticsBuilder = statisticsBuilderSupplier.get();
         return ImmutableMap.of(columnId, statistics);
     }
 
@@ -253,6 +259,6 @@ public class TimestampColumnWriter
         nanosStream.reset();
         presentStream.reset();
         rowGroupColumnStatistics.clear();
-        nonNullValueCount = 0;
+        statisticsBuilder = statisticsBuilderSupplier.get();
     }
 }
