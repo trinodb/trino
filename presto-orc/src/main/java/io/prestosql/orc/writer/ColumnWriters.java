@@ -25,6 +25,7 @@ import io.prestosql.orc.metadata.statistics.DateStatisticsBuilder;
 import io.prestosql.orc.metadata.statistics.DoubleStatisticsBuilder;
 import io.prestosql.orc.metadata.statistics.IntegerStatisticsBuilder;
 import io.prestosql.orc.metadata.statistics.StringStatisticsBuilder;
+import io.prestosql.orc.metadata.statistics.TimestampStatisticsBuilder;
 import io.prestosql.spi.type.Type;
 
 import java.util.function.Supplier;
@@ -72,7 +73,7 @@ public final class ColumnWriters
                 return new DecimalColumnWriter(columnId, type, compression, bufferSize);
 
             case TIMESTAMP:
-                return new TimestampColumnWriter(columnId, type, compression, bufferSize);
+                return new TimestampColumnWriter(columnId, type, compression, bufferSize, () -> new TimestampStatisticsBuilder(bloomFilterBuilder.get()));
 
             case BINARY:
                 return new SliceDirectColumnWriter(columnId, type, compression, bufferSize, BinaryStatisticsBuilder::new);
