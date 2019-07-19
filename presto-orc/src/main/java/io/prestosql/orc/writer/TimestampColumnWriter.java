@@ -238,7 +238,7 @@ public class TimestampColumnWriter
     @Override
     public long getRetainedBytes()
     {
-        long retainedBytes = secondsStream.getRetainedBytes() + nanosStream.getRetainedBytes() + presentStream.getRetainedBytes();
+        long retainedBytes = INSTANCE_SIZE + secondsStream.getRetainedBytes() + nanosStream.getRetainedBytes() + presentStream.getRetainedBytes();
         for (ColumnStatistics statistics : rowGroupColumnStatistics) {
             retainedBytes += statistics.getRetainedSizeInBytes();
         }
