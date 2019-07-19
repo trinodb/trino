@@ -73,4 +73,6 @@ public interface TypeManager
     Optional<Type> coerceTypeBase(Type sourceType, String resultTypeBase);
 
     MethodHandle resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes);
+
+    MethodHandle getCoercion(Type fromType, Type toType);
 }
