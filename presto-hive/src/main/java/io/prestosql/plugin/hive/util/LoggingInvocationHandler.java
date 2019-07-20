@@ -20,6 +20,7 @@ import io.airlift.log.Logger;
 import io.airlift.parameternames.ParameterNames;
 import io.airlift.units.Duration;
 
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
 import java.util.Arrays;
@@ -58,10 +59,11 @@ public class LoggingInvocationHandler
         try {
             result = method.invoke(delegate, args);
         }
-        catch (Exception e) {
+        catch (InvocationTargetException e) {
             Duration elapsed = Duration.nanosSince(startNanos);
-            logger.accept(format("%s took %s and failed with %s", invocationDescription(method, args), elapsed, e));
-            throw e;
+            Throwable t = e.getCause();
+            logger.accept(format("%s took %s and failed with %s", invocationDescription(method, args), elapsed, t));
+            throw t;
         }
         Duration elapsed = Duration.nanosSince(startNanos);
         logger.accept(format("%s succeeded in %s", invocationDescription(method, args), elapsed));
