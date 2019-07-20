@@ -18,26 +18,49 @@ import io.prestosql.plugin.hive.util.LoggingInvocationHandler.ReflectiveParamete
 import org.apache.hadoop.hive.metastore.api.ThriftHiveMetastore;
 import org.testng.annotations.Test;
 
+import java.lang.reflect.InvocationHandler;
 import java.util.ArrayList;
 import java.util.List;
 
 import static com.google.common.reflect.Reflection.newProxy;
 import static java.lang.reflect.Proxy.newProxyInstance;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestLoggingInvocationHandler
 {
     private static final String DURATION_PATTERN = "\\d+(\\.\\d+)?\\w{1,2}";
 
     @Test
-    public void testLogging()
+    public void testLoggingAndExceptions()
     {
+        SomeInterface delegate = new SomeInterface()
+        {
+            @Override
+            public void run(boolean ok, String s)
+            {
+                if (!ok) {
+                    throw new ArrayStoreException(s);
+                }
+            }
+        };
         List<String> messages = new ArrayList<>();
-        SomeInterface proxy = newProxy(SomeInterface.class, new LoggingInvocationHandler(new SomeInterface() {}, new ReflectiveParameterNamesProvider(), messages::add));
-        proxy.foo(true, "xyz");
+        InvocationHandler handler = new LoggingInvocationHandler(delegate, new ReflectiveParameterNamesProvider(), messages::add);
+        SomeInterface proxy = newProxy(SomeInterface.class, handler);
+
+        proxy.run(true, "xyz");
+
+        assertThatThrownBy(() -> proxy.run(false, "bad"))
+                .isInstanceOf(ArrayStoreException.class)
+                .hasMessage("bad");
+
         assertThat(messages)
-                .hasSize(1)
-                .element(0).matches(message -> message.matches("\\QInvocation of foo(bar=true, s='xyz') succeeded in\\E " + DURATION_PATTERN));
+                .hasSize(2)
+                .satisfies(list -> {
+                    assertThat(list.get(0)).matches("\\QInvocation of run(ok=true, s='xyz') succeeded in\\E " + DURATION_PATTERN);
+                    assertThat(list.get(1)).matches("\\QInvocation of run(ok=false, s='bad') took\\E " + DURATION_PATTERN +
+                            " \\Qand failed with java.lang.ArrayStoreException: bad\\E");
+                });
     }
 
     @Test
@@ -61,12 +84,12 @@ public class TestLoggingInvocationHandler
     {
         return (ThriftHiveMetastore.Iface) newProxyInstance(
                 TestLoggingInvocationHandler.class.getClassLoader(),
-                new Class[] {ThriftHiveMetastore.Iface.class},
+                new Class<?>[] {ThriftHiveMetastore.Iface.class},
                 (proxy, method, args) -> null);
     }
 
     private interface SomeInterface
     {
-        default void foo(boolean bar, String s) {}
+        default void run(boolean ok, String s) {}
     }
 }
