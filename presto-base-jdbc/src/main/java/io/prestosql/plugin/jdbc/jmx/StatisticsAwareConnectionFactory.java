@@ -18,6 +18,8 @@ import io.prestosql.plugin.jdbc.JdbcIdentity;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
+import javax.annotation.PreDestroy;
+
 import java.sql.Connection;
 import java.sql.SQLException;
 
@@ -42,6 +44,7 @@ public class StatisticsAwareConnectionFactory
         return openConnection.wrap(() -> delegate.openConnection(identity));
     }
 
+    @PreDestroy
     @Override
     public void close()
             throws SQLException
