@@ -57,7 +57,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static io.prestosql.spi.StandardErrorCode.SERVER_STARTING_UP;
@@ -69,8 +68,9 @@ public class AccessControlManager
         implements AccessControl
 {
     private static final Logger log = Logger.get(AccessControlManager.class);
-    private static final File ACCESS_CONTROL_CONFIGURATION = new File("etc/access-control.properties");
-    private static final String ACCESS_CONTROL_PROPERTY_NAME = "access-control.name";
+
+    private static final File CONFIG_FILE = new File("etc/access-control.properties");
+    private static final String NAME_PROPERTY = "access-control.name";
 
     private final TransactionManager transactionManager;
     private final Map<String, SystemAccessControlFactory> systemAccessControlFactories = new ConcurrentHashMap<>();
@@ -93,7 +93,7 @@ public class AccessControlManager
         addSystemAccessControlFactory(new FileBasedSystemAccessControl.Factory());
     }
 
-    public void addSystemAccessControlFactory(SystemAccessControlFactory accessControlFactory)
+    public final void addSystemAccessControlFactory(SystemAccessControlFactory accessControlFactory)
     {
         requireNonNull(accessControlFactory, "accessControlFactory is null");
 
@@ -118,18 +118,18 @@ public class AccessControlManager
     public void loadSystemAccessControl()
             throws Exception
     {
-        if (ACCESS_CONTROL_CONFIGURATION.exists()) {
-            Map<String, String> properties = new HashMap<>(loadProperties(ACCESS_CONTROL_CONFIGURATION));
-
-            String accessControlName = properties.remove(ACCESS_CONTROL_PROPERTY_NAME);
-            checkArgument(!isNullOrEmpty(accessControlName),
-                    "Access control configuration %s does not contain %s", ACCESS_CONTROL_CONFIGURATION.getAbsoluteFile(), ACCESS_CONTROL_PROPERTY_NAME);
-
-            setSystemAccessControl(accessControlName, properties);
-        }
-        else {
+        File configFile = CONFIG_FILE.getAbsoluteFile();
+        if (!configFile.exists()) {
             setSystemAccessControl(AllowAllSystemAccessControl.NAME, ImmutableMap.of());
+            return;
         }
+
+        Map<String, String> properties = new HashMap<>(loadProperties(configFile));
+
+        String name = properties.remove(NAME_PROPERTY);
+        checkState(!isNullOrEmpty(name), "Access control configuration %s does not contain '%s'", configFile, NAME_PROPERTY);
+
+        setSystemAccessControl(name, properties);
     }
 
     @VisibleForTesting
@@ -143,7 +143,7 @@ public class AccessControlManager
         log.info("-- Loading system access control --");
 
         SystemAccessControlFactory systemAccessControlFactory = systemAccessControlFactories.get(name);
-        checkState(systemAccessControlFactory != null, "Access control %s is not registered", name);
+        checkState(systemAccessControlFactory != null, "Access control '%s' is not registered", name);
 
         SystemAccessControl systemAccessControl = systemAccessControlFactory.create(ImmutableMap.copyOf(properties));
         this.systemAccessControl.set(systemAccessControl);
