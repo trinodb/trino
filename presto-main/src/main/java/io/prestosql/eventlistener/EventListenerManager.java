@@ -30,7 +30,6 @@ import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static io.prestosql.util.PropertiesUtil.loadProperties;
@@ -40,8 +39,9 @@ import static java.util.Objects.requireNonNull;
 public class EventListenerManager
 {
     private static final Logger log = Logger.get(EventListenerManager.class);
-    private static final File EVENT_LISTENER_CONFIGURATION = new File("etc/event-listener.properties");
-    private static final String EVENT_LISTENER_PROPERTY_NAME = "event-listener.name";
+
+    private static final File CONFIG_FILE = new File("etc/event-listener.properties");
+    private static final String NAME_PROPERTY = "event-listener.name";
 
     private final Map<String, EventListenerFactory> eventListenerFactories = new ConcurrentHashMap<>();
     private final AtomicReference<Optional<EventListener>> configuredEventListener = new AtomicReference<>(Optional.empty());
@@ -58,15 +58,17 @@ public class EventListenerManager
     public void loadConfiguredEventListener()
             throws Exception
     {
-        if (EVENT_LISTENER_CONFIGURATION.exists()) {
-            Map<String, String> properties = new HashMap<>(loadProperties(EVENT_LISTENER_CONFIGURATION));
-
-            String eventListenerName = properties.remove(EVENT_LISTENER_PROPERTY_NAME);
-            checkArgument(!isNullOrEmpty(eventListenerName),
-                    "Access control configuration %s does not contain %s", EVENT_LISTENER_CONFIGURATION.getAbsoluteFile(), EVENT_LISTENER_PROPERTY_NAME);
-
-            setConfiguredEventListener(eventListenerName, properties);
+        File configFile = CONFIG_FILE.getAbsoluteFile();
+        if (!configFile.exists()) {
+            return;
         }
+
+        Map<String, String> properties = new HashMap<>(loadProperties(configFile));
+
+        String name = properties.remove(NAME_PROPERTY);
+        checkState(!isNullOrEmpty(name), "Access control configuration %s does not contain '%s'", configFile, NAME_PROPERTY);
+
+        setConfiguredEventListener(name, properties);
     }
 
     @VisibleForTesting
@@ -78,7 +80,7 @@ public class EventListenerManager
         log.info("-- Loading event listener --");
 
         EventListenerFactory eventListenerFactory = eventListenerFactories.get(name);
-        checkState(eventListenerFactory != null, "Event listener %s is not registered", name);
+        checkState(eventListenerFactory != null, "Event listener '%s' is not registered", name);
 
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(eventListenerFactory.getClass().getClassLoader())) {
             EventListener eventListener = eventListenerFactory.create(ImmutableMap.copyOf(properties));
