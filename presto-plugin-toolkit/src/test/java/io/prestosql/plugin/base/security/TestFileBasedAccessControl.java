@@ -38,6 +38,19 @@ public class TestFileBasedAccessControl
             throws IOException
     {
         ConnectorAccessControl accessControl = createAccessControl("schema.json");
+
+        accessControl.checkCanCreateSchema(TRANSACTION_HANDLE, user("admin"), "test");
+        accessControl.checkCanCreateSchema(TRANSACTION_HANDLE, user("bob"), "bob");
+        assertDenied(() -> accessControl.checkCanCreateSchema(TRANSACTION_HANDLE, user("bob"), "test"));
+
+        accessControl.checkCanDropSchema(TRANSACTION_HANDLE, user("admin"), "test");
+        accessControl.checkCanDropSchema(TRANSACTION_HANDLE, user("bob"), "bob");
+        assertDenied(() -> accessControl.checkCanDropSchema(TRANSACTION_HANDLE, user("bob"), "test"));
+
+        accessControl.checkCanRenameSchema(TRANSACTION_HANDLE, user("admin"), "test", "new_schema");
+        assertDenied(() -> accessControl.checkCanRenameSchema(TRANSACTION_HANDLE, user("bob"), "test", "new_schema"));
+        assertDenied(() -> accessControl.checkCanRenameSchema(TRANSACTION_HANDLE, user("bob"), "bob", "new_schema"));
+
         accessControl.checkCanCreateTable(TRANSACTION_HANDLE, user("admin"), new SchemaTableName("test", "test"));
         accessControl.checkCanCreateTable(TRANSACTION_HANDLE, user("bob"), new SchemaTableName("bob", "test"));
         assertDenied(() -> accessControl.checkCanCreateTable(TRANSACTION_HANDLE, user("bob"), new SchemaTableName("test", "test")));
