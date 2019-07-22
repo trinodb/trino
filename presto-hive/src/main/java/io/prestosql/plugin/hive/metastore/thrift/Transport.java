@@ -29,6 +29,7 @@ import java.util.Optional;
 
 import static java.lang.String.format;
 import static java.net.Proxy.Type.SOCKS;
+import static java.util.Objects.requireNonNull;
 
 public final class Transport
 {
@@ -40,6 +41,7 @@ public final class Transport
             HiveMetastoreAuthentication authentication)
             throws TTransportException
     {
+        requireNonNull(address, "address is null");
         try {
             TTransport rawTransport = createRaw(address, sslContext, socksProxy, timeoutMillis);
             TTransport authenticatedTransport = authentication.authenticate(rawTransport, address.getHost());
@@ -100,8 +102,8 @@ public final class Transport
 
         TTransportWrapper(TTransport transport, HostAndPort address)
         {
-            this.transport = transport;
-            this.address = address;
+            this.transport = requireNonNull(transport, "transport is null");
+            this.address = requireNonNull(address, "address is null");
         }
 
         @Override
