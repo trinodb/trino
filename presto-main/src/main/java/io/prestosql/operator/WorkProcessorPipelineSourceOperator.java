@@ -115,7 +115,6 @@ public class WorkProcessorPipelineSourceOperator
                 operatorContext.getDriverContext().isCpuTimerEnabled(),
                 operatorContext.getDriverContext().isCpuTimerEnabled() && operatorContext.getDriverContext().isPerOperatorCpuTimerEnabled());
 
-        // TODO: measure and report WorkProcessorOperator memory usage
         MemoryTrackingContext sourceOperatorMemoryTrackingContext = createMemoryTrackingContext(operatorContext, 0);
         sourceOperatorMemoryTrackingContext.initializeLocalMemoryContexts(sourceOperatorFactory.getOperatorType());
         WorkProcessor<Split> splits = WorkProcessor.create(new Splits());
