@@ -49,14 +49,13 @@ public class WorkProcessorOperatorAdapter
     public WorkProcessorOperatorAdapter(OperatorContext operatorContext, AdapterWorkProcessorOperatorFactory workProcessorOperatorFactory)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
+        MemoryTrackingContext memoryTrackingContext = new MemoryTrackingContext(
+                operatorContext.aggregateUserMemoryContext(),
+                operatorContext.aggregateRevocableMemoryContext(),
+                operatorContext.aggregateSystemMemoryContext());
+        memoryTrackingContext.initializeLocalMemoryContexts(workProcessorOperatorFactory.getOperatorType());
         this.workProcessorOperator = requireNonNull(workProcessorOperatorFactory, "workProcessorOperatorFactory is null")
-                .create(
-                        operatorContext.getSession(),
-                        new MemoryTrackingContext(
-                                operatorContext.aggregateUserMemoryContext(),
-                                operatorContext.aggregateRevocableMemoryContext(),
-                                operatorContext.aggregateSystemMemoryContext()),
-                        operatorContext.getDriverContext().getYieldSignal());
+                .create(operatorContext.getSession(), memoryTrackingContext, operatorContext.getDriverContext().getYieldSignal());
         this.pages = workProcessorOperator.getOutputPages();
     }
 
