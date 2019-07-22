@@ -88,7 +88,7 @@ function start_docker_containers() {
 
   # pull docker images
   if [[ "${CONTINUOUS_INTEGRATION:-false}" == 'true' ]]; then
-    docker-compose -f "${DOCKER_COMPOSE_LOCATION}" pull
+    docker-compose -f "${DOCKER_COMPOSE_LOCATION}" pull --quiet
   fi
 
   # start containers
