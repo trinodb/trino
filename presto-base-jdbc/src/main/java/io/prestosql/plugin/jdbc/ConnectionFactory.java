@@ -13,6 +13,8 @@
  */
 package io.prestosql.plugin.jdbc;
 
+import javax.annotation.PreDestroy;
+
 import java.sql.Connection;
 import java.sql.SQLException;
 
@@ -24,6 +26,7 @@ public interface ConnectionFactory
             throws SQLException;
 
     @Override
+    @PreDestroy
     default void close()
             throws SQLException
     {}
