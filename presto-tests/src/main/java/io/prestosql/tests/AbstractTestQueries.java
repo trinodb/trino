@@ -3842,7 +3842,7 @@ public abstract class AbstractTestQueries
     @Test
     public void testTwoCorrelatedExistsSubqueries()
     {
-        // This is simpliefied TPC-H q21
+        // This is simplified TPC-H q21
         assertQuery("SELECT\n" +
                         "  count(*) AS numwait\n" +
                         "FROM\n" +
