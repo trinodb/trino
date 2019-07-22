@@ -109,6 +109,6 @@ public class TestHttpRequestSessionContext
                 "testRemote");
         assertThatThrownBy(() -> new HttpRequestSessionContext(request))
                 .isInstanceOf(WebApplicationException.class)
-                .hasMessage("HTTP 400 Bad Request");
+                .hasMessageMatching("Invalid X-Presto-Prepared-Statement header: line 1:1: mismatched input 'abcdefg'. Expecting: .*");
     }
 }

@@ -421,7 +421,7 @@ public final class HttpRequestSessionContext
 
     private static WebApplicationException badRequest(String message)
     {
-        throw new WebApplicationException(Response
+        throw new WebApplicationException(message, Response
                 .status(Status.BAD_REQUEST)
                 .type(MediaType.TEXT_PLAIN)
                 .entity(message)
