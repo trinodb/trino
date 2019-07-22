@@ -117,6 +117,7 @@ public class WorkProcessorPipelineSourceOperator
 
         // TODO: measure and report WorkProcessorOperator memory usage
         MemoryTrackingContext sourceOperatorMemoryTrackingContext = createMemoryTrackingContext(operatorContext, 0);
+        sourceOperatorMemoryTrackingContext.initializeLocalMemoryContexts(sourceOperatorFactory.getOperatorType());
         WorkProcessor<Split> splits = WorkProcessor.create(new Splits());
 
         sourceOperator = sourceOperatorFactory.create(
@@ -124,7 +125,6 @@ public class WorkProcessorPipelineSourceOperator
                 sourceOperatorMemoryTrackingContext,
                 operatorContext.getDriverContext().getYieldSignal(),
                 splits);
-        sourceOperatorMemoryTrackingContext.initializeLocalMemoryContexts(sourceOperator.getClass().getSimpleName());
         workProcessorOperatorContexts.add(new WorkProcessorOperatorContext(
                 sourceOperator,
                 sourceOperatorFactory.getOperatorId(),
@@ -140,18 +140,19 @@ public class WorkProcessorPipelineSourceOperator
 
         for (int i = 0; i < operatorFactories.size(); ++i) {
             int operatorIndex = i + 1;
+            WorkProcessorOperatorFactory operatorFactory = operatorFactories.get(i);
             MemoryTrackingContext operatorMemoryTrackingContext = createMemoryTrackingContext(operatorContext, operatorIndex);
-            WorkProcessorOperator operator = operatorFactories.get(i).create(
+            operatorMemoryTrackingContext.initializeLocalMemoryContexts(operatorFactory.getOperatorType());
+            WorkProcessorOperator operator = operatorFactory.create(
                     operatorContext.getSession(),
                     operatorMemoryTrackingContext,
                     operatorContext.getDriverContext().getYieldSignal(),
                     pages);
-            operatorMemoryTrackingContext.initializeLocalMemoryContexts(operator.getClass().getSimpleName());
             workProcessorOperatorContexts.add(new WorkProcessorOperatorContext(
                     operator,
-                    operatorFactories.get(i).getOperatorId(),
-                    operatorFactories.get(i).getPlanNodeId(),
-                    operatorFactories.get(i).getOperatorType(),
+                    operatorFactory.getOperatorId(),
+                    operatorFactory.getPlanNodeId(),
+                    operatorFactory.getOperatorType(),
                     operatorMemoryTrackingContext));
             pages = operator.getOutputPages();
             pages = pages
