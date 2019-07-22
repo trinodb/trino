@@ -91,7 +91,8 @@ public final class Transport
 
     private static TTransportException rewriteException(TTransportException e, HostAndPort address)
     {
-        return new TTransportException(e.getType(), format("%s: %s", address, e.getMessage()), e);
+        String message = e.getMessage() != null ? format("%s: %s", address, e.getMessage()) : address.toString();
+        return new TTransportException(e.getType(), message, e);
     }
 
     private static class TTransportWrapper
