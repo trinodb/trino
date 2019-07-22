@@ -15,95 +15,87 @@ package io.prestosql.operator;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
+import io.prestosql.Session;
+import io.prestosql.memory.context.AggregatedMemoryContext;
 import io.prestosql.memory.context.LocalMemoryContext;
-import io.prestosql.operator.project.MergingPageOutput;
+import io.prestosql.memory.context.MemoryTrackingContext;
+import io.prestosql.operator.WorkProcessorOperatorAdapter.AdapterWorkProcessorOperator;
+import io.prestosql.operator.WorkProcessorOperatorAdapter.AdapterWorkProcessorOperatorFactory;
 import io.prestosql.operator.project.PageProcessor;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static io.prestosql.operator.project.MergePages.mergePages;
 import static java.util.Objects.requireNonNull;
 
 public class FilterAndProjectOperator
-        implements Operator
+        implements AdapterWorkProcessorOperator
 {
-    private final OperatorContext operatorContext;
-    private final LocalMemoryContext pageProcessorMemoryContext;
-    private final LocalMemoryContext outputMemoryContext;
-
-    private final PageProcessor processor;
-    private final MergingPageOutput mergingOutput;
-    private boolean finishing;
+    private final PageBuffer pageBuffer = new PageBuffer();
+    private final WorkProcessor<Page> pages;
 
     public FilterAndProjectOperator(
-            OperatorContext operatorContext,
-            PageProcessor processor,
-            MergingPageOutput mergingOutput)
+            Session session,
+            MemoryTrackingContext memoryTrackingContext,
+            DriverYieldSignal yieldSignal,
+            Optional<WorkProcessor<Page>> sourcePages,
+            PageProcessor pageProcessor,
+            List<Type> types,
+            DataSize minOutputPageSize,
+            int minOutputPageRowCount)
     {
-        this.processor = requireNonNull(processor, "processor is null");
-        this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
-        this.pageProcessorMemoryContext = newSimpleAggregatedMemoryContext().newLocalMemoryContext(ScanFilterAndProjectOperator.class.getSimpleName());
-        this.outputMemoryContext = operatorContext.newLocalSystemMemoryContext(FilterAndProjectOperator.class.getSimpleName());
-        this.mergingOutput = requireNonNull(mergingOutput, "mergingOutput is null");
-    }
+        AggregatedMemoryContext localAggregatedMemoryContext = newSimpleAggregatedMemoryContext();
+        LocalMemoryContext outputMemoryContext = localAggregatedMemoryContext.newLocalMemoryContext(FilterAndProjectOperator.class.getSimpleName());
 
-    @Override
-    public OperatorContext getOperatorContext()
-    {
-        return operatorContext;
+        this.pages = sourcePages.orElse(pageBuffer.pages())
+                .flatMap(page -> pageProcessor.createWorkProcessor(
+                        session.toConnectorSession(),
+                        yieldSignal,
+                        outputMemoryContext,
+                        page,
+                        sourcePages.isPresent()))
+                .transformProcessor(processor -> mergePages(types, minOutputPageSize.toBytes(), minOutputPageRowCount, processor, localAggregatedMemoryContext))
+                .withProcessStateMonitor(state -> memoryTrackingContext.localSystemMemoryContext().setBytes(localAggregatedMemoryContext.getBytes()));
     }
 
     @Override
     public final void finish()
     {
-        mergingOutput.finish();
-        finishing = true;
+        pageBuffer.finish();
     }
 
     @Override
-    public final boolean isFinished()
+    public boolean needsInput()
     {
-        boolean finished = finishing && mergingOutput.isFinished();
-        if (finished) {
-            outputMemoryContext.setBytes(mergingOutput.getRetainedSizeInBytes());
-        }
-        return finished;
-    }
-
-    @Override
-    public final boolean needsInput()
-    {
-        return !finishing && mergingOutput.needsInput();
+        return pageBuffer.isEmpty() && !pageBuffer.isFinished();
     }
 
     @Override
     public final void addInput(Page page)
     {
-        checkState(!finishing, "Operator is already finishing");
-        requireNonNull(page, "page is null");
-        checkState(mergingOutput.needsInput(), "Page buffer is full");
-
-        mergingOutput.addInput(processor.process(
-                operatorContext.getSession().toConnectorSession(),
-                operatorContext.getDriverContext().getYieldSignal(),
-                pageProcessorMemoryContext,
-                page));
-        outputMemoryContext.setBytes(mergingOutput.getRetainedSizeInBytes() + pageProcessorMemoryContext.getBytes());
+        pageBuffer.add(page);
     }
 
     @Override
-    public final Page getOutput()
+    public WorkProcessor<Page> getOutputPages()
     {
-        return mergingOutput.getOutput();
+        return pages;
     }
 
+    @Override
+    public void close()
+            throws Exception
+    {}
+
     public static class FilterAndProjectOperatorFactory
-            implements OperatorFactory
+            implements OperatorFactory, AdapterWorkProcessorOperatorFactory
     {
         private final int operatorId;
         private final PlanNodeId planNodeId;
@@ -133,11 +125,8 @@ public class FilterAndProjectOperator
         public Operator createOperator(DriverContext driverContext)
         {
             checkState(!closed, "Factory is already closed");
-            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, FilterAndProjectOperator.class.getSimpleName());
-            return new FilterAndProjectOperator(
-                    operatorContext,
-                    processor.get(),
-                    new MergingPageOutput(types, minOutputPageSize.toBytes(), minOutputPageRowCount));
+            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, getOperatorType());
+            return new WorkProcessorOperatorAdapter(operatorContext, this);
         }
 
         @Override
@@ -150,6 +139,52 @@ public class FilterAndProjectOperator
         public OperatorFactory duplicate()
         {
             return new FilterAndProjectOperatorFactory(operatorId, planNodeId, processor, types, minOutputPageSize, minOutputPageRowCount);
+        }
+
+        @Override
+        public AdapterWorkProcessorOperator create(Session session, MemoryTrackingContext memoryTrackingContext, DriverYieldSignal yieldSignal)
+        {
+            return new FilterAndProjectOperator(
+                    session,
+                    memoryTrackingContext,
+                    yieldSignal,
+                    Optional.empty(),
+                    processor.get(),
+                    types,
+                    minOutputPageSize,
+                    minOutputPageRowCount);
+        }
+
+        @Override
+        public int getOperatorId()
+        {
+            return operatorId;
+        }
+
+        @Override
+        public PlanNodeId getPlanNodeId()
+        {
+            return planNodeId;
+        }
+
+        @Override
+        public String getOperatorType()
+        {
+            return FilterAndProjectOperator.class.getSimpleName();
+        }
+
+        @Override
+        public WorkProcessorOperator create(Session session, MemoryTrackingContext memoryTrackingContext, DriverYieldSignal yieldSignal, WorkProcessor<Page> sourcePages)
+        {
+            return new FilterAndProjectOperator(
+                    session,
+                    memoryTrackingContext,
+                    yieldSignal,
+                    Optional.of(sourcePages),
+                    processor.get(),
+                    types,
+                    minOutputPageSize,
+                    minOutputPageRowCount);
         }
     }
 }
