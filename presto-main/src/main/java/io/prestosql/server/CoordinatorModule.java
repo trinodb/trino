@@ -35,6 +35,7 @@ import io.prestosql.cost.TaskCountEstimator;
 import io.prestosql.dispatcher.DispatchExecutor;
 import io.prestosql.dispatcher.DispatchManager;
 import io.prestosql.dispatcher.DispatchQueryFactory;
+import io.prestosql.dispatcher.DispatcherConfig;
 import io.prestosql.dispatcher.FailedDispatchQueryFactory;
 import io.prestosql.dispatcher.LocalDispatchQueryFactory;
 import io.prestosql.event.QueryMonitor;
@@ -192,6 +193,7 @@ public class CoordinatorModule
         jsonCodecBinder(binder).bindJsonCodec(TaskInfo.class);
         jsonCodecBinder(binder).bindJsonCodec(QueryResults.class);
         jsonCodecBinder(binder).bindJsonCodec(SelectedRole.class);
+        configBinder(binder).bindConfig(DispatcherConfig.class);
         jaxrsBinder(binder).bind(io.prestosql.dispatcher.QueuedStatementResource.class);
         jaxrsBinder(binder).bind(io.prestosql.server.protocol.ExecutingStatementResource.class);
         binder.bind(StatementHttpExecutionMBean.class).in(Scopes.SINGLETON);
