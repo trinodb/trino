@@ -23,6 +23,7 @@ import io.airlift.units.Duration;
 import io.prestosql.client.QueryError;
 import io.prestosql.client.QueryResults;
 import io.prestosql.client.StatementStats;
+import io.prestosql.dispatcher.DispatcherConfig.HeaderSupport;
 import io.prestosql.execution.ExecutionFailureInfo;
 import io.prestosql.execution.QueryState;
 import io.prestosql.server.HttpRequestSessionContext;
@@ -90,6 +91,7 @@ public class QueuedStatementResource
     private static final Ordering<Comparable<Duration>> WAIT_ORDERING = Ordering.natural().nullsLast();
     private static final Duration NO_DURATION = new Duration(0, MILLISECONDS);
 
+    private final HeaderSupport forwardedHeaderSupport;
     private final DispatchManager dispatchManager;
 
     private final Executor responseExecutor;
@@ -100,9 +102,12 @@ public class QueuedStatementResource
 
     @Inject
     public QueuedStatementResource(
+            DispatcherConfig dispatcherConfig,
             DispatchManager dispatchManager,
             DispatchExecutor executor)
     {
+        requireNonNull(dispatcherConfig, "dispatcherConfig is null");
+        this.forwardedHeaderSupport = dispatcherConfig.getForwardedHeaderSupport();
         this.dispatchManager = requireNonNull(dispatchManager, "dispatchManager is null");
 
         requireNonNull(dispatchManager, "dispatchManager is null");
@@ -152,7 +157,7 @@ public class QueuedStatementResource
             throw badRequest(BAD_REQUEST, "SQL statement is empty");
         }
 
-        SessionContext sessionContext = new HttpRequestSessionContext(servletRequest);
+        SessionContext sessionContext = new HttpRequestSessionContext(forwardedHeaderSupport, servletRequest);
         Query query = new Query(statement, sessionContext, dispatchManager);
         queries.put(query.getQueryId(), query);
 
