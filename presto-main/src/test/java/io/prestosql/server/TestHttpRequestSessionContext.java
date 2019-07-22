@@ -39,6 +39,7 @@ import static io.prestosql.client.PrestoHeaders.PRESTO_SESSION;
 import static io.prestosql.client.PrestoHeaders.PRESTO_SOURCE;
 import static io.prestosql.client.PrestoHeaders.PRESTO_TIME_ZONE;
 import static io.prestosql.client.PrestoHeaders.PRESTO_USER;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 
 public class TestHttpRequestSessionContext
@@ -90,7 +91,7 @@ public class TestHttpRequestSessionContext
         assertEquals(context.getIdentity().getExtraCredentials(), ImmutableMap.of("test.token.foo", "bar", "test.token.abc", "xyz"));
     }
 
-    @Test(expectedExceptions = WebApplicationException.class)
+    @Test
     public void testPreparedStatementsHeaderDoesNotParse()
     {
         HttpServletRequest request = new MockHttpServletRequest(
@@ -106,6 +107,8 @@ public class TestHttpRequestSessionContext
                         .put(PRESTO_PREPARED_STATEMENT, "query1=abcdefg")
                         .build(),
                 "testRemote");
-        new HttpRequestSessionContext(request);
+        assertThatThrownBy(() -> new HttpRequestSessionContext(request))
+                .isInstanceOf(WebApplicationException.class)
+                .hasMessage("HTTP 400 Bad Request");
     }
 }
