@@ -107,7 +107,7 @@ public class FileBasedAccessControl
     @Override
     public void checkCanCreateTable(ConnectorTransactionHandle transaction, ConnectorIdentity identity, SchemaTableName tableName)
     {
-        if (!isDatabaseOwner(identity, tableName.getSchemaName())) {
+        if (!isSchemaOwner(identity, tableName.getSchemaName())) {
             denyCreateTable(tableName.toString());
         }
     }
@@ -210,7 +210,7 @@ public class FileBasedAccessControl
     @Override
     public void checkCanCreateView(ConnectorTransactionHandle transaction, ConnectorIdentity identity, SchemaTableName viewName)
     {
-        if (!isDatabaseOwner(identity, viewName.getSchemaName())) {
+        if (!isSchemaOwner(identity, viewName.getSchemaName())) {
             denyCreateView(viewName.toString());
         }
     }
@@ -328,7 +328,7 @@ public class FileBasedAccessControl
         return false;
     }
 
-    private boolean isDatabaseOwner(ConnectorIdentity identity, String schemaName)
+    private boolean isSchemaOwner(ConnectorIdentity identity, String schemaName)
     {
         for (SchemaAccessControlRule rule : schemaRules) {
             Optional<Boolean> owner = rule.match(identity.getUser(), schemaName);
