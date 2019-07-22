@@ -19,7 +19,6 @@ import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorAccessControl;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 import io.prestosql.spi.connector.SchemaTableName;
-import io.prestosql.spi.security.AccessDeniedException;
 import io.prestosql.spi.security.ConnectorIdentity;
 import io.prestosql.spi.security.PrestoPrincipal;
 import io.prestosql.spi.security.Privilege;
@@ -55,6 +54,7 @@ import static io.prestosql.spi.security.AccessDeniedException.denyRenameSchema;
 import static io.prestosql.spi.security.AccessDeniedException.denyRenameTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyRevokeTablePrivilege;
 import static io.prestosql.spi.security.AccessDeniedException.denySelectTable;
+import static io.prestosql.spi.security.AccessDeniedException.denySetCatalogSessionProperty;
 
 public class FileBasedAccessControl
         implements ConnectorAccessControl
@@ -239,7 +239,7 @@ public class FileBasedAccessControl
     public void checkCanSetCatalogSessionProperty(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, String propertyName)
     {
         if (!canSetSessionProperty(identity, propertyName)) {
-            denySetSessionProperty(propertyName);
+            denySetCatalogSessionProperty(propertyName);
         }
     }
 
@@ -337,10 +337,5 @@ public class FileBasedAccessControl
             }
         }
         return false;
-    }
-
-    private static void denySetSessionProperty(String propertyName)
-    {
-        throw new AccessDeniedException("Cannot set catalog session property: " + propertyName);
     }
 }
