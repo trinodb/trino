@@ -23,7 +23,7 @@ Security Changes
 ----------------
 
 * Make query result and cancellation URIs secure. Previously, an authenticated
-  user could potentially steal the result data of any running query.
+  user could potentially steal the result data of any running query. (:issue:`561`)
 
 Server RPM Changes
 ------------------
