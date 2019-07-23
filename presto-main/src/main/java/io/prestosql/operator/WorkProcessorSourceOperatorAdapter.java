@@ -15,6 +15,7 @@ package io.prestosql.operator;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import io.prestosql.Session;
 import io.prestosql.memory.context.MemoryTrackingContext;
 import io.prestosql.metadata.Split;
 import io.prestosql.spi.Page;
@@ -51,13 +52,26 @@ public class WorkProcessorSourceOperatorAdapter
     private long previousInputPositions;
     private long previousReadTimeNanos;
 
-    public WorkProcessorSourceOperatorAdapter(OperatorContext operatorContext, WorkProcessorSourceOperatorFactory sourceOperatorFactory)
+    public interface AdapterWorkProcessorSourceOperatorFactory
+            extends WorkProcessorSourceOperatorFactory
+    {
+        default WorkProcessorSourceOperator createAdapterOperator(
+                Session session,
+                MemoryTrackingContext memoryTrackingContext,
+                DriverYieldSignal yieldSignal,
+                WorkProcessor<Split> splits)
+        {
+            return create(session, memoryTrackingContext, yieldSignal, splits);
+        }
+    }
+
+    public WorkProcessorSourceOperatorAdapter(OperatorContext operatorContext, AdapterWorkProcessorSourceOperatorFactory sourceOperatorFactory)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.sourceId = requireNonNull(sourceOperatorFactory, "sourceOperatorFactory is null").getSourceId();
         this.splitBuffer = new SplitBuffer();
         this.sourceOperator = sourceOperatorFactory
-                .create(
+                .createAdapterOperator(
                         operatorContext.getSession(),
                         new MemoryTrackingContext(
                                 operatorContext.aggregateUserMemoryContext(),
