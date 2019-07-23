@@ -14,12 +14,14 @@
 package io.prestosql.plugin.jdbc;
 
 import com.google.common.collect.ImmutableMap;
-import io.airlift.configuration.testing.ConfigAssertions;
 import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
 import java.util.Map;
 
+import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
+import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
+import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -28,7 +30,7 @@ public class TestBaseJdbcConfig
     @Test
     public void testDefaults()
     {
-        ConfigAssertions.assertRecordedDefaults(ConfigAssertions.recordDefaults(BaseJdbcConfig.class)
+        assertRecordedDefaults(recordDefaults(BaseJdbcConfig.class)
                 .setConnectionUrl(null)
                 .setConnectionUser(null)
                 .setConnectionPassword(null)
@@ -60,6 +62,6 @@ public class TestBaseJdbcConfig
                 .setCaseInsensitiveNameMatching(true)
                 .setCaseInsensitiveNameMatchingCacheTtl(new Duration(1, SECONDS));
 
-        ConfigAssertions.assertFullMapping(properties, expected);
+        assertFullMapping(properties, expected);
     }
 }

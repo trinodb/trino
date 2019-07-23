@@ -14,12 +14,14 @@
 package io.prestosql.execution;
 
 import com.google.common.collect.ImmutableMap;
-import io.airlift.configuration.testing.ConfigAssertions;
 import io.prestosql.execution.scheduler.NodeSchedulerConfig;
 import org.testng.annotations.Test;
 
 import java.util.Map;
 
+import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
+import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
+import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static io.prestosql.execution.scheduler.NodeSchedulerConfig.NetworkTopologyType.LEGACY;
 
 public class TestNodeSchedulerConfig
@@ -27,7 +29,7 @@ public class TestNodeSchedulerConfig
     @Test
     public void testDefaults()
     {
-        ConfigAssertions.assertRecordedDefaults(ConfigAssertions.recordDefaults(NodeSchedulerConfig.class)
+        assertRecordedDefaults(recordDefaults(NodeSchedulerConfig.class)
                 .setNetworkTopology(LEGACY)
                 .setMinCandidates(10)
                 .setMaxSplitsPerNode(100)
@@ -56,6 +58,6 @@ public class TestNodeSchedulerConfig
                 .setMinCandidates(11)
                 .setOptimizedLocalScheduling(false);
 
-        ConfigAssertions.assertFullMapping(properties, expected);
+        assertFullMapping(properties, expected);
     }
 }

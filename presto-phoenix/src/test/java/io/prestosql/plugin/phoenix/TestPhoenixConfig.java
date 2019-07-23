@@ -14,12 +14,14 @@
 package io.prestosql.plugin.phoenix;
 
 import com.google.common.collect.ImmutableMap;
-import io.airlift.configuration.testing.ConfigAssertions;
 import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
 import java.util.Map;
 
+import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
+import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
+import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -28,7 +30,7 @@ public class TestPhoenixConfig
     @Test
     public void testDefaults()
     {
-        ConfigAssertions.assertRecordedDefaults(ConfigAssertions.recordDefaults(PhoenixConfig.class)
+        assertRecordedDefaults(recordDefaults(PhoenixConfig.class)
                 .setConnectionUrl(null)
                 .setResourceConfigFiles("")
                 .setCaseInsensitiveNameMatching(false)
@@ -51,6 +53,6 @@ public class TestPhoenixConfig
                 .setCaseInsensitiveNameMatching(true)
                 .setCaseInsensitiveNameMatchingCacheTtl(new Duration(1, SECONDS));
 
-        ConfigAssertions.assertFullMapping(properties, expected);
+        assertFullMapping(properties, expected);
     }
 }

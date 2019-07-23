@@ -14,7 +14,6 @@
 package io.prestosql.server;
 
 import com.google.common.collect.ImmutableMap;
-import io.airlift.configuration.testing.ConfigAssertions;
 import io.airlift.units.Duration;
 import io.prestosql.failuredetector.FailureDetectorConfig;
 import org.testng.annotations.Test;
@@ -22,12 +21,16 @@ import org.testng.annotations.Test;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
+import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
+import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
+import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+
 public class TestFailureDetectorConfig
 {
     @Test
     public void testDefaults()
     {
-        ConfigAssertions.assertRecordedDefaults(ConfigAssertions.recordDefaults(FailureDetectorConfig.class)
+        assertRecordedDefaults(recordDefaults(FailureDetectorConfig.class)
                 .setExpirationGraceInterval(new Duration(10, TimeUnit.MINUTES))
                 .setFailureRatioThreshold(0.1)
                 .setHeartbeatInterval(new Duration(500, TimeUnit.MILLISECONDS))
@@ -53,6 +56,6 @@ public class TestFailureDetectorConfig
                 .setFailureRatioThreshold(0.5)
                 .setEnabled(false);
 
-        ConfigAssertions.assertFullMapping(properties, expected);
+        assertFullMapping(properties, expected);
     }
 }

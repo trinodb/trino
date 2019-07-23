@@ -15,7 +15,6 @@ package io.prestosql.verifier;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.configuration.testing.ConfigAssertions;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
 import org.testng.annotations.Test;
@@ -23,6 +22,9 @@ import org.testng.annotations.Test;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
+import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
+import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
+import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static io.prestosql.verifier.QueryType.CREATE;
 import static io.prestosql.verifier.QueryType.MODIFY;
 import static io.prestosql.verifier.QueryType.READ;
@@ -32,7 +34,7 @@ public class TestVerifierConfig
     @Test
     public void testDefaults()
     {
-        ConfigAssertions.assertRecordedDefaults(ConfigAssertions.recordDefaults(VerifierConfig.class)
+        assertRecordedDefaults(recordDefaults(VerifierConfig.class)
                 .setTestUsernameOverride(null)
                 .setControlUsernameOverride(null)
                 .setTestPasswordOverride(null)
@@ -184,6 +186,6 @@ public class TestVerifierConfig
                 .setTestTeardownRetries(7)
                 .setRunTearDownOnResultMismatch(true);
 
-        ConfigAssertions.assertFullMapping(properties, expected);
+        assertFullMapping(properties, expected);
     }
 }

@@ -14,7 +14,6 @@
 package io.prestosql.memory;
 
 import com.google.common.collect.ImmutableMap;
-import io.airlift.configuration.testing.ConfigAssertions;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.testng.annotations.Test;
@@ -23,6 +22,7 @@ import java.util.Map;
 
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
+import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.prestosql.memory.MemoryManagerConfig.LowMemoryKillerPolicy.NONE;
 import static io.prestosql.memory.MemoryManagerConfig.LowMemoryKillerPolicy.TOTAL_RESERVATION_ON_BLOCKED_NODES;
@@ -34,7 +34,7 @@ public class TestMemoryManagerConfig
     @Test
     public void testDefaults()
     {
-        assertRecordedDefaults(ConfigAssertions.recordDefaults(MemoryManagerConfig.class)
+        assertRecordedDefaults(recordDefaults(MemoryManagerConfig.class)
                 .setLowMemoryKillerPolicy(NONE)
                 .setKillOnOutOfMemoryDelay(new Duration(5, MINUTES))
                 .setMaxQueryMemory(new DataSize(20, GIGABYTE))

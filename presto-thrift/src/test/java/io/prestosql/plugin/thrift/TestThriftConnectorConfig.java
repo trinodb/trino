@@ -14,12 +14,14 @@
 package io.prestosql.plugin.thrift;
 
 import com.google.common.collect.ImmutableMap;
-import io.airlift.configuration.testing.ConfigAssertions;
 import io.airlift.units.DataSize;
 import org.testng.annotations.Test;
 
 import java.util.Map;
 
+import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
+import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
+import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 
 public class TestThriftConnectorConfig
@@ -27,7 +29,7 @@ public class TestThriftConnectorConfig
     @Test
     public void testDefaults()
     {
-        ConfigAssertions.assertRecordedDefaults(ConfigAssertions.recordDefaults(ThriftConnectorConfig.class)
+        assertRecordedDefaults(recordDefaults(ThriftConnectorConfig.class)
                 .setMaxResponseSize(new DataSize(16, MEGABYTE))
                 .setMetadataRefreshThreads(1)
                 .setLookupRequestsConcurrency(1));
@@ -47,6 +49,6 @@ public class TestThriftConnectorConfig
                 .setMetadataRefreshThreads(10)
                 .setLookupRequestsConcurrency(8);
 
-        ConfigAssertions.assertFullMapping(properties, expected);
+        assertFullMapping(properties, expected);
     }
 }

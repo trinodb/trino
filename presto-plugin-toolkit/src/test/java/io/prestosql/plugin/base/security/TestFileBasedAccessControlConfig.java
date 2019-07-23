@@ -16,7 +16,6 @@ package io.prestosql.plugin.base.security;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.ConfigurationException;
 import io.airlift.configuration.ConfigurationFactory;
-import io.airlift.configuration.testing.ConfigAssertions;
 import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
@@ -25,6 +24,7 @@ import java.util.concurrent.TimeUnit;
 
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
+import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static io.prestosql.plugin.base.security.FileBasedAccessControlConfig.SECURITY_CONFIG_FILE;
 import static io.prestosql.plugin.base.security.FileBasedAccessControlConfig.SECURITY_REFRESH_PERIOD;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -34,7 +34,7 @@ public class TestFileBasedAccessControlConfig
     @Test
     public void testDefaults()
     {
-        assertRecordedDefaults(ConfigAssertions.recordDefaults(FileBasedAccessControlConfig.class)
+        assertRecordedDefaults(recordDefaults(FileBasedAccessControlConfig.class)
                 .setConfigFile(null)
                 .setRefreshPeriod(null));
     }

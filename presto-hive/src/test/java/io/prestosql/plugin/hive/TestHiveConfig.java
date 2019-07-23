@@ -16,7 +16,6 @@ package io.prestosql.plugin.hive;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.net.HostAndPort;
-import io.airlift.configuration.testing.ConfigAssertions;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 import io.airlift.units.Duration;
@@ -30,6 +29,9 @@ import java.util.Map;
 import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 
+import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
+import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
+import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static io.prestosql.plugin.hive.TestHiveUtil.nonDefaultTimeZone;
 
 public class TestHiveConfig
@@ -37,7 +39,7 @@ public class TestHiveConfig
     @Test
     public void testDefaults()
     {
-        ConfigAssertions.assertRecordedDefaults(ConfigAssertions.recordDefaults(HiveConfig.class)
+        assertRecordedDefaults(recordDefaults(HiveConfig.class)
                 .setTimeZone(TimeZone.getDefault().getID())
                 .setMaxSplitSize(new DataSize(64, Unit.MEGABYTE))
                 .setMaxPartitionsPerScan(100_000)
@@ -306,6 +308,6 @@ public class TestHiveConfig
                 .setFileStatusCacheMaxSize(1000)
                 .setFileStatusCacheExpireAfterWrite(new Duration(30, TimeUnit.MINUTES));
 
-        ConfigAssertions.assertFullMapping(properties, expected);
+        assertFullMapping(properties, expected);
     }
 }

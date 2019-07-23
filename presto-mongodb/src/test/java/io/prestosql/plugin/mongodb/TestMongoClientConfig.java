@@ -15,11 +15,13 @@ package io.prestosql.plugin.mongodb;
 
 import com.google.common.collect.ImmutableMap;
 import com.mongodb.MongoCredential;
-import io.airlift.configuration.testing.ConfigAssertions;
 import org.testng.annotations.Test;
 
 import java.util.Map;
 
+import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
+import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
+import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static org.testng.Assert.assertEquals;
 
 public class TestMongoClientConfig
@@ -27,7 +29,7 @@ public class TestMongoClientConfig
     @Test
     public void testDefaults()
     {
-        ConfigAssertions.assertRecordedDefaults(ConfigAssertions.recordDefaults(MongoClientConfig.class)
+        assertRecordedDefaults(recordDefaults(MongoClientConfig.class)
                 .setSchemaCollection("_schema")
                 .setSeeds("")
                 .setCredentials("")
@@ -83,7 +85,7 @@ public class TestMongoClientConfig
                 .setRequiredReplicaSetName("replica_set")
                 .setImplicitRowFieldPrefix("_prefix");
 
-        ConfigAssertions.assertFullMapping(properties, expected);
+        assertFullMapping(properties, expected);
     }
 
     @Test

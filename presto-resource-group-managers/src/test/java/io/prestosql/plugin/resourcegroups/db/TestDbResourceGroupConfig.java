@@ -14,7 +14,6 @@
 package io.prestosql.plugin.resourcegroups.db;
 
 import com.google.common.collect.ImmutableMap;
-import io.airlift.configuration.testing.ConfigAssertions;
 import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
@@ -22,6 +21,7 @@ import java.util.Map;
 
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
+import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static java.util.concurrent.TimeUnit.HOURS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
@@ -30,7 +30,7 @@ public class TestDbResourceGroupConfig
     @Test
     public void testDefaults()
     {
-        assertRecordedDefaults(ConfigAssertions.recordDefaults(DbResourceGroupConfig.class)
+        assertRecordedDefaults(recordDefaults(DbResourceGroupConfig.class)
                 .setConfigDbUrl(null)
                 .setMaxRefreshInterval(new Duration(1, HOURS))
                 .setExactMatchSelectorEnabled(false));

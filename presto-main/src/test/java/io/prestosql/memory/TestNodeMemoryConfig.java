@@ -14,13 +14,14 @@
 package io.prestosql.memory;
 
 import com.google.common.collect.ImmutableMap;
-import io.airlift.configuration.testing.ConfigAssertions;
 import io.airlift.units.DataSize;
 import org.testng.annotations.Test;
 
 import java.util.Map;
 
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
+import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
+import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.prestosql.memory.NodeMemoryConfig.AVAILABLE_HEAP_MEMORY;
@@ -30,7 +31,7 @@ public class TestNodeMemoryConfig
     @Test
     public void testDefaults()
     {
-        ConfigAssertions.assertRecordedDefaults(ConfigAssertions.recordDefaults(NodeMemoryConfig.class)
+        assertRecordedDefaults(recordDefaults(NodeMemoryConfig.class)
                 .setMaxQueryMemoryPerNode(new DataSize(AVAILABLE_HEAP_MEMORY * 0.1, BYTE))
                 .setMaxQueryTotalMemoryPerNode(new DataSize(AVAILABLE_HEAP_MEMORY * 0.3, BYTE))
                 .setHeapHeadroom(new DataSize(AVAILABLE_HEAP_MEMORY * 0.3, BYTE))

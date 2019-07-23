@@ -15,19 +15,22 @@ package io.prestosql.server;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.configuration.testing.ConfigAssertions;
 import io.airlift.resolver.ArtifactResolver;
 import org.testng.annotations.Test;
 
 import java.io.File;
 import java.util.Map;
 
+import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
+import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
+import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+
 public class TestPluginManagerConfig
 {
     @Test
     public void testDefaults()
     {
-        ConfigAssertions.assertRecordedDefaults(ConfigAssertions.recordDefaults(PluginManagerConfig.class)
+        assertRecordedDefaults(recordDefaults(PluginManagerConfig.class)
                 .setInstalledPluginsDir(new File("plugin"))
                 .setPlugins((String) null)
                 .setMavenLocalRepository(ArtifactResolver.USER_LOCAL_REPO)
@@ -50,6 +53,6 @@ public class TestPluginManagerConfig
                 .setMavenLocalRepository("local-repo")
                 .setMavenRemoteRepository(ImmutableList.of("remote-a", "remote-b"));
 
-        ConfigAssertions.assertFullMapping(properties, expected);
+        assertFullMapping(properties, expected);
     }
 }

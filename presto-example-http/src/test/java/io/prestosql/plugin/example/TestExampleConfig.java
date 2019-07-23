@@ -14,18 +14,21 @@
 package io.prestosql.plugin.example;
 
 import com.google.common.collect.ImmutableMap;
-import io.airlift.configuration.testing.ConfigAssertions;
 import org.testng.annotations.Test;
 
 import java.net.URI;
 import java.util.Map;
+
+import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
+import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
+import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 
 public class TestExampleConfig
 {
     @Test
     public void testDefaults()
     {
-        ConfigAssertions.assertRecordedDefaults(ConfigAssertions.recordDefaults(ExampleConfig.class)
+        assertRecordedDefaults(recordDefaults(ExampleConfig.class)
                 .setMetadata(null));
     }
 
@@ -39,6 +42,6 @@ public class TestExampleConfig
         ExampleConfig expected = new ExampleConfig()
                 .setMetadata(URI.create("file://test.json"));
 
-        ConfigAssertions.assertFullMapping(properties, expected);
+        assertFullMapping(properties, expected);
     }
 }

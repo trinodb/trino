@@ -14,17 +14,20 @@
 package io.prestosql.plugin.postgresql;
 
 import com.google.common.collect.ImmutableMap;
-import io.airlift.configuration.testing.ConfigAssertions;
 import org.testng.annotations.Test;
 
 import java.util.Map;
+
+import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
+import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
+import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 
 public class TestPostgreSqlConfig
 {
     @Test
     public void testDefaults()
     {
-        ConfigAssertions.assertRecordedDefaults(ConfigAssertions.recordDefaults(PostgreSqlConfig.class)
+        assertRecordedDefaults(recordDefaults(PostgreSqlConfig.class)
                 .setArrayMapping(PostgreSqlConfig.ArrayMapping.DISABLED));
     }
 
@@ -38,6 +41,6 @@ public class TestPostgreSqlConfig
         PostgreSqlConfig expected = new PostgreSqlConfig()
                 .setArrayMapping(PostgreSqlConfig.ArrayMapping.AS_ARRAY);
 
-        ConfigAssertions.assertFullMapping(properties, expected);
+        assertFullMapping(properties, expected);
     }
 }

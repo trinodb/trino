@@ -14,19 +14,20 @@
 package io.prestosql.server.security;
 
 import com.google.common.collect.ImmutableMap;
-import io.airlift.configuration.testing.ConfigAssertions;
 import org.testng.annotations.Test;
 
 import java.util.Map;
 
+import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
+import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 
 public class TestJsonWebTokenConfig
 {
     @Test
     public void testDefaults()
     {
-        assertRecordedDefaults(ConfigAssertions.recordDefaults(JsonWebTokenConfig.class)
+        assertRecordedDefaults(recordDefaults(JsonWebTokenConfig.class)
                 .setKeyFile(null)
                 .setRequiredAudience(null)
                 .setRequiredIssuer(null));
@@ -46,6 +47,6 @@ public class TestJsonWebTokenConfig
                 .setRequiredAudience("some-audience")
                 .setRequiredIssuer("some-issuer");
 
-        ConfigAssertions.assertFullMapping(properties, expected);
+        assertFullMapping(properties, expected);
     }
 }
