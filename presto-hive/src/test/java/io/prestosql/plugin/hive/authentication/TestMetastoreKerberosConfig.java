@@ -19,9 +19,20 @@ import org.testng.annotations.Test;
 import java.util.Map;
 
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
+import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
+import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 
 public class TestMetastoreKerberosConfig
 {
+    @Test
+    public void testDefaults()
+    {
+        assertRecordedDefaults(recordDefaults(MetastoreKerberosConfig.class)
+                .setHiveMetastoreServicePrincipal(null)
+                .setHiveMetastoreClientPrincipal(null)
+                .setHiveMetastoreClientKeytab(null));
+    }
+
     @Test
     public void testExplicitPropertyMappings()
     {
