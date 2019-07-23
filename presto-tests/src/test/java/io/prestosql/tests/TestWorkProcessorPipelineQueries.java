@@ -32,6 +32,6 @@ public class TestWorkProcessorPipelineQueries
     @Test
     public void testTopN()
     {
-        assertQuery("select * from orders order by totalprice limit 10");
+        assertQuery("SELECT * FROM orders ORDER BY totalprice LIMIT 10");
     }
 }
