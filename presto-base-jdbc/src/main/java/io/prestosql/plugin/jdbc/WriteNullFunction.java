@@ -19,6 +19,8 @@ import java.sql.SQLException;
 @FunctionalInterface
 public interface WriteNullFunction
 {
+    WriteNullFunction DEFAULT_WRITE_NULL_FUNCTION = (statement, index) -> statement.setObject(index, null);
+
     void setNull(PreparedStatement statement, int index)
             throws SQLException;
 }

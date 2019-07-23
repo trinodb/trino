@@ -14,12 +14,11 @@
 package io.prestosql.plugin.jdbc;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static io.prestosql.plugin.jdbc.WriteNullFunction.DEFAULT_WRITE_NULL_FUNCTION;
 import static java.util.Objects.requireNonNull;
 
 public final class WriteMapping
 {
-    public static final WriteNullFunction DEFAULT_WRITE_NULL_FUNCTION = (statement, index) -> statement.setObject(index, null);
-
     public static WriteMapping booleanMapping(String dataType, BooleanWriteFunction writeFunction)
     {
         return booleanMapping(dataType, writeFunction, DEFAULT_WRITE_NULL_FUNCTION);
