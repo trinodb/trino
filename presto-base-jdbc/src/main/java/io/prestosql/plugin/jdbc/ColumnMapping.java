@@ -20,6 +20,7 @@ import java.util.function.UnaryOperator;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.prestosql.plugin.jdbc.WriteNullFunction.DEFAULT_WRITE_NULL_FUNCTION;
 import static java.util.Objects.requireNonNull;
 
 public final class ColumnMapping
@@ -33,7 +34,7 @@ public final class ColumnMapping
 
     public static ColumnMapping booleanMapping(Type prestoType, BooleanReadFunction readFunction, BooleanWriteFunction writeFunction, UnaryOperator<Domain> pushdownConverter)
     {
-        return new ColumnMapping(prestoType, readFunction, writeFunction, pushdownConverter);
+        return new ColumnMapping(prestoType, readFunction, writeFunction, DEFAULT_WRITE_NULL_FUNCTION, pushdownConverter);
     }
 
     public static ColumnMapping longMapping(Type prestoType, LongReadFunction readFunction, LongWriteFunction writeFunction)
@@ -43,7 +44,7 @@ public final class ColumnMapping
 
     public static ColumnMapping longMapping(Type prestoType, LongReadFunction readFunction, LongWriteFunction writeFunction, UnaryOperator<Domain> pushdownConverter)
     {
-        return new ColumnMapping(prestoType, readFunction, writeFunction, pushdownConverter);
+        return new ColumnMapping(prestoType, readFunction, writeFunction, DEFAULT_WRITE_NULL_FUNCTION, pushdownConverter);
     }
 
     public static ColumnMapping doubleMapping(Type prestoType, DoubleReadFunction readFunction, DoubleWriteFunction writeFunction)
@@ -53,7 +54,7 @@ public final class ColumnMapping
 
     public static ColumnMapping doubleMapping(Type prestoType, DoubleReadFunction readFunction, DoubleWriteFunction writeFunction, UnaryOperator<Domain> pushdownConverter)
     {
-        return new ColumnMapping(prestoType, readFunction, writeFunction, pushdownConverter);
+        return new ColumnMapping(prestoType, readFunction, writeFunction, DEFAULT_WRITE_NULL_FUNCTION, pushdownConverter);
     }
 
     public static ColumnMapping sliceMapping(Type prestoType, SliceReadFunction readFunction, SliceWriteFunction writeFunction)
@@ -63,7 +64,7 @@ public final class ColumnMapping
 
     public static ColumnMapping sliceMapping(Type prestoType, SliceReadFunction readFunction, SliceWriteFunction writeFunction, UnaryOperator<Domain> pushdownConverter)
     {
-        return new ColumnMapping(prestoType, readFunction, writeFunction, pushdownConverter);
+        return new ColumnMapping(prestoType, readFunction, writeFunction, DEFAULT_WRITE_NULL_FUNCTION, pushdownConverter);
     }
 
     public static ColumnMapping blockMapping(Type prestoType, BlockReadFunction readFunction, BlockWriteFunction writeFunction)
@@ -73,23 +74,25 @@ public final class ColumnMapping
 
     public static ColumnMapping blockMapping(Type prestoType, BlockReadFunction readFunction, BlockWriteFunction writeFunction, UnaryOperator<Domain> pushdownConverter)
     {
-        return new ColumnMapping(prestoType, readFunction, writeFunction, pushdownConverter);
+        return new ColumnMapping(prestoType, readFunction, writeFunction, DEFAULT_WRITE_NULL_FUNCTION, pushdownConverter);
     }
 
     private final Type type;
     private final ReadFunction readFunction;
     private final WriteFunction writeFunction;
+    private final WriteNullFunction writeNullFunction;
     private final UnaryOperator<Domain> pushdownConverter;
 
     /**
      * @deprecated Prefer factory methods instead over calling constructor directly.
      */
     @Deprecated
-    public ColumnMapping(Type type, ReadFunction readFunction, WriteFunction writeFunction, UnaryOperator<Domain> pushdownConverter)
+    public ColumnMapping(Type type, ReadFunction readFunction, WriteFunction writeFunction, WriteNullFunction writeNullFunction, UnaryOperator<Domain> pushdownConverter)
     {
         this.type = requireNonNull(type, "type is null");
         this.readFunction = requireNonNull(readFunction, "readFunction is null");
         this.writeFunction = requireNonNull(writeFunction, "writeFunction is null");
+        this.writeNullFunction = requireNonNull(writeNullFunction, "writeNullFunction is null");
         checkArgument(
                 type.getJavaType() == readFunction.getJavaType(),
                 "Presto type %s is not compatible with read function %s returning %s",
@@ -118,6 +121,11 @@ public final class ColumnMapping
     public WriteFunction getWriteFunction()
     {
         return writeFunction;
+    }
+
+    public WriteNullFunction getWriteNullFunction()
+    {
+        return writeNullFunction;
     }
 
     public UnaryOperator<Domain> getPushdownConverter()
