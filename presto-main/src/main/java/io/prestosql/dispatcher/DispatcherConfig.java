@@ -21,6 +21,8 @@ import javax.validation.constraints.NotNull;
 
 public class DispatcherConfig
 {
+    public static final String FORWARDED_HEADER_SUPPORT_CONFIG = "dispatcher.forwarded-header";
+
     public enum HeaderSupport
     {
         IGNORE,
@@ -38,7 +40,7 @@ public class DispatcherConfig
         return forwardedHeaderSupport;
     }
 
-    @Config("dispatcher.forwarded-header")
+    @Config(FORWARDED_HEADER_SUPPORT_CONFIG)
     @ConfigDescription("Support for " + HttpHeaders.X_FORWARDED_PROTO + " header")
     public DispatcherConfig setForwardedHeaderSupport(HeaderSupport forwardedHeaderSupport)
     {

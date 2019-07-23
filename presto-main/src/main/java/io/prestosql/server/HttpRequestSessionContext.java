@@ -69,6 +69,7 @@ import static io.prestosql.client.PrestoHeaders.PRESTO_TIME_ZONE;
 import static io.prestosql.client.PrestoHeaders.PRESTO_TRACE_TOKEN;
 import static io.prestosql.client.PrestoHeaders.PRESTO_TRANSACTION_ID;
 import static io.prestosql.client.PrestoHeaders.PRESTO_USER;
+import static io.prestosql.dispatcher.DispatcherConfig.FORWARDED_HEADER_SUPPORT_CONFIG;
 import static io.prestosql.dispatcher.DispatcherConfig.HeaderSupport.ACCEPT;
 import static io.prestosql.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;
 import static java.lang.String.format;
@@ -178,7 +179,12 @@ public final class HttpRequestSessionContext
             case REJECT:
             case ACCEPT:
                 if (xForwarderForHeader != null) {
-                    assertRequest(forwardedHeaderSupport == ACCEPT, "Unexpected HTTP header. Presto is configured to %s this header: %s", forwardedHeaderSupport, X_FORWARDED_FOR);
+                    assertRequest(
+                            forwardedHeaderSupport == ACCEPT,
+                            "Unexpected HTTP header. Presto is configured to %s the '%s' header. You can change Presto behavior using '%s' configuration property",
+                            forwardedHeaderSupport,
+                            X_FORWARDED_FOR,
+                            FORWARDED_HEADER_SUPPORT_CONFIG);
                     List<String> addresses = Splitter.on(",").trimResults().omitEmptyStrings().splitToList(xForwarderForHeader);
                     if (!addresses.isEmpty()) {
                         return addresses.get(0);

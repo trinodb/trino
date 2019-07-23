@@ -131,7 +131,7 @@ public class TestHttpRequestSessionContext
         assertEquals(new HttpRequestSessionContext(REJECT, plainRequest).getRemoteUserAddress(), "remote_address");
         assertThatThrownBy(() -> new HttpRequestSessionContext(REJECT, requestWithXForwardedFor))
                 .isInstanceOf(WebApplicationException.class)
-                .hasMessage("Unexpected HTTP header. Presto is configured to REJECT this header: X-Forwarded-For");
+                .hasMessage("Unexpected HTTP header. Presto is configured to REJECT the 'X-Forwarded-For' header. You can change Presto behavior using 'dispatcher.forwarded-header' configuration property");
     }
 
     private static HttpServletRequest requestWithXForwardedFor(Optional<String> xForwardedFor, String remoteAddress)
