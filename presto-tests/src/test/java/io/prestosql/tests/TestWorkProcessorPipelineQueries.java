@@ -34,4 +34,11 @@ public class TestWorkProcessorPipelineQueries
     {
         assertQuery("SELECT * FROM orders ORDER BY totalprice LIMIT 10");
     }
+
+    @Test
+    public void testSemiJoin()
+    {
+        assertQuery("SELECT AVG(extendedprice) FROM lineitem WHERE orderkey IN (SELECT orderkey FROM orders WHERE orderdate < DATE '1994-01-01')");
+        assertQuery("SELECT AVG(extendedprice) FROM lineitem WHERE orderkey NOT IN (SELECT orderkey FROM orders WHERE orderdate < DATE '1994-01-01')");
+    }
 }
