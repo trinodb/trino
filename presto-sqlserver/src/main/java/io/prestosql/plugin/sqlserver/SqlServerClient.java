@@ -114,6 +114,7 @@ public class SqlServerClient
                         columnMapping.getType(),
                         columnMapping.getReadFunction(),
                         columnMapping.getWriteFunction(),
+                        columnMapping.getWriteNullFunction(),
                         DISABLE_UNSUPPORTED_PUSHDOWN));
     }
 
