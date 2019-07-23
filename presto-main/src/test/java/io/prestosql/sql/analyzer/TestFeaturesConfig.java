@@ -15,7 +15,6 @@ package io.prestosql.sql.analyzer;
 
 import com.google.common.collect.ImmutableMap;
 import io.airlift.configuration.ConfigurationFactory;
-import io.airlift.configuration.testing.ConfigAssertions;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.prestosql.operator.aggregation.arrayagg.ArrayAggGroupImplementation;
@@ -27,6 +26,7 @@ import java.util.Map;
 
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
+import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
@@ -46,7 +46,7 @@ public class TestFeaturesConfig
     @Test
     public void testDefaults()
     {
-        assertRecordedDefaults(ConfigAssertions.recordDefaults(FeaturesConfig.class)
+        assertRecordedDefaults(recordDefaults(FeaturesConfig.class)
                 .setCpuCostWeight(75)
                 .setMemoryCostWeight(10)
                 .setNetworkCostWeight(15)

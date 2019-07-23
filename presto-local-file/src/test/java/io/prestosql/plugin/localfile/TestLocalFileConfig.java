@@ -14,17 +14,20 @@
 package io.prestosql.plugin.localfile;
 
 import com.google.common.collect.ImmutableMap;
-import io.airlift.configuration.testing.ConfigAssertions;
 import org.testng.annotations.Test;
 
 import java.util.Map;
+
+import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
+import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
+import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 
 public class TestLocalFileConfig
 {
     @Test
     public void testDefaults()
     {
-        ConfigAssertions.assertRecordedDefaults(ConfigAssertions.recordDefaults(LocalFileConfig.class)
+        assertRecordedDefaults(recordDefaults(LocalFileConfig.class)
                 .setHttpRequestLogLocation("var/log/http-request.log")
                 .setHttpRequestLogFileNamePattern(null));
     }
@@ -41,6 +44,6 @@ public class TestLocalFileConfig
                 .setHttpRequestLogLocation("/data/foo.log")
                 .setHttpRequestLogFileNamePattern("bar");
 
-        ConfigAssertions.assertFullMapping(properties, expected);
+        assertFullMapping(properties, expected);
     }
 }

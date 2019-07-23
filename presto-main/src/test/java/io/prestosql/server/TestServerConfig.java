@@ -14,7 +14,6 @@
 package io.prestosql.server;
 
 import com.google.common.collect.ImmutableMap;
-import io.airlift.configuration.testing.ConfigAssertions;
 import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
@@ -22,6 +21,7 @@ import java.util.Map;
 
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
+import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
 public class TestServerConfig
@@ -29,7 +29,7 @@ public class TestServerConfig
     @Test
     public void testDefaults()
     {
-        assertRecordedDefaults(ConfigAssertions.recordDefaults(ServerConfig.class)
+        assertRecordedDefaults(recordDefaults(ServerConfig.class)
                 .setCoordinator(true)
                 .setPrestoVersion(null)
                 .setIncludeExceptionInResponse(true)

@@ -14,19 +14,22 @@
 package io.prestosql.execution;
 
 import com.google.common.collect.ImmutableMap;
-import io.airlift.configuration.testing.ConfigAssertions;
 import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
+import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
+import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
+import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+
 public class TestQueryManagerConfig
 {
     @Test
     public void testDefaults()
     {
-        ConfigAssertions.assertRecordedDefaults(ConfigAssertions.recordDefaults(QueryManagerConfig.class)
+        assertRecordedDefaults(recordDefaults(QueryManagerConfig.class)
                 .setMinQueryExpireAge(new Duration(15, TimeUnit.MINUTES))
                 .setMaxQueryHistory(100)
                 .setMaxQueryLength(1_000_000)
@@ -100,6 +103,6 @@ public class TestQueryManagerConfig
                 .setRequiredWorkers(333)
                 .setRequiredWorkersMaxWait(new Duration(33, TimeUnit.MINUTES));
 
-        ConfigAssertions.assertFullMapping(properties, expected);
+        assertFullMapping(properties, expected);
     }
 }

@@ -14,12 +14,14 @@
 package io.prestosql.server.security;
 
 import com.google.common.collect.ImmutableMap;
-import io.airlift.configuration.testing.ConfigAssertions;
 import org.testng.annotations.Test;
 
 import java.io.File;
 import java.util.Map;
 
+import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
+import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
+import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static io.prestosql.server.security.KerberosNameType.HOSTBASED_SERVICE;
 import static io.prestosql.server.security.KerberosNameType.USER_NAME;
 
@@ -28,7 +30,7 @@ public class TestKerberosConfig
     @Test
     public void testDefaults()
     {
-        ConfigAssertions.assertRecordedDefaults(ConfigAssertions.recordDefaults(KerberosConfig.class)
+        assertRecordedDefaults(recordDefaults(KerberosConfig.class)
                 .setKerberosConfig(null)
                 .setServiceName(null)
                 .setKeytab(null)
@@ -54,6 +56,6 @@ public class TestKerberosConfig
                 .setPrincipalHostname("presto.prestosql.io")
                 .setNameType(USER_NAME);
 
-        ConfigAssertions.assertFullMapping(properties, expected);
+        assertFullMapping(properties, expected);
     }
 }

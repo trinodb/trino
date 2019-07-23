@@ -15,11 +15,13 @@ package io.prestosql.server.security;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.configuration.testing.ConfigAssertions;
 import org.testng.annotations.Test;
 
 import java.util.Map;
 
+import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
+import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
+import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static io.prestosql.server.security.SecurityConfig.AuthenticationType.KERBEROS;
 import static io.prestosql.server.security.SecurityConfig.AuthenticationType.PASSWORD;
 
@@ -28,7 +30,7 @@ public class TestSecurityConfig
     @Test
     public void testDefaults()
     {
-        ConfigAssertions.assertRecordedDefaults(ConfigAssertions.recordDefaults(SecurityConfig.class)
+        assertRecordedDefaults(recordDefaults(SecurityConfig.class)
                 .setAuthenticationTypes(""));
     }
 
@@ -42,6 +44,6 @@ public class TestSecurityConfig
         SecurityConfig expected = new SecurityConfig()
                 .setAuthenticationTypes(ImmutableList.of(KERBEROS, PASSWORD));
 
-        ConfigAssertions.assertFullMapping(properties, expected);
+        assertFullMapping(properties, expected);
     }
 }

@@ -14,18 +14,21 @@
 package io.prestosql.plugin.kafka;
 
 import com.google.common.collect.ImmutableMap;
-import io.airlift.configuration.testing.ConfigAssertions;
 import org.testng.annotations.Test;
 
 import java.io.File;
 import java.util.Map;
+
+import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
+import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
+import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 
 public class TestKafkaConnectorConfig
 {
     @Test
     public void testDefaults()
     {
-        ConfigAssertions.assertRecordedDefaults(ConfigAssertions.recordDefaults(KafkaConnectorConfig.class)
+        assertRecordedDefaults(recordDefaults(KafkaConnectorConfig.class)
                 .setNodes("")
                 .setKafkaConnectTimeout("10s")
                 .setKafkaBufferSize("64kB")
@@ -57,6 +60,6 @@ public class TestKafkaConnectorConfig
                 .setKafkaBufferSize("1MB")
                 .setHideInternalColumns(false);
 
-        ConfigAssertions.assertFullMapping(properties, expected);
+        assertFullMapping(properties, expected);
     }
 }

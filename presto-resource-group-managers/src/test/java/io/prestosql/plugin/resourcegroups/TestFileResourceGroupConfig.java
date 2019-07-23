@@ -14,20 +14,20 @@
 package io.prestosql.plugin.resourcegroups;
 
 import com.google.common.collect.ImmutableMap;
-import io.airlift.configuration.testing.ConfigAssertions;
 import org.testng.annotations.Test;
 
 import java.util.Map;
 
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
+import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 
 public class TestFileResourceGroupConfig
 {
     @Test
     public void testDefaults()
     {
-        assertRecordedDefaults(ConfigAssertions.recordDefaults(FileResourceGroupConfig.class)
+        assertRecordedDefaults(recordDefaults(FileResourceGroupConfig.class)
                 .setConfigFile(null));
     }
 

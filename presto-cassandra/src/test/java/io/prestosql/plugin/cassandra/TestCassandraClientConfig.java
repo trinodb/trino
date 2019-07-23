@@ -16,13 +16,15 @@ package io.prestosql.plugin.cassandra;
 import com.datastax.driver.core.ConsistencyLevel;
 import com.datastax.driver.core.SocketOptions;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.configuration.testing.ConfigAssertions;
 import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
 import java.util.Map;
 
 import static com.datastax.driver.core.ProtocolVersion.V2;
+import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
+import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
+import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -32,7 +34,7 @@ public class TestCassandraClientConfig
     @Test
     public void testDefaults()
     {
-        ConfigAssertions.assertRecordedDefaults(ConfigAssertions.recordDefaults(CassandraClientConfig.class)
+        assertRecordedDefaults(recordDefaults(CassandraClientConfig.class)
                 .setFetchSize(5_000)
                 .setConsistencyLevel(ConsistencyLevel.ONE)
                 .setContactPoints("")
@@ -121,6 +123,6 @@ public class TestCassandraClientConfig
                 .setSpeculativeExecutionDelay(new Duration(101, SECONDS))
                 .setProtocolVersion(V2);
 
-        ConfigAssertions.assertFullMapping(properties, expected);
+        assertFullMapping(properties, expected);
     }
 }

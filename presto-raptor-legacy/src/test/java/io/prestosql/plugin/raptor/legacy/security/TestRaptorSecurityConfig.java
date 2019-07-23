@@ -14,17 +14,20 @@
 package io.prestosql.plugin.raptor.legacy.security;
 
 import com.google.common.collect.ImmutableMap;
-import io.airlift.configuration.testing.ConfigAssertions;
 import org.testng.annotations.Test;
 
 import java.util.Map;
+
+import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
+import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
+import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 
 public class TestRaptorSecurityConfig
 {
     @Test
     public void testDefaults()
     {
-        ConfigAssertions.assertRecordedDefaults(ConfigAssertions.recordDefaults(RaptorSecurityConfig.class)
+        assertRecordedDefaults(recordDefaults(RaptorSecurityConfig.class)
                 .setSecuritySystem("none"));
     }
 
@@ -38,6 +41,6 @@ public class TestRaptorSecurityConfig
         RaptorSecurityConfig expected = new RaptorSecurityConfig()
                 .setSecuritySystem("read-only");
 
-        ConfigAssertions.assertFullMapping(properties, expected);
+        assertFullMapping(properties, expected);
     }
 }

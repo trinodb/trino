@@ -14,10 +14,11 @@
 package io.prestosql.plugin.hive.authentication;
 
 import com.google.common.collect.ImmutableMap;
-import io.airlift.configuration.testing.ConfigAssertions;
 import org.testng.annotations.Test;
 
 import java.util.Map;
+
+import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 
 public class TestHdfsKerberosConfig
 {
@@ -33,6 +34,6 @@ public class TestHdfsKerberosConfig
                 .setHdfsPrestoPrincipal("presto@EXAMPLE.COM")
                 .setHdfsPrestoKeytab("/tmp/presto.keytab");
 
-        ConfigAssertions.assertFullMapping(properties, expected);
+        assertFullMapping(properties, expected);
     }
 }
