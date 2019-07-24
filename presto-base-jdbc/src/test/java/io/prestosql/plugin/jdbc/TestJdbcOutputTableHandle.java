@@ -16,8 +16,11 @@ package io.prestosql.plugin.jdbc;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
+import java.util.Optional;
+
 import static io.prestosql.plugin.jdbc.MetadataUtil.OUTPUT_TABLE_CODEC;
 import static io.prestosql.plugin.jdbc.MetadataUtil.assertJsonRoundTrip;
+import static io.prestosql.plugin.jdbc.TestingJdbcTypeHandle.JDBC_VARCHAR;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 
 public class TestJdbcOutputTableHandle
@@ -25,14 +28,26 @@ public class TestJdbcOutputTableHandle
     @Test
     public void testJsonRoundTrip()
     {
-        JdbcOutputTableHandle handle = new JdbcOutputTableHandle(
+        JdbcOutputTableHandle handleForCreate = new JdbcOutputTableHandle(
                 "catalog",
                 "schema",
                 "table",
                 ImmutableList.of("abc", "xyz"),
                 ImmutableList.of(VARCHAR, VARCHAR),
+                Optional.empty(),
                 "tmp_table");
 
-        assertJsonRoundTrip(OUTPUT_TABLE_CODEC, handle);
+        assertJsonRoundTrip(OUTPUT_TABLE_CODEC, handleForCreate);
+
+        JdbcOutputTableHandle handleForInsert = new JdbcOutputTableHandle(
+                "catalog",
+                "schema",
+                "table",
+                ImmutableList.of("abc", "xyz"),
+                ImmutableList.of(VARCHAR, VARCHAR),
+                Optional.of(ImmutableList.of(JDBC_VARCHAR, JDBC_VARCHAR)),
+                "tmp_table");
+
+        assertJsonRoundTrip(OUTPUT_TABLE_CODEC, handleForInsert);
     }
 }

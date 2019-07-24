@@ -79,7 +79,6 @@ import static java.lang.String.format;
 import static java.lang.String.join;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.hadoop.hbase.HConstants.FOREVER;
 import static org.apache.phoenix.util.PhoenixRuntime.getTable;
@@ -272,17 +271,17 @@ public class PhoenixMetadata
     public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         JdbcTableHandle handle = (JdbcTableHandle) tableHandle;
-        ConnectorTableMetadata tableMetadata = getTableMetadata(session, tableHandle, true);
-        List<ColumnMetadata> allColumns = tableMetadata.getColumns();
-        List<ColumnMetadata> nonRowkeyColumns = allColumns.stream()
-                .filter(column -> !ROWKEY.equalsIgnoreCase(column.getName()))
+        List<JdbcColumnHandle> allColumns = phoenixClient.getColumns(session, handle);
+        List<JdbcColumnHandle> nonRowkeyColumns = allColumns.stream()
+                .filter(column -> !ROWKEY.equalsIgnoreCase(column.getColumnName()))
                 .collect(toImmutableList());
 
         return new PhoenixOutputTableHandle(
                 Optional.ofNullable(handle.getSchemaName()),
                 handle.getTableName(),
-                nonRowkeyColumns.stream().map(ColumnMetadata::getName).collect(toImmutableList()),
-                nonRowkeyColumns.stream().map(ColumnMetadata::getType).collect(toImmutableList()),
+                nonRowkeyColumns.stream().map(JdbcColumnHandle::getColumnName).collect(toImmutableList()),
+                nonRowkeyColumns.stream().map(JdbcColumnHandle::getColumnType).collect(toImmutableList()),
+                Optional.of(nonRowkeyColumns.stream().map(JdbcColumnHandle::getJdbcTypeHandle).collect(toImmutableList())),
                 nonRowkeyColumns.size() != allColumns.size());
     }
 
@@ -405,6 +404,7 @@ public class PhoenixMetadata
                     table,
                     columnNames.build(),
                     columnTypes.build(),
+                    Optional.empty(),
                     hasUUIDRowkey);
         }
         catch (SQLException e) {
