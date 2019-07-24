@@ -117,9 +117,9 @@ public abstract class ForwardingJdbcClient
     }
 
     @Override
-    public JdbcOutputTableHandle beginInsertTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
+    public JdbcOutputTableHandle beginInsertTable(ConnectorSession session, JdbcTableHandle tableHandle)
     {
-        return getDelegate().beginInsertTable(session, tableMetadata);
+        return getDelegate().beginInsertTable(session, tableHandle);
     }
 
     @Override
