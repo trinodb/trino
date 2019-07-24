@@ -273,15 +273,17 @@ public class PhoenixMetadata
     {
         JdbcTableHandle handle = (JdbcTableHandle) tableHandle;
         ConnectorTableMetadata tableMetadata = getTableMetadata(session, tableHandle, true);
-        List<ColumnMetadata> nonRowkeyCols = tableMetadata.getColumns().stream()
+        List<ColumnMetadata> allColumns = tableMetadata.getColumns();
+        List<ColumnMetadata> nonRowkeyColumns = allColumns.stream()
                 .filter(column -> !ROWKEY.equalsIgnoreCase(column.getName()))
                 .collect(toImmutableList());
+
         return new PhoenixOutputTableHandle(
                 Optional.ofNullable(handle.getSchemaName()),
                 handle.getTableName(),
-                nonRowkeyCols.stream().map(ColumnMetadata::getName).collect(toList()),
-                nonRowkeyCols.stream().map(ColumnMetadata::getType).collect(toList()),
-                nonRowkeyCols.size() != tableMetadata.getColumns().size());
+                nonRowkeyColumns.stream().map(ColumnMetadata::getName).collect(toImmutableList()),
+                nonRowkeyColumns.stream().map(ColumnMetadata::getType).collect(toImmutableList()),
+                nonRowkeyColumns.size() != allColumns.size());
     }
 
     @Override
