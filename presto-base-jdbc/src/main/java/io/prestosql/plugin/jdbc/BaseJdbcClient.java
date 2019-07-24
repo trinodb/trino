@@ -98,6 +98,7 @@ import static java.util.Collections.nCopies;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.stream.Collectors.joining;
 
 public class BaseJdbcClient
         implements JdbcClient
@@ -349,17 +350,6 @@ public class BaseJdbcClient
     @Override
     public JdbcOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
-        return beginWriteTable(session, tableMetadata);
-    }
-
-    @Override
-    public JdbcOutputTableHandle beginInsertTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
-    {
-        return beginWriteTable(session, tableMetadata);
-    }
-
-    private JdbcOutputTableHandle beginWriteTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
-    {
         try {
             return createTable(session, tableMetadata, generateTemporaryTableName());
         }
@@ -397,7 +387,6 @@ public class BaseJdbcClient
                 }
                 columnNames.add(columnName);
                 columnTypes.add(column.getType());
-                // TODO in INSERT case, we should reuse original column type and, ideally, constraints (then JdbcPageSink must get writer from toPrestoType())
                 columnList.add(getColumnSql(session, column, columnName));
             }
 
@@ -413,6 +402,7 @@ public class BaseJdbcClient
                     remoteTable,
                     columnNames.build(),
                     columnTypes.build(),
+                    Optional.empty(),
                     tableName);
         }
     }
@@ -427,6 +417,60 @@ public class BaseJdbcClient
             sb.append(" NOT NULL");
         }
         return sb.toString();
+    }
+
+    @Override
+    public JdbcOutputTableHandle beginInsertTable(ConnectorSession session, JdbcTableHandle tableHandle)
+    {
+        SchemaTableName schemaTableName = tableHandle.getSchemaTableName();
+        JdbcIdentity identity = JdbcIdentity.from(session);
+
+        try (Connection connection = connectionFactory.openConnection(identity)) {
+            boolean uppercase = connection.getMetaData().storesUpperCaseIdentifiers();
+            String remoteSchema = toRemoteSchemaName(identity, connection, schemaTableName.getSchemaName());
+            String remoteTable = toRemoteTableName(identity, connection, remoteSchema, schemaTableName.getTableName());
+            String tableName = generateTemporaryTableName();
+            if (uppercase) {
+                tableName = tableName.toUpperCase(ENGLISH);
+            }
+            String catalog = connection.getCatalog();
+
+            ImmutableList.Builder<String> columnNames = ImmutableList.builder();
+            ImmutableList.Builder<Type> columnTypes = ImmutableList.builder();
+            ImmutableList.Builder<JdbcTypeHandle> jdbcColumnTypes = ImmutableList.builder();
+            for (JdbcColumnHandle column : getColumns(session, tableHandle)) {
+                columnNames.add(column.getColumnName());
+                columnTypes.add(column.getColumnType());
+                jdbcColumnTypes.add(column.getJdbcTypeHandle());
+            }
+
+            copyTableSchema(connection, catalog, remoteSchema, remoteTable, tableName, columnNames.build());
+
+            return new JdbcOutputTableHandle(
+                    catalog,
+                    remoteSchema,
+                    remoteTable,
+                    columnNames.build(),
+                    columnTypes.build(),
+                    Optional.of(jdbcColumnTypes.build()),
+                    tableName);
+        }
+        catch (SQLException e) {
+            throw new PrestoException(JDBC_ERROR, e);
+        }
+    }
+
+    protected void copyTableSchema(Connection connection, String catalogName, String schemaName, String tableName, String newTableName, List<String> columnNames)
+            throws SQLException
+    {
+        String sql = format(
+                "CREATE TABLE %s AS SELECT %s FROM %s WHERE 0 = 1",
+                quoted(catalogName, schemaName, newTableName),
+                columnNames.stream()
+                        .map(this::quoted)
+                        .collect(joining(", ")),
+                quoted(catalogName, schemaName, tableName));
+        execute(connection, sql);
     }
 
     protected String generateTemporaryTableName()

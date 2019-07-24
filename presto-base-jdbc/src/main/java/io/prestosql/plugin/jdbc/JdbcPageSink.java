@@ -29,8 +29,10 @@ import java.sql.SQLException;
 import java.sql.SQLNonTransientException;
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
@@ -69,27 +71,46 @@ public class JdbcPageSink
 
         columnTypes = handle.getColumnTypes();
 
-        List<WriteMapping> writeMappings = columnTypes.stream()
-                .map(type -> {
-                    WriteMapping writeMapping = jdbcClient.toWriteMapping(session, type);
-                    WriteFunction writeFunction = writeMapping.getWriteFunction();
-                    verify(
-                            type.getJavaType() == writeFunction.getJavaType(),
-                            "Presto type %s is not compatible with write function %s accepting %s",
-                            type,
-                            writeFunction,
-                            writeFunction.getJavaType());
-                    return writeMapping;
-                })
-                .collect(toImmutableList());
+        if (!handle.getJdbcColumnTypes().isPresent()) {
+            List<WriteMapping> writeMappings = columnTypes.stream()
+                    .map(type -> {
+                        WriteMapping writeMapping = jdbcClient.toWriteMapping(session, type);
+                        WriteFunction writeFunction = writeMapping.getWriteFunction();
+                        verify(
+                                type.getJavaType() == writeFunction.getJavaType(),
+                                "Presto type %s is not compatible with write function %s accepting %s",
+                                type,
+                                writeFunction,
+                                writeFunction.getJavaType());
+                        return writeMapping;
+                    })
+                    .collect(toImmutableList());
 
-        columnWriters = writeMappings.stream()
-                .map(WriteMapping::getWriteFunction)
-                .collect(toImmutableList());
+            columnWriters = writeMappings.stream()
+                    .map(WriteMapping::getWriteFunction)
+                    .collect(toImmutableList());
 
-        nullWriters = writeMappings.stream()
-                .map(WriteMapping::getWriteNullFunction)
-                .collect(toImmutableList());
+            nullWriters = writeMappings.stream()
+                    .map(WriteMapping::getWriteNullFunction)
+                    .collect(toImmutableList());
+        }
+        else {
+            List<ColumnMapping> columnMappings = handle.getJdbcColumnTypes().get().stream()
+                    .map(typeHandle -> {
+                        Optional<ColumnMapping> columnMapping = jdbcClient.toPrestoType(session, connection, typeHandle);
+                        checkState(columnMapping.isPresent(), "missing column mapping");
+                        return columnMapping.get();
+                    })
+                    .collect(toImmutableList());
+
+            columnWriters = columnMappings.stream()
+                    .map(ColumnMapping::getWriteFunction)
+                    .collect(toImmutableList());
+
+            nullWriters = columnMappings.stream()
+                    .map(ColumnMapping::getWriteNullFunction)
+                    .collect(toImmutableList());
+        }
     }
 
     @Override

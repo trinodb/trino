@@ -36,6 +36,7 @@ import javax.inject.Inject;
 
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.util.List;
 import java.util.Optional;
 import java.util.function.BiFunction;
 import java.util.function.UnaryOperator;
@@ -48,6 +49,7 @@ import static io.prestosql.plugin.jdbc.StandardColumnMappings.varcharWriteFuncti
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.Varchars.isVarcharType;
 import static java.lang.String.format;
+import static java.util.stream.Collectors.joining;
 
 public class SqlServerClient
         extends BaseJdbcClient
@@ -99,6 +101,20 @@ public class SqlServerClient
         catch (SQLException e) {
             throw new PrestoException(JDBC_ERROR, e);
         }
+    }
+
+    @Override
+    protected void copyTableSchema(Connection connection, String catalogName, String schemaName, String tableName, String newTableName, List<String> columnNames)
+            throws SQLException
+    {
+        String sql = format(
+                "SELECT %s INTO %s FROM %s WHERE 0 = 1",
+                columnNames.stream()
+                        .map(this::quoted)
+                        .collect(joining(", ")),
+                quoted(catalogName, schemaName, newTableName),
+                quoted(catalogName, schemaName, tableName));
+        execute(connection, sql);
     }
 
     @Override
