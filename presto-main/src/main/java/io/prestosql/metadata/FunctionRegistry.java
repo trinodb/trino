@@ -67,6 +67,8 @@ import io.prestosql.operator.aggregation.VarianceAggregation;
 import io.prestosql.operator.aggregation.arrayagg.ArrayAggregationFunction;
 import io.prestosql.operator.aggregation.histogram.Histogram;
 import io.prestosql.operator.aggregation.multimapagg.MultimapAggregationFunction;
+import io.prestosql.operator.scalar.ArrayAllMatchFunction;
+import io.prestosql.operator.scalar.ArrayAnyMatchFunction;
 import io.prestosql.operator.scalar.ArrayCardinalityFunction;
 import io.prestosql.operator.scalar.ArrayCombinationsFunction;
 import io.prestosql.operator.scalar.ArrayContains;
@@ -87,6 +89,7 @@ import io.prestosql.operator.scalar.ArrayLessThanOrEqualOperator;
 import io.prestosql.operator.scalar.ArrayMaxFunction;
 import io.prestosql.operator.scalar.ArrayMinFunction;
 import io.prestosql.operator.scalar.ArrayNgramsFunction;
+import io.prestosql.operator.scalar.ArrayNoneMatchFunction;
 import io.prestosql.operator.scalar.ArrayNotEqualOperator;
 import io.prestosql.operator.scalar.ArrayPositionFunction;
 import io.prestosql.operator.scalar.ArrayRemoveFunction;
@@ -563,6 +566,9 @@ public class FunctionRegistry
                 .scalar(ArrayIndeterminateOperator.class)
                 .scalar(ArrayCombinationsFunction.class)
                 .scalar(ArrayNgramsFunction.class)
+                .scalar(ArrayAllMatchFunction.class)
+                .scalar(ArrayAnyMatchFunction.class)
+                .scalar(ArrayNoneMatchFunction.class)
                 .scalar(MapDistinctFromOperator.class)
                 .scalar(MapEqualOperator.class)
                 .scalar(MapEntriesFunction.class)
