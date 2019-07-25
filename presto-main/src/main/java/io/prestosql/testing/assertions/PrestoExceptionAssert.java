@@ -53,4 +53,18 @@ public final class PrestoExceptionAssert
         }
         return myself;
     }
+
+    public PrestoExceptionAssert hasLocation(int lineNumber, int columnNumber)
+    {
+        try {
+            assertThat(actual.getLocation()).isPresent();
+            assertThat(actual.getLocation().get())
+                    .matches(location -> location.getColumnNumber() == columnNumber && location.getLineNumber() == lineNumber);
+        }
+        catch (AssertionError e) {
+            e.addSuppressed(actual);
+            throw e;
+        }
+        return myself;
+    }
 }
