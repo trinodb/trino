@@ -24,7 +24,7 @@ import static io.prestosql.testing.assertions.Assert.assertEquals;
 import static io.prestosql.tests.QueryTemplate.parameter;
 import static io.prestosql.tests.QueryTemplate.queryTemplate;
 
-public class AbstractTestOrderByQueries
+public abstract class AbstractTestOrderByQueries
         extends AbstractTestQueryFramework
 {
     public AbstractTestOrderByQueries(QueryRunnerSupplier supplier)
