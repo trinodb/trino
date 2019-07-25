@@ -66,7 +66,7 @@ import static com.google.common.base.Predicates.in;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.prestosql.SystemSessionProperties.getQueryMaxStageCount;
-import static io.prestosql.SystemSessionProperties.isDynamicSchduleForGroupedExecution;
+import static io.prestosql.SystemSessionProperties.isDynamicScheduleForGroupedExecution;
 import static io.prestosql.SystemSessionProperties.isForceSingleNodeOutput;
 import static io.prestosql.operator.StageExecutionDescriptor.ungroupedExecution;
 import static io.prestosql.spi.StandardErrorCode.QUERY_HAS_TOO_MANY_STAGES;
@@ -149,7 +149,7 @@ public class PlanFragmenter
         GroupedExecutionProperties properties = fragment.getRoot().accept(new GroupedExecutionTagger(session, metadata, nodePartitioningManager), null);
         if (properties.isSubTreeUseful()) {
             boolean preferDynamic = fragment.getRemoteSourceNodes().stream().allMatch(node -> node.getExchangeType() == REPLICATE)
-                    && isDynamicSchduleForGroupedExecution(session);
+                    && isDynamicScheduleForGroupedExecution(session);
             BucketNodeMap bucketNodeMap = nodePartitioningManager.getBucketNodeMap(session, fragment.getPartitioning(), preferDynamic);
             if (bucketNodeMap.isDynamic()) {
                 fragment = fragment.withDynamicLifespanScheduleGroupedExecution(properties.getCapableTableScanNodes());
