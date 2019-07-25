@@ -1,0 +1,3 @@
+hdfs:
+  webhdfs:
+    uri: http://${databases.hive.host}:9870
