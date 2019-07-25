@@ -164,11 +164,11 @@ public class PlanPrinter
         this.tableInfoSupplier = tableInfoSupplier;
         this.valuePrinter = valuePrinter;
 
-        Optional<Duration> totalCpuTime = stats.map(s -> new Duration(s.values().stream()
+        Optional<Duration> totalScheduledTime = stats.map(s -> new Duration(s.values().stream()
                 .mapToLong(planNode -> planNode.getPlanNodeScheduledTime().toMillis())
                 .sum(), MILLISECONDS));
 
-        Optional<Duration> totalScheduledTime = stats.map(s -> new Duration(s.values().stream()
+        Optional<Duration> totalCpuTime = stats.map(s -> new Duration(s.values().stream()
                 .mapToLong(planNode -> planNode.getPlanNodeCpuTime().toMillis())
                 .sum(), MILLISECONDS));
 
