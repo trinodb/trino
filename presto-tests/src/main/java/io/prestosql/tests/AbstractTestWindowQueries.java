@@ -27,7 +27,7 @@ import static io.prestosql.testing.assertions.Assert.assertEquals;
 import static io.prestosql.tests.QueryAssertions.assertEqualsIgnoreOrder;
 import static io.prestosql.tests.StructuralTestUtil.mapType;
 
-public class AbstractTestWindowQueries
+public abstract class AbstractTestWindowQueries
         extends AbstractTestQueryFramework
 {
     public AbstractTestWindowQueries(QueryRunnerSupplier supplier)
