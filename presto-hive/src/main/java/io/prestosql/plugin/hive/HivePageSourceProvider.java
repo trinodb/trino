@@ -84,6 +84,12 @@ public class HivePageSourceProvider
     @Override
     public ConnectorPageSource createPageSource(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorSplit split, ConnectorTableHandle table, List<ColumnHandle> columns)
     {
+        return createPageSource(transaction, session, split, table, columns, TupleDomain.all());
+    }
+
+    @Override
+    public ConnectorPageSource createPageSource(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorSplit split, ConnectorTableHandle table, List<ColumnHandle> columns, TupleDomain<ColumnHandle> dynamicFilter)
+    {
         HiveTableHandle hiveTable = (HiveTableHandle) table;
 
         List<HiveColumnHandle> hiveColumns = columns.stream()
@@ -106,7 +112,7 @@ public class HivePageSourceProvider
                 hiveSplit.getLength(),
                 hiveSplit.getFileSize(),
                 hiveSplit.getSchema(),
-                hiveTable.getCompactEffectivePredicate(),
+                hiveTable.getCompactEffectivePredicate().intersect(dynamicFilter.transform(HiveColumnHandle.class::cast)),
                 hiveColumns,
                 hiveSplit.getPartitionKeys(),
                 hiveStorageTimeZone,
