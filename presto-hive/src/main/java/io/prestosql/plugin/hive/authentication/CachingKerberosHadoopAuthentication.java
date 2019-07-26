@@ -29,11 +29,10 @@ public class CachingKerberosHadoopAuthentication
 {
     private final KerberosHadoopAuthentication delegate;
 
-    private final Object lock = new Object();
-    @GuardedBy("lock")
+    @GuardedBy("this")
     private UserGroupInformation userGroupInformation;
-    @GuardedBy("lock")
-    private long nextRefreshTime = Long.MIN_VALUE;
+    @GuardedBy("this")
+    private long nextRefreshTime;
 
     public CachingKerberosHadoopAuthentication(KerberosHadoopAuthentication delegate)
     {
@@ -41,27 +40,13 @@ public class CachingKerberosHadoopAuthentication
     }
 
     @Override
-    public UserGroupInformation getUserGroupInformation()
+    public synchronized UserGroupInformation getUserGroupInformation()
     {
-        synchronized (lock) {
-            if (refreshIsNeeded()) {
-                refreshUgi();
-            }
-            return userGroupInformation;
+        if (nextRefreshTime < System.currentTimeMillis() || userGroupInformation == null) {
+            userGroupInformation = requireNonNull(delegate.getUserGroupInformation(), "delegate.getUserGroupInformation() is null");
+            nextRefreshTime = calculateNextRefreshTime(userGroupInformation);
         }
-    }
-
-    @GuardedBy("lock")
-    private void refreshUgi()
-    {
-        userGroupInformation = delegate.getUserGroupInformation();
-        nextRefreshTime = calculateNextRefreshTime(userGroupInformation);
-    }
-
-    @GuardedBy("lock")
-    private boolean refreshIsNeeded()
-    {
-        return nextRefreshTime < System.currentTimeMillis() || userGroupInformation == null;
+        return userGroupInformation;
     }
 
     private static long calculateNextRefreshTime(UserGroupInformation userGroupInformation)
