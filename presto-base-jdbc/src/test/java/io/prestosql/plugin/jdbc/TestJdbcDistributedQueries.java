@@ -16,14 +16,14 @@ package io.prestosql.plugin.jdbc;
 import io.airlift.tpch.TpchTable;
 import io.prestosql.tests.AbstractTestQueries;
 
-import static io.prestosql.plugin.jdbc.JdbcQueryRunner.createJdbcQueryRunner;
+import static io.prestosql.plugin.jdbc.H2QueryRunner.createH2QueryRunner;
 
 public class TestJdbcDistributedQueries
         extends AbstractTestQueries
 {
     public TestJdbcDistributedQueries()
     {
-        super(() -> createJdbcQueryRunner(TpchTable.getTables()));
+        super(() -> createH2QueryRunner(TpchTable.getTables()));
     }
 
     @Override
