@@ -2,7 +2,7 @@ version: '2'
 services:
   hadoop-master:
     hostname: hadoop-master
-    image: 'prestodev/hdp2.6-hive:15'
+    image: '${HADOOP_BASE_IMAGE}:${DOCKER_IMAGES_VERSION}'
     ports:
       - '1180:1180'
       - '8020:8020'

@@ -23,9 +23,7 @@ function export_canonical_path() {
 }
 
 source "${BASH_SOURCE%/*}/../../../bin/locations.sh"
-
-export DOCKER_IMAGES_VERSION=${DOCKER_IMAGES_VERSION:-15}
-export HADOOP_BASE_IMAGE=${HADOOP_BASE_IMAGE:-"prestodev/hdp2.6-hive"}
+source "${BASH_SOURCE%/*}/../../../../conf/docker-images-config.sh"
 
 # The following variables are defined to enable running product tests with arbitrary/downloaded jars
 # and without building the project. The `presto.env` file should only be sourced if any of the variables

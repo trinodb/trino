@@ -66,6 +66,7 @@ SCRIPT_DIR="${BASH_SOURCE%/*}"
 INTEGRATION_TESTS_ROOT="${SCRIPT_DIR}/.."
 PROJECT_ROOT="${INTEGRATION_TESTS_ROOT}/.."
 DOCKER_COMPOSE_LOCATION="${INTEGRATION_TESTS_ROOT}/conf/docker-compose.yml"
+source "${BASH_SOURCE%/*}/../../conf/docker-images-config.sh"
 
 # check docker and docker compose installation
 docker-compose version
