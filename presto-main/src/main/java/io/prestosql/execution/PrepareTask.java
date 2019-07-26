@@ -28,7 +28,6 @@ import io.prestosql.transaction.TransactionManager;
 import javax.inject.Inject;
 
 import java.util.List;
-import java.util.Optional;
 
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -68,7 +67,7 @@ public class PrepareTask
             throw new PrestoException(NOT_SUPPORTED, "Invalid statement type for prepared statement: " + type);
         }
 
-        String sql = getFormattedSql(statement, sqlParser, Optional.empty());
+        String sql = getFormattedSql(statement, sqlParser);
         stateMachine.addPreparedStatement(prepare.getName().getValue(), sql);
         return immediateFuture(null);
     }

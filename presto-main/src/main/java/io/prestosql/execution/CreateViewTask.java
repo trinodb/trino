@@ -74,7 +74,7 @@ public class CreateViewTask
 
         accessControl.checkCanCreateView(session.getRequiredTransactionId(), session.getIdentity(), name);
 
-        String sql = getFormattedSql(statement.getQuery(), sqlParser, Optional.of(parameters));
+        String sql = getFormattedSql(statement.getQuery(), sqlParser);
 
         Analysis analysis = analyzeStatement(statement, session, metadata, accessControl, parameters, stateMachine.getWarningCollector());
 

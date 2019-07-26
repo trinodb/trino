@@ -21,7 +21,6 @@ import org.testng.annotations.Test;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.util.Optional;
 
 import static com.google.common.base.Strings.repeat;
 import static io.prestosql.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;
@@ -318,7 +317,7 @@ public class TestStatementBuilder
         println(statement.toString());
         println("");
 
-        println(SqlFormatter.formatSql(statement, Optional.empty()));
+        println(SqlFormatter.formatSql(statement));
         println("");
         assertFormattedSql(SQL_PARSER, statement);
 
@@ -329,7 +328,7 @@ public class TestStatementBuilder
     private static void assertSqlFormatter(String expression, String formatted)
     {
         Expression originalExpression = SQL_PARSER.createExpression(expression, new ParsingOptions());
-        String real = SqlFormatter.formatSql(originalExpression, Optional.empty());
+        String real = SqlFormatter.formatSql(originalExpression);
         assertEquals(real, formatted);
     }
 

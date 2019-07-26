@@ -2385,7 +2385,10 @@ public abstract class AbstractTestQueries
                 .addPreparedStatement("my_query", "SET SESSION foo = ?")
                 .build();
         MaterializedResult result = computeActual(session, "EXPLAIN (TYPE LOGICAL) EXECUTE my_query USING 7");
-        assertEquals(getOnlyElement(result.getOnlyColumnAsSet()), "SET SESSION foo = 7");
+        assertEquals(
+                getOnlyElement(result.getOnlyColumnAsSet()),
+                "SET SESSION foo = ?\n" +
+                "Parameters: [7]");
     }
 
     @Test

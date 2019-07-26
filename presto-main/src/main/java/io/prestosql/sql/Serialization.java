@@ -26,7 +26,6 @@ import io.prestosql.sql.tree.FunctionCall;
 import javax.inject.Inject;
 
 import java.io.IOException;
-import java.util.Optional;
 
 import static io.prestosql.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
 
@@ -41,7 +40,7 @@ public final class Serialization
         public void serialize(Expression expression, JsonGenerator jsonGenerator, SerializerProvider serializerProvider)
                 throws IOException
         {
-            jsonGenerator.writeString(ExpressionFormatter.formatExpression(expression, Optional.empty()));
+            jsonGenerator.writeString(ExpressionFormatter.formatExpression(expression));
         }
     }
 

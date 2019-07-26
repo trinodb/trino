@@ -17,11 +17,7 @@ import io.prestosql.spi.PrestoException;
 import io.prestosql.sql.parser.ParsingException;
 import io.prestosql.sql.parser.ParsingOptions;
 import io.prestosql.sql.parser.SqlParser;
-import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.Statement;
-
-import java.util.List;
-import java.util.Optional;
 
 import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.prestosql.sql.parser.ParsingOptions.DecimalLiteralTreatment.REJECT;
@@ -30,9 +26,9 @@ public final class SqlFormatterUtil
 {
     private SqlFormatterUtil() {}
 
-    public static String getFormattedSql(Statement statement, SqlParser sqlParser, Optional<List<Expression>> parameters)
+    public static String getFormattedSql(Statement statement, SqlParser sqlParser)
     {
-        String sql = SqlFormatter.formatSql(statement, parameters);
+        String sql = SqlFormatter.formatSql(statement);
 
         // verify round-trip
         Statement parsed;

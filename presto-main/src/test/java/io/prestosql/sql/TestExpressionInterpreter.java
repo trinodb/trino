@@ -1515,7 +1515,7 @@ public class TestExpressionInterpreter
     {
         ParsingOptions parsingOptions = createParsingOptions(TEST_SESSION);
         Expression parsed = SQL_PARSER.createExpression(expression, parsingOptions);
-        String formatted = formatExpression(parsed, Optional.empty());
+        String formatted = formatExpression(parsed);
         assertEquals(parsed, SQL_PARSER.createExpression(formatted, parsingOptions));
     }
 
