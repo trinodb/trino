@@ -922,7 +922,7 @@ public final class MetadataManager
     public Optional<ConnectorViewDefinition> getView(Session session, QualifiedObjectName viewName)
     {
         return getOptionalCatalogMetadata(session, viewName.getCatalogName())
-                .flatMap(catalog -> catalog.getMetadata().getView(
+                .flatMap(catalog -> catalog.getMetadataFor(catalog.getConnectorId(session, viewName)).getView(
                         session.toConnectorSession(catalog.getCatalogName()),
                         viewName.asSchemaTableName()));
     }
