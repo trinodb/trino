@@ -24,7 +24,7 @@ function export_canonical_path() {
 
 source "${BASH_SOURCE%/*}/../../../bin/locations.sh"
 
-export DOCKER_IMAGES_VERSION=${DOCKER_IMAGES_VERSION:-14}
+export DOCKER_IMAGES_VERSION=${DOCKER_IMAGES_VERSION:-15}
 export HADOOP_BASE_IMAGE=${HADOOP_BASE_IMAGE:-"prestodev/hdp2.6-hive"}
 
 # The following variables are defined to enable running product tests with arbitrary/downloaded jars
