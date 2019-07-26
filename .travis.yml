@@ -32,7 +32,7 @@ matrix:
     - env: HIVE_TESTS=true
     - env: KUDU_TESTS=true
 
-dist: xenial
+dist: bionic
 jdk: openjdk8
 
 cache:
