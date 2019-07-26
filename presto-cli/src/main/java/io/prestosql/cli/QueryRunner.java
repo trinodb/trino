@@ -29,6 +29,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.client.ClientSession.stripTransactionId;
 import static io.prestosql.client.OkHttpUtil.basicAuth;
 import static io.prestosql.client.OkHttpUtil.setupCookieJar;
+import static io.prestosql.client.OkHttpUtil.setupHttp1;
 import static io.prestosql.client.OkHttpUtil.setupHttpProxy;
 import static io.prestosql.client.OkHttpUtil.setupKerberos;
 import static io.prestosql.client.OkHttpUtil.setupSocksProxy;
@@ -80,6 +81,7 @@ public class QueryRunner
         setupCookieJar(builder);
         setupSocksProxy(builder, socksProxy);
         setupHttpProxy(builder, httpProxy);
+        setupHttp1(builder);
         setupBasicAuth(builder, session, user, password);
         setupTokenAuth(builder, session, accessToken);
 

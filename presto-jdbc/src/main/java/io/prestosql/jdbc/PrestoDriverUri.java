@@ -35,6 +35,7 @@ import static com.google.common.base.Strings.isNullOrEmpty;
 import static io.prestosql.client.KerberosUtil.defaultCredentialCachePath;
 import static io.prestosql.client.OkHttpUtil.basicAuth;
 import static io.prestosql.client.OkHttpUtil.setupCookieJar;
+import static io.prestosql.client.OkHttpUtil.setupHttp1;
 import static io.prestosql.client.OkHttpUtil.setupHttpProxy;
 import static io.prestosql.client.OkHttpUtil.setupKerberos;
 import static io.prestosql.client.OkHttpUtil.setupSocksProxy;
@@ -153,6 +154,7 @@ final class PrestoDriverUri
             setupCookieJar(builder);
             setupSocksProxy(builder, SOCKS_PROXY.getValue(properties));
             setupHttpProxy(builder, HTTP_PROXY.getValue(properties));
+            setupHttp1(builder);
 
             // TODO: fix Tempto to allow empty passwords
             String password = PASSWORD.getValue(properties).orElse("");
