@@ -20,7 +20,8 @@ import javax.security.auth.Subject;
 import javax.security.auth.kerberos.KerberosTicket;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.prestosql.plugin.hive.authentication.KerberosTicketUtils.getTicketGrantingTicket;
+import static io.prestosql.plugin.base.authentication.KerberosTicketUtils.getRefreshTime;
+import static io.prestosql.plugin.base.authentication.KerberosTicketUtils.getTicketGrantingTicket;
 import static java.util.Objects.requireNonNull;
 import static org.apache.hadoop.security.UserGroupInformationShim.getSubject;
 
@@ -54,6 +55,6 @@ public class CachingKerberosHadoopAuthentication
         Subject subject = getSubject(userGroupInformation);
         checkArgument(subject != null, "subject must be present in kerberos based UGI");
         KerberosTicket tgtTicket = getTicketGrantingTicket(subject);
-        return KerberosTicketUtils.getRefreshTime(tgtTicket);
+        return getRefreshTime(tgtTicket);
     }
 }

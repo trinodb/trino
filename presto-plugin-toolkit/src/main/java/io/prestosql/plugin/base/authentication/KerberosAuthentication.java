@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.plugin.hive.authentication;
+package io.prestosql.plugin.base.authentication;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -32,16 +32,19 @@ import java.nio.file.Paths;
 import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static java.lang.String.format;
 import static java.nio.file.Files.exists;
 import static java.nio.file.Files.isReadable;
 import static java.util.Collections.emptySet;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
-import static org.apache.hadoop.security.SecurityUtil.getServerPrincipal;
 
 public class KerberosAuthentication
 {
     private static final Logger log = Logger.get(KerberosAuthentication.class);
     private static final String KERBEROS_LOGIN_MODULE = "com.sun.security.auth.module.Krb5LoginModule";
+
+    private static final String HOSTNAME_PATTERN = "_HOST";
 
     private final KerberosPrincipal principal;
     private final Configuration configuration;
@@ -108,5 +111,14 @@ public class KerberosAuthentication
                                 options)};
             }
         };
+    }
+
+    private static String getServerPrincipal(String principal, String hostname)
+    {
+        String[] components = principal.split("[/@]");
+        if (components.length != 3 || !components[1].equals(HOSTNAME_PATTERN)) {
+            return principal;
+        }
+        return format("%s/%s@%s", components[0], hostname.toLowerCase(ENGLISH), components[2]);
     }
 }
