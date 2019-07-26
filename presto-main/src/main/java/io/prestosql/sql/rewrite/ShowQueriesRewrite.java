@@ -433,7 +433,7 @@ final class ShowQueriesRewrite
                 Identifier tableName = parts.get(0);
                 Identifier schemaName = (parts.size() > 1) ? parts.get(1) : new Identifier(objectName.getSchemaName());
                 Identifier catalogName = (parts.size() > 2) ? parts.get(2) : new Identifier(objectName.getCatalogName());
-                String sql = formatSql(new CreateView(QualifiedName.of(ImmutableList.of(catalogName, schemaName, tableName)), query, false, Optional.empty()), Optional.of(parameters)).trim();
+                String sql = formatSql(new CreateView(QualifiedName.of(ImmutableList.of(catalogName, schemaName, tableName)), query, false, Optional.empty())).trim();
                 return singleValueQuery("Create View", sql);
             }
 
@@ -469,7 +469,7 @@ final class ShowQueriesRewrite
                         false,
                         propertyNodes,
                         connectorTableMetadata.getComment());
-                return singleValueQuery("Create Table", formatSql(createTable, Optional.of(parameters)).trim());
+                return singleValueQuery("Create Table", formatSql(createTable).trim());
             }
 
             throw new UnsupportedOperationException("SHOW CREATE only supported for tables and views");

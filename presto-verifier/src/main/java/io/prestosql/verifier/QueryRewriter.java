@@ -123,7 +123,7 @@ public class QueryRewriter
     {
         QualifiedName temporaryTableName = generateTemporaryTableName(statement.getName());
         Statement rewritten = new CreateTableAsSelect(temporaryTableName, statement.getQuery(), statement.isNotExists(), statement.getProperties(), statement.isWithData(), statement.getColumnAliases(), Optional.empty());
-        String createTableAsSql = formatSql(rewritten, Optional.empty());
+        String createTableAsSql = formatSql(rewritten);
         String checksumSql = checksumSql(getColumns(connection, statement), temporaryTableName);
         String dropTableSql = dropTableSql(temporaryTableName);
         return new Query(query.getCatalog(), query.getSchema(), ImmutableList.of(createTableAsSql), checksumSql, ImmutableList.of(dropTableSql), query.getUsername(), query.getPassword(), query.getSessionProperties());
@@ -134,8 +134,8 @@ public class QueryRewriter
     {
         QualifiedName temporaryTableName = generateTemporaryTableName(statement.getTarget());
         Statement createTemporaryTable = new CreateTable(temporaryTableName, ImmutableList.of(new LikeClause(statement.getTarget(), Optional.of(INCLUDING))), true, ImmutableList.of(), Optional.empty());
-        String createTemporaryTableSql = formatSql(createTemporaryTable, Optional.empty());
-        String insertSql = formatSql(new Insert(temporaryTableName, statement.getColumns(), statement.getQuery()), Optional.empty());
+        String createTemporaryTableSql = formatSql(createTemporaryTable);
+        String insertSql = formatSql(new Insert(temporaryTableName, statement.getColumns(), statement.getQuery()));
         String checksumSql = checksumSql(getColumnsForTable(connection, query.getCatalog(), query.getSchema(), statement.getTarget().toString()), temporaryTableName);
         String dropTableSql = dropTableSql(temporaryTableName);
         return new Query(query.getCatalog(), query.getSchema(), ImmutableList.of(createTemporaryTableSql, insertSql), checksumSql, ImmutableList.of(dropTableSql), query.getUsername(), query.getPassword(), query.getSessionProperties());
@@ -218,7 +218,7 @@ public class QueryRewriter
             ExecutorService executor = newSingleThreadExecutor();
             TimeLimiter limiter = SimpleTimeLimiter.create(executor);
             java.sql.Statement limitedStatement = limiter.newProxy(jdbcStatement, java.sql.Statement.class, timeout.toMillis(), TimeUnit.MILLISECONDS);
-            try (ResultSet resultSet = limitedStatement.executeQuery(formatSql(zeroRowsQuery, Optional.empty()))) {
+            try (ResultSet resultSet = limitedStatement.executeQuery(formatSql(zeroRowsQuery))) {
                 ResultSetMetaData metaData = resultSet.getMetaData();
                 for (int i = 1; i <= metaData.getColumnCount(); i++) {
                     String name = metaData.getColumnName(i);
@@ -253,12 +253,12 @@ public class QueryRewriter
         }
 
         Select select = new Select(false, selectItems.build());
-        return formatSql(new QuerySpecification(select, Optional.of(new Table(table)), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()), Optional.empty());
+        return formatSql(new QuerySpecification(select, Optional.of(new Table(table)), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()));
     }
 
     private static String dropTableSql(QualifiedName table)
     {
-        return formatSql(new DropTable(table, true), Optional.empty());
+        return formatSql(new DropTable(table, true));
     }
 
     private static String escapeLikeExpression(Connection connection, String value)

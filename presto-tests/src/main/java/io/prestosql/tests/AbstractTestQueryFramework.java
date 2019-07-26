@@ -317,7 +317,7 @@ public abstract class AbstractTestQueryFramework
 
     protected String formatSqlText(String sql)
     {
-        return formatSql(sqlParser.createStatement(sql, createParsingOptions(queryRunner.getDefaultSession())), Optional.empty());
+        return formatSql(sqlParser.createStatement(sql, createParsingOptions(queryRunner.getDefaultSession())));
     }
 
     //TODO: should WarningCollector be added?
