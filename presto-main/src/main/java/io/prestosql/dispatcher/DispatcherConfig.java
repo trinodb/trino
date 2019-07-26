@@ -13,24 +13,25 @@
  */
 package io.prestosql.dispatcher;
 
-import com.google.common.net.HttpHeaders;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 
 import javax.validation.constraints.NotNull;
 
+import static com.google.common.net.HttpHeaders.X_FORWARDED_PROTO;
+
 public class DispatcherConfig
 {
     public enum HeaderSupport
     {
+        WARN,
         IGNORE,
         ACCEPT,
-        REJECT,
         /**/;
     }
 
     // When Presto is not behind a load-balancer, accepting user-provided X-Forwarded-For would be not be safe.
-    private HeaderSupport forwardedHeaderSupport = HeaderSupport.REJECT;
+    private HeaderSupport forwardedHeaderSupport = HeaderSupport.WARN;
 
     @NotNull
     public HeaderSupport getForwardedHeaderSupport()
@@ -39,7 +40,7 @@ public class DispatcherConfig
     }
 
     @Config("dispatcher.forwarded-header")
-    @ConfigDescription("Support for " + HttpHeaders.X_FORWARDED_PROTO + " header")
+    @ConfigDescription("Support for " + X_FORWARDED_PROTO + " header")
     public DispatcherConfig setForwardedHeaderSupport(HeaderSupport forwardedHeaderSupport)
     {
         this.forwardedHeaderSupport = forwardedHeaderSupport;

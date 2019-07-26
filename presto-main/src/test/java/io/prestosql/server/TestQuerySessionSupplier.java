@@ -50,7 +50,7 @@ import static io.prestosql.client.PrestoHeaders.PRESTO_SESSION;
 import static io.prestosql.client.PrestoHeaders.PRESTO_SOURCE;
 import static io.prestosql.client.PrestoHeaders.PRESTO_TIME_ZONE;
 import static io.prestosql.client.PrestoHeaders.PRESTO_USER;
-import static io.prestosql.dispatcher.DispatcherConfig.HeaderSupport.REJECT;
+import static io.prestosql.dispatcher.DispatcherConfig.HeaderSupport.WARN;
 import static io.prestosql.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.prestosql.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static org.testng.Assert.assertEquals;
@@ -77,7 +77,7 @@ public class TestQuerySessionSupplier
     @Test
     public void testCreateSession()
     {
-        HttpRequestSessionContext context = new HttpRequestSessionContext(REJECT, TEST_REQUEST);
+        HttpRequestSessionContext context = new HttpRequestSessionContext(WARN, TEST_REQUEST);
         QuerySessionSupplier sessionSupplier = new QuerySessionSupplier(
                 createTestTransactionManager(),
                 new AllowAllAccessControl(),
@@ -115,7 +115,7 @@ public class TestQuerySessionSupplier
                         .put(PRESTO_USER, "testUser")
                         .build(),
                 "remoteAddress");
-        HttpRequestSessionContext context1 = new HttpRequestSessionContext(REJECT, request1);
+        HttpRequestSessionContext context1 = new HttpRequestSessionContext(WARN, request1);
         assertEquals(context1.getClientTags(), ImmutableSet.of());
 
         HttpServletRequest request2 = new MockHttpServletRequest(
@@ -124,7 +124,7 @@ public class TestQuerySessionSupplier
                         .put(PRESTO_CLIENT_TAGS, "")
                         .build(),
                 "remoteAddress");
-        HttpRequestSessionContext context2 = new HttpRequestSessionContext(REJECT, request2);
+        HttpRequestSessionContext context2 = new HttpRequestSessionContext(WARN, request2);
         assertEquals(context2.getClientTags(), ImmutableSet.of());
     }
 
@@ -137,7 +137,7 @@ public class TestQuerySessionSupplier
                         .put(PRESTO_CLIENT_CAPABILITIES, "foo, bar")
                         .build(),
                 "remoteAddress");
-        HttpRequestSessionContext context1 = new HttpRequestSessionContext(REJECT, request1);
+        HttpRequestSessionContext context1 = new HttpRequestSessionContext(WARN, request1);
         assertEquals(context1.getClientCapabilities(), ImmutableSet.of("foo", "bar"));
 
         HttpServletRequest request2 = new MockHttpServletRequest(
@@ -145,7 +145,7 @@ public class TestQuerySessionSupplier
                         .put(PRESTO_USER, "testUser")
                         .build(),
                 "remoteAddress");
-        HttpRequestSessionContext context2 = new HttpRequestSessionContext(REJECT, request2);
+        HttpRequestSessionContext context2 = new HttpRequestSessionContext(WARN, request2);
         assertEquals(context2.getClientCapabilities(), ImmutableSet.of());
     }
 
@@ -158,7 +158,7 @@ public class TestQuerySessionSupplier
                         .put(PRESTO_TIME_ZONE, "unknown_timezone")
                         .build(),
                 "testRemote");
-        HttpRequestSessionContext context = new HttpRequestSessionContext(REJECT, request);
+        HttpRequestSessionContext context = new HttpRequestSessionContext(WARN, request);
         QuerySessionSupplier sessionSupplier = new QuerySessionSupplier(
                 createTestTransactionManager(),
                 new AllowAllAccessControl(),

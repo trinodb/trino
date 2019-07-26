@@ -42,7 +42,7 @@ import static io.prestosql.client.PrestoHeaders.PRESTO_TIME_ZONE;
 import static io.prestosql.client.PrestoHeaders.PRESTO_USER;
 import static io.prestosql.dispatcher.DispatcherConfig.HeaderSupport.ACCEPT;
 import static io.prestosql.dispatcher.DispatcherConfig.HeaderSupport.IGNORE;
-import static io.prestosql.dispatcher.DispatcherConfig.HeaderSupport.REJECT;
+import static io.prestosql.dispatcher.DispatcherConfig.HeaderSupport.WARN;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 
@@ -73,7 +73,7 @@ public class TestHttpRequestSessionContext
                         .build(),
                 "testRemote");
 
-        HttpRequestSessionContext context = new HttpRequestSessionContext(REJECT, request);
+        HttpRequestSessionContext context = new HttpRequestSessionContext(WARN, request);
         assertEquals(context.getSource(), "testSource");
         assertEquals(context.getCatalog(), "testCatalog");
         assertEquals(context.getSchema(), "testSchema");
@@ -111,7 +111,7 @@ public class TestHttpRequestSessionContext
                         .put(PRESTO_PREPARED_STATEMENT, "query1=abcdefg")
                         .build(),
                 "testRemote");
-        assertThatThrownBy(() -> new HttpRequestSessionContext(REJECT, request))
+        assertThatThrownBy(() -> new HttpRequestSessionContext(WARN, request))
                 .isInstanceOf(WebApplicationException.class)
                 .hasMessageMatching("Invalid X-Presto-Prepared-Statement header: line 1:1: mismatched input 'abcdefg'. Expecting: .*");
     }
@@ -120,18 +120,16 @@ public class TestHttpRequestSessionContext
     public void testXForwardedFor()
     {
         HttpServletRequest plainRequest = requestWithXForwardedFor(Optional.empty(), "remote_address");
-        HttpServletRequest requestWithXForwardedFor = requestWithXForwardedFor(Optional.of("forwarded_client"), "forwarded_remote_address");
+        HttpServletRequest requestWithXForwardedFor = requestWithXForwardedFor(Optional.of("forwarded_client"), "proxy_address");
 
         assertEquals(new HttpRequestSessionContext(IGNORE, plainRequest).getRemoteUserAddress(), "remote_address");
-        assertEquals(new HttpRequestSessionContext(IGNORE, requestWithXForwardedFor).getRemoteUserAddress(), "forwarded_remote_address");
+        assertEquals(new HttpRequestSessionContext(IGNORE, requestWithXForwardedFor).getRemoteUserAddress(), "proxy_address");
 
         assertEquals(new HttpRequestSessionContext(ACCEPT, plainRequest).getRemoteUserAddress(), "remote_address");
         assertEquals(new HttpRequestSessionContext(ACCEPT, requestWithXForwardedFor).getRemoteUserAddress(), "forwarded_client");
 
-        assertEquals(new HttpRequestSessionContext(REJECT, plainRequest).getRemoteUserAddress(), "remote_address");
-        assertThatThrownBy(() -> new HttpRequestSessionContext(REJECT, requestWithXForwardedFor))
-                .isInstanceOf(WebApplicationException.class)
-                .hasMessage("Unexpected HTTP header. Presto is configured to REJECT this header: X-Forwarded-For");
+        assertEquals(new HttpRequestSessionContext(WARN, plainRequest).getRemoteUserAddress(), "remote_address");
+        assertEquals(new HttpRequestSessionContext(WARN, requestWithXForwardedFor).getRemoteUserAddress(), "proxy_address"); // this generates a warning to logs
     }
 
     private static HttpServletRequest requestWithXForwardedFor(Optional<String> xForwardedFor, String remoteAddress)

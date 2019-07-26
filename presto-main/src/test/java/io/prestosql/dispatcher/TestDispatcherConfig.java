@@ -29,7 +29,7 @@ public class TestDispatcherConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(DispatcherConfig.class)
-                .setForwardedHeaderSupport(HeaderSupport.REJECT));
+                .setForwardedHeaderSupport(HeaderSupport.WARN));
     }
 
     @Test
