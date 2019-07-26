@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.plugin.hive.authentication;
+package io.prestosql.plugin.base.authentication;
 
 import javax.security.auth.Subject;
 import javax.security.auth.kerberos.KerberosPrincipal;
@@ -19,7 +19,7 @@ import javax.security.auth.kerberos.KerberosTicket;
 
 import java.util.Set;
 
-final class KerberosTicketUtils
+public final class KerberosTicketUtils
 {
     private static final float TICKET_RENEW_WINDOW = 0.80f;
 
@@ -27,7 +27,7 @@ final class KerberosTicketUtils
     {
     }
 
-    static KerberosTicket getTicketGrantingTicket(Subject subject)
+    public static KerberosTicket getTicketGrantingTicket(Subject subject)
     {
         Set<KerberosTicket> tickets = subject.getPrivateCredentials(KerberosTicket.class);
         for (KerberosTicket ticket : tickets) {
@@ -38,7 +38,7 @@ final class KerberosTicketUtils
         throw new IllegalArgumentException("kerberos ticket not found in " + subject);
     }
 
-    static long getRefreshTime(KerberosTicket ticket)
+    public static long getRefreshTime(KerberosTicket ticket)
     {
         long start = ticket.getStartTime().getTime();
         long end = ticket.getEndTime().getTime();
@@ -52,7 +52,7 @@ final class KerberosTicketUtils
      * kinit is done)
      * @return true or false
      */
-    static boolean isOriginalTicketGrantingTicket(KerberosTicket ticket)
+    public static boolean isOriginalTicketGrantingTicket(KerberosTicket ticket)
     {
         return isTicketGrantingServerPrincipal(ticket.getServer());
     }

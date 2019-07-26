@@ -13,6 +13,7 @@
  */
 package io.prestosql.plugin.hive.authentication;
 
+import io.prestosql.plugin.base.authentication.KerberosAuthentication;
 import io.prestosql.plugin.hive.HdfsConfigurationInitializer;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.security.UserGroupInformation;
