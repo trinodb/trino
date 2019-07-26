@@ -30,19 +30,19 @@ import static io.prestosql.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static io.prestosql.tests.QueryAssertions.copyTpchTables;
 
-public final class JdbcQueryRunner
+public final class H2QueryRunner
 {
-    private JdbcQueryRunner() {}
+    private H2QueryRunner() {}
 
     private static final String TPCH_SCHEMA = "tpch";
 
-    public static DistributedQueryRunner createJdbcQueryRunner(TpchTable<?>... tables)
+    public static DistributedQueryRunner createH2QueryRunner(TpchTable<?>... tables)
             throws Exception
     {
-        return createJdbcQueryRunner(ImmutableList.copyOf(tables));
+        return createH2QueryRunner(ImmutableList.copyOf(tables));
     }
 
-    public static DistributedQueryRunner createJdbcQueryRunner(Iterable<TpchTable<?>> tables)
+    public static DistributedQueryRunner createH2QueryRunner(Iterable<TpchTable<?>> tables)
             throws Exception
     {
         DistributedQueryRunner queryRunner = null;

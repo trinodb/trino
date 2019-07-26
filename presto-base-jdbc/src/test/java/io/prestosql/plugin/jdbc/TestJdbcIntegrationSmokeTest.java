@@ -16,13 +16,13 @@ package io.prestosql.plugin.jdbc;
 import io.prestosql.tests.AbstractTestIntegrationSmokeTest;
 
 import static io.airlift.tpch.TpchTable.ORDERS;
-import static io.prestosql.plugin.jdbc.JdbcQueryRunner.createJdbcQueryRunner;
+import static io.prestosql.plugin.jdbc.H2QueryRunner.createH2QueryRunner;
 
 public class TestJdbcIntegrationSmokeTest
         extends AbstractTestIntegrationSmokeTest
 {
     public TestJdbcIntegrationSmokeTest()
     {
-        super(() -> createJdbcQueryRunner(ORDERS));
+        super(() -> createH2QueryRunner(ORDERS));
     }
 }
