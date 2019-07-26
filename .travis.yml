@@ -33,7 +33,6 @@ matrix:
     - env: KUDU_TESTS=true
 
 dist: bionic
-jdk: openjdk8
 
 cache:
   yarn: true
