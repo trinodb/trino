@@ -1882,6 +1882,10 @@ public class HiveMetadata
         Table table = metastore.getTable(tableName.getSchemaName(), tableName.getTableName())
                 .orElseThrow(() -> new TableNotFoundException(tableName));
 
+        if (!isHiveBucketingV1(table) && table.getStorage().getBucketProperty().isPresent()) {
+            throw new PrestoException(NOT_SUPPORTED, "Table bucketing version not supported for writing");
+        }
+
         Optional<HiveBucketHandle> hiveBucketHandle = getHiveBucketHandle(table);
         if (!hiveBucketHandle.isPresent()) {
             return Optional.empty();
@@ -1890,9 +1894,6 @@ public class HiveMetadata
                 .orElseThrow(() -> new NoSuchElementException("Bucket property should be set"));
         if (!bucketProperty.getSortedBy().isEmpty() && !isSortedWritingEnabled(session)) {
             throw new PrestoException(NOT_SUPPORTED, "Writing to bucketed sorted Hive tables is disabled");
-        }
-        if (!isHiveBucketingV1(table)) {
-            throw new PrestoException(NOT_SUPPORTED, "Table bucketing version not supported for writing");
         }
 
         HivePartitioningHandle partitioningHandle = new HivePartitioningHandle(
