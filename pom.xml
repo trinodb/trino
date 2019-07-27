@@ -57,7 +57,7 @@
         <dep.assertj-core.version>3.8.0</dep.assertj-core.version>
         <dep.logback.version>1.2.3</dep.logback.version>
         <dep.jmxutils.version>1.21</dep.jmxutils.version>
-        <dep.gcs.version>1.9.10</dep.gcs.version>
+        <dep.gcs.version>1.9.17</dep.gcs.version>
 
         <!--
           America/Bahia_Banderas has:
@@ -1217,6 +1217,7 @@
                                 <excludes combine.children="append">
                                     <!-- TODO: fix this in Airlift resolver -->
                                     <exclude>org.codehaus.plexus:plexus-utils</exclude>
+                                    <exclude>com.google.guava:guava</exclude>
                                 </excludes>
                             </requireUpperBoundDeps>
                         </rules>
