@@ -335,6 +335,30 @@ public class TestSqlParser
     }
 
     @Test
+    public void testAllColumns()
+    {
+        assertStatement("SELECT * FROM t", simpleQuery(
+                new Select(
+                        false,
+                        ImmutableList.of(
+                                new AllColumns(
+                                        Optional.empty(),
+                                        Optional.empty(),
+                                        ImmutableList.of()))),
+                table(QualifiedName.of("t"))));
+
+        assertStatement("SELECT r.* FROM t", simpleQuery(
+                new Select(
+                        false,
+                        ImmutableList.of(
+                                new AllColumns(
+                                        Optional.empty(),
+                                        Optional.of(new Identifier("r")),
+                                        ImmutableList.of()))),
+                table(QualifiedName.of("t"))));
+    }
+
+    @Test
     public void testDouble()
     {
         assertExpression("123E7", new DoubleLiteral("123E7"));

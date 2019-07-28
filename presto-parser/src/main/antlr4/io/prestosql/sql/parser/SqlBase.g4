@@ -204,9 +204,9 @@ setQuantifier
     ;
 
 selectItem
-    : expression (AS? identifier)?  #selectSingle
-    | qualifiedName '.' ASTERISK    #selectAll
-    | ASTERISK                      #selectAll
+    : expression (AS? identifier)?                          #selectSingle
+    | primaryExpression '.' ASTERISK (AS columnAliases)?    #selectAll
+    | ASTERISK                                              #selectAll
     ;
 
 relation
