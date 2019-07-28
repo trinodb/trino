@@ -13,10 +13,11 @@
  */
 package io.prestosql.sql.analyzer;
 
+import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.sql.tree.DereferenceExpression;
+import io.prestosql.spi.type.RowType;
+import io.prestosql.sql.tree.AllColumns;
 import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.Identifier;
 import io.prestosql.sql.tree.QualifiedName;
 import io.prestosql.sql.tree.WithQuery;
 
@@ -30,8 +31,13 @@ import java.util.Optional;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.prestosql.spi.StandardErrorCode.AMBIGUOUS_NAME;
+import static io.prestosql.sql.analyzer.ExpressionTreeUtils.asQualifiedName;
+import static io.prestosql.sql.analyzer.Scope.BasisType.FIELD;
+import static io.prestosql.sql.analyzer.Scope.BasisType.TABLE;
 import static io.prestosql.sql.analyzer.SemanticExceptions.ambiguousAttributeException;
 import static io.prestosql.sql.analyzer.SemanticExceptions.missingAttributeException;
+import static io.prestosql.sql.analyzer.SemanticExceptions.semanticException;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -99,6 +105,93 @@ public class Scope
         return relation;
     }
 
+    /**
+     * Starting from this, finds the closest scope which satisfies given predicate,
+     * within the query boundary.
+     */
+    private Optional<Scope> findLocally(Predicate<Scope> match)
+    {
+        Scope scope = this;
+
+        do {
+            if (match.test(scope)) {
+                return Optional.of(scope);
+            }
+
+            Optional<Scope> parent = scope.getLocalParent();
+            if (!parent.isPresent()) {
+                break;
+            }
+
+            scope = parent.get();
+        }
+        while (true);
+
+        return Optional.empty();
+    }
+
+    /**
+     * This method analyzes asterisked identifier chain in 'all fields reference', according to SQL standard.
+     * The following rules are applied:
+     * 1. if the identifier chain's length is lower than 4, it is attempted to resolve it as a table reference,
+     * either in the local scope or in outer scope.
+     * 2. if the identifier chain's length is greater than 1, it is attempted to match the chain's prefix of length 2
+     * to a field of type Row, either in the local scope or in outer scope.
+     * Any available match in the innermost scope is picked and the 'identifier chain basis' is defined.
+     * If more than one basis is defined, it results in a failure (ambiguous identifier chain).
+     * <p>
+     * NOTE: only ambiguity between table reference and field reference is currently detected.
+     * If two or more tables in the same scope match the identifier chain, they are indistinguishable in current Scope implementation,
+     * and such query results in returning fields from all of those tables.
+     * If two or more fields in the same scope match the identifier chain, such query will fail later during analysis.
+     * <p>
+     * NOTE: Although references to outer scope tables are found, referencing all fields from outer scope tables is not yet supported.
+     */
+    public Optional<AsteriskedIdentifierChainBasis> resolveAsteriskedIdentifierChainBasis(QualifiedName identifierChain, AllColumns selectItem)
+    {
+        int length = identifierChain.getParts().size();
+
+        Optional<Scope> scopeForTableReference = Optional.empty();
+        Optional<Scope> scopeForFieldReference = Optional.empty();
+
+        if (length <= 3) {
+            scopeForTableReference = findLocally(scope -> scope.getRelationType()
+                    .getAllFields().stream()
+                    .anyMatch(field -> field.matchesPrefix(Optional.of(identifierChain))));
+        }
+
+        if (length >= 2) {
+            scopeForFieldReference = findLocally(scope -> scope.getRelationType()
+                    .getAllFields().stream()
+                    .anyMatch(field -> field.matchesPrefix(Optional.of(QualifiedName.of(identifierChain.getParts().get(0))))
+                            && field.getName().isPresent()
+                            && field.getName().get().equals(identifierChain.getParts().get(1))
+                            && field.getType() instanceof RowType));
+        }
+
+        if (scopeForTableReference.isPresent() && scopeForFieldReference.isPresent()) {
+            throw semanticException(AMBIGUOUS_NAME, selectItem, "Reference '%s' is ambiguous", identifierChain);
+        }
+
+        if (scopeForTableReference.isPresent()) {
+            return Optional.of(new AsteriskedIdentifierChainBasis(TABLE, scopeForTableReference, Optional.of(scopeForTableReference.get().getRelationType())));
+        }
+
+        if (scopeForFieldReference.isPresent()) {
+            return Optional.of(new AsteriskedIdentifierChainBasis(FIELD, Optional.empty(), Optional.empty()));
+        }
+
+        return getOuterQueryParent()
+                .map(parent -> parent.resolveAsteriskedIdentifierChainBasis(identifierChain, selectItem))
+                .orElse(Optional.empty());
+    }
+
+    // check if other is within the query boundary starting from this
+    public boolean isLocalScope(Scope other)
+    {
+        return findLocally(scope -> scope.getRelationId().equals(other.getRelationId())).isPresent();
+    }
+
     public ResolvedField resolveField(Expression expression, QualifiedName name)
     {
         return tryResolveField(expression, name).orElseThrow(() -> missingAttributeException(expression, name));
@@ -111,18 +204,6 @@ public class Scope
             return tryResolveField(expression, qualifiedName);
         }
         return Optional.empty();
-    }
-
-    private static QualifiedName asQualifiedName(Expression expression)
-    {
-        QualifiedName name = null;
-        if (expression instanceof Identifier) {
-            name = QualifiedName.of(((Identifier) expression).getValue());
-        }
-        else if (expression instanceof DereferenceExpression) {
-            name = DereferenceExpression.getQualifiedName((DereferenceExpression) expression);
-        }
-        return name;
     }
 
     public Optional<ResolvedField> tryResolveField(Expression node, QualifiedName name)
@@ -248,5 +329,42 @@ public class Scope
         {
             return new Scope(parent, queryBoundary, relationId, relationType, namedQueries);
         }
+    }
+
+    public static class AsteriskedIdentifierChainBasis
+    {
+        private final BasisType basisType;
+        private final Optional<Scope> scope;
+        private final Optional<RelationType> relationType;
+
+        public AsteriskedIdentifierChainBasis(BasisType basisType, Optional<Scope> scope, Optional<RelationType> relationType)
+        {
+            this.basisType = requireNonNull(basisType, "type is null");
+            this.scope = requireNonNull(scope, "scope is null");
+            this.relationType = requireNonNull(relationType, "relationType is null");
+            checkArgument(basisType == FIELD || scope.isPresent(), "missing scope");
+            checkArgument(basisType == FIELD || relationType.isPresent(), "missing relationType");
+        }
+
+        public BasisType getBasisType()
+        {
+            return basisType;
+        }
+
+        public Optional<Scope> getScope()
+        {
+            return scope;
+        }
+
+        public Optional<RelationType> getRelationType()
+        {
+            return relationType;
+        }
+    }
+
+    enum BasisType
+    {
+        TABLE,
+        FIELD
     }
 }
