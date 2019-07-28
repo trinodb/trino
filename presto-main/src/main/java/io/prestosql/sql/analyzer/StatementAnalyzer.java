@@ -1754,7 +1754,16 @@ class StatementAnalyzer
             for (SelectItem item : node.getSelect().getSelectItems()) {
                 if (item instanceof AllColumns) {
                     // expand * and T.*
-                    Optional<QualifiedName> starPrefix = ((AllColumns) item).getPrefix();
+                    Optional<QualifiedName> starPrefix = ((AllColumns) item).getTarget()
+                            .map(target -> {
+                                if (target instanceof DereferenceExpression) {
+                                    return DereferenceExpression.getQualifiedName((DereferenceExpression) target);
+                                }
+                                if (target instanceof Identifier) {
+                                    return QualifiedName.of(ImmutableList.of((Identifier) target));
+                                }
+                                throw semanticException(NOT_SUPPORTED, item, "Only identifier chains supported with .*");
+                            });
 
                     for (Field field : sourceScope.getRelationType().resolveFieldsWithPrefix(starPrefix)) {
                         outputFields.add(Field.newUnqualified(field.getName(), field.getType(), field.getOriginTable(), field.getOriginColumnName(), false));
@@ -1886,7 +1895,20 @@ class StatementAnalyzer
                 ImmutableList.Builder<Expression> outputExpressionBuilder)
         {
             // expand * and T.*
-            Optional<QualifiedName> starPrefix = allColumns.getPrefix();
+            Optional<QualifiedName> starPrefix = allColumns.getTarget()
+                    .map(target -> {
+                        if (target instanceof DereferenceExpression) {
+                            return DereferenceExpression.getQualifiedName((DereferenceExpression) target);
+                        }
+                        if (target instanceof Identifier) {
+                            return QualifiedName.of(ImmutableList.of((Identifier) target));
+                        }
+                        throw semanticException(NOT_SUPPORTED, allColumns, "Only identifier chains supported with .*");
+                    });
+
+            if (!allColumns.getAliases().isEmpty()) {
+                throw semanticException(NOT_SUPPORTED, allColumns, "Column aliases not supported");
+            }
 
             RelationType relationType = scope.getRelationType();
             List<Field> fields = relationType.resolveFieldsWithPrefix(starPrefix);
