@@ -720,11 +720,15 @@ class AstBuilder
     @Override
     public Node visitSelectAll(SqlBaseParser.SelectAllContext context)
     {
-        if (context.qualifiedName() != null) {
-            return new AllColumns(getLocation(context), getQualifiedName(context.qualifiedName()));
+        List<Identifier> aliases = ImmutableList.of();
+        if (context.columnAliases() != null) {
+            aliases = visit(context.columnAliases().identifier(), Identifier.class);
         }
 
-        return new AllColumns(getLocation(context));
+        return new AllColumns(
+                getLocation(context),
+                visitIfPresent(context.primaryExpression(), Expression.class),
+                aliases);
     }
 
     @Override

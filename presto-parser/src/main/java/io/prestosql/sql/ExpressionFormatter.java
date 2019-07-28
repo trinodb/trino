@@ -519,11 +519,24 @@ public final class ExpressionFormatter
         @Override
         protected String visitAllColumns(AllColumns node, Void context)
         {
-            if (node.getPrefix().isPresent()) {
-                return node.getPrefix().get() + ".*";
+            StringBuilder builder = new StringBuilder();
+            if (node.getTarget().isPresent()) {
+                builder.append(process(node.getTarget().get(), context));
+                builder.append(".*");
+            }
+            else {
+                builder.append("*");
             }
 
-            return "*";
+            if (!node.getAliases().isEmpty()) {
+                builder.append(" AS (");
+                Joiner.on(", ").appendTo(builder, node.getAliases().stream()
+                        .map(alias -> process(alias, context))
+                        .collect(toList()));
+                builder.append(")");
+            }
+
+            return builder.toString();
         }
 
         @Override
