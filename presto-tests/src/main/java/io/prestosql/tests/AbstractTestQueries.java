@@ -999,39 +999,46 @@ public abstract class AbstractTestQueries
     }
 
     @Test
-    public void testWildcard()
+    public void testSelectAllFromTable()
     {
         assertQuery("SELECT * FROM orders");
-    }
 
-    @Test
-    public void testMultipleWildcards()
-    {
+        // multiple wildcards
         assertQuery("SELECT *, 123, * FROM orders");
-    }
 
-    @Test
-    public void testMixedWildcards()
-    {
+        // qualified wildcard
+        assertQuery("SELECT orders.* FROM orders");
+
+        // mixed wildcards
         assertQuery("SELECT *, orders.*, orderkey FROM orders");
-    }
 
-    @Test
-    public void testQualifiedWildcardFromAlias()
-    {
+        // qualified wildcard from alias
         assertQuery("SELECT T.* FROM orders T");
-    }
 
-    @Test
-    public void testQualifiedWildcardFromInlineView()
-    {
+        // TODO enable testing the following supported queries
+        /*
+        // qualified wildcard and column aliases
+        assertQuery("SELECT region.* AS (a, b, c) FROM region");
+        assertQuery("SELECT T.*  AS (a, b, c) FROM region T");
+        assertQuery("SELECT d1, d2, d3 FROM (SELECT Tc.* AS (d1, d2, d3) FROM (SELECT Ta.* AS (b1, b2, b3) FROM region Ta (a1, a2, a3)) Tc (c1, c2, c3))");
+        */
+
+        // wildcard from aliased table with column aliases
+        assertQuery("SELECT a, b, c, d FROM (SELECT T.* FROM nation T (a, b, c, d))");
+
+        //qualified wildcard from inline view
         assertQuery("SELECT T.* FROM (SELECT orderkey + custkey FROM orders) T");
     }
 
     @Test
-    public void testQualifiedWildcard()
+    public void testSelectAllFromRow()
     {
-        assertQuery("SELECT orders.* FROM orders");
+        // wildcard from row with aggreggation
+        assertQuery("SELECT (count(*), true).* FROM nation", "SELECT 25, true");
+
+        // wildcard from subquery
+        assertQuery("SELECT (SELECT (name, regionkey) FROM nation WHERE name='ALGERIA').*", "SELECT 'ALGERIA', 0");
+        assertQuery("SELECT (SELECT (count(*), true) FROM nation WHERE regionkey = 0).*", "SELECT 5, true");
     }
 
     @Test

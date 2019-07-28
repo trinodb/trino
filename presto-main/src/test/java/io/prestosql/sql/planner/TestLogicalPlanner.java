@@ -72,6 +72,7 @@ import static io.prestosql.sql.planner.assertions.PlanMatchPattern.apply;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.assignUniqueId;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.constrainedTableScan;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.constrainedTableScanWithTableLayout;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.enforceSingleRow;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.exchange;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.expression;
@@ -164,6 +165,48 @@ public class TestLogicalPlanner
                                                         ImmutableMap.of("partial_sum", functionCall("sum", ImmutableList.of("totalprice"))),
                                                         PARTIAL,
                                                         anyTree(tableScan("orders", ImmutableMap.of("totalprice", "totalprice")))))))));
+    }
+
+    @Test
+    public void testAllFieldsDereferenceOnSubquery()
+    {
+        assertPlan("SELECT (SELECT (min(regionkey), max(name)) FROM nation).*",
+                any(
+                        project(
+                                ImmutableMap.of(
+                                        "output_1", expression("CAST(\"row\" AS ROW(f0 bigint,f1 varchar(25))).f0"),
+                                        "output_2", expression("CAST(\"row\" AS ROW(f0 bigint,f1 varchar(25))).f1")),
+                                enforceSingleRow(
+                                        project(
+                                                ImmutableMap.of("row", expression("ROW(min, max)")),
+                                                aggregation(
+                                                        ImmutableMap.of(
+                                                                "min", functionCall("min", ImmutableList.of("min_regionkey")),
+                                                                "max", functionCall("max", ImmutableList.of("max_name"))),
+                                                        FINAL,
+                                                        any(
+                                                                aggregation(
+                                                                        ImmutableMap.of(
+                                                                                "min_regionkey", functionCall("min", ImmutableList.of("REGIONKEY")),
+                                                                                "max_name", functionCall("max", ImmutableList.of("NAME"))),
+                                                                        PARTIAL,
+                                                                        tableScan("nation", ImmutableMap.of("NAME", "name", "REGIONKEY", "regionkey"))))))))));
+    }
+
+    @Test
+    public void testAllFieldsDereferenceFromNonDeterministic()
+    {
+        assertPlan("SELECT (x, x).* FROM (SELECT rand()) T(x)",
+                any(
+                        project(
+                                ImmutableMap.of(
+                                        "output_1", expression("CAST(row AS ROW(f0 double,f1 double)).f0"),
+                                        "output_2", expression("CAST(row AS ROW(f0 double,f1 double)).f1")),
+                                project(
+                                        ImmutableMap.of("row", expression("ROW(\"rand\", \"rand\")")),
+                                        project(
+                                                ImmutableMap.of("rand", expression("rand()")),
+                                                values())))));
     }
 
     @Test

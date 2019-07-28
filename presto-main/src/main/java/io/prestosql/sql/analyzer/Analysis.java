@@ -28,6 +28,7 @@ import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
 import io.prestosql.spi.security.Identity;
 import io.prestosql.spi.type.Type;
+import io.prestosql.sql.tree.AllColumns;
 import io.prestosql.sql.tree.ExistsPredicate;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.FunctionCall;
@@ -102,11 +103,12 @@ public class Analysis
     private final Map<NodeRef<QuerySpecification>, Expression> having = new LinkedHashMap<>();
     private final Map<NodeRef<Node>, List<Expression>> orderByExpressions = new LinkedHashMap<>();
     private final Set<NodeRef<OrderBy>> redundantOrderBy = new HashSet<>();
-    private final Map<NodeRef<Node>, List<Expression>> outputExpressions = new LinkedHashMap<>();
+    private final Map<NodeRef<Node>, List<SelectExpression>> selectExpressions = new LinkedHashMap<>();
     private final Map<NodeRef<QuerySpecification>, List<FunctionCall>> windowFunctions = new LinkedHashMap<>();
     private final Map<NodeRef<OrderBy>, List<FunctionCall>> orderByWindowFunctions = new LinkedHashMap<>();
     private final Map<NodeRef<Offset>, Long> offset = new LinkedHashMap<>();
     private final Map<NodeRef<Node>, OptionalLong> limit = new LinkedHashMap<>();
+    private final Map<NodeRef<AllColumns>, List<Field>> selectAllResultFields = new LinkedHashMap<>();
 
     private final Map<NodeRef<Join>, Expression> joins = new LinkedHashMap<>();
     private final Map<NodeRef<Join>, JoinUsingAnalysis> joinUsing = new LinkedHashMap<>();
@@ -324,14 +326,24 @@ public class Analysis
         return limit.get(NodeRef.of(node));
     }
 
-    public void setOutputExpressions(Node node, List<Expression> expressions)
+    public void setSelectAllResultFields(AllColumns node, List<Field> expressions)
     {
-        outputExpressions.put(NodeRef.of(node), ImmutableList.copyOf(expressions));
+        selectAllResultFields.put(NodeRef.of(node), ImmutableList.copyOf(expressions));
     }
 
-    public List<Expression> getOutputExpressions(Node node)
+    public List<Field> getSelectAllResultFields(AllColumns node)
     {
-        return outputExpressions.get(NodeRef.of(node));
+        return selectAllResultFields.get(NodeRef.of(node));
+    }
+
+    public void setSelectExpressions(Node node, List<SelectExpression> expressions)
+    {
+        selectExpressions.put(NodeRef.of(node), ImmutableList.copyOf(expressions));
+    }
+
+    public List<SelectExpression> getSelectExpressions(Node node)
+    {
+        return selectExpressions.get(NodeRef.of(node));
     }
 
     public void setHaving(QuerySpecification node, Expression expression)
@@ -649,6 +661,32 @@ public class Analysis
     public boolean isOrderByRedundant(OrderBy orderBy)
     {
         return redundantOrderBy.contains(NodeRef.of(orderBy));
+    }
+
+    @Immutable
+    public static final class SelectExpression
+    {
+        // expression refers to a select item, either to be returned directly, or unfolded by all-fields reference
+        // unfoldedExpressions applies to the latter case, and is a list of subscript expressions
+        // referencing each field of the row.
+        private final Expression expression;
+        private final Optional<List<Expression>> unfoldedExpressions;
+
+        public SelectExpression(Expression expression, Optional<List<Expression>> unfoldedExpressions)
+        {
+            this.expression = requireNonNull(expression, "expression is null");
+            this.unfoldedExpressions = requireNonNull(unfoldedExpressions);
+        }
+
+        public Expression getExpression()
+        {
+            return expression;
+        }
+
+        public Optional<List<Expression>> getUnfoldedExpressions()
+        {
+            return unfoldedExpressions;
+        }
     }
 
     @Immutable
