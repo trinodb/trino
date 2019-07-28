@@ -118,9 +118,9 @@ public class RelationType
     }
 
     /**
-     * This method is used for SELECT * or x.* queries
+     * Gets all visible fields whose relation alias matches given prefix.
      */
-    public List<Field> resolveFieldsWithPrefix(Optional<QualifiedName> prefix)
+    public List<Field> resolveVisibleFieldsWithRelationPrefix(Optional<QualifiedName> prefix)
     {
         return visibleFields.stream()
                 .filter(input -> input.matchesPrefix(prefix))

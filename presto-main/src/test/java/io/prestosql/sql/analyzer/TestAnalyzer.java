@@ -182,6 +182,8 @@ public class TestAnalyzer
                 .hasErrorCode(TYPE_MISMATCH);
         assertFails("SELECT DISTINCT x FROM (SELECT approx_set(1) x)")
                 .hasErrorCode(TYPE_MISMATCH);
+        assertFails("SELECT DISTINCT ROW(1, approx_set(1)).* from t1")
+                .hasErrorCode(TYPE_MISMATCH);
     }
 
     @Test
@@ -253,10 +255,34 @@ public class TestAnalyzer
     }
 
     @Test
-    public void testWildcardWithInvalidPrefix()
+    public void testSelectAllColumns()
     {
+        // wildcard without FROM
+        assertFails("SELECT *")
+                .hasErrorCode(COLUMN_NOT_FOUND);
+
+        // wildcard with invalid prefix
         assertFails("SELECT foo.* FROM t1")
                 .hasErrorCode(TABLE_NOT_FOUND);
+
+        assertFails("SELECT a.b.c.d.* FROM t1")
+                .hasErrorCode(TABLE_NOT_FOUND);
+
+        // aliases mismatch
+        assertFails("SELECT (1, 2).* AS (a) FROM t1")
+                .hasErrorCode(MISMATCHED_COLUMN_ALIASES);
+
+        // wildcard with no RowType expression
+        assertFails("SELECT non_row.* FROM (VALUES ('true', 1)) t(non_row, b)")
+                .hasErrorCode(TABLE_NOT_FOUND);
+
+        // wildcard with no RowType expression nested in a row
+        assertFails("SELECT t.row.non_row.* FROM (VALUES (CAST(ROW('true') AS ROW(non_row boolean)), 1)) t(row, b)")
+                .hasErrorCode(TYPE_MISMATCH);
+
+        // reference to outer scope relation
+        assertFails("SELECT (SELECT outer_relation.* FROM (VALUES 1) inner_relation) FROM (values 2) outer_relation")
+                .hasErrorCode(NOT_SUPPORTED);
     }
 
     @Test
