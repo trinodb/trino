@@ -534,8 +534,6 @@ public class QueryStateMachine
                 queryStateTimer.getResourceWaitingTime(),
                 queryStateTimer.getDispatchingTime(),
                 queryStateTimer.getExecutionTime(),
-                queryStateTimer.getAnalysisTime(),
-                queryStateTimer.getDistributedPlanningTime(),
                 queryStateTimer.getPlanningTime(),
                 queryStateTimer.getFinishingTime(),
 
@@ -895,26 +893,6 @@ public class QueryStateMachine
         queryStateTimer.recordHeartbeat();
     }
 
-    public void beginAnalysis()
-    {
-        queryStateTimer.beginAnalyzing();
-    }
-
-    public void endAnalysis()
-    {
-        queryStateTimer.endAnalysis();
-    }
-
-    public void beginDistributedPlanning()
-    {
-        queryStateTimer.beginDistributedPlanning();
-    }
-
-    public void endDistributedPlanning()
-    {
-        queryStateTimer.endDistributedPlanning();
-    }
-
     public DateTime getCreateTime()
     {
         return queryStateTimer.getCreateTime();
@@ -1032,8 +1010,6 @@ public class QueryStateMachine
                 queryStats.getResourceWaitingTime(),
                 queryStats.getDispatchingTime(),
                 queryStats.getExecutionTime(),
-                queryStats.getAnalysisTime(),
-                queryStats.getDistributedPlanningTime(),
                 queryStats.getTotalPlanningTime(),
                 queryStats.getFinishingTime(),
                 queryStats.getTotalTasks(),

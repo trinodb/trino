@@ -62,8 +62,6 @@ public class QuerySystemTable
             .column("resource_group_id", new ArrayType(createUnboundedVarcharType()))
 
             .column("queued_time_ms", BIGINT)
-            .column("analysis_time_ms", BIGINT)
-            .column("distributed_planning_time_ms", BIGINT)
 
             .column("created", TIMESTAMP)
             .column("started", TIMESTAMP)
@@ -118,8 +116,6 @@ public class QuerySystemTable
                     queryInfo.getResourceGroupId().map(QuerySystemTable::resourceGroupIdToBlock).orElse(null),
 
                     toMillis(queryStats.getQueuedTime()),
-                    toMillis(queryStats.getAnalysisTime()),
-                    toMillis(queryStats.getDistributedPlanningTime()),
 
                     toTimeStamp(queryStats.getCreateTime()),
                     toTimeStamp(queryStats.getExecutionStartTime()),

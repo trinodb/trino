@@ -181,8 +181,6 @@ public class QueryResource
                 ZERO_MILLIS,
                 ZERO_MILLIS,
                 ZERO_MILLIS,
-                ZERO_MILLIS,
-                ZERO_MILLIS,
                 0,
                 0,
                 0,
