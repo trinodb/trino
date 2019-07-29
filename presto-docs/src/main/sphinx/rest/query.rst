@@ -49,8 +49,6 @@ on a Presto installation.
     	       "endTime" : "2013-12-29T16:17:32.152-05:00",
     	       "elapsedTime" : "125.00ms",
     	       "queuedTime" : "1.31ms",
-    	       "analysisTime" : "4.84ms",
-    	       "distributedPlanningTime" : "353.00us",
     	       "totalTasks" : 2,
     	       "runningTasks" : 0,
     	       "completedTasks" : 2,

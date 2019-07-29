@@ -312,7 +312,7 @@ public class SqlQueryExecution
                     return;
                 }
 
-                PlanRoot plan = analyzeQuery();
+                PlanRoot plan = planQuery();
 
                 metadata.beginQuery(getSession(), plan.getTableHandles());
 
@@ -357,20 +357,18 @@ public class SqlQueryExecution
         stateMachine.addQueryInfoStateChangeListener(stateChangeListener);
     }
 
-    private PlanRoot analyzeQuery()
+    private PlanRoot planQuery()
     {
         try {
-            return doAnalyzeQuery();
+            return doPlanQuery();
         }
         catch (StackOverflowError e) {
             throw new PrestoException(NOT_SUPPORTED, "statement is too large (stack overflow during analysis)", e);
         }
     }
 
-    private PlanRoot doAnalyzeQuery()
+    private PlanRoot doPlanQuery()
     {
-        stateMachine.beginAnalysis();
-
         // plan query
         PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
         LogicalPlanner logicalPlanner = new LogicalPlanner(stateMachine.getSession(), planOptimizers, idAllocator, metadata, new TypeAnalyzer(sqlParser, metadata), statsCalculator, costCalculator, stateMachine.getWarningCollector());
@@ -387,8 +385,6 @@ public class SqlQueryExecution
 
         // fragment the plan
         SubPlan fragmentedPlan = planFragmenter.createSubPlans(stateMachine.getSession(), plan, false, stateMachine.getWarningCollector());
-
-        stateMachine.endAnalysis();
 
         boolean explainAnalyze = analysis.getStatement() instanceof Explain && ((Explain) analysis.getStatement()).isAnalyze();
         return new PlanRoot(fragmentedPlan, !explainAnalyze, extractTableHandles(analysis));
@@ -412,12 +408,9 @@ public class SqlQueryExecution
 
     private void planDistribution(PlanRoot plan)
     {
-        stateMachine.beginDistributedPlanning();
-
         // plan the execution on the active nodes
         DistributedExecutionPlanner distributedPlanner = new DistributedExecutionPlanner(splitManager, metadata);
         StageExecutionPlan outputStageExecutionPlan = distributedPlanner.plan(plan.getRoot(), stateMachine.getSession());
-        stateMachine.endDistributedPlanning();
 
         // ensure split sources are closed
         stateMachine.addStateChangeListener(state -> {

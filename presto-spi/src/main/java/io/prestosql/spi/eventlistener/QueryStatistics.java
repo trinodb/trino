@@ -25,8 +25,6 @@ public class QueryStatistics
     private final Duration wallTime;
     private final Duration queuedTime;
     private final Optional<Duration> waitingTime;
-    private final Optional<Duration> analysisTime;
-    private final Optional<Duration> distributedPlanningTime;
 
     private final long peakUserMemoryBytes;
     // peak of user + system memory
@@ -69,8 +67,6 @@ public class QueryStatistics
             Duration wallTime,
             Duration queuedTime,
             Optional<Duration> waitingTime,
-            Optional<Duration> analysisTime,
-            Optional<Duration> distributedPlanningTime,
             long peakUserMemoryBytes,
             long peakTotalNonRevocableMemoryBytes,
             long peakTaskUserMemory,
@@ -97,8 +93,6 @@ public class QueryStatistics
         this.wallTime = requireNonNull(wallTime, "wallTime is null");
         this.waitingTime = requireNonNull(waitingTime, "waitingTime is null");
         this.queuedTime = requireNonNull(queuedTime, "queuedTime is null");
-        this.analysisTime = requireNonNull(analysisTime, "analysisTime is null");
-        this.distributedPlanningTime = requireNonNull(distributedPlanningTime, "distributedPlanningTime is null");
         this.peakUserMemoryBytes = peakUserMemoryBytes;
         this.peakTotalNonRevocableMemoryBytes = peakTotalNonRevocableMemoryBytes;
         this.peakTaskUserMemory = peakTaskUserMemory;
@@ -140,16 +134,6 @@ public class QueryStatistics
     public Optional<Duration> getResourceWaitingTime()
     {
         return waitingTime;
-    }
-
-    public Optional<Duration> getAnalysisTime()
-    {
-        return analysisTime;
-    }
-
-    public Optional<Duration> getDistributedPlanningTime()
-    {
-        return distributedPlanningTime;
     }
 
     public long getPeakUserMemoryBytes()
