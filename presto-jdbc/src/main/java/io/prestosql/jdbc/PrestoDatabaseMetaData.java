@@ -58,7 +58,7 @@ public class PrestoDatabaseMetaData
     public String getURL()
             throws SQLException
     {
-        return connection.getURI().toString();
+        return "jdbc:" + connection.getURI().toString();
     }
 
     @Override
