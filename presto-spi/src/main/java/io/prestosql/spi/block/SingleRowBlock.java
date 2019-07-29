@@ -97,6 +97,17 @@ public class SingleRowBlock
     }
 
     @Override
+    public boolean isLoaded()
+    {
+        for (Block fieldBlock : fieldBlocks) {
+            if (!fieldBlock.isLoaded()) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    @Override
     public Block getLoadedBlock()
     {
         boolean allLoaded = true;

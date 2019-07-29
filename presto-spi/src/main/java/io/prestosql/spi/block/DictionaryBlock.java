@@ -374,6 +374,12 @@ public class DictionaryBlock
     }
 
     @Override
+    public boolean isLoaded()
+    {
+        return dictionary.isLoaded();
+    }
+
+    @Override
     public Block getLoadedBlock()
     {
         Block loadedDictionary = dictionary.getLoadedBlock();

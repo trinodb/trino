@@ -25,7 +25,6 @@ import io.prestosql.spi.Page;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.DictionaryBlock;
 import io.prestosql.spi.block.DictionaryId;
-import io.prestosql.spi.block.LazyBlock;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.sql.gen.ExpressionProfiler;
 
@@ -282,7 +281,8 @@ public class PageProcessor
             ReferenceCountMap referenceCountMap = new ReferenceCountMap();
             for (int channel = 0; channel < page.getChannelCount(); channel++) {
                 Block block = page.getBlock(channel);
-                if (!isNotLoadedLazyBlock(block)) {
+                // TODO: block might be partially loaded
+                if (block.isLoaded()) {
                     block.retainedBytesForEachPart((object, size) -> {
                         if (referenceCountMap.incrementAndGet(object) == 1) {
                             retainedSizeInBytes += size;
@@ -350,11 +350,6 @@ public class PageProcessor
     public List<PageProjection> getProjections()
     {
         return projections;
-    }
-
-    private static boolean isNotLoadedLazyBlock(Block block)
-    {
-        return (block instanceof LazyBlock) && !((LazyBlock) block).isLoaded();
     }
 
     @NotThreadSafe

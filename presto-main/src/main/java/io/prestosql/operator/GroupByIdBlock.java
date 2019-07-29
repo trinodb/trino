@@ -222,6 +222,12 @@ public class GroupByIdBlock
     }
 
     @Override
+    public boolean isLoaded()
+    {
+        return block.isLoaded();
+    }
+
+    @Override
     public Block getLoadedBlock()
     {
         return block.getLoadedBlock();

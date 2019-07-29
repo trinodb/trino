@@ -111,6 +111,12 @@ public class SingleMapBlock
     }
 
     @Override
+    public boolean isLoaded()
+    {
+        return keyBlock.isLoaded() && valueBlock.isLoaded();
+    }
+
+    @Override
     public Block getLoadedBlock()
     {
         if (keyBlock != keyBlock.getLoadedBlock()) {

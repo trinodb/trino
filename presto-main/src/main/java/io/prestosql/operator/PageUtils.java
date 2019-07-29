@@ -34,11 +34,12 @@ public final class PageUtils
 
         for (int i = 0; i < page.getChannelCount(); ++i) {
             Block block = page.getBlock(i);
-            if (!(block instanceof LazyBlock) || ((LazyBlock) block).isLoaded()) {
+            if (block.isLoaded()) {
                 loadedBlocksSizeInBytes += block.getSizeInBytes();
                 blocks[i] = block;
             }
             else {
+                // TODO: block might be partially loaded
                 blocks[i] = new LazyBlock(page.getPositionCount(), lazyBlock -> {
                     Block loadedBlock = block.getLoadedBlock();
                     sizeInBytesConsumer.accept(loadedBlock.getSizeInBytes());
