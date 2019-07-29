@@ -307,21 +307,17 @@ public class SqlQueryExecution
     {
         try (SetThreadName ignored = new SetThreadName("Query-%s", stateMachine.getQueryId())) {
             try {
-                // transition to planning
                 if (!stateMachine.transitionToPlanning()) {
                     // query already started or finished
                     return;
                 }
 
-                // analyze query
                 PlanRoot plan = analyzeQuery();
 
                 metadata.beginQuery(getSession(), plan.getTableHandles());
 
-                // plan distribution of query
                 planDistribution(plan);
 
-                // transition to starting
                 if (!stateMachine.transitionToStarting()) {
                     // query already started or finished
                     return;
@@ -373,7 +369,6 @@ public class SqlQueryExecution
 
     private PlanRoot doAnalyzeQuery()
     {
-        // time analysis phase
         stateMachine.beginAnalysis();
 
         // plan query
@@ -393,7 +388,6 @@ public class SqlQueryExecution
         // fragment the plan
         SubPlan fragmentedPlan = planFragmenter.createSubPlans(stateMachine.getSession(), plan, false, stateMachine.getWarningCollector());
 
-        // record analysis time
         stateMachine.endAnalysis();
 
         boolean explainAnalyze = analysis.getStatement() instanceof Explain && ((Explain) analysis.getStatement()).isAnalyze();
@@ -418,7 +412,6 @@ public class SqlQueryExecution
 
     private void planDistribution(PlanRoot plan)
     {
-        // time distribution planning
         stateMachine.beginDistributedPlanning();
 
         // plan the execution on the active nodes
