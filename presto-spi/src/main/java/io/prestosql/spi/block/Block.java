@@ -285,6 +285,14 @@ public interface Block
     boolean isNull(int position);
 
     /**
+     * Returns true if block data is loaded into memory.
+     */
+    default boolean isLoaded()
+    {
+        return true;
+    }
+
+    /**
      * Returns a block that assures all data is in memory.
      * May return the same block if all block data is already in memory.
      * <p>

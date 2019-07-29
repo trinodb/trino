@@ -60,7 +60,7 @@ public class InputPageProjection
         Block block = requireNonNull(page, "page is null").getBlock(0);
         requireNonNull(selectedPositions, "selectedPositions is null");
 
-        if (!isLoadedBlock(block)) {
+        if (!block.isLoaded()) {
             return new CompletedWork<>(
                     new LazyBlock(
                             selectedPositions.size(),
@@ -79,10 +79,5 @@ public class InputPageProjection
         }
 
         return block.getRegion(selectedPositions.getOffset(), selectedPositions.size());
-    }
-
-    private static boolean isLoadedBlock(Block block)
-    {
-        return !(block instanceof LazyBlock) || ((LazyBlock) block).isLoaded();
     }
 }

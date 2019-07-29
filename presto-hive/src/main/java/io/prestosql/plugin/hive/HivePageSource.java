@@ -243,7 +243,7 @@ public class HivePageSource
                 Block[] adaptedBlocks = new Block[dataPage.getChannelCount()];
                 for (int i = 0; i < adaptedBlocks.length; i++) {
                     Block block = dataPage.getBlock(i);
-                    if (block instanceof LazyBlock && !((LazyBlock) block).isLoaded()) {
+                    if (!block.isLoaded()) {
                         adaptedBlocks[i] = new LazyBlock(rowsToKeep.size(), new RowFilterLazyBlockLoader(dataPage.getBlock(i), rowsToKeep));
                     }
                     else {
