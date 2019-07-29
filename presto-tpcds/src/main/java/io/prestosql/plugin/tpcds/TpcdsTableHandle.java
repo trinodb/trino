@@ -51,7 +51,7 @@ public class TpcdsTableHandle
     @Override
     public String toString()
     {
-        return "tpcds:" + tableName + ":sf" + scaleFactor;
+        return tableName + ":sf" + scaleFactor;
     }
 
     @Override
