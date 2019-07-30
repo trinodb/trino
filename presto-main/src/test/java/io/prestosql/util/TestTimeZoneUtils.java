@@ -13,11 +13,9 @@
  */
 package io.prestosql.util;
 
-import io.airlift.jodabridge.JdkBasedZoneInfoProvider;
 import io.prestosql.spi.type.TimeZoneKey;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
-import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.time.ZoneId;
@@ -32,17 +30,6 @@ import static org.testng.Assert.assertEquals;
 
 public class TestTimeZoneUtils
 {
-    @BeforeClass
-    protected void validateJodaZoneInfoProvider()
-    {
-        try {
-            JdkBasedZoneInfoProvider.registerAsJodaZoneInfoProvider();
-        }
-        catch (RuntimeException e) {
-            throw new RuntimeException("Set the following system property to JVM running the test: -Dorg.joda.time.DateTimeZone.Provider=io.airlift.jodabridge.JdkBasedZoneInfoProvider");
-        }
-    }
-
     @Test
     public void test()
     {
@@ -50,8 +37,6 @@ public class TestTimeZoneUtils
 
         TreeSet<String> jodaZones = new TreeSet<>(DateTimeZone.getAvailableIDs());
         TreeSet<String> jdkZones = new TreeSet<>(ZoneId.getAvailableZoneIds());
-        // We use JdkBasedZoneInfoProvider for joda
-        assertEquals(jodaZones, jdkZones);
 
         for (String zoneId : new TreeSet<>(jdkZones)) {
             if (zoneId.startsWith("Etc/") || zoneId.startsWith("GMT") || zoneId.startsWith("SystemV/")) {
