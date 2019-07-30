@@ -34,6 +34,7 @@ import static io.prestosql.spi.function.OperatorType.SUBSCRIPT;
 import static io.prestosql.spi.type.TypeSignature.parseTypeSignature;
 import static io.prestosql.util.Reflection.methodHandle;
 import static java.lang.Math.toIntExact;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class ArraySubscriptOperator
@@ -155,7 +156,7 @@ public class ArraySubscriptOperator
             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "SQL array indices start at 1");
         }
         if (index < 0) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Array subscript is negative");
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Array subscript is negative: " + index);
         }
     }
 
@@ -163,7 +164,7 @@ public class ArraySubscriptOperator
     {
         checkArrayIndex(index);
         if (index > array.getPositionCount()) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Array subscript out of bounds");
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("Array subscript must be less than or equal to array length: %s > %s", index, array.getPositionCount()));
         }
     }
 }
