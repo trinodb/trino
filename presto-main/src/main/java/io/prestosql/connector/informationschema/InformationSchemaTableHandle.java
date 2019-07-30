@@ -78,7 +78,7 @@ public class InformationSchemaTableHandle
     @Override
     public String toString()
     {
-        return catalogName + ":" + schemaName + ":" + tableName;
+        return schemaName + ":" + tableName;
     }
 
     @Override
