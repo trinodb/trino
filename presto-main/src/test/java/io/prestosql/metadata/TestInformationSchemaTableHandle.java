@@ -13,10 +13,7 @@
  */
 package io.prestosql.metadata;
 
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Guice;
 import com.google.inject.Injector;
@@ -26,22 +23,13 @@ import io.prestosql.spi.connector.ConnectorTableHandle;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import java.util.Map;
+import java.util.Optional;
 
-import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
-@Test(singleThreaded = true)
 public class TestInformationSchemaTableHandle
 {
-    private static final Map<String, Object> SCHEMA_AS_MAP = ImmutableMap.of(
-            "@type", "$info_schema",
-            "catalogName", "information_schema_catalog",
-            "schemaName", "information_schema_schema",
-            "tableName", "information_schema_table",
-            "prefixes", ImmutableList.of(ImmutableMap.of("catalogName", "abc", "schemaName", "xyz")));
-
     private ObjectMapper objectMapper;
 
     @BeforeMethod
@@ -53,39 +41,53 @@ public class TestInformationSchemaTableHandle
     }
 
     @Test
-    public void testInformationSchemaSerialize()
+    public void testBasic()
             throws Exception
     {
-        InformationSchemaTableHandle informationSchemaTableHandle = new InformationSchemaTableHandle(
+        InformationSchemaTableHandle tableHandleBasic = new InformationSchemaTableHandle(
                 "information_schema_catalog",
                 "information_schema_schema",
                 "information_schema_table",
-                ImmutableSet.of(new QualifiedTablePrefix("abc", "xyz")));
+                Optional.of(ImmutableSet.of("test_schema1", "test_schema2")),
+                Optional.of(ImmutableSet.of("test_table1", "test_table2")));
 
+        InformationSchemaTableHandle tableHandleSchemaPrefixesEmpty = new InformationSchemaTableHandle(
+                "information_schema_catalog",
+                "information_schema_schema",
+                "information_schema_table",
+                Optional.empty(),
+                Optional.of(ImmutableSet.of("test_table1", "test_table2")));
+
+        InformationSchemaTableHandle tableHandleTableNameDomainEmpty = new InformationSchemaTableHandle(
+                "information_schema_catalog",
+                "information_schema_schema",
+                "information_schema_table",
+                Optional.of(ImmutableSet.of("test_schema1", "test_schema2")),
+                Optional.empty());
+
+        InformationSchemaTableHandle tableHandleBothEmpty = new InformationSchemaTableHandle(
+                "information_schema_catalog",
+                "information_schema_schema",
+                "information_schema_table",
+                Optional.empty(),
+                Optional.empty());
+
+        testSerDe(tableHandleBasic);
+        testSerDe(tableHandleSchemaPrefixesEmpty);
+        testSerDe(tableHandleTableNameDomainEmpty);
+        testSerDe(tableHandleBothEmpty);
+    }
+
+    private void testSerDe(InformationSchemaTableHandle tableHandle)
+            throws Exception
+    {
         assertTrue(objectMapper.canSerialize(InformationSchemaTableHandle.class));
-        String json = objectMapper.writeValueAsString(informationSchemaTableHandle);
-        testJsonEquals(json, SCHEMA_AS_MAP);
-    }
+        String json = objectMapper.writeValueAsString(tableHandle);
 
-    @Test
-    public void testInformationSchemaDeserialize()
-            throws Exception
-    {
-        String json = objectMapper.writeValueAsString(SCHEMA_AS_MAP);
-
-        ConnectorTableHandle tableHandle = objectMapper.readValue(json, ConnectorTableHandle.class);
+        ConnectorTableHandle handleDeserialized = objectMapper.readValue(json, ConnectorTableHandle.class);
         assertEquals(tableHandle.getClass(), InformationSchemaTableHandle.class);
-        InformationSchemaTableHandle informationSchemaHandle = (InformationSchemaTableHandle) tableHandle;
+        InformationSchemaTableHandle tableHandleDeserialized = (InformationSchemaTableHandle) handleDeserialized;
 
-        assertEquals(informationSchemaHandle.getCatalogName(), "information_schema_catalog");
-        assertEquals(informationSchemaHandle.getSchemaName(), "information_schema_schema");
-        assertEquals(informationSchemaHandle.getTableName(), "information_schema_table");
-    }
-
-    private void testJsonEquals(String json, Map<String, Object> expectedMap)
-            throws Exception
-    {
-        Map<String, Object> jsonMap = objectMapper.readValue(json, new TypeReference<Map<String, Object>>() {});
-        assertEqualsIgnoreOrder(jsonMap.entrySet(), expectedMap.entrySet());
+        assertEquals(tableHandle, tableHandleDeserialized);
     }
 }

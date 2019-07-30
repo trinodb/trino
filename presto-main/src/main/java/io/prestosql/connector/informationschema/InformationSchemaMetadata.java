@@ -16,12 +16,11 @@ package io.prestosql.connector.informationschema;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 import io.airlift.slice.Slice;
 import io.prestosql.FullConnectorSession;
 import io.prestosql.Session;
 import io.prestosql.metadata.Metadata;
-import io.prestosql.metadata.QualifiedObjectName;
-import io.prestosql.metadata.QualifiedTablePrefix;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorMetadata;
@@ -46,8 +45,6 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.Predicate;
-import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Predicates.compose;
@@ -59,7 +56,6 @@ import static io.prestosql.metadata.MetadataUtil.TableMetadataBuilder.tableMetad
 import static io.prestosql.metadata.MetadataUtil.findColumnMetadata;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
-import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toMap;
@@ -135,10 +131,8 @@ public class InformationSchemaMetadata
                     .build())
             .build();
 
-    private static final InformationSchemaColumnHandle CATALOG_COLUMN_HANDLE = new InformationSchemaColumnHandle("table_catalog");
     private static final InformationSchemaColumnHandle SCHEMA_COLUMN_HANDLE = new InformationSchemaColumnHandle("table_schema");
     private static final InformationSchemaColumnHandle TABLE_NAME_COLUMN_HANDLE = new InformationSchemaColumnHandle("table_name");
-    private static final int MAX_PREFIXES_COUNT = 100;
 
     private final String catalogName;
     private final Metadata metadata;
@@ -169,8 +163,7 @@ public class InformationSchemaMetadata
         if (!TABLES.containsKey(tableName)) {
             return null;
         }
-
-        return new InformationSchemaTableHandle(catalogName, tableName.getSchemaName(), tableName.getTableName(), defaultPrefixes());
+        return new InformationSchemaTableHandle(catalogName, tableName.getSchemaName(), tableName.getTableName(), Optional.empty(), Optional.empty());
     }
 
     @Override
@@ -247,97 +240,43 @@ public class InformationSchemaMetadata
     {
         InformationSchemaTableHandle table = (InformationSchemaTableHandle) handle;
 
-        if (!table.getPrefixes().equals(defaultPrefixes())) {
+        // The table is catalog-wise and doesn't have a schema/table name filter.
+        if (!isTablesEnumeratingTable(table.getSchemaTableName())) {
             return Optional.empty();
         }
 
-        Set<QualifiedTablePrefix> prefixes = getPrefixes(session, table, constraint);
+        Optional<Set<String>> schemas = filterString(constraint.getSummary(), SCHEMA_COLUMN_HANDLE);
+        Set<String> newSchemas = intersectOptionalSet(table.getSchemas(), schemas).orElseGet(() -> enumerateSchemas(metadata, session, catalogName));
 
-        table = new InformationSchemaTableHandle(table.getCatalogName(), table.getSchemaName(), table.getTableName(), prefixes);
+        Optional<Set<String>> tables = filterString(constraint.getSummary(), TABLE_NAME_COLUMN_HANDLE);
+        Optional<Set<String>> newTables = intersectOptionalSet(table.getTables(), tables);
+
+        if (constraint.predicate().isPresent()) {
+            newSchemas = newSchemas.stream()
+                    .filter(schema -> constraint.predicate().get().test(schemaAsFixedValues(schema)))
+                    .collect(toImmutableSet());
+
+            if (newTables.isPresent()) {
+                newTables = Optional.of(newTables.get().stream()
+                .filter(tableName -> constraint.predicate().get().test(tableAsFixedValues(tableName)))
+                .collect(toImmutableSet()));
+            }
+        }
+
+        table = new InformationSchemaTableHandle(table.getCatalogName(), table.getSchemaName(), table.getTableName(), Optional.of(newSchemas), newTables);
 
         return Optional.of(new ConstraintApplicationResult<>(table, constraint.getSummary()));
     }
 
-    private Set<QualifiedTablePrefix> defaultPrefixes()
-    {
-        return ImmutableSet.of(new QualifiedTablePrefix(catalogName));
-    }
-
-    private Set<QualifiedTablePrefix> getPrefixes(ConnectorSession session, InformationSchemaTableHandle table, Constraint constraint)
-    {
-        InformationSchemaTableHandle handle = checkTableHandle(table);
-
-        if (constraint.getSummary().isNone()) {
-            return ImmutableSet.of();
-        }
-
-        Set<QualifiedTablePrefix> prefixes = calculatePrefixesWithSchemaName(session, constraint.getSummary(), constraint.predicate());
-        if (isTablesEnumeratingTable(handle.getSchemaTableName())) {
-            Set<QualifiedTablePrefix> tablePrefixes = calculatePrefixesWithTableName(session, prefixes, constraint.getSummary(), constraint.predicate());
-            // in case of high number of prefixes it is better to populate all data and then filter
-            if (tablePrefixes.size() <= MAX_PREFIXES_COUNT) {
-                prefixes = tablePrefixes;
-            }
-        }
-        if (prefixes.size() > MAX_PREFIXES_COUNT) {
-            // in case of high number of prefixes it is better to populate all data and then filter
-            prefixes = defaultPrefixes();
-        }
-
-        return prefixes;
-    }
-
-    private boolean isTablesEnumeratingTable(SchemaTableName schemaTableName)
+    static boolean isTablesEnumeratingTable(SchemaTableName schemaTableName)
     {
         return ImmutableSet.of(TABLE_COLUMNS, TABLE_VIEWS, TABLE_TABLES, TABLE_TABLE_PRIVILEGES).contains(schemaTableName);
     }
 
-    private Set<QualifiedTablePrefix> calculatePrefixesWithSchemaName(
-            ConnectorSession connectorSession,
-            TupleDomain<ColumnHandle> constraint,
-            Optional<Predicate<Map<ColumnHandle, NullableValue>>> predicate)
+    static Set<String> enumerateSchemas(Metadata metadata, ConnectorSession connectorSession, String catalogName)
     {
-        Optional<Set<String>> schemas = filterString(constraint, SCHEMA_COLUMN_HANDLE);
-        if (schemas.isPresent()) {
-            return schemas.get().stream()
-                    .filter(this::isLowerCase)
-                    .map(schema -> new QualifiedTablePrefix(catalogName, schema))
-                    .collect(toImmutableSet());
-        }
-
         Session session = ((FullConnectorSession) connectorSession).getSession();
         return metadata.listSchemaNames(session, catalogName).stream()
-                .filter(schema -> !predicate.isPresent() || predicate.get().test(schemaAsFixedValues(schema)))
-                .map(schema -> new QualifiedTablePrefix(catalogName, schema))
-                .collect(toImmutableSet());
-    }
-
-    public Set<QualifiedTablePrefix> calculatePrefixesWithTableName(
-            ConnectorSession connectorSession,
-            Set<QualifiedTablePrefix> prefixes,
-            TupleDomain<ColumnHandle> constraint,
-            Optional<Predicate<Map<ColumnHandle, NullableValue>>> predicate)
-    {
-        Session session = ((FullConnectorSession) connectorSession).getSession();
-
-        Optional<Set<String>> tables = filterString(constraint, TABLE_NAME_COLUMN_HANDLE);
-        if (tables.isPresent()) {
-            return prefixes.stream()
-                    .flatMap(prefix -> tables.get().stream()
-                            .filter(this::isLowerCase)
-                            .map(table -> table.toLowerCase(ENGLISH))
-                            .map(table -> new QualifiedObjectName(catalogName, prefix.getSchemaName().get(), table)))
-                    .filter(objectName -> metadata.getTableHandle(session, objectName).isPresent() || metadata.getView(session, objectName).isPresent())
-                    .map(QualifiedObjectName::asQualifiedTablePrefix)
-                    .collect(toImmutableSet());
-        }
-
-        return prefixes.stream()
-                .flatMap(prefix -> Stream.concat(
-                        metadata.listTables(session, prefix).stream(),
-                        metadata.listViews(session, prefix).stream()))
-                .filter(objectName -> !predicate.isPresent() || predicate.get().test(asFixedValues(objectName)))
-                .map(QualifiedObjectName::asQualifiedTablePrefix)
                 .collect(toImmutableSet());
     }
 
@@ -370,12 +309,9 @@ public class InformationSchemaMetadata
         return ImmutableMap.of(SCHEMA_COLUMN_HANDLE, new NullableValue(createUnboundedVarcharType(), utf8Slice(schema)));
     }
 
-    private Map<ColumnHandle, NullableValue> asFixedValues(QualifiedObjectName objectName)
+    private Map<ColumnHandle, NullableValue> tableAsFixedValues(String table)
     {
-        return ImmutableMap.of(
-                CATALOG_COLUMN_HANDLE, new NullableValue(createUnboundedVarcharType(), utf8Slice(objectName.getCatalogName())),
-                SCHEMA_COLUMN_HANDLE, new NullableValue(createUnboundedVarcharType(), utf8Slice(objectName.getSchemaName())),
-                TABLE_NAME_COLUMN_HANDLE, new NullableValue(createUnboundedVarcharType(), utf8Slice(objectName.getObjectName())));
+        return ImmutableMap.of(TABLE_NAME_COLUMN_HANDLE, new NullableValue(createUnboundedVarcharType(), utf8Slice(table)));
     }
 
     @Override
@@ -384,8 +320,17 @@ public class InformationSchemaMetadata
         return new ConnectorTableLayout(handle);
     }
 
-    private boolean isLowerCase(String value)
+    private static Optional<Set<String>> intersectOptionalSet(Optional<Set<String>> set1, Optional<Set<String>> set2)
     {
-        return value.toLowerCase(ENGLISH).equals(value);
+        if (set1.isPresent() && set2.isPresent()) {
+            return Optional.of(Sets.intersection(set1.get(), set2.get()).immutableCopy());
+        }
+        if (set1.isPresent()) {
+            return set1;
+        }
+        if (set2.isPresent()) {
+            return set2;
+        }
+        return Optional.empty();
     }
 }

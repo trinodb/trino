@@ -14,6 +14,7 @@
 package io.prestosql.connector.informationschema;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import io.prestosql.Session;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.QualifiedObjectName;
@@ -38,13 +39,16 @@ import java.util.ArrayDeque;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Queue;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.IntStream;
 
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Sets.union;
 import static io.prestosql.connector.informationschema.InformationSchemaMetadata.TABLES;
 import static io.prestosql.metadata.MetadataListing.listSchemas;
@@ -54,6 +58,7 @@ import static io.prestosql.metadata.MetadataListing.listTables;
 import static io.prestosql.metadata.MetadataListing.listViews;
 import static io.prestosql.spi.security.PrincipalType.USER;
 import static io.prestosql.spi.type.TypeUtils.writeNativeValue;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public class InformationSchemaPageSource
@@ -104,7 +109,8 @@ public class InformationSchemaPageSource
     private final Metadata metadata;
     private final AccessControl accessControl;
     private final String catalogName;
-    private final Iterator<QualifiedTablePrefix> tablePrefixIterator;
+    private final Optional<Iterator<String>> schemasIterator;
+    private final Optional<Set<String>> tables;
 
     private final InformationSchemaTableType tableType;
 
@@ -134,11 +140,17 @@ public class InformationSchemaPageSource
 
         requireNonNull(tableHandle, "tableHandle is null");
         catalogName = tableHandle.getCatalogName();
-        tablePrefixIterator = tableHandle.getPrefixes().iterator();
 
         SchemaTableName schemaTableName = tableHandle.getSchemaTableName();
 
         tableType = InformationSchemaTableType.of(schemaTableName);
+
+        checkState(isTablesEnumeratingTable(tableType) == tableHandle.getSchemas().isPresent());
+
+        schemasIterator = tableHandle.getSchemas().map(Set::iterator);
+        tables = tableHandle.getTables();
+
+        requireNonNull(outputColumns, "outputColumns is null");
 
         List<ColumnMetadata> columnMetadata = TABLES.get(schemaTableName).getColumns();
         columnTypes = columnMetadata.stream()
@@ -173,7 +185,7 @@ public class InformationSchemaPageSource
     public boolean isFinished()
     {
         if (isTablesEnumeratingTable(tableType)) {
-            return closed || (rawPages.isEmpty() && !tablePrefixIterator.hasNext());
+            return closed || (rawPages.isEmpty() && !schemasIterator.get().hasNext());
         }
         return closed || (rawPages.isEmpty() && noMoreBuild);
     }
@@ -218,25 +230,25 @@ public class InformationSchemaPageSource
     private void buildRawPages()
     {
         if (isTablesEnumeratingTable(tableType)) {
-            while (rawPages.isEmpty() && tablePrefixIterator.hasNext()) {
-                QualifiedTablePrefix prefix = tablePrefixIterator.next();
+            while (rawPages.isEmpty() && schemasIterator.get().hasNext()) {
+                String schemaName = schemasIterator.get().next();
                 switch (tableType) {
                     case TABLE_COLUMNS:
-                        addColumnsRecordsFor(prefix);
+                        addColumnsRecordsFor(schemaName);
                         break;
                     case TABLE_TABLE_PRIVILEGES:
-                        addTablePrivilegesRecordsFor(prefix);
+                        addTablePrivilegesRecordsFor(schemaName);
                         break;
                     case TABLE_TABLES:
-                        addTablesRecordsFor(prefix);
+                        addTablesRecordsFor(schemaName);
                         break;
                     case TABLE_VIEWS:
-                        addViewsRecordsFor(prefix);
+                        addViewsRecordsFor(schemaName);
                         break;
                 }
             }
             // Flush the residual page
-            if (!tablePrefixIterator.hasNext()) {
+            if (!schemasIterator.get().hasNext()) {
                 flushPageBuilder();
             }
             return;
@@ -303,52 +315,93 @@ public class InformationSchemaPageSource
         }
     }
 
-    private void addColumnsRecordsFor(QualifiedTablePrefix prefix)
+    private void addColumnsRecordsFor(String schemaName)
     {
-        for (Map.Entry<SchemaTableName, List<ColumnMetadata>> entry : listTableColumns(session, metadata, accessControl, prefix).entrySet()) {
-            SchemaTableName tableName = entry.getKey();
-            int ordinalPosition = 1;
-            for (ColumnMetadata column : entry.getValue()) {
-                if (column.isHidden()) {
-                    continue;
+        Set<QualifiedTablePrefix> prefixes = ImmutableSet.of(new QualifiedTablePrefix(catalogName, schemaName));
+        if (tables.isPresent()) {
+            prefixes = tables.get().stream()
+                    .map(tableName -> tableName.toLowerCase(ENGLISH))
+                    .map(tableName -> new QualifiedTablePrefix(catalogName, schemaName, tableName))
+                    .collect(toImmutableSet());
+        }
+        for (QualifiedTablePrefix prefix : prefixes) {
+            for (Map.Entry<SchemaTableName, List<ColumnMetadata>> entry : listTableColumns(session, metadata, accessControl, prefix).entrySet()) {
+                SchemaTableName tableName = entry.getKey();
+                int ordinalPosition = 1;
+                for (ColumnMetadata column : entry.getValue()) {
+                    if (column.isHidden()) {
+                        continue;
+                    }
+                    addRecord(
+                            catalogName,
+                            tableName.getSchemaName(),
+                            tableName.getTableName(),
+                            column.getName(),
+                            ordinalPosition,
+                            null,
+                            "YES",
+                            column.getType().getDisplayName(),
+                            column.getComment(),
+                            column.getExtraInfo(),
+                            column.getComment());
+                    ordinalPosition++;
                 }
-                addRecord(
-                        prefix.getCatalogName(),
-                        tableName.getSchemaName(),
-                        tableName.getTableName(),
-                        column.getName(),
-                        ordinalPosition,
-                        null,
-                        "YES",
-                        column.getType().getDisplayName(),
-                        column.getComment(),
-                        column.getExtraInfo(),
-                        column.getComment());
-                ordinalPosition++;
             }
         }
     }
 
-    private void addTablePrivilegesRecordsFor(QualifiedTablePrefix prefix)
+    private void addTablePrivilegesRecordsFor(String schemaName)
     {
-        List<GrantInfo> grants = ImmutableList.copyOf(listTablePrivileges(session, metadata, accessControl, prefix));
-        for (GrantInfo grant : grants) {
-            addRecord(
-                    grant.getGrantor().map(PrestoPrincipal::getName).orElse(null),
-                    grant.getGrantor().map(principal -> principal.getType().toString()).orElse(null),
-                    grant.getGrantee().getName(),
-                    grant.getGrantee().getType().toString(),
-                    prefix.getCatalogName(),
-                    grant.getSchemaTableName().getSchemaName(),
-                    grant.getSchemaTableName().getTableName(),
-                    grant.getPrivilegeInfo().getPrivilege().name(),
-                    grant.getPrivilegeInfo().isGrantOption() ? "YES" : "NO",
-                    grant.getWithHierarchy().map(withHierarchy -> withHierarchy ? "YES" : "NO").orElse(null));
+        Set<QualifiedTablePrefix> prefixes = ImmutableSet.of(new QualifiedTablePrefix(catalogName, schemaName));
+        if (tables.isPresent()) {
+            prefixes = tables.get().stream()
+                    .map(tableName -> tableName.toLowerCase(ENGLISH))
+                    .map(tableName -> new QualifiedTablePrefix(catalogName, schemaName, tableName))
+                    .collect(toImmutableSet());
+        }
+        for (QualifiedTablePrefix prefix : prefixes) {
+            List<GrantInfo> grants = ImmutableList.copyOf(listTablePrivileges(session, metadata, accessControl, prefix));
+            for (GrantInfo grant : grants) {
+                addRecord(
+                        grant.getGrantor().map(PrestoPrincipal::getName).orElse(null),
+                        grant.getGrantor().map(principal -> principal.getType().toString()).orElse(null),
+                        grant.getGrantee().getName(),
+                        grant.getGrantee().getType().toString(),
+                        schemaName,
+                        grant.getSchemaTableName().getSchemaName(),
+                        grant.getSchemaTableName().getTableName(),
+                        grant.getPrivilegeInfo().getPrivilege().name(),
+                        grant.getPrivilegeInfo().isGrantOption() ? "YES" : "NO",
+                        grant.getWithHierarchy().map(withHierarchy -> withHierarchy ? "YES" : "NO").orElse(null));
+            }
         }
     }
 
-    private void addTablesRecordsFor(QualifiedTablePrefix prefix)
+    private void addTablesRecordsFor(String schemaName)
     {
+        if (tables.isPresent()) {
+            for (String tableName : tables.get()) {
+                QualifiedObjectName objectName = new QualifiedObjectName(catalogName, schemaName, tableName);
+                if (metadata.getView(session, objectName).isPresent()) {
+                    addRecord(
+                            catalogName,
+                            schemaName,
+                            tableName,
+                            "VIEW",
+                            null);
+                }
+                else if (metadata.getTableHandle(session, objectName).isPresent()) {
+                    addRecord(
+                            catalogName,
+                            schemaName,
+                            tableName,
+                            "BASE TABLE",
+                            null);
+                }
+            }
+            return;
+        }
+        QualifiedTablePrefix prefix = new QualifiedTablePrefix(catalogName, schemaName);
         Set<SchemaTableName> tables = listTables(session, metadata, accessControl, prefix);
         Set<SchemaTableName> views = listViews(session, metadata, accessControl, prefix);
 
@@ -356,7 +409,7 @@ public class InformationSchemaPageSource
             // if table and view names overlap, the view wins
             String type = views.contains(name) ? "VIEW" : "BASE TABLE";
             addRecord(
-                    prefix.getCatalogName(),
+                    catalogName,
                     name.getSchemaName(),
                     name.getTableName(),
                     type,
@@ -364,9 +417,22 @@ public class InformationSchemaPageSource
         }
     }
 
-    private void addViewsRecordsFor(QualifiedTablePrefix prefix)
+    private void addViewsRecordsFor(String schemaName)
     {
-        for (Map.Entry<QualifiedObjectName, ConnectorViewDefinition> entry : metadata.getViews(session, prefix).entrySet()) {
+        if (tables.isPresent()) {
+            for (String tableName : tables.get()) {
+                QualifiedObjectName objectName = new QualifiedObjectName(catalogName, schemaName, tableName);
+                Optional<ConnectorViewDefinition> viewDefinition = metadata.getView(session, objectName);
+                viewDefinition.ifPresent(definition ->
+                        addRecord(
+                                catalogName,
+                                schemaName,
+                                tableName,
+                                definition.getOriginalSql()));
+            }
+            return;
+        }
+        for (Map.Entry<QualifiedObjectName, ConnectorViewDefinition> entry : metadata.getViews(session, new QualifiedTablePrefix(catalogName, schemaName)).entrySet()) {
             addRecord(
                     entry.getKey().getCatalogName(),
                     entry.getKey().getSchemaName(),

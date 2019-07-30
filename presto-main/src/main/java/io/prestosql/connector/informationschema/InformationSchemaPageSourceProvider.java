@@ -14,7 +14,6 @@
 package io.prestosql.connector.informationschema;
 
 import io.prestosql.FullConnectorSession;
-import io.prestosql.Session;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.security.AccessControl;
 import io.prestosql.spi.connector.ColumnHandle;
@@ -26,7 +25,11 @@ import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 
 import java.util.List;
+import java.util.Optional;
+import java.util.Set;
 
+import static io.prestosql.connector.informationschema.InformationSchemaMetadata.enumerateSchemas;
+import static io.prestosql.connector.informationschema.InformationSchemaMetadata.isTablesEnumeratingTable;
 import static java.util.Objects.requireNonNull;
 
 public class InformationSchemaPageSourceProvider
@@ -44,16 +47,19 @@ public class InformationSchemaPageSourceProvider
     @Override
     public ConnectorPageSource createPageSource(
             ConnectorTransactionHandle transaction,
-            ConnectorSession connectorSession,
+            ConnectorSession session,
             ConnectorSplit split,
             ConnectorTableHandle tableHandle,
             List<ColumnHandle> columns)
     {
-        Session session = ((FullConnectorSession) connectorSession).getSession();
         InformationSchemaTableHandle handle = (InformationSchemaTableHandle) tableHandle;
-
+        Optional<Set<String>> schemaNames = handle.getSchemas();
+        if (isTablesEnumeratingTable(handle.getSchemaTableName()) && !schemaNames.isPresent()) {
+            schemaNames = Optional.of(enumerateSchemas(metadata, session, handle.getCatalogName()));
+            handle = new InformationSchemaTableHandle(handle.getCatalogName(), handle.getSchemaName(), handle.getTableName(), schemaNames, handle.getTables());
+        }
         return new InformationSchemaPageSource(
-                session,
+                ((FullConnectorSession) session).getSession(),
                 metadata,
                 accessControl,
                 handle,

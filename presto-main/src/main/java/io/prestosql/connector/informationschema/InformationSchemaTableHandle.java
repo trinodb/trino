@@ -15,12 +15,11 @@ package io.prestosql.connector.informationschema;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.collect.ImmutableSet;
-import io.prestosql.metadata.QualifiedTablePrefix;
 import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.SchemaTableName;
 
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
@@ -31,19 +30,22 @@ public class InformationSchemaTableHandle
     private final String catalogName;
     private final String schemaName;
     private final String tableName;
-    private final Set<QualifiedTablePrefix> prefixes;
+    private final Optional<Set<String>> schemas;
+    private final Optional<Set<String>> tables;
 
     @JsonCreator
     public InformationSchemaTableHandle(
             @JsonProperty("catalogName") String catalogName,
             @JsonProperty("schemaName") String schemaName,
             @JsonProperty("tableName") String tableName,
-            @JsonProperty("prefixes") Set<QualifiedTablePrefix> prefixes)
+            @JsonProperty("schemas") Optional<Set<String>> schemas,
+            @JsonProperty("tables") Optional<Set<String>> tables)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
-        this.prefixes = ImmutableSet.copyOf(requireNonNull(prefixes, "prefixes is null"));
+        this.schemas = requireNonNull(schemas, "schemas is null");
+        this.tables = requireNonNull(tables, "tables");
     }
 
     @JsonProperty
@@ -70,9 +72,15 @@ public class InformationSchemaTableHandle
     }
 
     @JsonProperty
-    public Set<QualifiedTablePrefix> getPrefixes()
+    public Optional<Set<String>> getSchemas()
     {
-        return prefixes;
+        return schemas;
+    }
+
+    @JsonProperty
+    public Optional<Set<String>> getTables()
+    {
+        return tables;
     }
 
     @Override
@@ -99,6 +107,8 @@ public class InformationSchemaTableHandle
         InformationSchemaTableHandle other = (InformationSchemaTableHandle) obj;
         return Objects.equals(this.catalogName, other.catalogName) &&
                 Objects.equals(this.schemaName, other.schemaName) &&
-                Objects.equals(this.tableName, other.tableName);
+                Objects.equals(this.tableName, other.tableName) &&
+                Objects.equals(this.schemas, other.schemas) &&
+                Objects.equals(this.tables, other.tables);
     }
 }

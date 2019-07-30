@@ -54,6 +54,8 @@ import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static io.prestosql.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static java.util.Arrays.stream;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 
 public class TestInformationSchemaMetadata
 {
@@ -67,7 +69,8 @@ public class TestInformationSchemaMetadata
                 .withListTables((connectorSession, schemaNameOrNull) ->
                         ImmutableList.of(
                                 new SchemaTableName("test_schema", "test_view"),
-                                new SchemaTableName("test_schema", "another_table")))
+                                new SchemaTableName("test_schema", "another_table"),
+                                new SchemaTableName("another_schema", "another_table")))
                 .withGetViews((connectorSession, prefix) -> {
                     ConnectorViewDefinition definition = new ConnectorViewDefinition(
                             "select 1",
@@ -116,11 +119,15 @@ public class TestInformationSchemaMetadata
                 .map(ConstraintApplicationResult::getHandle)
                 .map(InformationSchemaTableHandle.class::cast)
                 .orElseThrow(AssertionError::new);
-        assertEquals(tableHandle.getPrefixes(), ImmutableSet.of(new QualifiedTablePrefix("test_catalog", "test_schema", "test_view")));
+
+        assertTrue(tableHandle.getSchemas().isPresent());
+        assertEquals(tableHandle.getSchemas().get(), ImmutableSet.of("test_schema"));
+        assertTrue(tableHandle.getTables().isPresent());
+        assertEquals(tableHandle.getTables().get(), ImmutableSet.of("test_view"));
     }
 
     @Test
-    public void testInformationSchemaPredicatePushdownWithConstraintPredicate()
+    public void testInformationSchemaPredicatePushdownWithConstraintPredicateOnSchema()
     {
         TransactionId transactionId = transactionManager.beginTransaction(false);
         Constraint constraint = new Constraint(
@@ -137,9 +144,6 @@ public class TestInformationSchemaMetadata
                     if (schema != null) {
                         isValid &= ((Slice) schema.getValue()).toStringUtf8().equals("test_schema");
                     }
-                    if (table != null) {
-                        isValid &= ((Slice) table.getValue()).toStringUtf8().equals("test_view");
-                    }
                     return isValid;
                 });
 
@@ -152,7 +156,9 @@ public class TestInformationSchemaMetadata
                 .map(InformationSchemaTableHandle.class::cast)
                 .orElseThrow(AssertionError::new);
 
-        assertEquals(tableHandle.getPrefixes(), ImmutableSet.of(new QualifiedTablePrefix("test_catalog", "test_schema", "test_view")));
+        assertTrue(tableHandle.getSchemas().isPresent());
+        assertEquals(tableHandle.getSchemas().get(), ImmutableSet.of("test_schema"));
+        assertFalse(tableHandle.getTables().isPresent());
     }
 
     private static ConnectorSession createNewSession(TransactionId transactionId)
