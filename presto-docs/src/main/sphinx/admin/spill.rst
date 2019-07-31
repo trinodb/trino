@@ -55,12 +55,13 @@ Both reserved memory pool and revocable memory are designed to cope with low mem
 When user memory pool is exhausted then a single query will be promoted to a reserved pool.
 In such case only that query is allowed to progress thus reducing cluster
 concurrency. Revocable memory will try to prevent that by triggering spill.
-Reserved pool is of ``query_max_memory_per_node`` size. This means that
-when ``query_max_memory_per_node`` is large then user memory pool might be
+Reserved pool is of ``query.max-total-memory-per-node`` size. This means that
+when ``query.max-total-memory-per-node`` is large then user memory pool might be
 much smaller than ``query_max_memory_per_node``. This will cause excessive
 spilling for queries that consume large amounts of memory per node.
 Such queries could finish much quicker when spill is disabled because they
-execute in reserved pool. In such situations we recommend to disable reserved memory
+execute in reserved pool. However, this could also significantly reduce cluster concurrency.
+In such situations we recommend to disable reserved memory
 pool via ``experimental.reserved-pool-enabled`` config property.
 
 Spill Disk Space
