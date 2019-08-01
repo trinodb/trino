@@ -704,12 +704,12 @@ public final class MetadataManager
     }
 
     @Override
-    public void beginQuery(Session session, Set<CatalogName> connectors)
+    public void beginQuery(Session session, Multimap<CatalogName, ConnectorTableHandle> tableHandles)
     {
-        for (CatalogName catalogName : connectors) {
-            ConnectorMetadata metadata = getMetadata(session, catalogName);
-            ConnectorSession connectorSession = session.toConnectorSession(catalogName);
-            metadata.beginQuery(connectorSession);
+        for (Entry<CatalogName, Collection<ConnectorTableHandle>> entry : tableHandles.asMap().entrySet()) {
+            ConnectorMetadata metadata = getMetadata(session, entry.getKey());
+            ConnectorSession connectorSession = session.toConnectorSession(entry.getKey());
+            metadata.beginQuery(connectorSession, entry.getValue());
             registerCatalogForQueryId(session.getQueryId(), metadata);
         }
     }

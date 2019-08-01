@@ -13,7 +13,8 @@
  */
 package io.prestosql.execution;
 
-import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableMultimap;
+import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.concurrent.SetThreadName;
 import io.airlift.log.Logger;
@@ -42,6 +43,7 @@ import io.prestosql.security.AccessControl;
 import io.prestosql.server.BasicQueryInfo;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.QueryId;
+import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.split.SplitManager;
 import io.prestosql.split.SplitSource;
 import io.prestosql.sql.analyzer.Analysis;
@@ -71,7 +73,6 @@ import javax.inject.Inject;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicReference;
@@ -315,7 +316,7 @@ public class SqlQueryExecution
                 // analyze query
                 PlanRoot plan = analyzeQuery();
 
-                metadata.beginQuery(getSession(), plan.getConnectors());
+                metadata.beginQuery(getSession(), plan.getTableHandles());
 
                 // plan distribution of query
                 planDistribution(plan);
@@ -396,23 +397,23 @@ public class SqlQueryExecution
         stateMachine.endAnalysis();
 
         boolean explainAnalyze = analysis.getStatement() instanceof Explain && ((Explain) analysis.getStatement()).isAnalyze();
-        return new PlanRoot(fragmentedPlan, !explainAnalyze, extractConnectors(analysis));
+        return new PlanRoot(fragmentedPlan, !explainAnalyze, extractTableHandles(analysis));
     }
 
-    private static Set<CatalogName> extractConnectors(Analysis analysis)
+    private static Multimap<CatalogName, ConnectorTableHandle> extractTableHandles(Analysis analysis)
     {
-        ImmutableSet.Builder<CatalogName> connectors = ImmutableSet.builder();
+        ImmutableMultimap.Builder<CatalogName, ConnectorTableHandle> tableHandles = ImmutableMultimap.builder();
 
         for (TableHandle tableHandle : analysis.getTables()) {
-            connectors.add(tableHandle.getCatalogName());
+            tableHandles.put(tableHandle.getCatalogName(), tableHandle.getConnectorHandle());
         }
 
         if (analysis.getInsert().isPresent()) {
             TableHandle target = analysis.getInsert().get().getTarget();
-            connectors.add(target.getCatalogName());
+            tableHandles.put(target.getCatalogName(), target.getConnectorHandle());
         }
 
-        return connectors.build();
+        return tableHandles.build();
     }
 
     private void planDistribution(PlanRoot plan)
@@ -598,13 +599,13 @@ public class SqlQueryExecution
     {
         private final SubPlan root;
         private final boolean summarizeTaskInfos;
-        private final Set<CatalogName> connectors;
+        private final Multimap<CatalogName, ConnectorTableHandle> tableHandles;
 
-        public PlanRoot(SubPlan root, boolean summarizeTaskInfos, Set<CatalogName> connectors)
+        public PlanRoot(SubPlan root, boolean summarizeTaskInfos, Multimap<CatalogName, ConnectorTableHandle> tableHandles)
         {
             this.root = requireNonNull(root, "root is null");
             this.summarizeTaskInfos = summarizeTaskInfos;
-            this.connectors = ImmutableSet.copyOf(connectors);
+            this.tableHandles = ImmutableMultimap.copyOf(requireNonNull(tableHandles, "tableHandles is null"));
         }
 
         public SubPlan getRoot()
@@ -617,9 +618,9 @@ public class SqlQueryExecution
             return summarizeTaskInfos;
         }
 
-        public Set<CatalogName> getConnectors()
+        public Multimap<CatalogName, ConnectorTableHandle> getTableHandles()
         {
-            return connectors;
+            return tableHandles;
         }
     }
 

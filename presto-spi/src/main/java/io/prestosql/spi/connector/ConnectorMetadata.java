@@ -390,8 +390,19 @@ public interface ConnectorMetadata
 
     /**
      * Start a SELECT/UPDATE/INSERT/DELETE query. This notification is triggered after the planning phase completes.
+     *
+     * @deprecated Use {@link #beginQuery(ConnectorSession, Collection)} instead.
      */
+    @Deprecated
     default void beginQuery(ConnectorSession session) {}
+
+    /**
+     * Start a SELECT/UPDATE/INSERT/DELETE query. This notification is triggered after the planning phase completes.
+     */
+    default void beginQuery(ConnectorSession session, Collection<ConnectorTableHandle> tableHandles)
+    {
+        beginQuery(session);
+    }
 
     /**
      * Cleanup after a SELECT/UPDATE/INSERT/DELETE query. This is the very last notification after the query finishes, whether it succeeds or fails.
