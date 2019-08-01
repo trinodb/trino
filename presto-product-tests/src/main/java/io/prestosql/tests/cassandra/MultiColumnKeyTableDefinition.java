@@ -23,7 +23,7 @@ import java.util.List;
 import static io.prestosql.tests.cassandra.TestConstants.CONNECTOR_NAME;
 import static io.prestosql.tests.cassandra.TestConstants.KEY_SPACE;
 
-public class MultiColumnKeyTableDefinition
+public final class MultiColumnKeyTableDefinition
 {
     private MultiColumnKeyTableDefinition() {}
 

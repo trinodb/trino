@@ -168,7 +168,7 @@ public final class UuidOperators
     }
 
     @ScalarOperator(IS_DISTINCT_FROM)
-    public static class UuidDistinctFromOperator
+    public static final class UuidDistinctFromOperator
     {
         @SqlType(StandardTypes.BOOLEAN)
         public static boolean isDistinctFrom(

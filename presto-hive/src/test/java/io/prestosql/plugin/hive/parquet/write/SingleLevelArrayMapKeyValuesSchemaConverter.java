@@ -41,11 +41,9 @@ import static org.apache.parquet.schema.OriginalType.MAP_KEY_VALUE;
  * Additionally, there is a schema modification in maps where MAP_KEY_VALUE is incorrectly used in place of MAP
  * Backward-compatibility rules described in spec https://github.com/apache/parquet-format/blob/master/LogicalTypes.md#lists
  */
-public class SingleLevelArrayMapKeyValuesSchemaConverter
+public final class SingleLevelArrayMapKeyValuesSchemaConverter
 {
-    private SingleLevelArrayMapKeyValuesSchemaConverter()
-    {
-    }
+    private SingleLevelArrayMapKeyValuesSchemaConverter() {}
 
     public static MessageType convert(final List<String> columnNames, final List<TypeInfo> columnTypes)
     {

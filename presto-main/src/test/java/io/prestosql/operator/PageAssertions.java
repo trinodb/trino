@@ -23,9 +23,7 @@ import static org.testng.Assert.assertEquals;
 
 public final class PageAssertions
 {
-    private PageAssertions()
-    {
-    }
+    private PageAssertions() {}
 
     public static void assertPageEquals(List<? extends Type> types, Page actualPage, Page expectedPage)
     {

@@ -93,11 +93,9 @@ import static io.prestosql.util.CompilerUtils.defineClass;
 import static io.prestosql.util.CompilerUtils.makeClassName;
 import static java.util.Objects.requireNonNull;
 
-public class StateCompiler
+public final class StateCompiler
 {
-    private StateCompiler()
-    {
-    }
+    private StateCompiler() {}
 
     private static Class<?> getBigArrayType(Class<?> type)
     {

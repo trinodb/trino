@@ -42,7 +42,7 @@ import static io.prestosql.spi.resourcegroups.QueryType.EXPLAIN;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
-class H2TestUtil
+final class H2TestUtil
 {
     private static final String CONFIGURATION_MANAGER_TYPE = "h2";
     public static final String TEST_ENVIRONMENT = "test_environment";

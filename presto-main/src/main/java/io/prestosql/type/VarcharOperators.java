@@ -43,9 +43,7 @@ import static java.lang.String.format;
 
 public final class VarcharOperators
 {
-    private VarcharOperators()
-    {
-    }
+    private VarcharOperators() {}
 
     @LiteralParameters("x")
     @ScalarOperator(EQUAL)
@@ -242,7 +240,7 @@ public final class VarcharOperators
     }
 
     @ScalarOperator(IS_DISTINCT_FROM)
-    public static class VarcharDistinctFromOperator
+    public static final class VarcharDistinctFromOperator
     {
         @LiteralParameters({"x", "y"})
         @SqlType(StandardTypes.BOOLEAN)

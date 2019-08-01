@@ -25,7 +25,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
-public class MoreLists
+public final class MoreLists
 {
     public static <T> List<List<T>> listOfListsCopy(List<List<T>> lists)
     {

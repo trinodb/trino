@@ -28,7 +28,7 @@ import static io.prestosql.matching.Pattern.typeOf;
 import static io.prestosql.matching.Property.optionalProperty;
 import static io.prestosql.matching.Property.property;
 
-public class Patterns
+public final class Patterns
 {
     private Patterns() {}
 
@@ -204,7 +204,7 @@ public class Patterns
                         .collect(toImmutableList()));
     }
 
-    public static class Aggregation
+    public static final class Aggregation
     {
         public static Property<AggregationNode, Lookup, List<Symbol>> groupingColumns()
         {
@@ -217,7 +217,7 @@ public class Patterns
         }
     }
 
-    public static class Apply
+    public static final class Apply
     {
         public static Property<ApplyNode, Lookup, List<Symbol>> correlation()
         {
@@ -225,7 +225,7 @@ public class Patterns
         }
     }
 
-    public static class Exchange
+    public static final class Exchange
     {
         public static Property<ExchangeNode, Lookup, ExchangeNode.Scope> scope()
         {
@@ -233,7 +233,7 @@ public class Patterns
         }
     }
 
-    public static class Join
+    public static final class Join
     {
         public static Property<JoinNode, Lookup, JoinNode.Type> type()
         {
@@ -241,7 +241,7 @@ public class Patterns
         }
     }
 
-    public static class LateralJoin
+    public static final class LateralJoin
     {
         public static Property<LateralJoinNode, Lookup, List<Symbol>> correlation()
         {
@@ -259,7 +259,7 @@ public class Patterns
         }
     }
 
-    public static class Limit
+    public static final class Limit
     {
         public static Property<LimitNode, Lookup, Long> count()
         {
@@ -267,7 +267,7 @@ public class Patterns
         }
     }
 
-    public static class Sample
+    public static final class Sample
     {
         public static Property<SampleNode, Lookup, Double> sampleRatio()
         {
@@ -280,7 +280,7 @@ public class Patterns
         }
     }
 
-    public static class TopN
+    public static final class TopN
     {
         public static Property<TopNNode, Lookup, TopNNode.Step> step()
         {
@@ -293,7 +293,7 @@ public class Patterns
         }
     }
 
-    public static class Values
+    public static final class Values
     {
         public static Property<ValuesNode, Lookup, List<List<Expression>>> rows()
         {
@@ -301,7 +301,7 @@ public class Patterns
         }
     }
 
-    public static class SemiJoin
+    public static final class SemiJoin
     {
         public static Property<SemiJoinNode, Lookup, PlanNode> getSource()
         {

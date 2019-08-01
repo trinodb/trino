@@ -77,11 +77,9 @@ import static io.prestosql.util.CompilerUtils.makeClassName;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
-public class AccumulatorCompiler
+public final class AccumulatorCompiler
 {
-    private AccumulatorCompiler()
-    {
-    }
+    private AccumulatorCompiler() {}
 
     public static GenericAccumulatorFactoryBinder generateAccumulatorFactoryBinder(AggregationMetadata metadata, DynamicClassLoader classLoader)
     {

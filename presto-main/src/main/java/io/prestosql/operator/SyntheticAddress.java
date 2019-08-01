@@ -21,9 +21,7 @@ package io.prestosql.operator;
  */
 public final class SyntheticAddress
 {
-    private SyntheticAddress()
-    {
-    }
+    private SyntheticAddress() {}
 
     public static long encodeSyntheticAddress(int sliceIndex, int sliceOffset)
     {

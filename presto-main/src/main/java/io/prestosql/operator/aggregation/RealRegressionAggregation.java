@@ -30,7 +30,7 @@ import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
 
 @AggregationFunction
-public class RealRegressionAggregation
+public final class RealRegressionAggregation
 {
     private RealRegressionAggregation() {}
 

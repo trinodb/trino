@@ -19,7 +19,7 @@ import io.prestosql.matching.Property;
 import static io.prestosql.matching.Pattern.typeOf;
 import static io.prestosql.matching.Property.property;
 
-public class Patterns
+public final class Patterns
 {
     private Patterns() {}
 

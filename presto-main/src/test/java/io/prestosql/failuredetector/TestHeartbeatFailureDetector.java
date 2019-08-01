@@ -115,7 +115,7 @@ public class TestHeartbeatFailureDetector
     }
 
     @Path("/foo")
-    public static class FooResource
+    public static final class FooResource
     {
         @GET
         public static String hello()

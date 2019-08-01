@@ -23,9 +23,7 @@ import static io.prestosql.type.UnknownType.UNKNOWN;
 
 public final class ArrayFunctions
 {
-    private ArrayFunctions()
-    {
-    }
+    private ArrayFunctions() {}
 
     @ScalarFunction(hidden = true)
     @SqlType("array(unknown)")

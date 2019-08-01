@@ -49,7 +49,7 @@ import static io.prestosql.sql.planner.plan.Patterns.project;
 import static io.prestosql.sql.planner.plan.Patterns.source;
 import static io.prestosql.sql.planner.plan.Patterns.window;
 
-public class GatherAndMergeWindows
+public final class GatherAndMergeWindows
 {
     private GatherAndMergeWindows() {}
 

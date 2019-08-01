@@ -83,7 +83,7 @@ public enum CassandraType
     MAP(createUnboundedVarcharType()),
     SET(createUnboundedVarcharType());
 
-    private static class Constants
+    private static final class Constants
     {
         private static final int UUID_STRING_MAX_LENGTH = 36;
         // IPv4: 255.255.255.255 - 15 characters

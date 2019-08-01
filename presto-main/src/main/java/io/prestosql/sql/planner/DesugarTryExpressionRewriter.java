@@ -32,7 +32,7 @@ import java.util.Map;
 
 import static io.prestosql.operator.scalar.TryFunction.NAME;
 
-public class DesugarTryExpressionRewriter
+public final class DesugarTryExpressionRewriter
 {
     private DesugarTryExpressionRewriter() {}
 

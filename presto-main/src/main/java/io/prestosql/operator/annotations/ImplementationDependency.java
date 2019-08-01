@@ -87,10 +87,9 @@ public interface ImplementationDependency
         }
     }
 
-    class Factory
+    final class Factory
     {
-        private Factory()
-        {}
+        private Factory() {}
 
         public static ImplementationDependency createDependency(Annotation annotation, Set<String> literalParameters)
         {

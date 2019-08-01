@@ -22,9 +22,7 @@ import java.util.List;
 
 public final class Expressions
 {
-    private Expressions()
-    {
-    }
+    private Expressions() {}
 
     public static ConstantExpression constant(Object value, Type type)
     {

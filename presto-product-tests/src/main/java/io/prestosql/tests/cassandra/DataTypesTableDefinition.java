@@ -33,11 +33,11 @@ import java.util.UUID;
 import static io.prestosql.tests.cassandra.TestConstants.CONNECTOR_NAME;
 import static io.prestosql.tests.cassandra.TestConstants.KEY_SPACE;
 
-public class DataTypesTableDefinition
+public final class DataTypesTableDefinition
 {
-    public static final CassandraTableDefinition CASSANDRA_ALL_TYPES;
-
     private DataTypesTableDefinition() {}
+
+    public static final CassandraTableDefinition CASSANDRA_ALL_TYPES;
 
     private static final String ALL_TYPES_TABLE_NAME = "all_types";
 

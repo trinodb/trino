@@ -44,9 +44,7 @@ import static java.util.Objects.requireNonNull;
 
 public final class Checkpoints
 {
-    private Checkpoints()
-    {
-    }
+    private Checkpoints() {}
 
     public static Map<StreamId, StreamCheckpoint> getStreamCheckpoints(
             Set<Integer> columns,

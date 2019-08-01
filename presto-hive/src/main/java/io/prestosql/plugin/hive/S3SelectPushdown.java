@@ -51,7 +51,7 @@ import static org.apache.hadoop.hive.serde.serdeConstants.TINYINT_TYPE_NAME;
  * S3SelectPushdown uses Amazon S3 Select to push down queries to Amazon S3. This allows Presto to retrieve only a
  * subset of data rather than retrieving the full S3 object thus improving Presto query performance.
  */
-public class S3SelectPushdown
+public final class S3SelectPushdown
 {
     private static final Logger LOG = Logger.get(S3SelectPushdown.class);
     private static final Set<String> SUPPORTED_S3_PREFIXES = ImmutableSet.of("s3://", "s3a://", "s3n://");

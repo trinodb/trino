@@ -184,7 +184,7 @@ public final class TimeWithTimeZoneOperators
     }
 
     @ScalarOperator(IS_DISTINCT_FROM)
-    public static class TimeWithTimeZoneDistinctFromOperator
+    public static final class TimeWithTimeZoneDistinctFromOperator
     {
         @SqlType(StandardTypes.BOOLEAN)
         public static boolean isDistinctFrom(
