@@ -127,6 +127,7 @@ public interface ConnectorMetadata
      * The provided table layout handle must be one that the connector can transparently convert to from
      * the original partitioning handle associated with the provided table layout handle,
      * as promised by {@link #getCommonPartitioningHandle}.
+     *
      * @deprecated use the version without layouts
      */
     @Deprecated
@@ -720,10 +721,10 @@ public interface ConnectorMetadata
      * invocation, even if the connector generally supports pushdown. Doing otherwise can cause the optimizer
      * to loop indefinitely.
      * </p>
-     *
+     * <p>
      * If the method returns a result, the list of projections in the result *replaces* the existing ones, and the
      * list of assignments is the new set of columns exposed by the derived table.
-     *
+     * <p>
      * As an example, given the following plan:
      *
      * <pre>
@@ -736,7 +737,7 @@ public interface ConnectorMetadata
      *       b = CH1
      *       c = CH2
      * </pre>
-     *
+     * <p>
      * The optimizer would call {@link #applyProjection} with the following arguments:
      *
      * <pre>
@@ -752,7 +753,7 @@ public interface ConnectorMetadata
      *     c = CH2
      * ]
      * </pre>
-     *
+     * <p>
      * Assuming the connector knows how to handle f1(...) and f2(...), it would return:
      *
      * <pre>
