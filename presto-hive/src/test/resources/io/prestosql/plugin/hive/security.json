@@ -3,7 +3,8 @@
     {
       "user": "hive",
       "privileges": [
-        "SELECT"
+        "SELECT",
+        "INSERT"
       ]
     }
   ],

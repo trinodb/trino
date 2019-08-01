@@ -229,6 +229,10 @@ public class SqlStandardAccessControl
     @Override
     public void checkCanInsertIntoTable(ConnectorTransactionHandle transaction, ConnectorIdentity identity, SchemaTableName tableName)
     {
+        if (!metastoreProvider.apply((HiveTransactionHandle) transaction).getTable(tableName.getSchemaName(), tableName.getTableName()).isPresent()) {
+            // table does not exists, it looks like CTAS
+            return;
+        }
         if (!checkTablePermission(transaction, identity, tableName, INSERT, false)) {
             denyInsertTable(tableName.toString());
         }

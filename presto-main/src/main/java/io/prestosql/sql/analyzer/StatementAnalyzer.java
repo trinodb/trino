@@ -478,6 +478,7 @@ class StatementAnalyzer
             analysis.setCreateTableComment(node.getComment());
 
             accessControl.checkCanCreateTable(session.getRequiredTransactionId(), session.getIdentity(), targetTable);
+            accessControl.checkCanInsertIntoTable(session.getRequiredTransactionId(), session.getIdentity(), targetTable);
 
             analysis.setCreateTableAsSelectWithData(node.isWithData());
 

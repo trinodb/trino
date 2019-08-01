@@ -3,7 +3,8 @@
     {
       "user": "user",
       "privileges": [
-        "SELECT"
+        "SELECT",
+        "INSERT"
       ]
     }
   ],
