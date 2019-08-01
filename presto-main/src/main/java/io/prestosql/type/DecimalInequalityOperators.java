@@ -50,7 +50,7 @@ import static io.prestosql.spi.type.UnscaledDecimal128Arithmetic.compare;
 import static io.prestosql.util.Reflection.methodHandle;
 import static java.util.Arrays.asList;
 
-public class DecimalInequalityOperators
+public final class DecimalInequalityOperators
 {
     private static final TypeSignature DECIMAL_SIGNATURE = parseTypeSignature("decimal(a_precision, a_scale)", ImmutableSet.of("a_precision", "a_scale"));
 

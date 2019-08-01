@@ -55,9 +55,7 @@ import static java.lang.String.format;
 
 public final class TinyintOperators
 {
-    private TinyintOperators()
-    {
-    }
+    private TinyintOperators() {}
 
     @ScalarOperator(ADD)
     @SqlType(StandardTypes.TINYINT)
@@ -248,7 +246,7 @@ public final class TinyintOperators
     }
 
     @ScalarOperator(IS_DISTINCT_FROM)
-    public static class TinyintDistinctFromOperator
+    public static final class TinyintDistinctFromOperator
     {
         @SqlType(StandardTypes.BOOLEAN)
         public static boolean isDistinctFrom(

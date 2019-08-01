@@ -26,7 +26,7 @@ import static io.prestosql.plugin.geospatial.GeometryType.GEOMETRY_TYPE_NAME;
 import static io.prestosql.plugin.geospatial.SpatialPartitioningAggregateFunction.NAME;
 
 @AggregationFunction(value = NAME, decomposable = false)
-public class SpatialPartitioningAggregateFunction
+public final class SpatialPartitioningAggregateFunction
 {
     public static final String NAME = "spatial_partitioning";
 

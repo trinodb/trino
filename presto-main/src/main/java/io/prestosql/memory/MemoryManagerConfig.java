@@ -95,7 +95,7 @@ public class MemoryManagerConfig
         return this;
     }
 
-    public static class LowMemoryKillerPolicy
+    public static final class LowMemoryKillerPolicy
     {
         public static final String NONE = "none";
         public static final String TOTAL_RESERVATION = "total-reservation";

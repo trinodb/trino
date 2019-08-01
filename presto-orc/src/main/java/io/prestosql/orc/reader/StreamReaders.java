@@ -20,9 +20,7 @@ import io.prestosql.spi.type.Type;
 
 public final class StreamReaders
 {
-    private StreamReaders()
-    {
-    }
+    private StreamReaders() {}
 
     public static StreamReader createStreamReader(Type type, StreamDescriptor streamDescriptor, AggregatedMemoryContext systemMemoryContext)
             throws OrcCorruptionException

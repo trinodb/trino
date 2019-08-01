@@ -32,7 +32,7 @@ import static io.prestosql.sql.ExpressionUtils.extractConjuncts;
 import static io.prestosql.sql.tree.ComparisonExpression.Operator.LESS_THAN;
 import static io.prestosql.sql.tree.ComparisonExpression.Operator.LESS_THAN_OR_EQUAL;
 
-public class SpatialJoinUtils
+public final class SpatialJoinUtils
 {
     public static final String ST_CONTAINS = "st_contains";
     public static final String ST_WITHIN = "st_within";

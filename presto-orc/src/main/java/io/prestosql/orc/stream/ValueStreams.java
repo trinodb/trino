@@ -32,9 +32,7 @@ import static java.lang.String.format;
 
 public final class ValueStreams
 {
-    private ValueStreams()
-    {
-    }
+    private ValueStreams() {}
 
     public static ValueInputStream<?> createValueStreams(
             StreamId streamId,

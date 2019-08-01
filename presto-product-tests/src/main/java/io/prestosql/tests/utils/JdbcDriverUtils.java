@@ -24,7 +24,7 @@ import java.sql.Statement;
 
 import static java.lang.String.format;
 
-public class JdbcDriverUtils
+public final class JdbcDriverUtils
 {
     private static final Logger LOGGER = Logger.get(JdbcDriverUtils.class);
     private static final String IS_NUMERIC_REGEX = "-?\\d*[\\.\\d]*";

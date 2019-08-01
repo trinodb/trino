@@ -105,7 +105,7 @@ import static io.prestosql.sql.planner.plan.ExchangeNode.Scope.REMOTE;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toMap;
 
-public class PropertyDerivations
+public final class PropertyDerivations
 {
     private PropertyDerivations() {}
 

@@ -21,7 +21,7 @@ import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.util.List;
 
-public class ParametricFunctionHelpers
+public final class ParametricFunctionHelpers
 {
     private ParametricFunctionHelpers() {}
 

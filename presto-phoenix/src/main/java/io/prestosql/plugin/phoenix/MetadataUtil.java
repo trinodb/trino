@@ -20,11 +20,9 @@ import java.util.Optional;
 import static io.prestosql.plugin.phoenix.PhoenixMetadata.DEFAULT_SCHEMA;
 import static org.apache.phoenix.query.QueryConstants.NULL_SCHEMA_NAME;
 
-public class MetadataUtil
+public final class MetadataUtil
 {
-    private MetadataUtil()
-    {
-    }
+    private MetadataUtil() {}
 
     public static String getEscapedTableName(Optional<String> schema, String table)
     {

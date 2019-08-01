@@ -39,7 +39,7 @@ import static java.lang.Double.NaN;
 import static java.lang.Double.isNaN;
 import static java.util.Objects.requireNonNull;
 
-public class JtsGeometrySerde
+public final class JtsGeometrySerde
 {
     // TODO: Are we sure this is thread safe?
     private static final GeometryFactory GEOMETRY_FACTORY = new GeometryFactory();

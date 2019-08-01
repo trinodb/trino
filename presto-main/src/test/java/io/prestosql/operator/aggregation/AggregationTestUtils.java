@@ -36,9 +36,7 @@ import static org.testng.Assert.fail;
 
 public final class AggregationTestUtils
 {
-    private AggregationTestUtils()
-    {
-    }
+    private AggregationTestUtils() {}
 
     public static void assertAggregation(InternalAggregationFunction function, Object expectedValue, Block... blocks)
     {

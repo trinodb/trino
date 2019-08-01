@@ -36,9 +36,7 @@ import static java.util.Objects.requireNonNull;
 
 public final class HiveBenchmarkQueryRunner
 {
-    private HiveBenchmarkQueryRunner()
-    {
-    }
+    private HiveBenchmarkQueryRunner() {}
 
     public static void main(String[] args)
             throws IOException

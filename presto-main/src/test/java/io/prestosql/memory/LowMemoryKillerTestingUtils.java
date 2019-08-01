@@ -32,7 +32,7 @@ import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.prestosql.memory.LocalMemoryManager.GENERAL_POOL;
 import static io.prestosql.memory.LocalMemoryManager.RESERVED_POOL;
 
-public class LowMemoryKillerTestingUtils
+public final class LowMemoryKillerTestingUtils
 {
     private LowMemoryKillerTestingUtils() {}
 

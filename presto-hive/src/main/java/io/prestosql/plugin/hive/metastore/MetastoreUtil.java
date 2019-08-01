@@ -50,11 +50,9 @@ import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.META_
 import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_DDL;
 import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_LIB;
 
-public class MetastoreUtil
+public final class MetastoreUtil
 {
-    private MetastoreUtil()
-    {
-    }
+    private MetastoreUtil() {}
 
     public static Properties getHiveSchema(Table table)
     {

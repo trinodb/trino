@@ -23,7 +23,7 @@ import javax.validation.constraints.NotNull;
 @DefunctConfig({"node-scheduler.location-aware-scheduling-enabled", "node-scheduler.multiple-tasks-per-node-enabled"})
 public class NodeSchedulerConfig
 {
-    public static class NetworkTopologyType
+    public static final class NetworkTopologyType
     {
         public static final String LEGACY = "legacy";
         public static final String FLAT = "flat";

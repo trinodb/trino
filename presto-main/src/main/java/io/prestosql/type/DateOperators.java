@@ -55,9 +55,7 @@ import static io.prestosql.util.DateTimeZoneIndex.getChronology;
 
 public final class DateOperators
 {
-    private DateOperators()
-    {
-    }
+    private DateOperators() {}
 
     @ScalarOperator(EQUAL)
     @SqlType(StandardTypes.BOOLEAN)
@@ -170,7 +168,7 @@ public final class DateOperators
     }
 
     @ScalarOperator(IS_DISTINCT_FROM)
-    public static class DateDistinctFromOperator
+    public static final class DateDistinctFromOperator
     {
         @SqlType(StandardTypes.BOOLEAN)
         public static boolean isDistinctFrom(

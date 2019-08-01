@@ -42,9 +42,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 
 public final class RedisQueryRunner
 {
-    private RedisQueryRunner()
-    {
-    }
+    private RedisQueryRunner() {}
 
     private static final Logger log = Logger.get("TestQueries");
     private static final String TPCH_SCHEMA = "tpch";
