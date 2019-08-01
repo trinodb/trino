@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.prestosql.execution.MockManagedQueryExecution;
+import io.prestosql.execution.MockManagedQueryExecution.MockManagedQueryExecutionBuilder;
 import io.prestosql.execution.resourcegroups.InternalResourceGroup.RootInternalResourceGroup;
 import io.prestosql.server.QueryStateInfo;
 import io.prestosql.server.ResourceGroupInfo;
@@ -64,13 +65,13 @@ public class TestResourceGroups
         root.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
         root.setMaxQueuedQueries(1);
         root.setHardConcurrencyLimit(1);
-        MockManagedQueryExecution query1 = new MockManagedQueryExecution(0);
+        MockManagedQueryExecution query1 = new MockManagedQueryExecutionBuilder().build();
         root.run(query1);
         assertEquals(query1.getState(), RUNNING);
-        MockManagedQueryExecution query2 = new MockManagedQueryExecution(0);
+        MockManagedQueryExecution query2 = new MockManagedQueryExecutionBuilder().build();
         root.run(query2);
         assertEquals(query2.getState(), QUEUED);
-        MockManagedQueryExecution query3 = new MockManagedQueryExecution(0);
+        MockManagedQueryExecution query3 = new MockManagedQueryExecutionBuilder().build();
         root.run(query3);
         assertEquals(query3.getState(), FAILED);
         assertEquals(query3.getThrowable().getMessage(), "Too many queued queries for \"root\"");
@@ -95,19 +96,19 @@ public class TestResourceGroups
         group3.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
         group3.setMaxQueuedQueries(4);
         group3.setHardConcurrencyLimit(1);
-        MockManagedQueryExecution query1a = new MockManagedQueryExecution(0);
+        MockManagedQueryExecution query1a = new MockManagedQueryExecutionBuilder().build();
         group1.run(query1a);
         assertEquals(query1a.getState(), RUNNING);
-        MockManagedQueryExecution query1b = new MockManagedQueryExecution(0);
+        MockManagedQueryExecution query1b = new MockManagedQueryExecutionBuilder().build();
         group1.run(query1b);
         assertEquals(query1b.getState(), QUEUED);
-        MockManagedQueryExecution query2a = new MockManagedQueryExecution(0);
+        MockManagedQueryExecution query2a = new MockManagedQueryExecutionBuilder().build();
         group2.run(query2a);
         assertEquals(query2a.getState(), QUEUED);
-        MockManagedQueryExecution query2b = new MockManagedQueryExecution(0);
+        MockManagedQueryExecution query2b = new MockManagedQueryExecutionBuilder().build();
         group2.run(query2b);
         assertEquals(query2b.getState(), QUEUED);
-        MockManagedQueryExecution query3a = new MockManagedQueryExecution(0);
+        MockManagedQueryExecution query3a = new MockManagedQueryExecutionBuilder().build();
         group3.run(query3a);
         assertEquals(query3a.getState(), QUEUED);
 
@@ -146,16 +147,16 @@ public class TestResourceGroups
         group2.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
         group2.setMaxQueuedQueries(4);
         group2.setHardConcurrencyLimit(2);
-        MockManagedQueryExecution query1a = new MockManagedQueryExecution(0);
+        MockManagedQueryExecution query1a = new MockManagedQueryExecutionBuilder().build();
         group1.run(query1a);
         assertEquals(query1a.getState(), RUNNING);
-        MockManagedQueryExecution query1b = new MockManagedQueryExecution(0);
+        MockManagedQueryExecution query1b = new MockManagedQueryExecutionBuilder().build();
         group1.run(query1b);
         assertEquals(query1b.getState(), QUEUED);
-        MockManagedQueryExecution query1c = new MockManagedQueryExecution(0);
+        MockManagedQueryExecution query1c = new MockManagedQueryExecutionBuilder().build();
         group1.run(query1c);
         assertEquals(query1c.getState(), QUEUED);
-        MockManagedQueryExecution query2a = new MockManagedQueryExecution(0);
+        MockManagedQueryExecution query2a = new MockManagedQueryExecutionBuilder().build();
         group2.run(query2a);
         assertEquals(query2a.getState(), QUEUED);
 
@@ -188,16 +189,16 @@ public class TestResourceGroups
         group2.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
         group2.setMaxQueuedQueries(4);
         group2.setHardConcurrencyLimit(2);
-        MockManagedQueryExecution query1a = new MockManagedQueryExecution(0);
+        MockManagedQueryExecution query1a = new MockManagedQueryExecutionBuilder().build();
         group1.run(query1a);
         assertEquals(query1a.getState(), RUNNING);
-        MockManagedQueryExecution query1b = new MockManagedQueryExecution(0);
+        MockManagedQueryExecution query1b = new MockManagedQueryExecutionBuilder().build();
         group1.run(query1b);
         assertEquals(query1b.getState(), QUEUED);
-        MockManagedQueryExecution query1c = new MockManagedQueryExecution(0);
+        MockManagedQueryExecution query1c = new MockManagedQueryExecutionBuilder().build();
         group1.run(query1c);
         assertEquals(query1c.getState(), QUEUED);
-        MockManagedQueryExecution query2a = new MockManagedQueryExecution(0);
+        MockManagedQueryExecution query2a = new MockManagedQueryExecutionBuilder().build();
         group2.run(query2a);
         assertEquals(query2a.getState(), QUEUED);
 
@@ -222,15 +223,15 @@ public class TestResourceGroups
         root.setSoftMemoryLimit(new DataSize(1, BYTE));
         root.setMaxQueuedQueries(4);
         root.setHardConcurrencyLimit(3);
-        MockManagedQueryExecution query1 = new MockManagedQueryExecution(2);
+        MockManagedQueryExecution query1 = new MockManagedQueryExecutionBuilder().withInitialMemoryUsage(new DataSize(2, BYTE)).build();
         root.run(query1);
         // Process the group to refresh stats
         root.processQueuedQueries();
         assertEquals(query1.getState(), RUNNING);
-        MockManagedQueryExecution query2 = new MockManagedQueryExecution(0);
+        MockManagedQueryExecution query2 = new MockManagedQueryExecutionBuilder().build();
         root.run(query2);
         assertEquals(query2.getState(), QUEUED);
-        MockManagedQueryExecution query3 = new MockManagedQueryExecution(0);
+        MockManagedQueryExecution query3 = new MockManagedQueryExecutionBuilder().build();
         root.run(query3);
         assertEquals(query3.getState(), QUEUED);
 
@@ -252,15 +253,15 @@ public class TestResourceGroups
         subgroup.setMaxQueuedQueries(4);
         subgroup.setHardConcurrencyLimit(3);
 
-        MockManagedQueryExecution query1 = new MockManagedQueryExecution(2);
+        MockManagedQueryExecution query1 = new MockManagedQueryExecutionBuilder().withInitialMemoryUsage(new DataSize(2, BYTE)).build();
         subgroup.run(query1);
         // Process the group to refresh stats
         root.processQueuedQueries();
         assertEquals(query1.getState(), RUNNING);
-        MockManagedQueryExecution query2 = new MockManagedQueryExecution(0);
+        MockManagedQueryExecution query2 = new MockManagedQueryExecutionBuilder().build();
         subgroup.run(query2);
         assertEquals(query2.getState(), QUEUED);
-        MockManagedQueryExecution query3 = new MockManagedQueryExecution(0);
+        MockManagedQueryExecution query3 = new MockManagedQueryExecutionBuilder().build();
         subgroup.run(query3);
         assertEquals(query3.getState(), QUEUED);
 
@@ -281,15 +282,20 @@ public class TestResourceGroups
         root.setMaxQueuedQueries(1);
         root.setHardConcurrencyLimit(2);
 
-        MockManagedQueryExecution query1 = new MockManagedQueryExecution(1, "query_id", 1, new Duration(1, SECONDS));
+        MockManagedQueryExecution query1 = new MockManagedQueryExecutionBuilder()
+                .withInitialMemoryUsage(new DataSize(1, BYTE))
+                .withQueryId("query_id")
+                .withInitialCpuUsage(new Duration(1, SECONDS))
+                .build();
+
         root.run(query1);
         assertEquals(query1.getState(), RUNNING);
 
-        MockManagedQueryExecution query2 = new MockManagedQueryExecution(0);
+        MockManagedQueryExecution query2 = new MockManagedQueryExecutionBuilder().build();
         root.run(query2);
         assertEquals(query2.getState(), RUNNING);
 
-        MockManagedQueryExecution query3 = new MockManagedQueryExecution(0);
+        MockManagedQueryExecution query3 = new MockManagedQueryExecutionBuilder().build();
         root.run(query3);
         assertEquals(query3.getState(), QUEUED);
 
@@ -313,10 +319,16 @@ public class TestResourceGroups
         root.setCpuQuotaGenerationMillisPerSecond(2000);
         root.setMaxQueuedQueries(1);
         root.setHardConcurrencyLimit(1);
-        MockManagedQueryExecution query1 = new MockManagedQueryExecution(1, "query_id", 1, new Duration(2, SECONDS));
+
+        MockManagedQueryExecution query1 = new MockManagedQueryExecutionBuilder()
+                .withInitialMemoryUsage(new DataSize(1, BYTE))
+                .withQueryId("query_id")
+                .withInitialCpuUsage(new Duration(2, SECONDS))
+                .build();
+
         root.run(query1);
         assertEquals(query1.getState(), RUNNING);
-        MockManagedQueryExecution query2 = new MockManagedQueryExecution(0);
+        MockManagedQueryExecution query2 = new MockManagedQueryExecutionBuilder().build();
         root.run(query2);
         assertEquals(query2.getState(), QUEUED);
 
@@ -357,7 +369,11 @@ public class TestResourceGroups
             }
             while (queries.containsKey(priority));
 
-            MockManagedQueryExecution query = new MockManagedQueryExecution(0, "query_id", priority);
+            MockManagedQueryExecution query = new MockManagedQueryExecutionBuilder()
+                    .withQueryId("query_id")
+                    .withPriority(priority)
+                    .build();
+
             if (random.nextBoolean()) {
                 group1.run(query);
             }
@@ -817,7 +833,11 @@ public class TestResourceGroups
         int existingCount = existingQueries.size();
         Set<MockManagedQueryExecution> queries = new HashSet<>(existingQueries);
         for (int i = 0; i < count - existingCount; i++) {
-            MockManagedQueryExecution query = new MockManagedQueryExecution(0, group.getId().toString().replace(".", "") + Integer.toString(i), queryPriority ? i + 1 : 1);
+            MockManagedQueryExecution query = new MockManagedQueryExecutionBuilder()
+                    .withQueryId(group.getId().toString().replace(".", "") + Integer.toString(i))
+                    .withPriority(queryPriority ? i + 1 : 1)
+                    .build();
+
             queries.add(query);
             group.run(query);
         }
