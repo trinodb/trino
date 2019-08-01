@@ -20,7 +20,7 @@ import io.prestosql.spi.block.Block;
 
 import static org.testng.Assert.assertEquals;
 
-public class GroupByAggregationTestUtils
+public final class GroupByAggregationTestUtils
 {
     private GroupByAggregationTestUtils()
     {

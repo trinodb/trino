@@ -25,7 +25,7 @@ import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
 
-public class ColumnIndexStatsUtils
+public final class ColumnIndexStatsUtils
 {
     private ColumnIndexStatsUtils() {}
 

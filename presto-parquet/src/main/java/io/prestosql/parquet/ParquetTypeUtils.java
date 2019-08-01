@@ -39,9 +39,7 @@ import static org.apache.parquet.schema.Type.Repetition.REPEATED;
 
 public final class ParquetTypeUtils
 {
-    private ParquetTypeUtils()
-    {
-    }
+    private ParquetTypeUtils() {}
 
     public static List<PrimitiveColumnIO> getColumns(MessageType fileSchema, MessageType requestedSchema)
     {

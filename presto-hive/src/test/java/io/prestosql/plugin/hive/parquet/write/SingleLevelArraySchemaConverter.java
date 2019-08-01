@@ -39,11 +39,9 @@ import java.util.Locale;
  * and modified to test Array Schema without wrapping anonymous group "bag".
  * Backward-compatibility rules described in spec https://github.com/apache/parquet-format/blob/master/LogicalTypes.md#lists
  */
-public class SingleLevelArraySchemaConverter
+public final class SingleLevelArraySchemaConverter
 {
-    private SingleLevelArraySchemaConverter()
-    {
-    }
+    private SingleLevelArraySchemaConverter() {}
 
     public static MessageType convert(final List<String> columnNames, final List<TypeInfo> columnTypes)
     {

@@ -16,11 +16,9 @@ package io.prestosql.verifier;
 import io.airlift.airline.Cli;
 import io.airlift.airline.Help;
 
-public class PrestoVerifier
+public final class PrestoVerifier
 {
-    private PrestoVerifier()
-    {
-    }
+    private PrestoVerifier() {}
 
     public static void main(String[] args)
     {

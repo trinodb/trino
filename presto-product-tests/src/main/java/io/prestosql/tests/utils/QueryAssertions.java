@@ -26,7 +26,7 @@ import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.testng.Assert.fail;
 
-public class QueryAssertions
+public final class QueryAssertions
 {
     public static void assertContainsEventually(Supplier<QueryResult> all, QueryResult expectedSubset, Duration timeout)
     {

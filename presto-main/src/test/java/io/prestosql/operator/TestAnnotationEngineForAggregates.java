@@ -84,7 +84,7 @@ public class TestAnnotationEngineForAggregates
 
     @AggregationFunction("simple_exact_aggregate")
     @Description("Simple exact aggregate description")
-    public static class ExactAggregationFunction
+    public static final class ExactAggregationFunction
     {
         @InputFunction
         public static void input(@AggregationState NullableDoubleState state, @SqlType(DOUBLE) double value)
@@ -136,7 +136,7 @@ public class TestAnnotationEngineForAggregates
 
     @AggregationFunction("simple_exact_aggregate_aggregation_state_moved")
     @Description("Simple exact function which has @AggregationState on different than first positions")
-    public static class StateOnDifferentThanFirstPositionAggregationFunction
+    public static final class StateOnDifferentThanFirstPositionAggregationFunction
     {
         @InputFunction
         public static void input(@SqlType(DOUBLE) double value, @AggregationState NullableDoubleState state)
@@ -177,7 +177,7 @@ public class TestAnnotationEngineForAggregates
 
     @AggregationFunction("no_aggregation_state_aggregate")
     @Description("Aggregate with no @AggregationState annotations")
-    public static class NotAnnotatedAggregateStateAggregationFunction
+    public static final class NotAnnotatedAggregateStateAggregationFunction
     {
         @InputFunction
         public static void input(NullableDoubleState state, @SqlType(DOUBLE) double value)
@@ -215,7 +215,7 @@ public class TestAnnotationEngineForAggregates
 
     @AggregationFunction("custom_serializer_aggregate")
     @Description("Aggregate with no @AggregationState annotations")
-    public static class CustomStateSerializerAggregationFunction
+    public static final class CustomStateSerializerAggregationFunction
     {
         public static class CustomSerializer
                 extends NullableDoubleStateSerializer
@@ -267,7 +267,7 @@ public class TestAnnotationEngineForAggregates
 
     @AggregationFunction(value = "custom_decomposable_aggregate", decomposable = false)
     @Description("Aggregate with Decomposable=false")
-    public static class NotDecomposableAggregationFunction
+    public static final class NotDecomposableAggregationFunction
     {
         @InputFunction
         public static void input(
@@ -322,7 +322,7 @@ public class TestAnnotationEngineForAggregates
 
     @AggregationFunction("simple_generic_implementations")
     @Description("Simple aggregate with two generic implementations")
-    public static class GenericAggregationFunction
+    public static final class GenericAggregationFunction
     {
         @InputFunction
         @TypeParameter("T")
@@ -422,7 +422,7 @@ public class TestAnnotationEngineForAggregates
 
     @AggregationFunction("block_input_aggregate")
     @Description("Simple aggregate with @BlockPosition usage")
-    public static class BlockInputAggregationFunction
+    public static final class BlockInputAggregationFunction
     {
         @InputFunction
         public static void input(
@@ -481,7 +481,7 @@ public class TestAnnotationEngineForAggregates
 
     @AggregationFunction("implicit_specialized_aggregate")
     @Description("Simple implicit specialized aggregate")
-    public static class ImplicitSpecializedAggregationFunction
+    public static final class ImplicitSpecializedAggregationFunction
     {
         @InputFunction
         @TypeParameter("T")
@@ -572,7 +572,7 @@ public class TestAnnotationEngineForAggregates
 
     @AggregationFunction("explicit_specialized_aggregate")
     @Description("Simple explicit specialized aggregate")
-    public static class ExplicitSpecializedAggregationFunction
+    public static final class ExplicitSpecializedAggregationFunction
     {
         @InputFunction
         @TypeParameterSpecialization(name = "T", nativeContainerType = double.class)
@@ -663,7 +663,7 @@ public class TestAnnotationEngineForAggregates
 
     @AggregationFunction("multi_output_aggregate")
     @Description("Simple multi output function aggregate generic description")
-    public static class MultiOutputAggregationFunction
+    public static final class MultiOutputAggregationFunction
     {
         @InputFunction
         public static void input(
@@ -750,7 +750,7 @@ public class TestAnnotationEngineForAggregates
 
     @AggregationFunction("inject_operator_aggregate")
     @Description("Simple aggregate with operator injected")
-    public static class InjectOperatorAggregateFunction
+    public static final class InjectOperatorAggregateFunction
     {
         @InputFunction
         public static void input(
@@ -827,7 +827,7 @@ public class TestAnnotationEngineForAggregates
 
     @AggregationFunction("inject_type_aggregate")
     @Description("Simple aggregate with type injected")
-    public static class InjectTypeAggregateFunction
+    public static final class InjectTypeAggregateFunction
     {
         @InputFunction
         @TypeParameter("T")
@@ -909,7 +909,7 @@ public class TestAnnotationEngineForAggregates
 
     @AggregationFunction("inject_literal_aggregate")
     @Description("Simple aggregate with type literal")
-    public static class InjectLiteralAggregateFunction
+    public static final class InjectLiteralAggregateFunction
     {
         @InputFunction
         @LiteralParameters("x")
@@ -988,7 +988,7 @@ public class TestAnnotationEngineForAggregates
 
     @AggregationFunction("parametric_aggregate_long_constraint")
     @Description("Parametric aggregate with parametric type returned")
-    public static class LongConstraintAggregateFunction
+    public static final class LongConstraintAggregateFunction
     {
         @InputFunction
         @LiteralParameters({"x", "y", "z"})
@@ -1065,7 +1065,7 @@ public class TestAnnotationEngineForAggregates
 
     @AggregationFunction("fixed_type_parameter_injection")
     @Description("Simple aggregate with fixed parameter type injected")
-    public static class FixedTypeParameterInjectionAggregateFunction
+    public static final class FixedTypeParameterInjectionAggregateFunction
     {
         @InputFunction
         public static void input(
@@ -1125,7 +1125,7 @@ public class TestAnnotationEngineForAggregates
 
     @AggregationFunction("partially_fixed_type_parameter_injection")
     @Description("Simple aggregate with fixed parameter type injected")
-    public static class PartiallyFixedTypeParameterInjectionAggregateFunction
+    public static final class PartiallyFixedTypeParameterInjectionAggregateFunction
     {
         @InputFunction
         @TypeParameter("T1")

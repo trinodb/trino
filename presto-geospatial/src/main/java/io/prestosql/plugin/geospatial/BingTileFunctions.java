@@ -60,7 +60,7 @@ import static java.lang.String.format;
  * @see <a href="https://msdn.microsoft.com/en-us/library/bb259689.aspx">https://msdn.microsoft.com/en-us/library/bb259689.aspx</a>
  * for the description of the Bing tiles.
  */
-public class BingTileFunctions
+public final class BingTileFunctions
 {
     private static final int TILE_PIXELS = 256;
     private static final double MAX_LATITUDE = 85.05112878;

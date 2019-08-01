@@ -25,9 +25,7 @@ import static io.prestosql.sql.gen.InvokeFunctionBytecodeExpression.invokeFuncti
 
 public final class ArrayGeneratorUtils
 {
-    private ArrayGeneratorUtils()
-    {
-    }
+    private ArrayGeneratorUtils() {}
 
     public static ArrayMapBytecodeExpression map(Scope scope, CachedInstanceBinder cachedInstanceBinder, Type fromElementType, Type toElementType, Variable array, String elementFunctionName, ScalarFunctionImplementation elementFunction)
     {

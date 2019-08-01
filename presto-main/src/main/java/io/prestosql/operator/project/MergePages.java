@@ -51,7 +51,7 @@ import static java.util.Objects.requireNonNull;
  * Considering the CPU time required to process(filter, project) a full (~1MB) page returned by a
  * connector, the CPU cost of memory copying (< 50kb, < 1024 rows) is supposed to be negligible.
  */
-public class MergePages
+public final class MergePages
 {
     private static final int MAX_MIN_PAGE_SIZE = 1024 * 1024;
 

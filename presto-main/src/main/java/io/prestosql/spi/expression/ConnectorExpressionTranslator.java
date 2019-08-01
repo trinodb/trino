@@ -45,9 +45,7 @@ import static java.util.Objects.requireNonNull;
 
 public final class ConnectorExpressionTranslator
 {
-    private ConnectorExpressionTranslator()
-    {
-    }
+    private ConnectorExpressionTranslator() {}
 
     public static Expression translate(ConnectorExpression expression, Map<String, Symbol> variableMappings, LiteralEncoder literalEncoder)
     {

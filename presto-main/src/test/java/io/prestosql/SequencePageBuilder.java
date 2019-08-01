@@ -34,9 +34,7 @@ import static io.prestosql.spi.type.VarcharType.VARCHAR;
 
 public final class SequencePageBuilder
 {
-    private SequencePageBuilder()
-    {
-    }
+    private SequencePageBuilder() {}
 
     public static Page createSequencePage(List<? extends Type> types, int length)
     {

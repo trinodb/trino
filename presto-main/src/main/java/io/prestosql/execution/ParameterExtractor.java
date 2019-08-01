@@ -20,7 +20,7 @@ import io.prestosql.sql.tree.Statement;
 import java.util.ArrayList;
 import java.util.List;
 
-public class ParameterExtractor
+public final class ParameterExtractor
 {
     private ParameterExtractor() {}
 

@@ -30,7 +30,7 @@ import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static io.prestosql.tests.QueryAssertions.copyTpchTables;
 import static java.util.Locale.ENGLISH;
 
-public class KuduQueryRunnerFactory
+public final class KuduQueryRunnerFactory
 {
     private KuduQueryRunnerFactory() {}
 

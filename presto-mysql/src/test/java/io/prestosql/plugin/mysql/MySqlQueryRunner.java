@@ -32,9 +32,7 @@ import static io.prestosql.tests.QueryAssertions.copyTpchTables;
 
 public final class MySqlQueryRunner
 {
-    private MySqlQueryRunner()
-    {
-    }
+    private MySqlQueryRunner() {}
 
     private static final String TPCH_SCHEMA = "tpch";
 

@@ -19,9 +19,7 @@ import static java.util.Objects.requireNonNull;
 
 public final class DateTimeEncoding
 {
-    private DateTimeEncoding()
-    {
-    }
+    private DateTimeEncoding() {}
 
     private static final int TIME_ZONE_MASK = 0xFFF;
     private static final int MILLIS_SHIFT = 12;

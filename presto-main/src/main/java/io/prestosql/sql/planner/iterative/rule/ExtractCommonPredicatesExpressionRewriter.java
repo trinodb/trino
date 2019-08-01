@@ -34,7 +34,7 @@ import static java.util.Collections.emptySet;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 
-public class ExtractCommonPredicatesExpressionRewriter
+public final class ExtractCommonPredicatesExpressionRewriter
 {
     public static Expression extractCommonPredicates(Expression expression)
     {

@@ -52,9 +52,7 @@ import static org.testng.Assert.assertEquals;
 
 public final class BlockAssertions
 {
-    private BlockAssertions()
-    {
-    }
+    private BlockAssertions() {}
 
     public static Object getOnlyValue(Type type, Block block)
     {

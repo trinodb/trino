@@ -70,9 +70,7 @@ import static io.prestosql.testing.TestingHandles.TEST_TABLE_HANDLE;
 
 public final class TaskTestUtils
 {
-    private TaskTestUtils()
-    {
-    }
+    private TaskTestUtils() {}
 
     public static final PlanNodeId TABLE_SCAN_NODE_ID = new PlanNodeId("tableScan");
 
