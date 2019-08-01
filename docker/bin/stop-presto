@@ -1,25 +1,34 @@
 #!/bin/bash
 # This works for worker only. Coordinator doesn't support graceful shutdown.
 # This script will block until the server has actually shutdown.
-set -x
+set -u
 
-http_port="$(cat /usr/lib/presto/etc/config.properties | grep 'http-server.http.port' | sed 's/^.*=\(.*\)$/\1/')"
-https_port="$(cat /usr/lib/presto/etc/config.properties | grep 'http-server.https.port' | sed 's/^.*=\(.*\)$/\1/')"
+CONFIG_PROPERTIES=/usr/lib/presto/etc/config.properties
+HTTP_PORT=$(grep -Po "(?<=^http-server.http.port=).*" $CONFIG_PROPERTIES | tail -n 1)
+HTTPS_PORT=$(grep -Po "(?<=^http-server.https.port=).*" $CONFIG_PROPERTIES | tail -n 1)
+HTTP_PORT=${HTTP_PORT:-8080}
+HTTPS_PORT=${HTTPS_PORT:-8443}
 
-if [ -n "$http_port" ] ; then
-    res=$(curl -s -o /dev/null -w "%{http_code}"  -XPUT --data '"SHUTTING_DOWN"' -H "Content-type: application/json" http://localhost:${http_port}/v1/info/state)
+curl --silent --show-error --fail --output /dev/null \
+     --request PUT --data '"SHUTTING_DOWN"' --header "Content-type: application/json" "http://localhost:${HTTP_PORT}/v1/info/state"
+RETURN_VALUE=$?
+
+# HTTP request failed. Try HTTPS port.
+if [ $RETURN_VALUE -ne 0 ] ; then
+    echo "Failed to send shutdown request using HTTP on port ${HTTP_PORT}. Trying HTTPS."
+    curl --insecure --silent --show-error --fail --output /dev/null \
+         --request PUT --data '"SHUTTING_DOWN"' --header "Content-type: application/json" "https://localhost:${HTTPS_PORT}/v1/info/state"
+    RETURN_VALUE=$?
 fi
 
-if [ -z "$res" -o "$res" != "200" ] && [ -n "$https_port" ]; then
-    res=$(curl -k -s -o /dev/null -w "%{http_code}"  -XPUT --data '"SHUTTING_DOWN"' -H "Content-type: application/json" https://localhost:${https_port}/v1/info/state)
-fi
-
-if [ -z "$res" -o "$res" != "200" ] ; then
-  # Failed to send the shutdown request.
-  exit -1
+if [ $RETURN_VALUE -ne 0 ] ; then
+    echo "Failed to send shutdown request using HTTPS on port ${HTTPS_PORT}."
+    echo "Exit immediately."
+    exit 1
 else
-  # Server is shutting down. Block until the server is actually down.
-  while curl http://localhost:${http_port}/v1/info/state; do
-    sleep 1
-  done
+    # Server is shutting down. Block until the server is actually down.
+    while pgrep "presto-server" > /dev/null ; do
+        echo "Shutdown request sent successfuly. Waiting until server has shutdown completely."
+        sleep 5
+    done
 fi
