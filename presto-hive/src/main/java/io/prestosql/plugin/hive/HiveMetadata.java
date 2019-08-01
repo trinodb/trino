@@ -317,6 +317,7 @@ public class HiveMetadata
         return new HiveTableHandle(
                 tableName.getSchemaName(),
                 tableName.getTableName(),
+                table.get().getParameters(),
                 getPartitionKeyColumnHandles(table.get()),
                 getHiveBucketHandle(table.get()));
     }
@@ -1812,6 +1813,7 @@ public class HiveMetadata
         return new HiveTableHandle(
                 hiveTable.getSchemaName(),
                 hiveTable.getTableName(),
+                hiveTable.getTableParameters(),
                 hiveTable.getPartitionColumns(),
                 hiveTable.getPartitions(),
                 hiveTable.getCompactEffectivePredicate(),
