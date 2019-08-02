@@ -34,9 +34,14 @@ import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3Builder;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.AmazonS3EncryptionClient;
+import com.amazonaws.services.s3.Headers;
+import com.amazonaws.services.s3.internal.Constants;
 import com.amazonaws.services.s3.model.AmazonS3Exception;
 import com.amazonaws.services.s3.model.CannedAccessControlList;
+import com.amazonaws.services.s3.model.CopyObjectRequest;
+import com.amazonaws.services.s3.model.DeleteObjectRequest;
 import com.amazonaws.services.s3.model.EncryptionMaterialsProvider;
+import com.amazonaws.services.s3.model.GetObjectMetadataRequest;
 import com.amazonaws.services.s3.model.GetObjectRequest;
 import com.amazonaws.services.s3.model.KMSEncryptionMaterialsProvider;
 import com.amazonaws.services.s3.model.ListObjectsRequest;
@@ -153,6 +158,7 @@ public class PrestoS3FileSystem
     public static final String S3_IAM_ROLE = "presto.s3.iam-role";
     public static final String S3_ACL_TYPE = "presto.s3.upload-acl-type";
     public static final String S3_SKIP_GLACIER_OBJECTS = "presto.s3.skip-glacier-objects";
+    public static final String S3_REQUESTER_PAYS_ENABLED = "presto.s3.requester-pays.enabled";
 
     static final String S3_DIRECTORY_OBJECT_CONTENT_TYPE = "application/x-directory";
 
@@ -185,6 +191,7 @@ public class PrestoS3FileSystem
     private long multiPartUploadMinPartSize;
     private PrestoS3AclType s3AclType;
     private boolean skipGlacierObjects;
+    private boolean requesterPaysEnabled;
 
     @Override
     public void initialize(URI uri, Configuration conf)
@@ -224,6 +231,7 @@ public class PrestoS3FileSystem
         this.s3AclType = PrestoS3AclType.valueOf(conf.get(S3_ACL_TYPE, defaults.getS3AclType().name()));
         String userAgentPrefix = conf.get(S3_USER_AGENT_PREFIX, defaults.getS3UserAgentPrefix());
         this.skipGlacierObjects = conf.getBoolean(S3_SKIP_GLACIER_OBJECTS, defaults.isSkipGlacierObjects());
+        this.requesterPaysEnabled = conf.getBoolean(S3_REQUESTER_PAYS_ENABLED, defaults.isRequesterPaysEnabled());
 
         ClientConfiguration configuration = new ClientConfiguration()
                 .withMaxErrorRetry(maxErrorRetries)
@@ -364,7 +372,7 @@ public class PrestoS3FileSystem
     {
         return new FSDataInputStream(
                 new BufferedFSInputStream(
-                        new PrestoS3InputStream(s3, getBucketName(uri), path, maxAttempts, maxBackoffTime, maxRetryTime),
+                        new PrestoS3InputStream(s3, getBucketName(uri), path, requesterPaysEnabled, maxAttempts, maxBackoffTime, maxRetryTime),
                         bufferSize));
     }
 
@@ -385,7 +393,7 @@ public class PrestoS3FileSystem
 
         String key = keyFromPath(qualifiedPath(path));
         return new FSDataOutputStream(
-                new PrestoS3OutputStream(s3, getBucketName(uri), key, tempFile, sseEnabled, sseType, sseKmsKeyId, multiPartUploadMinFileSize, multiPartUploadMinPartSize, s3AclType),
+                new PrestoS3OutputStream(s3, getBucketName(uri), key, tempFile, sseEnabled, sseType, sseKmsKeyId, multiPartUploadMinFileSize, multiPartUploadMinPartSize, s3AclType, requesterPaysEnabled),
                 statistics);
     }
 
@@ -430,7 +438,8 @@ public class PrestoS3FileSystem
             deleteObject(keyFromPath(src) + DIRECTORY_SUFFIX);
         }
         else {
-            s3.copyObject(getBucketName(uri), keyFromPath(src), getBucketName(uri), keyFromPath(dst));
+            s3.copyObject(new CopyObjectRequest(getBucketName(uri), keyFromPath(src), getBucketName(uri), keyFromPath(dst))
+                    .withRequesterPays(requesterPaysEnabled));
             delete(src, true);
         }
 
@@ -471,7 +480,14 @@ public class PrestoS3FileSystem
     private boolean deleteObject(String key)
     {
         try {
-            s3.deleteObject(getBucketName(uri), key);
+            DeleteObjectRequest deleteObjectRequest = new DeleteObjectRequest(getBucketName(uri), key);
+            if (requesterPaysEnabled) {
+                // TODO use deleteObjectRequest.setRequesterPays() when https://github.com/aws/aws-sdk-java/issues/1219 is fixed
+                // currently the method exists, but is ineffective (doesn't set the required HTTP header)
+                deleteObjectRequest.putCustomRequestHeader(Headers.REQUESTER_PAYS_HEADER, Constants.REQUESTER_PAYS);
+            }
+
+            s3.deleteObject(deleteObjectRequest);
             return true;
         }
         catch (AmazonClientException e) {
@@ -496,7 +512,8 @@ public class PrestoS3FileSystem
         ListObjectsRequest request = new ListObjectsRequest()
                 .withBucketName(getBucketName(uri))
                 .withPrefix(key)
-                .withDelimiter(PATH_SEPARATOR);
+                .withDelimiter(PATH_SEPARATOR)
+                .withRequesterPays(requesterPaysEnabled);
 
         STATS.newListObjectsCall();
         Iterator<ObjectListing> listings = new AbstractSequentialIterator<ObjectListing>(s3.listObjects(request))
@@ -596,7 +613,8 @@ public class PrestoS3FileSystem
                     .run("getS3ObjectMetadata", () -> {
                         try {
                             STATS.newMetadataCall();
-                            return s3.getObjectMetadata(bucketName, key);
+                            return s3.getObjectMetadata(new GetObjectMetadataRequest(bucketName, key)
+                                    .withRequesterPays(requesterPaysEnabled));
                         }
                         catch (RuntimeException e) {
                             STATS.newGetMetadataError();
@@ -668,7 +686,6 @@ public class PrestoS3FileSystem
     {
         Optional<EncryptionMaterialsProvider> encryptionMaterialsProvider = createEncryptionMaterialsProvider(hadoopConfig);
         AmazonS3Builder<? extends AmazonS3Builder, ? extends AmazonS3> clientBuilder;
-
         String signerType = hadoopConfig.get(S3_SIGNER_TYPE);
         if (signerType != null) {
             clientConfig.withSignerOverride(signerType);
@@ -811,6 +828,7 @@ public class PrestoS3FileSystem
         private final AmazonS3 s3;
         private final String host;
         private final Path path;
+        private final boolean requesterPaysEnabled;
         private final int maxAttempts;
         private final Duration maxBackoffTime;
         private final Duration maxRetryTime;
@@ -821,11 +839,12 @@ public class PrestoS3FileSystem
         private long streamPosition;
         private long nextReadPosition;
 
-        public PrestoS3InputStream(AmazonS3 s3, String host, Path path, int maxAttempts, Duration maxBackoffTime, Duration maxRetryTime)
+        public PrestoS3InputStream(AmazonS3 s3, String host, Path path, boolean requesterPaysEnabled, int maxAttempts, Duration maxBackoffTime, Duration maxRetryTime)
         {
             this.s3 = requireNonNull(s3, "s3 is null");
             this.host = requireNonNull(host, "host is null");
             this.path = requireNonNull(path, "path is null");
+            this.requesterPaysEnabled = requesterPaysEnabled;
 
             checkArgument(maxAttempts >= 0, "maxAttempts cannot be negative");
             this.maxAttempts = maxAttempts;
@@ -863,7 +882,8 @@ public class PrestoS3FileSystem
                             InputStream stream;
                             try {
                                 GetObjectRequest request = new GetObjectRequest(host, keyFromPath(path))
-                                        .withRange(position, (position + length) - 1);
+                                        .withRange(position, (position + length) - 1)
+                                        .withRequesterPays(requesterPaysEnabled);
                                 stream = s3.getObject(request).getObjectContent();
                             }
                             catch (RuntimeException e) {
@@ -1027,7 +1047,9 @@ public class PrestoS3FileSystem
                         .onRetry(STATS::newGetObjectRetry)
                         .run("getS3Object", () -> {
                             try {
-                                GetObjectRequest request = new GetObjectRequest(host, keyFromPath(path)).withRange(start);
+                                GetObjectRequest request = new GetObjectRequest(host, keyFromPath(path))
+                                        .withRange(start)
+                                        .withRequesterPays(requesterPaysEnabled);
                                 return s3.getObject(request).getObjectContent();
                             }
                             catch (RuntimeException e) {
@@ -1108,6 +1130,7 @@ public class PrestoS3FileSystem
         private final PrestoS3SseType sseType;
         private final String sseKmsKeyId;
         private final CannedAccessControlList aclType;
+        private final boolean requesterPaysEnabled;
 
         private boolean closed;
 
@@ -1121,7 +1144,8 @@ public class PrestoS3FileSystem
                 String sseKmsKeyId,
                 long multiPartUploadMinFileSize,
                 long multiPartUploadMinPartSize,
-                PrestoS3AclType aclType)
+                PrestoS3AclType aclType,
+                boolean requesterPaysEnabled)
                 throws IOException
         {
             super(new BufferedOutputStream(new FileOutputStream(requireNonNull(tempFile, "tempFile is null"))));
@@ -1139,6 +1163,7 @@ public class PrestoS3FileSystem
             this.sseEnabled = sseEnabled;
             this.sseType = requireNonNull(sseType, "sseType is null");
             this.sseKmsKeyId = sseKmsKeyId;
+            this.requesterPaysEnabled = requesterPaysEnabled;
 
             log.debug("OutputStream for key '%s' using file: %s", key, tempFile);
         }
@@ -1172,7 +1197,8 @@ public class PrestoS3FileSystem
                 log.debug("Starting upload for host: %s, key: %s, file: %s, size: %s", host, key, tempFile, tempFile.length());
                 STATS.uploadStarted();
 
-                PutObjectRequest request = new PutObjectRequest(host, key, tempFile);
+                PutObjectRequest request = new PutObjectRequest(host, key, tempFile).withRequesterPays(requesterPaysEnabled);
+
                 if (sseEnabled) {
                     switch (sseType) {
                         case KMS:

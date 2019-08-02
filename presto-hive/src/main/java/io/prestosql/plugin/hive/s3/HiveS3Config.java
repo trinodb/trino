@@ -59,6 +59,7 @@ public class HiveS3Config
     private String s3UserAgentPrefix = "";
     private PrestoS3AclType s3AclType = PrestoS3AclType.PRIVATE;
     private boolean skipGlacierObjects;
+    private boolean requesterPaysEnabled;
 
     public String getS3AwsAccessKey()
     {
@@ -414,6 +415,18 @@ public class HiveS3Config
     public HiveS3Config setSkipGlacierObjects(boolean skipGlacierObjects)
     {
         this.skipGlacierObjects = skipGlacierObjects;
+        return this;
+    }
+
+    public boolean isRequesterPaysEnabled()
+    {
+        return requesterPaysEnabled;
+    }
+
+    @Config("hive.s3.requester-pays.enabled")
+    public HiveS3Config setRequesterPaysEnabled(boolean requesterPaysEnabled)
+    {
+        this.requesterPaysEnabled = requesterPaysEnabled;
         return this;
     }
 }
