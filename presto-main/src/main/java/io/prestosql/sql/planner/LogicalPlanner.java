@@ -15,9 +15,7 @@ package io.prestosql.sql.planner;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import io.prestosql.Session;
-import io.prestosql.connector.CatalogName;
 import io.prestosql.cost.CachingCostProvider;
 import io.prestosql.cost.CachingStatsProvider;
 import io.prestosql.cost.CostCalculator;
@@ -65,7 +63,6 @@ import io.prestosql.sql.tree.CreateTableAsSelect;
 import io.prestosql.sql.tree.Delete;
 import io.prestosql.sql.tree.Explain;
 import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.Identifier;
 import io.prestosql.sql.tree.Insert;
 import io.prestosql.sql.tree.LambdaArgumentDeclaration;
 import io.prestosql.sql.tree.LongLiteral;
@@ -88,7 +85,6 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Streams.zip;
-import static io.prestosql.spi.StandardErrorCode.NOT_FOUND;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.statistics.TableStatisticType.ROW_COUNT;
 import static io.prestosql.spi.type.BigintType.BIGINT;
@@ -290,16 +286,12 @@ public class LogicalPlanner
             plan = new RelationPlan(root, plan.getScope(), plan.getFieldMappings());
         }
 
-        ConnectorTableMetadata tableMetadata = createTableMetadata(
-                destination,
-                getOutputTableColumns(plan, analysis.getColumnAliases()),
-                analysis.getCreateTableProperties(),
-                analysis.getParameters(),
-                analysis.getCreateTableComment());
-        Optional<NewTableLayout> newTableLayout = metadata.getNewTableLayout(session, destination.getCatalogName(), tableMetadata);
+        ConnectorTableMetadata tableMetadata = analysis.getCreateTableMetadata().get();
+
+        Optional<NewTableLayout> newTableLayout = analysis.getCreateTableLayout();
 
         List<String> columnNames = tableMetadata.getColumns().stream()
-                .filter(column -> !column.isHidden())
+                .filter(column -> !column.isHidden()) // todo this filter is redundant
                 .map(ColumnMetadata::getName)
                 .collect(toImmutableList());
 
@@ -364,7 +356,6 @@ public class LogicalPlanner
 
         plan = new RelationPlan(projectNode, scope, projectNode.getOutputSymbols());
 
-        Optional<NewTableLayout> newTableLayout = metadata.getInsertLayout(session, insert.getTarget());
         String catalogName = insert.getTarget().getCatalogName().getCatalogName();
         TableStatisticsMetadata statisticsMetadata = metadata.getStatisticsCollectionMetadataForWrite(session, catalogName, tableMetadata.getMetadata());
 
@@ -373,7 +364,7 @@ public class LogicalPlanner
                 plan,
                 new InsertReference(insert.getTarget()),
                 visibleTableColumnNames,
-                newTableLayout,
+                insert.getNewTableLayout(),
                 statisticsMetadata);
     }
 
@@ -386,13 +377,6 @@ public class LogicalPlanner
             TableStatisticsMetadata statisticsMetadata)
     {
         PlanNode source = plan.getRoot();
-
-        // todo this should be checked in analysis
-        writeTableLayout.ifPresent(layout -> {
-            if (!ImmutableSet.copyOf(columnNames).containsAll(layout.getPartitionColumns())) {
-                throw new PrestoException(NOT_SUPPORTED, "INSERT must write all distribution columns: " + layout.getPartitionColumns());
-            }
-        });
 
         List<Symbol> symbols = plan.getFieldMappings();
 
@@ -509,34 +493,6 @@ public class LogicalPlanner
     {
         return new RelationPlanner(analysis, symbolAllocator, idAllocator, buildLambdaDeclarationToSymbolMap(analysis, symbolAllocator), metadata, session)
                 .process(query, null);
-    }
-
-    private ConnectorTableMetadata createTableMetadata(QualifiedObjectName table, List<ColumnMetadata> columns, Map<String, Expression> propertyExpressions, List<Expression> parameters, Optional<String> comment)
-    {
-        CatalogName catalogName = metadata.getCatalogHandle(session, table.getCatalogName())
-                .orElseThrow(() -> new PrestoException(NOT_FOUND, "Catalog does not exist: " + table.getCatalogName()));
-
-        Map<String, Object> properties = metadata.getTablePropertyManager().getProperties(
-                catalogName,
-                table.getCatalogName(),
-                propertyExpressions,
-                session,
-                metadata,
-                parameters);
-
-        return new ConnectorTableMetadata(table.asSchemaTableName(), columns, properties, comment);
-    }
-
-    private static List<ColumnMetadata> getOutputTableColumns(RelationPlan plan, Optional<List<Identifier>> columnAliases)
-    {
-        ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
-        int aliasPosition = 0;
-        for (Field field : plan.getDescriptor().getVisibleFields()) {
-            String columnName = columnAliases.isPresent() ? columnAliases.get().get(aliasPosition).getValue() : field.getName().get();
-            columns.add(new ColumnMetadata(columnName, field.getType()));
-            aliasPosition++;
-        }
-        return columns.build();
     }
 
     private static Map<NodeRef<LambdaArgumentDeclaration>, Symbol> buildLambdaDeclarationToSymbolMap(Analysis analysis, SymbolAllocator symbolAllocator)
