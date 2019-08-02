@@ -25,6 +25,7 @@ import io.prestosql.connector.CatalogName;
 import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.metadata.FunctionKind;
 import io.prestosql.metadata.Metadata;
+import io.prestosql.metadata.NewTableLayout;
 import io.prestosql.metadata.OperatorNotFoundException;
 import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.metadata.TableHandle;
@@ -37,6 +38,7 @@ import io.prestosql.spi.PrestoWarning;
 import io.prestosql.spi.connector.CatalogSchemaName;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
+import io.prestosql.spi.connector.ConnectorTableMetadata;
 import io.prestosql.spi.connector.ConnectorViewDefinition;
 import io.prestosql.spi.connector.ConnectorViewDefinition.ViewColumn;
 import io.prestosql.spi.function.OperatorType;
@@ -323,6 +325,14 @@ class StatementAnalyzer
                     .map(ColumnMetadata::getName)
                     .collect(toImmutableList());
 
+            // analyze target table layout
+            Optional<NewTableLayout> newTableLayout = metadata.getInsertLayout(session, targetTableHandle.get());
+            newTableLayout.ifPresent(layout -> {
+                if (!ImmutableSet.copyOf(tableColumns).containsAll(layout.getPartitionColumns())) {
+                    throw new PrestoException(NOT_SUPPORTED, "INSERT must write all distribution columns: " + layout.getPartitionColumns());
+                }
+            });
+
             List<String> insertColumns;
             if (insert.getColumns().isPresent()) {
                 insertColumns = insert.getColumns().get().stream()
@@ -347,7 +357,8 @@ class StatementAnalyzer
             Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, targetTableHandle.get());
             analysis.setInsert(new Analysis.Insert(
                     targetTableHandle.get(),
-                    insertColumns.stream().map(columnHandles::get).collect(toImmutableList())));
+                    insertColumns.stream().map(columnHandles::get).collect(toImmutableList()),
+                    newTableLayout));
 
             List<Type> tableTypes = insertColumns.stream()
                     .map(insertColumn -> tableMetadata.getColumn(insertColumn).getType())
@@ -472,9 +483,7 @@ class StatementAnalyzer
             }
 
             validateProperties(node.getProperties(), scope);
-            analysis.setCreateTableProperties(mapFromProperties(node.getProperties()));
 
-            node.getColumnAliases().ifPresent(analysis::setCreateTableColumnAliases);
             analysis.setCreateTableComment(node.getComment());
 
             accessControl.checkCanCreateTable(session.getRequiredTransactionId(), session.getIdentity(), targetTable);
@@ -484,19 +493,56 @@ class StatementAnalyzer
             // analyze the query that creates the table
             Scope queryScope = process(node.getQuery(), scope);
 
+            ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
+
+            // analyze target table columns and column aliases
             if (node.getColumnAliases().isPresent()) {
                 validateColumnAliases(node.getColumnAliases().get(), queryScope.getRelationType().getVisibleFieldCount());
 
-                // analzie only column types in subquery if column alias exists
+                int aliasPosition = 0;
                 for (Field field : queryScope.getRelationType().getVisibleFields()) {
                     if (field.getType().equals(UNKNOWN)) {
                         throw semanticException(COLUMN_TYPE_UNKNOWN, node, "Column type is unknown at position %s", queryScope.getRelationType().indexOf(field) + 1);
                     }
+                    columns.add(new ColumnMetadata(node.getColumnAliases().get().get(aliasPosition).getValue(), field.getType()));
+                    aliasPosition++;
                 }
             }
             else {
                 validateColumns(node, queryScope.getRelationType());
+                columns.addAll(queryScope.getRelationType().getVisibleFields().stream()
+                        .map(field -> new ColumnMetadata(field.getName().get(), field.getType()))
+                        .collect(toImmutableList()));
             }
+
+            // create target table metadata
+            CatalogName catalogName = metadata.getCatalogHandle(session, targetTable.getCatalogName())
+                    .orElseThrow(() -> new PrestoException(NOT_FOUND, "Catalog does not exist: " + targetTable.getCatalogName()));
+
+            Map<String, Object> properties = metadata.getTablePropertyManager().getProperties(
+                    catalogName,
+                    targetTable.getCatalogName(),
+                    mapFromProperties(node.getProperties()),
+                    session,
+                    metadata,
+                    analysis.getParameters());
+
+            ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(targetTable.asSchemaTableName(), columns.build(), properties, node.getComment());
+            analysis.setCreateTableMetadata(tableMetadata);
+
+            // analyze target table layout
+            Optional<NewTableLayout> newTableLayout = metadata.getNewTableLayout(session, targetTable.getCatalogName(), tableMetadata);
+
+            Set<String> columnNames = columns.build().stream()
+                    .map(ColumnMetadata::getName)
+                    .collect(toImmutableSet());
+
+            newTableLayout.ifPresent(layout -> {
+                if (!columnNames.containsAll(layout.getPartitionColumns())) {
+                    throw new PrestoException(NOT_SUPPORTED, "INSERT must write all distribution columns: " + layout.getPartitionColumns());
+                }
+            });
+            analysis.setCreateTableLayout(newTableLayout);
 
             return createAndAssignScope(node, scope, Field.newUnqualified("rows", BIGINT));
         }

@@ -15,14 +15,15 @@ package io.prestosql.sql.analyzer;
 
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Multimap;
+import io.prestosql.metadata.NewTableLayout;
 import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.TableHandle;
 import io.prestosql.security.AccessControl;
 import io.prestosql.spi.connector.ColumnHandle;
+import io.prestosql.spi.connector.ConnectorTableMetadata;
 import io.prestosql.spi.security.Identity;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.tree.ExistsPredicate;
@@ -128,10 +129,10 @@ public class Analysis
 
     // for create table
     private Optional<QualifiedObjectName> createTableDestination = Optional.empty();
-    private Map<String, Expression> createTableProperties = ImmutableMap.of();
+    private Optional<ConnectorTableMetadata> createTableMetadata = Optional.empty();
+    private Optional<NewTableLayout> createTableLayout = Optional.empty();
     private boolean createTableAsSelectWithData = true;
     private boolean createTableAsSelectNoOp;
-    private Optional<List<Identifier>> createTableColumnAliases = Optional.empty();
     private Optional<String> createTableComment = Optional.empty();
 
     private Optional<Insert> insert = Optional.empty();
@@ -565,24 +566,24 @@ public class Analysis
         this.analyzeTarget = Optional.of(analyzeTarget);
     }
 
-    public void setCreateTableProperties(Map<String, Expression> createTableProperties)
+    public void setCreateTableMetadata(ConnectorTableMetadata tableMetadata)
     {
-        this.createTableProperties = ImmutableMap.copyOf(createTableProperties);
+        this.createTableMetadata = Optional.of(tableMetadata);
     }
 
-    public Map<String, Expression> getCreateTableProperties()
+    public Optional<ConnectorTableMetadata> getCreateTableMetadata()
     {
-        return createTableProperties;
+        return createTableMetadata;
     }
 
-    public Optional<List<Identifier>> getColumnAliases()
+    public void setCreateTableLayout(Optional<NewTableLayout> layout)
     {
-        return createTableColumnAliases;
+        this.createTableLayout = layout;
     }
 
-    public void setCreateTableColumnAliases(List<Identifier> createTableColumnAliases)
+    public Optional<NewTableLayout> getCreateTableLayout()
     {
-        this.createTableColumnAliases = Optional.of(createTableColumnAliases);
+        return createTableLayout;
     }
 
     public void setCreateTableComment(Optional<String> createTableComment)
@@ -710,12 +711,14 @@ public class Analysis
     {
         private final TableHandle target;
         private final List<ColumnHandle> columns;
+        private final Optional<NewTableLayout> newTableLayout;
 
-        public Insert(TableHandle target, List<ColumnHandle> columns)
+        public Insert(TableHandle target, List<ColumnHandle> columns, Optional<NewTableLayout> newTableLayout)
         {
             this.target = requireNonNull(target, "target is null");
             this.columns = requireNonNull(columns, "columns is null");
             checkArgument(columns.size() > 0, "No columns given to insert");
+            this.newTableLayout = requireNonNull(newTableLayout, "newTableLayout is null");
         }
 
         public List<ColumnHandle> getColumns()
@@ -726,6 +729,11 @@ public class Analysis
         public TableHandle getTarget()
         {
             return target;
+        }
+
+        public Optional<NewTableLayout> getNewTableLayout()
+        {
+            return newTableLayout;
         }
     }
 
