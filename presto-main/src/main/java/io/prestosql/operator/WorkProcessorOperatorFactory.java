@@ -13,8 +13,7 @@
  */
 package io.prestosql.operator;
 
-import io.prestosql.Session;
-import io.prestosql.memory.context.MemoryTrackingContext;
+import io.prestosql.operator.WorkProcessorOperatorAdapter.ProcessorContext;
 import io.prestosql.spi.Page;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 
@@ -27,8 +26,6 @@ public interface WorkProcessorOperatorFactory
     String getOperatorType();
 
     WorkProcessorOperator create(
-            Session session,
-            MemoryTrackingContext memoryTrackingContext,
-            DriverYieldSignal yieldSignal,
+            ProcessorContext processorContext,
             WorkProcessor<Page> sourcePages);
 }
