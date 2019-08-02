@@ -285,6 +285,10 @@ public class LogicalPlanner
         QualifiedObjectName destination = analysis.getCreateTableDestination().get();
 
         RelationPlan plan = createRelationPlan(analysis, query);
+        if (!analysis.isCreateTableAsSelectWithData()) {
+            PlanNode root = new LimitNode(idAllocator.getNextId(), plan.getRoot(), 0L, false);
+            plan = new RelationPlan(root, plan.getScope(), plan.getFieldMappings());
+        }
 
         ConnectorTableMetadata tableMetadata = createTableMetadata(
                 destination,
@@ -383,10 +387,6 @@ public class LogicalPlanner
     {
         PlanNode source = plan.getRoot();
 
-        if (!analysis.isCreateTableAsSelectWithData()) {
-            source = new LimitNode(idAllocator.getNextId(), source, 0L, false);
-        }
-
         // todo this should be checked in analysis
         writeTableLayout.ifPresent(layout -> {
             if (!ImmutableSet.copyOf(columnNames).containsAll(layout.getPartitionColumns())) {
@@ -426,21 +426,19 @@ public class LogicalPlanner
             // by the partial aggregation from all of the writer nodes
             StatisticAggregations partialAggregation = aggregations.getPartialAggregation();
 
-            PlanNode writerNode = new TableWriterNode(
-                    idAllocator.getNextId(),
-                    source,
-                    target,
-                    symbolAllocator.newSymbol("partialrows", BIGINT),
-                    symbolAllocator.newSymbol("fragment", VARBINARY),
-                    symbols,
-                    columnNames,
-                    partitioningScheme,
-                    Optional.of(partialAggregation),
-                    Optional.of(result.getDescriptor().map(aggregations.getMappings()::get)));
-
             TableFinishNode commitNode = new TableFinishNode(
                     idAllocator.getNextId(),
-                    writerNode,
+                    new TableWriterNode(
+                            idAllocator.getNextId(),
+                            source,
+                            target,
+                            symbolAllocator.newSymbol("partialrows", BIGINT),
+                            symbolAllocator.newSymbol("fragment", VARBINARY),
+                            symbols,
+                            columnNames,
+                            partitioningScheme,
+                            Optional.of(partialAggregation),
+                            Optional.of(result.getDescriptor().map(aggregations.getMappings()::get))),
                     target,
                     symbolAllocator.newSymbol("rows", BIGINT),
                     Optional.of(aggregations.getFinalAggregation()),
@@ -466,6 +464,7 @@ public class LogicalPlanner
                 symbolAllocator.newSymbol("rows", BIGINT),
                 Optional.empty(),
                 Optional.empty());
+
         return new RelationPlan(commitNode, analysis.getRootScope(), commitNode.getOutputSymbols());
     }
 
