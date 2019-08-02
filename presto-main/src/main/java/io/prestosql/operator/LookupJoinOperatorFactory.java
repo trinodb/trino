@@ -138,8 +138,6 @@ public class LookupJoinOperatorFactory
 
         OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, LookupJoinOperator.class.getSimpleName());
 
-        lookupSourceFactory.setTaskContext(driverContext.getPipelineContext().getTaskContext());
-
         joinBridgeManager.probeOperatorCreated(driverContext.getLifespan());
         return new LookupJoinOperator(
                 operatorContext,
