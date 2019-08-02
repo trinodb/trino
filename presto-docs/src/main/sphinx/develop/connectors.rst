@@ -39,7 +39,7 @@ connector does), you may need to get creative about how you map your
 data source to Presto's schema, table, and column concepts.
 
 ConnectorSplitManager
-^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^
 
 The split manager partitions the data for a table into the individual
 chunks that Presto will distribute to workers for processing.
