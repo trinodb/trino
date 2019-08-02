@@ -25,6 +25,7 @@ import io.prestosql.memory.context.MemoryTrackingContext;
 import io.prestosql.metadata.Split;
 import io.prestosql.operator.OperationTimer.OperationTiming;
 import io.prestosql.operator.WorkProcessor.ProcessState;
+import io.prestosql.operator.WorkProcessorOperatorAdapter.ProcessorContext;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.connector.UpdatablePageSource;
 import io.prestosql.sql.planner.plan.PlanNodeId;
@@ -143,9 +144,7 @@ public class WorkProcessorPipelineSourceOperator
             MemoryTrackingContext operatorMemoryTrackingContext = createMemoryTrackingContext(operatorContext, operatorIndex);
             operatorMemoryTrackingContext.initializeLocalMemoryContexts(operatorFactory.getOperatorType());
             WorkProcessorOperator operator = operatorFactory.create(
-                    operatorContext.getSession(),
-                    operatorMemoryTrackingContext,
-                    operatorContext.getDriverContext().getYieldSignal(),
+                    new ProcessorContext(operatorContext.getSession(), operatorMemoryTrackingContext, operatorContext),
                     pages);
             workProcessorOperatorContexts.add(new WorkProcessorOperatorContext(
                     operator,

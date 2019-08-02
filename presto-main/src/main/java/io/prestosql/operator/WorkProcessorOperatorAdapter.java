@@ -15,6 +15,7 @@ package io.prestosql.operator;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import io.prestosql.Session;
+import io.prestosql.execution.Lifespan;
 import io.prestosql.memory.context.MemoryTrackingContext;
 import io.prestosql.spi.Page;
 
@@ -40,10 +41,7 @@ public class WorkProcessorOperatorAdapter
     public interface AdapterWorkProcessorOperatorFactory
             extends WorkProcessorOperatorFactory
     {
-        AdapterWorkProcessorOperator create(
-                Session session,
-                MemoryTrackingContext memoryTrackingContext,
-                DriverYieldSignal yieldSignal);
+        AdapterWorkProcessorOperator create(ProcessorContext processorContext);
     }
 
     public WorkProcessorOperatorAdapter(OperatorContext operatorContext, AdapterWorkProcessorOperatorFactory workProcessorOperatorFactory)
@@ -55,7 +53,7 @@ public class WorkProcessorOperatorAdapter
                 operatorContext.aggregateSystemMemoryContext());
         memoryTrackingContext.initializeLocalMemoryContexts(workProcessorOperatorFactory.getOperatorType());
         this.workProcessorOperator = requireNonNull(workProcessorOperatorFactory, "workProcessorOperatorFactory is null")
-                .create(operatorContext.getSession(), memoryTrackingContext, operatorContext.getDriverContext().getYieldSignal());
+                .create(new ProcessorContext(operatorContext.getSession(), memoryTrackingContext, operatorContext));
         this.pages = workProcessorOperator.getOutputPages();
         operatorContext.setInfoSupplier(() -> workProcessorOperator.getOperatorInfo().orElse(null));
     }
@@ -119,5 +117,49 @@ public class WorkProcessorOperatorAdapter
             throws Exception
     {
         workProcessorOperator.close();
+    }
+
+    public static class ProcessorContext
+    {
+        private final Session session;
+        private final MemoryTrackingContext memoryTrackingContext;
+        private final DriverYieldSignal driverYieldSignal;
+        private final Lifespan lifespan;
+        private final SpillContext spillContext;
+
+        public ProcessorContext(Session session, MemoryTrackingContext memoryTrackingContext, OperatorContext operatorContext)
+        {
+            this.session = requireNonNull(session, "session is null");
+            this.memoryTrackingContext = requireNonNull(memoryTrackingContext, "memoryTrackingContext is null");
+            requireNonNull(operatorContext, "operatorContext is null");
+            this.driverYieldSignal = operatorContext.getDriverContext().getYieldSignal();
+            this.lifespan = operatorContext.getDriverContext().getLifespan();
+            this.spillContext = operatorContext.getSpillContext();
+        }
+
+        public Session getSession()
+        {
+            return session;
+        }
+
+        public MemoryTrackingContext getMemoryTrackingContext()
+        {
+            return memoryTrackingContext;
+        }
+
+        public DriverYieldSignal getDriverYieldSignal()
+        {
+            return driverYieldSignal;
+        }
+
+        public Lifespan getLifespan()
+        {
+            return lifespan;
+        }
+
+        public SpillContext getSpillContext()
+        {
+            return spillContext;
+        }
     }
 }
