@@ -212,6 +212,9 @@ public class DataType<T>
 
     public Object toPrestoQueryResult(T inputValue)
     {
+        if (inputValue == null) {
+            return null;
+        }
         return toPrestoQueryResult.apply(inputValue);
     }
 

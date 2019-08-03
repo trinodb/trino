@@ -42,7 +42,6 @@ import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
-import java.util.UUID;
 import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -352,6 +351,10 @@ public class TestPostgreSqlTypeMapping
                 .addRoundTrip(arrayDataType(booleanDataType()), null)
                 .addRoundTrip(arrayDataType(realDataType()), singletonList(null))
                 .addRoundTrip(arrayDataType(integerDataType()), asList(1, null, 3, null))
+                .addRoundTrip(arrayDataType(timestampDataType()), asList())
+                .addRoundTrip(arrayDataType(timestampDataType()), singletonList(null))
+                .addRoundTrip(arrayDataType(prestoTimestampWithTimeZoneDataType()), asList())
+                .addRoundTrip(arrayDataType(prestoTimestampWithTimeZoneDataType()), singletonList(null))
                 .execute(getQueryRunner(), prestoCreateAsSelect("test_array_empty_or_nulls"));
     }
 
@@ -558,6 +561,43 @@ public class TestPostgreSqlTypeMapping
         }
     }
 
+    @Test(dataProvider = "testTimestampDataProvider")
+    public void testArrayTimestamp(boolean legacyTimestamp, boolean insertWithPresto)
+    {
+        DataType<List<LocalDateTime>> dataType;
+        DataSetup dataSetup;
+        if (insertWithPresto) {
+            dataType = arrayDataType(timestampDataType());
+            dataSetup = prestoCreateAsSelect("test_array_timestamp");
+        }
+        else {
+            dataType = arrayDataType(timestampDataType(), "timestamp[]");
+            dataSetup = postgresCreateAndInsert("tpch.test_array_timestamp");
+        }
+        for (ZoneId sessionZone : ImmutableList.of(ZoneOffset.UTC, jvmZone, vilnius, kathmandu, ZoneId.of(TestingSession.DEFAULT_TIME_ZONE_KEY.getId()))) {
+            DataTypeTest tests = DataTypeTest.create()
+                    .addRoundTrip(dataType, asList(beforeEpoch))
+                    .addRoundTrip(dataType, asList(afterEpoch))
+                    // timeGapInJvmZone is shifted by 1 hour when using java.sql.Timestamp
+                    // Commenting those tests until it will be possible to use java.time.LocalDateTime with org.postgresql.jdbc.PgArray (https://github.com/pgjdbc/pgjdbc/issues/1225#issuecomment-516312324)
+                    //.addRoundTrip(dataType, asList(epoch)) // epoch also is a gap in JVM zone
+                    //.addRoundTrip(dataType, asList(timeGapInJvmZone1))
+                    //.addRoundTrip(dataType, asList(timeGapInJvmZone2))
+                    .addRoundTrip(dataType, asList(timeDoubledInJvmZone))
+                    .addRoundTrip(dataType, asList(timeDoubledInVilnius));
+
+            addArrayTimestampTestIfSupported(tests, legacyTimestamp, sessionZone, dataType, timeGapInVilnius);
+            addArrayTimestampTestIfSupported(tests, legacyTimestamp, sessionZone, dataType, timeGapInKathmandu);
+
+            Session session = Session.builder(getQueryRunner().getDefaultSession())
+                    .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
+                    .setSystemProperty("legacy_timestamp", Boolean.toString(legacyTimestamp))
+                    .build();
+
+            tests.execute(getQueryRunner(), session, dataSetup);
+        }
+    }
+
     private void addTimestampTestIfSupported(DataTypeTest tests, boolean legacyTimestamp, ZoneId sessionZone, LocalDateTime dateTime)
     {
         if (legacyTimestamp && isGap(sessionZone, dateTime)) {
@@ -566,6 +606,50 @@ public class TestPostgreSqlTypeMapping
         }
 
         tests.addRoundTrip(timestampDataType(), dateTime);
+    }
+
+    private void addArrayTimestampTestIfSupported(DataTypeTest tests, boolean legacyTimestamp, ZoneId sessionZone, DataType<List<LocalDateTime>> dataType, LocalDateTime dateTime)
+    {
+        if (legacyTimestamp && isGap(sessionZone, dateTime)) {
+            // in legacy timestamp semantics we cannot represent this dateTime
+            return;
+        }
+
+        tests.addRoundTrip(dataType, asList(dateTime));
+    }
+
+    @Test(dataProvider = "testTimestampWithTimeZoneDataProvider")
+    public void testArrayTimestampWithTimeZone(boolean insertWithPresto)
+    {
+        DataType<List<ZonedDateTime>> dataType;
+        DataSetup dataSetup;
+        if (insertWithPresto) {
+            dataType = arrayDataType(prestoTimestampWithTimeZoneDataType());
+            dataSetup = prestoCreateAsSelect("test_array_timestamp_with_time_zone");
+        }
+        else {
+            dataType = arrayDataType(postgreSqlTimestampWithTimeZoneDataType(), "timestamptz[]");
+            dataSetup = postgresCreateAndInsert("tpch.test_array_timestamp_with_time_zone");
+        }
+
+        DataTypeTest tests = DataTypeTest.create()
+                .addRoundTrip(dataType, asList(epoch.atZone(UTC), epoch.atZone(kathmandu)))
+                .addRoundTrip(dataType, asList(beforeEpoch.atZone(kathmandu), beforeEpoch.atZone(UTC)))
+                .addRoundTrip(dataType, asList(afterEpoch.atZone(UTC), afterEpoch.atZone(kathmandu)))
+                .addRoundTrip(dataType, asList(timeDoubledInJvmZone.atZone(UTC)))
+                .addRoundTrip(dataType, asList(timeDoubledInJvmZone.atZone(kathmandu)))
+                .addRoundTrip(dataType, asList(timeDoubledInVilnius.atZone(UTC), timeDoubledInVilnius.atZone(vilnius), timeDoubledInVilnius.atZone(kathmandu)))
+                .addRoundTrip(dataType, asList(timeGapInJvmZone1.atZone(UTC), timeGapInJvmZone1.atZone(kathmandu)))
+                .addRoundTrip(dataType, asList(timeGapInJvmZone2.atZone(UTC), timeGapInJvmZone2.atZone(kathmandu)))
+                .addRoundTrip(dataType, asList(timeGapInVilnius.atZone(kathmandu)))
+                .addRoundTrip(dataType, asList(timeGapInKathmandu.atZone(vilnius)));
+        if (!insertWithPresto) {
+            // Postgres results with non-DST time (winter time) for timeDoubledInJvmZone.atZone(jvmZone) while Java results with DST time
+            // When writing timestamptz arrays, Postgres JDBC driver converts java.sql.Timestamp to string representing date-time in JVM zone
+            // TODO upgrade driver or find a different way to write timestamptz array elements as a point in time values with org.postgresql.jdbc.PgArray (https://github.com/pgjdbc/pgjdbc/issues/1225#issuecomment-516312324)
+            tests.addRoundTrip(dataType, asList(timeDoubledInJvmZone.atZone(jvmZone)));
+        }
+        tests.execute(getQueryRunner(), dataSetup);
     }
 
     @DataProvider
