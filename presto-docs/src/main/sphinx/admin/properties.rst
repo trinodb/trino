@@ -479,11 +479,42 @@ Node Scheduler Properties
 
     Sets the node scheduler policy to use when scheduling splits. ``uniform`` will attempt
     to schedule splits on the host where the data is located, while maintaining a uniform
-    distribution across all hosts. ``topology`` will try to schedule splits on the host
-    where the data is located by reserving 50% of the work queue for local splits.
-    It is recommended to use ``uniform`` for clusters where distributed storage runs on
-    the same nodes as Presto workers.
+    distribution across all hosts. ``topology`` will try to schedule splits according to
+    the topology distance between nodes and splits. It is recommended to use ``uniform``
+    for clusters where distributed storage runs on the same nodes as Presto workers.
 
+``node-scheduler.network-topology-segments``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``string``
+
+    A comma-separated string describing the meaning of each segment of a NetworkLocation.
+    For example, setting ``region,rack,machine`` means a NetworkLocation will contains 3 Segments.
+
+``node-scheduler.network-topology-file``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``string``
+
+    Specify network topology in a file. To use this option, ``node-scheduler.policy``
+    must be set to ``topology``. Each line contains a mapping between HostAddress and
+    NetworkLocation separated by space(s). NetworkLocation are separated into Segments
+    by ``/``.
+
+.. code-block:: none
+
+    192.168.0.1 /region1/rack1/machine1
+    192.168.0.2 /region1/rack1/machine2
+    hdfs01.example.com /region2/rack2/machine3
+
+ ``node-scheduler.refresh-period``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``duration``
+    * **Minimum value:** ``1ms``
+    * **Default value:** ``12h``
+
+    Controls the refresh period of network topology information read from the file.
 
 Optimizer Properties
 --------------------

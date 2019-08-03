@@ -16,16 +16,21 @@ package io.prestosql.execution.scheduler;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import io.airlift.configuration.Config;
+import io.airlift.units.Duration;
+import io.airlift.units.MinDuration;
 
 import javax.validation.constraints.NotNull;
 
 import java.util.List;
 
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.HOURS;
 
 public class TopologyAwareNodeSelectorConfig
 {
     private List<String> locationSegmentNames = ImmutableList.of("machine");
+    private String networkTopologyFile = "";
+    private Duration refreshPeriod = new Duration(12, HOURS);
 
     @NotNull
     public List<String> getLocationSegmentNames()
@@ -46,6 +51,31 @@ public class TopologyAwareNodeSelectorConfig
                 .trimResults()
                 .omitEmptyStrings()
                 .splitToList(locationSegmentNames);
+        return this;
+    }
+
+    public String getNetworkTopologyFile()
+    {
+        return networkTopologyFile;
+    }
+
+    @Config("node-scheduler.network-topology-file")
+    public TopologyAwareNodeSelectorConfig setNetworkTopologyFile(String networkTopologyFile)
+    {
+        this.networkTopologyFile = networkTopologyFile;
+        return this;
+    }
+
+    @MinDuration("1ms")
+    public Duration getRefreshPeriod()
+    {
+        return refreshPeriod;
+    }
+
+    @Config("node-scheduler.refresh-period")
+    public TopologyAwareNodeSelectorConfig setRefreshPeriod(Duration refreshPeriod)
+    {
+        this.refreshPeriod = refreshPeriod;
         return this;
     }
 }

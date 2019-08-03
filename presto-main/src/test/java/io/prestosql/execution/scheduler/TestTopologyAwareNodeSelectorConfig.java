@@ -16,9 +16,13 @@ package io.prestosql.execution.scheduler;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.configuration.testing.ConfigAssertions;
+import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
 import java.util.Map;
+
+import static java.util.concurrent.TimeUnit.HOURS;
+import static java.util.concurrent.TimeUnit.MINUTES;
 
 public class TestTopologyAwareNodeSelectorConfig
 {
@@ -26,7 +30,9 @@ public class TestTopologyAwareNodeSelectorConfig
     public void testDefaults()
     {
         ConfigAssertions.assertRecordedDefaults(ConfigAssertions.recordDefaults(TopologyAwareNodeSelectorConfig.class)
-                .setLocationSegmentNames("machine"));
+                .setLocationSegmentNames("machine")
+                .setNetworkTopologyFile("")
+                .setRefreshPeriod(new Duration(12, HOURS)));
     }
 
     @Test
@@ -34,10 +40,14 @@ public class TestTopologyAwareNodeSelectorConfig
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("node-scheduler.network-topology-segments", "rack,machine")
+                .put("node-scheduler.network-topology-file", "/etc/topology.txt")
+                .put("node-scheduler.refresh-period", "5m")
                 .build();
 
         TopologyAwareNodeSelectorConfig expected = new TopologyAwareNodeSelectorConfig()
-                .setLocationSegmentNames(ImmutableList.of("rack", "machine"));
+                .setLocationSegmentNames(ImmutableList.of("rack", "machine"))
+                .setNetworkTopologyFile("/etc/topology.txt")
+                .setRefreshPeriod(new Duration(5, MINUTES));
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

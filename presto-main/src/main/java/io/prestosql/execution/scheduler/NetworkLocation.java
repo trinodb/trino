@@ -37,7 +37,7 @@ public final class NetworkLocation
         this(Arrays.asList(segments));
     }
 
-    private NetworkLocation(List<String> segments)
+    NetworkLocation(List<String> segments)
     {
         this.segments = segments;
     }

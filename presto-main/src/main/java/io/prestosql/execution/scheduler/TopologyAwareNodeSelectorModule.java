@@ -14,19 +14,27 @@
 package io.prestosql.execution.scheduler;
 
 import com.google.inject.Binder;
-import com.google.inject.Module;
 import com.google.inject.Scopes;
+import io.airlift.configuration.AbstractConfigurationAwareModule;
 
+import static io.airlift.configuration.ConditionalModule.installModuleIf;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 
 public class TopologyAwareNodeSelectorModule
-        implements Module
+        extends AbstractConfigurationAwareModule
 {
     @Override
-    public void configure(Binder binder)
+    protected void setup(Binder binder)
     {
         configBinder(binder).bindConfig(TopologyAwareNodeSelectorConfig.class);
-        binder.bind(NetworkTopology.class).to(FlatNetworkTopology.class).in(Scopes.SINGLETON);
+        install(installModuleIf(
+                TopologyAwareNodeSelectorConfig.class,
+                config -> config.getNetworkTopologyFile().isEmpty(),
+                b -> b.bind(NetworkTopology.class).to(FlatNetworkTopology.class).in(Scopes.SINGLETON)));
+        install(installModuleIf(
+                TopologyAwareNodeSelectorConfig.class,
+                config -> !config.getNetworkTopologyFile().isEmpty(),
+                b -> b.bind(NetworkTopology.class).to(FileBasedNetworkTopology.class).in(Scopes.SINGLETON)));
         binder.bind(TopologyAwareNodeSelectorFactory.class).in(Scopes.SINGLETON);
         binder.bind(NodeSelectorFactory.class).to(TopologyAwareNodeSelectorFactory.class).in(Scopes.SINGLETON);
         binder.bind(NodeSchedulerExporter.class).in(Scopes.SINGLETON);
