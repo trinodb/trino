@@ -316,7 +316,7 @@ public class PostgreSqlClient
             return WriteMapping.longMapping("timestamp", timestampWriteFunction(session));
         }
         if (TIMESTAMP_WITH_TIME_ZONE.equals(type)) {
-            return WriteMapping.longMapping("timestamp with time zone", timestampWithTimeZoneWriteFunction());
+            return WriteMapping.longMapping("timestamptz", timestampWithTimeZoneWriteFunction());
         }
         if (TinyintType.TINYINT.equals(type)) {
             return WriteMapping.longMapping("smallint", tinyintWriteFunction());

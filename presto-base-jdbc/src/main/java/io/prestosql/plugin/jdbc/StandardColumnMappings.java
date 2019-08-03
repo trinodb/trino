@@ -356,12 +356,12 @@ public final class StandardColumnMappings
      * @deprecated applicable in legacy timestamp semantics only
      */
     @Deprecated
-    private static long toPrestoLegacyTimestamp(LocalDateTime localDateTime, ZoneId sessionZone)
+    public static long toPrestoLegacyTimestamp(LocalDateTime localDateTime, ZoneId sessionZone)
     {
         return localDateTime.atZone(sessionZone).toInstant().toEpochMilli();
     }
 
-    private static long toPrestoTimestamp(LocalDateTime localDateTime)
+    public static long toPrestoTimestamp(LocalDateTime localDateTime)
     {
         return localDateTime.atZone(UTC).toInstant().toEpochMilli();
     }
@@ -370,12 +370,12 @@ public final class StandardColumnMappings
      * @deprecated applicable in legacy timestamp semantics only
      */
     @Deprecated
-    private static LocalDateTime fromPrestoLegacyTimestamp(long value, ZoneId sessionZone)
+    public static LocalDateTime fromPrestoLegacyTimestamp(long value, ZoneId sessionZone)
     {
         return Instant.ofEpochMilli(value).atZone(sessionZone).toLocalDateTime();
     }
 
-    private static LocalDateTime fromPrestoTimestamp(long value)
+    public static LocalDateTime fromPrestoTimestamp(long value)
     {
         return Instant.ofEpochMilli(value).atZone(UTC).toLocalDateTime();
     }

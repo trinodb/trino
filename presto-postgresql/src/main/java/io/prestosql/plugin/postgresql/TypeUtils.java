@@ -34,12 +34,20 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.MathContext;
 import java.sql.Date;
+import java.sql.Timestamp;
+import java.time.ZoneId;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.fromPrestoLegacyTimestamp;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.fromPrestoTimestamp;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.toPrestoLegacyTimestamp;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.toPrestoTimestamp;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
+import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
+import static io.prestosql.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.Decimals.decodeUnscaledValue;
 import static io.prestosql.spi.type.Decimals.encodeScaledValue;
@@ -48,6 +56,9 @@ import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
+import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.TypeUtils.readNativeValue;
 import static io.prestosql.spi.type.TypeUtils.writeNativeValue;
@@ -187,6 +198,20 @@ public final class TypeUtils
             return MILLISECONDS.toDays(utcMillis);
         }
 
+        if (TIMESTAMP.equals(prestoType)) {
+            if (session.isLegacyTimestamp()) {
+                ZoneId sessionZone = ZoneId.of(session.getTimeZoneKey().getId());
+                return toPrestoLegacyTimestamp(((Timestamp) jdbcObject).toLocalDateTime(), sessionZone);
+            }
+            return toPrestoTimestamp(((Timestamp) jdbcObject).toLocalDateTime());
+        }
+
+        if (TIMESTAMP_WITH_TIME_ZONE.equals(prestoType)) {
+            long millisUtc = ((Timestamp) jdbcObject).getTime();
+            // PostgreSQL does not store zone, only the point in time
+            return packDateTimeWithZone(millisUtc, UTC_KEY);
+        }
+
         if (prestoType instanceof VarcharType) {
             return utf8Slice((String) jdbcObject);
         }
@@ -238,6 +263,20 @@ public final class TypeUtils
             // convert to midnight in default time zone
             long millis = DAYS.toMillis((long) prestoNative);
             return new Date(UTC.getMillisKeepLocal(DateTimeZone.getDefault(), millis));
+        }
+
+        if (TIMESTAMP.equals(prestoType)) {
+            if (session.isLegacyTimestamp()) {
+                ZoneId sessionZone = ZoneId.of(session.getTimeZoneKey().getId());
+                return Timestamp.valueOf(fromPrestoLegacyTimestamp((long) prestoNative, sessionZone));
+            }
+            return Timestamp.valueOf(fromPrestoTimestamp((long) prestoNative));
+        }
+
+        if (TIMESTAMP_WITH_TIME_ZONE.equals(prestoType)) {
+            long millisUtc = unpackMillisUtc((long) prestoNative);
+            // PostgreSQL does not store zone, only the point in time
+            return new Timestamp(millisUtc);
         }
 
         if (prestoType instanceof VarcharType || prestoType instanceof CharType) {
