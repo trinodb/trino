@@ -35,7 +35,6 @@ public class TestTimeZoneUtils
     {
         TimeZoneKey.getTimeZoneKey("GMT-13:00");
 
-        TreeSet<String> jodaZones = new TreeSet<>(DateTimeZone.getAvailableIDs());
         TreeSet<String> jdkZones = new TreeSet<>(ZoneId.getAvailableZoneIds());
 
         for (String zoneId : new TreeSet<>(jdkZones)) {
