@@ -34,8 +34,7 @@ public class TestTimeZoneUtils
     public void test()
     {
         TreeSet<String> jdkZones = new TreeSet<>(ZoneId.getAvailableZoneIds());
-
-        for (String zoneId : new TreeSet<>(jdkZones)) {
+        for (String zoneId : jdkZones) {
             if (zoneId.startsWith("Etc/") || zoneId.startsWith("GMT") || zoneId.startsWith("SystemV/")) {
                 continue;
             }
@@ -58,7 +57,7 @@ public class TestTimeZoneUtils
     public static void assertTimeZone(String zoneId, DateTimeZone dateTimeZone)
     {
         long dateTimeWithTimeZone = packDateTimeWithZone(new DateTime(42, dateTimeZone));
-        assertEquals(packDateTimeWithZone((long) 42, dateTimeZone.toTimeZone().getID()), dateTimeWithTimeZone);
+        assertEquals(packDateTimeWithZone(42L, dateTimeZone.toTimeZone().getID()), dateTimeWithTimeZone);
         DateTimeZone unpackedZone = unpackDateTimeZone(dateTimeWithTimeZone);
         assertDateTimeZoneEquals(zoneId, unpackedZone);
     }
