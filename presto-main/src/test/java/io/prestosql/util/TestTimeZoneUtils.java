@@ -42,14 +42,6 @@ public class TestTimeZoneUtils
                 continue;
             }
 
-            if (zoneId.equals("Canada/East-Saskatchewan")) {
-                // TODO: remove once minimum Java version is increased to 8u161 and 9.0.4, see PrestoSystemRequirement.
-                // Removed from tzdata since 2017c.
-                // Java updated to 2017c since 8u161, 9.0.4.
-                // All Java 10+ are on later versions
-                continue;
-            }
-
             DateTimeZone dateTimeZone = DateTimeZone.forID(zoneId);
             DateTimeZone indexedZone = getDateTimeZone(TimeZoneKey.getTimeZoneKey(zoneId));
 
