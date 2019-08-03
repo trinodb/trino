@@ -30,6 +30,7 @@ matrix:
     - env: PRODUCT_TESTS_SUITE=suite-1
     - env: PRODUCT_TESTS_SUITE=suite-2
     - env: PRODUCT_TESTS_SUITE=suite-3
+    - env: PRODUCT_TESTS_SUITE=suite-4
     - env: HIVE_TESTS=true
     - env: KUDU_TESTS=true
 
@@ -40,6 +41,8 @@ matrix:
       env: PRODUCT_TESTS_SUITE=suite-2 PRODUCT_TESTS_CONFIG=config-hdp3
     - if: type IN (push, cron)
       env: PRODUCT_TESTS_SUITE=suite-3 PRODUCT_TESTS_CONFIG=config-hdp3
+    - if: type IN (push, cron)
+      env: PRODUCT_TESTS_SUITE=suite-4 PRODUCT_TESTS_CONFIG=config-hdp3
     - if: type IN (push, cron)
       env: HIVE_TESTS=true PRODUCT_TESTS_CONFIG=config-hdp3
 
