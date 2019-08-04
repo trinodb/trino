@@ -28,6 +28,7 @@ import javax.annotation.concurrent.NotThreadSafe;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -139,6 +140,12 @@ public class MockSplitSource
     public boolean isFinished()
     {
         return splitsProduced == totalSplits && atSplitDepletion == FINISH;
+    }
+
+    @Override
+    public Optional<Integer> getMinScheduleSplitBatchSize()
+    {
+        return Optional.empty();
     }
 
     public int getNextBatchInvocationCount()
