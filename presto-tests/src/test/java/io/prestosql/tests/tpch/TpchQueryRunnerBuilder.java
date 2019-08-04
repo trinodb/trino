@@ -13,13 +13,17 @@
  */
 package io.prestosql.tests.tpch;
 
+import com.google.common.collect.ImmutableMap;
 import io.prestosql.Session;
 import io.prestosql.plugin.tpch.TpchPlugin;
 import io.prestosql.tests.DistributedQueryRunner;
 
+import java.util.Optional;
 import java.util.function.Function;
 
 import static io.prestosql.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
+import static io.prestosql.plugin.tpch.TpchConnectorFactory.TPCH_MAX_ROWS_PER_PAGE_PROPERTY;
+import static io.prestosql.plugin.tpch.TpchConnectorFactory.TPCH_PRODUCE_PAGES;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 
 public final class TpchQueryRunnerBuilder
@@ -32,6 +36,9 @@ public final class TpchQueryRunnerBuilder
             .setSystemProperty(ENABLE_DYNAMIC_FILTERING, "true")
             .build();
 
+    private Optional<Integer> maxRowsPerPage = Optional.empty();
+    private Optional<Boolean> producePages = Optional.empty();
+
     private TpchQueryRunnerBuilder()
     {
         super(DEFAULT_SESSION);
@@ -41,6 +48,18 @@ public final class TpchQueryRunnerBuilder
     public TpchQueryRunnerBuilder amendSession(Function<Session.SessionBuilder, Session.SessionBuilder> amendSession)
     {
         return (TpchQueryRunnerBuilder) super.amendSession(amendSession);
+    }
+
+    public TpchQueryRunnerBuilder withMaxRowsPerPage(int maxRowsPerPage)
+    {
+        this.maxRowsPerPage = Optional.of(maxRowsPerPage);
+        return this;
+    }
+
+    public TpchQueryRunnerBuilder withProducePages(boolean producePages)
+    {
+        this.producePages = Optional.of(producePages);
+        return this;
     }
 
     public static TpchQueryRunnerBuilder builder()
@@ -54,7 +73,10 @@ public final class TpchQueryRunnerBuilder
     {
         DistributedQueryRunner queryRunner = buildWithoutCatalogs();
         try {
-            queryRunner.createCatalog("tpch", "tpch");
+            ImmutableMap.Builder<String, String> properties = ImmutableMap.builder();
+            maxRowsPerPage.ifPresent(value -> properties.put(TPCH_MAX_ROWS_PER_PAGE_PROPERTY, value.toString()));
+            producePages.ifPresent(value -> properties.put(TPCH_PRODUCE_PAGES, value.toString()));
+            queryRunner.createCatalog("tpch", "tpch", properties.build());
             return queryRunner;
         }
         catch (Exception e) {
