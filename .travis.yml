@@ -34,17 +34,18 @@ matrix:
     - env: HIVE_TESTS=true
     - env: KUDU_TESTS=true
 
-    # HDP 3
-    - if: type IN (push, cron)
-      env: PRODUCT_TESTS_SUITE=suite-1 PRODUCT_TESTS_CONFIG=config-hdp3
-    - if: type IN (push, cron)
-      env: PRODUCT_TESTS_SUITE=suite-2 PRODUCT_TESTS_CONFIG=config-hdp3
-    - if: type IN (push, cron)
-      env: PRODUCT_TESTS_SUITE=suite-3 PRODUCT_TESTS_CONFIG=config-hdp3
-    - if: type IN (push, cron)
-      env: PRODUCT_TESTS_SUITE=suite-4 PRODUCT_TESTS_CONFIG=config-hdp3
-    - if: type IN (push, cron)
-      env: HIVE_TESTS=true PRODUCT_TESTS_CONFIG=config-hdp3
+# TODO
+#    # HDP 3
+#    - if: type IN (push, cron)
+#      env: PRODUCT_TESTS_SUITE=suite-1 PRODUCT_TESTS_CONFIG=config-hdp3
+#    - if: type IN (push, cron)
+#      env: PRODUCT_TESTS_SUITE=suite-2 PRODUCT_TESTS_CONFIG=config-hdp3
+#    - if: type IN (push, cron)
+#      env: PRODUCT_TESTS_SUITE=suite-3 PRODUCT_TESTS_CONFIG=config-hdp3
+#    - if: type IN (push, cron)
+#      env: PRODUCT_TESTS_SUITE=suite-4 PRODUCT_TESTS_CONFIG=config-hdp3
+#    - if: type IN (push, cron)
+#      env: HIVE_TESTS=true PRODUCT_TESTS_CONFIG=config-hdp3
 
 dist: xenial
 jdk: openjdk8
