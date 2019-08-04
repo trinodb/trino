@@ -24,6 +24,8 @@ import io.prestosql.spi.connector.ConnectorSplit;
 import io.prestosql.spi.connector.ConnectorSplitSource;
 import io.prestosql.spi.connector.ConnectorSplitSource.ConnectorSplitBatch;
 
+import java.util.Optional;
+
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
 import static java.util.Objects.requireNonNull;
@@ -69,6 +71,12 @@ public class ConnectorAwareSplitSource
     public boolean isFinished()
     {
         return source.isFinished();
+    }
+
+    @Override
+    public Optional<Integer> getMinScheduleSplitBatchSize()
+    {
+        return source.getMinScheduleSplitBatchSize();
     }
 
     @Override

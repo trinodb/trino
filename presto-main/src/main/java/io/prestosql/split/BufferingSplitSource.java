@@ -22,6 +22,7 @@ import io.prestosql.spi.connector.ConnectorPartitionHandle;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
@@ -63,6 +64,12 @@ public class BufferingSplitSource
     public boolean isFinished()
     {
         return source.isFinished();
+    }
+
+    @Override
+    public Optional<Integer> getMinScheduleSplitBatchSize()
+    {
+        return source.getMinScheduleSplitBatchSize();
     }
 
     private static class GetNextBatch
