@@ -86,12 +86,7 @@ public class RecordPageSource
     public Page getNextPage()
     {
         if (!closed) {
-            int i;
-            for (i = 0; i < ROWS_PER_REQUEST; i++) {
-                if (pageBuilder.isFull()) {
-                    break;
-                }
-
+            for (int i = 0; i < ROWS_PER_REQUEST && !pageBuilder.isFull(); i++) {
                 if (!cursor.advanceNextPosition()) {
                     closed = true;
                     break;
@@ -128,13 +123,12 @@ public class RecordPageSource
         }
 
         // only return a page if the buffer is full or we are finishing
-        if (pageBuilder.isEmpty() || (!closed && !pageBuilder.isFull())) {
-            return null;
+        if ((closed && !pageBuilder.isEmpty()) || pageBuilder.isFull()) {
+            Page page = pageBuilder.build();
+            pageBuilder.reset();
+            return page;
         }
 
-        Page page = pageBuilder.build();
-        pageBuilder.reset();
-
-        return page;
+        return null;
     }
 }
