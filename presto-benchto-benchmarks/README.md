@@ -64,7 +64,7 @@ macros:
 
 ### Bootstrapping benchmark data
 
-* Make sure you have configured [Presto TCP-H connector](https://prestosql.io/docs/current/connector/tpch.html).
+* Make sure you have configured [Presto TPC-H connector](https://prestosql.io/docs/current/connector/tpch.html).
 * Bootstrap benchmark data:
   ```bash
   python presto-benchto-benchmarks/generate_schemas/generate-tpch.py | presto-cli-[version]-executable.jar --server [presto_coordinator-url]:[port]
