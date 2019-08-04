@@ -47,6 +47,7 @@ public class TestWorkProcessorPipelineQueries
     public void testTopN()
     {
         assertLazyQuery("SELECT * FROM orders ORDER BY totalprice LIMIT 10");
+        assertLazyQuery("SELECT * FROM orders WHERE orderkey >= 10 ORDER BY totalprice LIMIT 10");
     }
 
     @Test
