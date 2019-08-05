@@ -206,7 +206,13 @@ public class OrcReader
     public OrcRecordReader createRecordReader(Map<Integer, Type> includedColumns, OrcPredicate predicate, DateTimeZone hiveStorageTimeZone, AggregatedMemoryContext systemMemoryUsage, int initialBatchSize)
             throws OrcCorruptionException
     {
-        return createRecordReader(includedColumns, predicate, 0, orcDataSource.getSize(), hiveStorageTimeZone, systemMemoryUsage, initialBatchSize);
+        return createRecordReader(includedColumns, predicate, 0, orcDataSource.getSize(), hiveStorageTimeZone, systemMemoryUsage, initialBatchSize, false);
+    }
+
+    public OrcRecordReader createAcidRecordReader(Map<Integer, Type> includedColumns, OrcPredicate predicate, DateTimeZone hiveStorageTimeZone, AggregatedMemoryContext systemMemoryUsage, int initialBatchSize)
+            throws OrcCorruptionException
+    {
+        return createRecordReader(includedColumns, predicate, 0, orcDataSource.getSize(), hiveStorageTimeZone, systemMemoryUsage, initialBatchSize, true);
     }
 
     public OrcRecordReader createRecordReader(
@@ -216,7 +222,8 @@ public class OrcReader
             long length,
             DateTimeZone hiveStorageTimeZone,
             AggregatedMemoryContext systemMemoryUsage,
-            int initialBatchSize)
+            int initialBatchSize,
+            boolean isFullAcid)
             throws OrcCorruptionException
     {
         return new OrcRecordReader(
@@ -239,7 +246,8 @@ public class OrcReader
                 footer.getUserMetadata(),
                 systemMemoryUsage,
                 writeValidation,
-                initialBatchSize);
+                initialBatchSize,
+                isFullAcid);
     }
 
     private static OrcDataSource wrapWithCacheIfTiny(OrcDataSource dataSource, DataSize maxCacheSize)

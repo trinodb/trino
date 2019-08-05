@@ -38,6 +38,7 @@ import io.prestosql.orc.reader.StreamReader;
 import io.prestosql.orc.reader.StreamReaders;
 import io.prestosql.orc.stream.InputStreamSources;
 import io.prestosql.spi.Page;
+import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.type.Type;
 import org.joda.time.DateTimeZone;
@@ -56,11 +57,14 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.prestosql.orc.AcidConstants.ACID_META_COLS_COUNT;
+import static io.prestosql.orc.AcidConstants.ACID_ROW_STRUCT_INDEX;
 import static io.prestosql.orc.OrcDataSourceUtils.mergeAdjacentDiskRanges;
 import static io.prestosql.orc.OrcReader.BATCH_SIZE_GROWTH_FACTOR;
 import static io.prestosql.orc.OrcReader.MAX_BATCH_SIZE;
 import static io.prestosql.orc.OrcRecordReader.LinearProbeRangeFinder.createTinyStripesRangeFinder;
 import static io.prestosql.orc.OrcWriteValidation.WriteChecksumBuilder.createWriteChecksumBuilder;
+import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
@@ -112,6 +116,10 @@ public class OrcRecordReader
     private final Optional<StatisticsValidation> stripeStatisticsValidation;
     private final Optional<StatisticsValidation> fileStatisticsValidation;
 
+    // Test pramas
+    private boolean fileSkipped = true;
+    private int stripesRead;
+
     public OrcRecordReader(
             Map<Integer, Type> includedColumns,
             OrcPredicate predicate,
@@ -132,7 +140,8 @@ public class OrcRecordReader
             Map<String, Slice> userMetadata,
             AggregatedMemoryContext systemMemoryUsage,
             Optional<OrcWriteValidation> writeValidation,
-            int initialBatchSize)
+            int initialBatchSize,
+            boolean isFullAcid)
             throws OrcCorruptionException
     {
         requireNonNull(includedColumns, "includedColumns is null");
@@ -156,11 +165,11 @@ public class OrcRecordReader
         // reduce the included columns to the set that is also present
         ImmutableSet.Builder<Integer> presentColumns = ImmutableSet.builder();
         ImmutableMap.Builder<Integer, Type> presentColumnsAndTypes = ImmutableMap.builder();
-        OrcType root = types.get(0);
+        OrcType root = isFullAcid ? types.get(ACID_ROW_STRUCT_INDEX) : types.get(0);
         for (Map.Entry<Integer, Type> entry : includedColumns.entrySet()) {
             // an old file can have less columns since columns can be added
             // after the file was written
-            if (entry.getKey() < root.getFieldCount()) {
+            if (entry.getKey() < (root.getFieldCount() + (isFullAcid ? ACID_META_COLS_COUNT : 0))) { // Acid files will have extra 5 columns
                 presentColumns.add(entry.getKey());
                 presentColumnsAndTypes.put(entry.getKey(), entry.getValue());
             }
@@ -189,14 +198,16 @@ public class OrcRecordReader
         long fileRowCount = 0;
         ImmutableList.Builder<StripeInformation> stripes = ImmutableList.builder();
         ImmutableList.Builder<Long> stripeFilePositions = ImmutableList.builder();
-        if (predicate.matches(numberOfRows, getStatisticsByColumnOrdinal(root, fileStats))) {
+        if (predicate.matches(numberOfRows, getStatisticsByColumnOrdinal(root, fileStats, (isFullAcid ? ACID_META_COLS_COUNT : 0)))) {
             // select stripes that start within the specified split
+            fileSkipped = false;
             for (StripeInfo info : stripeInfos) {
                 StripeInformation stripe = info.getStripe();
-                if (splitContainsStripe(splitOffset, splitLength, stripe) && isStripeIncluded(root, stripe, info.getStats(), predicate)) {
+                if (splitContainsStripe(splitOffset, splitLength, stripe) && isStripeIncluded(root, stripe, info.getStats(), predicate, isFullAcid)) {
                     stripes.add(stripe);
                     stripeFilePositions.add(fileRowCount);
                     totalRowCount += stripe.getNumberOfRows();
+                    stripesRead++;
                 }
                 fileRowCount += stripe.getNumberOfRows();
             }
@@ -234,9 +245,10 @@ public class OrcRecordReader
                 predicate,
                 hiveWriterVersion,
                 metadataReader,
-                writeValidation);
+                writeValidation,
+                isFullAcid);
 
-        streamReaders = createStreamReaders(orcDataSource, types, presentColumnsAndTypes.build(), streamReadersSystemMemoryContext);
+        streamReaders = createStreamReaders(orcDataSource, types, presentColumnsAndTypes.build(), streamReadersSystemMemoryContext, isFullAcid);
         maxBytesPerCell = new long[streamReaders.length];
         nextBatchSize = initialBatchSize;
     }
@@ -251,12 +263,13 @@ public class OrcRecordReader
             OrcType rootStructType,
             StripeInformation stripe,
             Optional<StripeStatistics> stripeStats,
-            OrcPredicate predicate)
+            OrcPredicate predicate,
+            boolean isFullAcid)
     {
         // if there are no stats, include the column
         return stripeStats
                 .map(StripeStatistics::getColumnStatistics)
-                .map(columnStats -> getStatisticsByColumnOrdinal(rootStructType, columnStats))
+                .map(columnStats -> getStatisticsByColumnOrdinal(rootStructType, columnStats, isFullAcid ? ACID_META_COLS_COUNT : 0))
                 .map(statsByColumn -> predicate.matches(stripe.getNumberOfRows(), statsByColumn))
                 .orElse(true);
     }
@@ -544,14 +557,18 @@ public class OrcRecordReader
             OrcDataSource orcDataSource,
             List<OrcType> types,
             Map<Integer, Type> includedColumns,
-            AggregatedMemoryContext systemMemoryContext)
+            AggregatedMemoryContext systemMemoryContext,
+            boolean isFullAcid)
             throws OrcCorruptionException
     {
-        List<StreamDescriptor> streamDescriptors = createStreamDescriptor("", "", 0, types, orcDataSource).getNestedStreams();
+        List<StreamDescriptor> streamDescriptors = isFullAcid
+                ? createAcidStreamDescriptor("", "", types, orcDataSource).getNestedStreams()
+                : createStreamDescriptor("", "", 0, types, orcDataSource).getNestedStreams();
 
-        OrcType rowType = types.get(0);
-        StreamReader[] streamReaders = new StreamReader[rowType.getFieldCount()];
-        for (int columnId = 0; columnId < rowType.getFieldCount(); columnId++) {
+        OrcType rowType = isFullAcid ? types.get(ACID_ROW_STRUCT_INDEX) : types.get(0);
+        int metaCols = (isFullAcid ? ACID_META_COLS_COUNT : 0);
+        StreamReader[] streamReaders = new StreamReader[rowType.getFieldCount() + metaCols];
+        for (int columnId = 0; columnId < rowType.getFieldCount() + metaCols; columnId++) {
             Type type = includedColumns.get(columnId);
             if (type != null) {
                 StreamDescriptor streamDescriptor = streamDescriptors.get(columnId);
@@ -585,7 +602,39 @@ public class OrcRecordReader
         return new StreamDescriptor(parentStreamName, typeId, fieldName, type.getOrcTypeKind(), dataSource, nestedStreams.build());
     }
 
-    private static Map<Integer, ColumnStatistics> getStatisticsByColumnOrdinal(OrcType rootStructType, List<ColumnStatistics> fileStats)
+    private static StreamDescriptor createAcidStreamDescriptor(String parentStreamName, String fieldName, List<OrcType> types, OrcDataSource dataSource)
+    {
+        OrcType type = types.get(0);
+
+        ImmutableList.Builder<StreamDescriptor> nestedStreams = ImmutableList.builder();
+        if (type.getOrcTypeKind() != OrcTypeKind.STRUCT) {
+            throw new PrestoException(
+                    NOT_SUPPORTED,
+                    "ORC file does not contain STRUCT at the root: " + types);
+        }
+
+        // Add Acid meta column streams
+        for (int i = 0; i < type.getFieldCount() - 1; i++) { // Do not add for data column i.e. row STRUCT. It is handled in Data columns
+            OrcType memberType = types.get(type.getFieldTypeIndex(i));
+            String memberFieldName = type.getFieldName(i);
+            nestedStreams.add(new StreamDescriptor(parentStreamName + "." + memberFieldName, type.getFieldTypeIndex(i), memberFieldName, memberType.getOrcTypeKind(), dataSource, ImmutableList.of()));
+        }
+
+        // Add Data column streams
+        type = types.get(ACID_ROW_STRUCT_INDEX);
+        if (type.getOrcTypeKind() != OrcTypeKind.STRUCT) {
+            throw new PrestoException(
+                    NOT_SUPPORTED,
+                    "ORC file does not contain STRUCT at the root: " + types);
+        }
+        for (int i = 0; i < type.getFieldCount(); ++i) {
+            nestedStreams.add(createStreamDescriptor(parentStreamName, type.getFieldName(i), type.getFieldTypeIndex(i), types, dataSource));
+        }
+
+        return new StreamDescriptor(parentStreamName, 0, fieldName, type.getOrcTypeKind(), dataSource, nestedStreams.build());
+    }
+
+    private static Map<Integer, ColumnStatistics> getStatisticsByColumnOrdinal(OrcType rootStructType, List<ColumnStatistics> fileStats, int ordinalStartOffset)
     {
         requireNonNull(rootStructType, "rootStructType is null");
         checkArgument(rootStructType.getOrcTypeKind() == OrcTypeKind.STRUCT);
@@ -596,7 +645,7 @@ public class OrcRecordReader
             if (fileStats.size() > ordinal) {
                 ColumnStatistics element = fileStats.get(rootStructType.getFieldTypeIndex(ordinal));
                 if (element != null) {
-                    statistics.put(ordinal, element);
+                    statistics.put(ordinal + ordinalStartOffset, element);
                 }
             }
         }
@@ -708,5 +757,23 @@ public class OrcRecordReader
 
             return new LinearProbeRangeFinder(diskRanges);
         }
+    }
+
+    @VisibleForTesting
+    public boolean isFileSkipped()
+    {
+        return fileSkipped;
+    }
+
+    @VisibleForTesting
+    public int getRowGroupsRead()
+    {
+        return stripeReader.getRowGroupsRead();
+    }
+
+    @VisibleForTesting
+    public int stripesRead()
+    {
+        return stripesRead;
     }
 }

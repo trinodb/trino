@@ -13,6 +13,7 @@
  */
 package io.prestosql.orc;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -57,6 +58,8 @@ import java.util.Set;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static io.prestosql.orc.AcidConstants.ACID_META_COLS_COUNT;
+import static io.prestosql.orc.AcidConstants.ACID_ROW_STRUCT_INDEX;
 import static io.prestosql.orc.checkpoint.Checkpoints.getDictionaryStreamCheckpoint;
 import static io.prestosql.orc.checkpoint.Checkpoints.getStreamCheckpoints;
 import static io.prestosql.orc.metadata.ColumnEncoding.ColumnEncodingKind.DICTIONARY;
@@ -83,6 +86,10 @@ public class StripeReader
     private final OrcPredicate predicate;
     private final MetadataReader metadataReader;
     private final Optional<OrcWriteValidation> writeValidation;
+    private final boolean isFullAcid;
+
+    // Testing related
+    private int rowGroupsRead;
 
     public StripeReader(OrcDataSource orcDataSource,
             ZoneId defaultTimeZone,
@@ -93,18 +100,20 @@ public class StripeReader
             OrcPredicate predicate,
             HiveWriterVersion hiveWriterVersion,
             MetadataReader metadataReader,
-            Optional<OrcWriteValidation> writeValidation)
+            Optional<OrcWriteValidation> writeValidation,
+            boolean isFullAcid)
     {
         this.orcDataSource = requireNonNull(orcDataSource, "orcDataSource is null");
         this.defaultTimeZone = requireNonNull(defaultTimeZone, "defaultTimeZone is null");
         this.decompressor = requireNonNull(decompressor, "decompressor is null");
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
-        this.includedOrcColumns = getIncludedOrcColumns(types, requireNonNull(includedColumns, "includedColumns is null"));
+        this.includedOrcColumns = getIncludedOrcColumns(types, requireNonNull(includedColumns, "includedColumns is null"), isFullAcid);
         this.rowsInRowGroup = rowsInRowGroup;
         this.predicate = requireNonNull(predicate, "predicate is null");
         this.hiveWriterVersion = requireNonNull(hiveWriterVersion, "hiveWriterVersion is null");
         this.metadataReader = requireNonNull(metadataReader, "metadataReader is null");
         this.writeValidation = requireNonNull(writeValidation, "writeValidation is null");
+        this.isFullAcid = isFullAcid;
     }
 
     public Stripe readStripe(StripeInformation stripe, AggregatedMemoryContext systemMemoryUsage)
@@ -146,7 +155,7 @@ public class StripeReader
             }
 
             // select the row groups matching the tuple domain
-            Set<Integer> selectedRowGroups = selectRowGroups(stripe, columnIndexes);
+            Set<Integer> selectedRowGroups = selectRowGroups(stripe, columnIndexes, isFullAcid);
 
             // if all row groups are skipped, return null
             if (selectedRowGroups.isEmpty()) {
@@ -431,7 +440,7 @@ public class StripeReader
         return columnIndexes.build();
     }
 
-    private Set<Integer> selectRowGroups(StripeInformation stripe, Map<StreamId, List<RowGroupIndex>> columnIndexes)
+    private Set<Integer> selectRowGroups(StripeInformation stripe, Map<StreamId, List<RowGroupIndex>> columnIndexes, boolean isFullAcid)
     {
         int rowsInStripe = toIntExact(stripe.getNumberOfRows());
         int groupsInStripe = ceil(rowsInStripe, rowsInRowGroup);
@@ -440,16 +449,17 @@ public class StripeReader
         int remainingRows = rowsInStripe;
         for (int rowGroup = 0; rowGroup < groupsInStripe; ++rowGroup) {
             int rows = Math.min(remainingRows, rowsInRowGroup);
-            Map<Integer, ColumnStatistics> statistics = getRowGroupStatistics(types.get(0), columnIndexes, rowGroup);
+            Map<Integer, ColumnStatistics> statistics = getRowGroupStatistics(isFullAcid ? types.get(ACID_ROW_STRUCT_INDEX) : types.get(0), columnIndexes, rowGroup, isFullAcid ? ACID_META_COLS_COUNT : 0);
             if (predicate.matches(rows, statistics)) {
                 selectedRowGroups.add(rowGroup);
+                rowGroupsRead++;
             }
             remainingRows -= rows;
         }
         return selectedRowGroups.build();
     }
 
-    private static Map<Integer, ColumnStatistics> getRowGroupStatistics(OrcType rootStructType, Map<StreamId, List<RowGroupIndex>> columnIndexes, int rowGroup)
+    private static Map<Integer, ColumnStatistics> getRowGroupStatistics(OrcType rootStructType, Map<StreamId, List<RowGroupIndex>> columnIndexes, int rowGroup, int ordinalStartOffset)
     {
         requireNonNull(rootStructType, "rootStructType is null");
         checkArgument(rootStructType.getOrcTypeKind() == OrcTypeKind.STRUCT);
@@ -463,7 +473,7 @@ public class StripeReader
         for (int ordinal = 0; ordinal < rootStructType.getFieldCount(); ordinal++) {
             List<RowGroupIndex> rowGroupIndexes = columnIndexesByField.get(rootStructType.getFieldTypeIndex(ordinal));
             if (rowGroupIndexes != null) {
-                statistics.put(ordinal, rowGroupIndexes.get(rowGroup).getColumnStatistics());
+                statistics.put(ordinal + ordinalStartOffset, rowGroupIndexes.get(rowGroup).getColumnStatistics());
             }
         }
         return statistics.build();
@@ -489,13 +499,21 @@ public class StripeReader
         return streamDiskRanges.build();
     }
 
-    private static Set<Integer> getIncludedOrcColumns(List<OrcType> types, Set<Integer> includedColumns)
+    private static Set<Integer> getIncludedOrcColumns(List<OrcType> types, Set<Integer> includedColumns, boolean isFullAcid)
     {
         Set<Integer> includes = new LinkedHashSet<>();
 
-        OrcType root = types.get(0);
+        // For full acid, first add all meta columns, then do normal recursive addition from Data row STRUCT
+        OrcType root = isFullAcid ? types.get(ACID_ROW_STRUCT_INDEX) : types.get(0);
+        int dataColumnOffset = isFullAcid ? ACID_META_COLS_COUNT : 0;
         for (int includedColumn : includedColumns) {
-            includeOrcColumnsRecursive(types, includes, root.getFieldTypeIndex(includedColumn));
+            if (isFullAcid) {
+                if (includedColumn < ACID_META_COLS_COUNT) { // Acid meta columns
+                    includes.add(includedColumn + 1); // +1 to offset STRUCT definition
+                    continue;
+                }
+            }
+            includeOrcColumnsRecursive(types, includes, root.getFieldTypeIndex(includedColumn - dataColumnOffset));
         }
 
         return includes;
@@ -517,5 +535,11 @@ public class StripeReader
     private static int ceil(int dividend, int divisor)
     {
         return ((dividend + divisor) - 1) / divisor;
+    }
+
+    @VisibleForTesting
+    public int getRowGroupsRead()
+    {
+        return rowGroupsRead;
     }
 }
