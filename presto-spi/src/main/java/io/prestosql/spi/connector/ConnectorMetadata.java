@@ -41,6 +41,7 @@ import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
+import static java.util.Locale.ENGLISH;
 import static java.util.stream.Collectors.toList;
 
 public interface ConnectorMetadata
@@ -791,5 +792,15 @@ public interface ConnectorMetadata
     default Optional<ConnectorTableHandle> applySample(ConnectorSession session, ConnectorTableHandle handle, SampleType sampleType, double sampleRatio)
     {
         return Optional.empty();
+    }
+
+    /**
+     * Canonicalizes the provided SQL identifier according to connector-specific rules
+     * for the purpose of providing the name in metadata APIs
+     */
+    default String canonicalize(ConnectorSession session, String identifier, boolean delimited)
+    {
+        // TODO: Move to model which is in accordance with SQL specification
+        return identifier.toLowerCase(ENGLISH);
     }
 }
