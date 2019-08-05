@@ -26,6 +26,7 @@ import io.prestosql.orc.OrcRecordReader;
 import io.prestosql.orc.TupleDomainOrcPredicate;
 import io.prestosql.orc.TupleDomainOrcPredicate.TupleDomainOrcPredicateBuilder;
 import io.prestosql.orc.metadata.OrcType.OrcTypeKind;
+import io.prestosql.plugin.hive.DeleteDeltaLocations;
 import io.prestosql.plugin.hive.FileFormatDataSourceStats;
 import io.prestosql.plugin.hive.HdfsEnvironment;
 import io.prestosql.plugin.hive.HiveColumnHandle;
@@ -129,11 +130,14 @@ public class OrcPageSourceFactory
             Properties schema,
             List<HiveColumnHandle> columns,
             TupleDomain<HiveColumnHandle> effectivePredicate,
-            DateTimeZone hiveStorageTimeZone)
+            DateTimeZone hiveStorageTimeZone,
+            Optional<DeleteDeltaLocations> deleteDeltaLocations)
     {
         if (!isDeserializerClass(schema, OrcSerde.class)) {
             return Optional.empty();
         }
+
+        checkArgument(!deleteDeltaLocations.isPresent(), "Delete delta is not supported");
 
         // per HIVE-13040 and ORC-162, empty files are allowed
         if (fileSize == 0) {

@@ -22,6 +22,7 @@ import io.prestosql.plugin.hive.HiveColumnHandle.ColumnType;
 import io.prestosql.spi.HostAddress;
 import io.prestosql.spi.type.TestingTypeManager;
 import io.prestosql.spi.type.Type;
+import org.apache.hadoop.fs.Path;
 import org.testng.annotations.Test;
 
 import java.time.Instant;
@@ -50,6 +51,12 @@ public class TestHiveSplit
 
         ImmutableList<HivePartitionKey> partitionKeys = ImmutableList.of(new HivePartitionKey("a", "apple"), new HivePartitionKey("b", "42"));
         ImmutableList<HostAddress> addresses = ImmutableList.of(HostAddress.fromParts("127.0.0.1", 44), HostAddress.fromParts("127.0.0.1", 45));
+
+        DeleteDeltaLocations.Builder deleteDeltaLocationsBuilder = DeleteDeltaLocations.builder(new Path("file:///data/fullacid"));
+        deleteDeltaLocationsBuilder.addDeleteDelta(new Path("file:///data/fullacid/delete_delta_0000004_0000004_0000"), 4L, 4L, 0);
+        deleteDeltaLocationsBuilder.addDeleteDelta(new Path("file:///data/fullacid/delete_delta_0000007_0000007_0000"), 7L, 7L, 0);
+        DeleteDeltaLocations deleteDeltaLocations = deleteDeltaLocationsBuilder.build().get();
+
         HiveSplit expected = new HiveSplit(
                 "db",
                 "table",
@@ -70,7 +77,8 @@ public class TestHiveSplit
                         32,
                         16,
                         ImmutableList.of(new HiveColumnHandle("col", HIVE_LONG, BIGINT, 5, ColumnType.REGULAR, Optional.of("comment"))))),
-                false);
+                false,
+                Optional.of(deleteDeltaLocations));
 
         String json = codec.toJson(expected);
         HiveSplit actual = codec.fromJson(json);
@@ -89,5 +97,6 @@ public class TestHiveSplit
         assertEquals(actual.getBucketConversion(), expected.getBucketConversion());
         assertEquals(actual.isForceLocalScheduling(), expected.isForceLocalScheduling());
         assertEquals(actual.isS3SelectPushdownEnabled(), expected.isS3SelectPushdownEnabled());
+        assertEquals(actual.getDeleteDeltaLocations().get(), expected.getDeleteDeltaLocations().get());
     }
 }
