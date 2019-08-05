@@ -370,7 +370,8 @@ class HiveSplitSource
                         internalSplit.isForceLocalScheduling(),
                         transformValues(internalSplit.getColumnCoercions(), HiveTypeName::toHiveType),
                         internalSplit.getBucketConversion(),
-                        internalSplit.isS3SelectPushdownEnabled()));
+                        internalSplit.isS3SelectPushdownEnabled(),
+                        internalSplit.getDeleteDeltaLocations()));
 
                 internalSplit.increaseStart(splitBytes);
 

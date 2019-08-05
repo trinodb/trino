@@ -51,6 +51,7 @@ public class HiveSplit
     private final Map<Integer, HiveType> columnCoercions; // key: hiveColumnIndex
     private final Optional<BucketConversion> bucketConversion;
     private final boolean s3SelectPushdownEnabled;
+    private final Optional<DeleteDeltaLocations> deleteDeltaLocations;
 
     @JsonCreator
     public HiveSplit(
@@ -69,7 +70,8 @@ public class HiveSplit
             @JsonProperty("forceLocalScheduling") boolean forceLocalScheduling,
             @JsonProperty("columnCoercions") Map<Integer, HiveType> columnCoercions,
             @JsonProperty("bucketConversion") Optional<BucketConversion> bucketConversion,
-            @JsonProperty("s3SelectPushdownEnabled") boolean s3SelectPushdownEnabled)
+            @JsonProperty("s3SelectPushdownEnabled") boolean s3SelectPushdownEnabled,
+            @JsonProperty("deleteDeltaLocations") Optional<DeleteDeltaLocations> deleteDeltaLocations)
     {
         checkArgument(start >= 0, "start must be positive");
         checkArgument(length >= 0, "length must be positive");
@@ -84,6 +86,7 @@ public class HiveSplit
         requireNonNull(bucketNumber, "bucketNumber is null");
         requireNonNull(columnCoercions, "columnCoercions is null");
         requireNonNull(bucketConversion, "bucketConversion is null");
+        requireNonNull(deleteDeltaLocations, "deleteDeltaLocations is null");
 
         this.database = database;
         this.table = table;
@@ -101,6 +104,7 @@ public class HiveSplit
         this.columnCoercions = columnCoercions;
         this.bucketConversion = bucketConversion;
         this.s3SelectPushdownEnabled = s3SelectPushdownEnabled;
+        this.deleteDeltaLocations = deleteDeltaLocations;
     }
 
     @JsonProperty
@@ -204,6 +208,12 @@ public class HiveSplit
     public boolean isS3SelectPushdownEnabled()
     {
         return s3SelectPushdownEnabled;
+    }
+
+    @JsonProperty
+    public Optional<DeleteDeltaLocations> getDeleteDeltaLocations()
+    {
+        return deleteDeltaLocations;
     }
 
     @Override
