@@ -177,12 +177,6 @@ public class RaptorSplitManager
             executor.execute(iterator::close);
         }
 
-        @Override
-        public boolean isFinished()
-        {
-            return !iterator.hasNext();
-        }
-
         private Supplier<ConnectorSplitBatch> batchSupplier(int maxSize)
         {
             return () -> {
@@ -196,7 +190,7 @@ public class RaptorSplitManager
                     }
                     list.add(createSplit(iterator.next()));
                 }
-                return new ConnectorSplitBatch(list.build(), isFinished());
+                return new ConnectorSplitBatch(list.build(), !iterator.hasNext());
             };
         }
 

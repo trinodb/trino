@@ -206,8 +206,12 @@ public class TestJmxSplitManager
             throws InterruptedException, ExecutionException
     {
         ImmutableList.Builder<ConnectorSplit> splits = ImmutableList.builder();
-        while (!splitSource.isFinished()) {
-            splits.addAll(splitSource.getNextBatch(NOT_PARTITIONED, 1000).get().getSplits());
+        while (true) {
+            ConnectorSplitSource.ConnectorSplitBatch batch = splitSource.getNextBatch(NOT_PARTITIONED, 1000).get();
+            splits.addAll(batch.getSplits());
+            if (batch.isNoMoreSplits()) {
+                break;
+            }
         }
         return splits.build();
     }

@@ -72,13 +72,7 @@ public class IcebergSplitSource
             FileScanTask task = iterator.next();
             splits.add(toIcebergSplit(task));
         }
-        return completedFuture(new ConnectorSplitBatch(splits, isFinished()));
-    }
-
-    @Override
-    public boolean isFinished()
-    {
-        return !fileScanIterator.hasNext();
+        return completedFuture(new ConnectorSplitBatch(splits, !fileScanIterator.hasNext()));
     }
 
     @Override

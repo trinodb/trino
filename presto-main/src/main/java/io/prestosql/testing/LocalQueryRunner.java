@@ -754,9 +754,13 @@ public class LocalQueryRunner
                     EMPTY);
 
             ImmutableSet.Builder<ScheduledSplit> scheduledSplits = ImmutableSet.builder();
-            while (!splitSource.isFinished()) {
-                for (Split split : getNextBatch(splitSource)) {
+            while (true) {
+                SplitSource.SplitBatch batch = getFutureValue(splitSource.getNextBatch(NOT_PARTITIONED, Lifespan.taskWide(), 1000));
+                for (Split split : batch.getSplits()) {
                     scheduledSplits.add(new ScheduledSplit(sequenceId++, tableScan.getId(), split));
+                }
+                if (batch.isLastBatch()) {
+                    break;
                 }
             }
 
@@ -867,11 +871,6 @@ public class LocalQueryRunner
         Analysis analysis = analyzer.analyze(preparedQuery.getStatement());
         // make LocalQueryRunner always compute plan statistics for test purposes
         return logicalPlanner.plan(analysis, stage);
-    }
-
-    private static List<Split> getNextBatch(SplitSource splitSource)
-    {
-        return getFutureValue(splitSource.getNextBatch(NOT_PARTITIONED, Lifespan.taskWide(), 1000)).getSplits();
     }
 
     private static List<TableScanNode> findTableScanNodes(PlanNode node)

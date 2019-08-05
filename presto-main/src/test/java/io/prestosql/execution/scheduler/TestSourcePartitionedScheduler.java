@@ -610,8 +610,7 @@ public class TestSourcePartitionedScheduler
             return ImmutableList.copyOf(elements);
         }
 
-        @Override
-        public synchronized boolean isFinished()
+        private synchronized boolean isFinished()
         {
             return closed && queue.isEmpty();
         }

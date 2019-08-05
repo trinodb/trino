@@ -52,7 +52,6 @@ public class TestBufferingSplitSource
             requireFutureValue(getNextBatch(source, 20))
                     .assertSize(9)
                     .assertNoMoreSplits(true);
-            assertTrue(source.isFinished());
             assertEquals(mockSource.getNextBatchInvocationCount(), 25);
         }
     }
@@ -71,7 +70,6 @@ public class TestBufferingSplitSource
             requireFutureValue(getNextBatch(source, 200))
                     .assertSize(11)
                     .assertNoMoreSplits(true);
-            assertTrue(source.isFinished());
             assertEquals(mockSource.getNextBatchInvocationCount(), 2);
         }
     }
@@ -86,7 +84,6 @@ public class TestBufferingSplitSource
             requireFutureValue(getNextBatch(source, 200))
                     .assertSize(0)
                     .assertNoMoreSplits(true);
-            assertTrue(source.isFinished());
             assertEquals(mockSource.getNextBatchInvocationCount(), 1);
         }
     }
@@ -114,7 +111,6 @@ public class TestBufferingSplitSource
             requireFutureValue(nextBatchFuture)
                     .assertSize(0)
                     .assertNoMoreSplits(true);
-            assertTrue(source.isFinished());
         }
 
         mockSource = new MockSplitSource()
@@ -137,7 +133,6 @@ public class TestBufferingSplitSource
             requireFutureValue(nextBatchFuture)
                     .assertSize(5)
                     .assertNoMoreSplits(true);
-            assertTrue(source.isFinished());
         }
 
         mockSource = new MockSplitSource()
@@ -158,7 +153,6 @@ public class TestBufferingSplitSource
             assertFalse(nextBatchFuture.isDone());
             mockSource.atSplitCompletion(FAIL);
             assertFutureFailsWithMockFailure(nextBatchFuture);
-            assertFalse(source.isFinished());
         }
 
         // Fast source: source produce 8 before, and 8 after invocation. BufferedSource should return all 16 at once.
@@ -185,7 +179,6 @@ public class TestBufferingSplitSource
             requireFutureValue(getNextBatch(source, 1))
                     .assertSize(1)
                     .assertNoMoreSplits(false);
-            assertFalse(source.isFinished());
             // Most of the time, mockSource.isFinished() returns the same value as
             // the SplitBatch.noMoreSplits field of the preceding mockSource.getNextBatch() call.
             // However, this is NOT always the case.
@@ -195,7 +188,6 @@ public class TestBufferingSplitSource
             requireFutureValue(getNextBatch(source, 1))
                     .assertSize(0)
                     .assertNoMoreSplits(true);
-            assertTrue(source.isFinished());
             assertEquals(mockSource.getNextBatchInvocationCount(), 2);
         }
     }

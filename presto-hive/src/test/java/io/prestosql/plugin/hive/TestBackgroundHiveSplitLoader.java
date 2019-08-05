@@ -31,6 +31,7 @@ import io.prestosql.plugin.hive.metastore.Table;
 import io.prestosql.plugin.hive.util.HiveBucketing.HiveBucketFilter;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.connector.ConnectorSplitSource;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.TupleDomain;
@@ -340,7 +341,6 @@ public class TestBackgroundHiveSplitLoader
         backgroundHiveSplitLoader.start(hiveSplitSource);
 
         assertThrows(RuntimeException.class, () -> drain(hiveSplitSource));
-        assertThrows(RuntimeException.class, hiveSplitSource::isFinished);
     }
 
     @Test
@@ -471,9 +471,6 @@ public class TestBackgroundHiveSplitLoader
         backgroundHiveSplitLoader.start(hiveSplitSource);
 
         assertThatThrownBy(() -> drain(hiveSplitSource))
-                .hasMessageEndingWith("loading error occurred");
-
-        assertThatThrownBy(hiveSplitSource::isFinished)
                 .hasMessageEndingWith("loading error occurred");
 
         if (threads == 1) {
@@ -694,11 +691,14 @@ public class TestBackgroundHiveSplitLoader
             throws Exception
     {
         ImmutableList.Builder<HiveSplit> splits = ImmutableList.builder();
-        while (!source.isFinished()) {
-            source.getNextBatch(NOT_PARTITIONED, 100).get()
-                    .getSplits().stream()
+        while (true) {
+            ConnectorSplitSource.ConnectorSplitBatch batch = source.getNextBatch(NOT_PARTITIONED, 100).get();
+            batch.getSplits().stream()
                     .map(HiveSplit.class::cast)
                     .forEach(splits::add);
+            if (batch.isNoMoreSplits()) {
+                break;
+            }
         }
         return splits.build();
     }
