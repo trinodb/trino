@@ -146,7 +146,8 @@ public class TestOrcPageSourceFactory
                 createSchema(),
                 columnHandles,
                 tupleDomain,
-                DateTimeZone.UTC).get();
+                DateTimeZone.UTC,
+                Optional.empty()).get();
 
         int nationKeyColumn = columnNames.indexOf("n_nationkey");
         int nameColumn = columnNames.indexOf("n_name");
