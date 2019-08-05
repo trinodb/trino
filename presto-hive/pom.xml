@@ -231,6 +231,14 @@
             <scope>test</scope>
         </dependency>
 
+        <!-- resource content needed from presto-orc -->
+        <dependency>
+            <groupId>io.prestosql</groupId>
+            <artifactId>presto-orc</artifactId>
+            <type>test-jar</type>
+            <scope>test</scope>
+        </dependency>
+
         <dependency>
             <groupId>io.prestosql</groupId>
             <artifactId>presto-main</artifactId>

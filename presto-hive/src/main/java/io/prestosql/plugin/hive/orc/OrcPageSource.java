@@ -13,6 +13,7 @@
  */
 package io.prestosql.plugin.hive.orc;
 
+import com.google.common.annotations.VisibleForTesting;
 import io.prestosql.memory.context.AggregatedMemoryContext;
 import io.prestosql.orc.OrcCorruptionException;
 import io.prestosql.orc.OrcDataSource;
@@ -42,7 +43,7 @@ import static java.util.Objects.requireNonNull;
 public class OrcPageSource
         implements ConnectorPageSource
 {
-    private final OrcRecordReader recordReader;
+    protected final OrcRecordReader recordReader;
     private final OrcDataSource orcDataSource;
 
     private final Block[] constantBlocks;
@@ -183,6 +184,12 @@ public class OrcPageSource
                 throwable.addSuppressed(e);
             }
         }
+    }
+
+    @VisibleForTesting
+    public OrcRecordReader getRecordReader()
+    {
+        return recordReader;
     }
 
     private final class OrcBlockLoader

@@ -213,6 +213,13 @@
 
             <dependency>
                 <groupId>io.prestosql</groupId>
+                <artifactId>presto-orc</artifactId>
+                <version>${project.version}</version>
+                <type>test-jar</type>
+            </dependency>
+
+            <dependency>
+                <groupId>io.prestosql</groupId>
                 <artifactId>presto-parquet</artifactId>
                 <version>${project.version}</version>
             </dependency>

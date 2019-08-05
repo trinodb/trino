@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.plugin.hive.orc;
+package io.prestosql.plugin.hive.orc.acid;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -23,15 +23,19 @@ import io.prestosql.orc.OrcReader;
 import io.prestosql.orc.OrcReaderOptions;
 import io.prestosql.orc.OrcRecordReader;
 import io.prestosql.orc.TupleDomainOrcPredicate;
-import io.prestosql.orc.TupleDomainOrcPredicate.ColumnReference;
+import io.prestosql.orc.metadata.OrcType;
 import io.prestosql.plugin.hive.FileFormatDataSourceStats;
 import io.prestosql.plugin.hive.HdfsEnvironment;
 import io.prestosql.plugin.hive.HiveColumnHandle;
 import io.prestosql.plugin.hive.HivePageSourceFactory;
+import io.prestosql.plugin.hive.orc.HdfsOrcDataSource;
+import io.prestosql.plugin.hive.orc.OrcPageSource;
+import io.prestosql.plugin.hive.orc.OrcReaderConfig;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ConnectorPageSource;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.FixedPageSource;
+import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeManager;
@@ -49,7 +53,6 @@ import javax.inject.Inject;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
@@ -58,7 +61,9 @@ import java.util.regex.Pattern;
 import static com.google.common.base.Strings.nullToEmpty;
 import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.prestosql.orc.OrcReader.INITIAL_BATCH_SIZE;
+import static io.prestosql.orc.TupleDomainOrcPredicate.ColumnReference;
 import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
+import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_FILE_MISSING_COLUMN_NAMES;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_MISSING_DATA;
@@ -73,32 +78,20 @@ import static io.prestosql.plugin.hive.util.HiveUtil.isDeserializerClass;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
-public class OrcPageSourceFactory
+public class AcidOrcPageSourceFactory
         implements HivePageSourceFactory
 {
     private static final Pattern DEFAULT_HIVE_COLUMN_NAME_PATTERN = Pattern.compile("_col\\d+");
     private final TypeManager typeManager;
-    private final boolean useOrcColumnNames;
     private final OrcReaderOptions orcReaderOptions;
     private final HdfsEnvironment hdfsEnvironment;
     private final FileFormatDataSourceStats stats;
 
     @Inject
-    public OrcPageSourceFactory(TypeManager typeManager, OrcReaderConfig config, HdfsEnvironment hdfsEnvironment, FileFormatDataSourceStats stats)
-    {
-        this(typeManager, requireNonNull(config, "config is null").isUseColumnNames(), config.toOrcReaderOptions(), hdfsEnvironment, stats);
-    }
-
-    public OrcPageSourceFactory(
-            TypeManager typeManager,
-            boolean useOrcColumnNames,
-            OrcReaderOptions orcReaderOptions,
-            HdfsEnvironment hdfsEnvironment,
-            FileFormatDataSourceStats stats)
+    public AcidOrcPageSourceFactory(TypeManager typeManager, OrcReaderConfig config, HdfsEnvironment hdfsEnvironment, FileFormatDataSourceStats stats)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
-        this.useOrcColumnNames = useOrcColumnNames;
-        this.orcReaderOptions = requireNonNull(orcReaderOptions, "orcReaderOptions is null");
+        this.orcReaderOptions = requireNonNull(config.toOrcReaderOptions(), "orcReaderOptions is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.stats = requireNonNull(stats, "stats is null");
     }
@@ -121,7 +114,7 @@ public class OrcPageSourceFactory
         }
 
         boolean isFullAcid = AcidUtils.isFullAcidTable(((Map<String, String>) (((Map) schema))));
-        if (isFullAcid) {
+        if (!isFullAcid) {
             return Optional.empty();
         }
 
@@ -130,16 +123,16 @@ public class OrcPageSourceFactory
             return Optional.of(new FixedPageSource(ImmutableList.of()));
         }
 
-        return Optional.of(createOrcPageSource(
+        return Optional.of(createAcidOrcPageSource(
                 hdfsEnvironment,
                 session.getUser(),
+                session,
                 configuration,
                 path,
                 start,
                 length,
                 fileSize,
                 columns,
-                useOrcColumnNames,
                 effectivePredicate,
                 hiveStorageTimeZone,
                 typeManager,
@@ -154,16 +147,16 @@ public class OrcPageSourceFactory
                 stats));
     }
 
-    private static OrcPageSource createOrcPageSource(
+    public static ConnectorPageSource createAcidOrcPageSource(
             HdfsEnvironment hdfsEnvironment,
             String sessionUser,
+            ConnectorSession session,
             Configuration configuration,
             Path path,
             long start,
             long length,
             long fileSize,
             List<HiveColumnHandle> columns,
-            boolean useOrcColumnNames,
             TupleDomain<HiveColumnHandle> effectivePredicate,
             DateTimeZone hiveStorageTimeZone,
             TypeManager typeManager,
@@ -193,7 +186,7 @@ public class OrcPageSourceFactory
         try {
             OrcReader reader = new OrcReader(orcDataSource, options);
 
-            List<HiveColumnHandle> physicalColumns = getPhysicalHiveColumnHandles(columns, useOrcColumnNames, reader, path);
+            List<HiveColumnHandle> physicalColumns = getPhysicalHiveColumnHandlesAcid(columns, reader, path);
             ImmutableMap.Builder<Integer, Type> includedColumnsBuilder = ImmutableMap.builder();
             ImmutableList.Builder<ColumnReference<HiveColumnHandle>> columnReferences = ImmutableList.builder();
             for (HiveColumnHandle column : physicalColumns) {
@@ -204,8 +197,23 @@ public class OrcPageSourceFactory
                 }
             }
 
-            ImmutableMap<Integer, Type> includedColumns = includedColumnsBuilder.build();
+            // effective predicate should be updated to have new column index in the Domain because data columns are now shifted by 5 positions
+            if (effectivePredicate.getDomains().isPresent()) {
+                Map<HiveColumnHandle, Domain> predicateDomain = effectivePredicate.getDomains().get();
+                ImmutableMap.Builder<HiveColumnHandle, Domain> newPredicateDomain = ImmutableMap.builder();
+                for (Map.Entry<HiveColumnHandle, Domain> entry : predicateDomain.entrySet()) {
+                    HiveColumnHandle columnHandle = entry.getKey();
+                    Domain domain = entry.getValue();
+                    for (HiveColumnHandle physicalColumn : physicalColumns) {
+                        if (physicalColumn.getName().equals(columnHandle.getName())) {
+                            newPredicateDomain.put(physicalColumn, domain);
+                        }
+                    }
+                }
+                effectivePredicate = TupleDomain.withColumnDomains(newPredicateDomain.build());
+            }
 
+            ImmutableMap<Integer, Type> includedColumns = includedColumnsBuilder.build();
             OrcPredicate predicate = new TupleDomainOrcPredicate<>(effectivePredicate, columnReferences.build(), options.isBloomFiltersEnabled());
 
             OrcRecordReader recordReader = reader.createRecordReader(
@@ -216,7 +224,7 @@ public class OrcPageSourceFactory
                     hiveStorageTimeZone,
                     systemMemoryUsage,
                     INITIAL_BATCH_SIZE,
-                    false);
+                    true);
 
             return new OrcPageSource(
                     recordReader,
@@ -247,18 +255,17 @@ public class OrcPageSourceFactory
         return format("Error opening Hive split %s (offset=%s, length=%s): %s", path, start, length, t.getMessage());
     }
 
-    private static List<HiveColumnHandle> getPhysicalHiveColumnHandles(List<HiveColumnHandle> columns, boolean useOrcColumnNames, OrcReader reader, Path path)
+    private static List<HiveColumnHandle> getPhysicalHiveColumnHandlesAcid(List<HiveColumnHandle> columns, OrcReader reader, Path path)
     {
-        if (!useOrcColumnNames) {
-            return columns;
-        }
+        // Always use column names from reader for Acid files
 
         verifyFileHasColumnNames(reader.getColumnNames(), path);
 
-        Map<String, Integer> physicalNameOrdinalMap = buildPhysicalNameOrdinalMap(reader);
+        Map<String, Integer> physicalNameOrdinalMap = buildPhysicalNameOrdinalMapAcid(reader);
         int nextMissingColumnIndex = physicalNameOrdinalMap.size();
 
         ImmutableList.Builder<HiveColumnHandle> physicalColumns = ImmutableList.builder();
+
         for (HiveColumnHandle column : columns) {
             Integer physicalOrdinal = physicalNameOrdinalMap.get(column.getName());
             if (physicalOrdinal == null) {
@@ -281,14 +288,33 @@ public class OrcPageSourceFactory
         }
     }
 
-    private static Map<String, Integer> buildPhysicalNameOrdinalMap(OrcReader reader)
+    private static Map<String, Integer> buildPhysicalNameOrdinalMapAcid(OrcReader reader)
     {
         ImmutableMap.Builder<String, Integer> physicalNameOrdinalMap = ImmutableMap.builder();
 
+        List<OrcType> types = reader.getFooter().getTypes();
+        // This is the structure of Acid file
+        // struct<operation:int, originalTransaction:bigint, bucket:int, rowId:bigint, currentTransaction:bigint, row:struct<TABLE COLUMNS>>
+        // RootStruct is type[0], originalTransaction is type[1], ..., RowStruct is type[6], table column1 is type[7] and so on
+        if (types.size() < 7) {
+            throw new PrestoException(
+                    HIVE_BAD_DATA,
+                    "ORC file does not contain adequate column types for Acid file: " + types);
+        }
+
+        List<String> tableColumnNames = types.get(6).getFieldNames();
         int ordinal = 0;
-        for (String physicalColumnName : reader.getColumnNames()) {
-            // Convert column names read from ORC files to lower case to be consistent with those stored in Hive Metastore
-            physicalNameOrdinalMap.put(physicalColumnName.toLowerCase(Locale.ENGLISH), ordinal);
+        // Add Acid meta columns
+        for (int i = 0; i < types.get(0).getFieldCount() - 1; i++) { // -1 to skip the row STRUCT of data columns
+            // Keeping ordinals starting from 0 as it will match with OrcRecordReader.getStatisticsByColumnOrdinal data column ordinals
+            physicalNameOrdinalMap.put(types.get(0).getFieldName(i), ordinal);
+            ordinal++;
+        }
+
+        // Add Data columns
+        for (String physicalColumnName : tableColumnNames) {
+            // Keeping ordinals starting from 0 as it will match with OrcRecordReader.getStatisticsByColumnOrdinal data column ordinals
+            physicalNameOrdinalMap.put(physicalColumnName, ordinal);
             ordinal++;
         }
 
