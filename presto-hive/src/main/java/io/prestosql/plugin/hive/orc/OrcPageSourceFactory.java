@@ -82,6 +82,8 @@ import static io.prestosql.plugin.hive.HiveSessionProperties.isOrcNestedLazy;
 import static io.prestosql.plugin.hive.HiveSessionProperties.isUseOrcColumnNames;
 import static io.prestosql.plugin.hive.orc.OrcPageSource.handleException;
 import static io.prestosql.plugin.hive.util.HiveUtil.isDeserializerClass;
+import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -137,8 +139,6 @@ public class OrcPageSourceFactory
             return Optional.empty();
         }
 
-        checkArgument(!deleteDeltaLocations.isPresent(), "Delete delta is not supported");
-
         // per HIVE-13040 and ORC-162, empty files are allowed
         if (fileSize == 0) {
             return Optional.of(new FixedPageSource(ImmutableList.of()));
@@ -166,6 +166,7 @@ public class OrcPageSourceFactory
                         .withLazyReadSmallRanges(getOrcLazyReadSmallRanges(session))
                         .withNestedLazy(isOrcNestedLazy(session))
                         .withBloomFiltersEnabled(isOrcBloomFiltersEnabled(session)),
+                deleteDeltaLocations,
                 stats));
     }
 
@@ -183,6 +184,7 @@ public class OrcPageSourceFactory
             TupleDomain<HiveColumnHandle> effectivePredicate,
             DateTimeZone hiveStorageTimeZone,
             OrcReaderOptions options,
+            Optional<DeleteDeltaLocations> deleteDeltaLocations,
             FileFormatDataSourceStats stats)
     {
         for (HiveColumnHandle column : columns) {
@@ -214,9 +216,19 @@ public class OrcPageSourceFactory
             OrcReader reader = new OrcReader(orcDataSource, options);
 
             List<OrcColumn> fileColumns = reader.getRootColumn().getNestedColumns();
+            List<OrcColumn> fileReadColumns = new ArrayList<>(columns.size() + (isFullAcid ? 3 : 0));
+            List<Type> fileReadTypes = new ArrayList<>(columns.size() + (isFullAcid ? 3 : 0));
             if (isFullAcid) {
                 verifyAcidSchema(reader, path);
-                fileColumns = uniqueIndex(fileColumns, orcColumn -> orcColumn.getColumnName().toLowerCase(ENGLISH)).get(ACID_COLUMN_ROW_STRUCT.toLowerCase(ENGLISH)).getNestedColumns();
+                Map<String, OrcColumn> acidColumnsByName = uniqueIndex(fileColumns, orcColumn -> orcColumn.getColumnName().toLowerCase(ENGLISH));
+                fileColumns = acidColumnsByName.get(ACID_COLUMN_ROW_STRUCT.toLowerCase(ENGLISH)).getNestedColumns();
+
+                fileReadColumns.add(acidColumnsByName.get(ACID_COLUMN_ORIGINAL_TRANSACTION.toLowerCase(ENGLISH)));
+                fileReadTypes.add(BIGINT);
+                fileReadColumns.add(acidColumnsByName.get(ACID_COLUMN_BUCKET.toLowerCase(ENGLISH)));
+                fileReadTypes.add(INTEGER);
+                fileReadColumns.add(acidColumnsByName.get(ACID_COLUMN_ROW_ID.toLowerCase(ENGLISH)));
+                fileReadTypes.add(BIGINT);
             }
 
             Map<String, OrcColumn> fileColumnsByName = ImmutableMap.of();
@@ -231,8 +243,6 @@ public class OrcPageSourceFactory
                     .setBloomFiltersEnabled(options.isBloomFiltersEnabled());
             Map<HiveColumnHandle, Domain> effectivePredicateDomains = effectivePredicate.getDomains()
                     .orElseThrow(() -> new IllegalArgumentException("Effective predicate is none"));
-            List<OrcColumn> fileReadColumns = new ArrayList<>(columns.size());
-            List<Type> fileReadTypes = new ArrayList<>(columns.size());
             List<ColumnAdaptation> columnAdaptations = new ArrayList<>(columns.size());
             for (HiveColumnHandle column : columns) {
                 OrcColumn orcColumn = null;
@@ -271,10 +281,20 @@ public class OrcPageSourceFactory
                     INITIAL_BATCH_SIZE,
                     exception -> handleException(orcDataSource.getId(), exception));
 
+            Optional<OrcDeletedRows> deletedRows = deleteDeltaLocations.map(locations ->
+                    new OrcDeletedRows(
+                            path.getName(),
+                            new OrcDeleteDeltaPageSourceFactory(options, sessionUser, configuration, hdfsEnvironment, stats),
+                            sessionUser,
+                            configuration,
+                            hdfsEnvironment,
+                            locations));
+
             return new OrcPageSource(
                     recordReader,
                     columnAdaptations,
                     orcDataSource,
+                    deletedRows,
                     systemMemoryUsage,
                     stats);
         }
@@ -309,7 +329,7 @@ public class OrcPageSourceFactory
         }
     }
 
-    private static void verifyAcidSchema(OrcReader orcReader, Path path)
+    static void verifyAcidSchema(OrcReader orcReader, Path path)
     {
         OrcColumn rootColumn = orcReader.getRootColumn();
         if (rootColumn.getNestedColumns().size() != 6) {
