@@ -15,11 +15,15 @@ package io.prestosql.plugin.hive.acid;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.plugin.hive.DeleteDeltaLocations;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.connector.ConnectorPageSource;
 import io.prestosql.spi.type.Type;
+import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.hive.ql.io.AcidUtils;
 
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -106,7 +110,7 @@ public class AcidNationRow
      *
      * If onlyForRowId is provided, then only that row from nation.tbls is read and exploded and others are ignored
      */
-    public static List<AcidNationRow> getExpectedResult(Optional<Integer> onlyForRowId, Optional<Integer> onlyForColumnId)
+    public static List<AcidNationRow> getExpectedResult(Optional<Integer> onlyForRowId, Optional<Integer> onlyForColumnId, Optional<List<Integer>> invalidRows)
             throws IOException
     {
         String nationFilePath = Thread.currentThread().getContextClassLoader().getResource("nation.tbl").getPath();
@@ -119,6 +123,9 @@ public class AcidNationRow
             while ((line = br.readLine()) != null) {
                 lineNum++;
                 if (onlyForRowId.isPresent() && onlyForRowId.get() != lineNum) {
+                    continue;
+                }
+                if (invalidRows.isPresent() && invalidRows.get().contains(lineNum)) {
                     continue;
                 }
                 rowId += replicateIntoResult(line, result, rowId, onlyForColumnId);
@@ -142,5 +149,25 @@ public class AcidNationRow
                     (!onlyForColumnId.isPresent() || onlyForColumnId.get() == 3) ? cols[3] : "INVALID"));
         }
         return replicationFactor;
+    }
+
+    public static void addNationTableDeleteDeltas(DeleteDeltaLocations.Builder deleteDeltaLocationsBuilder, long minWriteId, long maxWriteId, int statementId)
+    {
+        // ClassLoader finds top level resources, find that and build delta locations from it
+        File partitionLocation = new File((Thread.currentThread().getContextClassLoader().getResource("nation_delete_deltas").getPath()));
+        Path deleteDeltaPath = new Path(new Path(partitionLocation.toString()), AcidUtils.deleteDeltaSubdir(minWriteId, maxWriteId, statementId));
+        deleteDeltaLocationsBuilder.addDeleteDelta(deleteDeltaPath, minWriteId, maxWriteId, statementId);
+    }
+
+    public static DeleteDeltaLocations getDeletaDeltaLocations()
+    {
+        // ClassLoader finds top level resources, find that and build delta locations from it
+        File partitionLocation = new File((Thread.currentThread().getContextClassLoader().getResource("nation_delete_deltas").getPath()));
+        DeleteDeltaLocations.Builder deleteDeltaLocationsBuilder = new DeleteDeltaLocations.Builder(new Path(partitionLocation.toString()));
+        Path deleteDeltaPath = new Path(new Path(partitionLocation.toString()), AcidUtils.deleteDeltaSubdir(3L, 3L, 0));
+        deleteDeltaLocationsBuilder.addDeleteDelta(deleteDeltaPath, 3L, 3L, 0);
+        deleteDeltaPath = new Path(new Path(partitionLocation.toString()), AcidUtils.deleteDeltaSubdir(4L, 4L, 0));
+        deleteDeltaLocationsBuilder.addDeleteDelta(deleteDeltaPath, 4L, 4L, 0);
+        return deleteDeltaLocationsBuilder.build();
     }
 }

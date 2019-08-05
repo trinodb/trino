@@ -17,12 +17,14 @@ import com.google.common.collect.ImmutableList;
 import io.prestosql.plugin.hive.FileFormatDataSourceStats;
 import io.prestosql.plugin.hive.HdfsEnvironment;
 import io.prestosql.plugin.hive.HiveColumnHandle;
+import io.prestosql.plugin.hive.HiveConfig;
 import io.prestosql.plugin.hive.HivePageSourceFactory;
 import io.prestosql.plugin.hive.HiveStorageFormat;
 import io.prestosql.plugin.hive.HiveType;
 import io.prestosql.plugin.hive.HiveTypeName;
 import io.prestosql.plugin.hive.HiveTypeTranslator;
 import io.prestosql.plugin.hive.TypeTranslator;
+import io.prestosql.plugin.hive.orc.OrcPageSourceFactory;
 import io.prestosql.plugin.hive.orc.OrcReaderConfig;
 import io.prestosql.plugin.hive.orc.acid.AcidOrcPageSourceFactory;
 import io.prestosql.spi.connector.ConnectorPageSource;
@@ -52,6 +54,7 @@ import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_LIB;
 
 public class AcidPageProcessorProvider
 {
+    public static final HiveConfig CONFIG = new HiveConfig();
     public static final OrcReaderConfig ORC_CONFIG = new OrcReaderConfig();
     private static final HdfsEnvironment HDFS_ENVIRONMENT = createTestHdfsEnvironment();
 
@@ -80,7 +83,8 @@ public class AcidPageProcessorProvider
         }
         List<HiveColumnHandle> columns = builder.build();
 
-        HivePageSourceFactory pageSourceFactory = new AcidOrcPageSourceFactory(TYPE_MANAGER, ORC_CONFIG, HDFS_ENVIRONMENT, new FileFormatDataSourceStats());
+        OrcPageSourceFactory orcPageSourceFactory = new OrcPageSourceFactory(TYPE_MANAGER, ORC_CONFIG, HDFS_ENVIRONMENT, new FileFormatDataSourceStats());
+        HivePageSourceFactory pageSourceFactory = new AcidOrcPageSourceFactory(TYPE_MANAGER, CONFIG, ORC_CONFIG, HDFS_ENVIRONMENT, new FileFormatDataSourceStats(), orcPageSourceFactory);
 
         Configuration config = new JobConf(new Configuration(false));
         config.set("fs.file.impl", "org.apache.hadoop.fs.RawLocalFileSystem");

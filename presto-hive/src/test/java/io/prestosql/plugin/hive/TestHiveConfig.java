@@ -87,7 +87,9 @@ public class TestHiveConfig
                 .setFileStatusCacheMaxSize(1000 * 1000)
                 .setFileStatusCacheTables("")
                 .setHiveTransactionHeartbeatInterval(null)
-                .setHiveTransactionHeartbeatThreads(20));
+                .setHiveTransactionHeartbeatThreads(20)
+                .setDeleteDeltaCacheSize(new DataSize(100, DataSize.Unit.MEGABYTE))
+                .setDeleteDeltaCacheTtl(new Duration(5, TimeUnit.MINUTES)));
     }
 
     @Test
@@ -148,6 +150,8 @@ public class TestHiveConfig
                 .put("hive.file-status-cache-expire-time", "30m")
                 .put("hive.transaction-heartbeat-interval", "10s")
                 .put("hive.transaction-heartbeat-threads", "10")
+                .put("hive.delete-delta-cache-size", "1000MB")
+                .put("hive.delete-delta-cache-ttl", "15m")
                 .build();
 
         HiveConfig expected = new HiveConfig()
@@ -204,7 +208,9 @@ public class TestHiveConfig
                 .setFileStatusCacheMaxSize(1000)
                 .setFileStatusCacheExpireAfterWrite(new Duration(30, TimeUnit.MINUTES))
                 .setHiveTransactionHeartbeatInterval(new Duration(10, TimeUnit.SECONDS))
-                .setHiveTransactionHeartbeatThreads(10);
+                .setHiveTransactionHeartbeatThreads(10)
+                .setDeleteDeltaCacheSize(new DataSize(1000, DataSize.Unit.MEGABYTE))
+                .setDeleteDeltaCacheTtl(new Duration(15, TimeUnit.MINUTES));
 
         assertFullMapping(properties, expected);
     }

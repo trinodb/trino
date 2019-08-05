@@ -26,6 +26,7 @@ import io.prestosql.plugin.hive.orc.OrcPageSourceFactory;
 import io.prestosql.plugin.hive.orc.OrcReaderConfig;
 import io.prestosql.plugin.hive.orc.OrcWriterConfig;
 import io.prestosql.plugin.hive.orc.acid.AcidOrcPageSourceFactory;
+import io.prestosql.plugin.hive.orc.acid.DeletedRowsCacheStats;
 import io.prestosql.plugin.hive.parquet.ParquetPageSourceFactory;
 import io.prestosql.plugin.hive.parquet.ParquetReaderConfig;
 import io.prestosql.plugin.hive.parquet.ParquetWriterConfig;
@@ -88,6 +89,9 @@ public class HiveModule
         binder.bind(HiveWriterStats.class).in(Scopes.SINGLETON);
         newExporter(binder).export(HiveWriterStats.class).withGeneratedName();
 
+        binder.bind(DeletedRowsCacheStats.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(DeletedRowsCacheStats.class).withGeneratedName();
+
         newSetBinder(binder, EventClient.class).addBinding().to(HiveEventClient.class).in(Scopes.SINGLETON);
         binder.bind(HivePartitionManager.class).in(Scopes.SINGLETON);
         binder.bind(LocationService.class).to(HiveLocationService.class).in(Scopes.SINGLETON);
@@ -105,6 +109,8 @@ public class HiveModule
         binder.bind(FileFormatDataSourceStats.class).in(Scopes.SINGLETON);
         newExporter(binder).export(FileFormatDataSourceStats.class).withGeneratedName();
 
+        // Bind OrcPageSourceFactory separately first as it is needed in AcidOrcPageSourceFactory
+        binder.bind(OrcPageSourceFactory.class).in(Scopes.SINGLETON);
         Multibinder<HivePageSourceFactory> pageSourceFactoryBinder = newSetBinder(binder, HivePageSourceFactory.class);
         pageSourceFactoryBinder.addBinding().to(AcidOrcPageSourceFactory.class).in(Scopes.SINGLETON);
         pageSourceFactoryBinder.addBinding().to(OrcPageSourceFactory.class).in(Scopes.SINGLETON);

@@ -67,7 +67,7 @@ public class TestAcidPageSource
         ConnectorPageSource pageSource = AcidPageProcessorProvider.getAcidPageSource(filename, columnNames, columnTypes);
         List<AcidNationRow> rows = readFullFile(pageSource, true);
 
-        List<AcidNationRow> expected = getExpectedResult(Optional.empty(), Optional.empty());
+        List<AcidNationRow> expected = getExpectedResult(Optional.empty(), Optional.empty(), Optional.empty());
         assertEquals(expected, rows);
     }
 
@@ -79,7 +79,7 @@ public class TestAcidPageSource
         ConnectorPageSource pageSource = AcidPageProcessorProvider.getAcidPageSource(filename, ImmutableList.of(columnNames.get(colToRead)), ImmutableList.of(columnTypes.get(colToRead)));
         List<AcidNationRow> rows = readFileCols(pageSource, ImmutableList.of(columnNames.get(colToRead)), ImmutableList.of(columnTypes.get(colToRead)), true);
 
-        List<AcidNationRow> expected = getExpectedResult(Optional.empty(), Optional.of(colToRead));
+        List<AcidNationRow> expected = getExpectedResult(Optional.empty(), Optional.of(colToRead), Optional.empty());
         assertEquals(expected, rows);
     }
 
@@ -128,7 +128,7 @@ public class TestAcidPageSource
         ConnectorPageSource pageSource = AcidPageProcessorProvider.getAcidPageSource(filename, columnNames, columnTypes, tupleDomain);
         List<AcidNationRow> rows = readFullFile(pageSource, true);
 
-        List<AcidNationRow> expected = getExpectedResult(Optional.of(0), Optional.empty());
+        List<AcidNationRow> expected = getExpectedResult(Optional.of(0), Optional.empty(), Optional.empty());
         assertTrue(rows.size() != 0);
         assertFalse(((OrcPageSource) pageSource).getRecordReader().isFileSkipped());
         assertTrue(((OrcPageSource) pageSource).getRecordReader().stripesRead() == 1);  // 1 out of 5 stripes should be read
