@@ -494,7 +494,8 @@ public class TestOrcPageSourceMemoryTracking
                     TYPE_MANAGER,
                     ImmutableMap.of(),
                     Optional.empty(),
-                    false)
+                    false,
+                    Optional.empty())
                     .get();
         }
 

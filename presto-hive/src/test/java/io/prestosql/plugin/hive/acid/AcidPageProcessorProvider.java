@@ -94,7 +94,8 @@ public class AcidPageProcessorProvider
                 createSchema(HiveStorageFormat.ORC, columnNames, columnTypes),
                 columns,
                 tupleDomain,
-                DateTimeZone.forID(SESSION.getTimeZoneKey().getId())).get();
+                DateTimeZone.forID(SESSION.getTimeZoneKey().getId()),
+                Optional.empty()).get();
     }
 
     private static Properties createSchema(HiveStorageFormat format, List<String> columnNames, List<Type> columnTypes)

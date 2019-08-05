@@ -26,6 +26,7 @@ import io.prestosql.plugin.hive.metastore.Column;
 import io.prestosql.plugin.hive.metastore.StorageFormat;
 import io.prestosql.plugin.hive.metastore.Table;
 import io.prestosql.plugin.hive.util.HiveBucketing.HiveBucketFilter;
+import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.predicate.Domain;
@@ -76,6 +77,7 @@ import static io.prestosql.plugin.hive.HiveTestUtils.getHiveSession;
 import static io.prestosql.plugin.hive.HiveType.HIVE_INT;
 import static io.prestosql.plugin.hive.HiveType.HIVE_STRING;
 import static io.prestosql.plugin.hive.util.HiveUtil.getRegularColumnHandles;
+import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static io.prestosql.spi.predicate.TupleDomain.withColumnDomains;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
@@ -316,6 +318,55 @@ public class TestBackgroundHiveSplitLoader
             List<String> splits = drain(hiveSplitSource);
             assertTrue(splits.stream().anyMatch(p -> p.contains(filePaths.get(0))), format("%s not found in splits %s", filePaths.get(0), splits));
             assertTrue(splits.stream().anyMatch(p -> p.contains(filePaths.get(2))), format("%s not found in splits %s", filePaths.get(2), splits));
+        }
+        finally {
+            Files.walk(tablePath).sorted(Comparator.reverseOrder()).map(java.nio.file.Path::toFile).forEach(File::delete);
+        }
+    }
+
+    @Test
+    public void testFullAcidTableWithOriginalFilesFails()
+            throws Exception
+    {
+        java.nio.file.Path tablePath = Files.createTempDirectory(UUID.randomUUID().toString());
+        Table table = table(
+                tablePath.toString(),
+                ImmutableList.of(),
+                Optional.empty(),
+                ImmutableMap.of(
+                        "transactional", "true"));
+
+        List<String> filePaths = ImmutableList.of(
+                tablePath + "/000000_1",
+                tablePath + "/delta_0000002_0000002_0000/bucket_00000");
+
+        try {
+            for (String path : filePaths) {
+                File file = new File(path);
+                file.getParentFile().mkdirs();
+                file.createNewFile();
+                Files.write(file.toPath(), "test".getBytes());
+            }
+
+            // ValidWriteIdsList is of format <currentTxn>$<schema>.<table>:<highWatermark>:<minOpenWriteId>::<AbortedTxns>
+            // This writeId list has high watermark transaction=3
+            String validWriteIdsList = format("4$%s.%s:3:9223372036854775807::", table.getDatabaseName(), table.getTableName());
+
+            BackgroundHiveSplitLoader backgroundHiveSplitLoader = backgroundHiveSplitLoader(
+                    createTestHdfsEnvironment(),
+                    TupleDomain.none(),
+                    Optional.empty(),
+                    table,
+                    Optional.empty(),
+                    Optional.of(new ValidTxnWriteIdList(validWriteIdsList)));
+
+            HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader);
+            backgroundHiveSplitLoader.start(hiveSplitSource);
+            List<String> splits = drain(hiveSplitSource);
+            assertTrue(false, "Split loading should have failed due to original files");
+        }
+        catch (PrestoException e) {
+            assertTrue(e.getErrorCode().equals(NOT_SUPPORTED.toErrorCode()), "Unexpected exception " + e);
         }
         finally {
             Files.walk(tablePath).sorted(Comparator.reverseOrder()).map(java.nio.file.Path::toFile).forEach(File::delete);
