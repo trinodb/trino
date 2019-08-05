@@ -311,6 +311,7 @@ public class IcebergPageSourceProvider
                     recordReader,
                     columnAdaptations,
                     orcDataSource,
+                    Optional.empty(),
                     systemMemoryUsage,
                     stats);
         }

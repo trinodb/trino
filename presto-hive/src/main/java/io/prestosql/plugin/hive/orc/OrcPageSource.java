@@ -20,9 +20,12 @@ import io.prestosql.orc.OrcDataSource;
 import io.prestosql.orc.OrcDataSourceId;
 import io.prestosql.orc.OrcRecordReader;
 import io.prestosql.plugin.hive.FileFormatDataSourceStats;
+import io.prestosql.plugin.hive.orc.OrcDeletedRows.MaskDeletedRowsFunction;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.LazyBlock;
+import io.prestosql.spi.block.LazyBlockLoader;
 import io.prestosql.spi.block.RunLengthEncodedBlock;
 import io.prestosql.spi.connector.ConnectorPageSource;
 import io.prestosql.spi.type.Type;
@@ -30,9 +33,11 @@ import io.prestosql.spi.type.Type;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
 import static java.lang.String.format;
@@ -44,6 +49,7 @@ public class OrcPageSource
     private final OrcRecordReader recordReader;
     private final List<ColumnAdaptation> columnAdaptations;
     private final OrcDataSource orcDataSource;
+    private final Optional<OrcDeletedRows> deletedRows;
 
     private boolean closed;
 
@@ -55,12 +61,14 @@ public class OrcPageSource
             OrcRecordReader recordReader,
             List<ColumnAdaptation> columnAdaptations,
             OrcDataSource orcDataSource,
+            Optional<OrcDeletedRows> deletedRows,
             AggregatedMemoryContext systemMemoryContext,
             FileFormatDataSourceStats stats)
     {
         this.recordReader = requireNonNull(recordReader, "recordReader is null");
         this.columnAdaptations = ImmutableList.copyOf(requireNonNull(columnAdaptations, "columnAdaptations is null"));
         this.orcDataSource = requireNonNull(orcDataSource, "orcDataSource is null");
+        this.deletedRows = requireNonNull(deletedRows, "deletedRows is null");
         this.stats = requireNonNull(stats, "stats is null");
         this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
     }
@@ -100,11 +108,14 @@ public class OrcPageSource
             return null;
         }
 
+        MaskDeletedRowsFunction maskDeletedRowsFunction = deletedRows
+                .map(deletedRows -> deletedRows.getMaskDeletedRowsFunction(page))
+                .orElseGet(() -> MaskDeletedRowsFunction.noMaskForPage(page));
         Block[] blocks = new Block[columnAdaptations.size()];
         for (int i = 0; i < columnAdaptations.size(); i++) {
-            blocks[i] = columnAdaptations.get(i).block(page);
+            blocks[i] = columnAdaptations.get(i).block(page, maskDeletedRowsFunction);
         }
-        return new Page(page.getPositionCount(), blocks);
+        return new Page(maskDeletedRowsFunction.getPositionCount(), blocks);
     }
 
     static PrestoException handleException(OrcDataSourceId dataSourceId, Exception exception)
@@ -167,7 +178,7 @@ public class OrcPageSource
 
     public interface ColumnAdaptation
     {
-        Block block(Page sourcePage);
+        Block block(Page sourcePage, MaskDeletedRowsFunction maskDeletedRowsFunction);
 
         static ColumnAdaptation nullColumn(Type type)
         {
@@ -195,9 +206,9 @@ public class OrcPageSource
         }
 
         @Override
-        public Block block(Page sourcePage)
+        public Block block(Page sourcePage, MaskDeletedRowsFunction maskDeletedRowsFunction)
         {
-            return new RunLengthEncodedBlock(nullBlock, sourcePage.getPositionCount());
+            return new RunLengthEncodedBlock(nullBlock, maskDeletedRowsFunction.getPositionCount());
         }
 
         @Override
@@ -221,9 +232,10 @@ public class OrcPageSource
         }
 
         @Override
-        public Block block(Page sourcePage)
+        public Block block(Page sourcePage, MaskDeletedRowsFunction maskDeletedRowsFunction)
         {
-            return sourcePage.getBlock(index);
+            Block block = sourcePage.getBlock(index);
+            return new LazyBlock(maskDeletedRowsFunction.getPositionCount(), new MaskingBlockLoader(maskDeletedRowsFunction, block));
         }
 
         @Override
@@ -232,6 +244,32 @@ public class OrcPageSource
             return toStringHelper(this)
                     .add("index", index)
                     .toString();
+        }
+
+        private static final class MaskingBlockLoader
+                implements LazyBlockLoader
+        {
+            private MaskDeletedRowsFunction maskDeletedRowsFunction;
+            private Block sourceBlock;
+
+            public MaskingBlockLoader(MaskDeletedRowsFunction maskDeletedRowsFunction, Block sourceBlock)
+            {
+                this.maskDeletedRowsFunction = requireNonNull(maskDeletedRowsFunction, "maskDeletedRowsFunction is null");
+                this.sourceBlock = requireNonNull(sourceBlock, "sourceBlock is null");
+            }
+
+            @Override
+            public Block load()
+            {
+                checkState(maskDeletedRowsFunction != null, "Already loaded");
+
+                Block resultBlock = maskDeletedRowsFunction.apply(sourceBlock.getLoadedBlock());
+
+                maskDeletedRowsFunction = null;
+                sourceBlock = null;
+
+                return resultBlock;
+            }
         }
     }
 }
