@@ -23,6 +23,7 @@ import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.predicate.TupleDomain;
+import org.apache.hadoop.hive.ql.io.AcidUtils;
 
 import java.util.List;
 import java.util.Map;
@@ -193,6 +194,12 @@ public class HiveTableHandle
     public SchemaTableName getSchemaTableName()
     {
         return new SchemaTableName(schemaName, tableName);
+    }
+
+    @Override
+    public boolean isTransactionalTable()
+    {
+        return AcidUtils.isTransactionalTable(getTableParameters().orElseThrow(() -> new IllegalStateException("tableParameters missing")));
     }
 
     @Override

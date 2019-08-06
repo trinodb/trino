@@ -71,6 +71,11 @@ public final class TableHandle
         return transaction;
     }
 
+    public boolean isTransactionalTable()
+    {
+        return connectorHandle.isTransactionalTable();
+    }
+
     @Override
     public String toString()
     {

@@ -15,4 +15,8 @@ package io.prestosql.spi.connector;
 
 public interface ConnectorTableHandle
 {
+    default boolean isTransactionalTable()
+    {
+        return false;
+    }
 }
