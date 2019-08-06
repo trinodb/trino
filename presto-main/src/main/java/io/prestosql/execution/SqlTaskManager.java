@@ -69,6 +69,8 @@ import static com.google.common.base.Predicates.notNull;
 import static com.google.common.collect.Iterables.filter;
 import static com.google.common.collect.Iterables.transform;
 import static io.airlift.concurrent.Threads.threadsNamed;
+import static io.prestosql.SystemSessionProperties.getQueryMaxMemoryPerNode;
+import static io.prestosql.SystemSessionProperties.getQueryMaxTotalMemoryPerNode;
 import static io.prestosql.SystemSessionProperties.resourceOvercommit;
 import static io.prestosql.execution.SqlTask.createSqlTask;
 import static io.prestosql.memory.LocalMemoryManager.GENERAL_POOL;
@@ -100,6 +102,9 @@ public class SqlTaskManager
 
     private final SqlTaskIoStats cachedStats = new SqlTaskIoStats();
     private final SqlTaskIoStats finishedTaskStats = new SqlTaskIoStats();
+
+    private final long queryMaxMemoryPerNode;
+    private final long queryMaxTotalMemoryPerNode;
 
     @GuardedBy("this")
     private long currentMemoryPoolAssignmentVersion;
@@ -143,8 +148,12 @@ public class SqlTaskManager
         DataSize maxQueryTotalMemoryPerNode = nodeMemoryConfig.getMaxQueryTotalMemoryPerNode();
         DataSize maxQuerySpillPerNode = nodeSpillConfig.getQueryMaxSpillPerNode();
 
+        DataSize maxQueryMemoryPerNode = nodeMemoryConfig.getMaxQueryMemoryPerNode();
+        queryMaxMemoryPerNode = maxQueryMemoryPerNode.toBytes();
+        queryMaxTotalMemoryPerNode = maxQueryMemoryPerNode.toBytes();
+
         queryContexts = CacheBuilder.newBuilder().weakValues().build(CacheLoader.from(
-                queryId -> createQueryContext(queryId, localMemoryManager, nodeMemoryConfig, localSpillManager, gcMonitor, maxQueryUserMemoryPerNode, maxQueryTotalMemoryPerNode, maxQuerySpillPerNode)));
+                queryId -> createQueryContext(queryId, localMemoryManager, localSpillManager, gcMonitor, maxQueryUserMemoryPerNode, maxQueryTotalMemoryPerNode, maxQuerySpillPerNode)));
 
         tasks = CacheBuilder.newBuilder().build(CacheLoader.from(
                 taskId -> createSqlTask(
@@ -165,7 +174,6 @@ public class SqlTaskManager
     private QueryContext createQueryContext(
             QueryId queryId,
             LocalMemoryManager localMemoryManager,
-            NodeMemoryConfig nodeMemoryConfig,
             LocalSpillManager localSpillManager,
             GcMonitor gcMonitor,
             DataSize maxQueryUserMemoryPerNode,
@@ -352,6 +360,17 @@ public class SqlTaskManager
         requireNonNull(fragment, "fragment is null");
         requireNonNull(sources, "sources is null");
         requireNonNull(outputBuffers, "outputBuffers is null");
+
+        long sessionQueryMaxMemoryPerNode = getQueryMaxMemoryPerNode(session).toBytes();
+        long sessionQueryTotalMaxMemoryPerNode = getQueryMaxTotalMemoryPerNode(session).toBytes();
+        // Session property query_max_memory_per_node is used to only decrease memory limit
+        if (sessionQueryMaxMemoryPerNode <= queryMaxMemoryPerNode) {
+            queryContexts.getUnchecked(taskId.getQueryId()).setMaxUserMemory(sessionQueryMaxMemoryPerNode);
+        }
+
+        if (sessionQueryTotalMaxMemoryPerNode <= queryMaxTotalMemoryPerNode) {
+            queryContexts.getUnchecked(taskId.getQueryId()).setMaxTotalMemory(sessionQueryTotalMaxMemoryPerNode);
+        }
 
         if (resourceOvercommit(session)) {
             // TODO: This should have been done when the QueryContext was created. However, the session isn't available at that point.

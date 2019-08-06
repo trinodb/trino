@@ -241,6 +241,16 @@ public class QueryContext
         }, directExecutor());
     }
 
+    public synchronized void setMaxUserMemory(long maxUserMemory)
+    {
+        this.maxUserMemory = maxUserMemory;
+    }
+
+    public synchronized void setMaxTotalMemory(long maxTotalMemory)
+    {
+        this.maxTotalMemory = maxTotalMemory;
+    }
+
     public synchronized MemoryPool getMemoryPool()
     {
         return memoryPool;
