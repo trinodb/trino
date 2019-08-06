@@ -11,6 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package io.prestosql.execution.warnings;
 
 import com.google.common.collect.ImmutableList;
@@ -18,30 +19,20 @@ import io.prestosql.spi.PrestoWarning;
 
 import java.util.List;
 
-public interface WarningCollector
+public interface QueryPhaseWarningCollector
 {
-    WarningCollector NOOP =
-            new WarningCollector()
-            {
-                @Override
-                public void add(PrestoWarning warning) {}
+    QueryPhaseWarningCollector NOOP = new QueryPhaseWarningCollector() {
+        @Override
+        public void add(PrestoWarning warning) {}
 
-                @Override
-                public List<PrestoWarning> getWarnings()
-                {
-                    return ImmutableList.of();
-                }
-
-                @Override
-                public QueryPhaseWarningCollector getQueryPhaseWarningCollector(String phase)
-                {
-                    return QueryPhaseWarningCollector.NOOP;
-                }
-            };
+        @Override
+        public List<PrestoWarning> getWarnings()
+        {
+            return ImmutableList.of();
+        }
+    };
 
     void add(PrestoWarning warning);
 
     List<PrestoWarning> getWarnings();
-
-    QueryPhaseWarningCollector getQueryPhaseWarningCollector(String phase);
 }

@@ -91,6 +91,7 @@ import io.prestosql.execution.scheduler.AllAtOnceExecutionPolicy;
 import io.prestosql.execution.scheduler.ExecutionPolicy;
 import io.prestosql.execution.scheduler.PhasedExecutionPolicy;
 import io.prestosql.execution.scheduler.SplitSchedulerStats;
+import io.prestosql.execution.warnings.InternalDeprecatedWarningsManager;
 import io.prestosql.failuredetector.FailureDetectorModule;
 import io.prestosql.memory.ClusterMemoryManager;
 import io.prestosql.memory.ForMemoryManager;
@@ -281,6 +282,9 @@ public class CoordinatorModule
 
         binder.bind(RemoteTaskStats.class).in(Scopes.SINGLETON);
         newExporter(binder).export(RemoteTaskStats.class).withGeneratedName();
+
+         //deprecated warnings
+        binder.bind(InternalDeprecatedWarningsManager.class).in(Scopes.SINGLETON);
 
         httpClientBinder(binder).bindHttpClient("scheduler", ForScheduler.class)
                 .withTracing()

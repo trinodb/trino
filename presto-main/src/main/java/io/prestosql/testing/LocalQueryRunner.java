@@ -70,6 +70,7 @@ import io.prestosql.execution.resourcegroups.NoOpResourceGroupManager;
 import io.prestosql.execution.scheduler.LegacyNetworkTopology;
 import io.prestosql.execution.scheduler.NodeScheduler;
 import io.prestosql.execution.scheduler.NodeSchedulerConfig;
+import io.prestosql.execution.warnings.InternalDeprecatedWarningsManager;
 import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.index.IndexManager;
 import io.prestosql.memory.MemoryManagerConfig;
@@ -362,7 +363,8 @@ public class LocalQueryRunner
                 accessControl,
                 new PasswordAuthenticatorManager(),
                 new EventListenerManager(),
-                new SessionPropertyDefaults(nodeInfo));
+                new SessionPropertyDefaults(nodeInfo),
+                new InternalDeprecatedWarningsManager(nodeInfo));
 
         connectorManager.addConnectorFactory(globalSystemConnectorFactory);
         connectorManager.createConnection(GlobalSystemConnector.NAME, GlobalSystemConnector.NAME, ImmutableMap.of());

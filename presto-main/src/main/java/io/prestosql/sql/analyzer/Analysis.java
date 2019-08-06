@@ -16,6 +16,7 @@ package io.prestosql.sql.analyzer;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Multimap;
 import io.prestosql.metadata.QualifiedObjectName;
@@ -83,7 +84,7 @@ public class Analysis
     private String updateType;
 
     private final Map<NodeRef<Table>, Query> namedQueries = new LinkedHashMap<>();
-
+    private final Set<QualifiedObjectName> views = new HashSet<>();
     private final Map<NodeRef<Node>, Scope> scopes = new LinkedHashMap<>();
     private final Map<NodeRef<Expression>, FieldId> columnReferences = new LinkedHashMap<>();
 
@@ -486,6 +487,12 @@ public class Analysis
         tables.put(NodeRef.of(table), handle);
     }
 
+    public void registerView(QualifiedObjectName tableReference)
+    {
+        requireNonNull(tableReference, "tableReference is null");
+        views.add(tableReference);
+    }
+
     public Signature getFunctionSignature(FunctionCall function)
     {
         return functionSignature.get(NodeRef.of(function));
@@ -705,6 +712,16 @@ public class Analysis
     public boolean isOrderByRedundant(OrderBy orderBy)
     {
         return redundantOrderBy.contains(NodeRef.of(orderBy));
+    }
+
+    public Map<NodeRef<FunctionCall>, Signature> getFunctionSignature()
+    {
+        return ImmutableMap.copyOf(functionSignature);
+    }
+
+    public Set<QualifiedObjectName> getViews()
+    {
+        return ImmutableSet.copyOf(views);
     }
 
     @Immutable

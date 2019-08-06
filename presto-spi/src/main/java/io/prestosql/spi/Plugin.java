@@ -15,6 +15,7 @@ package io.prestosql.spi;
 
 import io.prestosql.spi.block.BlockEncoding;
 import io.prestosql.spi.connector.ConnectorFactory;
+import io.prestosql.spi.deprecatedwarnings.DeprecatedWarningsConfigurationManagerFactory;
 import io.prestosql.spi.eventlistener.EventListenerFactory;
 import io.prestosql.spi.resourcegroups.ResourceGroupConfigurationManagerFactory;
 import io.prestosql.spi.security.PasswordAuthenticatorFactory;
@@ -76,6 +77,11 @@ public interface Plugin
     }
 
     default Iterable<SessionPropertyConfigurationManagerFactory> getSessionPropertyConfigurationManagerFactories()
+    {
+        return emptyList();
+    }
+
+    default Iterable<DeprecatedWarningsConfigurationManagerFactory> getDeprecatedWarningsConfigurationManagerFactories()
     {
         return emptyList();
     }

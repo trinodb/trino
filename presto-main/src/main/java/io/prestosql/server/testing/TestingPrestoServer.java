@@ -48,6 +48,7 @@ import io.prestosql.execution.SqlQueryManager;
 import io.prestosql.execution.StateMachine.StateChangeListener;
 import io.prestosql.execution.TaskManager;
 import io.prestosql.execution.resourcegroups.InternalResourceGroupManager;
+import io.prestosql.execution.warnings.InternalDeprecatedWarningsManager;
 import io.prestosql.memory.ClusterMemoryManager;
 import io.prestosql.memory.LocalMemoryManager;
 import io.prestosql.metadata.AllNodes;
@@ -135,6 +136,7 @@ public class TestingPrestoServer
     private final GracefulShutdownHandler gracefulShutdownHandler;
     private final ShutdownAction shutdownAction;
     private final boolean coordinator;
+    private final InternalDeprecatedWarningsManager internalDeprecatedWarningsManager;
 
     public static class TestShutdownAction
             implements ShutdownAction
@@ -280,6 +282,8 @@ public class TestingPrestoServer
         procedureTester = injector.getInstance(ProcedureTester.class);
         splitManager = injector.getInstance(SplitManager.class);
         pageSourceManager = injector.getInstance(PageSourceManager.class);
+        internalDeprecatedWarningsManager = injector.getInstance(InternalDeprecatedWarningsManager.class);
+
         if (coordinator) {
             dispatchManager = injector.getInstance(DispatchManager.class);
             queryManager = (SqlQueryManager) injector.getInstance(QueryManager.class);
@@ -533,5 +537,10 @@ public class TestingPrestoServer
         catch (IOException e) {
             throw new UncheckedIOException(e);
         }
+    }
+
+    public InternalDeprecatedWarningsManager getInternalDeprecatedWarningsManager()
+    {
+        return internalDeprecatedWarningsManager;
     }
 }

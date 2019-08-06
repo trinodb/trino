@@ -32,6 +32,7 @@ public class DefaultWarningCollector
 {
     @GuardedBy("this")
     private final Map<WarningCode, PrestoWarning> warnings = new LinkedHashMap<>();
+    private final Map<String, QueryPhaseWarningCollector> phaseWarnings = new LinkedHashMap<>();
     private final WarningCollectorConfig config;
 
     public DefaultWarningCollector(WarningCollectorConfig config)
@@ -51,6 +52,20 @@ public class DefaultWarningCollector
     @Override
     public synchronized List<PrestoWarning> getWarnings()
     {
-        return ImmutableList.copyOf(warnings.values());
+        ImmutableList.Builder<PrestoWarning> allWarnings = new ImmutableList.Builder<>();
+        allWarnings.addAll(warnings.values());
+        for (String phase : phaseWarnings.keySet()) {
+            allWarnings.addAll(phaseWarnings.get(phase).getWarnings());
+        }
+        return allWarnings.build();
+    }
+
+    @Override
+    public synchronized QueryPhaseWarningCollector getQueryPhaseWarningCollector(String phase)
+    {
+        if (phaseWarnings.get(phase) == null) {
+            phaseWarnings.put(phase, new DefaultQueryPhaseWarningCollector());
+        }
+        return phaseWarnings.get(phase);
     }
 }

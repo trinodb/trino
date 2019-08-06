@@ -36,6 +36,7 @@ import io.prestosql.eventlistener.EventListenerManager;
 import io.prestosql.eventlistener.EventListenerModule;
 import io.prestosql.execution.resourcegroups.ResourceGroupManager;
 import io.prestosql.execution.scheduler.NodeSchedulerConfig;
+import io.prestosql.execution.warnings.InternalDeprecatedWarningsManager;
 import io.prestosql.execution.warnings.WarningCollectorModule;
 import io.prestosql.metadata.Catalog;
 import io.prestosql.metadata.CatalogManager;
@@ -138,6 +139,7 @@ public class PrestoServer
             injector.getInstance(AccessControlManager.class).loadSystemAccessControl();
             injector.getInstance(PasswordAuthenticatorManager.class).loadPasswordAuthenticator();
             injector.getInstance(EventListenerManager.class).loadConfiguredEventListener();
+            injector.getInstance(InternalDeprecatedWarningsManager.class).loadConfigurationManager();
 
             injector.getInstance(Announcer.class).start();
 
