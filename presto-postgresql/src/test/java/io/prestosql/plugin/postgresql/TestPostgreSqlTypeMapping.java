@@ -589,14 +589,18 @@ public class TestPostgreSqlTypeMapping
             DataTypeTest tests = DataTypeTest.create()
                     .addRoundTrip(dataType, asList(beforeEpoch))
                     .addRoundTrip(dataType, asList(afterEpoch))
-                    // timeGapInJvmZone is shifted by 1 hour when using java.sql.Timestamp
-                    // Commenting those tests until it will be possible to use java.time.LocalDateTime with org.postgresql.jdbc.PgArray (https://github.com/pgjdbc/pgjdbc/issues/1225#issuecomment-516312324)
-                    //.addRoundTrip(dataType, asList(epoch)) // epoch also is a gap in JVM zone
-                    //.addRoundTrip(dataType, asList(timeGapInJvmZone1))
-                    //.addRoundTrip(dataType, asList(timeGapInJvmZone2))
                     .addRoundTrip(dataType, asList(timeDoubledInJvmZone))
                     .addRoundTrip(dataType, asList(timeDoubledInVilnius));
 
+            if (insertWithPresto) {
+                // When inserting with Presto, we effectively go through PostgreSQL driver's PreparedStatement.
+                // TODO https://github.com/pgjdbc/pgjdbc/issues/1225 the driver needs to support writing arrays using LocalDateTime objects
+            }
+            else {
+                addArrayTimestampTestIfSupported(tests, legacyTimestamp, sessionZone, dataType, epoch);
+                addArrayTimestampTestIfSupported(tests, legacyTimestamp, sessionZone, dataType, timeGapInJvmZone1);
+                addArrayTimestampTestIfSupported(tests, legacyTimestamp, sessionZone, dataType, timeGapInJvmZone2);
+            }
             addArrayTimestampTestIfSupported(tests, legacyTimestamp, sessionZone, dataType, timeGapInVilnius);
             addArrayTimestampTestIfSupported(tests, legacyTimestamp, sessionZone, dataType, timeGapInKathmandu);
 
