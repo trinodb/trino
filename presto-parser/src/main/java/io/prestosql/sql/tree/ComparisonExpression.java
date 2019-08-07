@@ -102,6 +102,7 @@ public class ComparisonExpression
     public enum Operator
     {
         EQUAL("="),
+        EQNSF("<=>"),
         NOT_EQUAL("<>"),
         LESS_THAN("<"),
         LESS_THAN_OR_EQUAL("<="),

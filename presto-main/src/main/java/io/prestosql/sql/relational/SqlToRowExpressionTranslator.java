@@ -30,6 +30,7 @@ import io.prestosql.spi.type.TimeZoneKey;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.spi.type.VarcharType;
+import io.prestosql.sql.parser.hive.RLikePredicate;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.relational.SpecialForm.Form;
 import io.prestosql.sql.relational.optimizer.ExpressionOptimizer;
@@ -112,6 +113,8 @@ import static io.prestosql.sql.relational.Signatures.likePatternSignature;
 import static io.prestosql.sql.relational.Signatures.likeVarcharSignature;
 import static io.prestosql.sql.relational.Signatures.subscriptSignature;
 import static io.prestosql.sql.relational.Signatures.tryCastSignature;
+import static io.prestosql.sql.relational.Signatures.rLikeCharSignature;
+import static io.prestosql.sql.relational.Signatures.rLikeVarcharSignature;
 import static io.prestosql.sql.relational.SpecialForm.Form.AND;
 import static io.prestosql.sql.relational.SpecialForm.Form.BETWEEN;
 import static io.prestosql.sql.relational.SpecialForm.Form.BIND;
@@ -718,6 +721,30 @@ public final class SqlToRowExpressionTranslator
 
             checkState(value.getType() instanceof CharType, "LIKE value type is neither VARCHAR or CHAR");
             return call(likeCharSignature(value.getType()), BOOLEAN, value, pattern);
+        }
+
+        @Override
+        public RowExpression visitRLikePredicate(RLikePredicate node, Void context)
+        {
+            RowExpression value = process(node.getValue(), context);
+            RowExpression pattern = process(node.getPattern(), context);
+
+            if (node.getEscape().isPresent()) {
+                RowExpression escape = process(node.getEscape().get(), context);
+                return rLikeFunctionCall(value, pattern);
+            }
+
+            return rLikeFunctionCall(value, pattern);
+        }
+
+        private RowExpression rLikeFunctionCall(RowExpression value, RowExpression pattern)
+        {
+            if (value.getType() instanceof VarcharType) {
+                return call(rLikeVarcharSignature(), BOOLEAN, value, pattern);
+            }
+
+            checkState(value.getType() instanceof CharType, "LIKE value type is neither VARCHAR or CHAR");
+            return call(rLikeCharSignature(value.getType()), BOOLEAN, value, pattern);
         }
 
         @Override

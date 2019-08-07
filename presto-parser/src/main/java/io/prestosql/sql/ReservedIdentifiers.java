@@ -48,20 +48,20 @@ public final class ReservedIdentifiers
     @SuppressWarnings("CallToPrintStackTrace")
     public static void main(String[] args)
     {
-        if ((args.length == 2) && args[0].equals("validateDocs")) {
-            try {
-                validateDocs(Paths.get(args[1]));
-            }
-            catch (Throwable t) {
-                t.printStackTrace();
-                System.exit(100);
-            }
-        }
-        else {
-            for (String name : reservedIdentifiers()) {
-                System.out.println(name);
-            }
-        }
+//        if ((args.length == 2) && args[0].equals("validateDocs")) {
+//            try {
+//                validateDocs(Paths.get(args[1]));
+//            }
+//            catch (Throwable t) {
+//                t.printStackTrace();
+//                System.exit(100);
+//            }
+//        }
+//        else {
+//            for (String name : reservedIdentifiers()) {
+//                System.out.println(name);
+//            }
+//        }
     }
 
     private static void validateDocs(Path path)

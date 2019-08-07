@@ -13,6 +13,8 @@
  */
 package io.prestosql.sql.tree;
 
+import io.prestosql.sql.parser.hive.RLikePredicate;
+
 public class ExpressionRewriter<C>
 {
     public Expression rewriteExpression(Expression node, C context, ExpressionTreeRewriter<C> treeRewriter)
@@ -116,6 +118,11 @@ public class ExpressionRewriter<C>
     }
 
     public Expression rewriteLikePredicate(LikePredicate node, C context, ExpressionTreeRewriter<C> treeRewriter)
+    {
+        return rewriteExpression(node, context, treeRewriter);
+    }
+
+    public Expression rewriteRLikePredicate(RLikePredicate node, C context, ExpressionTreeRewriter<C> treeRewriter)
     {
         return rewriteExpression(node, context, treeRewriter);
     }

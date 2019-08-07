@@ -43,7 +43,7 @@ public class LikePredicate
         this(Optional.empty(), value, pattern, escape);
     }
 
-    private LikePredicate(Optional<NodeLocation> location, Expression value, Expression pattern, Optional<Expression> escape)
+    protected LikePredicate(Optional<NodeLocation> location, Expression value, Expression pattern, Optional<Expression> escape)
     {
         super(location);
         requireNonNull(value, "value is null");

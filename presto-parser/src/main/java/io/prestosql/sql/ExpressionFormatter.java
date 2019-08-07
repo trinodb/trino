@@ -16,6 +16,7 @@ package io.prestosql.sql;
 import com.google.common.base.CharMatcher;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.sql.parser.hive.RLikePredicate;
 import io.prestosql.sql.tree.AllColumns;
 import io.prestosql.sql.tree.ArithmeticBinaryExpression;
 import io.prestosql.sql.tree.ArithmeticUnaryExpression;
@@ -504,6 +505,25 @@ public final class ExpressionFormatter
             builder.append('(')
                     .append(process(node.getValue(), context))
                     .append(" LIKE ")
+                    .append(process(node.getPattern(), context));
+
+            node.getEscape().ifPresent(escape -> {
+                builder.append(" ESCAPE ")
+                        .append(process(escape, context));
+            });
+
+            builder.append(')');
+
+            return builder.toString();
+        }
+
+        public String visitRLikePredicate(RLikePredicate node, Void context)
+        {
+            StringBuilder builder = new StringBuilder();
+
+            builder.append('(')
+                    .append(process(node.getValue(), context))
+                    .append(" RLIKE ")
                     .append(process(node.getPattern(), context));
 
             node.getEscape().ifPresent(escape -> {

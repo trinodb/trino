@@ -13,6 +13,8 @@
  */
 package io.prestosql.sql.tree;
 
+import io.prestosql.sql.parser.hive.RLikePredicate;
+
 import javax.annotation.Nullable;
 
 public abstract class AstVisitor<R, C>
@@ -378,6 +380,11 @@ public abstract class AstVisitor<R, C>
     }
 
     protected R visitLikePredicate(LikePredicate node, C context)
+    {
+        return visitExpression(node, context);
+    }
+
+    public R visitRLikePredicate(RLikePredicate node, C context)
     {
         return visitExpression(node, context);
     }

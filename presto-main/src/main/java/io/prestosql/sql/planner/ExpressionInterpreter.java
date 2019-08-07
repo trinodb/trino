@@ -44,6 +44,7 @@ import io.prestosql.spi.type.VarcharType;
 import io.prestosql.sql.InterpretedFunctionInvoker;
 import io.prestosql.sql.analyzer.ExpressionAnalyzer;
 import io.prestosql.sql.analyzer.Scope;
+import io.prestosql.sql.parser.hive.RLikePredicate;
 import io.prestosql.sql.planner.iterative.rule.DesugarCurrentPath;
 import io.prestosql.sql.planner.iterative.rule.DesugarCurrentUser;
 import io.prestosql.sql.tree.ArithmeticBinaryExpression;
@@ -1038,6 +1039,41 @@ public class ExpressionInterpreter
             }
 
             return new LikePredicate(
+                    toExpression(value, type(node.getValue())),
+                    toExpression(pattern, type(node.getPattern())),
+                    optimizedEscape);
+        }
+
+        @Override
+        public Object visitRLikePredicate(RLikePredicate node, Object context)
+        {
+            Object value = process(node.getValue(), context);
+
+            if (value == null) {
+                return null;
+            }
+
+            Object pattern = process(node.getPattern(), context);
+
+            if (pattern == null) {
+                return null;
+            }
+
+            Object escape = null;
+            if (node.getEscape().isPresent()) {
+                escape = process(node.getEscape().get(), context);
+
+                if (escape == null) {
+                    return null;
+                }
+            }
+
+            Optional<Expression> optimizedEscape = Optional.empty();
+            if (node.getEscape().isPresent()) {
+                optimizedEscape = Optional.of(toExpression(escape, type(node.getEscape().get())));
+            }
+
+            return new RLikePredicate(
                     toExpression(value, type(node.getValue())),
                     toExpression(pattern, type(node.getPattern())),
                     optimizedEscape);

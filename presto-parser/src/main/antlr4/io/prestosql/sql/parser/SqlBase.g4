@@ -135,7 +135,7 @@ columnDefinition
     ;
 
 likeClause
-    : LIKE qualifiedName (optionType=(INCLUDING | EXCLUDING) PROPERTIES)?
+    : (LIKE | RLIKE) qualifiedName (optionType=(INCLUDING | EXCLUDING) PROPERTIES)?
     ;
 
 properties
@@ -275,7 +275,7 @@ predicate[ParserRuleContext value]
     | NOT? BETWEEN lower=valueExpression AND upper=valueExpression        #between
     | NOT? IN '(' expression (',' expression)* ')'                        #inList
     | NOT? IN '(' query ')'                                               #inSubquery
-    | NOT? LIKE pattern=valueExpression (ESCAPE escape=valueExpression)?  #like
+    | NOT? (LIKE | RLIKE) pattern=valueExpression (ESCAPE escape=valueExpression)?  #like
     | IS NOT? NULL                                                        #nullPredicate
     | IS NOT? DISTINCT FROM right=valueExpression                         #distinctFrom
     ;
@@ -284,8 +284,14 @@ valueExpression
     : primaryExpression                                                                 #valueExpressionDefault
     | valueExpression AT timeZoneSpecifier                                              #atTimeZone
     | operator=(MINUS | PLUS) valueExpression                                           #arithmeticUnary
-    | left=valueExpression operator=(ASTERISK | SLASH | PERCENT) right=valueExpression  #arithmeticBinary
+    | left=valueExpression operator=(ASTERISK | SLASH | PERCENT | DIV) right=valueExpression  #arithmeticBinary
     | left=valueExpression operator=(PLUS | MINUS) right=valueExpression                #arithmeticBinary
+    // added
+    | left=valueExpression operator=AMPERSAND right=valueExpression                     #arithmeticBinary
+    // added
+    | left=valueExpression operator=HAT right=valueExpression                           #arithmeticBinary
+    // added
+    | left=valueExpression operator=PIPE right=valueExpression                          #arithmeticBinary
     | left=valueExpression CONCAT right=valueExpression                                 #concatenation
     ;
 
@@ -413,7 +419,7 @@ frameBound
     : UNBOUNDED boundType=PRECEDING                 #unboundedFrame
     | UNBOUNDED boundType=FOLLOWING                 #unboundedFrame
     | CURRENT ROW                                   #currentRowBound
-    | expression boundType=(PRECEDING | FOLLOWING)  #boundedFrame
+    | expression boundType=(PRECEDING | FOLLOWING)  #boundedFrame // expression should be unsignedLiteral
     ;
 
 
@@ -607,6 +613,7 @@ LATERAL: 'LATERAL';
 LEFT: 'LEFT';
 LEVEL: 'LEVEL';
 LIKE: 'LIKE';
+RLIKE: 'RLIKE';
 LIMIT: 'LIMIT';
 LOCALTIME: 'LOCALTIME';
 LOCALTIMESTAMP: 'LOCALTIMESTAMP';
@@ -722,6 +729,16 @@ ASTERISK: '*';
 SLASH: '/';
 PERCENT: '%';
 CONCAT: '||';
+
+// added
+DIV: 'DIV';
+// added
+AMPERSAND: '&';
+// added
+PIPE: '|';
+// added
+HAT: '^';
+
 
 STRING
     : '\'' ( ~'\'' | '\'\'' )* '\''

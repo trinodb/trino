@@ -42,6 +42,7 @@ import io.prestosql.sql.tree.IsNotNullPredicate;
 import io.prestosql.sql.tree.IsNullPredicate;
 import io.prestosql.sql.tree.LambdaExpression;
 import io.prestosql.sql.tree.LikePredicate;
+import io.prestosql.sql.parser.hive.RLikePredicate;
 import io.prestosql.sql.tree.Literal;
 import io.prestosql.sql.tree.LogicalBinaryExpression;
 import io.prestosql.sql.tree.Node;
@@ -292,6 +293,12 @@ class AggregationAnalyzer
 
         @Override
         protected Boolean visitLikePredicate(LikePredicate node, Void context)
+        {
+            return process(node.getValue(), context) && process(node.getPattern(), context);
+        }
+
+        @Override
+        public Boolean visitRLikePredicate(RLikePredicate node, Void context)
         {
             return process(node.getValue(), context) && process(node.getPattern(), context);
         }

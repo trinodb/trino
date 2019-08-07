@@ -13,37 +13,28 @@
  */
 package io.prestosql.sql.parser;
 
-import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.Node;
-import io.prestosql.sql.tree.PathSpecification;
-import io.prestosql.sql.tree.Statement;
-import org.antlr.v4.runtime.BaseErrorListener;
-import org.antlr.v4.runtime.CharStreams;
-import org.antlr.v4.runtime.CommonToken;
-import org.antlr.v4.runtime.CommonTokenStream;
-import org.antlr.v4.runtime.DefaultErrorStrategy;
+import io.airlift.log.Logger;
+import io.prestosql.sql.parser.hive.HiveAstBuilder;
+import io.prestosql.sql.tree.*;
+import org.antlr.v4.runtime.*;
 import org.antlr.v4.runtime.InputMismatchException;
-import org.antlr.v4.runtime.Parser;
-import org.antlr.v4.runtime.ParserRuleContext;
-import org.antlr.v4.runtime.RecognitionException;
-import org.antlr.v4.runtime.Recognizer;
-import org.antlr.v4.runtime.Token;
 import org.antlr.v4.runtime.atn.PredictionMode;
 import org.antlr.v4.runtime.misc.Pair;
 import org.antlr.v4.runtime.misc.ParseCancellationException;
+import org.antlr.v4.runtime.tree.AbstractParseTreeVisitor;
 import org.antlr.v4.runtime.tree.TerminalNode;
 
 import javax.inject.Inject;
 
-import java.util.Arrays;
-import java.util.EnumSet;
-import java.util.List;
+import java.util.*;
 import java.util.function.Function;
 
 import static java.util.Objects.requireNonNull;
 
 public class SqlParser
 {
+    private static final Logger LOG = Logger.get(SqlParser.class);
+
     private static final BaseErrorListener LEXER_ERROR_LISTENER = new BaseErrorListener()
     {
         @Override
@@ -93,7 +84,10 @@ public class SqlParser
 
     public Statement createStatement(String sql, ParsingOptions parsingOptions)
     {
-        return (Statement) invokeParser("statement", sql, SqlBaseParser::singleStatement, parsingOptions);
+        Node node = invokeParser("statement",
+                sql, SqlBaseParser::singleStatement, parsingOptions, "singleStatement");
+        Statement statement = (Statement) node;
+        return statement;
     }
 
     /**
@@ -102,25 +96,45 @@ public class SqlParser
     @Deprecated
     public Expression createExpression(String expression)
     {
+        LOG.info("from Expression createExpression(String expression)");
         return createExpression(expression, new ParsingOptions());
     }
 
     public Expression createExpression(String expression, ParsingOptions parsingOptions)
     {
-        return (Expression) invokeParser("expression", expression, SqlBaseParser::standaloneExpression, parsingOptions);
+        LOG.info("from Expression createExpression(String expression, ParsingOptions parsingOptions)");
+        Expression ex = (Expression) invokeParser("expression", expression,
+                SqlBaseParser::standaloneExpression, parsingOptions, "standaloneExpression");
+        return ex;
     }
 
     public PathSpecification createPathSpecification(String expression)
     {
-        return (PathSpecification) invokeParser("path specification", expression, SqlBaseParser::standalonePathSpecification, new ParsingOptions());
+        LOG.info("from PathSpecification createPathSpecification(String expression)");
+        PathSpecification plan = (PathSpecification) invokeParser("path specification",
+                expression, SqlBaseParser::standalonePathSpecification, new ParsingOptions(), "standalonePathSpecification");
+        return plan;
     }
 
-    private Node invokeParser(String name, String sql, Function<SqlBaseParser, ParserRuleContext> parseFunction, ParsingOptions parsingOptions)
+    private Node invokeParser(String name, String sql, Function<SqlBaseParser,
+            ParserRuleContext> parseFunction, ParsingOptions parsingOptions, String type)
+    {
+        LOG.info("sql:" + sql);
+        if (!parsingOptions.useHiveParser()) {
+            LOG.info("use presto sql");
+            return invokePrestoParser(name, sql, parsingOptions, type);
+        } else {
+            LOG.info("use hive sql");
+            return invokeSparkBasedHiveParser(name, sql, parsingOptions, type);
+        }
+    }
+
+
+    private Node invokeCommonParser(String name, String type,
+                                    Lexer lexer, Parser parser, AbstractParseTreeVisitor<Node> visitor)
     {
         try {
-            SqlBaseLexer lexer = new SqlBaseLexer(new CaseInsensitiveStream(CharStreams.fromString(sql)));
             CommonTokenStream tokenStream = new CommonTokenStream(lexer);
-            SqlBaseParser parser = new SqlBaseParser(tokenStream);
 
             // Override the default error strategy to not attempt inserting or deleting a token.
             // Otherwise, it messes up error reporting
@@ -153,11 +167,31 @@ public class SqlParser
                 parser.addErrorListener(LEXER_ERROR_LISTENER);
             }
 
-            ParserRuleContext tree;
+            ParserRuleContext tree = getTree(type, parser, tokenStream);
+
+            return visitor.visit(tree);
+        }
+        catch (StackOverflowError e) {
+            throw new ParsingException(name + " is too large (stack overflow while parsing)");
+        }
+    }
+
+    private ParserRuleContext getTree(String type, Parser parser, CommonTokenStream tokenStream) {
+
+        ParserRuleContext tree = null;
+        if (type.startsWith("spark")) {
+            Function<io.hivesql.sql.parser.SqlBaseParser, ParserRuleContext> parseFunction = null;
+            if (type.endsWith("singleStatement")) {
+                parseFunction = io.hivesql.sql.parser.SqlBaseParser::singleStatement;
+            } else if (type.endsWith("standaloneExpression")) {
+                parseFunction = io.hivesql.sql.parser.SqlBaseParser::singleExpression;
+            } else {
+                parseFunction = io.hivesql.sql.parser.SqlBaseParser::singleStatement;
+            }
             try {
                 // first, try parsing with potentially faster SLL mode
                 parser.getInterpreter().setPredictionMode(PredictionMode.SLL);
-                tree = parseFunction.apply(parser);
+                tree = parseFunction.apply((io.hivesql.sql.parser.SqlBaseParser)parser);
             }
             catch (ParseCancellationException ex) {
                 // if we fail, parse with LL mode
@@ -165,10 +199,65 @@ public class SqlParser
                 parser.reset();
 
                 parser.getInterpreter().setPredictionMode(PredictionMode.LL);
-                tree = parseFunction.apply(parser);
+                tree = parseFunction.apply((io.hivesql.sql.parser.SqlBaseParser)parser);
             }
+        } else if (type.startsWith("presto")) {
+            Function<SqlBaseParser, ParserRuleContext> parseFunction = null;
+            if (type.endsWith("singleStatement")) {
+                parseFunction = SqlBaseParser::singleStatement;
+            } else if (type.endsWith("standaloneExpression")) {
+                parseFunction = SqlBaseParser::standaloneExpression;
+            } else {
+                parseFunction = SqlBaseParser::standalonePathSpecification;
+            }
+            try {
+                // first, try parsing with potentially faster SLL mode
+                parser.getInterpreter().setPredictionMode(PredictionMode.SLL);
+                tree = parseFunction.apply((SqlBaseParser)parser);
+            }
+            catch (ParseCancellationException ex) {
+                // if we fail, parse with LL mode
+                tokenStream.reset(); // rewind input stream
+                parser.reset();
 
-            return new AstBuilder(parsingOptions).visit(tree);
+                parser.getInterpreter().setPredictionMode(PredictionMode.LL);
+                tree = parseFunction.apply((SqlBaseParser)parser);
+            }
+        }
+        return tree;
+    }
+
+    private Node invokeSparkBasedHiveParser(String name, String sql, ParsingOptions parsingOptions, String type)
+    {
+        try {
+            io.hivesql.sql.parser.SqlBaseLexer lexer = new io.hivesql.sql.parser.SqlBaseLexer(new CaseInsensitiveStream(CharStreams.fromString(sql)));
+            CommonTokenStream tokenStream = new CommonTokenStream(lexer);
+            io.hivesql.sql.parser.SqlBaseParser parser = new io.hivesql.sql.parser.SqlBaseParser(tokenStream);
+            parser.addParseListener(new PostProcessor(Arrays.asList(parser.getRuleNames())));
+
+            HiveAstBuilder hiveAstBuilder = new HiveAstBuilder(parsingOptions);
+
+            return invokeCommonParser(name, "spark_" + type, lexer,
+                    parser, hiveAstBuilder);
+        }
+        catch (StackOverflowError e) {
+            throw new ParsingException(name + " is too large (stack overflow while parsing)");
+        }
+    }
+
+    private Node invokePrestoParser(String name, String sql,
+            ParsingOptions parsingOptions, String type)
+    {
+        try {
+            SqlBaseLexer lexer = new SqlBaseLexer(new CaseInsensitiveStream(CharStreams.fromString(sql)));
+            CommonTokenStream tokenStream = new CommonTokenStream(lexer);
+            SqlBaseParser parser = new SqlBaseParser(tokenStream);
+            parser.addParseListener(new PostProcessor(Arrays.asList(parser.getRuleNames())));
+
+            AstBuilder hiveAstBuilder = new AstBuilder(parsingOptions);
+
+            return invokeCommonParser(name, "presto_" + type, lexer,
+                    parser, hiveAstBuilder);
         }
         catch (StackOverflowError e) {
             throw new ParsingException(name + " is too large (stack overflow while parsing)");

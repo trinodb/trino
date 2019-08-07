@@ -46,6 +46,10 @@ import static io.prestosql.spi.function.OperatorType.LESS_THAN;
 import static io.prestosql.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static io.prestosql.spi.function.OperatorType.MODULUS;
 import static io.prestosql.spi.function.OperatorType.MULTIPLY;
+import static io.prestosql.spi.function.OperatorType.AMPERSAND;
+import static io.prestosql.spi.function.OperatorType.DIV;
+import static io.prestosql.spi.function.OperatorType.HAT;
+import static io.prestosql.spi.function.OperatorType.PIPE;
 import static io.prestosql.spi.function.OperatorType.NEGATION;
 import static io.prestosql.spi.function.OperatorType.NOT_EQUAL;
 import static io.prestosql.spi.function.OperatorType.SATURATED_FLOOR_CAST;
@@ -59,6 +63,52 @@ public final class IntegerOperators
 {
     private IntegerOperators()
     {
+    }
+
+    @ScalarOperator(DIV)
+    @SqlType(StandardTypes.INTEGER)
+    public static long div(@SqlType(StandardTypes.INTEGER) long left, @SqlType(StandardTypes.INTEGER) long right)
+    {
+        try {
+            return left / right;
+        }
+        catch (ArithmeticException e) {
+            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, format("integer subtraction overflow: %s - %s", left, right), e);
+        }
+    }
+    @ScalarOperator(AMPERSAND)
+    @SqlType(StandardTypes.INTEGER)
+    public static long ampersand(@SqlType(StandardTypes.INTEGER) long left, @SqlType(StandardTypes.INTEGER) long right)
+    {
+        try {
+            return left & right;
+        }
+        catch (ArithmeticException e) {
+            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, format("integer subtraction overflow: %s - %s", left, right), e);
+        }
+    }
+    @ScalarOperator(PIPE)
+    @SqlType(StandardTypes.INTEGER)
+    public static long pipe(@SqlType(StandardTypes.INTEGER) long left, @SqlType(StandardTypes.INTEGER) long right)
+    {
+        try {
+            return left | right;
+        }
+        catch (ArithmeticException e) {
+            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, format("integer subtraction overflow: %s - %s", left, right), e);
+        }
+    }
+
+    @ScalarOperator(HAT)
+    @SqlType(StandardTypes.INTEGER)
+    public static long hat(@SqlType(StandardTypes.INTEGER) long left, @SqlType(StandardTypes.INTEGER) long right)
+    {
+        try {
+            return left ^  right;
+        }
+        catch (ArithmeticException e) {
+            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, format("integer subtraction overflow: %s - %s", left, right), e);
+        }
     }
 
     @ScalarOperator(ADD)

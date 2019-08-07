@@ -178,6 +178,7 @@ import io.prestosql.type.IntervalDayTimeOperators;
 import io.prestosql.type.IntervalYearMonthOperators;
 import io.prestosql.type.IpAddressOperators;
 import io.prestosql.type.LikeFunctions;
+import io.prestosql.type.RLikeFunctions;
 import io.prestosql.type.QuantileDigestOperators;
 import io.prestosql.type.RealOperators;
 import io.prestosql.type.SmallintOperators;
@@ -521,6 +522,7 @@ public class FunctionRegistry
                 .scalars(UuidOperators.class)
                 .scalar(UuidOperators.UuidDistinctFromOperator.class)
                 .scalars(LikeFunctions.class)
+                .scalars(RLikeFunctions.class)
                 .scalars(ArrayFunctions.class)
                 .scalars(HmacFunctions.class)
                 .scalars(DataSizeFunctions.class)
