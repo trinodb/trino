@@ -16,6 +16,8 @@ package io.prestosql.operator.scalar;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Primitives;
 import io.airlift.slice.Slice;
+import io.prestosql.FullConnectorSession;
+import io.prestosql.SystemSessionProperties;
 import io.prestosql.annotation.UsedByGeneratedCode;
 import io.prestosql.metadata.BoundVariables;
 import io.prestosql.metadata.Metadata;
@@ -59,6 +61,12 @@ public class MapSubscriptOperator
                 ImmutableList.of(parseTypeSignature("map(K,V)"), parseTypeSignature("K")));
     }
 
+    private static boolean hiveEnabled(ConnectorSession session) {
+        FullConnectorSession fcs = (FullConnectorSession) session;
+
+        return fcs.getSession().getSystemProperty(SystemSessionProperties.ENABLE_HIVE_SQL_SYNTAX, Boolean.class);
+    }
+
     @Override
     public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, Metadata metadata)
     {
@@ -100,7 +108,11 @@ public class MapSubscriptOperator
         SingleMapBlock mapBlock = (SingleMapBlock) map;
         int valuePosition = mapBlock.seekKeyExact(key);
         if (valuePosition == -1) {
-            throw throwMissingKeyException(keyType, functionInvoker, key, session);
+            if (hiveEnabled(session)) {
+                return null;
+            } else {
+                throw throwMissingKeyException(keyType, functionInvoker, key, session);
+            }
         }
         return readNativeValue(valueType, mapBlock, valuePosition);
     }
@@ -111,7 +123,11 @@ public class MapSubscriptOperator
         SingleMapBlock mapBlock = (SingleMapBlock) map;
         int valuePosition = mapBlock.seekKeyExact(key);
         if (valuePosition == -1) {
-            throw throwMissingKeyException(keyType, functionInvoker, key, session);
+            if (hiveEnabled(session)) {
+                return null;
+            } else {
+                throw throwMissingKeyException(keyType, functionInvoker, key, session);
+            }
         }
         return readNativeValue(valueType, mapBlock, valuePosition);
     }
@@ -122,7 +138,11 @@ public class MapSubscriptOperator
         SingleMapBlock mapBlock = (SingleMapBlock) map;
         int valuePosition = mapBlock.seekKeyExact(key);
         if (valuePosition == -1) {
-            throw throwMissingKeyException(keyType, functionInvoker, key, session);
+            if (hiveEnabled(session)) {
+                return null;
+            } else {
+                throw throwMissingKeyException(keyType, functionInvoker, key, session);
+            }
         }
         return readNativeValue(valueType, mapBlock, valuePosition);
     }
@@ -133,7 +153,11 @@ public class MapSubscriptOperator
         SingleMapBlock mapBlock = (SingleMapBlock) map;
         int valuePosition = mapBlock.seekKeyExact(key);
         if (valuePosition == -1) {
-            throw throwMissingKeyException(keyType, functionInvoker, key, session);
+            if (hiveEnabled(session)) {
+                return null;
+            } else {
+                throw throwMissingKeyException(keyType, functionInvoker, key, session);
+            }
         }
         return readNativeValue(valueType, mapBlock, valuePosition);
     }
@@ -144,7 +168,11 @@ public class MapSubscriptOperator
         SingleMapBlock mapBlock = (SingleMapBlock) map;
         int valuePosition = mapBlock.seekKeyExact((Block) key);
         if (valuePosition == -1) {
-            throw throwMissingKeyException(keyType, functionInvoker, key, session);
+            if (hiveEnabled(session)) {
+                return null;
+            } else {
+                throw throwMissingKeyException(keyType, functionInvoker, key, session);
+            }
         }
         return readNativeValue(valueType, mapBlock, valuePosition);
     }
