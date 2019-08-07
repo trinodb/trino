@@ -487,6 +487,31 @@ public class ExpressionAnalyzer
         protected Type visitComparisonExpression(ComparisonExpression node, StackableAstVisitorContext<Context> context)
         {
             OperatorType operatorType = OperatorType.valueOf(node.getOperator().name());
+
+            if(SystemSessionProperties.isEnableHiveSqlSynTax(session)) {
+                TypeConversion tc = new TypeConversion();
+                Type leftType = process(node.getLeft(), context);
+                Type rightType = process(node.getRight(), context);
+
+                if (tc.compareTypeOrder(leftType, rightType) == leftType) {
+                    if (tc.canConvertType(leftType, rightType)) {
+                        Cast cast = new Cast(node.getLeft(), rightType.getDisplayName());
+                        node.setLeft(cast);
+                    } else if (tc.canConvertType(rightType, leftType)) {
+                        Cast cast = new Cast(node.getRight(), leftType.getDisplayName());
+                        node.setRight(cast);
+                    }
+                } else if (tc.compareTypeOrder(leftType, rightType) == rightType) {
+                    if (tc.canConvertType(rightType, leftType)) {
+                        Cast cast = new Cast(node.getRight(), leftType.getDisplayName());
+                        node.setRight(cast);
+                    } else if (tc.canConvertType(leftType, rightType)) {
+                        Cast cast = new Cast(node.getLeft(), rightType.getDisplayName());
+                        node.setLeft(cast);
+                    }
+                }
+            }
+
             return getOperator(context, node, operatorType, node.getLeft(), node.getRight());
         }
 

@@ -1142,6 +1142,13 @@
                 <artifactId>javassist</artifactId>
                 <version>3.22.0-GA</version>
             </dependency>
+
+            <dependency>
+                <groupId>io.airlift</groupId>
+                <artifactId>joda-to-java-time-bridge</artifactId>
+                <version>3</version>
+            </dependency>
+
         </dependencies>
     </dependencyManagement>
 
