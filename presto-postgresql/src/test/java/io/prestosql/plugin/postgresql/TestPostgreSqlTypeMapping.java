@@ -544,9 +544,12 @@ public class TestPostgreSqlTypeMapping
                     .addRoundTrip(timestampDataType(), timeDoubledInJvmZone)
                     .addRoundTrip(timestampDataType(), timeDoubledInVilnius);
 
-            if (!insertWithPresto) {
-                // when writing, Postgres JDBC driver converts LocalDateTime to string representing date-time in JVM zone
-                // TODO upgrade driver or find a different way to write timestamp values
+            if (insertWithPresto) {
+                // When inserting with Presto, we effectively go through PostgreSQL driver's PreparedStatement.
+                // The driver converts LocalDateTime to string representing date-time in JVM zone
+                // TODO https://github.com/pgjdbc/pgjdbc/issues/1390 or find a different way to write timestamp values
+            }
+            else {
                 addTimestampTestIfSupported(tests, legacyTimestamp, sessionZone, epoch); // epoch also is a gap in JVM zone
                 addTimestampTestIfSupported(tests, legacyTimestamp, sessionZone, timeGapInJvmZone1);
                 addTimestampTestIfSupported(tests, legacyTimestamp, sessionZone, timeGapInJvmZone2);
