@@ -57,6 +57,7 @@ import io.prestosql.execution.scheduler.NetworkTopology;
 import io.prestosql.execution.scheduler.NodeScheduler;
 import io.prestosql.execution.scheduler.NodeSchedulerConfig;
 import io.prestosql.execution.scheduler.NodeSchedulerExporter;
+import io.prestosql.execution.warnings.statswarnings.ExecutionStatisticsWarner;
 import io.prestosql.index.IndexManager;
 import io.prestosql.memory.LocalMemoryManager;
 import io.prestosql.memory.LocalMemoryManagerExporter;
@@ -251,6 +252,9 @@ public class ServerMainModule
                 NodeSchedulerConfig.class,
                 config -> FLAT.equalsIgnoreCase(config.getNetworkTopology()),
                 moduleBinder -> moduleBinder.bind(NetworkTopology.class).to(FlatNetworkTopology.class).in(Scopes.SINGLETON)));
+
+        //ExecutionStatisticsWarner
+        binder.bind(ExecutionStatisticsWarner.class).in(Scopes.SINGLETON);
 
         // task execution
         jaxrsBinder(binder).bind(TaskResource.class);

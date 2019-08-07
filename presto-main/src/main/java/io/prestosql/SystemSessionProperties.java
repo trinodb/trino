@@ -36,6 +36,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
 import static io.prestosql.spi.session.PropertyMetadata.booleanProperty;
 import static io.prestosql.spi.session.PropertyMetadata.dataSizeProperty;
+import static io.prestosql.spi.session.PropertyMetadata.doubleProperty;
 import static io.prestosql.spi.session.PropertyMetadata.durationProperty;
 import static io.prestosql.spi.session.PropertyMetadata.enumProperty;
 import static io.prestosql.spi.session.PropertyMetadata.integerProperty;
@@ -121,6 +122,7 @@ public final class SystemSessionProperties
     public static final String ENABLE_DYNAMIC_FILTERING = "enable_dynamic_filtering";
     public static final String QUERY_MAX_MEMORY_PER_NODE = "query_max_memory_per_node";
     public static final String QUERY_MAX_TOTAL_MEMORY_PER_NODE = "query_max_total_memory_per_node";
+    public static final String QUERY_CPU_AND_MEMORY_WARNING_THRESHOLD = "query_cpu_and_memory_warning_threshold";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -523,7 +525,12 @@ public final class SystemSessionProperties
                         QUERY_MAX_TOTAL_MEMORY_PER_NODE,
                         "Maximum amount of total memory a query can use per node",
                         nodeMemoryConfig.getMaxQueryTotalMemoryPerNode(),
-                        true));
+                        true),
+                 doubleProperty(
+                        QUERY_CPU_AND_MEMORY_WARNING_THRESHOLD,
+                        "Threshold to trigger warnings for memory and cpu usage of a query",
+                        queryManagerConfig.getQueryCpuAndMemoryWarningThreshold(),
+                        false));
     }
 
     public List<PropertyMetadata<?>> getSessionProperties()
@@ -929,5 +936,10 @@ public final class SystemSessionProperties
     public static DataSize getQueryMaxTotalMemoryPerNode(Session session)
     {
         return session.getSystemProperty(QUERY_MAX_TOTAL_MEMORY_PER_NODE, DataSize.class);
+    }
+
+    public static double getQueryWarningThreshold(Session session)
+    {
+        return session.getSystemProperty(QUERY_CPU_AND_MEMORY_WARNING_THRESHOLD, Double.class);
     }
 }

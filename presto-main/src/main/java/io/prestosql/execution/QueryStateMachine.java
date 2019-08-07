@@ -28,6 +28,7 @@ import io.prestosql.Session;
 import io.prestosql.execution.QueryExecution.QueryOutputInfo;
 import io.prestosql.execution.StateMachine.StateChangeListener;
 import io.prestosql.execution.warnings.WarningCollector;
+import io.prestosql.execution.warnings.statswarnings.ExecutionStatisticsWarner;
 import io.prestosql.memory.VersionedMemoryPoolId;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.operator.BlockedReason;
@@ -37,6 +38,7 @@ import io.prestosql.server.BasicQueryInfo;
 import io.prestosql.server.BasicQueryStats;
 import io.prestosql.spi.ErrorCode;
 import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.PrestoWarning;
 import io.prestosql.spi.QueryId;
 import io.prestosql.spi.eventlistener.StageGcStatistics;
 import io.prestosql.spi.resourcegroups.ResourceGroupId;
@@ -147,7 +149,7 @@ public class QueryStateMachine
     private final AtomicReference<Set<Input>> inputs = new AtomicReference<>(ImmutableSet.of());
     private final AtomicReference<Optional<Output>> output = new AtomicReference<>(Optional.empty());
     private final StateMachine<Optional<QueryInfo>> finalQueryInfo;
-
+    private final AtomicReference<ExecutionStatisticsWarner> executionStatisticsWarner = new AtomicReference<>();
     private final WarningCollector warningCollector;
 
     private QueryStateMachine(
@@ -962,9 +964,18 @@ public class QueryStateMachine
     {
         QueryInfo queryInfo = getQueryInfo(stageInfo);
         if (queryInfo.isFinalQueryInfo()) {
+            generateExecutionStatisticsWarnings(queryInfo);
             finalQueryInfo.compareAndSet(Optional.empty(), Optional.of(queryInfo));
         }
         return queryInfo;
+    }
+
+    private void generateExecutionStatisticsWarnings(QueryInfo queryInfo)
+    {
+        if (executionStatisticsWarner.get() != null) {
+            List<PrestoWarning> warnings = executionStatisticsWarner.get().collectStatsWarnings(queryInfo, session);
+            warnings.forEach(warningCollector::add);
+        }
     }
 
     public void pruneQueryInfo()
@@ -1073,6 +1084,11 @@ public class QueryStateMachine
                 queryStats.getPhysicalWrittenDataSize(),
                 queryStats.getStageGcStatistics(),
                 ImmutableList.of()); // Remove the operator summaries as OperatorInfo (especially ExchangeClientStatus) can hold onto a large amount of memory
+    }
+
+    public void setExecutionStatisticWarner(ExecutionStatisticsWarner executionStatisticsWarner)
+    {
+        this.executionStatisticsWarner.set(executionStatisticsWarner);
     }
 
     public static class QueryOutputManager

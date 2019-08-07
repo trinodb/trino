@@ -34,6 +34,7 @@ import io.prestosql.execution.scheduler.NodeScheduler;
 import io.prestosql.execution.scheduler.SplitSchedulerStats;
 import io.prestosql.execution.scheduler.SqlQueryScheduler;
 import io.prestosql.execution.warnings.WarningCollector;
+import io.prestosql.execution.warnings.statswarnings.ExecutionStatisticsWarner;
 import io.prestosql.failuredetector.FailureDetector;
 import io.prestosql.memory.VersionedMemoryPoolId;
 import io.prestosql.metadata.Metadata;
@@ -121,6 +122,7 @@ public class SqlQueryExecution
     private final Analysis analysis;
     private final StatsCalculator statsCalculator;
     private final CostCalculator costCalculator;
+    private final ExecutionStatisticsWarner executionStatisticsWarner;
 
     private SqlQueryExecution(
             PreparedQuery preparedQuery,
@@ -146,7 +148,8 @@ public class SqlQueryExecution
             SplitSchedulerStats schedulerStats,
             StatsCalculator statsCalculator,
             CostCalculator costCalculator,
-            WarningCollector warningCollector)
+            WarningCollector warningCollector,
+            ExecutionStatisticsWarner executionStatisticsWarner)
     {
         try (SetThreadName ignored = new SetThreadName("Query-%s", stateMachine.getQueryId())) {
             this.slug = requireNonNull(slug, "slug is null");
@@ -171,6 +174,7 @@ public class SqlQueryExecution
             this.scheduleSplitBatchSize = scheduleSplitBatchSize;
 
             this.stateMachine = requireNonNull(stateMachine, "stateMachine is null");
+            this.executionStatisticsWarner = requireNonNull(executionStatisticsWarner, "executionStatisticsWarner is null");
 
             // analyze query
             requireNonNull(preparedQuery, "preparedQuery is null");
@@ -185,6 +189,7 @@ public class SqlQueryExecution
             this.analysis = analyzer.analyze(preparedQuery.getStatement());
 
             stateMachine.setUpdateType(analysis.getUpdateType());
+            stateMachine.setExecutionStatisticWarner(executionStatisticsWarner);
 
             // when the query finishes cache the final query info, and clear the reference to the output stage
             AtomicReference<SqlQueryScheduler> queryScheduler = this.queryScheduler;
@@ -647,6 +652,7 @@ public class SqlQueryExecution
         private final Map<String, ExecutionPolicy> executionPolicies;
         private final StatsCalculator statsCalculator;
         private final CostCalculator costCalculator;
+        private final ExecutionStatisticsWarner executionStatisticsWarner;
 
         @Inject
         SqlQueryExecutionFactory(QueryManagerConfig config,
@@ -668,7 +674,8 @@ public class SqlQueryExecution
                 Map<String, ExecutionPolicy> executionPolicies,
                 SplitSchedulerStats schedulerStats,
                 StatsCalculator statsCalculator,
-                CostCalculator costCalculator)
+                CostCalculator costCalculator,
+                ExecutionStatisticsWarner executionStatisticsWarner)
         {
             requireNonNull(config, "config is null");
             this.schedulerStats = requireNonNull(schedulerStats, "schedulerStats is null");
@@ -691,6 +698,7 @@ public class SqlQueryExecution
             this.planOptimizers = requireNonNull(planOptimizers, "planOptimizers is null").get();
             this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
             this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
+            this.executionStatisticsWarner = requireNonNull(executionStatisticsWarner, "executionStatisticsWarner is null");
         }
 
         @Override
@@ -728,7 +736,8 @@ public class SqlQueryExecution
                     schedulerStats,
                     statsCalculator,
                     costCalculator,
-                    warningCollector);
+                    warningCollector,
+                    executionStatisticsWarner);
         }
     }
 }
