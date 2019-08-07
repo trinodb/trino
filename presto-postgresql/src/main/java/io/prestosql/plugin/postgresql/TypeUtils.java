@@ -13,13 +13,11 @@
  */
 package io.prestosql.plugin.postgresql;
 
-import com.google.common.base.CharMatcher;
 import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;
 import io.airlift.slice.Slice;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.CharType;
@@ -27,7 +25,6 @@ import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.VarcharType;
 import org.joda.time.DateTimeZone;
-import org.joda.time.chrono.ISOChronology;
 
 import java.lang.reflect.Array;
 import java.math.BigDecimal;
@@ -37,38 +34,25 @@ import java.sql.Date;
 import java.sql.Timestamp;
 import java.time.ZoneId;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.fromPrestoLegacyTimestamp;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.fromPrestoTimestamp;
-import static io.prestosql.plugin.jdbc.StandardColumnMappings.toPrestoLegacyTimestamp;
-import static io.prestosql.plugin.jdbc.StandardColumnMappings.toPrestoTimestamp;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
-import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.prestosql.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.Decimals.decodeUnscaledValue;
-import static io.prestosql.spi.type.Decimals.encodeScaledValue;
-import static io.prestosql.spi.type.Decimals.encodeShortScaledValue;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
-import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.TypeUtils.readNativeValue;
-import static io.prestosql.spi.type.TypeUtils.writeNativeValue;
-import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
-import static java.lang.String.format;
-import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.DAYS;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.joda.time.DateTimeZone.UTC;
 
 public final class TypeUtils
@@ -104,15 +88,6 @@ public final class TypeUtils
         return client.toWriteMapping(session, elementType).getDataType();
     }
 
-    public static Block jdbcObjectArrayToBlock(ConnectorSession session, Type type, Object[] elements)
-    {
-        BlockBuilder builder = type.createBlockBuilder(null, elements.length);
-        for (Object element : elements) {
-            writeNativeValue(type, builder, jdbcObjectToPrestoNative(session, element, type));
-        }
-        return builder.build();
-    }
-
     public static Object[] getJdbcObjectArray(ConnectorSession session, Type elementType, Block block)
     {
         int positionCount = block.getPositionCount();
@@ -132,23 +107,6 @@ public final class TypeUtils
         return valuesArray;
     }
 
-    public static Object[] toBoxedArray(Object jdbcArray)
-    {
-        requireNonNull(jdbcArray, "jdbcArray is null");
-        checkArgument(jdbcArray.getClass().isArray(), "object is not an array: %s", jdbcArray.getClass().getName());
-
-        if (!jdbcArray.getClass().getComponentType().isPrimitive()) {
-            return (Object[]) jdbcArray;
-        }
-
-        int elementCount = Array.getLength(jdbcArray);
-        Object[] elements = new Object[elementCount];
-        for (int i = 0; i < elementCount; i++) {
-            elements[i] = Array.get(jdbcArray, i);
-        }
-        return elements;
-    }
-
     private static void handleArrayNulls(Object[] valuesArray, int length)
     {
         for (int i = 0; i < valuesArray.length; i++) {
@@ -156,71 +114,6 @@ public final class TypeUtils
                 valuesArray[i] = new Object[length];
             }
         }
-    }
-
-    private static Object jdbcObjectToPrestoNative(ConnectorSession session, Object jdbcObject, Type prestoType)
-    {
-        if (jdbcObject == null) {
-            return null;
-        }
-
-        if (BOOLEAN.equals(prestoType)
-                || TINYINT.equals(prestoType)
-                || SMALLINT.equals(prestoType)
-                || INTEGER.equals(prestoType)
-                || BIGINT.equals(prestoType)
-                || DOUBLE.equals(prestoType)) {
-            return jdbcObject;
-        }
-
-        if (prestoType instanceof ArrayType) {
-            return jdbcObjectArrayToBlock(session, ((ArrayType) prestoType).getElementType(), (Object[]) jdbcObject);
-        }
-
-        if (prestoType instanceof DecimalType) {
-            DecimalType decimalType = (DecimalType) prestoType;
-            BigDecimal value = (BigDecimal) jdbcObject;
-            if (decimalType.isShort()) {
-                return encodeShortScaledValue(value, decimalType.getScale());
-            }
-            return encodeScaledValue(value, decimalType.getScale());
-        }
-
-        if (REAL.equals(prestoType)) {
-            return floatToRawIntBits((float) jdbcObject);
-        }
-
-        if (DATE.equals(prestoType)) {
-            long localMillis = ((Date) jdbcObject).getTime();
-            // Convert it to a ~midnight in UTC.
-            long utcMillis = ISOChronology.getInstance().getZone().getMillisKeepLocal(UTC, localMillis);
-            // convert to days
-            return MILLISECONDS.toDays(utcMillis);
-        }
-
-        if (TIMESTAMP.equals(prestoType)) {
-            if (session.isLegacyTimestamp()) {
-                ZoneId sessionZone = ZoneId.of(session.getTimeZoneKey().getId());
-                return toPrestoLegacyTimestamp(((Timestamp) jdbcObject).toLocalDateTime(), sessionZone);
-            }
-            return toPrestoTimestamp(((Timestamp) jdbcObject).toLocalDateTime());
-        }
-
-        if (TIMESTAMP_WITH_TIME_ZONE.equals(prestoType)) {
-            long millisUtc = ((Timestamp) jdbcObject).getTime();
-            // PostgreSQL does not store zone, only the point in time
-            return packDateTimeWithZone(millisUtc, UTC_KEY);
-        }
-
-        if (prestoType instanceof VarcharType) {
-            return utf8Slice((String) jdbcObject);
-        }
-
-        if (prestoType instanceof CharType) {
-            return utf8Slice(CharMatcher.is(' ').trimTrailingFrom((String) jdbcObject));
-        }
-
-        throw new PrestoException(NOT_SUPPORTED, format("Unsupported type %s and object type %s", prestoType, jdbcObject.getClass()));
     }
 
     private static Object prestoNativeToJdbcObject(ConnectorSession session, Type prestoType, Object prestoNative)
